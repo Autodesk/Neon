@@ -1,0 +1,6 @@
+set(BUILD_NEON_SHARED_LIBS "OFF" CACHE BOOL "Build Neon as shared library")
+if (${BUILD_NEON_SHARED_LIBS})
+	message(STATUS "Building Neon as a shared library")
+else ()
+	message(STATUS "Building Neon as a static library")
+endif ()

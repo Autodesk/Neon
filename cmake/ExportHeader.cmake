@@ -1,0 +1,6 @@
+function(ExportHeader libName)
+	include(GenerateExportHeader)
+	generate_export_header(${libName})
+	string(TOLOWER ${libName} EXPORT_FILE_NAME)
+	target_include_directories(${libName} PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")  
+endfunction()
