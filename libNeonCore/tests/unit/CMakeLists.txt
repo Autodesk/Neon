@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
+
+add_subdirectory("coreUt_chrono")
+add_subdirectory("coreUt_cli")
+add_subdirectory("coreUt_digraph")
+add_subdirectory("coreUt_exceptions")
+add_subdirectory("coreUt_io")
+add_subdirectory("coreUt_logging")
+add_subdirectory("coreUt_tools")
+add_subdirectory("coreUt_tuple3d")
