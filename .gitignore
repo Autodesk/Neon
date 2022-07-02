@@ -1,0 +1,55 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Clion default build directory
+cmake-build-*
+
+# Cmake default build directory
+build/
+
+# Clion config files
+.idea/*
+
+libNeonCore/libNeonCorePy/\.idea/
+
+*.pyc
+
+script/*
+!script/run_test.cmd
+
+.vscode
+
+python/pdfs
+
+python/**/*.json
+python/**/*.pdf
+!python/test.json
+!python/PoissonSolverBenchmark/**/*
+libNeonCore/src/core/git_sha1.cpp
