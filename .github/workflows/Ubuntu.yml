@@ -1,9 +1,9 @@
 name: Ubuntu
 on: 
   push:
-    branches: [master, develop]
+    branches: [main, develop]
   pull_request:
-    branches: [master, develop]
+    branches: [main, develop]
   workflow_dispatch:
 jobs:
   UbuntuRun:
