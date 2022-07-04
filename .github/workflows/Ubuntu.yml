@@ -1,5 +1,10 @@
 name: Ubuntu
-on: [push, pull_request, workflow_dispatch]
+on: 
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+  workflow_dispatch:
 jobs:
   UbuntuRun:
     runs-on: ubuntu-latest
