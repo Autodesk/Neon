@@ -47,3 +47,5 @@ script/*
 .vscode
 
 libNeonCore/src/core/git_sha1.cpp
+
+temp
