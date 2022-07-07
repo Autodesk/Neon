@@ -29,10 +29,7 @@ void runAllTestConfiguration(
         {117, 100, 100},
         {33, 100, 100}};
     std::vector<Neon::Runtime> backendTest{
-        Neon::Runtime::openmp};
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        backendTest.push_back(Neon::Runtime::stream);
-    }
+        Neon::Runtime::openmp, Neon::Runtime::stream};
 
 
     std::vector<Neon::MemoryLayout> layoutTest{
@@ -87,23 +84,25 @@ void patternDotTest(const Neon::index64_3d            dim,
                     const Neon::MemoryLayout&         layout,
                     const Neon::sys::patterns::Engine eng)
 {
-    if (std::is_same_v<GridT, Neon::domain::bGrid> && eng == Neon::sys::patterns::Engine::cuBlas) {
-        NEON_INFO("Skipped");
-        return;
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        if (std::is_same_v<GridT, Neon::domain::bGrid> && eng == Neon::sys::patterns::Engine::cuBlas) {
+            NEON_INFO("Skipped");
+            return;
+        }
+
+        Storage<GridT, T> storage(dim, nGPU, cardinality, backendType, layout);
+        storage.m_grid.setReduceEngine(eng);
+        storage.initConst(-1, 1, 1, 1);
+
+        auto scalar = storage.m_grid.template newPatternScalar<T>();
+
+        auto dot_container = storage.m_grid.dot("GridDot", storage.Xf, storage.Yf, scalar);
+        dot_container.run(Neon::Backend::mainStreamIdx);
+
+        T ground_truth = storage.dot(storage.Xd, storage.Yd);
+
+        ASSERT_NEAR(scalar(), ground_truth, 0.001) << ground_truth << " versus " << scalar();
     }
-
-    Storage<GridT, T> storage(dim, nGPU, cardinality, backendType, layout);
-    storage.m_grid.setReduceEngine(eng);
-    storage.initConst(-1, 1, 1, 1);
-
-    auto scalar = storage.m_grid.template newPatternScalar<T>();
-
-    auto dot_container = storage.m_grid.dot("GridDot", storage.Xf, storage.Yf, scalar);
-    dot_container.run(Neon::Backend::mainStreamIdx);
-
-    T ground_truth = storage.dot(storage.Xd, storage.Yd);
-
-    ASSERT_NEAR(scalar(), ground_truth, 0.001) << ground_truth << " versus " << scalar();
 }
 
 template <typename GridT, typename T>
@@ -114,23 +113,25 @@ void patternNorm2Test(const Neon::index64_3d            dim,
                       const Neon::MemoryLayout&         layout,
                       const Neon::sys::patterns::Engine eng)
 {
-    if (std::is_same_v<GridT, Neon::domain::bGrid> && eng == Neon::sys::patterns::Engine::cuBlas) {
-        NEON_INFO("Skipped");
-        return;
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        if (std::is_same_v<GridT, Neon::domain::bGrid> && eng == Neon::sys::patterns::Engine::cuBlas) {
+            NEON_INFO("Skipped");
+            return;
+        }
+
+        Storage<GridT, T> storage(dim, nGPU, cardinality, backendType, layout);
+        storage.m_grid.setReduceEngine(eng);
+        storage.initConst(-1, 1, 1, 1);
+
+        auto scalar = storage.m_grid.template newPatternScalar<T>();
+
+        auto norm2_container = storage.m_grid.norm2("GridNorm2", storage.Xf, scalar);
+        norm2_container.run(Neon::Backend::mainStreamIdx);
+
+        T ground_truth = storage.norm2(storage.Xd);
+
+        ASSERT_NEAR(scalar(), ground_truth, 0.001);
     }
-
-    Storage<GridT, T> storage(dim, nGPU, cardinality, backendType, layout);
-    storage.m_grid.setReduceEngine(eng);
-    storage.initConst(-1, 1, 1, 1);
-
-    auto scalar = storage.m_grid.template newPatternScalar<T>();
-
-    auto norm2_container = storage.m_grid.norm2("GridNorm2", storage.Xf, scalar);
-    norm2_container.run(Neon::Backend::mainStreamIdx);
-
-    T ground_truth = storage.norm2(storage.Xd);
-
-    ASSERT_NEAR(scalar(), ground_truth, 0.001);
 }
 
 

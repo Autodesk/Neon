@@ -111,69 +111,72 @@ auto Report::device() -> void
         exception << "Neon has not been initialized. Call Neon::init() first!";
         NEON_THROW(exception);
     }
-
-    {
-        auto subdoc = getSubdoc();
-
-        int ver = 0;
-        if (cudaDriverGetVersion(&ver) != cudaSuccess) {
-            NeonException exception("Report::device()");
-            exception << "Can not retrieve CUDA runtime version!";
-            NEON_THROW(exception);
-        }
-        addMember("Driver Version", ver, &subdoc);
-
-        if (cudaRuntimeGetVersion(&ver) != cudaSuccess) {
-            NeonException exception("Report::device()");
-            exception << "Can not retrieve CUDA runtime version!";
-            NEON_THROW(exception);
-        }
-        addMember("Runtime Version", ver, &subdoc);
-
-        addMember("CUDA API Version", CUDA_VERSION, &subdoc);
-
-        addSubdoc("CUDA", subdoc);
-    }
-
     int32_t num_gpus = Neon::sys::globalSpace::gpuSysObjStorage.numDevs();
-    addMember("num_gpus", num_gpus);
+    if (num_gpus > 1) {
 
-    for (int d = 0; d < num_gpus; ++d) {
+        {
+            auto subdoc = getSubdoc();
 
-        auto subdoc = getSubdoc();
+            int ver = 0;
+            if (cudaDriverGetVersion(&ver) != cudaSuccess) {
+                NeonException exception("Report::device()");
+                exception << "Can not retrieve CUDA runtime version!";
+                NEON_THROW(exception);
+            }
+            addMember("Driver Version", ver, &subdoc);
 
-        const auto& dev = Neon::sys::globalSpace::gpuSysObjStorage.dev({d});
+            if (cudaRuntimeGetVersion(&ver) != cudaSuccess) {
+                NeonException exception("Report::device()");
+                exception << "Can not retrieve CUDA runtime version!";
+                NEON_THROW(exception);
+            }
+            addMember("Runtime Version", ver, &subdoc);
 
-        addMember("ID", d, &subdoc);
+            addMember("CUDA API Version", CUDA_VERSION, &subdoc);
 
-        addMember("Name", dev.tools.getDevName(), &subdoc);
+            addSubdoc("CUDA", subdoc);
+        }
 
-        std::string cc =
-            std::to_string(dev.tools.majorComputeCapability()) + "." +
-            std::to_string(dev.tools.minorComputeCapability());
-        addMember("Compute Capability", cc, &subdoc);
 
-        const auto prop = dev.tools.getDeviceProp();
+        addMember("num_gpus", num_gpus);
 
-        addMember("Total amount of global memory (MB)",
-                  (float)prop.totalGlobalMem / 1048576.0f,
-                  &subdoc);
-        addMember("Total amount of shared memory per block (Kb)",
-                  (float)prop.sharedMemPerBlock / 1024.0f,
-                  &subdoc);
-        addMember("Multiprocessors", prop.multiProcessorCount, &subdoc);
+        for (int d = 0; d < num_gpus; ++d) {
 
-        addMember(
-            "GPU Max Clock rate (GHz)", prop.clockRate * 1e-6f, &subdoc);
-        addMember(
-            "Memory Clock rate (GHz)", prop.memoryClockRate * 1e-6f, &subdoc);
-        addMember("Memory Bus Width (bit)", prop.memoryBusWidth, &subdoc);
-        addMember("Peak Memory Bandwidth (GB/s)",
-                  2.0 * prop.memoryClockRate *
-                      (prop.memoryBusWidth / 8.0) / 1.0E6,
-                  &subdoc);
+            auto subdoc = getSubdoc();
 
-        addSubdoc("GPU_" + std::to_string(d), subdoc);
+            const auto& dev = Neon::sys::globalSpace::gpuSysObjStorage.dev({d});
+
+            addMember("ID", d, &subdoc);
+
+            addMember("Name", dev.tools.getDevName(), &subdoc);
+
+            std::string cc =
+                std::to_string(dev.tools.majorComputeCapability()) + "." +
+                std::to_string(dev.tools.minorComputeCapability());
+            addMember("Compute Capability", cc, &subdoc);
+
+            const auto prop = dev.tools.getDeviceProp();
+
+            addMember("Total amount of global memory (MB)",
+                      (float)prop.totalGlobalMem / 1048576.0f,
+                      &subdoc);
+            addMember("Total amount of shared memory per block (Kb)",
+                      (float)prop.sharedMemPerBlock / 1024.0f,
+                      &subdoc);
+            addMember("Multiprocessors", prop.multiProcessorCount, &subdoc);
+
+            addMember(
+                "GPU Max Clock rate (GHz)", prop.clockRate * 1e-6f, &subdoc);
+            addMember(
+                "Memory Clock rate (GHz)", prop.memoryClockRate * 1e-6f, &subdoc);
+            addMember("Memory Bus Width (bit)", prop.memoryBusWidth, &subdoc);
+            addMember("Peak Memory Bandwidth (GB/s)",
+                      2.0 * prop.memoryClockRate *
+                          (prop.memoryBusWidth / 8.0) / 1.0E6,
+                      &subdoc);
+
+            addSubdoc("GPU_" + std::to_string(d), subdoc);
+        }
     }
 }
 

@@ -68,8 +68,8 @@ auto copyTest = [](int L, int val, Neon::DeviceType devEt, Neon::Allocator alloc
         }
     }
 
-    Neon::sys::GpuDevice   gpuDev(0);
-    Neon::sys::GpuStream   gpuStream = gpuDev.tools.stream();
+    Neon::sys::GpuDevice gpuDev(0);
+    Neon::sys::GpuStream gpuStream = gpuDev.tools.stream();
     //ASSERT_NO_THROW(mem_A.copyFrom(mem_B));
     ASSERT_NO_THROW(mem_A.fastCopyFrom<Neon::run_et::sync>(gpuStream, mem_B));
 
@@ -89,13 +89,14 @@ TEST(mem3d, CPU)
     for (auto&& L : global::Ls) {
         for (auto&& A : global::As) {
             ASSERT_NO_THROW(global::haloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::MALLOC));
-            ASSERT_NO_THROW(global::haloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::CUDA_MEM_HOST));
-
             ASSERT_NO_THROW(global::noHaloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::MALLOC));
-            ASSERT_NO_THROW(global::noHaloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::CUDA_MEM_HOST));
-
             ASSERT_NO_THROW(global::copyTest(L, 10, Neon::DeviceType::CPU, Neon::Allocator::MALLOC));
-            ASSERT_NO_THROW(global::copyTest(L, 10, Neon::DeviceType::CPU, Neon::Allocator::CUDA_MEM_HOST));
+
+            if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+                ASSERT_NO_THROW(global::noHaloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::CUDA_MEM_HOST));
+                ASSERT_NO_THROW(global::haloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::CUDA_MEM_HOST));
+                ASSERT_NO_THROW(global::copyTest(L, 10, Neon::DeviceType::CPU, Neon::Allocator::CUDA_MEM_HOST));
+            }
         }
     }
 }

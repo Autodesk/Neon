@@ -51,7 +51,9 @@ TEST(MultiDeviceObj, openmp)
 
 TEST(MultiDeviceObj, stream)
 {
-    run(Neon::Runtime::stream);
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        run(Neon::Runtime::stream);
+    }
 }
 
 int main(int argc, char** argv)

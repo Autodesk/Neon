@@ -35,10 +35,8 @@ void runAllTestConfiguration(const std::string&                      gname,
     std::vector<int> cardinalityTest{1};
 
     std::vector<Neon::index_3d> dimTest{{60, 10, 250}};
-    std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        runtimeE.push_back(Neon::Runtime::stream);
-    }
+    std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp, Neon::Runtime::stream};
+    
 
     std::vector<Geometry> geos;
 

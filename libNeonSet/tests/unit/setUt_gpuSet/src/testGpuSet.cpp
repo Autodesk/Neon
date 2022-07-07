@@ -12,7 +12,9 @@
 
 TEST(gpuDev, maxSet)
 {
-    ASSERT_NO_THROW(Neon::set::DevSet devSet = Neon::set::DevSet::maxSet());
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        ASSERT_NO_THROW(Neon::set::DevSet devSet = Neon::set::DevSet::maxSet());
+    }
 }
 
 TEST(gpuDev, multiRun)

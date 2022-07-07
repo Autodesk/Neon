@@ -18,47 +18,49 @@ void SingleDot(TestData<G, T, C>&      data,
                Neon::skeleton::Occ     occ,
                Neon::set::TransferMode transfer)
 {
-    using Type = typename TestData<G, T, C>::Type;
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        using Type = typename TestData<G, T, C>::Type;
 
-    auto occName = Neon::skeleton::OccUtils::toString(occ);
-    occName[0] = toupper(occName[0]);
-    const std::string appName(testFilePrefix + "_" + occName);
+        auto occName = Neon::skeleton::OccUtils::toString(occ);
+        occName[0] = toupper(occName[0]);
+        const std::string appName(testFilePrefix + "_" + occName);
 
-    Neon::skeleton::Skeleton skl(data.getBackend());
-    Neon::skeleton::Options  opt(occ, transfer);
+        Neon::skeleton::Skeleton skl(data.getBackend());
+        Neon::skeleton::Options  opt(occ, transfer);
 
-    const Type scalarVal = 0;
+        const Type scalarVal = 0;
 
-    auto fR = data.getGrid().template newPatternScalar<Type>();
-    fR() = scalarVal;
-    data.getBackend().syncAll();
-    data.resetValuesToRandom(1, 50);
+        auto fR = data.getGrid().template newPatternScalar<Type>();
+        fR() = scalarVal;
+        data.getBackend().syncAll();
+        data.resetValuesToRandom(1, 50);
 
 
-    {  // SKELETON
-        auto& X = data.getField(FieldNames::X);
-        auto& Y = data.getField(FieldNames::Y);
+        {  // SKELETON
+            auto& X = data.getField(FieldNames::X);
+            auto& Y = data.getField(FieldNames::Y);
 
-        std::vector<Neon::set::Container> sVec{
-            X.getGrid().dot("DotContainer", X, X, fR)};
+            std::vector<Neon::set::Container> sVec{
+                X.getGrid().dot("DotContainer", X, X, fR)};
 
-        sVec[0].run(0, Neon::DataView::STANDARD);
+            sVec[0].run(0, Neon::DataView::STANDARD);
+        }
+
+        Type dR = scalarVal;
+        {  // Golden data
+            auto& X = data.getIODomain(FieldNames::X);
+            auto& Y = data.getIODomain(FieldNames::Y);
+
+            data.dot(X, X, &dR);
+        }
+
+        data.getBackend().syncAll();
+
+        data.getIODomain(FieldNames::Y).ioToVti("getIODomain_Y", "Y");
+        data.getField(FieldNames::Y).ioToVtk("getField_Y", "Y");
+
+        ASSERT_NEAR(dR / fR(), 1.0, 0.000001) << "No match between " << dR << " and " << fR();
     }
-
-    Type dR = scalarVal;
-    {  // Golden data
-        auto& X = data.getIODomain(FieldNames::X);
-        auto& Y = data.getIODomain(FieldNames::Y);
-
-        data.dot(X, X, &dR);
-    }
-
-    data.getBackend().syncAll();
-
-    data.getIODomain(FieldNames::Y).ioToVti("getIODomain_Y", "Y");
-    data.getField(FieldNames::Y).ioToVtk("getField_Y", "Y");
-
-    ASSERT_NEAR(dR / fR(), 1.0, 0.000001) << "No match between " << dR << " and " << fR();
 }
 
 template <typename G, typename T, int C>
@@ -66,57 +68,59 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
                            Neon::skeleton::Occ     occ,
                            Neon::set::TransferMode transfer)
 {
-    using Type = typename TestData<G, T, C>::Type;
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
 
-    auto occName = Neon::skeleton::OccUtils::toString(occ);
-    occName[0] = toupper(occName[0]);
-    const std::string appName(testFilePrefix + "_" + occName);
+        using Type = typename TestData<G, T, C>::Type;
 
-    Neon::skeleton::Skeleton skl(data.getBackend());
-    Neon::skeleton::Options  opt(occ, transfer);
+        auto occName = Neon::skeleton::OccUtils::toString(occ);
+        occName[0] = toupper(occName[0]);
+        const std::string appName(testFilePrefix + "_" + occName);
 
-    const Type scalarVal = 2;
-    const int  nIterations = 2;
+        Neon::skeleton::Skeleton skl(data.getBackend());
+        Neon::skeleton::Options  opt(occ, transfer);
 
-    auto fR = data.getGrid().template newPatternScalar<Type>();
-    fR() = scalarVal;
-    data.getBackend().syncAll();
+        const Type scalarVal = 2;
+        const int  nIterations = 2;
 
-    data.resetValuesToRandom(1, 50);
-    Neon::Timer_sec timer;
-
-    {  // SKELETON
-        auto& X = data.getField(FieldNames::X);
-        auto& Y = data.getField(FieldNames::Y);
-
-        std::vector<Neon::set::Container> ops{
-            UserTools::laplace(X, Y),
-            UserTools::laplace(Y, X)};
-
-        skl.sequence(ops, appName, opt);
-
-        skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()));
-
-        timer.start();
-        for (int i = 0; i < nIterations; i++) {
-            skl.run();
-        }
+        auto fR = data.getGrid().template newPatternScalar<Type>();
+        fR() = scalarVal;
         data.getBackend().syncAll();
-        timer.stop();
-    }
 
-    {  // Golden data
-        auto time = timer.time();
+        data.resetValuesToRandom(1, 50);
+        Neon::Timer_sec timer;
 
-        Type  dR = scalarVal;
-        auto& X = data.getIODomain(FieldNames::X);
-        auto& Y = data.getIODomain(FieldNames::Y);
+        {  // SKELETON
+            auto& X = data.getField(FieldNames::X);
+            auto& Y = data.getField(FieldNames::Y);
 
-        for (int i = 0; i < nIterations; i++) {
-            data.laplace(X, NEON_IO Y);
-            data.laplace(Y, NEON_IO X);
+            std::vector<Neon::set::Container> ops{
+                UserTools::laplace(X, Y),
+                UserTools::laplace(Y, X)};
+
+            skl.sequence(ops, appName, opt);
+
+            skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()));
+
+            timer.start();
+            for (int i = 0; i < nIterations; i++) {
+                skl.run();
+            }
+            data.getBackend().syncAll();
+            timer.stop();
         }
-    }
+
+        {  // Golden data
+            auto time = timer.time();
+
+            Type  dR = scalarVal;
+            auto& X = data.getIODomain(FieldNames::X);
+            auto& Y = data.getIODomain(FieldNames::Y);
+
+            for (int i = 0; i < nIterations; i++) {
+                data.laplace(X, NEON_IO Y);
+                data.laplace(Y, NEON_IO X);
+            }
+        }
 #if 0
     {  // DEBUG
         data.getIODomain(FieldNames::Y).ioToVti("getIODomain_Y", "Y");
@@ -125,10 +129,11 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
 #endif
 
 
-    bool isOk = data.compare(FieldNames::Y);
-    isOk = isOk && data.compare(FieldNames::X);
+        bool isOk = data.compare(FieldNames::Y);
+        isOk = isOk && data.compare(FieldNames::X);
 
-    ASSERT_TRUE(isOk);
+        ASSERT_TRUE(isOk);
+    }
 }
 }  // namespace help
 
