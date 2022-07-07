@@ -104,11 +104,15 @@ void SwapContainerRun(TestData<G, T, C>& data)
 namespace {
 int getNGpus()
 {
-    int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
-    if (maxGPUs > 1) {
-        return maxGPUs;
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
+        if (maxGPUs > 1) {
+            return maxGPUs;
+        } else {
+            return 3;
+        }
     } else {
-        return 3;
+        return 0;
     }
 }
 }  // namespace
