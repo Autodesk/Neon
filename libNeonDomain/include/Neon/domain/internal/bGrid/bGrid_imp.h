@@ -94,6 +94,25 @@ bGrid::bGrid(const Neon::Backend&                          backend,
                                                                          memOptions,
                                                                          mData->mNumBlocks);
 
+    //Stencil linear/relative index
+    auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>();
+    for (int32_t c = 0; c < stencilNghSize.cardinality(); ++c) {
+        stencilNghSize[c] = stencil.neighbours().size();
+    }
+    mData->mStencilNghIndex = backend.devSet().template newMemSet<nghIdx_t>({Neon::DataUse::IO_COMPUTE},
+                                                                            1,
+                                                                            memOptions,
+                                                                            stencilNghSize);
+    for (int32_t c = 0; c < mData->mStencilNghIndex.cardinality(); ++c) {
+        SetIdx devID(c);
+        for (uint64_t s = 0; s < stencil.neighbours().size(); ++s) {
+            mData->mStencilNghIndex.eRef(c, s).x = static_cast<nghIdx_t::Integer>(stencil.neighbours()[s].x);
+            mData->mStencilNghIndex.eRef(c, s).y = static_cast<nghIdx_t::Integer>(stencil.neighbours()[s].y);
+            mData->mStencilNghIndex.eRef(c, s).z = static_cast<nghIdx_t::Integer>(stencil.neighbours()[s].z);
+        }
+    }
+
+
     // bitmask
     mData->mActiveMaskSize = backend.devSet().template newDataSet<uint64_t>();
     for (int64_t i = 0; i < mData->mActiveMaskSize.size(); ++i) {
@@ -104,6 +123,8 @@ bGrid::bGrid(const Neon::Backend&                          backend,
                                                                        1,
                                                                        memOptions,
                                                                        mData->mActiveMaskSize);
+
+
     // init bitmask to zero
     for (int32_t c = 0; c < mData->mActiveMask.cardinality(); ++c) {
         SetIdx devID(c);
@@ -192,6 +213,7 @@ bGrid::bGrid(const Neon::Backend&                          backend,
         mData->mActiveMask.updateCompute(backend, 0);
         mData->mOrigin.updateCompute(backend, 0);
         mData->mNeighbourBlocks.updateCompute(backend, 0);
+        mData->mStencilNghIndex.updateCompute(backend, 0);
     }
 
 

@@ -112,6 +112,11 @@ auto bGrid::getOrigins() const -> const Neon::set::MemSet_t<Neon::int32_3d>&
     return mData->mOrigin;
 }
 
+auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>& 
+{
+    return mData->mStencilNghIndex;
+}
+
 auto bGrid::getNeighbourBlocks() const -> const Neon::set::MemSet_t<uint32_t>&
 {
     return mData->mNeighbourBlocks;
