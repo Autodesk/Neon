@@ -106,50 +106,49 @@ auto laplace(const FieldT& x, FieldT& y, bool use_relative_ids) -> Neon::set::Co
 template <typename G, typename T, int C>
 void SingleStencil(TestData<G, T, C>& data)
 {
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        using Type = typename TestData<G, T, C>::Type;
 
-        const int nIterations = 5;
+    using Type = typename TestData<G, T, C>::Type;
 
-        const T val = 89;
+    const int nIterations = 5;
 
+    const T val = 89;
+
+    data.getBackend().syncAll();
+
+    data.resetValuesToRandom(1, 50);
+
+    {  // Golden data
+        auto& X = data.getIODomain(FieldNames::X);
+        auto& Y = data.getIODomain(FieldNames::Y);
+
+        for (int i = 0; i < nIterations; i++) {
+            data.laplace(X, Y);
+        }
+    }
+
+    //run the test twice; one with relative stencil index and another with direct stencil index
+    for (int i = 0; i < 2; ++i) {
+
+        auto& X = data.getField(FieldNames::X);
+        auto& Y = data.getField(FieldNames::Y);
+
+        std::vector<Neon::set::Container> ops;
+
+        ops.push_back(laplace(X, Y, i == 0));
+
+        Neon::skeleton::Skeleton skl(data.getBackend());
+        skl.sequence(ops, "sUt_dGridStencil");
+
+        for (int i = 0; i < nIterations; i++) {
+            skl.run();
+        }
         data.getBackend().syncAll();
 
-        data.resetValuesToRandom(1, 50);
 
-        {  // Golden data
-            auto& X = data.getIODomain(FieldNames::X);
-            auto& Y = data.getIODomain(FieldNames::Y);
+        bool isOk = data.compare(FieldNames::X);
+        isOk = isOk && data.compare(FieldNames::Y);
 
-            for (int i = 0; i < nIterations; i++) {
-                data.laplace(X, Y);
-            }
-        }
-
-        //run the test twice; one with relative stencil index and another with direct stencil index
-        for (int i = 0; i < 2; ++i) {
-
-            auto& X = data.getField(FieldNames::X);
-            auto& Y = data.getField(FieldNames::Y);
-
-            std::vector<Neon::set::Container> ops;
-
-            ops.push_back(laplace(X, Y, i == 0));
-
-            Neon::skeleton::Skeleton skl(data.getBackend());
-            skl.sequence(ops, "sUt_dGridStencil");
-
-            for (int i = 0; i < nIterations; i++) {
-                skl.run();
-            }
-            data.getBackend().syncAll();
-
-
-            bool isOk = data.compare(FieldNames::X);
-            isOk = isOk && data.compare(FieldNames::Y);
-
-            ASSERT_TRUE(isOk);
-        }
+        ASSERT_TRUE(isOk);
     }
 }
 

@@ -128,60 +128,59 @@ void SingleStencil(TestData<G, T, C>&      data,
                    Neon::skeleton::Occ     occ,
                    Neon::set::TransferMode transfer)
 {
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        using Type = typename TestData<G, T, C>::Type;
 
-        auto occName = Neon::skeleton::OccUtils::toString(occ);
-        occName[0] = toupper(occName[0]);
-        const std::string appName(testFilePrefix + "_" + occName);
+    using Type = typename TestData<G, T, C>::Type;
 
-        Neon::skeleton::Skeleton skl(data.getBackend());
-        Neon::skeleton::Options  opt(occ, transfer);
+    auto occName = Neon::skeleton::OccUtils::toString(occ);
+    occName[0] = toupper(occName[0]);
+    const std::string appName(testFilePrefix + "_" + occName);
 
-        const int nIterations = 5;
+    Neon::skeleton::Skeleton skl(data.getBackend());
+    Neon::skeleton::Options  opt(occ, transfer);
 
-        const T val = 89;
+    const int nIterations = 5;
 
+    const T val = 89;
+
+    data.getBackend().syncAll();
+
+    data.resetValuesToRandom(1, 50);
+
+
+    {  // SKELETON
+        auto& X = data.getField(FieldNames::X);
+        auto& Y = data.getField(FieldNames::Y);
+
+        std::vector<Neon::set::Container> ops;
+
+        ops.push_back(laplace(X, Y, Y.getSharedMemoryBytes(1)));
+        ops.push_back(axpy(val, Y, X, Y.getSharedMemoryBytes(1)));
+
+        skl.sequence(ops, appName, opt);
+
+        NEON_CUDA_CHECK_LAST_ERROR
+        for (int i = 0; i < nIterations; i++) {
+            skl.run();
+        }
         data.getBackend().syncAll();
-
-        data.resetValuesToRandom(1, 50);
-
-
-        {  // SKELETON
-            auto& X = data.getField(FieldNames::X);
-            auto& Y = data.getField(FieldNames::Y);
-
-            std::vector<Neon::set::Container> ops;
-
-            ops.push_back(laplace(X, Y, Y.getSharedMemoryBytes(1)));
-            ops.push_back(axpy(val, Y, X, Y.getSharedMemoryBytes(1)));
-
-            skl.sequence(ops, appName, opt);
-
-            NEON_CUDA_CHECK_LAST_ERROR
-            for (int i = 0; i < nIterations; i++) {
-                skl.run();
-            }
-            data.getBackend().syncAll();
-            cudaProfilerStop();
-            NEON_CUDA_CHECK_LAST_ERROR
-        }
-
-        {  // Golden data
-            auto& X = data.getIODomain(FieldNames::X);
-            auto& Y = data.getIODomain(FieldNames::Y);
-
-            for (int i = 0; i < nIterations; i++) {
-                data.laplace(X, Y);
-                data.axpy(&val, Y, X);
-            }
-        }
-
-        bool isOk = data.compare(FieldNames::X);
-        isOk = isOk && data.compare(FieldNames::Y);
-
-        ASSERT_TRUE(isOk);
+        cudaProfilerStop();
+        NEON_CUDA_CHECK_LAST_ERROR
     }
+
+    {  // Golden data
+        auto& X = data.getIODomain(FieldNames::X);
+        auto& Y = data.getIODomain(FieldNames::Y);
+
+        for (int i = 0; i < nIterations; i++) {
+            data.laplace(X, Y);
+            data.axpy(&val, Y, X);
+        }
+    }
+
+    bool isOk = data.compare(FieldNames::X);
+    isOk = isOk && data.compare(FieldNames::Y);
+
+    ASSERT_TRUE(isOk);
 }
 
 template <typename G, typename T, int C>

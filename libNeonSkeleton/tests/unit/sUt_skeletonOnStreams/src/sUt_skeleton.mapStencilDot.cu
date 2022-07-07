@@ -28,71 +28,70 @@ void MapStencilDot(TestData<G, T, C>&      data,
                    Neon::skeleton::Occ     occ,
                    Neon::set::TransferMode transfer)
 {
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        using Type = typename TestData<G, T, C>::Type;
 
-        auto occName = Neon::skeleton::OccUtils::toString(occ);
-        occName[0] = toupper(occName[0]);
-        const std::string appName(testFilePrefix + "_" + occName);
+    using Type = typename TestData<G, T, C>::Type;
 
-        const T   scalarVal = 2;
-        const int nIterations = 2;
+    auto occName = Neon::skeleton::OccUtils::toString(occ);
+    occName[0] = toupper(occName[0]);
+    const std::string appName(testFilePrefix + "_" + occName);
 
-        Neon::skeleton::Skeleton skl(data.getBackend());
-        Neon::skeleton::Options  opt(occ, transfer);
-        auto                     fR = data.getGrid().template newPatternScalar<T>();
+    const T   scalarVal = 2;
+    const int nIterations = 2;
 
-        fR() = scalarVal;
+    Neon::skeleton::Skeleton skl(data.getBackend());
+    Neon::skeleton::Options  opt(occ, transfer);
+    auto                     fR = data.getGrid().template newPatternScalar<T>();
 
+    fR() = scalarVal;
+
+    data.getBackend().syncAll();
+    data.resetValuesToRandom(10, 20);
+
+    // skl.ioToDot(appName);
+
+    Neon::Timer_sec timer;
+    {  // SKELETON
+        auto& X = data.getField(FieldNames::X);
+        auto& Y = data.getField(FieldNames::Y);
+
+        skl.sequence({UserTools::axpy(fR, Y, X),
+                      UserTools::laplace(X, Y),
+                      data.getGrid().dot("DotContainer", Y, Y, fR)},
+                     appName, opt);
+
+        skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()));
+
+        timer.start();
+        for (int i = 0; i < nIterations; i++) {
+            skl.run();
+        }
         data.getBackend().syncAll();
-        data.resetValuesToRandom(10, 20);
-
-        // skl.ioToDot(appName);
-
-        Neon::Timer_sec timer;
-        {  // SKELETON
-            auto& X = data.getField(FieldNames::X);
-            auto& Y = data.getField(FieldNames::Y);
-
-            skl.sequence({UserTools::axpy(fR, Y, X),
-                          UserTools::laplace(X, Y),
-                          data.getGrid().dot("DotContainer", Y, Y, fR)},
-                         appName, opt);
-
-            skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()));
-
-            timer.start();
-            for (int i = 0; i < nIterations; i++) {
-                skl.run();
-            }
-            data.getBackend().syncAll();
-            timer.stop();
-        }
-
-        Type dR = scalarVal;
-
-        {  // GOLDEN
-            auto& X = data.getIODomain(FieldNames::X);
-            auto& Y = data.getIODomain(FieldNames::Y);
-
-            for (int i = 0; i < nIterations; i++) {
-                data.axpy(&dR, Y, X);
-                data.laplace(X, NEON_IO Y);
-                data.dot(Y, Y, &dR);
-            }
-        }
-
-        {  // DEBUG
-            data.getIODomain(FieldNames::Y).ioToVti("__getIODomain_Y", "Y");
-            data.getField(FieldNames::Y).ioToVtk("__getField_Y", "Y");
-        }
-
-        // storage.ioToVti("After");
-        bool isOk = data.compare(FieldNames::Y, 0.000001);
-
-        ASSERT_TRUE(isOk);
-        ASSERT_NEAR(dR / fR(), 1.0, 0.000001) << "dR " << dR << " fR " << fR();
+        timer.stop();
     }
+
+    Type dR = scalarVal;
+
+    {  // GOLDEN
+        auto& X = data.getIODomain(FieldNames::X);
+        auto& Y = data.getIODomain(FieldNames::Y);
+
+        for (int i = 0; i < nIterations; i++) {
+            data.axpy(&dR, Y, X);
+            data.laplace(X, NEON_IO Y);
+            data.dot(Y, Y, &dR);
+        }
+    }
+
+    {  // DEBUG
+        data.getIODomain(FieldNames::Y).ioToVti("__getIODomain_Y", "Y");
+        data.getField(FieldNames::Y).ioToVtk("__getField_Y", "Y");
+    }
+
+    // storage.ioToVti("After");
+    bool isOk = data.compare(FieldNames::Y, 0.000001);
+
+    ASSERT_TRUE(isOk);
+    ASSERT_NEAR(dR / fR(), 1.0, 0.000001) << "dR " << dR << " fR " << fR();
 }
 
 template <typename G, typename T, int C>

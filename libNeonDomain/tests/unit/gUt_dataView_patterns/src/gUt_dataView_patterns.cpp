@@ -15,51 +15,53 @@ void runAllTestConfiguration(
                        const Neon::MemoryLayout&)> f,
     int                                            maxNumGpu)
 {
-    std::vector<int> nGpuTest{};
-    std::vector<int> cardinalityTest{1, 2, 3, 4, 5};
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        std::vector<int> nGpuTest{};
+        std::vector<int> cardinalityTest{1, 2, 3, 4, 5};
 
-    std::vector<Neon::index64_3d> dimTest{
-        {117, 100, 21},
-        {33, 17, 47},
-        {117, 100, 100},
-        {33, 100, 100}};
-    std::vector<Neon::Runtime> backendTest{
-        Neon::Runtime::openmp, Neon::Runtime::stream};
-
-
-    std::vector<Neon::MemoryLayout> layoutTest{
-        Neon::MemoryLayout::arrayOfStructs,
-        Neon::MemoryLayout::structOfArrays};
+        std::vector<Neon::index64_3d> dimTest{
+            {117, 100, 21},
+            {33, 17, 47},
+            {117, 100, 100},
+            {33, 100, 100}};
+        std::vector<Neon::Runtime> backendTest{
+            Neon::Runtime::openmp, Neon::Runtime::stream};
 
 
-    for (int i = 0; i < maxNumGpu; i++) {
-        nGpuTest.push_back(i + 1);
-    }
+        std::vector<Neon::MemoryLayout> layoutTest{
+            Neon::MemoryLayout::arrayOfStructs,
+            Neon::MemoryLayout::structOfArrays};
 
 
-    for (const auto& ngpu : nGpuTest) {
-        for (const auto& card : cardinalityTest) {
-            for (const auto& dim : dimTest) {
-                for (const auto& backend : backendTest) {
+        for (int i = 0; i < maxNumGpu; i++) {
+            nGpuTest.push_back(i + 1);
+        }
 
-                    for (const auto& layout : layoutTest) {
 
-                        std::stringstream s;
-                        s << "ngpu " << ngpu
-                          << " cardinality " << card
-                          << " dim " << dim
-                          << " backend " << Neon::Backend::toString(backend)
-                          << " layout " << Neon::MemoryLayoutUtils::toString(layout) << std::endl;
-                        NEON_INFO(s.str());
+        for (const auto& ngpu : nGpuTest) {
+            for (const auto& card : cardinalityTest) {
+                for (const auto& dim : dimTest) {
+                    for (const auto& backend : backendTest) {
 
-                        f(dim, ngpu, card, backend, layout);
+                        for (const auto& layout : layoutTest) {
 
-                        auto res = cudaDeviceReset();
-                        if (res != cudaSuccess) {
-                            Neon::NeonException exp("runAllTestConfiguration");
-                            exp << " cudaDeviceReset failed with message!";
-                            exp << cudaGetErrorString(res);
-                            NEON_THROW(exp);
+                            std::stringstream s;
+                            s << "ngpu " << ngpu
+                              << " cardinality " << card
+                              << " dim " << dim
+                              << " backend " << Neon::Backend::toString(backend)
+                              << " layout " << Neon::MemoryLayoutUtils::toString(layout) << std::endl;
+                            NEON_INFO(s.str());
+
+                            f(dim, ngpu, card, backend, layout);
+
+                            auto res = cudaDeviceReset();
+                            if (res != cudaSuccess) {
+                                Neon::NeonException exp("runAllTestConfiguration");
+                                exp << " cudaDeviceReset failed with message!";
+                                exp << cudaGetErrorString(res);
+                                NEON_THROW(exp);
+                            }
                         }
                     }
                 }
@@ -75,34 +77,32 @@ void patternDotTest(const Neon::index64_3d    dim,
                     const Neon::Runtime&      backendType,
                     const Neon::MemoryLayout& layout)
 {
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        Storage<GridT, T> storage(dim, nGPU, cardinality, backendType, layout);
-        storage.initConst(-1);
+    Storage<GridT, T> storage(dim, nGPU, cardinality, backendType, layout);
+    storage.initConst(-1);
 
-        auto output = storage.m_grid.getDevSet().template newMemDevSet<T>(Neon::DeviceType::CPU, Neon::Allocator::MALLOC, 1);
+    auto output = storage.m_grid.getDevSet().template newMemDevSet<T>(Neon::DeviceType::CPU, Neon::Allocator::MALLOC, 1);
 
-        Neon::set::patterns::BlasSet<T> blasHandle(storage.m_grid.getDevSet());
+    Neon::set::patterns::BlasSet<T> blasHandle(storage.m_grid.getDevSet());
 
-        T std_output = 0;
-        T int_output = 0;
-        T bd_output = 0;
-        if (storage.m_grid.getBackend().devType() == Neon::DeviceType::CUDA) {
-            auto streams = storage.m_grid.getDevSet().newStreamSet();
-            blasHandle.setStream(streams);
-            std_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::STANDARD);
-            int_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::INTERNAL);
-            bd_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::BOUNDARY);
-        } else {
-            std_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::STANDARD);
-            int_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::INTERNAL);
-            bd_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::BOUNDARY);
-        }
+    T std_output = 0;
+    T int_output = 0;
+    T bd_output = 0;
+    if (storage.m_grid.getBackend().devType() == Neon::DeviceType::CUDA) {
+        auto streams = storage.m_grid.getDevSet().newStreamSet();
+        blasHandle.setStream(streams);
+        std_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::STANDARD);
+        int_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::INTERNAL);
+        bd_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::BOUNDARY);
+    } else {
+        std_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::STANDARD);
+        int_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::INTERNAL);
+        bd_output = storage.Xf.dot(blasHandle, storage.Yf, output, Neon::DataView::BOUNDARY);
+    }
 
-        T ground_truth = storage.dot(storage.Xd, storage.Yd);
-        ASSERT_NEAR(std_output, ground_truth, 0.001);
-        if (nGPU > 1) {
-            ASSERT_NEAR(int_output + bd_output, ground_truth, 0.001);
-        }
+    T ground_truth = storage.dot(storage.Xd, storage.Yd);
+    ASSERT_NEAR(std_output, ground_truth, 0.001);
+    if (nGPU > 1) {
+        ASSERT_NEAR(int_output + bd_output, ground_truth, 0.001);
     }
 }
 
@@ -113,36 +113,35 @@ void patternNorm2Test(const Neon::index64_3d    dim,
                       const Neon::Runtime&      backendType,
                       const Neon::MemoryLayout& layout)
 {
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        Storage<GridT, T> storage(dim, nGPU, cardinality, backendType, layout);
-        storage.initConst(-1);
 
-        auto output = storage.m_grid.getDevSet().template newMemDevSet<T>(Neon::DeviceType::CPU, Neon::Allocator::MALLOC, 1);
+    Storage<GridT, T> storage(dim, nGPU, cardinality, backendType, layout);
+    storage.initConst(-1);
 
-        Neon::set::patterns::BlasSet<T> blasHandle(storage.m_grid.getDevSet());
+    auto output = storage.m_grid.getDevSet().template newMemDevSet<T>(Neon::DeviceType::CPU, Neon::Allocator::MALLOC, 1);
 
-        T std_output = 0;
-        T int_output = 0;
-        T bd_output = 0;
-        if (storage.m_grid.getBackend().devType() == Neon::DeviceType::CUDA) {
-            auto streams = storage.m_grid.getDevSet().newStreamSet();
-            blasHandle.setStream(streams);
-            std_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::STANDARD);
-            int_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::INTERNAL);
-            bd_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::BOUNDARY);
-        } else {
-            std_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::STANDARD);
-            int_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::INTERNAL);
-            bd_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::BOUNDARY);
-        }
+    Neon::set::patterns::BlasSet<T> blasHandle(storage.m_grid.getDevSet());
 
-        T ground_truth = storage.norm2(storage.Xd);
-        ASSERT_NEAR(std_output, ground_truth, 0.001);
-        if (nGPU > 1) {
-            ASSERT_NEAR(int_output * int_output + bd_output * bd_output,
-                        ground_truth * ground_truth,
-                        0.001);
-        }
+    T std_output = 0;
+    T int_output = 0;
+    T bd_output = 0;
+    if (storage.m_grid.getBackend().devType() == Neon::DeviceType::CUDA) {
+        auto streams = storage.m_grid.getDevSet().newStreamSet();
+        blasHandle.setStream(streams);
+        std_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::STANDARD);
+        int_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::INTERNAL);
+        bd_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::BOUNDARY);
+    } else {
+        std_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::STANDARD);
+        int_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::INTERNAL);
+        bd_output = storage.Xf.norm2(blasHandle, output, Neon::DataView::BOUNDARY);
+    }
+
+    T ground_truth = storage.norm2(storage.Xd);
+    ASSERT_NEAR(std_output, ground_truth, 0.001);
+    if (nGPU > 1) {
+        ASSERT_NEAR(int_output * int_output + bd_output * bd_output,
+                    ground_truth * ground_truth,
+                    0.001);
     }
 }
 

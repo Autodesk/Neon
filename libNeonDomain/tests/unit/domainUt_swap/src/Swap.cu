@@ -30,8 +30,7 @@ auto map(Field&                      input_field,
 template <typename G, typename T, int C>
 void SwapContainerRun(TestData<G, T, C>& data)
 {
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        /*
+    /*
      * Grid structure:
      * - (x,y,z) in sGrid if X(x,y,z) %2 ==0
      * Computations on Neon
@@ -46,61 +45,60 @@ void SwapContainerRun(TestData<G, T, C>& data)
      * Check
      * Y
      */
-        using Type = typename TestData<G, T, C>::Type;
-        auto& grid = data.getGrid();
+    using Type = typename TestData<G, T, C>::Type;
+    auto& grid = data.getGrid();
 
-        const Type alpha = 11;
-        NEON_INFO(grid.toString());
+    const Type alpha = 11;
+    NEON_INFO(grid.toString());
 
-        const std::string appName(testFilePrefix + "_" + grid.getImplementationName());
-        data.resetValuesToLinear(1, 100);
+    const std::string appName(testFilePrefix + "_" + grid.getImplementationName());
+    data.resetValuesToLinear(1, 100);
 
-        {  // NEON
-            auto& X = data.getField(FieldNames::X);
-            auto& Y = data.getField(FieldNames::Y);
+    {  // NEON
+        auto& X = data.getField(FieldNames::X);
+        auto& Y = data.getField(FieldNames::Y);
 
-            map(X, Y, alpha).run(0);
-            X.swap(X, Y);
-            map(X, Y, alpha).run(0);
-            X.swap(X, Y);
-            map(X, Y, alpha).run(0);
+        map(X, Y, alpha).run(0);
+        X.swap(X, Y);
+        map(X, Y, alpha).run(0);
+        X.swap(X, Y);
+        map(X, Y, alpha).run(0);
 
-            data.getBackend().sync(0);
-            Y.updateIO(0);
-        }
-
-        {  // Golden data
-
-            auto& X = data.getIODomain(FieldNames::X);
-            auto& Y = data.getIODomain(FieldNames::Y);
-
-            auto run = [&](auto A, auto B) {
-                data.forEachActiveIODomain([&](const Neon::index_3d& idx,
-                                               int                   cardinality,
-                                               Type&                 a,
-                                               Type&                 b) {
-                    b = alpha + a;
-                },
-                                           A, B);
-            };
-
-            run(X, Y);
-            run(Y, X);
-            run(X, Y);
-        }
-
-        // storage.ioToVti("After");
-        {  // DEBUG
-            data.getIODomain(FieldNames::Y).ioToVti("getIODomain_Y", "Y");
-            data.getField(FieldNames::Y).ioToVtk("getField_Y", "Y");
-        }
-
-
-        bool isOk = data.compare(FieldNames::Y);
-        isOk = isOk && data.compare(FieldNames::X);
-
-        ASSERT_TRUE(isOk);
+        data.getBackend().sync(0);
+        Y.updateIO(0);
     }
+
+    {  // Golden data
+
+        auto& X = data.getIODomain(FieldNames::X);
+        auto& Y = data.getIODomain(FieldNames::Y);
+
+        auto run = [&](auto A, auto B) {
+            data.forEachActiveIODomain([&](const Neon::index_3d& idx,
+                                           int                   cardinality,
+                                           Type&                 a,
+                                           Type&                 b) {
+                b = alpha + a;
+            },
+                                       A, B);
+        };
+
+        run(X, Y);
+        run(Y, X);
+        run(X, Y);
+    }
+
+    // storage.ioToVti("After");
+    {  // DEBUG
+        data.getIODomain(FieldNames::Y).ioToVti("getIODomain_Y", "Y");
+        data.getField(FieldNames::Y).ioToVtk("getField_Y", "Y");
+    }
+
+
+    bool isOk = data.compare(FieldNames::Y);
+    isOk = isOk && data.compare(FieldNames::X);
+
+    ASSERT_TRUE(isOk);
 }
 
 namespace {

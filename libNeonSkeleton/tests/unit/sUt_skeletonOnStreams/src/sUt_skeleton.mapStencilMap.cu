@@ -27,65 +27,65 @@ void MapStencilMap(TestData<G, T, C>&      data,
                    Neon::skeleton::Occ     occ,
                    Neon::set::TransferMode transfer)
 {
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        using Type = typename TestData<G, T, C>::Type;
 
-        auto occName = Neon::skeleton::OccUtils::toString(occ);
-        occName[0] = toupper(occName[0]);
-        const std::string appName(testFilePrefix + "_" + occName);
+    using Type = typename TestData<G, T, C>::Type;
 
-        Neon::skeleton::Skeleton skl(data.getBackend());
-        Neon::skeleton::Options  opt(occ, transfer);
+    auto occName = Neon::skeleton::OccUtils::toString(occ);
+    occName[0] = toupper(occName[0]);
+    const std::string appName(testFilePrefix + "_" + occName);
 
-        const Type scalarVal = 2;
-        const int  nIterations = 10;
+    Neon::skeleton::Skeleton skl(data.getBackend());
+    Neon::skeleton::Options  opt(occ, transfer);
 
-        auto fR = data.getGrid().template newPatternScalar<Type>();
-        fR() = scalarVal;
+    const Type scalarVal = 2;
+    const int  nIterations = 10;
+
+    auto fR = data.getGrid().template newPatternScalar<Type>();
+    fR() = scalarVal;
+    data.getBackend().syncAll();
+
+    data.resetValuesToRandom(1, 50);
+    Neon::Timer_sec timer;
+
+    {  // SKELETON
+        auto& X = data.getField(FieldNames::X);
+        auto& Y = data.getField(FieldNames::Y);
+
+        std::vector<Neon::set::Container> ops{
+            UserTools::axpy(fR, Y, X),
+            UserTools::laplace(X, Y),
+            UserTools::axpy(fR, Y, Y)};
+
+        skl.sequence(ops, appName, opt);
+
+        skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()));
+
+        timer.start();
+        for (int i = 0; i < nIterations; i++) {
+            skl.run();
+        }
         data.getBackend().syncAll();
+        timer.stop();
+    }
 
-        data.resetValuesToRandom(1, 50);
-        Neon::Timer_sec timer;
+    {  // Golden data
+        auto time = timer.time();
 
-        {  // SKELETON
-            auto& X = data.getField(FieldNames::X);
-            auto& Y = data.getField(FieldNames::Y);
+        Type  dR = scalarVal;
+        auto& X = data.getIODomain(FieldNames::X);
+        auto& Y = data.getIODomain(FieldNames::Y);
 
-            std::vector<Neon::set::Container> ops{
-                UserTools::axpy(fR, Y, X),
-                UserTools::laplace(X, Y),
-                UserTools::axpy(fR, Y, Y)};
-
-            skl.sequence(ops, appName, opt);
-
-            skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()));
-
-            timer.start();
-            for (int i = 0; i < nIterations; i++) {
-                skl.run();
-            }
-            data.getBackend().syncAll();
-            timer.stop();
+        for (int i = 0; i < nIterations; i++) {
+            data.axpy(&dR, Y, X);
+            data.laplace(X, Y);
+            data.axpy(&dR, Y, Y);
         }
+    }
 
-        {  // Golden data
-            auto time = timer.time();
+    bool isOk = data.compare(FieldNames::X);
+    isOk = isOk && data.compare(FieldNames::Y);
 
-            Type  dR = scalarVal;
-            auto& X = data.getIODomain(FieldNames::X);
-            auto& Y = data.getIODomain(FieldNames::Y);
-
-            for (int i = 0; i < nIterations; i++) {
-                data.axpy(&dR, Y, X);
-                data.laplace(X, Y);
-                data.axpy(&dR, Y, Y);
-            }
-        }
-
-        bool isOk = data.compare(FieldNames::X);
-        isOk = isOk && data.compare(FieldNames::Y);
-
-        /*{  // DEBUG
+    /*{  // DEBUG
         data.getIODomain(FieldNames::X).ioToVti("IODomain_X", "X");
         data.getField(FieldNames::X).ioToVtk("Field_X", "X");
 
@@ -93,8 +93,7 @@ void MapStencilMap(TestData<G, T, C>&      data,
         data.getField(FieldNames::Y).ioToVtk("Field_Y", "Y");
     }*/
 
-        ASSERT_TRUE(isOk);
-    }
+    ASSERT_TRUE(isOk);
 }
 
 template <typename G, typename T, int C>

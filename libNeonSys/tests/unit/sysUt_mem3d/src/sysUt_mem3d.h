@@ -86,13 +86,13 @@ auto copyTest = [](int L, int val, Neon::DeviceType devEt, Neon::Allocator alloc
 
 TEST(mem3d, CPU)
 {
-    for (auto&& L : global::Ls) {
-        for (auto&& A : global::As) {
-            ASSERT_NO_THROW(global::haloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::MALLOC));
-            ASSERT_NO_THROW(global::noHaloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::MALLOC));
-            ASSERT_NO_THROW(global::copyTest(L, 10, Neon::DeviceType::CPU, Neon::Allocator::MALLOC));
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        for (auto&& L : global::Ls) {
+            for (auto&& A : global::As) {
+                ASSERT_NO_THROW(global::haloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::MALLOC));
+                ASSERT_NO_THROW(global::noHaloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::MALLOC));
+                ASSERT_NO_THROW(global::copyTest(L, 10, Neon::DeviceType::CPU, Neon::Allocator::MALLOC));
 
-            if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
                 ASSERT_NO_THROW(global::noHaloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::CUDA_MEM_HOST));
                 ASSERT_NO_THROW(global::haloTest(L, A, Neon::DeviceType::CPU, Neon::Allocator::CUDA_MEM_HOST));
                 ASSERT_NO_THROW(global::copyTest(L, 10, Neon::DeviceType::CPU, Neon::Allocator::CUDA_MEM_HOST));
