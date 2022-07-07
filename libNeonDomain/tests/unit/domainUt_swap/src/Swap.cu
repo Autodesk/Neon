@@ -134,5 +134,6 @@ TEST(Swap, eGrid)
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
+    Neon::init();
     return RUN_ALL_TESTS();
 }
