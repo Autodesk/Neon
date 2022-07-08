@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
 
+#include "Neon/Neon.h"
 #include "Neon/domain/dGrid.h"
 #include "Neon/domain/tools/TestData.h"
-#include "Neon/Neon.h"
 #include "RunHelper.h"
 using namespace Neon::domain::tool::testing;
 static const std::string testFilePrefix("domainUt_Swap");
@@ -46,7 +46,7 @@ void SwapContainerRun(TestData<G, T, C>& data)
      * Y
      */
     using Type = typename TestData<G, T, C>::Type;
-    auto&      grid = data.getGrid();
+    auto& grid = data.getGrid();
 
     const Type alpha = 11;
     NEON_INFO(grid.toString());
@@ -83,9 +83,9 @@ void SwapContainerRun(TestData<G, T, C>& data)
                                        A, B);
         };
 
-        run(X,Y);
-        run(Y,X);
-        run(X,Y);
+        run(X, Y);
+        run(Y, X);
+        run(X, Y);
     }
 
     // storage.ioToVti("After");
@@ -99,17 +99,20 @@ void SwapContainerRun(TestData<G, T, C>& data)
     isOk = isOk && data.compare(FieldNames::X);
 
     ASSERT_TRUE(isOk);
-    //    std::cout<<"Done"<<std::endl;
 }
 
 namespace {
 int getNGpus()
 {
-    int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
-    if (maxGPUs > 1) {
-        return maxGPUs;
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
+        if (maxGPUs > 1) {
+            return maxGPUs;
+        } else {
+            return 3;
+        }
     } else {
-        return 3;
+        return 0;
     }
 }
 }  // namespace
@@ -135,5 +138,6 @@ TEST(Swap, eGrid)
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
+    Neon::init();
     return RUN_ALL_TESTS();
 }

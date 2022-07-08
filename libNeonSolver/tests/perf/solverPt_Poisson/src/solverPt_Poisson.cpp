@@ -163,11 +163,15 @@ int main(int argc, char** argv)
     std::cout << " OCC= " << Neon::skeleton::OccUtils::toString(occE) << "\n";
     std::cout << " transfer= " << Neon::set::TransferModeUtils::toString(transferE) << "\n";
 
-    if (DATA_TYPE == "single") {
-        return poissonPerfTestScalability<float>();
-    } else if (DATA_TYPE == "double") {
-        return poissonPerfTestScalability<double>();
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        if (DATA_TYPE == "single") {
+            return poissonPerfTestScalability<float>();
+        } else if (DATA_TYPE == "double") {
+            return poissonPerfTestScalability<double>();
+        } else {
+            return -1;
+        }
     } else {
-        return -1;
+        return 0;
     }
 }

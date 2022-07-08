@@ -80,7 +80,6 @@ void MapStencilMap(TestData<G, T, C>&      data,
             data.axpy(&dR, Y, Y);
         }
     }
-    
     bool isOk = data.compare(FieldNames::X);
     isOk = isOk && data.compare(FieldNames::Y);
 
@@ -122,11 +121,15 @@ void MapStencilNoOCC(TestData<G, T, C>& data)
 namespace {
 int getNGpus()
 {
-    int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
-    if (maxGPUs > 1) {
-        return maxGPUs;
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
+        if (maxGPUs > 1) {
+            return maxGPUs;
+        } else {
+            return 3;
+        }
     } else {
-        return 3;
+        return 0;
     }
 }
 }  // namespace

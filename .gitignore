@@ -46,10 +46,6 @@ script/*
 
 .vscode
 
-python/pdfs
-
-python/**/*.json
-python/**/*.pdf
-!python/test.json
-!python/PoissonSolverBenchmark/**/*
 libNeonCore/src/core/git_sha1.cpp
+
+temp

@@ -16,11 +16,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # the below token should have repo scope and must be manually added by you in the repository's secret
-          PERSONAL_ACCESS_TOKEN : ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          PERSONAL_ACCESS_TOKEN : ${{ secrets.CLA_BOT_SECRET }}
         with:
           remote-repository-name: 'CLA-Signatures'
           remote-organization-name: 'Autodesk'
-          path-to-signatures: 'signatures/Autodesk/Individual/cla.json'
+          path-to-signatures: 'signatures/Autodesk/Individual/unique.json'
           path-to-document: 'https://github.com/Autodesk/CLA-Assistant-Test-Signatures/blob/master/CLA.md' # e.g. a CLA or a DCO document
           # branch should not be protected
           branch: 'master'

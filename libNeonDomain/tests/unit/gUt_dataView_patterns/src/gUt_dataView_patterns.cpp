@@ -15,53 +15,53 @@ void runAllTestConfiguration(
                        const Neon::MemoryLayout&)> f,
     int                                            maxNumGpu)
 {
-    std::vector<int> nGpuTest{};
-    std::vector<int> cardinalityTest{1, 2, 3, 4, 5};
-
-    std::vector<Neon::index64_3d> dimTest{
-        {117, 100, 21},
-        {33, 17, 47},
-        {117, 100, 100},
-        {33, 100, 100}};
-    std::vector<Neon::Runtime> backendTest{
-        Neon::Runtime::openmp};
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        backendTest.push_back(Neon::Runtime::stream);
-    }
+        std::vector<int> nGpuTest{};
+        std::vector<int> cardinalityTest{1, 2, 3, 4, 5};
 
-    std::vector<Neon::MemoryLayout> layoutTest{
-        Neon::MemoryLayout::arrayOfStructs,
-        Neon::MemoryLayout::structOfArrays};
+        std::vector<Neon::index64_3d> dimTest{
+            {117, 100, 21},
+            {33, 17, 47},
+            {117, 100, 100},
+            {33, 100, 100}};
+        std::vector<Neon::Runtime> backendTest{
+            Neon::Runtime::openmp, Neon::Runtime::stream};
 
 
-    for (int i = 0; i < maxNumGpu; i++) {
-        nGpuTest.push_back(i + 1);
-    }
+        std::vector<Neon::MemoryLayout> layoutTest{
+            Neon::MemoryLayout::arrayOfStructs,
+            Neon::MemoryLayout::structOfArrays};
 
 
-    for (const auto& ngpu : nGpuTest) {
-        for (const auto& card : cardinalityTest) {
-            for (const auto& dim : dimTest) {
-                for (const auto& backend : backendTest) {
+        for (int i = 0; i < maxNumGpu; i++) {
+            nGpuTest.push_back(i + 1);
+        }
 
-                    for (const auto& layout : layoutTest) {
 
-                        std::stringstream s;
-                        s << "ngpu " << ngpu
-                          << " cardinality " << card
-                          << " dim " << dim
-                          << " backend " << Neon::Backend::toString(backend)
-                          << " layout " << Neon::MemoryLayoutUtils::toString(layout) << std::endl;
-                        NEON_INFO(s.str());
+        for (const auto& ngpu : nGpuTest) {
+            for (const auto& card : cardinalityTest) {
+                for (const auto& dim : dimTest) {
+                    for (const auto& backend : backendTest) {
 
-                        f(dim, ngpu, card, backend, layout);
+                        for (const auto& layout : layoutTest) {
 
-                        auto res = cudaDeviceReset();
-                        if (res != cudaSuccess) {
-                            Neon::NeonException exp("runAllTestConfiguration");
-                            exp << " cudaDeviceReset failed with message!";
-                            exp << cudaGetErrorString(res);
-                            NEON_THROW(exp);
+                            std::stringstream s;
+                            s << "ngpu " << ngpu
+                              << " cardinality " << card
+                              << " dim " << dim
+                              << " backend " << Neon::Backend::toString(backend)
+                              << " layout " << Neon::MemoryLayoutUtils::toString(layout) << std::endl;
+                            NEON_INFO(s.str());
+
+                            f(dim, ngpu, card, backend, layout);
+
+                            auto res = cudaDeviceReset();
+                            if (res != cudaSuccess) {
+                                Neon::NeonException exp("runAllTestConfiguration");
+                                exp << " cudaDeviceReset failed with message!";
+                                exp << cudaGetErrorString(res);
+                                NEON_THROW(exp);
+                            }
                         }
                     }
                 }

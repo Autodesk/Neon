@@ -1,5 +1,10 @@
 name: Ubuntu
-on: [push, pull_request, workflow_dispatch]
+on: 
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
 jobs:
   UbuntuRun:
     runs-on: ubuntu-latest
@@ -20,6 +25,6 @@ jobs:
       - name: Run make
         working-directory: ${{github.workspace}}/build
         run: make -j 4
-      #- name: Run Test
-      #  working-directory: ${{github.workspace}}/build
-      #  run: ctest --no-compress-output -T Test -C Release --output-on-failure
+      - name: Run Test
+        working-directory: ${{github.workspace}}/build
+        run: ctest --no-compress-output --output-on-failure -T Test --build-config Release

@@ -66,6 +66,8 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
                            Neon::skeleton::Occ     occ,
                            Neon::set::TransferMode transfer)
 {
+
+
     using Type = typename TestData<G, T, C>::Type;
 
     auto occName = Neon::skeleton::OccUtils::toString(occ);
@@ -146,11 +148,15 @@ void runSingleStencilTestData(TestData<G, T, C>& data)
 
 int getNGpus()
 {
-    int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
-    if (maxGPUs > 1) {
-        return maxGPUs;
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
+        if (maxGPUs > 1) {
+            return maxGPUs;
+        } else {
+            return 3;
+        }
     } else {
-        return 3;
+        return 0;
     }
 }
 
