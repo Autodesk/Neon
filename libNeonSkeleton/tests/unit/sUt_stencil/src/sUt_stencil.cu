@@ -106,7 +106,6 @@ auto laplace(const FieldT& x, FieldT& y, bool use_relative_ids) -> Neon::set::Co
 template <typename G, typename T, int C>
 void SingleStencil(TestData<G, T, C>& data)
 {
-
     using Type = typename TestData<G, T, C>::Type;
 
     const int nIterations = 5;

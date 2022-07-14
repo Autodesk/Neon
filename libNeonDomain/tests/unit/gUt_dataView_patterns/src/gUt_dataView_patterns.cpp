@@ -113,7 +113,6 @@ void patternNorm2Test(const Neon::index64_3d    dim,
                       const Neon::Runtime&      backendType,
                       const Neon::MemoryLayout& layout)
 {
-
     Storage<GridT, T> storage(dim, nGPU, cardinality, backendType, layout);
     storage.initConst(-1);
 
