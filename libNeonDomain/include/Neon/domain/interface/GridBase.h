@@ -106,6 +106,12 @@ class GridBase
         -> const Backend&;
 
     /**
+     * Returns the backed used to create the grid
+     */
+    auto getBackend()
+        -> Backend&;
+
+    /**
      * Returns the DevSet object used to create the grid.
      */
     auto getDevSet() const
