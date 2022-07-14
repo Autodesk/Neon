@@ -106,6 +106,7 @@ struct DeviceThenHostManagedContainer : ContainerAPI
         if (Neon::DataView::STANDARD == dataView) {
             mDevice->run(streamIdx, Neon::DataView::STANDARD);
             mHost->run(streamIdx, Neon::DataView::STANDARD);
+            return ;
         }
         NEON_THROW_UNSUPPORTED_OPTION("A DeviceThenHostManagedContainer object can not be run directly.");
     }

@@ -69,7 +69,8 @@ struct ContainerAPI
     auto getTokenRef()
         -> std::vector<Neon::set::internal::dependencyTools::DataToken>&;
 
-    auto getDataViewSupport() -> DataViewSupport;
+    auto getDataViewSupport() const
+        -> DataViewSupport;
 
     /**
      * Log information on the parsed tokens.

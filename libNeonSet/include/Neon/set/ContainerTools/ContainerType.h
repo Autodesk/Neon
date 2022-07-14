@@ -27,6 +27,7 @@ struct ContainerTypeUtils
     static auto toString(ContainerType option) -> std::string;
     static auto fromString(const std::string& option) -> ContainerType;
     static auto getOptions() -> std::array<ContainerType, nOptions>;
+    static auto isExpandable(ContainerType option)  -> bool;
 };
 
 

@@ -60,7 +60,7 @@ auto ContainerAPI::getContainerType() const -> ContainerType
     return mContainerType;
 }
 
-auto ContainerAPI::getDataViewSupport() -> ContainerAPI::DataViewSupport
+auto ContainerAPI::getDataViewSupport() const -> ContainerAPI::DataViewSupport
 {
     return mDataViewSupport;
 }

@@ -45,4 +45,25 @@ auto ContainerTypeUtils::getOptions() -> std::array<ContainerType, nOptions>
     return opts;
 }
 
+auto ContainerTypeUtils::isExpandable(ContainerType option) -> bool
+{
+    switch (option) {
+        case ContainerType::device: {
+            return false;
+        }
+        case ContainerType::deviceManaged: {
+            return false;
+        }
+        case ContainerType::hostManaged: {
+            return false;
+        }
+        case ContainerType::deviceThenHostManaged: {
+            return true;
+        }
+    }
+    NEON_THROW_UNSUPPORTED_OPTION("");
+}
+
+}  // namespace internal
+}  // namespace set
 }  // namespace Neon
