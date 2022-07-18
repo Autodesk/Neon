@@ -136,9 +136,6 @@ auto Report::device() -> void
 
             addSubdoc("CUDA", subdoc);
         }
-        addMember("Runtime Version", ver, &subdoc);
-
-        addMember("CUDA API Version", CUDA_VERSION, &subdoc);
 
         addMember("num_gpus", num_gpus);
 

@@ -163,7 +163,7 @@ auto dGrid::getKernelConfig(int            streamIdx,
                                                                     getDefaultBlock(), 0);
 
     kernelConfig.expertSetLaunchParameters(launchInfoSet);
-    kernelConfig.expertSetBackend(getBackend());
+    kernelConfig.expertSetBackend(this->getBackend());
 
     return kernelConfig;
 }

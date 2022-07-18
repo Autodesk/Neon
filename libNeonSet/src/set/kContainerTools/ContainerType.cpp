@@ -65,5 +65,4 @@ auto ContainerTypeUtils::isExpandable(ContainerType option) -> bool
 }
 
 }  // namespace internal
-}  // namespace set
-}  // namespace Neon
+
