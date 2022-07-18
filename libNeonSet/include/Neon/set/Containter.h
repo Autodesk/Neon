@@ -18,46 +18,64 @@ struct Container
    public:
     Container() = default;
 
-    auto run(int            streamIdx,
-             Neon::DataView dataView = Neon::DataView::STANDARD)
+    /**
+     * Run a Neon Container on a given stream and with a given data view
+     */
+    auto run(int            streamIdx /**< Target stream */,
+             Neon::DataView dataView = Neon::DataView::STANDARD /**< Target data view ( STANDARD by default ) */ )
         -> void
     {
         mContainer->run(streamIdx, dataView);
     }
 
-    auto run(Neon::SetIdx   setIdx,
-             int            streamIdx,
-             Neon::DataView dataView = Neon::DataView::STANDARD)
+    /**
+     * Runs a Neon Container on a given stream and with a given data view
+     */
+    auto run(Neon::SetIdx   setIdx /**< Set index of a target device */,
+             int            streamIdx /**< Target stream */,
+             Neon::DataView dataView = Neon::DataView::STANDARD /**< Target data view ( STANDARD by default ) */)
         -> void
     {
         mContainer->run(setIdx, streamIdx, dataView);
     }
 
+    /**
+     * Returns the internal interface of a Neon Container.
+     */
     auto getContainerInterface()
         -> Neon::set::internal::ContainerAPI&
     {
         return mContainer.operator*();
     }
 
+    /**
+     * Returns the internal interface of a Neon Container.
+     */
     auto getContainerInterface() const
         -> const Neon::set::internal::ContainerAPI&
     {
         return mContainer.operator*();
     }
 
+    /**
+    * Returns the internal interface of a Neon Container.
+    */
     auto getContainerInterfaceShrPtr()
         -> std::shared_ptr<Neon::set::internal::ContainerAPI>
     {
         return mContainer;
     }
 
+    /**
+     * Factory function to create a Neon Container
+     */
     template <typename DataContainerT, typename UserLoadingLambdaT>
-    static auto factory(const std::string&                                 name,
-                        Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
-                        const DataContainerT&                              a,
-                        const UserLoadingLambdaT&                          f,
-                        const index_3d&                                    blockSize,
-                        std::function<int(const index_3d& blockSize)>      shMemSizeFun) -> Container
+    static auto factory(const std::string&                                 name /**< A user's string to identify the computation done by the Container. */,
+                        Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport /**< Defines the data view support for the new Container */,
+                        const DataContainerT&                              a /**< Multi device object that will be used for the creating of the Container */,
+                        const UserLoadingLambdaT&                          f /**< User's loading lambda for the new Container */,
+                        const index_3d&                                    blockSize /**< Block size for the thread grid */,
+                        std::function<int(const index_3d& blockSize)>      shMemSizeFun /**< User's function to implicitly compute the required shared memory */) -> Container
     {
         using LoadingLambda = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
         auto k = new Neon::set::internal::DeviceContainer<DataContainerT, LoadingLambda>(name, dataViewSupport,
