@@ -1,16 +1,10 @@
 #pragma once
 
 #include "Neon/set/ContainerTools/ContainerAPI.h"
+#include "Neon/set/ContainerTools/HostManagedSyncType.h"
 #include "Neon/set/ContainerTools/Loader.h"
 
 namespace Neon::set::internal {
-
-enum struct HostManagedSyncType
-{
-    intraGPU = 0,
-    multiGPU = 1,
-    none = 2
-};
 
 /**
  * This Container run operation on the host
@@ -36,12 +30,12 @@ struct HostManagedContainer : ContainerAPI
      * @param data
      * @param userLambda
      */
-    HostManagedContainer(const std::string&                     name,
-                         ContainerAPI::DataViewSupport          dataViewSupport,
-                         const DataContainerT&                  dataIteratorContainer,
+    HostManagedContainer(const std::string&                                   name,
+                         ContainerAPI::DataViewSupport                        dataViewSupport,
+                         const DataContainerT&                                dataIteratorContainer,
                          std::function<ComputeLambdaT(Neon::SetIdx, Loader&)> loadingLambda,
-                         HostManagedSyncType                    preSyncType,
-                         HostManagedSyncType                    presSyncType)
+                         HostManagedSyncType                                  preSyncType,
+                         HostManagedSyncType                                  presSyncType)
         : mLoadingLambda(loadingLambda),
           mDataContainer(dataIteratorContainer)
     {
@@ -77,7 +71,7 @@ struct HostManagedContainer : ContainerAPI
 
     auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
     {
-        auto parser = newParser();
+        auto         parser = newParser();
         Neon::SetIdx setIdx(0);
         this->mLoadingLambda(setIdx, parser);
         return getTokens();
@@ -158,4 +152,4 @@ struct HostManagedContainer : ContainerAPI
     HostManagedSyncType mPostSyncType;
 };
 
-}  // namespace Neon
+}  // namespace Neon::set::internal
