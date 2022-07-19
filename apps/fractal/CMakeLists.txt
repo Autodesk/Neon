@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 set (APP_NAME fractal)
-file(GLOB_RECURSE SrcFiles src/*.*)
+file(GLOB_RECURSE SrcFiles fractal.cu)
 
 add_executable(${APP_NAME} ${SrcFiles})
 
