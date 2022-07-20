@@ -1,4 +1,4 @@
-![Neon logo](doc/logo/neonDarkLogo.jpg "Neon")
+![Neon logo](docs/logo/neonDarkLogo.jpg "Neon")
 
 Neon is a research framework for programming multi-device systems maintained by [Autodesk Research](https://www.autodesk.com/research/overview). Neon's goal is to automatically transform user sequential code into, for example, a scalable multi-GPU execution.
 
@@ -32,6 +32,19 @@ Depending on the system, this will generate either a `.sln` project on Windows o
 A description of the system and its capabilities can be found in our paper [link](https://escholarship.org/uc/item/9fz7k633).
 
 We are working on providing a set of tutorials and a programming guide to help you get up to speed with Neon.
+We'll be using mkdocs system to organize the documentation. The documentation will be available both online and locally. 
+The following are the steps to access the documentation locally:
+
+```bash
+# Insalling mkdocs. There are various installation methods, we use pip in this example.
+# We also install some required extensions
+pip install mkdocs pymdown-extensions pygments
+# Accessing the root of the local clone of the Neon repository
+cd Neon
+# Using mkdocs to run a local web server
+# The command will prompt a page to be open with your preferred browser
+mkdocs serve
+```
 
 ## Communicate With Us
 
@@ -39,13 +52,13 @@ We are working to define the best way to communicate with us. Please stay tuned.
 
 ## Contributions From the Community
 
-The Neon team welcome and greatly appreciate contributions from the community. The document [CONTRIBUTING.md](./doc/CONTRIBUTING.md) goes more into the details on the process we follow. 
+The Neon team welcome and greatly appreciate contributions from the community. The document [CONTRIBUTING.md](docs/CONTRIBUTING.md) goes more into the details on the process we follow. 
 
-As a community, we have a responsibility to create a respectful and inclusive environment, so we kindly ask any member and contributor to respect and follow [Neon's Code of Conduct](./doc/CODE_OF_CONDUCT.md)
+As a community, we have a responsibility to create a respectful and inclusive environment, so we kindly ask any member and contributor to respect and follow [Neon's Code of Conduct](docs/CODE_OF_CONDUCT.md)
 
 ## Authors and Maintainers 
 
-Please check out the [CONTRIBUTORS.md](./doc/CONTRIBUTORS.md), to see the full list of contributors to the project.
+Please check out the [CONTRIBUTORS.md](docs/CONTRIBUTORS.md), to see the full list of contributors to the project.
 
 The current maintainers of project Neon are:
 - Massimiliano Meneghin (Autodesk Research)
