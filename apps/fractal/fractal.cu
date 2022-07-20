@@ -59,37 +59,38 @@ inline Neon::set::Container FractalsContainer(FieldT&  pixels,
 int main(int argc, char** argv)
 {
     Neon::init();
-
-    int32_t          n = 320;
-    Neon::index_3d   dim(2 * n, n, 1);
-    std::vector<int> gpu_ids{0};
-
-    auto runtime = Neon::Runtime::stream;
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        runtime = Neon::Runtime::openmp;
-    }
-    Neon::Backend backend(gpu_ids, runtime);
+        int32_t          n = 320;
+        Neon::index_3d   dim(2 * n, n, 1);
+        std::vector<int> gpu_ids{0};
 
-    using Grid = Neon::domain::dGrid;
-    Grid grid(
-        backend, dim,
-        [](const Neon::index_3d& idx) -> bool { return true; },
-        Neon::domain::Stencil::s7_Laplace_t());
+        auto runtime = Neon::Runtime::stream;
 
-    int   cardinality = 1;
-    float inactiveValue = 0.0f;
-    auto  pixels = grid.template newField<float>("pixels", cardinality, inactiveValue);
+        //runtime = Neon::Runtime::openmp;
 
-    Neon::skeleton::Skeleton skeleton(backend);
+        Neon::Backend backend(gpu_ids, runtime);
 
-    int32_t time;
-    skeleton.sequence({FractalsContainer(pixels, time, n)}, "fractal");
+        using Grid = Neon::domain::dGrid;
+        Grid grid(
+            backend, dim,
+            [](const Neon::index_3d& idx) -> bool { return true; },
+            Neon::domain::Stencil::s7_Laplace_t());
+
+        int   cardinality = 1;
+        float inactiveValue = 0.0f;
+        auto  pixels = grid.template newField<float>("pixels", cardinality, inactiveValue);
+
+        Neon::skeleton::Skeleton skeleton(backend);
+
+        int32_t time;
+        skeleton.sequence({FractalsContainer(pixels, time, n)}, "fractal");
 
 
-    for (time = 0; time < 1000; ++time) {
-        skeleton.run();
+        for (time = 0; time < 1000; ++time) {
+            skeleton.run();
 
-        pixels.updateIO(0);
-        //draw_pixels(time, pixels);
+            pixels.updateIO(0);
+            //draw_pixels(time, pixels);
+        }
     }
 }
