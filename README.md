@@ -1,4 +1,4 @@
-![Neon logo](doc/logo/neonDarkLogo.jpg "Neon")
+![Neon logo](docs/logo/neonDarkLogo.jpg "Neon")
 
 Neon is a research framework for programming multi-device systems maintained by [Autodesk Research](https://www.autodesk.com/research/overview). Neon's goal is to automatically transform user sequential code into, for example, a scalable multi-GPU execution.
 
@@ -39,13 +39,13 @@ We are working to define the best way to communicate with us. Please stay tuned.
 
 ## Contributions From the Community
 
-The Neon team welcome and greatly appreciate contributions from the community. The document [CONTRIBUTING.md](./doc/CONTRIBUTING.md) goes more into the details on the process we follow. 
+The Neon team welcome and greatly appreciate contributions from the community. The document [CONTRIBUTING.md](docs/CONTRIBUTING.md) goes more into the details on the process we follow. 
 
-As a community, we have a responsibility to create a respectful and inclusive environment, so we kindly ask any member and contributor to respect and follow [Neon's Code of Conduct](./doc/CODE_OF_CONDUCT.md)
+As a community, we have a responsibility to create a respectful and inclusive environment, so we kindly ask any member and contributor to respect and follow [Neon's Code of Conduct](docs/CODE_OF_CONDUCT.md)
 
 ## Authors and Maintainers 
 
-Please check out the [CONTRIBUTORS.md](./doc/CONTRIBUTORS.md), to see the full list of contributors to the project.
+Please check out the [CONTRIBUTORS.md](docs/CONTRIBUTORS.md), to see the full list of contributors to the project.
 
 The current maintainers of project Neon are:
 - Massimiliano Meneghin (Autodesk Research)

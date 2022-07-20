@@ -1,0 +1,37 @@
+site_name: Neon
+site_url: https://example.com/
+repo_url: https://github.com/Autodesk/Neon
+repo_name: GitHub
+site_favicon: img/favicon.ico
+
+nav:
+    - User Guides:
+      - Introduction to Neon:
+        - Structure of the Library: ./user-guides/introduction-to-neon/neon-structure.md
+        - The Set Level: ./user-guides/introduction-to-neon/the-set-level.md
+        - The Domain Level: ./user-guides/introduction-to-neon/the-domain-level.md
+        - The Skeleton Level: ./user-guides/introduction-to-neon/the-skeleton-level.md
+      - Tutorials: 
+        - Mandelbrot: user-guides/tutorials/mandelbrot.md
+    - References:
+        - API Documentation: user-guides/reference/api-documentation.md
+        - Performance Considerations: user-guides/reference/performance-considerations.md
+    - Community:
+        - Contributing : CONTRIBUTING.md
+        - Contributors : CONTRIBUTORS.md
+        - Maintainers: maintainers.md
+theme:
+  name: readthedocs
+  navigation_depth: 4
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
