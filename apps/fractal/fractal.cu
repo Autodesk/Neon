@@ -59,12 +59,15 @@ inline Neon::set::Container FractalsContainer(FieldT&  pixels,
 int main(int argc, char** argv)
 {
     Neon::init();
+
     int32_t          n = 320;
     Neon::index_3d   dim(2 * n, n, 1);
     std::vector<int> gpu_ids{0};
 
-    //auto runtime = Neon::Runtime::openmp;
-    auto          runtime = Neon::Runtime::stream;
+    auto runtime = Neon::Runtime::stream;
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        runtime = Neon::Runtime::openmp;
+    }
     Neon::Backend backend(gpu_ids, runtime);
 
     using Grid = Neon::domain::dGrid;
@@ -87,6 +90,6 @@ int main(int argc, char** argv)
         skeleton.run();
 
         pixels.updateIO(0);
-        draw_pixels(time, pixels);
+        //draw_pixels(time, pixels);
     }
 }
