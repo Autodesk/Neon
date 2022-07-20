@@ -29,10 +29,255 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::get() const -> const Location&
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::getLocal1DID() const -> Location::Integer
 {
-    return mLocation.x +
-           mLocation.y * sBlockSizeX +
-           mLocation.z * sBlockSizeX * sBlockSizeY;
+    if constexpr (sUseSwirlIndex) {
+        //the swirl index changes the xy coordinates only and keeps the z as it is
+        Location::Integer xy = canonicalToSwirl(mLocation.x +
+                                                mLocation.y * sBlockSizeX);
+
+        return xy + mLocation.z * sBlockSizeX * sBlockSizeY;
+    } else {
+        return mLocation.x +
+               mLocation.y * sBlockSizeX +
+               mLocation.z * sBlockSizeX * sBlockSizeY;
+    }
 }
+
+NEON_CUDA_HOST_DEVICE inline auto bCell::swirlToCanonical(const Location::Integer id) -> Location::Integer
+{
+    //from 0-7, no change
+    if (id == 8) {
+        return 15;
+    } else if (id == 9) {
+        return 23;
+    } else if (id == 10) {
+        return 31;
+    } else if (id == 11) {
+        return 39;
+    } else if (id == 12) {
+        return 47;
+    } else if (id == 13) {
+        return 55;
+    } else if (id == 14) {
+        return 63;
+    } else if (id == 15) {
+        return 62;
+    } else if (id == 16) {
+        return 61;
+    } else if (id == 17) {
+        return 60;
+    } else if (id == 18) {
+        return 59;
+    } else if (id == 19) {
+        return 58;
+    } else if (id == 20) {
+        return 57;
+    } else if (id == 21) {
+        return 56;
+    } else if (id == 22) {
+        return 48;
+    } else if (id == 23) {
+        return 40;
+    } else if (id == 24) {
+        return 32;
+    } else if (id == 25) {
+        return 24;
+    } else if (id == 26) {
+        return 16;
+    } else if (id == 27) {
+        return 8;
+    } else if (id == 28) {
+        return 9;
+    } else if (id == 29) {
+        return 10;
+    } else if (id == 30) {
+        return 11;
+    } else if (id == 31) {
+        return 12;
+    } else if (id == 32) {
+        return 13;
+    } else if (id == 33) {
+        return 14;
+    } else if (id == 34) {
+        return 22;
+    } else if (id == 35) {
+        return 30;
+    } else if (id == 36) {
+        return 38;
+    } else if (id == 37) {
+        return 46;
+    } else if (id == 38) {
+        return 54;
+    } else if (id == 39) {
+        return 53;
+    } else if (id == 40) {
+        return 52;
+    } else if (id == 41) {
+        return 51;
+    } else if (id == 42) {
+        return 50;
+    } else if (id == 43) {
+        return 49;
+    } else if (id == 44) {
+        return 41;
+    } else if (id == 45) {
+        return 33;
+    } else if (id == 46) {
+        return 25;
+    } else if (id == 47) {
+        return 17;
+    } else if (id == 48) {
+        return 18;
+    } else if (id == 49) {
+        return 19;
+    } else if (id == 50) {
+        return 20;
+    } else if (id == 51) {
+        return 21;
+    } else if (id == 52) {
+        return 29;
+    } else if (id == 53) {
+        return 37;
+    } else if (id == 54) {
+        return 45;
+    } else if (id == 55) {
+        return 44;
+    } else if (id == 56) {
+        return 43;
+    } else if (id == 57) {
+        return 42;
+    } else if (id == 58) {
+        return 34;
+    } else if (id == 59) {
+        return 26;
+    } else if (id == 60) {
+        return 27;
+    } else if (id == 61) {
+        return 28;
+    } else if (id == 62) {
+        return 36;
+    } else if (id == 63) {
+        return 35;
+    }
+}
+
+NEON_CUDA_HOST_DEVICE inline auto bCell::canonicalToSwirl(const Location::Integer id) -> Location::Integer
+{
+    //from 0-7, no change
+    if (id == 8) {
+        return 27;
+    } else if (id == 9) {
+        return 28;
+    } else if (id == 10) {
+        return 29;
+    } else if (id == 11) {
+        return 30;
+    } else if (id == 12) {
+        return 31;
+    } else if (id == 13) {
+        return 32;
+    } else if (id == 14) {
+        return 33;
+    } else if (id == 15) {
+        return 8;
+    } else if (id == 16) {
+        return 26;
+    } else if (id == 17) {
+        return 47;
+    } else if (id == 18) {
+        return 48;
+    } else if (id == 19) {
+        return 49;
+    } else if (id == 20) {
+        return 50;
+    } else if (id == 21) {
+        return 51;
+    } else if (id == 22) {
+        return 34;
+    } else if (id == 23) {
+        return 9;
+    } else if (id == 24) {
+        return 25;
+    } else if (id == 25) {
+        return 46;
+    } else if (id == 26) {
+        return 59;
+    } else if (id == 27) {
+        return 60;
+    } else if (id == 28) {
+        return 61;
+    } else if (id == 29) {
+        return 52;
+    } else if (id == 30) {
+        return 35;
+    } else if (id == 31) {
+        return 10;
+    } else if (id == 32) {
+        return 24;
+    } else if (id == 33) {
+        return 45;
+    } else if (id == 34) {
+        return 58;
+    } else if (id == 35) {
+        return 63;
+    } else if (id == 36) {
+        return 62;
+    } else if (id == 37) {
+        return 53;
+    } else if (id == 38) {
+        return 36;
+    } else if (id == 39) {
+        return 11;
+    } else if (id == 40) {
+        return 23;
+    } else if (id == 41) {
+        return 44;
+    } else if (id == 42) {
+        return 57;
+    } else if (id == 43) {
+        return 56;
+    } else if (id == 44) {
+        return 55;
+    } else if (id == 45) {
+        return 54;
+    } else if (id == 46) {
+        return 37;
+    } else if (id == 47) {
+        return 12;
+    } else if (id == 48) {
+        return 22;
+    } else if (id == 49) {
+        return 43;
+    } else if (id == 50) {
+        return 42;
+    } else if (id == 51) {
+        return 41;
+    } else if (id == 52) {
+        return 40;
+    } else if (id == 53) {
+        return 39;
+    } else if (id == 54) {
+        return 38;
+    } else if (id == 55) {
+        return 13;
+    } else if (id == 56) {
+        return 21;
+    } else if (id == 57) {
+        return 20;
+    } else if (id == 58) {
+        return 19;
+    } else if (id == 59) {
+        return 18;
+    } else if (id == 60) {
+        return 17;
+    } else if (id == 61) {
+        return 16;
+    } else if (id == 62) {
+        return 15;
+    } else if (id == 63) {
+        return 14;
+    }
+}
+
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::getMaskLocalID() const -> int32_t
 {
@@ -104,6 +349,18 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::pitch(int card) const -> Location::Inte
         //stride across cardinalities before card within the block
         sBlockSizeX * sBlockSizeY * sBlockSizeZ * static_cast<Location::Integer>(card) +
         //offset to this cell's data
-        mLocation.x + mLocation.y * sBlockSizeX + mLocation.z * sBlockSizeX * sBlockSizeY;
+        getLocal1DID();
+}
+
+NEON_CUDA_HOST_DEVICE inline auto bCell::pitch(const int card, const nghIdx_t::Integer radius) const -> Location::Integer
+{
+    //simialr to pitch but the block is augmented with halo
+    return
+        //stride across cardinalities before card within the block
+        (2 * radius + sBlockSizeX) * (2 * radius + sBlockSizeY) * (2 * radius + sBlockSizeZ) * static_cast<Location::Integer>(card) +
+        //offset to this cell's data
+        (mLocation.x + radius) +
+        (mLocation.y + radius) * (2 * radius + sBlockSizeX) +
+        (mLocation.z + radius) * (2 * radius + sBlockSizeX) * (2 * radius + sBlockSizeY);
 }
 }  // namespace Neon::domain::internal::bGrid

@@ -22,23 +22,23 @@ static const std::string testFilePrefix("sUt_skeleton_MapStencilMap");
 
 template <typename Field, typename T>
 auto axpy(const T&     val,
-          const Field& x,
-          Field&       y,
+          const Field& y,
+          Field&       x,
           size_t       sharedMem = 0) -> Neon::set::Container
 {
-    return x.getGrid().getContainer(
+    return y.getGrid().getContainer(
         "AXPY",
-        x.getGrid().getDefaultBlock(),
+        y.getGrid().getDefaultBlock(),
         sharedMem,
         [&](Neon::set::Loader & L) -> auto {
-            auto& xLocal = L.load(x);
             auto& yLocal = L.load(y);
+            auto& xLocal = L.load(x);
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
                 Neon::sys::ShmemAllocator shmemAlloc;
-                xLocal.loadInSharedMemory(e, 1, shmemAlloc);
+                yLocal.loadInSharedMemory(e, 0, shmemAlloc);
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
-                    yLocal(e, i) += val * xLocal(e, i);
+                    xLocal(e, i) += val * yLocal(e, i);
                 }
             };
         });
@@ -71,50 +71,10 @@ auto laplace(const FieldT& x, FieldT& y, size_t sharedMem = 0) -> Neon::set::Con
                         }
                     };
 
-
-                    typename FieldT::Partition::nghIdx_t ngh(0, 0, 0);
-
-                    //+x
-                    ngh.x = 1;
-                    ngh.y = 0;
-                    ngh.z = 0;
-                    auto neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
-                    checkNeighbor(neighbor);
-
-                    //-x
-                    ngh.x = -1;
-                    ngh.y = 0;
-                    ngh.z = 0;
-                    neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
-                    checkNeighbor(neighbor);
-
-                    //+y
-                    ngh.x = 0;
-                    ngh.y = 1;
-                    ngh.z = 0;
-                    neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
-                    checkNeighbor(neighbor);
-
-                    //-y
-                    ngh.x = 0;
-                    ngh.y = -1;
-                    ngh.z = 0;
-                    neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
-                    checkNeighbor(neighbor);
-
-                    //+z
-                    ngh.x = 0;
-                    ngh.y = 0;
-                    ngh.z = 1;
-                    neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
-                    checkNeighbor(neighbor);
-
-                    //-z
-                    ngh.x = 0;
-                    ngh.y = 0;
-                    ngh.z = -1;
-                    neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
-                    checkNeighbor(neighbor);
+                    for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
+                        auto neighbor = xLocal.nghVal(cell, nghIdx, card, Type(0));
+                        checkNeighbor(neighbor);
+                    }
 
                     yLocal(cell, card) = -6 * res;
                 }
@@ -158,12 +118,16 @@ void SingleStencil(TestData<G, T, C>&      data,
         skl.sequence(ops, appName, opt);
 
         NEON_CUDA_CHECK_LAST_ERROR
+        cudaProfilerStart();
         for (int i = 0; i < nIterations; i++) {
             skl.run();
         }
         data.getBackend().syncAll();
         cudaProfilerStop();
         NEON_CUDA_CHECK_LAST_ERROR
+
+        //X.ioToVtk("X", "X");
+        //Y.ioToVtk("Y", "Y");
     }
 
     {  // Golden data
@@ -226,7 +190,9 @@ int getNGpus()
 TEST(Stencil_NoOCC, bGrid)
 {
     int nGpus = 1;
-    using Grid = Neon::domain::internal::bGrid::bGrid;
+    using Grid = Neon::domain::bGrid;
+    //using Grid = Neon::domain::eGrid;
+    //using Grid = Neon::domain::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("bGrid_t", SingleStencilNoOCC<Grid, Type, 0>, nGpus, 1);
 }

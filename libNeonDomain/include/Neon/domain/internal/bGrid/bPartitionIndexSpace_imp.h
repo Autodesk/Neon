@@ -13,9 +13,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
     assert(Cell::sBlockSizeY == blockDim.y);
     assert(Cell::sBlockSizeZ == blockDim.z);
     cell.mBlockID = blockIdx.x;
-    cell.set().x = threadIdx.x;
-    cell.set().y = threadIdx.y;
-    cell.set().z = threadIdx.z;
+    cell.mLocation.x = threadIdx.x;
+    cell.mLocation.y = threadIdx.y;
+    cell.mLocation.z = threadIdx.z;    
 #else
     cell.mBlockID = static_cast<uint32_t>(x) / (Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ);
     Cell::Location::Integer reminder = static_cast<Cell::Location::Integer>(x % (Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ));

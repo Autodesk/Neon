@@ -15,7 +15,7 @@ class bPartition
    public:
     using PartitionIndexSpace = bPartitionIndexSpace;
     using Cell = bCell;
-    using nghIdx_t = int8_3d;
+    using nghIdx_t = Cell::nghIdx_t;
     using Type = T;
 
    public:
@@ -57,6 +57,10 @@ class bPartition
     NEON_CUDA_HOST_DEVICE inline void loadInSharedMemory(const Cell&                cell,
                                                          const nghIdx_t::Integer    stencilRadius,
                                                          Neon::sys::ShmemAllocator& shmemAlloc) const;
+
+    NEON_CUDA_HOST_DEVICE inline void loadInSharedMemoryAsync(const Cell&                cell,
+                                                              const nghIdx_t::Integer    stencilRadius,
+                                                              Neon::sys::ShmemAllocator& shmemAlloc) const;
 
    private:
     inline NEON_CUDA_HOST_DEVICE auto pitch(const Cell& cell, int card) const -> uint32_t;

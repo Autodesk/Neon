@@ -73,7 +73,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int 
     //assumes SoA within the block i.e., AoSoA
     return
         //stride across all block before cell's block
-        cell.mBlockID * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ * cardinality() +
+        cell.mBlockID * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ * mCardinality +
         //stride within the block
         cell.pitch(card);
 }
@@ -169,12 +169,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::shmemPitch(
     const Cell& cell,
     const int   card) const -> Cell::Location::Integer
 {
-    //similar to bCell.pitch but we add the stencil radius to the block size
-    return
-        //stride across cardinalities before card within the block
-        (2 * mStencilRadius + Cell::sBlockSizeX) * (2 * mStencilRadius + Cell::sBlockSizeY) * (2 * mStencilRadius + Cell::sBlockSizeZ) * static_cast<Cell::Location::Integer>(card) +
-        //offset to this cell's data
-        (cell.mLocation.x + mStencilRadius) + (cell.mLocation.y + mStencilRadius) * (2 * mStencilRadius + Cell::sBlockSizeX) + (cell.mLocation.z + mStencilRadius) * (2 * mStencilRadius + Cell::sBlockSizeX) * (2 * mStencilRadius + Cell::sBlockSizeY);
+    return cell.pitch(card, mStencilRadius);
 }
 
 template <typename T, int C>
@@ -434,4 +429,38 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
     mIsInSharedMem = true;
 #endif
 };
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
+    [[maybe_unused]] const Cell&                cell,
+    [[maybe_unused]] const nghIdx_t::Integer    stencilRadius,
+    [[maybe_unused]] Neon::sys::ShmemAllocator& shmemAlloc) const -> void
+{
+#ifdef NEON_PLACE_CUDA_DEVICE
+    //TODO only works on cardinality 1 for now
+    assert(mCardinality == 1);
+
+    namespace cg = cooperative_groups;
+    cg::thread_block block = cg::this_thread_block();
+    mStencilRadius = stencilRadius;
+
+    mMemSharedMem = shmemAlloc.alloc<T>((Cell::sBlockSizeX + 2 * mStencilRadius) *
+                                        (Cell::sBlockSizeY + 2 * mStencilRadius) *
+                                        (Cell::sBlockSizeZ + 2 * mStencilRadius) * mCardinality);
+    //load the interior
+    Neon::sys::loadSharedMemAsync(block,
+                                  mMem + cell.mBlockID * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ * mCardinality,
+                                  Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ,
+                                  mMemSharedMem, false);
+
+
+    //wait for all memory to arrive
+    cg::wait(block);
+    //do we really need a sync here or wait() is enough
+    block.sync();
+    mIsInSharedMem = true;
+#endif
+};
+
+
 }  // namespace Neon::domain::internal::bGrid
