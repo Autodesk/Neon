@@ -5,9 +5,11 @@ repo_name: GitHub
 site_favicon: img/favicon.ico
 
 nav:
+    - Neon's home: index.md
     - User Guides:
       - Introduction to Neon:
         - Structure of the Library: ./user-guides/introduction-to-neon/01-neon-structure.md
+        - The System Level: ./user-guides/introduction-to-neon/02-the-system-level.md
         - The Set Level: ./user-guides/introduction-to-neon/03-the-set-level.md
         - The Domain Level: ./user-guides/introduction-to-neon/04-the-domain-level.md
         - The Skeleton Level: ./user-guides/introduction-to-neon/05-the-skeleton-level.md
@@ -23,7 +25,7 @@ nav:
         - Maintainers: maintainers.md
 theme:
   name: readthedocs
-  navigation_depth: 4
+  navigation_depth: 2
 
 markdown_extensions:
   - pymdownx.arithmatex:

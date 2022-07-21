@@ -1,4 +1,4 @@
-![](04-layers-domain.png){ align=right  style="width:200px"}
+![](img/04-layers-domain.png){ align=right  style="width:200px"}
 # The Domain Level
 
 
