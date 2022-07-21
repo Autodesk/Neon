@@ -7,13 +7,14 @@ site_favicon: img/favicon.ico
 nav:
     - User Guides:
       - Introduction to Neon:
-        - Structure of the Library: ./user-guides/introduction-to-neon/neon-structure.md
-        - The Set Level: ./user-guides/introduction-to-neon/the-set-level.md
-        - The Domain Level: ./user-guides/introduction-to-neon/the-domain-level.md
-        - The Skeleton Level: ./user-guides/introduction-to-neon/the-skeleton-level.md
+        - Structure of the Library: ./user-guides/introduction-to-neon/01-neon-structure.md
+        - The Set Level: ./user-guides/introduction-to-neon/03-the-set-level.md
+        - The Domain Level: ./user-guides/introduction-to-neon/04-the-domain-level.md
+        - The Skeleton Level: ./user-guides/introduction-to-neon/05-the-skeleton-level.md
       - Tutorials: 
         - Mandelbrot: user-guides/tutorials/mandelbrot.md
     - References:
+        - Papers and Presentations: user-guides/reference/papers-presentations.md
         - API Documentation: user-guides/reference/api-documentation.md
         - Performance Considerations: user-guides/reference/performance-considerations.md
     - Community:
@@ -27,10 +28,7 @@ theme:
 markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
-  - pymdownx.highlight:
-      anchor_linenums: true
-  - pymdownx.superfences
-
+  - attr_list
 extra_javascript:
   - javascripts/mathjax.js
   - https://polyfill.io/v3/polyfill.min.js?features=es6
