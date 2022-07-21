@@ -6,23 +6,26 @@ site_favicon: img/favicon.ico
 
 nav:
     - Neon's home: index.md
-    - User Guides:
-      - Introduction to Neon:
-        - Structure of the Library: ./user-guides/introduction-to-neon/01-neon-structure.md
-        - The System Level: ./user-guides/introduction-to-neon/02-the-system-level.md
-        - The Set Level: ./user-guides/introduction-to-neon/03-the-set-level.md
-        - The Domain Level: ./user-guides/introduction-to-neon/04-the-domain-level.md
-        - The Skeleton Level: ./user-guides/introduction-to-neon/05-the-skeleton-level.md
+    - Learn:
+      - Introduction:
+        - Structure of the Library: ./learn/introduction/01-neon-structure.md
+        - The System Level: ./learn/introduction/02-the-system-level.md
+        - The Set Level: ./learn/introduction/03-the-set-level.md
+        - The Domain Level: ./learn/introduction/04-the-domain-level.md
+        - The Skeleton Level: ./learn/introduction/05-the-skeleton-level.md
+      - Advanced Mechanisms:
+          - Multi-resolution: ./learn/advanced-mechanisms/multi-resolution.md
       - Tutorials: 
-        - Mandelbrot: user-guides/tutorials/mandelbrot.md
+        - Mandelbrot: learn/tutorials/mandelbrot.md
     - References:
-        - Papers and Presentations: user-guides/reference/papers-presentations.md
-        - API Documentation: user-guides/reference/api-documentation.md
-        - Performance Considerations: user-guides/reference/performance-considerations.md
+        - Papers and Presentations: learn/reference/papers-presentations.md
+        - API Documentation: learn/reference/api-documentation.md
+        - Performance Considerations: learn/reference/performance-considerations.md
     - Community:
         - Contributing : CONTRIBUTING.md
         - Contributors : CONTRIBUTORS.md
         - Maintainers: maintainers.md
+
 theme:
   name: readthedocs
   navigation_depth: 2
