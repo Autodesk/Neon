@@ -30,7 +30,8 @@ class bPartition
                         uint32_t*       neighbourBlocks,
                         Neon::int32_3d* origin,
                         uint32_t*       mask,
-                        T               defaultValue);
+                        T               defaultValue,
+                        nghIdx_t*       stencilNghIndex);
 
     inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int;
 
@@ -47,6 +48,11 @@ class bPartition
                                              const nghIdx_t& offset,
                                              const int       card,
                                              const T         alternativeVal) const -> NghInfo<T>;
+
+    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Cell& eId,
+                                             uint8_t     nghID,
+                                             int         card,
+                                             const T&    alternativeVal) const -> NghInfo<T>;
 
     NEON_CUDA_HOST_DEVICE inline void loadInSharedMemory(const Cell&                cell,
                                                          const nghIdx_t::Integer    stencilRadius,
@@ -65,6 +71,7 @@ class bPartition
     Neon::int32_3d*           mOrigin;
     uint32_t*                 mMask;
     T                         mOutsideValue;
+    nghIdx_t*                 mStencilNghIndex;
     mutable bool              mIsInSharedMem;
     mutable T*                mMemSharedMem;
     mutable nghIdx_t::Integer mStencilRadius;
