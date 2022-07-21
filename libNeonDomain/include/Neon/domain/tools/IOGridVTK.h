@@ -32,7 +32,7 @@ class IOGridVTK : private IoToVTK<intType_ta, real_tt>
     IOGridVTK(const Neon::domain::interface::GridBase& grid,
               const std::string&                      filename /*!   File name */,
               bool                                    isNodeSpace = true,
-              ioVTI_e::e                              vtiIOe = ioVTI_e::e::ASCII /*! Binary or ASCII file  */);
+              IoFileType                               vtiIOe = IoFileType::ASCII /*! Binary or ASCII file  */);
 
     /**
      * Add a field to the file

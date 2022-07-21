@@ -28,6 +28,14 @@ namespace Neon {
 template <typename ExportType, typename IntType = int>
 struct IODense
 {
+   private:
+    enum struct Representation
+    {
+        IMPLICIT,
+        EXPLICIT
+    };
+
+   public:
     using Index = IntType /** type used to index elements */;
     using Type = ExportType /** Type of the data stored in the grid cells */;
 
@@ -47,13 +55,17 @@ struct IODense
             int                         c,
             Neon::memLayout_et::order_e order = Neon::memLayout_et::order_e::structOfArrays);
 
+    IODense(const Integer_3d<IntType>&                                              d,
+            int                                                                     c,
+            const std::function<ExportType(const Integer_3d<IntType>&, int cardinality)>& fun);
     /**
      * Generate a dense field using an implicit representation.
      */
     template <typename Lambda_ta>
     static auto densify(const Lambda_ta&           fun /*!            Implicit definition of the user field */,
                         const Integer_3d<IntType>& space /*!          dense grid dimension */,
-                        int                        cardinality /*!    Field cardinality */)
+                        int                        cardinality /*!    Field cardinality */,
+                        Representation             representation = Representation::EXPLICIT)
         -> IODense<ExportType, IntType>;
 
     /**
@@ -134,7 +146,7 @@ struct IODense
         -> ExportType&;
 
     auto operator()(const Integer_3d<IntType>& xyz /**< Point in the grid        */,
-                  int                        card /**< Cardinality of the field */) const
+                    int                        card /**< Cardinality of the field */) const
         -> ExportType;
     /**
      * For each operator to visit all field elements in parallel
@@ -172,18 +184,21 @@ struct IODense
                ioToVTKns::VtiDataType_e nodeOrVoxel = ioToVTKns::VtiDataType_e::node,
                const Vec_3d<double>&    spacingData = Vec_3d<double>(1, 1, 1) /*! Spacing, i.e. size of a voxel */,
                const Vec_3d<double>&    origin = Vec_3d<double>(0, 0, 0) /*!      Origin  */,
-               ioVTI_e::e               vtiIOe = ioVTI_e::e::ASCII /*!            Binary or ASCII file  */)
+               IoFileType               vtiIOe = IoFileType::ASCII /*!            Binary or ASCII file  */)
         -> void;
 
    private:
+
     auto initPitch() -> void;
 
-    std::shared_ptr<ExportType[]> mMemSharedPtr;
-    ExportType*                   mMem;
-    Integer_3d<IntType>           mSpace /*! IoDense dimension */;
-    int                           mCardinality;
-    Neon::memLayout_et::order_e   mOrder;
-    Neon::size_4d                 mPitch;
+    std::shared_ptr<ExportType[]>                                          mMemSharedPtr;
+    ExportType*                                                            mMem;
+    Integer_3d<IntType>                                                    mSpace /*! IoDense dimension */;
+    int                                                                    mCardinality;
+    Neon::memLayout_et::order_e                                            mOrder;
+    Neon::size_4d                                                          mPitch;
+    Representation                                                         mRepresentation;
+    std::function<ExportType(const Integer_3d<IntType>&, int cardinality)> mImplicitFun;
 };
 
 }  // namespace Neon
