@@ -102,7 +102,7 @@ auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
             for (int32_t i = 0; i < dims.size(); ++i) {
                 dims[i] = m_data->partitionDims[i];
                 dims[i].z = dims[i].z - m_zBoundaryRadius * 2;
-                if (dims[i].z <= 0) {
+                if (dims[i].z <= 0 && dims.size() > 1) {
                     NeonException exp("dGrid");
                     exp << "The grid size is too small to support the data view model correctly";
                     NEON_THROW(exp);
