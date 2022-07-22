@@ -58,13 +58,15 @@ Neon is licenced under the Apache License, Version 2.0. For more information ple
 ## How to cite Neon
 
 ```
-@article{Meneghin:2022:NAM,
-    title = {Neon: A Multi-GPU Programming Model for Grid-based Computations},
-    booktitle = {Proceedings of the 36th IEEE International Parallel and Distributed Processing Symposium},
-    series = {IPDPS 2022},
-    year = 2022,
-    month = june,
-    author = {Meneghin, Massimiliano and Mahmoud, Ahmed H. and Jayaraman, Pradeep Kumar and Morris, Nigel J. W.},
-    url = {https://escholarship.org/uc/item/9fz7k633}
+@INPROCEEDINGS{Meneghin:2022:NAM,
+  author = {Meneghin, Massimiliano and Mahmoud, Ahmed H. and Jayaraman, Pradeep Kumar and Morris, Nigel J. W.},
+  booktitle = {2022 IEEE International Parallel and Distributed Processing Symposium (IPDPS)}, 
+  title = {Neon: A Multi-GPU Programming Model for Grid-based Computations}, 
+  year = {2022},
+  volume = {},
+  number = {},
+  pages = {817-827},
+  doi = {10.1109/IPDPS53621.2022.00084}
+  url = {https://escholarship.org/uc/item/9fz7k633}
 }
 ```
