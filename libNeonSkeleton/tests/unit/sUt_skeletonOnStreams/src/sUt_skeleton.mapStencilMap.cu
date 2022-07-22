@@ -27,7 +27,6 @@ void MapStencilMap(TestData<G, T, C>&      data,
                    Neon::skeleton::Occ     occ,
                    Neon::set::TransferMode transfer)
 {
-
     using Type = typename TestData<G, T, C>::Type;
 
     auto occName = Neon::skeleton::OccUtils::toString(occ);
@@ -81,7 +80,6 @@ void MapStencilMap(TestData<G, T, C>&      data,
             data.axpy(&dR, Y, Y);
         }
     }
-
     bool isOk = data.compare(FieldNames::X);
     isOk = isOk && data.compare(FieldNames::Y);
 
