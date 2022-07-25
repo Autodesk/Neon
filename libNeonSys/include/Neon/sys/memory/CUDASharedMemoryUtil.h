@@ -20,13 +20,13 @@ extern __shared__ char SHMEM_START[];
  * @param out output buffer in shared memory
  * @param with_wait whether to wait after loading in shared memory or not
 */
-template <typename T, typename SizeT>
+template <typename T, typename SizeT, typename CGType>
 NEON_CUDA_DEVICE_ONLY __inline__ void loadSharedMemAsync(
-    ::cooperative_groups::thread_block& block,
-    const T*                            in,
-    const SizeT                         size,
-    T*                                  out,
-    bool                                with_wait)
+    CGType&     block,
+    const T*    in,
+    const SizeT size,
+    T*          out,
+    bool        with_wait)
 {
 
     cooperative_groups::memcpy_async(block, out, in, sizeof(T) * size);

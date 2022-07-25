@@ -439,6 +439,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
 #ifdef NEON_PLACE_CUDA_DEVICE
     //TODO only works on cardinality 1 for now
     assert(mCardinality == 1);
+    //TODO only works on stencil 1 for now
+    assert(stencilRadius == 1);
 
     namespace cg = cooperative_groups;
     cg::thread_block block = cg::this_thread_block();
@@ -447,12 +449,97 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
     mMemSharedMem = shmemAlloc.alloc<T>((Cell::sBlockSizeX + 2 * mStencilRadius) *
                                         (Cell::sBlockSizeY + 2 * mStencilRadius) *
                                         (Cell::sBlockSizeZ + 2 * mStencilRadius) * mCardinality);
-    //load the interior
-    Neon::sys::loadSharedMemAsync(block,
-                                  mMem + cell.mBlockID * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ * mCardinality,
-                                  Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ,
-                                  mMemSharedMem, false);
 
+
+    Cell::Location::Integer shmem_offset = 0;
+
+    auto load = [&](const int16_3d block_offset,
+                    const uint32_t src_offset,
+                    const uint32_t size) {
+        uint32_t ngh_block_id = mNeighbourBlocks[26 * cell.mBlockID + Cell::getNeighbourBlockID(block_offset)];
+        assert(ngh_block_id != cell.mBlockID);
+        if (ngh_block_id != std::numeric_limits<uint32_t>::max()) {
+            Neon::sys::loadSharedMemAsync(
+                block,
+                mMem + ngh_block_id * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ * mCardinality + src_offset,
+                //     ^^start of this block                                                                    ^^ offset from the start
+                size,
+                mMemSharedMem + shmem_offset,
+                false);
+            shmem_offset += size;
+        }
+    };
+
+
+    //load the interior
+    Neon::sys::loadSharedMemAsync(
+        block,
+        mMem + cell.mBlockID * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ * mCardinality,
+        Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ,
+        mMemSharedMem,
+        false);
+    shmem_offset += Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ;
+
+
+    if (mStencilRadius > 0) {
+        int16_3d block_offset(0, 0, 0);
+
+        //load -Z faces
+        block_offset.x = 0;
+        block_offset.y = 0;
+        block_offset.z = -1;
+        load(block_offset,
+             Cell::sBlockSizeX * Cell::sBlockSizeY * (Cell::sBlockSizeZ - 1),
+             Cell::sBlockSizeX * Cell::sBlockSizeY);
+
+
+        //load +Z faces
+        block_offset.x = 0;
+        block_offset.y = 0;
+        block_offset.z = 1;
+        load(block_offset,
+             0,
+             Cell::sBlockSizeX * Cell::sBlockSizeY);
+
+
+        for (int z = 0; z < Cell::sBlockSizeZ; ++z) {
+            // load strips from -Y
+            block_offset.x = 0;
+            block_offset.y = -1;
+            block_offset.z = 0;
+            load(block_offset,
+                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 14,
+                 Cell::sBlockSizeX);
+
+            // load strips from +Y
+            block_offset.x = 0;
+            block_offset.y = 1;
+            block_offset.z = 0;
+            load(block_offset,
+                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 0,
+                 Cell::sBlockSizeX);
+
+            // load strips from -X
+            block_offset.x = -1;
+            block_offset.y = 0;
+            block_offset.z = 0;
+            load(block_offset,
+                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 7,
+                 Cell::sBlockSizeY);
+
+
+            // load strips from +X
+            block_offset.x = 1;
+            block_offset.y = 0;
+            block_offset.z = 0;
+            load(block_offset,
+                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 21,
+                 Cell::sBlockSizeY - 1);
+            load(block_offset,
+                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 0,
+                 1);
+        }
+    }
 
     //wait for all memory to arrive
     cg::wait(block);
@@ -461,6 +548,5 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
     mIsInSharedMem = true;
 #endif
 };
-
 
 }  // namespace Neon::domain::internal::bGrid
