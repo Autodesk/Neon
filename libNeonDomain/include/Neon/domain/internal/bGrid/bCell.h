@@ -27,7 +27,7 @@ class bCell
     static constexpr BlockSizeT sBlockSizeY = 8;
     static constexpr BlockSizeT sBlockSizeZ = 8;
     static constexpr BlockSizeT sBlockSize[3]{sBlockSizeX, sBlockSizeY, sBlockSizeZ};
-    static constexpr bool       sUseSwirlIndex = false;
+    static constexpr bool       sUseSwirlIndex = true;
 
     //We use uint32_t data type to store the block mask and thus the mask size is 32
     //i.e., each entry in the mask array store the state of 32 voxels

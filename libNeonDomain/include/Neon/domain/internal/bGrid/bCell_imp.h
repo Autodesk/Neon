@@ -29,6 +29,13 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::get() const -> const Location&
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::getLocal1DID() const -> Location::Integer
 {
+    //On the GPU, the cell index is always the canonical index to preserve coalescing
+    //On the CPU and in case of swirl index, we map the index to its swirl index
+#ifdef NEON_PLACE_CUDA_DEVICE
+    return mLocation.x +
+           mLocation.y * sBlockSizeX +
+           mLocation.z * sBlockSizeX * sBlockSizeY;
+#else
     if constexpr (sUseSwirlIndex) {
         //the swirl index changes the xy coordinates only and keeps the z as it is
         Location::Integer xy = canonicalToSwirl(mLocation.x +
@@ -40,6 +47,7 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::getLocal1DID() const -> Location::Integ
                mLocation.y * sBlockSizeX +
                mLocation.z * sBlockSizeX * sBlockSizeY;
     }
+#endif
 }
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::swirlToCanonical(const Location::Integer id) -> Location::Integer
@@ -182,7 +190,23 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::canonicalToSwirl(const Location::Intege
     // +---------------------------------------+
 
     //from 0-7, no change
-    if (id == 8) {
+    if (id == 0) {
+        return 0;
+    } else if (id == 1) {
+        return 1;
+    } else if (id == 2) {
+        return 2;
+    } else if (id == 3) {
+        return 3;
+    } else if (id == 4) {
+        return 4;
+    } else if (id == 5) {
+        return 5;
+    } else if (id == 6) {
+        return 6;
+    } else if (id == 7) {
+        return 7;
+    } else if (id == 8) {
         return 27;
     } else if (id == 9) {
         return 28;
@@ -294,6 +318,9 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::canonicalToSwirl(const Location::Intege
         return 15;
     } else if (id == 63) {
         return 14;
+    } else {
+        assert(1 != 1);
+        return -1;
     }
 }
 
@@ -373,7 +400,7 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::pitch(int card) const -> Location::Inte
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::pitch(const int card, const nghIdx_t::Integer radius) const -> Location::Integer
 {
-    //simialr to pitch but the block is augmented with halo
+    //similar to pitch but the block is augmented with halo
     return
         //stride across cardinalities before card within the block
         (2 * radius + sBlockSizeX) * (2 * radius + sBlockSizeY) * (2 * radius + sBlockSizeZ) * static_cast<Location::Integer>(card) +
