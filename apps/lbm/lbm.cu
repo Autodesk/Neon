@@ -164,7 +164,45 @@ Neon::set::Container computeVelocity(const RealFieldT&         in_voxels,
                                      RealFieldT&               density_temp,
                                      typename RealFieldT::Type tau)
 {
-    return Neon::set::Container();
+    using T = typename RealFieldT::Type;
+    return in_voxels.getGrid().getContainer(
+        "ComputeVelocity", [&, tau](Neon::set::Loader& loader) {
+            const auto& ins = loader.load(in_voxels);
+            auto&       olds = loader.load(old_voxels);
+            const auto& m = loader.load(mask);
+            auto&       rho = loader.load(density);
+            auto&       rho_temp = loader.load(density_temp);
+            auto&       out_vel = loader.load(out_velocity);
+
+            return [=] NEON_CUDA_HOST_DEVICE(
+                       const typename RealFieldT::Cell& idx) mutable {
+                typename RealFieldT::ngh_idx ngh(0, 0, 0);
+                const T                      default_value = 0;
+                T                            r = 0;
+                T                            vels[DIM];
+                for (int i = 0; i < DIM; i++) {
+                    vels[i] = 0.0;
+                }
+                int mask_val = m.nghVal(idx, ngh, 0, default_value).value;
+                for (int k = 0; k < COMP; k++) {
+                    T f = ins.nghVal(idx, ngh, k, default_value).value;
+                    olds(idx, k) = f;
+                    r += f;
+                    for (int i = 0; i < DIM; i++) {
+                        T e_i = get_e<DIM>(k, i);
+                        vels[i] += e_i * f;
+                    }
+                }
+                if (mask_val != 0) {
+                    for (int i = 0; i < DIM; i++) {
+                        vels[i] /= r;
+                        out_vel(idx, i) = vels[i];
+                    }
+                    rho(idx, 0) = r;
+                    rho_temp(idx, 0) = r;
+                }
+            };
+        });
 }
 
 
@@ -196,7 +234,45 @@ Neon::set::Container collideAndStream(const RealFieldT&         density,
                                       RealFieldT&               out_voxels,
                                       typename RealFieldT::Type tau)
 {
-    return Neon::set::Container();
+    using T = typename RealFieldT::Type;
+    return in_voxels.getGrid().getContainer(
+        "CollideAndStream", [&, tau](Neon::set::Loader& loader) {
+            const auto& ins = loader.load(in_voxels, Neon::Compute::STENCIL);
+            const auto& in_vel = loader.load(in_velocity, Neon::Compute::STENCIL);
+            const auto& rho = loader.load(density, Neon::Compute::STENCIL);
+            const auto& m = loader.load(mask);
+            auto&       out = loader.load(out_voxels);
+
+
+            return [=] NEON_CUDA_HOST_DEVICE(
+                       const typename RealFieldT::Cell& idx) mutable {
+                typename RealFieldT::ngh_idx ngh(0, 0, 0);
+                const T                      default_value = 0;
+
+                int mask_val = m.nghVal(idx, ngh, 0, default_value).value;
+
+                for (int k = 0; k < COMP; k++) {
+                    T vel = 0;
+                    T eu = 0;
+                    T uv = 0;
+                    ngh.x = -get_e<DIM>(k, 0);
+                    ngh.y = -get_e<DIM>(k, 1);
+                    ngh.z = -get_e<DIM>(k, 2);
+                    T fold = ins.nghVal(idx, ngh, k, default_value).value;
+                    T r = rho.nghVal(idx, ngh, 0, default_value).value;
+                    for (int i = 0; i < DIM; i++) {
+                        int e_i = get_e<DIM>(k, i);
+                        vel = in_vel.nghVal(idx, ngh, i, default_value).value;
+                        eu += (e_i * vel);
+                        uv += (vel * vel);
+                    }
+                    T feq = get_w<DIM>(k) * r * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
+                    if (mask_val != 0) {
+                        out(idx, k) = ((1.0 - 1.0 / tau) * fold + 1.0 / tau * feq);
+                    }
+                }
+            };
+        });
 }
 
 /**
@@ -227,14 +303,16 @@ template <unsigned int DIM,
           unsigned int COMP,
           typename RealFieldT,
           typename MaskFeildT>
-Neon::set::Container boundaryConditions(const RealFieldT&         in_voxels,
-                                        const RealFieldT&         in_velocity,
-                                        const MaskFeildT&         boundary_mask,
-                                        const RealFieldT&         read_density,
-                                        RealFieldT&               out_voxels,
-                                        RealFieldT&               out_velocity,
-                                        RealFieldT&               density,
-                                        typename RealFieldT::Type tau)
+Neon::set::Container boundaryConditions(const RealFieldT&               in_voxels,
+                                        const RealFieldT&               in_velocity,
+                                        const MaskFeildT&               boundary_mask,
+                                        const RealFieldT&               read_density,
+                                        RealFieldT&                     out_voxels,
+                                        RealFieldT&                     out_velocity,
+                                        RealFieldT&                     density,
+                                        const typename RealFieldT::Type tau,
+                                        const typename RealFieldT::Type sphere_x,
+                                        const typename RealFieldT::Type sphere_y)
 {
     using T = typename RealFieldT::Type;
     return in_voxels.getGrid().getContainer(
@@ -279,9 +357,8 @@ Neon::set::Container boundaryConditions(const RealFieldT&         in_voxels,
             }
 
 
-            const T x_c = 160.0;
-            const T y_c = 100.0;
-            const T r_c = 20.0;
+            const T x_c = sphere_x;
+            const T y_c = sphere_y;
 
             const Neon::index_3d dims = in_voxels.getDimension();
 
@@ -289,16 +366,9 @@ Neon::set::Container boundaryConditions(const RealFieldT&         in_voxels,
                        const typename RealFieldT::Cell& idx) mutable {
                 typename RealFieldT::ngh_idx ngh(0, 0, 0);
                 const T                      default_value = 0;
-                T                            fold = 0;
-                int                          e_x, e_y;
-                int                          x, y;
-                x = y = 0;
-                T r = 0.0;
-                T eu, uv;
-                T vbc, vnb;
-                T vels[DIM];
-                T new_vals[DIM];
-                T e_i[DIM];
+                T                            vels[DIM];
+                T                            new_vals[DIM];
+                T                            e_i[DIM];
 
                 int nx = dims.x, ny = dims.y;
                 int boundary = mask.nghVal(idx, ngh, 0, default_value).value;
@@ -367,7 +437,7 @@ Neon::set::Container boundaryConditions(const RealFieldT&         in_voxels,
                 ngh.y = offsets.y;
                 ngh.z = offsets.z;
 
-                r = rho_old.nghVal(idx, ngh, 0, default_value).value;
+                T r = rho_old.nghVal(idx, ngh, 0, default_value).value;
                 if (boundary == 1) {  // fixed boundary
                     for (int i = 0; i < DIM; i++) {
                         new_vals[i] = (dr != -1) ? bc_values[dr][i] : 0;
@@ -394,20 +464,21 @@ Neon::set::Container boundaryConditions(const RealFieldT&         in_voxels,
                         e_i[i] = get_e<DIM>(k, i);
                         e_i[i] = 0;
                     }
-                    fold = ins.nghVal(idx, ngh, k, default_value).value;
-                    eu = uv = 0;
+                    T fold = ins.nghVal(idx, ngh, k, default_value).value;
+                    T eu = 0;
+                    T uv = 0;
                     for (int i = 0; i < DIM; i++) {
                         eu += e_i[i] * new_vals[i];
                         uv += new_vals[i] * new_vals[i];
                     }
-                    vbc = get_w<2>(k) * r * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
+                    T vbc = get_w<2>(k) * r * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
 
                     eu = uv = 0;
                     for (int i = 0; i < DIM; i++) {
                         eu += e_i[i] * new_vals[i];
                         uv += new_vals[i] * new_vals[i];
                     }
-                    vnb = get_w<2>(k) * r * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
+                    T vnb = get_w<2>(k) * r * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
                     if (boundary != 0) {
                         // note f_eq only depends on velocity, rho
                         outs(idx, k) = vbc - vnb + fold;
@@ -419,15 +490,18 @@ Neon::set::Container boundaryConditions(const RealFieldT&         in_voxels,
 
 
 template <unsigned int DIM, unsigned int COMP, typename RealFieldT, typename MaskFeildT>
-inline void setup(const FlowType flow_type,
-                  MaskFeildT&    boundary_mask,
-                  MaskFeildT&    center_mask,
-                  RealFieldT&    lattice_1,
-                  RealFieldT&    lattice_2,
-                  RealFieldT&    velocity_1,
-                  RealFieldT&    velocity_2,
-                  RealFieldT&    rho_1,
-                  RealFieldT&    rho_2)
+inline void setup(const FlowType                  flow_type,
+                  MaskFeildT&                     boundary_mask,
+                  MaskFeildT&                     center_mask,
+                  RealFieldT&                     lattice_1,
+                  RealFieldT&                     lattice_2,
+                  RealFieldT&                     velocity_1,
+                  RealFieldT&                     velocity_2,
+                  RealFieldT&                     rho_1,
+                  RealFieldT&                     rho_2,
+                  const typename RealFieldT::Type sphere_x,
+                  const typename RealFieldT::Type sphere_y,
+                  const typename RealFieldT::Type sphere_r)
 {
     auto dim = boundary_mask.getDimension();
     using T = typename RealFieldT::Type;
@@ -453,14 +527,11 @@ inline void setup(const FlowType flow_type,
                     }
                 });
         } else if (flow_type == FlowType::obstacle) {
-            T x_c = 160.0;
-            T y_c = 100.0;
-            T r_c = 20.0;
             boundary_mask.forEachActiveCell(
                 [&](const Neon::index_3d& idx, const int& c, int& val) {
-                    T dist = (idx.x - x_c) * (idx.x - x_c) +
-                             (idx.y - y_c) * (idx.y - y_c);
-                    bool in_circle = dist <= r_c * r_c;
+                    T dist = (idx.x - sphere_x) * (idx.x - sphere_x) +
+                             (idx.y - sphere_y) * (idx.y - sphere_y);
+                    bool in_circle = dist <= sphere_r * sphere_r;
                     if (idx.x > 0 && idx.x < dim.x - 1 && idx.y > 0 &&
                         idx.y < dim.y - 1 && !in_circle) {
                         val = 1;
@@ -470,9 +541,9 @@ inline void setup(const FlowType flow_type,
                 });
             center_mask.forEachActiveCell(
                 [&](const Neon::index_3d& idx, const int& c, int& val) {
-                    T dist = (idx.x - x_c) * (idx.x - x_c) +
-                             (idx.y - y_c) * (idx.y - y_c);
-                    bool in_circle = dist <= r_c * r_c;
+                    T dist = (idx.x - sphere_x) * (idx.x - sphere_x) +
+                             (idx.y - sphere_y) * (idx.y - sphere_y);
+                    bool in_circle = dist <= sphere_r * sphere_r;
                     if (idx.x > 0 && idx.x < dim.x - 1 && idx.y > 0 &&
                         idx.y < dim.y - 1 && !in_circle) {
                         // if( idx.x > 0 && idx.x < dim.x - 1) {
@@ -575,7 +646,10 @@ inline void run(const int                       num_frames,
                 RealFieldT&                     velocity_2,
                 RealFieldT&                     rho_1,
                 RealFieldT&                     rho_2,
-                const typename RealFieldT::Type tau)
+                const typename RealFieldT::Type tau,
+                const typename RealFieldT::Type sphere_x,
+                const typename RealFieldT::Type sphere_y,
+                const typename RealFieldT::Type sphere_r)
 {
     const auto& backend = boundary_mask.getBackend();
 
@@ -592,7 +666,7 @@ inline void run(const int                       num_frames,
         lattice_2, lattice_1, boundary_mask, velocity_2, rho_1, rho_2, tau));
 
     containers.push_back(boundaryConditions<DIM, COMP>(
-        lattice_2, velocity_2, center_mask, rho_2, lattice_1, velocity_1, rho_1, tau));
+        lattice_2, velocity_2, center_mask, rho_2, lattice_1, velocity_1, rho_1, tau, sphere_x, sphere_y));
 
 
     sk.sequence(containers, "LBM", opt);
@@ -641,6 +715,10 @@ int main(int argc, char** argv)
         const float niu = (DIM == 3) ? 0.063 : ((flow_type == FlowType::border) ? 0.0255f : 0.01f);
         const float tau = 3.0 * niu + 0.5;
 
+        const float sphere_x = 160.0;
+        const float sphere_y = 100.0;
+        const float sphere_r = 20.0;
+
         const Neon::index_3d grid_dim(dim_x, dim_y, dim_z);
         const size_t         num_frames = (DIM == 2) ? 60000 : 2000;
 
@@ -669,8 +747,8 @@ int main(int argc, char** argv)
         auto boundary_mask = grid.template newField<int>("boundary_mask", rho_cardinality, int(inactive));
         auto center_mask = grid.template newField<int>("center_mask", rho_cardinality, int(inactive));
 
-        setup<DIM, COMP>(flow_type, boundary_mask, center_mask, lattice_1, lattice_2, velocity_1, velocity_2, rho_1, rho_2);
+        setup<DIM, COMP>(flow_type, boundary_mask, center_mask, lattice_1, lattice_2, velocity_1, velocity_2, rho_1, rho_2, sphere_x, sphere_y, sphere_r);
 
-        run<DIM, COMP>(num_frames, flow_type, boundary_mask, center_mask, lattice_1, lattice_2, velocity_1, velocity_2, rho_1, rho_2, tau);
+        run<DIM, COMP>(num_frames, flow_type, boundary_mask, center_mask, lattice_1, lattice_2, velocity_1, velocity_2, rho_1, rho_2, tau, sphere_x, sphere_y, sphere_r);
     }
 }
