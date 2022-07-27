@@ -6,7 +6,8 @@ file(GLOB_RECURSE SrcFiles poisson.cu)
 add_executable(${APP_NAME} ${SrcFiles})
 
 target_link_libraries(${APP_NAME} 
-	PUBLIC libNeonSkeleton)
+	PUBLIC libNeonSkeleton
+	PUBLIC libNeonSolver)
 
 set_target_properties(${APP_NAME} PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON
