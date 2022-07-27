@@ -53,6 +53,86 @@ inline void exportVTI(const int t, Field& field)
 
 
 /**
+ * Get the x, y, or z component of the lattice vector 
+ * represented by the component k.
+ */
+template <unsigned int DIM>
+NEON_CUDA_HOST_DEVICE int get_e(const int k, const int id)
+{
+    static_assert(DIM == 2 || DIM == 3, "Dimension has to be either 2 or 3");
+
+    if constexpr (DIM == 2) {
+        static int array_x[9] = {0, 1, 0, -1, 0, 1, -1, -1, 1};
+        static int array_y[9] = {0, 0, 1, 0, -1, 1, 1, -1, -1};
+        switch (id) {
+            case 0:
+                return array_x[k];
+            case 1:
+                return array_y[k];
+            default:
+                return 0;
+        }
+    }
+
+    if constexpr (DIM == 3) {
+        static int arr[19][3] = {
+            {0, 0, 0},
+
+            {1, 0, 0},
+            {-1, 0, 0},
+            {0, 1, 0},
+            {0, -1, 0},
+            {0, 0, 1},
+            {0, 0, -1},
+
+            {1, 1, 0},
+            {-1, 1, 0},
+            {1, -1, 0},
+            {-1, -1, 0},
+            {1, 0, 1},
+            {-1, 0, 1},
+            {1, 0, -1},
+            {-1, 0, -1},
+            {0, 1, 1},
+            {0, -1, 1},
+            {0, 1, -1},
+            {0, -1, -1},
+        };
+        return arr[k][id];
+    }
+}
+
+
+/**
+ * Get the weight that corresponds to the 
+ * lattice component represented by the component k.
+ */
+template <unsigned int DIM>
+NEON_CUDA_HOST_DEVICE double get_w(const int k)
+{
+    static_assert(DIM == 2 || DIM == 3, "Dimension has to be either 2 or 3");
+
+    if constexpr (DIM == 2) {
+        static double array[9] = {4.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0,
+                                  1.0 / 9.0, 1.0 / 9.0, 1.0 / 36.0,
+                                  1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0};
+        return array[k];
+    }
+
+    if constexpr (DIM == 3) {
+        static double array[19] = {
+            1.0 / 3.0,  // k = 0
+            1.0 / 18.0, 1.0 / 18.0, 1.0 / 18.0,
+            1.0 / 18.0, 1.0 / 18.0, 1.0 / 18.0,  // k = 1,..6
+            1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0,
+            1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0,  // k = 7,..12
+            1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0,
+            1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0  // k = 13,..18
+        };
+        return array[k];
+    }
+}
+/**
  * Update the velocity and density of the fluid after the
  * collide and stream step.
  * @param in_voxels The input lattice to use for computing
@@ -156,7 +236,185 @@ Neon::set::Container boundaryConditions(const RealFieldT&         in_voxels,
                                         RealFieldT&               density,
                                         typename RealFieldT::Type tau)
 {
-    return Neon::set::Container();
+    using T = typename RealFieldT::Type;
+    return in_voxels.getGrid().getContainer(
+        "BoundaryConditions", [&, tau](Neon::set::Loader& loader) {
+            const auto& ins = loader.load(in_voxels, Neon::Compute::STENCIL);
+            const auto& in_vel = loader.load(in_velocity, Neon::Compute::STENCIL);
+            const auto& mask = loader.load(boundary_mask);
+            const auto& rho_old = loader.load(read_density, Neon::Compute::STENCIL);
+            auto&       outs = loader.load(out_voxels);
+            auto&       out_vel = loader.load(out_velocity);
+            auto&       rho = loader.load(density);
+
+            T bc_values[6][3];
+            if constexpr (DIM == 2) {
+                const T bc_values_temp[6][3] = {
+                    {0.0, 0.0, 0.0},  // left, 0
+                    {0.1, 0.0, 0.0},  // top, 1 // 0.1, 0.0
+                    {0.0, 0.0, 0.0},  // right, 2
+                    {0.0, 0.0, 0.0},  // bottom, 3
+                    {0.0, 0.0, 0.0},  // z = 0, 4
+                    {0.0, 0.0, 0.0}   // z = nz - 1, 5
+                };
+                for (int i = 0; i < 6; i++) {
+                    for (int j = 0; j < 3; j++) {
+                        bc_values[i][j] = bc_values_temp[i][j];
+                    }
+                }
+            } else {  // DIM == 3
+                const T bc_values_temp[6][3] = {
+                    {0.0, 0.0, 0.0},  // left, 0
+                    {0.2, 0.0, 0.0},  // top, 1
+                    {0.0, 0.0, 0.0},  // right, 2
+                    {0.0, 0.0, 0.0},  // bottom, 3
+                    {0.0, 0.0, 0.0},  // z = 0, 4
+                    {0.0, 0.0, 0.0}   // z = nz - 1, 5
+                };
+                for (int i = 0; i < 6; i++) {
+                    for (int j = 0; j < 3; j++) {
+                        bc_values[i][j] = bc_values_temp[i][j];
+                    }
+                }
+            }
+
+
+            const T x_c = 160.0;
+            const T y_c = 100.0;
+            const T r_c = 20.0;
+
+            const Neon::index_3d dims = in_voxels.getDimension();
+
+            return [=] NEON_CUDA_HOST_DEVICE(
+                       const typename RealFieldT::Cell& idx) mutable {
+                typename RealFieldT::ngh_idx ngh(0, 0, 0);
+                const T                      default_value = 0;
+                T                            fold = 0;
+                int                          e_x, e_y;
+                int                          x, y;
+                x = y = 0;
+                T r = 0.0;
+                T eu, uv;
+                T vbc, vnb;
+                T vels[DIM];
+                T new_vals[DIM];
+                T e_i[DIM];
+
+                int nx = dims.x, ny = dims.y;
+                int boundary = mask.nghVal(idx, ngh, 0, default_value).value;
+                for (int i = 0; i < DIM; i++) {
+                    vels[i] = in_vel.nghVal(idx, ngh, i, default_value).value;
+                }
+
+                Neon::index_3d offsets;
+                int            dr = -1;
+
+                auto id_global = ins.mapToGlobal(idx);
+
+                if constexpr (DIM == 2) {
+                    if (id_global.x == 0) {
+                        offsets.x = 1;
+                        dr = 0;
+                    } else if (id_global.x == dims.x - 1) {
+                        offsets.x = -1;
+                        dr = 2;
+                    }
+                    if (id_global.y == 0) {
+                        offsets.y = 1;
+                        dr = 1;
+                    } else if (id_global.y == dims.y - 1) {
+                        offsets.y = -1;
+                        dr = 3;
+                    }
+                }
+
+                if constexpr (DIM == 3) {
+                    if (id_global.z == 0) {
+                        offsets.z = 1;
+                        dr = 4;
+                    } else if (id_global.z == dims.z - 1) {
+                        offsets.z = -1;
+                        dr = 5;
+                    }
+                    if (id_global.x == 0) {
+                        offsets.x = 1;
+                        dr = 0;
+                    } else if (id_global.x == dims.x - 1) {
+                        offsets.x = -1;
+                        dr = 2;
+                    }
+                    if (id_global.y == 0) {
+                        offsets.y = 1;
+                        dr = 1;
+                    } else if (id_global.y == dims.y - 1) {
+                        offsets.y = -1;
+                        dr = 3;
+                    }
+                }
+
+
+                if (dr == -1 && boundary == 1) {
+                    if (id_global.x >= x_c)
+                        offsets.x = 1;
+                    else
+                        offsets.x = -1;
+                    if (id_global.y >= y_c)
+                        offsets.y = 1;
+                    else
+                        offsets.y = -1;
+                }
+                ngh.x = offsets.x;
+                ngh.y = offsets.y;
+                ngh.z = offsets.z;
+
+                r = rho_old.nghVal(idx, ngh, 0, default_value).value;
+                if (boundary == 1) {  // fixed boundary
+                    for (int i = 0; i < DIM; i++) {
+                        new_vals[i] = (dr != -1) ? bc_values[dr][i] : 0;
+                        out_vel(idx, i) = new_vals[i];
+                    }
+                } else if (boundary == 2) {  // Neumann
+                    for (int i = 0; i < DIM; i++) {
+                        new_vals[i] = in_vel.nghVal(idx, ngh, i, default_value).value;
+                        out_vel(idx, i) = new_vals[i];
+                    }
+                } else {  // we can add more types later
+                    for (int i = 0; i < DIM; i++) {
+                        new_vals[i] = vels[i];
+                        out_vel(idx, i) = new_vals[i];
+                    }
+                }
+                // update density, velocity
+                rho(idx, 0) = r;
+                for (int i = 0; i < DIM; i++) {
+                    vels[i] = in_vel.nghVal(idx, ngh, i, default_value).value;
+                }
+                for (int k = 0; k < COMP; k++) {
+                    for (int i = 0; i < DIM; i++) {
+                        e_i[i] = get_e<DIM>(k, i);
+                        e_i[i] = 0;
+                    }
+                    fold = ins.nghVal(idx, ngh, k, default_value).value;
+                    eu = uv = 0;
+                    for (int i = 0; i < DIM; i++) {
+                        eu += e_i[i] * new_vals[i];
+                        uv += new_vals[i] * new_vals[i];
+                    }
+                    vbc = get_w<2>(k) * r * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
+
+                    eu = uv = 0;
+                    for (int i = 0; i < DIM; i++) {
+                        eu += e_i[i] * new_vals[i];
+                        uv += new_vals[i] * new_vals[i];
+                    }
+                    vnb = get_w<2>(k) * r * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
+                    if (boundary != 0) {
+                        // note f_eq only depends on velocity, rho
+                        outs(idx, k) = vbc - vnb + fold;
+                    }
+                }
+            };
+        });
 }
 
 
