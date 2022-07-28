@@ -5,7 +5,62 @@
 #include "Neon/solver/linear/krylov/CG.h"
 #include "Neon/solver/linear/matvecs/LaplacianMatVec.h"
 
-//#include "MxV.h"
+template <typename Grid, typename T>
+class MxV : public Neon::solver::MatVec<Grid, T>
+{
+    T m_h;
+
+   public:
+    using FieldT = typename Grid::template Field<T>;
+    using bdFieldT = typename Grid::template Field<int8_t>;
+
+    MxV(T h)
+        : Neon::solver::MatVec<Grid, T>(), m_h(h) {}
+
+    virtual Neon::set::Container matVec(const FieldT&   input,
+                                        const bdFieldT& boundary,
+                                        FieldT&         output) override
+    {
+        auto container =
+            input.getGrid().getContainer("MxV", [&](Neon::set::Loader& L) {
+                auto&   inp = L.load(input, Neon::Compute::STENCIL);
+                auto&   bnd = L.load(boundary);
+                auto&   out = L.load(output);
+                auto    step = m_h;
+                const T invh2 = T(1.0) / (step * step);
+
+                return [=] NEON_CUDA_HOST_DEVICE(
+                           const typename FieldT::Cell& idx) mutable {
+                    constexpr T defaultVal = 0;
+
+                    const int cardinality = inp.cardinality();
+
+                    for (int c = 0; c < cardinality; ++c) {
+                        const T center = inp(idx, c);
+
+                        if (bnd(idx, c) == 0) {
+                            out(idx, c) = center;
+                        } else {
+                            T   sum(0.0);
+                            int numNeighb = 0;
+
+                            for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
+                                auto neighbor = inp.nghVal(idx, nghIdx, c, defaultVal);
+                                if (neighbor.isValid) {
+                                    ++numNeighb;
+                                    sum += neighbor.value;
+                                }
+                            }
+
+                            out(idx, c) = (-sum + static_cast<T>(numNeighb) * center) * invh2;
+                        }
+                    }
+                };
+            });
+        return container;
+    }
+};
+
 
 template <typename Grid, typename T, int Cardinality>
 void testPoisson(const Neon::Backend&             backend,
@@ -33,7 +88,7 @@ void testPoisson(const Neon::Backend&             backend,
         }
     });
 
-     u.ioToVtk("poisson_init", "u");
+    u.ioToVtk("poisson_init", "u");
 
 
     // rhs: Right hand side of Poisson equation
@@ -57,8 +112,8 @@ void testPoisson(const Neon::Backend&             backend,
 
 
     // Laplacian matvec operation
-    //auto L = std::make_shared<MxV<Grid, T>>(1.0);
-    auto L = std::make_shared<Neon::solver::LaplacianMatVec<Grid, T>>(1.0);
+    auto L = std::make_shared<MxV<Grid, T>>(1.0);
+    //auto L = std::make_shared<Neon::solver::LaplacianMatVec<Grid, T>>(1.0);
 
     //  Create solver and solve problem
     Neon::solver::CG_t<Grid, T> solver;
