@@ -31,6 +31,23 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
 }
 
 template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Cell& local) const -> Neon::index_3d
+{
+    Neon::index_3d ret = mOrigin[local.mBlockID];
+    if constexpr (Cell::sUseSwirlIndex) {
+        Cell::Location::Integer xy = local.canonicalToSwirl(local.mLocation.x +
+                                                            local.mLocation.y * Cell::sBlockSizeX);
+        ret.x += xy % Cell::sBlockSizeX;
+        ret.y += xy / Cell::sBlockSizeX;
+    } else {
+        ret.x += local.mLocation.x;
+        ret.y += local.mLocation.y;
+    }
+    ret.z += local.mLocation.z;
+    return ret;
+}
+
+template <typename T, int C>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::cardinality() const -> int
 {
     return mCardinality;

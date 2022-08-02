@@ -62,6 +62,8 @@ class bPartition
                                                               const nghIdx_t::Integer    stencilRadius,
                                                               Neon::sys::ShmemAllocator& shmemAlloc) const;
 
+    NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Cell& local) const -> Neon::index_3d;
+
    private:
     inline NEON_CUDA_HOST_DEVICE auto pitch(const Cell& cell, int card) const -> uint32_t;
     inline NEON_CUDA_HOST_DEVICE auto setNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell;
