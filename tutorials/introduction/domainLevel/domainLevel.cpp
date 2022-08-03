@@ -91,17 +91,25 @@ int main(int, char**)
     std::vector<Neon::index_3d> points{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
     Neon::domain::Stencil       myStencil(points);
 
+    // Defining a discretization grid.
     Grid grid(
-        backend, dim,
-        [&](const Neon::index_3d& ) -> bool {
+        backend /** Passing the target system for the computation */,
+        dim /** Dimension of the regular grid used for the discretizasion */,
+        [&](const Neon::index_3d&) -> bool {
             return true;
-        },
+        } /** Implicit representation that identifies the interesting points in the grid */,
         myStencil);
 
+    /** Exporting information of the grid and the active points to a vtk file */
     grid.ioDomainToVtk("domain");
 
-    auto sdf = grid.newField<double>("sdf", 1, -100);
+    /** Creating a scalar field over the grid.
+     * Non active voxels will get be associated with a default value of -100 */
+    auto sdf = grid.newField<double>("sdf" /** Given name of the field */,
+                                     1 /** Number of field's component per grid point */,
+                                     -100 /** Default value for non active points */);
 
+    /** Using the signed distance function of a sphere to initialize the field's values */
     sdf.forEachActiveCell([&](const Neon::index_3d& idx, int, double& value) {
         double sdf = sdfCenteredSphere(idx, dim, voxelEdge, r);
         value = sdf;

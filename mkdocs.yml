@@ -15,12 +15,12 @@ nav:
         - The Skeleton Level: ./learn/introduction/05-the-skeleton-level.md
       - Advanced Mechanisms:
           - Multi-resolution: ./learn/advanced-mechanisms/multi-resolution.md
-      - Tutorials: 
-        - Mandelbrot: learn/tutorials/mandelbrot.md
+      - Examples:
+        - Mandelbrot: learn/examples/mandelbrot.md
     - References:
-        - Papers and Presentations: learn/reference/papers-presentations.md
-        - API Documentation: learn/reference/api-documentation.md
-        - Performance Considerations: learn/reference/performance-considerations.md
+        - Papers and Presentations: references/papers-presentations.md
+        - API Documentation: references/api-documentation.md
+        - Performance: references/performance-considerations.md
     - Community:
         - Contributing : CONTRIBUTING.md
         - Contributors : CONTRIBUTORS.md
