@@ -75,47 +75,45 @@ auto sdfCenteredSphere(Neon::int32_3d idx /**< queried location*/,
 int main(int, char**)
 {
     Neon::init();
-    const int32_t    n = 25;
-    const double     voxelEdge = 1.0;
-    Neon::index_3d   dim(n, n, n);
+
+    // User define parameters for the problem
+    const int32_t  n = 25;
+    const double   voxelEdge = 1.0;
+    Neon::index_3d dim(n, n, n);
+    const double   r = (n * voxelEdge / 2) * .8;
+
+    // Defining the resources where to run the application
     std::vector<int> gpu_ids{0};
-    const double     r = (n * voxelEdge / 2) * .8;
-
-    auto runtime = Neon::Runtime::stream;
+    auto             runtime = Neon::Runtime::stream;
     // auto runtime = Neon::Runtime::openmp;
-
     Neon::Backend backend(gpu_ids, runtime);
 
+    // Defining the grid
     using Grid = Neon::domain::eGrid;
-
     std::vector<Neon::index_3d> points{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
-    Neon::domain::Stencil       myStencil(points);
+    Neon::domain::Stencil       gradStencil(points);
 
-    // Defining a discretization grid.
     Grid grid(
         backend /** Passing the target system for the computation */,
         dim /** Dimension of the regular grid used for the discretizasion */,
         [&](const Neon::index_3d&) -> bool {
             return true;
-        } /** Implicit representation that identifies the interesting points in the grid */,
-        myStencil);
-
-    /** Exporting information of the grid and the active points to a vtk file */
-    grid.ioDomainToVtk("domain");
+        } /** We are looking for a dense domain, so we are interested in all the points in the grid */,
+        gradStencil /** Stencil that will be used during computations on the grid */);
 
     /** Creating a scalar field over the grid.
      * Non active voxels will get be associated with a default value of -100 */
-    auto sdf = grid.newField<double>("sdf" /** Given name of the field */,
+    auto sphereSdf = grid.newField<double>("sdf" /** Given name of the field */,
                                      1 /** Number of field's component per grid point */,
                                      -100 /** Default value for non active points */);
 
     /** Using the signed distance function of a sphere to initialize the field's values */
-    sdf.forEachActiveCell([&](const Neon::index_3d& idx, int, double& value) {
+    sphereSdf.forEachActiveCell([&](const Neon::index_3d& idx, int, double& value) {
         double sdf = sdfCenteredSphere(idx, dim, voxelEdge, r);
         value = sdf;
     });
 
-    sdf.ioToVtk("sdf", "sdf");
+    sphereSdf.ioToVtk("sdf", "sdf");
     //
     //    int   cardinality = 1;
     //    float inactiveValue = 0.0f;
