@@ -268,18 +268,18 @@ struct dPartition
     }
 
 
-    NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Neon::index_3d& local) const -> Neon::index_3d
+    NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Cell& local) const -> Neon::index_3d
     {
-        assert(local.x >= 0 &&
-               local.y >= 0 &&
-               local.z >= -m_zHaloRadius &&
-               local.x < m_dim.x &&
-               local.y < m_dim.y &&
-               local.z < m_dim.z + m_zHaloRadius);
+        assert(local.mLocation.x >= 0 &&
+               local.mLocation.y >= 0 &&
+               local.mLocation.z >= -m_zHaloRadius &&
+               local.mLocation.x < m_dim.x &&
+               local.mLocation.y < m_dim.y &&
+               local.mLocation.z < m_dim.z + m_zHaloRadius);
 
         switch (m_dataView) {
             case Neon::DataView::STANDARD: {
-                return local + m_origin;
+                return local.mLocation + m_origin;
             }
             default: {
             }

@@ -20,7 +20,7 @@ class FieldBase
 {
    public:
     using Self = FieldBase<T, C>;
-
+    using Type = T;
     virtual ~FieldBase() = default;
 
     FieldBase();
