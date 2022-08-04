@@ -128,11 +128,7 @@ class GridBase
     auto getDefaultBlock() const
         -> const Neon::index_3d&;
 
-    /**
-     * Exporting the domain active voxel to vtk
-     */
-    auto ioDomainToVtk(const std::string& fileName,
-                       Neon::IoFileType   vtiIOe = IoFileType::ASCII) const -> void;
+
 
    protected:
     auto init(const std::string&                gridImplementationName,

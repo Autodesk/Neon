@@ -480,12 +480,12 @@ struct IoToVTK
         if (m_fiedVec.size() != 0) {
             std::string filename;
             if (m_iteration == -1) {
-                filename = m_filename + ".vtk";
+                filename = m_filename ;
             } else {
                 std::stringstream ss;
                 ss << std::setw(5) << std::setfill('0') << m_iteration;
                 std::string s = ss.str();
-                filename = m_filename + s + ".vtk";
+                filename = m_filename + s ;
             }
             ioToVTKns::ioToVTK<intType_ta, real_tt>(m_fiedVec,
                                                     filename,

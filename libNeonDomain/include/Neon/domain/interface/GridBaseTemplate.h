@@ -25,6 +25,15 @@ class GridBaseTemplate : public GridBase
 
     virtual auto getProperties(const Neon::index_3d& idx) const
         -> CellProperties = 0;
-};
 
+    /**
+     * Exporting the domain active voxel to vtk
+     */
+    auto ioDomainToVtk(const std::string& fileName,
+                       Neon::IoFileType   vtiIOe = IoFileType::ASCII) const -> void;
+
+
+};
 }  // namespace Neon::domain::interface
+
+#include "Neon/domain/interface/GridBaseTemplate_imp.h"

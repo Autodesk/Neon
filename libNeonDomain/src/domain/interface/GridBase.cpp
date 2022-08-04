@@ -237,21 +237,5 @@ auto GridBase::toReport(Neon::Report& report,
 
     report.addSubdoc("Grid", subdoc);
 }
-auto GridBase::ioDomainToVtk(const std::string& fileName, Neon::IoFileType ioFileType) const -> void
-{
-    IoToVTK<int, double> io(fileName,
-                            this->getDimension()+1,
-                            Vec_3d<double>(1, 1, 1),
-                            Vec_3d<double>(0, 0, 0),
-                            ioFileType);
-
-    io.addField([&](const Neon::index_3d& idx, int ) {
-        bool isActieVox = isInsideDomain(idx) ;
-        return isActieVox;
-    },
-                1, "Domain", ioToVTKns::VtiDataType_e::voxel);
-    io.flushAndClear();
-    return;
-}
 
 }  // namespace Neon::domain::interface

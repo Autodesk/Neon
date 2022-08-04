@@ -44,7 +44,7 @@ theme:
         palette:
   # Palette toggle for light mode
         - scheme: default
-          primary: lime
+          primary: blue grey
           toggle:
             icon: material/brightness-7
             name: Switch to dark mode
@@ -87,27 +87,7 @@ plugins:
   # - toc-sidebar
   # - tooltipster-links
 
-nav:
-    - Neon's home: index.md
-    - Learn:
-      - Introduction:
-        - Structure of the Library: ./learn/introduction/01-neon-structure.md
-        - The System Level: ./learn/introduction/02-the-system-level.md
-        - The Set Level: ./learn/introduction/03-the-set-level.md
-        - The Domain Level: ./learn/introduction/04-the-domain-level.md
-        - The Skeleton Level: ./learn/introduction/05-the-skeleton-level.md
-      - Advanced Mechanisms:
-          - Multi-resolution: ./learn/advanced-mechanisms/multi-resolution.md
-      - Examples:
-        - Mandelbrot: learn/examples/mandelbrot.md
-    - References:
-        - Papers and Presentations: references/papers-presentations.md
-        - API Documentation: references/api-documentation.md
-        - Performance: references/performance-considerations.md
-    - Community:
-        - Contributing : CONTRIBUTING.md
-        - Contributors : CONTRIBUTORS.md
-        - Maintainers: maintainers.md
+
 
 #theme:
 #  #name: readthedocs
@@ -142,3 +122,25 @@ extra_javascript:
   - javascripts/mathjax.js
   - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Neon's home: index.md
+  - Learn:
+      - Introduction and tutorials:
+          - Structure of the Library: ./learn/introduction/01-neon-structure.md
+          - The System Level: ./learn/introduction/02-the-system-level.md
+          - The Set Level: ./learn/introduction/03-the-set-level.md
+          - The Domain Level: ./learn/introduction/04-the-domain-level.md
+          - The Skeleton Level: ./learn/introduction/05-the-skeleton-level.md
+      - Advanced Mechanisms:
+          - Multi-resolution: ./learn/advanced-mechanisms/multi-resolution.md
+      - Examples:
+          - Mandelbrot: learn/examples/mandelbrot.md
+  - References:
+      - Papers and Presentations: references/papers-presentations.md
+      - API Documentation: references/api-documentation.md
+      - Performance: references/performance-considerations.md
+  - Community:
+      - Contributing : CONTRIBUTING.md
+      - Contributors : CONTRIBUTORS.md
+      - Maintainers: maintainers.md
