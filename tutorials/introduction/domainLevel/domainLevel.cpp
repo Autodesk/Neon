@@ -4,56 +4,8 @@
 #include "Neon/domain/eGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
-// template <typename FieldT>
-// inline void draw_pixels(const int t, FieldT& field)
-//{
-//     printf("\n Exporting Frame =%d", t);
-//     int                precision = 4;
-//     std::ostringstream oss;
-//     oss << std::setw(precision) << std::setfill('0') << t;
-//     std::string fname = "frame_" + oss.str();
-//     field.ioToVtk(fname, "pixels");
-// }
-//
-// NEON_CUDA_HOST_DEVICE inline Neon::float_2d complex_sqr(Neon::float_2d& z)
-//{
-//     return Neon::float_2d(z.x * z.x - z.y * z.y, z.x * z.y * 2.0f);
-// }
-//
-// NEON_CUDA_HOST_DEVICE inline Neon::float_2d complex_pow(Neon::float_2d& z, Neon::float_1d& n)
-//{
-//     Neon::float_1d radius = pow(z.norm(), n);
-//     Neon::float_1d angle = n * atan2(z.y, z.x);
-//     return Neon::float_2d(radius * cos(angle), radius * sin(angle));
-// }
-//
-// template <typename FieldT>
-// inline Neon::set::Container FractalsContainer(FieldT&  pixels,
-//                                               int32_t& time,
-//                                               int32_t  n)
-//{
-//     return pixels.getGrid().getContainer(
-//         "FractalContainer", [&, n](Neon::set::Loader& L) {
-//             auto& px = L.load(pixels);
-//             auto& t = time;
-//
-//             return [=] NEON_CUDA_HOST_DEVICE(
-//                        const typename FieldT::Cell& idx) mutable {
-//                 auto id = px.mapToGlobal(idx);
-//
-//                 Neon::float_2d c(-0.8, cos(t * 0.03) * 0.2);
-//                 Neon::float_2d z((float(id.x) / float(n)) - 1.0f,
-//                                  (float(id.y) / float(n)) - 0.5f);
-//                 z *= 2.0f;
-//                 float iterations = 0;
-//                 while (z.norm() < 20 && iterations < 50) {
-//                     z = complex_sqr(z) + c;
-//                     iterations += 1;
-//                 }
-//                 px(idx, 0) = 1.0f - iterations * 0.02;
-//             };
-//         });
-// }
+#include "expandSphere.h"
+#include "grad.h"
 
 auto sdfCenteredSphere(Neon::int32_3d idx /**< queried location*/,
                        Neon::index_3d dim,
@@ -64,81 +16,117 @@ auto sdfCenteredSphere(Neon::int32_3d idx /**< queried location*/,
     auto sphereCenter = (dim.newType<double>() * voxelEdge) / 2.0;
     auto queryPoint = idx.newType<double>() * voxelEdge;
     auto diff = queryPoint - sphereCenter;
-    // distance from sphere origin origin
+    // distance from sphere origin
     double d = std::pow(diff.x, 2) +
                std::pow(diff.y, 2) +
                std::pow(diff.z, 2);
-    return d - r;
+    return std::sqrt(d) - r;
 }
-
 
 int main(int, char**)
 {
-    // Neon backend: choosing the hardware for the computation
+    // Step 1 -> Neon backend: choosing the hardware for the computation
     Neon::init();
-    auto             runtime = Neon::Runtime::stream;
     // auto runtime = Neon::Runtime::openmp;
-    std::vector<int> gpu_ids{0,0, 0};
-    Neon::Backend backend(gpu_ids, runtime);
-
+    auto runtime = Neon::Runtime::stream;
+    // We are overbooking GPU 0 three times
+    std::vector<int> gpu_ids{0, 0, 0};
+    Neon::Backend    backend(gpu_ids, runtime);
+    // Printing some information
     NEON_INFO(backend.toString());
 
-    // Neon grid: setting up the cartesian discretisation
+    // Step 2 -> Neon grid: setting up a dense cartesian domain
     const int32_t  n = 25;
-    const double   voxelEdge = 1.0;
-    Neon::index_3d dim(n, n, n);
+    Neon::index_3d dim(n, n, n);     // Size of the domain
+    const double   voxelEdge = 1.0;  // Size of a voxel edge
 
-    // Defining the grid
-    using Grid = Neon::domain::eGrid;
-    std::vector<Neon::index_3d> points{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
-    Neon::domain::Stencil       gradStencil(points);
+    using Grid = Neon::domain::eGrid;  // Selecting one of the grid provided by Neon
+    Neon::domain::Stencil gradStencil([] {
+        // We use a center difference scheme to compute the grad
+        // The order of the points is important,
+        // as we'll leverage the specific order when computing the grad.
+        // First positive direction on x, y and z,
+        // then negative direction on x, y, z respectively.
+        return std::vector<Neon::index_3d>{
+            {1, 0, 0},
+            {0, 1, 0},
+            {0, 0, 1},
+            {-1, 0, 0},
+            {0, -1, 0},
+            {0, 0, -1}};
+    }());
 
+    // Actual Neon grid allocation
     Grid grid(
-        backend /** Passing the target system for the computation */,
-        dim /** Dimension of the regular grid used for the discretizasion */,
+        backend,  // <- Passing the target hardware for the computation
+        dim,      // <- Dimension of the regular grid used for the discretizasion.
         [&](const Neon::index_3d&) -> bool {
+            // We are looking for a dense domain,
+            // so we are interested in all the points in the grid.
             return true;
-        } /** We are looking for a dense domain, so we are interested in all the points in the grid */,
-        gradStencil /** Stencil that will be used during computations on the grid */);
+        },             // <-  defining the active cells.
+        gradStencil);  // <- Stencil that will be used during computations on the grid
 
     // Exporting some information
     NEON_INFO(grid.toString());
     grid.ioDomainToVtk("domain");
 
-    // Neon field: defining data over the cartesian discretization
+    // Step 3 -> Neon field: initializing a sphere through its signed distance function
 
-    /** Creating a scalar field over the grid.
-     * Non active voxels will get be associated with a default value of -100 */
-    auto sphereSdf = grid.newField<double>("sphereSdf" /** Given name of the field */,
-                                           1 /** Number of field's component per grid point */,
-                                           -100 /** Default value for non active points */);
+    // Creating a scalar field over the grid.
+    // Inactive cells will get associated with a default value of -100 */
+    auto sphereSdf = grid.newField<double>("sphereSdf",  // <- Given name of the field.
+                                           1,            // <- Number of field's component per grid point.
+                                           -100);        // <- Default value for non active points.
 
-    const double r = (n * voxelEdge / 2) * .8;
+    const double r = (n * voxelEdge / 2) * .3;
 
-    /** Using the signed distance function of a sphere to initialize the field's values */
+    // Using the signed distance function of a sphere to initialize the field's values
+    // We leverage the forEachActiveCell method to easily iterate over the active cells.
     sphereSdf.forEachActiveCell([&](const Neon::index_3d& idx, int, double& value) {
         double sdf = sdfCenteredSphere(idx, dim, voxelEdge, r);
         value = sdf;
     });
 
+    // Exporting some information of the sdf on terminal and on a vtk file.
     NEON_INFO(sphereSdf.toString());
-
     sphereSdf.ioToVtk("sdf", "sdf");
-    //
-    //    int   cardinality = 1;
-    //    float inactiveValue = 0.0f;
-    //    auto  pixels = grid.template newField<float>("pixels", cardinality, inactiveValue);
-    //
-    //    Neon::skeleton::Skeleton skeleton(backend);
-    //
-    //    int32_t time;
-    //    skeleton.sequence({FractalsContainer(pixels, time, n)}, "fractal");
-    //
-    //
-    //    for (time = 0; time < 1000; ++time) {
-    //        skeleton.run();
-    //
-    //        pixels.updateIO(0);
-    //        // draw_pixels(time, pixels);
-    //    }
+
+    // Step 4 -> Neon map containers: expanding the sphere via a level set
+
+    // loading the sphereSdf to device
+    sphereSdf.updateCompute(Neon::Backend::mainStreamIdx);
+
+    // Run a container that ads a value to the sphere sdf
+    // The result is a level set of an expanded sphere (not more a sdf)
+    // We run the container asynchronously on the main stream
+    expandedLevelSet(sphereSdf, 5.0).run(Neon::Backend::mainStreamIdx);
+
+    // Moving asynchronously the values of the newly computed level set back
+    // to export the result to vtk.
+    sphereSdf.updateIO(Neon::Backend::mainStreamIdx);
+
+    // Waiting for the transfer to complete.
+    backend.sync(Neon::Backend::mainStreamIdx);
+
+    // Exporting once again the fiel to vtk
+    sphereSdf.ioToVtk("expandedLevelSet", "expandedLevelSet");
+
+    // Step 5 -> Neon stencil containers: computing the grad of the level set field
+
+    auto grad = grid.newField<double>("sphereSdf" , // <- Given name of the field.
+                                      3, // <- Number of field's component per grid point.
+                                      0); // <- Default value for non active points.
+
+    Neon::set::HuOptions huOptions(Neon::set::TransferMode::get,
+                                   true);
+    sphereSdf.haloUpdate(huOptions);
+
+    computeGrad(sphereSdf, grad, voxelEdge).run(Neon::Backend::mainStreamIdx);
+    grad.updateIO(Neon::Backend::mainStreamIdx);
+    backend.sync(Neon::Backend::mainStreamIdx);
+
+    grad.ioToVtk("grad", "grad");
+
+    return 0;
 }
