@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
-set (APP_NAME poissonSolver)
+set (APP_NAME app-poisson)
 file(GLOB_RECURSE SrcFiles poisson.cu)
 
 add_executable(${APP_NAME} ${SrcFiles})
