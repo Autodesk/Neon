@@ -45,6 +45,7 @@ bField<T, C>::bField(const std::string&             name,
                                                                             allocSize);
     auto origins = mData->mGrid->getOrigins();
     auto neighbours_blocks = mData->mGrid->getNeighbourBlocks();
+    auto stencil_ngh = mData->mGrid->getStencilNghIndex();
     auto active_mask = mData->mGrid->getActiveMask();
 
     for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
@@ -61,7 +62,8 @@ bField<T, C>::bField(const std::string&             name,
                 neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CPU),
                 origins.rawMem(gpuID, Neon::DeviceType::CPU),
                 active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
-                outsideVal);
+                outsideVal,
+                stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU));
 
             getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID)) = bPartition<T, C>(
                 Neon::DataView(dvID),
@@ -71,7 +73,8 @@ bField<T, C>::bField(const std::string&             name,
                 neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CUDA),
                 origins.rawMem(gpuID, Neon::DeviceType::CUDA),
                 active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
-                outsideVal);
+                outsideVal,
+                stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA));
         }
     }
 }

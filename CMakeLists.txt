@@ -79,6 +79,7 @@ add_subdirectory("libNeonSet")
 add_subdirectory("libNeonDomain")
 add_subdirectory("libNeonSkeleton")
 add_subdirectory("libNeonSolver")
+add_subdirectory("apps")
 
 
 #-------------------------------------------------------------------#
@@ -107,5 +108,4 @@ message("||  CUDA Compile flags     : ${CMAKE_CUDA_FLAGS}")
 message("||  CUDA ARCHS             : ${CMAKE_CUDA_ARCHITECTURES}")
 #message("||  NeonCXXFlags           : ${NeonCXXFlags}")
 #message("||  NeonCUDAFlags          : ${NeonCUDAFlags}")
-message("||")
 message("\\===================================================")
