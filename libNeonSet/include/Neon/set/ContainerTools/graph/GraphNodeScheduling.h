@@ -41,10 +41,19 @@ class GraphNodeScheduling
      */
     auto setDependentEvents(const std::vector<int>&) -> void;
 
+    /**
+     * Set the data view for the node
+     * @param dataView
+     */
     auto setDataView(Neon::DataView dataView) -> void;
 
    public:
     GraphNodeScheduling();
+
+    /**
+     * Returns data view associated to this node;
+     */
+    auto getDataView() const -> Neon::DataView;
 
    private:
     int              mStream /**< Stream for each operation for the node */;

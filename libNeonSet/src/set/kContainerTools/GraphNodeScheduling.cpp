@@ -1,4 +1,4 @@
-#include "Neon/set/ContainerTools/GraphNodeScheduling.h"
+#include "Neon/set/ContainerTools/graph/GraphNodeScheduling.h"
 
 namespace Neon::set::container {
 
@@ -48,6 +48,11 @@ auto GraphNodeScheduling::setDependentEvents(const std::vector<int>& dependentEv
 auto GraphNodeScheduling::setDataView(Neon::DataView dataView) -> void
 {
     mDataView = dataView;
+}
+
+auto GraphNodeScheduling::getDataView() const -> Neon::DataView
+{
+    return mDataView;
 }
 
 }  // namespace Neon::set::container

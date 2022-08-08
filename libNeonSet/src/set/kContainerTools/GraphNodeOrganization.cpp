@@ -1,33 +1,33 @@
-#include "Neon/set/ContainerTools/GraphNodeOrganization.h"
+#include "Neon/set/ContainerTools/graph/GraphData.h"
 
 namespace Neon::set::container {
 
-GraphNodeOrganization::GraphNodeOrganization()
+GraphData::GraphData()
 {
     mUid = notSet;
     mIndex = notSet;
 }
-GraphNodeOrganization::GraphNodeOrganization(int uid)
+GraphData::GraphData(int uid)
 {
     mUid = uid;
     mIndex = notSet;
 }
 
-auto GraphNodeOrganization::setUid(Uid uid) -> void
+auto GraphData::setUid(Uid uid) -> void
 {
     mUid = uid;
 }
-auto GraphNodeOrganization::setIndex(Index index) -> void
+auto GraphData::setIndex(Index index) -> void
 {
     mIndex = index;
 }
 
-auto GraphNodeOrganization::getUid() const -> Uid
+auto GraphData::getUid() const -> Uid
 {
     return mUid;
 }
 
-auto GraphNodeOrganization::getIndex() const -> Index
+auto GraphData::getIndex() const -> Index
 {
     return mIndex;
 }

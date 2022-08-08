@@ -5,7 +5,7 @@
 
 namespace Neon::set::container {
 
-class GraphNodeOrganization
+class GraphData
 {
    public:
     using Uid = uint32_t;
@@ -16,8 +16,8 @@ class GraphNodeOrganization
     constexpr static Uid endUid = 2;
     constexpr static Uid firstInternal = 3;
 
-    GraphNodeOrganization();
-    GraphNodeOrganization(int uid);
+    GraphData();
+    GraphData(int uid);
 
     auto setUid(Uid uid) -> void;
     auto setIndex(Index index) -> void;

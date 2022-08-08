@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Neon/set/ContainerTools/GraphDependencyType.h"
+#include "GraphDependencyType.h"
 
 namespace Neon::set::container {
 

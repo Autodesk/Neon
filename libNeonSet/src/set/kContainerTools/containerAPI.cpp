@@ -50,16 +50,6 @@ auto ContainerAPI::getLaunchParameters(Neon::DataView dw) const -> const Neon::s
     return mLaunchParameters[DataViewUtil::toInt(dw)];
 }
 
-auto ContainerAPI::setContainerType(ContainerType containerType) -> void
-{
-    mContainerType = containerType;
-}
-
-auto ContainerAPI::getContainerType() const -> ContainerType
-{
-    return mContainerType;
-}
-
 auto ContainerAPI::getDataViewSupport() const -> ContainerAPI::DataViewSupport
 {
     return mDataViewSupport;
@@ -82,4 +72,33 @@ auto ContainerAPI::toLog(uint64_t uid) -> void
     NEON_INFO("Container {}: tokens = [{}]", uid, listOfTokes.str());
 }
 
-}  // namespace Neon
+auto ContainerAPI::getContainerExecutionType() -> ContainerExecutionType
+{
+    return mContainerExecutionType;
+}
+
+auto ContainerAPI::getContainerOperationType() -> ContainerOperationType
+{
+    return mContainerOperationType;
+}
+
+auto ContainerAPI::getContainerPatternType() -> ContainerPatternType
+{
+    return mContainerPatternType;
+}
+
+auto ContainerAPI::setContainerExecutionType(ContainerExecutionType containerType) -> void
+{
+    mContainerExecutionType = containerType;
+}
+
+auto ContainerAPI::setContainerOperationType(ContainerOperationType containerType) -> void
+{
+    mContainerOperationType = containerType;
+}
+auto ContainerAPI::setContainerPatternType(ContainerPatternType containerType) -> void
+{
+    mContainerPatternType = containerType;
+}
+
+}  // namespace Neon::set::internal

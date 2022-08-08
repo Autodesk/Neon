@@ -11,7 +11,7 @@
 
 namespace Neon::set::internal {
 
-enum struct ContainerType
+enum struct ContainerExecutionType
 {
     device = 0 /** the operation of the containers are only for the device (note: device can be CPU too) */,
     deviceManaged = 1 /** manage version of the device type of Container, i.e. the launch is managed by the container itself. Useful to wrap calls to cuBlas operation for example*/,
@@ -20,15 +20,15 @@ enum struct ContainerType
 };
 
 
-struct ContainerTypeUtils
+struct ContainerExecutionTypeUtils
 {
     static constexpr int nOptions = 3;
 
-    static auto toString(ContainerType option) -> std::string;
-    static auto fromString(const std::string& option) -> ContainerType;
-    static auto getOptions() -> std::array<ContainerType, nOptions>;
-    static auto isExpandable(ContainerType option)  -> bool;
+    static auto toString(ContainerExecutionType option) -> std::string;
+    static auto fromString(const std::string& option) -> ContainerExecutionType;
+    static auto getOptions() -> std::array<ContainerExecutionType, nOptions>;
+    static auto isExpandable(ContainerExecutionType option) -> bool;
 };
 
 
-}  // namespace Neon
+}  // namespace Neon::set::internal
