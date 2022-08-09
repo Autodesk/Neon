@@ -72,17 +72,17 @@ struct ContainerAPI
     /**
      * Get the execution type for the container
      */
-    auto getContainerExecutionType() -> ContainerExecutionType;
+    auto getContainerExecutionType() const -> Neon::set::ContainerExecutionType;
 
     /**
      * Get the Operation type for the container
      */
-    auto getContainerOperationType() -> ContainerOperationType;
+    auto getContainerOperationType() const -> Neon::set::ContainerOperationType;
 
     /**
      * Get the Pattern type for the container
      */
-    auto getContainerPatternType() -> ContainerPatternType;
+    auto getContainerPatternType() const -> Neon::set::ContainerPatternType;
 
     auto getDataViewSupport() const
         -> DataViewSupport;
@@ -116,17 +116,17 @@ struct ContainerAPI
     /**
      * Set the execution type for the container
      */
-    auto setContainerExecutionType(ContainerExecutionType containerType) -> void;
+    auto setContainerExecutionType(Neon::set::ContainerExecutionType containerType) -> void;
 
     /**
      * Set the Operation type for the container
      */
-    auto setContainerOperationType(ContainerOperationType containerType) -> void;
+    auto setContainerOperationType(Neon::set::ContainerOperationType containerType) -> void;
 
     /**
      * Set the Pattern type for the container
      */
-    auto setContainerPatternType(ContainerPatternType containerType) -> void;
+    auto setContainerPatternType(Neon::set::ContainerPatternType containerType) -> void;
 
     /**
      * Set the DataView support for the container
@@ -138,9 +138,9 @@ struct ContainerAPI
     std::vector<Neon::set::internal::dependencyTools::DataToken>         mParsed;
     std::string                                                          mName{"Anonymous"}; /**< Name of the Container */
     std::array<Neon::set::LaunchParameters, Neon::DataViewUtil::nConfig> mLaunchParameters;
-    ContainerExecutionType                                               mContainerExecutionType;
-    ContainerOperationType                                               mContainerOperationType;
-    ContainerPatternType                                                 mContainerPatternType;
+    Neon::set::ContainerExecutionType                                    mContainerExecutionType;
+    Neon::set::ContainerOperationType                                    mContainerOperationType;
+    Neon::set::ContainerPatternType                                      mContainerPatternType;
     DataViewSupport                                                      mDataViewSupport = DataViewSupport::on;
 };
 

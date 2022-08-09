@@ -1,4 +1,5 @@
 #include "Neon/set/Containter.h"
+#include "Neon/set/ContainerTools/AnchorContainer.h"
 
 namespace Neon::set {
 
@@ -47,6 +48,13 @@ auto Container::factoryDeviceThenHostManaged(const std::string& name,
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
     return Container(tmp);
+}
+
+auto Container::factoryAnchor(const std::string& name) -> Container
+{
+    auto                                               k = new Neon::set::internal::AnchorContainer(name);
+    std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
+    return Container();
 }
 
 auto Container::getName() const

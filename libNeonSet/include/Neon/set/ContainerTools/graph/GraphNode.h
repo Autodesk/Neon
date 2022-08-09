@@ -54,14 +54,17 @@ struct GraphNode
     /**
      * Returns a reference to the container stored by this node.
      */
-    auto getContianer() -> Container&;
+    auto getContainer() -> Container&;
 
     /**
      * Returns a reference to the container stored by this node.
      */
-    auto getContianer() const -> const Container&;
+    auto getContainer() const -> const Container&;
+
+    auto getContainerOperationType()const -> Neon::set::ContainerOperationType;
 
     auto toString() -> std::string;
+
 
    private:
     auto helpGetDotProperties() -> std::string;
@@ -71,7 +74,6 @@ struct GraphNode
     Container           mContainer /**< Any Neon container */;
     GraphNodeScheduling mGraphNodeScheduling /**< Scheduling information for the node */;
     GraphData           mGraphNodeOrganization /**< Information to organize the node w.r.t. the rest of the graph */;
-    GraphNodeType       mGraphNodeType;
 };
 
 }  // namespace Neon::set::container

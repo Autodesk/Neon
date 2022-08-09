@@ -72,17 +72,17 @@ auto ContainerAPI::toLog(uint64_t uid) -> void
     NEON_INFO("Container {}: tokens = [{}]", uid, listOfTokes.str());
 }
 
-auto ContainerAPI::getContainerExecutionType() -> ContainerExecutionType
+auto ContainerAPI::getContainerExecutionType() const -> ContainerExecutionType
 {
     return mContainerExecutionType;
 }
 
-auto ContainerAPI::getContainerOperationType() -> ContainerOperationType
+auto ContainerAPI::getContainerOperationType() const -> ContainerOperationType
 {
     return mContainerOperationType;
 }
 
-auto ContainerAPI::getContainerPatternType() -> ContainerPatternType
+auto ContainerAPI::getContainerPatternType() const -> ContainerPatternType
 {
     return mContainerPatternType;
 }

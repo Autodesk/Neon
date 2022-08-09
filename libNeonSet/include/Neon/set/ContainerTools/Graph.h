@@ -29,7 +29,8 @@ struct Graph
     /**
      * Adds a node between the begin and end nodes
      */
-    auto addNode(const Container& container) -> GraphNode&;
+    auto addNode(const Container& container,
+                 GraphNodeType    graphNodeType) -> GraphNode&;
 
     /**
      * Remove Node
@@ -42,8 +43,8 @@ struct Graph
     auto addNodeInBetween(const GraphNode&          nodeA,
                           Container&                containerB,
                           const GraphNode&          nodeC,
-                          const GraphDependencyType ab = GraphDependencyType::USER,
-                          const GraphDependencyType bc = GraphDependencyType::USER) -> GraphNode&;
+                          const GraphDependencyType ab = GraphDependencyType::user,
+                          const GraphDependencyType bc = GraphDependencyType::user) -> GraphNode&;
 
     /**
      * Adds a dependency between two node of the graph
@@ -87,10 +88,71 @@ struct Graph
 
     auto ioToDot(const std::string& fame) -> void;
 
+
    private:
+    /**
+     * Invalidate all scheduling information that were computed
+     */
+    auto helpInvalidateScheduling() -> void;
+
+    /**
+     * Remove redundant dependencies
+     */
+    auto helpRemoteRedundantDependencies() -> void;
+
+    /*
+     * Compute BFS
+     */
+    auto computeBFS(const std::vector<GraphDependencyType>& depednenciesToBeConsidered) -> void;
+
+    /**
+     * Returns the out-neighbour of a target node
+     */
+    auto helpGetOutNeighbors(GraphData::Uid,
+                             bool                                    fileterOutEnd = true,
+                             const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
+                                                                                        GraphDependencyType::data})
+        -> std::set<GraphData::Uid>;
+
+    /**
+     * Returns the in-neighbour of a target node
+     */
+    auto helpGetInNeighbors(GraphData::Uid                          nodeUid,
+                            bool                                    fileterOutBegin = true,
+                            const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
+                                                                                       GraphDependencyType::data})
+        -> std::set<GraphData::Uid>;
+
+    /**
+     * Returns the out-edges of a target node
+     */
+    auto helpGetOutEdges(GraphData::Uid,
+                         bool                                    filterOutEnd = true,
+                         const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
+                                                                                    GraphDependencyType::data})
+        -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>;
+
+    /**
+     * Returns the in-edges of a target node
+     */
+    auto helpGetInEdges(GraphData::Uid                          nodeUid,
+                        bool                                    filterOutBegin = true,
+                        const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
+                                                                                   GraphDependencyType::data})
+        -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>;
+
+    /**
+     * Returns nodes Ids for a BFS visit
+     */
+    auto helpGetBFS(bool                                    filterOutBegin = false,
+                    const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
+                                                                               GraphDependencyType::data})
+        -> std::vector<std::vector<GraphData::Uid>>;
+
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
     Uid      mUidCounter;
     RawGraph mRawGraph;
+    bool     mSchedulingStatusIsValid;
 };
 
 }  // namespace Neon::set::container

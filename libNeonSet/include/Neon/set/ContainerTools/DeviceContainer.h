@@ -33,7 +33,9 @@ struct DeviceContainer : ContainerAPI
           m_dataIteratorContainer(dataIteratorContainer)
     {
         setName(name);
-        setContainerType(ContainerType::device);
+        setContainerExecutionType(ContainerExecutionType::device);
+        setContainerOperationType(ContainerOperationType::compute);
+
         setDataViewSupport(dataViewSupport);
 
         initLaunchParameters(dataIteratorContainer, blockSize, shMemSizeFun);
@@ -101,7 +103,7 @@ struct DeviceContainer : ContainerAPI
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
         Neon::set::KernelConfig kernelConfig(dataView, bk, streamIdx, this->getLaunchParameters(dataView));
 
-        if (ContainerType::device == this->getContainerType()) {
+        if (ContainerExecutionType::device == this->getContainerType()) {
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 kernelConfig,
                 m_dataIteratorContainer,
@@ -127,7 +129,7 @@ struct DeviceContainer : ContainerAPI
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
         Neon::set::KernelConfig kernelConfig(dataView, bk, streamIdx, this->getLaunchParameters(dataView));
 
-        if (ContainerType::device == this->getContainerType()) {
+        if (ContainerExecutionType::device  == this->getContainerType()) {
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 setIdx,
                 kernelConfig,

@@ -6,8 +6,8 @@
 #include "type_traits"
 
 #include "Neon/set/ContainerTools/ContainerAPI.h"
-#include "Neon/set/ContainerTools/Loader.h"
 #include "Neon/set/ContainerTools/HostManagedSyncType.h"
+#include "Neon/set/ContainerTools/Loader.h"
 
 namespace Neon::set {
 
@@ -98,6 +98,9 @@ struct Container
     static auto factoryDeviceThenHostManaged(const std::string& name,
                                              Container&         device,
                                              Container&         host)
+        -> Container;
+
+    static auto factoryAnchor(const std::string& name /**< A user's string to identify the computation done by the Container. */)
         -> Container;
 
     auto getName() const

@@ -9,7 +9,7 @@
  * Abstract interface to hide
  */
 
-namespace Neon::set::internal {
+namespace Neon::set {
 
 enum struct ContainerPatternType
 {
@@ -34,4 +34,4 @@ struct ContainerPatternTypeUtils
 /**
  * operator<<
  */
-std::ostream& operator<<(std::ostream& os, Neon::set::internal::ContainerPatternType const& m);
+std::ostream& operator<<(std::ostream& os, Neon::set::container::ContainerPatternType const& m);
