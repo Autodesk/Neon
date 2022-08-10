@@ -3,15 +3,18 @@
 #include "Neon/core/core.h"
 #include "Neon/core/types/digraph.h"
 
+#include "Neon/set/ContainerTools/Bfs.h"
 #include "Neon/set/ContainerTools/graph/GraphDependency.h"
 #include "Neon/set/ContainerTools/graph/GraphNode.h"
 
 namespace Neon::set::container {
+struct Bfs;
 
 struct Graph
 {
     using Uid = GraphData::Uid;
     using Index = GraphData::Index;
+    friend struct Bfs;
 
    public:
     Graph();
@@ -29,8 +32,7 @@ struct Graph
     /**
      * Adds a node between the begin and end nodes
      */
-    auto addNode(const Container& container,
-                 GraphNodeType    graphNodeType) -> GraphNode&;
+    auto addNode(const Container& container) -> GraphNode&;
 
     /**
      * Remove Node
@@ -84,12 +86,10 @@ struct Graph
      */
     auto execute() -> void;
 
-    auto computeScheduling() -> void;
-
     auto ioToDot(const std::string& fame) -> void;
 
 
-   private:
+   protected:
     /**
      * Invalidate all scheduling information that were computed
      */
@@ -100,7 +100,7 @@ struct Graph
      */
     auto helpRemoteRedundantDependencies() -> void;
 
-    /*
+    /**
      * Compute BFS
      */
     auto computeBFS(const std::vector<GraphDependencyType>& depednenciesToBeConsidered) -> void;
@@ -144,15 +144,41 @@ struct Graph
     /**
      * Returns nodes Ids for a BFS visit
      */
-    auto helpGetBFS(bool                                    filterOutBegin = false,
+    auto helpGetBFS(bool                                    filterOutBeginEnd = false,
                     const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
                                                                                GraphDependencyType::data})
-        -> std::vector<std::vector<GraphData::Uid>>;
+        -> Bfs;
+
+    /**
+     * Extract a graph node from its id
+     */
+    auto helpGetGraphNode(GraphData::Uid)
+        -> GraphNode&;
+
+    /**
+     * Extract a graph node from its id
+     */
+    auto helpGetGraphNode(GraphData::Uid) const
+        -> const GraphNode&;
+
+    /**
+     *
+     * Computes two elements:
+     * - order of execution
+     * - mapping between streams and graph nodes
+     */
+    auto helpComputeScheduling(bool filterOutAnchors = true) -> void;
+
+    auto helpComputeScheduling_01_mappingStreams(bool filterOutAnchors) -> void;
+    auto helpComputeScheduling_02_events() -> void;
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
+
     Uid      mUidCounter;
     RawGraph mRawGraph;
     bool     mSchedulingStatusIsValid;
+    Bfs      mExecutionBfs;
+    int      mMaxNumberStreams;
 };
 
 }  // namespace Neon::set::container

@@ -9,12 +9,6 @@ class GraphNodeScheduling
 {
 
     /**
-     *  Get the stream to execute the Container
-     */
-    auto getStream() const
-        -> int;
-
-    /**
      *  Get the event to asynchronously signal that the execution of the Container is completed.
      */
     auto getEvent() const
@@ -25,11 +19,6 @@ class GraphNodeScheduling
      */
     auto getDependentEvents() const
         -> const std::vector<int>&;
-
-    /**
-     * Set the stream for the Container execution
-     */
-    auto setStream(int stream /**< stream for the Container execution */) -> void;
 
     /**
      * Set the event to asynchronously signal the completion of the Container.
@@ -54,6 +43,17 @@ class GraphNodeScheduling
      * Returns data view associated to this node;
      */
     auto getDataView() const -> Neon::DataView;
+
+    /**
+     *  Get the stream to execute the Container
+     */
+    auto getStream() const
+        -> int;
+
+    /**
+     * Set the stream for the Container execution
+     */
+    auto setStream(int stream /**< stream for the Container execution */) -> void;
 
    private:
     int              mStream /**< Stream for each operation for the node */;

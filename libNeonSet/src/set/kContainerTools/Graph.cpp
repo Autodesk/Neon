@@ -32,27 +32,17 @@ auto Graph::addNodeInBetween(const GraphNode&          nodeA,
 {
     helpInvalidateScheduling();
 
-    auto& nodeB = addNodeInBetween(nodeA, containerB, nodeC);
-
-    auto& abEdge = mRawGraph.getEdgeProperty({nodeA.getGraphData().getUid(),
-                                              nodeB.getGraphData().getUid()});
-    abEdge.setType(ab);
-
-    auto& bcEdge = mRawGraph.getEdgeProperty({nodeB.getGraphData().getUid(),
-                                              nodeC.getGraphData().getUid()});
-
-    bcEdge.setType(bc);
-
-
+    auto& nodeB = addNode(containerB);
+    addDependency(nodeA, nodeB, ab);
+    addDependency(nodeB, nodeC, bc);
     return nodeB;
 }
 
-auto Graph::addNode(const Container& container,
-                    GraphNodeType    graphNodeType) -> GraphNode&
+auto Graph::addNode(const Container& container) -> GraphNode&
 {
     helpInvalidateScheduling();
 
-    auto const& node = GraphNode(container, mUidCounter, graphNodeType);
+    auto const& node = GraphNode(container, mUidCounter);
     mRawGraph.addVertex(node.getGraphData().getUid(), node);
     mUidCounter++;
     return mRawGraph.getVertexProperty(node.getGraphData().getUid());
@@ -100,12 +90,12 @@ auto Graph::removeNode(GraphNode& gn) -> GraphNode
 
     for (auto&& uidA : a_toBeConnectedToEnd) {
         auto& nodeA = mRawGraph.getVertexProperty(uidA);
-        addDependency(nodeA, this->getEndNode());
+        addDependency(nodeA, this->getEndNode(), GraphDependencyType::data);
     }
 
     for (auto&& uidC : c_toBeConnectedToBegin) {
         auto& nodeC = mRawGraph.getVertexProperty(uidC);
-        addDependency(this->getBeginNode(), nodeC);
+        addDependency(this->getBeginNode(), nodeC, GraphDependencyType::data);
     }
 
     GraphNode removed = mRawGraph.getVertexProperty(gn.getGraphData().getUid());
@@ -151,7 +141,7 @@ auto Graph::cloneNode(const GraphNode& graphNode)
     auto proceedings = getProceedingGraphNodes(graphNode);
     auto subsequents = getSubsequentGraphNodes(graphNode);
 
-    auto& newNode = addNode(graphNode.getContianer());
+    auto& newNode = addNode(graphNode.getContainer());
 
     for (const auto& proPtr : proceedings) {
         auto dependencyType = getDependencyType(*proPtr, graphNode);
@@ -182,6 +172,7 @@ auto Graph::getDependencyType(const GraphNode& nodeA,
 auto Graph::helpInvalidateScheduling() -> void
 {
     mSchedulingStatusIsValid = false;
+    mExecutionBfs.clear();
 }
 
 auto Graph::helpRemoteRedundantDependencies() -> void
@@ -263,7 +254,7 @@ auto Graph::helpGetOutNeighbors(GraphData::Uid                          nodeUid,
             auto& edgeProp = mRawGraph.getEdgeProperty(edge);
             for (auto& depType : dependencyTypes) {
                 if (depType == edgeProp.getType()) {
-                    if (mRawGraph.getVertexProperty(edge.second).getContainerOperationType() == Neon::set::ContainerOperationType::anchor) {
+                    if (mRawGraph.getVertexProperty(edge.second).getContainerOperationType() == Neon::set::ContainerOperationType::anchor && filteredOut) {
                         break;
                     }
                     outNgh.insert(edge.second);
@@ -334,12 +325,155 @@ auto Graph::helpGetInEdges(GraphData::Uid                          nodeUid,
     return inEdges;
 }
 
-auto Graph::helpGetBFS(bool filterOutBegin, const std::vector<GraphDependencyType>& dependencyTypes) -> std::vector<std::vector<GraphData::Uid>>
+auto Graph::helpGetBFS(bool                                    filterOutBeginEnd,
+                       const std::vector<GraphDependencyType>& dependencyTypes)
+    -> Bfs
 {
-    std::vector<std::vector<GraphData::Uid>> bfs;
-    bfs.push_back(std::vector<GraphData::Uid>());
-    int currentLevel = 0;
+    using Frontier = std::unordered_map<GraphData::Uid, size_t>;
+
+    Bfs bfs;
+
+    Frontier a;
+    Frontier b;
+
+    Frontier* currentFrontier = &a;
+    Frontier* nextFrontier = &b;
+
+
+    if (!filterOutBeginEnd) {
+        currentFrontier->insert({getBeginNode().getGraphData().getUid(), 0});
+    } else {
+        auto beginNode = getBeginNode().getGraphData().getUid();
+        auto outNgh = helpGetOutNeighbors(beginNode, filterOutBeginEnd, dependencyTypes);
+        for (const auto& ngh : outNgh) {
+            size_t stillUnsatisfiedDependencies = helpGetInEdges(ngh).size() - 1;
+            currentFrontier->insert({ngh, stillUnsatisfiedDependencies});
+        }
+    }
+
+    while (currentFrontier->size() != 0) {
+        auto [newLevel, newLevelIdx] = bfs.getNewLevel();
+        nextFrontier->clear();
+
+        for (auto& currentFrontierNode : *currentFrontier) {
+            if (currentFrontierNode.second == 0) {
+                // All incoming dependencies have been resolved.
+                // The node is ready to be added to the current BFS level
+                newLevel.push_back(currentFrontierNode.first);
+
+                // Adding the node's children to the next frontier
+                for (const auto& child : helpGetOutNeighbors(currentFrontierNode.first)) {
+                    try {
+                        nextFrontier->at(child)--;
+                    } catch (...) {
+                        nextFrontier->insert({child, helpGetInEdges(currentFrontierNode.first).size() - 1});
+                    }
+                }
+            } else {
+                nextFrontier->insert(currentFrontierNode);
+            }
+        }
+        std::swap(currentFrontier, nextFrontier);
+    }
+
+    return bfs;
 }
 
+auto Graph::helpComputeScheduling_01_mappingStreams(bool filterOutAnchors) -> void
+{
+    mSchedulingStatusIsValid = true;
+    mExecutionBfs = helpGetBFS(filterOutAnchors, {GraphDependencyType::data, GraphDependencyType::user});
+
+    mMaxNumberStreams = mExecutionBfs.getMaxLevelWidth();
+    int currentNode = 0;
+    // used stream -> true
+    // available -> false
+    std::vector<bool> streamsStatus(mMaxNumberStreams, false);
+
+    auto bookFirstAvailableStream = [&]() {
+        for (int i = 0; i < int(streamsStatus.size()); i++) {
+            if (!streamsStatus[i]) {
+                streamsStatus[i] = true;
+                return i;
+            }
+        }
+    };
+
+    auto isStreamAvailable = [&](int streamId) -> bool {
+        return streamsStatus[streamId] == false;
+    };
+
+    auto bookStream = [&](int streamId) -> bool {
+        if (isStreamAvailable(streamId)) {
+            streamsStatus[streamId] = true;
+            return true;
+        }
+        return false;
+    };
+
+    // The stream mapping process is computer per level.
+    // On each level we have two steps
+    // a. map nodes with the streams of one of the proceeding nodes when possible
+    // b. map the remaining nodes by mapping the first available stream
+    mExecutionBfs.forEachLevel([&](Bfs::Level& level,
+                                   int         levelIdx) {
+        std::vector<GraphNode*> delayedBooking;
+
+        // Step a.
+        for (auto& nodeUid : level) {
+            auto node = mRawGraph.getVertexProperty(nodeUid);
+
+            int associatedStream = [&]() -> int {
+                if (levelIdx == 0) {
+                    return bookFirstAvailableStream();
+                }
+                auto& preNodes = mRawGraph.inNeighbors(node.getGraphData().getUid());
+                for (auto& preNodeIdx : preNodes) {
+                    auto preNodeStream = mRawGraph.getVertexProperty(preNodeIdx).getScheduling().getStream();
+                    if (bookStream(preNodeStream)) {
+                        return preNodeStream;
+                    }
+                }
+                return -1;
+            }();
+
+            if (associatedStream == -1) {
+                // track nodes that need to go through step 2
+                delayedBooking.push_back(&node);
+            } else {
+                node.getScheduling().setStream(associatedStream);
+            }
+        }
+
+        // Step b.
+        for (auto nodePrt : delayedBooking) {
+            auto associatedStream = bookFirstAvailableStream();
+            (*nodePrt).getScheduling().setStream(associatedStream);
+        }
+
+        streamsStatus = std::vector<bool>(mMaxNumberStreams, false);
+    });
+}
+
+auto Graph::helpComputeScheduling(bool filterOutAnchors) -> void
+{
+    helpComputeScheduling_01_mappingStreams(filterOutAnchors);
+    helpComputeScheduling_02_events();
+}
+
+auto Graph::helpGetGraphNode(GraphData::Uid uid) -> GraphNode&
+{
+    return mRawGraph.getVertexProperty(uid);
+}
+
+auto Graph::helpGetGraphNode(GraphData::Uid uid) const -> const GraphNode&
+{
+    return mRawGraph.getVertexProperty(uid);
+}
+
+auto Graph::helpComputeScheduling_02_events() -> void
+{
+    NEON_DEV_UNDER_CONSTRUCTION("");
+}
 
 }  // namespace Neon::set::container

@@ -13,8 +13,7 @@ struct GraphNode
     GraphNode();
 
     GraphNode(const Container& container,
-              GraphData::Uid   uid,
-              GraphNodeType    graphNodeType);
+              GraphData::Uid   uid);
 
     /**
      * Factory method to generate a begin node

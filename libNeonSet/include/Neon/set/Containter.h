@@ -11,9 +11,11 @@
 
 namespace Neon::set {
 
+
 struct Container
 {
    public:
+
     Container() = default;
 
     /**
