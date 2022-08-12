@@ -8,6 +8,8 @@ namespace Neon::set::container {
 
 struct GraphNode
 {
+    std::string getLabel();
+
    public:
     GraphNode();
 

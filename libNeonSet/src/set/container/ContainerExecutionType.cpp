@@ -50,10 +50,10 @@ auto ContainerExecutionTypeUtils::getOptions() -> std::array<ContainerExecutionT
     return opts;
 }
 
-}  // namespace Neon::set::internal
-
-
 std::ostream& operator<<(std::ostream& os, Neon::set::ContainerExecutionType const& m)
 {
-    return os << std::string(Neon::set::ContainerExecutionTypeUtils::toString(m));
+    return os << Neon::set::ContainerExecutionTypeUtils::toString(m);
 }
+
+}  // namespace Neon::set
+

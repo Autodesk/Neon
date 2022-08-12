@@ -31,5 +31,8 @@ struct ContainerExecutionTypeUtils
     static auto isExpandable(ContainerExecutionType option) -> bool;
 };
 
-
+/**
+ * operator<<
+ */
+std::ostream& operator<<(std::ostream& os, Neon::set::ContainerExecutionType const& m);
 }  // namespace Neon::set

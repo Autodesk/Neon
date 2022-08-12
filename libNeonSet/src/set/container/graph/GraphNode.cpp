@@ -1,4 +1,5 @@
 #include "Neon/set/container/graph/GraphNode.h"
+#include "Neon/set/container/ContainerExecutionType.h"
 
 namespace Neon::set::container {
 
@@ -100,11 +101,50 @@ auto GraphNode::helpGetDotInfo() -> std::string
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
-
 }
 auto GraphNode::getContainerOperationType() const -> Neon::set::ContainerOperationType
 {
     return getContainer().getContainerInterface().getContainerOperationType();
+}
+auto GraphNode::getLabel() -> std::string
+{
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::anchor) {
+        if (this->getGraphData().beginUid == getGraphData().getUid()) {
+            return "Begin";
+        }
+        if (this->getGraphData().endUid == getGraphData().getUid()) {
+            return "End";
+        }
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::compute) {
+        std::stringstream s;
+        s << "Container "
+             " - Name: "
+          << getContainer().getName();
+        s << " - UID: " << getContainer().getUid();
+        s << " - Execution: " << getContainer().getContainerExecutionType();
+        s << " - DataView: " << getScheduling().getDataView();
+        return s.str();
+    }
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::halo) {
+        std::stringstream s;
+        s << "Halo Update "
+             " - Name: "
+          << getContainer().getName();
+        s << " - UID: " << getContainer().getUid();
+        return s.str();
+    }
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::sync) {
+        std::stringstream s;
+        s << "Sync "
+             " - Name: "
+          << getContainer().getName();
+        s << " - UID: " << getContainer().getUid();
+        return s.str();
+    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
+    return std::string();
 }
 
 }  // namespace Neon::set::container

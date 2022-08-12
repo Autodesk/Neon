@@ -6,6 +6,8 @@ namespace Neon::set::container {
 
 struct GraphDependency
 {
+    std::string getLabel();
+
    public:
     GraphDependency();
     GraphDependency(GraphDependencyType type);

@@ -542,6 +542,53 @@ auto Graph::helpComputeScheduling_02_events(Bfs& bfs) -> void
         }
     });
 }
+auto Graph::ioToDot(const std::string& /*fame*/) -> void
+{
+    auto vertexLabel = [&](size_t v) -> std::string {
+        auto& node = mRawGraph.getVertexProperty(v);
+        return node.getLabel();
+    };
+
+    auto edgeLabel = [&](const std::pair<size_t, size_t>& edge)
+        -> std::string {
+        auto& edgeMeta = mRawGraph.getEdgeProperty(edge);
+        return edgeMeta.getLabel();
+    };
+
+////    auto edgeLabelProperty = [&](const std::pair<size_t, size_t>& edge)
+////        -> std::string {
+//////        const auto& metaEdge = clone.getEdgeProperty(edge);
+//////        if (metaEdge.m_isSchedulingEdge) {
+//////            // return "style=dashed, color=\"#2A9D8F\"";
+//////            return "style=dashed, color=\"#F4A261\", penwidth=7";
+//////        }
+//////        return "color=\"#d9d9d9\", penwidth=7";
+////    };
+//
+//    auto vertexLabelProperty = [&](const size_t& v) {
+//        if (v == m_finalNodeId() || (v == m_rootNodeId())) {
+//            return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
+//        }
+//        const auto& metaNode = clone.getVertexProperty(v);
+//        if (metaNode.isHu()) {
+//            return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
+//        }
+//        if (metaNode.isSync()) {
+//            return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
+//        }
+//
+//        if (metaNode.isMap()) {
+//            return R"(style=filled, fillcolor="#b3de69", color="#5f861d")";
+//        }
+//        if (metaNode.isReduce()) {
+//            return R"(style=filled, fillcolor="#80b1d3", color="#2b5c7d")";
+//        }
+//        if (metaNode.isStencil()) {
+//            return R"(style=filled, fillcolor="#bebada", color="#4e4683")";
+//        }
+//        return "";
+//    };
+}
 
 
 }  // namespace Neon::set::container
