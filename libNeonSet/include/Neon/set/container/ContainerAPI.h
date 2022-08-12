@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Neon/set/ContainerTools/ContainerOperationType.h"
-#include "Neon/set/ContainerTools/ContainerPatternType.h"
+#include "Neon/set/container/ContainerOperationType.h"
+#include "Neon/set/container/ContainerPatternType.h"
 
-#include "Neon/set/ContainerTools/ContainerExecutionType.h"
+#include "Neon/set/container/ContainerExecutionType.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/dependencyTools/DataParsing.h"
 

@@ -5,11 +5,11 @@
 #include "functional"
 #include "type_traits"
 
-#include "Neon/set/ContainerTools/DeviceContainer.h"
-#include "Neon/set/ContainerTools/DeviceManagedContainer.h"
-#include "Neon/set/ContainerTools/DeviceThenHostManagedContainer.h"
-#include "Neon/set/ContainerTools/HostManagedContainer.h"
-#include "Neon/set/ContainerTools/OldDeviceManagedContainer.h"
+#include "Neon/set/container/DeviceContainer.h"
+#include "Neon/set/container/DeviceManagedContainer.h"
+#include "Neon/set/container/DeviceThenHostManagedContainer.h"
+#include "Neon/set/container/HostManagedContainer.h"
+#include "Neon/set/container/OldDeviceManagedContainer.h"
 
 namespace Neon::set {
 

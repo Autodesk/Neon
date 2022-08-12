@@ -3,8 +3,8 @@
 #include "Neon/core/core.h"
 #include "Neon/core/types/digraph.h"
 
-#include "Neon/set/ContainerTools/graph/GraphDependency.h"
-#include "Neon/set/ContainerTools/graph/GraphNode.h"
+#include "Neon/set/container/graph/GraphDependency.h"
+#include "Neon/set/container/graph/GraphNode.h"
 
 namespace Neon::set::container {
 struct Bfs;

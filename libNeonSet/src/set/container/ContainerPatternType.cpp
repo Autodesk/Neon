@@ -1,4 +1,4 @@
-#include "Neon/set/ContainerTools/ContainerPatternType.h"
+#include "Neon/set/container/ContainerPatternType.h"
 
 /**
  * Abstract interface to hide
