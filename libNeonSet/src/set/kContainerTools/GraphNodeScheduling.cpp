@@ -4,9 +4,7 @@ namespace Neon::set::container {
 
 GraphNodeScheduling::GraphNodeScheduling()
 {
-    mStream = -1;
-    mEvent = -1;
-    mDataView = Neon::DataView::STANDARD;
+    reset();
 }
 
 auto GraphNodeScheduling::getStream() const
@@ -21,8 +19,8 @@ auto GraphNodeScheduling::getEvent() const
     return mEvent;
 }
 
-auto GraphNodeScheduling::getDependentEvents() const
-    -> const std::vector<int>&
+auto GraphNodeScheduling::getDependentEvents()
+    -> std::vector<int>&
 {
     return mDependentEvents;
 }
@@ -39,12 +37,6 @@ auto GraphNodeScheduling::setEvent(int event)
     mEvent = event;
 }
 
-auto GraphNodeScheduling::setDependentEvents(const std::vector<int>& dependentEvents)
-    -> void
-{
-    mDependentEvents = dependentEvents;
-}
-
 auto GraphNodeScheduling::setDataView(Neon::DataView dataView) -> void
 {
     mDataView = dataView;
@@ -53,6 +45,14 @@ auto GraphNodeScheduling::setDataView(Neon::DataView dataView) -> void
 auto GraphNodeScheduling::getDataView() const -> Neon::DataView
 {
     return mDataView;
+}
+
+auto GraphNodeScheduling::reset() -> void
+{
+    mStream = -1;
+    mEvent = -1;
+    mDataView = DataView::STANDARD;
+    mDependentEvents.clear();
 }
 
 }  // namespace Neon::set::container

@@ -6,7 +6,7 @@
 namespace Neon::set::container {
 
 template <typename Fun>
-auto Bfs::forEachLevel(Fun fun) -> void
+auto Bfs::forEachLevel(Fun fun) const -> void
 {
     int levelIdx = 0;
     for (auto& level : data) {
@@ -16,7 +16,7 @@ auto Bfs::forEachLevel(Fun fun) -> void
 }
 
 template <typename Fun>
-auto Bfs::forEachNodeAtLevel(int levelIdx, const Graph& graph, Fun fun) -> void
+auto Bfs::forEachNodeAtLevel(int levelIdx, const Graph& graph, Fun fun) const -> void
 {
     for (auto& nodeIdx : data.at(levelIdx)) {
         const auto& node = graph.helpGetGraphNode(nodeIdx);
@@ -28,8 +28,9 @@ auto Bfs::clear() -> void
 {
     data.clear();
 }
+
 template <typename Fun>
-auto Bfs::forEachNodeByLevel(const Graph& graph, Fun fun) -> void
+auto Bfs::forEachNodeByLevel(const Graph& graph, Fun fun) const -> void
 {
     forEachLevel([&graph, &fun](const Level& level, int levelIdx) {
         for (const auto& nodeIdx : level) {

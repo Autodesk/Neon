@@ -169,8 +169,19 @@ struct Graph
      */
     auto helpComputeScheduling(bool filterOutAnchors = true) -> void;
 
-    auto helpComputeScheduling_01_mappingStreams(bool filterOutAnchors) -> void;
-    auto helpComputeScheduling_02_events() -> void;
+    /**
+     * Resetting node's data related to scheduling
+     */
+    auto helpComputeScheduling_00_resetData() -> void;
+    /**
+     * Maps node to streams
+     */
+    auto helpComputeScheduling_01_mappingStreams(const Bfs& bfs, bool filterOutAnchors) -> void;
+
+    /**
+     * Define events to be waited and fired from each node
+     */
+    auto helpComputeScheduling_02_events(const Bfs& bfs) -> void;
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
 

@@ -43,19 +43,19 @@ struct Bfs
      * For Each iterator (read-only)
      */
     template <typename Fun>
-    auto forEachLevel(Fun fun) -> void;
+    auto forEachLevel(Fun fun) const -> void;
 
     /**
      * For Each iterator (read-only)
      */
     template <typename Fun>
-    auto forEachNodeAtLevel(int levelIdx, const Graph& graph, Fun fun) -> void;
+    auto forEachNodeAtLevel(int levelIdx, const Graph& graph, Fun fun) const -> void;
 
     /**
      * For Each iterator (read-only)
      */
     template <typename Fun>
-    auto forEachNodeByLevel(const Graph& graph, Fun fun) -> void;
+    auto forEachNodeByLevel(const Graph& graph, Fun fun) const -> void;
 
     /**
      * Clear the BFS status

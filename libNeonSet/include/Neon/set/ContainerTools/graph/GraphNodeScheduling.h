@@ -7,28 +7,11 @@ namespace Neon::set::container {
 
 class GraphNodeScheduling
 {
-
-    /**
-     *  Get the event to asynchronously signal that the execution of the Container is completed.
-     */
-    auto getEvent() const
-        -> int;
-
+   public:
     /**
      *  Get list of events to wait the completion of.
      */
-    auto getDependentEvents() const
-        -> const std::vector<int>&;
-
-    /**
-     * Set the event to asynchronously signal the completion of the Container.
-     */
-    auto setEvent(int event /**< Event to be used to signal the completion of the Container */) -> void;
-
-    /**
-     * Set the list of events that needed to be waited for before running the Container.
-     */
-    auto setDependentEvents(const std::vector<int>&) -> void;
+    auto getDependentEvents() -> std::vector<int>&;
 
     /**
      * Set the data view for the node
@@ -36,7 +19,6 @@ class GraphNodeScheduling
      */
     auto setDataView(Neon::DataView dataView) -> void;
 
-   public:
     GraphNodeScheduling();
 
     /**
@@ -55,11 +37,27 @@ class GraphNodeScheduling
      */
     auto setStream(int stream /**< stream for the Container execution */) -> void;
 
+    /**
+     *  Get the event to asynchronously signal that the execution of the Container is completed.
+     */
+    auto getEvent() const
+        -> int;
+
+    /**
+     * Set the event to asynchronously signal the completion of the Container.
+     */
+    auto setEvent(int event /**< Event to be used to signal the completion of the Container */) -> void;
+
+    /**
+     * Reset all scheduling data
+     */
+    void reset();
+
    private:
-    int              mStream /**< Stream for each operation for the node */;
-    int              mEvent /**< Event to be used to signal the completion of the node container */;
+    int              mStream{-1} /**< Stream for each operation for the node */;
+    int              mEvent{-1} /**< Event to be used to signal the completion of the node container */;
     std::vector<int> mDependentEvents /**< Events to be waited for before running the Container */;
-    Neon::DataView   mDataView;
+    Neon::DataView   mDataView{DataView::STANDARD};
 };
 
 }  // namespace Neon::set::container
