@@ -9,35 +9,35 @@ Using a simple example will look ad how the level mechanisms can be used.
 ## Working with dense domains
 
 Let's use implicit geometries to showcase some aspect of Neon.
-Will be working on a domain that is dense where we define our implicit geometry.
-The simpler implicic geometry we can use is a sphere.
+We'll be working on a dense domain on top of whihc we define our implicit geometry,
+like a simple sphere. In the rest of this page, we'll be looking at the following tasks:
 
-Let's consider a simple example: a dense discrete domain where we implicitly want to represent a sphere through its
-signed distance function.
-We'll be looking at how to implement the following in Neon:
+1. [Choosing the hardware for the computation - **Neon backend**](#backend)
+2. [Setting up a dense cartesian domain - **Neon grid**](#cartesian)
+3. [Initializing a sphere through its sdf - **Neon field**](#field)
+4. [Expanding the sphere via a level set - **Neon map containers**](#mapContainers)
+5. [Computing the grad of the level set field - **Neon stencil containers**](#stencilContainers)
 
-1. [**Neon backend**: choosing the hardware for the computation](#backend)
-2. [**Neon grid**: setting up a dense cartesian domain](#cartesian)
-3. [**Neon field**: initializing a sphere through its sdf](#field)
-4. [**Neon map containers**: expanding the sphere via a level set](#mapContainers)
-5. [**Neon stencil containers**: computing the grad of the level set field](#stencilContainers)
+The complete tutorial is located in the `Neon/tutorials/introduction/domainLevel` directory. However, in the following,
+we'll start with an empty main function in `domainLevel.cpp` and will guide you step by step in the tutorial.
 
 <a name="backend">
 ### **Neon backend**: choosing the hardware for the computation
 </a>
 
-Before starting with coding up out implicit geometries, we need to specify what hardware we want to use for the
-computations.
-The hardware selection process is introduced in the Set Level section.
-Just briefly, through a `Neon::Backend` object, we declare the runtime type (CUDA streams or OpenMp) and a list of
+First, we specify the hardware we want to use. The selection process is introduced in the Set Level section.
+Just briefly, through a `Neon::Backend` object, we declare the runtime type (CUDA streams or OpenMP) and a list of
 resources IDs.
-In this tutorial we target the first GPU in the system as a it's a more common configuration.
-However, to still showcase the multi-GPU capabilities, we overbook the GPU three times.
+In this example, we target the first GPU in the system as it's a typical configuration.
+However, we overbook the GPU three times to showcase the multi-GPU capabilities.
 
 !!! Note
 
     Performance wise, you should never overbook a GPU. 
-    However it is a nice debugging configuration as it allows to check multi-GPU mechanism using a single GPU. 
+    However it is a nice debugging configuration to check multi-GPU mechanism using a single GPU. 
+
+The resulting code is quite simple.
+Before exiting we also log some hardware information on the terminal to check that everything is as expected.
 
 ```cpp linenums="26"  title="Neon/tutorials/introduction/domainLevel/domainLevel.cpp"
 int main(int, char**)
@@ -61,7 +61,7 @@ int main(int, char**)
     Remember always to call `Neon::init();` to ensure that the Neon runtime has been initialized. 
     The function can be call more than once. 
 
-The following is the information printed on the terminal by the previous code.
+Running our first draft of the tutorial produce the following on the terminal:
 
 ``` bash title="Execution output" hl_lines="4"
 $ ./tutorial-domainLevel 
@@ -70,27 +70,27 @@ $ ./tutorial-domainLevel
 [12:24:57] Neon: Backend_t (0x7fffdf107860) - [runtime:stream] [nDev:1] [dev0:0 NVIDIARTXA4000] 
 ```
 
-In particular the last line describe the selected backend by providing the type, the number of devices as well as the
+In particular, the last line describes the selected backend by providing the type, the number of devices as well as the
 device name.
-In this case we are working with a Nvidia A4000 GPU.
-
+In this case, we are working on an Nvidia A4000 GPU.
 
 <a name="cartesian">
 ### **Neon grid**: setting up the cartesian discretisation
 </a>
 
-Defining a cartesian discretization is mostly a straight forward process.
-The main information to provide are the dimension of the discretization (the grid),
-declaring which are the cell in the discretization box that are of interest and the hardware to be used for any
-computation.
+Now we define a cartesian discretization for our problem.
+The main information to provide is:
 
-The possibly uncommon parameter to provide is a stencil, which is computed as the union of all the stencil that will be
-used
-during computation on the grid. Because Neon is not compier-based, it relies on the user to provide such information
-that is
-critical for lots of aspects of the Neon computing model.
+- dimension of the discretization box,
+- cells of interest in the discretization box,
+- hardware to be used for any computation.
 
-For our tutorial we extend the `domainLevel.cpp` file with the following lines of code.
+During the grid initialization, a stencil may be seen as an uncommon parameter to provide. The stencil is the union of
+all the stencils that will be used on the grid. Neon needs to know such parameters because they are critical for many
+optimization aspects.
+In our example, the only stencil we use is the Jacobi to compute the grad of a level set.
+
+The grid initialization extends the main function in `domainLevel.cpp` with the following lines:
 
 ```cpp linenums="36"  title="Neon/tutorials/introduction/domainLevel/domainLevel.cpp"
     // ...
@@ -135,9 +135,7 @@ For our tutorial we extend the `domainLevel.cpp` file with the following lines o
 }
 ```
 
-As stencil, we provide a Jacobi one, which will be using to compute the grad.
-
-What we get on the terminal when running the previous code is the following output:
+Running again our tutorial with the added code we obtain the following output:
 
 ``` bash title="Execution output" hl_lines="5"
 $ ./tutorial-domainLevel 
@@ -147,17 +145,15 @@ $ ./tutorial-domainLevel
 [12:54:12] Neon: [Domain Grid]:{eGrid}, [Background Grid]:{(25, 25, 25)}, [Active Cells]:{15625}, [Cell Distribution]:{(15625)}, [Backend]:{Backend_t (0x55e6f57a2c70) - [runtime:stream] [nDev:1] [dev0:0 NVIDIARTXA4000] }
 ```
 
-By logging the grid information (`NEON_INFO(grid.toString());`), we can inspect some information of the grid directly on
-the terminal.
-Indeed, the last line of output shows the selected grid type (eGrid in this case), the dimention of the grid, number of
-active cells as well as the number of cell per hardware device.
+By logging the grid information (`NEON_INFO(grid.toString());`), we can inspect some information about the grid.
+The last terminal line shows the selected grid type (eGrid in this case), the dimension of the grid, the number of
+active cells, as well as the number of cells per hardware device.
 
-By calling `ioDomainToVtk`, we can also inspect the created domain (`grid`) via Paraview as the code generates a vtk
-file (`myDomain`).
-The vtk file containes information on active cells and their distribution over selected hardware devices.
-As we in the example we are using a reppresenting a dense domain, in the vtk file all the cell inside the grid will be
-represented as active,
-the more interesting information we can get from the vtk file is the mapping between cells and hardware devices as
+By calling `ioDomainToVtk` method, we can also inspect the created domain (`grid`) via Paraview as the code generates a
+vtk
+file (`myDomain`). With an application working on a dense domain, the Paraview will show all the cells in the
+discretization box as active.
+Moreover, it will show the mapping between cells and hardware devices as
 reported in the following picture:
 
 ![Mapping between cells and hardware devices](img/04-domain.vtk.png)
