@@ -457,9 +457,11 @@ auto Graph::helpComputeScheduling_01_mappingStreams(Bfs& bfs, bool filterOutAnch
 auto Graph::helpComputeScheduling(bool filterOutAnchors) -> void
 {
     Bfs bfs = helpGetBFS(filterOutAnchors, {GraphDependencyType::data, GraphDependencyType::user});
-    helpComputeScheduling_00_resetData(bfs);
+    helpComputeScheduling_00_resetData();
     helpComputeScheduling_01_mappingStreams(bfs, filterOutAnchors);
     helpComputeScheduling_02_events(bfs);
+
+
 }
 
 auto Graph::helpGetGraphNode(GraphData::Uid uid) -> GraphNode&
@@ -472,6 +474,12 @@ auto Graph::helpGetGraphNode(GraphData::Uid uid) const -> const GraphNode&
     return mRawGraph.getVertexProperty(uid);
 }
 
+auto Graph::helpComputeScheduling_00_resetData() -> void
+{
+    mExecutionBfs.forEachNodeByLevel(*this, [&](GraphNode& targetNode, int levelId) {
+        targetNode.getScheduling().reset();
+    });
+}
 
 auto Graph::helpComputeScheduling_01_mappingStreams(const Bfs& bfs, bool filterOutAnchors) -> void
 {
@@ -582,11 +590,6 @@ auto Graph::helpComputeScheduling_02_events(const Bfs& bfs) -> void
         }
     });
 }
-auto Graph::helpComputeScheduling_00_resetData() -> void
-{
-    mExecutionBfs.forEachNodeByLevel(*this, [&](GraphNode& targetNode, int levelId) {
-        targetNode.getScheduling().reset();
-    });
-}
+
 
 }  // namespace Neon::set::container
