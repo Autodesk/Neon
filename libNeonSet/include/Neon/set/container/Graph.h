@@ -41,11 +41,11 @@ struct Graph
     /**
      * Adds a dependency between two nodes of the graph
      */
-    auto addNodeInBetween(const GraphNode&          nodeA,
-                          Container&                containerB,
-                          const GraphNode&          nodeC,
-                          const GraphDependencyType ab = GraphDependencyType::user,
-                          const GraphDependencyType bc = GraphDependencyType::user) -> GraphNode&;
+    auto addNodeInBetween(const GraphNode&    nodeA,
+                          Container&          containerB,
+                          const GraphNode&    nodeC,
+                          GraphDependencyType ab = GraphDependencyType::user,
+                          GraphDependencyType bc = GraphDependencyType::user) -> GraphNode&;
 
     /**
      * Adds a dependency between two node of the graph
@@ -71,14 +71,18 @@ struct Graph
      * Returns all proceeding graph nodes.
      * The begin node is excluded
      */
-    auto getProceedingGraphNodes(const GraphNode& graphNode)
+    auto getProceedingGraphNodes(const GraphNode&                        graphNode,
+                                 const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
+                                                                                            GraphDependencyType::data})
         -> std::vector<GraphNode*>;
 
     /**
      * Returns all subsequent graph nodes.
      * The end node is excluded
      */
-    auto getSubsequentGraphNodes(const GraphNode& graphNode) -> std::vector<GraphNode*>;
+    auto getSubsequentGraphNodes(const GraphNode&                        graphNode,
+                                 const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
+                                                                                            GraphDependencyType::data}) -> std::vector<GraphNode*>;
 
     /**
      * Execute the scheduling operation associated to the node

@@ -11,7 +11,7 @@ struct GraphDependency
     GraphDependency(GraphDependencyType type);
 
     auto setType(GraphDependencyType type) -> void;
-    auto getType() -> GraphDependencyType;
+    auto getType() const-> GraphDependencyType;
 
    private:
     GraphDependencyType mType;

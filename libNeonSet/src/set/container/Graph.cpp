@@ -105,7 +105,8 @@ auto Graph::removeNode(GraphNode& gn) -> GraphNode
     return removed;
 }
 
-auto Graph::getProceedingGraphNodes(const GraphNode& graphNode)
+auto Graph::getProceedingGraphNodes(const GraphNode&                        graphNode,
+                                    const std::vector<GraphDependencyType>& dependencyTypes)
     -> std::vector<GraphNode*>
 {
     std::vector<GraphNode*> nodes;
@@ -113,6 +114,20 @@ auto Graph::getProceedingGraphNodes(const GraphNode& graphNode)
     auto nodeUID = graphNode.getGraphData().getUid();
     auto nodeUidSet = mRawGraph.inNeighbors(nodeUID);
     for (auto&& proceedingUid : nodeUidSet) {
+        const auto& connection = mRawGraph.getEdgeProperty({proceedingUid, nodeUID});
+        bool toBeReturned = false;
+
+        for(auto& t : dependencyTypes){
+            if(t == connection.getType() ){
+                toBeReturned =  true;
+                break ;
+            }
+        }
+
+        if(!toBeReturned){
+            continue ;
+        }
+
         auto& proceedingNode = mRawGraph.getVertexProperty(proceedingUid);
         nodes.push_back(&proceedingNode);
     }
@@ -120,13 +135,27 @@ auto Graph::getProceedingGraphNodes(const GraphNode& graphNode)
     return nodes;
 }
 
-auto Graph::getSubsequentGraphNodes(const GraphNode& graphNode) -> std::vector<GraphNode*>
+auto Graph::getSubsequentGraphNodes(const GraphNode& graphNode,
+                                    const std::vector<GraphDependencyType>& dependencyTypes) -> std::vector<GraphNode*>
 {
     std::vector<GraphNode*> nodes;
 
     auto nodeUID = graphNode.getGraphData().getUid();
     auto nodeUidSet = mRawGraph.outNeighbors(nodeUID);
     for (auto&& subsequentUID : nodeUidSet) {
+        const auto& connection = mRawGraph.getEdgeProperty({nodeUID, subsequentUID});
+        bool toBeReturned = false;
+
+        for(auto& t : dependencyTypes){
+            if(t == connection.getType() ){
+                toBeReturned =  true;
+                break ;
+            }
+        }
+
+        if(!toBeReturned){
+            continue ;
+        }
         auto& subsequentNode = mRawGraph.getVertexProperty(subsequentUID);
         nodes.push_back(&subsequentNode);
     }

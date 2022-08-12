@@ -11,7 +11,7 @@ auto GraphDependency::setType(GraphDependencyType type) -> void
     mType = type;
 }
 
-auto GraphDependency::getType() -> GraphDependencyType
+auto GraphDependency::getType() const -> GraphDependencyType
 {
     return mType;
 }
