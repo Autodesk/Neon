@@ -99,11 +99,11 @@ auto Container::getDataViewSupport() const
     return dwSupport;
 }
 
-auto Container::getContainerType() const
-    -> Neon::set::internal::ContainerType
+auto Container::getContainerExecutionType() const
+    -> Neon::set::ContainerExecutionType
 {
     auto&      api = this->getContainerInterface();
-    auto const type = api.getContainerType();
+    auto const type = api.getContainerExecutionType();
     return type;
 }
 

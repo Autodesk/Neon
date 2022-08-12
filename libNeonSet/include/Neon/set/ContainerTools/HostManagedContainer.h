@@ -39,7 +39,7 @@ struct HostManagedContainer : ContainerAPI
         : mLoadingLambda(loadingLambda),
           mDataContainer(dataIteratorContainer)
     {
-        setContainerType(ContainerType::hostManaged);
+        setContainerExecutionType(ContainerExecutionType::hostManaged);
         setDataViewSupport(dataViewSupport);
         setName(name);
         mPreSyncType = preSyncType;
@@ -107,7 +107,7 @@ struct HostManagedContainer : ContainerAPI
              int            streamIdx = 0,
              Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
     {
-        if (ContainerType::deviceManaged == this->getContainerType()) {
+        if (ContainerExecutionType::deviceManaged == this->getContainerType()) {
             NEON_THROW_UNSUPPORTED_OPTION("");
         }
         // REMEMBER that this is run in parallel withing omp

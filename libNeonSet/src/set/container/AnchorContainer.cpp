@@ -1,4 +1,3 @@
-#pragma once
 #include "Neon/core/core.h"
 
 #include "Neon/set/ContainerTools/AnchorContainer.h"
@@ -29,11 +28,11 @@ auto AnchorContainer::getDeviceContainer() -> std::shared_ptr<ContainerAPI>
     NEON_THROW_UNSUPPORTED_OPTION("This Container type can not be decoupled.");
 }
 
-auto AnchorContainer::run(int streamIdx , Neon::DataView dataView ) -> void
+auto AnchorContainer::run(int /*streamIdx*/ , Neon::DataView /*dataView*/ ) -> void
 {
 }
 
-auto AnchorContainer::run(Neon::SetIdx setIdx, int streamIdx, Neon::DataView dataView) -> void
+auto AnchorContainer::run(Neon::SetIdx /*setIdx*/, int /*streamIdx*/, Neon::DataView /*dataView*/) -> void
 {
 }
 

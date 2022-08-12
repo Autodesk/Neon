@@ -4,7 +4,7 @@
  * Abstract interface to hide
  */
 
-namespace Neon::set::internal {
+namespace Neon::set {
 
 auto ContainerOperationTypeUtils::toString(ContainerOperationType option) -> std::string
 {
@@ -50,7 +50,7 @@ auto ContainerOperationTypeUtils::getOptions() -> std::array<ContainerOperationT
 }  // namespace Neon::set::internal
 
 
-std::ostream& operator<<(std::ostream& os, Neon::set::internal::ContainerOperationType const& m)
+std::ostream& operator<<(std::ostream& os, Neon::set::ContainerOperationType const& m)
 {
-    return os << std::string(Neon::set::internal::ContainerOperationTypeUtils::toString(m));
+    return os << std::string(Neon::set::ContainerOperationTypeUtils::toString(m));
 }

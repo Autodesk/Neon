@@ -1,4 +1,5 @@
 #include "Neon/set/ContainerTools/Graph.h"
+#include "Neon/set/ContainerTools/Bfs.h"
 
 namespace Neon::set::container {
 
@@ -172,7 +173,6 @@ auto Graph::getDependencyType(const GraphNode& nodeA,
 auto Graph::helpInvalidateScheduling() -> void
 {
     mSchedulingStatusIsValid = false;
-    mExecutionBfs.clear();
 }
 
 auto Graph::helpRemoteRedundantDependencies() -> void
@@ -379,89 +379,12 @@ auto Graph::helpGetBFS(bool                                    filterOutBeginEnd
     return bfs;
 }
 
-auto Graph::helpComputeScheduling_01_mappingStreams(Bfs& bfs, bool filterOutAnchors) -> void
-{
-    mSchedulingStatusIsValid = true;
-    mMaxNumberStreams = bfs.getMaxLevelWidth();
-
-    int currentNode = 0;
-    // used stream -> true
-    // available -> false
-    std::vector<bool> streamsStatus(mMaxNumberStreams, false);
-
-    auto bookFirstAvailableStream = [&]() {
-        for (int i = 0; i < int(streamsStatus.size()); i++) {
-            if (!streamsStatus[i]) {
-                streamsStatus[i] = true;
-                return i;
-            }
-        }
-    };
-
-    auto isStreamAvailable = [&](int streamId) -> bool {
-        return streamsStatus[streamId] == false;
-    };
-
-    auto bookStream = [&](int streamId) -> bool {
-        if (isStreamAvailable(streamId)) {
-            streamsStatus[streamId] = true;
-            return true;
-        }
-        return false;
-    };
-
-    // The stream mapping process is computer per level.
-    // On each level we have two steps
-    // a. map nodes with the streams of one of the proceeding nodes when possible
-    // b. map the remaining nodes by mapping the first available stream
-    bfs.forEachLevel([&](Bfs::Level& level,
-                         int         levelIdx) {
-        std::vector<GraphNode*> delayedBooking;
-
-        // Step a.
-        for (auto& nodeUid : level) {
-            auto node = mRawGraph.getVertexProperty(nodeUid);
-
-            int associatedStream = [&]() -> int {
-                if (levelIdx == 0) {
-                    return bookFirstAvailableStream();
-                }
-                auto& preNodes = mRawGraph.inNeighbors(node.getGraphData().getUid());
-                for (auto& preNodeIdx : preNodes) {
-                    auto preNodeStream = mRawGraph.getVertexProperty(preNodeIdx).getScheduling().getStream();
-                    if (bookStream(preNodeStream)) {
-                        return preNodeStream;
-                    }
-                }
-                return -1;
-            }();
-
-            if (associatedStream == -1) {
-                // track nodes that need to go through step 2
-                delayedBooking.push_back(&node);
-            } else {
-                node.getScheduling().setStream(associatedStream);
-            }
-        }
-
-        // Step b.
-        for (auto nodePrt : delayedBooking) {
-            auto associatedStream = bookFirstAvailableStream();
-            (*nodePrt).getScheduling().setStream(associatedStream);
-        }
-
-        streamsStatus = std::vector<bool>(mMaxNumberStreams, false);
-    });
-}
-
 auto Graph::helpComputeScheduling(bool filterOutAnchors) -> void
 {
     Bfs bfs = helpGetBFS(filterOutAnchors, {GraphDependencyType::data, GraphDependencyType::user});
-    helpComputeScheduling_00_resetData();
-    helpComputeScheduling_01_mappingStreams(bfs, filterOutAnchors);
+    helpComputeScheduling_00_resetData(bfs);
+    helpComputeScheduling_01_mappingStreams(bfs);
     helpComputeScheduling_02_events(bfs);
-
-
 }
 
 auto Graph::helpGetGraphNode(GraphData::Uid uid) -> GraphNode&
@@ -474,19 +397,18 @@ auto Graph::helpGetGraphNode(GraphData::Uid uid) const -> const GraphNode&
     return mRawGraph.getVertexProperty(uid);
 }
 
-auto Graph::helpComputeScheduling_00_resetData() -> void
+auto Graph::helpComputeScheduling_00_resetData(Bfs& bfs) -> void
 {
-    mExecutionBfs.forEachNodeByLevel(*this, [&](GraphNode& targetNode, int levelId) {
+    bfs.forEachNodeByLevel(*this, [&](GraphNode& targetNode, int /*levelId*/) {
         targetNode.getScheduling().reset();
     });
 }
 
-auto Graph::helpComputeScheduling_01_mappingStreams(const Bfs& bfs, bool filterOutAnchors) -> void
+auto Graph::helpComputeScheduling_01_mappingStreams(Bfs& bfs) -> void
 {
     mSchedulingStatusIsValid = true;
     mMaxNumberStreams = bfs.getMaxLevelWidth();
 
-    int currentNode = 0;
     // used stream -> true
     // available -> false
     std::vector<bool> streamsStatus(mMaxNumberStreams, false);
@@ -498,6 +420,7 @@ auto Graph::helpComputeScheduling_01_mappingStreams(const Bfs& bfs, bool filterO
                 return i;
             }
         }
+        NEON_THROW_UNSUPPORTED_OPERATION("");
     };
 
     auto isStreamAvailable = [&](int streamId) -> bool {
@@ -556,11 +479,11 @@ auto Graph::helpComputeScheduling_01_mappingStreams(const Bfs& bfs, bool filterO
     });
 }
 
-auto Graph::helpComputeScheduling_02_events(const Bfs& bfs) -> void
+auto Graph::helpComputeScheduling_02_events(Bfs& bfs) -> void
 {
     int eventCount = 1;
 
-    mExecutionBfs.forEachNodeByLevel(*this, [&](GraphNode& targetNode, int levelId) {
+    bfs.forEachNodeByLevel(*this, [&](GraphNode& targetNode, int /*levelId*/) {
         int  targetStreamId = targetNode.getScheduling().getStream();
         auto preNodeIds = mRawGraph.inNeighbors(targetNode.getGraphData().getUid());
         if (preNodeIds.size() == 0) {

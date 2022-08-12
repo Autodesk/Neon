@@ -6,23 +6,23 @@ namespace Neon {
 
 auto GraphDependencyTypeUtil::validOptions() -> std::array<Neon::GraphDependencyType, GraphDependencyTypeUtil::nConfig>
 {
-    std::array<Neon::GraphDependencyType, GraphDependencyTypeUtil::nConfig> options = {GraphDependencyType::DATA,
-                                                                                       GraphDependencyType::SCHEDULING,
-                                                                                       GraphDependencyType::USER};
+    std::array<Neon::GraphDependencyType, GraphDependencyTypeUtil::nConfig> options = {GraphDependencyType::data,
+                                                                                       GraphDependencyType::scheduling,
+                                                                                       GraphDependencyType::user};
     return options;
 }
 
 auto GraphDependencyTypeUtil::toString(GraphDependencyType e) -> std::string
 {
     switch (e) {
-        case GraphDependencyType::DATA: {
-            return "DATA";
+        case GraphDependencyType::data: {
+            return "data";
         }
-        case GraphDependencyType::SCHEDULING: {
-            return "SCHEDULING";
+        case GraphDependencyType::scheduling: {
+            return "scheduling";
         }
-        case GraphDependencyType::USER: {
-            return "USER";
+        case GraphDependencyType::user: {
+            return "user";
         }
         default: {
             NEON_THROW_UNSUPPORTED_OPTION("GraphDependencyTypeUtil");
@@ -33,14 +33,14 @@ auto GraphDependencyTypeUtil::toString(GraphDependencyType e) -> std::string
 auto GraphDependencyTypeUtil::fromInt(int val) -> GraphDependencyType
 {
     switch (val) {
-        case static_cast<int>(GraphDependencyType::DATA): {
-            return GraphDependencyType::DATA;
+        case static_cast<int>(GraphDependencyType::data): {
+            return GraphDependencyType::data;
         }
-        case static_cast<int>(GraphDependencyType::SCHEDULING): {
-            return GraphDependencyType::SCHEDULING;
+        case static_cast<int>(GraphDependencyType::scheduling): {
+            return GraphDependencyType::scheduling;
         }
-        case static_cast<int>(GraphDependencyType::USER): {
-            return GraphDependencyType::USER;
+        case static_cast<int>(GraphDependencyType::user): {
+            return GraphDependencyType::user;
         }
         default: {
             NEON_THROW_UNSUPPORTED_OPTION("GraphDependencyTypeUtil");

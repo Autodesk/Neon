@@ -23,7 +23,7 @@ enum struct ContainerExecutionType
 
 struct ContainerExecutionTypeUtils
 {
-    static constexpr int nOptions = 3;
+    static constexpr int nOptions = 4;
 
     static auto toString(ContainerExecutionType option) -> std::string;
     static auto fromString(const std::string& option) -> ContainerExecutionType;

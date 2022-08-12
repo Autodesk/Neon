@@ -31,7 +31,7 @@ struct DeviceManagedContainer : ContainerAPI
         : mLoadingLambda(loadingLambda),
           mDataContainer(dataIteratorContainer)
     {
-        setContainerType(ContainerType::deviceManaged);
+        setContainerExecutionType(ContainerExecutionType::deviceManaged);
         setDataViewSupport(dataViewSupport);
         setName(name);
     }
@@ -97,7 +97,7 @@ struct DeviceManagedContainer : ContainerAPI
              int            streamIdx = 0,
              Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
     {
-        if (ContainerType::deviceManaged == this->getContainerType()) {
+        if (ContainerExecutionType::deviceManaged == this->getContainerType()) {
             const Neon::Backend& bk = mDataContainer.getBackend();
 
             // We use device 0 as a dummy setIdx to create a loader.

@@ -1,12 +1,9 @@
-#pragma once
-
 #include "Neon/set/ContainerTools/graph/GraphDependency.h"
 
 namespace Neon::set::container {
 
 GraphDependency::GraphDependency()
 {
-    mType = GraphDependencyType::NOTSET;
 }
 
 auto GraphDependency::setType(GraphDependencyType type) -> void

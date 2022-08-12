@@ -37,7 +37,7 @@ struct DeviceThenHostManagedContainer : ContainerAPI
 
         this->setDataViewSupport(DataViewSupport::off);
 
-        setContainerType(ContainerType::deviceThenHostManaged);
+        setContainerExecutionType(ContainerExecutionType::deviceThenHostManaged);
         setName(name);
     }
 

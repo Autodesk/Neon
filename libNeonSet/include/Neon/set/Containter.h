@@ -122,8 +122,8 @@ struct Container
     auto getDataViewSupport() const
         -> Neon::set::internal::ContainerAPI::DataViewSupport;
 
-    auto getContainerType() const
-        -> Neon::set::internal::ContainerType;
+    auto getContainerExecutionType() const
+        -> Neon::set::ContainerExecutionType;
 
    protected:
     std::shared_ptr<Neon::set::internal::ContainerAPI> mContainer;

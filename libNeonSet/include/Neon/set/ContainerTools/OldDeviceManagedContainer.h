@@ -31,7 +31,7 @@ struct OldDeviceManagedContainer : ContainerAPI
         : mLoadingLambda(loadingLambda),
           mDataContainer(dataIteratorContainer)
     {
-        setContainerType(ContainerType::deviceManaged);
+        setContainerExecutionType(ContainerExecutionType::deviceManaged);
         setDataViewSupport(dataViewSupport);
         setName(name);
     }

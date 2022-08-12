@@ -3,7 +3,6 @@
 #include "Neon/core/core.h"
 #include "Neon/core/types/digraph.h"
 
-#include "Neon/set/ContainerTools/Bfs.h"
 #include "Neon/set/ContainerTools/graph/GraphDependency.h"
 #include "Neon/set/ContainerTools/graph/GraphNode.h"
 
@@ -172,23 +171,22 @@ struct Graph
     /**
      * Resetting node's data related to scheduling
      */
-    auto helpComputeScheduling_00_resetData() -> void;
+    auto helpComputeScheduling_00_resetData(Bfs& bfs) -> void;
     /**
      * Maps node to streams
      */
-    auto helpComputeScheduling_01_mappingStreams(const Bfs& bfs, bool filterOutAnchors) -> void;
+    auto helpComputeScheduling_01_mappingStreams(Bfs& bfs) -> void;
 
     /**
      * Define events to be waited and fired from each node
      */
-    auto helpComputeScheduling_02_events(const Bfs& bfs) -> void;
+    auto helpComputeScheduling_02_events(Bfs& bfs) -> void;
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
 
     Uid      mUidCounter;
     RawGraph mRawGraph;
     bool     mSchedulingStatusIsValid;
-    Bfs      mExecutionBfs;
     int      mMaxNumberStreams;
 };
 

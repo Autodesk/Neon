@@ -1,5 +1,3 @@
-#pragma once
-
 #include "Neon/set/ContainerTools/Bfs.h"
 
 namespace Neon::set::container {

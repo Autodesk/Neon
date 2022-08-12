@@ -6,14 +6,14 @@ GraphNode::GraphNode()
 {
 }
 
-auto GraphNode::getBeginNode() -> GraphNode
+auto GraphNode::newBeginNode() -> GraphNode
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::beginUid);
     return node;
 }
 
-auto GraphNode::getEndNode() -> GraphNode
+auto GraphNode::newEndNode() -> GraphNode
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::endUid);
@@ -76,6 +76,7 @@ auto GraphNode::helpGetDotProperties() -> std::string
     if (getContainerOperationType() == Neon::set::ContainerOperationType::sync) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
+    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 auto GraphNode::helpGetDotName() -> std::string
 {
@@ -98,6 +99,8 @@ auto GraphNode::helpGetDotInfo() -> std::string
     if (getContainerOperationType() == Neon::set::ContainerOperationType::sync) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
+    NEON_DEV_UNDER_CONSTRUCTION("");
+
 }
 auto GraphNode::getContainerOperationType() const -> Neon::set::ContainerOperationType
 {

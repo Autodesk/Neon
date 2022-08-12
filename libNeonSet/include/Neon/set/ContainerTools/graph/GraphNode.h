@@ -2,7 +2,6 @@
 
 #include "GraphData.h"
 #include "GraphNodeScheduling.h"
-#include "Neon/set/ContainerTools/graph/GraphNodeType.h"
 #include "Neon/set/Containter.h"
 
 namespace Neon::set::container {
@@ -36,7 +35,7 @@ struct GraphNode
     auto getGraphData() -> GraphData&;
 
     /**
-     * Returns a reference to graph information related to this node.
+     * Returns a reference to some graph information related to this node.
      * */
     auto getGraphData() const -> const GraphData&;
 
@@ -60,7 +59,10 @@ struct GraphNode
      */
     auto getContainer() const -> const Container&;
 
-    auto getContainerOperationType()const -> Neon::set::ContainerOperationType;
+    /**
+     * Returns the operation type of the container associated to this node
+     */
+    auto getContainerOperationType() const -> Neon::set::ContainerOperationType;
 
     auto toString() -> std::string;
 

@@ -26,12 +26,11 @@ struct ContainerPatternTypeUtils
     static auto toString(ContainerPatternType option) -> std::string;
     static auto fromString(const std::string& option) -> ContainerPatternType;
     static auto getOptions() -> std::array<ContainerPatternType, nOptions>;
-    static auto isExpandable(ContainerPatternType option) -> bool;
 };
 
 
-}  // namespace Neon::set::internal
+}  // namespace Neon::set
 /**
  * operator<<
  */
-std::ostream& operator<<(std::ostream& os, Neon::set::container::ContainerPatternType const& m);
+std::ostream& operator<<(std::ostream& os, Neon::set::ContainerPatternType const& m);
