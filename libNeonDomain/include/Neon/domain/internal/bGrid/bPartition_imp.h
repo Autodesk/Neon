@@ -244,7 +244,6 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::shmemPitch(
             }
         } else {
             cell.mLocation.z += (cell.mLocation.z / 2) + 10;
-
         }
 
 
@@ -254,7 +253,9 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::shmemPitch(
                cell.mLocation.z * Cell::sBlockSizeX * Cell::sBlockSizeY;
 
     } else {
-        return cell.pitch(card, mStencilRadius);
+        return (2 * mStencilRadius + Cell::sBlockSizeX) * (2 * mStencilRadius + Cell::sBlockSizeY) * (2 * mStencilRadius + Cell::sBlockSizeZ) * static_cast<Cell::Location::Integer>(card) +
+               //offset to this cell's data
+               (cell.mLocation.x + mStencilRadius) + (cell.mLocation.y + mStencilRadius) * (2 * mStencilRadius + Cell::sBlockSizeX) + (cell.mLocation.z + mStencilRadius) * (2 * mStencilRadius + Cell::sBlockSizeX) * (2 * mStencilRadius + Cell::sBlockSizeY);
     }
 }
 
@@ -285,14 +286,14 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
     };
 
 
-    __shared__ uint32_t sNeighbour[26];
+    /*__shared__ uint32_t sNeighbour[26];
     mSharedNeighbourBlocks = sNeighbour;
     {
         Cell::Location::Integer tid = cell.getLocal1DID();
         for (int i = 0; i < 26; i += Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ) {
             mSharedNeighbourBlocks[i] = mNeighbourBlocks[26 * cell.mBlockID + i];
         }
-    }
+    }*/
 
     nghIdx_t offset;
 #pragma unroll 2

@@ -27,7 +27,7 @@ class bCell
     static constexpr BlockSizeT sBlockSizeY = 8;
     static constexpr BlockSizeT sBlockSizeZ = 8;
     static constexpr BlockSizeT sBlockSize[3]{sBlockSizeX, sBlockSizeY, sBlockSizeZ};
-    static constexpr bool       sUseSwirlIndex = true;
+    static constexpr bool       sUseSwirlIndex = false;
 
     //We use uint32_t data type to store the block mask and thus the mask size is 32
     //i.e., each entry in the mask array store the state of 32 voxels
@@ -66,9 +66,7 @@ class bCell
     static NEON_CUDA_HOST_DEVICE inline auto getNeighbourBlockID(const int16_3d& blockOffset) -> uint32_t;
 
     NEON_CUDA_HOST_DEVICE inline auto pitch(int card) const -> Location::Integer;
-
-    NEON_CUDA_HOST_DEVICE inline auto pitch(const int card, const nghIdx_t::Integer radius) const -> Location::Integer;
-
+        
     static NEON_CUDA_HOST_DEVICE inline auto swirlToCanonical(const Location::Integer id) -> Location::Integer;
 
     static NEON_CUDA_HOST_DEVICE inline auto canonicalToSwirl(const Location::Integer id) -> Location::Integer;

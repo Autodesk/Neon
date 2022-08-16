@@ -35,7 +35,7 @@ auto axpy(const T&     val,
             auto& xLocal = L.load(x);
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
                 Neon::sys::ShmemAllocator shmemAlloc;
-                yLocal.loadInSharedMemoryAsync(e, 1, shmemAlloc);
+                yLocal.loadInSharedMemory(e, 1, shmemAlloc);
 
                 //Neon::index_3d global = xLocal.mapToGlobal(e);
 
@@ -59,7 +59,7 @@ auto laplace(const FieldT& x, FieldT& y, size_t sharedMem = 0) -> Neon::set::Con
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename FieldT::Cell& cell) mutable {
                 Neon::sys::ShmemAllocator shmemAlloc;
-                xLocal.loadInSharedMemoryAsync(cell, 1, shmemAlloc);
+                xLocal.loadInSharedMemory(cell, 1, shmemAlloc);
 
 
                 using Type = typename FieldT::Type;

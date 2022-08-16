@@ -408,16 +408,4 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::pitch(int card) const -> Location::Inte
         //offset to this cell's data
         getLocal1DID();
 }
-
-NEON_CUDA_HOST_DEVICE inline auto bCell::pitch(const int card, const nghIdx_t::Integer radius) const -> Location::Integer
-{
-    //similar to pitch but the block is augmented with halo
-    return
-        //stride across cardinalities before card within the block
-        (2 * radius + sBlockSizeX) * (2 * radius + sBlockSizeY) * (2 * radius + sBlockSizeZ) * static_cast<Location::Integer>(card) +
-        //offset to this cell's data
-        (mLocation.x + radius) +
-        (mLocation.y + radius) * (2 * radius + sBlockSizeX) +
-        (mLocation.z + radius) * (2 * radius + sBlockSizeX) * (2 * radius + sBlockSizeY);
-}
 }  // namespace Neon::domain::internal::bGrid
