@@ -35,7 +35,9 @@ auto axpy(const T&     val,
             auto& xLocal = L.load(x);
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
                 Neon::sys::ShmemAllocator shmemAlloc;
-                yLocal.loadInSharedMemory(e, 0, shmemAlloc);
+                yLocal.loadInSharedMemoryAsync(e, 1, shmemAlloc);
+
+                //Neon::index_3d global = xLocal.mapToGlobal(e);
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
                     xLocal(e, i) += val * yLocal(e, i);
@@ -57,7 +59,7 @@ auto laplace(const FieldT& x, FieldT& y, size_t sharedMem = 0) -> Neon::set::Con
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename FieldT::Cell& cell) mutable {
                 Neon::sys::ShmemAllocator shmemAlloc;
-                xLocal.loadInSharedMemory(cell, 1, shmemAlloc);
+                xLocal.loadInSharedMemoryAsync(cell, 1, shmemAlloc);
 
 
                 using Type = typename FieldT::Type;
@@ -111,6 +113,16 @@ void SingleStencil(TestData<G, T, C>&      data,
         auto& Y = data.getField(FieldNames::Y);
 
         std::vector<Neon::set::Container> ops;
+
+
+        /*X.forEachActiveCell([&](const Neon::index_3d& idx,
+                                const int&            cardinality,
+                                T&) {
+
+
+        });
+        X.updateCompute(0);
+        X.ioToVtk("X", "X");*/
 
         ops.push_back(laplace(X, Y, Y.getSharedMemoryBytes(1)));
         ops.push_back(axpy(val, Y, X, Y.getSharedMemoryBytes(1)));

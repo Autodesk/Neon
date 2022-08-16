@@ -6,6 +6,22 @@
 namespace Neon::domain::internal::bGrid {
 
 template <typename T, int C>
+bPartition<T, C>::bPartition()
+    : mDataView(Neon::DataView::STANDARD),
+      mMem(nullptr),
+      mCardinality(0),
+      mNeighbourBlocks(nullptr),
+      mMask(nullptr),
+      mOutsideValue(0),
+      mStencilNghIndex(nullptr),
+      mIsInSharedMem(false),
+      mMemSharedMem(nullptr),
+      mSharedNeighbourBlocks(nullptr),
+      mStencilRadius(0)
+{
+}
+
+template <typename T, int C>
 bPartition<T, C>::bPartition(Neon::DataView  dataView,
                              T*              mem,
                              Neon::index_3d  dim,
@@ -26,6 +42,7 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
       mStencilNghIndex(stencilNghIndex),
       mIsInSharedMem(false),
       mMemSharedMem(nullptr),
+      mSharedNeighbourBlocks(nullptr),
       mStencilRadius(0)
 {
 }
@@ -34,16 +51,20 @@ template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Cell& local) const -> Neon::index_3d
 {
     Neon::index_3d ret = mOrigin[local.mBlockID];
+#ifdef NEON_PLACE_CUDA_DEVICE
     if constexpr (Cell::sUseSwirlIndex) {
-        Cell::Location::Integer xy = local.canonicalToSwirl(local.mLocation.x +
-                                                            local.mLocation.y * Cell::sBlockSizeX);
-        ret.x += xy % Cell::sBlockSizeX;
-        ret.y += xy / Cell::sBlockSizeX;
+        Cell::Location swirl = local.toSwirl();
+        ret.x += swirl.x;
+        ret.y += swirl.y;
+        ret.z += swirl.z;
     } else {
+#endif
         ret.x += local.mLocation.x;
         ret.y += local.mLocation.y;
+        ret.z += local.mLocation.z;
+#ifdef NEON_PLACE_CUDA_DEVICE
     }
-    ret.z += local.mLocation.z;
+#endif
     return ret;
 }
 
@@ -135,7 +156,11 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     c
             ngh_cell.mLocation.z -= Cell::sBlockSizeZ;
         }
 
-        ngh_cell.mBlockID = mNeighbourBlocks[26 * cell.mBlockID + Cell::getNeighbourBlockID(block_offset)];
+        if (mSharedNeighbourBlocks != nullptr) {
+            ngh_cell.mBlockID = mSharedNeighbourBlocks[Cell::getNeighbourBlockID(block_offset)];
+        } else {
+            ngh_cell.mBlockID = mNeighbourBlocks[26 * cell.mBlockID + Cell::getNeighbourBlockID(block_offset)];
+        }
 
     } else {
         ngh_cell.mBlockID = cell.mBlockID;
@@ -165,16 +190,37 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
     if (!cell.mIsActive) {
         return ret;
     }
-    Cell ngh_cell = setNghCell(cell, offset);
-    if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
-        ret.isValid = ngh_cell.computeIsActive(mMask);
-        if (ret.isValid) {
-            if (mIsInSharedMem) {
-                ngh_cell.mLocation.x = cell.mLocation.x + offset.x;
-                ngh_cell.mLocation.y = cell.mLocation.y + offset.y;
-                ngh_cell.mLocation.z = cell.mLocation.z + offset.z;
+
+
+    if constexpr (Cell::sUseSwirlIndex) {
+        Cell swirl_cell = cell.toSwirl();
+
+        Cell ngh_cell = setNghCell(swirl_cell, offset);
+        if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
+            //TODO maybe ngh_cell should be mapped to its memory layout
+            ret.isValid = ngh_cell.computeIsActive(mMask);
+            if (ret.isValid) {
+                if (mIsInSharedMem) {
+                    ngh_cell.mLocation.x = cell.mLocation.x + offset.x;
+                    ngh_cell.mLocation.y = cell.mLocation.y + offset.y;
+                    ngh_cell.mLocation.z = cell.mLocation.z + offset.z;
+                }
+                ret.value = this->operator()(ngh_cell, card);
             }
-            ret.value = this->operator()(ngh_cell, card);
+        }
+
+    } else {
+        Cell ngh_cell = setNghCell(cell, offset);
+        if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
+            ret.isValid = ngh_cell.computeIsActive(mMask);
+            if (ret.isValid) {
+                if (mIsInSharedMem) {
+                    ngh_cell.mLocation.x = cell.mLocation.x + offset.x;
+                    ngh_cell.mLocation.y = cell.mLocation.y + offset.y;
+                    ngh_cell.mLocation.z = cell.mLocation.z + offset.z;
+                }
+                ret.value = this->operator()(ngh_cell, card);
+            }
         }
     }
 
@@ -183,11 +229,35 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
 
 template <typename T, int C>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::shmemPitch(
-    const Cell& cell,
-    const int   card) const -> Cell::Location::Integer
+    Cell      cell,
+    const int card) const -> Cell::Location::Integer
 {
-    return cell.pitch(card, mStencilRadius);
+    if constexpr (Cell::sUseSwirlIndex) {
+        if (cell.mLocation.x >= 0 && cell.mLocation.x < Cell::sBlockSizeX &&
+            cell.mLocation.y >= 0 && cell.mLocation.y < Cell::sBlockSizeY &&
+            cell.mLocation.z >= -1 && cell.mLocation.z <= Cell::sBlockSizeZ) {
+
+            if (cell.mLocation.z == -1) {
+                cell.mLocation.z = Cell::sBlockSizeZ;
+            } else if (cell.mLocation.z == 1) {
+                cell.mLocation.z = Cell::sBlockSizeZ + 1;
+            }
+        } else {
+            cell.mLocation.z += (cell.mLocation.z / 2) + 10;
+
+        }
+
+
+        return (2 * mStencilRadius + Cell::sBlockSizeX) * (2 * mStencilRadius + Cell::sBlockSizeY) * (2 * mStencilRadius + Cell::sBlockSizeZ) * static_cast<Cell::Location::Integer>(card) +
+               cell.mLocation.x +
+               cell.mLocation.y * Cell::sBlockSizeX +
+               cell.mLocation.z * Cell::sBlockSizeX * Cell::sBlockSizeY;
+
+    } else {
+        return cell.pitch(card, mStencilRadius);
+    }
 }
+
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
@@ -214,6 +284,15 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
         mMemSharedMem[shmemPitch(shmemcell, card)] = ngh.value;
     };
 
+
+    __shared__ uint32_t sNeighbour[26];
+    mSharedNeighbourBlocks = sNeighbour;
+    {
+        Cell::Location::Integer tid = cell.getLocal1DID();
+        for (int i = 0; i < 26; i += Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ) {
+            mSharedNeighbourBlocks[i] = mNeighbourBlocks[26 * cell.mBlockID + i];
+        }
+    }
 
     nghIdx_t offset;
 #pragma unroll 2
@@ -463,6 +542,17 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
     cg::thread_block block = cg::this_thread_block();
     mStencilRadius = stencilRadius;
 
+    __shared__ uint32_t sNeighbour[26];
+    mSharedNeighbourBlocks = sNeighbour;
+
+    Neon::sys::loadSharedMemAsync(
+        block,
+        mNeighbourBlocks + 26 * cell.mBlockID,
+        26,
+        mSharedNeighbourBlocks,
+        true);
+
+
     mMemSharedMem = shmemAlloc.alloc<T>((Cell::sBlockSizeX + 2 * mStencilRadius) *
                                         (Cell::sBlockSizeY + 2 * mStencilRadius) *
                                         (Cell::sBlockSizeZ + 2 * mStencilRadius) * mCardinality);
@@ -473,7 +563,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
     auto load = [&](const int16_3d block_offset,
                     const uint32_t src_offset,
                     const uint32_t size) {
-        uint32_t ngh_block_id = mNeighbourBlocks[26 * cell.mBlockID + Cell::getNeighbourBlockID(block_offset)];
+        uint32_t ngh_block_id = mSharedNeighbourBlocks[Cell::getNeighbourBlockID(block_offset)];
         assert(ngh_block_id != cell.mBlockID);
         if (ngh_block_id != std::numeric_limits<uint32_t>::max()) {
             Neon::sys::loadSharedMemAsync(

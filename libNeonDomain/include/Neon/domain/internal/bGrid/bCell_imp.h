@@ -32,10 +32,6 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::getLocal1DID() const -> Location::Integ
     //On the GPU, the cell index is always the canonical index to preserve coalescing
     //On the CPU and in case of swirl index, we map the index to its swirl index
 #ifdef NEON_PLACE_CUDA_DEVICE
-    return mLocation.x +
-           mLocation.y * sBlockSizeX +
-           mLocation.z * sBlockSizeX * sBlockSizeY;
-#else
     if constexpr (sUseSwirlIndex) {
         //the swirl index changes the xy coordinates only and keeps the z as it is
         Location::Integer xy = canonicalToSwirl(mLocation.x +
@@ -43,9 +39,11 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::getLocal1DID() const -> Location::Integ
 
         return xy + mLocation.z * sBlockSizeX * sBlockSizeY;
     } else {
+#endif
         return mLocation.x +
                mLocation.y * sBlockSizeX +
                mLocation.z * sBlockSizeX * sBlockSizeY;
+#ifdef NEON_PLACE_CUDA_DEVICE
     }
 #endif
 }
@@ -324,6 +322,19 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::canonicalToSwirl(const Location::Intege
     }
 }
 
+NEON_CUDA_HOST_DEVICE inline auto bCell::toSwirl() const -> bCell
+{
+
+    Location::Integer xy = canonicalToSwirl(mLocation.x +
+                                            mLocation.y * sBlockSizeX);
+
+    bCell ret;
+    ret.mLocation.x = xy % sBlockSizeX;
+    ret.mLocation.y = xy / sBlockSizeX;
+    ret.mLocation.z = mLocation.z;
+    ret.mBlockID = mBlockID;
+    return ret;
+}
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::getMaskLocalID() const -> int32_t
 {

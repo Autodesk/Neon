@@ -72,6 +72,8 @@ class bCell
     static NEON_CUDA_HOST_DEVICE inline auto swirlToCanonical(const Location::Integer id) -> Location::Integer;
 
     static NEON_CUDA_HOST_DEVICE inline auto canonicalToSwirl(const Location::Integer id) -> Location::Integer;
+
+    NEON_CUDA_HOST_DEVICE inline auto toSwirl() const -> bCell;
 };
 }  // namespace Neon::domain::internal::bGrid
 

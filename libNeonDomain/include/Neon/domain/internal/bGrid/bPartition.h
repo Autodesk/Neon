@@ -19,9 +19,9 @@ class bPartition
     using Type = T;
 
    public:
-    bPartition() = default;
+    bPartition();
 
-    virtual ~bPartition() = default;
+    ~bPartition() = default;
 
     explicit bPartition(Neon::DataView  dataView,
                         T*              mem,
@@ -67,7 +67,7 @@ class bPartition
    private:
     inline NEON_CUDA_HOST_DEVICE auto pitch(const Cell& cell, int card) const -> uint32_t;
     inline NEON_CUDA_HOST_DEVICE auto setNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell;
-    inline NEON_CUDA_HOST_DEVICE auto shmemPitch(const Cell& cell, const int card) const -> Cell::Location::Integer;
+    inline NEON_CUDA_HOST_DEVICE auto shmemPitch(Cell cell, const int card) const -> Cell::Location::Integer;
 
     Neon::DataView            mDataView;
     T*                        mMem;
@@ -80,6 +80,7 @@ class bPartition
     nghIdx_t*                 mStencilNghIndex;
     mutable bool              mIsInSharedMem;
     mutable T*                mMemSharedMem;
+    mutable uint32_t*         mSharedNeighbourBlocks;
     mutable nghIdx_t::Integer mStencilRadius;
 };
 }  // namespace Neon::domain::internal::bGrid
