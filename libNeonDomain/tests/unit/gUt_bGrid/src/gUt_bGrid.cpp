@@ -24,7 +24,9 @@ TEST(bGrid, activeCell)
             },
             Neon::domain::Stencil::s7_Laplace_t());
 
-        auto field = b_grid.newField<float>("myField", 1, 0);
+        auto field = b_grid.newField<float>("myField", 1, 5);
+
+        //field.ioToVtk("f", "f");
 
         field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
             [](const Neon::int32_3d id, const int card, float) {

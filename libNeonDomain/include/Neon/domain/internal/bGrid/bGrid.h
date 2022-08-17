@@ -6,6 +6,7 @@
 #include "Neon/domain/interface/GridBaseTemplate.h"
 #include "Neon/domain/internal/bGrid/bCell.h"
 #include "Neon/domain/internal/bGrid/bField.h"
+#include "Neon/domain/internal/bGrid/bGridDescriptor.h"
 #include "Neon/domain/internal/bGrid/bPartition.h"
 #include "Neon/domain/internal/bGrid/bPartitionIndexSpace.h"
 #include "Neon/domain/patterns/PatternScalar.h"
@@ -36,11 +37,27 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     bGrid() = default;
     virtual ~bGrid() = default;
 
+    /**
+     * Constructor for the vanilla block data structure with depth of 1     
+    */
     template <typename ActiveCellLambda>
     bGrid(const Neon::Backend&         backend,
           const Neon::int32_3d&        domainSize,
           const ActiveCellLambda       activeCellLambda,
           const Neon::domain::Stencil& stencil,
+          const double_3d&             spacingData = double_3d(1, 1, 1),
+          const double_3d&             origin = double_3d(0, 0, 0));
+
+    /**
+     * General-purpose constructor for multi-resolution grid with variable depth and variable refinement factor at each level
+     * Check bGridDescriptor to see how to define the grid 
+    */
+    template <typename ActiveCellLambda, typename Descriptor>
+    bGrid(const Neon::Backend&         backend,
+          const Neon::int32_3d&        domainSize,
+          const ActiveCellLambda       activeCellLambda,
+          const Neon::domain::Stencil& stencil,
+          const Descriptor             descriptor = sBGridDefaultDescriptor,
           const double_3d&             spacingData = double_3d(1, 1, 1),
           const double_3d&             origin = double_3d(0, 0, 0));
 

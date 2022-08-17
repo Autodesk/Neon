@@ -3,13 +3,29 @@
 namespace Neon::domain::internal::bGrid {
 
 template <typename ActiveCellLambda>
+bGrid::bGrid(const Neon::Backend&         backend,
+             const Neon::int32_3d&        domainSize,
+             const ActiveCellLambda       activeCellLambda,
+             const Neon::domain::Stencil& stencil,
+             const double_3d&             spacingData,
+             const double_3d&             origin)
+    : bGrid(backend, domainSize, activeCellLambda, stencil, sBGridDefaultDescriptor, spacingData, origin)
+{
+}
+
+template <typename ActiveCellLambda, typename Descriptor>
 bGrid::bGrid(const Neon::Backend&                          backend,
              const Neon::int32_3d&                         domainSize,
              const ActiveCellLambda                        activeCellLambda,
              [[maybe_unused]] const Neon::domain::Stencil& stencil,
+             [[maybe_unused]] const Descriptor             descriptor,
              const double_3d&                              spacingData,
              const double_3d&                              origin)
 {
+
+    std::cout << "depth  = " << descriptor.getDepth();
+
+
     if (backend.devSet().setCardinality() > 1) {
         NeonException exp("bGrid");
         exp << "bGrid only supported on a single GPU";
@@ -34,7 +50,6 @@ bGrid::bGrid(const Neon::Backend&                          backend,
 
     mData->mBlockOriginTo1D = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
 
-    // TODO use openmp to parallelize these loops
     for (int bz = 0; bz < numBlockInDomain.z; bz++) {
         for (int by = 0; by < numBlockInDomain.y; by++) {
             for (int bx = 0; bx < numBlockInDomain.x; bx++) {
@@ -183,7 +198,7 @@ bGrid::bGrid(const Neon::Backend&                          backend,
         }
 
 
-        //set neighbour blocks
+        //set neighbor blocks
         for (int16_t k = -1; k < 2; k++) {
             for (int16_t j = -1; j < 2; j++) {
                 for (int16_t i = -1; i < 2; i++) {

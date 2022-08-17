@@ -117,14 +117,15 @@ auto bField<T, C>::getRef(const Neon::index_3d& idx,
     //TODO need to figure out which device owns this block
     SetIdx devID(0);
 
+    if (!isInsideDomain(idx)) {
+        return this->getOutsideValue();
+    }
+
     auto partition = getPartition(Neon::DeviceType::CPU, devID, Neon::DataView::STANDARD);
 
     Neon::int32_3d block_origin = mData->mGrid->getOriginBlock3DIndex(idx);
 
     auto itr = mData->mGrid->getBlockOriginTo1D().getMetadata(block_origin);
-    if (!itr) {
-        return this->getOutsideValue();
-    }
     Cell cell(static_cast<Cell::Location::Integer>(idx.x % Cell::sBlockSizeX),
               static_cast<Cell::Location::Integer>(idx.y % Cell::sBlockSizeY),
               static_cast<Cell::Location::Integer>(idx.z % Cell::sBlockSizeZ));
