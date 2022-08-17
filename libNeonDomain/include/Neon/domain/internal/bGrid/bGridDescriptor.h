@@ -6,16 +6,15 @@ namespace Neon::domain::internal::bGrid {
  * bGrid descriptor that defines the depth of the grid levels and how each level is partitioned. 
  * Each level is defined by its refinement factor e.g., block data structure (i.e., single depth grid) with 8^3 blocks 
  * can be described as bGridDescriptor<3>, a multi-resolution grid with depth of 3 that is partitioned into
- * 1) 0-level (coarsest) as 32^3 blocks
+ * 1) 0-level (finest) as 8^3 voxels  
  * 2) 1-level as 16^3 blocks 
- * 3) 2-level (finest) as 8^3 voxels 
- * can be described as bGridDescriptor<5,4,3>
+ * 3) 2-level (coarsest) as 32^3 blocks
+ * can be described as bGridDescriptor<3,4,5>
  * The refinement factor have to be of power of 2 and thus it is defined by its log2
 */
 template <int... Log2RefFactor>
 struct bGridDescriptor
 {
-
     /**
      * get the depth of the tree/grid i.e., how many levels      
     */
@@ -28,23 +27,14 @@ struct bGridDescriptor
     }
 
     /**
-     * get the log2 of the refinement level of the last level of the grid. 
+     * get the log2 of the refinement level of the 0 level of the grid. 
      * This level defines how the fine voxels are grouped 
     */
-    constexpr static int getLastLevelLog2RefFactor()
+    constexpr static int get0LevelLog2RefFactor()
     {
-        return std::get<getDepth() - 1>({Log2RefFactor...});
+        auto&& t = std::forward_as_tuple(Log2RefFactor...);
+        return std::get<0>(t);
     }
-
-
-    /**
-     * get the log2 of the refinement level of the first level of the grid 
-    */
-    constexpr static int getFirstLevelLog2RefFactor()
-    {
-        return std::get<0>({Log2RefFactor...});
-    }
-
 
     /**
      * get the log2 of the refinement factor of certain level     
@@ -77,6 +67,6 @@ static bGridDescriptor<3> sBGridDefaultDescriptor;
 /**
  * bGrid descriptor similar to NanoVDB default refinement 
 */
-static bGridDescriptor<5, 4, 3> sBGridNanoVDBDescriptor;
+static bGridDescriptor<3, 4, 5> sBGridVDBDescriptor;
 
 }  // namespace Neon::domain::internal::bGrid

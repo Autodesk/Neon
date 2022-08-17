@@ -23,9 +23,6 @@ bGrid::bGrid(const Neon::Backend&                          backend,
              const double_3d&                              origin)
 {
 
-    std::cout << "depth  = " << descriptor.getDepth();
-
-
     if (backend.devSet().setCardinality() > 1) {
         NeonException exp("bGrid");
         exp << "bGrid only supported on a single GPU";

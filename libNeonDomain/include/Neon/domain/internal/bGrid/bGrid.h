@@ -91,7 +91,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
                              const size_t&         sharedMem) const -> Neon::set::LaunchParameters;
 
     auto getPartitionIndexSpace(Neon::DeviceType dev,
-                                SetIdx           setIdx,
+                                SetIdx           setIdx,  
                                 Neon::DataView   dataView) -> const PartitionIndexSpace&;
 
     auto getNumBlocksPerPartition() const -> const Neon::set::DataSet<uint64_t>&;
