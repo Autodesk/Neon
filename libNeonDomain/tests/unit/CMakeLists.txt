@@ -10,4 +10,3 @@ add_subdirectory("gUt_tools")
 add_subdirectory("gUt_vtk")
 add_subdirectory("gUt_bGrid")
 
-add_subdirectory("setUt_containerGraph")
