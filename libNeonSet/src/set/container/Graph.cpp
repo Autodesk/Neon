@@ -46,6 +46,10 @@ auto Graph::addNode(const Container& container) -> GraphNode&
     auto const& node = GraphNode(container, mUidCounter);
     mRawGraph.addVertex(node.getGraphData().getUid(), node);
     mUidCounter++;
+
+    addDependency(getBeginNode(), node, GraphDependencyType::user);
+    addDependency(node, getEndNode(), GraphDependencyType::user);
+
     return mRawGraph.getVertexProperty(node.getGraphData().getUid());
 }
 
@@ -115,17 +119,17 @@ auto Graph::getProceedingGraphNodes(const GraphNode&                        grap
     auto nodeUidSet = mRawGraph.inNeighbors(nodeUID);
     for (auto&& proceedingUid : nodeUidSet) {
         const auto& connection = mRawGraph.getEdgeProperty({proceedingUid, nodeUID});
-        bool toBeReturned = false;
+        bool        toBeReturned = false;
 
-        for(auto& t : dependencyTypes){
-            if(t == connection.getType() ){
-                toBeReturned =  true;
-                break ;
+        for (auto& t : dependencyTypes) {
+            if (t == connection.getType()) {
+                toBeReturned = true;
+                break;
             }
         }
 
-        if(!toBeReturned){
-            continue ;
+        if (!toBeReturned) {
+            continue;
         }
 
         auto& proceedingNode = mRawGraph.getVertexProperty(proceedingUid);
@@ -135,7 +139,7 @@ auto Graph::getProceedingGraphNodes(const GraphNode&                        grap
     return nodes;
 }
 
-auto Graph::getSubsequentGraphNodes(const GraphNode& graphNode,
+auto Graph::getSubsequentGraphNodes(const GraphNode&                        graphNode,
                                     const std::vector<GraphDependencyType>& dependencyTypes) -> std::vector<GraphNode*>
 {
     std::vector<GraphNode*> nodes;
@@ -144,17 +148,17 @@ auto Graph::getSubsequentGraphNodes(const GraphNode& graphNode,
     auto nodeUidSet = mRawGraph.outNeighbors(nodeUID);
     for (auto&& subsequentUID : nodeUidSet) {
         const auto& connection = mRawGraph.getEdgeProperty({nodeUID, subsequentUID});
-        bool toBeReturned = false;
+        bool        toBeReturned = false;
 
-        for(auto& t : dependencyTypes){
-            if(t == connection.getType() ){
-                toBeReturned =  true;
-                break ;
+        for (auto& t : dependencyTypes) {
+            if (t == connection.getType()) {
+                toBeReturned = true;
+                break;
             }
         }
 
-        if(!toBeReturned){
-            continue ;
+        if (!toBeReturned) {
+            continue;
         }
         auto& subsequentNode = mRawGraph.getVertexProperty(subsequentUID);
         nodes.push_back(&subsequentNode);
@@ -542,7 +546,8 @@ auto Graph::helpComputeScheduling_02_events(Bfs& bfs) -> void
         }
     });
 }
-auto Graph::ioToDot(const std::string& /*fame*/) -> void
+
+auto Graph::ioToDot(const std::string& fname, const std::string& graphName) -> void
 {
     auto vertexLabel = [&](size_t v) -> std::string {
         auto& node = mRawGraph.getVertexProperty(v);
@@ -555,39 +560,42 @@ auto Graph::ioToDot(const std::string& /*fame*/) -> void
         return edgeMeta.getLabel();
     };
 
-////    auto edgeLabelProperty = [&](const std::pair<size_t, size_t>& edge)
-////        -> std::string {
-//////        const auto& metaEdge = clone.getEdgeProperty(edge);
-//////        if (metaEdge.m_isSchedulingEdge) {
-//////            // return "style=dashed, color=\"#2A9D8F\"";
-//////            return "style=dashed, color=\"#F4A261\", penwidth=7";
-//////        }
-//////        return "color=\"#d9d9d9\", penwidth=7";
-////    };
-//
-//    auto vertexLabelProperty = [&](const size_t& v) {
-//        if (v == m_finalNodeId() || (v == m_rootNodeId())) {
-//            return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
-//        }
-//        const auto& metaNode = clone.getVertexProperty(v);
-//        if (metaNode.isHu()) {
-//            return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
-//        }
-//        if (metaNode.isSync()) {
-//            return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
-//        }
-//
-//        if (metaNode.isMap()) {
-//            return R"(style=filled, fillcolor="#b3de69", color="#5f861d")";
-//        }
-//        if (metaNode.isReduce()) {
-//            return R"(style=filled, fillcolor="#80b1d3", color="#2b5c7d")";
-//        }
-//        if (metaNode.isStencil()) {
-//            return R"(style=filled, fillcolor="#bebada", color="#4e4683")";
-//        }
-//        return "";
-//    };
+    ////    auto edgeLabelProperty = [&](const std::pair<size_t, size_t>& edge)
+    ////        -> std::string {
+    //////        const auto& metaEdge = clone.getEdgeProperty(edge);
+    //////        if (metaEdge.m_isSchedulingEdge) {
+    //////            // return "style=dashed, color=\"#2A9D8F\"";
+    //////            return "style=dashed, color=\"#F4A261\", penwidth=7";
+    //////        }
+    //////        return "color=\"#d9d9d9\", penwidth=7";
+    ////    };
+    //
+    //    auto vertexLabelProperty = [&](const size_t& v) {
+    //        if (v == m_finalNodeId() || (v == m_rootNodeId())) {
+    //            return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
+    //        }
+    //        const auto& metaNode = clone.getVertexProperty(v);
+    //        if (metaNode.isHu()) {
+    //            return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
+    //        }
+    //        if (metaNode.isSync()) {
+    //            return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
+    //        }
+    //
+    //        if (metaNode.isMap()) {
+    //            return R"(style=filled, fillcolor="#b3de69", color="#5f861d")";
+    //        }
+    //        if (metaNode.isReduce()) {
+    //            return R"(style=filled, fillcolor="#80b1d3", color="#2b5c7d")";
+    //        }
+    //        if (metaNode.isStencil()) {
+    //            return R"(style=filled, fillcolor="#bebada", color="#4e4683")";
+    //        }
+    //        return "";
+    //    };
+    mRawGraph.exportDotFile(fname + ".dot", graphName, vertexLabel, edgeLabel /*,
+                           vertexLabelProperty, edgeLabelProperty*/
+    );
 }
 
 

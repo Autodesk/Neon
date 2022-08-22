@@ -1,5 +1,6 @@
 #include "Neon/set/container/graph/GraphNode.h"
 #include "Neon/set/container/ContainerExecutionType.h"
+#include "Neon/set/container/AnchorContainer.h"
 
 namespace Neon::set::container {
 
@@ -11,6 +12,7 @@ auto GraphNode::newBeginNode() -> GraphNode
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::beginUid);
+    node.mContainer = Neon::set::Container::factoryAnchor("Begin");
     return node;
 }
 
@@ -18,6 +20,7 @@ auto GraphNode::newEndNode() -> GraphNode
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::endUid);
+    node.mContainer = Neon::set::Container::factoryAnchor("End");
     return node;
 }
 

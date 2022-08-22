@@ -23,10 +23,6 @@ auto Bfs::forEachNodeAtLevel(int levelIdx, Neon::set::container::Graph& graph, F
     }
 }
 
-auto Bfs::clear() -> void
-{
-    data.clear();
-}
 
 template <typename Fun>
 auto Bfs::forEachNodeByLevel(Graph& graph, Fun fun) -> void

@@ -54,7 +54,7 @@ auto Container::factoryAnchor(const std::string& name) -> Container
 {
     auto                                               k = new Neon::set::internal::AnchorContainer(name);
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-    return Container();
+    return Container(tmp);
 }
 
 auto Container::getName() const

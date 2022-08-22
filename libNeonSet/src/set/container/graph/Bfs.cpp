@@ -56,5 +56,9 @@ auto Bfs::getLevelWidth(int levelIdx) const
     return int(data.at(levelIdx).size());
 }
 
+auto Bfs::clear() -> void
+{
+    data.clear();
+}
 
 }  // namespace Neon::set::container

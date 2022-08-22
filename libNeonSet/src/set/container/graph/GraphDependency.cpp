@@ -22,7 +22,7 @@ GraphDependency::GraphDependency(GraphDependencyType type)
 
 auto GraphDependency::getLabel() -> std::string
 {
-    return GraphDependencyTypeUtil::toString(getType())
+    return GraphDependencyTypeUtil::toString(getType());
 }
 
 }  // namespace Neon::set::container
