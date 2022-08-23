@@ -26,7 +26,7 @@ auto Graph::getEndNode() const -> const GraphNode&
 }
 
 auto Graph::addNodeInBetween(const GraphNode&          nodeA,
-                             Container&                containerB,
+                             Container                 containerB,
                              const GraphNode&          nodeC,
                              const GraphDependencyType ab,
                              const GraphDependencyType bc) -> GraphNode&
@@ -208,7 +208,7 @@ auto Graph::helpInvalidateScheduling() -> void
     mSchedulingStatusIsValid = false;
 }
 
-auto Graph::helpRemoteRedundantDependencies() -> void
+auto Graph::helpRemoveRedundantDependencies() -> void
 {
     // Vectors of edges to be removed
     std::vector<std::pair<size_t, size_t>> edgesToBeRemoved;
@@ -217,7 +217,7 @@ auto Graph::helpRemoteRedundantDependencies() -> void
         // For each node do:
 
         // Check node's children
-        const auto& children = helpGetOutNeighbors(visitingNode);
+        const auto& children = helpGetOutNeighbors(visitingNode, false);
         if (children.size() <= 1) {
             // If no more than one, move to the next node
             // Nothing to do for the visiting node as there are no redundant paths
@@ -226,7 +226,7 @@ auto Graph::helpRemoteRedundantDependencies() -> void
         }
         // Start checking for redundant paths
         for (const auto& targetChild : children) {
-            if (helpGetInEdges(targetChild).size() <= 1) {
+            if (helpGetInEdges(targetChild, false).size() <= 1) {
                 // This targetChild can only be reached by one father
                 // No redundant path here
                 continue;
@@ -287,7 +287,8 @@ auto Graph::helpGetOutNeighbors(GraphData::Uid                          nodeUid,
             auto& edgeProp = mRawGraph.getEdgeProperty(edge);
             for (auto& depType : dependencyTypes) {
                 if (depType == edgeProp.getType()) {
-                    if (mRawGraph.getVertexProperty(edge.second).getContainerOperationType() == Neon::set::ContainerOperationType::anchor && filteredOut) {
+                    bool isAnchor = mRawGraph.getVertexProperty(edge.second).getContainerOperationType() == Neon::set::ContainerOperationType::anchor;
+                    if (isAnchor && filteredOut) {
                         break;
                     }
                     outNgh.insert(edge.second);
@@ -549,6 +550,8 @@ auto Graph::helpComputeScheduling_02_events(Bfs& bfs) -> void
 
 auto Graph::ioToDot(const std::string& fname, const std::string& graphName, bool debug) -> void
 {
+    this->helpRemoveRedundantDependencies();
+
     auto vertexLabel = [&](size_t v) -> std::string {
         auto& node = mRawGraph.getVertexProperty(v);
         return node.getLabel(debug);

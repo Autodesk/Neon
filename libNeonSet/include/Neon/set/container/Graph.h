@@ -42,7 +42,7 @@ struct Graph
      * Adds a dependency between two nodes of the graph
      */
     auto addNodeInBetween(const GraphNode&    nodeA,
-                          Container&          containerB,
+                          Container           containerB,
                           const GraphNode&    nodeC,
                           GraphDependencyType ab = GraphDependencyType::user,
                           GraphDependencyType bc = GraphDependencyType::user) -> GraphNode&;
@@ -101,7 +101,7 @@ struct Graph
     /**
      * Remove redundant dependencies
      */
-    auto helpRemoteRedundantDependencies() -> void;
+    auto helpRemoveRedundantDependencies() -> void;
 
     /**
      * Compute BFS

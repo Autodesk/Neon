@@ -47,16 +47,11 @@ void ThreeIndependentMapsTest(TestData<G, T, C>& data)
         auto& Z = data.getField(FieldNames::Z);
         auto& W = data.getField(FieldNames::W);
 
-        std::vector<Neon::set::Container> ops{
-            UserTools::axpy(fR, Y, X),
-            UserTools::laplace(X, Y),
-            UserTools::axpy(fR, Y, Y)};
-
         Neon::set::container::Graph graph;
 
-        graph.addNode(UserTools::axpy(fR, W, X));
-        graph.addNode(UserTools::axpy(fR, W, Y));
-        graph.addNode(UserTools::axpy(fR, W, Z));
+        graph.addNode(UserTools::axpy(fR, W, X, "nodeA"));
+        graph.addNode(UserTools::axpy(fR, W, Y, "nodeB"));
+        graph.addNode(UserTools::axpy(fR, W, Z, "nodeC"));
 
         graph.ioToDot(appName, "UserGraph", false);
         graph.ioToDot(appName + "-debug", "UserGraph", true);

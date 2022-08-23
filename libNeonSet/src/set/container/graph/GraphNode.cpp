@@ -120,10 +120,20 @@ auto GraphNode::getLabel(bool debug) -> std::string
 {
     if (getContainerOperationType() == Neon::set::ContainerOperationType::anchor) {
         if (this->getGraphData().beginUid == getGraphData().getUid()) {
-            return "Begin";
+            std::stringstream s;
+            s << "Begin ";
+            if (debug) {
+                s << "\\l - Graph Node id: " << this->getGraphData().getUid();
+            }
+            return s.str();
         }
         if (this->getGraphData().endUid == getGraphData().getUid()) {
-            return "End";
+            std::stringstream s;
+            s << "End ";
+            if (debug) {
+                s << "\\l - Graph Node id: " << this->getGraphData().getUid();
+            }
+            return s.str();
         }
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
@@ -131,6 +141,7 @@ auto GraphNode::getLabel(bool debug) -> std::string
         std::stringstream s;
         if (debug) {
             s << "Container " << getContainer().getName();
+            s << "\\l - Graph Node id: " << this->getGraphData().getUid();
             s << "\\l - UID: " << getContainer().getUid();
             s << "\\l - Execution: " << getContainer().getContainerExecutionType();
             s << "\\l - DataView: " << getScheduling().getDataView();

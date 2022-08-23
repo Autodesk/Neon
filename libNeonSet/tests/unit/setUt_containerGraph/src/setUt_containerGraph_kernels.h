@@ -17,7 +17,7 @@ auto xpy(const Field& x,
          Field&       y) -> Neon::set::Container
 {
     auto Kontainer = x.getGrid().getContainer(
-        "xpy", [&](Neon::set::Loader & L) -> auto {
+        "xpy", [&](Neon::set::Loader & L) -> auto{
             auto& xLocal = L.load(x);
             auto& yLocal = L.load(y);
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
@@ -35,16 +35,16 @@ auto aInvXpY(const Neon::template PatternScalar<T>& fR,
              Field&                                 y) -> Neon::set::Container
 {
     auto Kontainer = x.getGrid().getContainer(
-        "AXPY", [&](Neon::set::Loader & L) -> auto {
+        "AXPY", [&](Neon::set::Loader & L) -> auto{
             auto&      xLocal = L.load(x);
             auto&      yLocal = L.load(y);
             auto       fRLocal = L.load(fR);
             const auto fRVal = fRLocal();
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
-                //printf("%d yLocal.cardinality()\n", yLocal.cardinality());
+                // printf("%d yLocal.cardinality()\n", yLocal.cardinality());
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
-                    //printf("%d %d (%d) x\n", e, xLocal(e, i), i);
+                    // printf("%d %d (%d) x\n", e, xLocal(e, i), i);
                     yLocal(e, i) += (1.0 / fRVal) * xLocal(e, i);
                 }
             };
@@ -55,19 +55,20 @@ auto aInvXpY(const Neon::template PatternScalar<T>& fR,
 template <typename Field, typename T>
 auto axpy(const Neon::template PatternScalar<T>& fR,
           const Field&                           x,
-          Field&                                 y) -> Neon::set::Container
+          Field&                                 y,
+          const std::string&                     name) -> Neon::set::Container
 {
     auto Kontainer = x.getGrid().getContainer(
-        "AXPY", [&](Neon::set::Loader & L) -> auto {
+        "AXPY" + name, [&](Neon::set::Loader & L) -> auto{
             auto&      xLocal = L.load(x);
             auto&      yLocal = L.load(y);
             auto       fRLocal = L.load(fR);
             const auto fRVal = fRLocal();
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
-                //printf("%d yLocal.cardinality()\n", yLocal.cardinality());
+                // printf("%d yLocal.cardinality()\n", yLocal.cardinality());
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
-                    //printf("%d %d (%d) x\n", e, xLocal(e, i), i);
+                    // printf("%d %d (%d) x\n", e, xLocal(e, i), i);
                     yLocal(e, i) += fRVal * xLocal(e, i);
                 }
             };
@@ -81,7 +82,7 @@ auto laplace(const Field& x,
              size_t       sharedMem = 0) -> Neon::set::Container
 {
     auto Kontainer = x.getGrid().getContainer(
-        "Laplace", [&](Neon::set::Loader & L) -> auto {
+        "Laplace", [&](Neon::set::Loader & L) -> auto{
             auto& xLocal = L.load(x, Neon::Compute::STENCIL);
             auto& yLocal = L.load(y);
 
