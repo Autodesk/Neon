@@ -58,14 +58,16 @@ void ThreeIndependentMapsTest(TestData<G, T, C>& data)
         graph.addNode(UserTools::axpy(fR, W, Y));
         graph.addNode(UserTools::axpy(fR, W, Z));
 
-        graph.ioToDot(appName, "UserGraph");
+        graph.ioToDot(appName, "UserGraph", false);
+        graph.ioToDot(appName + "-debug", "UserGraph", true);
 
-//        timer.start();
-//        for (int i = 0; i < nIterations; i++) {
-//            skl.run();
-//        }
-//        data.getBackend().syncAll();
-//        timer.stop();
+
+        //        timer.start();
+        //        for (int i = 0; i < nIterations; i++) {
+        //            skl.run();
+        //        }
+        //        data.getBackend().syncAll();
+        //        timer.stop();
     }
 
     {  // Golden data
@@ -118,10 +120,10 @@ int getNGpus()
 }
 }  // namespace
 
-TEST(MapStencilMap_NoOCC, eGrid)
+TEST(ThreeIndependentMaps, eGrid)
 {
     int nGpus = getNGpus();
     using Grid = Neon::domain::internal::eGrid::eGrid;
     using Type = int32_t;
-    runAllTestConfiguration<Grid, Type, 0>("eGrid_t", ThreeIndependentMaps<Grid, Type, 0>, nGpus, 1);
+    runOneTestConfiguration<Grid, Type, 0>("eGrid_t", ThreeIndependentMaps<Grid, Type, 0>, 1, 1);
 }

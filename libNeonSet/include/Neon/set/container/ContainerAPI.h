@@ -3,8 +3,8 @@
 #include "Neon/set/container/ContainerOperationType.h"
 #include "Neon/set/container/ContainerPatternType.h"
 
-#include "Neon/set/container/ContainerExecutionType.h"
 #include "Neon/set/DevSet.h"
+#include "Neon/set/container/ContainerExecutionType.h"
 #include "Neon/set/dependencyTools/DataParsing.h"
 
 #include "functional"
@@ -123,16 +123,15 @@ struct ContainerAPI
      */
     auto setContainerOperationType(Neon::set::ContainerOperationType containerType) -> void;
 
-    /**
-     * Set the Pattern type for the container
-     */
-    auto setContainerPatternType(Neon::set::ContainerPatternType containerType) -> void;
 
     /**
      * Set the DataView support for the container
      */
     auto setDataViewSupport(DataViewSupport dataViewSupport) -> void;
 
+    auto setContainerPattern(const std::vector<Neon::set::internal::dependencyTools::DataToken>& tokens) -> void;
+
+    bool mParsingDataUpdated = false;
 
    private:
     std::vector<Neon::set::internal::dependencyTools::DataToken>         mParsed;

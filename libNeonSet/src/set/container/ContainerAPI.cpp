@@ -28,6 +28,12 @@ auto ContainerAPI::getTokens() const
     return mParsed;
 }
 
+//auto ContainerAPI::clearTokens()
+//    -> void
+//{
+//    mParsed.clear();
+//}
+
 auto ContainerAPI::getTokenRef()
     -> std::vector<Neon::set::internal::dependencyTools::DataToken>&
 {
@@ -58,6 +64,27 @@ auto ContainerAPI::getDataViewSupport() const -> ContainerAPI::DataViewSupport
 auto ContainerAPI::setDataViewSupport(ContainerAPI::DataViewSupport dataViewSupport) -> void
 {
     mDataViewSupport = dataViewSupport;
+}
+
+auto ContainerAPI::setContainerPattern(const std::vector<Neon::set::internal::dependencyTools::DataToken>& tokens) -> void
+{
+    Neon::set::ContainerPatternType patternType = Neon::set::ContainerPatternType::map;
+
+    for (const auto& token : tokens) {
+        if (token.compute() == Neon::Compute::STENCIL) {
+            if (patternType == Neon::set::ContainerPatternType::reduction) {
+                NEON_THROW_UNSUPPORTED_OPTION("Mixing reduction and stencil patterns is currently not supported");
+            }
+            patternType = Neon::set::ContainerPatternType::stencil;
+        }
+        if (token.compute() == Neon::Compute::REDUCE) {
+            if (patternType == Neon::set::ContainerPatternType::stencil) {
+                NEON_THROW_UNSUPPORTED_OPTION("Mixing reduction and stencil patterns is currently not supported");
+            }
+            patternType = Neon::set::ContainerPatternType::reduction;
+        }
+    }
+    this->mContainerPatternType = patternType;
 }
 
 auto ContainerAPI::toLog(uint64_t uid) -> void
@@ -96,9 +123,6 @@ auto ContainerAPI::setContainerOperationType(ContainerOperationType containerTyp
 {
     mContainerOperationType = containerType;
 }
-auto ContainerAPI::setContainerPatternType(ContainerPatternType containerType) -> void
-{
-    mContainerPatternType = containerType;
-}
+
 
 }  // namespace Neon::set::internal

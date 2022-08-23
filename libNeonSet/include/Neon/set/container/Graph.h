@@ -89,7 +89,7 @@ struct Graph
      */
     auto execute() -> void;
 
-    auto ioToDot(const std::string& fname, const std::string& graphName) -> void;
+    auto ioToDot(const std::string& fname, const std::string& graphName, bool debug) -> void;
 
 
    protected:

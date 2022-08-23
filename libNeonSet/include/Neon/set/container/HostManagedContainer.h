@@ -44,6 +44,8 @@ struct HostManagedContainer : ContainerAPI
         setName(name);
         mPreSyncType = preSyncType;
         mPostSyncType = presSyncType;
+
+        this->parse();
     }
 
     auto newLoader(Neon::DeviceType devE,

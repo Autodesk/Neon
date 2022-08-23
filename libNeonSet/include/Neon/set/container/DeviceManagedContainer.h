@@ -34,6 +34,9 @@ struct DeviceManagedContainer : ContainerAPI
         setContainerExecutionType(ContainerExecutionType::deviceManaged);
         setDataViewSupport(dataViewSupport);
         setName(name);
+
+        this->parse();
+
     }
 
     auto newLoader(Neon::DeviceType devE,
@@ -62,8 +65,13 @@ struct DeviceManagedContainer : ContainerAPI
     auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
     {
         Neon::SetIdx setIdx(0);
-        auto         parser = newParser();
-        this->mLoadingLambda(setIdx, parser);
+        if (!this->mParsingDataUpdated) {
+            auto parser = newParser();
+            this->m_loadingLambda(setIdx, parser);
+            this->mParsingDataUpdated = true;
+
+            this->setContainerPattern(this->getTokens());
+        }
         return getTokens();
     }
 
@@ -120,4 +128,4 @@ struct DeviceManagedContainer : ContainerAPI
     DataContainer mDataContainer;
 };
 
-}  // namespace Neon
+}  // namespace Neon::set::internal

@@ -8,7 +8,9 @@ namespace Neon::set::container {
 
 struct GraphNode
 {
-    std::string getLabel();
+    std::string getLabel(bool debug);
+
+    std::string         getLabelProperty();
 
    public:
     GraphNode();
@@ -77,6 +79,7 @@ struct GraphNode
     Container           mContainer /**< Any Neon container */;
     GraphNodeScheduling mGraphNodeScheduling /**< Scheduling information for the node */;
     GraphData           mGraphNodeOrganization /**< Information to organize the node w.r.t. the rest of the graph */;
+    ContainerPatternType getContainerpatternType() const;
 };
 
 }  // namespace Neon::set::container

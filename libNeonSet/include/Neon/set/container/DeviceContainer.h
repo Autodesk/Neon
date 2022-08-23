@@ -39,6 +39,8 @@ struct DeviceContainer : ContainerAPI
         setDataViewSupport(dataViewSupport);
 
         initLaunchParameters(dataIteratorContainer, blockSize, shMemSizeFun);
+
+        this->parse();
     }
 
     auto initLaunchParameters(const DataIteratorContainerT&                 dataIteratorContainer,
@@ -78,12 +80,19 @@ struct DeviceContainer : ContainerAPI
 
     auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
     {
-        auto parser = newParser();
-        this->m_loadingLambda(parser);
+        if (!this->mParsingDataUpdated) {
+            auto parser = newParser();
+            this->m_loadingLambda(parser);
+            this->mParsingDataUpdated = true;
+
+            this->setContainerPattern(this->getTokens());
+        }
         return getTokens();
     }
 
-    auto getHostContainer() -> std::shared_ptr<ContainerAPI> final
+
+    auto
+    getHostContainer() -> std::shared_ptr<ContainerAPI> final
     {
         NEON_THROW_UNSUPPORTED_OPTION("This Container type can not be decoupled.");
     }
@@ -129,7 +138,7 @@ struct DeviceContainer : ContainerAPI
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
         Neon::set::KernelConfig kernelConfig(dataView, bk, streamIdx, this->getLaunchParameters(dataView));
 
-        if (ContainerExecutionType::device  == this->getContainerExecutionType()) {
+        if (ContainerExecutionType::device == this->getContainerExecutionType()) {
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 setIdx,
                 kernelConfig,

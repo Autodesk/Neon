@@ -337,6 +337,7 @@ class DiGraph
         return mVprop.at(v);
     }
 
+
     /**
      * Set the vertex property
      *

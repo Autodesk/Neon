@@ -1,6 +1,6 @@
 #include "Neon/set/container/graph/GraphNode.h"
-#include "Neon/set/container/ContainerExecutionType.h"
 #include "Neon/set/container/AnchorContainer.h"
+#include "Neon/set/container/ContainerExecutionType.h"
 
 namespace Neon::set::container {
 
@@ -105,11 +105,18 @@ auto GraphNode::helpGetDotInfo() -> std::string
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
+
 auto GraphNode::getContainerOperationType() const -> Neon::set::ContainerOperationType
 {
     return getContainer().getContainerInterface().getContainerOperationType();
 }
-auto GraphNode::getLabel() -> std::string
+
+auto GraphNode::getContainerpatternType() const -> Neon::set::ContainerPatternType
+{
+    return getContainer().getContainerInterface().getContainerPatternType();
+}
+
+auto GraphNode::getLabel(bool debug) -> std::string
 {
     if (getContainerOperationType() == Neon::set::ContainerOperationType::anchor) {
         if (this->getGraphData().beginUid == getGraphData().getUid()) {
@@ -122,12 +129,14 @@ auto GraphNode::getLabel() -> std::string
     }
     if (getContainerOperationType() == Neon::set::ContainerOperationType::compute) {
         std::stringstream s;
-        s << "Container "
-             " - Name: "
-          << getContainer().getName();
-        s << " - UID: " << getContainer().getUid();
-        s << " - Execution: " << getContainer().getContainerExecutionType();
-        s << " - DataView: " << getScheduling().getDataView();
+        if (debug) {
+            s << "Container " << getContainer().getName();
+            s << "\\l - UID: " << getContainer().getUid();
+            s << "\\l - Execution: " << getContainer().getContainerExecutionType();
+            s << "\\l - DataView: " << getScheduling().getDataView();
+        } else {
+            s << getContainer().getName();
+        }
         return s.str();
     }
     if (getContainerOperationType() == Neon::set::ContainerOperationType::halo) {
@@ -145,6 +154,41 @@ auto GraphNode::getLabel() -> std::string
           << getContainer().getName();
         s << " - UID: " << getContainer().getUid();
         return s.str();
+    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
+    return std::string();
+}
+
+
+auto GraphNode::getLabelProperty() -> std::string
+{
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::anchor) {
+        if (this->getGraphData().beginUid == getGraphData().getUid()) {
+            return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
+        }
+        if (this->getGraphData().endUid == getGraphData().getUid()) {
+            return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
+        }
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::compute) {
+        auto pattern = getContainerpatternType();
+        if (pattern == Neon::set::ContainerPatternType::map) {
+            return R"(style=filled, fillcolor="#b3de69", color="#5f861d")";
+        }
+        if (pattern == Neon::set::ContainerPatternType::stencil) {
+            return R"(style=filled, fillcolor="#bebada", color="#4e4683")";
+        }
+        if (pattern == Neon::set::ContainerPatternType::reduction) {
+            return R"(style=filled, fillcolor="#80b1d3", color="#2b5c7d")";
+        }
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::halo) {
+        return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
+    }
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::sync) {
+        return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
     return std::string();
