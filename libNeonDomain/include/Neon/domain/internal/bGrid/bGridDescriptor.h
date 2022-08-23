@@ -37,12 +37,20 @@ struct bGridDescriptor
     }
 
     /**
+     * get the refinement level of the 0 level of the grid i.e., the block size of the leaf
+    */
+    constexpr static int get0LevelRefFactor()
+    {
+        return 1 << get0LevelLog2RefFactor();
+    }
+
+    /**
      * get the log2 of the refinement factor of certain level     
      * @param level at which the refinement level is queried 
     */
     int getLevelLog2RefFactor(int level) const
     {
-        if (level >= getDepth()) {
+        if (level >= int(getDepth())) {
             NeonException ex("bGridDescriptor::getLevelLog2RefFactor()");
             ex << "Runtime input level is greater than the grid depth!";
             NEON_THROW(ex);
@@ -57,12 +65,58 @@ struct bGridDescriptor
         }
         return -1;
     }
+
+    /**
+     * get the refinement factor (i.e., block size) of certain level     
+     * @param level at which the refinement level is queried 
+    */
+    int getLevelRefFactor(int level) const
+    {
+        return 1 << getLevelLog2RefFactor(level);
+    }
+
+    /**
+     * get the sum of log2 refinement factors of all levels (starting with level 0) up to certain level
+     * @param level the end of recurse      
+    */
+    int getLog2RefFactorRecurse(int level) const
+    {
+        if (level >= int(getDepth())) {
+            NeonException ex("bGridDescriptor::getLog2RefFactorRecurse()");
+            ex << "Runtime input level is greater than the grid depth!";
+            NEON_THROW(ex);
+        }
+        int counter = 0;
+        int ret = 0;
+        for (const auto l : {Log2RefFactor...}) {
+            ret += l;
+            if (counter == level) {
+                return ret;
+            }
+            counter++;
+        }
+        return -1;
+    }
+
+    /**
+     * get the product of  refinement factors of all levels (starting with level 0) up to certain level
+     * @param level the level at which refinement factors prodcut is desired       
+    */
+    int getRefFactorRecurse(int level) const
+    {
+        return 1 << getLog2RefFactorRecurse(level);
+    }
 };
 
 /**
  * Default bGrid descriptor that defines a grid of single depth partitioned by 8^3 blocks i.e., block data structure 
 */
 static bGridDescriptor<3> sBGridDefaultDescriptor;
+
+/**
+ * Default bGrid descriptor that defines an octree of three levels 
+*/
+static bGridDescriptor<1, 1, 1> sBGridOctreeDescriptor;
 
 /**
  * bGrid descriptor similar to NanoVDB default refinement 

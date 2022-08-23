@@ -14,13 +14,13 @@ bGrid::bGrid(const Neon::Backend&         backend,
 }
 
 template <typename ActiveCellLambda, typename Descriptor>
-bGrid::bGrid(const Neon::Backend&                          backend,
-             const Neon::int32_3d&                         domainSize,
-             const ActiveCellLambda                        activeCellLambda,
-             [[maybe_unused]] const Neon::domain::Stencil& stencil,
-             [[maybe_unused]] const Descriptor             descriptor,
-             const double_3d&                              spacingData,
-             const double_3d&                              origin)
+bGrid::bGrid(const Neon::Backend&         backend,
+             const Neon::int32_3d&        domainSize,
+             const ActiveCellLambda       activeCellLambda,
+             const Neon::domain::Stencil& stencil,
+             const Descriptor             descriptor,
+             const double_3d&             spacingData,
+             const double_3d&             origin)
 {
 
     if (backend.devSet().setCardinality() > 1) {
@@ -31,65 +31,108 @@ bGrid::bGrid(const Neon::Backend&                          backend,
 
     mData = std::make_shared<Data>();
 
-    Neon::int32_3d numBlockInDomain(NEON_DIVIDE_UP(domainSize.x, Cell::sBlockSizeX),
-                                    NEON_DIVIDE_UP(domainSize.y, Cell::sBlockSizeY),
-                                    NEON_DIVIDE_UP(domainSize.z, Cell::sBlockSizeZ));
+    mData->mBlockOriginTo1D.resize(descriptor.getDepth());
+    mData->mBlockOriginTo1D[0] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
 
-    mData->mNumBlocks = backend.devSet().template newDataSet<uint64_t>();
+    mData->mNumBlocks.resize(descriptor.getDepth());
+    for (auto& nb : mData->mNumBlocks) {
+        nb = backend.devSet().template newDataSet<uint64_t>();
+    }
+
+
+    std::vector<Neon::set::DataSet<uint64_t>> numActiveVoxels(descriptor.getDepth());
+    for (auto& av : numActiveVoxels) {
+        av = backend.devSet().template newDataSet<uint64_t>();
+    }
+    numActiveVoxels[0][0] = 0;
+
+
+    std::vector<Neon::int32_3d> numBlockInDomain(descriptor.getDepth());
+    numBlockInDomain[0].set(NEON_DIVIDE_UP(domainSize.x, descriptor.get0LevelRefFactor()),
+                            NEON_DIVIDE_UP(domainSize.y, descriptor.get0LevelRefFactor()),
+                            NEON_DIVIDE_UP(domainSize.z, descriptor.get0LevelRefFactor()));
+
+    for (int i = 1; i < descriptor.getDepth(); ++i) {
+        numActiveVoxels[i][0] = 0;
+
+        numBlockInDomain[i].set(NEON_DIVIDE_UP(numBlockInDomain[i - 1].x, descriptor.getLevelRefFactor(i)),
+                                NEON_DIVIDE_UP(numBlockInDomain[i - 1].y, descriptor.getLevelRefFactor(i)),
+                                NEON_DIVIDE_UP(numBlockInDomain[i - 1].z, descriptor.getLevelRefFactor(i)));
+
+        mData->mBlockOriginTo1D[i] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
+    }
 
     // Number of active voxels per partition
-    Neon::set::DataSet<uint64_t> numActiveVoxels = backend.devSet().template newDataSet<uint64_t>();
-
     // Loop over all blocks and voxels in blocks to count the number of active
     // voxels and active blocks for allocation
-    numActiveVoxels[0] = 0;
-    uint32_t blockId = 0;
+    //Start by calculating the number of blocks on the finest level (level 0)
+    //then for level>0, since we know how many blocks we need at the finest level,
+    // we can calculate the number of blocks we need at every other level starting with level 1 and going up the grid/tree
+    //TODO we may need to add more blocks in intermediate for strongly-balanced grid
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        uint32_t  blockId = 0;
+        const int ref_factor = descriptor.getLevelRefFactor(l);
+        const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
+        const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
 
-    mData->mBlockOriginTo1D = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
+        for (int bz = 0; bz < numBlockInDomain[l].z; bz++) {
+            for (int by = 0; by < numBlockInDomain[l].y; by++) {
+                for (int bx = 0; bx < numBlockInDomain[l].x; bx++) {
 
-    for (int bz = 0; bz < numBlockInDomain.z; bz++) {
-        for (int by = 0; by < numBlockInDomain.y; by++) {
-            for (int bx = 0; bx < numBlockInDomain.x; bx++) {
+                    bool isActiveBlock = false;
 
-                bool isActiveBlock = false;
+                    Neon::int32_3d blockOrigin(bx * ref_factor_recurse,
+                                               by * ref_factor_recurse,
+                                               bz * ref_factor_recurse);
 
-                Neon::int32_3d blockOrigin(bx * Cell::sBlockSizeX,
-                                           by * Cell::sBlockSizeY,
-                                           bz * Cell::sBlockSizeZ);
+                    for (int z = 0; z < ref_factor; z++) {
+                        for (int y = 0; y < ref_factor; y++) {
+                            for (int x = 0; x < ref_factor; x++) {
 
-                //TODO use openmp to parallelize these loops
-                for (int z = 0; z < Cell::sBlockSizeZ; z++) {
-                    for (int y = 0; y < Cell::sBlockSizeY; y++) {
-                        for (int x = 0; x < Cell::sBlockSizeX; x++) {
+                                if (l == 0) {
+                                    const Neon::int32_3d id(blockOrigin.x + x,
+                                                            blockOrigin.y + y,
+                                                            blockOrigin.z + z);
 
-                            const Neon::int32_3d id(blockOrigin.x + x,
-                                                    blockOrigin.y + y,
-                                                    blockOrigin.z + z);
+                                    if (id < domainSize) {
+                                        if (activeCellLambda(id)) {
+                                            isActiveBlock = true;
+                                            numActiveVoxels[l][0]++;
+                                        }
+                                    }
+                                } else {
+                                    //This is the corresponding block origin in the previous level
+                                    const Neon::int32_3d id(blockOrigin.x + x * prv_ref_factor_recurse,
+                                                            blockOrigin.y + y * prv_ref_factor_recurse,
+                                                            blockOrigin.z + z * prv_ref_factor_recurse);
 
-                            if (activeCellLambda(id)) {
-                                isActiveBlock = true;
-                                numActiveVoxels[0]++;
+                                    if (mData->mBlockOriginTo1D[l - 1].getMetadata(id)) {
+                                        isActiveBlock = true;
+                                        numActiveVoxels[l][0]++;
+                                    }
+                                }
                             }
                         }
                     }
-                }
 
 
-                if (isActiveBlock) {
-                    mData->mNumBlocks[0]++;
-                    mData->mBlockOriginTo1D.addPoint(blockOrigin, blockId);
-                    blockId++;
+                    if (isActiveBlock) {
+                        mData->mNumBlocks[l][0]++;
+                        mData->mBlockOriginTo1D[l].addPoint(blockOrigin, blockId);
+                        blockId++;
+                    }
                 }
             }
         }
     }
+
 
     // Init the base grid
     bGrid::GridBase::init("bGrid",
                           backend,
                           domainSize,
                           Neon::domain::Stencil(),
-                          numActiveVoxels,
+                          numActiveVoxels[0],  //passing active voxels on level 0 as the number of active grid in base grid (????)
                           Neon::int32_3d(Cell::sBlockSizeX, Cell::sBlockSizeY, Cell::sBlockSizeZ),
                           spacingData,
                           origin);
@@ -101,10 +144,13 @@ bGrid::bGrid(const Neon::Backend&                          backend,
                                    ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                    Neon::MemoryLayout::arrayOfStructs);
 
-    mData->mOrigin = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
-                                                                         1,
-                                                                         memOptions,
-                                                                         mData->mNumBlocks);
+    mData->mOrigin.resize(descriptor.getDepth());
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        mData->mOrigin[l] = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
+                                                                                1,
+                                                                                memOptions,
+                                                                                mData->mNumBlocks[l]);
+    }
 
     //Stencil linear/relative index
     auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>();
@@ -126,105 +172,141 @@ bGrid::bGrid(const Neon::Backend&                          backend,
 
 
     // bitmask
-    mData->mActiveMaskSize = backend.devSet().template newDataSet<uint64_t>();
-    for (int64_t i = 0; i < mData->mActiveMaskSize.size(); ++i) {
-        mData->mActiveMaskSize[i] = mData->mNumBlocks[i] * NEON_DIVIDE_UP(Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ,
-                                                                          Cell::sMaskSize);
+    mData->mActiveMaskSize.resize(descriptor.getDepth());
+    mData->mActiveMask.resize(descriptor.getDepth());
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        mData->mActiveMaskSize[l] = backend.devSet().template newDataSet<uint64_t>();
+        for (int64_t i = 0; i < mData->mActiveMaskSize[l].size(); ++i) {
+            mData->mActiveMaskSize[l][i] = mData->mNumBlocks[l][i] *
+                                           NEON_DIVIDE_UP(descriptor.getLevelRefFactor(l) * descriptor.getLevelRefFactor(l) * descriptor.getLevelRefFactor(l),
+                                                          Cell::sMaskSize);
+        }
+
+        mData->mActiveMask[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+                                                                              1,
+                                                                              memOptions,
+                                                                              mData->mActiveMaskSize[l]);
     }
-    mData->mActiveMask = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
-                                                                       1,
-                                                                       memOptions,
-                                                                       mData->mActiveMaskSize);
 
 
     // init bitmask to zero
-    for (int32_t c = 0; c < mData->mActiveMask.cardinality(); ++c) {
-        SetIdx devID(c);
-        for (size_t i = 0; i < mData->mActiveMaskSize[c]; ++i) {
-            mData->mActiveMask.eRef(devID, i) = 0;
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        for (int32_t c = 0; c < mData->mActiveMask[l].cardinality(); ++c) {
+            SetIdx devID(c);
+            for (size_t i = 0; i < mData->mActiveMaskSize[l][c]; ++i) {
+                mData->mActiveMask[l].eRef(devID, i) = 0;
+            }
         }
     }
 
 
-    // Neighbour blocks
-    mData->mNeighbourBlocks = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
-                                                                            26,
-                                                                            memOptions,
-                                                                            mData->mNumBlocks);
-
-    // init neighbour blocks to invalid block id
-    for (int32_t c = 0; c < mData->mNeighbourBlocks.cardinality(); ++c) {
-        SetIdx devID(c);
-        for (uint64_t i = 0; i < mData->mNumBlocks[c]; ++i) {
-            for (int n = 0; n < 26; ++n) {
-                mData->mNeighbourBlocks.eRef(devID, i, n) = std::numeric_limits<uint32_t>::max();
+    // Neighbor blocks
+    mData->mNeighbourBlocks.resize(descriptor.getDepth());
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        mData->mNeighbourBlocks[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+                                                                                   26,
+                                                                                   memOptions,
+                                                                                   mData->mNumBlocks[l]);
+        // init neighbor blocks to invalid block id
+        for (int32_t c = 0; c < mData->mNeighbourBlocks[l].cardinality(); ++c) {
+            SetIdx devID(c);
+            for (uint64_t i = 0; i < mData->mNumBlocks[0][c]; ++i) {
+                for (int n = 0; n < 26; ++n) {
+                    mData->mNeighbourBlocks[l].eRef(devID, i, n) = std::numeric_limits<uint32_t>::max();
+                }
             }
         }
     }
 
 
     // Second loop over active blocks to populate the block origins, neighbors, and bitmask
-    mData->mBlockOriginTo1D.forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-        // TODO need to figure out which device owns this block
-        SetIdx devID(0);
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        const int ref_factor = descriptor.getLevelRefFactor(l);
+        const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
+        const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
 
-        mData->mOrigin.eRef(devID, blockIdx) = blockOrigin;
+        mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
+            // TODO need to figure out which device owns this block
+            SetIdx devID(0);
 
-        //set active mask
-        for (int z = 0; z < Cell::sBlockSizeZ; z++) {
-            for (int y = 0; y < Cell::sBlockSizeY; y++) {
-                for (int x = 0; x < Cell::sBlockSizeX; x++) {
+            mData->mOrigin[l].eRef(devID, blockIdx) = blockOrigin;
 
-                    const Neon::int32_3d id(blockOrigin.x + x,
-                                            blockOrigin.y + y,
-                                            blockOrigin.z + z);
+            //set active mask
+            for (int z = 0; z < ref_factor; z++) {
+                for (int y = 0; y < ref_factor; y++) {
+                    for (int x = 0; x < ref_factor; x++) {
 
-                    if (id.x < domainSize.x &&
-                        id.y < domainSize.y &&
-                        id.z < domainSize.z && activeCellLambda(id)) {
+                        bool is_active = false;
 
-                        Cell cell(static_cast<Cell::Location::Integer>(x),
-                                  static_cast<Cell::Location::Integer>(y),
-                                  static_cast<Cell::Location::Integer>(z));
-                        cell.mBlockID = blockIdx;
+                        if (l == 0) {
+                            const Neon::int32_3d id(blockOrigin.x + x,
+                                                    blockOrigin.y + y,
+                                                    blockOrigin.z + z);
+                            is_active = id < domainSize && activeCellLambda(id);
+                        } else {
+                            //This is the corresponding block origin in the previous level
+                            const Neon::int32_3d id(blockOrigin.x + x * prv_ref_factor_recurse,
+                                                    blockOrigin.y + y * prv_ref_factor_recurse,
+                                                    blockOrigin.z + z * prv_ref_factor_recurse);
+                            if (mData->mBlockOriginTo1D[l - 1].getMetadata(id)) {
+                                is_active = true;
+                            }
+                        }
 
-                        mData->mActiveMask.eRef(devID, cell.getBlockMaskStride() + cell.getMaskLocalID(), 0) |= 1 << cell.getMaskBitPosition();
+                        if (is_active) {
+                            Cell cell(static_cast<Cell::Location::Integer>(x),
+                                      static_cast<Cell::Location::Integer>(y),
+                                      static_cast<Cell::Location::Integer>(z));
+                            cell.mBlockID = blockIdx;
+                            mData->mActiveMask[l].eRef(devID, cell.getBlockMaskStride() + cell.getMaskLocalID(), 0) |= 1 << cell.getMaskBitPosition();
+                        }
                     }
                 }
             }
-        }
 
 
-        //set neighbor blocks
-        for (int16_t k = -1; k < 2; k++) {
-            for (int16_t j = -1; j < 2; j++) {
-                for (int16_t i = -1; i < 2; i++) {
-                    if (i == 0 && j == 0 && k == 0) {
-                        continue;
-                    }
+            //set neighbor blocks
+            for (int16_t k = -1; k < 2; k++) {
+                for (int16_t j = -1; j < 2; j++) {
+                    for (int16_t i = -1; i < 2; i++) {
+                        if (i == 0 && j == 0 && k == 0) {
+                            continue;
+                        }
 
-                    Neon::int32_3d neighbourBlockOrigin(i, j, k);
-                    neighbourBlockOrigin.x = neighbourBlockOrigin.x * Cell::sBlockSizeX + blockOrigin.x;
-                    neighbourBlockOrigin.y = neighbourBlockOrigin.y * Cell::sBlockSizeY + blockOrigin.y;
-                    neighbourBlockOrigin.z = neighbourBlockOrigin.z * Cell::sBlockSizeZ + blockOrigin.z;
+                        Neon::int32_3d neighbourBlockOrigin(i, j, k);
+                        if (l == 0) {
+                            neighbourBlockOrigin.x = neighbourBlockOrigin.x * ref_factor + blockOrigin.x;
+                            neighbourBlockOrigin.y = neighbourBlockOrigin.y * ref_factor + blockOrigin.y;
+                            neighbourBlockOrigin.z = neighbourBlockOrigin.z * ref_factor + blockOrigin.z;
+                        } else {
+                            neighbourBlockOrigin.x = neighbourBlockOrigin.x * ref_factor_recurse + blockOrigin.x;
+                            neighbourBlockOrigin.y = neighbourBlockOrigin.y * ref_factor_recurse + blockOrigin.y;
+                            neighbourBlockOrigin.z = neighbourBlockOrigin.z * ref_factor_recurse + blockOrigin.z;
+                        }
 
-                    auto neighbour_it = mData->mBlockOriginTo1D.getMetadata(neighbourBlockOrigin);
+                        if (neighbourBlockOrigin >= 0 && neighbourBlockOrigin < domainSize) {
 
-                    if (neighbour_it) {
-                        int16_3d block_offset(i, j, k);
-                        mData->mNeighbourBlocks.eRef(devID,
-                                                     blockIdx,
-                                                     Cell::getNeighbourBlockID(block_offset)) = *neighbour_it;
+                            auto neighbour_it = mData->mBlockOriginTo1D[l].getMetadata(neighbourBlockOrigin);
+
+                            if (neighbour_it) {
+                                int16_3d block_offset(i, j, k);
+                                mData->mNeighbourBlocks[l].eRef(devID,
+                                                                blockIdx,
+                                                                Cell::getNeighbourBlockID(block_offset)) = *neighbour_it;
+                            }
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+    }
 
     if (backend.devType() == Neon::DeviceType::CUDA) {
-        mData->mActiveMask.updateCompute(backend, 0);
-        mData->mOrigin.updateCompute(backend, 0);
-        mData->mNeighbourBlocks.updateCompute(backend, 0);
+        for (int l = 0; l < descriptor.getDepth(); ++l) {
+            mData->mActiveMask[l].updateCompute(backend, 0);
+            mData->mOrigin[l].updateCompute(backend, 0);
+            mData->mNeighbourBlocks[l].updateCompute(backend, 0);
+        }
         mData->mStencilNghIndex.updateCompute(backend, 0);
     }
 
@@ -247,11 +329,11 @@ bGrid::bGrid(const Neon::Backend&                          backend,
         for (int gpuIdx = 0; gpuIdx < backend.devSet().setCardinality(); gpuIdx++) {
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mDataView = dv;
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mDomainSize = domainSize;
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[gpuIdx]);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask.rawMem(gpuIdx, Neon::DeviceType::CPU);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask.rawMem(gpuIdx, Neon::DeviceType::CUDA);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostBlockOrigin = mData->mOrigin.rawMem(gpuIdx, Neon::DeviceType::CPU);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceBlockOrigin = mData->mOrigin.rawMem(gpuIdx, Neon::DeviceType::CUDA);
+            mData->mPartitionIndexSpace[dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[0][gpuIdx]);
+            mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask[0].rawMem(gpuIdx, Neon::DeviceType::CPU);
+            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask[0].rawMem(gpuIdx, Neon::DeviceType::CUDA);
+            mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostBlockOrigin = mData->mOrigin[0].rawMem(gpuIdx, Neon::DeviceType::CPU);
+            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceBlockOrigin = mData->mOrigin[0].rawMem(gpuIdx, Neon::DeviceType::CUDA);
         }
     }
 }
@@ -305,8 +387,8 @@ auto bGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
 {
     // TODO this sets the numBlocks for only Standard dataView.
     auto pattern = Neon::PatternScalar<T>(getBackend(), Neon::sys::patterns::Engine::CUB);
-    for (SetIdx id = 0; id < mData->mNumBlocks.cardinality(); id++) {
-        pattern.getBlasSet(Neon::DataView::STANDARD).getBlas(id.idx()).setNumBlocks(uint32_t(mData->mNumBlocks[id]));
+    for (SetIdx id = 0; id < mData->mNumBlocks[0].cardinality(); id++) {
+        pattern.getBlasSet(Neon::DataView::STANDARD).getBlas(id.idx()).setNumBlocks(uint32_t(mData->mNumBlocks[0][id]));
     }
     return pattern;
 }

@@ -91,14 +91,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
                              const size_t&         sharedMem) const -> Neon::set::LaunchParameters;
 
     auto getPartitionIndexSpace(Neon::DeviceType dev,
-                                SetIdx           setIdx,  
+                                SetIdx           setIdx,
                                 Neon::DataView   dataView) -> const PartitionIndexSpace&;
 
-    auto getNumBlocksPerPartition() const -> const Neon::set::DataSet<uint64_t>&;
-    auto getOrigins() const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
-    auto getNeighbourBlocks() const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getActiveMask() const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getBlockOriginTo1D() const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
+    auto getNumBlocksPerPartition(int level = 0) const -> const Neon::set::DataSet<uint64_t>&;
+    auto getOrigins(int level = 0) const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
+    auto getNeighbourBlocks(int level = 0) const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getActiveMask(int level = 0) const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getBlockOriginTo1D(int level = 0) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
 
     //for compatibility with other grids that can work on cub and cublas engine
     auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
@@ -129,18 +129,21 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     struct Data
     {
         //number of blocks in each device
-        Neon::set::DataSet<uint64_t> mNumBlocks;
+        //std::vector so we store the number of blocks at each level
+        std::vector<Neon::set::DataSet<uint64_t>> mNumBlocks;
 
 
         //block origin coordinates
-        Neon::set::MemSet_t<Neon::int32_3d> mOrigin;
+        //std::vector to store the origin of each block at each level
+        std::vector<Neon::set::MemSet_t<Neon::int32_3d>> mOrigin;
 
         //Stencil neighbor indices
         Neon::set::MemSet_t<nghIdx_t> mStencilNghIndex;
 
         //active voxels bitmask
-        Neon::set::DataSet<uint64_t>  mActiveMaskSize;
-        Neon::set::MemSet_t<uint32_t> mActiveMask;
+        //std::vector to store the active mask (and its size) per block per level
+        std::vector<Neon::set::DataSet<uint64_t>>  mActiveMaskSize;
+        std::vector<Neon::set::MemSet_t<uint32_t>> mActiveMask;
 
 
         //1d index of 26 neighbor blocks
@@ -149,13 +152,15 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //as maybe needed by stencil operations
         //If one of this neighbor blocks does not exist (e.g., not allocated or at the domain border), we store
         //std::numeric_limits<uint32_t>::max() to indicate that there is no neighbor block at this location
-        Neon::set::MemSet_t<uint32_t> mNeighbourBlocks;
+        //std::vector to store the neighbor blocks per block per level
+        std::vector<Neon::set::MemSet_t<uint32_t>> mNeighbourBlocks;
 
         //Partition index space
         std::vector<Neon::set::DataSet<PartitionIndexSpace>> mPartitionIndexSpace;
 
         //Store the block origin as a key and its 1d index as value
-        Neon::domain::tool::PointHashTable<int32_t, uint32_t> mBlockOriginTo1D;
+        //std::vector to store the map from the block origin to its 1d index per level
+        std::vector<Neon::domain::tool::PointHashTable<int32_t, uint32_t>> mBlockOriginTo1D;
     };
     std::shared_ptr<Data> mData;
 };

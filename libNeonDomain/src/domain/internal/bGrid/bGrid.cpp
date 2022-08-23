@@ -35,13 +35,13 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx) const -> bool
 
     Neon::int32_3d block_origin = getOriginBlock3DIndex(idx);
 
-    auto itr = mData->mBlockOriginTo1D.getMetadata(block_origin);
+    auto itr = mData->mBlockOriginTo1D[0].getMetadata(block_origin);
     if (itr) {
         Cell cell(static_cast<Cell::Location::Integer>(idx.x % Cell::sBlockSizeX),
                   static_cast<Cell::Location::Integer>(idx.y % Cell::sBlockSizeY),
                   static_cast<Cell::Location::Integer>(idx.z % Cell::sBlockSizeZ));
         cell.mBlockID = *itr;
-        cell.mIsActive = cell.computeIsActive(mData->mActiveMask.rawMem(devID, Neon::DeviceType::CPU));
+        cell.mIsActive = cell.computeIsActive(mData->mActiveMask[0].rawMem(devID, Neon::DeviceType::CPU));
         return cell.mIsActive;
     }
     return false;
@@ -83,11 +83,11 @@ auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
     for (int i = 0; i < ret.cardinality(); ++i) {
         if (getBackend().devType() == Neon::DeviceType::CUDA) {
             ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::cudaGridMode,
-                       Neon::int32_3d(int32_t(mData->mNumBlocks[i]), 1, 1),
+                       Neon::int32_3d(int32_t(mData->mNumBlocks[0][i]), 1, 1),
                        cuda_block, sharedMem);
         } else {
             ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::domainGridMode,
-                       Neon::int32_3d(int32_t(mData->mNumBlocks[i]) * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ, 1, 1),
+                       Neon::int32_3d(int32_t(mData->mNumBlocks[0][i]) * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ, 1, 1),
                        cuda_block, sharedMem);
         }
     }
@@ -102,34 +102,34 @@ auto bGrid::getPartitionIndexSpace(Neon::DeviceType dev,
 }
 
 
-auto bGrid::getNumBlocksPerPartition() const -> const Neon::set::DataSet<uint64_t>&
+auto bGrid::getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&
 {
-    return mData->mNumBlocks;
+    return mData->mNumBlocks[level];
 }
 
-auto bGrid::getOrigins() const -> const Neon::set::MemSet_t<Neon::int32_3d>&
+auto bGrid::getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32_3d>&
 {
-    return mData->mOrigin;
+    return mData->mOrigin[level];
 }
 
-auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>& 
+auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&
 {
     return mData->mStencilNghIndex;
 }
 
-auto bGrid::getNeighbourBlocks() const -> const Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uint32_t>&
 {
-    return mData->mNeighbourBlocks;
+    return mData->mNeighbourBlocks[level];
 }
 
-auto bGrid::getActiveMask() const -> const Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getActiveMask(int level) const -> const Neon::set::MemSet_t<uint32_t>&
 {
-    return mData->mActiveMask;
+    return mData->mActiveMask[level];
 }
 
-auto bGrid::getBlockOriginTo1D() const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
+auto bGrid::getBlockOriginTo1D(int level) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
 {
-    return mData->mBlockOriginTo1D;
+    return mData->mBlockOriginTo1D[level];
 }
 
 auto bGrid::getKernelConfig(int            streamIdx,
