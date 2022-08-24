@@ -38,7 +38,7 @@ The following are the steps to access the documentation locally:
 ```bash
 # Insalling mkdocs. There are various installation methods, we use pip in this example.
 # We also install some required extensions
-pip install mkdocs pymdown-extensions pygments
+pip install mkdocs mkdocs-material mkdocs-autolinks-plugin pymdown-extensions pygments
 # Accessing the root of the local clone of the Neon repository
 cd Neon
 # Using mkdocs to run a local web server
