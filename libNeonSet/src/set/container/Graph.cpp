@@ -548,7 +548,9 @@ auto Graph::helpComputeScheduling_02_events(Bfs& bfs) -> void
     });
 }
 
-auto Graph::ioToDot(const std::string& fname, const std::string& graphName, bool debug) -> void
+auto Graph::ioToDot(const std::string& fname,
+                    const std::string& graphName,
+                    bool               debug) -> void
 {
     this->helpRemoveRedundantDependencies();
 
@@ -580,6 +582,32 @@ auto Graph::ioToDot(const std::string& fname, const std::string& graphName, bool
     };
     mRawGraph.exportDotFile(fname + ".dot", graphName, vertexLabel, edgeLabel,
                             vertexLabelProperty, edgeLabelProperty);
+}
+
+Graph::Graph(Backend& bk)
+{
+    mBackend = bk;
+    mBackendIsSet = true;
+}
+
+auto Graph::getBackend() const -> const Neon::Backend&
+{
+    if (mBackendIsSet) {
+        return mBackend;
+    }
+    NeonException ex("Graph");
+    ex << "A backend was not set.";
+    NEON_THROW(ex);
+}
+
+auto Graph::run(Neon::SetIdx /*setIdx*/, int /*streamIdx*/, Neon::DataView /*dataView*/)
+{
+    NEON_DEV_UNDER_CONSTRUCTION("");
+}
+
+auto Graph::run(int /*streamIdx*/, Neon::DataView /*dataView*/)
+{
+    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 

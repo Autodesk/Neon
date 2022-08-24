@@ -10,6 +10,9 @@
 #include "functional"
 #include "type_traits"
 
+namespace Neon::set::container {
+struct Graph;
+}
 
 namespace Neon::set::internal {
 
@@ -23,7 +26,7 @@ struct ContainerAPI
     enum struct DataViewSupport
     {
         on,
-        off
+        off,
     };
 
     /**
@@ -43,6 +46,8 @@ struct ContainerAPI
     virtual auto getHostContainer() -> std::shared_ptr<ContainerAPI> = 0;
 
     virtual auto getDeviceContainer() -> std::shared_ptr<ContainerAPI> = 0;
+
+    virtual auto getGraph() -> const Neon::set::container::Graph&;
 
     /**
      * Parse the input and output data for the kernel
@@ -132,6 +137,8 @@ struct ContainerAPI
     auto setContainerPattern(const std::vector<Neon::set::internal::dependencyTools::DataToken>& tokens) -> void;
 
     bool mParsingDataUpdated = false;
+
+    void                                                                 setContainerPattern(ContainerPatternType patternType);
 
    private:
     std::vector<Neon::set::internal::dependencyTools::DataToken>         mParsed;

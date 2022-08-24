@@ -18,6 +18,9 @@ auto ContainerPatternTypeUtils::toString(ContainerPatternType option) -> std::st
         case ContainerPatternType::reduction: {
             return "sync";
         }
+        case ContainerPatternType::complex: {
+            return "complex";
+        }
     }
     NEON_THROW_UNSUPPORTED_OPTION("");
 }
@@ -38,13 +41,14 @@ auto ContainerPatternTypeUtils::fromString(const std::string& option)
 auto ContainerPatternTypeUtils::getOptions() -> std::array<ContainerPatternType, nOptions>
 {
     std::array<ContainerPatternType, nOptions> opts = {ContainerPatternType::map,
-                                                         ContainerPatternType::stencil,
-                                                         ContainerPatternType::reduction};
+                                                       ContainerPatternType::stencil,
+                                                       ContainerPatternType::reduction,
+                                                       ContainerPatternType::complex};
     return opts;
 }
 
 
-}  // namespace Neon::set::internal
+}  // namespace Neon::set
 
 
 std::ostream& operator<<(std::ostream& os, Neon::set::ContainerPatternType const& m)

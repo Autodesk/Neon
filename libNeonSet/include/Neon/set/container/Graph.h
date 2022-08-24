@@ -17,26 +17,31 @@ struct Graph
 
    public:
     Graph();
+    explicit Graph(Neon::Backend& bk);
 
     /**
      * Get a reference to the begin node
      */
-    auto getBeginNode() const -> const GraphNode&;
+    auto getBeginNode() const
+        -> const Neon::set::container::GraphNode&;
 
     /**
      * Get a reference to the end node of the graph
      */
-    auto getEndNode() const -> const GraphNode&;
+    auto getEndNode() const
+        -> const GraphNode&;
 
     /**
      * Adds a node between the begin and end nodes
      */
-    auto addNode(const Container& container) -> GraphNode&;
+    auto addNode(const Container& container)
+        -> GraphNode&;
 
     /**
      * Remove Node
      */
-    auto removeNode(GraphNode& gn) -> GraphNode;
+    auto removeNode(GraphNode& gn)
+        -> GraphNode;
 
     /**
      * Adds a dependency between two nodes of the graph
@@ -45,20 +50,23 @@ struct Graph
                           Container           containerB,
                           const GraphNode&    nodeC,
                           GraphDependencyType ab = GraphDependencyType::user,
-                          GraphDependencyType bc = GraphDependencyType::user) -> GraphNode&;
+                          GraphDependencyType bc = GraphDependencyType::user)
+        -> GraphNode&;
 
     /**
      * Adds a dependency between two node of the graph
      */
     auto addDependency(const GraphNode&    nodeA,
                        const GraphNode&    nodeB,
-                       GraphDependencyType type) -> GraphDependency&;
+                       GraphDependencyType type)
+        -> GraphDependency&;
 
     /**
      * Returns the dependency type between two nodes.
      */
     auto getDependencyType(const GraphNode& nodeA,
-                           const GraphNode& nodeB) -> GraphDependencyType;
+                           const GraphNode& nodeB)
+        -> GraphDependencyType;
 
     /**
      * Clone a node and return a reference to the new clone.
@@ -87,10 +95,18 @@ struct Graph
     /**
      * Execute the scheduling operation associated to the node
      */
-    auto execute() -> void;
+    auto run(int            streamIdx = 0,
+             Neon::DataView dataView = Neon::DataView::STANDARD);
 
-    auto ioToDot(const std::string& fname, const std::string& graphName, bool debug) -> void;
+    auto run(Neon::SetIdx   setIdx,
+             int            streamIdx = 0,
+             Neon::DataView dataView = Neon::DataView::STANDARD);
 
+    auto ioToDot(const std::string& fname,
+                 const std::string& graphName,
+                 bool               debug) -> void;
+
+    auto getBackend() const -> const Neon::Backend&;
 
    protected:
     /**
@@ -192,6 +208,9 @@ struct Graph
     RawGraph mRawGraph;
     bool     mSchedulingStatusIsValid;
     int      mMaxNumberStreams;
+
+    Backend mBackend;
+    bool    mBackendIsSet = false;
 };
 
 }  // namespace Neon::set::container

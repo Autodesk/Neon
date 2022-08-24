@@ -11,6 +11,8 @@
 #include "Neon/set/container/HostManagedContainer.h"
 #include "Neon/set/container/OldDeviceManagedContainer.h"
 
+#include "Neon/set/container/GraphContainer.h"
+
 namespace Neon::set {
 
 

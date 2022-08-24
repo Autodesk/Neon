@@ -21,6 +21,9 @@ auto ContainerExecutionTypeUtils::toString(ContainerExecutionType option) -> std
         case ContainerExecutionType::deviceThenHostManaged: {
             return "deviceThenHostManaged";
         }
+        case ContainerExecutionType::graph: {
+            return "graph";
+        }
         case ContainerExecutionType::none: {
             return "none";
         }
@@ -46,8 +49,18 @@ auto ContainerExecutionTypeUtils::getOptions() -> std::array<ContainerExecutionT
     std::array<ContainerExecutionType, nOptions> opts = {ContainerExecutionType::device,
                                                          ContainerExecutionType::deviceManaged,
                                                          ContainerExecutionType::deviceThenHostManaged,
-                                                         ContainerExecutionType::hostManaged};
+                                                         ContainerExecutionType::hostManaged,
+                                                         ContainerExecutionType::graph};
     return opts;
+}
+
+auto ContainerExecutionTypeUtils::isExpandable(ContainerExecutionType option) -> bool
+{
+    if (option == ContainerExecutionType::graph ||
+        option == ContainerExecutionType::deviceThenHostManaged) {
+        return true;
+    }
+    return false;
 }
 
 std::ostream& operator<<(std::ostream& os, Neon::set::ContainerExecutionType const& m)
@@ -56,4 +69,3 @@ std::ostream& operator<<(std::ostream& os, Neon::set::ContainerExecutionType con
 }
 
 }  // namespace Neon::set
-

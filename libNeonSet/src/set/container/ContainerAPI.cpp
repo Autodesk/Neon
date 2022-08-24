@@ -28,11 +28,11 @@ auto ContainerAPI::getTokens() const
     return mParsed;
 }
 
-//auto ContainerAPI::clearTokens()
-//    -> void
+// auto ContainerAPI::clearTokens()
+//     -> void
 //{
-//    mParsed.clear();
-//}
+//     mParsed.clear();
+// }
 
 auto ContainerAPI::getTokenRef()
     -> std::vector<Neon::set::internal::dependencyTools::DataToken>&
@@ -64,6 +64,11 @@ auto ContainerAPI::getDataViewSupport() const -> ContainerAPI::DataViewSupport
 auto ContainerAPI::setDataViewSupport(ContainerAPI::DataViewSupport dataViewSupport) -> void
 {
     mDataViewSupport = dataViewSupport;
+}
+
+auto ContainerAPI::setContainerPattern(Neon::set::ContainerPatternType patternType) -> void
+{
+    this->mContainerPatternType = patternType;
 }
 
 auto ContainerAPI::setContainerPattern(const std::vector<Neon::set::internal::dependencyTools::DataToken>& tokens) -> void
@@ -122,6 +127,11 @@ auto ContainerAPI::setContainerExecutionType(ContainerExecutionType containerTyp
 auto ContainerAPI::setContainerOperationType(ContainerOperationType containerType) -> void
 {
     mContainerOperationType = containerType;
+}
+
+auto ContainerAPI::getGraph() -> const Neon::set::container::Graph&
+{
+    NEON_THROW_UNSUPPORTED_OPERATION();
 }
 
 

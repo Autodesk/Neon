@@ -16,6 +16,7 @@ enum struct ContainerPatternType
     map = 0,
     stencil = 1,
     reduction = 2,
+    complex = 3,
 };
 
 

@@ -12,6 +12,9 @@ auto ContainerOperationTypeUtils::toString(ContainerOperationType option) -> std
         case ContainerOperationType::compute: {
             return "compute";
         }
+        case ContainerOperationType::graph: {
+            return "graph";
+        }
         case ContainerOperationType::halo: {
             return "halo";
         }
@@ -41,6 +44,7 @@ auto ContainerOperationTypeUtils::fromString(const std::string& option)
 auto ContainerOperationTypeUtils::getOptions() -> std::array<ContainerOperationType, nOptions>
 {
     std::array<ContainerOperationType, nOptions> opts = {ContainerOperationType::compute,
+                                                         ContainerOperationType::graph,
                                                          ContainerOperationType::halo,
                                                          ContainerOperationType::sync,
                                                          ContainerOperationType::anchor};

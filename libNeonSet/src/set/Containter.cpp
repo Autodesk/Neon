@@ -57,6 +57,7 @@ auto Container::factoryAnchor(const std::string& name) -> Container
     return Container(tmp);
 }
 
+
 auto Container::getName() const
     -> const std::string&
 {
@@ -117,6 +118,16 @@ Container::Container(std::shared_ptr<Neon::set::internal::ContainerAPI>&& contai
     : mContainer(container)
 {
     // Empty
+}
+
+auto Container::factoryGraph(const std::string&                         name,
+                             const container::Graph&                    graph,
+                             std::function<void(Neon::SetIdx, Loader&)> loadingLambda) -> Container
+{
+    auto k = new Neon::set::internal::GraphContainer(name, graph, loadingLambda);
+
+    std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
+    return Container(tmp);
 }
 
 

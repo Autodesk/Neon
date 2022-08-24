@@ -15,7 +15,6 @@ namespace Neon::set {
 struct Container
 {
    public:
-
     Container() = default;
 
     /**
@@ -96,6 +95,10 @@ struct Container
                                      DataContainerT                                     a,
                                      const UserLoadingLambdaT&                          f)
         -> Container;
+
+    static auto factoryGraph(const std::string&                         name,
+                             const container::Graph&                    graph,
+                             std::function<void(Neon::SetIdx, Loader&)> loadingLambda) -> Container;
 
     static auto factoryDeviceThenHostManaged(const std::string& name,
                                              Container&         device,
