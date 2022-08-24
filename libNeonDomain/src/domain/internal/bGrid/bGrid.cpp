@@ -148,4 +148,119 @@ auto bGrid::getKernelConfig(int            streamIdx,
 
     return kernelConfig;
 }
+
+auto bGrid::getDescriptor() const -> const std::vector<int>&
+{
+    return mData->descriptor;
+}
+
+void bGrid::topologyToVTK(std::string fileName) const
+{
+    std::ofstream file(fileName);
+    file << "# vtk DataFile Version 2.0\n";
+    file << "bGrid\n";
+    file << "ASCII\n";
+    file << "DATASET UNSTRUCTURED_GRID\n";
+    file << "POINTS " << (getDimension().rMax() + 1) * (getDimension().rMax() + 1) * (getDimension().rMax() + 1) << " float \n";
+    for (int z = 0; z < getDimension().rMax() + 1; ++z) {
+        for (int y = 0; y < getDimension().rMax() + 1; ++y) {
+            for (int x = 0; x < getDimension().rMax() + 1; ++x) {
+                file << x << " " << y << " " << z << "\n";
+            }
+        }
+    }
+
+    uint64_t num_cells = 0;
+    for (auto& a : mData->mNumActiveVoxel) {
+        num_cells += a[0];
+    }
+
+    file << "CELLS " << num_cells << " " << num_cells * 9 << " \n";
+
+    auto mapTo1D = [&](int x, int y, int z) {
+        return x +
+               y * (getDimension().rMax() + 1) +
+               z * (getDimension().rMax() + 1) * (getDimension().rMax() + 1);
+    };
+
+    for (int l = 0; l < mData->descriptor.size(); ++l) {
+        const int ref_factor = mData->descriptor[l];
+        int       prv_ref_factor_recurse = 1;
+        if (l > 0) {
+            for (int ll = l - 1; ll >= 0; --ll) {
+                prv_ref_factor_recurse *= mData->descriptor[ll];
+            }
+        }
+        mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
+            // TODO need to figure out which device owns this block
+            SetIdx devID(0);
+
+            for (int z = 0; z < ref_factor; z++) {
+                for (int y = 0; y < ref_factor; y++) {
+                    for (int x = 0; x < ref_factor; x++) {
+                        Cell cell(static_cast<Cell::Location::Integer>(x),
+                                  static_cast<Cell::Location::Integer>(y),
+                                  static_cast<Cell::Location::Integer>(z));
+                        cell.mBlockID = blockIdx;
+
+                        if (cell.computeIsActive(mData->mActiveMask[l].rawMem(devID, Neon::DeviceType::CPU), ref_factor)) {
+                            //file << blockOrigin.x + x * prv_ref_factor_recurse << " "
+                            //     << blockOrigin.y + y * prv_ref_factor_recurse << " "
+                            //     << blockOrigin.z + z * prv_ref_factor_recurse << "\n";
+
+                            Neon::int32_3d corner(blockOrigin.x + x * prv_ref_factor_recurse,
+                                                  blockOrigin.y + y * prv_ref_factor_recurse,
+                                                  blockOrigin.z + z * prv_ref_factor_recurse);
+                            file << "8 ";
+                            //x,y,z
+                            file << mapTo1D(corner.x, corner.y, corner.z) << " ";
+                            //+x,y,z
+                            file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y, corner.z) << " ";
+
+                            //x,+y,z
+                            file << mapTo1D(corner.x, corner.y + prv_ref_factor_recurse, corner.z) << " ";
+
+                            //+x,+y,z
+                            file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y + prv_ref_factor_recurse, corner.z) << " ";
+
+                            //x,y,+z
+                            file << mapTo1D(corner.x, corner.y, corner.z + prv_ref_factor_recurse) << " ";
+
+                            //+x,y,+z
+                            file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y, corner.z + prv_ref_factor_recurse) << " ";
+
+                            //x,+y,+z
+                            file << mapTo1D(corner.x, corner.y + prv_ref_factor_recurse, corner.z + prv_ref_factor_recurse) << " ";
+
+                            //+x,+y,+z
+                            file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y + prv_ref_factor_recurse, corner.z + prv_ref_factor_recurse) << " ";
+                            file << "\n";
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    file << "CELL_TYPES " << num_cells << " \n";
+    for (uint64_t i = 0; i < num_cells; ++i) {
+        file << 11 << "\n";
+    }
+
+    file << "CELL_DATA " << num_cells << " \n";
+    file << "SCALARS Level int 1 \n";
+    file << "LOOKUP_TABLE default \n";
+
+    uint64_t acc = 0;
+    for (auto& a : mData->mNumActiveVoxel) {
+        for (uint64_t i = 0; i < a[0]; ++i) {
+            file << acc << "\n";
+        }
+        acc++;
+    }
+
+    file.close();
+}
+
+
 }  // namespace Neon::domain::internal::bGrid

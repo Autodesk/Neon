@@ -41,22 +41,32 @@ TEST(bGrid, multiRes)
 {
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
         int              nGPUs = 1;
-        Neon::int32_3d   dim(16, 1, 1);
+        Neon::int32_3d   dim(50, 50, 50);
         std::vector<int> gpusIds(nGPUs, 0);
         auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
 
-        Neon::domain::internal::bGrid::bGridDescriptor<2, 1> descriptor;
+        Neon::domain::internal::bGrid::bGridDescriptor<1, 1, 1, 1> descriptor;
 
         Neon::domain::bGrid b_grid(
             bk,
             dim,
-            [&](const Neon::index_3d&) -> bool {
-                return true;
-            },
+            {[&](const Neon::index_3d& id) -> bool {
+                 return id.x < 10 && id.y < 10 && id.z < 10;
+             },
+             [&](const Neon::index_3d& id) -> bool {
+                 return id.x < 20 && id.y < 20 && id.z < 20;
+             },
+             [&](const Neon::index_3d& id) -> bool {
+                 return id.x < 30 && id.y < 30 && id.z < 30;
+             },
+             [&](const Neon::index_3d& id) -> bool {
+                 return id.x < 40 && id.y < 40 && id.z < 40;
+             }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
 
-        auto field = b_grid.newField<float>("myField", 1, 0);
+        //b_grid.topologyToVTK("bGrid1111.vtk");
+        //auto field = b_grid.newField<float>("myField", 1, 0);
 
         //field.ioToVtk("f", "f");
 

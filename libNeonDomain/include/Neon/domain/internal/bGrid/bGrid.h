@@ -35,7 +35,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     using PartitionIndexSpace = Neon::domain::internal::bGrid::bPartitionIndexSpace;
 
     bGrid() = default;
-    virtual ~bGrid() = default;
+    virtual ~bGrid(){};
 
     /**
      * Constructor for the vanilla block data structure with depth of 1     
@@ -52,18 +52,19 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
      * General-purpose constructor for multi-resolution grid with variable depth and variable refinement factor at each level
      * Check bGridDescriptor to see how to define the grid 
     */
-    template <typename ActiveCellLambda, typename Descriptor>
-    bGrid(const Neon::Backend&         backend,
-          const Neon::int32_3d&        domainSize,
-          const ActiveCellLambda       activeCellLambda,
-          const Neon::domain::Stencil& stencil,
-          const Descriptor             descriptor = sBGridDefaultDescriptor,
-          const double_3d&             spacingData = double_3d(1, 1, 1),
-          const double_3d&             origin = double_3d(0, 0, 0));
+    template <typename Descriptor>
+    bGrid(const Neon::Backend&                                    backend,
+          const Neon::int32_3d&                                   domainSize,
+          std::vector<std::function<bool(const Neon::index_3d&)>> activeCellLambda,
+          const Neon::domain::Stencil&                            stencil,
+          const Descriptor                                        descriptor = sBGridDefaultDescriptor,
+          const double_3d&                                        spacingData = double_3d(1, 1, 1),
+          const double_3d&                                        origin = double_3d(0, 0, 0));
 
     auto getProperties(const Neon::index_3d& idx) const
         -> GridBaseTemplate::CellProperties final;
 
+    //TODO
     auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool final;
 
@@ -94,11 +95,12 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
                                 SetIdx           setIdx,
                                 Neon::DataView   dataView) -> const PartitionIndexSpace&;
 
-    auto getNumBlocksPerPartition(int level = 0) const -> const Neon::set::DataSet<uint64_t>&;
-    auto getOrigins(int level = 0) const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
-    auto getNeighbourBlocks(int level = 0) const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getActiveMask(int level = 0) const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getBlockOriginTo1D(int level = 0) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
+    auto getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&;
+    auto getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
+    auto getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getActiveMask(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getBlockOriginTo1D(int level) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
+    auto getDescriptor() const -> const std::vector<int>&;
 
     //for compatibility with other grids that can work on cub and cublas engine
     auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
@@ -121,9 +123,12 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getKernelConfig(int            streamIdx,
                          Neon::DataView dataView) -> Neon::set::KernelConfig;
 
+    //TODO
     auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
 
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
+
+    void topologyToVTK(std::string fileName) const;
 
    private:
     struct Data
@@ -131,6 +136,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //number of blocks in each device
         //std::vector so we store the number of blocks at each level
         std::vector<Neon::set::DataSet<uint64_t>> mNumBlocks;
+
+        //number of active voxels in each block at each level
+        std::vector<Neon::set::DataSet<uint64_t>> mNumActiveVoxel;
 
 
         //block origin coordinates
@@ -156,11 +164,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         std::vector<Neon::set::MemSet_t<uint32_t>> mNeighbourBlocks;
 
         //Partition index space
+        //It is an std vector for the three type of data views we have
         std::vector<Neon::set::DataSet<PartitionIndexSpace>> mPartitionIndexSpace;
 
         //Store the block origin as a key and its 1d index as value
         //std::vector to store the map from the block origin to its 1d index per level
         std::vector<Neon::domain::tool::PointHashTable<int32_t, uint32_t>> mBlockOriginTo1D;
+
+        std::vector<int> descriptor;
     };
     std::shared_ptr<Data> mData;
 };

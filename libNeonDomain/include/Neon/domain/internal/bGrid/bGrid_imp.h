@@ -9,18 +9,18 @@ bGrid::bGrid(const Neon::Backend&         backend,
              const Neon::domain::Stencil& stencil,
              const double_3d&             spacingData,
              const double_3d&             origin)
-    : bGrid(backend, domainSize, activeCellLambda, stencil, sBGridDefaultDescriptor, spacingData, origin)
+    : bGrid(backend, domainSize, {activeCellLambda}, stencil, sBGridDefaultDescriptor, spacingData, origin)
 {
 }
 
-template <typename ActiveCellLambda, typename Descriptor>
-bGrid::bGrid(const Neon::Backend&         backend,
-             const Neon::int32_3d&        domainSize,
-             const ActiveCellLambda       activeCellLambda,
-             const Neon::domain::Stencil& stencil,
-             const Descriptor             descriptor,
-             const double_3d&             spacingData,
-             const double_3d&             origin)
+template <typename Descriptor>
+bGrid::bGrid(const Neon::Backend&                                    backend,
+             const Neon::int32_3d&                                   domainSize,
+             std::vector<std::function<bool(const Neon::index_3d&)>> activeCellLambda,
+             const Neon::domain::Stencil&                            stencil,
+             const Descriptor                                        descriptor,
+             const double_3d&                                        spacingData,
+             const double_3d&                                        origin)
 {
 
     if (backend.devSet().setCardinality() > 1) {
@@ -31,6 +31,12 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
     mData = std::make_shared<Data>();
 
+
+    mData->descriptor.resize(descriptor.getDepth());
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        mData->descriptor[l] = descriptor.getLevelRefFactor(l);
+    }
+
     mData->mBlockOriginTo1D.resize(descriptor.getDepth());
     mData->mBlockOriginTo1D[0] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
 
@@ -39,12 +45,11 @@ bGrid::bGrid(const Neon::Backend&         backend,
         nb = backend.devSet().template newDataSet<uint64_t>();
     }
 
-
-    std::vector<Neon::set::DataSet<uint64_t>> numActiveVoxels(descriptor.getDepth());
-    for (auto& av : numActiveVoxels) {
+    mData->mNumActiveVoxel.resize(descriptor.getDepth());
+    for (auto& av : mData->mNumActiveVoxel) {
         av = backend.devSet().template newDataSet<uint64_t>();
     }
-    numActiveVoxels[0][0] = 0;
+    mData->mNumActiveVoxel[0][0] = 0;
 
 
     std::vector<Neon::int32_3d> numBlockInDomain(descriptor.getDepth());
@@ -53,7 +58,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                             NEON_DIVIDE_UP(domainSize.z, descriptor.get0LevelRefFactor()));
 
     for (int i = 1; i < descriptor.getDepth(); ++i) {
-        numActiveVoxels[i][0] = 0;
+        mData->mNumActiveVoxel[i][0] = 0;
 
         numBlockInDomain[i].set(NEON_DIVIDE_UP(numBlockInDomain[i - 1].x, descriptor.getLevelRefFactor(i)),
                                 NEON_DIVIDE_UP(numBlockInDomain[i - 1].y, descriptor.getLevelRefFactor(i)),
@@ -95,9 +100,9 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                             blockOrigin.z + z);
 
                                     if (id < domainSize) {
-                                        if (activeCellLambda(id)) {
+                                        if (activeCellLambda[l](id)) {
                                             isActiveBlock = true;
-                                            numActiveVoxels[l][0]++;
+                                            mData->mNumActiveVoxel[l][0]++;
                                         }
                                     }
                                 } else {
@@ -106,9 +111,9 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                             blockOrigin.y + y * prv_ref_factor_recurse,
                                                             blockOrigin.z + z * prv_ref_factor_recurse);
 
-                                    if (mData->mBlockOriginTo1D[l - 1].getMetadata(id)) {
+                                    if (mData->mBlockOriginTo1D[l - 1].getMetadata(id) || activeCellLambda[l](id)) {
                                         isActiveBlock = true;
-                                        numActiveVoxels[l][0]++;
+                                        mData->mNumActiveVoxel[l][0]++;
                                     }
                                 }
                             }
@@ -132,7 +137,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                           backend,
                           domainSize,
                           Neon::domain::Stencil(),
-                          numActiveVoxels[0],  //passing active voxels on level 0 as the number of active grid in base grid (????)
+                          mData->mNumActiveVoxel[0],  //passing active voxels on level 0 as the number of active grid in base grid (????)
                           Neon::int32_3d(Cell::sBlockSizeX, Cell::sBlockSizeY, Cell::sBlockSizeZ),
                           spacingData,
                           origin);
@@ -210,7 +215,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
         // init neighbor blocks to invalid block id
         for (int32_t c = 0; c < mData->mNeighbourBlocks[l].cardinality(); ++c) {
             SetIdx devID(c);
-            for (uint64_t i = 0; i < mData->mNumBlocks[0][c]; ++i) {
+            for (uint64_t i = 0; i < mData->mNumBlocks[l][c]; ++i) {
                 for (int n = 0; n < 26; ++n) {
                     mData->mNeighbourBlocks[l].eRef(devID, i, n) = std::numeric_limits<uint32_t>::max();
                 }
@@ -242,13 +247,13 @@ bGrid::bGrid(const Neon::Backend&         backend,
                             const Neon::int32_3d id(blockOrigin.x + x,
                                                     blockOrigin.y + y,
                                                     blockOrigin.z + z);
-                            is_active = id < domainSize && activeCellLambda(id);
+                            is_active = id < domainSize && activeCellLambda[l](id);
                         } else {
                             //This is the corresponding block origin in the previous level
                             const Neon::int32_3d id(blockOrigin.x + x * prv_ref_factor_recurse,
                                                     blockOrigin.y + y * prv_ref_factor_recurse,
                                                     blockOrigin.z + z * prv_ref_factor_recurse);
-                            if (mData->mBlockOriginTo1D[l - 1].getMetadata(id)) {
+                            if (mData->mBlockOriginTo1D[l - 1].getMetadata(id) || activeCellLambda[l](id)) {
                                 is_active = true;
                             }
                         }
@@ -258,7 +263,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                       static_cast<Cell::Location::Integer>(y),
                                       static_cast<Cell::Location::Integer>(z));
                             cell.mBlockID = blockIdx;
-                            mData->mActiveMask[l].eRef(devID, cell.getBlockMaskStride() + cell.getMaskLocalID(), 0) |= 1 << cell.getMaskBitPosition();
+                            mData->mActiveMask[l].eRef(devID, cell.getBlockMaskStride(ref_factor) + cell.getMaskLocalID(ref_factor), 0) |= 1 << cell.getMaskBitPosition(ref_factor);
                         }
                     }
                 }
