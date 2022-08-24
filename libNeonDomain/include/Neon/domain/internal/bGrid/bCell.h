@@ -55,18 +55,28 @@ class bCell
 
     NEON_CUDA_HOST_DEVICE inline auto getLocal1DID() const -> Location::Integer;
 
+    NEON_CUDA_HOST_DEVICE inline auto getLocal1DID(int blockSize) const -> Location::Integer;
+
     NEON_CUDA_HOST_DEVICE inline auto getMaskLocalID() const -> int32_t;
+
+    NEON_CUDA_HOST_DEVICE inline auto getMaskLocalID(int blockSize) const -> int32_t;
 
     NEON_CUDA_HOST_DEVICE inline auto getMaskBitPosition() const -> int32_t;
 
+    NEON_CUDA_HOST_DEVICE inline auto getMaskBitPosition(int blockSize) const -> int32_t;
+
     NEON_CUDA_HOST_DEVICE inline auto getBlockMaskStride() const -> int32_t;
 
+    NEON_CUDA_HOST_DEVICE inline auto getBlockMaskStride(int blockSize) const -> int32_t;
+
     NEON_CUDA_HOST_DEVICE inline auto computeIsActive(const uint32_t* activeMask) const -> bool;
+
+    NEON_CUDA_HOST_DEVICE inline auto computeIsActive(const uint32_t* activeMask, int blockSize) const -> bool;
 
     static NEON_CUDA_HOST_DEVICE inline auto getNeighbourBlockID(const int16_3d& blockOffset) -> uint32_t;
 
     NEON_CUDA_HOST_DEVICE inline auto pitch(int card) const -> Location::Integer;
-        
+
     static NEON_CUDA_HOST_DEVICE inline auto swirlToCanonical(const Location::Integer id) -> Location::Integer;
 
     static NEON_CUDA_HOST_DEVICE inline auto canonicalToSwirl(const Location::Integer id) -> Location::Integer;

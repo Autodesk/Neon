@@ -28,13 +28,15 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     virtual ~bField() = default;
 
-    virtual auto getPartition(const Neon::DeviceType& devType,
-                              const Neon::SetIdx&     idx,
-                              const Neon::DataView&   dataView = Neon::DataView::STANDARD) const -> const Partition& final;
+    auto getPartition(const Neon::DeviceType& devType,
+                      const Neon::SetIdx&     idx,
+                      const Neon::DataView&   dataView = Neon::DataView::STANDARD,
+                      const int               level = 0) const -> const Partition&;
 
-    virtual auto getPartition(const Neon::DeviceType& devType,
-                              const Neon::SetIdx&     idx,
-                              const Neon::DataView&   dataView = Neon::DataView::STANDARD) -> Partition& final;
+    auto getPartition(const Neon::DeviceType& devType,
+                      const Neon::SetIdx&     idx,
+                      const Neon::DataView&   dataView = Neon::DataView::STANDARD,
+                      const int               level = 0) -> Partition&;
 
     auto getPartition(Neon::Execution,
                       Neon::SetIdx,
@@ -47,9 +49,11 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     //TODO this should be implemented in FieldBase
     auto isInsideDomain(const Neon::index_3d& idx) const -> bool final;
 
+    //TODO add level
     auto operator()(const Neon::index_3d& idx,
                     const int&            cardinality) const -> T final;
 
+    //TODO add level
     auto getReference(const Neon::index_3d& idx,
                       const int&            cardinality) -> T& final;
 
@@ -82,7 +86,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
            const Neon::MemoryOptions&     memoryOptions,
            Neon::domain::haloStatus_et::e haloStatus);
 
-    auto getRef(const Neon::index_3d& idx, const int& cardinality) const -> T&;
+    auto getRef(const Neon::index_3d& idx, const int& cardinality, int level = 0) const -> T&;
 
     enum PartitionBackend
     {
@@ -93,14 +97,18 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     struct Data
     {
         std::shared_ptr<bGrid> mGrid;
-        Neon::set::MemSet_t<T> mMem;
-        int                    mCardinality;
 
-        std::array<
+        //std::vector to store the memory for different levels of the grid
+        std::vector<Neon::set::MemSet_t<T>> mMem;
+
+        int mCardinality;
+
+        //std vector to store the partition for different level of the grid
+        std::vector<std::array<
             std::array<
                 Neon::set::DataSet<Partition>,
                 Neon::DataViewUtil::nConfig>,
-            2>  //2 for host and device
+            2>>  //2 for host and device
             mPartitions;
     };
     std::shared_ptr<Data> mData;
