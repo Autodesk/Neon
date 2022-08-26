@@ -45,7 +45,7 @@ TEST(bGrid, multiRes)
         std::vector<int> gpusIds(nGPUs, 0);
         auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
 
-        Neon::domain::internal::bGrid::bGridDescriptor<1, 1, 1, 1> descriptor;
+        Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1, 1});
 
         Neon::domain::bGrid b_grid(
             bk,
