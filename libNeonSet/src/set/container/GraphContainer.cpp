@@ -29,10 +29,10 @@ auto GraphContainer::newParser() -> Loader
 auto GraphContainer::parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>&
 {
     Neon::SetIdx setIdx(0);
-    if (!this->mParsingDataUpdated) {
+    if (!this->isParsingDataUpdated()) {
         auto parser = newParser();
         this->mLoadingLambda(setIdx, parser);
-        this->mParsingDataUpdated = true;
+        this->setParsingDataUpdated(true);
 
         setContainerPattern(ContainerPatternType::complex);
     }
@@ -65,14 +65,14 @@ auto GraphContainer::run(int /*streamIdx*/,
     ///  mGraph->run(streamIdx, dataView);
 }
 
-auto GraphContainer::run(Neon::SetIdx /*setIdx*/,
-                         int /*streamIdx*/,
+auto GraphContainer::run(Neon::SetIdx   /*setIdx*/,
+                         int            /*streamIdx*/,
                          Neon::DataView /*dataView*/) -> void
 {
-    //        if (ContainerExecutionType::graph == this->getContainerType()) {
-    //            mGraph->run(setIdx, streamIdx, dataView);
-    //        }
-    //        NEON_THROW_UNSUPPORTED_OPTION("");
+//    if (ContainerExecutionType::graph == this->getContainerExecutionType()) {
+//        mGraph->run(setIdx, streamIdx, dataView);
+//    }
+//    NEON_THROW_UNSUPPORTED_OPTION("");
 }
 
 }  // namespace Neon::set::internal

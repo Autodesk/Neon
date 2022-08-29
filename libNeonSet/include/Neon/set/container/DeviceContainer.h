@@ -80,10 +80,10 @@ struct DeviceContainer : ContainerAPI
 
     auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
     {
-        if (!this->mParsingDataUpdated) {
+        if (!this->isParsingDataUpdated()) {
             auto parser = newParser();
             this->m_loadingLambda(parser);
-            this->mParsingDataUpdated = true;
+            this->setParsingDataUpdated(true);
 
             this->setContainerPattern(this->getTokens());
         }

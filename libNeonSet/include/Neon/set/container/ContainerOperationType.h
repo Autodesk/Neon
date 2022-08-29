@@ -41,9 +41,10 @@ struct ContainerOperationTypeUtils
     static auto getOptions() -> std::array<ContainerOperationType, nOptions>;
 };
 
-
-}  // namespace Neon::set
 /**
  * operator<<
  */
 std::ostream& operator<<(std::ostream& os, Neon::set::ContainerOperationType const& m);
+
+}  // namespace Neon::set
+

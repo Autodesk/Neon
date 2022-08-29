@@ -3,11 +3,11 @@
 #include "Neon/core/core.h"
 #include "Neon/core/types/digraph.h"
 
+#include "Neon/set/container/graph/Bfs.h"
 #include "Neon/set/container/graph/GraphDependency.h"
 #include "Neon/set/container/graph/GraphNode.h"
 
 namespace Neon::set::container {
-struct Bfs;
 
 struct Graph
 {
@@ -96,11 +96,13 @@ struct Graph
      * Execute the scheduling operation associated to the node
      */
     auto run(int            streamIdx = 0,
-             Neon::DataView dataView = Neon::DataView::STANDARD);
+             Neon::DataView dataView = Neon::DataView::STANDARD)
+        -> void;
 
     auto run(Neon::SetIdx   setIdx,
              int            streamIdx = 0,
-             Neon::DataView dataView = Neon::DataView::STANDARD);
+             Neon::DataView dataView = Neon::DataView::STANDARD)
+        -> void;
 
     auto ioToDot(const std::string& fname,
                  const std::string& graphName,
@@ -186,21 +188,36 @@ struct Graph
      * - order of execution
      * - mapping between streams and graph nodes
      */
-    auto helpComputeScheduling(bool filterOutAnchors = true) -> void;
+    auto helpComputeScheduling(bool filterOutAnchors = true)
+        -> void;
+
+    /**
+     * Execute
+     */
+    auto helpExecute(bool filterOutAnchors = true)
+        -> void;
+
+    auto helpExecute(Neon::SetIdx setIdx,
+                     bool         filterOutAnchors = true)
+        -> void;
+
 
     /**
      * Resetting node's data related to scheduling
      */
-    auto helpComputeScheduling_00_resetData(Bfs& bfs) -> void;
+    auto helpComputeScheduling_00_resetData(Bfs& bfs)
+        -> void;
     /**
      * Maps node to streams
      */
-    auto helpComputeScheduling_01_mappingStreams(Bfs& bfs) -> void;
+    auto helpComputeScheduling_01_mappingStreams(Bfs& bfs)
+        -> void;
 
     /**
      * Define events to be waited and fired from each node
      */
-    auto helpComputeScheduling_02_events(Bfs& bfs) -> void;
+    auto helpComputeScheduling_02_events(Bfs& bfs)
+        -> void;
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
 
@@ -208,9 +225,12 @@ struct Graph
     RawGraph mRawGraph;
     bool     mSchedulingStatusIsValid;
     int      mMaxNumberStreams;
+    Bfs      mBfs;
 
     Backend mBackend;
     bool    mBackendIsSet = false;
 };
 
 }  // namespace Neon::set::container
+
+#include "Neon/set/container/graph/Bfs_imp.h"

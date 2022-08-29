@@ -29,9 +29,9 @@ struct ContainerPatternTypeUtils
     static auto getOptions() -> std::array<ContainerPatternType, nOptions>;
 };
 
-
-}  // namespace Neon::set
 /**
  * operator<<
  */
 std::ostream& operator<<(std::ostream& os, Neon::set::ContainerPatternType const& m);
+
+}  // namespace Neon::set

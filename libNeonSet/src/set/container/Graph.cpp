@@ -1,6 +1,7 @@
 #include "Neon/set/container/Graph.h"
 #include "Neon/set/container/graph/Bfs.h"
 
+
 namespace Neon::set::container {
 
 Graph::Graph()
@@ -415,10 +416,10 @@ auto Graph::helpGetBFS(bool                                    filterOutBeginEnd
 
 auto Graph::helpComputeScheduling(bool filterOutAnchors) -> void
 {
-    Bfs bfs = helpGetBFS(filterOutAnchors, {GraphDependencyType::data, GraphDependencyType::user});
-    helpComputeScheduling_00_resetData(bfs);
-    helpComputeScheduling_01_mappingStreams(bfs);
-    helpComputeScheduling_02_events(bfs);
+    mBfs = helpGetBFS(filterOutAnchors, {GraphDependencyType::data, GraphDependencyType::user});
+    helpComputeScheduling_00_resetData(mBfs);
+    helpComputeScheduling_01_mappingStreams(mBfs);
+    helpComputeScheduling_02_events(mBfs);
 }
 
 auto Graph::helpGetGraphNode(GraphData::Uid uid) -> GraphNode&
@@ -600,12 +601,54 @@ auto Graph::getBackend() const -> const Neon::Backend&
     NEON_THROW(ex);
 }
 
-auto Graph::run(Neon::SetIdx /*setIdx*/, int /*streamIdx*/, Neon::DataView /*dataView*/)
+auto Graph::run(Neon::SetIdx /*setIdx*/,
+                int            streamIdx,
+                Neon::DataView dataView)
+    -> void
+{
+    if (dataView != Neon::DataView::STANDARD) {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+    if (streamIdx != 0) {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+    if (!mSchedulingStatusIsValid) {
+        helpComputeScheduling(false);
+    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
+}
+
+auto Graph::run(int /*streamIdx*/,
+                Neon::DataView /*dataView*/)
+    -> void
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
-auto Graph::run(int /*streamIdx*/, Neon::DataView /*dataView*/)
+auto Graph::helpExecute(Neon::SetIdx setIdx,
+                        bool         /*filterOutAnchors*/) -> void
+{
+    int levels = mBfs.getNumberOfLevels();
+    for (int i = 0; i < levels; i++) {
+        mBfs.forEachNodeAtLevel(i, *this, [&](Neon::set::container::GraphNode& graphNode) {
+            auto&       scheduling = graphNode.getScheduling();
+            auto&       container = graphNode.getContainer();
+            const auto& waitingEvents = scheduling.getDependentEvents();
+            const auto& signalEvents = scheduling.getEvent();
+            const auto& stream = scheduling.getStream();
+
+            for (auto toBeWaited : waitingEvents) {
+                mBackend.waitEventOnStream(setIdx, toBeWaited, stream);
+            }
+            container.run(setIdx, stream, scheduling.getDataView());
+
+            if (signalEvents >= 0) {
+                mBackend.pushEventOnStream(setIdx, signalEvents, stream);
+            }
+        });
+    }
+}
+auto Graph::helpExecute(bool /*filterOutAnchors*/) -> void
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 }

@@ -51,10 +51,11 @@ auto ContainerOperationTypeUtils::getOptions() -> std::array<ContainerOperationT
     return opts;
 }
 
-}  // namespace Neon::set::internal
-
-
 std::ostream& operator<<(std::ostream& os, Neon::set::ContainerOperationType const& m)
 {
     return os << std::string(Neon::set::ContainerOperationTypeUtils::toString(m));
 }
+}  // namespace Neon::set::internal
+
+
+

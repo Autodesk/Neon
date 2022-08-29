@@ -47,11 +47,9 @@ auto ContainerPatternTypeUtils::getOptions() -> std::array<ContainerPatternType,
     return opts;
 }
 
-
-}  // namespace Neon::set
-
-
 std::ostream& operator<<(std::ostream& os, Neon::set::ContainerPatternType const& m)
 {
     return os << std::string(Neon::set::ContainerPatternTypeUtils::toString(m));
 }
+
+}  // namespace Neon::set
