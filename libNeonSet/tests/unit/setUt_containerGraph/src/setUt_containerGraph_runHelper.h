@@ -86,7 +86,7 @@ void runAllTestConfiguration(const std::string&                      gname,
 
 
 template <typename G, typename T, int C>
-void runOneTestConfiguration(const std::string&                      gname,
+void runOneTestConfiguration(const std::string&                      ,
                              std::function<void(TestData<G, T, C>&)> f,
                              int                                     nGpus,
                              int                                     minNumGpus)

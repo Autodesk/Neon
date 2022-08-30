@@ -10,6 +10,7 @@ GraphContainer::GraphContainer(const std::string&                         name,
 {
     mGraph = std::make_shared<Neon::set::container::Graph>(containerGraph);
     setContainerExecutionType(ContainerExecutionType::graph);
+    setContainerOperationType(ContainerOperationType::graph);
     setDataViewSupport(DataViewSupport::off);
     setName(name);
 

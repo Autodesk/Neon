@@ -43,36 +43,39 @@ void NestedGraphsTest(TestData<G, T, C>& data)
 
     {  // NEON
         auto& X = data.getField(FieldNames::X);
+
         auto& Y = data.getField(FieldNames::Y);
         auto& Z = data.getField(FieldNames::Z);
+
         auto& W = data.getField(FieldNames::W);
 
-        auto generateInnerGraph = [&]() -> Neon::set::Container {
+        auto generateInnerGraph = [&](std::string name) -> Neon::set::Container {
             Neon::set::container::Graph graph;
 
             auto nodeA = graph.addNode(UserTools::axpy(fR, W, X, "nodeA"));
             auto nodeC = graph.addNode(UserTools::axpy(fR, W, Y, "nodeC"));
             graph.addNodeInBetween(nodeA, UserTools::axpy(fR, W, Z, "nodeB"), nodeC);
 
-            graph.ioToDot(appName, "UserGraph", false);
-            graph.ioToDot(appName + "-debug", "UserGraph", true);
+//            graph.ioToDot(appName, "UserGraph", false);
+//            graph.ioToDot(appName + "-debug", "UserGraph", true);
 
-            auto container = Neon::set::Container::factoryGraph("Inner", graph, [](Neon::SetIdx, Neon::set::Loader&) {});
+            auto container = Neon::set::Container::factoryGraph(name + "Inner", graph, [](Neon::SetIdx, Neon::set::Loader&) {});
             return container;
         };
 
-        Neon::set::container::Graph graph;
-        auto                        nodeA = generateInnerGraph();
-        auto                        nodeB = generateInnerGraph();
-        auto                        nodeC = generateInnerGraph();
+        Neon::set::container::Graph graph(data.getBackend());
+        auto                        nodeA = generateInnerGraph("K");
+        auto                        nodeB = generateInnerGraph("L");
+        auto                        nodeC = generateInnerGraph("M");
 
         graph.addNode(nodeA);
         graph.addNode(nodeB);
         graph.addNode(nodeC);
 
-
+        graph.runtimePreSet(0);
         graph.ioToDot(appName, "UserGraph", false);
         graph.ioToDot(appName + "-debug", "UserGraph", true);
+
         //        timer.start();
         //        for (int i = 0; i < nIterations; i++) {
         //            skl.run();
@@ -82,7 +85,7 @@ void NestedGraphsTest(TestData<G, T, C>& data)
     }
 
     {  // Golden data
-        auto time = timer.time();
+        //auto time = timer.time();
 
         Type  dR = scalarVal;
         auto& X = data.getIODomain(FieldNames::X);
@@ -133,7 +136,6 @@ int getNGpus()
 
 TEST(NestedGraphs, eGrid)
 {
-    int nGpus = getNGpus();
     using Grid = Neon::domain::internal::eGrid::eGrid;
     using Type = int32_t;
     runOneTestConfiguration<Grid, Type, 0>("eGrid_t", NestedGraphs<Grid, Type, 0>, 1, 1);

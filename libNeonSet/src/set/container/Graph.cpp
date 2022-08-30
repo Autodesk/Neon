@@ -1,6 +1,6 @@
 #include "Neon/set/container/Graph.h"
+#include <algorithm>
 #include "Neon/set/container/graph/Bfs.h"
-
 
 namespace Neon::set::container {
 
@@ -397,11 +397,17 @@ auto Graph::helpGetBFS(bool                                    filterOutBeginEnd
                 newLevel.push_back(currentFrontierNode.first);
 
                 // Adding the node's children to the next frontier
-                for (const auto& child : helpGetOutNeighbors(currentFrontierNode.first)) {
-                    try {
-                        nextFrontier->at(child)--;
-                    } catch (...) {
-                        nextFrontier->insert({child, helpGetInEdges(currentFrontierNode.first).size() - 1});
+                auto currentFrontierNodeChildren = helpGetOutNeighbors(currentFrontierNode.first, filterOutBeginEnd);
+                for (const auto& child : currentFrontierNodeChildren) {
+                    auto it = std::find_if(nextFrontier->begin(), nextFrontier->end(),
+                                           [&child](auto& entry) {
+                                               return (entry.first == child);
+                                           });
+                    if (it != nextFrontier->end()) {
+                        it->second--;
+                    } else {
+                        auto numChildDependencies = helpGetInEdges(child, filterOutBeginEnd).size();
+                        nextFrontier->insert({child, numChildDependencies - 1});
                     }
                 }
             } else {
@@ -414,12 +420,19 @@ auto Graph::helpGetBFS(bool                                    filterOutBeginEnd
     return bfs;
 }
 
-auto Graph::helpComputeScheduling(bool filterOutAnchors) -> void
+auto Graph::helpComputeScheduling(bool filterOutAnchors, int anchorStream) -> void
 {
-    mBfs = helpGetBFS(filterOutAnchors, {GraphDependencyType::data, GraphDependencyType::user});
-    helpComputeScheduling_00_resetData(mBfs);
-    helpComputeScheduling_01_mappingStreams(mBfs);
-    helpComputeScheduling_02_events(mBfs);
+    helpComputeScheduling_00_resetData();
+    mBfs = helpComputeScheduling_01_generatingBFS(filterOutAnchors);
+    int maxStreamId = helpComputeScheduling_02_mappingStreams(mBfs, filterOutAnchors, anchorStream);
+    int maxEventId = helpComputeScheduling_03_events(mBfs);
+    helpComputeScheduling_04_ensureResources(maxStreamId, maxEventId);
+}
+
+auto Graph::helpComputeScheduling_01_generatingBFS(bool filterOutAnchors) -> Bfs
+{
+    return helpGetBFS(filterOutAnchors, {GraphDependencyType::data,
+                                         GraphDependencyType::user});
 }
 
 auto Graph::helpGetGraphNode(GraphData::Uid uid) -> GraphNode&
@@ -432,39 +445,49 @@ auto Graph::helpGetGraphNode(GraphData::Uid uid) const -> const GraphNode&
     return mRawGraph.getVertexProperty(uid);
 }
 
-auto Graph::helpComputeScheduling_00_resetData(Bfs& bfs) -> void
+auto Graph::helpComputeScheduling_00_resetData() -> void
 {
-    bfs.forEachNodeByLevel(*this, [&](GraphNode& targetNode, int /*levelId*/) {
+    mRawGraph.forEachVertex([&](const int& graphNodeId) {
+        auto& targetNode = mRawGraph.getVertexProperty(graphNodeId);
         targetNode.getScheduling().reset();
     });
 }
 
-auto Graph::helpComputeScheduling_01_mappingStreams(Bfs& bfs) -> void
+auto Graph::helpComputeScheduling_02_mappingStreams(Bfs& bfs,
+                                                    bool filterOutAnchors,
+                                                    int  anchorStream)
+    -> int
 {
     mSchedulingStatusIsValid = true;
     mMaxNumberStreams = bfs.getMaxLevelWidth();
 
     // used stream -> true
     // available -> false
-    std::vector<bool> streamsStatus(mMaxNumberStreams, false);
+    constexpr bool usedStream = true;
+    constexpr bool availableStream = false;
+
+    std::vector<bool> streamsStatus(mMaxNumberStreams,
+                                    availableStream);
 
     auto bookFirstAvailableStream = [&]() {
         for (int i = 0; i < int(streamsStatus.size()); i++) {
-            if (!streamsStatus[i]) {
-                streamsStatus[i] = true;
+            if (availableStream == streamsStatus[i]) {
+                streamsStatus[i] = usedStream;
                 return i;
             }
         }
         NEON_THROW_UNSUPPORTED_OPERATION("");
     };
 
-    auto isStreamAvailable = [&](int streamId) -> bool {
-        return streamsStatus[streamId] == false;
+    auto isStreamAvailable = [&](int streamId)
+        -> bool {
+        return streamsStatus[streamId] == availableStream;
     };
 
-    auto bookStream = [&](int streamId) -> bool {
+    auto bookStream = [&](int streamId)
+        -> bool {
         if (isStreamAvailable(streamId)) {
-            streamsStatus[streamId] = true;
+            streamsStatus[streamId] = usedStream;
             return true;
         }
         return false;
@@ -478,9 +501,22 @@ auto Graph::helpComputeScheduling_01_mappingStreams(Bfs& bfs) -> void
                          int               levelIdx) {
         std::vector<GraphNode*> delayedBooking;
 
+        if (!filterOutAnchors && levelIdx == 0 && anchorStream > -1) {
+            // If anchors are represented than
+            // the first level contains only the begin node
+            bool checkA = getBeginNode().getGraphData().getUid() == level[0];
+            bool checkB = level.size() == 1;
+            if (!checkA || !checkB) {
+                Neon::NeonException ex("");
+                ex << "Inconsistent status of the container graph.";
+                NEON_THROW(ex);
+            }
+            mRawGraph.getVertexProperty(level[0]).getScheduling().setStream(anchorStream);
+            return;
+        }
         // Step a.
         for (auto& nodeUid : level) {
-            auto node = mRawGraph.getVertexProperty(nodeUid);
+            auto& node = mRawGraph.getVertexProperty(nodeUid);
 
             int associatedStream = [&]() -> int {
                 if (levelIdx == 0) {
@@ -512,11 +548,20 @@ auto Graph::helpComputeScheduling_01_mappingStreams(Bfs& bfs) -> void
 
         streamsStatus = std::vector<bool>(mMaxNumberStreams, false);
     });
+
+    if (!filterOutAnchors && anchorStream > -1) {
+        auto  endNodeId = getEndNode().getGraphData().getUid();
+        auto& endNode = mRawGraph.getVertexProperty(endNodeId);
+        endNode.getScheduling().setStream(anchorStream);
+    }
+
+    this->ioToDot("tge","tge", true);
+    return mMaxNumberStreams - 1;
 }
 
-auto Graph::helpComputeScheduling_02_events(Bfs& bfs) -> void
+auto Graph::helpComputeScheduling_03_events(Bfs& bfs) -> int
 {
-    int eventCount = 1;
+    int eventCount = 0;
 
     bfs.forEachNodeByLevel(*this, [&](GraphNode& targetNode, int /*levelId*/) {
         int  targetStreamId = targetNode.getScheduling().getStream();
@@ -538,15 +583,26 @@ auto Graph::helpComputeScheduling_02_events(Bfs& bfs) -> void
             // b. add the pre-node event to the list of the target node
 
             // a.
-            int preNodeEvent = -1;
-            if (preNode.getScheduling().getEvent() == -1) {
+            int preNodeEvent = preNode.getScheduling().getEvent();
+            if (preNodeEvent == -1) {
                 preNodeEvent = eventCount;
                 preNode.getScheduling().setEvent(preNodeEvent);
                 eventCount++;
             }
+            // b.
             targetNode.getScheduling().getDependentEvents().push_back(preNodeEvent);
         }
     });
+
+    return eventCount - 1;
+}
+
+auto Graph::helpComputeScheduling_04_ensureResources(int maxStreamId, int maxEventId)
+    -> void
+{
+    auto bk = getBackend();
+    bk.setAvailableStreamSet(maxStreamId + 1);
+    bk.setAvailableUserEvents(maxEventId + 1);
 }
 
 auto Graph::ioToDot(const std::string& fname,
@@ -585,10 +641,19 @@ auto Graph::ioToDot(const std::string& fname,
                             vertexLabelProperty, edgeLabelProperty);
 }
 
-Graph::Graph(Backend& bk)
+Graph::Graph(const Backend& bk)
 {
     mBackend = bk;
     mBackendIsSet = true;
+
+    auto begin = GraphNode::newBeginNode();
+    auto end = GraphNode::newEndNode();
+    mUidCounter = GraphData::firstInternal;
+
+    mRawGraph.addVertex(begin.getGraphData().getUid(), begin);
+    mRawGraph.addVertex(end.getGraphData().getUid(), end);
+
+    helpInvalidateScheduling();
 }
 
 auto Graph::getBackend() const -> const Neon::Backend&
@@ -602,32 +667,33 @@ auto Graph::getBackend() const -> const Neon::Backend&
 }
 
 auto Graph::run(Neon::SetIdx /*setIdx*/,
-                int            streamIdx,
+                int /*streamIdx*/,
+                Neon::DataView /*dataView*/)
+    -> void
+{
+    NEON_THROW_UNSUPPORTED_OPERATION("");
+}
+
+auto Graph::run(int            streamIdx,
                 Neon::DataView dataView)
     -> void
 {
     if (dataView != Neon::DataView::STANDARD) {
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
-    if (streamIdx != 0) {
-        NEON_THROW_UNSUPPORTED_OPERATION("");
-    }
-    if (!mSchedulingStatusIsValid) {
-        helpComputeScheduling(false);
-    }
-    NEON_DEV_UNDER_CONSTRUCTION("");
-}
-
-auto Graph::run(int /*streamIdx*/,
-                Neon::DataView /*dataView*/)
-    -> void
-{
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    this->runtimePreSet(streamIdx);
+    this->helpExecute(streamIdx);
 }
 
 auto Graph::helpExecute(Neon::SetIdx setIdx,
-                        bool         /*filterOutAnchors*/) -> void
+                        int          anchorStream) -> void
 {
+    if (anchorStream > -1 && (anchorStream != mAnchorStreamPreSet || mFilterOutAnchorsPreSet == true)) {
+        Neon::NeonException ex("");
+        ex << "Execution parameters are inconsistent with the preset ones.";
+        NEON_THROW(ex);
+    }
+
     int levels = mBfs.getNumberOfLevels();
     for (int i = 0; i < levels; i++) {
         mBfs.forEachNodeAtLevel(i, *this, [&](Neon::set::container::GraphNode& graphNode) {
@@ -648,9 +714,30 @@ auto Graph::helpExecute(Neon::SetIdx setIdx,
         });
     }
 }
-auto Graph::helpExecute(bool /*filterOutAnchors*/) -> void
+
+auto Graph::helpExecute(int anchorStream)
+    -> void
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    if (anchorStream > -1 && (anchorStream != mAnchorStreamPreSet || mFilterOutAnchorsPreSet == true)) {
+        Neon::NeonException ex("");
+        ex << "Execution parameters are inconsistent with the preset ones.";
+        NEON_THROW(ex);
+    }
+
+    int ndevs = getBackend().devSet().setCardinality();
+    {
+#pragma omp parallel for num_threads(ndevs)
+        for (int setIdx = 0; setIdx < ndevs; setIdx++) {
+            helpExecute(setIdx, anchorStream);
+        }
+    }
+}
+
+auto Graph::runtimePreSet(int anchorStream) -> void
+{
+    helpComputeScheduling(false, anchorStream);
+    mAnchorStreamPreSet = anchorStream;
+    mFilterOutAnchorsPreSet = false;
 }
 
 

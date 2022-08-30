@@ -17,7 +17,7 @@ struct Graph
 
    public:
     Graph();
-    explicit Graph(Neon::Backend& bk);
+    explicit Graph(const Backend& bk);
 
     /**
      * Get a reference to the begin node
@@ -91,7 +91,8 @@ struct Graph
     auto getSubsequentGraphNodes(const GraphNode&                        graphNode,
                                  const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
                                                                                             GraphDependencyType::data}) -> std::vector<GraphNode*>;
-
+    auto runtimePreSet(int anchorStream)
+        -> void;
     /**
      * Execute the scheduling operation associated to the node
      */
@@ -109,6 +110,8 @@ struct Graph
                  bool               debug) -> void;
 
     auto getBackend() const -> const Neon::Backend&;
+
+
 
    protected:
     /**
@@ -188,36 +191,49 @@ struct Graph
      * - order of execution
      * - mapping between streams and graph nodes
      */
-    auto helpComputeScheduling(bool filterOutAnchors = true)
+    auto helpComputeScheduling(bool filterOutAnchors, int anchorStream)
         -> void;
 
     /**
      * Execute
      */
-    auto helpExecute(bool filterOutAnchors = true)
+    auto helpExecute(int anchorStream)
         -> void;
 
-    auto helpExecute(Neon::SetIdx setIdx,
-                     bool         filterOutAnchors = true)
+    auto helpExecute(Neon::SetIdx setIdx, int anchorStream)
         -> void;
-
+    /**
+     * Resetting node's data related to scheduling
+     */
+    auto helpComputeScheduling_00_resetData()
+        -> void;
 
     /**
      * Resetting node's data related to scheduling
      */
-    auto helpComputeScheduling_00_resetData(Bfs& bfs)
-        -> void;
+    auto helpComputeScheduling_01_generatingBFS(bool filterOutAnchors)
+        -> Bfs;
+
     /**
-     * Maps node to streams
+     * Maps node to streams.
+     * Returns the max stream Id used by the scheduling
      */
-    auto helpComputeScheduling_01_mappingStreams(Bfs& bfs)
-        -> void;
+    auto helpComputeScheduling_02_mappingStreams(Bfs& bfs, bool filterOutAnchors, int anchorStream)
+        -> int;
 
     /**
      * Define events to be waited and fired from each node
+     * Returns the max event Id used by the scheduling.
      */
-    auto helpComputeScheduling_02_events(Bfs& bfs)
+    auto helpComputeScheduling_03_events(Bfs& bfs)
+        -> int;
+
+    /**
+     * Booking the required resources from the backend.
+     */
+    auto helpComputeScheduling_04_ensureResources(int maxStreamId, int maxEventId)
         -> void;
+
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
 
@@ -229,6 +245,9 @@ struct Graph
 
     Backend mBackend;
     bool    mBackendIsSet = false;
+
+    bool mFilterOutAnchorsPreSet = false;
+    int  mAnchorStreamPreSet = 0;
 };
 
 }  // namespace Neon::set::container
