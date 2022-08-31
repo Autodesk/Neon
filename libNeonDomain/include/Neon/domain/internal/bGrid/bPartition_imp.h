@@ -13,7 +13,8 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
                              uint32_t*       neighbourBlocks,
                              Neon::int32_3d* origin,
                              uint32_t*       mask,
-                             T               outsideValue)
+                             T               outsideValue,
+                             nghIdx_t*       stencilNghIndex)
     : mDataView(dataView),
       mMem(mem),
       mDim(dim),
@@ -22,6 +23,7 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
       mOrigin(origin),
       mMask(mask),
       mOutsideValue(outsideValue),
+      mStencilNghIndex(stencilNghIndex),
       mIsInSharedMem(false),
       mMemSharedMem(nullptr),
       mStencilRadius(0)
@@ -122,6 +124,16 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     c
         ngh_cell.mBlockID = cell.mBlockID;
     }
     return ngh_cell;
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell& eId,
+                                                           uint8_t     nghID,
+                                                           int         card,
+                                                           const T&    alternativeVal) const -> NghInfo<T>
+{
+    nghIdx_t nghOffset = mStencilNghIndex[nghID];
+    return nghVal(eId, nghOffset, card, alternativeVal);
 }
 
 template <typename T, int C>

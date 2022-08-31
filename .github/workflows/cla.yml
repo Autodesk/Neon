@@ -35,7 +35,7 @@ jobs:
             Thank you for your submission, we really appreciate it. We ask that you sign our Contributor License Agreement before we can accept your contribution.
             
             If you are contributing on behalf of your employer you must fill out our **Corporate Contributor License Agreement** which can be found [here](https://github.com/Autodesk/autodesk.github.io/releases/download/1.0/ADSK.Form.Corp.Contrib.Agmt.for.Open.Source.docx).
-            If you are contributing on behalf of yourself you must agree to our **Individual Contributor License Agreement** by reviewing [this document](https://github.com/Autodesk/autodesk.github.io/releases/download/1.0/ADSK.Form.Ind.Contrib.Agmt.for.Open.Source.docx) and signing it or by replying below a with a comment containing the following text:
+            If you are contributing on behalf of yourself you must agree to our **Individual Contributor License Agreement** by reviewing [this document](https://github.com/Autodesk/autodesk.github.io/releases/download/1.0/ADSK.Form.Ind.Contrib.Agmt.for.Open.Source.docx) and signing it or by replying below with a comment containing the following text:
           #custom-pr-sign-comment: 'The signature to be committed in order to sign the CLA'
           #custom-allsigned-prcomment: 'pull request comment when all contributors has signed, defaults to **CLA Assistant Lite bot** All Contributors have signed the CLA.'
           #lock-pullrequest-aftermerge: false - if you don't want this bot to automatically lock the pull request after merging (default - true)

@@ -29,6 +29,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     template <typename T, int C = 0>
     using Field = Neon::domain::internal::bGrid::bField<T, C>;
 
+    using nghIdx_t = typename Partition<int>::nghIdx_t;
 
     using PartitionIndexSpace = Neon::domain::internal::bGrid::bPartitionIndexSpace;
 
@@ -105,6 +106,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
     auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
 
+    auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
+
    private:
     struct Data
     {
@@ -115,6 +118,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //block origin coordinates
         Neon::set::MemSet_t<Neon::int32_3d> mOrigin;
 
+        //Stencil neighbor indices
+        Neon::set::MemSet_t<nghIdx_t> mStencilNghIndex;
 
         //active voxels bitmask
         Neon::set::DataSet<uint64_t>  mActiveMaskSize;

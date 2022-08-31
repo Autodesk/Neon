@@ -106,7 +106,6 @@ auto laplace(const FieldT& x, FieldT& y, bool use_relative_ids) -> Neon::set::Co
 template <typename G, typename T, int C>
 void SingleStencil(TestData<G, T, C>& data)
 {
-
     using Type = typename TestData<G, T, C>::Type;
 
     const int nIterations = 5;
@@ -159,4 +158,12 @@ TEST(Stencil_NoOCC, dGrid)
     using Grid = Neon::domain::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("dGrid_t", SingleStencil<Grid, Type, 0>, nGpus, 1);
+}
+
+TEST(Stencil_NoOCC, bGrid)
+{
+    int nGpus = 1;
+    using Grid = Neon::domain::bGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("bGrid_t", SingleStencil<Grid, Type, 0>, nGpus, 1);
 }

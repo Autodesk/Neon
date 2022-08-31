@@ -18,7 +18,6 @@ void SingleDot(TestData<G, T, C>&      data,
                Neon::skeleton::Occ     occ,
                Neon::set::TransferMode transfer)
 {
-
     using Type = typename TestData<G, T, C>::Type;
 
     auto occName = Neon::skeleton::OccUtils::toString(occ);
