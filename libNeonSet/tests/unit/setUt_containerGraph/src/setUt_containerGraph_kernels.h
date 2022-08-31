@@ -59,7 +59,7 @@ auto axpy(const Neon::template PatternScalar<T>& fR,
           const std::string&                     name) -> Neon::set::Container
 {
     auto Kontainer = x.getGrid().getContainer(
-        "AXPY" + name, [&](Neon::set::Loader & L) -> auto{
+         name + "-AXPY", [&](Neon::set::Loader & L) -> auto{
             auto&      xLocal = L.load(x);
             auto&      yLocal = L.load(y);
             auto       fRLocal = L.load(fR);

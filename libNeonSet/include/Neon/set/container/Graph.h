@@ -38,10 +38,17 @@ struct Graph
         -> GraphNode&;
 
     /**
-     * Remove Node
+     * Remove node by maintaining the dependencies between
+     * proceeding and following nodes
      */
     auto removeNode(GraphNode& gn)
-        -> GraphNode;
+        -> Neon::set::Container;
+
+    /**
+     * Remove a node and its dependencies
+     */
+    auto removeNodeAndItsDependencies(GraphNode& gn)
+        -> Neon::set::Container;
 
     /**
      * Adds a dependency between two nodes of the graph
@@ -111,7 +118,8 @@ struct Graph
 
     auto getBackend() const -> const Neon::Backend&;
 
-
+    auto expandSubGraphs()
+        -> void;
 
    protected:
     /**

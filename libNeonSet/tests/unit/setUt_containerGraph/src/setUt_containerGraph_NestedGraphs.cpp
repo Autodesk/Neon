@@ -52,29 +52,41 @@ void NestedGraphsTest(TestData<G, T, C>& data)
         auto generateInnerGraph = [&](std::string name) -> Neon::set::Container {
             Neon::set::container::Graph graph;
 
-            auto nodeA = graph.addNode(UserTools::axpy(fR, W, X, "nodeA"));
-            auto nodeC = graph.addNode(UserTools::axpy(fR, W, Y, "nodeC"));
-            graph.addNodeInBetween(nodeA, UserTools::axpy(fR, W, Z, "nodeB"), nodeC);
+            auto nodeA = graph.addNode(UserTools::axpy(fR, W, X, name+"-StageA"));
+            auto nodeC = graph.addNode(UserTools::axpy(fR, W, Y, name+"-StageC"));
+            graph.addNodeInBetween(nodeA, UserTools::axpy(fR, W, Z, name+"-StageB"), nodeC);
 
 //            graph.ioToDot(appName, "UserGraph", false);
 //            graph.ioToDot(appName + "-debug", "UserGraph", true);
 
-            auto container = Neon::set::Container::factoryGraph(name + "Inner", graph, [](Neon::SetIdx, Neon::set::Loader&) {});
+            auto container = Neon::set::Container::factoryGraph(name, graph, [](Neon::SetIdx, Neon::set::Loader&) {});
             return container;
         };
 
         Neon::set::container::Graph graph(data.getBackend());
-        auto                        nodeA = generateInnerGraph("K");
-        auto                        nodeB = generateInnerGraph("L");
-        auto                        nodeC = generateInnerGraph("M");
+        auto                        nodeA = generateInnerGraph("GraphK");
+        auto                        nodeB = generateInnerGraph("GraphL");
+        auto                        nodeC = generateInnerGraph("GraphM");
 
         graph.addNode(nodeA);
         graph.addNode(nodeB);
         graph.addNode(nodeC);
 
-        graph.runtimePreSet(0);
-        graph.ioToDot(appName, "UserGraph", false);
-        graph.ioToDot(appName + "-debug", "UserGraph", true);
+        {
+            auto fname  = appName + "_withSubGraph";
+            graph.runtimePreSet(0);
+            graph.ioToDot(fname, "UserGraph", false);
+            graph.ioToDot(fname + "-debug", "UserGraph", true);
+        }
+
+        {
+            auto fname  = appName + "_expandSubGraphs";
+
+            graph.expandSubGraphs();
+            graph.runtimePreSet(0);
+            graph.ioToDot(fname, "UserGraph", false);
+            graph.ioToDot(fname + "-debug", "UserGraph", true);
+        }
 
         //        timer.start();
         //        for (int i = 0; i < nIterations; i++) {

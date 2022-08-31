@@ -188,6 +188,18 @@ class DiGraph
     }
 
     /**
+     * Run a function on each vertex in the graph
+     *
+     * @param fn Function that takes in a vertex and does something
+     */
+    void forEachVertex(std::function<void(size_t)> fn) const
+    {
+        for (auto& kv : mAdj) {
+            fn(kv.first);
+        }
+    }
+
+    /**
      * Returns a copy of incoming edges from a vertex as pairs of vertex ids
      *
      * @return Copy of incoming edges from given vertex
@@ -304,6 +316,21 @@ class DiGraph
      * @param fn Function that takes in an edge and does something
      */
     void forEachEdge(std::function<void(const Edge&)> fn)
+    {
+        for (auto i : mAdj) {
+            size_t src = i.first;
+            for (size_t tgt : i.second) {
+                fn({src, tgt});
+            }
+        }
+    }
+
+    /**
+     * Run a function on each edge
+     *
+     * @param fn Function that takes in an edge and does something
+     */
+    void forEachEdge(std::function<void(const Edge&)> fn) const
     {
         for (auto i : mAdj) {
             size_t src = i.first;

@@ -58,6 +58,9 @@ auto Graph::addDependency(const GraphNode&    nodeA,
                           const GraphNode&    nodeB,
                           GraphDependencyType type) -> GraphDependency&
 {
+    if (nodeA.getGraphData().getUid() == nodeB.getGraphData().getUid()) {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
     helpInvalidateScheduling();
 
     GraphDependency ab(type);
@@ -70,44 +73,89 @@ auto Graph::addDependency(const GraphNode&    nodeA,
                                       nodeB.getGraphData().getUid()});
 }
 
-auto Graph::removeNode(GraphNode& gn) -> GraphNode
+auto Graph::removeNode(GraphNode& gn) -> Container
 {
     helpInvalidateScheduling();
 
     auto uidB = gn.getGraphData().getUid();
 
-    std::vector<GraphData::Uid> a_toBeConnectedToEnd;
-    mRawGraph.forEachInEdge(uidB, [&](const RawGraph::Edge& edge) -> void {
-        auto uidA = edge.first;
-        int  outEdgesFromA = mRawGraph.outEdgesCount(uidA);
-        if (outEdgesFromA == 1) {
-            a_toBeConnectedToEnd.push_back(uidA);
-        }
-    });
-
-    std::vector<GraphData::Uid> c_toBeConnectedToBegin;
-    mRawGraph.forEachOutEdge(uidB, [&](const RawGraph::Edge& edge) -> void {
-        auto uidC = edge.second;
-        int  inEdgesIntoC = mRawGraph.outEdgesCount(uidC);
-        if (inEdgesIntoC == 1) {
-            a_toBeConnectedToEnd.push_back(uidC);
-        }
-    });
-
-    for (auto&& uidA : a_toBeConnectedToEnd) {
-        auto& nodeA = mRawGraph.getVertexProperty(uidA);
-        addDependency(nodeA, this->getEndNode(), GraphDependencyType::data);
+    if (uidB == getBeginNode().getGraphData().getUid() ||
+        uidB == getEndNode().getGraphData().getUid()) {
+        NeonException ex("");
+        ex << "Begin or end nodes can not be removed";
+        NEON_THROW(ex);
     }
 
-    for (auto&& uidC : c_toBeConnectedToBegin) {
-        auto& nodeC = mRawGraph.getVertexProperty(uidC);
-        addDependency(this->getBeginNode(), nodeC, GraphDependencyType::data);
+    // a. get all in and our edges
+    // b. connect each in node all the out nodes
+
+    auto inNodes = mRawGraph.inNeighbors(uidB);
+    auto outNodes = mRawGraph.outNeighbors(uidB);
+
+    for (auto inNodeId : inNodes) {
+        for (auto outNodeId : outNodes) {
+            auto& inNode = mRawGraph.getVertexProperty(inNodeId);
+            auto& outNode = mRawGraph.getVertexProperty(outNodeId);
+            auto& inNodeDepWithTarget = mRawGraph.getEdgeProperty({inNodeId, uidB});
+            this->addDependency(inNode, outNode, inNodeDepWithTarget.getType());
+        }
     }
 
-    GraphNode removed = mRawGraph.getVertexProperty(gn.getGraphData().getUid());
-    removed.getGraphData().setUid(GraphData::notSet);
+    for (auto inNodeId : inNodes) {
+        mRawGraph.removeEdge({inNodeId, uidB});
+    }
+    for (auto outNodeId : outNodes) {
+        mRawGraph.removeEdge({uidB, outNodeId});
+    }
 
-    return removed;
+    mRawGraph.removeVertex(uidB);
+    gn.getGraphData().setUid(-1);
+
+    return gn.getContainer();
+}
+
+auto Graph::removeNodeAndItsDependencies(GraphNode& gn)
+    -> Container
+{
+    auto uidB = gn.getGraphData().getUid();
+
+    if (uidB == getBeginNode().getGraphData().getUid() ||
+        uidB == getEndNode().getGraphData().getUid()) {
+        NeonException ex("");
+        ex << "Begin or end nodes can not be removed";
+        NEON_THROW(ex);
+    }
+
+    helpInvalidateScheduling();
+
+    auto inNodes = mRawGraph.inNeighbors(uidB);
+    auto outNodes = mRawGraph.outNeighbors(uidB);
+
+    for (auto inNodeId : inNodes) {
+        auto& inNode = mRawGraph.getVertexProperty(inNodeId);
+        if (inNodeId != getBeginNode().getGraphData().getUid()) {
+            this->addDependency(getBeginNode(), inNode, GraphDependencyType::data);
+        }
+    }
+
+    for (auto outNodeId : outNodes) {
+        auto& outNode = mRawGraph.getVertexProperty(outNodeId);
+        if (outNodeId != getEndNode().getGraphData().getUid()) {
+            this->addDependency(outNode, getBeginNode(), GraphDependencyType::data);
+        }
+    }
+
+    for (auto inNodeId : inNodes) {
+        mRawGraph.removeEdge({inNodeId, uidB});
+    }
+    for (auto outNodeId : outNodes) {
+        mRawGraph.removeEdge({uidB, outNodeId});
+    }
+
+    mRawGraph.removeVertex(uidB);
+    gn.getGraphData().setUid(-1);
+
+    return gn.getContainer();
 }
 
 auto Graph::getProceedingGraphNodes(const GraphNode&                        graphNode,
@@ -555,7 +603,7 @@ auto Graph::helpComputeScheduling_02_mappingStreams(Bfs& bfs,
         endNode.getScheduling().setStream(anchorStream);
     }
 
-    this->ioToDot("tge","tge", true);
+    this->ioToDot("tge", "tge", true);
     return mMaxNumberStreams - 1;
 }
 
@@ -738,6 +786,88 @@ auto Graph::runtimePreSet(int anchorStream) -> void
     helpComputeScheduling(false, anchorStream);
     mAnchorStreamPreSet = anchorStream;
     mFilterOutAnchorsPreSet = false;
+}
+auto Graph::expandSubGraphs() -> void
+{
+    bool atLeastOneWasFound = false;
+
+    auto searchForSubGraph = [&]() -> std::tuple<size_t, bool> {
+        bool   found = false;
+        size_t target = 0;
+        mRawGraph.forEachVertex([&](size_t id) {
+            auto& node = mRawGraph.getVertexProperty(id);
+            if (node.getContainer().getContainerExecutionType() == ContainerExecutionType::graph) {
+                target = id;
+                found = true;
+                atLeastOneWasFound = true;
+            }
+        });
+        return {target, found};
+    };
+    int i = -1;
+    while (true) {
+        i++;
+        auto [newTargetId, validTarget] = searchForSubGraph();
+        if (!validTarget) {
+            if (atLeastOneWasFound) {
+                helpInvalidateScheduling();
+                this->helpRemoveRedundantDependencies();
+               // this->ioToDot(std::to_string(i) + "_t_05", "kllkj", true);
+            }
+            return;
+        }
+       // this->ioToDot(std::to_string(i) + "_t_00", "kllkj", true);
+
+        auto&       newTarget = mRawGraph.getVertexProperty(newTargetId);
+        const auto& subGraph = newTarget.getContainer().getContainerInterface().getGraph();
+
+        std::unordered_map<size_t, size_t> fromOldToNew;
+
+        // Cloning the subGraph nodes into the graph
+        subGraph.mRawGraph.forEachVertex([&](size_t id) {
+            const auto& oldNode = subGraph.mRawGraph.getVertexProperty(id);
+            const auto& newNode = this->addNode(oldNode.getContainer());
+            fromOldToNew.insert(std::pair<size_t, size_t>(oldNode.getGraphData().getUid(),
+                                                          newNode.getGraphData().getUid()));
+        });
+        ///this->ioToDot(std::to_string(i) + "_t_01", "kllkj", true);
+
+        // Cloning the subGraph edges into the graph
+        subGraph.mRawGraph.forEachEdge([&](std::pair<size_t, size_t> edge) {
+            const auto& oldDep = subGraph.mRawGraph.getEdgeProperty(edge);
+            size_t      newA = fromOldToNew.at(edge.first);
+            size_t      newB = fromOldToNew.at(edge.second);
+
+            const auto& nodeA = mRawGraph.getVertexProperty(newA);
+            const auto& nodeB = mRawGraph.getVertexProperty(newB);
+
+            this->addDependency(nodeA, nodeB, oldDep.getType());
+        });
+        //this->ioToDot(std::to_string(i) + "_t_02", "kllkj", true);
+
+        {  // Removing the cloned begin and end from the subGraph
+            auto oldBeginId = subGraph.getBeginNode().getGraphData().getUid();
+            auto oldEndId = subGraph.getEndNode().getGraphData().getUid();
+
+            auto toBeRemovedBeginId = fromOldToNew.at(oldBeginId);
+            auto toBeRemovedEndId = fromOldToNew.at(oldEndId);
+
+            auto& toBeRemovedBeginNode = mRawGraph.getVertexProperty(toBeRemovedBeginId);
+            auto& toBeRemovedEndNode = mRawGraph.getVertexProperty(toBeRemovedEndId);
+
+            this->removeNode(toBeRemovedBeginNode);
+            this->removeNode(toBeRemovedEndNode);
+        }
+       // this->ioToDot(std::to_string(i) + "_t_03", "kllkj", true);
+
+        {  // Removing subGraph and depedencies
+
+            this->removeNodeAndItsDependencies(newTarget);
+            std::cout << "removing " << newTarget.getContainer().getName() << std::endl;
+        }
+        //this->ioToDot(std::to_string(i) + "_t_04", "kllkj", true);
+    }
+
 }
 
 

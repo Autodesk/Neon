@@ -174,6 +174,12 @@ auto GraphNode::getLabel(bool debug) -> std::string
             }
             return s.str();
         }
+        std::stringstream s;
+        s << "Sporious Anchor ";
+        if (debug) {
+            s << printNodeInformation();
+        }
+        return s.str();
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
     if (containerOperationType == Neon::set::ContainerOperationType::compute) {
@@ -227,7 +233,8 @@ auto GraphNode::getLabelProperty() -> std::string
         if (this->getGraphData().endUid == getGraphData().getUid()) {
             return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
         }
-        NEON_THROW_UNSUPPORTED_OPERATION("");
+        //NEON_THROW_UNSUPPORTED_OPERATION("");
+        return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
     }
     if (containerOperationType == Neon::set::ContainerOperationType::compute) {
         auto pattern = getContainerpatternType();
