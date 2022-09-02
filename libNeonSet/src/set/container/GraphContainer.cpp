@@ -60,20 +60,20 @@ auto GraphContainer::getDeviceContainer() -> std::shared_ptr<internal::Container
  * @param streamIdx
  * @param dataView
  */
-auto GraphContainer::run(int /*streamIdx*/,
-                         Neon::DataView /*dataView*/) -> void
+auto GraphContainer::run(int            streamIdx,
+                         Neon::DataView dataView) -> void
 {
-    ///  mGraph->run(streamIdx, dataView);
+    mGraph->run(streamIdx, dataView);
 }
 
-auto GraphContainer::run(Neon::SetIdx   /*setIdx*/,
-                         int            /*streamIdx*/,
+auto GraphContainer::run(Neon::SetIdx /*setIdx*/,
+                         int /*streamIdx*/,
                          Neon::DataView /*dataView*/) -> void
 {
-//    if (ContainerExecutionType::graph == this->getContainerExecutionType()) {
-//        mGraph->run(setIdx, streamIdx, dataView);
-//    }
-//    NEON_THROW_UNSUPPORTED_OPTION("");
+    //    if (ContainerExecutionType::graph == this->getContainerExecutionType()) {
+    //        mGraph->run(setIdx, streamIdx, dataView);
+    //    }
+    //    NEON_THROW_UNSUPPORTED_OPTION("");
 }
 
 }  // namespace Neon::set::internal

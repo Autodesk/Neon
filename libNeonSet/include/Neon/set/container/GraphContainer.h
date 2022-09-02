@@ -48,7 +48,7 @@ struct GraphContainer : ContainerAPI
 
    private:
     std::function<void(Neon::SetIdx, Loader&)>         mLoadingLambda;
-    std::shared_ptr<const Neon::set::container::Graph> mGraph;
+    std::shared_ptr<Neon::set::container::Graph> mGraph;
 };
 
 }  // namespace Neon::set::internal

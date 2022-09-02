@@ -127,6 +127,8 @@ struct Graph
      */
     auto helpInvalidateScheduling() -> void;
 
+    auto helpCheckBackendStatus() -> void;
+
     /**
      * Remove redundant dependencies
      */

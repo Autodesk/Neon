@@ -32,6 +32,7 @@ auto Graph::addNodeInBetween(const GraphNode&          nodeA,
                              const GraphDependencyType ab,
                              const GraphDependencyType bc) -> GraphNode&
 {
+    helpCheckBackendStatus();
     helpInvalidateScheduling();
 
     auto& nodeB = addNode(containerB);
@@ -42,6 +43,7 @@ auto Graph::addNodeInBetween(const GraphNode&          nodeA,
 
 auto Graph::addNode(const Container& container) -> GraphNode&
 {
+    helpCheckBackendStatus();
     helpInvalidateScheduling();
 
     auto const& node = GraphNode(container, mUidCounter);
@@ -58,6 +60,7 @@ auto Graph::addDependency(const GraphNode&    nodeA,
                           const GraphNode&    nodeB,
                           GraphDependencyType type) -> GraphDependency&
 {
+    helpCheckBackendStatus();
     if (nodeA.getGraphData().getUid() == nodeB.getGraphData().getUid()) {
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
@@ -868,6 +871,14 @@ auto Graph::expandSubGraphs() -> void
         //this->ioToDot(std::to_string(i) + "_t_04", "kllkj", true);
     }
 
+}
+auto Graph::helpCheckBackendStatus() -> void
+{
+    if(!mBackendIsSet){
+        NeonException exception("Container Graph");
+        exception << "A backend was not registered with the Graph";
+        NEON_THROW(exception);
+    }
 }
 
 

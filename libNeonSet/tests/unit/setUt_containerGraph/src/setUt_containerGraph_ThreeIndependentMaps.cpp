@@ -38,7 +38,8 @@ void ThreeIndependentMapsTest(TestData<G, T, C>& data)
     fR() = scalarVal;
     data.getBackend().syncAll();
 
-    data.resetValuesToRandom(1, 50);
+    //data.resetValuesToRandom(1, 50);
+    data.resetValuesToConst(1, 50);
     Neon::Timer_sec timer;
 
     {  // NEON
@@ -47,7 +48,7 @@ void ThreeIndependentMapsTest(TestData<G, T, C>& data)
         auto& Z = data.getField(FieldNames::Z);
         auto& W = data.getField(FieldNames::W);
 
-        Neon::set::container::Graph graph;
+        Neon::set::container::Graph graph(data.getBackend());
 
         graph.addNode(UserTools::axpy(fR, W, X, "nodeA"));
         graph.addNode(UserTools::axpy(fR, W, Y, "nodeB"));
@@ -56,38 +57,45 @@ void ThreeIndependentMapsTest(TestData<G, T, C>& data)
         graph.ioToDot(appName, "UserGraph", false);
         graph.ioToDot(appName + "-debug", "UserGraph", true);
 
+        Neon::set::Container exec = Neon::set::Container::factoryGraph("Test", graph, [&](Neon::SetIdx,
+                                                                                          Neon::set::Loader& loader) {
+            loader.load(X);
+            loader.load(Y);
+            loader.load(Z);
+        });
 
-        //        timer.start();
-        //        for (int i = 0; i < nIterations; i++) {
-        //            skl.run();
-        //        }
-        //        data.getBackend().syncAll();
-        //        timer.stop();
+        timer.start();
+        for (int i = 0; i < nIterations; i++) {
+            exec.run(0);
+        }
+        data.getBackend().syncAll();
+        timer.stop();
     }
 
     {  // Golden data
-        auto time = timer.time();
 
         Type  dR = scalarVal;
         auto& X = data.getIODomain(FieldNames::X);
         auto& Y = data.getIODomain(FieldNames::Y);
+        auto& Z = data.getIODomain(FieldNames::Z);
+        auto& W = data.getIODomain(FieldNames::W);
 
         for (int i = 0; i < nIterations; i++) {
-            data.axpy(&dR, Y, X);
-            data.laplace(X, Y);
-            data.axpy(&dR, Y, Y);
+            data.axpy(&dR, W, X);
+            data.axpy(&dR, W, Y);
+            data.axpy(&dR, W, Z);
         }
     }
     bool isOk = data.compare(FieldNames::X);
     isOk = isOk && data.compare(FieldNames::Y);
 
-    /*{  // DEBUG
+    {  // DEBUG
         data.getIODomain(FieldNames::X).ioToVti("IODomain_X", "X");
         data.getField(FieldNames::X).ioToVtk("Field_X", "X");
 
         data.getIODomain(FieldNames::Y).ioToVti("IODomain_Y", "Y");
         data.getField(FieldNames::Y).ioToVtk("Field_Y", "Y");
-    }*/
+    }
 
     ASSERT_TRUE(isOk);
 }
@@ -117,7 +125,6 @@ int getNGpus()
 
 TEST(ThreeIndependentMaps, eGrid)
 {
-    int nGpus = getNGpus();
     using Grid = Neon::domain::internal::eGrid::eGrid;
     using Type = int32_t;
     runOneTestConfiguration<Grid, Type, 0>("eGrid_t", ThreeIndependentMaps<Grid, Type, 0>, 1, 1);
