@@ -66,14 +66,11 @@ auto GraphContainer::run(int            streamIdx,
     mGraph->run(streamIdx, dataView);
 }
 
-auto GraphContainer::run(Neon::SetIdx /*setIdx*/,
-                         int /*streamIdx*/,
-                         Neon::DataView /*dataView*/) -> void
+auto GraphContainer::run(Neon::SetIdx   setIdx,
+                         int            streamIdx,
+                         Neon::DataView dataView) -> void
 {
-    //    if (ContainerExecutionType::graph == this->getContainerExecutionType()) {
-    //        mGraph->run(setIdx, streamIdx, dataView);
-    //    }
-    //    NEON_THROW_UNSUPPORTED_OPTION("");
+    mGraph->run(setIdx, streamIdx, dataView);
 }
 
 }  // namespace Neon::set::internal

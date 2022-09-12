@@ -40,7 +40,9 @@ struct GraphContainer : ContainerAPI
      * @param streamIdx
      * @param dataView
      */
-    auto run(int streamIdx = 0, Neon::DataView dataView = Neon::DataView::STANDARD) -> void override;
+    auto run(int streamIdx = 0,
+             Neon::DataView dataView = Neon::DataView::STANDARD)
+        -> void override;
 
     auto run(Neon::SetIdx   setIdx,
              int            streamIdx = 0,
