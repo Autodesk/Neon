@@ -342,7 +342,8 @@ auto TestData<G, T, C>::laplace(IODomain& A, NEON_IO IODomain& B)
 }
 
 template <typename G, typename T, int C>
-auto TestData<G, T, C>::compare(FieldNames name, T tollerance) -> bool
+auto TestData<G, T, C>::compare(FieldNames name,
+                                [[maybe_unused]] T tollerance) -> bool
 {
     bool isTheSame = false;
     if constexpr (std::is_integral_v<T>) {

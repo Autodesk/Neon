@@ -9,6 +9,14 @@
 
 namespace Neon::set::container {
 
+/**
+ * Abstraction for a graph of containers.
+ * Each graph node represents a Neon container,
+ * directed edges of the graph are dependencies between the containers.
+ * Dependencies my be data driven or user provided.
+ *
+ *
+ */
 struct Graph
 {
     using Uid = GraphData::Uid;
@@ -98,15 +106,24 @@ struct Graph
     auto getSubsequentGraphNodes(const GraphNode&                        graphNode,
                                  const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
                                                                                             GraphDependencyType::data}) -> std::vector<GraphNode*>;
+    /**
+     * Set the stream to run the graph.
+     * We provide a preset function so that some initialization
+     * could be only once, before executing the run method.
+     */
     auto runtimePreSet(int anchorStream)
         -> void;
+
     /**
-     * Execute the scheduling operation associated to the node
+     * Execute the graph on all devices
      */
     auto run(int            streamIdx = 0,
              Neon::DataView dataView = Neon::DataView::STANDARD)
         -> void;
 
+    /**
+     * Run the graph on a target device.
+     */
     auto run(Neon::SetIdx   setIdx,
              int            streamIdx = 0,
              Neon::DataView dataView = Neon::DataView::STANDARD)
@@ -116,10 +133,20 @@ struct Graph
                  const std::string& graphName,
                  bool               debug) -> void;
 
+    /**
+     * Returns a reference for the used backend.
+     */
     auto getBackend() const -> const Neon::Backend&;
 
+    /**
+     * Recursively iterate through the graph nodes
+     * to expand any graph type of node.
+     */
     auto expandSubGraphs()
         -> void;
+
+    auto getNumberOfNodes()
+        ->int;
 
    protected:
     /**
@@ -127,10 +154,13 @@ struct Graph
      */
     auto helpInvalidateScheduling() -> void;
 
+    /**
+     * Helper - it checks the initialization of the backend.
+     */
     auto helpCheckBackendStatus() -> void;
 
     /**
-     * Remove redundant dependencies
+     * Helper - it removes redundant dependencies
      */
     auto helpRemoveRedundantDependencies() -> void;
 
@@ -205,41 +235,44 @@ struct Graph
         -> void;
 
     /**
-     * Execute
+     * Helper - it executes the graph on all devices
      */
     auto helpExecute(int anchorStream)
         -> void;
 
+    /**
+     * Helper - it executes the graph on a target device
+     */
     auto helpExecute(Neon::SetIdx setIdx, int anchorStream)
         -> void;
     /**
-     * Resetting node's data related to scheduling
+     * Helper - It resets node scheduling data
      */
     auto helpComputeScheduling_00_resetData()
         -> void;
 
     /**
-     * Resetting node's data related to scheduling
+     * Helper - it generates a BFS visit structure for the graph
      */
     auto helpComputeScheduling_01_generatingBFS(bool filterOutAnchors)
         -> Bfs;
 
     /**
-     * Maps node to streams.
+     * Helper - it maps node to streams.
      * Returns the max stream Id used by the scheduling
      */
     auto helpComputeScheduling_02_mappingStreams(Bfs& bfs, bool filterOutAnchors, int anchorStream)
         -> int;
 
     /**
-     * Define events to be waited and fired from each node
+     * Helper - it defines events to be waited and fired from each node
      * Returns the max event Id used by the scheduling.
      */
     auto helpComputeScheduling_03_events(Bfs& bfs)
         -> int;
 
     /**
-     * Booking the required resources from the backend.
+     * Helper - it Books the required resources from the backend.
      */
     auto helpComputeScheduling_04_ensureResources(int maxStreamId, int maxEventId)
         -> void;
@@ -247,13 +280,13 @@ struct Graph
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
 
-    Uid      mUidCounter;
-    RawGraph mRawGraph;
+    Uid      mUidCounter /**< internal counter to create node uids */;
+    RawGraph mRawGraph /**< raw graph structure */;
     bool     mSchedulingStatusIsValid;
-    int      mMaxNumberStreams;
-    Bfs      mBfs;
+    int      mMaxNumberStreams /**< Max number of streams used in the scheduling phase */;
+    Bfs      mBfs /**< Structure for the BFS visit. */;
 
-    Backend mBackend;
+    Backend mBackend /**< Backend used to create streams and events */;
     bool    mBackendIsSet = false;
 
     bool mFilterOutAnchorsPreSet = false;

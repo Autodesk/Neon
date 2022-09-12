@@ -20,6 +20,7 @@
 #include "setUt_containerGraph_runHelper.h"
 
 #include "Neon/set/container/Graph.h"
+#define DEBUG_MODE 0
 
 using namespace Neon::domain::tool::testing;
 static const std::string testFilePrefix("setUt_containerGraph_nestedGraph");
@@ -32,7 +33,6 @@ void NestedGraphsTest(TestData<G, T, C>& data)
     const std::string appName(testFilePrefix);
 
     const Type scalarVal = 2;
-    const int  nIterations = 10;
 
     auto fR = data.getGrid().template newPatternScalar<Type>();
     fR() = scalarVal;
@@ -43,21 +43,21 @@ void NestedGraphsTest(TestData<G, T, C>& data)
 
     {  // NEON
         auto& X = data.getField(FieldNames::X);
-
         auto& Y = data.getField(FieldNames::Y);
         auto& Z = data.getField(FieldNames::Z);
-
         auto& W = data.getField(FieldNames::W);
 
         auto generateInnerGraph = [&](std::string name) -> Neon::set::Container {
-            Neon::set::container::Graph graph;
+            Neon::set::container::Graph graph(data.getBackend());
 
-            auto nodeA = graph.addNode(UserTools::axpy(fR, W, X, name+"-StageA"));
-            auto nodeC = graph.addNode(UserTools::axpy(fR, W, Y, name+"-StageC"));
-            graph.addNodeInBetween(nodeA, UserTools::axpy(fR, W, Z, name+"-StageB"), nodeC);
+            auto nodeA = graph.addNode(UserTools::axpy(fR, W, X, name + "-StageA"));
+            auto nodeC = graph.addNode(UserTools::axpy(fR, W, Y, name + "-StageC"));
+            graph.addNodeInBetween(nodeA, UserTools::axpy(fR, W, Z, name + "-StageB"), nodeC);
 
-//            graph.ioToDot(appName, "UserGraph", false);
-//            graph.ioToDot(appName + "-debug", "UserGraph", true);
+#if (DEBUG_MODE == 1)
+            graph.ioToDot(appName, "UserGraph", false);
+            graph.ioToDot(appName + "-debug", "UserGraph", true);
+#endif
 
             auto container = Neon::set::Container::factoryGraph(name, graph, [](Neon::SetIdx, Neon::set::Loader&) {});
             return container;
@@ -73,14 +73,14 @@ void NestedGraphsTest(TestData<G, T, C>& data)
         graph.addNode(nodeC);
 
         {
-            auto fname  = appName + "_withSubGraph";
+            auto fname = appName + "_withSubGraph";
             graph.runtimePreSet(0);
             graph.ioToDot(fname, "UserGraph", false);
             graph.ioToDot(fname + "-debug", "UserGraph", true);
         }
 
         {
-            auto fname  = appName + "_expandSubGraphs";
+            auto fname = appName + "_expandSubGraphs";
 
             graph.expandSubGraphs();
             graph.runtimePreSet(0);
@@ -88,39 +88,8 @@ void NestedGraphsTest(TestData<G, T, C>& data)
             graph.ioToDot(fname + "-debug", "UserGraph", true);
         }
 
-        //        timer.start();
-        //        for (int i = 0; i < nIterations; i++) {
-        //            skl.run();
-        //        }
-        //        data.getBackend().syncAll();
-        //        timer.stop();
+        ASSERT_EQ(graph.getNumberOfNodes(), 9);
     }
-
-    {  // Golden data
-        //auto time = timer.time();
-
-        Type  dR = scalarVal;
-        auto& X = data.getIODomain(FieldNames::X);
-        auto& Y = data.getIODomain(FieldNames::Y);
-
-        for (int i = 0; i < nIterations; i++) {
-            data.axpy(&dR, Y, X);
-            data.laplace(X, Y);
-            data.axpy(&dR, Y, Y);
-        }
-    }
-    bool isOk = data.compare(FieldNames::X);
-    isOk = isOk && data.compare(FieldNames::Y);
-
-    /*{  // DEBUG
-        data.getIODomain(FieldNames::X).ioToVti("IODomain_X", "X");
-        data.getField(FieldNames::X).ioToVtk("Field_X", "X");
-
-        data.getIODomain(FieldNames::Y).ioToVti("IODomain_Y", "Y");
-        data.getField(FieldNames::Y).ioToVtk("Field_Y", "Y");
-    }*/
-
-    ASSERT_TRUE(isOk);
 }
 
 template <typename G, typename T, int C>
@@ -152,3 +121,5 @@ TEST(NestedGraphs, eGrid)
     using Type = int32_t;
     runOneTestConfiguration<Grid, Type, 0>("eGrid_t", NestedGraphs<Grid, Type, 0>, 1, 1);
 }
+
+#undef DEBUG_MODE
