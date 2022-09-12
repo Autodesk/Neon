@@ -21,6 +21,8 @@
 
 #include "Neon/set/container/Graph.h"
 
+#define DEBUG_MODE 0
+
 using namespace Neon::domain::tool::testing;
 static const std::string testFilePrefix("setUt_containerGraph");
 
@@ -32,7 +34,7 @@ void ThreePippedMapsTest(TestData<G, T, C>& data)
     const std::string appName(testFilePrefix);
 
     const Type scalarVal = 2;
-    const int  nIterations = 10;
+    const int  nIterations = 3;
 
     auto fR = data.getGrid().template newPatternScalar<Type>();
     fR() = scalarVal;
@@ -47,47 +49,45 @@ void ThreePippedMapsTest(TestData<G, T, C>& data)
         auto& Z = data.getField(FieldNames::Z);
         auto& W = data.getField(FieldNames::W);
 
-        Neon::set::container::Graph graph;
+        Neon::set::container::Graph graph(data.getBackend());
 
         auto nodeA = graph.addNode(UserTools::axpy(fR, W, X, "nodeA"));
-        auto nodeC =  graph.addNode(UserTools::axpy(fR, W, Y, "nodeC"));
+        auto nodeC = graph.addNode(UserTools::axpy(fR, W, Y, "nodeC"));
         graph.addNodeInBetween(nodeA, UserTools::axpy(fR, W, Z, "nodeB"), nodeC);
 
         graph.ioToDot(appName, "UserGraph", false);
         graph.ioToDot(appName + "-debug", "UserGraph", true);
 
+        graph.runtimePreSet(0);
 
-        //        timer.start();
-        //        for (int i = 0; i < nIterations; i++) {
-        //            skl.run();
-        //        }
-        //        data.getBackend().syncAll();
-        //        timer.stop();
+        for (int i = 0; i < nIterations; i++) {
+            graph.run(0);
+        }
     }
 
     {  // Golden data
-        auto time = timer.time();
-
         Type  dR = scalarVal;
         auto& X = data.getIODomain(FieldNames::X);
         auto& Y = data.getIODomain(FieldNames::Y);
+        auto& Z = data.getIODomain(FieldNames::Z);
+        auto& W = data.getIODomain(FieldNames::W);
 
         for (int i = 0; i < nIterations; i++) {
-            data.axpy(&dR, Y, X);
-            data.laplace(X, Y);
-            data.axpy(&dR, Y, Y);
+            data.axpy(&dR, W, X);
+            data.axpy(&dR, W, Y);
+            data.axpy(&dR, W, Z);
         }
     }
     bool isOk = data.compare(FieldNames::X);
     isOk = isOk && data.compare(FieldNames::Y);
 
-    /*{  // DEBUG
-        data.getIODomain(FieldNames::X).ioToVti("IODomain_X", "X");
-        data.getField(FieldNames::X).ioToVtk("Field_X", "X");
+#if (DEBUG_MODE == 1)
+    data.getIODomain(FieldNames::X).ioToVti("IODomain_X", "X");
+    data.getField(FieldNames::X).ioToVtk("Field_X", "X");
 
-        data.getIODomain(FieldNames::Y).ioToVti("IODomain_Y", "Y");
-        data.getField(FieldNames::Y).ioToVtk("Field_Y", "Y");
-    }*/
+    data.getIODomain(FieldNames::Y).ioToVti("IODomain_Y", "Y");
+    data.getField(FieldNames::Y).ioToVtk("Field_Y", "Y");
+#endif
 
     ASSERT_TRUE(isOk);
 }
@@ -117,8 +117,9 @@ int getNGpus()
 
 TEST(ThreePippedMaps, eGrid)
 {
-    int nGpus = getNGpus();
     using Grid = Neon::domain::internal::eGrid::eGrid;
     using Type = int32_t;
     runOneTestConfiguration<Grid, Type, 0>("eGrid_t", ThreePippedMaps<Grid, Type, 0>, 1, 1);
 }
+
+#undef DEBUG_MODE
