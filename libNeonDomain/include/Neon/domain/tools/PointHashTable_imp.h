@@ -80,4 +80,10 @@ auto PointHashTable<IntegerT, MetaT>::forEach(const UserLambda& f)
         it++;
     }
 }
+
+template <typename IntegerT, typename MetaT>
+auto PointHashTable<IntegerT, MetaT>::size() const -> size_t
+{
+    return mMap.size();
+}
 }  // namespace Neon::domain::tool
