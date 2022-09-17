@@ -1,8 +1,9 @@
 #pragma once
 #include <map>
 #include "Neon/set/Backend.h"
-#include "Neon/set/dependencyTools/Alias.h"
-#include "Neon/set/dependencyTools/enum.h"
+#include "Neon/set/container/Graph.h"
+#include "Neon/set/dependency/Alias.h"
+#include "Neon/set/dependency/DataDependencyType.h"
 #include "Neon/skeleton/internal/dependencyTools/DependencyAnalyser.h"
 
 namespace Neon::skeleton::internal {
@@ -12,15 +13,17 @@ namespace Neon::skeleton::internal {
  * Keep track of all the data used by all kernels
  *
  * Each field is track by a local indexing.
- * The indexing is determined by the map m_uid2Idx
+ * The indexing is determined by the map mUid2Idx
  *
- * The local index (DataIdx_t) is used to access information on the user data
- * that is stored in the vector m_depAnalyserVec.
+ * The local index (DataIdx) is used to access information on the user data
+ * that is stored in the vector mDepAnalyserVec.
  */
 struct UserDataManager
 {
-    std::vector<DependencyAnalyser> m_depAnalyserVec;
-    std::map<DataUId_t, DataIdx_t>    m_uid2Idx;
+    std::vector<DependencyAnalyser> mDepAnalyserVec;
+    std::map<Neon::internal::dataDependency::DataUId,
+             Neon::internal::dataDependency::DataIdx>
+        mUid2Idx;
 
    private:
     /**
@@ -28,7 +31,8 @@ struct UserDataManager
      * @param uid
      * @return
      */
-    auto helpGetIdx(DataUId_t uid) -> DataIdx_t;
+    auto helpGetIdx(Neon::internal::dataDependency::DataUId uid)
+        -> Neon::internal::dataDependency::DataIdx;
 
    public:
     /**
@@ -40,9 +44,9 @@ struct UserDataManager
      * @param uid
      * @return
      */
-    auto updateStatus(ContainerIdx newKernel,
-                      Access_e     op,
-                      DataUId_t    uid) -> std::vector<Dependency>;
+    auto updateStatus(Neon::set::container::GraphData::Uid       newKernel,
+                      Neon::internal::dataDependency::AccessType op,
+                      Neon::internal::dataDependency::DataUId    uid) -> std::vector<DataDependency>;
 };
 
-}  // namespace internal
+}  // namespace Neon::skeleton::internal

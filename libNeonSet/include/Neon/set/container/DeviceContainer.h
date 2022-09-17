@@ -78,7 +78,7 @@ struct DeviceContainer : ContainerAPI
         return parser;
     }
 
-    auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
+    auto parse() -> const std::vector<Neon::internal::dataDependency::Token>& override
     {
         if (!this->isParsingDataUpdated()) {
             auto parser = newParser();

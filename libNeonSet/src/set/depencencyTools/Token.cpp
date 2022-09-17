@@ -1,92 +1,77 @@
-#include "Neon/set//dependencyTools/DataParsing.h"
+#include "Neon/set//dependency/Token.h"
 
-namespace Neon {
-namespace set {
-namespace internal {
-namespace dependencyTools {
+namespace Neon::internal::dataDependency {
 
-
-DataToken::DataToken(DataUId_t uid,
-                     Access_e  access,
-                     Compute   compute)
+Token::Token(DataUId    uid,
+             AccessType access,
+             Compute    compute)
 {
     update(uid, access, compute);
-    setHaloUpdate(
-        [&](Neon::set::HuOptions&) -> void {
-            NeonException exp("DataToken");
-            exp << "This is not a stencil token and this is not a valid operation";
-            NEON_THROW(exp);
-        },
-        [&](Neon::SetIdx, Neon::set::HuOptions&) -> void {
-            NeonException exp("DataToken");
-            exp << "This is not a stencil token and this is not a valid operation";
-            NEON_THROW(exp);
-        });
 }
 
-auto DataToken::update(DataUId_t uid,
-                       Access_e  access,
-                       Compute   compute) -> void
+auto Token::update(DataUId    uid,
+                   AccessType access,
+                   Compute    compute) -> void
 {
-    m_uid = uid;
-    m_access = access;
-    m_compute = compute;
+    mUid = uid;
+    mAccess = access;
+    mCompute = compute;
     setHaloUpdate(
         [&](Neon::set::HuOptions&) -> void {
-        NeonException exp("DataToken");
+        NeonException exp("Token");
         exp << "This is not a stencil token and this is not a valid operation";
         NEON_THROW(exp); },
         [&](Neon::SetIdx, Neon::set::HuOptions&) -> void {
-            NeonException exp("DataToken");
+            NeonException exp("Token");
             exp << "This is not a stencil token and this is not a valid operation";
             NEON_THROW(exp);
         });
 }
 
-auto DataToken::access() const -> Access_e
+auto Token::access() const -> AccessType
 {
-    return m_access;
+    return mAccess;
 }
 
-auto DataToken::compute() const -> Compute
+auto Token::compute() const -> Compute
 {
-    return m_compute;
+    return mCompute;
 }
-auto DataToken::uid() const -> DataUId_t
+
+auto Token::uid() const -> DataUId
 {
-    return m_uid;
+    return mUid;
 }
-auto DataToken::toString() const -> std::string
+
+auto Token::toString() const -> std::string
 {
-    return " uid " + std::to_string(m_uid) +
-           " [Op " + AccessType::toString(m_access) +
-           " Model " + Neon::ComputeUtils::toString(m_compute) + "]";
+    return " uid " + std::to_string(mUid) +
+           " [Op " + AccessTypeUtils::toString(mAccess) +
+           " Model " + Neon::ComputeUtils::toString(mCompute) + "]";
 }
 
 
-auto DataToken::setHaloUpdate(std::function<void(Neon::set::HuOptions& opt)>               hu,
-                              std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)> huPerDevice) -> void
+auto Token::setHaloUpdate(std::function<void(Neon::set::HuOptions& opt)>               hu,
+                          std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)> huPerDevice) -> void
 {
-    m_hu = hu;
-    m_huPerDevice = huPerDevice;
+    mHu = hu;
+    mHuPerDevice = huPerDevice;
 }
 
-auto DataToken::getHaloUpdate() const
+auto Token::getHaloUpdate() const
     -> const std::function<void(Neon::set::HuOptions& opt)>&
 {
-    return m_hu;
+    return mHu;
 }
 
-auto DataToken::getHaloUpdatePerDevice() const
+auto Token::getHaloUpdatePerDevice() const
     -> const std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)>&
 {
-    return m_huPerDevice;
+    return mHuPerDevice;
 }
-auto DataToken::mergeAccess(AccessType::e tomerge) -> void
+auto Token::mergeAccess(AccessType tomerge) -> void
 {
-    m_access = AccessType::merge(m_access, tomerge);
+    mAccess = AccessTypeUtils::merge(mAccess, tomerge);
 }
-}  // namespace dependencyTools
-}  // namespace internal
-}  // namespace set
-}  // namespace Neon
+
+}

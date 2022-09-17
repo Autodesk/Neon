@@ -46,6 +46,16 @@ struct Graph
         -> GraphNode&;
 
     /**
+     * Adds a dependency between two nodes of the graph
+     */
+    auto addNodeInBetween(const GraphNode&    nodeA,
+                          Container           containerB,
+                          const GraphNode&    nodeC,
+                          GraphDependencyType ab = GraphDependencyType::user,
+                          GraphDependencyType bc = GraphDependencyType::user)
+        -> GraphNode&;
+
+    /**
      * Remove node by maintaining the dependencies between
      * proceeding and following nodes
      */
@@ -59,16 +69,6 @@ struct Graph
         -> Neon::set::Container;
 
     /**
-     * Adds a dependency between two nodes of the graph
-     */
-    auto addNodeInBetween(const GraphNode&    nodeA,
-                          Container           containerB,
-                          const GraphNode&    nodeC,
-                          GraphDependencyType ab = GraphDependencyType::user,
-                          GraphDependencyType bc = GraphDependencyType::user)
-        -> GraphNode&;
-
-    /**
      * Adds a dependency between two node of the graph
      */
     auto addDependency(const GraphNode&    nodeA,
@@ -76,6 +76,10 @@ struct Graph
                        GraphDependencyType type)
         -> GraphDependency&;
 
+    auto appendDataDependency(const GraphNode&                                   nodeA,
+                              const GraphNode&                                   nodeB,
+                              Neon::internal::dataDependency::DataDependencyType dataDependencyType,
+                              Neon::internal::dataDependency::DataUId            dataUId) -> GraphDependency&;
     /**
      * Returns the dependency type between two nodes.
      */
@@ -146,7 +150,24 @@ struct Graph
         -> void;
 
     auto getNumberOfNodes()
-        ->int;
+        -> int;
+
+    /**
+     * it removes redundant dependencies
+     */
+    auto removeRedundantDependencies() -> void;
+
+    /**
+     * Extract a graph node from its id
+     */
+    auto getGraphNode(GraphData::Uid)
+        -> GraphNode&;
+
+    /**
+     * Extract a graph node from its id
+     */
+    auto getGraphNode(GraphData::Uid) const
+        -> const GraphNode&;
 
    protected:
     /**
@@ -159,10 +180,6 @@ struct Graph
      */
     auto helpCheckBackendStatus() -> void;
 
-    /**
-     * Helper - it removes redundant dependencies
-     */
-    auto helpRemoveRedundantDependencies() -> void;
 
     /**
      * Compute BFS
@@ -213,17 +230,6 @@ struct Graph
                                                                                GraphDependencyType::data})
         -> Bfs;
 
-    /**
-     * Extract a graph node from its id
-     */
-    auto helpGetGraphNode(GraphData::Uid)
-        -> GraphNode&;
-
-    /**
-     * Extract a graph node from its id
-     */
-    auto helpGetGraphNode(GraphData::Uid) const
-        -> const GraphNode&;
 
     /**
      *

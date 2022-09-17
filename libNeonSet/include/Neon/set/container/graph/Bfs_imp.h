@@ -18,7 +18,7 @@ template <typename Fun>
 auto Bfs::forEachNodeAtLevel(int levelIdx, Neon::set::container::Graph& graph, Fun fun) -> void
 {
     for (auto& nodeIdx : data.at(levelIdx)) {
-        auto& node = graph.helpGetGraphNode(nodeIdx);
+        auto& node = graph.getGraphNode(nodeIdx);
         fun(node);
     }
 }
@@ -29,7 +29,7 @@ auto Bfs::forEachNodeByLevel(Graph& graph, Fun fun) -> void
 {
     forEachLevel([&graph, &fun](const Level& level, int levelIdx) {
         for (const auto& nodeIdx : level) {
-            auto& node = graph.helpGetGraphNode(nodeIdx);
+            auto& node = graph.getGraphNode(nodeIdx);
             fun(node, levelIdx);
         }
     });

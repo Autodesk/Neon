@@ -76,6 +76,39 @@ auto Graph::addDependency(const GraphNode&    nodeA,
                                       nodeB.getGraphData().getUid()});
 }
 
+auto Graph::appendDataDependency(const GraphNode&                                   nodeA,
+                                 const GraphNode&                                   nodeB,
+                                 Neon::internal::dataDependency::DataDependencyType dataDependencyType,
+                                 Neon::internal::dataDependency::DataUId            dataUId) -> GraphDependency&
+{
+    helpCheckBackendStatus();
+
+    if (nodeA.getGraphData().getUid() == nodeB.getGraphData().getUid()) {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+    helpInvalidateScheduling();
+
+
+    bool hasEdge = mRawGraph.hasEdge(nodeA.getGraphData().getUid(),
+                                     nodeB.getGraphData().getUid());
+
+    if (!hasEdge) {
+        GraphDependencyType type = GraphDependencyType::data;
+
+        GraphDependency ab(type);
+        mRawGraph.addEdge(nodeA.getGraphData().getUid(),
+                          nodeB.getGraphData().getUid(),
+                          ab);
+    }
+
+    auto& output = mRawGraph.getEdgeProperty({nodeA.getGraphData().getUid(),
+                                              nodeB.getGraphData().getUid()});
+
+    output.appendInfo(dataDependencyType, dataUId);
+
+    return output;
+}
+
 auto Graph::removeNode(GraphNode& gn) -> Container
 {
     helpInvalidateScheduling();
@@ -262,7 +295,7 @@ auto Graph::helpInvalidateScheduling()
     mSchedulingStatusIsValid = false;
 }
 
-auto Graph::helpRemoveRedundantDependencies()
+auto Graph::removeRedundantDependencies()
     -> void
 {
     // Vectors of edges to be removed
@@ -497,12 +530,12 @@ auto Graph::helpComputeScheduling_01_generatingBFS(bool filterOutAnchors)
                                          GraphDependencyType::user});
 }
 
-auto Graph::helpGetGraphNode(GraphData::Uid uid) -> GraphNode&
+auto Graph::getGraphNode(GraphData::Uid uid) -> GraphNode&
 {
     return mRawGraph.getVertexProperty(uid);
 }
 
-auto Graph::helpGetGraphNode(GraphData::Uid uid) const -> const GraphNode&
+auto Graph::getGraphNode(GraphData::Uid uid) const -> const GraphNode&
 {
     return mRawGraph.getVertexProperty(uid);
 }
@@ -673,7 +706,7 @@ auto Graph::ioToDot(const std::string& fname,
                     const std::string& graphName,
                     bool               debug) -> void
 {
-    this->helpRemoveRedundantDependencies();
+    this->removeRedundantDependencies();
 
     auto vertexLabel = [&](size_t v) -> std::string {
         auto& node = mRawGraph.getVertexProperty(v);
@@ -835,7 +868,7 @@ auto Graph::expandSubGraphs() -> void
         if (!validTarget) {
             if (atLeastOneWasFound) {
                 helpInvalidateScheduling();
-                this->helpRemoveRedundantDependencies();
+                this->removeRedundantDependencies();
                 // this->ioToDot(std::to_string(i) + "_t_05", "kllkj", true);
             }
             return;

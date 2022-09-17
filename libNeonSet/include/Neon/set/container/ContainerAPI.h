@@ -5,7 +5,7 @@
 
 #include "Neon/set/DevSet.h"
 #include "Neon/set/container/ContainerExecutionType.h"
-#include "Neon/set/dependencyTools/DataParsing.h"
+#include "Neon/set/dependency/Token.h"
 
 #include "functional"
 #include "type_traits"
@@ -75,7 +75,7 @@ struct ContainerAPI
      * @return
      */
     virtual auto parse()
-        -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& = 0;
+        -> const std::vector<Neon::internal::dataDependency::Token>& = 0;
 
 
     /**
@@ -88,13 +88,13 @@ struct ContainerAPI
      * Returns a list of tokens as result of parsing the Container loading lambda.
      */
     auto getTokens() const
-        -> const std::vector<Neon::set::internal::dependencyTools::DataToken>&;
+        -> const std::vector<Neon::internal::dataDependency::Token>&;
 
     /**
      * Returns a list of tokens as result of parsing the Container loading lambda.
      */
     auto getTokenRef()
-        -> std::vector<Neon::set::internal::dependencyTools::DataToken>&;
+        -> std::vector<Neon::internal::dataDependency::Token>&;
 
     /**
      * Get the execution type for the Container.
@@ -129,7 +129,7 @@ struct ContainerAPI
     /**
      * Add a new token
      */
-    auto addToken(Neon::set::internal::dependencyTools::DataToken& dataParsing)
+    auto addToken(Neon::internal::dataDependency::Token& dataParsing)
         -> void;
 
     /**
@@ -179,7 +179,7 @@ struct ContainerAPI
      * Set the patter for this Container based on a list of tokens.
      * @param tokens
      */
-    auto setContainerPattern(const std::vector<Neon::set::internal::dependencyTools::DataToken>& tokens)
+    auto setContainerPattern(const std::vector<Neon::internal::dataDependency::Token>& tokens)
         -> void;
 
     /**
@@ -196,7 +196,7 @@ struct ContainerAPI
         -> void;
 
    private:
-    using TokenList = std::vector<Neon::set::internal::dependencyTools::DataToken>;
+    using TokenList = std::vector<Neon::internal::dataDependency::Token>;
 
     std::string                                                          mName{"Anonymous"}; /**< Name of the Container */
     bool                                                                 mParsingDataUpdated = false;

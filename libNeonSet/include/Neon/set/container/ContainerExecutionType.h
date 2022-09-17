@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Neon/set/DevSet.h"
-#include "Neon/set/dependencyTools/DataParsing.h"
+#include "Neon/set/dependency/Token.h"
 #include "functional"
 #include "type_traits"
 

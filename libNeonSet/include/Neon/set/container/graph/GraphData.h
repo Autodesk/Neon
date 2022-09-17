@@ -26,7 +26,10 @@ class GraphData
     auto getIndex() const -> Index;
 
    private:
-    Uid   mUid /** unique identifier for the node */;
+    Uid mUid /**< unique identifier for the node.
+              * This is different from a Container uid as in a graph the same container can appear more than once.
+              * */
+        ;
     Index mIndex /** relative index w.r.t the completed graph. This value may change during the life of the graph */;
 };
 

@@ -1,9 +1,9 @@
 #pragma once
 #include "Neon/set/Backend.h"
 #include "Neon/set/HuOptions.h"
-#include "Neon/set/dependencyTools/AccessType.h"
-#include "Neon/set/dependencyTools/Alias.h"
-#include "Neon/set/dependencyTools/ComputeType.h"
+#include "Neon/set/dependency/AccessType.h"
+#include "Neon/set/dependency/Alias.h"
+#include "Neon/set/dependency/ComputeType.h"
 
 namespace Neon::internal::dataDependency {
 
@@ -73,4 +73,4 @@ struct Token
     std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)> mHuPerDevice;
 };
 
-}  // namespace dependencyTools
+}  // namespace dependency

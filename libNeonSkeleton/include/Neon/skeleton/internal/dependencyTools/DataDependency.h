@@ -7,7 +7,7 @@
 namespace Neon::skeleton::internal {
 
 
-struct Dependency
+struct DataDependency
 {
    private:
     Neon::set::container::GraphData::Uid               mT0 = 0;
@@ -19,7 +19,7 @@ struct Dependency
     /**
      * Empty constructor
      */
-    Dependency() = default;
+    DataDependency() = default;
 
     /**
      * Defines a dependency of type e between kernel A and B.
@@ -30,7 +30,7 @@ struct Dependency
      * @param A
      * @param B
      */
-    Dependency(Neon::set::container::GraphData::Uid               t1,
+    DataDependency(Neon::set::container::GraphData::Uid               t1,
                Neon::internal::dataDependency::DataDependencyType type,
                Neon::internal::dataDependency::DataUId            m_uid,
                Neon::set::container::GraphData::Uid               t0);
@@ -69,7 +69,7 @@ struct Dependency
      * Static method to build an empty dependency
      * @return
      */
-    static Dependency getEmpty();
+    static DataDependency getEmpty();
 };
 
 }  // namespace Neon::skeleton::internal

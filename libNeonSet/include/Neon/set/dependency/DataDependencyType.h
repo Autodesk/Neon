@@ -26,4 +26,5 @@ struct DataDependencyTypeUtils
     static auto toString(DataDependencyType type) -> std::string;
 };
 
+std::ostream& operator<<(std::ostream& os, Neon::internal::dataDependency::DataDependencyType const& m);
 }
