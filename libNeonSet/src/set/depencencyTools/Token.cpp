@@ -13,12 +13,12 @@ DataToken::DataToken(DataUId_t uid,
     update(uid, access, compute);
     setHaloUpdate(
         [&](Neon::set::HuOptions&) -> void {
-            NeonException exp("DataToken_t");
+            NeonException exp("DataToken");
             exp << "This is not a stencil token and this is not a valid operation";
             NEON_THROW(exp);
         },
         [&](Neon::SetIdx, Neon::set::HuOptions&) -> void {
-            NeonException exp("DataToken_t");
+            NeonException exp("DataToken");
             exp << "This is not a stencil token and this is not a valid operation";
             NEON_THROW(exp);
         });
@@ -33,11 +33,11 @@ auto DataToken::update(DataUId_t uid,
     m_compute = compute;
     setHaloUpdate(
         [&](Neon::set::HuOptions&) -> void {
-        NeonException exp("DataToken_t");
+        NeonException exp("DataToken");
         exp << "This is not a stencil token and this is not a valid operation";
         NEON_THROW(exp); },
         [&](Neon::SetIdx, Neon::set::HuOptions&) -> void {
-            NeonException exp("DataToken_t");
+            NeonException exp("DataToken");
             exp << "This is not a stencil token and this is not a valid operation";
             NEON_THROW(exp);
         });
@@ -59,7 +59,7 @@ auto DataToken::uid() const -> DataUId_t
 auto DataToken::toString() const -> std::string
 {
     return " uid " + std::to_string(m_uid) +
-           " [Op " + Access_et::toString(m_access) +
+           " [Op " + AccessType::toString(m_access) +
            " Model " + Neon::ComputeUtils::toString(m_compute) + "]";
 }
 
@@ -82,9 +82,9 @@ auto DataToken::getHaloUpdatePerDevice() const
 {
     return m_huPerDevice;
 }
-auto DataToken::mergeAccess(Access_et::e tomerge) -> void
+auto DataToken::mergeAccess(AccessType::e tomerge) -> void
 {
-    m_access = Access_et::merge(m_access, tomerge);
+    m_access = AccessType::merge(m_access, tomerge);
 }
 }  // namespace dependencyTools
 }  // namespace internal

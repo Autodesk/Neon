@@ -1,7 +1,8 @@
 #pragma once
 #include "Neon/set/Backend.h"
-#include "Neon/set/dependencyTools/enum.h"
-#include "Neon/skeleton/internal//dependencyTools/Alias.h"
+#include "Neon/set/container/Graph.h"
+#include "Neon/set/dependency/Alias.h"
+#include "Neon/set/dependency/DataDependencyType.h"
 
 namespace Neon::skeleton::internal {
 
@@ -9,10 +10,10 @@ namespace Neon::skeleton::internal {
 struct Dependency
 {
    private:
-    ContainerIdx   m_t0 = 0;
-    ContainerIdx   m_t1 = 0;
-    Dependencies_e m_type = Dependencies_e::NONE;
-    DataUId_t      m_uid = 0;
+    Neon::set::container::GraphData::Uid               mT0 = 0;
+    Neon::set::container::GraphData::Uid               mT1 = 0;
+    Neon::internal::dataDependency::DataDependencyType mType = Neon::internal::dataDependency::DataDependencyType::NONE;
+    Neon::internal::dataDependency::DataUId            mDataUid = 0;
 
    public:
     /**
@@ -29,7 +30,10 @@ struct Dependency
      * @param A
      * @param B
      */
-    Dependency(ContainerIdx t1, Dependencies_e type, DataUId_t m_uid, ContainerIdx t0);
+    Dependency(Neon::set::container::GraphData::Uid               t1,
+               Neon::internal::dataDependency::DataDependencyType type,
+               Neon::internal::dataDependency::DataUId            m_uid,
+               Neon::set::container::GraphData::Uid               t0);
 
     /**
      * true the object has been initialized with a valid dependency
@@ -47,19 +51,19 @@ struct Dependency
      * Returns the dependency type
      * @return
      */
-    auto type() -> Dependencies_e;
+    auto type() -> Neon::internal::dataDependency::DataDependencyType;
 
     /**
      * Returns the "before" kernel id
      * @return
      */
-    auto t0() -> ContainerIdx;
+    auto t0() -> Neon::set::container::GraphData::Uid;
 
     /**
      * Returns the "after" kernel id
      * @return
      */
-    auto t1() -> ContainerIdx;
+    auto t1() -> Neon::set::container::GraphData::Uid;
 
     /**
      * Static method to build an empty dependency
@@ -68,4 +72,4 @@ struct Dependency
     static Dependency getEmpty();
 };
 
-}
+}  // namespace Neon::skeleton::internal
