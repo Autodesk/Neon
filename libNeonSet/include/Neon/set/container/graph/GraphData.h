@@ -8,8 +8,8 @@ namespace Neon::set::container {
 class GraphData
 {
    public:
-    using Uid = uint32_t;
-    using Index = uint32_t;
+    using Uid = uint64_t;
+    using Index = uint64_t;
 
     constexpr static Uid notSet = 0;
     constexpr static Uid beginUid = 1;

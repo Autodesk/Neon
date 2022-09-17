@@ -145,7 +145,7 @@ auto Graph::removeNode(GraphNode& gn) -> Container
     }
 
     mRawGraph.removeVertex(uidB);
-    gn.getGraphData().setUid(-1);
+    gn.getGraphData().setUid(GraphData::notSet);
 
     return gn.getContainer();
 }
@@ -189,7 +189,7 @@ auto Graph::removeNodeAndItsDependencies(GraphNode& gn)
     }
 
     mRawGraph.removeVertex(uidB);
-    gn.getGraphData().setUid(-1);
+    gn.getGraphData().setUid(GraphData::notSet);
 
     return gn.getContainer();
 }
@@ -300,11 +300,12 @@ auto Graph::removeRedundantDependencies()
 {
     // Vectors of edges to be removed
     std::vector<std::pair<size_t, size_t>> edgesToBeRemoved;
-    mRawGraph.forEachVertex([&](size_t visitingNode) {
+    mRawGraph.forEachVertex([&](size_t diGraphNodeId) {
         // In this body we are looping over all nodes
         // For each node do:
 
         // Check node's children
+        auto visitingNode = mRawGraph.getVertexProperty(diGraphNodeId).getGraphData().getUid();
         const auto& children = helpGetOutNeighbors(visitingNode, false);
         if (children.size() <= 1) {
             // If no more than one, move to the next node
@@ -936,7 +937,7 @@ auto Graph::helpCheckBackendStatus()
 auto Graph::getNumberOfNodes() -> int
 {
     // We remove 2 because of the head and tail holders.
-    return mRawGraph.numVertices() - 2;
+    return int(mRawGraph.numVertices() - 2);
 }
 
 
