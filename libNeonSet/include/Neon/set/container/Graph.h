@@ -79,7 +79,8 @@ struct Graph
     auto appendDataDependency(const GraphNode&                                   nodeA,
                               const GraphNode&                                   nodeB,
                               Neon::internal::dataDependency::DataDependencyType dataDependencyType,
-                              Neon::internal::dataDependency::DataUId            dataUId) -> GraphDependency&;
+                              size_t                                             dataUId,
+                              Compute                                            compute) -> GraphDependency&;
     /**
      * Returns the dependency type between two nodes.
      */
@@ -87,6 +88,12 @@ struct Graph
                            const GraphNode& nodeB)
         -> GraphDependencyType;
 
+    /**
+     * Returns the dependency information
+     */
+    auto getDependency(const GraphNode& nodeA,
+                       const GraphNode& nodeB)
+        -> const GraphDependency&;
     /**
      * Clone a node and return a reference to the new clone.
      * The cloning process connects the clone the the same nodes of the original
@@ -168,6 +175,18 @@ struct Graph
      */
     auto getGraphNode(GraphData::Uid) const
         -> const GraphNode&;
+
+    template <typename Fun>
+    auto forEachNode(Fun f) -> void
+    {
+        mRawGraph.forEachVertex([&](size_t v) {
+            GraphData::Uid node = v;
+            if (node != GraphData::beginUid && node != GraphData::endUid) {
+                f(node);
+            }
+        });
+    }
+
 
    protected:
     /**

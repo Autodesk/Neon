@@ -79,7 +79,8 @@ auto Graph::addDependency(const GraphNode&    nodeA,
 auto Graph::appendDataDependency(const GraphNode&                                   nodeA,
                                  const GraphNode&                                   nodeB,
                                  Neon::internal::dataDependency::DataDependencyType dataDependencyType,
-                                 Neon::internal::dataDependency::DataUId            dataUId) -> GraphDependency&
+                                 size_t                                             dataUId,
+                                 Compute                                            compute) -> GraphDependency&
 {
     helpCheckBackendStatus();
 
@@ -104,7 +105,7 @@ auto Graph::appendDataDependency(const GraphNode&                               
     auto& output = mRawGraph.getEdgeProperty({nodeA.getGraphData().getUid(),
                                               nodeB.getGraphData().getUid()});
 
-    output.appendInfo(dataDependencyType, dataUId);
+    output.appendInfo(dataDependencyType, dataUId, compute);
 
     return output;
 }
@@ -280,13 +281,19 @@ auto Graph::getDependencyType(const GraphNode& nodeA,
                               const GraphNode& nodeB)
     -> GraphDependencyType
 {
+    auto dependency = getDependency(nodeA, nodeB);
+    auto dependencyType = dependency.getType();
+    return dependencyType;
+}
+
+auto Graph::getDependency(const GraphNode& nodeA,
+                          const GraphNode& nodeB) -> const GraphDependency&
+{
     auto uidA = nodeA.getGraphData().getUid();
     auto uidB = nodeB.getGraphData().getUid();
 
-    auto edgePropetry = mRawGraph.getEdgeProperty({uidA, uidB});
-    auto dependencyType = edgePropetry.getType();
-
-    return dependencyType;
+    const auto& dependency = mRawGraph.getEdgeProperty({uidA, uidB});
+    return dependency;
 }
 
 auto Graph::helpInvalidateScheduling()
@@ -304,37 +311,37 @@ auto Graph::removeRedundantDependencies()
         // In this body we are looping over all nodes
         // For each node do:
 
-        // Check node's children
-        auto visitingNode = mRawGraph.getVertexProperty(diGraphNodeId).getGraphData().getUid();
-        const auto& children = helpGetOutNeighbors(visitingNode, false);
-        if (children.size() <= 1) {
+        // Check node's childrenUid
+        auto        visitingNodeUid = mRawGraph.getVertexProperty(diGraphNodeId).getGraphData().getUid();
+        const auto& childrenUid = helpGetOutNeighbors(visitingNodeUid, false);
+        if (childrenUid.size() <= 1) {
             // If no more than one, move to the next node
             // Nothing to do for the visiting node as there are no redundant paths
             // Let's move to another
             return;
         }
         // Start checking for redundant paths
-        for (const auto& targetChild : children) {
-            if (helpGetInEdges(targetChild, false).size() <= 1) {
-                // This targetChild can only be reached by one father
+        for (const auto& targetChildUid : childrenUid) {
+            if (helpGetInEdges(targetChildUid, false).size() <= 1) {
+                // This targetChildUid can only be reached by one father
                 // No redundant path here
                 continue;
             }
             bool foundRedundant = false;
             // Checking all siblings' paths.
-            // We are looking for the targetChild in the path of any of its siblings.
+            // We are looking for the targetChildUid in the path of any of its siblings.
             // A BFS visit is used for the process.
-            for (const auto& targetSibling : children) {
-                if (targetSibling == targetChild) {
+            for (const auto& targetSiblingUid : childrenUid) {
+                if (targetSiblingUid == targetChildUid) {
                     continue;
                 }
-                // first BFS frontier are the targetSibling's child
-                auto frontier = mRawGraph.outNeighbors(targetSibling);
+                // first BFS frontier are the targetSiblingUid's child
+                auto frontier = mRawGraph.outNeighbors(targetSiblingUid);
                 while (frontier.size() != 0) {
                     auto nextFrontier = std::set<size_t>();
 
                     for (const auto& nodeInFrontier : frontier) {
-                        if (nodeInFrontier == targetChild) {
+                        if (nodeInFrontier == targetChildUid) {
                             // We have found a redundant path
                             foundRedundant = true;
                             break;
@@ -356,7 +363,18 @@ auto Graph::removeRedundantDependencies()
                     break;
             }
             if (foundRedundant) {
-                edgesToBeRemoved.push_back({visitingNode, targetChild});
+                // Flag as redundant only if the edge is not of type stencil
+                const bool isStencilEdge = std::invoke([&] {
+                    const auto& visitingNode = mRawGraph.getVertexProperty(visitingNodeUid);
+                    const auto& targetChild = mRawGraph.getVertexProperty(targetChildUid);
+                    const auto& dependency = this->getDependency(visitingNode, targetChild);
+                    const bool  output = dependency.hasStencilDependency();
+                    return output;
+                });
+
+                if (!isStencilEdge) {
+                    edgesToBeRemoved.push_back({visitingNodeUid, targetChildUid});
+                }
             }
         }
     });
@@ -543,7 +561,7 @@ auto Graph::getGraphNode(GraphData::Uid uid) const -> const GraphNode&
 
 auto Graph::helpComputeScheduling_00_resetData() -> void
 {
-    mRawGraph.forEachVertex([&](const GraphData::Uid & graphNodeId) {
+    mRawGraph.forEachVertex([&](const GraphData::Uid& graphNodeId) {
         auto& targetNode = mRawGraph.getVertexProperty(graphNodeId);
         targetNode.getScheduling().reset();
     });

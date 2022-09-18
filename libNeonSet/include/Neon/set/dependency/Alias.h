@@ -1,17 +1,17 @@
 #pragma once
 #include "Neon/set/Backend.h"
+#include "Neon/set/MultiDeviceObjectUid.h"
 
 namespace Neon::internal::dataDependency {
 
 /**
  * Unique identifier for a kernel parameter
  */
-using DataUId = int64_t;
+using DataUId = Neon::set::MultiDeviceObjectUid;
 
 /**
  * Unique identifier for a kernel parameter
  */
-using DataIdx = int64_t;
+using DataIdx = Neon::set::MultiDeviceObjectUid;
 
-
-}  // namespace Neon::dataDependency
+}  // namespace Neon::internal::dataDependency

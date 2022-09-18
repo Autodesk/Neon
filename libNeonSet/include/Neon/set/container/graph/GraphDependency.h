@@ -2,6 +2,7 @@
 
 #include "GraphDependencyType.h"
 #include "Neon/set/dependency/Alias.h"
+#include "Neon/set/dependency/ComputeType.h"
 #include "Neon/set/dependency/DataDependencyType.h"
 
 namespace Neon::set::container {
@@ -12,6 +13,7 @@ struct GraphDependency
 
    public:
     GraphDependency();
+
     GraphDependency(GraphDependencyType type);
 
     auto setType(GraphDependencyType type) -> void;
@@ -19,20 +21,26 @@ struct GraphDependency
     auto getType() const -> GraphDependencyType;
 
     auto appendInfo(Neon::internal::dataDependency::DataDependencyType dataDependencyType,
-                    Neon::internal::dataDependency::DataUId            dataUId) -> void;
+                    Neon::internal::dataDependency::DataUId            dataUId,
+                    Neon::Compute                                      compute) -> void;
 
     auto toString(std::function<std::pair<std::string, std::string>(int)> prefix) -> std::string;
 
-   private:
-    GraphDependencyType mType;
+    auto getListStencilData() const -> std::vector<Neon::internal::dataDependency::DataUId>;
 
+    auto hasStencilDependency() const -> bool;
+
+   private:
     struct Info
     {
         Neon::internal::dataDependency::DataDependencyType dataDependencyType;
         Neon::internal::dataDependency::DataUId            dataUId;
+        Neon::Compute                                      compute;
     };
 
-    std::vector<Info> mInfo;
+    GraphDependencyType mType;
+    std::vector<Info>   mInfo;
+    bool                mHasStencilDependency = false;
     // TODO - add information for data and Scheduling dependency
 };
 
