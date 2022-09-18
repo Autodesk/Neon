@@ -187,6 +187,14 @@ struct Graph
         });
     }
 
+    template <typename Fun>
+    auto forEachDependency(Fun f) -> void
+    {
+        mRawGraph.forEachEdge([&](std::pair<size_t,size_t> edge) {
+            const auto& depedency = mRawGraph.getEdgeProperty(edge);
+            f(depedency);
+        });
+    }
 
    protected:
     /**

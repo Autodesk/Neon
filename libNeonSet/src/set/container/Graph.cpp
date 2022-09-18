@@ -66,14 +66,15 @@ auto Graph::addDependency(const GraphNode&    nodeA,
     }
     helpInvalidateScheduling();
 
-    GraphDependency ab(type);
+    auto nodeAuid = nodeA.getGraphData().getUid();
+    auto nodeBuid = nodeB.getGraphData().getUid();
 
-    mRawGraph.addEdge(nodeA.getGraphData().getUid(),
-                      nodeB.getGraphData().getUid(),
-                      ab);
+    GraphDependency ab(type, nodeAuid, nodeBuid);
 
-    return mRawGraph.getEdgeProperty({nodeA.getGraphData().getUid(),
-                                      nodeB.getGraphData().getUid()});
+    mRawGraph.addEdge(nodeAuid, nodeBuid, ab);
+
+    return mRawGraph.getEdgeProperty({nodeAuid,
+                                      nodeBuid});
 }
 
 auto Graph::appendDataDependency(const GraphNode&                                   nodeA,
@@ -95,11 +96,7 @@ auto Graph::appendDataDependency(const GraphNode&                               
 
     if (!hasEdge) {
         GraphDependencyType type = GraphDependencyType::data;
-
-        GraphDependency ab(type);
-        mRawGraph.addEdge(nodeA.getGraphData().getUid(),
-                          nodeB.getGraphData().getUid(),
-                          ab);
+        addDependency(nodeA, nodeB, type);
     }
 
     auto& output = mRawGraph.getEdgeProperty({nodeA.getGraphData().getUid(),

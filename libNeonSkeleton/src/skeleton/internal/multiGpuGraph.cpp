@@ -578,6 +578,24 @@ auto MultiGpuGraph::addSyncAndMemoryTransfers(const Neon::skeleton::Options&) ->
         return;
     }
 
+    std::vector<const Neon::set::container::GraphDependency*> stencilDependencies;
+    mGraph().forEachDependency([&](const Neon::set::container::GraphDependency& dep) {
+        if (dep.hasStencilDependency()) {
+            stencilDependencies.push_back(&dep);
+        }
+    });
+
+    for(auto depPtr : stencilDependencies){
+        const auto& dep = *depPtr;
+        auto nodeA = mGraph().getGraphNode(dep.getSource());
+        auto nodeB = mGraph().getGraphNode(dep.getDestination());
+
+        auto& newHaloContainer = Neon::set::Container::factoryHaloUpdate();
+
+        mGraph().addNodeInBetween()
+    }
+
+
     // Detects all stencil nodes
     std::vector<Neon::set::container::GraphData::Uid> stencilNodesUids;
 

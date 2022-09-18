@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GraphDependencyType.h"
+#include "Neon/set/container/graph/GraphData.h"
 #include "Neon/set/dependency/Alias.h"
 #include "Neon/set/dependency/ComputeType.h"
 #include "Neon/set/dependency/DataDependencyType.h"
@@ -14,7 +15,9 @@ struct GraphDependency
    public:
     GraphDependency();
 
-    GraphDependency(GraphDependencyType type);
+    GraphDependency(GraphDependencyType type,
+                    GraphData::Uid      source,
+                    GraphData::Uid      destination);
 
     auto setType(GraphDependencyType type) -> void;
 
@@ -30,6 +33,11 @@ struct GraphDependency
 
     auto hasStencilDependency() const -> bool;
 
+    auto getSource() const -> GraphData::Uid;
+
+    auto getDestination() const -> GraphData::Uid;
+
+
    private:
     struct Info
     {
@@ -41,6 +49,8 @@ struct GraphDependency
     GraphDependencyType mType;
     std::vector<Info>   mInfo;
     bool                mHasStencilDependency = false;
+    GraphData::Uid      mSource;
+    GraphData::Uid      mDestination;
     // TODO - add information for data and Scheduling dependency
 };
 

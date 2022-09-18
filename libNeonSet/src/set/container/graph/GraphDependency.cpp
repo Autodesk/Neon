@@ -9,12 +9,18 @@ namespace Neon::set::container {
 GraphDependency::GraphDependency()
 {
     mHasStencilDependency = false;
+    mSource = GraphData::notSet;
+    mDestination = GraphData::notSet;
 }
 
-GraphDependency::GraphDependency(GraphDependencyType type)
+GraphDependency::GraphDependency(GraphDependencyType type,
+                                 GraphData::Uid      source,
+                                 GraphData::Uid      destination)
 {
     mHasStencilDependency = false;
     setType(type);
+    mSource = source;
+    mDestination = destination;
 }
 
 auto GraphDependency::setType(GraphDependencyType type) -> void
@@ -53,7 +59,7 @@ auto GraphDependency::appendInfo(Neon::internal::dataDependency::DataDependencyT
                                  Neon::Compute                                      compute) -> void
 {
     mInfo.push_back({dataDependencyType, dataUId, compute});
-    if(compute == Neon::Compute::STENCIL){
+    if (compute == Neon::Compute::STENCIL) {
         mHasStencilDependency = true;
     }
 }
@@ -66,6 +72,22 @@ auto GraphDependency::getListStencilData() const -> std::vector<Neon::internal::
             output.push_back(i.dataUId);
         }
     }
+    return output;
+}
+
+auto GraphDependency::getSource() const -> GraphData::Uid
+{
+    return mSource;
+}
+
+auto GraphDependency::getDestination() const -> GraphData::Uid
+{
+    return mDestination;
+}
+
+auto GraphDependency::hasStencilDependency() const -> bool
+{
+    return mHasStencilDependency;
 }
 
 }  // namespace Neon::set::container
