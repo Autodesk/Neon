@@ -543,7 +543,7 @@ auto Graph::getGraphNode(GraphData::Uid uid) const -> const GraphNode&
 
 auto Graph::helpComputeScheduling_00_resetData() -> void
 {
-    mRawGraph.forEachVertex([&](const int& graphNodeId) {
+    mRawGraph.forEachVertex([&](const GraphData::Uid & graphNodeId) {
         auto& targetNode = mRawGraph.getVertexProperty(graphNodeId);
         targetNode.getScheduling().reset();
     });
