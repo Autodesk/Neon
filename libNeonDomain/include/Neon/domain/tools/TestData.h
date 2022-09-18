@@ -300,13 +300,13 @@ template <typename G, typename T, int C>
 auto TestData<G, T, C>::axpy(const Type* alpha, IODomain& A, IODomain& B)
     -> void
 {
-    this->template forEachActiveIODomain([&](const Neon::index_3d& /*idx*/,
-                                             int /*cardinality*/,
-                                             Type& a,
-                                             Type& b) {
+    this->forEachActiveIODomain([&](const Neon::index_3d& /*idx*/,
+                                    int /*cardinality*/,
+                                    Type& a,
+                                    Type& b) {
         b += (*alpha) * a;
     },
-                                         A, B);
+                                A, B);
 }
 
 template <typename G, typename T, int C>
@@ -342,16 +342,16 @@ auto TestData<G, T, C>::laplace(IODomain& A, NEON_IO IODomain& B)
 }
 
 template <typename G, typename T, int C>
-auto TestData<G, T, C>::compare(FieldNames name,
+auto TestData<G, T, C>::compare(FieldNames         name,
                                 [[maybe_unused]] T tollerance) -> bool
 {
     bool isTheSame = false;
     if constexpr (std::is_integral_v<T>) {
         bool foundAnIssue = false;
         this->compare(name, [&](const Neon::index_3d& /*idx*/,
-                                int                   /*cardinality*/,
-                                const T&              golden,
-                                const T&              computed) {
+                                int /*cardinality*/,
+                                const T& golden,
+                                const T& computed) {
             if (golden != computed) {
                 {
 #pragma omp critical
