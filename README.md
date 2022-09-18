@@ -32,7 +32,7 @@ Depending on the system, this will generate either a `.sln` project on Windows o
 A description of the system and its capabilities can be found in our paper [link](https://escholarship.org/uc/item/9fz7k633).
 
 We are working on providing a set of tutorials and a programming guide to help you get up to speed with Neon.
-We'll be using mkdocs system to organize the documentation. The documentation will be available both online and locally. 
+We'll be using mkdocs system to organize the documentation. The documentation will be available both online ([https://autodesk.github.io/Neon/](https://autodesk.github.io/Neon/)) and locally. 
 The following are the steps to access the documentation locally:
 
 ```bash
