@@ -2,8 +2,6 @@
 #include "Neon/domain/interface/KernelConfig.h"
 #include "Neon/domain/internal/bGrid/bPartitionIndexSpace.h"
 
-#include "Neon/domain/internal/bGrid/simple_vtk.hpp"
-
 namespace Neon::domain::internal::bGrid {
 
 bGrid::bGrid(const Neon::Backend&                                    backend,
