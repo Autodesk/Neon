@@ -2,6 +2,8 @@
 #include "Neon/domain/interface/KernelConfig.h"
 #include "Neon/domain/internal/bGrid/bPartitionIndexSpace.h"
 
+#include "Neon/domain/internal/bGrid/simple_vtk.hpp"
+
 namespace Neon::domain::internal::bGrid {
 
 bGrid::bGrid(const Neon::Backend&                                    backend,
@@ -13,6 +15,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
              const double_3d&                                        origin)
 {
 
+
     if (backend.devSet().setCardinality() > 1) {
         NeonException exp("bGrid");
         exp << "bGrid only supported on a single GPU";
@@ -21,6 +24,9 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     mData = std::make_shared<Data>();
 
+    mData->mStrongBalanced = true;
+
+    mData->mNoPartialRefined = false;
 
     mData->descriptor.resize(descriptor.getDepth());
     int top_level_spacing = 1;
@@ -28,6 +34,13 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         mData->descriptor[l] = descriptor.getLevelRefFactor(l);
         if (l > 0) {
             top_level_spacing *= mData->descriptor[l];
+            if (mData->descriptor[l] < mData->descriptor[l - 1]) {
+                NeonException exp("bGrid::bGrid");
+                exp << "The grid refinement factor should only go up from one level to another starting with Level 0 the leaf/finest level\n";
+                exp << "Level " << l - 1 << " refinement factor= " << mData->descriptor[l - 1] << "\n";
+                exp << "Level " << l << " refinement factor= " << mData->descriptor[l] << "\n";
+                NEON_THROW(exp);
+            }
         }
     }
 
@@ -61,66 +74,89 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                             NEON_DIVIDE_UP(domainSize.y, descriptor.get0LevelRefFactor()),
                             NEON_DIVIDE_UP(domainSize.z, descriptor.get0LevelRefFactor()));
 
-    for (int i = 1; i < descriptor.getDepth(); ++i) {
-        mData->mNumActiveVoxel[i][0] = 0;
 
-        numBlockInDomain[i].set(NEON_DIVIDE_UP(numBlockInDomain[i - 1].x, descriptor.getLevelRefFactor(i)),
-                                NEON_DIVIDE_UP(numBlockInDomain[i - 1].y, descriptor.getLevelRefFactor(i)),
-                                NEON_DIVIDE_UP(numBlockInDomain[i - 1].z, descriptor.getLevelRefFactor(i)));
+    for (int i = 0; i < descriptor.getDepth(); ++i) {
+        if (i > 0) {
 
-        mData->mBlockOriginTo1D[i] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
+            mData->mNumActiveVoxel[i][0] = 0;
+
+            numBlockInDomain[i].set(NEON_DIVIDE_UP(numBlockInDomain[i - 1].x, descriptor.getLevelRefFactor(i)),
+                                    NEON_DIVIDE_UP(numBlockInDomain[i - 1].y, descriptor.getLevelRefFactor(i)),
+                                    NEON_DIVIDE_UP(numBlockInDomain[i - 1].z, descriptor.getLevelRefFactor(i)));
+
+            mData->mBlockOriginTo1D[i] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
+        }
+        std::vector<uint32_t> msk(NEON_DIVIDE_UP(descriptor.getLevelRefFactor(i) * descriptor.getLevelRefFactor(i) * descriptor.getLevelRefFactor(i) *
+                                                     numBlockInDomain[i].x * numBlockInDomain[i].y * numBlockInDomain[i].z,
+                                                 Cell::sMaskSize),
+                                  0);
+        mData->denseLevelsBitmask.push_back(msk);
     }
 
-    // Number of active voxels per partition
-    // Loop over all blocks and voxels in blocks to count the number of active
-    // voxels and active blocks for allocation
-    //Start by calculating the number of blocks on the finest level (level 0)
-    //then for level>0, since we know how many blocks we need at the finest level,
-    // we can calculate the number of blocks we need at every other level starting with level 1 and going up the grid/tree
-    //TODO we may need to add more blocks in intermediate for strongly-balanced grid
+
+    auto flattened1DIndex = [&](int l, int blockX, int blockY, int blockZ, int localX, int localY, int localZ) {
+        int ref_factor = descriptor.getLevelRefFactor(l);
+
+        int blockID = blockX +
+                      blockY * numBlockInDomain[l].x +
+                      blockZ * numBlockInDomain[l].x * numBlockInDomain[l].y;
+
+        int id = localX +
+                 localY * ref_factor +
+                 localZ * ref_factor * ref_factor +
+                 blockID * ref_factor * ref_factor * ref_factor;
+
+        return id;
+    };
+
+    auto levelBitMaskIsSet = [&](int l, int blockX, int blockY, int blockZ, int localX, int localY, int localZ) {
+        const int Index1D = flattened1DIndex(l, blockX, blockY, blockZ, localX, localY, localZ);
+        const int mask = Index1D / Cell::sMaskSize;
+        const int bitPosition = Index1D % Cell::sMaskSize;
+        return mData->denseLevelsBitmask[l][mask] & (1 << bitPosition);
+    };
+
+    auto setLevelBitMask = [&](int l, int blockX, int blockY, int blockZ, int localX, int localY, int localZ) {
+        const int Index1D = flattened1DIndex(l, blockX, blockY, blockZ, localX, localY, localZ);
+        const int mask = Index1D / Cell::sMaskSize;
+        const int bitPosition = Index1D % Cell::sMaskSize;
+        mData->denseLevelsBitmask[l][mask] |= (1 << bitPosition);
+    };
+
+    //Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
+    //If a block contain an active voxel, it activates itself as well
+    //This loop only sets the bitmask
     for (int l = 0; l < descriptor.getDepth(); ++l) {
-        uint32_t  blockId = 0;
         const int ref_factor = descriptor.getLevelRefFactor(l);
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
         const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
-
-        //TODO need to change how march over blocks so we that we can guarantee that children of same parent block
-        // take consecutive numbers
 
         for (int bz = 0; bz < numBlockInDomain[l].z; bz++) {
             for (int by = 0; by < numBlockInDomain[l].y; by++) {
                 for (int bx = 0; bx < numBlockInDomain[l].x; bx++) {
 
-                    bool isActiveBlock = false;
-
                     Neon::int32_3d blockOrigin(bx * ref_factor_recurse,
                                                by * ref_factor_recurse,
                                                bz * ref_factor_recurse);
 
+                    bool containVoxels = false;
                     for (int z = 0; z < ref_factor; z++) {
                         for (int y = 0; y < ref_factor; y++) {
                             for (int x = 0; x < ref_factor; x++) {
 
-                                if (l == 0) {
-                                    const Neon::int32_3d id(blockOrigin.x + x,
-                                                            blockOrigin.y + y,
-                                                            blockOrigin.z + z);
+                                const Neon::int32_3d voxel(blockOrigin.x + x * prv_ref_factor_recurse,
+                                                           blockOrigin.y + y * prv_ref_factor_recurse,
+                                                           blockOrigin.z + z * prv_ref_factor_recurse);
 
-                                    if (id < domainSize) {
-                                        if (activeCellLambda[l](id)) {
-                                            isActiveBlock = true;
-                                            mData->mNumActiveVoxel[l][0]++;
+                                if (voxel < domainSize) {
+                                    //if it is already active
+                                    if (levelBitMaskIsSet(l, bx, by, bz, x, y, z)) {
+                                        containVoxels = true;
+                                    } else {
+                                        if (activeCellLambda[l](voxel)) {
+                                            containVoxels = true;
+                                            setLevelBitMask(l, bx, by, bz, x, y, z);
                                         }
-                                    }
-                                } else {
-                                    //This is the corresponding block origin in the previous level
-                                    const Neon::int32_3d id(blockOrigin.x + x * prv_ref_factor_recurse,
-                                                            blockOrigin.y + y * prv_ref_factor_recurse,
-                                                            blockOrigin.z + z * prv_ref_factor_recurse);
-
-                                    if (mData->mBlockOriginTo1D[l - 1].getMetadata(id) || activeCellLambda[l](id)) {
-                                        isActiveBlock = true;
-                                        mData->mNumActiveVoxel[l][0]++;
                                     }
                                 }
                             }
@@ -128,10 +164,171 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                     }
 
 
-                    if (isActiveBlock) {
+                    if (containVoxels) {
+                        //if the block contains voxels, it should activate itself
+                        //find its corresponding index within the next level
+
+                        if (l < descriptor.getDepth() - 1) {
+                            const int nxt_ref_factor = descriptor.getLevelRefFactor(l + 1);
+
+                            Neon::int32_3d parentBlock(bx / nxt_ref_factor,
+                                                       by / nxt_ref_factor,
+                                                       bz / nxt_ref_factor);
+
+                            Neon::int32_3d indexInParentBlock(bx % nxt_ref_factor,
+                                                              by % nxt_ref_factor,
+                                                              bz % nxt_ref_factor);
+
+                            setLevelBitMask(l + 1,
+                                            parentBlock.x, parentBlock.y, parentBlock.z,
+                                            indexInParentBlock.x, indexInParentBlock.y, indexInParentBlock.z);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //Impose the strong balance condition
+    if (mData->mStrongBalanced) {
+        bool again = true;
+        while (again) {
+            again = false;
+
+
+            for (int l = 0; l < descriptor.getDepth(); ++l) {
+                const int ref_factor = descriptor.getLevelRefFactor(l);
+                const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
+
+                for (int bz = 0; bz < numBlockInDomain[l].z; bz++) {
+                    for (int by = 0; by < numBlockInDomain[l].y; by++) {
+                        for (int bx = 0; bx < numBlockInDomain[l].x; bx++) {
+
+
+                            for (int z = 0; z < ref_factor; z++) {
+                                for (int y = 0; y < ref_factor; y++) {
+                                    for (int x = 0; x < ref_factor; x++) {
+
+                                        const Neon::int32_3d voxel(bx * ref_factor + x,
+                                                                   by * ref_factor + y,
+                                                                   bz * ref_factor + z);
+
+
+                                        //if this voxel is active
+                                        if (levelBitMaskIsSet(l, bx, by, bz, x, y, z)) {
+
+                                            for (int k = -1; k < 2; k++) {
+                                                for (int j = -1; j < 2; j++) {
+                                                    for (int i = -1; i < 2; i++) {
+                                                        if (i == 0 && j == 0 && k == 0) {
+                                                            continue;
+                                                        }
+
+                                                        Neon::int32_3d proxyVoxel(voxel.x + i,
+                                                                                  voxel.y + j,
+                                                                                  voxel.z + k);
+
+                                                        const Neon::int32_3d proxyVoxelLocation(proxyVoxel.x * prv_ref_factor_recurse,
+                                                                                                proxyVoxel.y * prv_ref_factor_recurse,
+                                                                                                proxyVoxel.z * prv_ref_factor_recurse);
+
+                                                        if (proxyVoxelLocation < domainSize && proxyVoxelLocation >= 0) {
+
+                                                            Neon::int32_3d prv_nVoxelBlockOrigin, prv_nVoxelLocalID;
+                                                            for (int l_n = l; l_n < descriptor.getDepth(); ++l_n) {
+                                                                const int l_n_ref_factor = descriptor.getLevelRefFactor(l_n);
+
+
+                                                                //find the block origin of n_voxel which live at level l_n
+                                                                const Neon::int32_3d nVoxelBlockOrigin(proxyVoxel.x / l_n_ref_factor,
+                                                                                                       proxyVoxel.y / l_n_ref_factor,
+                                                                                                       proxyVoxel.z / l_n_ref_factor);
+
+                                                                const Neon::int32_3d nVoxelLocalID(proxyVoxel.x % l_n_ref_factor,
+                                                                                                   proxyVoxel.y % l_n_ref_factor,
+                                                                                                   proxyVoxel.z % l_n_ref_factor);
+
+                                                                //find if this block origin is active
+                                                                if (levelBitMaskIsSet(l_n,
+                                                                                      nVoxelBlockOrigin.x, nVoxelBlockOrigin.y, nVoxelBlockOrigin.z,
+                                                                                      nVoxelLocalID.x, nVoxelLocalID.y, nVoxelLocalID.z)) {
+
+                                                                    //if this neighbor is at the same level or +1 level, then there is nothing else we should check on
+                                                                    if (l_n == l || l_n == l + 1) {
+                                                                        break;
+                                                                    } else {
+                                                                        //otherwise, we should refine the previous block and voxel
+
+                                                                        setLevelBitMask(l_n - 1,
+                                                                                        prv_nVoxelBlockOrigin.x, prv_nVoxelBlockOrigin.y, prv_nVoxelBlockOrigin.z,
+                                                                                        prv_nVoxelLocalID.x, prv_nVoxelLocalID.y, prv_nVoxelLocalID.z);
+
+                                                                        again = true;
+                                                                    }
+                                                                }
+
+                                                                //promote the proxy voxel to the next level
+                                                                proxyVoxel = nVoxelBlockOrigin;
+
+                                                                //cache the voxel and block at this level because we might need to activate them
+                                                                prv_nVoxelBlockOrigin = nVoxelBlockOrigin;
+                                                                prv_nVoxelLocalID = nVoxelLocalID;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    // Number of active voxels per partition
+    // Loop over all blocks and voxels in blocks to count the number of active
+    // voxels and active blocks for allocation
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        const int ref_factor = descriptor.getLevelRefFactor(l);
+        const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
+
+        for (int bz = 0; bz < numBlockInDomain[l].z; bz++) {
+            for (int by = 0; by < numBlockInDomain[l].y; by++) {
+                for (int bx = 0; bx < numBlockInDomain[l].x; bx++) {
+
+                    Neon::int32_3d blockOrigin(bx * ref_factor_recurse,
+                                               by * ref_factor_recurse,
+                                               bz * ref_factor_recurse);
+
+                    int numVoxelsInBlock = 0;
+
+                    for (int z = 0; z < ref_factor; z++) {
+                        for (int y = 0; y < ref_factor; y++) {
+                            for (int x = 0; x < ref_factor; x++) {
+
+                                if (levelBitMaskIsSet(l, bx, by, bz, x, y, z)) {
+                                    numVoxelsInBlock++;
+                                }
+                            }
+                        }
+                    }
+
+                    //if we don't accept partially refined blocks, if there is one voxel in the block that is active
+                    //then all voxels are active in this block
+                    if (mData->mNoPartialRefined && numVoxelsInBlock > 0 && l == 0) {
+                        numVoxelsInBlock = ref_factor * ref_factor * ref_factor;
+                    }
+                    mData->mNumActiveVoxel[l][0] += numVoxelsInBlock;
+
+
+                    if (numVoxelsInBlock > 0) {
                         mData->mNumBlocks[l][0]++;
-                        mData->mBlockOriginTo1D[l].addPoint(blockOrigin, blockId);
-                        blockId++;
+                        mData->mBlockOriginTo1D[l].addPoint(blockOrigin, uint32_t(mData->mBlockOriginTo1D[l].size()));
                     }
                 }
             }
@@ -183,7 +380,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 
 
-    // bitmask
+    // block bitmask
     mData->mActiveMaskSize.resize(descriptor.getDepth());
     mData->mActiveMask.resize(descriptor.getDepth());
     for (int l = 0; l < descriptor.getDepth(); ++l) {
@@ -231,10 +428,9 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 
 
-    // Second loop over active blocks to populate the block origins, neighbors, and bitmask
+    // loop over active blocks to populate the block origins, neighbors, and bitmask
     for (int l = 0; l < descriptor.getDepth(); ++l) {
         const int ref_factor = descriptor.getLevelRefFactor(l);
-        const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
 
         mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
@@ -243,36 +439,45 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
             mData->mOrigin[l].eRef(devID, blockIdx) = blockOrigin;
 
+            Neon::int32_3d block3DIndex = blockOrigin / ref_factor_recurse;
+
             //set active mask
-            for (int z = 0; z < ref_factor; z++) {
-                for (int y = 0; y < ref_factor; y++) {
-                    for (int x = 0; x < ref_factor; x++) {
+            std::vector<Cell::Location> activeVoxelsInBlock;
 
-                        bool is_active = false;
+            auto setCellActiveMask = [&](Cell::Location::Integer x, Cell::Location::Integer y, Cell::Location::Integer z) {
+                Cell cell(x, y, z);
+                cell.mBlockID = blockIdx;
+                mData->mActiveMask[l].eRef(devID, cell.getBlockMaskStride(ref_factor) + cell.getMaskLocalID(ref_factor), 0) |= 1 << cell.getMaskBitPosition(ref_factor);
+            };
 
-                        if (l == 0) {
-                            const Neon::int32_3d id(blockOrigin.x + x,
-                                                    blockOrigin.y + y,
-                                                    blockOrigin.z + z);
-                            is_active = id < domainSize && activeCellLambda[l](id);
-                        } else {
-                            //This is the corresponding block origin in the previous level
-                            const Neon::int32_3d id(blockOrigin.x + x * prv_ref_factor_recurse,
-                                                    blockOrigin.y + y * prv_ref_factor_recurse,
-                                                    blockOrigin.z + z * prv_ref_factor_recurse);
-                            if (mData->mBlockOriginTo1D[l - 1].getMetadata(id) || activeCellLambda[l](id)) {
-                                is_active = true;
-                            }
-                        }
+            for (Cell::Location::Integer z = 0; z < ref_factor; z++) {
+                for (Cell::Location::Integer y = 0; y < ref_factor; y++) {
+                    for (Cell::Location::Integer x = 0; x < ref_factor; x++) {
 
-                        if (is_active) {
-                            Cell cell(static_cast<Cell::Location::Integer>(x),
-                                      static_cast<Cell::Location::Integer>(y),
-                                      static_cast<Cell::Location::Integer>(z));
-                            cell.mBlockID = blockIdx;
-                            mData->mActiveMask[l].eRef(devID, cell.getBlockMaskStride(ref_factor) + cell.getMaskLocalID(ref_factor), 0) |= 1 << cell.getMaskBitPosition(ref_factor);
+                        //store the local index of the active voxel
+                        if (levelBitMaskIsSet(l, block3DIndex.x, block3DIndex.y, block3DIndex.z, x, y, z)) {
+                            activeVoxelsInBlock.push_back({x, y, z});
                         }
                     }
+                }
+            }
+
+
+            //if partially refined block is not allowed and we have one voxel active in the block,
+            //then we should active all voxels in this block
+            if (mData->mNoPartialRefined && !activeVoxelsInBlock.empty()) {
+                for (Cell::Location::Integer z = 0; z < ref_factor; z++) {
+                    for (Cell::Location::Integer y = 0; y < ref_factor; y++) {
+                        for (Cell::Location::Integer x = 0; x < ref_factor; x++) {
+                            setCellActiveMask(x, y, z);
+                        }
+                    }
+                }
+
+            } else {
+                //otherwise we only add these voxels that are active
+                for (auto& voxel : activeVoxelsInBlock) {
+                    setCellActiveMask(voxel.x, voxel.y, voxel.z);
                 }
             }
 
@@ -502,6 +707,7 @@ auto bGrid::getDescriptor() const -> const std::vector<int>&
 
 void bGrid::topologyToVTK(std::string fileName) const
 {
+
     std::ofstream file(fileName);
     file << "# vtk DataFile Version 2.0\n";
     file << "bGrid\n";
@@ -529,6 +735,7 @@ void bGrid::topologyToVTK(std::string fileName) const
                z * (getDimension().rMax() + 1) * (getDimension().rMax() + 1);
     };
 
+
     for (int l = 0; l < mData->descriptor.size(); ++l) {
         const int ref_factor = mData->descriptor[l];
         int       prv_ref_factor_recurse = 1;
@@ -541,6 +748,7 @@ void bGrid::topologyToVTK(std::string fileName) const
             // TODO need to figure out which device owns this block
             SetIdx devID(0);
 
+
             for (int z = 0; z < ref_factor; z++) {
                 for (int y = 0; y < ref_factor; y++) {
                     for (int x = 0; x < ref_factor; x++) {
@@ -550,13 +758,44 @@ void bGrid::topologyToVTK(std::string fileName) const
                         cell.mBlockID = blockIdx;
 
                         if (cell.computeIsActive(mData->mActiveMask[l].rawMem(devID, Neon::DeviceType::CPU), ref_factor)) {
-                            //file << blockOrigin.x + x * prv_ref_factor_recurse << " "
-                            //     << blockOrigin.y + y * prv_ref_factor_recurse << " "
-                            //     << blockOrigin.z + z * prv_ref_factor_recurse << "\n";
 
                             Neon::int32_3d corner(blockOrigin.x + x * prv_ref_factor_recurse,
                                                   blockOrigin.y + y * prv_ref_factor_recurse,
                                                   blockOrigin.z + z * prv_ref_factor_recurse);
+
+
+                            /*if (l > 0) {
+                                //check if the voxel is refined 
+                                const int prv_ref_factor = mData->descriptor[l - 1];
+                                for (int zp = 0; zp < prv_ref_factor; ++zp) {
+                                    for (int yp = 0; yp < prv_ref_factor; ++yp) {
+                                        for (int xp = 0; xp < prv_ref_factor; ++xp) {
+                                            Cell pCell(static_cast<Cell::Location::Integer>(xp),
+                                                       static_cast<Cell::Location::Integer>(yp),
+                                                       static_cast<Cell::Location::Integer>(zp));
+
+                                            Neon::int32_3d pCorner(xp + corner.x,
+                                                                   yp + corner.y,
+                                                                   zp + corner.z);
+
+                                            if (pCorner < getDimension()) {
+                                                auto bOrigin = mData->mBlockOriginTo1D[l - 1].getMetadata(pCorner);
+                                                if (bOrigin) {
+
+                                                    pCell.mBlockID = *bOrigin;
+
+                                                    if (pCell.computeIsActive(mData->mActiveMask[l - 1].rawMem(devID, Neon::DeviceType::CPU), prv_ref_factor)) {
+                                                        isRefined = true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }*/
+
+
                             file << "8 ";
                             //x,y,z
                             file << mapTo1D(corner.x, corner.y, corner.z) << " ";

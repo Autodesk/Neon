@@ -41,31 +41,61 @@ TEST(bGrid, multiRes)
 {
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
         int              nGPUs = 1;
-        Neon::int32_3d   dim(50, 50, 50);
+        Neon::int32_3d   dim(16, 16, 16);
         std::vector<int> gpusIds(nGPUs, 0);
         auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
 
-        Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1, 1});
+        Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 2});
 
         Neon::domain::bGrid b_grid(
             bk,
             dim,
-            {[&](const Neon::index_3d& id) -> bool {
-                 return id.x < 10 && id.y < 10 && id.z < 10;
+            {[&](Neon::index_3d id) -> bool {
+                 return id.x == 8 && id.y == 8 && id.z == 0;
+                 //return id.norm() < 18;
+
+                 //Link SDF https://www.shadertoy.com/view/wlXSD7
+                 /*Neon::index_3d tid(id.x - dim.x / 2,
+                                    id.y - dim.y / 2,
+                                    id.z - dim.z / 2);
+
+                 int le = 6;  //length
+                 int r1 = 8;  //inner void
+                 int r2 = 4;  //diameter
+
+                 Neon::index_3d q(tid.x, std::max(std::abs(tid.y) - le, 0), tid.z);
+                 Neon::index_2d d(q.x, q.y);
+                 Neon::index_2d j(d.norm() - r1, q.z);
+                 bool           is_link = (j.norm() - r2) < 0;
+
+
+                 //Cut Hollow Sphere https://www.shadertoy.com/view/7tVXRt
+                 tid.x = 3 * id.x - dim.x / 2;
+                 tid.y = id.y - dim.y / 2;
+                 tid.z = 3 * id.z - dim.z / 2;
+                 int            r = 20;  //radius
+                 int            h = 5;   //height
+                 int            t = 2;   //thickness
+                 int            w = static_cast<int>(std::sqrt(r * r - h * h));
+                 Neon::index_2d xz(tid.x, tid.z);
+                 Neon::index_2d v(xz.norm(), tid.y);
+                 Neon::index_2d s(w, h);
+                 bool           is_cut_sphere = (((h * v.x < w * v.y) ? (v - s).norm() : abs(v.norm() - r)) - t) < 0;
+
+                 return is_link || is_cut_sphere;*/
+             },
+             [&](const Neon::index_3d&) -> bool {
+                 return false;
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return id.x < 20 && id.y < 20 && id.z < 20;
-             },
-             [&](const Neon::index_3d& id) -> bool {
-                 return id.x < 30 && id.y < 30 && id.z < 30;
-             },
-             [&](const Neon::index_3d& id) -> bool {
-                 return id.x < 40 && id.y < 40 && id.z < 40;
+                 return id.x == 4 && id.y == 4 && id.z == 0;
+                 //return false;
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
 
-        //b_grid.topologyToVTK("bGrid1111.vtk");
+        b_grid.topologyToVTK("bGrid112.vtk");
+
         //auto field = b_grid.newField<float>("myField", 1, 0);
 
         //field.ioToVtk("f", "f");

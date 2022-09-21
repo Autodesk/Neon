@@ -38,7 +38,7 @@ class bCell
 
     NEON_CUDA_HOST_DEVICE inline auto isActive() const -> bool;
 
-   private:
+   
     //the local index within the block
     Location mLocation;
     uint32_t mBlockID;

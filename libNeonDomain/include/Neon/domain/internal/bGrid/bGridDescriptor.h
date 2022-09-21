@@ -94,8 +94,8 @@ struct bGridDescriptor
             NEON_THROW(ex);
         }
 
-        int sum = 1;
-        for (int i = 0; i < level; ++i) {
+        int sum = 0;
+        for (int i = 0; i <= level; ++i) {
             sum += mLog2RefFactors[i];
         }
         return sum;
@@ -107,6 +107,10 @@ struct bGridDescriptor
     */
     int getRefFactorRecurse(int level) const
     {
+        if (level < 0) {
+            return 1;
+        }
+
         return 1 << getLog2RefFactorRecurse(level);
     }
 

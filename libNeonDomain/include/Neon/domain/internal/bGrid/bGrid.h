@@ -171,6 +171,13 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         std::vector<Neon::domain::tool::PointHashTable<int32_t, uint32_t>> mBlockOriginTo1D;
 
         std::vector<int> descriptor;
+
+        bool mStrongBalanced;
+
+        bool mNoPartialRefined;
+
+        //bitmask of the active cells at each level and works as if the grid is dense at each level
+        std::vector<std::vector<uint32_t>> denseLevelsBitmask;
     };
     std::shared_ptr<Data> mData;
 };
