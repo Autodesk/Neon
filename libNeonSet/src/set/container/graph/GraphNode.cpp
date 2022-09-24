@@ -11,7 +11,7 @@ GraphNode::GraphNode()
 auto GraphNode::newBeginNode() -> GraphNode
 {
     GraphNode node;
-    node.mGraphNodeOrganization.setUid(GraphData::beginUid);
+    node.mGraphNodeOrganization.setUid(GraphInfo::beginUid);
     node.mContainer = Neon::set::Container::factoryAnchor("Begin");
     return node;
 }
@@ -19,17 +19,17 @@ auto GraphNode::newBeginNode() -> GraphNode
 auto GraphNode::newEndNode() -> GraphNode
 {
     GraphNode node;
-    node.mGraphNodeOrganization.setUid(GraphData::endUid);
+    node.mGraphNodeOrganization.setUid(GraphInfo::endUid);
     node.mContainer = Neon::set::Container::factoryAnchor("End");
     return node;
 }
 
-auto GraphNode::getGraphData() -> GraphData&
+auto GraphNode::getGraphData() -> GraphInfo&
 {
     return mGraphNodeOrganization;
 }
 
-auto GraphNode::getGraphData() const -> const GraphData&
+auto GraphNode::getGraphData() const -> const GraphInfo&
 {
     return mGraphNodeOrganization;
 }
@@ -54,7 +54,7 @@ auto GraphNode::getContainer() const -> const Container&
     return mContainer;
 }
 
-GraphNode::GraphNode(const Container& container, GraphData::Uid uid)
+GraphNode::GraphNode(const Container& container, GraphInfo::NodeUid uid)
 {
     mContainer = container;
     mGraphNodeOrganization.setUid(uid);

@@ -183,7 +183,7 @@ struct Loader
 
         switch (m_loadingMode) {
             case Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA: {
-                Neon::internal::dataDependency::DataUId              uid = field.getUid();
+                Neon::internal::dataDependency::MdObjUid uid = field.getUid();
                 constexpr Neon::internal::dataDependency::AccessType access = Neon::internal::dataDependency::AccessType::WRITE;
                 Compute                                              compute = computeE;
                 Neon::internal::dataDependency::Token                dataToken(uid, access, compute);
@@ -221,7 +221,7 @@ struct Loader
     {
         switch (m_loadingMode) {
             case Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA: {
-                Neon::internal::dataDependency::DataUId              uid = field.getUid();
+                Neon::internal::dataDependency::MdObjUid uid = field.getUid();
                 constexpr Neon::internal::dataDependency::AccessType access = Neon::internal::dataDependency::AccessType::READ;
                 Neon::Compute                                        compute = computeE;
                 Neon::internal::dataDependency::Token                dataToken(uid, access, compute);

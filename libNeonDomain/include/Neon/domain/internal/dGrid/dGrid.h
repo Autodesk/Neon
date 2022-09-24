@@ -88,7 +88,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
      * Creates a new Field
      */
     template <typename T, int C = 0>
-    auto newField(const std::string   fieldUserName,
+    auto newField(const std::string&  fieldUserName,
                   int                 cardinality,
                   T                   inactiveValue,
                   Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE,
@@ -183,7 +183,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
 
         Neon::index_3d                                       halo;
         std::vector<Neon::set::DataSet<PartitionIndexSpace>> partitionIndexSpaceVec;
-        Neon::sys::patterns::Engine                          reduceEngine;        
+        Neon::sys::patterns::Engine                          reduceEngine;
     };
     std::shared_ptr<data_t> m_data;
 };

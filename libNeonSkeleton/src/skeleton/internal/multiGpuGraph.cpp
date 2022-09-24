@@ -39,7 +39,7 @@ void MultiGpuGraph::helpParseNewContainer(const Neon::set::Container& inContaine
 
     // Register and retrieve the id for the new container
     // add a node
-    Neon::set::container::GraphData::Uid graphNodeUid = helpAddNewContainerToGraph(inContainer);
+    Neon::set::container::GraphInfo::NodeUid graphNodeUid = helpAddNewContainerToGraph(inContainer);
 
     // Parsing all the data toke used by the kernel container
     std::vector<Neon::internal::dataDependency::Token> tokens = helpParseContainer(mGraph().getGraphNode(graphNodeUid).getContainer());
@@ -86,10 +86,10 @@ auto MultiGpuGraph::io2DotOriginalApp(const std::string& fname, const std::strin
     mGraph().ioToDot(fname, graphName, debug);
 }
 
-auto MultiGpuGraph::helpAddNewContainerToGraph(const Neon::set::Container& container) -> Neon::set::container::GraphData::Uid
+auto MultiGpuGraph::helpAddNewContainerToGraph(const Neon::set::Container& container) -> Neon::set::container::GraphInfo::NodeUid
 {
     const auto&                          graphNode = mGraph().addNode(container);
-    Neon::set::container::GraphData::Uid uid = graphNode.getGraphData().getUid();
+    Neon::set::container::GraphInfo::NodeUid uid = graphNode.getGraphData().getUid();
     return uid;
 }
 
@@ -585,21 +585,24 @@ auto MultiGpuGraph::addSyncAndMemoryTransfers(const Neon::skeleton::Options&) ->
         }
     });
 
-    for(auto depPtr : stencilDependencies){
+    for (auto depPtr : stencilDependencies) {
         const auto& dep = *depPtr;
-        auto nodeA = mGraph().getGraphNode(dep.getSource());
-        auto nodeB = mGraph().getGraphNode(dep.getDestination());
+        auto        nodeA = mGraph().getGraphNode(dep.getSource());
+        auto        nodeB = mGraph().getGraphNode(dep.getDestination());
 
-        auto& newHaloContainer = Neon::set::Container::factoryHaloUpdate();
+        auto stencilInfo = dep.getListStencilInfo();
 
-        mGraph().addNodeInBetween()
+        for(auto& infoPrt : stencilInfo){
+            mGraph().addNodeInBetween(dep.)
+
+        }
     }
 
 
     // Detects all stencil nodes
-    std::vector<Neon::set::container::GraphData::Uid> stencilNodesUids;
+    std::vector<Neon::set::container::GraphInfo::NodeUid> stencilNodesUids;
 
-    mGraph().forEachNode([&](Neon::set::container::GraphData::Uid nodeUid) {
+    mGraph().forEachNode([&](Neon::set::container::GraphInfo::NodeUid nodeUid) {
         const auto& node = mGraph().getGraphNode(nodeUid);
         auto        pattern = node.getContainer().getContainerInterface().getContainerPatternType();
         if (pattern == Neon::set::ContainerPatternType::stencil) {

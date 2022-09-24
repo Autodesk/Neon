@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Neon/set/Backend.h"
 #include "Neon/set/HuOptions.h"
 #include "Neon/set/dependency/AccessType.h"
@@ -19,21 +20,21 @@ struct Token
     /**
      * Unique constructor
      */
-    Token(DataUId       m_uid,
+    Token(MdObjUid m_uid,
           AccessType    m_access,
           Neon::Compute m_compute);
 
     /**
      * Method to update a token
      */
-    auto update(DataUId       m_uid,
+    auto update(MdObjUid m_uid,
                 AccessType    m_access,
                 Neon::Compute m_compute) -> void;
 
     /**
      * It returns the multi-GPU data uid
      */
-    auto uid() const -> DataUId;
+    auto uid() const -> MdObjUid;
 
     /**
      * It returns the type of data access
@@ -66,7 +67,7 @@ struct Token
 
 
    private:
-    DataUId                                                      mUid;
+    MdObjUid                                         mUid;
     AccessType                                                   mAccess;
     Compute                                                      mCompute;
     std::function<void(Neon::set::HuOptions& opt)>               mHu;

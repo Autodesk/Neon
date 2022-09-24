@@ -13,8 +13,8 @@ FieldBase<T, C>::FieldBase()
 }
 
 template <typename T, int C>
-FieldBase<T, C>::FieldBase(const std::string              FieldBaseUserName,
-                           const std::string              fieldClassName,
+FieldBase<T, C>::FieldBase(const std::string&             FieldBaseUserName,
+                           const std::string&             fieldClassName,
                            const Neon::index_3d&          dimension,
                            int                            cardinality,
                            T                              outsideVal,
@@ -261,6 +261,12 @@ template <typename T, int C>
 auto FieldBase<T, C>::getClassName() const -> const std::string&
 {
     return mStorage->className;
+}
+
+template <typename T, int C>
+auto FieldBase<T, C>::haloUpdateContainer(set::HuOptions& /*opt*/) const -> Neon::set::Container
+{
+    NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
 template <typename T, int C>

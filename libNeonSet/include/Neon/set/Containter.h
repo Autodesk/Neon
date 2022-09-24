@@ -16,6 +16,7 @@ struct Container
 {
    public:
     Container() = default;
+    virtual ~Container() = default;
 
     /**
      * Run a Neon Container on a given stream and with a given data view

@@ -150,7 +150,7 @@ struct MultiGpuGraph
 
    private:
     auto helpAddNewContainerToGraph(const Neon::set::Container& container)
-        -> Neon::set::container::GraphData::Uid;
+        -> Neon::set::container::GraphInfo::NodeUid;
 
     auto optimizeStandardOCC(const Neon::skeleton::Options&) -> void;
 

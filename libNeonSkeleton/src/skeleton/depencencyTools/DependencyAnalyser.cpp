@@ -4,14 +4,14 @@
 namespace Neon::skeleton::internal {
 
 
-DependencyAnalyser::DependencyAnalyser(Neon::internal::dataDependency::DataUId uid,
-                                       Neon::internal::dataDependency::DataIdx idx)
+DependencyAnalyser::DependencyAnalyser(Neon::internal::dataDependency::MdObjUid uid,
+                                       Neon::internal::dataDependency::MdObjIdx idx)
 {
     mUid = uid;
     mIdx = idx;
 }
 
-auto DependencyAnalyser::update(Neon::set::container::GraphData::Uid       newKernel,
+auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       newKernel,
                                 Neon::internal::dataDependency::AccessType newOp)
     -> std::vector<DataDependency>
 {
@@ -95,7 +95,7 @@ auto DependencyAnalyser::update(Neon::set::container::GraphData::Uid       newKe
 
                 {  // Executing b.
                     mParsedR.clear();
-                    mParsedW = std::vector<Neon::set::container::GraphData::Uid>(1, newKernel);
+                    mParsedW = std::vector<Neon::set::container::GraphInfo::NodeUid>(1, newKernel);
                 }
 
                 return output;
@@ -129,7 +129,7 @@ auto DependencyAnalyser::update(Neon::set::container::GraphData::Uid       newKe
                 {  // Executing c.
 
                     mParsedR.clear();
-                    mParsedW = std::vector<Neon::set::container::GraphData::Uid>(1, newKernel);
+                    mParsedW = std::vector<Neon::set::container::GraphInfo::NodeUid>(1, newKernel);
                 }
                 return output;
             }

@@ -2,14 +2,14 @@
 
 namespace Neon::internal::dataDependency {
 
-Token::Token(DataUId    uid,
+Token::Token(MdObjUid   uid,
              AccessType access,
              Compute    compute)
 {
     update(uid, access, compute);
 }
 
-auto Token::update(DataUId    uid,
+auto Token::update(MdObjUid   uid,
                    AccessType access,
                    Compute    compute) -> void
 {
@@ -38,7 +38,7 @@ auto Token::compute() const -> Compute
     return mCompute;
 }
 
-auto Token::uid() const -> DataUId
+auto Token::uid() const -> MdObjUid
 {
     return mUid;
 }
@@ -74,4 +74,4 @@ auto Token::mergeAccess(AccessType tomerge) -> void
     mAccess = AccessTypeUtils::merge(mAccess, tomerge);
 }
 
-}
+}  // namespace Neon::internal::dataDependency

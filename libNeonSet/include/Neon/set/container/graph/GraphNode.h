@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GraphData.h"
+#include "GraphInfo.h"
 #include "GraphNodeScheduling.h"
 #include "Neon/set/Containter.h"
 
@@ -16,7 +16,7 @@ struct GraphNode
     GraphNode();
 
     GraphNode(const Container& container,
-              GraphData::Uid   uid);
+              GraphInfo::NodeUid   uid);
 
     /**
      * Factory method to generate a begin node
@@ -36,12 +36,12 @@ struct GraphNode
     /**
      * Returns a reference to graph information related to this node.
      * */
-    auto getGraphData() -> GraphData&;
+    auto getGraphData() -> GraphInfo&;
 
     /**
      * Returns a reference to some graph information related to this node.
      * */
-    auto getGraphData() const -> const GraphData&;
+    auto getGraphData() const -> const GraphInfo&;
 
     /**
      * Returns the scheduling information to run this node
@@ -78,7 +78,7 @@ struct GraphNode
 
     Container            mContainer /**< Any Neon container */;
     GraphNodeScheduling  mGraphNodeScheduling /**< Scheduling information for the node */;
-    GraphData            mGraphNodeOrganization /**< Information to organize the node w.r.t. the rest of the graph */;
+    GraphInfo            mGraphNodeOrganization /**< Information to organize the node w.r.t. the rest of the graph */;
     ContainerPatternType getContainerpatternType() const;
 };
 

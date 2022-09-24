@@ -8,7 +8,7 @@ Graph::Graph()
 {
     auto begin = GraphNode::newBeginNode();
     auto end = GraphNode::newEndNode();
-    mUidCounter = GraphData::firstInternal;
+    mUidCounter = GraphInfo::firstInternal;
 
     mRawGraph.addVertex(begin.getGraphData().getUid(), begin);
     mRawGraph.addVertex(end.getGraphData().getUid(), end);
@@ -18,12 +18,12 @@ Graph::Graph()
 
 auto Graph::getBeginNode() const -> const GraphNode&
 {
-    return mRawGraph.getVertexProperty(GraphData::beginUid);
+    return mRawGraph.getVertexProperty(GraphInfo::beginUid);
 }
 
 auto Graph::getEndNode() const -> const GraphNode&
 {
-    return mRawGraph.getVertexProperty(GraphData::endUid);
+    return mRawGraph.getVertexProperty(GraphInfo::endUid);
 }
 
 auto Graph::addNodeInBetween(const GraphNode&          nodeA,
@@ -143,7 +143,7 @@ auto Graph::removeNode(GraphNode& gn) -> Container
     }
 
     mRawGraph.removeVertex(uidB);
-    gn.getGraphData().setUid(GraphData::notSet);
+    gn.getGraphData().setUid(GraphInfo::notSet);
 
     return gn.getContainer();
 }
@@ -187,7 +187,7 @@ auto Graph::removeNodeAndItsDependencies(GraphNode& gn)
     }
 
     mRawGraph.removeVertex(uidB);
-    gn.getGraphData().setUid(GraphData::notSet);
+    gn.getGraphData().setUid(GraphInfo::notSet);
 
     return gn.getContainer();
 }
@@ -380,15 +380,15 @@ auto Graph::removeRedundantDependencies()
     }
 }
 
-auto Graph::helpGetOutNeighbors(GraphData::Uid                          nodeUid,
+auto Graph::helpGetOutNeighbors(GraphInfo::NodeUid                          nodeUid,
                                 bool                                    filteredOut,
                                 const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::set<GraphData::Uid>
+    -> std::set<GraphInfo::NodeUid>
 {
-    std::set<GraphData::Uid> outNgh;
+    std::set<GraphInfo::NodeUid> outNgh;
     mRawGraph.forEachOutEdge(
         nodeUid,
-        [&](std::pair<GraphData::Uid, GraphData::Uid> edge) {
+        [&](std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid> edge) {
             auto& edgeProp = mRawGraph.getEdgeProperty(edge);
             for (auto& depType : dependencyTypes) {
                 if (depType == edgeProp.getType()) {
@@ -403,15 +403,15 @@ auto Graph::helpGetOutNeighbors(GraphData::Uid                          nodeUid,
     return outNgh;
 }
 
-auto Graph::helpGetInNeighbors(GraphData::Uid                          nodeUid,
+auto Graph::helpGetInNeighbors(GraphInfo::NodeUid                          nodeUid,
                                bool                                    filterOutBegin,
                                const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::set<GraphData::Uid>
+    -> std::set<GraphInfo::NodeUid>
 {
-    std::set<GraphData::Uid> inNgh;
+    std::set<GraphInfo::NodeUid> inNgh;
     mRawGraph.forEachInEdge(
         nodeUid,
-        [&](std::pair<GraphData::Uid, GraphData::Uid> edge) {
+        [&](std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid> edge) {
             auto& edgeProp = mRawGraph.getEdgeProperty(edge);
             for (auto& depType : dependencyTypes) {
                 if (depType == edgeProp.getType()) {
@@ -425,15 +425,15 @@ auto Graph::helpGetInNeighbors(GraphData::Uid                          nodeUid,
     return inNgh;
 }
 
-auto Graph::helpGetOutEdges(GraphData::Uid                          nodeUid,
+auto Graph::helpGetOutEdges(GraphInfo::NodeUid                          nodeUid,
                             bool                                    filterOutEnd,
                             const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>
+    -> std::set<std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid>>
 {
-    std::set<std::pair<GraphData::Uid, GraphData::Uid>> outEdges;
+    std::set<std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid>> outEdges;
     mRawGraph.forEachOutEdge(
         nodeUid,
-        [&](std::pair<GraphData::Uid, GraphData::Uid> edge) {
+        [&](std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid> edge) {
             auto& edgeProp = mRawGraph.getEdgeProperty(edge);
             for (auto& depType : dependencyTypes) {
                 if (depType == edgeProp.getType()) {
@@ -447,15 +447,15 @@ auto Graph::helpGetOutEdges(GraphData::Uid                          nodeUid,
     return outEdges;
 }
 
-auto Graph::helpGetInEdges(GraphData::Uid                          nodeUid,
+auto Graph::helpGetInEdges(GraphInfo::NodeUid                          nodeUid,
                            bool                                    filterOutBegin,
                            const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>
+    -> std::set<std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid>>
 {
-    std::set<std::pair<GraphData::Uid, GraphData::Uid>> inEdges;
+    std::set<std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid>> inEdges;
     mRawGraph.forEachInEdge(
         nodeUid,
-        [&](std::pair<GraphData::Uid, GraphData::Uid> edge) {
+        [&](std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid> edge) {
             auto& edgeProp = mRawGraph.getEdgeProperty(edge);
             for (auto& depType : dependencyTypes) {
                 if (depType == edgeProp.getType()) {
@@ -473,7 +473,7 @@ auto Graph::helpGetBFS(bool                                    filterOutBeginEnd
                        const std::vector<GraphDependencyType>& dependencyTypes)
     -> Bfs
 {
-    using Frontier = std::unordered_map<GraphData::Uid, size_t>;
+    using Frontier = std::unordered_map<GraphInfo::NodeUid, size_t>;
 
     Bfs bfs;
 
@@ -546,19 +546,19 @@ auto Graph::helpComputeScheduling_01_generatingBFS(bool filterOutAnchors)
                                          GraphDependencyType::user});
 }
 
-auto Graph::getGraphNode(GraphData::Uid uid) -> GraphNode&
+auto Graph::getGraphNode(GraphInfo::NodeUid uid) -> GraphNode&
 {
     return mRawGraph.getVertexProperty(uid);
 }
 
-auto Graph::getGraphNode(GraphData::Uid uid) const -> const GraphNode&
+auto Graph::getGraphNode(GraphInfo::NodeUid uid) const -> const GraphNode&
 {
     return mRawGraph.getVertexProperty(uid);
 }
 
 auto Graph::helpComputeScheduling_00_resetData() -> void
 {
-    mRawGraph.forEachVertex([&](const GraphData::Uid& graphNodeId) {
+    mRawGraph.forEachVertex([&](const GraphInfo::NodeUid& graphNodeId) {
         auto& targetNode = mRawGraph.getVertexProperty(graphNodeId);
         targetNode.getScheduling().reset();
     });
@@ -761,7 +761,7 @@ Graph::Graph(const Backend& bk)
 
     auto begin = GraphNode::newBeginNode();
     auto end = GraphNode::newEndNode();
-    mUidCounter = GraphData::firstInternal;
+    mUidCounter = GraphInfo::firstInternal;
 
     mRawGraph.addVertex(begin.getGraphData().getUid(), begin);
     mRawGraph.addVertex(end.getGraphData().getUid(), end);

@@ -11,9 +11,9 @@ auto Bfs::getNumberOfLevels() -> int
 /**
  * Returns a reference to a level and it's level index
  */
-auto Bfs::getNewLevel() -> std::pair<std::vector<GraphData::Uid>&, int>
+auto Bfs::getNewLevel() -> std::pair<std::vector<GraphInfo::NodeUid>&, int>
 {
-    data.push_back(std::vector<GraphData::Uid>());
+    data.push_back(std::vector<GraphInfo::NodeUid>());
     int idx = int(data.size()) - 1;
     return {data[idx], idx};
 }
@@ -22,7 +22,7 @@ auto Bfs::getNewLevel() -> std::pair<std::vector<GraphData::Uid>&, int>
  * Returns a reference to a specific level
  */
 auto Bfs::getLevel(int levelId) const
-    -> const std::vector<GraphData::Uid>&
+    -> const std::vector<GraphInfo::NodeUid>&
 {
     return data[levelId];
 }
@@ -30,7 +30,7 @@ auto Bfs::getLevel(int levelId) const
 /**
  * Returns a reference to a specific level
  */
-auto Bfs::getLevel(int levelId) -> std::vector<GraphData::Uid>&
+auto Bfs::getLevel(int levelId) -> std::vector<GraphInfo::NodeUid>&
 {
     return data[levelId];
 }

@@ -12,18 +12,18 @@ namespace Neon::skeleton::internal {
 struct DependencyAnalyser
 {
    private:
-    std::vector<Neon::set::container::GraphData::Uid> mParsedR{};
-    std::vector<Neon::set::container::GraphData::Uid> mParsedW{};
+    std::vector<Neon::set::container::GraphInfo::NodeUid> mParsedR{};
+    std::vector<Neon::set::container::GraphInfo::NodeUid> mParsedW{};
 
-    Neon::internal::dataDependency::DataUId mUid;
-    Neon::internal::dataDependency::DataIdx mIdx;
+    Neon::internal::dataDependency::MdObjUid mUid;
+    Neon::internal::dataDependency::MdObjIdx mIdx;
 
    public:
     DependencyAnalyser() = delete;
-    DependencyAnalyser(Neon::internal::dataDependency::DataUId,
-                       Neon::internal::dataDependency::DataIdx);
+    DependencyAnalyser(Neon::internal::dataDependency::MdObjUid,
+                       Neon::internal::dataDependency::MdObjIdx);
 
-    auto update(Neon::set::container::GraphData::Uid       newKernel,
+    auto update(Neon::set::container::GraphInfo::NodeUid       newKernel,
                 Neon::internal::dataDependency::AccessType newOp)
         -> std::vector<DataDependency>;
 };

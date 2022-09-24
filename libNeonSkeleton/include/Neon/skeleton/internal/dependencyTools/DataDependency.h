@@ -10,10 +10,10 @@ namespace Neon::skeleton::internal {
 struct DataDependency
 {
    private:
-    Neon::set::container::GraphData::Uid               mT0 = 0;
-    Neon::set::container::GraphData::Uid               mT1 = 0;
+    Neon::set::container::GraphInfo::NodeUid               mT0 = 0;
+    Neon::set::container::GraphInfo::NodeUid               mT1 = 0;
     Neon::internal::dataDependency::DataDependencyType mType = Neon::internal::dataDependency::DataDependencyType::NONE;
-    Neon::internal::dataDependency::DataUId            mDataUid = 0;
+    Neon::internal::dataDependency::MdObjUid mDataUid = 0;
 
    public:
     /**
@@ -30,10 +30,10 @@ struct DataDependency
      * @param A
      * @param B
      */
-    DataDependency(Neon::set::container::GraphData::Uid               t1,
+    DataDependency(Neon::set::container::GraphInfo::NodeUid               t1,
                Neon::internal::dataDependency::DataDependencyType type,
-               Neon::internal::dataDependency::DataUId            m_uid,
-               Neon::set::container::GraphData::Uid               t0);
+               Neon::internal::dataDependency::MdObjUid m_uid,
+               Neon::set::container::GraphInfo::NodeUid               t0);
 
     /**
      * true the object has been initialized with a valid dependency
@@ -57,13 +57,13 @@ struct DataDependency
      * Returns the "before" kernel id
      * @return
      */
-    auto t0() -> Neon::set::container::GraphData::Uid;
+    auto t0() -> Neon::set::container::GraphInfo::NodeUid;
 
     /**
      * Returns the "after" kernel id
      * @return
      */
-    auto t1() -> Neon::set::container::GraphData::Uid;
+    auto t1() -> Neon::set::container::GraphInfo::NodeUid;
 
     /**
      * Static method to build an empty dependency

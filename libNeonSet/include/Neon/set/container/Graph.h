@@ -19,8 +19,8 @@ namespace Neon::set::container {
  */
 struct Graph
 {
-    using Uid = GraphData::Uid;
-    using Index = GraphData::Index;
+    using Uid = GraphInfo::NodeUid;
+    using Index = GraphInfo::NodeIdx;
     friend struct Bfs;
 
    public:
@@ -167,21 +167,21 @@ struct Graph
     /**
      * Extract a graph node from its id
      */
-    auto getGraphNode(GraphData::Uid)
+    auto getGraphNode(GraphInfo::NodeUid)
         -> GraphNode&;
 
     /**
      * Extract a graph node from its id
      */
-    auto getGraphNode(GraphData::Uid) const
+    auto getGraphNode(GraphInfo::NodeUid) const
         -> const GraphNode&;
 
     template <typename Fun>
     auto forEachNode(Fun f) -> void
     {
         mRawGraph.forEachVertex([&](size_t v) {
-            GraphData::Uid node = v;
-            if (node != GraphData::beginUid && node != GraphData::endUid) {
+            GraphInfo::NodeUid node = v;
+            if (node != GraphInfo::beginUid && node != GraphInfo::endUid) {
                 f(node);
             }
         });
@@ -216,38 +216,38 @@ struct Graph
     /**
      * Returns the out-neighbour of a target node
      */
-    auto helpGetOutNeighbors(GraphData::Uid,
+    auto helpGetOutNeighbors(GraphInfo::NodeUid,
                              bool                                    fileterOutEnd = true,
                              const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
                                                                                         GraphDependencyType::data})
-        -> std::set<GraphData::Uid>;
+        -> std::set<GraphInfo::NodeUid>;
 
     /**
      * Returns the in-neighbour of a target node
      */
-    auto helpGetInNeighbors(GraphData::Uid                          nodeUid,
+    auto helpGetInNeighbors(GraphInfo::NodeUid                          nodeUid,
                             bool                                    fileterOutBegin = true,
                             const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
                                                                                        GraphDependencyType::data})
-        -> std::set<GraphData::Uid>;
+        -> std::set<GraphInfo::NodeUid>;
 
     /**
      * Returns the out-edges of a target node
      */
-    auto helpGetOutEdges(GraphData::Uid,
+    auto helpGetOutEdges(GraphInfo::NodeUid,
                          bool                                    filterOutEnd = true,
                          const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
                                                                                     GraphDependencyType::data})
-        -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>;
+        -> std::set<std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid>>;
 
     /**
      * Returns the in-edges of a target node
      */
-    auto helpGetInEdges(GraphData::Uid                          nodeUid,
+    auto helpGetInEdges(GraphInfo::NodeUid                          nodeUid,
                         bool                                    filterOutBegin = true,
                         const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
                                                                                    GraphDependencyType::data})
-        -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>;
+        -> std::set<std::pair<GraphInfo::NodeUid, GraphInfo::NodeUid>>;
 
     /**
      * Returns nodes Ids for a BFS visit

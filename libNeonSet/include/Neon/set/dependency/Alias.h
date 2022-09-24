@@ -7,11 +7,11 @@ namespace Neon::internal::dataDependency {
 /**
  * Unique identifier for a kernel parameter
  */
-using DataUId = Neon::set::MultiDeviceObjectUid;
+using MdObjUid = Neon::set::MultiDeviceObjectUid;
 
 /**
  * Unique identifier for a kernel parameter
  */
-using DataIdx = Neon::set::MultiDeviceObjectUid;
+using MdObjIdx = Neon::set::MultiDeviceObjectUid;
 
 }  // namespace Neon::internal::dataDependency

@@ -19,8 +19,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                                                                              T(0),
                                                                              dataUse,
                                                                              memoryOptions,
-                                                                             haloStatus)
-{
+                                                                             haloStatus) {
     mDataUse = dataUse;
     mMemoryOptions = memoryOptions;
 
@@ -559,6 +558,12 @@ auto dField<T, C>::swap(dField::Field& A, dField::Field& B) -> void
 {
     Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>::swapUIDBeforeFullSwap(A, B);
     std::swap(A, B);
+}
+
+template <typename T, int C>
+auto dField<T, C>::haloUpdateContainer(set::HuOptions& opt) const -> Neon::set::Container
+{
+    NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
 }  // namespace Neon::domain::internal::dGrid

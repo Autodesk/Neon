@@ -21,8 +21,8 @@ namespace Neon::skeleton::internal {
 struct UserDataManager
 {
     std::vector<DependencyAnalyser> mDepAnalyserVec;
-    std::map<Neon::internal::dataDependency::DataUId,
-             Neon::internal::dataDependency::DataIdx>
+    std::map<Neon::internal::dataDependency::MdObjUid,
+             Neon::internal::dataDependency::MdObjIdx>
         mUid2Idx;
 
    private:
@@ -31,8 +31,8 @@ struct UserDataManager
      * @param uid
      * @return
      */
-    auto helpGetIdx(Neon::internal::dataDependency::DataUId uid)
-        -> Neon::internal::dataDependency::DataIdx;
+    auto helpGetIdx(Neon::internal::dataDependency::MdObjUid uid)
+        -> Neon::internal::dataDependency::MdObjIdx;
 
    public:
     /**
@@ -44,9 +44,9 @@ struct UserDataManager
      * @param uid
      * @return
      */
-    auto updateStatus(Neon::set::container::GraphData::Uid       newKernel,
+    auto updateStatus(Neon::set::container::GraphInfo::NodeUid       newKernel,
                       Neon::internal::dataDependency::AccessType op,
-                      Neon::internal::dataDependency::DataUId    uid) -> std::vector<DataDependency>;
+                      Neon::internal::dataDependency::MdObjUid uid) -> std::vector<DataDependency>;
 };
 
 }  // namespace Neon::skeleton::internal

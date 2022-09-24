@@ -2,10 +2,10 @@
 
 namespace Neon::skeleton::internal {
 
-DataDependency::DataDependency(Neon::set::container::GraphData::Uid               t1,
+DataDependency::DataDependency(Neon::set::container::GraphInfo::NodeUid               t1,
                                Neon::internal::dataDependency::DataDependencyType type,
-                               Neon::internal::dataDependency::DataUId            uid,
-                               Neon::set::container::GraphData::Uid               t0)
+                               Neon::internal::dataDependency::MdObjUid uid,
+                               Neon::set::container::GraphInfo::NodeUid               t0)
 {
     mT1 = t1;
     mType = type;
@@ -36,12 +36,12 @@ DataDependency DataDependency::getEmpty()
     return {};
 }
 
-auto DataDependency::t0() -> Neon::set::container::GraphData::Uid
+auto DataDependency::t0() -> Neon::set::container::GraphInfo::NodeUid
 {
     return mT0;
 }
 
-auto DataDependency::t1() -> Neon::set::container::GraphData::Uid
+auto DataDependency::t1() -> Neon::set::container::GraphInfo::NodeUid
 {
     return mT1;
 }

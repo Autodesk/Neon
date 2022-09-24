@@ -4,6 +4,7 @@
 #include "Neon/core/tools/io/IODense.h"
 #include "Neon/core/types/Macros.h"
 
+#include "Neon/set/Containter.h"
 #include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/HuOptions.h"
@@ -11,7 +12,6 @@
 
 #include "GridBase.h"
 #include "Neon/domain/interface/common.h"
-
 
 namespace Neon::domain::interface {
 
@@ -25,8 +25,8 @@ class FieldBase
 
     FieldBase();
 
-    FieldBase(const std::string              fieldUserName,
-              const std::string              fieldClassName,
+    FieldBase(const std::string&             fieldUserName,
+              const std::string&             fieldClassName,
               const Neon::index_3d&          dimension,
               int                            cardinality,
               T                              outsideVal,
@@ -56,6 +56,9 @@ class FieldBase
 
     virtual auto haloUpdate(Neon::set::HuOptions& opt)
         -> void = 0;
+
+    virtual auto haloUpdateContainer(Neon::set::HuOptions& opt) const
+        -> Neon::set::Container;
 
     auto getDimension() const
         -> const Neon::index_3d&;

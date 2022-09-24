@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Neon/set/container/ContainerOperationType.h"
-#include "Neon/set/container/ContainerPatternType.h"
-
 #include "Neon/set/DevSet.h"
 #include "Neon/set/container/ContainerExecutionType.h"
+#include "Neon/set/container/ContainerOperationType.h"
+#include "Neon/set/container/ContainerPatternType.h"
 #include "Neon/set/dependency/Token.h"
 
 #include "functional"
