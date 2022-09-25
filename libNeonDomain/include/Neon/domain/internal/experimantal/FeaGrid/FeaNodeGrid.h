@@ -27,16 +27,15 @@
 #include "Neon/domain/internal/experimantal/FeaGrid/FeaElement.h"
 #include "Neon/domain/internal/experimantal/FeaGrid/FeaElementField.h"
 #include "Neon/domain/internal/experimantal/FeaGrid/FeaElementPartition.h"
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNodeGrid.h"
 
 
 namespace Neon::domain::internal::experimental::FeaVoxelGrid {
 
 template <typename BuildingBlockGridT>
-struct FeaVoxelGrid : public Neon::domain::interface::GridBaseTemplate<FeaVoxelGrid<BuildingBlockGridT>,
-                                                                       FeaNode<BuildingBlockGridT>>
+struct FeaNodeGrid : public Neon::domain::interface::GridBaseTemplate<FeaNodeGrid<BuildingBlockGridT>,
+                                                                      FeaNode<BuildingBlockGridT>>
 {
-   public:
+   private:
     struct BuildingBlocks
     {
         using Grid = BuildingBlockGridT;
@@ -48,67 +47,52 @@ struct FeaVoxelGrid : public Neon::domain::interface::GridBaseTemplate<FeaVoxelG
         using PartitionIndexSpace = typename BuildingBlocks::Grid::PartitionIndexSpace;
     };
 
-
-    enum FeaComponents
-    {
-        Nodes,
-        Elements
-    };
-
-    enum FeaOrder
-    {
-        First
-    };
-
+   public:
     using PartitionIndexSpace = typename BuildingBlocks::PartitionIndexSpace;
-    using Grid = FeaVoxelGrid<typename BuildingBlocks::Grid>;
+    using Grid = FeaNodeGrid<typename BuildingBlocks::Grid>;
 
     using Node = Neon::domain::internal::experimental::FeaVoxelGrid::FeaNode<typename BuildingBlocks::Grid>;
-    using Element = Neon::domain::internal::experimental::FeaVoxelGrid::FeaElement<typename BuildingBlocks::Grid>;
-
-    template <typename T_ta, int cardinality_ta = 0>
-    using ElementField = typename Neon::domain::internal::experimental::FeaVoxelGrid::FeaElementField<typename BuildingBlocks::Grid, T_ta, cardinality_ta>;
-
-    template <typename T_ta, int cardinality_ta = 0>
+    template <typename T_ta, int cardinality_ta>
     using NodeField = typename Neon::domain::internal::experimental::FeaVoxelGrid::FeaNodeField<typename BuildingBlocks::Grid, T_ta, cardinality_ta>;
 
    public:
-    FeaVoxelGrid();
+    FeaNodeGrid();
 
-    FeaVoxelGrid(const FeaVoxelGrid& rhs) = default;
+    FeaNodeGrid(const FeaNodeGrid& rhs) = default;
 
-    ~FeaVoxelGrid() = default;
+    virtual ~FeaNodeGrid() = default;
 
     /**
      * Constructor compatible with the general grid API
      */
-    template <typename ActiveCellLambda>
-    FeaVoxelGrid(const Neon::Backend&                       backend,
-                 const Neon::int32_3d&                      dimension /**< Dimension of the box containing nodes */,
-                 std::pair<ActiveCellLambda, FeaComponents> activeLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
-                 const std::vector<Neon::domain::Stencil>&  optionalExtraStencil = {},
-                 const Vec_3d<double>&                      spacingData = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
-                 const Vec_3d<double>&                      origin = Vec_3d<double>(0, 0, 0) /**<      Origin  */);
+    explicit FeaNodeGrid(typename BuildingBlocks::Grid& buildingBlockGrid);
 
+    auto getBuildingBlockGrid()
+        -> typename BuildingBlocks::Grid&;
+
+    /**
+     * Returns a LaunchParameters configured for the specified inputs
+     */
+    auto getLaunchParameters(Neon::DataView        dataView,
+                             const Neon::index_3d& blockSize,
+                             const size_t&         shareMem) const
+        -> Neon::set::LaunchParameters;
+
+    auto getPartitionIndexSpace(Neon::DeviceType devE,
+                                SetIdx           setIdx,
+                                Neon::DataView   dataView)
+        -> const PartitionIndexSpace&;
 
     /**
      * Creates a new Field
      */
     template <typename T, int C = 0>
-    auto newNodeField(const std::string&  fieldUserName,
+    auto newNodeField(const std::string   fieldUserName,
                       int                 cardinality,
                       T                   inactiveValue,
                       Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE,
                       Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
         -> NodeField<T, C>;
-
-    template <typename T, int C = 0>
-    auto newElementField(const std::string   fieldUserName,
-                         int                 cardinality,
-                         T                   inactiveValue,
-                         Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE,
-                         Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
-        -> ElementField<T, C>;
 
     template <typename LoadingLambda>
     auto getContainer(const std::string& name,
@@ -129,16 +113,16 @@ struct FeaVoxelGrid : public Neon::domain::interface::GridBaseTemplate<FeaVoxelG
     auto newPatternScalar() const
         -> Neon::template PatternScalar<T>;
 
-    template <typename T>
+    template <typename T, int C>
     auto dot(const std::string&               name,
-             NodeField<T>&                    input1,
-             NodeField<T>&                    input2,
+             NodeField<T, C>&                 input1,
+             NodeField<T, C>&                 input2,
              Neon::template PatternScalar<T>& scalar) const
         -> Neon::set::Container;
 
-    template <typename T>
+    template <typename T, int C>
     auto norm2(const std::string&               name,
-               NodeField<T>&                    input,
+               NodeField<T, C>&                 input,
                Neon::template PatternScalar<T>& scalar) const
         -> Neon::set::Container;
 
@@ -150,16 +134,13 @@ struct FeaVoxelGrid : public Neon::domain::interface::GridBaseTemplate<FeaVoxelG
         -> bool;
 
    private:
-    auto partitions() const
-        -> const Neon::set::DataSet<index_3d>;
-
     auto flattenedLengthSet(Neon::DataView dataView = Neon::DataView::STANDARD)
         const -> const Neon::set::DataSet<size_t>;
 
     auto flattenedPartitions(Neon::DataView dataView = Neon::DataView::STANDARD) const
         -> const Neon::set::DataSet<size_t>;
 
-    auto getLaunchInfo(const Neon::DataView dataView) const
+    auto getLaunchInfo(Neon::DataView dataView) const
         -> Neon::set::LaunchParameters;
 
     auto stencil() const
@@ -167,12 +148,13 @@ struct FeaVoxelGrid : public Neon::domain::interface::GridBaseTemplate<FeaVoxelG
 
     auto newGpuLaunchParameters() const -> Neon::set::LaunchParameters;
 
-    void setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig) const;
+    auto setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig)
+        const -> void;
 
 
    private:
-    using Self = FeaVoxelGrid;
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<FeaVoxelGrid<BuildingBlockGridT>, FeaNode<BuildingBlockGridT>>;
+    using Self = FeaNodeGrid;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<FeaNodeGrid<BuildingBlockGridT>, FeaNode<BuildingBlockGridT>>;
 
    public:
     auto isInsideDomain(const Neon::index_3d& idx) const
@@ -184,26 +166,10 @@ struct FeaVoxelGrid : public Neon::domain::interface::GridBaseTemplate<FeaVoxelG
     struct Storage
     {
         typename BuildingBlocks::Grid buildingBlockGrid;
-        //  m_partitionDims indicates the size of each partition. For example,
-        // given a gridDim of size 77 (in 1D for simplicity) distrusted over 5
-        // device, it should be distributed as (16 16 15 15 15)
-        Neon::set::DataSet<index_3d> partitionDims;
-
-        Neon::index_3d                                       halo;
-        std::vector<Neon::set::DataSet<PartitionIndexSpace>> partitionIndexSpaceVec;
-        Neon::sys::patterns::Engine                          reduceEngine{Neon::sys::patterns::Engine::CUB};
-
-        Neon::domain::internal::experimental::FeaVoxelGrid::FeaNodeGrid<typename BuildingBlocks::Grid> nodeGrid;
     };
 
-    using FeaNodeGrid =  Neon::domain::internal::experimental::FeaVoxelGrid::FeaNodeGrid<typename BuildingBlocks::Grid>;
     std::shared_ptr<Storage> mStorage;
 };
 
 
 }  // namespace Neon::domain::internal::experimental::FeaVoxelGrid
-
-
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNodeField_imp.h"
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNodeGrid_imp.h"
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaVoxelGrid_imp.h"

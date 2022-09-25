@@ -21,7 +21,10 @@ struct NodeStorage
         using Partition = typename BuildingBlockGridT::template Partition<T, C>;
     };
 
-    typename BuildingBlocks::Field buildingBlockField;
+    typename BuildingBlocks::Field                                                                          buildingBlockField;
+    std::array<Neon::set::DataSet<FeaNodePartition<BuildingBlockGridT, T, C>>, Neon::DataViewUtil::nConfig> partitionsByViewAndDev;
+    std::array<bool, Neon::ExecutionUtils::numConfigurations>                                               supportedExecutions;
+    Neon::DataUse                                                                                           dataUse;
 };
 
 template <typename BuildingBlockGridT>
@@ -55,7 +58,7 @@ class FeaNodeField : public Neon::domain::interface::FieldBaseTemplate<T,
     using Self = FeaNodeField<typename BuildingBlocks::Grid, Type, Cardinality>;
 
     using Grid = FeaVoxelGrid<typename BuildingBlocks::Grid>;
-    using Partition = FeaNodePartition<typename BuildingBlocks::Grid, T, C>;
+    using Partition =  FeaNodePartition<typename BuildingBlocks::Grid, T, C>;
     using Node = FeaNode<typename BuildingBlocks::Grid>;
     using Element = FeaElement<typename BuildingBlocks::Grid>;
     using Storage = NodeStorage<BuildingBlockGridT, T, C>;
@@ -147,145 +150,5 @@ class FeaNodeField : public Neon::domain::interface::FieldBaseTemplate<T,
     typename BuildingBlocks::Grid::template Field<T, C> mBluidBlockFiled;
 };
 
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::self() -> FeaNodeField::Self&
-{
-    return *this;
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::self() const -> const FeaNodeField::Self&
-{
-    return *this;
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::operator()(const index_3d& idx,
-                                                        const int&      cardinality) const -> Type
-{
-    (void)idx;
-    (void)cardinality;
-    NEON_DEV_UNDER_CONSTRUCTION("");
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::haloUpdate(set::HuOptions& opt) const -> void
-{
-    return this->getStorage().buildingBlockField.haloUpdate(opt);
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::haloUpdate(SetIdx setIdx, set::HuOptions& opt) const -> void
-{
-    return this->getStorage().buildingBlockField.haloUpdate(setIdx, opt);
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::haloUpdate(set::HuOptions& opt) -> void
-{
-    return this->getStorage().buildingBlockField.haloUpdate(opt);
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::haloUpdate(SetIdx setIdx, set::HuOptions& opt) -> void
-{
-    return this->getStorage().buildingBlockField.haloUpdate(setIdx, opt);
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getReference(const index_3d& idx, const int& cardinality) -> Type&
-{
-    return this->getStorage().buildingBlockField.getReference(idx, cardinality);
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::updateCompute(int streamSetId) -> void
-{
-    return this->getStorage().buildingBlockField.updateCompute(streamSetId);
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::updateIO(int streamSetId) -> void
-{
-    return this->getStorage().buildingBlockField.updateIO(streamSetId);
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType,
-                                                          const SetIdx&     idx,
-                                                          const DataView&   dataView) const -> const FeaNodeField::Partition&
-{
-    (void)devType;
-    (void)idx;
-    (void)dataView;
-
-    NEON_DEV_UNDER_CONSTRUCTION("");
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType,
-                                                          const SetIdx&     idx,
-                                                          const DataView&   dataView) -> FeaNodeField::Partition&
-{
-    (void)devType;
-    (void)idx;
-    (void)dataView;
-    NEON_DEV_UNDER_CONSTRUCTION("");
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution,
-                                                          Neon::SetIdx    setIdx,
-                                                          const DataView& dataView) const -> const FeaNodeField::Partition&
-{
-    (void)execution;
-    (void)setIdx;
-    (void)dataView;
-    NEON_DEV_UNDER_CONSTRUCTION("");
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution,
-                                                          Neon::SetIdx    setIdx,
-                                                          const DataView& dataView) -> FeaNodeField::Partition&
-{
-    (void)execution;
-    (void)setIdx;
-    (void)dataView;
-    NEON_DEV_UNDER_CONSTRUCTION("");
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::swap(FeaNodeField& A, FeaNodeField& B) -> void
-{
-    (void)A;
-    (void)B;
-    NEON_DEV_UNDER_CONSTRUCTION("");
-}
-
-template <typename BuildingBlockGridT, typename T, int C>
-FeaNodeField<BuildingBlockGridT, T, C>::FeaNodeField(const std::string&                   fieldUserName,
-                                                     Neon::DataUse                        dataUse,
-                                                     const Neon::MemoryOptions&           memoryOptions,
-                                                     const Grid&                          grid,
-                                                     const typename BuildingBlocks::Grid& buildingBlockGrid,
-                                                     int                                  cardinality,
-                                                     T                                    outsideVal,
-                                                     Neon::domain::haloStatus_et::e       haloStatus)
-    : Neon::domain::interface::FieldBaseTemplate<T, C, typename Self::Grid, typename Self::Partition, Storage>(&grid,
-                                                                                                               fieldUserName,
-                                                                                                               std::string("Fea-") + buildingBlockGrid.getImplementationName(),
-                                                                                                               cardinality,
-                                                                                                               outsideVal,
-                                                                                                               dataUse,
-                                                                                                               memoryOptions,
-                                                                                                               haloStatus) {
-    this->getStorage().buildingBlockField = buildingBlockGrid.template newField<T, C>(fieldUserName,
-                                                                                      cardinality,
-                                                                                      outsideVal,
-                                                                                      dataUse,
-                                                                                      memoryOptions);
-}
 
 }  // namespace Neon::domain::internal::experimental::FeaVoxelGrid

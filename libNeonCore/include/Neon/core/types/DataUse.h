@@ -37,9 +37,6 @@ struct DataUseUtils
     static auto toString(Neon::DataUse option) -> const char*;
 };
 
-}  // namespace Neon
-
-
 /**
  * operator<<
  *
@@ -48,3 +45,7 @@ struct DataUseUtils
  * @return
  */
 std::ostream& operator<<(std::ostream& os, Neon::DataUse const& m);
+
+}  // namespace Neon
+
+

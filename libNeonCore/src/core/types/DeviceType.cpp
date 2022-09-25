@@ -49,6 +49,16 @@ auto DeviceTypeUtil::getDevType(int devTypeidx) -> DeviceType
     NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
+auto DeviceTypeUtil::getExecution(Neon::DeviceType devType) -> Neon::Execution
+{
+    if (DeviceType::CPU == devType)
+        return Execution::host;
+    if (DeviceType::OMP == devType)
+        return Execution::host;
+    if (DeviceType::CUDA == devType)
+        return Execution::device;
+    NEON_THROW_UNSUPPORTED_OPERATION("");}
+
 
 std::ostream& operator<<(std::ostream& os, Neon::DeviceType const& m)
 {

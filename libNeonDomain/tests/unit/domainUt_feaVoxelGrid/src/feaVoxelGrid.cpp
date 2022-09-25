@@ -11,88 +11,40 @@ using namespace Neon::domain::tool::testing;
 static const std::string testFilePrefix("domainUt_Swap");
 
 
-//template <typename Field>
-//auto map(Field&                      input_field,
-//         Field&                      output_field,
-//         const typename Field::Type& alpha) -> Neon::set::Container
+// template <typename Field>
+// auto map(Field&                      input_field,
+//          Field&                      output_field,
+//          const typename Field::Type& alpha) -> Neon::set::Container
 //{
-//    return input_field.getGrid().getContainer(
-//        "MAP",
-//        [&](Neon::set::Loader& loader) {
-//            const auto& inp = loader.load(input_field);
-//            auto&       out = loader.load(output_field);
+//     return input_field.getGrid().getContainer(
+//         "MAP",
+//         [&](Neon::set::Loader& loader) {
+//             const auto& inp = loader.load(input_field);
+//             auto&       out = loader.load(output_field);
 //
-//            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
-//                for (int i = 0; i < inp.cardinality(); i++) {
-//                    out(e, i) = inp(e, i) + alpha;
-//                }
-//            };
-//        });
-//}
+//             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+//                 for (int i = 0; i < inp.cardinality(); i++) {
+//                     out(e, i) = inp(e, i) + alpha;
+//                 }
+//             };
+//         });
+// }
 
 template <typename G, typename T, int C>
 void FeaVoxelGrid(TestData<G, T, C>& data)
 {
     auto& grid = data.getGrid();
-
+    //
     Neon::domain::internal::experimental::FeaVoxelGrid::FeaVoxelGrid<G> FEA;
+    //
+    //    //auto density = FEA.template newElementField<double, 1>("Density", 1, 0);
+    //    auto displacement = FEA.template newNodeField<double, 1>("Displacement", 1, 0);
 
-    auto density = FEA.template newElementField<double, 1>("Density", 1, 0);
-    auto displacement = FEA.template newNodeField<double, 1>("Displacement", 1, 0);
-
-    //const Type alpha = 11;
+    // const Type alpha = 11;
     NEON_INFO(grid.toString());
 
     const std::string appName(testFilePrefix + "_" + grid.getImplementationName());
     data.resetValuesToLinear(1, 100);
-
-//
-//
-//    {  // NEON
-//        auto& X = data.getField(FieldNames::X);
-//        auto& Y = data.getField(FieldNames::Y);
-//
-//        map(X, Y, alpha).run(0);
-//        X.swap(X, Y);
-//        map(X, Y, alpha).run(0);
-//        X.swap(X, Y);
-//        map(X, Y, alpha).run(0);
-//
-//        data.getBackend().sync(0);
-//        Y.updateIO(0);
-//    }
-//
-//    {  // Golden data
-//
-//        auto& X = data.getIODomain(FieldNames::X);
-//        auto& Y = data.getIODomain(FieldNames::Y);
-//
-//        auto run = [&](auto A, auto B) {
-//            data.forEachActiveIODomain([&](const Neon::index_3d& idx,
-//                                           int                   cardinality,
-//                                           Type&                 a,
-//                                           Type&                 b) {
-//                b = alpha + a;
-//            },
-//                                       A, B);
-//        };
-//
-//        run(X, Y);
-//        run(Y, X);
-//        run(X, Y);
-//    }
-//
-//    // storage.ioToVti("After");
-//    {  // DEBUG
-//        data.getIODomain(FieldNames::Y).ioToVti("getIODomain_Y", "Y");
-//        data.getField(FieldNames::Y).ioToVtk("getField_Y", "Y");
-//    }
-//
-//
-//    bool isOk = data.compare(FieldNames::Y);
-//    isOk = isOk && data.compare(FieldNames::X);
-//
-//    ASSERT_TRUE(isOk);
 }
 
 namespace {
