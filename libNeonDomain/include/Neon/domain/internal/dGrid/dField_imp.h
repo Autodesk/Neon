@@ -19,8 +19,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                                                                              T(0),
                                                                              dataUse,
                                                                              memoryOptions,
-                                                                             haloStatus)
-{
+                                                                             haloStatus) {
     mDataUse = dataUse;
     mMemoryOptions = memoryOptions;
 
@@ -345,22 +344,46 @@ auto dField<T, C>::getPartition(const Neon::DeviceType& devType,
 }
 
 template <typename T, int C>
-auto dField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
-                                [[maybe_unused]] Neon::SetIdx,
-                                [[maybe_unused]] const Neon::DataView& dataView)
+auto dField<T, C>::getPartition(Neon::Execution       execution,
+                                Neon::SetIdx          setIdx,
+                                const Neon::DataView& dataView)
     const
     -> const Partition&
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    const Neon::DataUse dataUse = this->getDataUse();
+    bool       isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
+    if (isOk) {
+        if (execution == Neon::Execution::device) {
+            return m_gpu.getPartition(Neon::DeviceType::CUDA, setIdx, dataView);
+        }
+        if (execution == Neon::Execution::host) {
+            return m_cpu.getPartition(Neon::DeviceType::OMP, setIdx, dataView);
+        }
+    }
+    std::stringstream message;
+    message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
+    NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
 template <typename T, int C>
-auto dField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
-                                [[maybe_unused]] Neon::SetIdx          idx,
-                                [[maybe_unused]] const Neon::DataView& dataView)
+auto dField<T, C>::getPartition(Neon::Execution       execution,
+                                Neon::SetIdx          setIdx,
+                                const Neon::DataView& dataView)
     -> Partition&
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    const auto dataUse = this->getDataUse();
+    bool       isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
+    if (isOk) {
+        if (execution == Neon::Execution::device) {
+            return m_gpu.getPartition(Neon::DeviceType::CUDA, setIdx, dataView);
+        }
+        if (execution == Neon::Execution::host) {
+            return m_cpu.getPartition(Neon::DeviceType::OMP, setIdx, dataView);
+        }
+    }
+    std::stringstream message;
+    message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
+    NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
 template <typename T, int C>

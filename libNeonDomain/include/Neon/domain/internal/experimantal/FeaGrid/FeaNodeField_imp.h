@@ -175,6 +175,7 @@ FeaNodeField<BuildingBlockGridT, T, C>::FeaNodeField(const std::string&         
     {  // initializing partition data
         for (Neon::Execution execution : Neon::ExecutionUtils::getCompatibleOptions(dataUse)) {
             for (auto dw : Neon::DataViewUtil::validOptions()) {
+                s.partitionsByViewAndDev[Neon::DataViewUtil::toInt(dw)] = bk.devSet().template newDataSet<Partition>();
                 for (Neon::SetIdx setIdx : bk.devSet().getRange()) {
                     auto& buildingBlockPartition = s.buildingBlockField.getPartition(execution, setIdx, dw);
                     s.partitionsByViewAndDev[Neon::DataViewUtil::toInt(dw)][setIdx.idx()] =

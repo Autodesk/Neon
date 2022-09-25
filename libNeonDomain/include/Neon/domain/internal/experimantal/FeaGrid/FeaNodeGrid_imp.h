@@ -32,6 +32,7 @@ namespace Neon::domain::internal::experimental::FeaVoxelGrid {
 template <typename BuildingBlockGridT>
 FeaNodeGrid<BuildingBlockGridT>::FeaNodeGrid(typename BuildingBlocks::Grid& buildingBlockGrid)
 {
+    mStorage = std::make_shared<Storage>();
     mStorage->buildingBlockGrid = buildingBlockGrid;
 }
 

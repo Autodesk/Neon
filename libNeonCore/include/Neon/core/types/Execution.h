@@ -40,6 +40,10 @@ struct ExecutionUtils
     static auto getCompatibleOptions(Neon::DataUse dataUse)
         -> std::vector<Execution>;
 
+    static auto checkCompatibility(Neon::DataUse   dataUse,
+                                    Neon::Execution execution)
+        -> bool;
+
    private:
     static constexpr std::array<Execution, ExecutionUtils::numConfigurations> mAllOptions{Execution::device, Execution::host};
 };
@@ -53,5 +57,3 @@ struct ExecutionUtils
  */
 std::ostream& operator<<(std::ostream& os, Neon::Execution const& m);
 }  // namespace Neon
-
-

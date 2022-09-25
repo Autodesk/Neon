@@ -72,6 +72,8 @@ struct FeaVoxelGrid : public Neon::domain::interface::GridBaseTemplate<FeaVoxelG
     template <typename T_ta, int cardinality_ta = 0>
     using NodeField = typename Neon::domain::internal::experimental::FeaVoxelGrid::FeaNodeField<typename BuildingBlocks::Grid, T_ta, cardinality_ta>;
 
+    using GridBase = typename Neon::domain::interface::GridBaseTemplate<FeaVoxelGrid<BuildingBlockGridT>,
+                                                               FeaNode<BuildingBlockGridT>>;
    public:
     FeaVoxelGrid();
 
@@ -82,13 +84,13 @@ struct FeaVoxelGrid : public Neon::domain::interface::GridBaseTemplate<FeaVoxelG
     /**
      * Constructor compatible with the general grid API
      */
-    template <typename ActiveCellLambda>
-    FeaVoxelGrid(const Neon::Backend&                       backend,
-                 const Neon::int32_3d&                      dimension /**< Dimension of the box containing nodes */,
-                 std::pair<ActiveCellLambda, FeaComponents> activeLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
-                 const std::vector<Neon::domain::Stencil>&  optionalExtraStencil = {},
-                 const Vec_3d<double>&                      spacingData = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
-                 const Vec_3d<double>&                      origin = Vec_3d<double>(0, 0, 0) /**<      Origin  */);
+    template <typename ActiveNodesLambda>
+    FeaVoxelGrid(const Neon::Backend&                      backend,
+                 const Neon::int32_3d&                     dimension /**< Dimension of the box containing nodes */,
+                 ActiveNodesLambda                         nodeActiveLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
+                 const std::vector<Neon::domain::Stencil>& optionalExtraStencil = {},
+                 const Vec_3d<double>&                     spacingData = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
+                 const Vec_3d<double>&                     origin = Vec_3d<double>(0, 0, 0) /**<      Origin  */);
 
 
     /**
@@ -196,7 +198,7 @@ struct FeaVoxelGrid : public Neon::domain::interface::GridBaseTemplate<FeaVoxelG
         Neon::domain::internal::experimental::FeaVoxelGrid::FeaNodeGrid<typename BuildingBlocks::Grid> nodeGrid;
     };
 
-    using FeaNodeGrid =  Neon::domain::internal::experimental::FeaVoxelGrid::FeaNodeGrid<typename BuildingBlocks::Grid>;
+    using FeaNodeGrid = Neon::domain::internal::experimental::FeaVoxelGrid::FeaNodeGrid<typename BuildingBlocks::Grid>;
     std::shared_ptr<Storage> mStorage;
 };
 

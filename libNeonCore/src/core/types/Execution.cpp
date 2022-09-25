@@ -52,6 +52,24 @@ auto ExecutionUtils::getCompatibleOptions(Neon::DataUse dataUse)
     NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
+auto ExecutionUtils::checkCompatibility(Neon::DataUse   dataUse,
+                                         Neon::Execution execution)
+    -> bool
+{
+    switch (dataUse) {
+        case DataUse::IO_COMPUTE: {
+            return true;
+        }
+        case DataUse::COMPUTE: {
+            return execution == Execution::device;
+        }
+        case DataUse::IO_POSTPROCESSING: {
+            return execution == Execution::host;
+        }
+    }
+    NEON_THROW_UNSUPPORTED_OPERATION("");
+}
+
 std::ostream& operator<<(std::ostream& os, Neon::Execution const& m)
 {
     return os << std::string(Neon::ExecutionUtils::toString(m));

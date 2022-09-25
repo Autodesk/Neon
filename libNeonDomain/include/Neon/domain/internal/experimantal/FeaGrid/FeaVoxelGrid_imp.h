@@ -6,52 +6,57 @@
 namespace Neon::domain::internal::experimental::FeaVoxelGrid {
 
 template <typename BuildingBlockGridT>
-template <typename ActiveCellLambda>
-FeaVoxelGrid<BuildingBlockGridT>::FeaVoxelGrid(const Backend&                             backend,
-                                               const int32_3d&                            dimension,
-                                               std::pair<ActiveCellLambda, FeaComponents> activeLambda,
-                                               const std::vector<Neon::domain::Stencil>&  optionalExtraStencil,
-                                               const Vec_3d<double>&                      spacingData,
-                                               const Vec_3d<double>&                      origin)
+template <typename ActiveNodesLambda>
+FeaVoxelGrid<BuildingBlockGridT>::FeaVoxelGrid(const Backend&                            backend,
+                                               const int32_3d&                           dimension,
+                                               ActiveNodesLambda                         nodeActiveLambda,
+                                               const std::vector<Neon::domain::Stencil>& optionalExtraStencil,
+                                               const Vec_3d<double>&                     spacingData,
+                                               const Vec_3d<double>&                     origin)
 {
-    auto& [activeCells, targetCoponent] = activeLambda;
-    if (targetCoponent == FeaComponents::Nodes) {
-        Neon::domain::Stencil feaVoxelFirstOrderStencil({
-                                                            {-1, 0, 0},
-                                                            {-1, -1, 0},
-                                                            {0, -1, 0},
-                                                            {0, 0, -1},
-                                                            {-1, 0, -1},
-                                                            {-1, -1, -1},
-                                                            {0, -1, -1},
-                                                            /*----*/
-                                                            {0, 0, 0},
-                                                            /*----*/
-                                                            {1, 0, 0},
-                                                            {1, 1, 0},
-                                                            {0, 1, 0},
-                                                            {0, 0, 1},
-                                                            {1, 0, 1},
-                                                            {1, 1, 1},
-                                                            {0, 1, 1},
-                                                        },
-                                                        false);
-        if (!optionalExtraStencil.empty()) {
-            NEON_DEV_UNDER_CONSTRUCTION("");
-        }
+    mStorage = std::make_shared<Storage>();
 
-        mStorage->buildingBlockGrid = FeaNodeGrid(backend,
-                                                  dimension,
-                                                  activeLambda,
-                                                  feaVoxelFirstOrderStencil,
-                                                  spacingData,
-                                                  origin);
-
-        mStorage->nodeGrid = FeaNodeGrid(mStorage->buildingBlockGrid);
-
-    } else {
+    Neon::domain::Stencil feaVoxelFirstOrderStencil({
+                                                        {-1, 0, 0},
+                                                        {-1, -1, 0},
+                                                        {0, -1, 0},
+                                                        {0, 0, -1},
+                                                        {-1, 0, -1},
+                                                        {-1, -1, -1},
+                                                        {0, -1, -1},
+                                                        /*----*/
+                                                        {0, 0, 0},
+                                                        /*----*/
+                                                        {1, 0, 0},
+                                                        {1, 1, 0},
+                                                        {0, 1, 0},
+                                                        {0, 0, 1},
+                                                        {1, 0, 1},
+                                                        {1, 1, 1},
+                                                        {0, 1, 1},
+                                                    },
+                                                    false);
+    if (!optionalExtraStencil.empty()) {
         NEON_DEV_UNDER_CONSTRUCTION("");
     }
+
+    mStorage->buildingBlockGrid = typename BuildingBlocks::Grid(backend,
+                                                                dimension,
+                                                                nodeActiveLambda,
+                                                                feaVoxelFirstOrderStencil,
+                                                                spacingData,
+                                                                origin);
+
+    mStorage->nodeGrid = FeaNodeGrid(mStorage->buildingBlockGrid);
+
+    Self::GridBase::init(std::string("FeaNodeGird-") + mStorage->buildingBlockGrid.getImplementationName(),
+                         backend,
+                         dimension,
+                         feaVoxelFirstOrderStencil,
+                         mStorage->buildingBlockGrid.getNumActiveCellsPerPartition(),
+                         mStorage->buildingBlockGrid.getDefaultBlock(),
+                         spacingData,
+                         origin);
 }
 
 template <typename BuildingBlockGridT>
@@ -75,9 +80,9 @@ auto FeaVoxelGrid<BuildingBlockGridT>::newNodeField(const std::string&  fieldUse
 }
 
 template <typename BuildingBlockGridT>
-auto FeaVoxelGrid<BuildingBlockGridT>::isInsideDomain(const index_3d& /*idx*/) const -> bool
+auto FeaVoxelGrid<BuildingBlockGridT>::isInsideDomain(const index_3d& idx) const -> bool
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    return mStorage->buildingBlockGrid.isInsideDomain(idx);
 }
 
 template <typename BuildingBlockGridT>
