@@ -146,8 +146,8 @@ class storage_t
         };
 
         Neon::int64_3d l = m_size3d;
-        Neon::ioToVTI<int64_t>({{Xd_val, m_cardinality, "Xd", true, Neon::ioVTI_e::ASCII},
-                                {Yd_val, m_cardinality, "Yd", true, Neon::ioVTI_e::ASCII}},
+        Neon::ioToVTI<int64_t>({{Xd_val, m_cardinality, "Xd", true, Neon::IoFileType::ASCII},
+                                {Yd_val, m_cardinality, "Yd", true, Neon::IoFileType::ASCII}},
                                fname + ".dense.vti", l, l - 1);
         m_grid.template ioVtk<T>({{&Xf, "Xf", true}, {&Yf, "Yf", true}}, fname + ".grid.vti");
     }

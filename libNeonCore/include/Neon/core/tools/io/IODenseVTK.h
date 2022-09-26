@@ -32,7 +32,7 @@ class IODenseVTK : private IoToVTK<intType_ta, real_tt>
     IODenseVTK(const std::string&           filename /*! File name */,
                const Vec_3d<double>&        spacingData = Vec_3d<double>(1, 1, 1) /*! Spacing, i.e. size of a voxel */,
                const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /*! Origin  */,
-               ioVTI_e::e                   vtiIOe = ioVTI_e::e::ASCII /*!  Binary or ASCII file  */);
+               IoFileType            vtiIOe = IoFileType::ASCII /*!  Binary or ASCII file  */);
 
     /**
      * Add a field to the file

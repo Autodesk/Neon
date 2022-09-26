@@ -8,6 +8,7 @@
 #include "Neon/set/DataSet.h"
 #include "Neon/set/DevSet.h"
 
+#include "Neon/core/tools/io/ioToVti.h"
 #include "Stencil.h"
 
 namespace Neon::domain::interface {
@@ -127,6 +128,8 @@ class GridBase
     auto getDefaultBlock() const
         -> const Neon::index_3d&;
 
+
+
    protected:
     auto init(const std::string&                gridImplementationName,
               const Neon::Backend&              backend,
@@ -143,6 +146,7 @@ class GridBase
 
     auto getDefaultLaunchParameters(Neon::DataView)
         -> Neon::set::LaunchParameters&;
+
 
    private:
     struct Storage

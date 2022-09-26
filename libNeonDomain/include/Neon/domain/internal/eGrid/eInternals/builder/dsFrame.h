@@ -336,7 +336,7 @@ struct dsFrame_t
 
         // Pradeep: this version of ioToVti is deprecated
         // Neon::ioToVTI({activity2, gpuIds}, {1, 1}, {"activity", "gpuIdx"}, {false, false}, fname, m_cellDomain + 1, m_cellDomain, 1.0, 0.0);
-        Neon::ioToVTI({{activity2, 1, "activity", false, Neon::ioVTI_e::ASCII}, {gpuIds, 1, "gpuIdx", false, Neon::ioVTI_e::ASCII}}, fname, m_cellDomain + 1, m_cellDomain, 1.0, 0.0);
+        Neon::ioToVTI({{activity2, 1, "activity", false, Neon::IoFileType::ASCII}, {gpuIds, 1, "gpuIdx", false, Neon::IoFileType::ASCII}}, fname, m_cellDomain + 1, m_cellDomain, 1.0, 0.0);
     }
 
     void setConnectivityAndIverseMappingStorage()

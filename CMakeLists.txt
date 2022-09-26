@@ -79,6 +79,7 @@ add_subdirectory("libNeonSet")
 add_subdirectory("libNeonDomain")
 add_subdirectory("libNeonSkeleton")
 add_subdirectory("libNeonSolver")
+add_subdirectory("tutorials")
 add_subdirectory("apps")
 
 

@@ -6,7 +6,7 @@ template <typename IntType, class RealType>
 IODenseVTK<IntType, RealType>::IODenseVTK(const std::string&    filename,
                                           const Vec_3d<double>& spacingData,
                                           const Vec_3d<double>& origin,
-                                          ioVTI_e::e            vtiIOe)
+                                          IoFileType            vtiIOe)
     : IoToVTK<IntType, RealType>(filename,
                                  Neon::Integer_3d<IntType>(0, 0, 0),
                                  spacingData,
