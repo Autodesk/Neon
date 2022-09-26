@@ -491,8 +491,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     if (backend.devType() == Neon::DeviceType::CUDA) {
         for (int l = 0; l < descriptor.getDepth(); ++l) {
             mData->mActiveMask[l].updateCompute(backend, 0);
-            mData->mOrigin[l].updateCompute(backend, 0);
-            mData->mIsRefined[l].updateCompute(backend, 0);
+            mData->mOrigin[l].updateCompute(backend, 0);            
             mData->mNeighbourBlocks[l].updateCompute(backend, 0);
         }
         mData->mStencilNghIndex.updateCompute(backend, 0);
