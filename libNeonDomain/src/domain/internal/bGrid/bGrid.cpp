@@ -22,7 +22,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     mData = std::make_shared<Data>();
 
-    mData->mStrongBalanced = true;
+    mData->mStrongBalanced = false;
 
     mData->descriptor.resize(descriptor.getDepth());
     int top_level_spacing = 1;
@@ -425,15 +425,12 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
 
         mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-            // TODO need to figure out which device owns this block
+            // need to figure out which device owns this block
             SetIdx devID(0);
 
             mData->mOrigin[l].eRef(devID, blockIdx) = blockOrigin;
 
             Neon::int32_3d block3DIndex = blockOrigin / ref_factor_recurse;
-
-            //set active mask
-            std::vector<Cell::Location> activeVoxelsInBlock;
 
             auto setCellActiveMask = [&](Cell::Location::Integer x, Cell::Location::Integer y, Cell::Location::Integer z) {
                 Cell cell(x, y, z);
@@ -441,21 +438,17 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                 mData->mActiveMask[l].eRef(devID, cell.getBlockMaskStride(ref_factor) + cell.getMaskLocalID(ref_factor), 0) |= 1 << cell.getMaskBitPosition(ref_factor);
             };
 
+
+            //set active mask and is_refined
             for (Cell::Location::Integer z = 0; z < ref_factor; z++) {
                 for (Cell::Location::Integer y = 0; y < ref_factor; y++) {
                     for (Cell::Location::Integer x = 0; x < ref_factor; x++) {
 
-                        //store the local index of the active voxel
                         if (levelBitMaskIsSet(l, block3DIndex.x, block3DIndex.y, block3DIndex.z, x, y, z)) {
-                            activeVoxelsInBlock.push_back({x, y, z});
+                            setCellActiveMask(x, y, z);                            
                         }
                     }
                 }
-            }
-
-
-            for (auto& voxel : activeVoxelsInBlock) {
-                setCellActiveMask(voxel.x, voxel.y, voxel.z);
             }
 
 
@@ -499,6 +492,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         for (int l = 0; l < descriptor.getDepth(); ++l) {
             mData->mActiveMask[l].updateCompute(backend, 0);
             mData->mOrigin[l].updateCompute(backend, 0);
+            mData->mIsRefined[l].updateCompute(backend, 0);
             mData->mNeighbourBlocks[l].updateCompute(backend, 0);
         }
         mData->mStencilNghIndex.updateCompute(backend, 0);
@@ -700,11 +694,6 @@ void bGrid::topologyToVTK(std::string fileName) const
     }
 
     uint64_t num_cells = 0;
-    for (auto& a : mData->mNumActiveVoxel) {
-        num_cells += a[0];
-    }
-
-    file << "CELLS " << num_cells << " " << num_cells * 9 << " \n";
 
     auto mapTo1D = [&](int x, int y, int z) {
         return x +
@@ -712,97 +701,112 @@ void bGrid::topologyToVTK(std::string fileName) const
                z * (getDimension().rMax() + 1) * (getDimension().rMax() + 1);
     };
 
+    enum class Op : int
+    {
+        Count = 0,
+        DrawTopo = 1,
+        OutputLevels = 2,
+        OutputBlockID = 3,
+        OutputVoxelID = 4,
+    };
 
-    for (int l = 0; l < mData->descriptor.size(); ++l) {
-        const int ref_factor = mData->descriptor[l];
-        int       prv_ref_factor_recurse = 1;
-        if (l > 0) {
-            for (int ll = l - 1; ll >= 0; --ll) {
-                prv_ref_factor_recurse *= mData->descriptor[ll];
+    auto loopOverActiveBlocks = [&](const Op op) {
+        for (int l = 0; l < mData->descriptor.size(); ++l) {
+            const int ref_factor = mData->descriptor[l];
+            int       prv_ref_factor_recurse = 1;
+            if (l > 0) {
+                for (int ll = l - 1; ll >= 0; --ll) {
+                    prv_ref_factor_recurse *= mData->descriptor[ll];
+                }
             }
-        }
-        mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-            // TODO need to figure out which device owns this block
-            SetIdx devID(0);
+            mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
+                // TODO need to figure out which device owns this block
+                SetIdx devID(0);
 
 
-            for (int z = 0; z < ref_factor; z++) {
-                for (int y = 0; y < ref_factor; y++) {
-                    for (int x = 0; x < ref_factor; x++) {
-                        Cell cell(static_cast<Cell::Location::Integer>(x),
-                                  static_cast<Cell::Location::Integer>(y),
-                                  static_cast<Cell::Location::Integer>(z));
-                        cell.mBlockID = blockIdx;
+                for (int z = 0; z < ref_factor; z++) {
+                    for (int y = 0; y < ref_factor; y++) {
+                        for (int x = 0; x < ref_factor; x++) {
+                            Cell cell(static_cast<Cell::Location::Integer>(x),
+                                      static_cast<Cell::Location::Integer>(y),
+                                      static_cast<Cell::Location::Integer>(z));
+                            cell.mBlockID = blockIdx;
 
-                        if (cell.computeIsActive(mData->mActiveMask[l].rawMem(devID, Neon::DeviceType::CPU), ref_factor)) {
+                            if (cell.computeIsActive(mData->mActiveMask[l].rawMem(devID, Neon::DeviceType::CPU), ref_factor)) {
 
-                            Neon::int32_3d corner(blockOrigin.x + x * prv_ref_factor_recurse,
-                                                  blockOrigin.y + y * prv_ref_factor_recurse,
-                                                  blockOrigin.z + z * prv_ref_factor_recurse);
+                                Neon::int32_3d corner(blockOrigin.x + x * prv_ref_factor_recurse,
+                                                      blockOrigin.y + y * prv_ref_factor_recurse,
+                                                      blockOrigin.z + z * prv_ref_factor_recurse);
 
+                                bool draw = true;
+                                if (l != 0) {
+                                    auto cornerIDIter = mData->mBlockOriginTo1D[l - 1].getMetadata(corner);
+                                    if (cornerIDIter) {
+                                        draw = false;
 
-                            /*if (l > 0) {
-                                //check if the voxel is refined 
-                                const int prv_ref_factor = mData->descriptor[l - 1];
-                                for (int zp = 0; zp < prv_ref_factor; ++zp) {
-                                    for (int yp = 0; yp < prv_ref_factor; ++yp) {
-                                        for (int xp = 0; xp < prv_ref_factor; ++xp) {
-                                            Cell pCell(static_cast<Cell::Location::Integer>(xp),
-                                                       static_cast<Cell::Location::Integer>(yp),
-                                                       static_cast<Cell::Location::Integer>(zp));
-
-                                            Neon::int32_3d pCorner(xp + corner.x,
-                                                                   yp + corner.y,
-                                                                   zp + corner.z);
-
-                                            if (pCorner < getDimension()) {
-                                                auto bOrigin = mData->mBlockOriginTo1D[l - 1].getMetadata(pCorner);
-                                                if (bOrigin) {
-
-                                                    pCell.mBlockID = *bOrigin;
-
-                                                    if (pCell.computeIsActive(mData->mActiveMask[l - 1].rawMem(devID, Neon::DeviceType::CPU), prv_ref_factor)) {
-                                                        isRefined = true;
-                                                        break;
-                                                    }
-                                                }
+                                        /*uint32_t cornerID = *cornerIDIter;
+                                    for (int zz = 0; zz < mData->descriptor[l - 1]; zz++) {
+                                        for (int yy = 0; yy < mData->descriptor[l - 1]; yy++) {
+                                            for (int xx = 0; xx < mData->descriptor[l - 1]; xx++) {
+                                                Cell cornerCell(static_cast<Cell::Location::Integer>(xx),
+                                                                static_cast<Cell::Location::Integer>(yy),
+                                                                static_cast<Cell::Location::Integer>(zz));
+                                                cornerCell.mBlockID = cornerID;
+                                                draw = draw && cornerCell.computeIsActive(mData->mActiveMask[l - 1].rawMem(devID, Neon::DeviceType::CPU), mData->descriptor[l - 1]);
                                             }
                                         }
+                                    }*/
                                     }
                                 }
-                            }*/
 
+                                if (draw) {
+                                    if (op == Op::Count) {
+                                        num_cells++;
+                                    } else if (op == Op::DrawTopo) {
 
-                            file << "8 ";
-                            //x,y,z
-                            file << mapTo1D(corner.x, corner.y, corner.z) << " ";
-                            //+x,y,z
-                            file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y, corner.z) << " ";
+                                        file << "8 ";
+                                        //x,y,z
+                                        file << mapTo1D(corner.x, corner.y, corner.z) << " ";
+                                        //+x,y,z
+                                        file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y, corner.z) << " ";
 
-                            //x,+y,z
-                            file << mapTo1D(corner.x, corner.y + prv_ref_factor_recurse, corner.z) << " ";
+                                        //x,+y,z
+                                        file << mapTo1D(corner.x, corner.y + prv_ref_factor_recurse, corner.z) << " ";
 
-                            //+x,+y,z
-                            file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y + prv_ref_factor_recurse, corner.z) << " ";
+                                        //+x,+y,z
+                                        file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y + prv_ref_factor_recurse, corner.z) << " ";
 
-                            //x,y,+z
-                            file << mapTo1D(corner.x, corner.y, corner.z + prv_ref_factor_recurse) << " ";
+                                        //x,y,+z
+                                        file << mapTo1D(corner.x, corner.y, corner.z + prv_ref_factor_recurse) << " ";
 
-                            //+x,y,+z
-                            file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y, corner.z + prv_ref_factor_recurse) << " ";
+                                        //+x,y,+z
+                                        file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y, corner.z + prv_ref_factor_recurse) << " ";
 
-                            //x,+y,+z
-                            file << mapTo1D(corner.x, corner.y + prv_ref_factor_recurse, corner.z + prv_ref_factor_recurse) << " ";
+                                        //x,+y,+z
+                                        file << mapTo1D(corner.x, corner.y + prv_ref_factor_recurse, corner.z + prv_ref_factor_recurse) << " ";
 
-                            //+x,+y,+z
-                            file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y + prv_ref_factor_recurse, corner.z + prv_ref_factor_recurse) << " ";
-                            file << "\n";
+                                        //+x,+y,+z
+                                        file << mapTo1D(corner.x + prv_ref_factor_recurse, corner.y + prv_ref_factor_recurse, corner.z + prv_ref_factor_recurse) << " ";
+                                        file << "\n";
+                                    } else if (op == Op::OutputLevels) {
+                                        file << l << "\n";
+                                    } else if (op == Op::OutputBlockID) {
+                                        file << blockIdx << "\n";
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
-        });
-    }
+            });
+        }
+    };
+
+    loopOverActiveBlocks(Op::Count);
+
+    file << "CELLS " << num_cells << " " << num_cells * 9 << " \n";
+
+    loopOverActiveBlocks(Op::DrawTopo);
 
     file << "CELL_TYPES " << num_cells << " \n";
     for (uint64_t i = 0; i < num_cells; ++i) {
@@ -812,14 +816,13 @@ void bGrid::topologyToVTK(std::string fileName) const
     file << "CELL_DATA " << num_cells << " \n";
     file << "SCALARS Level int 1 \n";
     file << "LOOKUP_TABLE default \n";
+    loopOverActiveBlocks(Op::OutputLevels);
 
-    uint64_t acc = 0;
-    for (auto& a : mData->mNumActiveVoxel) {
-        for (uint64_t i = 0; i < a[0]; ++i) {
-            file << acc << "\n";
-        }
-        acc++;
-    }
+
+    file << "SCALARS BlockID int 1 \n";
+    file << "LOOKUP_TABLE default \n";
+    loopOverActiveBlocks(Op::OutputBlockID);
+
 
     file.close();
 }
