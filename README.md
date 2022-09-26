@@ -31,20 +31,8 @@ Depending on the system, this will generate either a `.sln` project on Windows o
 
 A description of the system and its capabilities can be found in our paper [link](https://escholarship.org/uc/item/9fz7k633).
 
-We are working on providing a set of tutorials and a programming guide to help you get up to speed with Neon.
-We'll be using mkdocs system to organize the documentation. The documentation will be available both online ([https://autodesk.github.io/Neon/](https://autodesk.github.io/Neon/)) and locally. 
-The following are the steps to access the documentation locally:
-
-```bash
-# Insalling mkdocs. There are various installation methods, we use pip in this example.
-# We also install some required extensions
-pip install mkdocs mkdocs-material mkdocs-autolinks-plugin pymdown-extensions pygments
-# Accessing the root of the local clone of the Neon repository
-cd Neon
-# Using mkdocs to run a local web server
-# The command will prompt a page to be open with your preferred browser
-mkdocs serve
-```
+We use mkdocs to organize Neon documentation which is available online via GitHub Pages ([https://autodesk.github.io/Neon/](https://autodesk.github.io/Neon/)).
+The documentation includes a tutorial, application and benchmark sessions.  
 
 ## Communicate With Us
 

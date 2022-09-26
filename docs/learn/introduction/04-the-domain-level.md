@@ -4,12 +4,12 @@
 
 Neon Domain level's goal is to provide users with simple mechanisms for some specific domains.
 Currently, Neon focus on those domains where a regular cartesian discretisations are leveraged.
-Using a simple example will look ad how the level mechanisms can be used.
+Using a simple example will look at how the level mechanisms can be used.
 
 ## Working with dense domains
 
 Let's use implicit geometries to showcase some aspect of Neon.
-We'll be working on a dense domain on top of whihc we define our implicit geometry,
+We'll be working on a dense domain on top of which we define our implicit geometry,
 like a simple sphere. In the rest of this page, we'll be looking at the following tasks:
 
 1. [Choosing the hardware for the computation - **Neon backend**](#backend)
@@ -151,7 +151,7 @@ active cells, as well as the number of cells per hardware device.
 
 By calling `ioDomainToVtk` method, we can also inspect the created domain (`grid`) via Paraview as the code generates a
 vtk
-file (`myDomain`). With an application working on a dense domain, the Paraview will show all the cells in the
+file (`domain`). With an application working on a dense domain, the Paraview will show all the cells in the
 discretization box as active.
 Moreover, it will show the mapping between cells and hardware devices as
 reported in the following picture:
@@ -162,9 +162,9 @@ reported in the following picture:
 ### **Neon field**: defining data over the cartesian discretisation
 </a>
 
-Let's now allocate some metadata on top of the cartesian discretization we have just creates.
-Neon field are the tool for the task. Fields are allocated from a Neon grid.
-The type of a field depends on the metadata store on each cell.
+Let's now allocate some metadata on top of the cartesian discretization we have just created.
+Neon fields are the tool for the task. Fields are allocated from a Neon grid.
+The type of a field depends on the metadata stored on each cell.
 A field can allocate a number of components for each cell. This number of components
 which we call cardinality is defined when the field is created.
 
@@ -212,7 +212,7 @@ The process of moving data to the devices is simple as it requires only a simple
 
 !!! Warning
 
-    All Neon operation related to runnig computation or moving data have a asynchronous semantic.
+    All Neon operations related to runnig computation or moving data have a asynchronous semantic.
     At the domain level it is up to the user to handle any sort of synchronization manually. 
 
 ```cpp linenums="93" title="Neon/tutorials/introduction/domainLevel/domainLevel.cpp"
