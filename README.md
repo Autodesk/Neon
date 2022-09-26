@@ -1,4 +1,4 @@
-![Neon logo](doc/logo/neonDarkLogo.jpg "Neon")
+![Neon logo](docs/logo/neonDarkLogo.jpg "Neon")
 
 Neon is a research framework for programming multi-device systems maintained by [Autodesk Research](https://www.autodesk.com/research/overview). Neon's goal is to automatically transform user sequential code into, for example, a scalable multi-GPU execution.
 
@@ -31,7 +31,8 @@ Depending on the system, this will generate either a `.sln` project on Windows o
 
 A description of the system and its capabilities can be found in our paper [link](https://escholarship.org/uc/item/9fz7k633).
 
-We are working on providing a set of tutorials and a programming guide to help you get up to speed with Neon.
+We use mkdocs to organize Neon documentation which is available online via GitHub Pages ([https://autodesk.github.io/Neon/](https://autodesk.github.io/Neon/)).
+The documentation includes a tutorial, application and benchmark sessions.  
 
 ## Communicate With Us
 
@@ -39,13 +40,13 @@ We are working to define the best way to communicate with us. Please stay tuned.
 
 ## Contributions From the Community
 
-The Neon team welcome and greatly appreciate contributions from the community. The document [CONTRIBUTING.md](./doc/CONTRIBUTING.md) goes more into the details on the process we follow. 
+The Neon team welcome and greatly appreciate contributions from the community. The document [CONTRIBUTING.md](docs/CONTRIBUTING.md) goes more into the details on the process we follow. 
 
-As a community, we have a responsibility to create a respectful and inclusive environment, so we kindly ask any member and contributor to respect and follow [Neon's Code of Conduct](./doc/CODE_OF_CONDUCT.md)
+As a community, we have a responsibility to create a respectful and inclusive environment, so we kindly ask any member and contributor to respect and follow [Neon's Code of Conduct](docs/CODE_OF_CONDUCT.md)
 
 ## Authors and Maintainers 
 
-Please check out the [CONTRIBUTORS.md](./doc/CONTRIBUTORS.md), to see the full list of contributors to the project.
+Please check out the [CONTRIBUTORS.md](docs/CONTRIBUTORS.md), to see the full list of contributors to the project.
 
 The current maintainers of project Neon are:
 - Massimiliano Meneghin (Autodesk Research)
@@ -58,13 +59,14 @@ Neon is licenced under the Apache License, Version 2.0. For more information ple
 ## How to cite Neon
 
 ```
-@article{Meneghin:2022:NAM,
-    title = {Neon: A Multi-GPU Programming Model for Grid-based Computations},
-    booktitle = {Proceedings of the 36th IEEE International Parallel and Distributed Processing Symposium},
-    series = {IPDPS 2022},
-    year = 2022,
-    month = june,
-    author = {Meneghin, Massimiliano and Mahmoud, Ahmed H. and Jayaraman, Pradeep Kumar and Morris, Nigel J. W.},
-    url = {https://escholarship.org/uc/item/9fz7k633}
+@INPROCEEDINGS{Meneghin:2022:NAM,
+  author = {Meneghin, Massimiliano and Mahmoud, Ahmed H. and Jayaraman, Pradeep Kumar and Morris, Nigel J. W.},
+  booktitle = {Proceedings of the 36th IEEE International Parallel and Distributed Processing Symposium},
+  title = {Neon: A Multi-GPU Programming Model for Grid-based Computations},
+  year = {2022},
+  month = {june},
+  pages = {817--827},
+  doi = {10.1109/IPDPS53621.2022.00084},
+  url = {https://escholarship.org/uc/item/9fz7k633}
 }
 ```

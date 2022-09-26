@@ -132,7 +132,7 @@ class storage_t
         Neon::IoToVTK  ioToVTK(fname + "_field.vti",
                                l,
                                1.0,
-                               0.0, Neon::ioVTI_e::ASCII);
+                               0.0, Neon::IoFileType::ASCII);
 
         ioToVTK.addField(Xd_val, m_cardinality, "Xd", Neon::ioToVTKns::node);
         ioToVTK.addField(Yd_val, m_cardinality, "Yd", Neon::ioToVTKns::node);

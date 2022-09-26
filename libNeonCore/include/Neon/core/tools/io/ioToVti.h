@@ -19,13 +19,10 @@
 
 namespace Neon {
 
-struct ioVTI_e
+enum struct IoFileType
 {
-    enum e
-    {
-        ASCII,
-        BINARY
-    };
+    ASCII,
+    BINARY
 };
 
 template <class real_tt, typename intType_ta>
@@ -37,11 +34,11 @@ using isNodeFlags_t = bool;
 template <class real_tt, typename intType_ta>
 struct VtiInputData_t
 {
-    userGridFun_t<real_tt, intType_ta> func; // Function that takes 3d index and component id and returns the field value
-    nComponent_t                       nComponents;  // Number of components in the field
-    fieldName_t                        fieldName;     // Name for the field
-    isNodeFlags_t                      isNode;       // Whether this data is node based (or voxel based)
-    ioVTI_e::e                         asciiOrBinary; // Whether to write data as ASCII or binary
+    userGridFun_t<real_tt, intType_ta> func;           // Function that takes 3d index and component id and returns the field value
+    nComponent_t                       nComponents;    // Number of components in the field
+    fieldName_t                        fieldName;      // Name for the field
+    isNodeFlags_t                      isNode;         // Whether this data is node based (or voxel based)
+    IoFileType                         asciiOrBinary;  // Whether to write data as ASCII or binary
 };
 
 namespace internal_implicit {
@@ -210,7 +207,7 @@ inline std::size_t constexpr encoded_size(std::size_t n)
 inline std::size_t constexpr decoded_size(std::size_t n)
 {
     return n / 4 * 3;  // requires n&3==0, smaller
-    //return 3 * n / 4;
+    // return 3 * n / 4;
 }
 
 /** Encode a series of octets as a padded, base64 string.
@@ -372,15 +369,15 @@ void closePointOrCellSection(std::ofstream& out, bool isNode)
 }
 
 template <class real_tt, typename intType_ta>
-void writeData(std::ofstream&                                   out,
+void writeData(std::ofstream&                     out,
                userGridFun_t<real_tt, intType_ta> grid,
                nComponent_t                       nComponents,
                const fieldName_t&                 fieldName,
-               const Integer_3d<intType_ta>&                    space,
-               ioVTI_e::e                                       vtiIO = ioVTI_e::e::ASCII)
+               const Integer_3d<intType_ta>&      space,
+               IoFileType                         vtiIO = IoFileType::ASCII)
 {
     switch (vtiIO) {
-        case ioVTI_e::e::BINARY: {
+        case IoFileType::BINARY: {
             out << "<DataArray type=\"Float64\" NumberOfComponents=\"";
             out << nComponents;
             out << "\" Name=\"";
@@ -389,7 +386,7 @@ void writeData(std::ofstream&                                   out,
 
             using namespace ns_help_write_vti::numerical_chars;
             out.setf(std::ios_base::fixed, std::ios_base::floatfield);
-            //out.precision(std::numeric_limits<real_tt>::max_digits10);
+            // out.precision(std::numeric_limits<real_tt>::max_digits10);
             out.precision(17);
 
             Neon::Integer_3d<intType_ta> idx;
@@ -406,9 +403,9 @@ void writeData(std::ofstream&                                   out,
                         idx.set(x, y, z);
                         for (int v = 0; v < nComponents; v++) {
                             intType_ta val = static_cast<intType_ta>(grid(idx, v));
-                            //int32_t size = sizeof(double);
-                            //out.write((char*)&size, sizeof(size));
-                            //out << base64::base64_encode((unsigned char*)&val, sizeof(val));
+                            // int32_t size = sizeof(double);
+                            // out.write((char*)&size, sizeof(size));
+                            // out << base64::base64_encode((unsigned char*)&val, sizeof(val));
                             size_t jump = size_t(v) +
                                           size_t(x) * nComponents +
                                           size_t(y) * nComponents * space.x +
@@ -427,12 +424,12 @@ void writeData(std::ofstream&                                   out,
             out << base64::beast::detail::base64_encode((unsigned char*)tmp, tmpSize + 4);
             //            //out << base64::base64_encode((unsigned char*)tmp, tmpSize);
             //            out << base64::beast::detail::base64_encode((unsigned char*)tmpData, tmpSize);
-            //base64_encode((unsigned char*)tmp, tmpSize);
+            // base64_encode((unsigned char*)tmp, tmpSize);
             out << "\n</DataArray>\n\n";
             free(tmp);
             return;
         }
-        case ioVTI_e::e::ASCII: {
+        case IoFileType::ASCII: {
             out << "<DataArray type=\"Float64\" NumberOfComponents=\"";
             out << nComponents;
             out << "\" Name=\"";
@@ -441,7 +438,7 @@ void writeData(std::ofstream&                                   out,
 
             using namespace ns_help_write_vti::numerical_chars;
             out.setf(std::ios_base::fixed, std::ios_base::floatfield);
-            //out.precision(std::numeric_limits<real_tt>::max_digits10);
+            // out.precision(std::numeric_limits<real_tt>::max_digits10);
             out.precision(17);
 
             Neon::Integer_3d<intType_ta> idx;
@@ -494,10 +491,10 @@ void WriteNodeAndVoxelData(std::ofstream&                                       
 }  // namespace ns_help_write_vti
 
 template <class real_tt, typename intType_ta>
-void WriteNodeAndVoxelData(std::ofstream&                                                     out,
+void WriteNodeAndVoxelData(std::ofstream&                                          out,
                            const std::vector<VtiInputData_t<real_tt, intType_ta>>& gridsInfo,
-                           const Integer_3d<intType_ta>&                                      nodeSpace,
-                           const Integer_3d<intType_ta>&                                      voxSpace)
+                           const Integer_3d<intType_ta>&                           nodeSpace,
+                           const Integer_3d<intType_ta>&                           voxSpace)
 {
     bool doNodes;
     //    auto writeDataUnwrap = [&](ioToVTIns::userGridFun_t<real_tt, intType_ta> grid,
@@ -533,8 +530,8 @@ void WriteNodeAndVoxelData(std::ofstream&                                       
         doNodes = doNodes_;
         openPointOrCellSection(out, doNodes);
         for (int i = 0; i < int(gridsInfo.size()); i++) {
-            //Neon::meta::debug::printType(gridsInfo[i]);
-            //std::apply(writeDataUnwrap, gridsInfo[i]);
+            // Neon::meta::debug::printType(gridsInfo[i]);
+            // std::apply(writeDataUnwrap, gridsInfo[i]);
             writeDataUnwrap(gridsInfo[i]);
         }
         closePointOrCellSection(out, doNodes);
@@ -575,10 +572,10 @@ void writePieceExtent(std::ofstream&                                            
 }
 
 template <class real_tt, typename intType_ta>
-void writePieceExtent(std::ofstream&                                                     out,
+void writePieceExtent(std::ofstream&                                          out,
                       const std::vector<VtiInputData_t<real_tt, intType_ta>>& gridsInfo,
-                      const Integer_3d<intType_ta>&                                      nodeSpace,
-                      const Integer_3d<intType_ta>&                                      voxSpace)
+                      const Integer_3d<intType_ta>&                           nodeSpace,
+                      const Integer_3d<intType_ta>&                           voxSpace)
 {
     auto        extendedSpace = voxSpace;
     std::string PieceExtent;
@@ -617,16 +614,15 @@ void writePieceExtent(std::ofstream&                                            
  * @param origin
  */
 template <typename intType_ta, typename real_tt = double>
-[[deprecated]]
-void ioToVTI(const std::vector<std::function<real_tt(const Integer_3d<intType_ta>&, int componentIdx)>>& grids,
-             const std::vector<int32_t>&                                                                 nComponents,
-             const std::vector<std::string>&                                                             fieldName,
-             const std::vector<bool>&                                                                    isNodeFlags,
-             const std::string&                                                                          filename,
-             const Integer_3d<intType_ta>&                                                               nodeSpace,
-             const Integer_3d<intType_ta>&                                                               voxSpace,
-             const Vec_3d<double>&                                                                       spacingData,
-             const Vec_3d<double>&                                                                       origin)
+[[deprecated]] void ioToVTI(const std::vector<std::function<real_tt(const Integer_3d<intType_ta>&, int componentIdx)>>& grids,
+                            const std::vector<int32_t>&                                                                 nComponents,
+                            const std::vector<std::string>&                                                             fieldName,
+                            const std::vector<bool>&                                                                    isNodeFlags,
+                            const std::string&                                                                          filename,
+                            const Integer_3d<intType_ta>&                                                               nodeSpace,
+                            const Integer_3d<intType_ta>&                                                               voxSpace,
+                            const Vec_3d<double>&                                                                       spacingData,
+                            const Vec_3d<double>&                                                                       origin)
 {
     using namespace internal_implicit::ns_help_write_vti;
 
@@ -643,8 +639,8 @@ void ioToVTI(const std::vector<std::function<real_tt(const Integer_3d<intType_ta
 
     std::ofstream out(filename, std::ios::binary);
     if (!out.is_open()) {
-        std::string     msg = std::string("[VoxelGrid::WriteToBin] File ") + filename + std::string(" could not be open!!!");
-        NeonException   exception("ioToVTI");
+        std::string   msg = std::string("[VoxelGrid::WriteToBin] File ") + filename + std::string(" could not be open!!!");
+        NeonException exception("ioToVTI");
         exception << msg;
         NEON_THROW(exception);
     }
@@ -662,8 +658,8 @@ void ioToVTI(const std::vector<std::function<real_tt(const Integer_3d<intType_ta
                                   nodeSpace,
                                   voxSpace);
     } catch (...) {
-        std::string     msg = std::string("An error on file operations where encountered when writing field data");
-        NeonException   exception("ioToVTI");
+        std::string   msg = std::string("An error on file operations where encountered when writing field data");
+        NeonException exception("ioToVTI");
         exception << msg;
         NEON_THROW(exception);
     }
@@ -672,13 +668,13 @@ void ioToVTI(const std::vector<std::function<real_tt(const Integer_3d<intType_ta
 }
 
 
-template < typename intType_ta, class real_tt = double>
+template <typename intType_ta, class real_tt = double>
 void ioToVTI(const std::vector<VtiInputData_t<real_tt, intType_ta>>& gridsInfo,
-                const std::string&                                                 filename,
-                const Integer_3d<intType_ta>&                                      nodeSpace,
-                const Integer_3d<intType_ta>&                                      voxSpace,
-                const Vec_3d<double>&                                              spacingData = Vec_3d<double>(1,1,1),
-                const Vec_3d<double>&                                              origin = Vec_3d<double>(0,0,0))
+             const std::string&                                      filename,
+             const Integer_3d<intType_ta>&                           nodeSpace,
+             const Integer_3d<intType_ta>&                           voxSpace,
+             const Vec_3d<double>&                                   spacingData = Vec_3d<double>(1, 1, 1),
+             const Vec_3d<double>&                                   origin = Vec_3d<double>(0, 0, 0))
 {
     using namespace internal_implicit::ns_help_write_vti;
     if (!(voxSpace == (nodeSpace - 1))) {
@@ -694,8 +690,8 @@ void ioToVTI(const std::vector<VtiInputData_t<real_tt, intType_ta>>& gridsInfo,
 
     std::ofstream out(filename, std::ios::out | std::ios::binary);
     if (!out.is_open()) {
-        std::string     msg = std::string("[VoxelGrid::WriteToBin] File ") + filename + std::string(" could not be open!!!");
-        NeonException   exception("ioToVTI");
+        std::string   msg = std::string("[VoxelGrid::WriteToBin] File ") + filename + std::string(" could not be open!!!");
+        NeonException exception("ioToVTI");
         exception << msg;
         NEON_THROW(exception);
     }
@@ -710,15 +706,14 @@ void ioToVTI(const std::vector<VtiInputData_t<real_tt, intType_ta>>& gridsInfo,
                                               nodeSpace,
                                               voxSpace);
     } catch (...) {
-        std::string     msg = std::string("An error on file operations where encountered when writing field data");
-        NeonException   exception("ioToVTI");
+        std::string   msg = std::string("An error on file operations where encountered when writing field data");
+        NeonException exception("ioToVTI");
         exception << msg;
         NEON_THROW(exception);
     }
     out << std::string(" </ImageData>\n");
     out << std::string(" </VTKFile>\n");
 }
-
 
 
 }  // namespace Neon

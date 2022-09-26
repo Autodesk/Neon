@@ -230,7 +230,7 @@ void writeData(std::ofstream&                                                   
                ioToVTKns::nComponent_t                                                 nComponents,
                const ioToVTKns::FieldName_t&                                           fieldName,
                const Integer_3d<intType_ta>&                                           space,
-               ioVTI_e::e                                                              vtiIO)
+               IoFileType                                                              vtiIO)
 {
     out << "SCALARS " << fieldName << " ";
     if constexpr (std::is_same<real_tt, double>::value) {
@@ -251,7 +251,7 @@ void writeData(std::ofstream&                                                   
     }
     out << "LOOKUP_TABLE default\n";
 
-    if (vtiIO == ioVTI_e::e::ASCII) {
+    if (vtiIO == IoFileType::ASCII) {
         dumpTextDataIntoFile<intType_ta, real_tt>(out, fieldData, nComponents, space);
     } else {
         dumpRawDataIntoFile<intType_ta, real_tt>(out, fieldData, nComponents, space);
@@ -275,7 +275,7 @@ void WriteNodeAndVoxelData(std::ofstream&                                       
                            const std::vector<ioToVTKns::UserFieldInformation<intType_ta, real_tt>>& fieldsData,
                            const Integer_3d<intType_ta>&                                            nodeSpace,
                            const Integer_3d<intType_ta>&                                            voxSpace,
-                           ioVTI_e::e                                                               vtiIOe)
+                           IoFileType                                                               vtiIOe)
 {
     ioToVTKns::VtiDataType_e filteringNodeOrVoxels;
 
@@ -336,7 +336,7 @@ void WriteGridInfoAndAllFields(std::ofstream&                                   
                                const Integer_3d<intType_ta>&                                            voxSpace,
                                const Vec_3d<double>&                                                    spacingData,
                                const Vec_3d<double>&                                                    origin,
-                               ioVTI_e::e                                                               vtiIOe)
+                               IoFileType                                                               vtiIOe)
 {
 
 
@@ -383,7 +383,7 @@ void WriteGridInfoAndAllFields(std::ofstream&                                   
                         voxDim,
                         1.0,
                         0.0,
-                        Neon::ioVTI_e::ASCII);
+                        Neon::IoFileType::ASCII);
 
     Neon::ioToVTILegacy({{velocityNorm, 1, "velocityNorm", Neon::ioToVTKLegacyNs::node},
                          {density, 1, "density", Neon::ioToVTKLegacyNs::voxel}},
@@ -392,7 +392,7 @@ void WriteGridInfoAndAllFields(std::ofstream&                                   
                         voxDim,
                         1.0,
                         0.0,
-                        Neon::ioVTI_e::BINARY);
+                        Neon::IoFileType::BINARY);
 
  *
  *
@@ -403,7 +403,7 @@ void ioToVTK(const std::vector<ioToVTKns::UserFieldInformation<intType_ta, real_
              const Integer_3d<intType_ta>&                                            nodeSpace /*!                             IoDense dimension of the node space (nodeSpace = voxelSpace +1) */,
              const Vec_3d<double>&                                                    spacingData = Vec_3d<double>(1, 1, 1) /*! Spacing, i.e. size of a voxel */,
              const Vec_3d<double>&                                                    origin = Vec_3d<double>(0, 0, 0) /*!      Origin  */,
-             ioVTI_e::e                                                               vtiIOe = ioVTI_e::e::ASCII /*!            Binary or ASCII file  */,
+             IoFileType                                                               vtiIOe = IoFileType::ASCII /*!            Binary or ASCII file  */,
              [[maybe_unused]] int                                                     iterationId = -1)
 {
     const Integer_3d<intType_ta> voxSpace = nodeSpace - 1;
@@ -425,7 +425,7 @@ void ioToVTK(const std::vector<ioToVTKns::UserFieldInformation<intType_ta, real_
         //            ;
         //        }
 
-        if (vtiIOe == ioVTI_e::e::ASCII) {
+        if (vtiIOe == IoFileType::ASCII) {
             out << "ASCII" << std::endl;
         } else {
             out << "BINARY" << std::endl;
@@ -452,7 +452,7 @@ struct IoToVTK
             const Integer_3d<intType_ta>& nodeSpace /*!                             IoDense dimension of the node space (nodeSpace = voxelSpace +1) */,
             const Vec_3d<double>&         spacingData = Vec_3d<double>(1, 1, 1) /*! Spacing, i.e. size of a voxel */,
             const Vec_3d<double>&         origin = Vec_3d<double>(0, 0, 0) /*!      Origin  */,
-            ioVTI_e::e                    vtiIOe = ioVTI_e::e::ASCII /*!            Binary or ASCII file  */)
+            IoFileType                    vtiIOe = IoFileType::ASCII /*!            Binary or ASCII file  */)
         : m_filename(filename),
           m_nodeSpace(nodeSpace),
           m_spacingData(spacingData),
@@ -480,12 +480,12 @@ struct IoToVTK
         if (m_fiedVec.size() != 0) {
             std::string filename;
             if (m_iteration == -1) {
-                filename = m_filename + ".vtk";
+                filename = m_filename ;
             } else {
                 std::stringstream ss;
                 ss << std::setw(5) << std::setfill('0') << m_iteration;
                 std::string s = ss.str();
-                filename = m_filename + s + ".vtk";
+                filename = m_filename + s ;
             }
             ioToVTKns::ioToVTK<intType_ta, real_tt>(m_fiedVec,
                                                     filename,
@@ -513,7 +513,7 @@ struct IoToVTK
         m_iteration = iteration;
     }
 
-    auto setFormat(ioVTI_e::e vtiIOe = ioVTI_e::e::ASCII)
+    auto setFormat(IoFileType vtiIOe = IoFileType::ASCII)
     {
         m_vtiIOe = vtiIOe;
     }
@@ -529,7 +529,7 @@ struct IoToVTK
     Integer_3d<intType_ta>                                            m_nodeSpace /*!                             IoDense dimension of the node space (nodeSpace = voxelSpace +1) */;
     Vec_3d<double>                                                    m_spacingData = Vec_3d<double>(1, 1, 1) /*! Spacing, i.e. size of a voxel */;
     Vec_3d<double>                                                    m_origin = Vec_3d<double>(0, 0, 0) /*!      Origin  */;
-    ioVTI_e::e                                                        m_vtiIOe = ioVTI_e::e::ASCII /*!            Binary or ASCII file  */;
+    IoFileType                                                        m_vtiIOe = IoFileType::ASCII /*!            Binary or ASCII file  */;
     std::vector<ioToVTKns::UserFieldInformation<intType_ta, real_tt>> m_fiedVec /*!                               Vector of field data*/;
     int                                                               m_iteration = -1;
 };
