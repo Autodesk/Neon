@@ -24,8 +24,6 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     mData->mStrongBalanced = true;
 
-    mData->mNoPartialRefined = false;
-
     mData->descriptor.resize(descriptor.getDepth());
     int top_level_spacing = 1;
     for (int l = 0; l < descriptor.getDepth(); ++l) {
@@ -316,13 +314,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                         }
                     }
 
-                    //if we don't accept partially refined blocks, if there is one voxel in the block that is active
-                    //then all voxels are active in this block
-                    if (mData->mNoPartialRefined && numVoxelsInBlock > 0 && l == 0) {
-                        numVoxelsInBlock = ref_factor * ref_factor * ref_factor;
-                    }
-                    mData->mNumActiveVoxel[l][0] += numVoxelsInBlock;
 
+                    mData->mNumActiveVoxel[l][0] += numVoxelsInBlock;
 
                     if (numVoxelsInBlock > 0) {
                         mData->mNumBlocks[l][0]++;
@@ -461,22 +454,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             }
 
 
-            //if partially refined block is not allowed and we have one voxel active in the block,
-            //then we should active all voxels in this block
-            if (mData->mNoPartialRefined && !activeVoxelsInBlock.empty()) {
-                for (Cell::Location::Integer z = 0; z < ref_factor; z++) {
-                    for (Cell::Location::Integer y = 0; y < ref_factor; y++) {
-                        for (Cell::Location::Integer x = 0; x < ref_factor; x++) {
-                            setCellActiveMask(x, y, z);
-                        }
-                    }
-                }
-
-            } else {
-                //otherwise we only add these voxels that are active
-                for (auto& voxel : activeVoxelsInBlock) {
-                    setCellActiveMask(voxel.x, voxel.y, voxel.z);
-                }
+            for (auto& voxel : activeVoxelsInBlock) {
+                setCellActiveMask(voxel.x, voxel.y, voxel.z);
             }
 
 
