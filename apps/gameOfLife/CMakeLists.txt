@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
-set (APP_NAME gameOfLife)
+set (APP_NAME app-gameOfLife)
 file(GLOB_RECURSE SrcFiles gameOfLife.cu)
 
 add_executable(${APP_NAME} ${SrcFiles})
