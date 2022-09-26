@@ -8,7 +8,7 @@ namespace Neon::domain::internal::sGrid {
  * This abstraction is used by the neon lambda executor to
  * run a containers on aGrid
  */
-class sPartitionIndexSpace
+struct sPartitionIndexSpace
 {
    public:
 
