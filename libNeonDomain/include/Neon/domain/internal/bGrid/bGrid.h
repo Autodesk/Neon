@@ -127,7 +127,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
 
-    void topologyToVTK(std::string fileName) const;
+    void topologyToVTK(std::string fileName, bool filterOverlaps) const;
 
    private:
     struct Data
@@ -143,6 +143,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //block origin coordinates
         //std::vector to store the origin of each block at each level
         std::vector<Neon::set::MemSet_t<Neon::int32_3d>> mOrigin;
+
+        //stores the parent of the block 
+        std::vector<Neon::set::MemSet_t<uint32_t>> mParent;
 
         //Stencil neighbor indices
         Neon::set::MemSet_t<nghIdx_t> mStencilNghIndex;

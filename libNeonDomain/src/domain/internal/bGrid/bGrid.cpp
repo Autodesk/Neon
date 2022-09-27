@@ -22,7 +22,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     mData = std::make_shared<Data>();
 
-    mData->mStrongBalanced = false;
+    mData->mStrongBalanced = true;
 
     mData->descriptor.resize(descriptor.getDepth());
     int top_level_spacing = 1;
@@ -343,13 +343,22 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                    Neon::DeviceType::CUDA,
                                    ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                    Neon::MemoryLayout::arrayOfStructs);
-
+    //origin
     mData->mOrigin.resize(descriptor.getDepth());
     for (int l = 0; l < descriptor.getDepth(); ++l) {
         mData->mOrigin[l] = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
                                                                                 1,
                                                                                 memOptions,
                                                                                 mData->mNumBlocks[l]);
+    }
+
+    //parent
+    mData->mParent.resize(descriptor.getDepth());
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        mData->mParent[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+                                                                          1,
+                                                                          memOptions,
+                                                                          mData->mNumBlocks[l]);
     }
 
     //Stencil linear/relative index
@@ -439,13 +448,13 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             };
 
 
-            //set active mask and is_refined
+            //set active mask
             for (Cell::Location::Integer z = 0; z < ref_factor; z++) {
                 for (Cell::Location::Integer y = 0; y < ref_factor; y++) {
                     for (Cell::Location::Integer x = 0; x < ref_factor; x++) {
 
                         if (levelBitMaskIsSet(l, block3DIndex.x, block3DIndex.y, block3DIndex.z, x, y, z)) {
-                            setCellActiveMask(x, y, z);                            
+                            setCellActiveMask(x, y, z);
                         }
                     }
                 }
@@ -485,13 +494,30 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                     }
                 }
             }
+
+
+            //set the parent block index
+            if (l < descriptor.getDepth() - 1) {
+                const int      nxt_ref_factor = descriptor.getRefFactorRecurse(l + 1);
+                Neon::index_3d parent(blockOrigin.x - blockOrigin.x % nxt_ref_factor,
+                                      blockOrigin.y - blockOrigin.y % nxt_ref_factor,
+                                      blockOrigin.z - blockOrigin.z % nxt_ref_factor);
+                auto           parent_it = mData->mBlockOriginTo1D[l + 1].getMetadata(parent);
+                if (!parent_it) {
+                    NeonException exp("bGrid::bGrid");
+                    exp << "Something went wrong during constructing bGrid. Can not find the right parent of a block\n";
+                    NEON_THROW(exp);
+                }
+                mData->mParent[l].eRef(devID, blockIdx) = *parent_it;
+            }
         });
     }
 
     if (backend.devType() == Neon::DeviceType::CUDA) {
         for (int l = 0; l < descriptor.getDepth(); ++l) {
             mData->mActiveMask[l].updateCompute(backend, 0);
-            mData->mOrigin[l].updateCompute(backend, 0);            
+            mData->mOrigin[l].updateCompute(backend, 0);
+            mData->mParent[l].updateCompute(backend, 0);
             mData->mNeighbourBlocks[l].updateCompute(backend, 0);
         }
         mData->mStencilNghIndex.updateCompute(backend, 0);
@@ -675,7 +701,7 @@ auto bGrid::getDescriptor() const -> const std::vector<int>&
     return mData->descriptor;
 }
 
-void bGrid::topologyToVTK(std::string fileName) const
+void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
 {
 
     std::ofstream file(fileName);
@@ -703,7 +729,7 @@ void bGrid::topologyToVTK(std::string fileName) const
     enum class Op : int
     {
         Count = 0,
-        DrawTopo = 1,
+        OutputTopology = 1,
         OutputLevels = 2,
         OutputBlockID = 3,
         OutputVoxelID = 4,
@@ -738,30 +764,17 @@ void bGrid::topologyToVTK(std::string fileName) const
                                                       blockOrigin.z + z * prv_ref_factor_recurse);
 
                                 bool draw = true;
-                                if (l != 0) {
+                                if (filterOverlaps && l != 0) {
                                     auto cornerIDIter = mData->mBlockOriginTo1D[l - 1].getMetadata(corner);
                                     if (cornerIDIter) {
                                         draw = false;
-
-                                        /*uint32_t cornerID = *cornerIDIter;
-                                    for (int zz = 0; zz < mData->descriptor[l - 1]; zz++) {
-                                        for (int yy = 0; yy < mData->descriptor[l - 1]; yy++) {
-                                            for (int xx = 0; xx < mData->descriptor[l - 1]; xx++) {
-                                                Cell cornerCell(static_cast<Cell::Location::Integer>(xx),
-                                                                static_cast<Cell::Location::Integer>(yy),
-                                                                static_cast<Cell::Location::Integer>(zz));
-                                                cornerCell.mBlockID = cornerID;
-                                                draw = draw && cornerCell.computeIsActive(mData->mActiveMask[l - 1].rawMem(devID, Neon::DeviceType::CPU), mData->descriptor[l - 1]);
-                                            }
-                                        }
-                                    }*/
                                     }
                                 }
 
                                 if (draw) {
                                     if (op == Op::Count) {
                                         num_cells++;
-                                    } else if (op == Op::DrawTopo) {
+                                    } else if (op == Op::OutputTopology) {
 
                                         file << "8 ";
                                         //x,y,z
@@ -791,6 +804,8 @@ void bGrid::topologyToVTK(std::string fileName) const
                                         file << l << "\n";
                                     } else if (op == Op::OutputBlockID) {
                                         file << blockIdx << "\n";
+                                    } else if (op == Op::OutputVoxelID) {
+                                        file << blockIdx << "\n";
                                     }
                                 }
                             }
@@ -805,7 +820,7 @@ void bGrid::topologyToVTK(std::string fileName) const
 
     file << "CELLS " << num_cells << " " << num_cells * 9 << " \n";
 
-    loopOverActiveBlocks(Op::DrawTopo);
+    loopOverActiveBlocks(Op::OutputTopology);
 
     file << "CELL_TYPES " << num_cells << " \n";
     for (uint64_t i = 0; i < num_cells; ++i) {
@@ -813,6 +828,7 @@ void bGrid::topologyToVTK(std::string fileName) const
     }
 
     file << "CELL_DATA " << num_cells << " \n";
+
     file << "SCALARS Level int 1 \n";
     file << "LOOKUP_TABLE default \n";
     loopOverActiveBlocks(Op::OutputLevels);
@@ -821,6 +837,10 @@ void bGrid::topologyToVTK(std::string fileName) const
     file << "SCALARS BlockID int 1 \n";
     file << "LOOKUP_TABLE default \n";
     loopOverActiveBlocks(Op::OutputBlockID);
+
+    //file << "SCALARS VoxelID int 1 \n";
+    //file << "LOOKUP_TABLE default \n";
+    //loopOverActiveBlocks(Op::OutputVoxelID);
 
 
     file.close();
