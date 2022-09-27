@@ -75,58 +75,58 @@ int main(int, char**)
 
     // Creating a scalar field over the grid.
     // Inactive cells will get associated with a default value of -100 */
-    auto sphereSdf = grid.newField<double>("sphereSdf",  // <- Given name of the field.
+    auto sphere = grid.newField<double>("sphere",  // <- Given name of the field.
                                            1,            // <- Number of field's component per grid point.
                                            -100);        // <- Default value for non active points.
 
     const double r = (n * voxelEdge / 2) * .3;
 
-    // Using the signed distance function of a sphere to initialize the field's values
+    // We initialize the field with the level set of a sphere.
     // We leverage the forEachActiveCell method to easily iterate over the active cells.
-    sphereSdf.forEachActiveCell([&](const Neon::index_3d& idx, int, double& value) {
+    sphere.forEachActiveCell([&](const Neon::index_3d& idx, int, double& value) {
         double sdf = sdfCenteredSphere(idx, dim, voxelEdge, r);
         value = sdf;
     });
 
-    // Exporting some information of the sdf on terminal and on a vtk file.
-    NEON_INFO(sphereSdf.toString());
-    sphereSdf.ioToVtk("sdf", "sdf");
+    // Exporting some information of the level set field on terminal and on a vtk file.
+    NEON_INFO(sphere.toString());
+    sphere.ioToVtk("sphere-levelSet", "levelSet");
 
     // Step 4 -> Neon map containers: expanding the sphere via a level set
 
-    // loading the sphereSdf to device
-    sphereSdf.updateCompute(Neon::Backend::mainStreamIdx);
+    // loading the sphere to device
+    sphere.updateCompute(Neon::Backend::mainStreamIdx);
 
     // Run a container that ads a value to the sphere sdf
     // The result is a level set of an expanded sphere (not more a sdf)
     // We run the container asynchronously on the main stream
-    expandedLevelSet(sphereSdf, 5.0).run(Neon::Backend::mainStreamIdx);
+    expandedLevelSet(sphere, 5.0).run(Neon::Backend::mainStreamIdx);
 
     // Moving asynchronously the values of the newly computed level set back
     // to export the result to vtk.
-    sphereSdf.updateIO(Neon::Backend::mainStreamIdx);
+    sphere.updateIO(Neon::Backend::mainStreamIdx);
 
     // Waiting for the transfer to complete.
     backend.sync(Neon::Backend::mainStreamIdx);
 
-    // Exporting once again the fiel to vtk
-    sphereSdf.ioToVtk("expandedLevelSet", "expandedLevelSet");
+    // Exporting once again the field to vtk
+    sphere.ioToVtk("extended-sphere-levelSet", "levelSet");
 
     // Step 5 -> Neon stencil containers: computing the grad of the level set field
-
-    auto grad = grid.newField<double>("sphereSdf" , // <- Given name of the field.
+    auto grad = grid.newField<double>("grad" , // <- Given name of the field.
                                       3, // <- Number of field's component per grid point.
                                       0); // <- Default value for non active points.
 
     Neon::set::HuOptions huOptions(Neon::set::TransferMode::get,
                                    true);
-    sphereSdf.haloUpdate(huOptions);
+    sphere.haloUpdate(huOptions);
 
-    computeGrad(sphereSdf, grad, voxelEdge).run(Neon::Backend::mainStreamIdx);
+    // Execution of a container that computes the gradient of the sphere
+    computeGrad(sphere, grad, voxelEdge).run(Neon::Backend::mainStreamIdx);
     grad.updateIO(Neon::Backend::mainStreamIdx);
     backend.sync(Neon::Backend::mainStreamIdx);
 
-    grad.ioToVtk("grad", "grad");
+    grad.ioToVtk("extended-sphere-grad", "grad");
 
     return 0;
 }
