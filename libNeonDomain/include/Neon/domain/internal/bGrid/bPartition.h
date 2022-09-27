@@ -24,6 +24,7 @@ class bPartition
     ~bPartition() = default;
 
     explicit bPartition(Neon::DataView  dataView,
+                        int             level,
                         T*              mem,
                         Neon::index_3d  dim,
                         int             cardinality,
@@ -72,6 +73,7 @@ class bPartition
     inline NEON_CUDA_HOST_DEVICE auto shmemPitch(Cell cell, const int card) const -> Cell::Location::Integer;
 
     Neon::DataView            mDataView;
+    int                       mLevel;
     T*                        mMem;
     Neon::index_3d            mDim;
     int                       mCardinality;

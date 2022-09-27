@@ -8,6 +8,7 @@ namespace Neon::domain::internal::bGrid {
 template <typename T, int C>
 bPartition<T, C>::bPartition()
     : mDataView(Neon::DataView::STANDARD),
+      mLevel(0),
       mMem(nullptr),
       mCardinality(0),
       mNeighbourBlocks(nullptr),
@@ -26,6 +27,7 @@ bPartition<T, C>::bPartition()
 
 template <typename T, int C>
 bPartition<T, C>::bPartition(Neon::DataView  dataView,
+                             int             level,
                              T*              mem,
                              Neon::index_3d  dim,
                              int             cardinality,
@@ -37,6 +39,7 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
                              nghIdx_t*       stencilNghIndex,
                              int*            descriptor)
     : mDataView(dataView),
+      mLevel(level),
       mMem(mem),
       mDim(dim),
       mCardinality(cardinality),

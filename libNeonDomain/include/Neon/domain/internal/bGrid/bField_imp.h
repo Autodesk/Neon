@@ -72,6 +72,7 @@ bField<T, C>::bField(const std::string&             name,
 
                 getPartition(Neon::DeviceType::CPU, Neon::SetIdx(gpuID), Neon::DataView(dvID), l) = bPartition<T, C>(
                     Neon::DataView(dvID),
+                    l,
                     mData->mMem[l].rawMem(gpuID, Neon::DeviceType::CPU),
                     mData->mGrid->getDimension(),
                     mData->mCardinality,
@@ -85,6 +86,7 @@ bField<T, C>::bField(const std::string&             name,
 
                 getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID), l) = bPartition<T, C>(
                     Neon::DataView(dvID),
+                    l,
                     mData->mMem[l].rawMem(gpuID, Neon::DeviceType::CUDA),
                     mData->mGrid->getDimension(),
                     mData->mCardinality,
