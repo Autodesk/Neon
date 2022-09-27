@@ -29,9 +29,11 @@ class bPartition
                         int             cardinality,
                         uint32_t*       neighbourBlocks,
                         Neon::int32_3d* origin,
+                        uint32_t*       parent,
                         uint32_t*       mask,
                         T               defaultValue,
-                        nghIdx_t*       stencilNghIndex);
+                        nghIdx_t*       stencilNghIndex,
+                        int*            descriptor);
 
     inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int;
 
@@ -75,9 +77,11 @@ class bPartition
     int                       mCardinality;
     uint32_t*                 mNeighbourBlocks;
     Neon::int32_3d*           mOrigin;
+    uint32_t*                 mParent;
     uint32_t*                 mMask;
     T                         mOutsideValue;
     nghIdx_t*                 mStencilNghIndex;
+    int*                      mDescriptor;
     mutable bool              mIsInSharedMem;
     mutable T*                mMemSharedMem;
     mutable uint32_t*         mSharedNeighbourBlocks;

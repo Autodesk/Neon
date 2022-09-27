@@ -26,7 +26,7 @@ bField<T, C>::bField(const std::string&             name,
     mData->mGrid = std::make_shared<bGrid>(grid);
     mData->mCardinality = cardinality;
 
-    auto& descriptor = mData->mGrid->getDescriptor();
+    auto& descriptor = mData->mGrid->getDescriptorVector();
 
     //the allocation size is the number of blocks x block size x cardinality
     std::vector<Neon::set::DataSet<uint64_t>> allocSize(descriptor.size());
@@ -58,8 +58,10 @@ bField<T, C>::bField(const std::string&             name,
 
     for (int l = 0; l < descriptor.size(); ++l) {
         auto origins = mData->mGrid->getOrigins(l);
+        auto parent = mData->mGrid->getParents(l);
         auto neighbours_blocks = mData->mGrid->getNeighbourBlocks(l);
         auto stencil_ngh = mData->mGrid->getStencilNghIndex();
+        auto desct = mData->mGrid->getDescriptor();
         auto active_mask = mData->mGrid->getActiveMask(l);
 
         for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
@@ -75,9 +77,11 @@ bField<T, C>::bField(const std::string&             name,
                     mData->mCardinality,
                     neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CPU),
                     origins.rawMem(gpuID, Neon::DeviceType::CPU),
+                    parent.rawMem(gpuID, Neon::DeviceType::CPU),
                     active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
                     outsideVal,
-                    stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU));
+                    stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
+                    desct.rawMem(gpuID, Neon::DeviceType::CPU));
 
                 getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID), l) = bPartition<T, C>(
                     Neon::DataView(dvID),
@@ -86,9 +90,11 @@ bField<T, C>::bField(const std::string&             name,
                     mData->mCardinality,
                     neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CUDA),
                     origins.rawMem(gpuID, Neon::DeviceType::CUDA),
+                    parent.rawMem(gpuID, Neon::DeviceType::CUDA),
                     active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
                     outsideVal,
-                    stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA));
+                    stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),
+                    desct.rawMem(gpuID, Neon::DeviceType::CUDA));
             }
         }
     }

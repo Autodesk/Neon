@@ -370,12 +370,29 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                                             1,
                                                                             memOptions,
                                                                             stencilNghSize);
+
     for (int32_t c = 0; c < mData->mStencilNghIndex.cardinality(); ++c) {
         SetIdx devID(c);
         for (uint64_t s = 0; s < stencil.neighbours().size(); ++s) {
             mData->mStencilNghIndex.eRef(c, s).x = static_cast<nghIdx_t::Integer>(stencil.neighbours()[s].x);
             mData->mStencilNghIndex.eRef(c, s).y = static_cast<nghIdx_t::Integer>(stencil.neighbours()[s].y);
             mData->mStencilNghIndex.eRef(c, s).z = static_cast<nghIdx_t::Integer>(stencil.neighbours()[s].z);
+        }
+    }
+
+    //descriptor
+    auto descriptorSize = backend.devSet().template newDataSet<uint64_t>();
+    for (int32_t c = 0; c < descriptorSize.cardinality(); ++c) {
+        descriptorSize[c] = descriptor.getDepth();
+    }
+    mData->mDescriptor = backend.devSet().template newMemSet<int>({Neon::DataUse::IO_COMPUTE},
+                                                                  1,
+                                                                  memOptions,
+                                                                  descriptorSize);
+    for (int32_t c = 0; c < mData->mDescriptor.cardinality(); ++c) {
+        SetIdx devID(c);
+        for (int l = 0; l < descriptor.getDepth(); ++l) {
+            mData->mDescriptor.eRef(c, l) = descriptor.getLevelRefFactor(l);
         }
     }
 
@@ -521,6 +538,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             mData->mNeighbourBlocks[l].updateCompute(backend, 0);
         }
         mData->mStencilNghIndex.updateCompute(backend, 0);
+        mData->mDescriptor.updateCompute(backend, 0);
     }
 
 
@@ -659,9 +677,19 @@ auto bGrid::getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32
     return mData->mOrigin[level];
 }
 
+auto bGrid::getParents(int level) const -> const Neon::set::MemSet_t<uint32_t>&
+{
+    return mData->mParent[level];
+}
+
 auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&
 {
     return mData->mStencilNghIndex;
+}
+
+auto bGrid::getDescriptor() const -> const Neon::set::MemSet_t<int>&
+{
+    return mData->mDescriptor;
 }
 
 auto bGrid::getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uint32_t>&
@@ -696,7 +724,7 @@ auto bGrid::getKernelConfig(int            streamIdx,
     return kernelConfig;
 }
 
-auto bGrid::getDescriptor() const -> const std::vector<int>&
+auto bGrid::getDescriptorVector() const -> const std::vector<int>&
 {
     return mData->descriptor;
 }

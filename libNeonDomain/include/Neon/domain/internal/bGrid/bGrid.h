@@ -98,8 +98,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
     auto getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
     auto getActiveMask(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getBlockOriginTo1D(int level) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
-    auto getDescriptor() const -> const std::vector<int>&;
+    auto getBlockOriginTo1D(int level) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;    
+    auto getParents(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
 
     //for compatibility with other grids that can work on cub and cublas engine
     auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
@@ -124,9 +124,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
     //TODO
     auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
-
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
-
+    auto getDescriptorVector() const -> const std::vector<int>&;
+    auto getDescriptor() const -> const Neon::set::MemSet_t<int>&;
     void topologyToVTK(std::string fileName, bool filterOverlaps) const;
 
    private:
@@ -144,11 +144,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //std::vector to store the origin of each block at each level
         std::vector<Neon::set::MemSet_t<Neon::int32_3d>> mOrigin;
 
-        //stores the parent of the block 
+        //stores the parent of the block
         std::vector<Neon::set::MemSet_t<uint32_t>> mParent;
 
         //Stencil neighbor indices
         Neon::set::MemSet_t<nghIdx_t> mStencilNghIndex;
+
+        //gird levels descriptor of how many levels and the branch factor of each level
+        Neon::set::MemSet_t<int> mDescriptor;
 
         //active voxels bitmask
         //std::vector to store the active mask (and its size) per block per level
