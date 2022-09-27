@@ -4,7 +4,7 @@
 #include "Neon/domain/eGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
-#include "expandSphere.h"
+#include "expandLevelSet.h"
 #include "grad.h"
 
 auto sdfCenteredSphere(Neon::int32_3d idx /**< queried location*/,
@@ -100,7 +100,7 @@ int main(int, char**)
     // Run a container that ads a value to the sphere sdf
     // The result is a level set of an expanded sphere (not more a sdf)
     // We run the container asynchronously on the main stream
-    expandedLevelSet(sphere, 5.0).run(Neon::Backend::mainStreamIdx);
+    expandLevelSet(sphere, 5.0).run(Neon::Backend::mainStreamIdx);
 
     // Moving asynchronously the values of the newly computed level set back
     // to export the result to vtk.

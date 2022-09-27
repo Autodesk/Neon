@@ -8,36 +8,24 @@ Using a simple example will look at how the level mechanisms can be used.
 
 ## Working with dense domains
 
-Let's use implicit geometries to showcase some aspect of Neon.
-We'll be working on a dense domain on top of which we define our implicit geometry,
-like a simple sphere. In the rest of this page, we'll be looking at the following tasks:
+Let's use aspects of implicit geometries and the finite difference method to check out some elements of Neon.
+Our goal for this tutorial is to first define a sphere on a discrete dense domain via the level set method, then design two operators: one to expand the sphere and the other to compute its gradient.
 
-1. [Choosing the hardware for the computation - **Neon backend**](#backend)
-2. [Setting up a dense cartesian domain - **Neon grid**](#cartesian)
-3. [Initializing a sphere through its sdf - **Neon field**](#field)
-4. [Expanding the sphere via a level set - **Neon map containers**](#mapContainers)
-5. [Computing the grad of the level set field - **Neon stencil containers**](#stencilContainers)
+We divide the tutorial in the following steps steps:
 
-The complete tutorial is located in the `Neon/tutorials/introduction/domainLevel` directory. However, in the following,
-we'll start with an empty main function in `domainLevel.cpp` and will guide you step by step in the tutorial.
+1. [**Neon backend** - Choosing the hardware for the computation](#backend)
+2. [**Neon grid** - Setting up a dense cartesian discretization](#cartesian)
+3. [**Neon field** - Initializing the level set of a sphere](#field)
+4. [**Neon map containers** Expanding the sphere](#mapContainers)
+5. [**Neon stencil containers** - Computing the grad of the sphere](#stencilContainers)
+
+The complete code of the tutorial is located in the `Neon/tutorials/introduction/domainLevel` directory. However, in the following, we'll start with an empty main function and guide you step by step.
 
 <a name="backend">
 ### **Neon backend**: choosing the hardware for the computation
 </a>
 
-First, we specify the hardware we want to use. The selection process is introduced in the Set Level section.
-Just briefly, through a `Neon::Backend` object, we declare the runtime type (CUDA streams or OpenMP) and a list of
-resources IDs.
-In this example, we target the first GPU in the system as it's a typical configuration.
-However, we overbook the GPU three times to showcase the multi-GPU capabilities.
-
-!!! Note
-
-    Performance wise, you should never overbook a GPU. 
-    However it is a nice debugging configuration to check multi-GPU mechanism using a single GPU. 
-
-The resulting code is quite simple.
-Before exiting we also log some hardware information on the terminal to check that everything is as expected.
+We start our program by specifying the hardware we want to use. The process is introduced in depth by the Neon Set Level section.
 
 ```cpp linenums="26"  title="Neon/tutorials/introduction/domainLevel/domainLevel.cpp"
 int main(int, char**)
@@ -56,12 +44,23 @@ int main(int, char**)
 }
 ```
 
+Just briefly, through a `Neon::Backend` object, we declare the runtime type (CUDA streams or OpenMP) and a list of
+resources IDs.
+In our example, we target the first GPU in the system (GPU ID 0) as it's a typical configuration; however, we overbook the GPU three times to showcase the multi-GPU capabilities.
+
+!!! Note
+
+    Overbooking a GPU can have a negative impact on performance.  
+    However, checking out (or debugging) multi-GPU mechanisms using a single GPU is quite handy.
+
+Finally, before returning from the main, we also log some hardware information on the terminal to check that everything is as expected.
+
 !!! warning
 
     Remember always to call `Neon::init();` to ensure that the Neon runtime has been initialized. 
     The function can be call more than once. 
 
-Running our first draft of the tutorial produce the following on the terminal:
+By testing out our first code draft, we get the following output on the terminal:
 
 ``` bash title="Execution output" hl_lines="4"
 $ ./tutorial-domainLevel 
@@ -75,22 +74,11 @@ device name.
 In this case, we are working on an Nvidia A4000 GPU.
 
 <a name="cartesian">
-### **Neon grid**: setting up the cartesian discretisation
+### **Neon grid**: setting up the cartesian discretization
 </a>
 
-Now we define a cartesian discretization for our problem.
-The main information to provide is:
+Let's now extend our previous code by defining a cartesian discretization for our problem; for example, let's create our sphere on top of a 25x25x25 grid.
 
-- dimension of the discretization box,
-- cells of interest in the discretization box,
-- hardware to be used for any computation.
-
-During the grid initialization, a stencil may be seen as an uncommon parameter to provide. The stencil is the union of
-all the stencils that will be used on the grid. Neon needs to know such parameters because they are critical for many
-optimization aspects.
-In our example, the only stencil we use is the Jacobi to compute the grad of a level set.
-
-The grid initialization extends the main function in `domainLevel.cpp` with the following lines:
 
 ```cpp linenums="36"  title="Neon/tutorials/introduction/domainLevel/domainLevel.cpp"
     // ...
@@ -135,7 +123,28 @@ The grid initialization extends the main function in `domainLevel.cpp` with the 
 }
 ```
 
-Running again our tutorial with the added code we obtain the following output:
+Neon Domain provides various grid implementations, and they all share the same interface. Dense, element sparse and block sparse are some of the provided grids (a description and comparison of all the grids are under work). In our example, we go for an element sparse grid (Neon::domain::eGrid); however, we create a C++ alias instead of directly using the grid type (line 43). This approach allows us to switch in the future from one grid to another by just redefining the alias.
+
+!!! Note
+
+	Switching from one grid to another, like in the example, is done at compile time. Neon does not directly support dynamic grid switching. However, it can be implemented by the users via std::variant.
+
+
+The main information to provide is:
+
+For the initialization of the grid (line 108), we provide the following information:
+
+- dimension of the discretization box,
+- the set of cells of the discretization box that we are interested in,
+- the hardware to be used for any computation,
+- and finally a stencil which is basically defined as a vector of offsets (line 44). 
+
+A stencil may be seen as an uncommon parameter to provide as part of a grid initialization. The stencil is the union of
+all the stencils that are used by any computation on the grid.
+
+Neon uses the stencil information for many critical optimization aspects. An ad-hoc compiler could automatically extract what stencil are used. However, Neon is developed as a C++ library, so it must rely on the user to retrieve such information.
+
+Running again the tutorial with the additional code lines we obtain the following output:
 
 ``` bash title="Execution output" hl_lines="5"
 $ ./tutorial-domainLevel 
@@ -145,7 +154,7 @@ $ ./tutorial-domainLevel
 [12:54:12] Neon: [Domain Grid]:{eGrid}, [Background Grid]:{(25, 25, 25)}, [Active Cells]:{15625}, [Cell Distribution]:{(15625)}, [Backend]:{Backend_t (0x55e6f57a2c70) - [runtime:stream] [nDev:1] [dev0:0 NVIDIARTXA4000] }
 ```
 
-By logging the grid information (`NEON_INFO(grid.toString());`), we can inspect some information about the grid.
+By logging the grid information (`NEON_INFO(grid.toString());` on line 71), we can check some information about the grid.
 The last terminal line shows the selected grid type (eGrid in this case), the dimension of the grid, the number of
 active cells, as well as the number of cells per hardware device.
 
@@ -162,11 +171,8 @@ reported in the following picture:
 ### **Neon field**: defining data over the cartesian discretisation
 </a>
 
-Let's now allocate some metadata on top of the cartesian discretization we have just created.
-Neon fields are the tool for the task. Fields are allocated from a Neon grid.
-The type of a field depends on the metadata stored on each cell.
-A field can allocate a number of components for each cell. This number of components
-which we call cardinality is defined when the field is created.
+Let's now create some metadata on top of our 25x25x25 cartesian discretization to store the level set of a sphere. Neon fields, which are allocated from a Neon grid, are the tool for the task.
+A Neon field is characterized by the type of each cell and the number of components stored in each cell (we call it cardinality of the field). The cell type is defined at compile time, while cardinality can be either at compile time or at runtime. In our example, we use the runtime version.
 
 ```cpp linenums="72" title="Neon/tutorials/introduction/domainLevel/domainLevel.cpp"
     //...
@@ -175,22 +181,22 @@ which we call cardinality is defined when the field is created.
 
     // Creating a scalar field over the grid.
     // Inactive cells will get associated with a default value of -100 */
-    auto sphereSdf = grid.newField<double>("sphereSdf",  // <- Given name of the field.
+    auto sphere = grid.newField<double>("sphere",  // <- Given name of the field.
                                            1,            // <- Number of field's component per grid point.
                                            -100);        // <- Default value for non active points.
 
     const double r = (n * voxelEdge / 2) * .3;
 
-    // Using the signed distance function of a sphere to initialize the field's values
+    // We initialize the field with the level set of a sphere.
     // We leverage the forEachActiveCell method to easily iterate over the active cells.
-    sphereSdf.forEachActiveCell([&](const Neon::index_3d& idx, int, double& value) {
+    sphere.forEachActiveCell([&](const Neon::index_3d& idx, int, double& value) {
         double sdf = sdfCenteredSphere(idx, dim, voxelEdge, r);
         value = sdf;
     });
 
-    // Exporting some information of the sdf on terminal and on a vtk file. 
-    NEON_INFO(sphereSdf.toString());
-    sphereSdf.ioToVtk("sdf", "sdf");
+    // Exporting some information of the level set field on terminal and on a vtk file.
+    NEON_INFO(sphere.toString());
+    sphere.ioToVtk("sphere-levelSet", "levelSet");
     
     return 0;
 }
@@ -220,36 +226,36 @@ The process of moving data to the devices is simple as it requires only a simple
     
     // Step 4 -> Neon map containers: expanding the sphere via a level set
 
-    // loading the sphereSdf to device
-    sphereSdf.updateCompute(Neon::Backend::mainStreamIdx);
+    // loading the sphere to device
+    sphere.updateCompute(Neon::Backend::mainStreamIdx);
 
     // Run a container that ads a value to the sphere sdf
     // The result is a level set of an expanded sphere (not more a sdf)
     // We run the container asynchronously on the main stream
-    expandedLevelSet(sphereSdf, 5.0).run(Neon::Backend::mainStreamIdx);
+    expandLevelSet(sphere, 5.0).run(Neon::Backend::mainStreamIdx);
 
     // Moving asynchronously the values of the newly computed level set back
     // to export the result to vtk.
-    sphereSdf.updateIO(Neon::Backend::mainStreamIdx);
+    sphere.updateIO(Neon::Backend::mainStreamIdx);
 
     // Waiting for the transfer to complete.
     backend.sync(Neon::Backend::mainStreamIdx);
 
-    // Exporting once again the fiel to vtk
-    sphereSdf.ioToVtk("expandedLevelSet", "expandedLevelSet");
+    // Exporting once again the field to vtk
+    sphere.ioToVtk("extended-sphere-levelSet", "levelSet");
     
     return 0;
 }
 ```
 
-```cpp linenums="6" title="Neon/tutorials/introduction/domainLevel/expandSphere.cu"
+```cpp linenums="6" title="Neon/tutorials/introduction/domainLevel/expandLevelSet.cu"
 template <typename Field>
-auto expandedLevelSet(Field& sdf,
+auto expandLevelSet(Field& sdf,
                  double expantion)
     ->Neon::set::Container
 {
     return sdf.getGrid().getContainer(
-        "ExpandedLevelSet", [&, expantion](Neon::set::Loader& L) {
+        "ExpandLevelSet", [&, expantion](Neon::set::Loader& L) {
             auto& px = L.load(sdf);
 
             return [=] NEON_CUDA_HOST_DEVICE(
@@ -270,20 +276,20 @@ auto expandedLevelSet(Field& sdf,
     // ...
     
     // Step 5 -> Neon stencil containers: computing the grad of the level set field
-
-    auto grad = grid.newField<double>("sphereSdf" , // <- Given name of the field.
+    auto grad = grid.newField<double>("grad" , // <- Given name of the field.
                                       3, // <- Number of field's component per grid point.
                                       0); // <- Default value for non active points.
 
     Neon::set::HuOptions huOptions(Neon::set::TransferMode::get,
                                    true);
-    sphereSdf.haloUpdate(huOptions);
+    sphere.haloUpdate(huOptions);
 
-    computeGrad(sphereSdf, grad, voxelEdge).run(Neon::Backend::mainStreamIdx);
+    // Execution of a container that computes the gradient of the sphere
+    computeGrad(sphere, grad, voxelEdge).run(Neon::Backend::mainStreamIdx);
     grad.updateIO(Neon::Backend::mainStreamIdx);
     backend.sync(Neon::Backend::mainStreamIdx);
 
-    grad.ioToVtk("grad", "grad");
+    grad.ioToVtk("extended-sphere-grad", "grad");
     
     return 0;
 ```

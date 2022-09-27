@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 set (TUTORIAL_NAME tutorial-domainLevel)
-file(GLOB_RECURSE SrcFiles domainLevel.cpp expandSphere.cu grad.cu)
+file(GLOB_RECURSE SrcFiles domainLevel.cpp expandLevelSet.cu grad.cu)
 
 add_executable(${TUTORIAL_NAME} ${SrcFiles})
 

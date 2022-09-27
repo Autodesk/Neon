@@ -1,7 +1,7 @@
 #include "Neon/Neon.h"
 #include "Neon/domain/eGrid.h"
 #include "Neon/skeleton/Skeleton.h"
-#include "expandSphere.h"
+#include "expandLevelSet.h"
 
 /**
  * Function that generates a Neon Container to compute the grad over a scalar field.
