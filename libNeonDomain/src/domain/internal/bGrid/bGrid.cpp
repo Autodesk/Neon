@@ -569,10 +569,10 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 }
 
-auto bGrid::getProperties(const Neon::index_3d& idx) const -> GridBaseTemplate::CellProperties
+auto bGrid::getProperties(const Neon::index_3d& idx, int level) const -> GridBaseTemplate::CellProperties
 {
     GridBaseTemplate::CellProperties cellProperties;
-    cellProperties.setIsInside(isInsideDomain(idx));
+    cellProperties.setIsInside(isInsideDomain(idx, level));
     if (!cellProperties.isInside()) {
         return cellProperties;
     }
@@ -586,7 +586,7 @@ auto bGrid::getProperties(const Neon::index_3d& idx) const -> GridBaseTemplate::
     return cellProperties;
 }
 
-auto bGrid::isInsideDomain(const Neon::index_3d& idx) const -> bool
+auto bGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
 {
     if (this->getDevSet().setCardinality() != 1) {
         NEON_DEV_UNDER_CONSTRUCTION("bGrid only support single GPU");
@@ -598,30 +598,30 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx) const -> bool
     //We don't have to check over the domain bounds. If idx is outside the domain
     // (i.e., idx beyond the bounds of the domain) its block origin will be null
 
-    Neon::int32_3d block_origin = getOriginBlock3DIndex(idx);
+    Neon::int32_3d block_origin = getOriginBlock3DIndex(idx, level);
 
-    auto itr = mData->mBlockOriginTo1D[0].getMetadata(block_origin);
+    auto itr = mData->mBlockOriginTo1D[level].getMetadata(block_origin);
     if (itr) {
-        Cell cell(static_cast<Cell::Location::Integer>(idx.x % Cell::sBlockSizeX),
-                  static_cast<Cell::Location::Integer>(idx.y % Cell::sBlockSizeY),
-                  static_cast<Cell::Location::Integer>(idx.z % Cell::sBlockSizeZ));
+        Cell cell(static_cast<Cell::Location::Integer>(idx.x % mData->descriptor[level]),
+                  static_cast<Cell::Location::Integer>(idx.y % mData->descriptor[level]),
+                  static_cast<Cell::Location::Integer>(idx.z % mData->descriptor[level]));
         cell.mBlockID = *itr;
-        cell.mIsActive = cell.computeIsActive(mData->mActiveMask[0].rawMem(devID, Neon::DeviceType::CPU));
+        cell.mIsActive = cell.computeIsActive(mData->mActiveMask[level].rawMem(devID, Neon::DeviceType::CPU));
         return cell.mIsActive;
     }
     return false;
 }
 
-auto bGrid::getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d
+auto bGrid::getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d
 {
     //round n to nearest multiple of m
     auto roundDownToNearestMultiple = [](int32_t n, int32_t m) -> int32_t {
         return (n / m) * m;
     };
 
-    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, Cell::sBlockSizeX),
-                                roundDownToNearestMultiple(idx.y, Cell::sBlockSizeY),
-                                roundDownToNearestMultiple(idx.z, Cell::sBlockSizeZ));
+    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->descriptor[level]),
+                                roundDownToNearestMultiple(idx.y, mData->descriptor[level]),
+                                roundDownToNearestMultiple(idx.z, mData->descriptor[level]));
     return block_origin;
 }
 

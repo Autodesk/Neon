@@ -137,10 +137,10 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
                          Neon::DataView dataView)
         -> Neon::set::KernelConfig;
 
-    auto isInsideDomain(const Neon::index_3d& idx) const
+    auto isInsideDomain(const Neon::index_3d& idx, int level = 0) const
         -> bool final;
 
-    auto getProperties(const Neon::index_3d& idx) const
+    auto getProperties(const Neon::index_3d& idx, int level = 0) const
         -> GridBaseTemplate::CellProperties final;
 
    private:
@@ -183,7 +183,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
 
         Neon::index_3d                                       halo;
         std::vector<Neon::set::DataSet<PartitionIndexSpace>> partitionIndexSpaceVec;
-        Neon::sys::patterns::Engine                          reduceEngine;        
+        Neon::sys::patterns::Engine                          reduceEngine;
     };
     std::shared_ptr<data_t> m_data;
 };

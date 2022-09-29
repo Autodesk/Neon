@@ -3,7 +3,8 @@
 namespace Neon::domain::internal::aGrid {
 
 aGrid::aGrid()
-    : Neon::domain::interface::GridBaseTemplate<aGrid, aCell>() {
+    : Neon::domain::interface::GridBaseTemplate<aGrid, aCell>()
+{
     mStorage = std::make_shared<Storage>();
 };
 
@@ -75,7 +76,7 @@ auto aGrid::init(const Neon::Backend&              backend,
 
     for (int i = 0; i < getDevSet().setCardinality(); i++) {
         for (auto indexing : {Neon::DataView::STANDARD}) {
-            getDefaultLaunchParameters(indexing) =getLaunchParameters(indexing, blockDim, 0);
+            getDefaultLaunchParameters(indexing) = getLaunchParameters(indexing, blockDim, 0);
         }
     }
 
@@ -150,7 +151,7 @@ auto aGrid::getKernelConfig(int,
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
-auto aGrid::isInsideDomain(const index_3d& idx) const -> bool
+auto aGrid::isInsideDomain(const index_3d& idx, [[maybe_unused]] int level) const -> bool
 {
     if (idx.y != 0 || idx.z != 0) {
         return false;
@@ -161,7 +162,7 @@ auto aGrid::isInsideDomain(const index_3d& idx) const -> bool
     }
     return false;
 }
-auto aGrid::getProperties(const index_3d& cell3dIdx) const -> GridBaseTemplate::CellProperties
+auto aGrid::getProperties(const index_3d& cell3dIdx, [[maybe_unused]] int level) const -> GridBaseTemplate::CellProperties
 {
     GridBaseTemplate::CellProperties cellProperties;
 

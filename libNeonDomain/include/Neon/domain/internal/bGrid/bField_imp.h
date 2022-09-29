@@ -149,12 +149,12 @@ auto bField<T, C>::getRef(const Neon::index_3d& idx,
 
     auto partition = getPartition(Neon::DeviceType::CPU, devID, Neon::DataView::STANDARD, level);
 
-    Neon::int32_3d block_origin = mData->mGrid->getOriginBlock3DIndex(idx);
+    Neon::int32_3d block_origin = mData->mGrid->getOriginBlock3DIndex(idx, level);
 
     auto itr = mData->mGrid->getBlockOriginTo1D(level).getMetadata(block_origin);
-    Cell cell(static_cast<Cell::Location::Integer>(idx.x % Cell::sBlockSizeX),
-              static_cast<Cell::Location::Integer>(idx.y % Cell::sBlockSizeY),
-              static_cast<Cell::Location::Integer>(idx.z % Cell::sBlockSizeZ));
+    Cell cell(static_cast<Cell::Location::Integer>(idx.x % mData->mGrid->getDescriptorVector()[level]),
+              static_cast<Cell::Location::Integer>(idx.y % mData->mGrid->getDescriptorVector()[level]),
+              static_cast<Cell::Location::Integer>(idx.z % mData->mGrid->getDescriptorVector()[level]));
     cell.mBlockID = *itr;
     return partition(cell, cardinality);
 }

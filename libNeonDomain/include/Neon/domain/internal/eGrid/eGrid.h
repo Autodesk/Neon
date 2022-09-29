@@ -116,7 +116,7 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eCell>
     auto norm2(const std::string& /*name*/,
                eField<T, C>& /*input*/,
                Neon::template PatternScalar<T>& /*scalar*/) const -> Neon::set::Container;
-       
+
 
     auto convertToNgh(const std::vector<Neon::index_3d>& stencilOffsets)
         -> std::vector<ngh_idx>;
@@ -127,10 +127,10 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eCell>
     auto getKernelConfig(int            streamIdx,
                          Neon::DataView dataView) -> Neon::set::KernelConfig;
 
-    auto isInsideDomain(const Neon::index_3d& idx) const
+    auto isInsideDomain(const Neon::index_3d& idx, int level = 0) const
         -> bool final;
 
-    auto getProperties(const Neon::index_3d& idx) const
+    auto getProperties(const Neon::index_3d& idx, int level = 0) const
         -> GridBaseTemplate::CellProperties final;
 
    private:

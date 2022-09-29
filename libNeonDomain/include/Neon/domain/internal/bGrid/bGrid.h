@@ -60,12 +60,10 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
           const double_3d&                                        spacingData = double_3d(1, 1, 1),
           const double_3d&                                        origin = double_3d(0, 0, 0));
 
-    auto getProperties(const Neon::index_3d& idx) const
-        -> GridBaseTemplate::CellProperties final;
+    auto getProperties(const Neon::index_3d& idx, int level = 0) const -> GridBaseTemplate::CellProperties final;
 
-    //TODO
-    auto isInsideDomain(const Neon::index_3d& idx) const
-        -> bool final;
+
+    auto isInsideDomain(const Neon::index_3d& idx, int level = 0) const -> bool final;
 
 
     template <typename T, int C = 0>
@@ -98,7 +96,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
     auto getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
     auto getActiveMask(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getBlockOriginTo1D(int level) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;    
+    auto getBlockOriginTo1D(int level) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
     auto getParents(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
 
     //for compatibility with other grids that can work on cub and cublas engine
@@ -121,9 +119,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
     auto getKernelConfig(int            streamIdx,
                          Neon::DataView dataView) -> Neon::set::KernelConfig;
-
-    //TODO
-    auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
+        
+    auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level = 0) const -> Neon::int32_3d;
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
     auto getDescriptorVector() const -> const std::vector<int>&;
     auto getDescriptor() const -> const Neon::set::MemSet_t<int>&;

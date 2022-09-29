@@ -23,7 +23,7 @@ class GridBaseTemplate : public GridBase
     using Cell = CellT;
     using CellProperties = Neon::domain::interface::CellProperties<Cell>;
 
-    virtual auto getProperties(const Neon::index_3d& idx) const
+    virtual auto getProperties(const Neon::index_3d& idx, int level = 0) const
         -> CellProperties = 0;
 
     /**
@@ -31,8 +31,6 @@ class GridBaseTemplate : public GridBase
      */
     auto ioDomainToVtk(const std::string& fileName,
                        Neon::IoFileType   vtiIOe = IoFileType::ASCII) const -> void;
-
-
 };
 }  // namespace Neon::domain::interface
 

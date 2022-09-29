@@ -159,7 +159,7 @@ auto eGrid::helpSetDefaultBlock()
     };
 }
 
-auto eGrid::isInsideDomain(const index_3d& idx) const -> bool
+auto eGrid::isInsideDomain(const index_3d& idx, [[maybe_unused]] int level) const -> bool
 {
     auto gridBox = this->getDimension();
     bool isInsideBox = true;
@@ -169,7 +169,7 @@ auto eGrid::isInsideDomain(const index_3d& idx) const -> bool
     isInsideBox = (idx.x >= 0) && isInsideBox;
     isInsideBox = (idx.y >= 0) && isInsideBox;
     isInsideBox = (idx.z >= 0) && isInsideBox;
-    if(!isInsideBox){
+    if (!isInsideBox) {
         return false;
     }
     const auto& GtoL = frame()->globalToLocal();
@@ -177,7 +177,7 @@ auto eGrid::isInsideDomain(const index_3d& idx) const -> bool
     return info.isActive();
 }
 
-auto eGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties
+auto eGrid::getProperties(const index_3d& idx, [[maybe_unused]] int level) const -> GridBaseTemplate::CellProperties
 {
     GridBaseTemplate::CellProperties cellProperties;
     const auto&                      GtoL = frame()->globalToLocal();
