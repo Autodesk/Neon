@@ -6,7 +6,12 @@ namespace Neon {
 template <typename ExportType,
           typename IntType>
 IODense<ExportType, IntType>::IODense()
-    : mMemSharedPtr(), mMem(nullptr), mSpace({0, 0, 0}), mCardinality(0), mOrder()
+    : mMemSharedPtr(),
+      mMem(nullptr),
+      mSpace({0, 0, 0}),
+      mCardinality(0),
+      mOrder(),
+      mRepresentation(Representation::EXPLICIT)
 {
     initPitch();
 }
@@ -28,7 +33,8 @@ IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&  d,
                                       int                         c,
                                       ExportType*                 m,
                                       Neon::memLayout_et::order_e order)
-    : mMemSharedPtr(), mMem(m), mSpace(d), mCardinality(c), mOrder(order)
+    : mMemSharedPtr(), mMem(m), mSpace(d), mCardinality(c), mOrder(order), mRepresentation(Representation::EXPLICIT)
+
 {
     initPitch();
 }
@@ -38,7 +44,8 @@ template <typename ExportType,
 IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&  d,
                                       int                         c,
                                       Neon::memLayout_et::order_e order)
-    : mSpace(d), mCardinality(c), mOrder(order)
+    : mSpace(d), mCardinality(c), mOrder(order), mRepresentation(Representation::EXPLICIT)
+
 {
     const size_t                  cardJump = d.template rMulTyped<size_t>();
     std::shared_ptr<ExportType[]> mem(new ExportType[cardJump * c]);
@@ -49,20 +56,35 @@ IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&  d,
 
 template <typename ExportType,
           typename IntType>
+IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&                                             d,
+                                      int                                                                    c,
+                                      const std::function<ExportType(const Integer_3d<IntType>&, int cardinality)>& fun)
+    : mSpace(d), mCardinality(c), mRepresentation(Representation::IMPLICIT), mImplicitFun(fun)
+
+{
+    initPitch();
+}
+
+template <typename ExportType,
+          typename IntType>
 template <typename Lambda_ta>
 auto IODense<ExportType, IntType>::densify(const Lambda_ta&           fun,
                                            const Integer_3d<IntType>& space,
-                                           int                        cardinality)
+                                           int                        cardinality,
+                                           Representation             representation)
     -> IODense<ExportType, IntType>
 {
-
-    const size_t                  cardJump = space.template rMulTyped<size_t>();
-    std::shared_ptr<ExportType[]> m_mem(new ExportType[cardJump * cardinality]);
-    IODense<ExportType, IntType>  dense(space, cardinality, m_mem);
-    dense.forEach([&](const Integer_3d<IntType>& idx, int c, ExportType& val) {
-        val = ExportType(fun(idx, c));
-    });
-    return dense;
+    if (representation == Representation::EXPLICIT) {
+        const size_t                  cardJump = space.template rMulTyped<size_t>();
+        std::shared_ptr<ExportType[]> m_mem(new ExportType[cardJump * cardinality]);
+        IODense<ExportType, IntType>  dense(space, cardinality, m_mem);
+        dense.forEach([&](const Integer_3d<IntType>& idx, int c, ExportType& val) {
+            val = ExportType(fun(idx, c));
+        });
+        return dense;
+    } else {
+        IODense<ExportType, IntType> dense(space, cardinality, fun);
+    }
 }
 
 template <typename ExportType,
@@ -122,6 +144,9 @@ template <typename ExportType,
           typename IntType>
 auto IODense<ExportType, IntType>::getMemory() -> ExportType*
 {
+    if (mRepresentation == Representation::IMPLICIT) {
+        NEON_THROW_UNSUPPORTED_OPERATION("A IODense configure as IMPLICIT does not support such operation");
+    }
     return mMem;
 }
 
@@ -130,6 +155,9 @@ template <typename ExportType,
 auto IODense<ExportType, IntType>::getSharedPtr()
     -> std::shared_ptr<ExportType[]>
 {
+    if (mRepresentation == Representation::IMPLICIT) {
+        NEON_THROW_UNSUPPORTED_OPERATION("A IODense configure as IMPLICIT does not support such operation");
+    }
     return mMemSharedPtr;
 }
 
@@ -140,6 +168,9 @@ auto IODense<ExportType, IntType>::operator()(const Integer_3d<IntType>& xyz,
                                               int                        card) const
     -> ExportType
 {
+    if (mRepresentation == Representation::IMPLICIT) {
+        return mImplicitFun(xyz, card);
+    }
     const size_t pitch =
         mPitch.mXpitch * xyz.x +
         mPitch.mYpitch * xyz.y +
@@ -154,6 +185,9 @@ auto IODense<ExportType, IntType>::getReference(const Integer_3d<IntType>& xyz,
                                                 int                        card)
     -> ExportType&
 {
+    if (mRepresentation == Representation::IMPLICIT) {
+        NEON_THROW_UNSUPPORTED_OPERATION("A IODense configure as IMPLICIT does not support such operation");
+    }
     const size_t pitch =
         mPitch.mXpitch * xyz.x +
         mPitch.mYpitch * xyz.y +
@@ -170,6 +204,9 @@ auto IODense<ExportType, IntType>::forEach(const Lambda_ta& lambda,
                                            IODense<ExportTypeVariadic_ta>&... otherDense)
     -> void
 {
+    if (mRepresentation == Representation::IMPLICIT) {
+        NEON_THROW_UNSUPPORTED_OPERATION("A IODense configure as IMPLICIT does not support such operation");
+    }
 #pragma omp parallel for collapse(3)
     for (int z = 0; z < mSpace.z; z++) {
         for (int y = 0; y < mSpace.y; y++) {
@@ -269,7 +306,7 @@ auto IODense<ExportType, IntType>::ioVtk(const std::string&       filename,
                                          ioToVTKns::VtiDataType_e nodeOrVoxel,
                                          const Vec_3d<double>&    spacingData,
                                          const Vec_3d<double>&    origin,
-                                         ioVTI_e::e               vtiIOe) -> void
+                                         IoFileType               vtiIOe) -> void
 {
     IoToVTK<IntType, ExportTypeVTK_ta> ioVtk(filename,
                                              nodeOrVoxel == ioToVTKns::VtiDataType_e::node ? getDimension() : getDimension() + 1,
@@ -310,6 +347,9 @@ auto IODense<ExportType, IntType>::initPitch() -> void
 template <typename ExportType, typename IntType>
 auto IODense<ExportType, IntType>::resetValuesToLinear(ExportType offset) -> void
 {
+    if (mRepresentation == Representation::IMPLICIT) {
+        NEON_THROW_UNSUPPORTED_OPERATION("A IODense configure as IMPLICIT does not support such operation");
+    }
     auto&        field = *this;
     const auto   space = field.getDimension();
     const size_t cardJump = space.template rMulTyped<size_t>();
@@ -320,6 +360,9 @@ auto IODense<ExportType, IntType>::resetValuesToLinear(ExportType offset) -> voi
 template <typename ExportType, typename IntType>
 auto IODense<ExportType, IntType>::resetValuesToRandom(int min, int max) -> void
 {
+    if (mRepresentation == Representation::IMPLICIT) {
+        NEON_THROW_UNSUPPORTED_OPERATION("A IODense configure as IMPLICIT does not support such operation");
+    }
     auto& field = *this;
 
     std::random_device                 rd;
@@ -334,6 +377,9 @@ template <typename ExportType, typename IntType>
 auto IODense<ExportType, IntType>::resetValuesToMasked(ExportType offset, int digit)
     -> void
 {
+    if (mRepresentation == Representation::IMPLICIT) {
+        NEON_THROW_UNSUPPORTED_OPERATION("A IODense configure as IMPLICIT does not support such operation");
+    }
     auto& field = *this;
 
     const auto space = field.getDimension();
@@ -350,6 +396,9 @@ auto IODense<ExportType, IntType>::resetValuesToMasked(ExportType offset, int di
 template <typename ExportType, typename IntType>
 auto IODense<ExportType, IntType>::resetValuesToConst(ExportType offset) -> void
 {
+    if (mRepresentation == Representation::IMPLICIT) {
+        NEON_THROW_UNSUPPORTED_OPERATION("A IODense configure as IMPLICIT does not support such operation");
+    }
     auto& field = *this;
 
     field.forEach([&](const Integer_3d<IntType>& idx, int c, ExportType& val) {

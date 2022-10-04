@@ -18,7 +18,7 @@ TEST(coreUt_io, flushAndClear)
     A.ioVtk("coreUt_io.flushAndClear_t0", "A", Neon::ioToVTKns::VtiDataType_e::node);
     Neon::IODenseVTK<int, int> toVtk("coreUt_io.flushAndClear_t1");
     toVtk.addField(A, "A", true);
-    toVtk.setFormat(Neon::ioVTI_e::ASCII);
+    toVtk.setFormat(Neon::IoFileType::ASCII);
     toVtk.flushAndClear();
 }
 
@@ -46,7 +46,7 @@ TEST(coreUt_io, denseDiff)
     }
     //    Neon::IoDenseToVTK toVtk(denseG, "coreUt_io.denseDiff");
     //    toVtk.addField(A, "A");
-    //    toVtk.setFormat(Neon::ioVTI_e::ASCII);
+    //    toVtk.setFormat(Neon::IoFileType::ASCII);
     //    toVtk.flushAndClear();
 }
 

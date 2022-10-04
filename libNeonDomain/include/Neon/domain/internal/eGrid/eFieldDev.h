@@ -934,13 +934,13 @@ class eFieldDevice_t
         };
 
         if (includeGridInfo) {
-            Neon::ioToVTI<index_3d::Integer, Vti_Real_ta>({{fieldValues, m_data->cardinality, fieldName, false, Neon::ioVTI_e::ASCII},
-                                                           {activity, 1, "activity", false, Neon::ioVTI_e::ASCII},
-                                                           {gpuIds, 1, "gpuIdx", false, Neon::ioVTI_e::ASCII}},
+            Neon::ioToVTI<index_3d::Integer, Vti_Real_ta>({{fieldValues, m_data->cardinality, fieldName, false, Neon::IoFileType::ASCII},
+                                                           {activity, 1, "activity", false, Neon::IoFileType::ASCII},
+                                                           {gpuIds, 1, "gpuIdx", false, Neon::IoFileType::ASCII}},
                                                           fileName, nodeSpace, voxSpace, spacing, origin);
 
         } else {
-            Neon::ioToVTI<index_3d::Integer, Vti_Real_ta>({{fieldValues, m_data->cardinality, fieldName, false, Neon::ioVTI_e::ASCII}},
+            Neon::ioToVTI<index_3d::Integer, Vti_Real_ta>({{fieldValues, m_data->cardinality, fieldName, false, Neon::IoFileType::ASCII}},
                                                           fileName, nodeSpace, voxSpace, spacing, origin);
         }
     }
@@ -955,7 +955,7 @@ class eFieldDevice_t
                  Neon::ioToVTKns::VtiDataType_e nodeOrVox,
                  const Neon::Vec_3d<double>&    spacing = Neon::Vec_3d<double>(1.0),
                  const Neon::Vec_3d<double>&    origin = Neon::Vec_3d<double>(0.0),
-                 Neon::ioVTI_e::e               ASCII_or_BINARY = Neon::ioVTI_e::ASCII)
+                 Neon::IoFileType               ASCII_or_BINARY = Neon::IoFileType::ASCII)
         const
         -> void
     {

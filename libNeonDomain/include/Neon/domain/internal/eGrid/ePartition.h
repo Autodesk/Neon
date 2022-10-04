@@ -72,6 +72,10 @@ struct ePartition
      */
 
 
+    inline auto
+    mem() const
+        -> const T*;
+
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
     using Self = ePartition<T, cardinality_ta>;   //<- this type
@@ -283,9 +287,6 @@ struct ePartition
      * @tparam dataView_ta
      * @return
      */
-    NEON_CUDA_HOST_DEVICE inline auto
-    mem() const
-        -> const T*;
 };
 }  // namespace Neon::domain::internal::eGrid
 

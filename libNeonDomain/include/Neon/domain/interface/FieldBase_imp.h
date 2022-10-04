@@ -248,11 +248,22 @@ template <typename T, int C>
 template <typename VtiExportType>
 auto FieldBase<T, C>::ioToVtk(const std::string& fileName,
                               const std::string& FieldName,
+                              bool               includeDomain,
+                              Neon::IoFileType   ioFileType,
                               bool               isNodeSpace) const -> void
 {
 
-    auto iovtk = Neon::domain::IOGridVTK<VtiExportType>(getBaseGridTool(), fileName, isNodeSpace);
+    auto iovtk = Neon::domain::IOGridVTK<VtiExportType>(this->getBaseGridTool(), fileName, isNodeSpace, ioFileType);
     iovtk.addField(*this, FieldName);
+
+    Neon::IODense<VtiExportType, int32_t> domain(getDimension(), 1, [&](const Neon::index_3d& idx, int) {
+        VtiExportType isIn = VtiExportType(getBaseGridTool().isInsideDomain(idx));
+        return isIn;
+    });
+
+    if (includeDomain) {
+        NEON_DEV_UNDER_CONSTRUCTION("");
+    }
     iovtk.flushAndClear();
     return;
 }

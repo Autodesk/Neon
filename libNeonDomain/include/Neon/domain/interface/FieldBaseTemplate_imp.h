@@ -81,12 +81,16 @@ auto FieldBaseTemplate<T, C, G, P, S>::toString() const
     s << "| OutsideValue    " << this->getOutsideValue() << "\n";
     s << "| HaloStatus      " << this->getHaloStatus() << "\n";
     s << "| Field Uid       " << uid << "\n";
-    s << "| Active Cells    " << this->getBaseGridTool().getNumActiveCells() << "\n";
-    s << "|                 ";
+    s << "| Active Cells    " << this->getBaseGridTool().getNumActiveCells() << "-> [";
+    bool firstTime = true;
     for (auto a : this->getBaseGridTool().getNumActiveCellsPerPartition()) {
-        s << a << "  ";
+        if(!firstTime){
+            s << " ";
+        }
+        s << a ;
+        firstTime = false;
     }
-    s << "\n";
+    s << "]\n";
     for (auto dw : {Neon::DataView::STANDARD,
                     Neon::DataView::INTERNAL,
                     Neon::DataView::BOUNDARY}) {
