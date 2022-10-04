@@ -16,7 +16,7 @@ struct HuOptions
    public:
     HuOptions(Neon::set::TransferMode     transferMode /*<                                          Mode of the transfer: put or get                                 */,
               bool                        startWithBarrier /*<                                      If true a barrier is executed before initiating the halo update */,
-              int                         streamSetIdx = 0 /*<                                      Target stream for the halo update                               */,
+              int                         streamSetIdx = Neon::Backend::mainStreamIdx /*<                                      Target stream for the halo update                               */,
               Neon::set::TransferSemantic structure = Neon::set::TransferSemantic::grid /*<    Structure on top of which the transfer is one: grid or lattice  */);
 
     HuOptions(Neon::set::TransferMode transferMode,

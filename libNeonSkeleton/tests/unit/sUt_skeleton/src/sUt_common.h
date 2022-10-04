@@ -128,9 +128,9 @@ class storage_t
             return double(Zd.get()[index3d.x + m_size3d.rMul() * card]);
         };
         Neon::int64_3d l(m_size3d.rMul(), 1, 1);
-        Neon::ioToVTI<int64_t>({{Xd_val, m_cardinality, "Xd", true, Neon::ioVTI_e::ASCII},
-                                {Yd_val, m_cardinality, "Yd", true, Neon::ioVTI_e::ASCII},
-                                {Zd_val, m_cardinality, "Zd", true, Neon::ioVTI_e::ASCII}},
+        Neon::ioToVTI<int64_t>({{Xd_val, m_cardinality, "Xd", true, Neon::IoFileType::ASCII},
+                                {Yd_val, m_cardinality, "Yd", true, Neon::IoFileType::ASCII},
+                                {Zd_val, m_cardinality, "Zd", true, Neon::IoFileType::ASCII}},
                                fname + "_dense.vti", l, l - 1);
         m_grid.template ioVtk<T>({{&Xf, "Xa", true}, {&Yf, "Ya", true}, {&Zf, "Za", true}}, fname + "_field.vti");
     }
