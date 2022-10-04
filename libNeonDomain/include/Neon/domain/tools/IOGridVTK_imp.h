@@ -20,7 +20,8 @@ IOGridVTK<RealType, IntType>::IOGridVTK(const Neon::domain::interface::GridBase&
 template <class RealType, typename IntType>
 template <typename Field>
 auto IOGridVTK<RealType, IntType>::addField(const Field&       field,
-                                            const std::string& name) -> void
+                                            const std::string& name,
+                                            const int          level) -> void
 {
     ioToVTKns::VtiDataType_e vtiDataTypeE = mVtiDataTypeE;
     bool                     isValidConfiguration = false;
@@ -44,7 +45,7 @@ auto IOGridVTK<RealType, IntType>::addField(const Field&       field,
     }
 
     IoToVTK<IntType, RealType>::addField([&](Neon::Integer_3d<IntType> idx, int card) -> RealType {
-        return field(idx, card);
+        return field(idx, card, level);
     },
                                          field.getCardinality(), name, vtiDataTypeE);
 }

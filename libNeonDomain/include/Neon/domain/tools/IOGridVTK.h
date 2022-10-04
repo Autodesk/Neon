@@ -30,8 +30,8 @@ class IOGridVTK : private IoToVTK<intType_ta, real_tt>
 
    public:
     IOGridVTK(const Neon::domain::interface::GridBase& grid,
-              const std::string&                      filename /*!   File name */,
-              bool                                    isNodeSpace = true,
+              const std::string&                       filename /*!   File name */,
+              bool                                     isNodeSpace = true,
               IoFileType                               vtiIOe = IoFileType::ASCII /*! Binary or ASCII file  */);
 
     /**
@@ -39,7 +39,8 @@ class IOGridVTK : private IoToVTK<intType_ta, real_tt>
      */
     template <typename Field>
     auto addField(const Field&       field,
-                  const std::string& name /*! Name of the field */) -> void;
+                  const std::string& name /*! Name of the field */,
+                  const int          level = 0) -> void;
 
     /**
      * Write the VTK file
@@ -65,6 +66,6 @@ class IOGridVTK : private IoToVTK<intType_ta, real_tt>
     Neon::index_3d           mDimension;
 };
 
-}  // namespace Neon::grids
+}  // namespace Neon::domain
 
 #include "Neon/domain/tools/IOGridVTK_imp.h"
