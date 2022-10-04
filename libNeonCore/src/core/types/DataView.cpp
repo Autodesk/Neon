@@ -22,7 +22,7 @@ auto DataViewUtil::toString(DataView e) -> std::string
         }
         case DataView::BOUNDARY: {
             return "BOUNDARY";
-        }        
+        }
         default: {
             NEON_THROW_UNSUPPORTED_OPTION("DataViewUtil");
         }
@@ -40,7 +40,7 @@ auto DataViewUtil::fromInt(int val) -> DataView
         }
         case static_cast<int>(DataView::BOUNDARY): {
             return DataView::BOUNDARY;
-        }        
+        }
         default: {
             NEON_THROW_UNSUPPORTED_OPTION("DataViewUtil");
         }
@@ -52,9 +52,9 @@ auto DataViewUtil::toInt(DataView dataView) -> int
     return static_cast<int>(dataView);
 }
 
-}  // namespace Neon
-
 std::ostream& operator<<(std::ostream& os, Neon::DataView const& m)
 {
     return os << std::string(Neon::DataViewUtil::toString(m));
 }
+
+}  // namespace Neon

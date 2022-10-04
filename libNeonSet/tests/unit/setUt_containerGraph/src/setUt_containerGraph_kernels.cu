@@ -1,15 +1,4 @@
-#pragma once
-
-#include <functional>
-
-#include "Neon/domain/aGrid.h"
-#include "Neon/domain/dGrid.h"
-#include "Neon/domain/eGrid.h"
-#include "Neon/set/Containter.h"
-#include "Neon/set/container/ContainerAPI.h"
-#include "Neon/skeleton/Skeleton.h"
-#include "gtest/gtest.h"
-#include "sUt.runHelper.h"
+#include "setUt_containerGraph_kernels.h"
 
 namespace UserTools {
 template <typename Field>
@@ -17,7 +6,7 @@ auto xpy(const Field& x,
          Field&       y) -> Neon::set::Container
 {
     auto Kontainer = x.getGrid().getContainer(
-        "xpy", [&](Neon::set::Loader & L) -> auto {
+        "xpy", [&](Neon::set::Loader & L) -> auto{
             auto& xLocal = L.load(x);
             auto& yLocal = L.load(y);
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
@@ -35,16 +24,16 @@ auto aInvXpY(const Neon::template PatternScalar<T>& fR,
              Field&                                 y) -> Neon::set::Container
 {
     auto Kontainer = x.getGrid().getContainer(
-        "AXPY", [&](Neon::set::Loader & L) -> auto {
+        "AXPY", [&](Neon::set::Loader & L) -> auto{
             auto&      xLocal = L.load(x);
             auto&      yLocal = L.load(y);
             auto       fRLocal = L.load(fR);
             const auto fRVal = fRLocal();
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
-                //printf("%d yLocal.cardinality()\n", yLocal.cardinality());
+                // printf("%d yLocal.cardinality()\n", yLocal.cardinality());
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
-                    //printf("%d %d (%d) x\n", e, xLocal(e, i), i);
+                    // printf("%d %d (%d) x\n", e, xLocal(e, i), i);
                     yLocal(e, i) += (1.0 / fRVal) * xLocal(e, i);
                 }
             };
@@ -55,19 +44,20 @@ auto aInvXpY(const Neon::template PatternScalar<T>& fR,
 template <typename Field, typename T>
 auto axpy(const Neon::template PatternScalar<T>& fR,
           const Field&                           x,
-          Field&                                 y) -> Neon::set::Container
+          Field&                                 y,
+          const std::string&                     name) -> Neon::set::Container
 {
     auto Kontainer = x.getGrid().getContainer(
-        "AXPY", [&](Neon::set::Loader & L) -> auto {
+        name + "-AXPY", [&](Neon::set::Loader & L) -> auto{
             auto&      xLocal = L.load(x);
             auto&      yLocal = L.load(y);
             auto       fRLocal = L.load(fR);
             const auto fRVal = fRLocal();
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
-                //printf("%d yLocal.cardinality()\n", yLocal.cardinality());
+                // printf("%d yLocal.cardinality()\n", yLocal.cardinality());
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
-                    //printf("%d %d (%d) x\n", e, xLocal(e, i), i);
+                    // printf("%d %d (%d) x\n", e, xLocal(e, i), i);
                     yLocal(e, i) += fRVal * xLocal(e, i);
                 }
             };
@@ -78,10 +68,10 @@ auto axpy(const Neon::template PatternScalar<T>& fR,
 template <typename Field>
 auto laplace(const Field& x,
              Field&       y,
-             size_t       sharedMem = 0) -> Neon::set::Container
+             size_t       sharedMem ) -> Neon::set::Container
 {
     auto Kontainer = x.getGrid().getContainer(
-        "Laplace", [&](Neon::set::Loader & L) -> auto {
+        "Laplace", [&](Neon::set::Loader & L) -> auto{
             auto& xLocal = L.load(x, Neon::Compute::STENCIL);
             auto& yLocal = L.load(y);
 
@@ -156,5 +146,13 @@ auto laplace(const Field& x,
         });
     return Kontainer;
 }
+
+
+template auto xpy<eField32_t>(const eField32_t& x, eField32_t& y) -> Neon::set::Container;
+
+template auto axpy<eField32_t, int32_t>(const Neon::template PatternScalar<int32_t>& fR,
+                                        const eField32_t&                            x,
+                                        eField32_t&                                  y,
+                                        const std::string&                           name) -> Neon::set::Container;
 
 }  // namespace UserTools
