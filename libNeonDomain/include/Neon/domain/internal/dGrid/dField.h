@@ -55,7 +55,8 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
      * then the default outside value is returned.
      */
     auto operator()(const Neon::index_3d& idx,
-                    const int&            cardinality) const
+                    const int&            cardinality,
+                    const int             level = 0) const
         -> Type final;
 
     auto haloUpdate(Neon::set::HuOptions& opt) const

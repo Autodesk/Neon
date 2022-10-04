@@ -21,7 +21,8 @@ eField<T, C>::eField(const std::string&             fieldUserName,
                                                                                                            outsideVal,
                                                                                                            dataUse,
                                                                                                            memoryOptions,
-                                                                                                           haloStatus) {
+                                                                                                           haloStatus)
+{
 
     m_dataConfig = dataConfig;
 
@@ -41,8 +42,9 @@ eField<T, C>::eField(const std::string&             fieldUserName,
 }
 
 template <typename T, int C>
-auto eField<T, C>::operator()(const Neon::index_3d& idx,
-                              const int&            cardinality) const
+auto eField<T, C>::operator()(const Neon::index_3d&      idx,
+                              const int&                 cardinality,
+                              [[maybe_unused]] const int level) const
     -> Type
 {
     if (mCpu.devType() == Neon::DeviceType::NONE) {
@@ -57,8 +59,9 @@ auto eField<T, C>::operator()(const Neon::index_3d& idx,
 }
 
 template <typename T, int C>
-auto eField<T, C>::getReference(const Neon::index_3d& idx,
-                                const int&            cardinality)
+auto eField<T, C>::getReference(const Neon::index_3d&      idx,
+                                const int&                 cardinality,
+                                [[maybe_unused]] const int level)
     -> Type&
 {
     if (mCpu.devType() == Neon::DeviceType::NONE) {
@@ -400,7 +403,7 @@ auto eField<T, C>::haloUpdate(Neon::set::HuOptions& opt)
 template <typename T, int C>
 auto eField<T, C>::swap(Field& A, Field& B) -> void
 {
-    Neon::domain::interface::FieldBaseTemplate<T, C, typename Self::Grid, typename Self::Partition, int>::swapUIDBeforeFullSwap(A,B);
+    Neon::domain::interface::FieldBaseTemplate<T, C, typename Self::Grid, typename Self::Partition, int>::swapUIDBeforeFullSwap(A, B);
     std::swap(A, B);
 }
 

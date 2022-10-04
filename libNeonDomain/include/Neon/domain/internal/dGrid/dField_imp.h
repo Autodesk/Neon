@@ -364,8 +364,9 @@ auto dField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
 }
 
 template <typename T, int C>
-auto dField<T, C>::operator()(const Neon::index_3d& idx,
-                              const int&            cardinality) const
+auto dField<T, C>::operator()(const Neon::index_3d&      idx,
+                              const int&                 cardinality,
+                              [[maybe_unused]] const int level) const
     -> Type
 {
     if (m_cpu.devType() == Neon::DeviceType::NONE) {

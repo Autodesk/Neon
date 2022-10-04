@@ -28,6 +28,7 @@ class bPartitionIndexSpace
 
     Neon::DataView  mDataView;
     Neon::int32_3d  mDomainSize;
+    int             mBlockSize;
     uint32_t        mNumBlocks;
     uint32_t*       mHostActiveMask;
     uint32_t*       mDeviceActiveMask;

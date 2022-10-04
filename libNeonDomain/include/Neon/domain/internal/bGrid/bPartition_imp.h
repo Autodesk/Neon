@@ -121,7 +121,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int 
     //assumes SoA within the block i.e., AoSoA
     return
         //stride across all block before cell's block
-        cell.mBlockID * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ * mCardinality +
+        cell.mBlockID * cell.mBlockSize * cell.mBlockSize * cell.mBlockSize * mCardinality +
         //stride within the block
         cell.pitch(card);
 }
@@ -135,7 +135,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     c
                   cell.mLocation.z + offset.z);
 
     if (ngh_cell.mLocation.x < 0 || ngh_cell.mLocation.y < 0 || ngh_cell.mLocation.z < 0 ||
-        ngh_cell.mLocation.x >= Cell::sBlockSizeX || ngh_cell.mLocation.y >= Cell::sBlockSizeY || ngh_cell.mLocation.z >= Cell::sBlockSizeZ) {
+        ngh_cell.mLocation.x >= cell.mBlockSize || ngh_cell.mLocation.y >= cell.mBlockSize || ngh_cell.mLocation.z >= cell.mBlockSize) {
 
         //The neighbor is not in this block
 
@@ -144,26 +144,26 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     c
 
         if (ngh_cell.mLocation.x < 0) {
             block_offset.x = -1;
-            ngh_cell.mLocation.x += Cell::sBlockSizeX;
-        } else if (ngh_cell.mLocation.x >= Cell::sBlockSizeX) {
+            ngh_cell.mLocation.x += cell.mBlockSize;
+        } else if (ngh_cell.mLocation.x >= cell.mBlockSize) {
             block_offset.x = 1;
-            ngh_cell.mLocation.x -= Cell::sBlockSizeX;
+            ngh_cell.mLocation.x -= cell.mBlockSize;
         }
 
         if (ngh_cell.mLocation.y < 0) {
             block_offset.y = -1;
-            ngh_cell.mLocation.y += Cell::sBlockSizeY;
-        } else if (ngh_cell.mLocation.y >= Cell::sBlockSizeY) {
+            ngh_cell.mLocation.y += cell.mBlockSize;
+        } else if (ngh_cell.mLocation.y >= cell.mBlockSize) {
             block_offset.y = 1;
-            ngh_cell.mLocation.y -= Cell::sBlockSizeY;
+            ngh_cell.mLocation.y -= cell.mBlockSize;
         }
 
         if (ngh_cell.mLocation.z < 0) {
             block_offset.z = -1;
-            ngh_cell.mLocation.z += Cell::sBlockSizeZ;
-        } else if (ngh_cell.mLocation.z >= Cell::sBlockSizeZ) {
+            ngh_cell.mLocation.z += cell.mBlockSize;
+        } else if (ngh_cell.mLocation.z >= cell.mBlockSize) {
             block_offset.z = 1;
-            ngh_cell.mLocation.z -= Cell::sBlockSizeZ;
+            ngh_cell.mLocation.z -= cell.mBlockSize;
         }
 
         if (mSharedNeighbourBlocks != nullptr) {
@@ -243,29 +243,29 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::shmemPitch(
     const int card) const -> Cell::Location::Integer
 {
     if constexpr (Cell::sUseSwirlIndex) {
-        if (cell.mLocation.x >= 0 && cell.mLocation.x < Cell::sBlockSizeX &&
-            cell.mLocation.y >= 0 && cell.mLocation.y < Cell::sBlockSizeY &&
-            cell.mLocation.z >= -1 && cell.mLocation.z <= Cell::sBlockSizeZ) {
+        if (cell.mLocation.x >= 0 && cell.mLocation.x < cell.mBlockSize &&
+            cell.mLocation.y >= 0 && cell.mLocation.y < cell.mBlockSize &&
+            cell.mLocation.z >= -1 && cell.mLocation.z <= cell.mBlockSize) {
 
             if (cell.mLocation.z == -1) {
-                cell.mLocation.z = Cell::sBlockSizeZ;
+                cell.mLocation.z = cell.mBlockSize;
             } else if (cell.mLocation.z == 1) {
-                cell.mLocation.z = Cell::sBlockSizeZ + 1;
+                cell.mLocation.z = cell.mBlockSize + 1;
             }
         } else {
             cell.mLocation.z += (cell.mLocation.z / 2) + 10;
         }
 
 
-        return (2 * mStencilRadius + Cell::sBlockSizeX) * (2 * mStencilRadius + Cell::sBlockSizeY) * (2 * mStencilRadius + Cell::sBlockSizeZ) * static_cast<Cell::Location::Integer>(card) +
+        return (2 * mStencilRadius + cell.mBlockSize) * (2 * mStencilRadius + cell.mBlockSize) * (2 * mStencilRadius + cell.mBlockSize) * static_cast<Cell::Location::Integer>(card) +
                cell.mLocation.x +
-               cell.mLocation.y * Cell::sBlockSizeX +
-               cell.mLocation.z * Cell::sBlockSizeX * Cell::sBlockSizeY;
+               cell.mLocation.y * cell.mBlockSize +
+               cell.mLocation.z * cell.mBlockSize * cell.mBlockSize;
 
     } else {
-        return (2 * mStencilRadius + Cell::sBlockSizeX) * (2 * mStencilRadius + Cell::sBlockSizeY) * (2 * mStencilRadius + Cell::sBlockSizeZ) * static_cast<Cell::Location::Integer>(card) +
+        return (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) * static_cast<Cell::Location::Integer>(card) +
                //offset to this cell's data
-               (cell.mLocation.x + mStencilRadius) + (cell.mLocation.y + mStencilRadius) * (2 * mStencilRadius + Cell::sBlockSizeX) + (cell.mLocation.z + mStencilRadius) * (2 * mStencilRadius + Cell::sBlockSizeX) * (2 * mStencilRadius + Cell::sBlockSizeY);
+               (cell.mLocation.x + mStencilRadius) + (cell.mLocation.y + mStencilRadius) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) + (cell.mLocation.z + mStencilRadius) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize));
     }
 }
 
@@ -279,9 +279,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
 #ifdef NEON_PLACE_CUDA_DEVICE
     mStencilRadius = stencilRadius;
 
-    mMemSharedMem = shmemAlloc.alloc<T>((Cell::sBlockSizeX + 2 * mStencilRadius) *
-                                        (Cell::sBlockSizeY + 2 * mStencilRadius) *
-                                        (Cell::sBlockSizeZ + 2 * mStencilRadius) * mCardinality);
+    mMemSharedMem = shmemAlloc.alloc<T>((cell.mBlockSize + 2 * mStencilRadius) *
+                                        (cell.mBlockSize + 2 * mStencilRadius) *
+                                        (cell.mBlockSize + 2 * mStencilRadius) * mCardinality);
     //load the block itself in shared memory
     Cell shmemcell(cell.mLocation.x, cell.mLocation.y, cell.mLocation.z);
 
@@ -300,7 +300,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
     mSharedNeighbourBlocks = sNeighbour;
     {
         Cell::Location::Integer tid = cell.getLocal1DID();
-        for (int i = 0; i < 26; i += Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ) {
+        for (int i = 0; i < 26; i += cell.mBlockSize * cell.mBlockSize * cell.mBlockSize) {
             mSharedNeighbourBlocks[i] = mNeighbourBlocks[26 * cell.mBlockID + i];
         }
     }*/
@@ -320,7 +320,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
             }
 
             //face (x, y, +z)
-            if (cell.mLocation.z == Cell::sBlockSizeZ - 1) {
+            if (cell.mLocation.z == cell.mBlockSize - 1) {
                 offset.x = 0;
                 offset.y = 0;
                 offset.z = r;
@@ -336,7 +336,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
             }
 
             //face (x, +y, z)
-            if (cell.mLocation.y == Cell::sBlockSizeY - 1) {
+            if (cell.mLocation.y == cell.mBlockSize - 1) {
                 offset.x = 0;
                 offset.y = r;
                 offset.z = 0;
@@ -352,7 +352,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
             }
 
             //face (+x, y, z)
-            if (cell.mLocation.x == Cell::sBlockSizeX - 1) {
+            if (cell.mLocation.x == cell.mBlockSize - 1) {
                 offset.x = r;
                 offset.y = 0;
                 offset.z = 0;
@@ -371,21 +371,21 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                 load_ngh(offset, card);
             }
             // edge (x, +y, -z)
-            if (cell.mLocation.y == Cell::sBlockSizeY - 1 && cell.mLocation.z == 0) {
+            if (cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == 0) {
                 offset.x = 0;
                 offset.y = r;
                 offset.z = -r;
                 load_ngh(offset, card);
             }
             // edge (x, -y, +z)
-            if (cell.mLocation.y == 0 && cell.mLocation.z == Cell::sBlockSizeZ - 1) {
+            if (cell.mLocation.y == 0 && cell.mLocation.z == cell.mBlockSize - 1) {
                 offset.x = 0;
                 offset.y = -r;
                 offset.z = r;
                 load_ngh(offset, card);
             }
             // edge (x, +y, +z)
-            if (cell.mLocation.y == Cell::sBlockSizeY - 1 && cell.mLocation.z == Cell::sBlockSizeZ - 1) {
+            if (cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == cell.mBlockSize - 1) {
                 offset.x = 0;
                 offset.y = r;
                 offset.z = r;
@@ -402,21 +402,21 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                 load_ngh(offset, card);
             }
             // edge (-x, y, +z)
-            if (cell.mLocation.x == 0 && cell.mLocation.z == Cell::sBlockSizeZ - 1) {
+            if (cell.mLocation.x == 0 && cell.mLocation.z == cell.mBlockSize - 1) {
                 offset.x = -r;
                 offset.y = 0;
                 offset.z = r;
                 load_ngh(offset, card);
             }
             // edge (+x, y, -z)
-            if (cell.mLocation.x == Cell::sBlockSizeX - 1 && cell.mLocation.z == 0) {
+            if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.z == 0) {
                 offset.x = r;
                 offset.y = 0;
                 offset.z = -r;
                 load_ngh(offset, card);
             }
             // edge (+x, y, -z)
-            if (cell.mLocation.x == Cell::sBlockSizeX - 1 && cell.mLocation.z == Cell::sBlockSizeZ - 1) {
+            if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.z == cell.mBlockSize - 1) {
                 offset.x = r;
                 offset.y = 0;
                 offset.z = r;
@@ -433,21 +433,21 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                 load_ngh(offset, card);
             }
             // edge (-x, +y, z)
-            if (cell.mLocation.x == 0 && cell.mLocation.y == Cell::sBlockSizeY - 1) {
+            if (cell.mLocation.x == 0 && cell.mLocation.y == cell.mBlockSize - 1) {
                 offset.x = -r;
                 offset.y = r;
                 offset.z = 0;
                 load_ngh(offset, card);
             }
             // edge (+x, -y, z)
-            if (cell.mLocation.x == Cell::sBlockSizeX - 1 && cell.mLocation.y == 0) {
+            if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == 0) {
                 offset.x = r;
                 offset.y = -r;
                 offset.z = 0;
                 load_ngh(offset, card);
             }
             // edge (+x, +y, z)
-            if (cell.mLocation.x == Cell::sBlockSizeX - 1 && cell.mLocation.y == Cell::sBlockSizeY - 1) {
+            if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == cell.mBlockSize - 1) {
                 offset.x = r;
                 offset.y = r;
                 offset.z = 0;
@@ -471,7 +471,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                     }
 
                     //1,0,0
-                    if (cell.mLocation.x == Cell::sBlockSizeX - 1 && cell.mLocation.y == 0 && cell.mLocation.z == 0) {
+                    if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == 0 && cell.mLocation.z == 0) {
                         offset.x = -1 * static_cast<nghIdx_t::Integer>(x);
                         offset.y = static_cast<nghIdx_t::Integer>(y);
                         offset.z = static_cast<nghIdx_t::Integer>(z);
@@ -479,7 +479,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                     }
 
                     //0,1,0
-                    if (cell.mLocation.x == 0 && cell.mLocation.y == Cell::sBlockSizeY - 1 && cell.mLocation.z == 0) {
+                    if (cell.mLocation.x == 0 && cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == 0) {
                         offset.x = static_cast<nghIdx_t::Integer>(x);
                         offset.y = -1 * static_cast<nghIdx_t::Integer>(y);
                         offset.z = static_cast<nghIdx_t::Integer>(z);
@@ -487,7 +487,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                     }
 
                     //1,1,0
-                    if (cell.mLocation.x == Cell::sBlockSizeX - 1 && cell.mLocation.y == Cell::sBlockSizeY - 1 && cell.mLocation.z == 0) {
+                    if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == 0) {
                         offset.x = -1 * static_cast<nghIdx_t::Integer>(x);
                         offset.y = -1 * static_cast<nghIdx_t::Integer>(y);
                         offset.z = static_cast<nghIdx_t::Integer>(z);
@@ -496,7 +496,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
 
 
                     //0,0,1
-                    if (cell.mLocation.x == 0 && cell.mLocation.y == 0 && cell.mLocation.z == Cell::sBlockSizeZ - 1) {
+                    if (cell.mLocation.x == 0 && cell.mLocation.y == 0 && cell.mLocation.z == cell.mBlockSize - 1) {
                         offset.x = static_cast<nghIdx_t::Integer>(x);
                         offset.y = static_cast<nghIdx_t::Integer>(y);
                         offset.z = -1 * static_cast<nghIdx_t::Integer>(z);
@@ -504,7 +504,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                     }
 
                     //1,0,1
-                    if (cell.mLocation.x == Cell::sBlockSizeX - 1 && cell.mLocation.y == 0 && cell.mLocation.z == Cell::sBlockSizeZ - 1) {
+                    if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == 0 && cell.mLocation.z == cell.mBlockSize - 1) {
                         offset.x = -1 * static_cast<nghIdx_t::Integer>(x);
                         offset.y = static_cast<nghIdx_t::Integer>(y);
                         offset.z = -1 * static_cast<nghIdx_t::Integer>(z);
@@ -512,7 +512,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                     }
 
                     //0,1,1
-                    if (cell.mLocation.x == 0 && cell.mLocation.y == Cell::sBlockSizeY - 1 && cell.mLocation.z == Cell::sBlockSizeZ - 1) {
+                    if (cell.mLocation.x == 0 && cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == cell.mBlockSize - 1) {
                         offset.x = static_cast<nghIdx_t::Integer>(x);
                         offset.y = -1 * static_cast<nghIdx_t::Integer>(y);
                         offset.z = -1 * static_cast<nghIdx_t::Integer>(z);
@@ -520,7 +520,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                     }
 
                     //1,1,1
-                    if (cell.mLocation.x == Cell::sBlockSizeX - 1 && cell.mLocation.y == Cell::sBlockSizeY - 1 && cell.mLocation.z == Cell::sBlockSizeZ - 1) {
+                    if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == cell.mBlockSize - 1) {
                         offset.x = -1 * static_cast<nghIdx_t::Integer>(x);
                         offset.y = -1 * static_cast<nghIdx_t::Integer>(y);
                         offset.z = -1 * static_cast<nghIdx_t::Integer>(z);
@@ -564,9 +564,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
         true);
 
 
-    mMemSharedMem = shmemAlloc.alloc<T>((Cell::sBlockSizeX + 2 * mStencilRadius) *
-                                        (Cell::sBlockSizeY + 2 * mStencilRadius) *
-                                        (Cell::sBlockSizeZ + 2 * mStencilRadius) * mCardinality);
+    mMemSharedMem = shmemAlloc.alloc<T>((cell.mBlockSize + 2 * mStencilRadius) *
+                                        (cell.mBlockSize + 2 * mStencilRadius) *
+                                        (cell.mBlockSize + 2 * mStencilRadius) * mCardinality);
 
 
     Cell::Location::Integer shmem_offset = 0;
@@ -579,8 +579,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
         if (ngh_block_id != std::numeric_limits<uint32_t>::max()) {
             Neon::sys::loadSharedMemAsync(
                 block,
-                mMem + ngh_block_id * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ * mCardinality + src_offset,
-                //     ^^start of this block                                                                    ^^ offset from the start
+                mMem + ngh_block_id * cell.mBlockSize * cell.mBlockSize * cell.mBlockSize * mCardinality + src_offset,
+                //     ^^start of this block                                                                ^^ offset from the start
                 size,
                 mMemSharedMem + shmem_offset,
                 false);
@@ -592,11 +592,11 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
     //load the interior
     Neon::sys::loadSharedMemAsync(
         block,
-        mMem + cell.mBlockID * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ * mCardinality,
-        Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ,
+        mMem + cell.mBlockID * cell.mBlockSize * cell.mBlockSize * cell.mBlockSize * mCardinality,
+        cell.mBlockSize * cell.mBlockSize * cell.mBlockSize,
         mMemSharedMem,
         false);
-    shmem_offset += Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ;
+    shmem_offset += cell.mBlockSize * cell.mBlockSize * cell.mBlockSize;
 
 
     if (mStencilRadius > 0) {
@@ -607,8 +607,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
         block_offset.y = 0;
         block_offset.z = -1;
         load(block_offset,
-             Cell::sBlockSizeX * Cell::sBlockSizeY * (Cell::sBlockSizeZ - 1),
-             Cell::sBlockSizeX * Cell::sBlockSizeY);
+             cell.mBlockSize * cell.mBlockSize * (cell.mBlockSize - 1),
+             cell.mBlockSize * cell.mBlockSize);
 
 
         //load +Z faces
@@ -617,33 +617,33 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
         block_offset.z = 1;
         load(block_offset,
              0,
-             Cell::sBlockSizeX * Cell::sBlockSizeY);
+             cell.mBlockSize * cell.mBlockSize);
 
 
-        for (int z = 0; z < Cell::sBlockSizeZ; ++z) {
+        for (int z = 0; z < cell.mBlockSize; ++z) {
             // load strips from -Y
             block_offset.x = 0;
             block_offset.y = -1;
             block_offset.z = 0;
             load(block_offset,
-                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 14,
-                 Cell::sBlockSizeX);
+                 z * cell.mBlockSize * cell.mBlockSize + 14,
+                 cell.mBlockSize);
 
             // load strips from +Y
             block_offset.x = 0;
             block_offset.y = 1;
             block_offset.z = 0;
             load(block_offset,
-                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 0,
-                 Cell::sBlockSizeX);
+                 z * cell.mBlockSize * cell.mBlockSize + 0,
+                 cell.mBlockSize);
 
             // load strips from -X
             block_offset.x = -1;
             block_offset.y = 0;
             block_offset.z = 0;
             load(block_offset,
-                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 7,
-                 Cell::sBlockSizeY);
+                 z * cell.mBlockSize * cell.mBlockSize + 7,
+                 cell.mBlockSize);
 
 
             // load strips from +X
@@ -651,10 +651,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
             block_offset.y = 0;
             block_offset.z = 0;
             load(block_offset,
-                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 21,
-                 Cell::sBlockSizeY - 1);
+                 z * cell.mBlockSize * cell.mBlockSize + 21,
+                 cell.mBlockSize - 1);
             load(block_offset,
-                 z * Cell::sBlockSizeX * Cell::sBlockSizeY + 0,
+                 z * cell.mBlockSize * cell.mBlockSize + 0,
                  1);
         }
     }

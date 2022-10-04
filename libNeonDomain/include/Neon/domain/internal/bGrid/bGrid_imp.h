@@ -31,8 +31,7 @@ auto bGrid::getContainer(const std::string& name,
                          size_t             sharedMem,
                          LoadingLambda      lambda) const -> Neon::set::Container
 {
-    const Neon::index_3d& defaultBlockSize = getDefaultBlock();
-    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
+    Neon::set::Container kContainer = Neon::set::Container::factory(name,
                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
                                                                     *this,
                                                                     lambda,
@@ -72,7 +71,8 @@ template <typename T>
 auto bGrid::dot(const std::string&               name,
                 Field<T>&                        input1,
                 Field<T>&                        input2,
-                Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
+                Neon::template PatternScalar<T>& scalar,
+                const int                        level) const -> Neon::set::Container
 {
     return Neon::set::Container::factoryOldManaged(
         name,
@@ -104,7 +104,7 @@ auto bGrid::dot(const std::string&               name,
                     input1.dot(scalar.getBlasSet(dataView),
                                input2,
                                scalar.getTempMemory(dataView, Neon::DeviceType::CUDA),
-                               dataView);
+                               dataView, level);
 
                     // move to results to host
                     scalar.getTempMemory(dataView,
@@ -135,7 +135,8 @@ auto bGrid::dot(const std::string&               name,
 template <typename T>
 auto bGrid::norm2(const std::string&               name,
                   Field<T>&                        input,
-                  Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
+                  Neon::template PatternScalar<T>& scalar,
+                  const int                        level) const -> Neon::set::Container
 {
     return Neon::set::Container::factoryOldManaged(
         name,
@@ -164,7 +165,7 @@ auto bGrid::norm2(const std::string&               name,
                     // calc dot product and store results on device
                     input.norm2(scalar.getBlasSet(dataView),
                                 scalar.getTempMemory(dataView, Neon::DeviceType::CUDA),
-                                dataView);
+                                dataView, level);
 
                     // move to results to host
                     scalar.getTempMemory(dataView,

@@ -46,16 +46,17 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                       Neon::SetIdx          idx,
                       const Neon::DataView& dataView) -> Partition& final;
 
-    //TODO this should be implemented in FieldBase
-    auto isInsideDomain(const Neon::index_3d& idx) const -> bool final;
 
-    //TODO add level
+    auto isInsideDomain(const Neon::index_3d& idx, const int level = 0) const -> bool final;
+
+
     auto operator()(const Neon::index_3d& idx,
-                    const int&            cardinality) const -> T final;
+                    const int&            cardinality,
+                    const int             level = 0) const -> T final;
 
-    //TODO add level
     auto getReference(const Neon::index_3d& idx,
-                      const int&            cardinality) -> T& final;
+                      const int&            cardinality,
+                      const int             level = 0) -> T& final;
 
     auto haloUpdate(Neon::set::HuOptions& opt) const -> void final;
 
@@ -65,16 +66,18 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     auto updateCompute(int streamId = 0) -> void final;
 
-    auto getSharedMemoryBytes(const int32_t stencilRadius) const -> size_t;
+    auto getSharedMemoryBytes(const int32_t stencilRadius, int level = 0) const -> size_t;
 
     auto dot(Neon::set::patterns::BlasSet<T>& blasSet,
              const bField<T>&                 input,
              Neon::set::MemDevSet<T>&         output,
-             const Neon::DataView&            dataView) -> void;
+             const Neon::DataView&            dataView,
+             const int                        level = 0) -> void;
 
     auto norm2(Neon::set::patterns::BlasSet<T>& blasSet,
                Neon::set::MemDevSet<T>&         output,
-               const Neon::DataView&            dataView) -> void;
+               const Neon::DataView&            dataView,
+               const int                        level = 0) -> void;
 
 
    private:

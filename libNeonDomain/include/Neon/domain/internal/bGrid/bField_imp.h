@@ -130,9 +130,9 @@ auto bField<T, C>::getPartition(const Neon::DeviceType& devType,
 }
 
 template <typename T, int C>
-auto bField<T, C>::isInsideDomain(const Neon::index_3d& idx) const -> bool
+auto bField<T, C>::isInsideDomain(const Neon::index_3d& idx, const int level) const -> bool
 {
-    return mData->mGrid->isInsideDomain(idx);
+    return mData->mGrid->isInsideDomain(idx, level);
 }
 
 template <typename T, int C>
@@ -156,21 +156,24 @@ auto bField<T, C>::getRef(const Neon::index_3d& idx,
               static_cast<Cell::Location::Integer>(idx.y % mData->mGrid->getDescriptorVector()[level]),
               static_cast<Cell::Location::Integer>(idx.z % mData->mGrid->getDescriptorVector()[level]));
     cell.mBlockID = *itr;
+    cell.mBlockSize = mData->mGrid->getDescriptorVector()[level];
     return partition(cell, cardinality);
 }
 
 template <typename T, int C>
 auto bField<T, C>::operator()(const Neon::index_3d& idx,
-                              const int&            cardinality) const -> T
+                              const int&            cardinality,
+                              const int             level) const -> T
 {
-    return getRef(idx, cardinality, 0);
+    return getRef(idx, cardinality, level);
 }
 
 template <typename T, int C>
 auto bField<T, C>::getReference(const Neon::index_3d& idx,
-                                const int&            cardinality) -> T&
+                                const int&            cardinality,
+                                const int             level) -> T&
 {
-    return getRef(idx, cardinality, 0);
+    return getRef(idx, cardinality, level);
 }
 
 template <typename T, int C>
@@ -224,15 +227,15 @@ auto bField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
 }
 
 template <typename T, int C>
-auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius) const -> size_t
+auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius, int level) const -> size_t
 {
     //This return the optimal shared memory size give a stencil radius
     //i.e., only N layers is read from neighbor blocks into shared memory in addition
     // to the block itself where N = stencilRadius
     return sizeof(T) *
            this->getCardinality() *
-           (Cell::sBlockSizeX + 2 * stencilRadius) *
-           (Cell::sBlockSizeY + 2 * stencilRadius) *
-           (Cell::sBlockSizeZ + 2 * stencilRadius);
+           (mData->mGrid->getDescriptorVector()[level] + 2 * stencilRadius) *
+           (mData->mGrid->getDescriptorVector()[level] + 2 * stencilRadius) *
+           (mData->mGrid->getDescriptorVector()[level] + 2 * stencilRadius);
 }
 }  // namespace Neon::domain::internal::bGrid

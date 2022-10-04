@@ -86,11 +86,13 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
     auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
-                             const size_t&         sharedMem) const -> Neon::set::LaunchParameters;
+                             const size_t&         sharedMem,
+                             int                   level = 0) const -> Neon::set::LaunchParameters;
 
     auto getPartitionIndexSpace(Neon::DeviceType dev,
                                 SetIdx           setIdx,
-                                Neon::DataView   dataView) -> const PartitionIndexSpace&;
+                                Neon::DataView   dataView,
+                                int              level = 0) -> const PartitionIndexSpace&;
 
     auto getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&;
     auto getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
@@ -109,17 +111,20 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto dot(const std::string&               name,
              Field<T>&                        input1,
              Field<T>&                        input2,
-             Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container;
+             Neon::template PatternScalar<T>& scalar,
+             const int                        level = 0) const -> Neon::set::Container;
 
     template <typename T>
     auto norm2(const std::string&               name,
                Field<T>&                        input,
-               Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container;
+               Neon::template PatternScalar<T>& scalar,
+               const int                        level = 0) const -> Neon::set::Container;
 
 
     auto getKernelConfig(int            streamIdx,
-                         Neon::DataView dataView) -> Neon::set::KernelConfig;
-        
+                         Neon::DataView dataView,
+                         const int      level = 0) -> Neon::set::KernelConfig;
+
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level = 0) const -> Neon::int32_3d;
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
     auto getDescriptorVector() const -> const std::vector<int>&;
@@ -167,7 +172,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
         //Partition index space
         //It is an std vector for the three type of data views we have
-        std::vector<Neon::set::DataSet<PartitionIndexSpace>> mPartitionIndexSpace;
+        //it is a vector of an array where the outer vector is for different levels
+        //and the inner array for the three types of data views
+        std::vector<std::array<Neon::set::DataSet<PartitionIndexSpace>, 3>> mPartitionIndexSpace;
 
         //Store the block origin as a key and its 1d index as value
         //std::vector to store the map from the block origin to its 1d index per level

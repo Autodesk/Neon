@@ -23,10 +23,7 @@ class bCell
     using BlockSizeT = int8_t;
     using OuterCell = bCell;
 
-    static constexpr BlockSizeT sBlockSizeX = 8;
-    static constexpr BlockSizeT sBlockSizeY = 8;
-    static constexpr BlockSizeT sBlockSizeZ = 8;
-    static constexpr BlockSizeT sBlockSize[3]{sBlockSizeX, sBlockSizeY, sBlockSizeZ};
+    static constexpr BlockSizeT sBlockSize = 8;
     static constexpr bool       sUseSwirlIndex = false;
 
     //We use uint32_t data type to store the block mask and thus the mask size is 32
@@ -38,11 +35,12 @@ class bCell
 
     NEON_CUDA_HOST_DEVICE inline auto isActive() const -> bool;
 
-   
+
     //the local index within the block
     Location mLocation;
     uint32_t mBlockID;
     bool     mIsActive;
+    int      mBlockSize;
 
     NEON_CUDA_HOST_DEVICE inline explicit bCell(const Location::Integer& x,
                                                 const Location::Integer& y,

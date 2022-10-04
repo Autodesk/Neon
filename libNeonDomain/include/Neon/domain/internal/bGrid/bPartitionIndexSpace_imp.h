@@ -9,20 +9,21 @@ NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
     [[maybe_unused]] const size_t& z) const -> void
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
-    assert(Cell::sBlockSizeX == blockDim.x);
-    assert(Cell::sBlockSizeY == blockDim.y);
-    assert(Cell::sBlockSizeZ == blockDim.z);
+    assert(mBlockSize == blockDim.x);
+    assert(mBlockSize == blockDim.y);
+    assert(mBlockSize == blockDim.z);
     cell.mBlockID = blockIdx.x;
+    cell.mBlockSize = mBlockSize;
     cell.mLocation.x = threadIdx.x;
     cell.mLocation.y = threadIdx.y;
-    cell.mLocation.z = threadIdx.z;    
+    cell.mLocation.z = threadIdx.z;
 #else
-    cell.mBlockID = static_cast<uint32_t>(x) / (Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ);
-    Cell::Location::Integer reminder = static_cast<Cell::Location::Integer>(x % (Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ));
-    cell.set().z = reminder / (Cell::sBlockSizeX * Cell::sBlockSizeY);
-    reminder -= (cell.set().z * Cell::sBlockSizeX * Cell::sBlockSizeY);
-    cell.set().y = reminder / Cell::sBlockSizeX;
-    cell.set().x = reminder % Cell::sBlockSizeX;
+    cell.mBlockID = static_cast<uint32_t>(x) / (mBlockSize * mBlockSize * mBlockSize);
+    Cell::Location::Integer reminder = static_cast<Cell::Location::Integer>(x % (mBlockSize * mBlockSize * mBlockSize));
+    cell.set().z = reminder / (static_cast<Cell::Location::Integer>(mBlockSize * mBlockSize));
+    reminder -= (cell.set().z * (static_cast<Cell::Location::Integer>(mBlockSize * mBlockSize)));
+    cell.set().y = reminder / static_cast<Cell::Location::Integer>(mBlockSize);
+    cell.set().x = reminder % static_cast<Cell::Location::Integer>(mBlockSize);
 #endif
     cell.mIsActive = true;
 }

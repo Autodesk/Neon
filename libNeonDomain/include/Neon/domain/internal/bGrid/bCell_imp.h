@@ -35,14 +35,14 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::getLocal1DID() const -> Location::Integ
     if constexpr (sUseSwirlIndex) {
         //the swirl index changes the xy coordinates only and keeps the z as it is
         Location::Integer xy = canonicalToSwirl(mLocation.x +
-                                                mLocation.y * sBlockSizeX);
+                                                mLocation.y * mBlockSize);
 
-        return xy + mLocation.z * sBlockSizeX * sBlockSizeY;
+        return xy + mLocation.z * mBlockSize * mBlockSize;
     } else {
 #endif
         return mLocation.x +
-               mLocation.y * sBlockSizeX +
-               mLocation.z * sBlockSizeX * sBlockSizeY;
+               mLocation.y * Location::Integer(mBlockSize) +
+               mLocation.z * Location::Integer(mBlockSize) * Location::Integer(mBlockSize);
 #ifdef NEON_PLACE_CUDA_DEVICE
     }
 #endif
@@ -333,11 +333,11 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::toSwirl() const -> bCell
 {
 
     Location::Integer xy = canonicalToSwirl(mLocation.x +
-                                            mLocation.y * sBlockSizeX);
+                                            mLocation.y * Location::Integer(mBlockSize));
 
     bCell ret;
-    ret.mLocation.x = xy % sBlockSizeX;
-    ret.mLocation.y = xy / sBlockSizeX;
+    ret.mLocation.x = xy % Location::Integer(mBlockSize);
+    ret.mLocation.y = xy / Location::Integer(mBlockSize);
     ret.mLocation.z = mLocation.z;
     ret.mBlockID = mBlockID;
     return ret;
@@ -365,14 +365,12 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::getMaskBitPosition(int blockSize) const
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::getBlockMaskStride() const -> int32_t
 {
-    return mBlockID * NEON_DIVIDE_UP(sBlockSizeX * sBlockSizeY * sBlockSizeZ,
-                                     sMaskSize);
+    return mBlockID * NEON_DIVIDE_UP(mBlockSize * mBlockSize * mBlockSize, sMaskSize);
 }
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::getBlockMaskStride(int blockSize) const -> int32_t
 {
-    return mBlockID * NEON_DIVIDE_UP(blockSize * blockSize * blockSize,
-                                     sMaskSize);
+    return mBlockID * NEON_DIVIDE_UP(blockSize * blockSize * blockSize, sMaskSize);
 }
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::computeIsActive(const uint32_t* activeMask) const -> bool
@@ -432,7 +430,7 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::pitch(int card) const -> Location::Inte
 {
     return
         //stride across cardinalities before card within the block
-        sBlockSizeX * sBlockSizeY * sBlockSizeZ * static_cast<Location::Integer>(card) +
+        Location::Integer(mBlockSize) * Location::Integer(mBlockSize) * Location::Integer(mBlockSize) * Location::Integer(card) +
         //offset to this cell's data
         getLocal1DID();
 }

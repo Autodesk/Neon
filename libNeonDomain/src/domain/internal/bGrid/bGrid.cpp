@@ -333,7 +333,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                           domainSize,
                           Neon::domain::Stencil(),
                           mData->mNumActiveVoxel[0],  //passing active voxels on level 0 as the number of active grid in base grid (????)
-                          Neon::int32_3d(Cell::sBlockSizeX, Cell::sBlockSizeY, Cell::sBlockSizeZ),
+                          Neon::int32_3d(8, 8, 8),
                           spacingData,
                           origin);
 
@@ -461,6 +461,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             auto setCellActiveMask = [&](Cell::Location::Integer x, Cell::Location::Integer y, Cell::Location::Integer z) {
                 Cell cell(x, y, z);
                 cell.mBlockID = blockIdx;
+                cell.mBlockSize = ref_factor;
                 mData->mActiveMask[l].eRef(devID, cell.getBlockMaskStride(ref_factor) + cell.getMaskLocalID(ref_factor), 0) |= 1 << cell.getMaskBitPosition(ref_factor);
             };
 
@@ -541,30 +542,31 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         mData->mDescriptor.updateCompute(backend, 0);
     }
 
+    mData->mPartitionIndexSpace.resize(descriptor.getDepth());
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        for (const auto& dv : {Neon::DataView::STANDARD,
+                               Neon::DataView::INTERNAL,
+                               Neon::DataView::BOUNDARY}) {
 
-    mData->mPartitionIndexSpace = std::vector<Neon::set::DataSet<PartitionIndexSpace>>(3);
+            int dv_id = DataViewUtil::toInt(dv);
+            if (dv_id > 2) {
+                NeonException exp("bGrid");
+                exp << "Inconsistent enumeration for DataView_t";
+                NEON_THROW(exp);
+            }
 
-    for (const auto& dv : {Neon::DataView::STANDARD,
-                           Neon::DataView::INTERNAL,
-                           Neon::DataView::BOUNDARY}) {
+            mData->mPartitionIndexSpace[l][dv_id] = backend.devSet().template newDataSet<PartitionIndexSpace>();
 
-        int dv_id = DataViewUtil::toInt(dv);
-        if (dv_id > 2) {
-            NeonException exp("bGrid");
-            exp << "Inconsistent enumeration for DataView_t";
-            NEON_THROW(exp);
-        }
-
-        mData->mPartitionIndexSpace[dv_id] = backend.devSet().template newDataSet<PartitionIndexSpace>();
-
-        for (int gpuIdx = 0; gpuIdx < backend.devSet().setCardinality(); gpuIdx++) {
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDataView = dv;
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDomainSize = domainSize;
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[0][gpuIdx]);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask[0].rawMem(gpuIdx, Neon::DeviceType::CPU);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask[0].rawMem(gpuIdx, Neon::DeviceType::CUDA);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostBlockOrigin = mData->mOrigin[0].rawMem(gpuIdx, Neon::DeviceType::CPU);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceBlockOrigin = mData->mOrigin[0].rawMem(gpuIdx, Neon::DeviceType::CUDA);
+            for (int gpuIdx = 0; gpuIdx < backend.devSet().setCardinality(); gpuIdx++) {
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDataView = dv;
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDomainSize = domainSize;
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mBlockSize = mData->descriptor[l];
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[0][gpuIdx]);
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask[l].rawMem(gpuIdx, Neon::DeviceType::CPU);
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask[l].rawMem(gpuIdx, Neon::DeviceType::CUDA);
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mHostBlockOrigin = mData->mOrigin[l].rawMem(gpuIdx, Neon::DeviceType::CPU);
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDeviceBlockOrigin = mData->mOrigin[l].rawMem(gpuIdx, Neon::DeviceType::CUDA);
+            }
         }
     }
 }
@@ -606,6 +608,7 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
                   static_cast<Cell::Location::Integer>(idx.y % mData->descriptor[level]),
                   static_cast<Cell::Location::Integer>(idx.z % mData->descriptor[level]));
         cell.mBlockID = *itr;
+        cell.mBlockSize = mData->descriptor[level];
         cell.mIsActive = cell.computeIsActive(mData->mActiveMask[level].rawMem(devID, Neon::DeviceType::CPU));
         return cell.mIsActive;
     }
@@ -636,23 +639,23 @@ auto bGrid::setReduceEngine(Neon::sys::patterns::Engine eng) -> void
 
 auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
                                 [[maybe_unused]] const Neon::index_3d& blockSize,
-                                const size_t&                          sharedMem) const -> Neon::set::LaunchParameters
+                                const size_t&                          sharedMem,
+                                int                                    level) const -> Neon::set::LaunchParameters
 {
-    //TODO
     if (dataView != Neon::DataView::STANDARD) {
         NEON_WARNING("Requesting LaunchParameters on {} data view but bGrid only supports Standard data view on a single GPU",
                      Neon::DataViewUtil::toString(dataView));
     }
-    const Neon::int32_3d        cuda_block(Cell::sBlockSizeX, Cell::sBlockSizeY, Cell::sBlockSizeZ);
+    const Neon::int32_3d        cuda_block(mData->descriptor[level], mData->descriptor[level], mData->descriptor[level]);
     Neon::set::LaunchParameters ret = getBackend().devSet().newLaunchParameters();
     for (int i = 0; i < ret.cardinality(); ++i) {
         if (getBackend().devType() == Neon::DeviceType::CUDA) {
             ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::cudaGridMode,
-                       Neon::int32_3d(int32_t(mData->mNumBlocks[0][i]), 1, 1),
+                       Neon::int32_3d(int32_t(mData->mNumBlocks[level][i]), 1, 1),
                        cuda_block, sharedMem);
         } else {
             ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::domainGridMode,
-                       Neon::int32_3d(int32_t(mData->mNumBlocks[0][i]) * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ, 1, 1),
+                       Neon::int32_3d(int32_t(mData->mNumBlocks[level][i]) * mData->descriptor[level] * mData->descriptor[level] * mData->descriptor[level], 1, 1),
                        cuda_block, sharedMem);
         }
     }
@@ -661,9 +664,10 @@ auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
 
 auto bGrid::getPartitionIndexSpace(Neon::DeviceType dev,
                                    SetIdx           setIdx,
-                                   Neon::DataView   dataView) -> const PartitionIndexSpace&
+                                   Neon::DataView   dataView,
+                                   int              level) -> const PartitionIndexSpace&
 {
-    return mData->mPartitionIndexSpace.at(Neon::DataViewUtil::toInt(dataView)).local(dev, setIdx, dataView);
+    return mData->mPartitionIndexSpace.at(level)[Neon::DataViewUtil::toInt(dataView)].local(dev, setIdx, dataView);
 }
 
 
@@ -708,7 +712,8 @@ auto bGrid::getBlockOriginTo1D(int level) const -> const Neon::domain::tool::Poi
 }
 
 auto bGrid::getKernelConfig(int            streamIdx,
-                            Neon::DataView dataView) -> Neon::set::KernelConfig
+                            Neon::DataView dataView,
+                            const int      level) -> Neon::set::KernelConfig
 {
     Neon::domain::KernelConfig kernelConfig(streamIdx, dataView);
     if (kernelConfig.runtime() != Neon::Runtime::system) {
@@ -716,7 +721,7 @@ auto bGrid::getKernelConfig(int            streamIdx,
     }
 
     Neon::set::LaunchParameters launchInfoSet = getLaunchParameters(dataView,
-                                                                    getDefaultBlock(), 0);
+                                                                    getDefaultBlock(), 0, level);
 
     kernelConfig.expertSetLaunchParameters(launchInfoSet);
     kernelConfig.expertSetBackend(getBackend());
@@ -784,6 +789,7 @@ void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
                                       static_cast<Cell::Location::Integer>(y),
                                       static_cast<Cell::Location::Integer>(z));
                             cell.mBlockID = blockIdx;
+                            cell.mBlockSize = ref_factor;
 
                             if (cell.computeIsActive(mData->mActiveMask[l].rawMem(devID, Neon::DeviceType::CPU), ref_factor)) {
 
