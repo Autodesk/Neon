@@ -5,7 +5,7 @@
 #include "Neon/domain/tools/TestData.h"
 #include "RunHelper.h"
 
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaVoxelGrid.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/StaggeredGrid.h"
 
 using namespace Neon::domain::tool::testing;
 static const std::string testFilePrefix("domainUt_Swap");
@@ -31,13 +31,13 @@ static const std::string testFilePrefix("domainUt_Swap");
 // }
 
 template <typename G, typename T, int C>
-void FeaVoxelGrid(TestData<G, T, C>& data)
+void StaggeredGrid(TestData<G, T, C>& data)
 {
     auto& grid = data.getGrid();
     //
     Neon::int32_3d                                                      dims{10, 10, 10};
     std::vector<Neon::domain::Stencil>                                  empty;
-    Neon::domain::internal::experimental::FeaVoxelGrid::FeaVoxelGrid<G> FEA(
+    Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<G> FEA(
         data.getBackend(),
         dims,
         [](const Neon::index_3d&) -> bool {
@@ -89,7 +89,7 @@ TEST(Swap, dGrid)
     int nGpus = getNGpus();
     using Grid = Neon::domain::dGrid;
     using Type = int32_t;
-    runAllTestConfiguration<Grid, Type, 0>("sGrid", FeaVoxelGrid<Grid, Type, 0>, nGpus, 1);
+    runAllTestConfiguration<Grid, Type, 0>("sGrid", StaggeredGrid<Grid, Type, 0>, nGpus, 1);
 }
 //
 // TEST(Swap, eGrid)
@@ -98,7 +98,7 @@ TEST(Swap, dGrid)
 //    int nGpus = getNGpus();
 //    using Grid = Neon::domain::eGrid;
 //    using Type = int32_t;
-//    runAllTestConfiguration<Grid, Type, 0>("sGrid", FeaVoxelGrid<Grid, Type, 0>, nGpus, 1);
+//    runAllTestConfiguration<Grid, Type, 0>("sGrid", staggeredGrid<Grid, Type, 0>, nGpus, 1);
 //}
 
 int main(int argc, char** argv)

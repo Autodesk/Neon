@@ -3,18 +3,18 @@
 #include "Neon/core/core.h"
 #include "Neon/core/types/Macros.h"
 #include "Neon/domain/interface/NghInfo.h"
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaElement.h"
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNode.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/NodeGeneric.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/VoxelGeneric.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
 #include "Neon/sys/memory/mem3d.h"
 
-namespace Neon::domain::internal::experimental::FeaVoxelGrid {
+namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT,
           typename T_ta,
           int cardinality_ta = 0>
-struct FeaNodePartition : public BuildingBlockGridT::template Partition<T_ta, cardinality_ta>
+struct NodePartition : public BuildingBlockGridT::template Partition<T_ta, cardinality_ta>
 {
    public:
     struct BuildingBlocks
@@ -23,18 +23,18 @@ struct FeaNodePartition : public BuildingBlockGridT::template Partition<T_ta, ca
         using Partition = typename BuildingBlockGridT::template Partition<T_ta, cardinality_ta>;
     };
 
-    using Self = FeaNodePartition<BuildingBlockGridT, T_ta, cardinality_ta>;
+    using Self = NodePartition<BuildingBlockGridT, T_ta, cardinality_ta>;
     using PartitionIndexSpace = typename BuildingBlockGridT::PartitionIndexSpace;
-    using Node = FeaNode<BuildingBlockGridT>;
-    using Element = FeaElement<BuildingBlockGridT>;
+    using Node = NodeGeneric<BuildingBlockGridT>;
+    using Element = VoxelGeneric<BuildingBlockGridT>;
     using Type = T_ta;
 
    public:
-    FeaNodePartition() = default;
+    NodePartition() = default;
 
-    ~FeaNodePartition() = default;
+    ~NodePartition() = default;
 
-    explicit FeaNodePartition(typename BuildingBlocks::Partition& partition)
+    explicit NodePartition(typename BuildingBlocks::Partition& partition)
         : BuildingBlocks::Partition(partition)
     {
     }
@@ -68,4 +68,4 @@ struct FeaNodePartition : public BuildingBlockGridT::template Partition<T_ta, ca
     using BuildingBlocks::Partition::nghIdx;
     using BuildingBlocks::Partition::nghVal;
 };
-}  // namespace Neon::domain::internal::experimental::FeaVoxelGrid
+}  // namespace Neon::domain::internal::experimental::staggeredGrid

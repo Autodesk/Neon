@@ -2,10 +2,10 @@
 
 #include "Neon/core/core.h"
 
-namespace Neon::domain::internal::experimental::FeaVoxelGrid {
+namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
-struct FeaNode : private BuildingBlockGridT::Cell
+struct NodeGeneric : public BuildingBlockGridT::Cell
 {
     using OuterCell = typename BuildingBlockGridT::Cell::OuterCell;
 
@@ -16,15 +16,15 @@ struct FeaNode : private BuildingBlockGridT::Cell
     };
 
 
-    FeaNode() = default;
+    NodeGeneric() = default;
 
-    explicit FeaNode(typename BuildingBlocks::Cell&);
+    explicit NodeGeneric(typename BuildingBlocks::Cell&);
 
     auto getBuildingBlock()
         -> typename BuildingBlocks::Cell&;
 
     NEON_CUDA_HOST_DEVICE
-    inline explicit FeaNode(const typename BuildingBlocks::Cell::Location& location);
+    inline explicit NodeGeneric(const typename BuildingBlocks::Cell::Location& location);
 
     NEON_CUDA_HOST_DEVICE
     inline auto set()
@@ -32,7 +32,9 @@ struct FeaNode : private BuildingBlockGridT::Cell
 
     NEON_CUDA_HOST_DEVICE inline auto get()
         const -> const typename BuildingBlocks::Cell::Location&;
+
+   private:
 };
 
 
-}  // namespace Neon::domain::internal::experimental::FeaVoxelGrid
+}  // namespace Neon::domain::internal::experimental::staggeredGrid::details

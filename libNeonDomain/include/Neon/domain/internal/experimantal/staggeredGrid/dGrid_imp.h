@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include "FeaVoxelGrid.h"
+#include "StaggeredGrid.h"
 
 namespace Neon::domain::internal::dGrid {
 

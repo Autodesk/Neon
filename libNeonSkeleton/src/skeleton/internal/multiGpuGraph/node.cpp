@@ -84,7 +84,7 @@ auto MetaNode::toString() const -> std::string
 {
     switch (m_nodeType) {
         case MetaNodeType_e::SYNC_LEFT_RIGHT: {
-            std::string res =  //"Node ID " + std::to_string(nodeId()) +
+            std::string res =  //"NodeGeneric ID " + std::to_string(nodeId()) +
                 std::string("Left-Right Sync\n\n");
             //            std::string ret = "LR_SYNC";
             //            ret += " " + std::to_string(m_uid);
@@ -96,7 +96,7 @@ auto MetaNode::toString() const -> std::string
         }
 
         case MetaNodeType_e::HALO_UPDATE: {
-            std::string res =  //"Node ID " + std::to_string(nodeId()) +
+            std::string res =  //"NodeGeneric ID " + std::to_string(nodeId()) +
                 std::string("Halo Update") +
                 "\n\nTransferMode: " + Neon::set::TransferModeUtils::toString(m_transferMode) + "\\l";
             //                              std::string ret = "HU " +
@@ -219,13 +219,13 @@ auto MetaNode::cudaGraphHandles_t::init(MetaNodeType_e nodeType, int numDevices)
     switch (nodeType) {
         case MetaNodeType_e::CONTAINER:
         case MetaNodeType_e::HELPER:
-            // Node that is papped to only one CUDA graph node
+            // NodeGeneric that is papped to only one CUDA graph node
             m_first = 0;
             m_last = 0;
             return;
         case MetaNodeType_e::HALO_UPDATE:
         case MetaNodeType_e::SYNC_LEFT_RIGHT:
-            // Node that is papped to a sequence of nodes.
+            // NodeGeneric that is papped to a sequence of nodes.
             // We track only the first and the last.
             // first() is used to creates dependencies BEFORE this node
             // last() is used to create dependencies AFTER this node

@@ -20,24 +20,24 @@
 #include "Neon/domain/interface/common.h"
 #include "Neon/domain/patterns/PatternScalar.h"
 
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNode.h"
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNodeField.h"
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNodePartition.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/NodeField.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/NodeGeneric.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/NodePartition.h"
 
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNodeGrid.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/NodeGrid.h"
 
 
-namespace Neon::domain::internal::experimental::FeaVoxelGrid {
+namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
-FeaNodeGrid<BuildingBlockGridT>::FeaNodeGrid(typename BuildingBlocks::Grid& buildingBlockGrid)
+NodeGrid<BuildingBlockGridT>::NodeGrid(typename BuildingBlocks::Grid& buildingBlockGrid)
 {
     mStorage = std::make_shared<Storage>();
     mStorage->buildingBlockGrid = buildingBlockGrid;
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::getPartitionIndexSpace(Neon::DeviceType devE,
+auto NodeGrid<BuildingBlockGridT>::getPartitionIndexSpace(Neon::DeviceType devE,
                                                              SetIdx           setIdx,
                                                              Neon::DataView   dataView)
     -> const PartitionIndexSpace&
@@ -46,7 +46,7 @@ auto FeaNodeGrid<BuildingBlockGridT>::getPartitionIndexSpace(Neon::DeviceType de
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::getLaunchParameters(Neon::DataView  dataView,
+auto NodeGrid<BuildingBlockGridT>::getLaunchParameters(Neon::DataView  dataView,
                                                           const index_3d& blockSize,
                                                           const size_t&   shareMem)
     const -> Neon::set::LaunchParameters
@@ -55,13 +55,13 @@ auto FeaNodeGrid<BuildingBlockGridT>::getLaunchParameters(Neon::DataView  dataVi
 }
 
 template <typename BuildingBlockGridT>
-FeaNodeGrid<BuildingBlockGridT>::FeaNodeGrid()
+NodeGrid<BuildingBlockGridT>::NodeGrid()
 {
     mStorage = std::make_shared<Storage>();
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::isInsideDomain(const index_3d& idx)
+auto NodeGrid<BuildingBlockGridT>::isInsideDomain(const index_3d& idx)
     const -> bool
 {
     bool output = mStorage->buildingBlockGrid.isInsideDomain(idx);
@@ -70,14 +70,14 @@ auto FeaNodeGrid<BuildingBlockGridT>::isInsideDomain(const index_3d& idx)
 
 template <typename BuildingBlockGridT>
 template <typename T, int C>
-auto FeaNodeGrid<BuildingBlockGridT>::newNodeField(const std::string   fieldUserName,
+auto NodeGrid<BuildingBlockGridT>::newNodeField(const std::string   fieldUserName,
                                                    int                 cardinality,
                                                    T                   inactiveValue,
                                                    Neon::DataUse       dataUse,
                                                    Neon::MemoryOptions memoryOptions)
-    const -> FeaNodeGrid::NodeField<T, C>
+    const -> NodeGrid::NodeField<T, C>
 {
-    FeaNodeGrid::NodeField<T, C> output = FeaNodeGrid::NodeField<T, C>(fieldUserName,
+    NodeGrid::NodeField<T, C> output = NodeGrid::NodeField<T, C>(fieldUserName,
                                                                        cardinality,
                                                                        inactiveValue,
                                                                        dataUse,
@@ -87,7 +87,7 @@ auto FeaNodeGrid<BuildingBlockGridT>::newNodeField(const std::string   fieldUser
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::setReduceEngine(Neon::sys::patterns::Engine eng)
+auto NodeGrid<BuildingBlockGridT>::setReduceEngine(Neon::sys::patterns::Engine eng)
     -> void
 {
     mStorage->buildingBlockGrid.setReduceEngine(eng);
@@ -95,15 +95,15 @@ auto FeaNodeGrid<BuildingBlockGridT>::setReduceEngine(Neon::sys::patterns::Engin
 
 template <typename BuildingBlockGridT>
 template <typename T>
-auto FeaNodeGrid<BuildingBlockGridT>::newPatternScalar() const -> PatternScalar<T>
+auto NodeGrid<BuildingBlockGridT>::newPatternScalar() const -> PatternScalar<T>
 {
     return mStorage->buildingBlockGrid.newPatternScalar();
 }
 template <typename BuildingBlockGridT>
 template <typename T, int C>
-auto FeaNodeGrid<BuildingBlockGridT>::dot(const std::string&            name,
-                                          FeaNodeGrid::NodeField<T, C>& input1,
-                                          FeaNodeGrid::NodeField<T, C>& input2,
+auto NodeGrid<BuildingBlockGridT>::dot(const std::string&            name,
+                                          NodeGrid::NodeField<T, C>& input1,
+                                          NodeGrid::NodeField<T, C>& input2,
                                           PatternScalar<T>&             scalar)
     const -> Neon::set::Container
 {
@@ -112,8 +112,8 @@ auto FeaNodeGrid<BuildingBlockGridT>::dot(const std::string&            name,
 
 template <typename BuildingBlockGridT>
 template <typename T, int C>
-auto FeaNodeGrid<BuildingBlockGridT>::norm2(const std::string&            name,
-                                            FeaNodeGrid::NodeField<T, C>& input,
+auto NodeGrid<BuildingBlockGridT>::norm2(const std::string&            name,
+                                            NodeGrid::NodeField<T, C>& input,
                                             PatternScalar<T>&             scalar)
     const -> Neon::set::Container
 {
@@ -121,7 +121,7 @@ auto FeaNodeGrid<BuildingBlockGridT>::norm2(const std::string&            name,
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::getKernelConfig(int            streamIdx,
+auto NodeGrid<BuildingBlockGridT>::getKernelConfig(int            streamIdx,
                                                       Neon::DataView dataView)
     -> Neon::set::KernelConfig
 {
@@ -129,49 +129,49 @@ auto FeaNodeGrid<BuildingBlockGridT>::getKernelConfig(int            streamIdx,
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::isInsideNodeDomain(const index_3d& idx)
+auto NodeGrid<BuildingBlockGridT>::isInsideNodeDomain(const index_3d& idx)
     const -> bool
 {
     return mStorage->buildingBlockGrid.isInsideNodeDomain(idx);
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::flattenedLengthSet(Neon::DataView dataView)
+auto NodeGrid<BuildingBlockGridT>::flattenedLengthSet(Neon::DataView dataView)
     const -> const Neon::set::DataSet<size_t>
 {
     return mStorage->buildingBlockGrid.flattenedLengthSet(dataView);
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::getLaunchInfo(Neon::DataView dataView)
+auto NodeGrid<BuildingBlockGridT>::getLaunchInfo(Neon::DataView dataView)
     const -> Neon::set::LaunchParameters
 {
     return mStorage->buildingBlockGrid.getLaunchInfo(dataView);
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::flattenedPartitions(Neon::DataView dataView)
+auto NodeGrid<BuildingBlockGridT>::flattenedPartitions(Neon::DataView dataView)
     const -> const Neon::set::DataSet<size_t>
 {
     return mStorage->buildingBlockGrid.flattenedPartitions(dataView);
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::stencil()
+auto NodeGrid<BuildingBlockGridT>::stencil()
     const -> const Neon::domain::Stencil&
 {
     return mStorage->buildingBlockGrid.stencil();
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::newGpuLaunchParameters()
+auto NodeGrid<BuildingBlockGridT>::newGpuLaunchParameters()
     const -> Neon::set::LaunchParameters
 {
     return mStorage->buildingBlockGrid.newGpuLaunchParameters();
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::getProperties(const index_3d& idx)
+auto NodeGrid<BuildingBlockGridT>::getProperties(const index_3d& idx)
     const -> typename GridBaseTemplate::CellProperties
 {
     auto                                      boudlingBlockProperties = mStorage->buildingBlockGrid.getProperties(idx);
@@ -183,7 +183,7 @@ auto FeaNodeGrid<BuildingBlockGridT>::getProperties(const index_3d& idx)
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::setKernelConfig(KernelConfig& gridKernelConfig)
+auto NodeGrid<BuildingBlockGridT>::setKernelConfig(KernelConfig& gridKernelConfig)
     const -> void
 {
     return mStorage->buildingBlockGrid.setKernelConfig(gridKernelConfig);
@@ -191,29 +191,29 @@ auto FeaNodeGrid<BuildingBlockGridT>::setKernelConfig(KernelConfig& gridKernelCo
 
 template <typename BuildingBlockGridT>
 template <typename LoadingLambda>
-auto FeaNodeGrid<BuildingBlockGridT>::getContainer(const std::string& name,
+auto NodeGrid<BuildingBlockGridT>::getContainerOnNodes(const std::string& name,
                                                    index_3d           blockSize,
                                                    size_t             sharedMem,
                                                    LoadingLambda      lambda)
     const -> Neon::set::Container
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+mStorage->buildingBlockGrid.getContainer(name, blockSize, sharedMem, lambda);
 }
 
 template <typename BuildingBlockGridT>
 template <typename LoadingLambda>
-auto FeaNodeGrid<BuildingBlockGridT>::getContainer(const std::string& name, LoadingLambda lambda)
+auto NodeGrid<BuildingBlockGridT>::getContainerOnNodes(const std::string& name, LoadingLambda lambda)
     const -> Neon::set::Container
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    mStorage->buildingBlockGrid.getContainer(name, lambda);
 }
 
 template <typename BuildingBlockGridT>
-auto FeaNodeGrid<BuildingBlockGridT>::getBuildingBlockGrid()
+auto NodeGrid<BuildingBlockGridT>::getBuildingBlockGrid()
     -> typename BuildingBlocks::Grid&
 {
     return mStorage->buildingBlockGrid;
 }
 
 
-}  // namespace Neon::domain::internal::experimental::FeaVoxelGrid
+}  // namespace Neon::domain::internal::experimental::staggeredGrid

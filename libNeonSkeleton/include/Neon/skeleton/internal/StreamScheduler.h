@@ -155,7 +155,7 @@ class StreamScheduler
         auto outNeighbours = graph.outNeighbors(nodeId);
         for (const auto& ngh : outNeighbours) {
             auto& metaNodeExtended = h_getMetaNodeExtended(ngh);
-            // std::cout << "Node " << nodeId << " dissolve " << ngh << " from " << metaNodeExtended.blockingDependencies << " to " << metaNodeExtended.blockingDependencies - 1 << std::endl;
+            // std::cout << "NodeGeneric " << nodeId << " dissolve " << ngh << " from " << metaNodeExtended.blockingDependencies << " to " << metaNodeExtended.blockingDependencies - 1 << std::endl;
             metaNodeExtended.blockingDependencies--;
         }
         //        for (auto huNode : h_getMetaNodeExtended(nodeId).childHaloNodes) {

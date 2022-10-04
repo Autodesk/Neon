@@ -7,12 +7,12 @@
 #include "Neon/set/DevSet.h"
 #include "Neon/set/HuOptions.h"
 
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNodePartition.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/NodePartition.h"
 
-namespace Neon::domain::internal::experimental::FeaVoxelGrid {
+namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT, typename T, int C = 0>
-struct NodeStorage
+struct ElementStorage
 {
     struct BuildingBlocks
     {
@@ -21,28 +21,25 @@ struct NodeStorage
         using Partition = typename BuildingBlockGridT::template Partition<T, C>;
     };
 
-    typename BuildingBlocks::Field                                                                          buildingBlockField;
-    std::array<Neon::set::DataSet<FeaNodePartition<BuildingBlockGridT, T, C>>, Neon::DataViewUtil::nConfig> partitionsByViewAndDev;
-    std::array<bool, Neon::ExecutionUtils::numConfigurations>                                               supportedExecutions;
-    Neon::DataUse                                                                                           dataUse;
+    typename BuildingBlocks::Field buildingBlockField;
 };
 
 template <typename BuildingBlockGridT>
-struct FeaVoxelGrid;
+struct StaggeredGrid;
 
 /**
- * Create and manage a dense field on both GPU and CPU. FeaNodeField also manages updating
- * the GPU->CPU and CPU-GPU as well as updating the halo. User can use FeaNodeField to populate
- * the field with data as well was exporting it to VTI. To create a new FeaNodeField,
+ * Create and manage a dense field on both GPU and CPU. VoxelField also manages updating
+ * the GPU->CPU and CPU-GPU as well as updating the halo. User can use VoxelField to populate
+ * the field with data as well was exporting it to VTI. To create a new VoxelField,
  * use the newField function in dGrid.
  */
 
 template <typename BuildingBlockGridT, typename T, int C = 0>
-class FeaNodeField : public Neon::domain::interface::FieldBaseTemplate<T,
-                                                                       C,
-                                                                       FeaVoxelGrid<BuildingBlockGridT>,
-                                                                       FeaNodePartition<BuildingBlockGridT, T, C>,
-                                                                       NodeStorage<BuildingBlockGridT, T, C>>
+class VoxelField : public Neon::domain::interface::FieldBaseTemplate<T,
+                                                                          C,
+                                                                          BuildingBlockGridT,
+                                                                          NodePartition<BuildingBlockGridT, T, C>,
+                                                                          ElementStorage<BuildingBlockGridT, T, C>>
 {
 
    public:
@@ -55,19 +52,18 @@ class FeaNodeField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     static constexpr int Cardinality = C;
     using Type = T;
-    using Self = FeaNodeField<typename BuildingBlocks::Grid, Type, Cardinality>;
+    using Self = VoxelField<typename BuildingBlocks::Grid, Type, Cardinality>;
 
-    using Grid = FeaVoxelGrid<typename BuildingBlocks::Grid>;
-    using Partition =  FeaNodePartition<typename BuildingBlocks::Grid, T, C>;
-    using Node = FeaNode<typename BuildingBlocks::Grid>;
-    using Element = FeaElement<typename BuildingBlocks::Grid>;
-    using Storage = NodeStorage<BuildingBlockGridT, T, C>;
+    using Grid = StaggeredGrid<typename BuildingBlocks::Grid>;
+    using Partition = NodePartition<typename BuildingBlocks::Grid, T, C>;
+    using Node = NodeGeneric<typename BuildingBlocks::Grid>;
+    using Element = VoxelGeneric<typename BuildingBlocks::Grid>;
 
     friend Grid;
 
-    FeaNodeField() = default;
+    VoxelField() = default;
 
-    virtual ~FeaNodeField() = default;
+    virtual ~VoxelField() = default;
 
     auto self() -> Self&;
 
@@ -96,8 +92,8 @@ class FeaNodeField : public Neon::domain::interface::FieldBaseTemplate<T,
                     Neon::set::HuOptions& opt)
         -> void;
 
-    virtual auto getReference(const Neon::index_3d& idx,
-                              const int&            cardinality)
+    auto getReference(const Neon::index_3d& idx,
+                      const int&            cardinality)
         -> Type& final;
 
     auto updateCompute(int streamSetId)
@@ -135,20 +131,21 @@ class FeaNodeField : public Neon::domain::interface::FieldBaseTemplate<T,
         -> Partition& final;
 
 
-    static auto swap(FeaNodeField& A, FeaNodeField& B) -> void;
+    static auto swap(VoxelField& A, VoxelField& B) -> void;
 
    private:
-    FeaNodeField(const std::string&                   fieldUserName,
-                 Neon::DataUse                        dataUse,
-                 const Neon::MemoryOptions&           memoryOptions,
-                 const Grid&                          grid,
-                 const typename BuildingBlocks::Grid& buildingBlockGrid,
-                 int                                  cardinality,
-                 T                                    inactiveValue,
-                 Neon::domain::haloStatus_et::e       haloStatus);
+    VoxelField(const std::string&                        fieldUserName,
+                    Neon::DataUse                             dataUse,
+                    const Neon::MemoryOptions&                memoryOptions,
+                    const Grid&                               grid,
+                    const Neon::set::DataSet<Neon::index_3d>& dims,
+                    int                                       zHaloDim,
+                    Neon::domain::haloStatus_et::e            haloStatus,
+                    int                                       cardinality);
 
     typename BuildingBlocks::Grid::template Field<T, C> mBluidBlockFiled;
 };
 
 
-}  // namespace Neon::domain::internal::experimental::FeaVoxelGrid
+
+}  // namespace Neon::domain::internal::experimental::staggeredGrid

@@ -7,78 +7,78 @@
 #include "Neon/set/DevSet.h"
 #include "Neon/set/HuOptions.h"
 
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNodePartition.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/NodePartition.h"
 
-#include "Neon/domain/internal/experimantal/FeaGrid/FeaNodeField.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/NodeField.h"
 
-namespace Neon::domain::internal::experimental::FeaVoxelGrid {
+namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::self() -> FeaNodeField::Self&
+auto NodeField<BuildingBlockGridT, T, C>::self() -> NodeField::Self&
 {
     return *this;
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::self() const -> const FeaNodeField::Self&
+auto NodeField<BuildingBlockGridT, T, C>::self() const -> const NodeField::Self&
 {
     return *this;
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::operator()(const index_3d& idx,
+auto NodeField<BuildingBlockGridT, T, C>::operator()(const index_3d& idx,
                                                         const int&      cardinality) const -> Type
 {
     return this->getStorage().buildingBlockField.operator()(idx, cardinality);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::haloUpdate(set::HuOptions& opt) const -> void
+auto NodeField<BuildingBlockGridT, T, C>::haloUpdate(set::HuOptions& opt) const -> void
 {
     return this->getStorage().buildingBlockField.haloUpdate(opt);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::haloUpdate(SetIdx setIdx, set::HuOptions& opt) const -> void
+auto NodeField<BuildingBlockGridT, T, C>::haloUpdate(SetIdx setIdx, set::HuOptions& opt) const -> void
 {
     return this->getStorage().buildingBlockField.haloUpdate(setIdx, opt);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::haloUpdate(set::HuOptions& opt) -> void
+auto NodeField<BuildingBlockGridT, T, C>::haloUpdate(set::HuOptions& opt) -> void
 {
     return this->getStorage().buildingBlockField.haloUpdate(opt);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::haloUpdate(SetIdx setIdx, set::HuOptions& opt) -> void
+auto NodeField<BuildingBlockGridT, T, C>::haloUpdate(SetIdx setIdx, set::HuOptions& opt) -> void
 {
     return this->getStorage().buildingBlockField.haloUpdate(setIdx, opt);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getReference(const index_3d& idx, const int& cardinality) -> Type&
+auto NodeField<BuildingBlockGridT, T, C>::getReference(const index_3d& idx, const int& cardinality) -> Type&
 {
     return this->getStorage().buildingBlockField.getReference(idx, cardinality);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::updateCompute(int streamSetId) -> void
+auto NodeField<BuildingBlockGridT, T, C>::updateCompute(int streamSetId) -> void
 {
     return this->getStorage().buildingBlockField.updateCompute(streamSetId);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::updateIO(int streamSetId) -> void
+auto NodeField<BuildingBlockGridT, T, C>::updateIO(int streamSetId) -> void
 {
     return this->getStorage().buildingBlockField.updateIO(streamSetId);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType,
+auto NodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType,
                                                           const SetIdx&     idx,
-                                                          const DataView&   dataView) const -> const FeaNodeField::Partition&
+                                                          const DataView&   dataView) const -> const NodeField::Partition&
 {
     const Neon::Execution execution = DeviceTypeUtil::getExecution(devType);
     const auto&           partition = getPartition(execution, idx, dataView);
@@ -86,9 +86,9 @@ auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devT
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType,
+auto NodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType,
                                                           const SetIdx&     idx,
-                                                          const DataView&   dataView) -> FeaNodeField::Partition&
+                                                          const DataView&   dataView) -> NodeField::Partition&
 {
     const Neon::Execution execution = DeviceTypeUtil::getExecution(devType);
     auto&                 partition = getPartition(execution, idx, dataView);
@@ -96,9 +96,9 @@ auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devT
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution,
+auto NodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution,
                                                           Neon::SetIdx    setIdx,
-                                                          const DataView& dataView) const -> const FeaNodeField::Partition&
+                                                          const DataView& dataView) const -> const NodeField::Partition&
 {
     auto& s = this->getStorage();
     if (!s.supportedExecutions[Neon::ExecutionUtils::toInt(execution)]) {
@@ -113,9 +113,9 @@ auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execut
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution,
+auto NodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution,
                                                           Neon::SetIdx    setIdx,
-                                                          const DataView& dataView) -> FeaNodeField::Partition&
+                                                          const DataView& dataView) -> NodeField::Partition&
 {
     auto& s = this->getStorage();
     if (!s.supportedExecutions[Neon::ExecutionUtils::toInt(execution)]) {
@@ -130,7 +130,7 @@ auto FeaNodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execut
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto FeaNodeField<BuildingBlockGridT, T, C>::swap(FeaNodeField& A, FeaNodeField& B) -> void
+auto NodeField<BuildingBlockGridT, T, C>::swap(NodeField& A, NodeField& B) -> void
 {
     (void)A;
     (void)B;
@@ -138,7 +138,7 @@ auto FeaNodeField<BuildingBlockGridT, T, C>::swap(FeaNodeField& A, FeaNodeField&
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-FeaNodeField<BuildingBlockGridT, T, C>::FeaNodeField(const std::string&                   fieldUserName,
+NodeField<BuildingBlockGridT, T, C>::NodeField(const std::string&                   fieldUserName,
                                                      Neon::DataUse                        dataUse,
                                                      const Neon::MemoryOptions&           memoryOptions,
                                                      const Grid&                          grid,
@@ -186,4 +186,4 @@ FeaNodeField<BuildingBlockGridT, T, C>::FeaNodeField(const std::string&         
     }
 }
 
-}  // namespace Neon::domain::internal::experimental::FeaVoxelGrid
+}  // namespace Neon::domain::internal::experimental::staggeredGrid
