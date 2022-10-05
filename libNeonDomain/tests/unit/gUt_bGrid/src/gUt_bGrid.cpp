@@ -4,6 +4,7 @@
 
 #include "Neon/domain/bGrid.h"
 
+
 TEST(bGrid, activeCell)
 {
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
@@ -50,9 +51,10 @@ TEST(bGrid, multiRes)
         Neon::domain::bGrid b_grid(
             bk,
             dim,
-            {[&](Neon::index_3d id) -> bool {
-                 return id.x == 8 && id.y == 8 && id.z == 0;
-                 //return id.norm() < 18;
+            {[&]([[maybe_unused]] Neon::index_3d id) -> bool {
+                 //return id.x == 0 && id.y == 0 && id.z == 0;
+                 return id.norm() < 8;
+                 //return true;
 
                  //Link SDF https://www.shadertoy.com/view/wlXSD7
                  /*Neon::index_3d tid(id.x - dim.x / 2,
@@ -87,18 +89,23 @@ TEST(bGrid, multiRes)
              [&](const Neon::index_3d&) -> bool {
                  return false;
              },
-             [&](const Neon::index_3d& id) -> bool {
+             [&]([[maybe_unused]] const Neon::index_3d& id) -> bool {
                  return id.x == 4 && id.y == 4 && id.z == 0;
                  //return false;
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
 
-        b_grid.topologyToVTK("bGrid112.vtk");
+        b_grid.topologyToVTK("bGrid112.vtk", false);
 
-        //auto field = b_grid.newField<float>("myField", 1, 0);
+        auto field = b_grid.newField<float>("myField", 1, 0);
 
-        //field.ioToVtk("f", "f");
+        field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
+            [](const Neon::int32_3d, const int, float& val) {
+                val = 50.0;
+            });
+
+        field.ioToVtk("f", "f");
 
         //field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
         //    [](const Neon::int32_3d id, const int card, float) {

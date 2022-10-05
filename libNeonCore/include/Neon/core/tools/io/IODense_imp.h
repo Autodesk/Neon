@@ -314,7 +314,7 @@ auto IODense<ExportType, IntType>::ioVtk(const std::string&       filename,
                                              origin,
                                              vtiIOe);
 
-    ioVtk.addField([&](index_3d idx, int card) -> ExportTypeVTK_ta {
+    ioVtk.addField([&](index_3d idx, int card, int) -> ExportTypeVTK_ta {
         return operator()(idx, card);
     },
                    getCardinality(), fieldName, nodeOrVoxel);
