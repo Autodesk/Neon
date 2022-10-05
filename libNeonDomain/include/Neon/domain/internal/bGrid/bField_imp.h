@@ -138,12 +138,12 @@ auto bField<T, C>::isInsideDomain(const Neon::index_3d& idx, const int level) co
 template <typename T, int C>
 auto bField<T, C>::getRef(const Neon::index_3d& idx,
                           const int&            cardinality,
-                          int                   level) const -> T&
+                          const int             level) const -> T&
 {
     //TODO need to figure out which device owns this block
     SetIdx devID(0);
 
-    if (!isInsideDomain(idx)) {
+    if (!isInsideDomain(idx, level)) {
         return this->getOutsideValue();
     }
 

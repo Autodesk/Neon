@@ -42,12 +42,12 @@ class FieldBase
 
     virtual auto operator()(const Neon::index_3d& idx,
                             const int&            cardinality,
-                            const int             level) const
+                            const int             level = 0) const
         -> T = 0;
 
     virtual auto getReference(const Neon::index_3d& idx,
                               const int&            cardinality,
-                              const int             level)
+                              const int             level = 0)
         -> T& = 0;
 
     virtual auto getBaseGridTool() const

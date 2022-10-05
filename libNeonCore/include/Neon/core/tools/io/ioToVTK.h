@@ -30,7 +30,7 @@ namespace ioToVTKns {
  * Implicit function that defines the data stores by a user fiels
  */
 template <class real_tt, typename intType_ta>
-using UserFieldAccessGenericFunction_t = std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx)>;
+using UserFieldAccessGenericFunction_t = std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx, int level)>;
 
 /**
  * Number of components of the field
@@ -164,13 +164,14 @@ void dumpRawDataIntoFile(std::ofstream&                                         
 #else
     Neon::Integer_3d<intType_ta> idx;
 
+    const int level = 0;
     for (intType_ta z = 0; z < space.z; z++) {
         for (intType_ta y = 0; y < space.y; y++) {
             for (intType_ta x = 0; x < space.x; x++) {
                 idx.set(x, y, z);
                 for (int v = 0; v < nComponents; v++) {
 
-                    real_tt val = grid(idx, v);
+                    real_tt val = grid(idx, v, level);
                     SwapEnd(val);
                     b_stream.write((char*)&val, sizeof(real_tt) * 1);
                 }
@@ -197,13 +198,13 @@ void dumpTextDataIntoFile(std::ofstream&                                        
                           const Integer_3d<intType_ta>&                                    space)
 {
     Neon::Integer_3d<intType_ta> idx;
-
+    const int                    level = 0;
     for (intType_ta z = 0; z < space.z; z++) {
         for (intType_ta y = 0; y < space.y; y++) {
             for (intType_ta x = 0; x < space.x; x++) {
                 idx.set(x, y, z);
                 for (int v = 0; v < nComponents; v++) {
-                    real_tt val = static_cast<real_tt>(fieldData(idx, v));
+                    real_tt val = static_cast<real_tt>(fieldData(idx, v, level));
                     out << val << " ";
                 }
             }
@@ -411,8 +412,8 @@ void ioToVTK(const std::vector<ioToVTKns::UserFieldInformation<intType_ta, real_
 
     std::ofstream out(filename + ".vtk", std::ios::out | std::ios::binary);
     if (!out.is_open()) {
-        std::string     msg = std::string("[VoxelGrid::WriteToBin] File ") + filename + std::string(" could not be open!!!");
-        NeonException   exception("ioToVTI");
+        std::string   msg = std::string("[VoxelGrid::WriteToBin] File ") + filename + std::string(" could not be open!!!");
+        NeonException exception("ioToVTI");
         exception << msg;
         NEON_THROW(exception);
     }
@@ -437,8 +438,8 @@ void ioToVTK(const std::vector<ioToVTKns::UserFieldInformation<intType_ta, real_
                                                                           nodeSpace,
                                                                           voxSpace, spacingData, origin, vtiIOe);
     } catch (...) {
-        std::string     msg = std::string("An error on file operations where encountered when writing field data");
-        NeonException   exception("ioToVTI");
+        std::string   msg = std::string("An error on file operations where encountered when writing field data");
+        NeonException exception("ioToVTI");
         exception << msg;
         NEON_THROW(exception);
     }
@@ -466,10 +467,10 @@ struct IoToVTK
         flush();
     }
 
-    auto addField(const std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx)>& fun /*!    Implicit defintion of the user field */,
-                  nComponent_t                                                                         card /*!    Field cardinality */,
-                  const std::string&                                                                   fname /*!   Name of the field */,
-                  ioToVTKns::VtiDataType_e                                                             vtiType /*! Type of vti element */) -> void
+    auto addField(const std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx, int)>& fun /*!    Implicit defintion of the user field */,
+                  nComponent_t                                                                              card /*!    Field cardinality */,
+                  const std::string&                                                                        fname /*!   Name of the field */,
+                  ioToVTKns::VtiDataType_e                                                                  vtiType /*! Type of vti element */) -> void
     {
         // ioToVTKns::UserFieldInformation userField(fun, card, fname, vtiType);
         m_fiedVec.emplace_back(fun, card, fname, vtiType);
@@ -480,12 +481,12 @@ struct IoToVTK
         if (m_fiedVec.size() != 0) {
             std::string filename;
             if (m_iteration == -1) {
-                filename = m_filename ;
+                filename = m_filename;
             } else {
                 std::stringstream ss;
                 ss << std::setw(5) << std::setfill('0') << m_iteration;
                 std::string s = ss.str();
-                filename = m_filename + s ;
+                filename = m_filename + s;
             }
             ioToVTKns::ioToVTK<intType_ta, real_tt>(m_fiedVec,
                                                     filename,

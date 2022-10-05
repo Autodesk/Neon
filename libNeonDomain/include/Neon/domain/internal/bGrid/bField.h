@@ -89,7 +89,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
            const Neon::MemoryOptions&     memoryOptions,
            Neon::domain::haloStatus_et::e haloStatus);
 
-    auto getRef(const Neon::index_3d& idx, const int& cardinality, int level = 0) const -> T&;
+    auto getRef(const Neon::index_3d& idx, const int& cardinality, const int level = 0) const -> T&;
 
     enum PartitionBackend
     {

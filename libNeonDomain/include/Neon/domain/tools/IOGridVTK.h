@@ -39,8 +39,7 @@ class IOGridVTK : private IoToVTK<intType_ta, real_tt>
      */
     template <typename Field>
     auto addField(const Field&       field,
-                  const std::string& name /*! Name of the field */,
-                  const int          level = 0) -> void;
+                  const std::string& name /*! Name of the field */) -> void;
 
     /**
      * Write the VTK file
