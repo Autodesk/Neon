@@ -119,20 +119,20 @@ class storage_t
         Zf.updateIO(0);
         Xf.getGrid().getBackend().sync(0);
 
-        auto Xd_val = [&](const Neon::int64_3d& index3d, int card) {
+        auto Xd_val = [&](const Neon::int64_3d& index3d, int card, int) {
             return double(Xd.get()[index3d.x + m_size3d.rMul() * card]);
         };
-        auto Yd_val = [&](const Neon::int64_3d& index3d, int card) {
+        auto Yd_val = [&](const Neon::int64_3d& index3d, int card, int) {
             return double(Yd.get()[index3d.x + m_size3d.rMul() * card]);
         };
-        auto Zd_val = [&](const Neon::int64_3d& index3d, int card) {
+        auto Zd_val = [&](const Neon::int64_3d& index3d, int card, int) {
             return double(Zd.get()[index3d.x + m_size3d.rMul() * card]);
         };
         Neon::int64_3d l(m_size3d.rMul(), 1, 1);
         Neon::IoToVTK  ioToVTK(fname + "_field.vti",
-                               l,
-                               1.0,
-                               0.0, Neon::IoFileType::ASCII);
+                              l,
+                              1.0,
+                              0.0, Neon::IoFileType::ASCII);
 
         ioToVTK.addField(Xd_val, m_cardinality, "Xd", Neon::ioToVTKns::node);
         ioToVTK.addField(Yd_val, m_cardinality, "Yd", Neon::ioToVTKns::node);
