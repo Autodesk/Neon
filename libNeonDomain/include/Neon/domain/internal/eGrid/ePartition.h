@@ -72,7 +72,7 @@ struct ePartition
      */
 
 
-    inline auto
+    NEON_CUDA_HOST_DEVICE inline auto
     mem() const
         -> const T*;
 

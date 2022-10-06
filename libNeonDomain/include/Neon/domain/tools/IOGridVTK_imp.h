@@ -18,6 +18,22 @@ IOGridVTK<RealType, IntType>::IOGridVTK(const Neon::domain::interface::GridBase&
 }
 
 template <class RealType, typename IntType>
+IOGridVTK<RealType, IntType>::IOGridVTK(const Neon::domain::interface::GridBase& grid,
+                                        const Neon::double_3d&                   originOffset,
+                                        const std::string&                       filename,
+                                        bool                                     isNodeSpace,
+                                        Neon::IoFileType                         vtiIOe)
+    : IoToVTK<IntType, RealType>(filename,
+                                 isNodeSpace ? grid.getDimension() : grid.getDimension() + 1,
+                                 grid.getSpacing(),
+                                 grid.getOrigin() + originOffset,
+                                 vtiIOe),
+      mVtiDataTypeE(isNodeSpace ? ioToVTKns::VtiDataType_e::node : ioToVTKns::VtiDataType_e::voxel),
+      mDimension(grid.getDimension())
+{
+}
+
+template <class RealType, typename IntType>
 template <typename Field>
 auto IOGridVTK<RealType, IntType>::addField(const Field&       field,
                                             const std::string& name) -> void

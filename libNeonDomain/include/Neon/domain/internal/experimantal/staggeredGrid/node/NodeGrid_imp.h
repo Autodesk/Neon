@@ -20,11 +20,11 @@
 #include "Neon/domain/interface/common.h"
 #include "Neon/domain/patterns/PatternScalar.h"
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/NodeField.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/NodeGeneric.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/NodePartition.h"
+#include "NodeField.h"
+#include "NodeGeneric.h"
+#include "NodePartition.h"
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/NodeGrid.h"
+#include "NodeGrid.h"
 
 
 namespace Neon::domain::internal::experimental::staggeredGrid::details {
@@ -32,23 +32,44 @@ namespace Neon::domain::internal::experimental::staggeredGrid::details {
 template <typename BuildingBlockGridT>
 NodeGrid<BuildingBlockGridT>::NodeGrid(typename BuildingBlocks::Grid& buildingBlockGrid)
 {
+    const Neon::Backend& bk = buildingBlockGrid.getBackend();
+    auto&                dev = bk.devSet();
     mStorage = std::make_shared<Storage>();
     mStorage->buildingBlockGrid = buildingBlockGrid;
+
+    for (auto dw : Neon::DataViewUtil::validOptions()) {
+        const auto dwIdx = Neon::DataViewUtil::toInt(dw);
+        mStorage->partitionIndexSpace[dwIdx] = dev.newDataSet<PartitionIndexSpace>();
+        for (auto setId : dev.getRange()) {
+            mStorage->partitionIndexSpace[dwIdx][setId.idx()] =
+                PartitionIndexSpace(buildingBlockGrid.getPartitionIndexSpace(Neon::DeviceType::NONE, setId, dw));
+        }
+    }
+
+    Self::GridBase::init(std::string("NodeGird-") + mStorage->buildingBlockGrid.getImplementationName(),
+                         bk,
+                         buildingBlockGrid.getDimension(),
+                         buildingBlockGrid.getStencil(),
+                         buildingBlockGrid.getNumActiveCellsPerPartition(),
+                         buildingBlockGrid.getDefaultBlock(),
+                         buildingBlockGrid.getSpacing(),
+                         buildingBlockGrid.getOrigin());
 }
 
 template <typename BuildingBlockGridT>
-auto NodeGrid<BuildingBlockGridT>::getPartitionIndexSpace(Neon::DeviceType devE,
-                                                             SetIdx           setIdx,
-                                                             Neon::DataView   dataView)
+auto NodeGrid<BuildingBlockGridT>::getPartitionIndexSpace(Neon::DeviceType,
+                                                          SetIdx         setIdx,
+                                                          Neon::DataView dataView)
     -> const PartitionIndexSpace&
 {
-    return mStorage->buildingBlockGrid.getPartitionIndexSpace(devE, setIdx, dataView);
+    const auto dwIdx = Neon::DataViewUtil::toInt(dataView);
+    return mStorage->partitionIndexSpace[dwIdx][setIdx.idx()];
 }
 
 template <typename BuildingBlockGridT>
 auto NodeGrid<BuildingBlockGridT>::getLaunchParameters(Neon::DataView  dataView,
-                                                          const index_3d& blockSize,
-                                                          const size_t&   shareMem)
+                                                       const index_3d& blockSize,
+                                                       const size_t&   shareMem)
     const -> Neon::set::LaunchParameters
 {
     return mStorage->buildingBlockGrid.getLaunchParameters(dataView, blockSize, shareMem);
@@ -71,17 +92,20 @@ auto NodeGrid<BuildingBlockGridT>::isInsideDomain(const index_3d& idx)
 template <typename BuildingBlockGridT>
 template <typename T, int C>
 auto NodeGrid<BuildingBlockGridT>::newNodeField(const std::string   fieldUserName,
-                                                   int                 cardinality,
-                                                   T                   inactiveValue,
-                                                   Neon::DataUse       dataUse,
-                                                   Neon::MemoryOptions memoryOptions)
+                                                int                 cardinality,
+                                                T                   inactiveValue,
+                                                Neon::DataUse       dataUse,
+                                                Neon::MemoryOptions memoryOptions)
     const -> NodeGrid::NodeField<T, C>
 {
     NodeGrid::NodeField<T, C> output = NodeGrid::NodeField<T, C>(fieldUserName,
-                                                                       cardinality,
-                                                                       inactiveValue,
-                                                                       dataUse,
-                                                                       memoryOptions);
+                                                                 dataUse,
+                                                                 memoryOptions,
+                                                                 *this,
+                                                                 mStorage->buildingBlockGrid,
+                                                                 cardinality,
+                                                                 inactiveValue,
+                                                                 Neon::domain::haloStatus_et::ON);
 
     return output;
 }
@@ -101,10 +125,10 @@ auto NodeGrid<BuildingBlockGridT>::newPatternScalar() const -> PatternScalar<T>
 }
 template <typename BuildingBlockGridT>
 template <typename T, int C>
-auto NodeGrid<BuildingBlockGridT>::dot(const std::string&            name,
-                                          NodeGrid::NodeField<T, C>& input1,
-                                          NodeGrid::NodeField<T, C>& input2,
-                                          PatternScalar<T>&             scalar)
+auto NodeGrid<BuildingBlockGridT>::dot(const std::string&         name,
+                                       NodeGrid::NodeField<T, C>& input1,
+                                       NodeGrid::NodeField<T, C>& input2,
+                                       PatternScalar<T>&          scalar)
     const -> Neon::set::Container
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
@@ -112,9 +136,9 @@ auto NodeGrid<BuildingBlockGridT>::dot(const std::string&            name,
 
 template <typename BuildingBlockGridT>
 template <typename T, int C>
-auto NodeGrid<BuildingBlockGridT>::norm2(const std::string&            name,
-                                            NodeGrid::NodeField<T, C>& input,
-                                            PatternScalar<T>&             scalar)
+auto NodeGrid<BuildingBlockGridT>::norm2(const std::string&         name,
+                                         NodeGrid::NodeField<T, C>& input,
+                                         PatternScalar<T>&          scalar)
     const -> Neon::set::Container
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
@@ -122,7 +146,7 @@ auto NodeGrid<BuildingBlockGridT>::norm2(const std::string&            name,
 
 template <typename BuildingBlockGridT>
 auto NodeGrid<BuildingBlockGridT>::getKernelConfig(int            streamIdx,
-                                                      Neon::DataView dataView)
+                                                   Neon::DataView dataView)
     -> Neon::set::KernelConfig
 {
     return mStorage->buildingBlockGrid.getKernelConfig(streamIdx, dataView);
@@ -192,12 +216,18 @@ auto NodeGrid<BuildingBlockGridT>::setKernelConfig(KernelConfig& gridKernelConfi
 template <typename BuildingBlockGridT>
 template <typename LoadingLambda>
 auto NodeGrid<BuildingBlockGridT>::getContainerOnNodes(const std::string& name,
-                                                   index_3d           blockSize,
-                                                   size_t             sharedMem,
-                                                   LoadingLambda      lambda)
+                                                       index_3d           blockSize,
+                                                       size_t             sharedMem,
+                                                       LoadingLambda      lambda)
     const -> Neon::set::Container
 {
-mStorage->buildingBlockGrid.getContainer(name, blockSize, sharedMem, lambda);
+    Neon::set::Container kContainer = Neon::set::Container::factory(name,
+                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                    *this,
+                                                                    lambda,
+                                                                    blockSize,
+                                                                    [&](const Neon::index_3d&) { return size_t(sharedMem); });
+    return kContainer;
 }
 
 template <typename BuildingBlockGridT>
@@ -205,7 +235,14 @@ template <typename LoadingLambda>
 auto NodeGrid<BuildingBlockGridT>::getContainerOnNodes(const std::string& name, LoadingLambda lambda)
     const -> Neon::set::Container
 {
-    mStorage->buildingBlockGrid.getContainer(name, lambda);
+    const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
+    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
+                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                     *this,
+                                                                     lambda,
+                                                                     defaultBlockSize,
+                                                                     [](const Neon::index_3d&) { return size_t(0); });
+    return kContainer;
 }
 
 template <typename BuildingBlockGridT>
@@ -216,4 +253,4 @@ auto NodeGrid<BuildingBlockGridT>::getBuildingBlockGrid()
 }
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid
+}  // namespace Neon::domain::internal::experimental::staggeredGrid::details

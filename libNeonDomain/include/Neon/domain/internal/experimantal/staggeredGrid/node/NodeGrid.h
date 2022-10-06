@@ -20,13 +20,12 @@
 #include "Neon/domain/interface/common.h"
 #include "Neon/domain/patterns/PatternScalar.h"
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/NodeField.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/NodeGeneric.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/NodePartition.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeField.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeGeneric.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodePartition.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodePartitionIndexSpace.h"
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/VoxelField.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/VoxelGeneric.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/VoxelPartition.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGeneric.h"
 
 
 namespace Neon::domain::internal::experimental::staggeredGrid::details {
@@ -41,17 +40,19 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
         using Grid = BuildingBlockGridT;
         template <typename T_ta, int cardinality_ta = 0>
         using Field = typename BuildingBlockGridT::template Field<T_ta, cardinality_ta>;
+
         template <typename T_ta, int cardinality_ta = 0>
-        using Partition = typename BuildingBlocks::Field<T_ta, cardinality_ta>::Partition;
-        using Ngh_idx = typename BuildingBlocks::Partition<int>::nghIdx_t;
+        using Partition = typename Field<T_ta, cardinality_ta>::Partition;
+
+        using Ngh_idx = typename Partition<int, 0>::nghIdx_t;
         using PartitionIndexSpace = typename BuildingBlocks::Grid::PartitionIndexSpace;
     };
 
    public:
-    using PartitionIndexSpace = typename BuildingBlocks::PartitionIndexSpace;
+    using PartitionIndexSpace = NodePartitionIndexSpace<typename BuildingBlocks::Grid>;
     using Grid = NodeGrid<typename BuildingBlocks::Grid>;
-
     using Node = Neon::domain::internal::experimental::staggeredGrid::details::NodeGeneric<typename BuildingBlocks::Grid>;
+    using Cell = Node;
     template <typename T_ta, int cardinality_ta>
     using NodeField = typename Neon::domain::internal::experimental::staggeredGrid::details::NodeField<typename BuildingBlocks::Grid, T_ta, cardinality_ta>;
 
@@ -96,14 +97,14 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
 
     template <typename LoadingLambda>
     auto getContainerOnNodes(const std::string& name,
-                      index_3d           blockSize,
-                      size_t             sharedMem,
-                      LoadingLambda      lambda) const
+                             index_3d           blockSize,
+                             size_t             sharedMem,
+                             LoadingLambda      lambda) const
         -> Neon::set::Container;
 
     template <typename LoadingLambda>
     auto getContainerOnNodes(const std::string& name,
-                      LoadingLambda      lambda)
+                             LoadingLambda      lambda)
         const
         -> Neon::set::Container;
 
@@ -154,7 +155,7 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
 
    private:
     using Self = NodeGrid;
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Self::Grid , Self::Node>;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Self::Grid, Self::Node>;
 
    public:
     auto isInsideDomain(const Neon::index_3d& idx) const
@@ -165,11 +166,16 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
 
     struct Storage
     {
-        typename BuildingBlocks::Grid buildingBlockGrid;
+        typename BuildingBlocks::Grid                                                    buildingBlockGrid;
+        std::array<Neon::set::DataSet<PartitionIndexSpace>, Neon::DataViewUtil::nConfig> partitionIndexSpace;
     };
 
     std::shared_ptr<Storage> mStorage;
 };
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid
+}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeField_imp.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeGeneric_imp.h"
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodePartitionIndexSpace_imp.h" 

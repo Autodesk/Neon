@@ -37,8 +37,8 @@
 #include <string>
 #include <type_traits>
 
-//#include <cuda.h>
-//#include <cuda_runtime_api.h>
+// #include <cuda.h>
+// #include <cuda_runtime_api.h>
 
 #include "Neon/core/types/BasicTypes.h"
 #include "Neon/core/types/Exceptions.h"
@@ -51,8 +51,8 @@ namespace Neon {
 
 
 /**
-* Partial specialization for integer types (int32_t, int64_t, size_t,...)
-*/
+ * Partial specialization for integer types (int32_t, int64_t, size_t,...)
+ */
 template <typename IntegerType_ta>
 class Vec_3d<IntegerType_ta, true, false>
 {
@@ -109,9 +109,9 @@ class Vec_3d<IntegerType_ta, true, false>
     ~Vec_3d() = default;
 
     /**
-    * All component of the 3d tuple are set to the same scalar value.
-    *   @param[in] other the vector
-    */
+     * All component of the 3d tuple are set to the same scalar value.
+     *   @param[in] other the vector
+     */
     NEON_CUDA_HOST_DEVICE inline Vec_3d(const self_t& other);
 
     /**
@@ -158,7 +158,7 @@ class Vec_3d<IntegerType_ta, true, false>
 
     /**
      *   Extracts the max absolute value stored by the 3d tuple.
-     *   @return max absolute value 
+     *   @return max absolute value
      */
     inline Integer rAbsMax() const;
 
@@ -329,10 +329,10 @@ class Vec_3d<IntegerType_ta, true, false>
      */
     NEON_CUDA_HOST_DEVICE inline self_t operator-(const self_t& B) const;
     /**
-        *   Compute the mod between two points A and B, component by component (A.x%B.x, A.y%B.y, A.z%B.z).
-        *   @param[in] B: second point for the diff.
-        *   @return Resulting point is C =(A.x % B.x, A.y % B.y, A.z % B.z)
-        */
+     *   Compute the mod between two points A and B, component by component (A.x%B.x, A.y%B.y, A.z%B.z).
+     *   @param[in] B: second point for the diff.
+     *   @return Resulting point is C =(A.x % B.x, A.y % B.y, A.z % B.z)
+     */
     NEON_CUDA_HOST_DEVICE inline self_t operator%(const self_t& B) const;
     /**
      *   Compute the multiplication between two points A and B, component by component (A.x*B.x, A.y*B.y, A.z*B.z).
@@ -366,15 +366,15 @@ class Vec_3d<IntegerType_ta, true, false>
     NEON_CUDA_HOST_DEVICE inline bool operator<(const self_t& B) const;
 
     /**  Returns true if A.x >= B.x && A.y >= B.y && A.z >= B.z
-         *   @param[in] B: second point for the operation.
-         *   @return Resulting point is C as C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
-         */
+     *   @param[in] B: second point for the operation.
+     *   @return Resulting point is C as C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
+     */
     NEON_CUDA_HOST_DEVICE inline bool operator>=(const self_t& B) const;
 
     /**  Returns true if A.x <= B.x && A.y <= B.y && A.z <= B.z
-         *   @param[in] B: second point for the operation.
-         *   @return True if A.x <= B.x && A.y <= B.y && A.z <= B.z
-         */
+     *   @param[in] B: second point for the operation.
+     *   @return True if A.x <= B.x && A.y <= B.y && A.z <= B.z
+     */
     NEON_CUDA_HOST_DEVICE inline bool operator<=(const self_t& B) const;
 
     /**  Returns true if A.x <= B.x && A.y <= B.y && A.z <= B.z
@@ -439,8 +439,10 @@ class Vec_3d<IntegerType_ta, true, false>
     template <Neon::computeMode_t::computeMode_e computeMode_ta = Neon::computeMode_t::seq>
     static void forEach(const self_t& len, std::function<void(Integer idxX, Integer idxY, Integer idxZ)> lambda);
 
-    template <Neon::computeMode_t::computeMode_e computeMode_ta = Neon::computeMode_t::seq , class Lambda = void>
-    void forEach(const Lambda& lambda) const;
+    template <Neon::computeMode_t::computeMode_e computeMode_ta = Neon::computeMode_t::seq, class Lambda = void>
+    auto forEach(const Lambda& lambda) const -> std::enable_if_t<std::is_invocable_v<Lambda, self_t> ||
+                                                                     std::is_invocable_v<Lambda, Integer, Integer, Integer>,
+                                                                 void>;
 };
 
 
