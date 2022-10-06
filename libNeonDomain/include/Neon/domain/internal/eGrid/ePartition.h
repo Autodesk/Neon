@@ -72,10 +72,6 @@ struct ePartition
      */
 
 
-    inline auto
-    mem() const
-        -> const T*;
-
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
     using Self = ePartition<T, cardinality_ta>;   //<- this type
@@ -214,6 +210,10 @@ struct ePartition
     globalLocation(Cell cell) const
         -> Neon::index_3d;
 
+    NEON_CUDA_HOST_DEVICE inline auto
+    mem() const
+        -> const T*;
+    
    private:
     /**
      * Private constructor only used by the grid.
@@ -282,11 +282,8 @@ struct ePartition
     NEON_CUDA_HOST_DEVICE inline auto
     mem()
         -> T*;
-    /**
-     * Returns raw pointer of the field
-     * @tparam dataView_ta
-     * @return
-     */
+
+
 };
 }  // namespace Neon::domain::internal::eGrid
 
