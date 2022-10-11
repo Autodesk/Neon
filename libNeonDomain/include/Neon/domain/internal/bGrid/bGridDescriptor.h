@@ -63,7 +63,7 @@ struct bGridDescriptor
      * get the log2 of the refinement factor of certain level     
      * @param level at which the refinement level is queried 
     */
-    int getLevelLog2RefFactor(int level) const
+    int getLevelLog2RefFactor(size_t level) const
     {
         if (level >= int(getDepth())) {
             NeonException ex("bGridDescriptor::getLevelLog2RefFactor()");
@@ -77,7 +77,7 @@ struct bGridDescriptor
      * get the refinement factor (i.e., block size) of certain level     
      * @param level at which the refinement level is queried 
     */
-    int getLevelRefFactor(int level) const
+    int getLevelRefFactor(size_t level) const
     {
         return 1 << getLevelLog2RefFactor(level);
     }
@@ -86,7 +86,7 @@ struct bGridDescriptor
      * get the sum of log2 refinement factors of all levels (starting with level 0) up to certain level
      * @param level the end of recurse      
     */
-    int getLog2RefFactorRecurse(int level) const
+    int getLog2RefFactorRecurse(size_t level) const
     {
         if (level >= int(getDepth())) {
             NeonException ex("bGridDescriptor::getLog2RefFactorRecurse()");
@@ -105,7 +105,7 @@ struct bGridDescriptor
      * get the product of  refinement factors of all levels (starting with level 0) up to certain level
      * @param level the level at which refinement factors product is desired       
     */
-    int getRefFactorRecurse(int level) const
+    int getRefFactorRecurse(size_t level) const
     {
         if (level < 0) {
             return 1;

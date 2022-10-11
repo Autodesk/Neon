@@ -122,7 +122,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     //Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
     //If a block contain an active voxel, it activates itself as well
     //This loop only sets the bitmask
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < int(descriptor.getDepth()); ++l) {
         const int ref_factor = descriptor.getLevelRefFactor(l);
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
         const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
@@ -192,7 +192,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             again = false;
 
 
-            for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+            for (int l = 0; l < int(descriptor.getDepth()); ++l) {
                 const int ref_factor = descriptor.getLevelRefFactor(l);
                 const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
 
@@ -231,7 +231,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                         if (proxyVoxelLocation < domainSize && proxyVoxelLocation >= 0) {
 
                                                             Neon::int32_3d prv_nVoxelBlockOrigin, prv_nVoxelLocalID;
-                                                            for (size_t l_n = l; l_n < descriptor.getDepth(); ++l_n) {
+                                                            for (int l_n = l; l_n < int(descriptor.getDepth()); ++l_n) {
                                                                 const int l_n_ref_factor = descriptor.getLevelRefFactor(l_n);
 
 
@@ -289,7 +289,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     // Number of active voxels per partition
     // Loop over all blocks and voxels in blocks to count the number of active
     // voxels and active blocks for allocation
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < int(descriptor.getDepth()); ++l) {
         const int ref_factor = descriptor.getLevelRefFactor(l);
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
 
@@ -446,7 +446,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
 
     // loop over active blocks to populate the block origins, neighbors, and bitmask
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < int(descriptor.getDepth()); ++l) {
         const int ref_factor = descriptor.getLevelRefFactor(l);
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
 
@@ -769,7 +769,7 @@ void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
     };
 
     auto loopOverActiveBlocks = [&](const Op op) {
-        for (size_t l = 0; l < mData->descriptor.size(); ++l) {
+        for (int l = 0; l < int(mData->descriptor.size()); ++l) {
             const int ref_factor = mData->descriptor[l];
             int       prv_ref_factor_recurse = 1;
             if (l > 0) {

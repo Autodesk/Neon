@@ -34,7 +34,7 @@ bField<T, C>::bField(const std::string&             name,
     for (size_t l = 0; l < descriptor.size(); ++l) {
         allocSize[l] = mData->mGrid->getBackend().devSet().template newDataSet<uint64_t>();
         for (int64_t i = 0; i < allocSize[l].size(); ++i) {
-            allocSize[l][i] = mData->mGrid->getNumBlocksPerPartition(l)[i] *
+            allocSize[l][i] = mData->mGrid->getNumBlocksPerPartition(int(l))[i] *
                               descriptor[l] * descriptor[l] * descriptor[l] *
                               cardinality;
         }
@@ -56,7 +56,7 @@ bField<T, C>::bField(const std::string&             name,
 
     mData->mPartitions.resize(descriptor.size());
 
-    for (size_t l = 0; l < descriptor.size(); ++l) {
+    for (int l = 0; l < int(descriptor.size()); ++l) {
         auto origins = mData->mGrid->getOrigins(l);
         auto parent = mData->mGrid->getParents(l);
         auto neighbours_blocks = mData->mGrid->getNeighbourBlocks(l);
