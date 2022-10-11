@@ -9,7 +9,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
              const Neon::domain::Stencil& stencil,
              const double_3d&             spacingData,
              const double_3d&             origin)
-    : bGrid(backend, domainSize, {activeCellLambda}, stencil, {3}, spacingData, origin)
+    : bGrid(backend, domainSize, {activeCellLambda}, stencil, bGridDescriptor({3}), spacingData, origin)
 {
 }
 

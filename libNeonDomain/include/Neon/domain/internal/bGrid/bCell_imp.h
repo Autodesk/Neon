@@ -170,6 +170,9 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::swirlToCanonical(const Location::Intege
         return 36;
     } else if (id == 63) {
         return 35;
+    } else {
+        assert(1 != 1);
+        return -1;
     }
 }
 

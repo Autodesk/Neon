@@ -31,7 +31,7 @@ bField<T, C>::bField(const std::string&             name,
     //the allocation size is the number of blocks x block size x cardinality
     std::vector<Neon::set::DataSet<uint64_t>> allocSize(descriptor.size());
 
-    for (int l = 0; l < descriptor.size(); ++l) {
+    for (size_t l = 0; l < descriptor.size(); ++l) {
         allocSize[l] = mData->mGrid->getBackend().devSet().template newDataSet<uint64_t>();
         for (int64_t i = 0; i < allocSize[l].size(); ++i) {
             allocSize[l][i] = mData->mGrid->getNumBlocksPerPartition(l)[i] *
@@ -47,7 +47,7 @@ bField<T, C>::bField(const std::string&             name,
                                    Neon::MemoryLayout::structOfArrays);
 
     mData->mMem.resize(descriptor.size());
-    for (int l = 0; l < descriptor.size(); ++l) {
+    for (size_t l = 0; l < descriptor.size(); ++l) {
         mData->mMem[l] = mData->mGrid->getBackend().devSet().template newMemSet<T>({Neon::DataUse::IO_COMPUTE},
                                                                                    1,
                                                                                    memOptions,
@@ -56,7 +56,7 @@ bField<T, C>::bField(const std::string&             name,
 
     mData->mPartitions.resize(descriptor.size());
 
-    for (int l = 0; l < descriptor.size(); ++l) {
+    for (size_t l = 0; l < descriptor.size(); ++l) {
         auto origins = mData->mGrid->getOrigins(l);
         auto parent = mData->mGrid->getParents(l);
         auto neighbours_blocks = mData->mGrid->getNeighbourBlocks(l);
@@ -193,7 +193,7 @@ auto bField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) -> void
 template <typename T, int C>
 auto bField<T, C>::updateIO(int streamId) -> void
 {
-    for (int l = 0; l < mData->mMem.size(); ++l) {
+    for (size_t l = 0; l < mData->mMem.size(); ++l) {
         if (mData->mGrid->getBackend().devType() == Neon::DeviceType::CUDA) {
             mData->mMem[l].updateIO(mData->mGrid->getBackend(), streamId);
         }
@@ -203,7 +203,7 @@ auto bField<T, C>::updateIO(int streamId) -> void
 template <typename T, int C>
 auto bField<T, C>::updateCompute(int streamId) -> void
 {
-    for (int l = 0; l < mData->mMem.size(); ++l) {
+    for (size_t l = 0; l < mData->mMem.size(); ++l) {
         if (mData->mGrid->getBackend().devType() == Neon::DeviceType::CUDA) {
             mData->mMem[l].updateCompute(mData->mGrid->getBackend(), streamId);
         }
