@@ -57,7 +57,7 @@ class GridBase
     auto getNumActiveCells() const
         -> size_t;
 
-    virtual auto isInsideDomain(const Neon::index_3d& idx, int level = 0) const
+    virtual auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool = 0;
 
     [[deprecated("Will be replace by the getNumActiveCellsPerPartition method")]] auto

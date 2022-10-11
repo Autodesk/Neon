@@ -47,16 +47,22 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                       const Neon::DataView& dataView) -> Partition& final;
 
 
-    auto isInsideDomain(const Neon::index_3d& idx, const int level = 0) const -> bool final;
+    auto isInsideDomain(const Neon::index_3d& idx, const int level = 0) const -> bool;
 
 
     auto operator()(const Neon::index_3d& idx,
+                    const int&            cardinality) const -> T final;
+
+    auto operator()(const Neon::index_3d& idx,
                     const int&            cardinality,
-                    const int             level = 0) const -> T final;
+                    const int             level) const -> T;
+
+    auto getReference(const Neon::index_3d& idx,
+                      const int&            cardinality) -> T& final;
 
     auto getReference(const Neon::index_3d& idx,
                       const int&            cardinality,
-                      const int             level = 0) -> T& final;
+                      const int             level) -> T&;
 
     auto haloUpdate(Neon::set::HuOptions& opt) const -> void final;
 
@@ -80,6 +86,17 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                const int                        level = 0) -> void;
 
 
+    template <Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par>
+    auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
+                                                    const int& cardinality,
+                                                    T&,
+                                                    const int level)>& fun) -> void;
+
+
+    auto ioToVtk(const std::string& fileName,
+                 const std::string& FieldName,
+                 Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII) const -> void;
+
    private:
     bField(const std::string&             name,
            const bGrid&                   grid,
@@ -90,6 +107,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
            Neon::domain::haloStatus_et::e haloStatus);
 
     auto getRef(const Neon::index_3d& idx, const int& cardinality, const int level = 0) const -> T&;
+
 
     enum PartitionBackend
     {

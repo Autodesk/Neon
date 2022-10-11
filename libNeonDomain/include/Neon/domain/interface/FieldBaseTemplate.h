@@ -59,7 +59,7 @@ class FieldBaseTemplate : public FieldBase<T, C>,
                               const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Partition& = 0;
 
-    auto isInsideDomain(const Neon::index_3d& idx, const int level = 0) const
+    auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool;
 
     auto getGrid() const

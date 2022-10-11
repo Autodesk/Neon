@@ -151,7 +151,7 @@ auto aGrid::getKernelConfig(int,
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
-auto aGrid::isInsideDomain(const index_3d& idx, [[maybe_unused]] int level) const -> bool
+auto aGrid::isInsideDomain(const index_3d& idx) const -> bool
 {
     if (idx.y != 0 || idx.z != 0) {
         return false;
@@ -162,7 +162,7 @@ auto aGrid::isInsideDomain(const index_3d& idx, [[maybe_unused]] int level) cons
     }
     return false;
 }
-auto aGrid::getProperties(const index_3d& cell3dIdx, [[maybe_unused]] int level) const -> GridBaseTemplate::CellProperties
+auto aGrid::getProperties(const index_3d& cell3dIdx) const -> GridBaseTemplate::CellProperties
 {
     GridBaseTemplate::CellProperties cellProperties;
 

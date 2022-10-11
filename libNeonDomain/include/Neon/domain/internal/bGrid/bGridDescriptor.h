@@ -19,9 +19,10 @@ struct bGridDescriptor
      * The refinement factor have to be of power of 2 and thus it is defined by its log2
      * @param levels as described above defaulted to 3 levels octree 
     */
-    bGridDescriptor(std::initializer_list<int> log2RefFactors = {1, 1, 1})
-        : mLog2RefFactors(log2RefFactors)
+    bGridDescriptor(std::initializer_list<int> log2RefFactors)
+        : mLog2RefFactors(log2RefFactors), mSpacing(log2RefFactors)
     {
+        computeSpacing();
     }
 
     /**
@@ -29,7 +30,7 @@ struct bGridDescriptor
      * by 8^3 blocks i.e., block data structure 
     */
     bGridDescriptor()
-        : mLog2RefFactors({3})
+        : mLog2RefFactors({3}), mSpacing({2 * 2 * 2})
     {
     }
 
@@ -114,8 +115,46 @@ struct bGridDescriptor
         return 1 << getLog2RefFactorRecurse(level);
     }
 
+    /**
+     * return the spacing at a certain level     
+    */
+    int getSpacing(int level) const
+    {
+        if (level < 0) {
+            return 1;
+        }
+
+        if (level >= int(getDepth())) {
+            NeonException ex("bGridDescriptor::getSpacing()");
+            ex << "Runtime input level is greater than the grid depth!";
+            NEON_THROW(ex);
+        }
+
+        return mSpacing[level];
+    }
+
+
+    /**
+     * convert a voxel id from its index within its level (local index) to its corresponding virtual/base index     
+    */
+    Neon::index_3d toBaseIndexSpace(const Neon::index_3d id, int level) const
+    {
+        Neon::index_3d ret = id * mSpacing[level];
+        return ret;
+    }
 
    private:
+    void computeSpacing()
+    {
+        mSpacing.resize(mLog2RefFactors.size());
+        int acc = 1;
+        for (int l = 0; l < int(getDepth()); ++l) {
+            mSpacing[l] = acc * getLevelRefFactor(l);
+            acc = mSpacing[l];
+        }
+    }
+
     std::vector<int> mLog2RefFactors;
+    std::vector<int> mSpacing;
 };
 }  // namespace Neon::domain::internal::bGrid

@@ -60,10 +60,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
           const double_3d&                                        spacingData = double_3d(1, 1, 1),
           const double_3d&                                        origin = double_3d(0, 0, 0));
 
-    auto getProperties(const Neon::index_3d& idx, int level = 0) const -> GridBaseTemplate::CellProperties final;
+    auto getProperties(const Neon::index_3d& idx, int level) const -> GridBaseTemplate::CellProperties;
+
+    auto getProperties(const Neon::index_3d& idx) const -> GridBaseTemplate::CellProperties final;
 
 
-    auto isInsideDomain(const Neon::index_3d& idx, int level = 0) const -> bool final;
+    auto isInsideDomain(const Neon::index_3d& idx) const -> bool final;
+
+    auto isInsideDomain(const Neon::index_3d& idx, int level) const -> bool;
 
 
     template <typename T, int C = 0>
@@ -125,10 +129,12 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
                          Neon::DataView dataView,
                          const int      level = 0) -> Neon::set::KernelConfig;
 
+    auto getDimension(int level = 0) const -> const Neon::index_3d&;
+
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level = 0) const -> Neon::int32_3d;
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
-    auto getDescriptorVector() const -> const std::vector<int>&;
-    auto getDescriptor() const -> const Neon::set::MemSet_t<int>&;
+    auto getDescriptor() const -> const bGridDescriptor&;
+    auto getDescriptorMemSet() const -> const Neon::set::MemSet_t<int>&;
     void topologyToVTK(std::string fileName, bool filterOverlaps) const;
 
    private:
@@ -180,7 +186,10 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //std::vector to store the map from the block origin to its 1d index per level
         std::vector<Neon::domain::tool::PointHashTable<int32_t, uint32_t>> mBlockOriginTo1D;
 
-        std::vector<int> descriptor;
+        //the domain dimension at different level
+        std::vector<Neon::index_3d> dim;
+
+        bGridDescriptor descriptor{};
 
         bool mStrongBalanced;
 

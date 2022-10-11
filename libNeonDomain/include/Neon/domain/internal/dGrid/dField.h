@@ -55,8 +55,7 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
      * then the default outside value is returned.
      */
     auto operator()(const Neon::index_3d& idx,
-                    const int&            cardinality,
-                    const int             level = 0) const
+                    const int&            cardinality) const
         -> Type final;
 
     auto haloUpdate(Neon::set::HuOptions& opt) const
@@ -72,8 +71,7 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         -> void;  //TODO add this function to the API if performance boost is reasonable -> void final;
 
     virtual auto getReference(const Neon::index_3d& idx,
-                              const int&            cardinality,
-                              const int             level = 0)
+                              const int&            cardinality)
         -> Type& final;
 
     auto updateCompute(int streamSetId)

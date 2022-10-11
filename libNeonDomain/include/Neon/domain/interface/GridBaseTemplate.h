@@ -23,7 +23,7 @@ class GridBaseTemplate : public GridBase
     using Cell = CellT;
     using CellProperties = Neon::domain::interface::CellProperties<Cell>;
 
-    virtual auto getProperties(const Neon::index_3d& idx, int level = 0) const
+    virtual auto getProperties(const Neon::index_3d& idx) const
         -> CellProperties = 0;
 
     /**

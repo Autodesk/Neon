@@ -23,18 +23,16 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     mData = std::make_shared<Data>();
 
     mData->mStrongBalanced = true;
-
-    mData->descriptor.resize(descriptor.getDepth());
+    mData->descriptor = descriptor;
     int top_level_spacing = 1;
-    for (int l = 0; l < descriptor.getDepth(); ++l) {
-        mData->descriptor[l] = descriptor.getLevelRefFactor(l);
+    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
         if (l > 0) {
-            top_level_spacing *= mData->descriptor[l];
-            if (mData->descriptor[l] < mData->descriptor[l - 1]) {
+            top_level_spacing *= mData->descriptor.getLevelRefFactor(l);
+            if (mData->descriptor.getLevelRefFactor(l) < mData->descriptor.getLevelRefFactor(l - 1)) {
                 NeonException exp("bGrid::bGrid");
                 exp << "The grid refinement factor should only go up from one level to another starting with Level 0 the leaf/finest level\n";
-                exp << "Level " << l - 1 << " refinement factor= " << mData->descriptor[l - 1] << "\n";
-                exp << "Level " << l << " refinement factor= " << mData->descriptor[l] << "\n";
+                exp << "Level " << l - 1 << " refinement factor= " << mData->descriptor.getLevelRefFactor(l - 1) << "\n";
+                exp << "Level " << l << " refinement factor= " << mData->descriptor.getLevelRefFactor(l) << "\n";
                 NEON_THROW(exp);
             }
         }
@@ -49,6 +47,9 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         NEON_THROW(exp);
     }
 
+
+    mData->dim.resize(mData->descriptor.getDepth());
+    mData->dim[0] = domainSize;
 
     mData->mBlockOriginTo1D.resize(descriptor.getDepth());
     mData->mBlockOriginTo1D[0] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
@@ -72,18 +73,23 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
 
     for (int i = 0; i < descriptor.getDepth(); ++i) {
+        const int refFactor = descriptor.getLevelRefFactor(i);
+
         if (i > 0) {
 
             mData->mNumActiveVoxel[i][0] = 0;
 
-            numBlockInDomain[i].set(NEON_DIVIDE_UP(numBlockInDomain[i - 1].x, descriptor.getLevelRefFactor(i)),
-                                    NEON_DIVIDE_UP(numBlockInDomain[i - 1].y, descriptor.getLevelRefFactor(i)),
-                                    NEON_DIVIDE_UP(numBlockInDomain[i - 1].z, descriptor.getLevelRefFactor(i)));
+            numBlockInDomain[i].set(NEON_DIVIDE_UP(numBlockInDomain[i - 1].x, refFactor),
+                                    NEON_DIVIDE_UP(numBlockInDomain[i - 1].y, refFactor),
+                                    NEON_DIVIDE_UP(numBlockInDomain[i - 1].z, refFactor));
+
+            mData->dim[i].set(NEON_DIVIDE_UP(mData->dim[0].x, descriptor.getSpacing(i)),
+                              NEON_DIVIDE_UP(mData->dim[0].y, descriptor.getSpacing(i)),
+                              NEON_DIVIDE_UP(mData->dim[0].z, descriptor.getSpacing(i)));
 
             mData->mBlockOriginTo1D[i] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
         }
-        std::vector<uint32_t> msk(NEON_DIVIDE_UP(descriptor.getLevelRefFactor(i) * descriptor.getLevelRefFactor(i) * descriptor.getLevelRefFactor(i) *
-                                                     numBlockInDomain[i].x * numBlockInDomain[i].y * numBlockInDomain[i].z,
+        std::vector<uint32_t> msk(NEON_DIVIDE_UP(refFactor * refFactor * refFactor * numBlockInDomain[i].x * numBlockInDomain[i].y * numBlockInDomain[i].z,
                                                  Cell::sMaskSize),
                                   0);
         mData->denseLevelsBitmask.push_back(msk);
@@ -560,7 +566,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             for (int gpuIdx = 0; gpuIdx < backend.devSet().setCardinality(); gpuIdx++) {
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDataView = dv;
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDomainSize = domainSize;
-                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mBlockSize = mData->descriptor[l];
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mBlockSize = mData->descriptor.getLevelRefFactor(l);
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[0][gpuIdx]);
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask[l].rawMem(gpuIdx, Neon::DeviceType::CPU);
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask[l].rawMem(gpuIdx, Neon::DeviceType::CUDA);
@@ -569,6 +575,10 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             }
         }
     }
+}
+auto bGrid::getProperties(const Neon::index_3d& idx) const -> GridBaseTemplate::CellProperties
+{
+    return getProperties(idx, 0);
 }
 
 auto bGrid::getProperties(const Neon::index_3d& idx, int level) const -> GridBaseTemplate::CellProperties
@@ -587,6 +597,10 @@ auto bGrid::getProperties(const Neon::index_3d& idx, int level) const -> GridBas
     }
     return cellProperties;
 }
+auto bGrid::isInsideDomain(const Neon::index_3d& idx) const -> bool
+{
+    return isInsideDomain(idx, 0);
+}
 
 auto bGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
 {
@@ -604,11 +618,11 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
 
     auto itr = mData->mBlockOriginTo1D[level].getMetadata(block_origin);
     if (itr) {
-        Cell cell(static_cast<Cell::Location::Integer>(idx.x % mData->descriptor[level]),
-                  static_cast<Cell::Location::Integer>(idx.y % mData->descriptor[level]),
-                  static_cast<Cell::Location::Integer>(idx.z % mData->descriptor[level]));
+        Cell cell(static_cast<Cell::Location::Integer>(idx.x % mData->descriptor.getLevelRefFactor(level)),
+                  static_cast<Cell::Location::Integer>(idx.y % mData->descriptor.getLevelRefFactor(level)),
+                  static_cast<Cell::Location::Integer>(idx.z % mData->descriptor.getLevelRefFactor(level)));
         cell.mBlockID = *itr;
-        cell.mBlockSize = mData->descriptor[level];
+        cell.mBlockSize = mData->descriptor.getLevelRefFactor(level);
         cell.mIsActive = cell.computeIsActive(mData->mActiveMask[level].rawMem(devID, Neon::DeviceType::CPU));
         return cell.mIsActive;
     }
@@ -622,9 +636,9 @@ auto bGrid::getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> 
         return (n / m) * m;
     };
 
-    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->descriptor[level]),
-                                roundDownToNearestMultiple(idx.y, mData->descriptor[level]),
-                                roundDownToNearestMultiple(idx.z, mData->descriptor[level]));
+    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->descriptor.getLevelRefFactor(level)),
+                                roundDownToNearestMultiple(idx.y, mData->descriptor.getLevelRefFactor(level)),
+                                roundDownToNearestMultiple(idx.z, mData->descriptor.getLevelRefFactor(level)));
     return block_origin;
 }
 
@@ -646,7 +660,11 @@ auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
         NEON_WARNING("Requesting LaunchParameters on {} data view but bGrid only supports Standard data view on a single GPU",
                      Neon::DataViewUtil::toString(dataView));
     }
-    const Neon::int32_3d        cuda_block(mData->descriptor[level], mData->descriptor[level], mData->descriptor[level]);
+
+    const Neon::int32_3d cuda_block(mData->descriptor.getLevelRefFactor(level),
+                                    mData->descriptor.getLevelRefFactor(level),
+                                    mData->descriptor.getLevelRefFactor(level));
+
     Neon::set::LaunchParameters ret = getBackend().devSet().newLaunchParameters();
     for (int i = 0; i < ret.cardinality(); ++i) {
         if (getBackend().devType() == Neon::DeviceType::CUDA) {
@@ -655,7 +673,11 @@ auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
                        cuda_block, sharedMem);
         } else {
             ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::domainGridMode,
-                       Neon::int32_3d(int32_t(mData->mNumBlocks[level][i]) * mData->descriptor[level] * mData->descriptor[level] * mData->descriptor[level], 1, 1),
+                       Neon::int32_3d(int32_t(mData->mNumBlocks[level][i]) *
+                                          mData->descriptor.getLevelRefFactor(level) *
+                                          mData->descriptor.getLevelRefFactor(level) *
+                                          mData->descriptor.getLevelRefFactor(level),
+                                      1, 1),
                        cuda_block, sharedMem);
         }
     }
@@ -691,7 +713,7 @@ auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&
     return mData->mStencilNghIndex;
 }
 
-auto bGrid::getDescriptor() const -> const Neon::set::MemSet_t<int>&
+auto bGrid::getDescriptorMemSet() const -> const Neon::set::MemSet_t<int>&
 {
     return mData->mDescriptor;
 }
@@ -729,9 +751,14 @@ auto bGrid::getKernelConfig(int            streamIdx,
     return kernelConfig;
 }
 
-auto bGrid::getDescriptorVector() const -> const std::vector<int>&
+auto bGrid::getDescriptor() const -> const bGridDescriptor&
 {
     return mData->descriptor;
+}
+
+auto bGrid::getDimension(int level) const -> const Neon::index_3d&
+{
+    return mData->dim[level];
 }
 
 void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
@@ -742,10 +769,10 @@ void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
     file << "bGrid\n";
     file << "ASCII\n";
     file << "DATASET UNSTRUCTURED_GRID\n";
-    file << "POINTS " << (getDimension().rMax() + 1) * (getDimension().rMax() + 1) * (getDimension().rMax() + 1) << " float \n";
-    for (int z = 0; z < getDimension().rMax() + 1; ++z) {
-        for (int y = 0; y < getDimension().rMax() + 1; ++y) {
-            for (int x = 0; x < getDimension().rMax() + 1; ++x) {
+    file << "POINTS " << (getDimension(0).rMax() + 1) * (getDimension(0).rMax() + 1) * (getDimension(0).rMax() + 1) << " float \n";
+    for (int z = 0; z < getDimension(0).rMax() + 1; ++z) {
+        for (int y = 0; y < getDimension(0).rMax() + 1; ++y) {
+            for (int x = 0; x < getDimension(0).rMax() + 1; ++x) {
                 file << x << " " << y << " " << z << "\n";
             }
         }
@@ -755,8 +782,8 @@ void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
 
     auto mapTo1D = [&](int x, int y, int z) {
         return x +
-               y * (getDimension().rMax() + 1) +
-               z * (getDimension().rMax() + 1) * (getDimension().rMax() + 1);
+               y * (getDimension(0).rMax() + 1) +
+               z * (getDimension(0).rMax() + 1) * (getDimension(0).rMax() + 1);
     };
 
     enum class Op : int
@@ -769,12 +796,12 @@ void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
     };
 
     auto loopOverActiveBlocks = [&](const Op op) {
-        for (int l = 0; l < int(mData->descriptor.size()); ++l) {
-            const int ref_factor = mData->descriptor[l];
+        for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
+            const int ref_factor = mData->descriptor.getLevelRefFactor(l);
             int       prv_ref_factor_recurse = 1;
             if (l > 0) {
                 for (int ll = l - 1; ll >= 0; --ll) {
-                    prv_ref_factor_recurse *= mData->descriptor[ll];
+                    prv_ref_factor_recurse *= mData->descriptor.getLevelRefFactor(ll);
                 }
             }
             mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {

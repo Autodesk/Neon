@@ -140,9 +140,9 @@ auto FieldBaseTemplate<T, C, G, P, S>::toString() const
 }
 
 template <typename T, int C, typename G, typename P, typename S>
-auto FieldBaseTemplate<T, C, G, P, S>::isInsideDomain(const index_3d& idx, const int level) const -> bool
+auto FieldBaseTemplate<T, C, G, P, S>::isInsideDomain(const index_3d& idx) const -> bool
 {
-    return getGrid().isInsideDomain(idx, level);
+    return getGrid().isInsideDomain(idx);
 }
 template <typename T, int C, typename G, typename P, typename S>
 auto FieldBaseTemplate<T, C, G, P, S>::swapUIDBeforeFullSwap(FieldBaseTemplate::Self& A, FieldBaseTemplate::Self& B) -> void

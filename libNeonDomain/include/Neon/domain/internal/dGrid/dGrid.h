@@ -137,10 +137,10 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
                          Neon::DataView dataView)
         -> Neon::set::KernelConfig;
 
-    auto isInsideDomain(const Neon::index_3d& idx, int level = 0) const
+    auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool final;
 
-    auto getProperties(const Neon::index_3d& idx, int level = 0) const
+    auto getProperties(const Neon::index_3d& idx) const
         -> GridBaseTemplate::CellProperties final;
 
    private:

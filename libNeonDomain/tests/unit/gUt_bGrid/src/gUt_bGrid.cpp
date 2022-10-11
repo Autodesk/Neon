@@ -30,7 +30,7 @@ TEST(bGrid, activeCell)
         //field.ioToVtk("f", "f");
 
         field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
-            [](const Neon::int32_3d id, const int card, float) {
+            [](const Neon::int32_3d id, const int card, float, const int) {
                 EXPECT_TRUE(((id.x == 0 && id.y == 0 && id.z == 0) ||
                              (id.x == 8 && id.y == 8 && id.z == 8)) &&
                             card == 0);
@@ -52,8 +52,8 @@ TEST(bGrid, multiRes)
             bk,
             dim,
             {[&]([[maybe_unused]] Neon::index_3d id) -> bool {
-                 //return id.x == 0 && id.y == 0 && id.z == 0;
-                 return id.norm() < 8;
+                 return id.x == 8 && id.y == 8 && id.z == 0;
+                 //return id.norm() < 8;
                  //return true;
 
                  //Link SDF https://www.shadertoy.com/view/wlXSD7
@@ -101,8 +101,8 @@ TEST(bGrid, multiRes)
         auto field = b_grid.newField<float>("myField", 1, 0);
 
         field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
-            [](const Neon::int32_3d, const int, float& val) {
-                val = 50.0;
+            [&](const Neon::int32_3d /*idx*/, const int /*card*/, float& val, const int level) {
+                val = 20 + float(level);
             });
 
         field.ioToVtk("f", "f");

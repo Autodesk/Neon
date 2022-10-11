@@ -117,8 +117,7 @@ auto aField<T, C>::initPartitions() -> void
 
 template <typename T, int C>
 auto aField<T, C>::getReference(const Neon::index_3d&      idx,
-                                const int&                 cardinality,
-                                const int /*level*/)
+                                const int&                 cardinality)
     -> Type&
 {
     if (idx.y != 0 || idx.z != 0) {
@@ -146,8 +145,7 @@ auto aField<T, C>::getReference(const Neon::index_3d&      idx,
 
 template <typename T, int C>
 auto aField<T, C>::operator()(const Neon::index_3d&      idx,
-                              const int&                 cardinality,
-                              const int /*level*/) const
+                              const int&                 cardinality) const
     -> Type
 {
     if (idx.y != 0 || idx.z != 0) {

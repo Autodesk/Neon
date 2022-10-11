@@ -26,16 +26,16 @@ bField<T, C>::bField(const std::string&             name,
     mData->mGrid = std::make_shared<bGrid>(grid);
     mData->mCardinality = cardinality;
 
-    auto& descriptor = mData->mGrid->getDescriptorVector();
+    const auto& descriptor = mData->mGrid->getDescriptor();
 
     //the allocation size is the number of blocks x block size x cardinality
-    std::vector<Neon::set::DataSet<uint64_t>> allocSize(descriptor.size());
+    std::vector<Neon::set::DataSet<uint64_t>> allocSize(descriptor.getDepth());
 
-    for (size_t l = 0; l < descriptor.size(); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         allocSize[l] = mData->mGrid->getBackend().devSet().template newDataSet<uint64_t>();
         for (int64_t i = 0; i < allocSize[l].size(); ++i) {
             allocSize[l][i] = mData->mGrid->getNumBlocksPerPartition(int(l))[i] *
-                              descriptor[l] * descriptor[l] * descriptor[l] *
+                              descriptor.getLevelRefFactor(l) * descriptor.getLevelRefFactor(l) * descriptor.getLevelRefFactor(l) *
                               cardinality;
         }
     }
@@ -46,22 +46,22 @@ bField<T, C>::bField(const std::string&             name,
                                    ((mData->mGrid->getBackend().devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                    Neon::MemoryLayout::structOfArrays);
 
-    mData->mMem.resize(descriptor.size());
-    for (size_t l = 0; l < descriptor.size(); ++l) {
+    mData->mMem.resize(descriptor.getDepth());
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         mData->mMem[l] = mData->mGrid->getBackend().devSet().template newMemSet<T>({Neon::DataUse::IO_COMPUTE},
                                                                                    1,
                                                                                    memOptions,
                                                                                    allocSize[l]);
     }
 
-    mData->mPartitions.resize(descriptor.size());
+    mData->mPartitions.resize(descriptor.getDepth());
 
-    for (int l = 0; l < int(descriptor.size()); ++l) {
+    for (int l = 0; l < int(descriptor.getDepth()); ++l) {
         auto origins = mData->mGrid->getOrigins(l);
         auto parent = mData->mGrid->getParents(l);
         auto neighbours_blocks = mData->mGrid->getNeighbourBlocks(l);
         auto stencil_ngh = mData->mGrid->getStencilNghIndex();
-        auto desct = mData->mGrid->getDescriptor();
+        auto desct = mData->mGrid->getDescriptorMemSet();
         auto active_mask = mData->mGrid->getActiveMask(l);
 
         for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
@@ -74,7 +74,7 @@ bField<T, C>::bField(const std::string&             name,
                     Neon::DataView(dvID),
                     l,
                     mData->mMem[l].rawMem(gpuID, Neon::DeviceType::CPU),
-                    mData->mGrid->getDimension(),
+                    mData->mGrid->getDimension(l),
                     mData->mCardinality,
                     neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CPU),
                     origins.rawMem(gpuID, Neon::DeviceType::CPU),
@@ -88,7 +88,7 @@ bField<T, C>::bField(const std::string&             name,
                     Neon::DataView(dvID),
                     l,
                     mData->mMem[l].rawMem(gpuID, Neon::DeviceType::CUDA),
-                    mData->mGrid->getDimension(),
+                    mData->mGrid->getDimension(l),
                     mData->mCardinality,
                     neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CUDA),
                     origins.rawMem(gpuID, Neon::DeviceType::CUDA),
@@ -102,7 +102,62 @@ bField<T, C>::bField(const std::string&             name,
     }
 }
 
+template <typename T, int C>
+template <Neon::computeMode_t::computeMode_e mode>
+auto bField<T, C>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
+                                                              const int& cardinality,
+                                                              T&,
+                                                              const int level)>& fun)
+    -> void
+{
+    const auto& descriptor = mData->mGrid->getDescriptor();
+    if constexpr (mode == Neon::computeMode_t::computeMode_e::par) {
+#ifdef _MSC_VER
+#pragma omp parallel for
+#else
+#pragma omp parallel for collapse(4)
+#endif
+        for (int l = 0; l < descriptor.getDepth(); ++l) {
+            for (int z = 0; z < mData->mGrid->getDimension(l).z; z++) {
+                for (int y = 0; y < mData->mGrid->getDimension(l).y; y++) {
+                    for (int x = 0; x < mData->mGrid->getDimension(l).x; x++) {
 
+                        //convert x,y,z to base/virtual index
+                        const Neon::index_3d index3D = descriptor.toBaseIndexSpace({x, y, z}, l);
+
+                        for (int c = 0; c < this->getCardinality(); c++) {
+                            const bool isInside = this->isInsideDomain(index3D, l);
+                            if (isInside) {
+                                auto& ref = this->getReference(index3D, c, l);
+                                fun(index3D, c, ref, l);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        for (int l = 0; l < descriptor.getDepth(); ++l) {
+            for (int z = 0; z < mData->mGrid->getDimension(l).z; z++) {
+                for (int y = 0; y < mData->mGrid->getDimension(l).y; y++) {
+                    for (int x = 0; x < mData->mGrid->getDimension(l).x; x++) {
+
+                        //convert x,y,z to base/virtual index
+                        const Neon::index_3d index3D = descriptor.toBaseIndexSpace({x, y, z}, l);
+
+                        for (int c = 0; c < this->getCardinality(); c++) {
+                            const bool isInside = this->isInsideDomain(index3D, l);
+                            if (isInside) {
+                                auto& ref = this->getReference(index3D, c, l);
+                                fun(index3D, c, ref, l);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 template <typename T, int C>
 auto bField<T, C>::getPartition(const Neon::DeviceType& devType,
                                 const Neon::SetIdx&     idx,
@@ -152,12 +207,20 @@ auto bField<T, C>::getRef(const Neon::index_3d& idx,
     Neon::int32_3d block_origin = mData->mGrid->getOriginBlock3DIndex(idx, level);
 
     auto itr = mData->mGrid->getBlockOriginTo1D(level).getMetadata(block_origin);
-    Cell cell(static_cast<Cell::Location::Integer>(idx.x % mData->mGrid->getDescriptorVector()[level]),
-              static_cast<Cell::Location::Integer>(idx.y % mData->mGrid->getDescriptorVector()[level]),
-              static_cast<Cell::Location::Integer>(idx.z % mData->mGrid->getDescriptorVector()[level]));
+    int  refFactor = mData->mGrid->getDescriptor().getLevelRefFactor(level);
+    Cell cell(static_cast<Cell::Location::Integer>(idx.x % refFactor),
+              static_cast<Cell::Location::Integer>(idx.y % refFactor),
+              static_cast<Cell::Location::Integer>(idx.z % refFactor));
     cell.mBlockID = *itr;
-    cell.mBlockSize = mData->mGrid->getDescriptorVector()[level];
+    cell.mBlockSize = refFactor;
     return partition(cell, cardinality);
+}
+
+template <typename T, int C>
+auto bField<T, C>::operator()(const Neon::index_3d& idx,
+                              const int&            cardinality) const -> T
+{
+    return getRef(idx, cardinality, 0);
 }
 
 template <typename T, int C>
@@ -166,6 +229,13 @@ auto bField<T, C>::operator()(const Neon::index_3d& idx,
                               const int             level) const -> T
 {
     return getRef(idx, cardinality, level);
+}
+
+template <typename T, int C>
+auto bField<T, C>::getReference(const Neon::index_3d& idx,
+                                const int&            cardinality) -> T&
+{
+    return getRef(idx, cardinality, 0);
 }
 
 template <typename T, int C>
@@ -226,16 +296,53 @@ auto bField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
     NEON_DEV_UNDER_CONSTRUCTION("bField::getPartition");
 }
 
+
+template <typename T, int C>
+auto bField<T, C>::ioToVtk(const std::string& fileName,
+                           const std::string& fieldName,
+                           Neon::IoFileType   ioFileType) const -> void
+{
+    const auto& descriptor = mData->mGrid->getDescriptor();
+
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+
+        double spacing = (l == 0) ? 1 : double(descriptor.getSpacing(l));
+
+        auto iovtk = IoToVTK<int, T>(fileName + "_level" + std::to_string(l),
+                                     mData->mGrid->getDimension(l) + 1,
+                                     {spacing, spacing, spacing},
+                                     {0, 0, 0},
+                                     ioFileType);
+
+
+        iovtk.addField(
+            [&](Neon::index_3d idx, int card) -> T {
+                idx = descriptor.toBaseIndexSpace(idx, l);
+
+                if (mData->mGrid->isInsideDomain(idx, l)) {
+                    return operator()(idx, card, l);
+                } else {
+                    return this->getOutsideValue();
+                }
+            },
+            this->getCardinality(), fieldName, ioToVTKns::VtiDataType_e::voxel);
+
+        iovtk.flushAndClear();
+    }
+}
+
+
 template <typename T, int C>
 auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius, int level) const -> size_t
 {
     //This return the optimal shared memory size give a stencil radius
     //i.e., only N layers is read from neighbor blocks into shared memory in addition
     // to the block itself where N = stencilRadius
+    int refFactor = mData->mGrid->getDescriptor().getLevelRefFactor(level);
     return sizeof(T) *
            this->getCardinality() *
-           (mData->mGrid->getDescriptorVector()[level] + 2 * stencilRadius) *
-           (mData->mGrid->getDescriptorVector()[level] + 2 * stencilRadius) *
-           (mData->mGrid->getDescriptorVector()[level] + 2 * stencilRadius);
+           (refFactor + 2 * stencilRadius) *
+           (refFactor + 2 * stencilRadius) *
+           (refFactor + 2 * stencilRadius);
 }
 }  // namespace Neon::domain::internal::bGrid

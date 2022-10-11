@@ -37,17 +37,15 @@ class FieldBase
               const Vec_3d<double>&          origin);
 
 
-    virtual auto isInsideDomain(const Neon::index_3d& idx, const int level = 0) const
+    virtual auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool = 0;
 
     virtual auto operator()(const Neon::index_3d& idx,
-                            const int&            cardinality,
-                            const int             level = 0) const
+                            const int&            cardinality) const
         -> T = 0;
 
     virtual auto getReference(const Neon::index_3d& idx,
-                              const int&            cardinality,
-                              const int             level = 0)
+                              const int&            cardinality)
         -> T& = 0;
 
     virtual auto getBaseGridTool() const
@@ -96,8 +94,7 @@ class FieldBase
     template <Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par>
     auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
                                                     const int& cardinality,
-                                                    T&)>& fun,
-                           const int                      level = 0)
+                                                    T&)>& fun)
         -> void;
 
     /**
@@ -110,8 +107,7 @@ class FieldBase
     template <Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par>
     auto forEachCell(const std::function<void(const Neon::index_3d&,
                                               const int& cardinality,
-                                              T)>& fun,
-                     const int                     level = 0) const
+                                              T)>& fun) const
         -> void;
 
     template <typename ExportType = T,

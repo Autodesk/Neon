@@ -30,7 +30,7 @@ namespace ioToVTKns {
  * Implicit function that defines the data stores by a user fiels
  */
 template <class real_tt, typename intType_ta>
-using UserFieldAccessGenericFunction_t = std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx, int level)>;
+using UserFieldAccessGenericFunction_t = std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx)>;
 
 /**
  * Number of components of the field
@@ -164,14 +164,13 @@ void dumpRawDataIntoFile(std::ofstream&                                         
 #else
     Neon::Integer_3d<intType_ta> idx;
 
-    const int level = 0;
     for (intType_ta z = 0; z < space.z; z++) {
         for (intType_ta y = 0; y < space.y; y++) {
             for (intType_ta x = 0; x < space.x; x++) {
                 idx.set(x, y, z);
                 for (int v = 0; v < nComponents; v++) {
 
-                    real_tt val = grid(idx, v, level);
+                    real_tt val = grid(idx, v);
                     SwapEnd(val);
                     b_stream.write((char*)&val, sizeof(real_tt) * 1);
                 }
@@ -198,13 +197,12 @@ void dumpTextDataIntoFile(std::ofstream&                                        
                           const Integer_3d<intType_ta>&                                    space)
 {
     Neon::Integer_3d<intType_ta> idx;
-    const int                    level = 0;
     for (intType_ta z = 0; z < space.z; z++) {
         for (intType_ta y = 0; y < space.y; y++) {
             for (intType_ta x = 0; x < space.x; x++) {
                 idx.set(x, y, z);
                 for (int v = 0; v < nComponents; v++) {
-                    real_tt val = static_cast<real_tt>(fieldData(idx, v, level));
+                    real_tt val = static_cast<real_tt>(fieldData(idx, v));
                     out << val << " ";
                 }
             }
@@ -467,10 +465,10 @@ struct IoToVTK
         flush();
     }
 
-    auto addField(const std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx, int)>& fun /*!    Implicit defintion of the user field */,
-                  nComponent_t                                                                              card /*!    Field cardinality */,
-                  const std::string&                                                                        fname /*!   Name of the field */,
-                  ioToVTKns::VtiDataType_e                                                                  vtiType /*! Type of vti element */) -> void
+    auto addField(const std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx)>& fun /*!    Implicit defintion of the user field */,
+                  nComponent_t                                                                         card /*!    Field cardinality */,
+                  const std::string&                                                                   fname /*!   Name of the field */,
+                  ioToVTKns::VtiDataType_e                                                             vtiType /*! Type of vti element */) -> void
     {
         // ioToVTKns::UserFieldInformation userField(fun, card, fname, vtiType);
         m_fiedVec.emplace_back(fun, card, fname, vtiType);

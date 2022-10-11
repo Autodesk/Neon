@@ -43,8 +43,8 @@ auto IOGridVTK<RealType, IntType>::addField(const Field&       field,
         NEON_THROW(exception);
     }
 
-    IoToVTK<IntType, RealType>::addField([&](Neon::Integer_3d<IntType> idx, int card, int l) -> RealType {
-        return field(idx, card, l);
+    IoToVTK<IntType, RealType>::addField([&](Neon::Integer_3d<IntType> idx, int card) -> RealType {
+        return field(idx, card);
     },
                                          field.getCardinality(), name, vtiDataTypeE);
 }

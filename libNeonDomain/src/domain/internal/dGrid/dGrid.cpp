@@ -185,14 +185,14 @@ auto dGrid::setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig) const
     gridKernelConfig.expertSetBackend(getBackend());
 }
 
-auto dGrid::isInsideDomain(const index_3d& idx, [[maybe_unused]] int level) const -> bool
+auto dGrid::isInsideDomain(const index_3d& idx) const -> bool
 {
     bool isPositive = idx >= 0;
     bool isLover = idx < this->getDimension();
     return isLover && isPositive;
 }
 
-auto dGrid::getProperties(const index_3d& idx, [[maybe_unused]] int level) const -> GridBaseTemplate::CellProperties
+auto dGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties
 {
     GridBaseTemplate::CellProperties cellProperties;
     cellProperties.setIsInside(isInsideDomain(idx));

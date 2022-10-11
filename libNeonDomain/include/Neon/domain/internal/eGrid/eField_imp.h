@@ -42,9 +42,8 @@ eField<T, C>::eField(const std::string&             fieldUserName,
 }
 
 template <typename T, int C>
-auto eField<T, C>::operator()(const Neon::index_3d&      idx,
-                              const int&                 cardinality,
-                              [[maybe_unused]] const int level) const
+auto eField<T, C>::operator()(const Neon::index_3d& idx,
+                              const int&            cardinality) const
     -> Type
 {
     if (mCpu.devType() == Neon::DeviceType::NONE) {
@@ -59,9 +58,8 @@ auto eField<T, C>::operator()(const Neon::index_3d&      idx,
 }
 
 template <typename T, int C>
-auto eField<T, C>::getReference(const Neon::index_3d&      idx,
-                                const int&                 cardinality,
-                                [[maybe_unused]] const int level)
+auto eField<T, C>::getReference(const Neon::index_3d& idx,
+                                const int&            cardinality)
     -> Type&
 {
     if (mCpu.devType() == Neon::DeviceType::NONE) {

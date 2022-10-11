@@ -97,8 +97,7 @@ template <typename T, int C>
 template <Neon::computeMode_t::computeMode_e mode>
 auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
                                                                  const int& cardinality,
-                                                                 T&)>& fun,
-                                        const int                      level)
+                                                                 T&)>& fun)
     -> void
 {
     const auto& dim = getDimension();
@@ -113,9 +112,9 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
                 for (int x = 0; x < dim.x; x++) {
                     for (int c = 0; c < getCardinality(); c++) {
                         Neon::index_3d index3D(x, y, z);
-                        const bool     isInside = this->isInsideDomain(index3D, level);
+                        const bool     isInside = this->isInsideDomain(index3D);
                         if (isInside) {
-                            auto& ref = this->getReference(index3D, c, level);
+                            auto& ref = this->getReference(index3D, c);
                             fun(index3D, c, ref);
                         }
                     }
@@ -128,9 +127,9 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
                 for (int x = 0; x < dim.x; x++) {
                     for (int c = 0; c < getCardinality(); c++) {
                         Neon::index_3d index3D(x, y, z);
-                        const bool     isInside = this->isInsideDomain(index3D, level);
+                        const bool     isInside = this->isInsideDomain(index3D);
                         if (isInside) {
-                            auto& ref = this->getReference(index3D, c, level);
+                            auto& ref = this->getReference(index3D, c);
                             fun(index3D, c, ref);
                         }
                     }
@@ -145,8 +144,7 @@ template <typename T, int C>
 template <Neon::computeMode_t::computeMode_e mode>
 auto FieldBase<T, C>::forEachCell(const std::function<void(const Neon::index_3d&,
                                                            const int& cardinality,
-                                                           T)>& fun,
-                                  const int                     level) const
+                                                           T)>& fun) const
     -> void
 {
     const auto& dim = getDimension();
@@ -161,7 +159,7 @@ auto FieldBase<T, C>::forEachCell(const std::function<void(const Neon::index_3d&
                 for (int x = 0; x < dim.x; x++) {
                     for (int c = 0; c < getCardinality(); c++) {
                         Neon::index_3d index3D(x, y, z);
-                        auto val = this->operator()(index3D, c, level);
+                        auto val = this->operator()(index3D, c);
                         fun(index3D, c, val);
                     }
                 }
@@ -173,7 +171,7 @@ auto FieldBase<T, C>::forEachCell(const std::function<void(const Neon::index_3d&
                 for (int x = 0; x < dim.x; x++) {
                     for (int c = 0; c < getCardinality(); c++) {
                         Neon::index_3d index3D(x, y, z);
-                        auto val = this->operator()(index3D, c, level);
+                        auto val = this->operator()(index3D, c);
                         fun(index3D, c, val);
                     }
                 }
