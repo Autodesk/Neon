@@ -26,7 +26,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     mData->descriptor.resize(descriptor.getDepth());
     int top_level_spacing = 1;
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         mData->descriptor[l] = descriptor.getLevelRefFactor(l);
         if (l > 0) {
             top_level_spacing *= mData->descriptor[l];
@@ -71,7 +71,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                             NEON_DIVIDE_UP(domainSize.z, descriptor.get0LevelRefFactor()));
 
 
-    for (size_t i = 0; i < descriptor.getDepth(); ++i) {
+    for (int i = 0; i < descriptor.getDepth(); ++i) {
         if (i > 0) {
 
             mData->mNumActiveVoxel[i][0] = 0;
@@ -122,7 +122,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     //Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
     //If a block contain an active voxel, it activates itself as well
     //This loop only sets the bitmask
-    for (int l = 0; l < int(descriptor.getDepth()); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         const int ref_factor = descriptor.getLevelRefFactor(l);
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
         const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
@@ -192,7 +192,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             again = false;
 
 
-            for (int l = 0; l < int(descriptor.getDepth()); ++l) {
+            for (int l = 0; l < descriptor.getDepth(); ++l) {
                 const int ref_factor = descriptor.getLevelRefFactor(l);
                 const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
 
@@ -231,7 +231,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                         if (proxyVoxelLocation < domainSize && proxyVoxelLocation >= 0) {
 
                                                             Neon::int32_3d prv_nVoxelBlockOrigin, prv_nVoxelLocalID;
-                                                            for (int l_n = l; l_n < int(descriptor.getDepth()); ++l_n) {
+                                                            for (int l_n = l; l_n < descriptor.getDepth(); ++l_n) {
                                                                 const int l_n_ref_factor = descriptor.getLevelRefFactor(l_n);
 
 
@@ -289,7 +289,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     // Number of active voxels per partition
     // Loop over all blocks and voxels in blocks to count the number of active
     // voxels and active blocks for allocation
-    for (int l = 0; l < int(descriptor.getDepth()); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         const int ref_factor = descriptor.getLevelRefFactor(l);
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
 
@@ -345,7 +345,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                    Neon::MemoryLayout::arrayOfStructs);
     //origin
     mData->mOrigin.resize(descriptor.getDepth());
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         mData->mOrigin[l] = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
                                                                                 1,
                                                                                 memOptions,
@@ -354,7 +354,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     //parent
     mData->mParent.resize(descriptor.getDepth());
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         mData->mParent[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                           1,
                                                                           memOptions,
@@ -391,7 +391,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                                   descriptorSize);
     for (int32_t c = 0; c < mData->mDescriptor.cardinality(); ++c) {
         SetIdx devID(c);
-        for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+        for (int l = 0; l < descriptor.getDepth(); ++l) {
             mData->mDescriptor.eRef(c, l) = descriptor.getLevelRefFactor(l);
         }
     }
@@ -400,7 +400,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     // block bitmask
     mData->mActiveMaskSize.resize(descriptor.getDepth());
     mData->mActiveMask.resize(descriptor.getDepth());
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         mData->mActiveMaskSize[l] = backend.devSet().template newDataSet<uint64_t>();
         for (int64_t i = 0; i < mData->mActiveMaskSize[l].size(); ++i) {
             mData->mActiveMaskSize[l][i] = mData->mNumBlocks[l][i] *
@@ -416,7 +416,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
 
     // init bitmask to zero
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         for (int32_t c = 0; c < mData->mActiveMask[l].cardinality(); ++c) {
             SetIdx devID(c);
             for (size_t i = 0; i < mData->mActiveMaskSize[l][c]; ++i) {
@@ -428,7 +428,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     // Neighbor blocks
     mData->mNeighbourBlocks.resize(descriptor.getDepth());
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         mData->mNeighbourBlocks[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                                    26,
                                                                                    memOptions,
@@ -446,7 +446,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
 
     // loop over active blocks to populate the block origins, neighbors, and bitmask
-    for (int l = 0; l < int(descriptor.getDepth()); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         const int ref_factor = descriptor.getLevelRefFactor(l);
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
 
@@ -532,7 +532,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 
     if (backend.devType() == Neon::DeviceType::CUDA) {
-        for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+        for (int l = 0; l < descriptor.getDepth(); ++l) {
             mData->mActiveMask[l].updateCompute(backend, 0);
             mData->mOrigin[l].updateCompute(backend, 0);
             mData->mParent[l].updateCompute(backend, 0);
@@ -543,7 +543,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 
     mData->mPartitionIndexSpace.resize(descriptor.getDepth());
-    for (size_t l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
         for (const auto& dv : {Neon::DataView::STANDARD,
                                Neon::DataView::INTERNAL,
                                Neon::DataView::BOUNDARY}) {
