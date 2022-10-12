@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Neon/set/ContainerTools/ContainerAPI.h"
-#include "Neon/set/ContainerTools/Loader.h"
+#include "Neon/set/container/ContainerAPI.h"
+#include "Neon/set/container/Loader.h"
 
 namespace Neon::set::internal {
 
@@ -24,16 +24,19 @@ struct DeviceManagedContainer : ContainerAPI
      * @param data
      * @param userLambda
      */
-    DeviceManagedContainer(const std::string&                                 name,
-                           Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
-                           const DataContainer&                               dataIteratorContainer,
-                           std::function<ComputeLambdaT(Loader&)>             loadingLambda)
+    DeviceManagedContainer(const std::string&                                   name,
+                           Neon::set::internal::ContainerAPI::DataViewSupport   dataViewSupport,
+                           const DataContainer&                                 dataIteratorContainer,
+                           std::function<ComputeLambdaT(Neon::SetIdx, Loader&)> loadingLambda)
         : mLoadingLambda(loadingLambda),
           mDataContainer(dataIteratorContainer)
     {
-        setContainerType(ContainerType::deviceManaged);
+        setContainerExecutionType(ContainerExecutionType::deviceManaged);
         setDataViewSupport(dataViewSupport);
         setName(name);
+
+        this->parse();
+
     }
 
     auto newLoader(Neon::DeviceType devE,
@@ -61,8 +64,14 @@ struct DeviceManagedContainer : ContainerAPI
 
     auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
     {
-        auto parser = newParser();
-        this->mLoadingLambda(parser);
+        Neon::SetIdx setIdx(0);
+        if (!this->mParsingDataUpdated) {
+            auto parser = newParser();
+            this->m_loadingLambda(setIdx, parser);
+            this->mParsingDataUpdated = true;
+
+            this->setContainerPattern(this->getTokens());
+        }
         return getTokens();
     }
 
@@ -81,42 +90,37 @@ struct DeviceManagedContainer : ContainerAPI
      * @param streamIdx
      * @param dataView
      */
-    virtual auto run(int streamIdx = 0, Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
+    auto run(int streamIdx = 0, Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
     {
-        if (ContainerType::deviceManaged == this->getContainerType()) {
+        const Neon::Backend& bk = mDataContainer.getBackend();
+        const int            setCardinality = bk.devSet().setCardinality();
+
+#pragma omp parallel for num_threads(setCardinality)
+        for (int i = 0; i < setCardinality; ++i) {
+            run(Neon::SetIdx(i), streamIdx, dataView);
+        }
+    }
+
+    auto run(Neon::SetIdx   setIdx,
+             int            streamIdx = 0,
+             Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
+    {
+        if (ContainerExecutionType::deviceManaged == this->getContainerType()) {
             const Neon::Backend& bk = mDataContainer.getBackend();
 
             // We use device 0 as a dummy setIdx to create a loader.
             // The actual value is not important as the managed container will take care of launching on all devices.
             SetIdx         dummyTargetSetIdx = 0;
-            Loader         loader = this->newLoader(bk.devType(), dummyTargetSetIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
-            ComputeLambdaT computeLambda = this->mLoadingLambda(loader);
+            Loader         loader = this->newLoader(bk.devType(), setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
+            ComputeLambdaT computeLambda = this->mLoadingLambda(setIdx, loader);
             computeLambda(streamIdx, dataView);
+            return;
         }
         NEON_THROW_UNSUPPORTED_OPTION("");
     }
 
-    virtual auto run(Neon::SetIdx   setIdx,
-                     int            streamIdx = 0,
-                     Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
-    {
-        (void)setIdx;
-        (void)streamIdx;
-        (void)dataView;
-        NEON_DEV_UNDER_CONSTRUCTION("");
-        //        Neon::set::KernelConfig kernelConfig = m_dataContainer.getKernelConfig(streamIdx, dataView);
-        //        if (!isManaged()) {
-        //            NEON_THROW_UNSUPPORTED_OPTION("");
-        //        }
-        //        const Neon::Backend& bk = m_dataContainer.getBackend();
-        //
-        //        Loader        loader = this->newLoader(bk.devType(), 0, dataView, LoadingMode_e::EXTRACT_LAMBDA);
-        //        ComputeLambdaT managedLaunchFun = this->m_loadingLambda(loader);
-        //        managedLaunchFun(setIdx, streamIdx, dataView);
-    }
-
    private:
-    std::function<ComputeLambdaT(Loader&)> mLoadingLambda;
+    std::function<ComputeLambdaT(Neon::SetIdx, Loader&)> mLoadingLambda;
     /**
      * This is the container on which the function will be called
      * Most probably, this is going to be one of the grids: dGrid, eGrid
@@ -124,4 +128,4 @@ struct DeviceManagedContainer : ContainerAPI
     DataContainer mDataContainer;
 };
 
-}  // namespace Neon
+}  // namespace Neon::set::internal

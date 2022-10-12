@@ -32,10 +32,10 @@ struct Empty
 
 /**
  * DiGraph is a directed graph datastructure implemented using an adjacency list.
- * 
+ *
  * Self loops can be represented.
  * Parallel loops cannot be represented.
- * 
+ *
  * @tparam VertexProp Type representing the properties to be stored per-vertex
  * @tparam EdgeProp Type representing the properties to be stored per-edge
  */
@@ -188,6 +188,18 @@ class DiGraph
     }
 
     /**
+     * Run a function on each vertex in the graph
+     *
+     * @param fn Function that takes in a vertex and does something
+     */
+    void forEachVertex(std::function<void(size_t)> fn) const
+    {
+        for (auto& kv : mAdj) {
+            fn(kv.first);
+        }
+    }
+
+    /**
      * Returns a copy of incoming edges from a vertex as pairs of vertex ids
      *
      * @return Copy of incoming edges from given vertex
@@ -314,6 +326,21 @@ class DiGraph
     }
 
     /**
+     * Run a function on each edge
+     *
+     * @param fn Function that takes in an edge and does something
+     */
+    void forEachEdge(std::function<void(const Edge&)> fn) const
+    {
+        for (auto i : mAdj) {
+            size_t src = i.first;
+            for (size_t tgt : i.second) {
+                fn({src, tgt});
+            }
+        }
+    }
+
+    /**
      * Get a const-ref to the vertex property
      *
      * @param v Vertex
@@ -336,6 +363,7 @@ class DiGraph
         validateVertex(v);
         return mVprop.at(v);
     }
+
 
     /**
      * Set the vertex property
@@ -415,9 +443,9 @@ class DiGraph
 
     /**
      * Contract an edge by deleting the source vertex and connecting all its neighbors
-     * with the target vertex. The edge property of the removed vertex is set to all the 
+     * with the target vertex. The edge property of the removed vertex is set to all the
      * new edges.
-     * 
+     *
      * a--->c--->d
      *      ^
      *      |
@@ -449,9 +477,9 @@ class DiGraph
 
     /**
      * Contract an edge by deleting the source vertex and connecting all its neighbors
-     * with the target vertex The edge property of the removed vertex is set to all the 
+     * with the target vertex The edge property of the removed vertex is set to all the
      * new edges.
-     * 
+     *
      * a--->c--->d
      *      ^
      *      |
@@ -504,7 +532,8 @@ class DiGraph
      * @param v Vertex
      * @return Neighboring vertices of v
      */
-    const std::set<size_t> inNeighbors(size_t v) const
+    auto inNeighbors(size_t v) const
+        -> const std::set<size_t>
     {
         std::set<size_t> in;
         forEachInEdge(v, [&](const Edge& e) {

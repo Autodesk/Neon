@@ -120,12 +120,12 @@ auto DeviceTypeUtil::Cli::getStringOptions() -> std::string
 
 auto DeviceTypeUtil::Cli::addToReport(Neon::core::Report& report, Neon::core::Report::SubBlock& subBlock) -> void
 {
-    report.addMember("Executor", DeviceTypeUtil::toString(this->getOption()), &subBlock);
+    report.addMember("DeviceType", DeviceTypeUtil::toString(this->getOption()), &subBlock);
 }
 
 auto DeviceTypeUtil::Cli::addToReport(Neon::core::Report& report) -> void
 {
-    report.addMember("Executor", DeviceTypeUtil::toString(this->getOption()));
+    report.addMember("DeviceType", DeviceTypeUtil::toString(this->getOption()));
 }
 
 

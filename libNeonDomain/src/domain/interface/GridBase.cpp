@@ -93,6 +93,12 @@ auto GridBase::getBackend() const
     return mStorage->backend;
 }
 
+auto GridBase::getBackend()
+    -> Backend&
+{
+    return mStorage->backend;
+}
+
 auto GridBase::getDevSet() const
     -> const Neon::set::DevSet&
 {
