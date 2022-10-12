@@ -237,8 +237,7 @@ auto sGrid<OuterGridT>::getContainer(const std::string& name,
 }
 
 template <typename OuterGridT>
-auto sGrid<OuterGridT>::isInsideDomain(const index_3d&            idx,
-                                       [[maybe_unused]] const int level) const -> bool
+auto sGrid<OuterGridT>::isInsideDomain(const index_3d&            idx) const -> bool
 {
     SetIdx   sId;
     DataView dw;
@@ -250,8 +249,7 @@ auto sGrid<OuterGridT>::isInsideDomain(const index_3d&            idx,
 }
 
 template <typename OuterGridT>
-auto sGrid<OuterGridT>::getProperties(const index_3d&,
-                                      [[maybe_unused]] const int level) const
+auto sGrid<OuterGridT>::getProperties(const index_3d&) const
     -> typename GridBaseTemplate::CellProperties
 {
     NEON_THROW_UNSUPPORTED_OPERATION("");

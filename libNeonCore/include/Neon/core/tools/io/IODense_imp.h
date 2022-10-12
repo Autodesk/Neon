@@ -56,8 +56,8 @@ IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&  d,
 
 template <typename ExportType,
           typename IntType>
-IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&                                             d,
-                                      int                                                                    c,
+IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&                                                    d,
+                                      int                                                                           c,
                                       const std::function<ExportType(const Integer_3d<IntType>&, int cardinality)>& fun)
     : mSpace(d), mCardinality(c), mRepresentation(Representation::IMPLICIT), mImplicitFun(fun)
 
@@ -314,7 +314,7 @@ auto IODense<ExportType, IntType>::ioVtk(const std::string&       filename,
                                              origin,
                                              vtiIOe);
 
-    ioVtk.addField([&](index_3d idx, int card, int) -> ExportTypeVTK_ta {
+    ioVtk.addField([&](index_3d idx, int card) -> ExportTypeVTK_ta {
         return operator()(idx, card);
     },
                    getCardinality(), fieldName, nodeOrVoxel);

@@ -106,8 +106,7 @@ auto sField<OuterGridT, T, C>::initPartitions(Neon::set::MemSet_t<typename Outer
 template <typename OuterGridT, typename T, int C>
 
 auto sField<OuterGridT, T, C>::getReference(const Neon::index_3d& idx,
-                                            const int&            cardinality,
-                                            [[maybe_unused]] const int level)
+                                            const int&            cardinality)
     -> Type&
 {
     const Grid& grid = this->getGrid();
@@ -128,8 +127,7 @@ auto sField<OuterGridT, T, C>::getReference(const Neon::index_3d& idx,
 template <typename OuterGridT, typename T, int C>
 
 auto sField<OuterGridT, T, C>::operator()(const Neon::index_3d& idx,
-                                          const int&            cardinality,
-                                          [[maybe_unused]] const int level) const
+                                          const int&            cardinality) const
     -> Type
 {
     Grid const& grid = this->getGrid();

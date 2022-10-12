@@ -116,13 +116,13 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
     /**
      * Returns true if the specified point is in the domain
      */
-    auto isInsideDomain(const Neon::index_3d& idx, const int level = 0) const
+    auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool final;
 
     /**
      * Returns some properties for specified point
      */
-    auto getProperties(const Neon::index_3d& idx, const int level = 0) const
+    auto getProperties(const Neon::index_3d& idx) const
         -> typename Neon::domain::interface::GridBaseTemplate<sGrid<OuterGrid>, sCell>::CellProperties final;
 
    private:
