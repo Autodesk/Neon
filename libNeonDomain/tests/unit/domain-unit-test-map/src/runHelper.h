@@ -22,9 +22,9 @@ using namespace Neon::domain::tool;
 
 template <typename G, typename T, int C>
 void runAllTestConfiguration(
-                             std::function<void(TestData<G, T, C>&)> f,
-                             int                                     nGpus,
-                             int                                     minNumGpus)
+    std::function<void(TestData<G, T, C>&)> f,
+    int                                     nGpus,
+    int                                     minNumGpus)
 {
 
     std::vector<int> nGpuTest;
@@ -60,7 +60,12 @@ void runAllTestConfiguration(
             for (auto& geo : geos) {
                 for (const auto& ngpu : nGpuTest) {
                     for (const auto& runtime : runtimeE) {
-                        int maxnGPUs = Neon::set::DevSet::maxSet().setCardinality();
+                        int maxnGPUs = [] {
+                            if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+                                return Neon::set::DevSet::maxSet().setCardinality();
+                            }
+                            return 1;
+                        }();
 
                         std::vector<int> ids;
                         for (int i = 0; i < ngpu; i++) {
@@ -92,7 +97,7 @@ void runOneTestConfiguration(const std::string&                      gname,
                              std::function<void(TestData<G, T, C>&)> f,
                              int                                     nGpus,
                              int                                     minNumGpus = 1)
-{   
+{
     std::vector<int> nGpuTest{2};
     std::vector<int> cardinalityTest{1};
 
