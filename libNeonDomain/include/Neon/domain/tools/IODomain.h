@@ -248,7 +248,7 @@ auto IODomain<ExportType, intType_ta>::resetValuesToMasked(ExportType offset,
 template <typename ExportType, typename intType_ta>
 auto IODomain<ExportType, intType_ta>::resetValuesToConst(ExportType offset) -> void
 {
-    mField.forEach([&](const Integer_3d<intType_ta>& idx, int c, ExportType& val) {
+    mField.forEach([&](const Integer_3d<intType_ta>&, int, ExportType& val) {
         val = offset;
     });
 }
@@ -363,9 +363,9 @@ auto IODomain<ExportType, intType_ta>::maxDiff(const IODomain<ExportType, intTyp
     }
 
     a.forEachActive([&](const Integer_3d<intType_ta>& idx,
-                                 int                           c,
-                                 const ExportType&             valA,
-                                 const ExportType&             valB) {
+                        int                           c,
+                        const ExportType&             valA,
+                        const ExportType&             valB) {
         const auto newDiff = std::abs(valA - valB);
         const int  threadId = omp_get_thread_num();
         if (newDiff > std::get<0>(max_diff[threadId])) {
@@ -375,7 +375,7 @@ auto IODomain<ExportType, intType_ta>::maxDiff(const IODomain<ExportType, intTyp
             std::get<2>(md) = c;
         }
     },
-                             b);
+                    b);
 
     int target = 0;
     for (auto i = 1; i < nThreads; i++) {

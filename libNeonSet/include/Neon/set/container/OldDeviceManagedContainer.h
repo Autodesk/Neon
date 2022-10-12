@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Neon/set/ContainerTools/ContainerAPI.h"
-#include "Neon/set/ContainerTools/Loader.h"
+#include "Neon/set/container/ContainerAPI.h"
+#include "Neon/set/container/Loader.h"
 
 namespace Neon::set::internal {
 
@@ -31,7 +31,7 @@ struct OldDeviceManagedContainer : ContainerAPI
         : mLoadingLambda(loadingLambda),
           mDataContainer(dataIteratorContainer)
     {
-        setContainerType(ContainerType::deviceManaged);
+        setContainerExecutionType(ContainerExecutionType::deviceManaged);
         setDataViewSupport(dataViewSupport);
         setName(name);
     }

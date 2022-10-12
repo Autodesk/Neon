@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Neon/set/ContainerTools/ContainerAPI.h"
-#include "Neon/set/ContainerTools/Loader.h"
-#include "Neon/set/ContainerTools/OldDeviceManagedContainer.h"
+#include "Neon/set/container/ContainerAPI.h"
+#include "Neon/set/container/Loader.h"
+#include "Neon/set/container/OldDeviceManagedContainer.h"
 
 namespace Neon::set::internal {
 
@@ -37,7 +37,7 @@ struct DeviceThenHostManagedContainer : ContainerAPI
 
         this->setDataViewSupport(DataViewSupport::off);
 
-        setContainerType(ContainerType::deviceThenHostManaged);
+        setContainerExecutionType(ContainerExecutionType::deviceThenHostManaged);
         setName(name);
     }
 
@@ -106,6 +106,7 @@ struct DeviceThenHostManagedContainer : ContainerAPI
         if (Neon::DataView::STANDARD == dataView) {
             mDevice->run(streamIdx, Neon::DataView::STANDARD);
             mHost->run(streamIdx, Neon::DataView::STANDARD);
+            return ;
         }
         NEON_THROW_UNSUPPORTED_OPTION("A DeviceThenHostManagedContainer object can not be run directly.");
     }
