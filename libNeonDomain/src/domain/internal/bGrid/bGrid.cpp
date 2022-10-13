@@ -48,11 +48,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 
 
-    mData->dim.resize(mData->descriptor.getDepth());
-    mData->dim[0] = domainSize;
-
     mData->mBlockOriginTo1D.resize(descriptor.getDepth());
-    mData->mBlockOriginTo1D[0] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
+
 
     mData->mNumBlocks.resize(descriptor.getDepth());
     for (auto& nb : mData->mNumBlocks) {
@@ -63,65 +60,42 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     for (auto& av : mData->mNumActiveVoxel) {
         av = backend.devSet().template newDataSet<uint64_t>();
     }
-    mData->mNumActiveVoxel[0][0] = 0;
 
-
-    std::vector<Neon::int32_3d> numBlockInDomain(descriptor.getDepth());
-    numBlockInDomain[0].set(NEON_DIVIDE_UP(domainSize.x, descriptor.get0LevelRefFactor()),
-                            NEON_DIVIDE_UP(domainSize.y, descriptor.get0LevelRefFactor()),
-                            NEON_DIVIDE_UP(domainSize.z, descriptor.get0LevelRefFactor()));
+    mData->mTotalNumBlocks.resize(descriptor.getDepth());
 
 
     for (int i = 0; i < descriptor.getDepth(); ++i) {
+        mData->mNumActiveVoxel[i][0] = 0;
+
         const int refFactor = descriptor.getLevelRefFactor(i);
 
-        if (i > 0) {
+        const int spacing = descriptor.getSpacing(i);
 
-            mData->mNumActiveVoxel[i][0] = 0;
+        mData->mTotalNumBlocks[i].set(NEON_DIVIDE_UP(domainSize.x, spacing),
+                                      NEON_DIVIDE_UP(domainSize.y, spacing),
+                                      NEON_DIVIDE_UP(domainSize.z, spacing));
 
-            numBlockInDomain[i].set(NEON_DIVIDE_UP(numBlockInDomain[i - 1].x, refFactor),
-                                    NEON_DIVIDE_UP(numBlockInDomain[i - 1].y, refFactor),
-                                    NEON_DIVIDE_UP(numBlockInDomain[i - 1].z, refFactor));
+        mData->mBlockOriginTo1D[i] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
 
-            mData->dim[i].set(NEON_DIVIDE_UP(mData->dim[0].x, descriptor.getSpacing(i)),
-                              NEON_DIVIDE_UP(mData->dim[0].y, descriptor.getSpacing(i)),
-                              NEON_DIVIDE_UP(mData->dim[0].z, descriptor.getSpacing(i)));
-
-            mData->mBlockOriginTo1D[i] = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
-        }
-        std::vector<uint32_t> msk(NEON_DIVIDE_UP(refFactor * refFactor * refFactor * numBlockInDomain[i].x * numBlockInDomain[i].y * numBlockInDomain[i].z,
+        std::vector<uint32_t> msk(NEON_DIVIDE_UP(refFactor * refFactor * refFactor * mData->mTotalNumBlocks[i].rMul(),
                                                  Cell::sMaskSize),
                                   0);
         mData->denseLevelsBitmask.push_back(msk);
     }
 
-
-    auto flattened1DIndex = [&](int l, int blockX, int blockY, int blockZ, int localX, int localY, int localZ) {
-        int ref_factor = descriptor.getLevelRefFactor(l);
-
-        int blockID = blockX +
-                      blockY * numBlockInDomain[l].x +
-                      blockZ * numBlockInDomain[l].x * numBlockInDomain[l].y;
-
-        int id = localX +
-                 localY * ref_factor +
-                 localZ * ref_factor * ref_factor +
-                 blockID * ref_factor * ref_factor * ref_factor;
-
-        return id;
-    };
-
-    auto levelBitMaskIsSet = [&](int l, int blockX, int blockY, int blockZ, int localX, int localY, int localZ) {
-        const int Index1D = flattened1DIndex(l, blockX, blockY, blockZ, localX, localY, localZ);
-        const int mask = Index1D / Cell::sMaskSize;
-        const int bitPosition = Index1D % Cell::sMaskSize;
+    //check if the bitmask is set assuming a dense domain
+    auto levelBitMaskIsSet = [&](int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) {
+        const int index1D = mData->descriptor.flattened1DIndex(blockID, l, mData->mTotalNumBlocks[l], localChild);
+        const int mask = index1D / Cell::sMaskSize;
+        const int bitPosition = index1D % Cell::sMaskSize;
         return mData->denseLevelsBitmask[l][mask] & (1 << bitPosition);
     };
 
-    auto setLevelBitMask = [&](int l, int blockX, int blockY, int blockZ, int localX, int localY, int localZ) {
-        const int Index1D = flattened1DIndex(l, blockX, blockY, blockZ, localX, localY, localZ);
-        const int mask = Index1D / Cell::sMaskSize;
-        const int bitPosition = Index1D % Cell::sMaskSize;
+    //set the bitmask assuming a dense domain
+    auto setLevelBitMask = [&](int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) {
+        const int index1D = mData->descriptor.flattened1DIndex(blockID, l, mData->mTotalNumBlocks[l], localChild);
+        const int mask = index1D / Cell::sMaskSize;
+        const int bitPosition = index1D % Cell::sMaskSize;
         mData->denseLevelsBitmask[l][mask] |= (1 << bitPosition);
     };
 
@@ -133,9 +107,9 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
         const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
 
-        for (int bz = 0; bz < numBlockInDomain[l].z; bz++) {
-            for (int by = 0; by < numBlockInDomain[l].y; by++) {
-                for (int bx = 0; bx < numBlockInDomain[l].x; bx++) {
+        for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
+            for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
+                for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
 
                     Neon::int32_3d blockOrigin(bx * ref_factor_recurse,
                                                by * ref_factor_recurse,
@@ -152,12 +126,12 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
                                 if (voxel < domainSize) {
                                     //if it is already active
-                                    if (levelBitMaskIsSet(l, bx, by, bz, x, y, z)) {
+                                    if (levelBitMaskIsSet(l, {bx, by, bz}, {x, y, z})) {
                                         containVoxels = true;
                                     } else {
                                         if (activeCellLambda[l](voxel)) {
                                             containVoxels = true;
-                                            setLevelBitMask(l, bx, by, bz, x, y, z);
+                                            setLevelBitMask(l, {bx, by, bz}, {x, y, z});
                                         }
                                     }
                                 }
@@ -181,9 +155,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                               by % nxt_ref_factor,
                                                               bz % nxt_ref_factor);
 
-                            setLevelBitMask(l + 1,
-                                            parentBlock.x, parentBlock.y, parentBlock.z,
-                                            indexInParentBlock.x, indexInParentBlock.y, indexInParentBlock.z);
+                            setLevelBitMask(l + 1, parentBlock, indexInParentBlock);
                         }
                     }
                 }
@@ -202,9 +174,9 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                 const int ref_factor = descriptor.getLevelRefFactor(l);
                 const int prv_ref_factor_recurse = descriptor.getRefFactorRecurse(l - 1);
 
-                for (int bz = 0; bz < numBlockInDomain[l].z; bz++) {
-                    for (int by = 0; by < numBlockInDomain[l].y; by++) {
-                        for (int bx = 0; bx < numBlockInDomain[l].x; bx++) {
+                for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
+                    for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
+                        for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
 
 
                             for (int z = 0; z < ref_factor; z++) {
@@ -217,7 +189,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
 
                                         //if this voxel is active
-                                        if (levelBitMaskIsSet(l, bx, by, bz, x, y, z)) {
+                                        if (levelBitMaskIsSet(l, {bx, by, bz}, {x, y, z})) {
 
                                             for (int k = -1; k < 2; k++) {
                                                 for (int j = -1; j < 2; j++) {
@@ -251,9 +223,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                                                                    proxyVoxel.z % l_n_ref_factor);
 
                                                                 //find if this block origin is active
-                                                                if (levelBitMaskIsSet(l_n,
-                                                                                      nVoxelBlockOrigin.x, nVoxelBlockOrigin.y, nVoxelBlockOrigin.z,
-                                                                                      nVoxelLocalID.x, nVoxelLocalID.y, nVoxelLocalID.z)) {
+                                                                if (levelBitMaskIsSet(l_n, nVoxelBlockOrigin, nVoxelLocalID)) {
 
                                                                     //if this neighbor is at the same level or +1 level, then there is nothing else we should check on
                                                                     if (l_n == l || l_n == l + 1) {
@@ -261,9 +231,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                                     } else {
                                                                         //otherwise, we should refine the previous block and voxel
 
-                                                                        setLevelBitMask(l_n - 1,
-                                                                                        prv_nVoxelBlockOrigin.x, prv_nVoxelBlockOrigin.y, prv_nVoxelBlockOrigin.z,
-                                                                                        prv_nVoxelLocalID.x, prv_nVoxelLocalID.y, prv_nVoxelLocalID.z);
+                                                                        setLevelBitMask(l_n - 1, prv_nVoxelBlockOrigin, prv_nVoxelLocalID);
 
                                                                         again = true;
                                                                     }
@@ -299,9 +267,9 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         const int ref_factor = descriptor.getLevelRefFactor(l);
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
 
-        for (int bz = 0; bz < numBlockInDomain[l].z; bz++) {
-            for (int by = 0; by < numBlockInDomain[l].y; by++) {
-                for (int bx = 0; bx < numBlockInDomain[l].x; bx++) {
+        for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
+            for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
+                for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
 
                     Neon::int32_3d blockOrigin(bx * ref_factor_recurse,
                                                by * ref_factor_recurse,
@@ -313,7 +281,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                         for (int y = 0; y < ref_factor; y++) {
                             for (int x = 0; x < ref_factor; x++) {
 
-                                if (levelBitMaskIsSet(l, bx, by, bz, x, y, z)) {
+                                if (levelBitMaskIsSet(l, {bx, by, bz}, {x, y, z})) {
                                     numVoxelsInBlock++;
                                 }
                             }
@@ -441,6 +409,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                                                    mData->mNumBlocks[l]);
         // init neighbor blocks to invalid block id
         for (int32_t c = 0; c < mData->mNeighbourBlocks[l].cardinality(); ++c) {
+            //TODO
             SetIdx devID(c);
             for (uint64_t i = 0; i < mData->mNumBlocks[l][c]; ++i) {
                 for (int n = 0; n < 26; ++n) {
@@ -457,7 +426,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         const int ref_factor_recurse = descriptor.getRefFactorRecurse(l);
 
         mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-            // need to figure out which device owns this block
+            //TODO need to figure out which device owns this block
             SetIdx devID(0);
 
             mData->mOrigin[l].eRef(devID, blockIdx) = blockOrigin;
@@ -477,7 +446,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                 for (Cell::Location::Integer y = 0; y < ref_factor; y++) {
                     for (Cell::Location::Integer x = 0; x < ref_factor; x++) {
 
-                        if (levelBitMaskIsSet(l, block3DIndex.x, block3DIndex.y, block3DIndex.z, x, y, z)) {
+                        if (levelBitMaskIsSet(l, block3DIndex, {x, y, z})) {
                             setCellActiveMask(x, y, z);
                         }
                     }
@@ -567,7 +536,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDataView = dv;
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDomainSize = domainSize;
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mBlockSize = mData->descriptor.getLevelRefFactor(l);
-                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[0][gpuIdx]);
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[l][gpuIdx]);
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask[l].rawMem(gpuIdx, Neon::DeviceType::CPU);
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask[l].rawMem(gpuIdx, Neon::DeviceType::CUDA);
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mHostBlockOrigin = mData->mOrigin[l].rawMem(gpuIdx, Neon::DeviceType::CPU);
@@ -618,9 +587,12 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
 
     auto itr = mData->mBlockOriginTo1D[level].getMetadata(block_origin);
     if (itr) {
-        Cell cell(static_cast<Cell::Location::Integer>(idx.x % mData->descriptor.getLevelRefFactor(level)),
-                  static_cast<Cell::Location::Integer>(idx.y % mData->descriptor.getLevelRefFactor(level)),
-                  static_cast<Cell::Location::Integer>(idx.z % mData->descriptor.getLevelRefFactor(level)));
+        Neon::index_3d localID = mData->descriptor.toLocalIndex(idx, level);
+
+        Cell cell(static_cast<Cell::Location::Integer>(localID.x),
+                  static_cast<Cell::Location::Integer>(localID.y),
+                  static_cast<Cell::Location::Integer>(localID.z));
+
         cell.mBlockID = *itr;
         cell.mBlockSize = mData->descriptor.getLevelRefFactor(level);
         cell.mIsActive = cell.computeIsActive(mData->mActiveMask[level].rawMem(devID, Neon::DeviceType::CPU));
@@ -636,9 +608,9 @@ auto bGrid::getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> 
         return (n / m) * m;
     };
 
-    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->descriptor.getLevelRefFactor(level)),
-                                roundDownToNearestMultiple(idx.y, mData->descriptor.getLevelRefFactor(level)),
-                                roundDownToNearestMultiple(idx.z, mData->descriptor.getLevelRefFactor(level)));
+    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->descriptor.getSpacing(level)),
+                                roundDownToNearestMultiple(idx.y, mData->descriptor.getSpacing(level)),
+                                roundDownToNearestMultiple(idx.z, mData->descriptor.getSpacing(level)));
     return block_origin;
 }
 
@@ -723,12 +695,12 @@ auto bGrid::getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uin
     return mData->mNeighbourBlocks[level];
 }
 
-auto bGrid::getActiveMask(int level) const -> const Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getActiveMask(int level) const -> Neon::set::MemSet_t<uint32_t>&
 {
     return mData->mActiveMask[level];
 }
 
-auto bGrid::getBlockOriginTo1D(int level) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
+auto bGrid::getBlockOriginTo1D(int level) const -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
 {
     return mData->mBlockOriginTo1D[level];
 }
@@ -756,9 +728,14 @@ auto bGrid::getDescriptor() const -> const bGridDescriptor&
     return mData->descriptor;
 }
 
-auto bGrid::getDimension(int level) const -> const Neon::index_3d&
+auto bGrid::getDimension(int level) const -> const Neon::index_3d
 {
-    return mData->dim[level];
+    return mData->mTotalNumBlocks[level] * mData->descriptor.getLevelRefFactor(level);
+}
+
+auto bGrid::getNumBlocks(int level) const -> const Neon::index_3d&
+{
+    return mData->mTotalNumBlocks[level];
 }
 
 void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const

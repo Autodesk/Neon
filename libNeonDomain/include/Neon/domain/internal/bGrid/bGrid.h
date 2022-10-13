@@ -101,8 +101,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&;
     auto getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
     auto getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getActiveMask(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getBlockOriginTo1D(int level) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
+    auto getActiveMask(int level) const -> Neon::set::MemSet_t<uint32_t>&;
+    auto getBlockOriginTo1D(int level) const -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
     auto getParents(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
 
     //for compatibility with other grids that can work on cub and cublas engine
@@ -129,7 +129,18 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
                          Neon::DataView dataView,
                          const int      level = 0) -> Neon::set::KernelConfig;
 
-    auto getDimension(int level = 0) const -> const Neon::index_3d&;
+    /**
+     * Dimension is basically the number of blocks * refinement level which gives that number of voxels contained in certain level
+    */
+    auto getDimension(int level = 0) const -> const Neon::index_3d;
+
+    /**
+     * Number of blocks is the number blocks at a certain level where each block subsumes 
+     * a number of voxels defined by the refinement factor at this level. Note that level-0 is composed of
+     * number of blocks each containing number of voxels. In case of using bGrid as a uniform grid, the 
+     * total number of voxels can be obtained from getDimension
+    */
+    auto getNumBlocks(int level) const -> const Neon::index_3d&;
 
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level = 0) const -> Neon::int32_3d;
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
@@ -140,9 +151,6 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
    private:
     struct Data
     {
-        //number of blocks in each device
-        //std::vector so we store the number of blocks at each level
-        std::vector<Neon::set::DataSet<uint64_t>> mNumBlocks;
 
         //number of active voxels in each block at each level
         std::vector<Neon::set::DataSet<uint64_t>> mNumActiveVoxel;
@@ -186,8 +194,13 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //std::vector to store the map from the block origin to its 1d index per level
         std::vector<Neon::domain::tool::PointHashTable<int32_t, uint32_t>> mBlockOriginTo1D;
 
-        //the domain dimension at different level
-        std::vector<Neon::index_3d> dim;
+        //Total number of blocks in the domain
+        //std::vector so we store the number of blocks at each level
+        std::vector<Neon::index_3d> mTotalNumBlocks;
+
+        //number of blocks in each device
+        //std::vector so we store the number of blocks at each level
+        std::vector<Neon::set::DataSet<uint64_t>> mNumBlocks;
 
         bGridDescriptor descriptor{};
 

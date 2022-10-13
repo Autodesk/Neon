@@ -111,51 +111,33 @@ auto bField<T, C>::forEachActiveCell(const std::function<void(const Neon::index_
     -> void
 {
     const auto& descriptor = mData->mGrid->getDescriptor();
-    if constexpr (mode == Neon::computeMode_t::computeMode_e::par) {
-#ifdef _MSC_VER
-#pragma omp parallel for
-#else
-#pragma omp parallel for collapse(4)
-#endif
-        for (int l = 0; l < descriptor.getDepth(); ++l) {
-            for (int z = 0; z < mData->mGrid->getDimension(l).z; z++) {
-                for (int y = 0; y < mData->mGrid->getDimension(l).y; y++) {
-                    for (int x = 0; x < mData->mGrid->getDimension(l).x; x++) {
 
-                        //convert x,y,z to base/virtual index
-                        const Neon::index_3d index3D = descriptor.toBaseIndexSpace({x, y, z}, l);
+    //TODO need to figure out which device owns this block
+    SetIdx devID(0);
 
-                        for (int c = 0; c < this->getCardinality(); c++) {
-                            const bool isInside = this->isInsideDomain(index3D, l);
-                            if (isInside) {
-                                auto& ref = this->getReference(index3D, c, l);
-                                fun(index3D, c, ref, l);
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        const int refFactor = descriptor.getLevelRefFactor(l);
+
+        mData->mGrid->getBlockOriginTo1D(l).forEach(
+            [&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
+                for (int16_t z = 0; z < refFactor; z++) {
+                    for (int16_t y = 0; y < refFactor; y++) {
+                        for (int16_t x = 0; x < refFactor; x++) {
+
+                            Cell cell(x, y, z);
+                            cell.mBlockID = blockIdx;
+                            cell.mBlockSize = refFactor;
+                            if (cell.computeIsActive(mData->mGrid->getActiveMask(l).rawMem(devID, Neon::DeviceType::CPU))) {
+                                for (int c = 0; c < this->getCardinality(); c++) {
+                                    const Neon::index_3d local(x, y, z);
+                                    Neon::index_3d       index3D = blockOrigin + descriptor.toBaseIndexSpace(local, l);
+                                    fun(index3D, c, this->getReference(index3D, c, l), l);
+                                }
                             }
                         }
                     }
                 }
-            }
-        }
-    } else {
-        for (int l = 0; l < descriptor.getDepth(); ++l) {
-            for (int z = 0; z < mData->mGrid->getDimension(l).z; z++) {
-                for (int y = 0; y < mData->mGrid->getDimension(l).y; y++) {
-                    for (int x = 0; x < mData->mGrid->getDimension(l).x; x++) {
-
-                        //convert x,y,z to base/virtual index
-                        const Neon::index_3d index3D = descriptor.toBaseIndexSpace({x, y, z}, l);
-
-                        for (int c = 0; c < this->getCardinality(); c++) {
-                            const bool isInside = this->isInsideDomain(index3D, l);
-                            if (isInside) {
-                                auto& ref = this->getReference(index3D, c, l);
-                                fun(index3D, c, ref, l);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+            });
     }
 }
 template <typename T, int C>
@@ -207,12 +189,15 @@ auto bField<T, C>::getRef(const Neon::index_3d& idx,
     Neon::int32_3d block_origin = mData->mGrid->getOriginBlock3DIndex(idx, level);
 
     auto itr = mData->mGrid->getBlockOriginTo1D(level).getMetadata(block_origin);
-    int  refFactor = mData->mGrid->getDescriptor().getLevelRefFactor(level);
-    Cell cell(static_cast<Cell::Location::Integer>(idx.x % refFactor),
-              static_cast<Cell::Location::Integer>(idx.y % refFactor),
-              static_cast<Cell::Location::Integer>(idx.z % refFactor));
+
+    Neon::index_3d localID = mData->mGrid->getDescriptor().toLocalIndex(idx, level);
+
+    Cell cell(static_cast<Cell::Location::Integer>(localID.x),
+              static_cast<Cell::Location::Integer>(localID.y),
+              static_cast<Cell::Location::Integer>(localID.z));
+
     cell.mBlockID = *itr;
-    cell.mBlockSize = refFactor;
+    cell.mBlockSize = mData->mGrid->getDescriptor().getLevelRefFactor(level);
     return partition(cell, cardinality);
 }
 
@@ -306,7 +291,7 @@ auto bField<T, C>::ioToVtk(const std::string& fileName,
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
 
-        double spacing = (l == 0) ? 1 : double(descriptor.getSpacing(l));
+        double spacing = double(descriptor.getSpacing(l - 1));
 
         auto iovtk = IoToVTK<int, T>(fileName + "_level" + std::to_string(l),
                                      mData->mGrid->getDimension(l) + 1,

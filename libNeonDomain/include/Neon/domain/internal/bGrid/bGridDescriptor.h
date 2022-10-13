@@ -135,12 +135,103 @@ struct bGridDescriptor
 
 
     /**
-     * convert a voxel id from its index within its level (local index) to its corresponding virtual/base index     
+     * Convert a voxel id from its index within its level (local index) to its corresponding virtual/base index          
     */
-    Neon::index_3d toBaseIndexSpace(const Neon::index_3d id, int level) const
+    Neon::index_3d toBaseIndexSpace(const Neon::index_3d& id, const int level) const
     {
-        Neon::index_3d ret = id * mSpacing[level];
+        Neon::index_3d ret = id * getSpacing(level - 1);
         return ret;
+    }
+
+    /**
+     * Convert a voxel id from its virtual/base index to the index of the block containing it at a given level     
+    */
+    Neon::index_3d toLevelIndexSpace(const Neon::index_3d& id, const int level) const
+    {
+        Neon::index_3d ret = id / getSpacing(level - 1);
+        return ret;
+    }
+
+    /**
+     * Given a parent on the base/virtual index space, find the index of the child on the base/virtual index space 
+     * @param baseParent parent index on the base/virtual index space 
+     * @param parentLevel the level at which the parent resides 
+     * @param localChild child local index within the parent block 
+    */
+    Neon::index_3d parentToChild(const Neon::index_3d& baseParent, const int parentLevel, const Neon::index_3d& localChild)
+    {
+        if (localChild.x < 0 || localChild.y < 0 || localChild.z < 0) {
+            NeonException ex("bGridDescriptor::parentToChild()");
+            ex << "Child local index should be >=0. The input localChild: " << localChild;
+            NEON_THROW(ex);
+        }
+
+        if (localChild.x >= getLevelRefFactor(parentLevel) ||
+            localChild.y >= getLevelRefFactor(parentLevel) ||
+            localChild.z >= getLevelRefFactor(parentLevel)) {
+            NeonException ex("bGridDescriptor::parentToChild()");
+            ex << "Child local index should be less than the refinement factor of the parent. The input localChild: " << localChild;
+            NEON_THROW(ex);
+        }
+
+        Neon::index_3d ret = baseParent + localChild * getSpacing(parentLevel - 1);
+        return ret;
+    }
+
+
+    /**
+     * Convert the child local 3d index to 1d index 
+     * @param localChild child local index within the parent block 
+     * @param parentLevel the level at which the parent resides
+    */
+    int child1DIndex(const Neon::index_3d& localChild, int parentLevel) const
+    {
+        const int parentRefFactor = getLevelRefFactor(parentLevel);
+
+        return localChild.x +
+               localChild.y * parentRefFactor +
+               localChild.z * parentRefFactor * parentRefFactor;
+    }
+
+    /**
+     * Compute the 1d index of a child assuming that the grids (at the parent and child level) are dense. 
+     * @param parentID the parent index (at the parent level)
+     * @param parentLevel the level at which the parent resides 
+     * @param parenLevelNumBlocks number of blocks of in the grid at the parent level 
+     * @param localChild child local index within the parent block
+    */
+    int flattened1DIndex(const Neon::index_3d& parentID,
+                         const int             parentLevel,
+                         const Neon::index_3d& parenLevelNumBlocks,
+                         const Neon::index_3d& localChild) const
+    {
+        const int parentRefFactor = getLevelRefFactor(parentLevel);
+
+        int parentBlockID = parentID.x +
+                            parentID.y * parenLevelNumBlocks.x +
+                            parentID.z * parenLevelNumBlocks.x * parenLevelNumBlocks.y;
+
+        const int childID = child1DIndex(localChild, parentLevel) +
+                            parentBlockID * parentRefFactor * parentRefFactor * parentRefFactor;
+
+        return childID;
+    }
+
+
+    /**
+     * Given a child index in the base/virtual index space, return its local index within the parent of a given level 
+     * @return 
+    */
+    Neon::int32_3d toLocalIndex(const Neon::index_3d& baseChild, const int parentLevel) const
+    {
+        //fist lift up the child to the parent level -1
+        Neon::index_3d child = toLevelIndexSpace(baseChild, parentLevel);
+
+        const int parentRefFactor = getLevelRefFactor(parentLevel);
+
+        return {child.x % parentRefFactor,
+                child.y % parentRefFactor,
+                child.z % parentRefFactor};
     }
 
    private:
