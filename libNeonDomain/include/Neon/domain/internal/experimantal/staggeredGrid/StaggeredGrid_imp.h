@@ -85,9 +85,6 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
     mask.forEachActiveCell([&](const Neon::index_3d& idx, int, uint8_t& maskValue) {
         size_t voxPitch = idx.mPitch(nodeDim);
         maskValue = voxels[voxPitch];
-        if(maskValue){
-            std::cout << idx << std::endl;
-        }
     });
     mask.updateCompute(Neon::Backend::mainStreamIdx);
 

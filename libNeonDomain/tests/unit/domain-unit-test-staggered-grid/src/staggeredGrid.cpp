@@ -96,9 +96,8 @@ void StaggeredGrid_Map(TestData<G, T, C>& data)
 template <typename G, typename T, int C>
 void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
 {
-    auto& grid = data.getGrid();
     //
-    Neon::int32_3d                     dims{1, 2, 1};
+    Neon::int32_3d                     dims{3, 2, 4};
     std::vector<Neon::domain::Stencil> empty;
     using FeaGrid = Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<G>;
     FeaGrid FEA(
@@ -122,23 +121,39 @@ void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
         value = idx.v[cardinality];
     });
 
+    auto errorFlagField = FEA.template newVoxelField<TEST_TYPE, 1>("ErrorFlag", 1, 0);
+
+
     nodeIDX.updateCompute(Neon::Backend::mainStreamIdx);
     voxelIDX.updateCompute(Neon::Backend::mainStreamIdx);
 
-    const std::string appName(testFilePrefix + "_VoxToNodes_" + grid.getImplementationName());
-    
+    //    const std::string appName(testFilePrefix + "_VoxToNodes_" + grid.getImplementationName());
+    //
+    //    nodeIDX.ioToVtk(appName + "-nodeIDX_0000", "density");
+    //    voxelIDX.ioToVtk(appName + "-voxelIDX_0000", "density");
 
-    nodeIDX.ioToVtk(appName + "-nodeIDX_0000", "density");
-    voxelIDX.ioToVtk(appName + "-voxelIDX_0000", "density");
 
-    Containers<FeaGrid, TEST_TYPE>::sumNodesOnVoxels(voxelIDX, nodeIDX).run(Neon::Backend::mainStreamIdx);
-    nodeIDX.updateIO(Neon::Backend::mainStreamIdx);
-    voxelIDX.updateIO(Neon::Backend::mainStreamIdx);
-
+    Containers<FeaGrid, TEST_TYPE>::sumNodesOnVoxels(voxelIDX,
+                                                     nodeIDX,
+                                                     errorFlagField)
+        .run(Neon::Backend::mainStreamIdx);
+    errorFlagField.updateIO(Neon::Backend::mainStreamIdx);
     data.getBackend().sync(Neon::Backend::mainStreamIdx);
 
-    nodeIDX.ioToVtk(appName + "-temperature_0001", "temperature");
-    voxelIDX.ioToVtk(appName + "-density_0001", "density");
+    bool errorDetected = false;
+
+    nodeIDX.forEachActiveCell([&](const Neon::index_3d& idx,
+                                  const int&            /*cardinality*/,
+                                  TEST_TYPE&            value) {
+        if (value != 0) {
+            if (value == Containers<FeaGrid, TEST_TYPE>::errorCode) {
+                errorDetected = true;
+                std::cout << "Error detected at " << idx << std::endl;
+            }
+        }
+    });
+
+    ASSERT_TRUE(!errorDetected);
 }
 
 

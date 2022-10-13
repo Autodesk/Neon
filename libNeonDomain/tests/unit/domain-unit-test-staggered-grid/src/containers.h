@@ -7,6 +7,9 @@
 template <typename StaggeredGrid, typename T>
 struct Containers
 {
+    static constexpr int errorCode = -11;
+    static constexpr int noErrorCode = 11;
+
     using Self = Containers<StaggeredGrid, T>;
 
     using Type = T;
@@ -23,8 +26,9 @@ struct Containers
         -> Neon::set::Container;
 
     static auto sumNodesOnVoxels(Self::VoxelField_3 fieldVox,
-                                 Self::NodeField_3  fieldNode) -> Neon::set::Container;
-
+                                 Self::NodeField_3  fieldNode,
+                                 Self::VoxelField   errorFlag) -> Neon::set::Container;
+    Neon::set::Container sumVoxelsOnNodes(NodeField_3 fieldNode, VoxelField_3 fieldVox, NodeField errorFlagField);
 };
 
 

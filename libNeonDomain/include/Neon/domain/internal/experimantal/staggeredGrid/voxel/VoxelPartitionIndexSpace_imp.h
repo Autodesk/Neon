@@ -15,12 +15,12 @@ inline auto VoxelPartitionIndexSpace<BuildingBlockGridT>::setAndValidate(Cell&  
     const
     -> bool
 {
-    mBuildingBlocksPIdxSpace.setAndValidate(cell.getBuildingBlockCell(), x, y, z);
-    const bool isActive =  mActiveFlag(cell.getBuildingBlockCell(), 0) == 1;
-    if(isActive){
-        printf("%ld %ld %ld \n",x,y,z);
+    bool isCellActiveInNodeSpace = mBuildingBlocksPIdxSpace.setAndValidate(cell.getBuildingBlockCell(), x, y, z);
+    if(isCellActiveInNodeSpace){
+        const bool isActiveVoxel =  mActiveFlag(cell.getBuildingBlockCell(), 0) == 1;
+        return isActiveVoxel;
     }
-    return isActive;
+    return false;
 }
 
 template <typename BuildingBlockGridT>
