@@ -28,7 +28,11 @@ struct Containers
     static auto sumNodesOnVoxels(Self::VoxelField_3 fieldVox,
                                  Self::NodeField_3  fieldNode,
                                  Self::VoxelField   errorFlag) -> Neon::set::Container;
-    Neon::set::Container sumVoxelsOnNodes(NodeField_3 fieldNode, VoxelField_3 fieldVox, NodeField errorFlagField);
+
+    static auto sumVoxelsOnNodes(Self::NodeField_3  fieldNode,
+                                 Self::VoxelField_3 fieldVox,
+                                 Self::NodeField    errorFlagField)
+        ->Neon::set::Container;
 };
 
 

@@ -124,7 +124,7 @@ auto NodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution
         NEON_THROW_UNSUPPORTED_OPERATION(message.str())
     }
 
-     auto& partition = s.getPartition(execution, dataView, setIdx);
+    auto& partition = s.getPartition(execution, dataView, setIdx);
 
     return partition;
 }
@@ -138,14 +138,14 @@ auto NodeField<BuildingBlockGridT, T, C>::swap(NodeField& A, NodeField& B) -> vo
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-NodeField<BuildingBlockGridT, T, C>::NodeField(const std::string&                   fieldUserName,
-                                               Neon::DataUse                        dataUse,
-                                               const Neon::MemoryOptions&           memoryOptions,
-                                               const Grid&                          grid,
-                                               const typename BuildingBlocks::Grid& buildingBlockGrid,
-                                               int                                  cardinality,
-                                               T                                    outsideVal,
-                                               Neon::domain::haloStatus_et::e       haloStatus)
+NodeField<BuildingBlockGridT, T, C>::NodeField(const std::string&                                   fieldUserName,
+                                               Neon::DataUse                                        dataUse,
+                                               const Neon::MemoryOptions&                           memoryOptions,
+                                               const Grid&                                          grid,
+                                               const typename BuildingBlocks::Grid&                 buildingBlockGrid,
+                                               int                                                  cardinality,
+                                               T                                                    outsideVal,
+                                               Neon::domain::haloStatus_et::e                       haloStatus)
     : Neon::domain::interface::FieldBaseTemplate<T, C, typename Self::Grid, typename Self::Partition, Storage>(&grid,
                                                                                                                fieldUserName,
                                                                                                                std::string("Staggered-") + buildingBlockGrid.getImplementationName(),
@@ -160,7 +160,8 @@ NodeField<BuildingBlockGridT, T, C>::NodeField(const std::string&               
                                                                         dataUse,
                                                                         memoryOptions);
 
-    this->getStorage() = Storage(buildingBlockField, dataUse);
+    this->getStorage() = Storage(buildingBlockField,
+                                 dataUse);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>

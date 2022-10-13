@@ -9,6 +9,7 @@
 #include "Neon/sys/memory/CudaIntrinsics.h"
 #include "Neon/sys/memory/mem3d.h"
 #include "NodeGeneric.h"
+#include "NodeToVoxelMask.h"
 
 namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
@@ -27,7 +28,7 @@ struct NodePartition
     using Self = NodePartition<BuildingBlockGridT, T_ta, cardinality_ta>;
     using PartitionIndexSpace = typename BuildingBlockGridT::PartitionIndexSpace;
     using Node = NodeGeneric<BuildingBlockGridT>;
-    using Element = VoxelGeneric<BuildingBlockGridT>;
+    using Voxel = VoxelGeneric<BuildingBlockGridT>;
     using Type = T_ta;
 
    public:
@@ -40,29 +41,36 @@ struct NodePartition
         mBuildingBlockPartition = partition;
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto operator()(const Self::Node& node,
-                                                 int               cardinalityIdx) -> T_ta&
+    NEON_CUDA_HOST_DEVICE inline auto
+    operator()(const Self::Node& node,
+               int               cardinalityIdx)
+        -> T_ta&
     {
         return mBuildingBlockPartition(node.getBuildingBlockCell(), cardinalityIdx);
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto operator()(const Self::Node& node,
-                                                 int               cardinalityIdx) const -> const T_ta&
+    NEON_CUDA_HOST_DEVICE inline auto
+    operator()(const Self::Node& node,
+               int               cardinalityIdx) const
+        -> const T_ta&
     {
         return mBuildingBlockPartition(node.getBuildingBlockCell(), cardinalityIdx);
     }
 
 
-    NEON_CUDA_HOST_DEVICE inline auto cardinality() const -> int
+    NEON_CUDA_HOST_DEVICE inline auto cardinality() const
+        -> int
     {
         return mBuildingBlockPartition.cardinality();
     }
 
+    // From a voxel handle to node data
     template <int8_t sx,
               int8_t sy,
               int8_t sz>
-    NEON_CUDA_HOST_DEVICE inline auto operator()(const Self::Element& element,
-                                                 int                  cardinalityIdx) const -> T_ta
+    NEON_CUDA_HOST_DEVICE inline auto
+    operator()(const Self::Voxel& element,
+               int                cardinalityIdx) const -> T_ta
     {
         return BuildingBlocks::Partition::nghVal() < sx == -1 ? 0 : sx,
                sy == -1 ? 0 : sy,
@@ -72,15 +80,16 @@ struct NodePartition
     template <int8_t sx,
               int8_t sy,
               int8_t sz>
-    NEON_CUDA_HOST_DEVICE inline auto getNodeValue(const Self::Element& element,
-                                                   int                  cardinalityIdx,
-                                                   T_ta                 alternative) const -> T_ta
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghNodeValue(const Voxel& voxel,
+                 int          cardinalityIdx,
+                 T_ta         alternative) const -> T_ta
     {
         constexpr int8_t x = sx == -1 ? 0 : 1;
         constexpr int8_t y = sy == -1 ? 0 : 1;
         constexpr int8_t z = sz == -1 ? 0 : 1;
 
-        return mBuildingBlockPartition.template nghVal<x, y, z>(element.getBuildingBlockCell(), cardinalityIdx, alternative).value;
+        return mBuildingBlockPartition.template nghVal<x, y, z>(voxel.getBuildingBlockCell(), cardinalityIdx, alternative).value;
     }
 
    private:

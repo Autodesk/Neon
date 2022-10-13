@@ -30,14 +30,17 @@
 namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
-VoxelGrid<BuildingBlockGridT>::VoxelGrid(typename BuildingBlocks::Grid&                             buildingBlockGrid,
-                                         const typename BuildingBlocks::template Field<uint8_t, 1>& mask)
+VoxelGrid<BuildingBlockGridT>::VoxelGrid(typename BuildingBlocks::Grid&                                     buildingBlockGrid,
+                                         const typename BuildingBlocks::template Field<uint8_t, 1>&         mask,
+                                         const typename BuildingBlocks::template Field<NodeToVoxelMask, 1>& nodeToVoxelMaskField)
 {
     const Neon::Backend& bk = buildingBlockGrid.getBackend();
     auto&                dev = bk.devSet();
+
     mStorage = std::make_shared<Storage>();
     mStorage->buildingBlockGrid = buildingBlockGrid;
     mStorage->mask = mask;
+    mStorage->nodeToVoxelMaskField = nodeToVoxelMaskField;
 
     // Initializing the data set for all configurations for a PartitionIndexSpace
     for (auto devType : Neon::DeviceTypeUtil::getOptions()) {
@@ -68,7 +71,7 @@ VoxelGrid<BuildingBlockGridT>::VoxelGrid(typename BuildingBlocks::Grid&         
     }
     {
         auto spacing = buildingBlockGrid.getSpacing();
-        auto origin = buildingBlockGrid.getOrigin();// + (spacing / 2.0);
+        auto origin = buildingBlockGrid.getOrigin();  // + (spacing / 2.0);
         auto dim = buildingBlockGrid.getDimension() - 1;
 
         Self::GridBase::init(std::string("NodeGird-") + mStorage->buildingBlockGrid.getImplementationName(),
@@ -84,8 +87,8 @@ VoxelGrid<BuildingBlockGridT>::VoxelGrid(typename BuildingBlocks::Grid&         
 
 template <typename BuildingBlockGridT>
 auto VoxelGrid<BuildingBlockGridT>::getPartitionIndexSpace(Neon::DeviceType deviceType,
-                                                           SetIdx         setIdx,
-                                                           Neon::DataView dataView)
+                                                           SetIdx           setIdx,
+                                                           Neon::DataView   dataView)
     -> const PartitionIndexSpace&
 {
     const auto dwIdx = Neon::DataViewUtil::toInt(dataView);
@@ -130,6 +133,7 @@ auto VoxelGrid<BuildingBlockGridT>::newVoxelField(const std::string   fieldUserN
                                                dataUse,
                                                memoryOptions,
                                                *this,
+                                               mStorage->nodeToVoxelMaskField,
                                                mStorage->buildingBlockGrid,
                                                cardinality,
                                                inactiveValue,
@@ -226,11 +230,18 @@ template <typename BuildingBlockGridT>
 auto VoxelGrid<BuildingBlockGridT>::getProperties(const index_3d& idx)
     const -> typename Self::GridBaseTemplate::CellProperties
 {
-    auto                                      boudlingBlockProperties = mStorage->buildingBlockGrid.getProperties(idx);
+    auto boudlingBlockProperties = mStorage->buildingBlockGrid.getProperties(idx);
+
     typename GridBaseTemplate::CellProperties output;
     output.init(boudlingBlockProperties.getSetIdx(),
                 boudlingBlockProperties.getDataView(),
                 boudlingBlockProperties.getOuterCell());
+
+    if (boudlingBlockProperties.isInside() && mStorage->mask(idx, 0) == 1) {
+        output.setIsInside(true);
+    } else {
+        output.setIsInside(false);
+    }
     return output;
 }
 
@@ -250,14 +261,14 @@ auto VoxelGrid<BuildingBlockGridT>::getContainerOnVoxels(const std::string& name
     const -> Neon::set::Container
 {
 
-     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
-     Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                      *this,
-                                                                      lambda,
-                                                                      blockSize,
-                                                                      [&](const Neon::index_3d&) { return size_t(sharedMem); });
-     return kContainer;
+    const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
+    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
+                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                     *this,
+                                                                     lambda,
+                                                                     blockSize,
+                                                                     [&](const Neon::index_3d&) { return size_t(sharedMem); });
+    return kContainer;
 }
 
 template <typename BuildingBlockGridT>

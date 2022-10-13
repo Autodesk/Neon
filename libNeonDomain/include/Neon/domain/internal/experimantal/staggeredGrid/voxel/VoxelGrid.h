@@ -22,6 +22,7 @@
 
 #include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeGeneric.h"
 
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeToVoxelMask.h"
 #include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelField.h"
 #include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGeneric.h"
 #include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelPartition.h"
@@ -70,8 +71,9 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
     /**
      * Constructor compatible with the general grid API
      */
-    explicit VoxelGrid(typename BuildingBlocks::Grid&                             buildingBlockGrid,
-                       const typename BuildingBlocks::template Field<uint8_t, 1>& mask);
+    explicit VoxelGrid(typename BuildingBlocks::Grid&                                     buildingBlockGrid,
+                       const typename BuildingBlocks::template Field<uint8_t, 1>&         mask,
+                       const typename BuildingBlocks::template Field<Neon::domain::internal::experimental::staggeredGrid::details::NodeToVoxelMask, 1>& nodeToVoxelMaskField);
 
     auto getBuildingBlockGrid()
         -> typename BuildingBlocks::Grid&;
@@ -124,14 +126,14 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
 
     template <typename T, int C>
     auto dot(const std::string&               name,
-             VoxelField<T, C>&                 input1,
-             VoxelField<T, C>&                 input2,
+             VoxelField<T, C>&                input1,
+             VoxelField<T, C>&                input2,
              Neon::template PatternScalar<T>& scalar) const
         -> Neon::set::Container;
 
     template <typename T, int C>
     auto norm2(const std::string&               name,
-               VoxelField<T, C>&                 input,
+               VoxelField<T, C>&                input,
                Neon::template PatternScalar<T>& scalar) const
         -> Neon::set::Container;
 
@@ -162,9 +164,11 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
 
     struct Storage
     {
-        typename BuildingBlocks::Grid                                                                                               buildingBlockGrid;
         std::array<std::array<Neon::set::DataSet<PartitionIndexSpace>, Neon::DataViewUtil::nConfig>, Neon::DeviceTypeUtil::nConfig> partitionIndexSpace;
+
+        typename BuildingBlocks::Grid                                                                                               buildingBlockGrid;
         typename BuildingBlocks::template Field<uint8_t, 1>                                                                         mask;
+        typename BuildingBlocks::template Field<NodeToVoxelMask, 1>                                                                 nodeToVoxelMaskField;
     };
 
     std::shared_ptr<Storage> mStorage;

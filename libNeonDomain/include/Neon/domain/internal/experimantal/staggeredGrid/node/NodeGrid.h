@@ -26,6 +26,7 @@
 #include "Neon/domain/internal/experimantal/staggeredGrid/node/NodePartitionIndexSpace.h"
 
 #include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGeneric.h"
+#include "NodeToVoxelMask.h"
 
 
 namespace Neon::domain::internal::experimental::staggeredGrid::details {
@@ -66,7 +67,7 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
     /**
      * Constructor compatible with the general grid API
      */
-    explicit NodeGrid(typename BuildingBlocks::Grid& buildingBlockGrid);
+    explicit NodeGrid(typename BuildingBlocks::Grid&                               buildingBlockGrid);
 
     auto getBuildingBlockGrid()
         -> typename BuildingBlocks::Grid&;
@@ -135,6 +136,9 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
         -> bool;
 
    private:
+    auto getNodeToVoxelMaskField()
+        -> typename BuildingBlocks::template Field<NodeToVoxelMask, 1>&;
+
     auto flattenedLengthSet(Neon::DataView dataView = Neon::DataView::STANDARD)
         const -> const Neon::set::DataSet<size_t>;
 
@@ -178,4 +182,4 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
 
 #include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeField_imp.h"
 #include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeGeneric_imp.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodePartitionIndexSpace_imp.h" 
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodePartitionIndexSpace_imp.h"

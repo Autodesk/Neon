@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Neon/domain/internal/experimantal/staggeredGrid/StaggeredGrid.h"
-
+#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeToVoxelMask.h"
 
 namespace Neon::domain::internal::experimental::staggeredGrid {
 
@@ -58,8 +58,7 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
                 {0, 1, 1},
                 {0, 1, 0},
                 {0, 0, 1},
-                {0, 0, 0}
-            };
+                {0, 0, 0}};
 
             for (auto a : nodeOffset) {
                 a = a + queryPoint;
@@ -74,7 +73,7 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
         nodeDim,
         [&](const Neon::index_3d& idx) {
             const size_t pitch = idx.mPitch(nodeDim);
-            bool isIn =  nodes[pitch] == 1;
+            bool         isIn = nodes[pitch] == 1;
             return isIn;
         },
         feaVoxelFirstOrderStencil,
@@ -88,9 +87,29 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
     });
     mask.updateCompute(Neon::Backend::mainStreamIdx);
 
+    using NodeToVoxelMask = Neon::domain::internal::experimental::staggeredGrid::details::NodeToVoxelMask;
+    auto nodeToVoxelMask = mStorage->buildingBlockGrid.template newField<NodeToVoxelMask, 1>("NodeToVoxelMask", 1, NodeToVoxelMask(), Neon::DataUse::IO_COMPUTE);
+
+    nodeToVoxelMask.forEachActiveCell([&](const Neon::index_3d& queryPoint, int, NodeToVoxelMask& nodeToVoxelMaskValue) {
+        nodeToVoxelMaskValue.reset();
+
+        for (auto a : NodeToVoxelMask::directions) {
+            Neon::int32_3d neighbourInVoxelSpace;
+
+            for (int i = 0; i < 3; i++) {
+                neighbourInVoxelSpace.v[i] = (a[i] == 1 ? a[i] - 1 : a[i]) + queryPoint.v[i];
+            };
+            auto voxelStatus = mask(neighbourInVoxelSpace, 0);
+            if (voxelStatus == 1) {
+                nodeToVoxelMaskValue.setAsValid(a[0], a[1], a[2]);
+            }
+        }
+    });
+    nodeToVoxelMask.updateCompute(Neon::Backend::mainStreamIdx);
+
     mStorage->nodeGrid = Self::NodeGrid(mStorage->buildingBlockGrid);
 
-    mStorage->voxelGrid = Self::VoxelGrid(mStorage->buildingBlockGrid, mask);
+    mStorage->voxelGrid = Self::VoxelGrid(mStorage->buildingBlockGrid, mask, nodeToVoxelMask);
 
     Self::GridBase::init(std::string("FeaNodeGird-") + mStorage->buildingBlockGrid.getImplementationName(),
                          backend,
@@ -126,19 +145,19 @@ auto StaggeredGrid<BuildingBlockGridT>::newNodeField(const std::string&  fieldUs
 template <typename BuildingBlockGridT>
 template <typename T, int C>
 auto StaggeredGrid<BuildingBlockGridT>::newVoxelField(const std::string&  fieldUserName,
-                                                     int                 cardinality,
-                                                     T                   inactiveValue,
-                                                     Neon::DataUse       dataUse,
-                                                     Neon::MemoryOptions memoryOptions) const
+                                                      int                 cardinality,
+                                                      T                   inactiveValue,
+                                                      Neon::DataUse       dataUse,
+                                                      Neon::MemoryOptions memoryOptions) const
     -> VoxelField<T, C>
 {
 
     auto& voxelGrid = mStorage->voxelGrid;
     auto  output = voxelGrid.template newVoxelField<T, C>(fieldUserName,
-                                                       cardinality,
-                                                       inactiveValue,
-                                                       dataUse,
-                                                       memoryOptions);
+                                                         cardinality,
+                                                         inactiveValue,
+                                                         dataUse,
+                                                         memoryOptions);
     return output;
 }
 

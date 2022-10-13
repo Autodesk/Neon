@@ -252,5 +252,11 @@ auto NodeGrid<BuildingBlockGridT>::getBuildingBlockGrid()
     return mStorage->buildingBlockGrid;
 }
 
+template <typename BuildingBlockGridT>
+auto NodeGrid<BuildingBlockGridT>::getNodeToVoxelMaskField() -> typename BuildingBlocks::template Field<NodeToVoxelMask, 1>&
+{
+    return mStorage->nodeToVoxelMaskField;
+}
+
 
 }  // namespace Neon::domain::internal::experimental::staggeredGrid::details

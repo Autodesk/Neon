@@ -142,6 +142,7 @@ VoxelField<BuildingBlockGridT, T, C>::VoxelField(const std::string&             
                                                  Neon::DataUse                        dataUse,
                                                  const Neon::MemoryOptions&           memoryOptions,
                                                  const Grid&                          grid,
+                                                 const typename BuildingBlocks::FieldNodeToVoxelMask& nodeToVoxelMaskField,
                                                  const typename BuildingBlocks::Grid& buildingBlockGrid,
                                                  int                                  cardinality,
                                                  T                                    outsideVal,
@@ -159,7 +160,9 @@ VoxelField<BuildingBlockGridT, T, C>::VoxelField(const std::string&             
                                                                                       outsideVal,
                                                                                       dataUse,
                                                                                       memoryOptions);
-    this->getStorage() = Storage(buildingBlockField, dataUse);
+    this->getStorage() = Storage(buildingBlockField,
+                                 nodeToVoxelMaskField,
+                                 dataUse);
 
 }
 

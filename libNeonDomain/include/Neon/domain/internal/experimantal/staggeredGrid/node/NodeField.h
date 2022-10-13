@@ -30,7 +30,8 @@ struct NodeStorage
    public:
     NodeStorage() = default;
 
-    NodeStorage(typename BuildingBlocks::Field& buildingBlocksField, Neon::DataUse dataUse)
+    NodeStorage(typename BuildingBlocks::Field& buildingBlocksField,
+                Neon::DataUse                   dataUse)
         : mBuildingBlockField(buildingBlocksField), mDataUse(dataUse)
     {
         auto& bk = buildingBlocksField.getGrid().getBackend();
@@ -49,6 +50,7 @@ struct NodeStorage
                     getPartitionDataSet(execution, dw) = bk.devSet().template newDataSet<NodePartition<BuildingBlockGridT, T, C>>();
                     for (Neon::SetIdx setIdx : bk.devSet().getRange()) {
                         const typename BuildingBlocks::Partition& buildingBlocksPartition = mBuildingBlockField.getPartition(execution, setIdx.idx(), dw);
+
                         this->getPartition(execution, dw, setIdx.idx()) = NodePartition<BuildingBlockGridT, T, C>(buildingBlocksPartition);
                     }
                 }
@@ -139,6 +141,7 @@ class NodeField : public Neon::domain::interface::FieldBaseTemplate<T,
     {
         using Grid = BuildingBlockGridT;
         using Partition = typename BuildingBlockGridT::template Partition<T, C>;
+        using FieldNodeToVoxelMask = typename BuildingBlockGridT::template Field<NodeToVoxelMask, 1>;
     };
 
 
@@ -241,7 +244,7 @@ class NodeField : public Neon::domain::interface::FieldBaseTemplate<T,
               const Grid&                          grid,
               const typename BuildingBlocks::Grid& buildingBlockGrid,
               int                                  cardinality,
-              T                                    inactiveValue,
+              T                                    outsideVal,
               Neon::domain::haloStatus_et::e       haloStatus);
 
 
