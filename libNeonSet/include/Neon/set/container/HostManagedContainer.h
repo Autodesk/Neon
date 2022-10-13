@@ -1,15 +1,10 @@
 #pragma once
 
-#include "Neon/set/ContainerTools/ContainerAPI.h"
-#include "Neon/set/ContainerTools/Loader.h"
+#include "Neon/set/container/ContainerAPI.h"
+#include "Neon/set/container/HostManagedSyncType.h"
+#include "Neon/set/container/Loader.h"
 
 namespace Neon::set::internal {
-
-enum struct HostManagedSyncType
-{
-    singleGPU,
-    multiGPU
-};
 
 /**
  * This Container run operation on the host
@@ -35,18 +30,22 @@ struct HostManagedContainer : ContainerAPI
      * @param data
      * @param userLambda
      */
-    HostManagedContainer(const std::string&                     name,
-                         ContainerAPI::DataViewSupport          dataViewSupport,
-                         const DataContainerT&                  dataIteratorContainer,
-                         std::function<ComputeLambdaT(Loader&)> loadingLambda,
-                         HostManagedSyncType                    syncType)
+    HostManagedContainer(const std::string&                                   name,
+                         ContainerAPI::DataViewSupport                        dataViewSupport,
+                         const DataContainerT&                                dataIteratorContainer,
+                         std::function<ComputeLambdaT(Neon::SetIdx, Loader&)> loadingLambda,
+                         HostManagedSyncType                                  preSyncType,
+                         HostManagedSyncType                                  presSyncType)
         : mLoadingLambda(loadingLambda),
           mDataContainer(dataIteratorContainer)
     {
-        setContainerType(ContainerType::hostManaged);
+        setContainerExecutionType(ContainerExecutionType::hostManaged);
         setDataViewSupport(dataViewSupport);
         setName(name);
-        mSyncType = syncType;
+        mPreSyncType = preSyncType;
+        mPostSyncType = presSyncType;
+
+        this->parse();
     }
 
     auto newLoader(Neon::DeviceType devE,
@@ -74,23 +73,28 @@ struct HostManagedContainer : ContainerAPI
 
     auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
     {
-        auto parser = newParser();
-        this->mLoadingLambda(parser);
+        auto         parser = newParser();
+        Neon::SetIdx setIdx(0);
+        this->mLoadingLambda(setIdx, parser);
         return getTokens();
     }
 
-    auto getHostContainer() -> internal::ContainerAPI& override
+    auto getHostContainer() -> std::shared_ptr<ContainerAPI> override
     {
         NEON_THROW_UNSUPPORTED_OPTION("This is already a host Container.");
     }
 
+    auto getDeviceContainer() -> std::shared_ptr<ContainerAPI> override
+    {
+        NEON_THROW_UNSUPPORTED_OPTION("This is a host Container.");
+    }
     /**
      * Run container over streams
      * @param streamIdx
      * @param dataView
      */
-    virtual auto run(int            streamIdx = 0,
-                     Neon::DataView dataView = Neon::DataView::STANDARD)
+    auto run(int            streamIdx = 0,
+             Neon::DataView dataView = Neon::DataView::STANDARD)
         -> void override
     {
         const Neon::Backend& bk = mDataContainer.getBackend();
@@ -105,18 +109,18 @@ struct HostManagedContainer : ContainerAPI
              int            streamIdx = 0,
              Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
     {
-        if (ContainerType::deviceManaged == this->getContainerType()) {
+        if (ContainerExecutionType::deviceManaged == this->getContainerType()) {
             NEON_THROW_UNSUPPORTED_OPTION("");
         }
         // REMEMBER that this is run in parallel withing omp
         const Neon::Backend& bk = mDataContainer.getBackend();
-        switch (mSyncType) {
+        switch (mPreSyncType) {
             case HostManagedSyncType::multiGPU: {
                 bk.sync(setIdx, streamIdx);
 #pragma omp barrier
                 break;
             }
-            case HostManagedSyncType::singleGPU: {
+            case HostManagedSyncType::intraGPU: {
                 bk.sync(setIdx, streamIdx);
 
                 break;
@@ -124,21 +128,30 @@ struct HostManagedContainer : ContainerAPI
         }
 
         Loader         loader = this->newLoader(bk.devType(), setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
-        ComputeLambdaT computeLambda = this->mLoadingLambda(loader);
+        ComputeLambdaT computeLambda = this->mLoadingLambda(setIdx, loader);
         computeLambda(streamIdx, dataView);
 
+        switch (mPostSyncType) {
+            case HostManagedSyncType::multiGPU: {
 #pragma omp barrier
+                break;
+            }
+            case HostManagedSyncType::intraGPU: {
+                break;
+            }
+        }
     }
 
 
    private:
-    std::function<ComputeLambdaT(Loader&)> mLoadingLambda;
+    std::function<ComputeLambdaT(Neon::SetIdx, Loader&)> mLoadingLambda;
     /**
      * This is the container on which the function will be called
      * Most probably, this is going to be one of the grids: dGrid, eGrid
      */
     DataContainerT      mDataContainer;
-    HostManagedSyncType mSyncType;
+    HostManagedSyncType mPreSyncType;
+    HostManagedSyncType mPostSyncType;
 };
 
-}  // namespace Neon
+}  // namespace Neon::set::internal

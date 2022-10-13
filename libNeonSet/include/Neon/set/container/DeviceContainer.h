@@ -1,8 +1,8 @@
 #pragma once
 #include "Neon/core/core.h"
 
-#include "Neon/set/ContainerTools/ContainerAPI.h"
-#include "Neon/set/ContainerTools/Loader.h"
+#include "Neon/set/container/ContainerAPI.h"
+#include "Neon/set/container/Loader.h"
 
 namespace Neon {
 namespace set {
@@ -33,10 +33,14 @@ struct DeviceContainer : ContainerAPI
           m_dataIteratorContainer(dataIteratorContainer)
     {
         setName(name);
-        setContainerType(ContainerType::device);
+        setContainerExecutionType(ContainerExecutionType::device);
+        setContainerOperationType(ContainerOperationType::compute);
+
         setDataViewSupport(dataViewSupport);
 
         initLaunchParameters(dataIteratorContainer, blockSize, shMemSizeFun);
+
+        this->parse();
     }
 
     auto initLaunchParameters(const DataIteratorContainerT&                 dataIteratorContainer,
@@ -76,12 +80,19 @@ struct DeviceContainer : ContainerAPI
 
     auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
     {
-        auto parser = newParser();
-        this->m_loadingLambda(parser);
+        if (!this->isParsingDataUpdated()) {
+            auto parser = newParser();
+            this->m_loadingLambda(parser);
+            this->setParsingDataUpdated(true);
+
+            this->setContainerPattern(this->getTokens());
+        }
         return getTokens();
     }
 
-    auto getHostContainer() -> std::shared_ptr<ContainerAPI> final
+
+    auto
+    getHostContainer() -> std::shared_ptr<ContainerAPI> final
     {
         NEON_THROW_UNSUPPORTED_OPTION("This Container type can not be decoupled.");
     }
@@ -101,7 +112,7 @@ struct DeviceContainer : ContainerAPI
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
         Neon::set::KernelConfig kernelConfig(dataView, bk, streamIdx, this->getLaunchParameters(dataView));
 
-        if (ContainerType::device == this->getContainerType()) {
+        if (ContainerExecutionType::device == this->getContainerExecutionType()) {
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 kernelConfig,
                 m_dataIteratorContainer,
@@ -127,7 +138,7 @@ struct DeviceContainer : ContainerAPI
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
         Neon::set::KernelConfig kernelConfig(dataView, bk, streamIdx, this->getLaunchParameters(dataView));
 
-        if (ContainerType::device == this->getContainerType()) {
+        if (ContainerExecutionType::device == this->getContainerExecutionType()) {
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 setIdx,
                 kernelConfig,
