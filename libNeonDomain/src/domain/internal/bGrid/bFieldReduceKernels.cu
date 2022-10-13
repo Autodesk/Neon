@@ -18,7 +18,7 @@ auto bField<T, C>::dot(Neon::set::patterns::BlasSet<T>& blasSet,
         NEON_DEV_UNDER_CONSTRUCTION("bField::dot");
     }
 
-    const int blockSize = mData->mGrid->getDescriptor().getLevelRefFactor(level);
+    const int blockSize = mData->mGrid->getDescriptor().getRefFactor(level);
 
     if (blockSize == 2) {
         Neon::domain::internal::dotCUB<T, 2, 2, 2>(blasSet,
@@ -60,7 +60,7 @@ auto bField<T, C>::norm2(Neon::set::patterns::BlasSet<T>& blasSet,
         NEON_DEV_UNDER_CONSTRUCTION("bField::norm2");
     }
         
-    const int blockSize = mData->mGrid->getDescriptor().getLevelRefFactor(level);
+    const int blockSize = mData->mGrid->getDescriptor().getRefFactor(level);
 
     if (blockSize == 2) {
         Neon::domain::internal::norm2CUB<T, 2, 2, 2>(blasSet,

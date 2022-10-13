@@ -35,7 +35,7 @@ bField<T, C>::bField(const std::string&             name,
         allocSize[l] = mData->mGrid->getBackend().devSet().template newDataSet<uint64_t>();
         for (int64_t i = 0; i < allocSize[l].size(); ++i) {
             allocSize[l][i] = mData->mGrid->getNumBlocksPerPartition(int(l))[i] *
-                              descriptor.getLevelRefFactor(l) * descriptor.getLevelRefFactor(l) * descriptor.getLevelRefFactor(l) *
+                              descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l) *
                               cardinality;
         }
     }
@@ -116,7 +116,7 @@ auto bField<T, C>::forEachActiveCell(const std::function<void(const Neon::index_
     SetIdx devID(0);
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
-        const int refFactor = descriptor.getLevelRefFactor(l);
+        const int refFactor = descriptor.getRefFactor(l);
 
         mData->mGrid->getBlockOriginTo1D(l).forEach(
             [&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
@@ -197,7 +197,7 @@ auto bField<T, C>::getRef(const Neon::index_3d& idx,
               static_cast<Cell::Location::Integer>(localID.z));
 
     cell.mBlockID = *itr;
-    cell.mBlockSize = mData->mGrid->getDescriptor().getLevelRefFactor(level);
+    cell.mBlockSize = mData->mGrid->getDescriptor().getRefFactor(level);
     return partition(cell, cardinality);
 }
 
@@ -323,7 +323,7 @@ auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius, int level) 
     //This return the optimal shared memory size give a stencil radius
     //i.e., only N layers is read from neighbor blocks into shared memory in addition
     // to the block itself where N = stencilRadius
-    int refFactor = mData->mGrid->getDescriptor().getLevelRefFactor(level);
+    int refFactor = mData->mGrid->getDescriptor().getRefFactor(level);
     return sizeof(T) *
            this->getCardinality() *
            (refFactor + 2 * stencilRadius) *

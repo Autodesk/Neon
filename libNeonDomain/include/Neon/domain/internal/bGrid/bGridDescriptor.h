@@ -43,31 +43,15 @@ struct bGridDescriptor
         return int(mLog2RefFactors.size());
     }
 
-    /**
-     * get the log2 of the refinement level of the 0 level of the grid. 
-     * This level defines how the fine voxels are grouped 
-    */
-    int get0LevelLog2RefFactor() const
-    {
-        return mLog2RefFactors[0];
-    }
-
-    /**
-     * get the refinement level of the 0 level of the grid i.e., the block size of the leaf
-    */
-    int get0LevelRefFactor() const
-    {
-        return 1 << get0LevelLog2RefFactor();
-    }
 
     /**
      * get the log2 of the refinement factor of certain level     
      * @param level at which the refinement level is queried 
     */
-    int getLevelLog2RefFactor(int level) const
+    int getLog2RefFactor(int level) const
     {
         if (level >= int(getDepth())) {
-            NeonException ex("bGridDescriptor::getLevelLog2RefFactor()");
+            NeonException ex("bGridDescriptor::getLog2RefFactor()");
             ex << "Runtime input level is greater than the grid depth!";
             NEON_THROW(ex);
         }
@@ -78,42 +62,11 @@ struct bGridDescriptor
      * get the refinement factor (i.e., block size) of certain level     
      * @param level at which the refinement level is queried 
     */
-    int getLevelRefFactor(int level) const
+    int getRefFactor(int level) const
     {
-        return 1 << getLevelLog2RefFactor(level);
+        return 1 << getLog2RefFactor(level);
     }
 
-    /**
-     * get the sum of log2 refinement factors of all levels (starting with level 0) up to certain level
-     * @param level the end of recurse      
-    */
-    int getLog2RefFactorRecurse(int level) const
-    {
-        if (level >= int(getDepth())) {
-            NeonException ex("bGridDescriptor::getLog2RefFactorRecurse()");
-            ex << "Runtime input level is greater than the grid depth!";
-            NEON_THROW(ex);
-        }
-
-        int sum = 0;
-        for (int i = 0; i <= level; ++i) {
-            sum += mLog2RefFactors[i];
-        }
-        return sum;
-    }
-
-    /**
-     * get the product of  refinement factors of all levels (starting with level 0) up to certain level
-     * @param level the level at which refinement factors product is desired       
-    */
-    int getRefFactorRecurse(int level) const
-    {
-        if (level < 0) {
-            return 1;
-        }
-
-        return 1 << getLog2RefFactorRecurse(level);
-    }
 
     /**
      * return the spacing at a certain level     
@@ -158,7 +111,7 @@ struct bGridDescriptor
      * @param parentLevel the level at which the parent resides 
      * @param localChild child local index within the parent block 
     */
-    Neon::index_3d parentToChild(const Neon::index_3d& baseParent, const int parentLevel, const Neon::index_3d& localChild)
+    Neon::index_3d parentToChild(const Neon::index_3d& baseParent, const int parentLevel, const Neon::index_3d& localChild) const
     {
         if (localChild.x < 0 || localChild.y < 0 || localChild.z < 0) {
             NeonException ex("bGridDescriptor::parentToChild()");
@@ -166,9 +119,9 @@ struct bGridDescriptor
             NEON_THROW(ex);
         }
 
-        if (localChild.x >= getLevelRefFactor(parentLevel) ||
-            localChild.y >= getLevelRefFactor(parentLevel) ||
-            localChild.z >= getLevelRefFactor(parentLevel)) {
+        if (localChild.x >= getRefFactor(parentLevel) ||
+            localChild.y >= getRefFactor(parentLevel) ||
+            localChild.z >= getRefFactor(parentLevel)) {
             NeonException ex("bGridDescriptor::parentToChild()");
             ex << "Child local index should be less than the refinement factor of the parent. The input localChild: " << localChild;
             NEON_THROW(ex);
@@ -178,6 +131,16 @@ struct bGridDescriptor
         return ret;
     }
 
+    /**
+     * Given a child on the base/virtual index space, find its parent in the base/virtual index space 
+     * @param baseChild the child index on the base/virtual index space 
+     * @param parentLevel the level at which the parent resides
+    */
+    Neon::index_3d childToParent(const Neon::index_3d& baseChild, const int parentLevel) const
+    {
+        Neon::index_3d ret = baseChild / getSpacing(parentLevel);
+        return ret;
+    }
 
     /**
      * Convert the child local 3d index to 1d index 
@@ -186,7 +149,7 @@ struct bGridDescriptor
     */
     int child1DIndex(const Neon::index_3d& localChild, int parentLevel) const
     {
-        const int parentRefFactor = getLevelRefFactor(parentLevel);
+        const int parentRefFactor = getRefFactor(parentLevel);
 
         return localChild.x +
                localChild.y * parentRefFactor +
@@ -205,7 +168,7 @@ struct bGridDescriptor
                          const Neon::index_3d& parenLevelNumBlocks,
                          const Neon::index_3d& localChild) const
     {
-        const int parentRefFactor = getLevelRefFactor(parentLevel);
+        const int parentRefFactor = getRefFactor(parentLevel);
 
         int parentBlockID = parentID.x +
                             parentID.y * parenLevelNumBlocks.x +
@@ -227,7 +190,7 @@ struct bGridDescriptor
         //fist lift up the child to the parent level -1
         Neon::index_3d child = toLevelIndexSpace(baseChild, parentLevel);
 
-        const int parentRefFactor = getLevelRefFactor(parentLevel);
+        const int parentRefFactor = getRefFactor(parentLevel);
 
         return {child.x % parentRefFactor,
                 child.y % parentRefFactor,
@@ -240,7 +203,7 @@ struct bGridDescriptor
         mSpacing.resize(mLog2RefFactors.size());
         int acc = 1;
         for (int l = 0; l < int(getDepth()); ++l) {
-            mSpacing[l] = acc * getLevelRefFactor(l);
+            mSpacing[l] = acc * getRefFactor(l);
             acc = mSpacing[l];
         }
     }
