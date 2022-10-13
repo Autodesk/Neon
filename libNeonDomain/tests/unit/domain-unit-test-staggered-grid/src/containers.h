@@ -22,11 +22,9 @@ struct Containers
                                  const Type alpha)
         -> Neon::set::Container;
 
-    static auto sumNodesOnVoxels(Self::VoxelField fieldVox,
-                                 Self::NodeField  fieldNode) -> Neon::set::Container;
-
     static auto sumNodesOnVoxels(Self::VoxelField_3 fieldVox,
                                  Self::NodeField_3  fieldNode) -> Neon::set::Container;
+
 };
 
 

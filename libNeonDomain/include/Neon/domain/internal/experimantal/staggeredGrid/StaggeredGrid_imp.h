@@ -49,16 +49,16 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
         if (isVoxelActive) {
             size_t voxPitch = queryPoint.mPitch(nodeDim);
             voxels[voxPitch] = 1;
-            nodes[voxPitch] = 1;
 
             std::vector<Neon::index_3d> nodeOffset{
-                {1, 0, 0},
+                {1, 1, 1},
                 {1, 1, 0},
+                {1, 0, 1},
+                {1, 0, 0},
+                {0, 1, 1},
                 {0, 1, 0},
                 {0, 0, 1},
-                {1, 0, 1},
-                {1, 1, 1},
-                {0, 1, 1},
+                {0, 0, 0}
             };
 
             for (auto a : nodeOffset) {
@@ -72,9 +72,10 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
     mStorage->buildingBlockGrid = typename BuildingBlocks::Grid(
         backend,
         nodeDim,
-        [&](Neon::index_3d idx) {
+        [&](const Neon::index_3d& idx) {
             const size_t pitch = idx.mPitch(nodeDim);
-            return nodes[pitch] == 1;
+            bool isIn =  nodes[pitch] == 1;
+            return isIn;
         },
         feaVoxelFirstOrderStencil,
         spacingData,
@@ -84,6 +85,9 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
     mask.forEachActiveCell([&](const Neon::index_3d& idx, int, uint8_t& maskValue) {
         size_t voxPitch = idx.mPitch(nodeDim);
         maskValue = voxels[voxPitch];
+        if(maskValue){
+            std::cout << idx << std::endl;
+        }
     });
     mask.updateCompute(Neon::Backend::mainStreamIdx);
 

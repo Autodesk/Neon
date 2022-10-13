@@ -36,7 +36,7 @@ void StaggeredGrid_Map(TestData<G, T, C>& data)
 {
     auto& grid = data.getGrid();
     //
-    Neon::int32_3d                     dims{2, 2, 1};
+    Neon::int32_3d                     dims{2, 1, 1};
     std::vector<Neon::domain::Stencil> empty;
     using FeaGrid = Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<G>;
     FeaGrid FEA(
@@ -98,7 +98,7 @@ void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
 {
     auto& grid = data.getGrid();
     //
-    Neon::int32_3d                     dims{2, 2, 1};
+    Neon::int32_3d                     dims{1, 2, 1};
     std::vector<Neon::domain::Stencil> empty;
     using FeaGrid = Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<G>;
     FeaGrid FEA(

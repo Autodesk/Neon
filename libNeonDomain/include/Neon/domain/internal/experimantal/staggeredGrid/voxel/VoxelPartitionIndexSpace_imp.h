@@ -16,7 +16,11 @@ inline auto VoxelPartitionIndexSpace<BuildingBlockGridT>::setAndValidate(Cell&  
     -> bool
 {
     mBuildingBlocksPIdxSpace.setAndValidate(cell.getBuildingBlockCell(), x, y, z);
-    return mActiveFlag(cell.getBuildingBlockCell(), 0) == 1;
+    const bool isActive =  mActiveFlag(cell.getBuildingBlockCell(), 0) == 1;
+    if(isActive){
+        printf("%ld %ld %ld \n",x,y,z);
+    }
+    return isActive;
 }
 
 template <typename BuildingBlockGridT>
