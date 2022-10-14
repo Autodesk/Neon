@@ -27,9 +27,12 @@ struct NodeToVoxelMask
     explicit NodeToVoxelMask(uint8_t);
 
     auto reset() -> void;
+
+    NEON_CUDA_HOST_DEVICE
     auto isNeighbourVoxelValid(int8_t a, int8_t b, int8_t c) const -> bool;
 
     template <int8_t a, int8_t b, int8_t c>
+    NEON_CUDA_HOST_DEVICE inline
     auto isNeighbourVoxelValid() const -> bool
     {
         constexpr size_t jump = (4 * 3) * (a + 1) / 2 +

@@ -143,8 +143,8 @@ void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
     bool errorDetected = false;
 
     nodeIDX.forEachActiveCell([&](const Neon::index_3d& idx,
-                                  const int&            /*cardinality*/,
-                                  TEST_TYPE&            value) {
+                                  const int& /*cardinality*/,
+                                  TEST_TYPE& value) {
         if (value != 0) {
             if (value == Containers<FeaGrid, TEST_TYPE>::errorCode) {
                 errorDetected = true;
@@ -157,6 +157,68 @@ void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
 }
 
 
+template <typename G, typename T, int C>
+void StaggeredGrid_NodeToVoxels(TestData<G, T, C>& data)
+{
+    //
+    Neon::int32_3d                     dims{7, 10, 15};
+    std::vector<Neon::domain::Stencil> empty;
+    using FeaGrid = Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<G>;
+    FeaGrid FEA(
+        data.getBackend(),
+        dims,
+        [](const Neon::index_3d&) -> bool {
+            return true;
+        });
+
+    auto nodeIDX = FEA.template newNodeField<TEST_TYPE, 3>("nodeIdx", 3, 0);
+    nodeIDX.forEachActiveCell([](const Neon::index_3d& idx,
+                                 const int&            cardinality,
+                                 TEST_TYPE&            value) {
+        value = idx.v[cardinality];
+    });
+
+    auto voxelIDX = FEA.template newVoxelField<TEST_TYPE, 3>("voxelIdx", 3, 0);
+    voxelIDX.forEachActiveCell([](const Neon::index_3d& idx,
+                                  const int&            cardinality,
+                                  TEST_TYPE&            value) {
+        value = idx.v[cardinality];
+    });
+
+    auto errorFlagField = FEA.template newNodeField<TEST_TYPE, 1>("ErrorFlag", 1, 0);
+
+
+    nodeIDX.updateCompute(Neon::Backend::mainStreamIdx);
+    voxelIDX.updateCompute(Neon::Backend::mainStreamIdx);
+
+    //    const std::string appName(testFilePrefix + "_VoxToNodes_" + grid.getImplementationName());
+    //
+    //    nodeIDX.ioToVtk(appName + "-nodeIDX_0000", "density");
+    //    voxelIDX.ioToVtk(appName + "-voxelIDX_0000", "density");
+
+
+    Containers<FeaGrid, TEST_TYPE>::sumVoxelsOnNodes(nodeIDX,
+                                                     voxelIDX,
+                                                     errorFlagField,
+                                                     Neon::domain::tool::Geometry::FullDomain).run(Neon::Backend::mainStreamIdx);
+    errorFlagField.updateIO(Neon::Backend::mainStreamIdx);
+    data.getBackend().sync(Neon::Backend::mainStreamIdx);
+
+    bool errorDetected = false;
+
+    nodeIDX.forEachActiveCell([&](const Neon::index_3d& idx,
+                                  const int& /*cardinality*/,
+                                  TEST_TYPE& value) {
+        if (value != 0) {
+            if (value == Containers<FeaGrid, TEST_TYPE>::errorCode) {
+                errorDetected = true;
+                std::cout << "Error detected at " << idx << std::endl;
+            }
+        }
+    });
+
+    ASSERT_TRUE(!errorDetected);
+}
 namespace {
 int getNGpus()
 {
@@ -189,6 +251,15 @@ TEST(VoxToNodes, dGrid)
     using Grid = Neon::domain::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_VoxToNodes<Grid, Type, 0>, nGpus, 1);
+}
+
+TEST(NodeToVoxels, dGrid)
+{
+    Neon::init();
+    int nGpus = getNGpus();
+    using Grid = Neon::domain::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_NodeToVoxels<Grid, Type, 0>, nGpus, 1);
 }
 //
 // TEST(Swap, eGrid)

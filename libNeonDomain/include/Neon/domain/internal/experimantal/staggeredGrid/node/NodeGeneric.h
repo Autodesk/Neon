@@ -12,6 +12,11 @@ template <typename BuildingBlockGridT,
           int cardinality_ta>
 struct NodePartition;
 
+template <typename BuildingBlockGridT,
+          typename T_ta,
+          int cardinality_ta >
+struct VoxelPartition;
+
 template <typename BuildingBlockGridT>
 struct NodeGeneric
 {
@@ -32,6 +37,11 @@ struct NodeGeneric
               typename T_ta,
               int cardinality_ta>
     friend struct NodePartition;
+
+    template <typename BuildingBlockGridTT,
+              typename T_ta,
+              int cardinality_ta>
+    friend struct VoxelPartition;
 
     NodeGeneric() = default;
 

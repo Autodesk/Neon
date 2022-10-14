@@ -31,7 +31,7 @@ struct VoxelPartition
     using Self = NodePartition<BuildingBlockGridT, T_ta, cardinality_ta>;
     using PartitionIndexSpace = typename BuildingBlockGridT::PartitionIndexSpace;
     using Voxel = VoxelGeneric<BuildingBlockGridT>;
-    using Node = VoxelGeneric<BuildingBlockGridT>;
+    using Node = NodeGeneric<BuildingBlockGridT>;
     using Type = T_ta;
 
     friend VoxelStorage<BuildingBlockGridT, T_ta, cardinality_ta>;
@@ -79,7 +79,7 @@ struct VoxelPartition
     NEON_CUDA_HOST_DEVICE inline auto
     getNghVoxelValue(const Node& node,
                      int         cardinalityIdx,
-                     const T_ta& alternativeVal) -> NghInfo<T_ta>
+                     const T_ta& alternativeVal) const -> NghInfo<T_ta>
     {
         // STEPS
         // 1. check locally if the neighbour node exists. if it does not, return 'alternativeVal'
@@ -88,12 +88,12 @@ struct VoxelPartition
             const NodeToVoxelMask& actvieVoxMask = mNodeToVoxelMaskPartition(node.getBuildingBlockCell(), 1);
             const bool             isActive = actvieVoxMask.isNeighbourVoxelValid<sx, sy, sz>();
             if (!isActive) {
-                return {alternativeVal, false};
+                return NghInfo(alternativeVal, false);
             }
         }
-        return BuildingBlocks::Partition::nghVal() < sx == -1 ? 0 : sx,
+        return mBuildingBlockPartition.template nghVal < sx == -1 ? 0 : sx,
                sy == -1 ? 0 : sy,
-               sz == -1 ? 0 : sz > (node, cardinalityIdx);
+               sz == -1 ? 0 : sz > (node.getBuildingBlockCell(), cardinalityIdx, alternativeVal);
     }
 
    private:
