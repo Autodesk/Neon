@@ -53,7 +53,7 @@ TEST(bGrid, multiRes)
             dim,
             {[&]([[maybe_unused]] Neon::index_3d id) -> bool {
                  return id.x == 8 && id.y == 8 && id.z == 0;
-                 //return id.norm() < 8;
+                 //return id.norm() < 23;
                  //return true;
 
                  //Link SDF https://www.shadertoy.com/view/wlXSD7
@@ -101,7 +101,7 @@ TEST(bGrid, multiRes)
         auto field = b_grid.newField<float>("myField", 1, 0);
 
         field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
-            [&](const Neon::int32_3d /*idx*/, const int /*card*/, float& val, const int level) {
+            [&]([[maybe_unused]] const Neon::int32_3d idx, const int /*card*/, float& val, [[maybe_unused]] const int level) {
                 val = 20 + float(level);
             });
 

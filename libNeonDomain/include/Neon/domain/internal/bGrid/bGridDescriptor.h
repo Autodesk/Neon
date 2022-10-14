@@ -132,7 +132,7 @@ struct bGridDescriptor
     }
 
     /**
-     * Given a child on the base/virtual index space, find its parent in the base/virtual index space 
+     * Given a child on the base/virtual index space, find its parent index in the parent level  
      * @param baseChild the child index on the base/virtual index space 
      * @param parentLevel the level at which the parent resides
     */
@@ -195,6 +195,19 @@ struct bGridDescriptor
         return {child.x % parentRefFactor,
                 child.y % parentRefFactor,
                 child.z % parentRefFactor};
+    }
+
+
+    /**
+     * Given a block in the base/virtual index space, a level at which this block resides, and a direction, 
+     * return the neighbor block in this direction on the base/virtual index space 
+     * 
+     * @return 
+    */
+    Neon::index_3d neighbourBlock(const Neon::index_3d& baseBlock, const int blockLevel, const Neon::index_3d& dir)
+    {
+        Neon::index_3d ret = dir * getSpacing(blockLevel) + baseBlock;
+        return ret;
     }
 
    private:
