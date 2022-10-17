@@ -119,13 +119,13 @@ class storage_t
         Zf.updateIO(0);
         Xf.getGrid().getBackend().sync(0);
 
-        auto Xd_val = [&](const Neon::int64_3d& index3d, int card, int) {
+        auto Xd_val = [&](const Neon::int64_3d& index3d, int card) {
             return double(Xd.get()[index3d.x + m_size3d.rMul() * card]);
         };
-        auto Yd_val = [&](const Neon::int64_3d& index3d, int card, int) {
+        auto Yd_val = [&](const Neon::int64_3d& index3d, int card) {
             return double(Yd.get()[index3d.x + m_size3d.rMul() * card]);
         };
-        auto Zd_val = [&](const Neon::int64_3d& index3d, int card, int) {
+        auto Zd_val = [&](const Neon::int64_3d& index3d, int card) {
             return double(Zd.get()[index3d.x + m_size3d.rMul() * card]);
         };
         Neon::int64_3d l(m_size3d.rMul(), 1, 1);

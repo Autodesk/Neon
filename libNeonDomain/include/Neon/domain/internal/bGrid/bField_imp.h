@@ -106,8 +106,19 @@ template <typename T, int C>
 template <Neon::computeMode_t::computeMode_e mode>
 auto bField<T, C>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
                                                               const int& cardinality,
-                                                              T&,
-                                                              const int level)>& fun)
+                                                              T&)>& fun) -> void
+
+{
+    forEachActiveCell<mode>(0, fun);
+}
+
+template <typename T, int C>
+template <Neon::computeMode_t::computeMode_e mode>
+auto bField<T, C>::forEachActiveCell(
+    const int                      level,
+    const std::function<void(const Neon::index_3d&,
+                             const int& cardinality,
+                             T&)>& fun)
     -> void
 {
     const auto& descriptor = mData->mGrid->getDescriptor();
@@ -115,30 +126,28 @@ auto bField<T, C>::forEachActiveCell(const std::function<void(const Neon::index_
     //TODO need to figure out which device owns this block
     SetIdx devID(0);
 
-    for (int l = 0; l < descriptor.getDepth(); ++l) {
-        const int refFactor = descriptor.getRefFactor(l);
+    const int refFactor = descriptor.getRefFactor(level);
 
-        mData->mGrid->getBlockOriginTo1D(l).forEach(
-            [&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-                for (int16_t z = 0; z < refFactor; z++) {
-                    for (int16_t y = 0; y < refFactor; y++) {
-                        for (int16_t x = 0; x < refFactor; x++) {
+    mData->mGrid->getBlockOriginTo1D(level).forEach(
+        [&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
+            for (int16_t z = 0; z < refFactor; z++) {
+                for (int16_t y = 0; y < refFactor; y++) {
+                    for (int16_t x = 0; x < refFactor; x++) {
 
-                            Cell cell(x, y, z);
-                            cell.mBlockID = blockIdx;
-                            cell.mBlockSize = refFactor;
-                            if (cell.computeIsActive(mData->mGrid->getActiveMask(l).rawMem(devID, Neon::DeviceType::CPU))) {
-                                for (int c = 0; c < this->getCardinality(); c++) {
-                                    const Neon::index_3d local(x, y, z);
-                                    Neon::index_3d       index3D = blockOrigin + descriptor.toBaseIndexSpace(local, l);
-                                    fun(index3D, c, this->getReference(index3D, c, l), l);
-                                }
+                        Cell cell(x, y, z);
+                        cell.mBlockID = blockIdx;
+                        cell.mBlockSize = refFactor;
+                        if (cell.computeIsActive(mData->mGrid->getActiveMask(level).rawMem(devID, Neon::DeviceType::CPU))) {
+                            for (int c = 0; c < this->getCardinality(); c++) {
+                                const Neon::index_3d local(x, y, z);
+                                Neon::index_3d       index3D = blockOrigin + descriptor.toBaseIndexSpace(local, level);
+                                fun(index3D, c, this->getReference(index3D, c, level));
                             }
                         }
                     }
                 }
-            });
-    }
+            }
+        });
 }
 template <typename T, int C>
 auto bField<T, C>::getPartition(const Neon::DeviceType& devType,

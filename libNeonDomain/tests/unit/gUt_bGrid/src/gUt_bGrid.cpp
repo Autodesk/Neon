@@ -4,7 +4,6 @@
 
 #include "Neon/domain/bGrid.h"
 
-
 TEST(bGrid, activeCell)
 {
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
@@ -30,7 +29,7 @@ TEST(bGrid, activeCell)
         //field.ioToVtk("f", "f");
 
         field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
-            [](const Neon::int32_3d id, const int card, float, const int) {
+            [](const Neon::int32_3d id, const int card, float) {
                 EXPECT_TRUE(((id.x == 0 && id.y == 0 && id.z == 0) ||
                              (id.x == 8 && id.y == 8 && id.z == 8)) &&
                             card == 0);
@@ -100,10 +99,13 @@ TEST(bGrid, multiRes)
 
         auto field = b_grid.newField<float>("myField", 1, 0);
 
-        field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
-            [&]([[maybe_unused]] const Neon::int32_3d idx, const int /*card*/, float& val, [[maybe_unused]] const int level) {
-                val = 20 + float(level);
-            });
+        for (int l = 0; l < descriptor.getDepth(); ++l) {
+            field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
+                l,
+                [&]([[maybe_unused]] const Neon::int32_3d idx, const int /*card*/, float& val) {
+                    val = 20 + float(l);
+                });
+        }
 
         field.ioToVtk("f", "f");
 

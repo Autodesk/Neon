@@ -87,10 +87,13 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
 
     template <Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par>
+    auto forEachActiveCell(int                                                                           level,
+                           const std::function<void(const Neon::index_3d&, const int& cardinality, T&)>& fun) -> void;
+
+    template <Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par>
     auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
                                                     const int& cardinality,
-                                                    T&,
-                                                    const int level)>& fun) -> void;
+                                                    T&)>& fun) -> void;
 
 
     auto ioToVtk(const std::string& fileName,

@@ -13,13 +13,13 @@ auto GridBaseTemplate<GridT, CellT>::ioDomainToVtk(const std::string& fileName, 
                             Vec_3d<double>(0, 0, 0),
                             ioFileType);
 
-    io.addField([&](const Neon::index_3d& idx, int, int) {
+    io.addField([&](const Neon::index_3d& idx, int) {
         bool isActieVox = isInsideDomain(idx);
         return isActieVox;
     },
                 1, "Domain", ioToVTKns::VtiDataType_e::voxel);
 
-    io.addField([&](const Neon::index_3d& idx, int, int) {
+    io.addField([&](const Neon::index_3d& idx, int) {
         const auto& cellProperties = this->getProperties(idx);
         if (!cellProperties.isInside()) {
             return -1;
