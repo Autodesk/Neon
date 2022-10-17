@@ -90,11 +90,11 @@ TEST(CoreUt_io, implicitLegacyExportTuple)
     Neon::index_3d voxDim(5, 5, 5);
     Neon::index_3d nodDim = voxDim + 1;
 
-    auto velocityNorm = [&](const Neon::Integer_3d<int>& idx, int /*vIdx*/, int) -> double {
+    auto velocityNorm = [&](const Neon::Integer_3d<int>& idx, int /*vIdx*/) -> double {
         return idx.x;
     };
 
-    auto density = [&](const Neon::index_3d& idx, int /*vIdx*/, int) -> double {
+    auto density = [&](const Neon::index_3d& idx, int /*vIdx*/) -> double {
         return -idx.x + idx.y - idx.z;
     };
     {

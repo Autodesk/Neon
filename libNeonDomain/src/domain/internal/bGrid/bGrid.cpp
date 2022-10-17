@@ -103,8 +103,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     //If a block contain an active voxel, it activates itself as well
     //This loop only sets the bitmask
     for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-        const int refFactor = mData->descriptor.getRefFactor(l);
-        const int spacing = mData->descriptor.getSpacing(l);
+        const int refFactor = mData->descriptor.getRefFactor(l);        
 
         for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
             for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
@@ -251,8 +250,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     // Loop over all blocks and voxels in blocks to count the number of active
     // voxels and active blocks for allocation
     for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-        const int refFactor = mData->descriptor.getRefFactor(l);
-        const int spacing = mData->descriptor.getSpacing(l);
+        const int refFactor = mData->descriptor.getRefFactor(l);        
 
         for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
             for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {

@@ -47,7 +47,7 @@ auto IODenseVTK<IntType, RealType>::addField(IODense<ExportType_ta, IntType> den
     }
 
     IoToVTK<IntType, RealType>::addField(
-        [&](index_3d idx, int card, int) -> RealType {
+        [&](index_3d idx, int card) -> RealType {
             return dense(idx, card);
         },
         dense.getCardinality(),
