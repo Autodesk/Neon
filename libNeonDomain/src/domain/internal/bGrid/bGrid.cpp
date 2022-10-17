@@ -103,7 +103,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     //If a block contain an active voxel, it activates itself as well
     //This loop only sets the bitmask
     for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-        const int refFactor = mData->descriptor.getRefFactor(l);        
+        const int refFactor = mData->descriptor.getRefFactor(l);
 
         for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
             for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
@@ -250,7 +250,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     // Loop over all blocks and voxels in blocks to count the number of active
     // voxels and active blocks for allocation
     for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-        const int refFactor = mData->descriptor.getRefFactor(l);        
+        const int refFactor = mData->descriptor.getRefFactor(l);
 
         for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
             for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
@@ -518,7 +518,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 }
 auto bGrid::getProperties(const Neon::index_3d& idx) const -> GridBaseTemplate::CellProperties
 {
-    return getProperties(idx, 0);
+    return getProperties(idx, mData->mCurrentLevel);
 }
 
 auto bGrid::getProperties(const Neon::index_3d& idx, int level) const -> GridBaseTemplate::CellProperties
@@ -539,7 +539,7 @@ auto bGrid::getProperties(const Neon::index_3d& idx, int level) const -> GridBas
 }
 auto bGrid::isInsideDomain(const Neon::index_3d& idx) const -> bool
 {
-    return isInsideDomain(idx, 0);
+    return isInsideDomain(idx, mData->mCurrentLevel);
 }
 
 auto bGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
@@ -627,6 +627,14 @@ auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
     return ret;
 }
 
+auto bGrid::getLaunchParameters(Neon::DataView        dataView,
+                                const Neon::index_3d& blockSize,
+                                const size_t&         sharedMem) const -> Neon::set::LaunchParameters
+{
+    return getLaunchParameters(dataView, blockSize, sharedMem, mData->mCurrentLevel);
+}
+
+
 auto bGrid::getPartitionIndexSpace(Neon::DeviceType dev,
                                    SetIdx           setIdx,
                                    Neon::DataView   dataView,
@@ -634,6 +642,14 @@ auto bGrid::getPartitionIndexSpace(Neon::DeviceType dev,
 {
     return mData->mPartitionIndexSpace.at(level)[Neon::DataViewUtil::toInt(dataView)].local(dev, setIdx, dataView);
 }
+
+auto bGrid::getPartitionIndexSpace(Neon::DeviceType dev,
+                                   SetIdx           setIdx,
+                                   Neon::DataView   dataView) -> const PartitionIndexSpace&
+{
+    return getPartitionIndexSpace(dev, setIdx, dataView, mData->mCurrentLevel);
+}
+
 
 
 auto bGrid::getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&
@@ -676,24 +692,6 @@ auto bGrid::getBlockOriginTo1D(int level) const -> Neon::domain::tool::PointHash
     return mData->mBlockOriginTo1D[level];
 }
 
-auto bGrid::getKernelConfig(int            streamIdx,
-                            Neon::DataView dataView,
-                            const int      level) -> Neon::set::KernelConfig
-{
-    Neon::domain::KernelConfig kernelConfig(streamIdx, dataView);
-    if (kernelConfig.runtime() != Neon::Runtime::system) {
-        NEON_DEV_UNDER_CONSTRUCTION("bGrid::getKernelConfig");
-    }
-
-    Neon::set::LaunchParameters launchInfoSet = getLaunchParameters(dataView,
-                                                                    getDefaultBlock(), 0, level);
-
-    kernelConfig.expertSetLaunchParameters(launchInfoSet);
-    kernelConfig.expertSetBackend(getBackend());
-
-    return kernelConfig;
-}
-
 auto bGrid::getDescriptor() const -> const bGridDescriptor&
 {
     return mData->descriptor;
@@ -704,9 +702,19 @@ auto bGrid::getDimension(int level) const -> const Neon::index_3d
     return mData->mTotalNumBlocks[level] * mData->descriptor.getRefFactor(level);
 }
 
+auto bGrid::getDimension() const -> const Neon::index_3d
+{
+    return getDimension(mData->mCurrentLevel);
+}
+
 auto bGrid::getNumBlocks(int level) const -> const Neon::index_3d&
 {
     return mData->mTotalNumBlocks[level];
+}
+
+auto bGrid::setCurrentLevel(const int level) -> void
+{
+    mData->mCurrentLevel = level;
 }
 
 void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const

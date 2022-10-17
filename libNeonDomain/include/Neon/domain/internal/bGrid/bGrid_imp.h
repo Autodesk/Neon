@@ -25,6 +25,7 @@ auto bGrid::newField(const std::string          name,
     return field;
 }
 
+
 template <typename LoadingLambda>
 auto bGrid::getContainer(const std::string& name,
                          index_3d           blockSize,
@@ -53,7 +54,6 @@ auto bGrid::getContainer(const std::string& name,
                                                                     [](const Neon::index_3d&) { return size_t(0); });
     return kContainer;
 }
-
 
 template <typename T>
 auto bGrid::newPatternScalar() const -> Neon::template PatternScalar<T>

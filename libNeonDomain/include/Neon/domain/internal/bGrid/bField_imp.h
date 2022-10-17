@@ -24,6 +24,7 @@ bField<T, C>::bField(const std::string&             name,
     mData = std::make_shared<Data>();
 
     mData->mGrid = std::make_shared<bGrid>(grid);
+    mData->mCurrentLevel = 0;
     mData->mCardinality = cardinality;
 
     const auto& descriptor = mData->mGrid->getDescriptor();
@@ -109,7 +110,7 @@ auto bField<T, C>::forEachActiveCell(const std::function<void(const Neon::index_
                                                               T&)>& fun) -> void
 
 {
-    forEachActiveCell<mode>(0, fun);
+    forEachActiveCell<mode>(mData->mCurrentLevel, fun);
 }
 
 template <typename T, int C>
@@ -176,6 +177,22 @@ auto bField<T, C>::getPartition(const Neon::DeviceType& devType,
 }
 
 template <typename T, int C>
+auto bField<T, C>::getPartition(const Neon::DeviceType& devType,
+                                const Neon::SetIdx&     idx,
+                                const Neon::DataView&   dataView) const -> const Partition&
+{
+    return getPartition(devType, idx, dataView, mData->mCurrentLevel);
+}
+
+template <typename T, int C>
+auto bField<T, C>::getPartition(const Neon::DeviceType& devType,
+                                const Neon::SetIdx&     idx,
+                                const Neon::DataView&   dataView) -> Partition&
+{
+    return getPartition(devType, idx, dataView, mData->mCurrentLevel);
+}
+
+template <typename T, int C>
 auto bField<T, C>::isInsideDomain(const Neon::index_3d& idx, const int level) const -> bool
 {
     return mData->mGrid->isInsideDomain(idx, level);
@@ -214,7 +231,7 @@ template <typename T, int C>
 auto bField<T, C>::operator()(const Neon::index_3d& idx,
                               const int&            cardinality) const -> T
 {
-    return getRef(idx, cardinality, 0);
+    return getRef(idx, cardinality, mData->mCurrentLevel);
 }
 
 template <typename T, int C>
@@ -229,7 +246,7 @@ template <typename T, int C>
 auto bField<T, C>::getReference(const Neon::index_3d& idx,
                                 const int&            cardinality) -> T&
 {
-    return getRef(idx, cardinality, 0);
+    return getRef(idx, cardinality, mData->mCurrentLevel);
 }
 
 template <typename T, int C>
@@ -275,17 +292,35 @@ auto bField<T, C>::updateCompute(int streamId) -> void
 }
 
 template <typename T, int C>
-auto bField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
-                                [[maybe_unused]] Neon::SetIdx,
-                                [[maybe_unused]] const Neon::DataView& dataView) const -> const Partition&
+auto bField<T, C>::getPartition(Neon::Execution       exec,
+                                Neon::SetIdx          idx,
+                                const Neon::DataView& dataView) const -> const Partition&
+{
+    return getPartition(exec, idx, dataView, mData->mCurrentLevel);
+}
+
+template <typename T, int C>
+auto bField<T, C>::getPartition(Neon::Execution       exec,
+                                Neon::SetIdx          idx,
+                                const Neon::DataView& dataView) -> Partition&
+{
+    return getPartition(exec, idx, dataView, mData->mCurrentLevel);
+}
+
+template <typename T, int C>
+auto bField<T, C>::getPartition([[maybe_unused]] Neon::Execution       exec,
+                                [[maybe_unused]] Neon::SetIdx          idx,
+                                [[maybe_unused]] const Neon::DataView& dataView,
+                                [[maybe_unused]] const int             level) const -> const Partition&
 {
     NEON_DEV_UNDER_CONSTRUCTION("bField::getPartition");
 }
 
 template <typename T, int C>
-auto bField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
+auto bField<T, C>::getPartition([[maybe_unused]] Neon::Execution       exec,
                                 [[maybe_unused]] Neon::SetIdx          idx,
-                                [[maybe_unused]] const Neon::DataView& dataView) -> Partition&
+                                [[maybe_unused]] const Neon::DataView& dataView,
+                                [[maybe_unused]] const int             level) -> Partition&
 {
     NEON_DEV_UNDER_CONSTRUCTION("bField::getPartition");
 }
@@ -338,5 +373,11 @@ auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius, int level) 
            (refFactor + 2 * stencilRadius) *
            (refFactor + 2 * stencilRadius) *
            (refFactor + 2 * stencilRadius);
+}
+
+template <typename T, int C>
+auto bField<T, C>::setCurrentLevel(const int level) -> void
+{
+    mData->mCurrentLevel = level;
 }
 }  // namespace Neon::domain::internal::bGrid

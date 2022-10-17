@@ -88,15 +88,24 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getContainer(const std::string& name,
                       LoadingLambda      lambda) const -> Neon::set::Container;
 
+
     auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
                              const size_t&         sharedMem,
-                             int                   level = 0) const -> Neon::set::LaunchParameters;
+                             int                   level) const -> Neon::set::LaunchParameters;
+
+    auto getLaunchParameters(Neon::DataView        dataView,
+                             const Neon::index_3d& blockSize,
+                             const size_t&         sharedMem) const -> Neon::set::LaunchParameters;
 
     auto getPartitionIndexSpace(Neon::DeviceType dev,
                                 SetIdx           setIdx,
                                 Neon::DataView   dataView,
-                                int              level = 0) -> const PartitionIndexSpace&;
+                                int              level) -> const PartitionIndexSpace&;
+
+    auto getPartitionIndexSpace(Neon::DeviceType dev,
+                                SetIdx           setIdx,
+                                Neon::DataView   dataView) -> const PartitionIndexSpace&;
 
     auto getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&;
     auto getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
@@ -124,15 +133,12 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
                Neon::template PatternScalar<T>& scalar,
                const int                        level = 0) const -> Neon::set::Container;
 
-
-    auto getKernelConfig(int            streamIdx,
-                         Neon::DataView dataView,
-                         const int      level = 0) -> Neon::set::KernelConfig;
-
     /**
      * Dimension is basically the number of blocks * refinement level which gives that number of voxels contained in certain level
     */
-    auto getDimension(int level = 0) const -> const Neon::index_3d;
+    auto getDimension(int level) const -> const Neon::index_3d;
+
+    auto getDimension() const -> const Neon::index_3d;
 
     /**
      * Number of blocks is the number blocks at a certain level where each block subsumes 
@@ -142,15 +148,17 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     */
     auto getNumBlocks(int level) const -> const Neon::index_3d&;
 
-    auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level = 0) const -> Neon::int32_3d;
+    auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d;
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
     auto getDescriptor() const -> const bGridDescriptor&;
     auto getDescriptorMemSet() const -> const Neon::set::MemSet_t<int>&;
     void topologyToVTK(std::string fileName, bool filterOverlaps) const;
+    auto setCurrentLevel(const int level) -> void;
 
    private:
     struct Data
     {
+        int mCurrentLevel;
 
         //number of active voxels in each block at each level
         std::vector<Neon::set::DataSet<uint64_t>> mNumActiveVoxel;

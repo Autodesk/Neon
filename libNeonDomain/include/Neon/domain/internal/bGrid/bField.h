@@ -30,21 +30,39 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     auto getPartition(const Neon::DeviceType& devType,
                       const Neon::SetIdx&     idx,
-                      const Neon::DataView&   dataView = Neon::DataView::STANDARD,
-                      const int               level = 0) const -> const Partition&;
+                      const Neon::DataView&   dataView) const -> const Partition&;
 
     auto getPartition(const Neon::DeviceType& devType,
                       const Neon::SetIdx&     idx,
-                      const Neon::DataView&   dataView = Neon::DataView::STANDARD,
-                      const int               level = 0) -> Partition&;
+                      const Neon::DataView&   dataView) -> Partition&;
+
+    auto getPartition(const Neon::DeviceType& devType,
+                      const Neon::SetIdx&     idx,
+                      const Neon::DataView&   dataView,
+                      const int               level) const -> const Partition&;
+
+    auto getPartition(const Neon::DeviceType& devType,
+                      const Neon::SetIdx&     idx,
+                      const Neon::DataView&   dataView,
+                      const int               level) -> Partition&;
 
     auto getPartition(Neon::Execution,
                       Neon::SetIdx,
                       const Neon::DataView& dataView) const -> const Partition& final;
 
     auto getPartition(Neon::Execution,
-                      Neon::SetIdx          idx,
+                      Neon::SetIdx,
                       const Neon::DataView& dataView) -> Partition& final;
+
+    auto getPartition(Neon::Execution,
+                      Neon::SetIdx          idx,
+                      const Neon::DataView& dataView,
+                      const int             level) const -> const Partition&;
+
+    auto getPartition(Neon::Execution,
+                      Neon::SetIdx          idx,
+                      const Neon::DataView& dataView,
+                      const int             level) -> Partition&;
 
 
     auto isInsideDomain(const Neon::index_3d& idx, const int level = 0) const -> bool;
@@ -100,6 +118,8 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                  const std::string& FieldName,
                  Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII) const -> void;
 
+    auto setCurrentLevel(const int level) -> void;
+
    private:
     bField(const std::string&             name,
            const bGrid&                   grid,
@@ -120,6 +140,8 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     struct Data
     {
+        int mCurrentLevel;
+
         std::shared_ptr<bGrid> mGrid;
 
         //std::vector to store the memory for different levels of the grid

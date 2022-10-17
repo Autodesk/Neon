@@ -138,7 +138,7 @@ void SingleStencil(TestData<G, T, C>& data)
         Neon::skeleton::Skeleton skl(data.getBackend());
         skl.sequence(ops, "sUt_dGridStencil");
 
-        for (int i = 0; i < nIterations; i++) {
+        for (int j = 0; j < nIterations; j++) {
             skl.run();
         }
         data.getBackend().syncAll();
