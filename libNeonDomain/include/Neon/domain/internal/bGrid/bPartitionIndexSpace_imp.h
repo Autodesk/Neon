@@ -29,10 +29,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
 }
 
 NEON_CUDA_HOST_DEVICE inline auto
-bPartitionIndexSpace::setAndValidate(bCell&                         cell,
-                                     [[maybe_unused]] const size_t& x,
-                                     [[maybe_unused]] const size_t& y,
-                                     [[maybe_unused]] const size_t& z) const -> bool
+bPartitionIndexSpace::setAndValidate(bCell&        cell,
+                                     const size_t& x,
+                                     const size_t& y,
+                                     const size_t& z) const -> bool
 {
     setCell(cell, x, y, z);
 

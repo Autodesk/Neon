@@ -704,7 +704,7 @@ auto bGrid::getDimension(int level) const -> const Neon::index_3d
 
 auto bGrid::getDimension() const -> const Neon::index_3d
 {
-    return getDimension(mData->mCurrentLevel);
+    return GridBase::getDimension();
 }
 
 auto bGrid::getNumBlocks(int level) const -> const Neon::index_3d&

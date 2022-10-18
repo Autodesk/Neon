@@ -26,7 +26,6 @@ class bPartition
     explicit bPartition(Neon::DataView  dataView,
                         int             level,
                         T*              mem,
-                        Neon::index_3d  dim,
                         int             cardinality,
                         uint32_t*       neighbourBlocks,
                         Neon::int32_3d* origin,
@@ -38,9 +37,7 @@ class bPartition
                         int             spacing);
 
     inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int;
-
-    inline NEON_CUDA_HOST_DEVICE auto dim() const -> Neon::index_3d;
-
+        
     inline NEON_CUDA_HOST_DEVICE auto operator()(const bCell& cell,
                                                  int          card)
         -> T&;
@@ -76,7 +73,6 @@ class bPartition
     Neon::DataView            mDataView;
     int                       mLevel;
     T*                        mMem;
-    Neon::index_3d            mDim;
     int                       mCardinality;
     uint32_t*                 mNeighbourBlocks;
     Neon::int32_3d*           mOrigin;

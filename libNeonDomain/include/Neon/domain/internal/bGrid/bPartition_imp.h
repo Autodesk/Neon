@@ -30,7 +30,6 @@ template <typename T, int C>
 bPartition<T, C>::bPartition(Neon::DataView  dataView,
                              int             level,
                              T*              mem,
-                             Neon::index_3d  dim,
                              int             cardinality,
                              uint32_t*       neighbourBlocks,
                              Neon::int32_3d* origin,
@@ -43,7 +42,6 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
     : mDataView(dataView),
       mLevel(level),
       mMem(mem),
-      mDim(dim),
       mCardinality(cardinality),
       mNeighbourBlocks(neighbourBlocks),
       mOrigin(origin),
@@ -72,9 +70,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Cell& loca
         ret.z += swirl.z;
     } else {
 #endif
-        ret.x += local.mLocation.x;
-        ret.y += local.mLocation.y;
-        ret.z += local.mLocation.z;
+        ret.x += local.mLocation.x * mSpacing;
+        ret.y += local.mLocation.y * mSpacing;
+        ret.z += local.mLocation.z * mSpacing;
 #ifdef NEON_PLACE_CUDA_DEVICE
     }
 #endif
@@ -85,12 +83,6 @@ template <typename T, int C>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::cardinality() const -> int
 {
     return mCardinality;
-}
-
-template <typename T, int C>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::dim() const -> Neon::index_3d
-{
-    return mDim;
 }
 
 template <typename T, int C>
