@@ -1,4 +1,4 @@
-![](img/04-layers-domain.png){ align=right style="width:250px"}
+![](img/03-layers-domain.png){ align=right style="width:250px"}
 
 # The Domain Level
 
@@ -165,7 +165,7 @@ discretization box as active.
 Moreover, it will show the mapping between cells and hardware devices as
 reported in the following picture:
 
-![Mapping between cells and hardware devices](img/04-domain.vtk.png)
+![Mapping between cells and hardware devices](img/03-domain.vtk.png)
 
 <a name="field">
 ### **Neon field**: defining data over the cartesian discretisation
@@ -202,7 +202,7 @@ A Neon field is characterized by the type of each cell and the number of compone
 }
 ```
 
-![](img/04-initial-sdf.png)
+![](img/03-initial-sdf.png)
 
 <a name="mapContainers">
 ### **Neon map containers**: expanding the sphere via a level set
@@ -266,7 +266,7 @@ auto expandLevelSet(Field& sdf,
 }
 ```
 
-![](img/04-expanded-levelSet.png)
+![](img/03-expanded-levelSet.png)
 
 <a name="mapContainstencilContainersers">
 ### Neon stencil containers: computing the grad of the level set field
@@ -354,4 +354,8 @@ auto computeGrad(const Field& levelSetField /** input scalar field we want to co
 }
 ```
 
-![](img/04-grad.png)
+
+![](img/03-grad.png)
+
+[Staggered Grids](../staggered-grids/staggered-grid.md)
+

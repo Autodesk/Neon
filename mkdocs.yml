@@ -126,14 +126,15 @@ extra_javascript:
 nav:
   - Neon's home: index.md
   - Learn:
-      - Introduction and tutorials:
-          - Structure of the Library: ./learn/introduction/01-neon-structure.md
-          - The System Level: ./learn/introduction/02-the-system-level.md
-          - The Set Level: ./learn/introduction/03-the-set-level.md
-          - The Domain Level: ./learn/introduction/04-the-domain-level.md
-          - The Skeleton Level: ./learn/introduction/05-the-skeleton-level.md
-      - Advanced Mechanisms:
-          - Multi-resolution: ./learn/advanced-mechanisms/multi-resolution.md
+      - Guided Tutorials:
+          - Introduction: ./learn/guided-tutorials/guided-tutorials-introduction.md
+          - The Basis:
+            - System Level: ./learn/guided-tutorials/the-bases/01-system-level.md
+            - Set Level: ./learn/guided-tutorials/the-bases/02-the-set-level.md
+            - Domain Level: ./learn/guided-tutorials/the-bases/03-domain-level.md
+            - Skeleton Level: ./learn/guided-tutorials/the-bases/04-skeleton-level.md
+          - Staggered Grids: ./learn/guided-tutorials/staggered-grids/staggered-grid.md
+          - Multi-resolution: ./learn/guided-tutorials/multi-resolution/multi-resolution.md
       - Examples:
           - Mandelbrot: learn/examples/mandelbrot.md
   - References:
