@@ -26,6 +26,8 @@ class bPartition
     explicit bPartition(Neon::DataView  dataView,
                         int             level,
                         T*              mem,
+                        T*              memParent,
+                        T*              memChild,
                         int             cardinality,
                         uint32_t*       neighbourBlocks,
                         Neon::int32_3d* origin,
@@ -34,10 +36,10 @@ class bPartition
                         T               defaultValue,
                         nghIdx_t*       stencilNghIndex,
                         int*            descriptor,
-                        int             spacing);
+                        int*            spacing);
 
     inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int;
-        
+
     inline NEON_CUDA_HOST_DEVICE auto operator()(const bCell& cell,
                                                  int          card)
         -> T&;
@@ -54,6 +56,9 @@ class bPartition
                                              uint8_t     nghID,
                                              int         card,
                                              const T&    alternativeVal) const -> NghInfo<T>;
+
+    NEON_CUDA_HOST_DEVICE inline auto parent(const Cell& eId,
+                                             int         card) -> T&;
 
     NEON_CUDA_HOST_DEVICE inline void loadInSharedMemory(const Cell&                cell,
                                                          const nghIdx_t::Integer    stencilRadius,
@@ -73,6 +78,8 @@ class bPartition
     Neon::DataView            mDataView;
     int                       mLevel;
     T*                        mMem;
+    T*                        mMemParent;
+    T*                        mMemChild;
     int                       mCardinality;
     uint32_t*                 mNeighbourBlocks;
     Neon::int32_3d*           mOrigin;
@@ -81,7 +88,7 @@ class bPartition
     T                         mOutsideValue;
     nghIdx_t*                 mStencilNghIndex;
     int*                      mRefFactors;
-    int                       mSpacing;
+    int*                      mSpacing;
     mutable bool              mIsInSharedMem;
     mutable T*                mMemSharedMem;
     mutable uint32_t*         mSharedNeighbourBlocks;

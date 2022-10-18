@@ -152,6 +152,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
     auto getDescriptor() const -> const bGridDescriptor&;
     auto getRefFactors() const -> const Neon::set::MemSet_t<int>&;
+    auto getLevelSpacing() const -> const Neon::set::MemSet_t<int>&;
     void topologyToVTK(std::string fileName, bool filterOverlaps) const;
     auto setCurrentLevel(const int level) -> void;
 
@@ -177,6 +178,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //gird levels refinement factors
         Neon::set::MemSet_t<int> mRefFactors;
 
+        //gird levels spacing
+        Neon::set::MemSet_t<int> mSpacing;
         //active voxels bitmask
         //std::vector to store the active mask (and its size) per block per level
         std::vector<Neon::set::DataSet<uint64_t>>  mActiveMaskSize;

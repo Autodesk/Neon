@@ -63,6 +63,7 @@ bField<T, C>::bField(const std::string&             name,
         auto neighbours_blocks = mData->mGrid->getNeighbourBlocks(l);
         auto stencil_ngh = mData->mGrid->getStencilNghIndex();
         auto refFactorSet = mData->mGrid->getRefFactors();
+        auto spacingSet = mData->mGrid->getLevelSpacing();
         auto active_mask = mData->mGrid->getActiveMask(l);
 
         for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
@@ -75,6 +76,8 @@ bField<T, C>::bField(const std::string&             name,
                     Neon::DataView(dvID),
                     l,
                     mData->mMem[l].rawMem(gpuID, Neon::DeviceType::CPU),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->mMem[l + 1].rawMem(gpuID, Neon::DeviceType::CPU),  //parent
+                    (l == 0) ? nullptr : mData->mMem[l - 1].rawMem(gpuID, Neon::DeviceType::CPU),                               //child
                     mData->mCardinality,
                     neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CPU),
                     origins.rawMem(gpuID, Neon::DeviceType::CPU),
@@ -83,12 +86,14 @@ bField<T, C>::bField(const std::string&             name,
                     outsideVal,
                     stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
                     refFactorSet.rawMem(gpuID, Neon::DeviceType::CPU),
-                    mData->mGrid->getDescriptor().getSpacing(l - 1));
+                    spacingSet.rawMem(gpuID, Neon::DeviceType::CPU));
 
                 getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID), l) = bPartition<T, C>(
                     Neon::DataView(dvID),
                     l,
                     mData->mMem[l].rawMem(gpuID, Neon::DeviceType::CUDA),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->mMem[l + 1].rawMem(gpuID, Neon::DeviceType::CUDA),  //parent
+                    (l == 0) ? nullptr : mData->mMem[l - 1].rawMem(gpuID, Neon::DeviceType::CUDA),                               //child
                     mData->mCardinality,
                     neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CUDA),
                     origins.rawMem(gpuID, Neon::DeviceType::CUDA),
@@ -97,7 +102,7 @@ bField<T, C>::bField(const std::string&             name,
                     outsideVal,
                     stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),
                     refFactorSet.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    mData->mGrid->getDescriptor().getSpacing(l - 1));
+                    spacingSet.rawMem(gpuID, Neon::DeviceType::CUDA));
             }
         }
     }

@@ -351,6 +351,17 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         }
     }
 
+    mData->mSpacing = backend.devSet().template newMemSet<int>({Neon::DataUse::IO_COMPUTE},
+                                                               1,
+                                                               memOptions,
+                                                               descriptorSize);
+    for (int32_t c = 0; c < mData->mSpacing.cardinality(); ++c) {
+        SetIdx devID(c);
+        for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+            mData->mSpacing.eRef(c, l) = mData->mDescriptor.getSpacing(l);
+        }
+    }
+
 
     // block bitmask
     mData->mActiveMaskSize.resize(mData->mDescriptor.getDepth());
@@ -486,6 +497,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         }
         mData->mStencilNghIndex.updateCompute(backend, 0);
         mData->mRefFactors.updateCompute(backend, 0);
+        mData->mSpacing.updateCompute(backend, 0);
     }
 
     mData->mPartitionIndexSpace.resize(mData->mDescriptor.getDepth());
@@ -676,6 +688,12 @@ auto bGrid::getRefFactors() const -> const Neon::set::MemSet_t<int>&
 {
     return mData->mRefFactors;
 }
+
+auto bGrid::getLevelSpacing() const -> const Neon::set::MemSet_t<int>&
+{
+    return mData->mSpacing;
+}
+
 
 auto bGrid::getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uint32_t>&
 {

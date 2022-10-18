@@ -10,6 +10,8 @@ bPartition<T, C>::bPartition()
     : mDataView(Neon::DataView::STANDARD),
       mLevel(0),
       mMem(nullptr),
+      mMemParent(nullptr),
+      mMemChild(nullptr),
       mCardinality(0),
       mNeighbourBlocks(nullptr),
       mOrigin(nullptr),
@@ -18,7 +20,7 @@ bPartition<T, C>::bPartition()
       mOutsideValue(0),
       mStencilNghIndex(nullptr),
       mRefFactors(nullptr),
-      mSpacing(0),
+      mSpacing(nullptr),
       mIsInSharedMem(false),
       mMemSharedMem(nullptr),
       mSharedNeighbourBlocks(nullptr),
@@ -30,6 +32,8 @@ template <typename T, int C>
 bPartition<T, C>::bPartition(Neon::DataView  dataView,
                              int             level,
                              T*              mem,
+                             T*              memParent,
+                             T*              memChild,
                              int             cardinality,
                              uint32_t*       neighbourBlocks,
                              Neon::int32_3d* origin,
@@ -38,10 +42,12 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
                              T               outsideValue,
                              nghIdx_t*       stencilNghIndex,
                              int*            refFactors,
-                             int             spacing)
+                             int*            spacing)
     : mDataView(dataView),
       mLevel(level),
       mMem(mem),
+      mMemParent(memParent),
+      mMemChild(memChild),
       mCardinality(cardinality),
       mNeighbourBlocks(neighbourBlocks),
       mOrigin(origin),
@@ -70,9 +76,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Cell& loca
         ret.z += swirl.z;
     } else {
 #endif
-        ret.x += local.mLocation.x * mSpacing;
-        ret.y += local.mLocation.y * mSpacing;
-        ret.z += local.mLocation.z * mSpacing;
+        const int sp = (mLevel == 0) ? 1 : mSpacing[mLevel - 1];
+        ret.x += local.mLocation.x * sp;
+        ret.y += local.mLocation.y * sp;
+        ret.z += local.mLocation.z * sp;
 #ifdef NEON_PLACE_CUDA_DEVICE
     }
 #endif
@@ -119,6 +126,22 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int 
         cell.mBlockID * cell.mBlockSize * cell.mBlockSize * cell.mBlockSize * mCardinality +
         //stride within the block
         cell.pitch(card);
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::parent(const Cell& eId,
+                                                           int         card) -> T&
+{
+    if (mMemParent != nullptr) {
+        const Cell parentCell;
+        //TODO the parent could have different local id than 0,0,0
+        parentCell.mLocation.x = 0;
+        parentCell.mLocation.y = 0;
+        parentCell.mLocation.z = 0;
+        parentCell.mBlockSize = mSpacing[mLevel];  //??
+        parentCell.mBlockID = mParent[eId.mBlockID];
+        return mMemParent[pitch(parentCell)];
+    }
 }
 
 template <typename T, int C>
