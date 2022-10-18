@@ -34,7 +34,8 @@ class bPartition
                         uint32_t*       mask,
                         T               defaultValue,
                         nghIdx_t*       stencilNghIndex,
-                        int*            descriptor);
+                        int*            descriptor,
+                        int             spacing);
 
     inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int;
 
@@ -83,7 +84,8 @@ class bPartition
     uint32_t*                 mMask;
     T                         mOutsideValue;
     nghIdx_t*                 mStencilNghIndex;
-    int*                      mDescriptor;
+    int*                      mRefFactors;
+    int                       mSpacing;
     mutable bool              mIsInSharedMem;
     mutable T*                mMemSharedMem;
     mutable uint32_t*         mSharedNeighbourBlocks;

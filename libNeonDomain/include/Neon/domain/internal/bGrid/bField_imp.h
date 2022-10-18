@@ -62,7 +62,7 @@ bField<T, C>::bField(const std::string&             name,
         auto parent = mData->mGrid->getParents(l);
         auto neighbours_blocks = mData->mGrid->getNeighbourBlocks(l);
         auto stencil_ngh = mData->mGrid->getStencilNghIndex();
-        auto desct = mData->mGrid->getDescriptorMemSet();
+        auto refFactorSet = mData->mGrid->getRefFactors();
         auto active_mask = mData->mGrid->getActiveMask(l);
 
         for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
@@ -83,7 +83,8 @@ bField<T, C>::bField(const std::string&             name,
                     active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
                     outsideVal,
                     stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
-                    desct.rawMem(gpuID, Neon::DeviceType::CPU));
+                    refFactorSet.rawMem(gpuID, Neon::DeviceType::CPU),
+                    mData->mGrid->getDescriptor().getSpacing(l - 1));
 
                 getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID), l) = bPartition<T, C>(
                     Neon::DataView(dvID),
@@ -97,7 +98,8 @@ bField<T, C>::bField(const std::string&             name,
                     active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
                     outsideVal,
                     stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    desct.rawMem(gpuID, Neon::DeviceType::CUDA));
+                    refFactorSet.rawMem(gpuID, Neon::DeviceType::CUDA),
+                    mData->mGrid->getDescriptor().getSpacing(l - 1));
             }
         }
     }

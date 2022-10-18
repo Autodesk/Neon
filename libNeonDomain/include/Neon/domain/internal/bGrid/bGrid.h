@@ -151,7 +151,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d;
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
     auto getDescriptor() const -> const bGridDescriptor&;
-    auto getDescriptorMemSet() const -> const Neon::set::MemSet_t<int>&;
+    auto getRefFactors() const -> const Neon::set::MemSet_t<int>&;
     void topologyToVTK(std::string fileName, bool filterOverlaps) const;
     auto setCurrentLevel(const int level) -> void;
 
@@ -174,8 +174,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //Stencil neighbor indices
         Neon::set::MemSet_t<nghIdx_t> mStencilNghIndex;
 
-        //gird levels descriptor of how many levels and the branch factor of each level
-        Neon::set::MemSet_t<int> mDescriptor;
+        //gird levels refinement factors
+        Neon::set::MemSet_t<int> mRefFactors;
 
         //active voxels bitmask
         //std::vector to store the active mask (and its size) per block per level
@@ -210,7 +210,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //std::vector so we store the number of blocks at each level
         std::vector<Neon::set::DataSet<uint64_t>> mNumBlocks;
 
-        bGridDescriptor descriptor{};
+        bGridDescriptor mDescriptor{};
 
         bool mStrongBalanced;
 

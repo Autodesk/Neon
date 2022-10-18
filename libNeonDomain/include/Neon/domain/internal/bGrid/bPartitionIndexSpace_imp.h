@@ -13,7 +13,6 @@ NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
     assert(mBlockSize == blockDim.y);
     assert(mBlockSize == blockDim.z);
     cell.mBlockID = blockIdx.x;
-    cell.mBlockSize = mBlockSize;
     cell.mLocation.x = threadIdx.x;
     cell.mLocation.y = threadIdx.y;
     cell.mLocation.z = threadIdx.z;
@@ -25,6 +24,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
     cell.set().y = reminder / static_cast<Cell::Location::Integer>(mBlockSize);
     cell.set().x = reminder % static_cast<Cell::Location::Integer>(mBlockSize);
 #endif
+    cell.mBlockSize = mBlockSize;
     cell.mIsActive = true;
 }
 
@@ -49,9 +49,9 @@ bPartitionIndexSpace::setAndValidate(bCell&                         cell,
         return false;
     }
 
-    if (blockOrigin[cell.mBlockID].x + cell.mLocation.x >= mDomainSize.x ||
-        blockOrigin[cell.mBlockID].y + cell.mLocation.y >= mDomainSize.y ||
-        blockOrigin[cell.mBlockID].z + cell.mLocation.z >= mDomainSize.z ||
+    if (blockOrigin[cell.mBlockID].x + cell.mLocation.x * mSpacing >= mDomainSize.x ||
+        blockOrigin[cell.mBlockID].y + cell.mLocation.y * mSpacing >= mDomainSize.y ||
+        blockOrigin[cell.mBlockID].z + cell.mLocation.z * mSpacing >= mDomainSize.z ||
         !cell.computeIsActive(activeMask)) {
         cell.mIsActive = false;
     }

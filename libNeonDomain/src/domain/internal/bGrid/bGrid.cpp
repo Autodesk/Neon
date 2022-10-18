@@ -23,16 +23,16 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     mData = std::make_shared<Data>();
 
     mData->mStrongBalanced = true;
-    mData->descriptor = descriptor;
+    mData->mDescriptor = descriptor;
     int top_level_spacing = 1;
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         if (l > 0) {
-            top_level_spacing *= mData->descriptor.getRefFactor(l);
-            if (mData->descriptor.getRefFactor(l) < mData->descriptor.getRefFactor(l - 1)) {
+            top_level_spacing *= mData->mDescriptor.getRefFactor(l);
+            if (mData->mDescriptor.getRefFactor(l) < mData->mDescriptor.getRefFactor(l - 1)) {
                 NeonException exp("bGrid::bGrid");
                 exp << "The grid refinement factor should only go up from one level to another starting with Level 0 the leaf/finest level\n";
-                exp << "Level " << l - 1 << " refinement factor= " << mData->descriptor.getRefFactor(l - 1) << "\n";
-                exp << "Level " << l << " refinement factor= " << mData->descriptor.getRefFactor(l) << "\n";
+                exp << "Level " << l - 1 << " refinement factor= " << mData->mDescriptor.getRefFactor(l - 1) << "\n";
+                exp << "Level " << l << " refinement factor= " << mData->mDescriptor.getRefFactor(l) << "\n";
                 NEON_THROW(exp);
             }
         }
@@ -48,28 +48,28 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 
 
-    mData->mBlockOriginTo1D.resize(mData->descriptor.getDepth());
+    mData->mBlockOriginTo1D.resize(mData->mDescriptor.getDepth());
 
 
-    mData->mNumBlocks.resize(mData->descriptor.getDepth());
+    mData->mNumBlocks.resize(mData->mDescriptor.getDepth());
     for (auto& nb : mData->mNumBlocks) {
         nb = backend.devSet().template newDataSet<uint64_t>();
     }
 
-    mData->mNumActiveVoxel.resize(mData->descriptor.getDepth());
+    mData->mNumActiveVoxel.resize(mData->mDescriptor.getDepth());
     for (auto& av : mData->mNumActiveVoxel) {
         av = backend.devSet().template newDataSet<uint64_t>();
     }
 
-    mData->mTotalNumBlocks.resize(mData->descriptor.getDepth());
+    mData->mTotalNumBlocks.resize(mData->mDescriptor.getDepth());
 
 
-    for (int i = 0; i < mData->descriptor.getDepth(); ++i) {
+    for (int i = 0; i < mData->mDescriptor.getDepth(); ++i) {
         mData->mNumActiveVoxel[i][0] = 0;
 
-        const int refFactor = mData->descriptor.getRefFactor(i);
+        const int refFactor = mData->mDescriptor.getRefFactor(i);
 
-        const int spacing = mData->descriptor.getSpacing(i);
+        const int spacing = mData->mDescriptor.getSpacing(i);
 
         mData->mTotalNumBlocks[i].set(NEON_DIVIDE_UP(domainSize.x, spacing),
                                       NEON_DIVIDE_UP(domainSize.y, spacing),
@@ -85,7 +85,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     //check if the bitmask is set assuming a dense domain
     auto levelBitMaskIsSet = [&](int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) {
-        const int index1D = mData->descriptor.flattened1DIndex(blockID, l, mData->mTotalNumBlocks[l], localChild);
+        const int index1D = mData->mDescriptor.flattened1DIndex(blockID, l, mData->mTotalNumBlocks[l], localChild);
         const int mask = index1D / Cell::sMaskSize;
         const int bitPosition = index1D % Cell::sMaskSize;
         return mData->denseLevelsBitmask[l][mask] & (1 << bitPosition);
@@ -93,7 +93,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     //set the bitmask assuming a dense domain
     auto setLevelBitMask = [&](int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) {
-        const int index1D = mData->descriptor.flattened1DIndex(blockID, l, mData->mTotalNumBlocks[l], localChild);
+        const int index1D = mData->mDescriptor.flattened1DIndex(blockID, l, mData->mTotalNumBlocks[l], localChild);
         const int mask = index1D / Cell::sMaskSize;
         const int bitPosition = index1D % Cell::sMaskSize;
         mData->denseLevelsBitmask[l][mask] |= (1 << bitPosition);
@@ -102,21 +102,21 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     //Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
     //If a block contain an active voxel, it activates itself as well
     //This loop only sets the bitmask
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-        const int refFactor = mData->descriptor.getRefFactor(l);
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+        const int refFactor = mData->mDescriptor.getRefFactor(l);
 
         for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
             for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
                 for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
 
-                    Neon::index_3d blockOrigin = mData->descriptor.toBaseIndexSpace({bx, by, bz}, l + 1);
+                    Neon::index_3d blockOrigin = mData->mDescriptor.toBaseIndexSpace({bx, by, bz}, l + 1);
 
                     bool containVoxels = false;
                     for (int z = 0; z < refFactor; z++) {
                         for (int y = 0; y < refFactor; y++) {
                             for (int x = 0; x < refFactor; x++) {
 
-                                const Neon::int32_3d voxel = mData->descriptor.parentToChild(blockOrigin, l, {x, y, z});
+                                const Neon::int32_3d voxel = mData->mDescriptor.parentToChild(blockOrigin, l, {x, y, z});
 
                                 if (voxel < domainSize) {
                                     //if it is already active
@@ -138,11 +138,11 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                         //if the block contains voxels, it should activate itself
                         //find its corresponding index within the next level
 
-                        if (l < mData->descriptor.getDepth() - 1) {
+                        if (l < mData->mDescriptor.getDepth() - 1) {
 
-                            Neon::int32_3d parentBlock = mData->descriptor.childToParent(blockOrigin, l + 1);
+                            Neon::int32_3d parentBlock = mData->mDescriptor.childToParent(blockOrigin, l + 1);
 
-                            Neon::int32_3d indexInParentBlock = mData->descriptor.toLocalIndex(blockOrigin, l + 1);
+                            Neon::int32_3d indexInParentBlock = mData->mDescriptor.toLocalIndex(blockOrigin, l + 1);
 
                             setLevelBitMask(l + 1, parentBlock, indexInParentBlock);
                         }
@@ -158,9 +158,9 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         while (again) {
             again = false;
 
-            for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-                const int refFactor = mData->descriptor.getRefFactor(l);
-                const int childSpacing = mData->descriptor.getSpacing(l - 1);
+            for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+                const int refFactor = mData->mDescriptor.getRefFactor(l);
+                const int childSpacing = mData->mDescriptor.getSpacing(l - 1);
 
                 for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
                     for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
@@ -195,8 +195,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                         if (proxyVoxelLocation < domainSize && proxyVoxelLocation >= 0) {
 
                                                             Neon::int32_3d prv_nVoxelBlockOrigin, prv_nVoxelLocalID;
-                                                            for (int l_n = l; l_n < mData->descriptor.getDepth(); ++l_n) {
-                                                                const int l_n_ref_factor = mData->descriptor.getRefFactor(l_n);
+                                                            for (int l_n = l; l_n < mData->mDescriptor.getDepth(); ++l_n) {
+                                                                const int l_n_ref_factor = mData->mDescriptor.getRefFactor(l_n);
 
 
                                                                 //find the block origin of n_voxel which live at level l_n
@@ -249,8 +249,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     // Number of active voxels per partition
     // Loop over all blocks and voxels in blocks to count the number of active
     // voxels and active blocks for allocation
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-        const int refFactor = mData->descriptor.getRefFactor(l);
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+        const int refFactor = mData->mDescriptor.getRefFactor(l);
 
         for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
             for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
@@ -273,7 +273,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
                     if (numVoxelsInBlock > 0) {
                         mData->mNumBlocks[l][0]++;
-                        Neon::index_3d blockOrigin = mData->descriptor.toBaseIndexSpace({bx, by, bz}, l + 1);
+                        Neon::index_3d blockOrigin = mData->mDescriptor.toBaseIndexSpace({bx, by, bz}, l + 1);
                         mData->mBlockOriginTo1D[l].addPoint(blockOrigin, uint32_t(mData->mBlockOriginTo1D[l].size()));
                     }
                 }
@@ -299,8 +299,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                    ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                    Neon::MemoryLayout::arrayOfStructs);
     //origin
-    mData->mOrigin.resize(mData->descriptor.getDepth());
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
+    mData->mOrigin.resize(mData->mDescriptor.getDepth());
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mOrigin[l] = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
                                                                                 1,
                                                                                 memOptions,
@@ -308,8 +308,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 
     //parent
-    mData->mParent.resize(mData->descriptor.getDepth());
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
+    mData->mParent.resize(mData->mDescriptor.getDepth());
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mParent[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                           1,
                                                                           memOptions,
@@ -338,28 +338,28 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     //descriptor
     auto descriptorSize = backend.devSet().template newDataSet<uint64_t>();
     for (int32_t c = 0; c < descriptorSize.cardinality(); ++c) {
-        descriptorSize[c] = mData->descriptor.getDepth();
+        descriptorSize[c] = mData->mDescriptor.getDepth();
     }
-    mData->mDescriptor = backend.devSet().template newMemSet<int>({Neon::DataUse::IO_COMPUTE},
+    mData->mRefFactors = backend.devSet().template newMemSet<int>({Neon::DataUse::IO_COMPUTE},
                                                                   1,
                                                                   memOptions,
                                                                   descriptorSize);
-    for (int32_t c = 0; c < mData->mDescriptor.cardinality(); ++c) {
+    for (int32_t c = 0; c < mData->mRefFactors.cardinality(); ++c) {
         SetIdx devID(c);
-        for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-            mData->mDescriptor.eRef(c, l) = mData->descriptor.getRefFactor(l);
+        for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+            mData->mRefFactors.eRef(c, l) = mData->mDescriptor.getRefFactor(l);
         }
     }
 
 
     // block bitmask
-    mData->mActiveMaskSize.resize(mData->descriptor.getDepth());
-    mData->mActiveMask.resize(mData->descriptor.getDepth());
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
+    mData->mActiveMaskSize.resize(mData->mDescriptor.getDepth());
+    mData->mActiveMask.resize(mData->mDescriptor.getDepth());
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mActiveMaskSize[l] = backend.devSet().template newDataSet<uint64_t>();
         for (int64_t i = 0; i < mData->mActiveMaskSize[l].size(); ++i) {
             mData->mActiveMaskSize[l][i] = mData->mNumBlocks[l][i] *
-                                           NEON_DIVIDE_UP(mData->descriptor.getRefFactor(l) * mData->descriptor.getRefFactor(l) * mData->descriptor.getRefFactor(l),
+                                           NEON_DIVIDE_UP(mData->mDescriptor.getRefFactor(l) * mData->mDescriptor.getRefFactor(l) * mData->mDescriptor.getRefFactor(l),
                                                           Cell::sMaskSize);
         }
 
@@ -371,7 +371,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
 
     // init bitmask to zero
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         for (int32_t c = 0; c < mData->mActiveMask[l].cardinality(); ++c) {
             SetIdx devID(c);
             for (size_t i = 0; i < mData->mActiveMaskSize[l][c]; ++i) {
@@ -382,8 +382,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
 
     // Neighbor blocks
-    mData->mNeighbourBlocks.resize(mData->descriptor.getDepth());
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
+    mData->mNeighbourBlocks.resize(mData->mDescriptor.getDepth());
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mNeighbourBlocks[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                                    26,
                                                                                    memOptions,
@@ -402,9 +402,9 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
 
     // loop over active blocks to populate the block origins, neighbors, and bitmask
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-        const int refFactor = mData->descriptor.getRefFactor(l);
-        const int spacing = mData->descriptor.getSpacing(l);
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+        const int refFactor = mData->mDescriptor.getRefFactor(l);
+        const int spacing = mData->mDescriptor.getSpacing(l);
 
 
         mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
@@ -444,7 +444,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                             continue;
                         }
 
-                        Neon::index_3d neighbourBlock = mData->descriptor.neighbourBlock(blockOrigin, l, {i, j, k});
+                        Neon::index_3d neighbourBlock = mData->mDescriptor.neighbourBlock(blockOrigin, l, {i, j, k});
 
                         if (neighbourBlock >= 0 && neighbourBlock < domainSize) {
 
@@ -463,8 +463,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
 
             //set the parent block index
-            if (l < mData->descriptor.getDepth() - 1) {
-                Neon::index_3d parent = mData->descriptor.toBaseIndexSpace(mData->descriptor.childToParent(blockOrigin, l + 1), l + 2);
+            if (l < mData->mDescriptor.getDepth() - 1) {
+                Neon::index_3d parent = mData->mDescriptor.toBaseIndexSpace(mData->mDescriptor.childToParent(blockOrigin, l + 1), l + 2);
 
                 auto parent_it = mData->mBlockOriginTo1D[l + 1].getMetadata(parent);
                 if (!parent_it) {
@@ -478,18 +478,18 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 
     if (backend.devType() == Neon::DeviceType::CUDA) {
-        for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
+        for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
             mData->mActiveMask[l].updateCompute(backend, 0);
             mData->mOrigin[l].updateCompute(backend, 0);
             mData->mParent[l].updateCompute(backend, 0);
             mData->mNeighbourBlocks[l].updateCompute(backend, 0);
         }
         mData->mStencilNghIndex.updateCompute(backend, 0);
-        mData->mDescriptor.updateCompute(backend, 0);
+        mData->mRefFactors.updateCompute(backend, 0);
     }
 
-    mData->mPartitionIndexSpace.resize(mData->descriptor.getDepth());
-    for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
+    mData->mPartitionIndexSpace.resize(mData->mDescriptor.getDepth());
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         for (const auto& dv : {Neon::DataView::STANDARD,
                                Neon::DataView::INTERNAL,
                                Neon::DataView::BOUNDARY}) {
@@ -506,7 +506,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             for (int gpuIdx = 0; gpuIdx < backend.devSet().setCardinality(); gpuIdx++) {
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDataView = dv;
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDomainSize = domainSize;
-                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mBlockSize = mData->descriptor.getRefFactor(l);
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mBlockSize = mData->mDescriptor.getRefFactor(l);
+                mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mSpacing = mData->mDescriptor.getSpacing(l - 1);
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[l][gpuIdx]);
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask[l].rawMem(gpuIdx, Neon::DeviceType::CPU);
                 mData->mPartitionIndexSpace[l][dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask[l].rawMem(gpuIdx, Neon::DeviceType::CUDA);
@@ -558,14 +559,14 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
 
     auto itr = mData->mBlockOriginTo1D[level].getMetadata(block_origin);
     if (itr) {
-        Neon::index_3d localID = mData->descriptor.toLocalIndex(idx, level);
+        Neon::index_3d localID = mData->mDescriptor.toLocalIndex(idx, level);
 
         Cell cell(static_cast<Cell::Location::Integer>(localID.x),
                   static_cast<Cell::Location::Integer>(localID.y),
                   static_cast<Cell::Location::Integer>(localID.z));
 
         cell.mBlockID = *itr;
-        cell.mBlockSize = mData->descriptor.getRefFactor(level);
+        cell.mBlockSize = mData->mDescriptor.getRefFactor(level);
         cell.mIsActive = cell.computeIsActive(mData->mActiveMask[level].rawMem(devID, Neon::DeviceType::CPU));
         return cell.mIsActive;
     }
@@ -579,9 +580,9 @@ auto bGrid::getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> 
         return (n / m) * m;
     };
 
-    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->descriptor.getSpacing(level)),
-                                roundDownToNearestMultiple(idx.y, mData->descriptor.getSpacing(level)),
-                                roundDownToNearestMultiple(idx.z, mData->descriptor.getSpacing(level)));
+    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->mDescriptor.getSpacing(level)),
+                                roundDownToNearestMultiple(idx.y, mData->mDescriptor.getSpacing(level)),
+                                roundDownToNearestMultiple(idx.z, mData->mDescriptor.getSpacing(level)));
     return block_origin;
 }
 
@@ -604,9 +605,9 @@ auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
                      Neon::DataViewUtil::toString(dataView));
     }
 
-    const Neon::int32_3d cuda_block(mData->descriptor.getRefFactor(level),
-                                    mData->descriptor.getRefFactor(level),
-                                    mData->descriptor.getRefFactor(level));
+    const Neon::int32_3d cuda_block(mData->mDescriptor.getRefFactor(level),
+                                    mData->mDescriptor.getRefFactor(level),
+                                    mData->mDescriptor.getRefFactor(level));
 
     Neon::set::LaunchParameters ret = getBackend().devSet().newLaunchParameters();
     for (int i = 0; i < ret.cardinality(); ++i) {
@@ -617,9 +618,9 @@ auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
         } else {
             ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::domainGridMode,
                        Neon::int32_3d(int32_t(mData->mNumBlocks[level][i]) *
-                                          mData->descriptor.getRefFactor(level) *
-                                          mData->descriptor.getRefFactor(level) *
-                                          mData->descriptor.getRefFactor(level),
+                                          mData->mDescriptor.getRefFactor(level) *
+                                          mData->mDescriptor.getRefFactor(level) *
+                                          mData->mDescriptor.getRefFactor(level),
                                       1, 1),
                        cuda_block, sharedMem);
         }
@@ -651,7 +652,6 @@ auto bGrid::getPartitionIndexSpace(Neon::DeviceType dev,
 }
 
 
-
 auto bGrid::getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&
 {
     return mData->mNumBlocks[level];
@@ -672,9 +672,9 @@ auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&
     return mData->mStencilNghIndex;
 }
 
-auto bGrid::getDescriptorMemSet() const -> const Neon::set::MemSet_t<int>&
+auto bGrid::getRefFactors() const -> const Neon::set::MemSet_t<int>&
 {
-    return mData->mDescriptor;
+    return mData->mRefFactors;
 }
 
 auto bGrid::getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uint32_t>&
@@ -694,12 +694,12 @@ auto bGrid::getBlockOriginTo1D(int level) const -> Neon::domain::tool::PointHash
 
 auto bGrid::getDescriptor() const -> const bGridDescriptor&
 {
-    return mData->descriptor;
+    return mData->mDescriptor;
 }
 
 auto bGrid::getDimension(int level) const -> const Neon::index_3d
 {
-    return mData->mTotalNumBlocks[level] * mData->descriptor.getRefFactor(level);
+    return mData->mTotalNumBlocks[level] * mData->mDescriptor.getRefFactor(level);
 }
 
 auto bGrid::getDimension() const -> const Neon::index_3d
@@ -752,9 +752,9 @@ void bGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
     };
 
     auto loopOverActiveBlocks = [&](const Op op) {
-        for (int l = 0; l < mData->descriptor.getDepth(); ++l) {
-            const int refFactor = mData->descriptor.getRefFactor(l);
-            const int childSpacing = mData->descriptor.getSpacing(l - 1);
+        for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+            const int refFactor = mData->mDescriptor.getRefFactor(l);
+            const int childSpacing = mData->mDescriptor.getSpacing(l - 1);
 
             mData->mBlockOriginTo1D[l].forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
                 // TODO need to figure out which device owns this block

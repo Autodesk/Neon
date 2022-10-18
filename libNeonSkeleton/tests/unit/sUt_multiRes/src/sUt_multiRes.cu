@@ -165,13 +165,17 @@ void SingleMap()
 
                 return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                     for (int card = 0; card < xLocal.cardinality(); card++) {
-                      //  yLocal(cell, card) = a * xLocal(cell, card) + yLocal(cell, card);
+                        yLocal(cell, card) = a * xLocal(cell, card) + yLocal(cell, card);
                     }
                 };
             });
 
         container.run(0);
         BGrid.getBackend().syncAll();
+    }
+
+    if (bk.runtime() == Neon::Runtime::stream) {
+        YField.updateIO();
     }
 
 
