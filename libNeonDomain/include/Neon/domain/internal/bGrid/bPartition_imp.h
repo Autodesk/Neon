@@ -128,6 +128,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     c
     Cell ngh_cell(cell.mLocation.x + offset.x,
                   cell.mLocation.y + offset.y,
                   cell.mLocation.z + offset.z);
+    ngh_cell.mBlockSize = cell.mBlockSize;
 
     if (ngh_cell.mLocation.x < 0 || ngh_cell.mLocation.y < 0 || ngh_cell.mLocation.z < 0 ||
         ngh_cell.mLocation.x >= cell.mBlockSize || ngh_cell.mLocation.y >= cell.mBlockSize || ngh_cell.mLocation.z >= cell.mBlockSize) {
@@ -199,8 +200,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
 
     if constexpr (Cell::sUseSwirlIndex) {
         Cell swirl_cell = cell.toSwirl();
+        swirl_cell.mBlockSize = cell.mBlockSize;
 
         Cell ngh_cell = setNghCell(swirl_cell, offset);
+        ngh_cell.mBlockSize = cell.mBlockSize;
         if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
             //TODO maybe ngh_cell should be mapped to its memory layout
             ret.isValid = ngh_cell.computeIsActive(mMask);
@@ -216,6 +219,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
 
     } else {
         Cell ngh_cell = setNghCell(cell, offset);
+        ngh_cell.mBlockSize = cell.mBlockSize;
         if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
             ret.isValid = ngh_cell.computeIsActive(mMask);
             if (ret.isValid) {

@@ -109,7 +109,9 @@ void MultiResSingleMap()
 }
 TEST(MultiRes, Map)
 {
-    MultiResSingleMap();
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        MultiResSingleMap();
+    }
 }
 
 
@@ -124,7 +126,7 @@ void MultiResSameLevelStencil()
 
     const Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1});
 
-    for (auto runtime : {Neon::Runtime::stream, Neon::Runtime::openmp}) {
+    for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
 
         auto bk = Neon::Backend(gpusIds, runtime);
 
@@ -187,7 +189,7 @@ void MultiResSameLevelStencil()
                                 auto neighbor = xLocal.nghVal(cell, nghIdx, card, Type(0));
                                 res += neighbor.value;
                             }
-                            yLocal(cell, card) = -6 * res;
+                            yLocal(cell, card) = res;
                         }
                     };
                 });
@@ -202,17 +204,30 @@ void MultiResSameLevelStencil()
 
 
         //verify
-        //for (int l = 0; l < descriptor.getDepth(); ++l) {
-        //    YField.forEachActiveCell(
-        //        l,
-        //        [&](const Neon::int32_3d, const int, Type& val) {
-        //            EXPECT_EQ(val, a * XLevelVal[l] + YInitVal);
-        //        });
-        //}
+        for (int l = 0; l < descriptor.getDepth(); ++l) {
+            YField.forEachActiveCell(
+                l,
+                [&](const Neon::int32_3d idx, const int, Type& val) {
+                    EXPECT_NE(val, YVal);
+                    Type TrueVal = 6 * XVal;
+                    for (int i = 0; i < 3; ++i) {
+                        if (idx.v[i] + BGrid.getDescriptor().getSpacing(l - 1) >= dim.v[i]) {
+                            TrueVal -= XVal;
+                        }
+
+                        if (idx.v[i] - BGrid.getDescriptor().getSpacing(l - 1) < 0) {
+                            TrueVal -= XVal;
+                        }
+                    }
+
+                    EXPECT_EQ(val, TrueVal);
+                });
+        }
     }
 }
-
 TEST(MultiRes, Stencil)
 {
-    MultiResSameLevelStencil();
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        MultiResSameLevelStencil();
+    }
 }
