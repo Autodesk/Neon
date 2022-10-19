@@ -32,6 +32,7 @@ class bPartition
                         uint32_t*       neighbourBlocks,
                         Neon::int32_3d* origin,
                         uint32_t*       parent,
+                        Cell::Location* parentLocalID,
                         uint32_t*       mask,
                         T               defaultValue,
                         nghIdx_t*       stencilNghIndex,
@@ -86,6 +87,7 @@ class bPartition
     uint32_t*                 mNeighbourBlocks;
     Neon::int32_3d*           mOrigin;
     uint32_t*                 mParent;
+    Cell::Location*           mParentLocalID;
     uint32_t*                 mMask;
     T                         mOutsideValue;
     nghIdx_t*                 mStencilNghIndex;

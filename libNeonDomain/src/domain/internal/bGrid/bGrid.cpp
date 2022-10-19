@@ -137,9 +137,11 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                     if (containVoxels) {
                         //if the block contains voxels, it should activate itself
                         //find its corresponding index within the next level
+                        //i.e., blockOrigin is the parent block that contains refFactor^3 voxels (sparse)
+                        //so it tries to find the block in the next level where blockOrigin is a child
+                        //which requires finding the block in this next level and the local index within this block
 
                         if (l < mData->mDescriptor.getDepth() - 1) {
-
                             Neon::int32_3d parentBlock = mData->mDescriptor.childToParent(blockOrigin, l + 1);
 
                             Neon::int32_3d indexInParentBlock = mData->mDescriptor.toLocalIndex(blockOrigin, l + 1);
@@ -316,6 +318,16 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                                           mData->mNumBlocks[l]);
     }
 
+    //parent local index
+    mData->mParentLocalID.resize(mData->mDescriptor.getDepth());
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+        mData->mParentLocalID[l] = backend.devSet().template newMemSet<Cell::Location>({Neon::DataUse::IO_COMPUTE},
+                                                                                       1,
+                                                                                       memOptions,
+                                                                                       mData->mNumBlocks[l]);
+    }
+
+
     //Stencil linear/relative index
     auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>();
     for (int32_t c = 0; c < stencilNghSize.cardinality(); ++c) {
@@ -455,7 +467,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                             continue;
                         }
 
-                        Neon::index_3d neighbourBlock = mData->mDescriptor.neighbourBlock(blockOrigin, l, {i, j, k});
+                        Neon::index_3d neighbourBlock = mData->mDescriptor.neighbourBlock(blockOrigin, l + 1, {i, j, k});
 
                         if (neighbourBlock >= 0 && neighbourBlock < domainSize) {
 
@@ -473,17 +485,48 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             }
 
 
-            //set the parent block index
+            //set the parent info
+            //the parent info are the block inside which the parent resides i.e., grandParentOrigin
+            //and the local 3d index within the grandParentOrigin block where the parent is located
             if (l < mData->mDescriptor.getDepth() - 1) {
-                Neon::index_3d parent = mData->mDescriptor.toBaseIndexSpace(mData->mDescriptor.childToParent(blockOrigin, l + 1), l + 2);
+                Neon::index_3d grandParentOrigin = mData->mDescriptor.toBaseIndexSpace(mData->mDescriptor.childToParent(blockOrigin, l + 1), l + 2);
 
-                auto parent_it = mData->mBlockOriginTo1D[l + 1].getMetadata(parent);
-                if (!parent_it) {
+                auto grand_parent = mData->mBlockOriginTo1D[l + 1].getMetadata(grandParentOrigin);
+                if (!grand_parent) {
                     NeonException exp("bGrid::bGrid");
                     exp << "Something went wrong during constructing bGrid. Can not find the right parent of a block\n";
                     NEON_THROW(exp);
                 }
-                mData->mParent[l].eRef(devID, blockIdx) = *parent_it;
+                mData->mParent[l].eRef(devID, blockIdx) = *grand_parent;
+
+                //set the parent local ID
+                // loop over this grand parent block to find the local index which maps back to the parent block
+                const int grandParentRefFactor = mData->mDescriptor.getRefFactor(l + 1);
+                bool      found = false;
+                for (Cell::Location::Integer z = 0; z < grandParentRefFactor; z++) {
+                    for (Cell::Location::Integer y = 0; y < grandParentRefFactor; y++) {
+                        for (Cell::Location::Integer x = 0; x < grandParentRefFactor; x++) {
+                            Neon::index_3d parent = mData->mDescriptor.neighbourBlock(grandParentOrigin, l + 1, {x, y, z});
+                            if (parent == blockOrigin) {
+                                mData->mParentLocalID[l].eRef(devID, blockIdx) = {x, y, z};
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) {
+                            break;
+                        }
+                    }
+                    if (found) {
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    NeonException exp("bGrid::bGrid");
+                    exp << "Something went wrong during constructing bGrid. Can not find the right local index of a parent of a block\n";
+                    NEON_THROW(exp);
+                }
             }
         });
     }
@@ -493,6 +536,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             mData->mActiveMask[l].updateCompute(backend, 0);
             mData->mOrigin[l].updateCompute(backend, 0);
             mData->mParent[l].updateCompute(backend, 0);
+            mData->mParentLocalID[l].updateCompute(backend, 0);
             mData->mNeighbourBlocks[l].updateCompute(backend, 0);
         }
         mData->mStencilNghIndex.updateCompute(backend, 0);
@@ -677,6 +721,11 @@ auto bGrid::getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32
 auto bGrid::getParents(int level) const -> const Neon::set::MemSet_t<uint32_t>&
 {
     return mData->mParent[level];
+}
+
+auto bGrid::getParentLocalID(int level) const -> const Neon::set::MemSet_t<Cell::Location>&
+{
+    return mData->mParentLocalID[level];
 }
 
 auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&

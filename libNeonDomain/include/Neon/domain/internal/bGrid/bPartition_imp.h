@@ -16,6 +16,7 @@ bPartition<T, C>::bPartition()
       mNeighbourBlocks(nullptr),
       mOrigin(nullptr),
       mParent(nullptr),
+      mParentLocalID(nullptr),
       mMask(nullptr),
       mOutsideValue(0),
       mStencilNghIndex(nullptr),
@@ -38,6 +39,7 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
                              uint32_t*       neighbourBlocks,
                              Neon::int32_3d* origin,
                              uint32_t*       parent,
+                             Cell::Location* parentLocalID,
                              uint32_t*       mask,
                              T               outsideValue,
                              nghIdx_t*       stencilNghIndex,
@@ -52,6 +54,7 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
       mNeighbourBlocks(neighbourBlocks),
       mOrigin(origin),
       mParent(parent),
+      mParentLocalID(parentLocalID),
       mMask(mask),
       mOutsideValue(outsideValue),
       mStencilNghIndex(stencilNghIndex),
@@ -143,12 +146,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::parent(const Cell& eId,
 {
     if (mMemParent != nullptr) {
         const Cell parentCell;
-        //TODO the parent could have different local id than 0,0,0
-        parentCell.mLocation.x = 0;
-        parentCell.mLocation.y = 0;
-        parentCell.mLocation.z = 0;
-        parentCell.mBlockSize = mSpacing[mLevel];  //??
         parentCell.mBlockID = mParent[eId.mBlockID];
+        parentCell.mLocation = mParentLocalID[eId.mBlockID];
+        parentCell.mBlockSize = mSpacing[mLevel + 1];
         return mMemParent[pitch(parentCell)];
     }
 }

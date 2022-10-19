@@ -60,6 +60,7 @@ bField<T, C>::bField(const std::string&             name,
     for (int l = 0; l < int(descriptor.getDepth()); ++l) {
         auto origins = mData->mGrid->getOrigins(l);
         auto parent = mData->mGrid->getParents(l);
+        auto parentLocalID = mData->mGrid->getParentLocalID(l);
         auto neighbours_blocks = mData->mGrid->getNeighbourBlocks(l);
         auto stencil_ngh = mData->mGrid->getStencilNghIndex();
         auto refFactorSet = mData->mGrid->getRefFactors();
@@ -82,6 +83,7 @@ bField<T, C>::bField(const std::string&             name,
                     neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CPU),
                     origins.rawMem(gpuID, Neon::DeviceType::CPU),
                     parent.rawMem(gpuID, Neon::DeviceType::CPU),
+                    parentLocalID.rawMem(gpuID, Neon::DeviceType::CPU),
                     active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
                     outsideVal,
                     stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
@@ -98,6 +100,7 @@ bField<T, C>::bField(const std::string&             name,
                     neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CUDA),
                     origins.rawMem(gpuID, Neon::DeviceType::CUDA),
                     parent.rawMem(gpuID, Neon::DeviceType::CUDA),
+                    parentLocalID.rawMem(gpuID, Neon::DeviceType::CUDA),
                     active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
                     outsideVal,
                     stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),

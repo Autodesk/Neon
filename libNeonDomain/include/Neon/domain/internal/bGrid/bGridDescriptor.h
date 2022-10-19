@@ -206,7 +206,7 @@ struct bGridDescriptor
     */
     Neon::index_3d neighbourBlock(const Neon::index_3d& baseBlock, const int blockLevel, const Neon::index_3d& dir)
     {
-        Neon::index_3d ret = dir * getSpacing(blockLevel) + baseBlock;
+        Neon::index_3d ret = dir * getSpacing(blockLevel - 1) + baseBlock;
         return ret;
     }
 
