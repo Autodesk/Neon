@@ -11,9 +11,9 @@ auto NodeToVoxelMask::reset() -> void
 
 auto NodeToVoxelMask::setAsValid(int8_t a, int8_t b, int8_t c) -> void
 {
-    const size_t jump = (6) * (a + 1) +
-                        (3) * (b + 1) +
-                        (3) * (c + 1) / 2;
+    const size_t jump = (a + 1) * 4/2 +
+                        (b + 1) * 2/2 +
+                        (c + 1)/2;
     const uint32_t nodeFlags = activeNodesOfVoxel;
     const uint32_t mask = 1 << jump;
     const uint32_t masked = nodeFlags | mask;
@@ -22,9 +22,9 @@ auto NodeToVoxelMask::setAsValid(int8_t a, int8_t b, int8_t c) -> void
 
 auto NodeToVoxelMask::isNeighbourVoxelValid(int8_t a, int8_t b, int8_t c) const -> bool
 {
-    const size_t jump = (6) * (a + 1) +
-                        (3) * (b + 1) +
-                        (3) * (c + 1) / 2;
+    const size_t jump = (a + 1) * 4/2 +
+                        (b + 1) * 2 /2+
+                        (c + 1)/2;
     const uint32_t nodeFlags = activeNodesOfVoxel;
     const uint32_t mask = 1 << jump;
     const uint32_t masked = nodeFlags & mask;

@@ -82,13 +82,12 @@ struct NodePartition
               int8_t sz>
     NEON_CUDA_HOST_DEVICE inline auto
     getNghNodeValue(const Voxel& voxel,
-                 int          cardinalityIdx,
-                 T_ta         alternative) const -> T_ta
+                    int          cardinalityIdx) const -> T_ta
     {
         constexpr int8_t x = sx == -1 ? 0 : 1;
         constexpr int8_t y = sy == -1 ? 0 : 1;
         constexpr int8_t z = sz == -1 ? 0 : 1;
-
+        T_ta             alternative;
         return mBuildingBlockPartition.template nghVal<x, y, z>(voxel.getBuildingBlockCell(), cardinalityIdx, alternative).value;
     }
 

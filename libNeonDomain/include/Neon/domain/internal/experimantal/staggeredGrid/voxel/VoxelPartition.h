@@ -85,15 +85,15 @@ struct VoxelPartition
         // 1. check locally if the neighbour node exists. if it does not, return 'alternativeVal'
         // 2. read the neighbour value
         {  // STEP 1
-            const NodeToVoxelMask& actvieVoxMask = mNodeToVoxelMaskPartition(node.getBuildingBlockCell(), 1);
+            const NodeToVoxelMask& actvieVoxMask = mNodeToVoxelMaskPartition(node.getBuildingBlockCell(), 0);
             const bool             isActive = actvieVoxMask.isNeighbourVoxelValid<sx, sy, sz>();
             if (!isActive) {
                 return NghInfo(alternativeVal, false);
             }
         }
-        return mBuildingBlockPartition.template nghVal < sx == -1 ? 0 : sx,
-               sy == -1 ? 0 : sy,
-               sz == -1 ? 0 : sz > (node.getBuildingBlockCell(), cardinalityIdx, alternativeVal);
+        return mBuildingBlockPartition.template nghVal < sx == 1 ? 0 : sx,
+               sy == 1 ? 0 : sy,
+               sz == 1 ? 0 : sz > (node.getBuildingBlockCell(), cardinalityIdx, alternativeVal);
     }
 
    private:
