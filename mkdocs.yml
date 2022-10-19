@@ -128,7 +128,7 @@ nav:
   - Learn:
       - Guided Tutorials:
           - Introduction: ./learn/guided-tutorials/guided-tutorials-introduction.md
-          - The Basis:
+          - The Bases:
             - System Level: ./learn/guided-tutorials/the-bases/01-system-level.md
             - Set Level: ./learn/guided-tutorials/the-bases/02-the-set-level.md
             - Domain Level: ./learn/guided-tutorials/the-bases/03-domain-level.md
