@@ -70,6 +70,8 @@ class bPartition
 
     NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Cell& local) const -> Neon::index_3d;
 
+    NEON_CUDA_HOST_DEVICE inline auto hasParent(const Cell& local) const -> bool;
+
    private:
     inline NEON_CUDA_HOST_DEVICE auto pitch(const Cell& cell, int card) const -> uint32_t;
     inline NEON_CUDA_HOST_DEVICE auto setNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell;

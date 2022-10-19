@@ -129,6 +129,15 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int 
 }
 
 template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::hasParent(const Cell& local) const -> bool
+{
+    if (mMemParent) {
+        return true;
+    }
+    return false;
+}
+
+template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::parent(const Cell& eId,
                                                            int         card) -> T&
 {

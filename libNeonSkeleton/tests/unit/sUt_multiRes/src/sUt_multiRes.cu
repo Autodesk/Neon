@@ -262,6 +262,7 @@ void MultiResParent()
         //BGrid.topologyToVTK("bGrid111.vtk", false);
 
         auto XField = BGrid.newField<Type>("XField", 1, -1);
+        auto hasParentField = BGrid.newField<Type>("hasParent", 1, -1);
 
         //Init fields
         for (int l = 0; l < descriptor.getDepth(); ++l) {
@@ -270,24 +271,36 @@ void MultiResParent()
                 [&](const Neon::int32_3d, const int, Type& val) {
                     val = -1;
                 });
+
+            hasParentField.forEachActiveCell(
+                l,
+                [&](const Neon::int32_3d, const int, Type& val) {
+                    val = -1;
+                });
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
             XField.updateCompute();
+            hasParentField.updateCompute();
         }
         //XField.ioToVtk("f", "f");
 
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
             XField.setCurrentLevel(level);
+            hasParentField.setCurrentLevel(level);
             BGrid.setCurrentLevel(level);
 
             auto container = BGrid.getContainer(
                 "Parent", [&, level](Neon::set::Loader& loader) {
                     auto& xLocal = loader.load(XField);
+                    auto& hasParentLocal = loader.load(hasParentField);
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                        xLocal(cell, 0) = 0;
+                        if (xLocal.hasParent(cell)) {
+                            hasParentLocal(cell, 0) = 1;
+                        }
+                        //xLocal(cell, 0) = xLocal.parent(cell, 0);
                     };
                 });
 
@@ -297,16 +310,28 @@ void MultiResParent()
 
         if (bk.runtime() == Neon::Runtime::stream) {
             XField.updateIO();
+            hasParentField.updateIO();
         }
 
 
         //verify
         for (int l = 0; l < descriptor.getDepth(); ++l) {
-            XField.forEachActiveCell(
+            hasParentField.forEachActiveCell(
+                l,
+                [&](const Neon::int32_3d, const int, Type& val) {
+                    if (l != descriptor.getDepth() - 1) {
+                        EXPECT_EQ(val, 1);
+                    } else {
+                        EXPECT_EQ(val, -1);
+                    }
+                });
+
+
+            /*XField.forEachActiveCell(
                 l,
                 [&](const Neon::int32_3d, const int, Type& val) {
                     EXPECT_EQ(val, 0);
-                });
+                });*/
         }
     }
 }
