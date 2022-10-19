@@ -269,9 +269,8 @@ void MultiResParent()
             XField.forEachActiveCell(
                 l,
                 [&](const Neon::int32_3d, const int, Type& val) {
-                    val = -1;
+                    val = l;
                 });
-
             hasParentField.forEachActiveCell(
                 l,
                 [&](const Neon::int32_3d, const int, Type& val) {
@@ -299,8 +298,8 @@ void MultiResParent()
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         if (xLocal.hasParent(cell)) {
                             hasParentLocal(cell, 0) = 1;
+                            xLocal(cell, 0) = xLocal.parent(cell, 0);
                         }
-                        //xLocal(cell, 0) = xLocal.parent(cell, 0);
                     };
                 });
 
@@ -327,11 +326,15 @@ void MultiResParent()
                 });
 
 
-            /*XField.forEachActiveCell(
+            XField.forEachActiveCell(
                 l,
                 [&](const Neon::int32_3d, const int, Type& val) {
-                    EXPECT_EQ(val, 0);
-                });*/
+                    if (l != descriptor.getDepth() - 1) {
+                        EXPECT_EQ(val, l + 1);
+                    } else {
+                        EXPECT_EQ(val, l);
+                    }
+                });
         }
     }
 }

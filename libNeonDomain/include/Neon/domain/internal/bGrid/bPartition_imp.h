@@ -145,11 +145,11 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::parent(const Cell& eId,
                                                            int         card) -> T&
 {
     if (mMemParent != nullptr) {
-        const Cell parentCell;
+        Cell parentCell;
         parentCell.mBlockID = mParent[eId.mBlockID];
         parentCell.mLocation = mParentLocalID[eId.mBlockID];
-        parentCell.mBlockSize = mSpacing[mLevel + 1];
-        return mMemParent[pitch(parentCell)];
+        parentCell.mBlockSize = mRefFactors[mLevel + 1];
+        return mMemParent[pitch(parentCell, card)];
     }
 }
 
