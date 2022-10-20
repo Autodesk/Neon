@@ -4,7 +4,7 @@
 #include "Neon/core/core.h"
 #include "Neon/core/types/Macros.h"
 #include "Neon/domain/interface/NghInfo.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGeneric.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelGeneric.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
 #include "Neon/sys/memory/mem3d.h"
@@ -33,7 +33,6 @@ struct NodePartition
 
    public:
     NodePartition() = default;
-
     ~NodePartition() = default;
 
     explicit NodePartition(const typename BuildingBlocks::Partition& partition)
@@ -51,15 +50,15 @@ struct NodePartition
 
     NEON_CUDA_HOST_DEVICE inline auto
     operator()(const Self::Node& node,
-               int               cardinalityIdx) const
-        -> const T_ta&
+               int               cardinalityIdx)
+        const -> const T_ta&
     {
         return mBuildingBlockPartition(node.getBuildingBlockCell(), cardinalityIdx);
     }
 
 
-    NEON_CUDA_HOST_DEVICE inline auto cardinality() const
-        -> int
+    NEON_CUDA_HOST_DEVICE inline auto cardinality()
+        const -> int
     {
         return mBuildingBlockPartition.cardinality();
     }

@@ -20,13 +20,13 @@
 #include "Neon/domain/interface/common.h"
 #include "Neon/domain/patterns/PatternScalar.h"
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeGeneric.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeGeneric.h"
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeToVoxelMask.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelField.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGeneric.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelPartition.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelPartitionIndexSpace.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeToVoxelMask.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelField.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelGeneric.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelPartition.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelPartitionIndexSpace.h"
 
 
 namespace Neon::domain::internal::experimental::staggeredGrid::details {
@@ -177,7 +177,7 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
 
 }  // namespace Neon::domain::internal::experimental::staggeredGrid::details
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelField.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGeneric_imp.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGrid_imp.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelPartitionIndexSpace_imp.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelField.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelGeneric_imp.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelGrid_imp.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelPartitionIndexSpace_imp.h"

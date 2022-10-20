@@ -3,7 +3,7 @@
 #include "Neon/core/core.h"
 #include "Neon/core/types/Macros.h"
 #include "Neon/domain/interface/NghInfo.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGeneric.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelGeneric.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
 #include "Neon/sys/memory/mem3d.h"

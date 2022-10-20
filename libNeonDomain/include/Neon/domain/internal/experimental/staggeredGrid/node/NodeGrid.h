@@ -20,12 +20,12 @@
 #include "Neon/domain/interface/common.h"
 #include "Neon/domain/patterns/PatternScalar.h"
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeField.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeGeneric.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodePartition.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodePartitionIndexSpace.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeField.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeGeneric.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodePartition.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodePartitionIndexSpace.h"
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGeneric.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelGeneric.h"
 #include "NodeToVoxelMask.h"
 
 
@@ -180,6 +180,6 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
 
 }  // namespace Neon::domain::internal::experimental::staggeredGrid::details
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeField_imp.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeGeneric_imp.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodePartitionIndexSpace_imp.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeField_imp.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeGeneric_imp.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodePartitionIndexSpace_imp.h"

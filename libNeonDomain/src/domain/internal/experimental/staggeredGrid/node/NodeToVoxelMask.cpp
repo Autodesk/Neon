@@ -1,4 +1,4 @@
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeToVoxelMask.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeToVoxelMask.h"
 
 
 namespace Neon::domain::internal::experimental::staggeredGrid::details {

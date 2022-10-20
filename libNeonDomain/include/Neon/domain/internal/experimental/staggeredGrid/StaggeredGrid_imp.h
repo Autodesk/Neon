@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/StaggeredGrid.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeToVoxelMask.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/StaggeredGrid.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeToVoxelMask.h"
 
 namespace Neon::domain::internal::experimental::staggeredGrid {
 
@@ -16,29 +16,38 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
 {
     mStorage = std::make_shared<Storage>();
 
-    Neon::domain::Stencil feaVoxelFirstOrderStencil({
-                                                        {-1, 0, 0},
-                                                        {-1, -1, 0},
-                                                        {0, -1, 0},
-                                                        {0, 0, -1},
-                                                        {-1, 0, -1},
-                                                        {-1, -1, -1},
-                                                        {0, -1, -1},
-                                                        /*----*/
-                                                        {0, 0, 0},
-                                                        /*----*/
-                                                        {1, 0, 0},
-                                                        {1, 1, 0},
-                                                        {0, 1, 0},
-                                                        {0, 0, 1},
-                                                        {1, 0, 1},
-                                                        {1, 1, 1},
-                                                        {0, 1, 1},
-                                                    },
-                                                    false);
-    if (!optionalExtraStencil.empty()) {
-        NEON_DEV_UNDER_CONSTRUCTION("");
-    }
+    const Neon::domain::Stencil unionOfAllStencils = [&] {
+        // Stencil that is required to move from voxels to nodes
+        // Reminder, voxel@(0,0,0) is mapped into node@(0,0,0)
+        Neon::domain::Stencil feaVoxelFirstOrderStencil({
+                                                            {-1, 0, 0},
+                                                            {-1, -1, 0},
+                                                            {0, -1, 0},
+                                                            {0, 0, -1},
+                                                            {-1, 0, -1},
+                                                            {-1, -1, -1},
+                                                            {0, -1, -1},
+                                                            /*----*/
+                                                            {0, 0, 0},
+                                                            /*----*/
+                                                            {1, 0, 0},
+                                                            {1, 1, 0},
+                                                            {0, 1, 0},
+                                                            {0, 0, 1},
+                                                            {1, 0, 1},
+                                                            {1, 1, 1},
+                                                            {0, 1, 1},
+                                                        },
+                                                        false);
+
+        std::vector<Neon::domain::Stencil> allStencils;
+        allStencils.push_back(feaVoxelFirstOrderStencil);
+        allStencils.insert(allStencils.end(),
+                           optionalExtraStencil.begin(),
+                           optionalExtraStencil.end());
+        return Neon::domain::Stencil::getUnion(allStencils);
+    }();
+
     auto nodeDim = voxDimension + 1;
 
     std::vector<uint8_t> voxels = std::vector<uint8_t>(nodeDim.rMul(), 0);
@@ -76,9 +85,10 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
             bool         isIn = nodes[pitch] == 1;
             return isIn;
         },
-        feaVoxelFirstOrderStencil,
+        unionOfAllStencils,
         spacingData,
         origin);
+    mStorage->buildingBlockGrid.setReduceEngine(Neon::sys::patterns::Engine::CUB);
 
     auto mask = mStorage->buildingBlockGrid.template newField<uint8_t, 1>("Voxel-mask", 1, 0, Neon::DataUse::IO_COMPUTE);
     mask.forEachActiveCell([&](const Neon::index_3d& idx, int, uint8_t& maskValue) {
@@ -114,7 +124,7 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
     Self::GridBase::init(std::string("FeaNodeGird-") + mStorage->buildingBlockGrid.getImplementationName(),
                          backend,
                          nodeDim,
-                         feaVoxelFirstOrderStencil,
+                         unionOfAllStencils,
                          mStorage->buildingBlockGrid.getNumActiveCellsPerPartition(),
                          mStorage->buildingBlockGrid.getDefaultBlock(),
                          spacingData,
@@ -162,9 +172,9 @@ auto StaggeredGrid<BuildingBlockGridT>::newVoxelField(const std::string&  fieldU
 }
 
 template <typename BuildingBlockGridT>
-auto StaggeredGrid<BuildingBlockGridT>::isInsideDomain(const index_3d& idx) const -> bool
+auto StaggeredGrid<BuildingBlockGridT>::isInsideDomain(const index_3d&) const -> bool
 {
-    return mStorage->buildingBlockGrid.isInsideDomain(idx);
+    NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
 template <typename BuildingBlockGridT>
@@ -193,6 +203,17 @@ auto StaggeredGrid<BuildingBlockGridT>::getContainerOnNodes(const std::string& n
     return output;
 }
 
+template <typename BuildingBlockGridT>
+auto StaggeredGrid<BuildingBlockGridT>::isNodeInsideDomain(const index_3d& idx) const -> bool
+{
+    return mStorage->nodeGrid.isInsideDomain(idx);
+}
+
+template <typename BuildingBlockGridT>
+auto StaggeredGrid<BuildingBlockGridT>::isVoxelInsideDomain(const index_3d& idx) const -> bool
+{
+    return mStorage->voxelGrid.isInsideDomain(idx);
+}
 
 template <typename BuildingBlockGridT>
 template <typename LoadingLambda>
@@ -205,9 +226,8 @@ auto StaggeredGrid<BuildingBlockGridT>::getContainerOnNodes(const std::string& n
     return output;
 }
 
-
 }  // namespace Neon::domain::internal::experimental::staggeredGrid
 
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeField_imp.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/node/NodeGrid_imp.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeField_imp.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodeGrid_imp.h"

@@ -7,17 +7,16 @@
 #include "Neon/set/DevSet.h"
 #include "Neon/set/HuOptions.h"
 
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelGrid.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/voxel/VoxelPartition.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodePartition.h"
+#include "NodePartition.h"
 
 
 namespace Neon::domain::internal::experimental::staggeredGrid::details {
-
 template <typename BuildingBlockGridT>
-struct VoxelGrid;
+struct NodeGrid;
 
 template <typename BuildingBlockGridT, typename T, int C = 0>
-struct VoxelStorage
+struct NodeStorage
 {
    private:
     struct BuildingBlocks
@@ -25,18 +24,15 @@ struct VoxelStorage
         using Grid = BuildingBlockGridT;
         using Field = typename Grid::template Field<T, C>;
         using Partition = typename BuildingBlockGridT::template Partition<T, C>;
-        using FieldNodeToVoxelMask = typename BuildingBlockGridT::template Field<NodeToVoxelMask, 1>;
-        using PartitionNodeToVoxelMask = typename BuildingBlockGridT::template Partition<NodeToVoxelMask, 1>;
     };
-    using Partition = VoxelPartition<BuildingBlockGridT, T, C>;
+    using Partition = NodePartition<BuildingBlockGridT, T, C>;
 
    public:
-    VoxelStorage() = default;
+    NodeStorage() = default;
 
-    VoxelStorage(typename BuildingBlocks::Field&                      buildingBlocksField,
-                 const typename BuildingBlocks::FieldNodeToVoxelMask& nodeToVoxelMaskField,
-                 Neon::DataUse                                        dataUse)
-        : mBuildingBlockField(buildingBlocksField), mNodeToVoxelMaskField(nodeToVoxelMaskField), mDataUse(dataUse)
+    NodeStorage(typename BuildingBlocks::Field& buildingBlocksField,
+                Neon::DataUse                   dataUse)
+        : mBuildingBlockField(buildingBlocksField), mDataUse(dataUse)
     {
         auto& bk = buildingBlocksField.getGrid().getBackend();
         {  // Setting up the mask for supported executions (i.e host and device | host only | device only)
@@ -51,15 +47,11 @@ struct VoxelStorage
         {  // Setting up the mask for supported executions (i.e host and device | host only | device only)
             for (Neon::Execution execution : Neon::ExecutionUtils::getCompatibleOptions(dataUse)) {
                 for (auto dw : Neon::DataViewUtil::validOptions()) {
-                    getPartitionDataSet(execution, dw) = bk.devSet().template newDataSet<VoxelPartition<BuildingBlockGridT, T, C>>();
+                    getPartitionDataSet(execution, dw) = bk.devSet().template newDataSet<NodePartition<BuildingBlockGridT, T, C>>();
                     for (Neon::SetIdx setIdx : bk.devSet().getRange()) {
-                        const typename BuildingBlocks::Partition&                buildingBlocksPartition = mBuildingBlockField.getPartition(execution, setIdx.idx(), dw);
-                        const typename BuildingBlocks::PartitionNodeToVoxelMask& nodeToVoxelMaskPartition = mNodeToVoxelMaskField.getPartition(execution, setIdx.idx(), dw);
+                        const typename BuildingBlocks::Partition& buildingBlocksPartition = mBuildingBlockField.getPartition(execution, setIdx.idx(), dw);
 
-
-                        this->getPartition(execution, dw, setIdx.idx()) =
-                            VoxelPartition<BuildingBlockGridT, T, C>(buildingBlocksPartition,
-                                                                     nodeToVoxelMaskPartition);
+                        this->getPartition(execution, dw, setIdx.idx()) = NodePartition<BuildingBlockGridT, T, C>(buildingBlocksPartition);
                     }
                 }
             }
@@ -67,7 +59,7 @@ struct VoxelStorage
     }
 
     auto getPartition(Neon::Execution execution, Neon::DataView dw, Neon::SetIdx setIdx)
-        -> VoxelPartition<BuildingBlockGridT, T, C>&
+        -> NodePartition<BuildingBlockGridT, T, C>&
     {
         int   dwInt = Neon::DataViewUtil::toInt(dw);
         int   executionInt = Neon::ExecutionUtils::toInt(execution);
@@ -78,7 +70,7 @@ struct VoxelStorage
     auto getPartition(Neon::Execution execution,
                       Neon::DataView  dw,
                       Neon::SetIdx    setIdx) const
-        -> const VoxelPartition<BuildingBlockGridT, T, C>&
+        -> const NodePartition<BuildingBlockGridT, T, C>&
     {
         int         dwInt = Neon::DataViewUtil::toInt(dw);
         int         executionInt = Neon::ExecutionUtils::toInt(execution);
@@ -112,7 +104,7 @@ struct VoxelStorage
 
    private:
     auto getPartitionDataSet(Neon::Execution execution, Neon::DataView dw)
-        -> Neon::set::DataSet<VoxelPartition<BuildingBlockGridT, T, C>>&
+        -> Neon::set::DataSet<NodePartition<BuildingBlockGridT, T, C>>&
     {
 
         int dwInt = Neon::DataViewUtil::toInt(dw);
@@ -121,28 +113,27 @@ struct VoxelStorage
     }
 
     typename BuildingBlocks::Field                            mBuildingBlockField;
-    typename BuildingBlocks::FieldNodeToVoxelMask             mNodeToVoxelMaskField;
     std::array<bool, Neon::ExecutionUtils::numConfigurations> mSupportedExecutions;
     Neon::DataUse                                             mDataUse;
 
-    std::array<std::array<Neon::set::DataSet<VoxelPartition<BuildingBlockGridT, T, C>>, Neon::DataViewUtil::nConfig>, Neon::ExecutionUtils::numConfigurations>
+    std::array<std::array<Neon::set::DataSet<NodePartition<BuildingBlockGridT, T, C>>, Neon::DataViewUtil::nConfig>, Neon::ExecutionUtils::numConfigurations>
         mPartitionsByExecutionViewAndDevIdx;
 };
 
 
 /**
- * Create and manage a dense field on both GPU and CPU. VoxelField also manages updating
- * the GPU->CPU and CPU-GPU as well as updating the halo. User can use VoxelField to populate
- * the field with data as well was exporting it to VTI. To create a new VoxelField,
+ * Create and manage a dense field on both GPU and CPU. NodeField also manages updating
+ * the GPU->CPU and CPU-GPU as well as updating the halo. User can use NodeField to populate
+ * the field with data as well was exporting it to VTI. To create a new NodeField,
  * use the newField function in dGrid.
  */
 
 template <typename BuildingBlockGridT, typename T, int C = 0>
-class VoxelField : public Neon::domain::interface::FieldBaseTemplate<T,
-                                                                     C,
-                                                                     VoxelGrid<BuildingBlockGridT>,
-                                                                     VoxelPartition<BuildingBlockGridT, T, C>,
-                                                                     VoxelStorage<BuildingBlockGridT, T, C>>
+class NodeField : public Neon::domain::interface::FieldBaseTemplate<T,
+                                                                    C,
+                                                                    NodeGrid<BuildingBlockGridT>,
+                                                                    NodePartition<BuildingBlockGridT, T, C>,
+                                                                    NodeStorage<BuildingBlockGridT, T, C>>
 {
 
    public:
@@ -150,26 +141,25 @@ class VoxelField : public Neon::domain::interface::FieldBaseTemplate<T,
     {
         using Grid = BuildingBlockGridT;
         using Partition = typename BuildingBlockGridT::template Partition<T, C>;
-        using PartitionNodeToVoxelMask = typename BuildingBlockGridT::template Partition<NodeToVoxelMask, 1>;
         using FieldNodeToVoxelMask = typename BuildingBlockGridT::template Field<NodeToVoxelMask, 1>;
     };
 
 
     static constexpr int Cardinality = C;
     using Type = T;
-    using Self = VoxelField<typename BuildingBlocks::Grid, Type, Cardinality>;
+    using Self = NodeField<typename BuildingBlocks::Grid, Type, Cardinality>;
 
-    using Grid = VoxelGrid<typename BuildingBlocks::Grid>;
-    using Partition = VoxelPartition<typename BuildingBlocks::Grid, T, C>;
-    using Node = NodeGeneric<typename BuildingBlocks::Grid>;
+    using Grid = NodeGrid<typename BuildingBlocks::Grid>;
+    using Partition = NodePartition<typename BuildingBlocks::Grid, T, C>;
+    using Node = typename Partition::Node;
     using Voxel = VoxelGeneric<typename BuildingBlocks::Grid>;
-    using Storage = VoxelStorage<BuildingBlockGridT, T, C>;
+    using Storage = NodeStorage<BuildingBlockGridT, T, C>;
 
     friend Grid;
 
-    VoxelField() = default;
+    NodeField() = default;
 
-    virtual ~VoxelField() = default;
+    virtual ~NodeField() = default;
 
     auto self() -> Self&;
 
@@ -237,24 +227,25 @@ class VoxelField : public Neon::domain::interface::FieldBaseTemplate<T,
         -> Partition& final;
 
 
-    static auto swap(VoxelField& A, VoxelField& B) -> void;
+    static auto swap(NodeField& A, NodeField& B) -> void;
+
 
    private:
     using Neon::domain::interface::FieldBaseTemplate<T,
                                                      C,
-                                                     VoxelGrid<BuildingBlockGridT>,
-                                                     VoxelPartition<BuildingBlockGridT, T, C>,
-                                                     VoxelStorage<BuildingBlockGridT, T, C>>::ioToVtk;
+                                                     NodeGrid<BuildingBlockGridT>,
+                                                     NodePartition<BuildingBlockGridT, T, C>,
+                                                     NodeStorage<BuildingBlockGridT, T, C>>::ioToVtk;
 
-    VoxelField(const std::string&                                   fieldUserName,
-               Neon::DataUse                                        dataUse,
-               const Neon::MemoryOptions&                           memoryOptions,
-               const Grid&                                          grid,
-               const typename BuildingBlocks::FieldNodeToVoxelMask& partitionNodeToVoxelMask,
-               const typename BuildingBlocks::Grid&                 buildingBlockGrid,
-               int                                                  cardinality,
-               T                                                    inactiveValue,
-               Neon::domain::haloStatus_et::e                       haloStatus);
+
+    NodeField(const std::string&                   fieldUserName,
+              Neon::DataUse                        dataUse,
+              const Neon::MemoryOptions&           memoryOptions,
+              const Grid&                          grid,
+              const typename BuildingBlocks::Grid& buildingBlockGrid,
+              int                                  cardinality,
+              T                                    outsideVal,
+              Neon::domain::haloStatus_et::e       haloStatus);
 
 
    public:
@@ -263,7 +254,7 @@ class VoxelField : public Neon::domain::interface::FieldBaseTemplate<T,
                  const std::string& FieldName,
                  bool               includeDomain = false,
                  Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
-                 bool               isNodeSpace = false) const -> void;
+                 bool               isNodeSpace = true) const -> void;
 };
 
 

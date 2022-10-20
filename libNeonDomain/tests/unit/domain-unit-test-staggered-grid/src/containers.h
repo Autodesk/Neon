@@ -1,5 +1,5 @@
 #include "Neon/domain/dGrid.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/StaggeredGrid.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/StaggeredGrid.h"
 
 #define TEST_TYPE float
 

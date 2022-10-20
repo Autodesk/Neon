@@ -1,5 +1,5 @@
 #include "Neon/domain/dGrid.h"
-#include "Neon/domain/internal/experimantal/staggeredGrid/StaggeredGrid.h"
+#include "Neon/domain/internal/experimental/staggeredGrid/StaggeredGrid.h"
 
 template <typename StaggeredGrid, typename T>
 struct Containers

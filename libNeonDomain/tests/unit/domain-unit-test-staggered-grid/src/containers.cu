@@ -58,9 +58,9 @@ auto Containers<StaggeredGrid, T>::sumNodesOnVoxels(Self::VoxelField_3 fieldVox,
 
 #define CHECK_DIRECTION(X, Y, Z)                                                          \
     {                                                                                     \
-        TEST_TYPE nIx[3] = {nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 0, 1000),  \
-                            nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 1, 1000),  \
-                            nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 2, 1000)}; \
+        TEST_TYPE nIx[3] = {nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 0),  \
+                            nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 1),  \
+                            nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 2)}; \
                                                                                           \
         TEST_TYPE reference[3] = {X == -1 ? voxId[0] : voxId[0] + X,                      \
                                   Y == -1 ? voxId[1] : voxId[1] + Y,                      \
