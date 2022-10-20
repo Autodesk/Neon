@@ -1,96 +1,97 @@
 #pragma once
 
-#include <assert.h>
 #include "Neon/core/core.h"
 #include "Neon/core/types/Macros.h"
+
+#include "Neon/set/DevSet.h"
+
 #include "Neon/domain/interface/NghInfo.h"
 #include "Neon/domain/internal/experimental/staggeredGrid/voxel/VoxelGeneric.h"
-#include "Neon/set/DevSet.h"
-#include "Neon/sys/memory/CudaIntrinsics.h"
-#include "Neon/sys/memory/mem3d.h"
+
 #include "NodeGeneric.h"
 #include "NodeToVoxelMask.h"
 
 namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
+template <typename BuildingBlockGridT, typename TypeT, int CardinalityT>
+struct NodeStorage;
+
 template <typename BuildingBlockGridT,
-          typename T_ta,
-          int cardinality_ta = 0>
+          typename TypeT,
+          int CardinalityT = 0>
 struct NodePartition
 {
    public:
+    friend NodeStorage<BuildingBlockGridT, TypeT, CardinalityT>;
+
     struct BuildingBlocks
     {
         using Grid = BuildingBlockGridT;
-        using Partition = typename BuildingBlockGridT::template Partition<T_ta, cardinality_ta>;
+        using Partition = typename BuildingBlockGridT::template Partition<TypeT, CardinalityT>;
     };
 
-    using Self = NodePartition<BuildingBlockGridT, T_ta, cardinality_ta>;
+    using Self = NodePartition<BuildingBlockGridT, TypeT, CardinalityT>;
     using PartitionIndexSpace = typename BuildingBlockGridT::PartitionIndexSpace;
     using Node = NodeGeneric<BuildingBlockGridT>;
     using Voxel = VoxelGeneric<BuildingBlockGridT>;
-    using Type = T_ta;
+    using Type = TypeT;
 
    public:
     NodePartition() = default;
     ~NodePartition() = default;
 
-    explicit NodePartition(const typename BuildingBlocks::Partition& partition)
-    {
-        mBuildingBlockPartition = partition;
-    }
-
+    /**
+     * Accessing node metadata.
+     */
     NEON_CUDA_HOST_DEVICE inline auto
-    operator()(const Self::Node& node,
-               int               cardinalityIdx)
-        -> T_ta&
-    {
-        return mBuildingBlockPartition(node.getBuildingBlockCell(), cardinalityIdx);
-    }
+    operator()(const Self::Node& node /**<          Node handle */,
+               int               cardinalityIdx /** Queried cardinality */)
+        -> TypeT&;
 
+    /**
+     * Accessing node metadata.
+     */
     NEON_CUDA_HOST_DEVICE inline auto
-    operator()(const Self::Node& node,
-               int               cardinalityIdx)
-        const -> const T_ta&
-    {
-        return mBuildingBlockPartition(node.getBuildingBlockCell(), cardinalityIdx);
-    }
+    operator()(const Self::Node& node /**<          Node handle */,
+               int               cardinalityIdx /** Queried cardinality */)
+        const -> const TypeT&;
 
-
-    NEON_CUDA_HOST_DEVICE inline auto cardinality()
-        const -> int
-    {
-        return mBuildingBlockPartition.cardinality();
-    }
-
-    // From a voxel handle to node data
-    template <int8_t sx,
-              int8_t sy,
-              int8_t sz>
+    /**
+     * Retrieving the number of components of the field
+     */
     NEON_CUDA_HOST_DEVICE inline auto
-    operator()(const Self::Voxel& element,
-               int                cardinalityIdx) const -> T_ta
-    {
-        return BuildingBlocks::Partition::nghVal() < sx == -1 ? 0 : sx,
-               sy == -1 ? 0 : sy,
-               sz == -1 ? 0 : sz > (element, cardinalityIdx);
-    }
+    cardinality()
+        const -> int;
 
-    template <int8_t sx,
-              int8_t sy,
-              int8_t sz>
+    /**
+     * Accessing neighbour node metadata
+     */
+    template <int8_t sx /** Neighbour offset on X */,
+              int8_t sy /** Neighbour offset on Y */,
+              int8_t sz /** Neighbour offset on Z */>
     NEON_CUDA_HOST_DEVICE inline auto
     getNghNodeValue(const Voxel& voxel,
-                    int          cardinalityIdx) const -> T_ta
-    {
-        constexpr int8_t x = sx == -1 ? 0 : 1;
-        constexpr int8_t y = sy == -1 ? 0 : 1;
-        constexpr int8_t z = sz == -1 ? 0 : 1;
-        T_ta             alternative;
-        return mBuildingBlockPartition.template nghVal<x, y, z>(voxel.getBuildingBlockCell(), cardinalityIdx, alternative).value;
-    }
+                    int          cardinalityIdx)
+        const -> TypeT;
+
+    /**
+     * Accessing neighbour node metadata
+     */
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghNodeValue(const Voxel&                 voxel,
+                    const std::array<int8_t, 3>& offset3D,
+                    int                          cardinalityIdx)
+        const -> TypeT;
 
    private:
+
+    /**
+     * Private constructor used only by Neon
+     */
+    explicit NodePartition(const typename BuildingBlocks::Partition& partition);
+
     typename BuildingBlocks::Partition mBuildingBlockPartition;
 };
 }  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+
+#include "Neon/domain/internal/experimental/staggeredGrid/node/NodePartition_imp.h"

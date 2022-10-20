@@ -15,70 +15,84 @@ namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::self() -> NodeField::Self&
+auto NodeField<BuildingBlockGridT, T, C>::
+    self()
+        -> NodeField::Self&
 {
     return *this;
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::self() const -> const NodeField::Self&
+auto NodeField<BuildingBlockGridT, T, C>::
+    self()
+        const -> const NodeField::Self&
 {
     return *this;
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::operator()(const index_3d& idx,
-                                                     const int&      cardinality) const -> Type
+auto NodeField<BuildingBlockGridT, T, C>::
+     operator()(const index_3d& idx,
+           const int&      cardinality)
+    const -> Type
 {
     return this->getStorage().getBuildingBlockField().operator()(idx, cardinality);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::haloUpdate(set::HuOptions& opt) const -> void
+auto NodeField<BuildingBlockGridT, T, C>::
+    haloUpdate(set::HuOptions& opt) const -> void
 {
     return this->getStorage().getBuildingBlockField().haloUpdate(opt);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::haloUpdate(SetIdx setIdx, set::HuOptions& opt) const -> void
+auto NodeField<BuildingBlockGridT, T, C>::
+    haloUpdate(SetIdx setIdx, set::HuOptions& opt) const -> void
 {
     return this->getStorage().getBuildingBlockField().haloUpdate(setIdx, opt);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::haloUpdate(set::HuOptions& opt) -> void
+auto NodeField<BuildingBlockGridT, T, C>::
+    haloUpdate(set::HuOptions& opt) -> void
 {
     return this->getStorage().getBuildingBlockField().haloUpdate(opt);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::haloUpdate(SetIdx setIdx, set::HuOptions& opt) -> void
+auto NodeField<BuildingBlockGridT, T, C>::
+    haloUpdate(SetIdx setIdx, set::HuOptions& opt) -> void
 {
     return this->getStorage().getBuildingBlockField().haloUpdate(setIdx, opt);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::getReference(const index_3d& idx, const int& cardinality) -> Type&
+auto NodeField<BuildingBlockGridT, T, C>::
+    getReference(const index_3d& idx, const int& cardinality) -> Type&
 {
     return this->getStorage().getBuildingBlockField().getReference(idx, cardinality);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::updateCompute(int streamSetId) -> void
+auto NodeField<BuildingBlockGridT, T, C>::
+    updateCompute(int streamSetId) -> void
 {
     return this->getStorage().getBuildingBlockField().updateCompute(streamSetId);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::updateIO(int streamSetId) -> void
+auto NodeField<BuildingBlockGridT, T, C>::
+    updateIO(int streamSetId) -> void
 {
     return this->getStorage().getBuildingBlockField().updateIO(streamSetId);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType,
-                                                       const SetIdx&     idx,
-                                                       const DataView&   dataView) const -> const NodeField::Partition&
+auto NodeField<BuildingBlockGridT, T, C>::
+    getPartition(const DeviceType& devType,
+                 const SetIdx&     idx,
+                 const DataView&   dataView) const -> const NodeField::Partition&
 {
     const Neon::Execution execution = DeviceTypeUtil::getExecution(devType);
     const auto&           partition = getPartition(execution, idx, dataView);
@@ -86,9 +100,11 @@ auto NodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType,
-                                                       const SetIdx&     idx,
-                                                       const DataView&   dataView) -> NodeField::Partition&
+auto NodeField<BuildingBlockGridT, T, C>::
+    getPartition(const DeviceType& devType,
+                 const SetIdx&     idx,
+                 const DataView&   dataView)
+        -> NodeField::Partition&
 {
     const Neon::Execution execution = DeviceTypeUtil::getExecution(devType);
     auto&                 partition = getPartition(execution, idx, dataView);
@@ -96,9 +112,11 @@ auto NodeField<BuildingBlockGridT, T, C>::getPartition(const DeviceType& devType
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution,
-                                                       Neon::SetIdx    setIdx,
-                                                       const DataView& dataView) const -> const NodeField::Partition&
+auto NodeField<BuildingBlockGridT, T, C>::
+    getPartition(Neon::Execution execution,
+                 Neon::SetIdx    setIdx,
+                 const DataView& dataView)
+        const -> const NodeField::Partition&
 {
     auto& s = this->getStorage();
     if (!s.isSupported(execution)) {
@@ -113,9 +131,10 @@ auto NodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution,
-                                                       Neon::SetIdx    setIdx,
-                                                       const DataView& dataView) -> NodeField::Partition&
+auto NodeField<BuildingBlockGridT, T, C>::
+    getPartition(Neon::Execution execution,
+                 Neon::SetIdx    setIdx,
+                 const DataView& dataView) -> NodeField::Partition&
 {
     auto& s = this->getStorage();
     if (!s.isSupported(execution)) {
@@ -130,7 +149,9 @@ auto NodeField<BuildingBlockGridT, T, C>::getPartition(Neon::Execution execution
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-auto NodeField<BuildingBlockGridT, T, C>::swap(NodeField& A, NodeField& B) -> void
+auto NodeField<BuildingBlockGridT, T, C>::
+    swap(NodeField& A, NodeField& B)
+        -> void
 {
     (void)A;
     (void)B;
@@ -138,22 +159,28 @@ auto NodeField<BuildingBlockGridT, T, C>::swap(NodeField& A, NodeField& B) -> vo
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
-NodeField<BuildingBlockGridT, T, C>::NodeField(const std::string&                                   fieldUserName,
-                                               Neon::DataUse                                        dataUse,
-                                               const Neon::MemoryOptions&                           memoryOptions,
-                                               const Grid&                                          grid,
-                                               const typename BuildingBlocks::Grid&                 buildingBlockGrid,
-                                               int                                                  cardinality,
-                                               T                                                    outsideVal,
-                                               Neon::domain::haloStatus_et::e                       haloStatus)
-    : Neon::domain::interface::FieldBaseTemplate<T, C, typename Self::Grid, typename Self::Partition, Storage>(&grid,
-                                                                                                               fieldUserName,
-                                                                                                               std::string("Staggered-") + buildingBlockGrid.getImplementationName(),
-                                                                                                               cardinality,
-                                                                                                               outsideVal,
-                                                                                                               dataUse,
-                                                                                                               memoryOptions,
-                                                                                                               haloStatus) {
+NodeField<BuildingBlockGridT, T, C>::
+    NodeField(const std::string&                   fieldUserName,
+              Neon::DataUse                        dataUse,
+              const Neon::MemoryOptions&           memoryOptions,
+              const Grid&                          grid,
+              const typename BuildingBlocks::Grid& buildingBlockGrid,
+              int                                  cardinality,
+              T                                    outsideVal,
+              Neon::domain::haloStatus_et::e       haloStatus)
+    : Neon::domain::interface::FieldBaseTemplate<T,
+                                                 C,
+                                                 typename Self::Grid,
+                                                 typename Self::Partition,
+                                                 Storage>(&grid,
+                                                          fieldUserName,
+                                                          std::string("Staggered-") + buildingBlockGrid.getImplementationName(),
+                                                          cardinality,
+                                                          outsideVal,
+                                                          dataUse,
+                                                          memoryOptions,
+                                                          haloStatus) {
+
     auto buildingBlockField = buildingBlockGrid.template newField<T, C>(fieldUserName,
                                                                         cardinality,
                                                                         outsideVal,
@@ -166,11 +193,13 @@ NodeField<BuildingBlockGridT, T, C>::NodeField(const std::string&               
 
 template <typename BuildingBlockGridT, typename T, int C>
 template <typename VtiExportType>
-auto NodeField<BuildingBlockGridT, T, C>::ioToVtk(const std::string& fileName,
-                                                  const std::string& FieldName,
-                                                  bool               includeDomain,
-                                                  Neon::IoFileType   ioFileType,
-                                                  bool               isNodeSpace) const -> void
+auto NodeField<BuildingBlockGridT, T, C>::
+    ioToVtk(const std::string& fileName,
+            const std::string& FieldName,
+            bool               includeDomain,
+            Neon::IoFileType   ioFileType,
+            bool               isNodeSpace)
+        const -> void
 {
     auto&      buildingBlockField = this->getStorage().getBuildingBlockField();
     const auto spacing = buildingBlockField.getGrid().getSpacing();

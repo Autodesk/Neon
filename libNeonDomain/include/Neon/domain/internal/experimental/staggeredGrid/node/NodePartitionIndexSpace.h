@@ -28,8 +28,7 @@ struct NodePartitionIndexSpace
                                const size_t&                  x,
                                [[maybe_unused]] const size_t& y,
                                [[maybe_unused]] const size_t& z)
-        const
-        -> bool;
+        const -> bool;
 
 
    private:

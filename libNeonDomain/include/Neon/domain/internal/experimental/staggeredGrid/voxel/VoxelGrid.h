@@ -71,8 +71,8 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
     /**
      * Constructor compatible with the general grid API
      */
-    explicit VoxelGrid(typename BuildingBlocks::Grid&                                     buildingBlockGrid,
-                       const typename BuildingBlocks::template Field<uint8_t, 1>&         mask,
+    explicit VoxelGrid(typename BuildingBlocks::Grid&                                                                                                   buildingBlockGrid,
+                       const typename BuildingBlocks::template Field<uint8_t, 1>&                                                                       mask,
                        const typename BuildingBlocks::template Field<Neon::domain::internal::experimental::staggeredGrid::details::NodeToVoxelMask, 1>& nodeToVoxelMaskField);
 
     auto getBuildingBlockGrid()
@@ -83,8 +83,8 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
      */
     auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
-                             const size_t&         shareMem) const
-        -> Neon::set::LaunchParameters;
+                             const size_t&         shareMem)
+        const -> Neon::set::LaunchParameters;
 
     auto getPartitionIndexSpace(Neon::DeviceType devE,
                                 SetIdx           setIdx,
@@ -96,68 +96,69 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
                        int                 cardinality,
                        T                   inactiveValue,
                        Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE,
-                       Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
-        -> VoxelField<T, C>;
+                       Neon::MemoryOptions memoryOptions = Neon::MemoryOptions())
+        const -> VoxelField<T, C>;
 
     template <typename LoadingLambda>
     auto getContainerOnVoxels(const std::string& name,
                               index_3d           blockSize,
                               size_t             sharedMem,
-                              LoadingLambda      lambda) const
-        -> Neon::set::Container;
+                              LoadingLambda      lambda)
+        const -> Neon::set::Container;
 
     template <typename LoadingLambda>
     auto getContainerOnVoxels(const std::string& name,
                               LoadingLambda      lambda)
-        const
-        -> Neon::set::Container;
+        const -> Neon::set::Container;
 
-    auto isInsideDomain(const Neon::index_3d& idx) const
-        -> bool final;
+    auto isInsideDomain(const Neon::index_3d& idx)
+        const -> bool final;
 
-    auto getProperties(const Neon::index_3d& idx) const
-        -> typename GridBaseTemplate::CellProperties final;
+    auto getProperties(const Neon::index_3d& idx)
+        const -> typename GridBaseTemplate::CellProperties final;
 
-    auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
+    auto setReduceEngine(Neon::sys::patterns::Engine eng)
+        -> void;
 
     template <typename T>
-    auto newPatternScalar() const
-        -> Neon::template PatternScalar<T>;
+    auto newPatternScalar()
+        const -> Neon::template PatternScalar<T>;
 
     template <typename T, int C>
     auto dot(const std::string&               name,
              VoxelField<T, C>&                input1,
              VoxelField<T, C>&                input2,
-             Neon::template PatternScalar<T>& scalar) const
-        -> Neon::set::Container;
+             Neon::template PatternScalar<T>& scalar)
+        const -> Neon::set::Container;
 
     template <typename T, int C>
     auto norm2(const std::string&               name,
                VoxelField<T, C>&                input,
-               Neon::template PatternScalar<T>& scalar) const
-        -> Neon::set::Container;
+               Neon::template PatternScalar<T>& scalar)
+        const -> Neon::set::Container;
 
     auto getKernelConfig(int            streamIdx,
                          Neon::DataView dataView)
         -> Neon::set::KernelConfig;
 
-    auto isInsideNodeDomain(const Neon::index_3d& idx) const
-        -> bool;
+    auto isInsideNodeDomain(const Neon::index_3d& idx)
+        const -> bool;
 
    private:
     auto flattenedLengthSet(Neon::DataView dataView = Neon::DataView::STANDARD)
         const -> const Neon::set::DataSet<size_t>;
 
-    auto flattenedPartitions(Neon::DataView dataView = Neon::DataView::STANDARD) const
-        -> const Neon::set::DataSet<size_t>;
+    auto flattenedPartitions(Neon::DataView dataView = Neon::DataView::STANDARD)
+        const -> const Neon::set::DataSet<size_t>;
 
-    auto getLaunchInfo(Neon::DataView dataView) const
-        -> Neon::set::LaunchParameters;
+    auto getLaunchInfo(Neon::DataView dataView)
+        const -> Neon::set::LaunchParameters;
 
-    auto stencil() const
-        -> const Neon::domain::Stencil&;
+    auto stencil()
+        const -> const Neon::domain::Stencil&;
 
-    auto newGpuLaunchParameters() const -> Neon::set::LaunchParameters;
+    auto newGpuLaunchParameters()
+        const -> Neon::set::LaunchParameters;
 
     auto setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig)
         const -> void;
@@ -166,9 +167,9 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
     {
         std::array<std::array<Neon::set::DataSet<PartitionIndexSpace>, Neon::DataViewUtil::nConfig>, Neon::DeviceTypeUtil::nConfig> partitionIndexSpace;
 
-        typename BuildingBlocks::Grid                                                                                               buildingBlockGrid;
-        typename BuildingBlocks::template Field<uint8_t, 1>                                                                         mask;
-        typename BuildingBlocks::template Field<NodeToVoxelMask, 1>                                                                 nodeToVoxelMaskField;
+        typename BuildingBlocks::Grid                               buildingBlockGrid;
+        typename BuildingBlocks::template Field<uint8_t, 1>         mask;
+        typename BuildingBlocks::template Field<NodeToVoxelMask, 1> nodeToVoxelMaskField;
     };
 
     std::shared_ptr<Storage> mStorage;

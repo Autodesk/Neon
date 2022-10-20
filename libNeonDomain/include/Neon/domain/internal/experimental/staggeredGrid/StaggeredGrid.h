@@ -135,7 +135,6 @@ struct StaggeredGrid : public Neon::domain::interface::GridBaseTemplate<Staggere
         const -> bool;
 
    private:
-
     /**
      * Hiding this method as it is replaced by isVoxelInsideDomain and isNodeInsideDomain
      */
@@ -151,14 +150,13 @@ struct StaggeredGrid : public Neon::domain::interface::GridBaseTemplate<Staggere
     struct Storage
     {
         typename BuildingBlocks::Grid buildingBlockGrid;
-        
+
         Self::NodeGrid  nodeGrid;
         Self::VoxelGrid voxelGrid;
     };
 
     std::shared_ptr<Storage> mStorage;
 };
-
 
 }  // namespace Neon::domain::internal::experimental::staggeredGrid
 

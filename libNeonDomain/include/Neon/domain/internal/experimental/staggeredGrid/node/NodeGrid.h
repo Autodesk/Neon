@@ -67,7 +67,7 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
     /**
      * Constructor compatible with the general grid API
      */
-    explicit NodeGrid(typename BuildingBlocks::Grid&                               buildingBlockGrid);
+    explicit NodeGrid(typename BuildingBlocks::Grid& buildingBlockGrid);
 
     auto getBuildingBlockGrid()
         -> typename BuildingBlocks::Grid&;
@@ -77,63 +77,60 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
      */
     auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
-                             const size_t&         shareMem) const
-        -> Neon::set::LaunchParameters;
+                             const size_t&         shareMem)
+        const -> Neon::set::LaunchParameters;
 
     auto getPartitionIndexSpace(Neon::DeviceType devE,
                                 SetIdx           setIdx,
                                 Neon::DataView   dataView)
         -> const PartitionIndexSpace&;
 
-    /**
-     * Creates a new Field
-     */
     template <typename T, int C = 0>
     auto newNodeField(const std::string   fieldUserName,
                       int                 cardinality,
                       T                   inactiveValue,
                       Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE,
-                      Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
-        -> NodeField<T, C>;
+                      Neon::MemoryOptions memoryOptions = Neon::MemoryOptions())
+        const -> NodeField<T, C>;
 
     template <typename LoadingLambda>
     auto getContainerOnNodes(const std::string& name,
                              index_3d           blockSize,
                              size_t             sharedMem,
-                             LoadingLambda      lambda) const
-        -> Neon::set::Container;
+                             LoadingLambda      lambda)
+        const -> Neon::set::Container;
 
     template <typename LoadingLambda>
     auto getContainerOnNodes(const std::string& name,
                              LoadingLambda      lambda)
-        const
-        -> Neon::set::Container;
+        const -> Neon::set::Container;
 
-    auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
+    auto setReduceEngine(Neon::sys::patterns::Engine eng)
+        -> void;
 
     template <typename T>
-    auto newPatternScalar() const
-        -> Neon::template PatternScalar<T>;
+    auto newPatternScalar()
+        const -> Neon::template PatternScalar<T>;
 
     template <typename T, int C>
     auto dot(const std::string&               name,
              NodeField<T, C>&                 input1,
              NodeField<T, C>&                 input2,
-             Neon::template PatternScalar<T>& scalar) const
-        -> Neon::set::Container;
+             Neon::template PatternScalar<T>& scalar)
+        const -> Neon::set::Container;
 
     template <typename T, int C>
     auto norm2(const std::string&               name,
                NodeField<T, C>&                 input,
-               Neon::template PatternScalar<T>& scalar) const
-        -> Neon::set::Container;
+               Neon::template PatternScalar<T>& scalar)
+        const -> Neon::set::Container;
 
     auto getKernelConfig(int            streamIdx,
                          Neon::DataView dataView)
         -> Neon::set::KernelConfig;
 
-    auto isInsideNodeDomain(const Neon::index_3d& idx) const
-        -> bool;
+    auto isInsideNodeDomain(const Neon::index_3d& idx)
+        const -> bool;
 
    private:
     auto getNodeToVoxelMaskField()
@@ -145,13 +142,14 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
     auto flattenedPartitions(Neon::DataView dataView = Neon::DataView::STANDARD) const
         -> const Neon::set::DataSet<size_t>;
 
-    auto getLaunchInfo(Neon::DataView dataView) const
-        -> Neon::set::LaunchParameters;
+    auto getLaunchInfo(Neon::DataView dataView)
+        const -> Neon::set::LaunchParameters;
 
     auto stencil() const
         -> const Neon::domain::Stencil&;
 
-    auto newGpuLaunchParameters() const -> Neon::set::LaunchParameters;
+    auto newGpuLaunchParameters()
+        const -> Neon::set::LaunchParameters;
 
     auto setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig)
         const -> void;
@@ -162,11 +160,11 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
     using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Self::Grid, Self::Node>;
 
    public:
-    auto isInsideDomain(const Neon::index_3d& idx) const
-        -> bool final;
+    auto isInsideDomain(const Neon::index_3d& idx)
+        const -> bool final;
 
-    auto getProperties(const Neon::index_3d& idx) const
-        -> typename GridBaseTemplate::CellProperties final;
+    auto getProperties(const Neon::index_3d& idx)
+        const -> typename GridBaseTemplate::CellProperties final;
 
     struct Storage
     {

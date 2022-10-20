@@ -12,7 +12,8 @@ NodeGeneric<BuildingBlockGridT>::NodeGeneric(const typename BuildingBlocks::Cell
 
 template <typename BuildingBlockGridT>
 inline auto
-NodeGeneric<BuildingBlockGridT>::getBuildingBlockCell()
+NodeGeneric<BuildingBlockGridT>::
+    getBuildingBlockCell()
     -> typename BuildingBlocks::Cell&
 {
     return mBuildingBlockCell;
@@ -22,8 +23,9 @@ NodeGeneric<BuildingBlockGridT>::getBuildingBlockCell()
 template <typename BuildingBlockGridT>
 NEON_CUDA_HOST_DEVICE
 inline auto
-NodeGeneric<BuildingBlockGridT>::getBuildingBlockCell() const
-    -> const typename BuildingBlocks::Cell&
+NodeGeneric<BuildingBlockGridT>::
+    getBuildingBlockCell()
+            const-> const typename BuildingBlocks::Cell&
 {
     return mBuildingBlockCell;
 }

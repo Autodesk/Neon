@@ -15,12 +15,6 @@ struct VoxelPartitionIndexSpace
         using Grid = BuildingBlockGridT;
         using Cell = typename BuildingBlockGridT::Cell;
         using PartitionIndexSpace = typename BuildingBlockGridT::PartitionIndexSpace;
-
-//        template <typename TT, typename CardinalityT>
-//        using Field = typename BuildingBlockGridT::template Field<TT, CardinalityT>;
-//
-//        template <typename TT, typename CardinalityT>
-//        using Partition = typename BuildingBlocks::template Field<TT, CardinalityT>::Partition;
     };
 
     using Cell = VoxelGeneric<BuildingBlockGridT>;
@@ -35,13 +29,10 @@ struct VoxelPartitionIndexSpace
                                const size_t&                  x,
                                [[maybe_unused]] const size_t& y,
                                [[maybe_unused]] const size_t& z)
-        const
-        -> bool;
-
+        const -> bool;
 
    private:
-    typename BuildingBlocks::PartitionIndexSpace mBuildingBlocksPIdxSpace;
-
+    typename BuildingBlocks::PartitionIndexSpace                       mBuildingBlocksPIdxSpace;
     typename BuildingBlockGridT::template Field<uint8_t, 1>::Partition mActiveFlag;
 };
 

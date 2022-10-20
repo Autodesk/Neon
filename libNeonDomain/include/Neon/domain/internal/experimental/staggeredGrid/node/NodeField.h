@@ -171,15 +171,15 @@ class NodeField : public Neon::domain::interface::FieldBaseTemplate<T,
      * then the default outside value is returned.
      */
     auto operator()(const Neon::index_3d& idx,
-                    const int&            cardinality) const
-        -> Type final;
+                    const int&            cardinality)
+        const -> Type final;
 
-    auto haloUpdate(Neon::set::HuOptions& opt) const
-        -> void final;
+    auto haloUpdate(Neon::set::HuOptions& opt)
+        const -> void final;
 
     auto haloUpdate(SetIdx                setIdx,
-                    Neon::set::HuOptions& opt) const
-        -> void;
+                    Neon::set::HuOptions& opt)
+        const -> void;
 
     auto haloUpdate(Neon::set::HuOptions& opt)
         -> void final;
@@ -201,8 +201,7 @@ class NodeField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto getPartition(const Neon::DeviceType& devType,
                       const Neon::SetIdx&     idx,
                       const Neon::DataView&   dataView = Neon::DataView::STANDARD)
-        const
-        -> const Partition&;
+        const -> const Partition&;
 
     auto getPartition(const Neon::DeviceType& devType,
                       const Neon::SetIdx&     idx,

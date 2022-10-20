@@ -77,8 +77,8 @@ struct VoxelStorage
 
     auto getPartition(Neon::Execution execution,
                       Neon::DataView  dw,
-                      Neon::SetIdx    setIdx) const
-        -> const VoxelPartition<BuildingBlockGridT, T, C>&
+                      Neon::SetIdx    setIdx)
+        const -> const VoxelPartition<BuildingBlockGridT, T, C>&
     {
         int         dwInt = Neon::DataViewUtil::toInt(dw);
         int         executionInt = Neon::ExecutionUtils::toInt(execution);
@@ -86,7 +86,8 @@ struct VoxelStorage
         return output;
     }
 
-    auto isSupported(Neon::Execution ex) const -> bool
+    auto isSupported(Neon::Execution ex)
+        const -> bool
     {
         int  exInt = Neon::ExecutionUtils::toInt(ex);
         bool output = mSupportedExecutions[exInt];
@@ -104,8 +105,8 @@ struct VoxelStorage
         return mBuildingBlockField;
     }
 
-    auto getBuildingBlockField() const
-        -> const typename BuildingBlocks::Field&
+    auto getBuildingBlockField()
+        const -> const typename BuildingBlocks::Field&
     {
         return mBuildingBlockField;
     }
@@ -125,7 +126,9 @@ struct VoxelStorage
     std::array<bool, Neon::ExecutionUtils::numConfigurations> mSupportedExecutions;
     Neon::DataUse                                             mDataUse;
 
-    std::array<std::array<Neon::set::DataSet<VoxelPartition<BuildingBlockGridT, T, C>>, Neon::DataViewUtil::nConfig>, Neon::ExecutionUtils::numConfigurations>
+    std::array<std::array<Neon::set::DataSet<VoxelPartition<BuildingBlockGridT, T, C>>,
+                          Neon::DataViewUtil::nConfig>,
+               Neon::ExecutionUtils::numConfigurations>
         mPartitionsByExecutionViewAndDevIdx;
 };
 

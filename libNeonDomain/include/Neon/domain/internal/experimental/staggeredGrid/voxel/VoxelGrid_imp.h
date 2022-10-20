@@ -30,9 +30,10 @@
 namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
-VoxelGrid<BuildingBlockGridT>::VoxelGrid(typename BuildingBlocks::Grid&                                     buildingBlockGrid,
-                                         const typename BuildingBlocks::template Field<uint8_t, 1>&         mask,
-                                         const typename BuildingBlocks::template Field<NodeToVoxelMask, 1>& nodeToVoxelMaskField)
+VoxelGrid<BuildingBlockGridT>::
+    VoxelGrid(typename BuildingBlocks::Grid&                                     buildingBlockGrid,
+              const typename BuildingBlocks::template Field<uint8_t, 1>&         mask,
+              const typename BuildingBlocks::template Field<NodeToVoxelMask, 1>& nodeToVoxelMaskField)
 {
     const Neon::Backend& bk = buildingBlockGrid.getBackend();
     auto&                dev = bk.devSet();
@@ -86,10 +87,11 @@ VoxelGrid<BuildingBlockGridT>::VoxelGrid(typename BuildingBlocks::Grid&         
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::getPartitionIndexSpace(Neon::DeviceType deviceType,
-                                                           SetIdx           setIdx,
-                                                           Neon::DataView   dataView)
-    -> const PartitionIndexSpace&
+auto VoxelGrid<BuildingBlockGridT>::
+    getPartitionIndexSpace(Neon::DeviceType deviceType,
+                           SetIdx           setIdx,
+                           Neon::DataView   dataView)
+        -> const PartitionIndexSpace&
 {
     const auto dwIdx = Neon::DataViewUtil::toInt(dataView);
     const auto devTypeIdx = Neon::DeviceTypeUtil::toInt(deviceType);
@@ -98,23 +100,26 @@ auto VoxelGrid<BuildingBlockGridT>::getPartitionIndexSpace(Neon::DeviceType devi
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::getLaunchParameters(Neon::DataView  dataView,
-                                                        const index_3d& blockSize,
-                                                        const size_t&   shareMem)
-    const -> Neon::set::LaunchParameters
+auto VoxelGrid<BuildingBlockGridT>::
+    getLaunchParameters(Neon::DataView  dataView,
+                        const index_3d& blockSize,
+                        const size_t&   shareMem)
+        const -> Neon::set::LaunchParameters
 {
     return mStorage->buildingBlockGrid.getLaunchParameters(dataView, blockSize, shareMem);
 }
 
 template <typename BuildingBlockGridT>
-VoxelGrid<BuildingBlockGridT>::VoxelGrid()
+VoxelGrid<BuildingBlockGridT>::
+    VoxelGrid()
 {
     mStorage = std::make_shared<Storage>();
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::isInsideDomain(const index_3d& idx)
-    const -> bool
+auto VoxelGrid<BuildingBlockGridT>::
+    isInsideDomain(const index_3d& idx)
+        const -> bool
 {
     bool output = mStorage->buildingBlockGrid.isInsideDomain(idx);
     return output;
@@ -122,12 +127,13 @@ auto VoxelGrid<BuildingBlockGridT>::isInsideDomain(const index_3d& idx)
 
 template <typename BuildingBlockGridT>
 template <typename T, int C>
-auto VoxelGrid<BuildingBlockGridT>::newVoxelField(const std::string   fieldUserName,
-                                                  int                 cardinality,
-                                                  T                   inactiveValue,
-                                                  Neon::DataUse       dataUse,
-                                                  Neon::MemoryOptions memoryOptions)
-    const -> VoxelField<T, C>
+auto VoxelGrid<BuildingBlockGridT>::
+    newVoxelField(const std::string   fieldUserName,
+                  int                 cardinality,
+                  T                   inactiveValue,
+                  Neon::DataUse       dataUse,
+                  Neon::MemoryOptions memoryOptions)
+        const -> VoxelField<T, C>
 {
     VoxelField<T, C> output = VoxelField<T, C>(fieldUserName,
                                                dataUse,
@@ -143,15 +149,17 @@ auto VoxelGrid<BuildingBlockGridT>::newVoxelField(const std::string   fieldUserN
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::setReduceEngine(Neon::sys::patterns::Engine eng)
-    -> void
+auto VoxelGrid<BuildingBlockGridT>::
+    setReduceEngine(Neon::sys::patterns::Engine eng)
+        -> void
 {
     mStorage->buildingBlockGrid.setReduceEngine(eng);
 }
 
 template <typename BuildingBlockGridT>
 template <typename T>
-auto VoxelGrid<BuildingBlockGridT>::newPatternScalar() const -> PatternScalar<T>
+auto VoxelGrid<BuildingBlockGridT>::
+    newPatternScalar() const -> PatternScalar<T>
 {
     return mStorage->buildingBlockGrid.newPatternScalar();
 }
@@ -168,67 +176,76 @@ auto VoxelGrid<BuildingBlockGridT>::dot(const std::string& name,
 
 template <typename BuildingBlockGridT>
 template <typename T, int C>
-auto VoxelGrid<BuildingBlockGridT>::norm2(const std::string& name,
-                                          VoxelField<T, C>&  input,
-                                          PatternScalar<T>&  scalar)
-    const -> Neon::set::Container
+auto VoxelGrid<BuildingBlockGridT>::
+    norm2(const std::string& name,
+          VoxelField<T, C>&  input,
+          PatternScalar<T>&  scalar)
+        const -> Neon::set::Container
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::getKernelConfig(int            streamIdx,
-                                                    Neon::DataView dataView)
-    -> Neon::set::KernelConfig
+auto VoxelGrid<BuildingBlockGridT>::
+    getKernelConfig(int            streamIdx,
+                    Neon::DataView dataView)
+        -> Neon::set::KernelConfig
 {
     return mStorage->buildingBlockGrid.getKernelConfig(streamIdx, dataView);
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::isInsideNodeDomain(const index_3d& idx)
-    const -> bool
+auto VoxelGrid<BuildingBlockGridT>::
+    isInsideNodeDomain(const index_3d& idx)
+        const -> bool
 {
     return mStorage->buildingBlockGrid.isInsideNodeDomain(idx);
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::flattenedLengthSet(Neon::DataView dataView)
-    const -> const Neon::set::DataSet<size_t>
+auto VoxelGrid<BuildingBlockGridT>::
+    flattenedLengthSet(Neon::DataView dataView)
+        const -> const Neon::set::DataSet<size_t>
 {
     return mStorage->buildingBlockGrid.flattenedLengthSet(dataView);
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::getLaunchInfo(Neon::DataView dataView)
-    const -> Neon::set::LaunchParameters
+auto VoxelGrid<BuildingBlockGridT>::
+    getLaunchInfo(Neon::DataView dataView)
+        const -> Neon::set::LaunchParameters
 {
     return mStorage->buildingBlockGrid.getLaunchInfo(dataView);
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::flattenedPartitions(Neon::DataView dataView)
-    const -> const Neon::set::DataSet<size_t>
+auto VoxelGrid<BuildingBlockGridT>::
+    flattenedPartitions(Neon::DataView dataView)
+        const -> const Neon::set::DataSet<size_t>
 {
     return mStorage->buildingBlockGrid.flattenedPartitions(dataView);
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::stencil()
-    const -> const Neon::domain::Stencil&
+auto VoxelGrid<BuildingBlockGridT>::
+    stencil()
+        const -> const Neon::domain::Stencil&
 {
     return mStorage->buildingBlockGrid.stencil();
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::newGpuLaunchParameters()
-    const -> Neon::set::LaunchParameters
+auto VoxelGrid<BuildingBlockGridT>::
+    newGpuLaunchParameters()
+        const -> Neon::set::LaunchParameters
 {
     return mStorage->buildingBlockGrid.newGpuLaunchParameters();
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::getProperties(const index_3d& idx)
-    const -> typename Self::GridBaseTemplate::CellProperties
+auto VoxelGrid<BuildingBlockGridT>::
+    getProperties(const index_3d& idx)
+        const -> typename Self::GridBaseTemplate::CellProperties
 {
     auto boudlingBlockProperties = mStorage->buildingBlockGrid.getProperties(idx);
 
@@ -246,19 +263,21 @@ auto VoxelGrid<BuildingBlockGridT>::getProperties(const index_3d& idx)
 }
 
 template <typename BuildingBlockGridT>
-auto VoxelGrid<BuildingBlockGridT>::setKernelConfig(KernelConfig& gridKernelConfig)
-    const -> void
+auto VoxelGrid<BuildingBlockGridT>::
+    setKernelConfig(KernelConfig& gridKernelConfig)
+        const -> void
 {
     return mStorage->buildingBlockGrid.setKernelConfig(gridKernelConfig);
 }
 
 template <typename BuildingBlockGridT>
 template <typename LoadingLambda>
-auto VoxelGrid<BuildingBlockGridT>::getContainerOnVoxels(const std::string& name,
-                                                         index_3d           blockSize,
-                                                         size_t             sharedMem,
-                                                         LoadingLambda      lambda)
-    const -> Neon::set::Container
+auto VoxelGrid<BuildingBlockGridT>::
+    getContainerOnVoxels(const std::string& name,
+                         index_3d           blockSize,
+                         size_t             sharedMem,
+                         LoadingLambda      lambda)
+        const -> Neon::set::Container
 {
 
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
@@ -273,8 +292,10 @@ auto VoxelGrid<BuildingBlockGridT>::getContainerOnVoxels(const std::string& name
 
 template <typename BuildingBlockGridT>
 template <typename LoadingLambda>
-auto VoxelGrid<BuildingBlockGridT>::getContainerOnVoxels(const std::string& name, LoadingLambda lambda)
-    const -> Neon::set::Container
+auto VoxelGrid<BuildingBlockGridT>::
+    getContainerOnVoxels(const std::string& name,
+                         LoadingLambda      lambda)
+        const -> Neon::set::Container
 {
     Neon::domain::KernelConfig kernelConfig(0);
 

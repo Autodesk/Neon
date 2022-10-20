@@ -12,7 +12,6 @@ namespace Neon::domain::internal::experimental::staggeredGrid::details {
 
 struct NodeToVoxelMask
 {
-
     static constexpr std::array<std::array<int8_t, 3>, 8> directions{
         {{{-1, -1, -1}},
          {{-1, -1, 1}},
@@ -26,13 +25,18 @@ struct NodeToVoxelMask
     NodeToVoxelMask() = default;
     explicit NodeToVoxelMask(uint8_t);
 
-    auto reset() -> void;
+    auto reset()
+        -> void;
 
     NEON_CUDA_HOST_DEVICE
-    auto isNeighbourVoxelValid(int8_t a, int8_t b, int8_t c) const -> bool;
+    auto isNeighbourVoxelValid(int8_t a, int8_t b, int8_t c)
+        const -> bool;
 
-    template <int8_t a, int8_t b, int8_t c>
-    NEON_CUDA_HOST_DEVICE inline auto isNeighbourVoxelValid() const -> bool
+    template <int8_t a,
+              int8_t b,
+              int8_t c>
+    NEON_CUDA_HOST_DEVICE inline auto isNeighbourVoxelValid()
+        const -> bool
     {
         constexpr size_t jump = (a + 1) * 4 / 2 +
                                 (b + 1) * 2 / 2 +
@@ -44,7 +48,8 @@ struct NodeToVoxelMask
         return masked != 0;
     }
 
-    auto setAsValid(int8_t a, int8_t b, int8_t c) -> void;
+    auto setAsValid(int8_t a, int8_t b, int8_t c)
+        -> void;
 
    private:
     // will usually occupy 2 bytes:
