@@ -11,14 +11,14 @@ namespace Neon::skeleton::internal {
 /**
  * Graph storing dependency between user kernels
  */
-struct MultiGpuGraph
+struct MultiXpuGraph
 {
 
    public:
     /**
      * Default empty constructor
      */
-    MultiGpuGraph();
+    MultiXpuGraph();
 
     void init(Neon::Backend&                           bk,
               const std::vector<Neon::set::Container>& operations,
@@ -32,7 +32,8 @@ struct MultiGpuGraph
      */
     auto io2DotOriginalApp(const std::string& fname,
                            const std::string& graphName,
-                           bool               debug = false) -> void;
+                           bool               debug = false)
+        -> void;
 
     /**
      * Export both the data dependency graph and the scheduling graph
@@ -41,7 +42,8 @@ struct MultiGpuGraph
      */
     auto io2Dot(const std::string& fname,
                 const std::string& graphName,
-                bool               debug = false) -> void;
+                bool               debug = false)
+        -> void;
 
 
    private:
@@ -70,8 +72,8 @@ struct MultiGpuGraph
         return m_storage->m_kContainers;
     }
 
-    inline auto m_kContainers() const
-        -> const std::vector<Neon::set::Container>&
+    inline auto m_kContainers()
+        const -> const std::vector<Neon::set::Container>&
     {
         return m_storage->m_kContainers;
     }
@@ -80,7 +82,8 @@ struct MultiGpuGraph
      * Access methods to members
      * @return
      */
-    inline auto m_dataRecords() -> UserDataManager&
+    inline auto m_dataRecords()
+        -> UserDataManager&
     {
         return m_storage->m_dataRecords;
     }
@@ -95,7 +98,8 @@ struct MultiGpuGraph
      * Access methods to members
      * @return
      */
-    inline auto m_setCardinality() -> int&
+    inline auto m_setCardinality()
+        -> int&
     {
         return m_storage->m_setCardinality;
     }
@@ -128,7 +132,7 @@ struct MultiGpuGraph
      * The dependencies are extracted from the kernel container
      * @param container
      */
-    auto helpParseNewContainer(const Neon::set::Container&            inContainer)
+    auto helpParseNewContainer(const Neon::set::Container& inContainer)
         -> void;
 
     /**
@@ -145,21 +149,26 @@ struct MultiGpuGraph
      * @param graphName
      */
     auto h_io2Dot([[maybe_unused]] const std::string& fname,
-                  [[maybe_unused]] const std::string& graphName) -> void;
-
+                  [[maybe_unused]] const std::string& graphName)
+        -> void;
 
    private:
     auto helpAddNewContainerToGraph(const Neon::set::Container& container)
         -> Neon::set::container::GraphInfo::NodeUid;
 
-    auto optimizeStandardOCC(const Neon::skeleton::Options&) -> void;
+    auto optimizeStandardOCC(const Neon::skeleton::Options&)
+        -> void;
 
-    auto optimizeExtendedOCC(const Neon::skeleton::Options&) -> void;
+    auto optimizeExtendedOCC(const Neon::skeleton::Options&)
+        -> void;
 
-    auto optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) -> void;
+    auto optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&)
+        -> void;
 
-    auto addSyncAndMemoryTransfers(const Neon::skeleton::Options& options) -> void;
+    auto addSyncAndMemoryTransfers(const Neon::skeleton::Options& options)
+        -> void;
 
-    auto checkCoherency() -> void;
+    auto checkCoherency()
+        -> void;
 };
 }  // namespace Neon::skeleton::internal

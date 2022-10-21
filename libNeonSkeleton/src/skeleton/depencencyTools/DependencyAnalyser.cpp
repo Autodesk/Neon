@@ -4,19 +4,21 @@
 namespace Neon::skeleton::internal {
 
 
-DependencyAnalyser::DependencyAnalyser(Neon::set::dataDependency::MdObjUid uid,
-                                       Neon::set::dataDependency::MdObjIdx idx)
+DependencyAnalyser::
+    DependencyAnalyser(Neon::set::dataDependency::MultiXpuDataUid uid,
+                       Neon::set::dataDependency::MultiXpuDataIdx idx)
 {
     mUid = uid;
     mIdx = idx;
 }
 
-auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       newKernel,
-                                Neon::set::dataDependency::AccessType newOp)
-    -> std::vector<DataDependency>
+auto DependencyAnalyser::
+    update(Neon::set::container::GraphInfo::NodeUid newKernel,
+           Neon::set::dataDependency::AccessType    newOp)
+        -> std::vector<DataDependency>
 {
     switch (newOp) {
-        case  Neon::set::dataDependency::AccessType::READ: {
+        case Neon::set::dataDependency::AccessType::READ: {
             if (mParsedW.size() == 0) {
                 // We are parsing a READ with no previous WRITE
                 // STEPS:
@@ -56,7 +58,7 @@ auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       n
             }
             break;
         }
-        case  Neon::set::dataDependency::AccessType::WRITE: {
+        case Neon::set::dataDependency::AccessType::WRITE: {
             if (mParsedR.empty() && mParsedW.empty()) {
                 // Parsing a WRITE as the first operation in the Container sequence.
                 //

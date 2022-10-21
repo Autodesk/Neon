@@ -29,12 +29,14 @@ struct Token
      */
     auto update(Neon::set::dataDependency::MultiXpuDataUid m_uid,
                 Neon::set::dataDependency::AccessType      m_access,
-                Neon::Compute                              m_compute) -> void;
+                Neon::Compute                              m_compute)
+        -> void;
 
     /**
      * It returns the multi-GPU data uid
      */
-    auto uid() const -> Neon::set::dataDependency::MultiXpuDataUid;
+    auto uid()
+        const -> Neon::set::dataDependency::MultiXpuDataUid;
 
     /**
      * It returns the type of data access
@@ -74,9 +76,9 @@ struct Token
 
 
    private:
-    Neon::set::dataDependency::MultiXpuDataUid                   mUid;
-    Neon::set::dataDependency::AccessType                        mAccess;
-    Neon::Compute                                                mCompute;
+    Neon::set::dataDependency::MultiXpuDataUid mUid;
+    Neon::set::dataDependency::AccessType      mAccess;
+    Neon::Compute                              mCompute;
 
     std::function<void(Neon::set::HuOptions& opt)>               mHu;
     std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)> mHuPerDevice;

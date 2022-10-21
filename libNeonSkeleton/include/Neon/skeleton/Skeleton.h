@@ -2,7 +2,7 @@
 #include "Neon/set/Backend.h"
 #include "Neon/set/Containter.h"
 #include "Neon/skeleton/Options.h"
-#include "Neon/skeleton/internal/MultiGpuGraph.h"
+#include "Neon/skeleton/internal/MultiXpuGraph.h"
 // #include "Neon/skeleton/internal/StreamScheduler.h"
 
 namespace Neon::skeleton {
@@ -61,7 +61,7 @@ struct Skeleton
    private:
     Neon::Backend                           mBackend;
     Options                                 mOptions;
-    Neon::skeleton::internal::MultiGpuGraph mMultiGraph;
+    Neon::skeleton::internal::MultiXpuGraph mMultiGraph;
     //    Neon::skeleton::internal::StreamScheduler mStreamScheduler;
 
     bool m_inited = {false};

@@ -15,13 +15,13 @@ struct DependencyAnalyser
     std::vector<Neon::set::container::GraphInfo::NodeUid> mParsedR{};
     std::vector<Neon::set::container::GraphInfo::NodeUid> mParsedW{};
 
-    Neon::set::dataDependency::MdObjUid mUid;
-    Neon::set::dataDependency::MdObjIdx mIdx;
+    Neon::set::dataDependency::MultiXpuDataUid mUid;
+    Neon::set::dataDependency::MultiXpuDataIdx mIdx;
 
    public:
     DependencyAnalyser() = delete;
-    DependencyAnalyser(Neon::set::dataDependency::MdObjUid,
-                       Neon::set::dataDependency::MdObjIdx);
+    DependencyAnalyser(Neon::set::dataDependency::MultiXpuDataUid,
+                       Neon::set::dataDependency::MultiXpuDataIdx);
 
     auto update(Neon::set::container::GraphInfo::NodeUid       newKernel,
                 Neon::set::dataDependency::AccessType newOp)

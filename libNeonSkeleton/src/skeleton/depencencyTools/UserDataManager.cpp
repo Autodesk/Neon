@@ -2,12 +2,12 @@
 
 namespace Neon::skeleton::internal {
 
-auto UserDataManager::helpGetIdx(Neon::set::dataDependency::MdObjUid uid)
-    -> Neon::set::dataDependency::MdObjIdx
+auto UserDataManager::helpGetIdx(Neon::set::dataDependency::MultiXpuDataUid uid)
+    -> Neon::set::dataDependency::MultiXpuDataIdx
 {
     auto count = mUid2Idx.count(uid);
     if (count == 0) {
-        Neon::set::dataDependency::MdObjIdx idx = mDepAnalyserVec.size();
+        Neon::set::dataDependency::MultiXpuDataIdx idx = mDepAnalyserVec.size();
         mDepAnalyserVec.emplace_back(uid, idx);
         mUid2Idx[uid] = idx;
         return idx;
@@ -17,7 +17,7 @@ auto UserDataManager::helpGetIdx(Neon::set::dataDependency::MdObjUid uid)
 
 auto UserDataManager::updateStatus(Neon::set::container::GraphInfo::NodeUid nodeUid,
                                    Neon::set::dataDependency::AccessType                           op,
-                                   Neon::set::dataDependency::MdObjUid dataUid)
+                                   Neon::set::dataDependency::MultiXpuDataUid dataUid)
     -> std::vector<DataDependency>
 {
     auto idx = helpGetIdx(dataUid);

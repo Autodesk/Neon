@@ -1,9 +1,9 @@
-#include "Neon/skeleton/internal/MultiGpuGraph.h"
 #include <list>
+#include "Neon/skeleton/internal/MultiXpuGraph.h"
 
 namespace Neon::skeleton::internal {
 
-void MultiGpuGraph::init(Neon::Backend&                           bk,
+void MultiXpuGraph::init(Neon::Backend&                           bk,
                          const std::vector<Neon::set::Container>& operations,
                          std::string                              name,
                          Options                                  options)
@@ -11,20 +11,20 @@ void MultiGpuGraph::init(Neon::Backend&                           bk,
     mGraph() = Neon::set::container::Graph(bk);
     parse(bk.devSet().setCardinality(),
           std::forward<const std::vector<Neon::set::Container>&&>(operations));
-    mGraph().removeRedundantDependencies();
+    mGraph().helpRemoveRedundantDependencies();
 
     h_io2Dot("t0_" + name + ".dot", "i");
     optimizations(options);
     h_io2Dot("t1_" + name + ".dot", "i");
     addSyncAndMemoryTransfers(options);
 
-    mGraph().removeRedundantDependencies();
+    mGraph().helpRemoveRedundantDependencies();
 
     checkCoherency();
     h_io2Dot("t2_" + name + ".dot", "i");
 }
 
-void MultiGpuGraph::parse(int                                       setCardinalty,
+void MultiXpuGraph::parse(int                                       setCardinalty,
                           const std::vector<Neon::set::Container>&& operations)
 {
     m_setCardinality() = setCardinalty;
@@ -34,7 +34,7 @@ void MultiGpuGraph::parse(int                                       setCardinalt
     }
 }
 
-void MultiGpuGraph::helpParseNewContainer(const Neon::set::Container& inContainer)
+void MultiXpuGraph::helpParseNewContainer(const Neon::set::Container& inContainer)
 {
 
     // Register and retrieve the id for the new container
@@ -62,7 +62,7 @@ void MultiGpuGraph::helpParseNewContainer(const Neon::set::Container& inContaine
     }
 }
 
-auto MultiGpuGraph::helpParseContainer(Neon::set::Container& container)
+auto MultiXpuGraph::helpParseContainer(Neon::set::Container& container)
     -> std::vector<Neon::set::dataDependency::Token>
 {
     auto& kcInterface = container.getContainerInterface();
@@ -70,23 +70,23 @@ auto MultiGpuGraph::helpParseContainer(Neon::set::Container& container)
     return tokens;
 }
 
-auto MultiGpuGraph::h_io2Dot([[maybe_unused]] const std::string& fname,
+auto MultiXpuGraph::h_io2Dot([[maybe_unused]] const std::string& fname,
                              [[maybe_unused]] const std::string& graphName) -> void
 {
     io2Dot(fname, graphName, true);
 }
 
-auto MultiGpuGraph::io2Dot(const std::string& fname, const std::string& graphName, bool debug) -> void
+auto MultiXpuGraph::io2Dot(const std::string& fname, const std::string& graphName, bool debug) -> void
 {
     mGraph().ioToDot(fname, graphName, debug);
 }
 
-auto MultiGpuGraph::io2DotOriginalApp(const std::string& fname, const std::string& graphName, bool debug) -> void
+auto MultiXpuGraph::io2DotOriginalApp(const std::string& fname, const std::string& graphName, bool debug) -> void
 {
     mGraph().ioToDot(fname, graphName, debug);
 }
 
-auto MultiGpuGraph::helpAddNewContainerToGraph(const Neon::set::Container& container) -> Neon::set::container::GraphInfo::NodeUid
+auto MultiXpuGraph::helpAddNewContainerToGraph(const Neon::set::Container& container) -> Neon::set::container::GraphInfo::NodeUid
 {
     const auto&                          graphNode = mGraph().addNode(container);
     Neon::set::container::GraphInfo::NodeUid uid = graphNode.getGraphData().getUid();
@@ -94,7 +94,7 @@ auto MultiGpuGraph::helpAddNewContainerToGraph(const Neon::set::Container& conta
 }
 
 
-auto MultiGpuGraph::optimizations(const Neon::skeleton::Options& options) -> void
+auto MultiXpuGraph::optimizations(const Neon::skeleton::Options& options) -> void
 {
     switch (options.occ()) {
         case Neon::skeleton::Occ::none:
@@ -108,7 +108,7 @@ auto MultiGpuGraph::optimizations(const Neon::skeleton::Options& options) -> voi
     }
 }
 
-auto MultiGpuGraph::optimizeStandardOCC(const Neon::skeleton::Options&) -> void
+auto MultiXpuGraph::optimizeStandardOCC(const Neon::skeleton::Options&) -> void
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 
@@ -184,7 +184,7 @@ auto MultiGpuGraph::optimizeStandardOCC(const Neon::skeleton::Options&) -> void
     //    }
 }
 
-auto MultiGpuGraph::optimizeExtendedOCC(const Neon::skeleton::Options&) -> void
+auto MultiXpuGraph::optimizeExtendedOCC(const Neon::skeleton::Options&) -> void
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 
@@ -333,7 +333,7 @@ auto MultiGpuGraph::optimizeExtendedOCC(const Neon::skeleton::Options&) -> void
     //    }
 }
 
-auto MultiGpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) -> void
+auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) -> void
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 
@@ -571,7 +571,7 @@ auto MultiGpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
 }
 
 
-auto MultiGpuGraph::addSyncAndMemoryTransfers(const Neon::skeleton::Options&) -> void
+auto MultiXpuGraph::addSyncAndMemoryTransfers(const Neon::skeleton::Options&) -> void
 {
 
     if (m_setCardinality() == 1) {
@@ -662,7 +662,7 @@ auto MultiGpuGraph::addSyncAndMemoryTransfers(const Neon::skeleton::Options&) ->
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
-auto MultiGpuGraph::checkCoherency() -> void
+auto MultiXpuGraph::checkCoherency() -> void
 {
     //    // Detects all stencil nodes
     //    std::vector<size_t> stencilNodes;
@@ -697,7 +697,7 @@ auto MultiGpuGraph::checkCoherency() -> void
     //    }
 }
 
-MultiGpuGraph::MultiGpuGraph()
+MultiXpuGraph::MultiXpuGraph()
 {
     m_storage = std::make_shared<Storage>();
 }

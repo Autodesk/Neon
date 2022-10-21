@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/set/Backend.h"
 #include "Neon/set/container/Graph.h"
-#include "Neon/set/dependency/Alias.h"
+#include "Neon/set/container/graph/GraphInfo.h"
 #include "Neon/set/dependency/DataDependencyType.h"
 
 namespace Neon::skeleton::internal {
@@ -10,10 +10,10 @@ namespace Neon::skeleton::internal {
 struct DataDependency
 {
    private:
-    Neon::set::container::GraphInfo::NodeUid               mT0 = 0;
-    Neon::set::container::GraphInfo::NodeUid               mT1 = 0;
+    Neon::set::container::GraphInfo::NodeUid      mT0 = 0;
+    Neon::set::container::GraphInfo::NodeUid      mT1 = 0;
     Neon::set::dataDependency::DataDependencyType mType = Neon::set::dataDependency::DataDependencyType::NONE;
-    Neon::set::dataDependency::MdObjUid mDataUid = 0;
+    Neon::set::dataDependency::MultiXpuDataUid    mDataUid = 0;
 
    public:
     /**
@@ -30,10 +30,10 @@ struct DataDependency
      * @param A
      * @param B
      */
-    DataDependency(Neon::set::container::GraphInfo::NodeUid               t1,
-               Neon::set::dataDependency::DataDependencyType type,
-               Neon::set::dataDependency::MdObjUid m_uid,
-               Neon::set::container::GraphInfo::NodeUid               t0);
+    DataDependency(Neon::set::container::GraphInfo::NodeUid      t1,
+                   Neon::set::dataDependency::DataDependencyType type,
+                   Neon::set::dataDependency::MultiXpuDataUid    m_uid,
+                   Neon::set::container::GraphInfo::NodeUid      t0);
 
     /**
      * true the object has been initialized with a valid dependency

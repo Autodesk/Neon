@@ -2,7 +2,7 @@
 #include <map>
 #include "Neon/set/Backend.h"
 #include "Neon/set/container/Graph.h"
-#include "Neon/set/dependency/Alias.h"
+
 #include "Neon/set/dependency/DataDependencyType.h"
 #include "Neon/skeleton/internal/dependencyTools/DependencyAnalyser.h"
 
@@ -21,8 +21,8 @@ namespace Neon::skeleton::internal {
 struct UserDataManager
 {
     std::vector<DependencyAnalyser> mDepAnalyserVec;
-    std::map<Neon::set::dataDependency::MdObjUid,
-             Neon::set::dataDependency::MdObjIdx>
+    std::map<Neon::set::dataDependency::MultiXpuDataUid,
+             Neon::set::dataDependency::MultiXpuDataIdx>
         mUid2Idx;
 
    private:
@@ -31,8 +31,8 @@ struct UserDataManager
      * @param uid
      * @return
      */
-    auto helpGetIdx(Neon::set::dataDependency::MdObjUid uid)
-        -> Neon::set::dataDependency::MdObjIdx;
+    auto helpGetIdx(Neon::set::dataDependency::MultiXpuDataUid uid)
+        -> Neon::set::dataDependency::MultiXpuDataIdx;
 
    public:
     /**
@@ -46,7 +46,7 @@ struct UserDataManager
      */
     auto updateStatus(Neon::set::container::GraphInfo::NodeUid       newKernel,
                       Neon::set::dataDependency::AccessType op,
-                      Neon::set::dataDependency::MdObjUid uid) -> std::vector<DataDependency>;
+                      Neon::set::dataDependency::MultiXpuDataUid uid) -> std::vector<DataDependency>;
 };
 
 }  // namespace Neon::skeleton::internal

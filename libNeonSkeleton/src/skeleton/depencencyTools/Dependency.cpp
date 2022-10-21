@@ -4,7 +4,7 @@ namespace Neon::skeleton::internal {
 
 DataDependency::DataDependency(Neon::set::container::GraphInfo::NodeUid               t1,
                                Neon::set::dataDependency::DataDependencyType type,
-                               Neon::set::dataDependency::MdObjUid uid,
+                               Neon::set::dataDependency::MultiXpuDataUid uid,
                                Neon::set::container::GraphInfo::NodeUid               t0)
 {
     mT1 = t1;

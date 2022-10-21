@@ -16,7 +16,8 @@ Graph::Graph()
     helpInvalidateScheduling();
 }
 
-auto Graph::getBeginNode() const -> const GraphNode&
+auto Graph::
+    getBeginNode() const -> const GraphNode&
 {
     return mRawGraph.getVertexProperty(GraphData::beginUid);
 }
@@ -41,7 +42,9 @@ auto Graph::addNodeInBetween(const GraphNode&          nodeA,
     return nodeB;
 }
 
-auto Graph::addNode(const Container& container) -> GraphNode&
+auto Graph::
+    addNode(const Container& container)
+        -> GraphNode&
 {
     helpCheckBackendStatus();
     helpInvalidateScheduling();
@@ -56,9 +59,11 @@ auto Graph::addNode(const Container& container) -> GraphNode&
     return mRawGraph.getVertexProperty(node.getGraphData().getUid());
 }
 
-auto Graph::addDependency(const GraphNode&    nodeA,
-                          const GraphNode&    nodeB,
-                          GraphDependencyType type) -> GraphDependency&
+auto Graph::
+    addDependency(const GraphNode&    nodeA,
+                  const GraphNode&    nodeB,
+                  GraphDependencyType type)
+        -> GraphDependency&
 {
     helpCheckBackendStatus();
     if (nodeA.getGraphData().getUid() == nodeB.getGraphData().getUid()) {
@@ -76,7 +81,9 @@ auto Graph::addDependency(const GraphNode&    nodeA,
                                       nodeB.getGraphData().getUid()});
 }
 
-auto Graph::removeNode(GraphNode& gn) -> Container
+auto Graph::
+    removeNode(GraphNode& gn)
+        -> Container
 {
     helpInvalidateScheduling();
 
@@ -117,8 +124,9 @@ auto Graph::removeNode(GraphNode& gn) -> Container
     return gn.getContainer();
 }
 
-auto Graph::removeNodeAndItsDependencies(GraphNode& gn)
-    -> Container
+auto Graph::
+    removeNodeAndItsDependencies(GraphNode& gn)
+        -> Container
 {
     auto uidB = gn.getGraphData().getUid();
 
@@ -161,9 +169,10 @@ auto Graph::removeNodeAndItsDependencies(GraphNode& gn)
     return gn.getContainer();
 }
 
-auto Graph::getProceedingGraphNodes(const GraphNode&                        graphNode,
-                                    const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::vector<GraphNode*>
+auto Graph::
+    getProceedingGraphNodes(const GraphNode&                        graphNode,
+                            const std::vector<GraphDependencyType>& dependencyTypes)
+        -> std::vector<GraphNode*>
 {
     std::vector<GraphNode*> nodes;
 
@@ -191,9 +200,10 @@ auto Graph::getProceedingGraphNodes(const GraphNode&                        grap
     return nodes;
 }
 
-auto Graph::getSubsequentGraphNodes(const GraphNode&                        graphNode,
-                                    const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::vector<GraphNode*>
+auto Graph::
+    getSubsequentGraphNodes(const GraphNode&                        graphNode,
+                            const std::vector<GraphDependencyType>& dependencyTypes)
+        -> std::vector<GraphNode*>
 {
     std::vector<GraphNode*> nodes;
 
@@ -220,8 +230,9 @@ auto Graph::getSubsequentGraphNodes(const GraphNode&                        grap
     return nodes;
 }
 
-auto Graph::cloneNode(const GraphNode& graphNode)
-    -> GraphNode&
+auto Graph::
+    cloneNode(const GraphNode& graphNode)
+        -> GraphNode&
 {
     helpInvalidateScheduling();
 
@@ -243,9 +254,10 @@ auto Graph::cloneNode(const GraphNode& graphNode)
     return newNode;
 }
 
-auto Graph::getDependencyType(const GraphNode& nodeA,
-                              const GraphNode& nodeB)
-    -> GraphDependencyType
+auto Graph::
+    getDependencyType(const GraphNode& nodeA,
+                      const GraphNode& nodeB)
+        -> GraphDependencyType
 {
     auto uidA = nodeA.getGraphData().getUid();
     auto uidB = nodeB.getGraphData().getUid();
@@ -262,8 +274,9 @@ auto Graph::helpInvalidateScheduling()
     mSchedulingStatusIsValid = false;
 }
 
-auto Graph::helpRemoveRedundantDependencies()
-    -> void
+auto Graph::
+    helpRemoveRedundantDependencies()
+        -> void
 {
     // Vectors of edges to be removed
     std::vector<std::pair<size_t, size_t>> edgesToBeRemoved;
@@ -272,7 +285,7 @@ auto Graph::helpRemoveRedundantDependencies()
         // For each node do:
 
         // Check node's children
-        auto visitingNode = mRawGraph.getVertexProperty(diGraphNodeId).getGraphData().getUid();
+        auto        visitingNode = mRawGraph.getVertexProperty(diGraphNodeId).getGraphData().getUid();
         const auto& children = helpGetOutNeighbors(visitingNode, false);
         if (children.size() <= 1) {
             // If no more than one, move to the next node
@@ -332,10 +345,11 @@ auto Graph::helpRemoveRedundantDependencies()
     }
 }
 
-auto Graph::helpGetOutNeighbors(GraphData::Uid                          nodeUid,
-                                bool                                    filteredOut,
-                                const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::set<GraphData::Uid>
+auto Graph::
+    helpGetOutNeighbors(GraphData::Uid                          nodeUid,
+                        bool                                    filteredOut,
+                        const std::vector<GraphDependencyType>& dependencyTypes)
+        -> std::set<GraphData::Uid>
 {
     std::set<GraphData::Uid> outNgh;
     mRawGraph.forEachOutEdge(
@@ -355,10 +369,11 @@ auto Graph::helpGetOutNeighbors(GraphData::Uid                          nodeUid,
     return outNgh;
 }
 
-auto Graph::helpGetInNeighbors(GraphData::Uid                          nodeUid,
-                               bool                                    filterOutBegin,
-                               const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::set<GraphData::Uid>
+auto Graph::
+    helpGetInNeighbors(GraphData::Uid                          nodeUid,
+                       bool                                    filterOutBegin,
+                       const std::vector<GraphDependencyType>& dependencyTypes)
+        -> std::set<GraphData::Uid>
 {
     std::set<GraphData::Uid> inNgh;
     mRawGraph.forEachInEdge(
@@ -377,10 +392,11 @@ auto Graph::helpGetInNeighbors(GraphData::Uid                          nodeUid,
     return inNgh;
 }
 
-auto Graph::helpGetOutEdges(GraphData::Uid                          nodeUid,
-                            bool                                    filterOutEnd,
-                            const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>
+auto Graph::
+    helpGetOutEdges(GraphData::Uid                          nodeUid,
+                    bool                                    filterOutEnd,
+                    const std::vector<GraphDependencyType>& dependencyTypes)
+        -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>
 {
     std::set<std::pair<GraphData::Uid, GraphData::Uid>> outEdges;
     mRawGraph.forEachOutEdge(
@@ -399,10 +415,11 @@ auto Graph::helpGetOutEdges(GraphData::Uid                          nodeUid,
     return outEdges;
 }
 
-auto Graph::helpGetInEdges(GraphData::Uid                          nodeUid,
-                           bool                                    filterOutBegin,
-                           const std::vector<GraphDependencyType>& dependencyTypes)
-    -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>
+auto Graph::
+    helpGetInEdges(GraphData::Uid                          nodeUid,
+                   bool                                    filterOutBegin,
+                   const std::vector<GraphDependencyType>& dependencyTypes)
+        -> std::set<std::pair<GraphData::Uid, GraphData::Uid>>
 {
     std::set<std::pair<GraphData::Uid, GraphData::Uid>> inEdges;
     mRawGraph.forEachInEdge(
@@ -421,9 +438,10 @@ auto Graph::helpGetInEdges(GraphData::Uid                          nodeUid,
     return inEdges;
 }
 
-auto Graph::helpGetBFS(bool                                    filterOutBeginEnd,
-                       const std::vector<GraphDependencyType>& dependencyTypes)
-    -> Bfs
+auto Graph::
+    helpGetBFS(bool                                    filterOutBeginEnd,
+               const std::vector<GraphDependencyType>& dependencyTypes)
+        -> Bfs
 {
     using Frontier = std::unordered_map<GraphData::Uid, size_t>;
 
@@ -481,8 +499,9 @@ auto Graph::helpGetBFS(bool                                    filterOutBeginEnd
     return bfs;
 }
 
-auto Graph::helpComputeScheduling(bool filterOutAnchors, int anchorStream)
-    -> void
+auto Graph::
+    helpComputeScheduling(bool filterOutAnchors, int anchorStream)
+        -> void
 {
     helpComputeScheduling_00_resetData();
     mBfs = helpComputeScheduling_01_generatingBFS(filterOutAnchors);
@@ -491,8 +510,9 @@ auto Graph::helpComputeScheduling(bool filterOutAnchors, int anchorStream)
     helpComputeScheduling_04_ensureResources(maxStreamId, maxEventId);
 }
 
-auto Graph::helpComputeScheduling_01_generatingBFS(bool filterOutAnchors)
-    -> Bfs
+auto Graph::
+    helpComputeScheduling_01_generatingBFS(bool filterOutAnchors)
+        -> Bfs
 {
     return helpGetBFS(filterOutAnchors, {GraphDependencyType::data,
                                          GraphDependencyType::user});
@@ -510,16 +530,17 @@ auto Graph::helpGetGraphNode(GraphData::Uid uid) const -> const GraphNode&
 
 auto Graph::helpComputeScheduling_00_resetData() -> void
 {
-    mRawGraph.forEachVertex([&](const GraphData::Uid & graphNodeId) {
+    mRawGraph.forEachVertex([&](const GraphData::Uid& graphNodeId) {
         auto& targetNode = mRawGraph.getVertexProperty(graphNodeId);
         targetNode.getScheduling().reset();
     });
 }
 
-auto Graph::helpComputeScheduling_02_mappingStreams(Bfs& bfs,
-                                                    bool filterOutAnchors,
-                                                    int  anchorStream)
-    -> int
+auto Graph::
+    helpComputeScheduling_02_mappingStreams(Bfs& bfs,
+                                            bool filterOutAnchors,
+                                            int  anchorStream)
+        -> int
 {
     mSchedulingStatusIsValid = true;
     mMaxNumberStreams = bfs.getMaxLevelWidth();
@@ -622,8 +643,9 @@ auto Graph::helpComputeScheduling_02_mappingStreams(Bfs& bfs,
     return mMaxNumberStreams - 1;
 }
 
-auto Graph::helpComputeScheduling_03_events(Bfs& bfs)
-    -> int
+auto Graph::
+    helpComputeScheduling_03_events(Bfs& bfs)
+        -> int
 {
     int eventCount = 0;
 
@@ -661,18 +683,21 @@ auto Graph::helpComputeScheduling_03_events(Bfs& bfs)
     return eventCount - 1;
 }
 
-auto Graph::helpComputeScheduling_04_ensureResources(int maxStreamId,
-                                                     int maxEventId)
-    -> void
+auto Graph::
+    helpComputeScheduling_04_ensureResources(int maxStreamId,
+                                             int maxEventId)
+        -> void
 {
     auto bk = getBackend();
     bk.setAvailableStreamSet(maxStreamId + 1);
     bk.setAvailableUserEvents(maxEventId + 1);
 }
 
-auto Graph::ioToDot(const std::string& fname,
-                    const std::string& graphName,
-                    bool               debug) -> void
+auto Graph::
+    ioToDot(const std::string& fname,
+            const std::string& graphName,
+            bool               debug)
+        -> void
 {
     this->helpRemoveRedundantDependencies();
 
@@ -706,7 +731,8 @@ auto Graph::ioToDot(const std::string& fname,
                             vertexLabelProperty, edgeLabelProperty);
 }
 
-Graph::Graph(const Backend& bk)
+Graph::
+    Graph(const Backend& bk)
 {
     mBackend = bk;
     mBackendIsSet = true;
@@ -721,8 +747,9 @@ Graph::Graph(const Backend& bk)
     helpInvalidateScheduling();
 }
 
-auto Graph::getBackend() const
-    -> const Neon::Backend&
+auto Graph::
+    getBackend()
+        const -> const Neon::Backend&
 {
     if (mBackendIsSet) {
         return mBackend;
@@ -732,10 +759,11 @@ auto Graph::getBackend() const
     NEON_THROW(ex);
 }
 
-auto Graph::run(Neon::SetIdx   setIdx,
-                int            streamIdx,
-                Neon::DataView dataView)
-    -> void
+auto Graph::
+    run(Neon::SetIdx   setIdx,
+        int            streamIdx,
+        Neon::DataView dataView)
+        -> void
 {
     if (dataView != Neon::DataView::STANDARD) {
         NEON_THROW_UNSUPPORTED_OPERATION("");
@@ -745,9 +773,10 @@ auto Graph::run(Neon::SetIdx   setIdx,
     this->helpExecute(setIdx, streamIdx);
 }
 
-auto Graph::run(int            streamIdx,
-                Neon::DataView dataView)
-    -> void
+auto Graph::
+    run(int            streamIdx,
+        Neon::DataView dataView)
+        -> void
 {
     if (dataView != Neon::DataView::STANDARD) {
         NEON_THROW_UNSUPPORTED_OPERATION("");
@@ -757,9 +786,10 @@ auto Graph::run(int            streamIdx,
     this->helpExecute(streamIdx);
 }
 
-auto Graph::helpExecute(Neon::SetIdx setIdx,
-                        int          anchorStream)
-    -> void
+auto Graph::
+    helpExecute(Neon::SetIdx setIdx,
+                int          anchorStream)
+        -> void
 {
     if (anchorStream > -1 && (anchorStream != mAnchorStreamPreSet || mFilterOutAnchorsPreSet == true)) {
         Neon::NeonException ex("");
@@ -788,8 +818,9 @@ auto Graph::helpExecute(Neon::SetIdx setIdx,
     }
 }
 
-auto Graph::helpExecute(int anchorStream)
-    -> void
+auto Graph::
+    helpExecute(int anchorStream)
+        -> void
 {
     if (anchorStream > -1 && (anchorStream != mAnchorStreamPreSet || mFilterOutAnchorsPreSet == true)) {
         Neon::NeonException ex("");
@@ -892,8 +923,9 @@ auto Graph::expandSubGraphs() -> void
         // this->ioToDot(std::to_string(i) + "_t_04", "kllkj", true);
     }
 }
-auto Graph::helpCheckBackendStatus()
-    -> void
+auto Graph::
+    helpCheckBackendStatus()
+        -> void
 {
     if (!mBackendIsSet) {
         NeonException exception("Container Graph");
@@ -901,7 +933,9 @@ auto Graph::helpCheckBackendStatus()
         NEON_THROW(exception);
     }
 }
-auto Graph::getNumberOfNodes() -> int
+auto Graph::
+    getNumberOfNodes()
+        -> int
 {
     // We remove 2 because of the head and tail holders.
     return int(mRawGraph.numVertices() - 2);

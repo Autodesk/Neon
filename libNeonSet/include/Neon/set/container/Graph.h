@@ -7,6 +7,10 @@
 #include "Neon/set/container/graph/GraphDependency.h"
 #include "Neon/set/container/graph/GraphNode.h"
 
+namespace Neon::skeleton::internal {
+struct MultiXpuGraph;
+}
+
 namespace Neon::set::container {
 
 /**
@@ -15,13 +19,13 @@ namespace Neon::set::container {
  * directed edges of the graph are dependencies between the containers.
  * Dependencies my be data driven or user provided.
  *
- *
  */
 struct Graph
 {
     using Uid = GraphData::Uid;
     using Index = GraphData::Index;
     friend struct Bfs;
+    friend Neon::skeleton::internal::MultiXpuGraph;
 
    public:
     Graph();
@@ -146,7 +150,7 @@ struct Graph
         -> void;
 
     auto getNumberOfNodes()
-        ->int;
+        -> int;
 
    protected:
     /**
