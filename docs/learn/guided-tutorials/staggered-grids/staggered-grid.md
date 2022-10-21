@@ -1,23 +1,47 @@
 ![](../the-bases/img/03-layers-domain.png){ align=right style="width:250px"}
 
-# Staggered Grids  - Experimental [WIP]
+# Staggered Grids - Experimental [WIP]
 
 Staggered grids are crucial for numerical methods like the finite element method.
 Neon natively provides a staggered-grid abstraction over Neon uniform grids.
-In other words, we can create a staggered grid using any of the uniform grids such as dGrid (dense), eGrid (sparse), bGrid (sparse).
+In other words, we can create a staggered grid using any of the uniform grids such as dGrid (dense), eGrid (sparse),
+bGrid (sparse).
 
-Node Grid and Voxel Grid are Neon's terminology to distinguish between the primal and dual grid of a staggered configuration. The following image is just a 2D example of a staggered grid, where the node grid is highlighted in blue, and the voxel grid is in green.
+Node Grid and Voxel Grid are Neon's terminology to distinguish between the primal and dual grid of a staggered
+configuration.
+The following image is just a 2D example of a staggered grid for a sparse uniform discrete domain; the node grid is
+highlighted in blue, and the voxel grid is in green.
 
-![](img/staggered-grid.png){align=center style="width:400px"}
+<figure markdown>
+  ![Image title](img/staggered-grid.png){ width="300px" align=center}
+  <figcaption></figcaption>
+</figure>
 
 Node Grid and Voxel Grid provide the same compute API that Neon uniform grids offer.
 However, they also include functionality to jump from nodes to voxels and vice-versa.
 
-Staggered grid provides mechanisms to create containers running on nodes or voxels. 
-The created containers are fully compatible with the Neon Skeleton model. 
+Staggered grid provides mechanisms to create containers running on nodes or voxels.
+The created containers are fully compatible with the Neon Skeleton model.
 
-<a name="cartesian">
-## Initialization
+For this tutorial we want to showcase Neon StaggeredGrid mechanism with some simple operations,
+where we represent temperature and density properties respectively on nodes and voxels.
+The operations do not have actual physical meaning and their sole porpoise if to show some common type of computations
+in a simple context.
+
+- [** Step 0 - Initialization of a staggered grid **](#Initialization). The StaggeredGrid initialization process is slightly
+  different than the ones of uniform grids.
+  We will be using a small 2 by 3 by 9 voxel grid.
+- [** Step 1 - Initialization of node and voxel fields **](#Node-and-voxel-fields). We'll be using nodes to store temperature
+  and voxels to store material density.
+- [** Step 2 - Access to neighbouring nodes **](#access-to-neighbouring-nodes-from-voxels). We'll be looping around the
+  neighbouring nodes of a voxel to sum up their temperature values.
+- [** Step 3 - Access to neighbouring voxels **](#access-to-neighbouring-voxels-from-nodes). We'll be accessing neighbouring
+  voxels of a node to sum up their density values and to divide tha result by 8.
+  The division by 8 will highlight some topological characteristics of the dual grids that we can use to confirm the
+  actual results.
+
+<a name="Initialization">
+## ** Step 0 - Initialization of a staggered grid **
 </a>
 
 ```cpp linenums="13" title="Neon/tutorials/staggered-grids/src/staggeredGrid.cpp"
@@ -64,8 +88,8 @@ int main()
 }
 ```
 
-<a name="fields">
-## Node and voxel fields
+<a name="Node-and-voxel-fields">
+## ** Step 1 - Initialization of node and voxel fields **
 </a>
 
 ```cpp linenums="49" title="Neon/tutorials/staggered-grids/src/staggeredGrid.cpp"
@@ -143,11 +167,10 @@ auto Containers<StaggeredGrid, T>::resetValue(Self::NodeField  field,
 }
 ```
 
-
 ![Mapping between cells and hardware devices](img/staggeredGrid-tutorial-0000.png)
 
-<a name="cartesian">
-## Stencil operations: accessing voxels from nodes
+<a name="access-to-neighbouring-nodes-from-voxels">
+## ** Step 2 - Access to neighbouring nodes **
 </a>
 
 ```cpp linenums="71" title="Neon/tutorials/staggered-grids/src/staggeredGrid.cpp"
@@ -166,6 +189,11 @@ auto Containers<StaggeredGrid, T>::resetValue(Self::NodeField  field,
     return 0;
 }
 ```
+
+<figure markdown>
+  ![Image title](img/staggeredGrid-offsets.png){ width="400px" align=center}
+  <figcaption></figcaption>
+</figure>
 
 ```cpp linenums="79" title="Neon/tutorials/staggered-grids/src/containers.cu"
 template <typename StaggeredGrid, typename T>
@@ -209,14 +237,10 @@ auto Containers<StaggeredGrid, T>::sumVoxelsOnNodesAndDivideBy8(Self::NodeField&
 
 ```
 
-![](img/staggeredGrid-offsets.png){style="width:500px"}
-
-
-
 ![Mapping between cells and hardware devices](img/staggeredGrid-tutorial-0001.png)
 
-<a name="cartesian">
-## Stencil operations: accessing nodes from voxels
+<a name="access-to-neighbouring-voxels-from-nodes">
+## ** Step 3 - Access to neighbouring voxels **
 </a>
 
 ```cpp linenums="49" title="Neon/tutorials/staggered-grids/src/staggeredGrid.cpp"
@@ -274,4 +298,5 @@ auto Containers<StaggeredGrid, T>::sumNodesOnVoxels(Self::VoxelField&      densi
         });
 }
 ```
+
 ![Mapping between cells and hardware devices](img/staggeredGrid-tutorial-0002.png)
