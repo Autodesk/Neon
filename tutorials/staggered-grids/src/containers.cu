@@ -1,7 +1,7 @@
 #include "Neon/domain/tools/Geometries.h"
 #include "containers.h"
 
-
+namespace tools {
 template <typename StaggeredGrid, typename T>
 auto Containers<StaggeredGrid, T>::resetValue(Self::NodeField  field,
                                               const Self::Type alpha) -> Neon::set::Container
@@ -42,78 +42,76 @@ auto Containers<StaggeredGrid, T>::sumNodesOnVoxels(Self::VoxelField&      densi
                                                     const Self::NodeField& temperatureField)
     -> Neon::set::Container
 {
-    using Type = typename Self::NodeField::Type;
-
     return densityField.getGrid().getContainerOnVoxels(
         "sumNodesOnVoxels",
+        // Neon Loading Lambda
         [&](Neon::set::Loader& loader) {
             auto&       density = loader.load(densityField);
             const auto& temperature = loader.load(temperatureField, Neon::Compute::STENCIL);
 
+            // Neon Compute Lambda
             return [=] NEON_CUDA_HOST_DEVICE(const typename Self::VoxelField::Voxel& voxHandle) mutable {
-                Type sum = 0;
+                Type          sum = 0;
+                constexpr int componentId = 0;
 
-#define CHECK_DIRECTION(X, Y, Z)                                                         \
-    {                                                                                    \
-        Type nghNodeValue = temperature.template getNghNodeValue<X, Y, Z>(voxHandle, 0); \
-                                                                                         \
-        sum += nghNodeValue;                                                             \
-    }
+                // We visit all the neighbour nodes around voxHandle.
+                // Relative discrete offers are used to identify the neighbour node.
+                // As by construction all nodes of a voxel are active, we don't have to do any extra check.
+                sum += temperature.template getNghNodeValue<1, 1, 1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<1, 1, -1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<1, -1, 1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<1, -1, -1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<-1, 1, 1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<-1, 1, -1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<-1, -1, 1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<-1, -1, -1>(voxHandle, componentId);
 
-                CHECK_DIRECTION(1, 1, 1);
-                CHECK_DIRECTION(1, 1, -1);
-                CHECK_DIRECTION(1, -1, 1);
-                CHECK_DIRECTION(1, -1, -1);
-                CHECK_DIRECTION(-1, 1, 1);
-                CHECK_DIRECTION(-1, 1, -1);
-                CHECK_DIRECTION(-1, -1, 1);
-                CHECK_DIRECTION(-1, -1, -1);
-
+                // Storing the final result in the target voxel.
                 density(voxHandle, 0) = sum;
-#undef CHECK_DIRECTION
             };
         });
 }
 
 
 template <typename StaggeredGrid, typename T>
-auto Containers<StaggeredGrid, T>::sumVoxelsOnNodes(Self::NodeField&        temperatureField,
-                                                    const Self::VoxelField& densityField) -> Neon::set::Container
+auto Containers<StaggeredGrid, T>::sumVoxelsOnNodesAndDivideBy8(Self::NodeField&        temperatureField,
+                                                                const Self::VoxelField& densityField) -> Neon::set::Container
 {
-
-    using Type = typename Self::NodeField::Type;
-
     return temperatureField.getGrid().getContainerOnNodes(
-        "sumVoxelsOnNodes",
+        "sumVoxelsOnNodesAndDivideBy8",
+        // Neon Loading Lambda
         [&](Neon::set::Loader& loader) {
             const auto& density = loader.load(densityField, Neon::Compute::STENCIL);
             auto&       temperature = loader.load(temperatureField);
 
             auto nodeSpaceDim = temperatureField.getGrid().getDimension();
 
+            // Neon Compute Lambda
             return [=] NEON_CUDA_HOST_DEVICE(const typename Self::NodeField::Node& nodeHandle) mutable {
                 Type sum = 0;
 
-#define CHECK_DIRECTION(X, Y, Z)                                                              \
-    {                                                                                         \
-        Type nghDensity = density.template getNghVoxelValue<X, Y, Z>(nodeHandle, 0, 0).value; \
-        sum += nghDensity;                                                                    \
-    }
+                constexpr int componentId = 0;
+                constexpr int returnValueIfVoxelIsNotActive = 0;
 
-                CHECK_DIRECTION(1, 1, 1);
-                CHECK_DIRECTION(1, 1, -1);
-                CHECK_DIRECTION(1, -1, 1);
-                CHECK_DIRECTION(1, -1, -1);
-                CHECK_DIRECTION(-1, 1, 1);
-                CHECK_DIRECTION(-1, 1, -1);
-                CHECK_DIRECTION(-1, -1, 1);
-                CHECK_DIRECTION(-1, -1, -1);
+                // We visit all the neighbouring voxels around nodeHandle.
+                // Relative discrete offers are used to identify the neighbour node.
+                // Note that some neighbouring nodes may be not active.
+                // Rather than explicitly checking we ask Neon to return 0 if the node is not active.
+                sum += density.template getNghVoxelValue<1, 1, 1>(nodeHandle, componentId, returnValueIfVoxelIsNotActive).value;
+                sum += density.template getNghVoxelValue<1, 1, -1>(nodeHandle, componentId, returnValueIfVoxelIsNotActive).value;
+                sum += density.template getNghVoxelValue<1, -1, 1>(nodeHandle, componentId, returnValueIfVoxelIsNotActive).value;
+                sum += density.template getNghVoxelValue<1, -1, -1>(nodeHandle, componentId, returnValueIfVoxelIsNotActive).value;
+                sum += density.template getNghVoxelValue<-1, 1, 1>(nodeHandle, componentId, returnValueIfVoxelIsNotActive).value;
+                sum += density.template getNghVoxelValue<-1, 1, -1>(nodeHandle, componentId, returnValueIfVoxelIsNotActive).value;
+                sum += density.template getNghVoxelValue<-1, -1, 1>(nodeHandle, componentId, returnValueIfVoxelIsNotActive).value;
+                sum += density.template getNghVoxelValue<-1, -1, -1>(nodeHandle, componentId, returnValueIfVoxelIsNotActive).value;
 
-                temperature(nodeHandle, 0) = sum;
-                ;
-#undef CHECK_DIRECTION
+                // Storing the final result in the target node.
+                temperature(nodeHandle, 0) = sum / 8;
             };
         });
 }
+
 template struct Containers<Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, double>;
 template struct Containers<Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, float>;
+}  // namespace tools

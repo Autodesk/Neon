@@ -90,7 +90,7 @@ auto NodePartition<BuildingBlockGridT, TypeT, CardinalityT>::
                             offset3D[2] == -1 ? 0 : 1);
 
     TypeT alternative;
-    return mBuildingBlockPartition.template nghVal(voxel.getBuildingBlockCell(),
+    return mBuildingBlockPartition.nghVal(voxel.getBuildingBlockCell(),
                                                    xyz,
                                                    cardinalityIdx,
                                                    alternative)

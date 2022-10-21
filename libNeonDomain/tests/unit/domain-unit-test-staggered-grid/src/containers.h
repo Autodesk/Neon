@@ -1,5 +1,7 @@
 #include "Neon/domain/dGrid.h"
-#include "Neon/domain/internal/experimental/staggeredGrid/StaggeredGrid.h"
+#include "Neon/domain/eGrid.h"
+
+#include "Neon/domain/StaggeredGrid.h"
 
 #define TEST_TYPE float
 
@@ -37,4 +39,5 @@ struct Containers
 };
 
 
-extern template struct Containers<Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, TEST_TYPE>;
+extern template struct Containers<Neon::domain::experimental::StaggeredGrid<Neon::domain::dGrid>, TEST_TYPE>;
+//extern template struct Containers<Neon::domain::experimental::StaggeredGrid<Neon::domain::eGrid>, TEST_TYPE>;

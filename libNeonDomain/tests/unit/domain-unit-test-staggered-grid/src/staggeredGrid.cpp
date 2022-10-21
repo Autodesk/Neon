@@ -19,7 +19,7 @@ void StaggeredGrid_Map(TestData<G, T, C>& data)
 {
     //
     Neon::int32_3d voxDim = [&] {
-        auto  dim = data.getGrid().getDimension();
+        auto dim = data.getGrid().getDimension();
         return dim;
     }();
 
@@ -36,12 +36,7 @@ void StaggeredGrid_Map(TestData<G, T, C>& data)
     temperature.forEachActiveCell([](const Neon::index_3d& idx,
                                      const int& /*cardinality*/,
                                      TEST_TYPE& value) {
-        //        if (((idx.x + idx.y + idx.z) % 2) == 0) {
-        //            value = 10;
-        //        } else {
-        //            value = 0;
-        //        }
-        value = TEST_TYPE(idx.x);
+        value = TEST_TYPE(idx.rMul());
     });
 
 
@@ -57,24 +52,46 @@ void StaggeredGrid_Map(TestData<G, T, C>& data)
     density.updateCompute(Neon::Backend::mainStreamIdx);
 
     const std::string appName(testFilePrefix + "_Map_" + data.getGrid().getImplementationName());
-    if (EXECUTE_IO_TO_VTK == 1) {
-        temperature.ioToVtk(appName + "-temperature_0000", "temperature");
+    if constexpr (EXECUTE_IO_TO_VTK == 1) {
         temperature.ioToVtk(appName + "-temperature_asVoxels", "temperature", false, Neon::IoFileType::ASCII, false);
         density.ioToVtk(appName + "-density_0000", "density");
     }
 
-    Containers<FeaGrid, TEST_TYPE>::addConstOnNodes(temperature, 50).run(Neon::Backend::mainStreamIdx);
+    const TEST_TYPE valueToAddOnNodes = 50;
+    const TEST_TYPE valueToAddOnVoxels = 33;
+
+    Containers<FeaGrid, TEST_TYPE>::addConstOnNodes(temperature, valueToAddOnNodes).run(Neon::Backend::mainStreamIdx);
+    Containers<FeaGrid, TEST_TYPE>::addConstOnVoxels(density, valueToAddOnVoxels).run(Neon::Backend::mainStreamIdx);
+
     temperature.updateIO(Neon::Backend::mainStreamIdx);
     density.updateIO(Neon::Backend::mainStreamIdx);
     data.getBackend().sync(Neon::Backend::mainStreamIdx);
 
-    temperature.ioToVtk(appName + "-temperature_0001", "temperature");
-    //    temperature.ioToVtk(appName + "-temperature_asVoxels", "temperature", false, Neon::IoFileType::ASCII, false);
+    if constexpr (EXECUTE_IO_TO_VTK == 1) {
+        temperature.ioToVtk(appName + "-temperature_0001", "temperature", false, Neon::IoFileType::ASCII);
+        density.ioToVtk(appName + "-density_0001", "density");
+    }
 
-    density.ioToVtk(appName + "-density_0001", "density");
-    // const Type alpha = 11;
-    // NEON_INFO(temperature.toString());
-    // data.resetValuesToLinear(1, 100);
+    bool errorDetected = false;
+
+    temperature.forEachActiveCell([valueToAddOnNodes, &errorDetected](const Neon::index_3d& idx,
+                                                               const int& /*cardinality*/,
+                                                               TEST_TYPE& value) {
+        auto target = TEST_TYPE(idx.rMul()) + valueToAddOnNodes;
+        if (target != value) {
+            errorDetected = true;
+        }
+    });
+
+    density.forEachActiveCell([valueToAddOnVoxels, &errorDetected](const Neon::index_3d& idx,
+                                                           const int& /*cardinality*/,
+                                                           TEST_TYPE& value) {
+        auto target = TEST_TYPE(idx.rSum()) + valueToAddOnVoxels;
+        if (target != value) {
+            errorDetected = true;
+        }
+    });
+    ASSERT_TRUE(!errorDetected);
 }
 
 template <typename G, typename T, int C>
@@ -95,14 +112,14 @@ void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
     nodeIDX.forEachActiveCell([](const Neon::index_3d& idx,
                                  const int&            cardinality,
                                  TEST_TYPE&            value) {
-        value = idx.v[cardinality];
+        value = static_cast<TEST_TYPE>(idx.v[cardinality]);
     });
 
     auto voxelIDX = FEA.template newVoxelField<TEST_TYPE, 3>("voxelIdx", 3, 0);
     voxelIDX.forEachActiveCell([](const Neon::index_3d& idx,
                                   const int&            cardinality,
                                   TEST_TYPE&            value) {
-        value = idx.v[cardinality];
+        value = static_cast<TEST_TYPE>(idx.v[cardinality]);
     });
 
     auto errorFlagField = FEA.template newVoxelField<TEST_TYPE, 1>("ErrorFlag", 1, 0);
@@ -110,11 +127,6 @@ void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
 
     nodeIDX.updateCompute(Neon::Backend::mainStreamIdx);
     voxelIDX.updateCompute(Neon::Backend::mainStreamIdx);
-
-    //    const std::string appName(testFilePrefix + "_VoxToNodes_" + grid.getImplementationName());
-    //
-    //    nodeIDX.ioToVtk(appName + "-nodeIDX_0000", "density");
-    //    voxelIDX.ioToVtk(appName + "-voxelIDX_0000", "density");
 
 
     Containers<FeaGrid, TEST_TYPE>::sumNodesOnVoxels(voxelIDX,
@@ -126,13 +138,13 @@ void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
 
     bool errorDetected = false;
 
-    nodeIDX.forEachActiveCell([&](const Neon::index_3d& idx,
+    nodeIDX.forEachActiveCell([&](const Neon::index_3d& /*idx*/,
                                   const int& /*cardinality*/,
                                   TEST_TYPE& value) {
         if (value != 0) {
             if (value == Containers<FeaGrid, TEST_TYPE>::errorCode) {
                 errorDetected = true;
-                std::cout << "Error detected at " << idx << std::endl;
+                /// std::cout << "Error detected at " << idx << std::endl;
             }
         }
     });
@@ -191,13 +203,12 @@ void StaggeredGrid_NodeToVoxels(TestData<G, T, C>& data)
 
     bool errorDetected = false;
 
-    nodeIDX.forEachActiveCell([&](const Neon::index_3d& idx,
+    nodeIDX.forEachActiveCell([&](const Neon::index_3d& /*idx*/,
                                   const int& /*cardinality*/,
                                   TEST_TYPE& value) {
         if (value != 0) {
             if (value == Containers<FeaGrid, TEST_TYPE>::errorCode) {
                 errorDetected = true;
-                std::cout << "Error detected at " << idx << std::endl;
             }
         }
     });
@@ -225,7 +236,7 @@ TEST(Map, dGrid)
     Neon::init();
     int nGpus = getNGpus();
     using Grid = Neon::domain::dGrid;
-    using Type = int32_t;
+    using Type = TEST_TYPE;
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_Map<Grid, Type, 0>, nGpus, 1);
 }
 
@@ -234,7 +245,7 @@ TEST(VoxToNodes, dGrid)
     Neon::init();
     int nGpus = getNGpus();
     using Grid = Neon::domain::dGrid;
-    using Type = int32_t;
+    using Type = TEST_TYPE;
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_VoxToNodes<Grid, Type, 0>, nGpus, 1);
 }
 
@@ -243,17 +254,35 @@ TEST(NodeToVoxels, dGrid)
     Neon::init();
     int nGpus = getNGpus();
     using Grid = Neon::domain::dGrid;
-    using Type = int32_t;
+    using Type = TEST_TYPE;
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_NodeToVoxels<Grid, Type, 0>, nGpus, 1);
 }
-//
-// TEST(Swap, eGrid)
+
+//TEST(Map, eGrid)
 //{
 //    Neon::init();
 //    int nGpus = getNGpus();
 //    using Grid = Neon::domain::eGrid;
-//    using Type = int32_t;
-//    runAllTestConfiguration<Grid, Type, 0>("sGrid", staggeredGrid<Grid, Type, 0>, nGpus, 1);
+//    using Type = TEST_TYPE;
+//    runAllTestConfiguration<Grid, Type, 0>("staggereeGrid", StaggereeGrid_Map<Grid, Type, 0>, nGpus, 1);
+//}
+//
+//TEST(VoxToNodes, eGrid)
+//{
+//    Neon::init();
+//    int nGpus = getNGpus();
+//    using Grid = Neon::domain::eGrid;
+//    using Type = TEST_TYPE;
+//    runAllTestConfiguration<Grid, Type, 0>("staggereeGrid", StaggereeGrid_VoxToNodes<Grid, Type, 0>, nGpus, 1);
+//}
+//
+//TEST(NodeToVoxels, eGrid)
+//{
+//    Neon::init();
+//    int nGpus = getNGpus();
+//    using Grid = Neon::domain::eGrid;
+//    using Type = TEST_TYPE;
+//    runAllTestConfiguration<Grid, Type, 0>("staggereeGrid", StaggereeGrid_NodeToVoxels<Grid, Type, 0>, nGpus, 1);
 //}
 
 int main(int argc, char** argv)

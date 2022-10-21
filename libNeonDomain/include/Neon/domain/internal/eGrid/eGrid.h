@@ -130,8 +130,11 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eCell>
     auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool final;
 
-    auto getProperties(const Neon::index_3d& idx) const
-        -> GridBaseTemplate::CellProperties final;
+    auto getProperties(const Neon::index_3d& idx)
+        const -> GridBaseTemplate::CellProperties final;
+
+    auto setReduceEngine(Neon::sys::patterns::Engine eng)
+        -> void;
 
    private:
     using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<eGrid, eCell>;

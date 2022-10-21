@@ -1,6 +1,8 @@
 #include "Neon/domain/dGrid.h"
 #include "Neon/domain/internal/experimental/staggeredGrid/StaggeredGrid.h"
 
+namespace tools {
+
 template <typename StaggeredGrid, typename T>
 struct Containers
 {
@@ -25,7 +27,7 @@ struct Containers
                                  const Self::NodeField& fieldNode)
         -> Neon::set::Container;
 
-    static auto sumVoxelsOnNodes(Self::NodeField&        fieldNode,
+    static auto sumVoxelsOnNodesAndDivideBy8(Self::NodeField&        fieldNode,
                                  const Self::VoxelField& fieldVox)
         -> Neon::set::Container;
 };
@@ -33,3 +35,5 @@ struct Containers
 
 extern template struct Containers<Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, double>;
 extern template struct Containers<Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, float>;
+
+}  // namespace tools

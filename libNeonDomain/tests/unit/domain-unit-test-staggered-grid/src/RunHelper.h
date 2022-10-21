@@ -33,11 +33,12 @@ void runAllTestConfiguration(const std::string&                      ,
         }
         // std::vector<int> nGpuTest{2,4,6,8};
         std::vector<int> cardinalityTest{1};
-        nGpuTest = std::vector<int>(1,1);
-        //std::vector<Neon::index_3d> dimTest{{60, 10, 250}};
-        //std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp, Neon::Runtime::stream};
-        std::vector<Neon::index_3d> dimTest{{3}};
-        std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::stream};
+        //nGpuTest = std::vector<int>(1,1);
+
+        std::vector<Neon::index_3d> dimTest{{60, 10, 250}, {10, 50, 40}};
+        std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp, Neon::Runtime::stream};
+        //std::vector<Neon::index_3d> dimTest{{3}};
+        //std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::stream};
 
         std::vector<Geometry> geos;
 
@@ -50,7 +51,6 @@ void runAllTestConfiguration(const std::string&                      ,
                 Geometry::FullDomain,
                 Geometry::Sphere,
                 Geometry::HollowSphere,
-
             };
         }
 

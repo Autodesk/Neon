@@ -75,10 +75,10 @@ auto VoxelPartition<BuildingBlockGridT, TypeT, CardinalityT>::
             return NghInfo(alternativeVal, false);
         }
     }
-    return mBuildingBlockPartition.template nghVal(node.getBuildingBlockCell(),
-                                                   xyz,
-                                                   cardinalityIdx,
-                                                   alternativeVal);
+    return mBuildingBlockPartition.nghVal(node.getBuildingBlockCell(),
+                                          xyz,
+                                          cardinalityIdx,
+                                          alternativeVal);
 }
 
 template <typename BuildingBlockGridT, typename TypeT, int CardinalityT>
