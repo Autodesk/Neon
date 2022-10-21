@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/set/Backend.h"
 
-namespace Neon::internal::dataDependency {
+namespace Neon::set::dataDependency {
 
 
 /**

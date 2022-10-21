@@ -12,8 +12,8 @@ struct DataDependency
    private:
     Neon::set::container::GraphInfo::NodeUid               mT0 = 0;
     Neon::set::container::GraphInfo::NodeUid               mT1 = 0;
-    Neon::internal::dataDependency::DataDependencyType mType = Neon::internal::dataDependency::DataDependencyType::NONE;
-    Neon::internal::dataDependency::MdObjUid mDataUid = 0;
+    Neon::set::dataDependency::DataDependencyType mType = Neon::set::dataDependency::DataDependencyType::NONE;
+    Neon::set::dataDependency::MdObjUid mDataUid = 0;
 
    public:
     /**
@@ -31,8 +31,8 @@ struct DataDependency
      * @param B
      */
     DataDependency(Neon::set::container::GraphInfo::NodeUid               t1,
-               Neon::internal::dataDependency::DataDependencyType type,
-               Neon::internal::dataDependency::MdObjUid m_uid,
+               Neon::set::dataDependency::DataDependencyType type,
+               Neon::set::dataDependency::MdObjUid m_uid,
                Neon::set::container::GraphInfo::NodeUid               t0);
 
     /**
@@ -51,7 +51,7 @@ struct DataDependency
      * Returns the dependency type
      * @return
      */
-    auto type() -> Neon::internal::dataDependency::DataDependencyType;
+    auto type() -> Neon::set::dataDependency::DataDependencyType;
 
     /**
      * Returns the "before" kernel id

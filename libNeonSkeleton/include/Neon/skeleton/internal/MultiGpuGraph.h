@@ -137,7 +137,7 @@ struct MultiGpuGraph
      * @return
      */
     auto helpParseContainer(Neon::set::Container& kernelContainerIdx)
-        -> std::vector<Neon::internal::dataDependency::Token>;
+        -> std::vector<Neon::set::dataDependency::Token>;
 
     /**
      * helper function to export a dot file

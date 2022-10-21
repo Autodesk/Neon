@@ -13,7 +13,7 @@ AnchorContainer::AnchorContainer(const std::string& name)
 }
 
 
-auto AnchorContainer::parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>&
+auto AnchorContainer::parse() -> const std::vector<Neon::set::dataDependency::Token>&
 {
     return mEmtpy;
 }

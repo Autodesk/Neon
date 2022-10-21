@@ -3,7 +3,7 @@
 namespace Neon::set::internal {
 
 
-auto ContainerAPI::addToken(Neon::set::internal::dependencyTools::DataToken& dataParsing)
+auto ContainerAPI::addToken(Neon::set::dataDependency::Token& dataParsing)
     -> void
 {
     mParsed.push_back(dataParsing);
@@ -16,13 +16,13 @@ auto ContainerAPI::getName() const
 }
 
 auto ContainerAPI::getTokens() const
-    -> const std::vector<Neon::set::internal::dependencyTools::DataToken>&
+    -> const std::vector<Neon::set::dataDependency::Token>&
 {
     return mParsed;
 }
 
 auto ContainerAPI::getTokenRef()
-    -> std::vector<Neon::set::internal::dependencyTools::DataToken>&
+    -> std::vector<Neon::set::dataDependency::Token>&
 {
     return mParsed;
 }
@@ -62,7 +62,7 @@ auto ContainerAPI::setContainerPattern(Neon::set::ContainerPatternType patternTy
     this->mContainerPatternType = patternType;
 }
 
-auto ContainerAPI::setContainerPattern(const std::vector<Neon::set::internal::dependencyTools::DataToken>& tokens)
+auto ContainerAPI::setContainerPattern(const std::vector<Neon::set::dataDependency::Token>& tokens)
     -> void
 {
     Neon::set::ContainerPatternType patternType = Neon::set::ContainerPatternType::map;

@@ -72,10 +72,10 @@ struct SingletonSet
      * Returns a unique identifier for the data set.
      * @return
      */
-    auto uid() -> MultiDeviceObjectUid
+    auto uid() ->Neon::set::dataDependency::MultiXpuDataUid
     {
         T_ta*                addr = m_data.get();
-        MultiDeviceObjectUid uidRes = (size_t)addr;
+       Neon::set::dataDependency::MultiXpuDataUid uidRes = (size_t)addr;
         return uidRes;
     }
 
@@ -83,10 +83,10 @@ struct SingletonSet
      * Returns a unique identifier for the data set.
      * @return
      */
-    auto uid() const -> MultiDeviceObjectUid
+    auto uid() const ->Neon::set::dataDependency::MultiXpuDataUid
     {
         T_ta*                addr = m_data.get();
-        MultiDeviceObjectUid uidRes = (size_t)addr;
+       Neon::set::dataDependency::MultiXpuDataUid uidRes = (size_t)addr;
         return uidRes;
     }
 

@@ -3,8 +3,8 @@
 namespace Neon::skeleton::internal {
 
 DataDependency::DataDependency(Neon::set::container::GraphInfo::NodeUid               t1,
-                               Neon::internal::dataDependency::DataDependencyType type,
-                               Neon::internal::dataDependency::MdObjUid uid,
+                               Neon::set::dataDependency::DataDependencyType type,
+                               Neon::set::dataDependency::MdObjUid uid,
                                Neon::set::container::GraphInfo::NodeUid               t0)
 {
     mT1 = t1;
@@ -15,18 +15,18 @@ DataDependency::DataDependency(Neon::set::container::GraphInfo::NodeUid         
 
 bool DataDependency::isValid()
 {
-    return mType != Neon::internal::dataDependency::DataDependencyType::NONE;
+    return mType != Neon::set::dataDependency::DataDependencyType::NONE;
 }
 
 auto DataDependency::toString() -> std::string
 {
     return std::to_string(mT1) +
-           " -> (" + Neon::internal::dataDependency::DataDependencyTypeUtils::toString(mType) +
+           " -> (" + Neon::set::dataDependency::DataDependencyTypeUtils::toString(mType) +
            " [" + std::to_string(mDataUid) +
            "]) -> " + std::to_string(mT0);
 }
 
-auto DataDependency::type() -> Neon::internal::dataDependency::DataDependencyType
+auto DataDependency::type() -> Neon::set::dataDependency::DataDependencyType
 {
     return mType;
 }

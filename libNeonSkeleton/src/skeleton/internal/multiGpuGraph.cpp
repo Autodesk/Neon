@@ -42,7 +42,7 @@ void MultiGpuGraph::helpParseNewContainer(const Neon::set::Container& inContaine
     Neon::set::container::GraphInfo::NodeUid graphNodeUid = helpAddNewContainerToGraph(inContainer);
 
     // Parsing all the data toke used by the kernel container
-    std::vector<Neon::internal::dataDependency::Token> tokens = helpParseContainer(mGraph().getGraphNode(graphNodeUid).getContainer());
+    std::vector<Neon::set::dataDependency::Token> tokens = helpParseContainer(mGraph().getGraphNode(graphNodeUid).getContainer());
 
     // Tokens are based on the multi-GPU data loaded by Containers
     for (auto& token : tokens) {
@@ -63,7 +63,7 @@ void MultiGpuGraph::helpParseNewContainer(const Neon::set::Container& inContaine
 }
 
 auto MultiGpuGraph::helpParseContainer(Neon::set::Container& container)
-    -> std::vector<Neon::internal::dataDependency::Token>
+    -> std::vector<Neon::set::dataDependency::Token>
 {
     auto& kcInterface = container.getContainerInterface();
     auto& tokens = kcInterface.parse();

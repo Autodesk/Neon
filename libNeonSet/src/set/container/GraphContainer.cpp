@@ -27,7 +27,7 @@ auto GraphContainer::newParser() -> Loader
     return parser;
 }
 
-auto GraphContainer::parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>&
+auto GraphContainer::parse() -> const std::vector<Neon::set::dataDependency::Token>&
 {
     Neon::SetIdx setIdx(0);
     if (!this->isParsingDataUpdated()) {

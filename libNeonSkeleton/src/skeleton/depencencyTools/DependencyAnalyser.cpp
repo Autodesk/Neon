@@ -4,19 +4,19 @@
 namespace Neon::skeleton::internal {
 
 
-DependencyAnalyser::DependencyAnalyser(Neon::internal::dataDependency::MdObjUid uid,
-                                       Neon::internal::dataDependency::MdObjIdx idx)
+DependencyAnalyser::DependencyAnalyser(Neon::set::dataDependency::MdObjUid uid,
+                                       Neon::set::dataDependency::MdObjIdx idx)
 {
     mUid = uid;
     mIdx = idx;
 }
 
 auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       newKernel,
-                                Neon::internal::dataDependency::AccessType newOp)
+                                Neon::set::dataDependency::AccessType newOp)
     -> std::vector<DataDependency>
 {
     switch (newOp) {
-        case  Neon::internal::dataDependency::AccessType::READ: {
+        case  Neon::set::dataDependency::AccessType::READ: {
             if (mParsedW.size() == 0) {
                 // We are parsing a READ with no previous WRITE
                 // STEPS:
@@ -41,7 +41,7 @@ auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       n
                     auto t0W = mParsedW[0];
                     auto t1R = newKernel;
                     if (t0W != t1R) {
-                        DataDependency d(t1R, Neon::internal::dataDependency::DataDependencyType::RAW, mUid, t0W);
+                        DataDependency d(t1R, Neon::set::dataDependency::DataDependencyType::RAW, mUid, t0W);
                         output.push_back(d);
                     }
                 }
@@ -56,7 +56,7 @@ auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       n
             }
             break;
         }
-        case  Neon::internal::dataDependency::AccessType::WRITE: {
+        case  Neon::set::dataDependency::AccessType::WRITE: {
             if (mParsedR.empty() && mParsedW.empty()) {
                 // Parsing a WRITE as the first operation in the Container sequence.
                 //
@@ -87,7 +87,7 @@ auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       n
                     for (const auto token_t0_READ : mParsedR) {
                         const auto token_t1_WRITE = newKernel;
                         if (token_t1_WRITE != token_t0_READ) {
-                            DataDependency d(token_t1_WRITE, Neon::internal::dataDependency::DataDependencyType::WAR, mUid, token_t0_READ);
+                            DataDependency d(token_t1_WRITE, Neon::set::dataDependency::DataDependencyType::WAR, mUid, token_t0_READ);
                             output.push_back(d);
                         }
                     }
@@ -113,7 +113,7 @@ auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       n
                     auto token_t0_WRITE = mParsedW[0];
                     auto token_t1_WRITE = newKernel;
                     if (token_t0_WRITE != token_t1_WRITE) {
-                        DataDependency d(token_t1_WRITE, Neon::internal::dataDependency::DataDependencyType::WAW, mUid, token_t0_WRITE);
+                        DataDependency d(token_t1_WRITE, Neon::set::dataDependency::DataDependencyType::WAW, mUid, token_t0_WRITE);
                         output.push_back(d);
                     }
                 }
@@ -121,7 +121,7 @@ auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       n
                     for (const auto token_t0_READ : mParsedR) {
                         const auto token_t1_WRITE = newKernel;
                         if (token_t1_WRITE != token_t0_READ) {
-                            DataDependency d(token_t1_WRITE, Neon::internal::dataDependency::DataDependencyType::WAR, mUid, token_t0_READ);
+                            DataDependency d(token_t1_WRITE, Neon::set::dataDependency::DataDependencyType::WAR, mUid, token_t0_READ);
                             output.push_back(d);
                         }
                     }
@@ -135,7 +135,7 @@ auto DependencyAnalyser::update(Neon::set::container::GraphInfo::NodeUid       n
             }
             break;
         }
-        case Neon::internal::dataDependency::AccessType::NONE: {
+        case Neon::set::dataDependency::AccessType::NONE: {
             // Error
             NEON_THROW_UNSUPPORTED_OPTION("");
         }

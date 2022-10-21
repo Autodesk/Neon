@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/set/Backend.h"
 
-namespace Neon::internal::dataDependency {
+namespace Neon::set::dataDependency {
 
 /**
  * Classical definition of dependency types.
@@ -26,5 +26,5 @@ struct DataDependencyTypeUtils
     static auto toString(DataDependencyType type) -> std::string;
 };
 
-std::ostream& operator<<(std::ostream& os, Neon::internal::dataDependency::DataDependencyType const& m);
+std::ostream& operator<<(std::ostream& os, Neon::set::dataDependency::DataDependencyType const& m);
 }

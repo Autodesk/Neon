@@ -200,10 +200,10 @@ class eFieldDevice_t
      * Returns a unique identifier for this type of DataSet
      * @return
      */
-    auto uid() const -> Neon::set::MultiDeviceObjectUid
+    auto uid() const -> Neon::set::dataDependency::MultiXpuDataUid
     {
         void*                           addr = static_cast<void*>(m_data.get());
-        Neon::set::MultiDeviceObjectUid uidRes = (size_t)addr;
+        Neon::set::dataDependency::MultiXpuDataUid uidRes = (size_t)addr;
         return uidRes;
     }
 

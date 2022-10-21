@@ -1,6 +1,6 @@
 #include "Neon/set/dependency/DataDependencyType.h"
 
-namespace Neon::internal::dataDependency {
+namespace Neon::set::dataDependency {
 
 auto DataDependencyTypeUtils::toString(DataDependencyType val) -> std::string
 {
@@ -24,7 +24,7 @@ auto DataDependencyTypeUtils::toString(DataDependencyType val) -> std::string
     NEON_THROW_UNSUPPORTED_OPTION();
 }
 
-std::ostream& operator<<(std::ostream& os, Neon::internal::dataDependency::DataDependencyType const& m){
+std::ostream& operator<<(std::ostream& os, Neon::set::dataDependency::DataDependencyType const& m){
    os << DataDependencyTypeUtils::toString(m);
    return os;
 }

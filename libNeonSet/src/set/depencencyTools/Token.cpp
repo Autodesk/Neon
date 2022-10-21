@@ -1,17 +1,17 @@
 #include "Neon/set//dependency/Token.h"
 
-namespace Neon::internal::dataDependency {
+namespace Neon::set::dataDependency {
 
-Token::Token(MdObjUid   uid,
-             AccessType access,
-             Compute    compute)
+Token::Token(MultiXpuDataUid uid,
+             AccessType      access,
+             Compute         compute)
 {
     update(uid, access, compute);
 }
 
-auto Token::update(MdObjUid   uid,
-                   AccessType access,
-                   Compute    compute) -> void
+auto Token::update(MultiXpuDataUid uid,
+                   AccessType      access,
+                   Compute         compute) -> void
 {
     mUid = uid;
     mAccess = access;
@@ -38,7 +38,7 @@ auto Token::compute() const -> Compute
     return mCompute;
 }
 
-auto Token::uid() const -> MdObjUid
+auto Token::uid() const -> MultiXpuDataUid
 {
     return mUid;
 }
@@ -74,4 +74,4 @@ auto Token::mergeAccess(AccessType tomerge) -> void
     mAccess = AccessTypeUtils::merge(mAccess, tomerge);
 }
 
-}  // namespace Neon::internal::dataDependency
+}  // namespace Neon::set::dataDependency

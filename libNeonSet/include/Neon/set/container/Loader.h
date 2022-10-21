@@ -1,7 +1,7 @@
 #pragma once
-//#include <experimental/type_traits>
+// #include <experimental/type_traits>
 #include "Neon/set/DevSet.h"
-#include "Neon/set/dependencyTools/DataParsing.h"
+
 #include "Neon/set/container/ContainerAPI.h"
 
 #include "type_traits"
@@ -151,10 +151,10 @@ struct Loader
 
    public:
     Loader(Neon::set::internal::ContainerAPI&    container,
-             Neon::DeviceType                      devE,
-             Neon::SetIdx                          setIdx,
-             Neon::DataView                        dataView,
-             Neon::set::internal::LoadingMode_e::e loadingMode)
+           Neon::DeviceType                      devE,
+           Neon::SetIdx                          setIdx,
+           Neon::DataView                        dataView,
+           Neon::set::internal::LoadingMode_e::e loadingMode)
         : m_container(container),
           m_devE(devE),
           m_setIdx(setIdx),
@@ -183,11 +183,11 @@ struct Loader
 
         switch (m_loadingMode) {
             case Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA: {
-                using namespace Neon::set::internal::dependencyTools;
-                DataUId_t              uid = field.getUid();
-                constexpr Access_et::e access = Access_et::WRITE;
-                Compute                compute = computeE;
-                DataToken              dataToken(uid, access, compute);
+                using namespace Neon::set::dataDependency;
+                Neon::set::dataDependency::MultiXpuDataUid uid = field.getUid();
+                constexpr auto                             access = Neon::set::dataDependency::AccessType::WRITE;
+                Compute                                    compute = computeE;
+                Token                                      token(uid, access, compute);
 
                 if (compute == Neon::Compute::STENCIL &&
                     (stencilOptions == StencilOptions::DEFAULT || stencilOptions == StencilOptions::LATTICE)) {
@@ -196,7 +196,7 @@ struct Loader
                     NEON_THROW(exp);
                 }
 
-                m_container.addToken(dataToken);
+                m_container.addToken(token);
 
                 return field.getPartition(m_devE, m_setIdx, m_dataView);
             }
@@ -222,14 +222,14 @@ struct Loader
     {
         switch (m_loadingMode) {
             case Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA: {
-                using namespace Neon::set::internal::dependencyTools;
-                DataUId_t              uid = field.getUid();
-                constexpr Access_et::e access = Access_et::READ;
-                Neon::Compute          compute = computeE;
-                DataToken              dataToken(uid, access, compute);
+                using namespace Neon::set::dataDependency;
+                Neon::set::dataDependency::MultiXpuDataUid uid = field.getUid();
+                constexpr auto                             access = Neon::set::dataDependency::AccessType::READ;
+                Neon::Compute                              compute = computeE;
+                Token                                      token(uid, access, compute);
 
                 if (compute == Neon::Compute::STENCIL) {
-                    dataToken.setHaloUpdate(
+                    token.setHaloUpdate(
                         [&](Neon::set::HuOptions& opt) -> void {
                             // TODO: add back following line with template metaprogramming
                             // field.haloUpdate(bk, opt);
@@ -245,7 +245,7 @@ struct Loader
                             return;
                         });
                 }
-                m_container.addToken(dataToken);
+                m_container.addToken(token);
 
                 return field.getPartition(m_devE, m_setIdx, m_dataView);
             }
@@ -257,4 +257,4 @@ struct Loader
     }
 };
 
-}  // namespace Neon
+}  // namespace Neon::set
