@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Neon/set/container/graph/GraphInfo.h"
+#include "Neon/set/container/graph/GraphData.h"
 
 namespace Neon::set::container {
 
@@ -8,7 +8,7 @@ struct Graph;
 
 struct Bfs
 {
-    using Level = std::vector<GraphInfo::NodeUid>;
+    using Level = std::vector<GraphData::Uid>;
     /**
      * Returns the number of levels
      */

@@ -55,8 +55,8 @@ TEST(CoreUt_io, ImplicitExport)
     };
    
     std::vector<Neon::VtiInputData_t<double, int>> inps;
-    Neon::ioToVTI({{nodeLinear, 1, "nodeLinear", true, Neon::ioVTI_e::ASCII},
-                   {voxLinear, 1, "voxLinear", false, Neon::ioVTI_e::ASCII}},
+    Neon::ioToVTI({{nodeLinear, 1, "nodeLinear", true, Neon::IoFileType::ASCII},
+                   {voxLinear, 1, "voxLinear", false, Neon::IoFileType::ASCII}},
                   "coreUt_vti_test_implicit.vti", nodDim, voxDim, 1.0, 0.0);
 }
 
@@ -71,14 +71,14 @@ TEST(CoreUt_io, implicitExportTuple)
         return -idx.x + idx.y - idx.z;
     };
 
-    Neon::ioToVTI({{velocityNorm, 1, "velocityNorm", true, Neon::ioVTI_e::ASCII}},
+    Neon::ioToVTI({{velocityNorm, 1, "velocityNorm", true, Neon::IoFileType::ASCII}},
                   "coreUt_vti_test_implicit_tuple_ASCII.vti",
                   nodDim, voxDim,
                   1.0,
                   0.0);
 
-    Neon::ioToVTI({{velocityNorm, 1, "velocityNorm", true, Neon::ioVTI_e::BINARY},
-                   {density, 1, "density", false, Neon::ioVTI_e::BINARY}},
+    Neon::ioToVTI({{velocityNorm, 1, "velocityNorm", true, Neon::IoFileType::BINARY},
+                   {density, 1, "density", false, Neon::IoFileType::BINARY}},
                   "coreUt_vti_test_implicit_tuple_BINARY.vti",
                   nodDim, voxDim,
                   1.0,
@@ -101,7 +101,7 @@ TEST(CoreUt_io, implicitLegacyExportTuple)
         Neon::IoToVTK ioToVTK("coreUt_vti_test_legacy_implicit_tuple_ASCII",
                               nodDim,
                               1.0,
-                              0.0, Neon::ioVTI_e::ASCII);
+                              0.0, Neon::IoFileType::ASCII);
 
         ioToVTK.addField(velocityNorm, 1, "velocityNorm", Neon::ioToVTKns::node);
         ioToVTK.addField(density, 1, "density", Neon::ioToVTKns::voxel);
@@ -111,7 +111,7 @@ TEST(CoreUt_io, implicitLegacyExportTuple)
         Neon::IoToVTK ioToVTK("coreUt_vti_test_legacy_implicit_tuple_BINARY",
                               nodDim,
                               2.0,
-                              0.0, Neon::ioVTI_e::BINARY);
+                              0.0, Neon::IoFileType::BINARY);
 
         ioToVTK.addField(velocityNorm, 1, "velocityNorm", Neon::ioToVTKns::node);
         ioToVTK.addField(density, 1, "density", Neon::ioToVTKns::voxel);
@@ -123,5 +123,5 @@ TEST(CoreUt_io, implicitLegacyExportTuple)
 //                  nodDim,
 //                  1.0,
 //                  0.0,
-//                  Neon::ioVTI_e::BINARY);
+//                  Neon::IoFileType::BINARY);
 }

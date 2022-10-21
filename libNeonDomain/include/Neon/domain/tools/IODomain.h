@@ -149,7 +149,7 @@ struct IODomain
                  ioToVTKns::VtiDataType_e nodeOrVoxel = ioToVTKns::VtiDataType_e::voxel,
                  const Vec_3d<double>&    spacingData = Vec_3d<double>(1, 1, 1) /*! Spacing, i.e. size of a voxel */,
                  const Vec_3d<double>&    origin = Vec_3d<double>(0, 0, 0) /*!      Origin  */,
-                 ioVTI_e::e               vtiIOe = ioVTI_e::e::ASCII /*!            Binary or ASCII file  */);
+                 IoFileType               vtiIOe = IoFileType::ASCII /*!            Binary or ASCII file  */);
 
    private:
     auto getReference(const Integer_3d<intType_ta>& xyz /**< Point in the grid        */,
@@ -433,7 +433,7 @@ auto IODomain<ExportType, intType_ta>::ioToVti(const std::string&       filename
                                                ioToVTKns::VtiDataType_e nodeOrVoxel,
                                                const Vec_3d<double>&    spacingData,
                                                const Vec_3d<double>&    origin,
-                                               ioVTI_e::e               vtiIOe)
+                                               IoFileType               vtiIOe)
 {
     mField.ioVtk(filename, fieldName, nodeOrVoxel, spacingData, origin, vtiIOe);
 }

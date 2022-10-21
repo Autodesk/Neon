@@ -123,7 +123,7 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
         using OGCellOGCell = typename OGCell::OuterCell;
         OGCellOGCell oc;
 
-        Neon::MemoryOptions memoryOptions();
+        Neon::MemoryOptions memoryOptions;
         this->mStorage->tableToOuterCell = this->getDevSet().template newMemSet<OGCellOGCell>(Neon::DataUse::IO_COMPUTE,
                                                                                               1,
                                                                                               Neon::MemoryOptions(),

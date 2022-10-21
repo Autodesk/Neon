@@ -136,6 +136,8 @@ class FieldBase
     template <typename VtiExportType = T>
     auto ioToVtk(const std::string& fileName,
                  const std::string& fieldName,
+                 bool               includeDomain = false,
+                 Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
                  bool               isNodeSpace = false) const -> void;
 
 

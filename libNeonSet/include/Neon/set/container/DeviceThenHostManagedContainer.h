@@ -64,7 +64,7 @@ struct DeviceThenHostManagedContainer : ContainerAPI
         return parser;
     }
 
-    auto parse() -> const std::vector<Neon::internal::dataDependency::Token>& override
+    auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
     {
         mHost->parse();
         mDevice->parse();
@@ -75,7 +75,7 @@ struct DeviceThenHostManagedContainer : ContainerAPI
         for (auto const& token : devTokens) {
             getTokenRef().push_back(token);
         }
-        std::vector<Neon::internal::dataDependency::Token> filtered;
+        std::vector<Neon::set::internal::dependencyTools::DataToken> filtered;
         for (auto const& token : hostTokens) {
             bool foundMatch = false;
             for (auto& acceptedTokens : getTokenRef()) {

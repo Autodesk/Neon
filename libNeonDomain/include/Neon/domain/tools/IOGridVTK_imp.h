@@ -4,9 +4,9 @@ namespace Neon::domain {
 
 template <class RealType, typename IntType>
 IOGridVTK<RealType, IntType>::IOGridVTK(const Neon::domain::interface::GridBase& grid,
-                                        const std::string&                      filename,
-                                        bool                                    isNodeSpace,
-                                        ioVTI_e::e                              vtiIOe)
+                                        const std::string&                       filename,
+                                        bool                                     isNodeSpace,
+                                        Neon::IoFileType                         vtiIOe)
     : IoToVTK<IntType, RealType>(filename,
                                  isNodeSpace ? grid.getDimension() : grid.getDimension() + 1,
                                  grid.getSpacing(),
@@ -49,4 +49,4 @@ auto IOGridVTK<RealType, IntType>::addField(const Field&       field,
                                          field.getCardinality(), name, vtiDataTypeE);
 }
 
-}  // namespace Neon::grids
+}  // namespace Neon::domain

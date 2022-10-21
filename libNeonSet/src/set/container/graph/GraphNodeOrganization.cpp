@@ -1,33 +1,33 @@
-#include "Neon/set/container/graph/GraphInfo.h"
+#include "Neon/set/container/graph/GraphData.h"
 
 namespace Neon::set::container {
 
-GraphInfo::GraphInfo()
+GraphData::GraphData()
 {
     mUid = notSet;
     mIndex = notSet;
 }
-GraphInfo::GraphInfo(int uid)
+GraphData::GraphData(int uid)
 {
     mUid = uid;
     mIndex = notSet;
 }
 
-auto GraphInfo::setUid(NodeUid uid) -> void
+auto GraphData::setUid(Uid uid) -> void
 {
     mUid = uid;
 }
-auto GraphInfo::setIndex(NodeIdx index) -> void
+auto GraphData::setIndex(Index index) -> void
 {
     mIndex = index;
 }
 
-auto GraphInfo::getUid() const -> NodeUid
+auto GraphData::getUid() const -> Uid
 {
     return mUid;
 }
 
-auto GraphInfo::getIndex() const -> NodeIdx
+auto GraphData::getIndex() const -> Index
 {
     return mIndex;
 }

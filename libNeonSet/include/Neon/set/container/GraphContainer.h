@@ -28,7 +28,7 @@ struct GraphContainer : ContainerAPI
 
     auto newParser() -> Loader;
 
-    auto parse() -> const std::vector<Neon::internal::dataDependency::Token>& override;
+    auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override;
 
     auto getGraph() -> const Neon::set::container::Graph& override;
 

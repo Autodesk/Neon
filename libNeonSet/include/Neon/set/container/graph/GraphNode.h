@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GraphInfo.h"
+#include "GraphData.h"
 #include "GraphNodeScheduling.h"
 #include "Neon/set/Containter.h"
 
@@ -8,15 +8,15 @@ namespace Neon::set::container {
 
 struct GraphNode
 {
-    auto getLabel(bool debug) -> std::string;
+    std::string getLabel(bool debug);
 
-    auto getLabelProperty() -> std::string;
+    std::string         getLabelProperty();
 
    public:
     GraphNode();
 
     GraphNode(const Container& container,
-              GraphInfo::NodeUid   uid);
+              GraphData::Uid   uid);
 
     /**
      * Factory method to generate a begin node
@@ -36,12 +36,12 @@ struct GraphNode
     /**
      * Returns a reference to graph information related to this node.
      * */
-    auto getGraphData() -> GraphInfo&;
+    auto getGraphData() -> GraphData&;
 
     /**
      * Returns a reference to some graph information related to this node.
      * */
-    auto getGraphData() const -> const GraphInfo&;
+    auto getGraphData() const -> const GraphData&;
 
     /**
      * Returns the scheduling information to run this node
@@ -76,9 +76,9 @@ struct GraphNode
     auto helpGetDotName() -> std::string;
     auto helpGetDotInfo() -> std::string;
 
-    Container            mContainer /**< Any Neon container */;
-    GraphNodeScheduling  mGraphNodeScheduling /**< Scheduling information for the node */;
-    GraphInfo            mGraphNodeOrganization /**< Information to organize the node w.r.t. the rest of the graph */;
+    Container           mContainer /**< Any Neon container */;
+    GraphNodeScheduling mGraphNodeScheduling /**< Scheduling information for the node */;
+    GraphData           mGraphNodeOrganization /**< Information to organize the node w.r.t. the rest of the graph */;
     ContainerPatternType getContainerpatternType() const;
 };
 

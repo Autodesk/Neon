@@ -1,4 +1,5 @@
 #include "Neon/domain/interface/GridBase.h"
+#include "Neon/domain/tools/IOGridVTK.h"
 
 namespace Neon::domain::interface {
 

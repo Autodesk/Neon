@@ -59,7 +59,7 @@ struct OldDeviceManagedContainer : ContainerAPI
         return parser;
     }
 
-    auto parse() -> const std::vector<Neon::internal::dataDependency::Token>& override
+    auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
     {
         auto parser = newParser();
         this->mLoadingLambda(parser);
