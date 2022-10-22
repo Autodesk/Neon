@@ -4,7 +4,7 @@
 #include "expandLevelSet.h"
 
 /**
- * Function that generates a Neon Container to compute the grad over a scalar field.
+ * A function that generates a Neon Container to compute the grad over a scalar field.
  * Note: in Neon only constant field can be used as input for stencil computation
  */
 template <typename Field>
@@ -14,6 +14,8 @@ auto computeGrad(const Field& levelSetField /** input scalar field we want to co
     -> Neon::set::Container
 {
     if (levelSetField.getCardinality() != 1 || gradField.getCardinality() != 3) {
+        // We check that the level set field is a scalar field,
+        // while the gradient is a three component field.
         NEON_THROW_UNSUPPORTED_OPERATION("Wrong cardinality detected.");
     }
 
@@ -27,16 +29,18 @@ auto computeGrad(const Field& levelSetField /** input scalar field we want to co
     //      {0, -1, 0},
     //      {0, 0, -1}
     return levelSetField.getGrid().getContainer(
-        "computeGrad", [&, h](Neon::set::Loader& L) {
+        "computeGrad",
+        // Neon Loading Lambda
+        [&, h](Neon::set::Loader& L) {
             // Loading the sdf field for a stencil type of computation
             // as we will be using a 6 point stencil to compute the gradient
-            auto&      levelSet = L.load(levelSetField, Neon::Compute::STENCIL);
-            auto&      grad = L.load(gradField);
+            auto& levelSet = L.load(levelSetField, Neon::Compute::STENCIL);
+            auto& grad = L.load(gradField);
 
             // We can nicely compute the inverse of the spacing in the loading lambda
-            const auto twiceOverH = 1. / h;
+            const auto oneOverTwoH = 1. / (2.0 * h);
 
-
+            // Neon Compute Lambda
             return [=] NEON_CUDA_HOST_DEVICE(
                        const typename Field::Cell& cell) mutable {
                 // Central difference
@@ -53,7 +57,7 @@ auto computeGrad(const Field& levelSetField /** input scalar field we want to co
                         grad(cell, 2) = 0;
                         break;
                     } else {
-                        grad(cell, i) = (valUp - valDw) / twiceOverH;
+                        grad(cell, i) = (valUp - valDw) / oneOverTwoH;
                     }
                 }
             };

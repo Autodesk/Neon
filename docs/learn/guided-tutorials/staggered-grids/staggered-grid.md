@@ -28,21 +28,40 @@ where we represent temperature and density properties respectively on nodes and 
 The operations do not have actual physical meaning and their sole porpoise if to show some common type of computations
 in a simple context.
 
-- [** Step 0 - Initialization of a staggered grid **](#Initialization). The StaggeredGrid initialization process is slightly
+- [** Step 0 - Initialization of a staggered grid **](#Initialization). The StaggeredGrid initialization process is
+  slightly
   different than the ones of uniform grids.
   We will be using a small 2 by 3 by 9 voxel grid.
-- [** Step 1 - Initialization of node and voxel fields **](#Node-and-voxel-fields). We'll be using nodes to store temperature
+- [** Step 1 - Initialization of node and voxel fields **](#Node-and-voxel-fields). We'll be using nodes to store
+  temperature
   and voxels to store material density.
 - [** Step 2 - Access to neighbouring nodes **](#access-to-neighbouring-nodes-from-voxels). We'll be looping around the
   neighbouring nodes of a voxel to sum up their temperature values.
-- [** Step 3 - Access to neighbouring voxels **](#access-to-neighbouring-voxels-from-nodes). We'll be accessing neighbouring
+- [** Step 3 - Access to neighbouring voxels **](#access-to-neighbouring-voxels-from-nodes). We'll be accessing
+  neighbouring
   voxels of a node to sum up their density values and to divide tha result by 8.
   The division by 8 will highlight some topological characteristics of the dual grids that we can use to confirm the
   actual results.
 
+The code of the tutorial can be found in the Neon repository (`Neon/staggered-grid/tutorials/staggered-grids`).
+As on the other tutorial in the rest will start from a emtpy main and we'll looking at how to implement the previous
+steps.
+
 <a name="Initialization">
 ## ** Step 0 - Initialization of a staggered grid **
 </a>
+
+The initialization code is straightforward. As always we first have to define the hardware configuration for the
+execution by creating a `Backend` object.
+
+Similarly to uniform grids, we also provide the dimension of the background grid and a
+sparsity mask through a lambda function. For this last part of the process we target solely information of the voxel
+grid. Thanks to the property of staggered grids, can reconstruct all the required information for the node grid.
+
+Again as for the other Neon uniform grids, the last parameter is a list of stencil that will be used for computation on
+the staggered grid. The stencil shape can be used either on the node and on the voxel grid.
+Even with an empty stencil list, the staggered grid will include the support for stencil operation for node to
+neighboring voxel and vice versa.
 
 ```cpp linenums="13" title="Neon/tutorials/staggered-grids/src/staggeredGrid.cpp"
 int main()
@@ -91,6 +110,18 @@ int main()
 <a name="Node-and-voxel-fields">
 ## ** Step 1 - Initialization of node and voxel fields **
 </a>
+
+We now extend the previous code with the initialization of the temperature and density fields.
+The process is identical to the one used for uniform grids.
+
+To make the things more interesting, we used two different method to initialize the two fields.
+In the density case, we used the host side interface, while for the temperature the initialization
+happens on the XPU side.
+
+!!! Note
+
+    The density fiels data have to manually be tranfered from the host to the XPUs, 
+    bacause the initilization was done on the host size.
 
 ```cpp linenums="49" title="Neon/tutorials/staggered-grids/src/staggeredGrid.cpp"
     // ...
@@ -148,16 +179,25 @@ int main()
 }
 ```
 
-```cpp linenums="49" title="Neon/tutorials/staggered-grids/src/staggeredGrid.cpp"
+The following is the code for the XPU side initialization of the temperature field shows how to
+define a Neon Container on a staggered grid. The structure should result quite familiar at this point.
+There are two minor changes that are highlighter in the code below.
+Firstly, the method for creating a container is now specific for node and voxel grids (`getContainerOnNodes`
+and `getContainerOnVoxel`). And finally, the parameter of the Neon Compute Lambda has changed
+from `Cell`, to`Node` and `Voxel`.
+
+```cpp linenums="40" title="Neon/staggered-grid/tutorials/staggered-grids/src/containers.cu" hl_lines="5 13"
 template <typename StaggeredGrid, typename T>
 auto Containers<StaggeredGrid, T>::resetValue(Self::NodeField  field,
                                               const Self::Type alpha) -> Neon::set::Container
 {
     return field.getGrid().getContainerOnNodes(
         "addConstOnNodes",
+        // Neon Loading Lamnbda 
         [&](Neon::set::Loader& loader) {
             auto& out = loader.load(field);
 
+            // Neon Compute Lambda
             return [=] NEON_CUDA_HOST_DEVICE(const typename Self::NodeField::Node& e) mutable {
                 for (int i = 0; i < out.cardinality(); i++) {
                     out(e, i) = alpha;
@@ -167,11 +207,84 @@ auto Containers<StaggeredGrid, T>::resetValue(Self::NodeField  field,
 }
 ```
 
+In the main function code, just after the field initialization we added a helper function to export Staggered grid data
+to XPU. The function takes also care of moving data from XPUs to host. Again the method to export to VTK is the same as
+for uniform grids. To add some variety to the tutorial, temperature fields are exported in a VTK binary format.
+
+The call to the export function at the end of the previous main function code show us how the data has been initialized.
+As we can see from the following screenshot, temperature nodes are al set to 1 and density voxel to zero.
+
 ![Mapping between cells and hardware devices](img/staggeredGrid-tutorial-0000.png)
 
 <a name="access-to-neighbouring-nodes-from-voxels">
 ## ** Step 2 - Access to neighbouring nodes **
 </a>
+
+Let's now focus on how to do some stencil computation, we for each temperature node we want to access the value of
+neighbouring density voxels.
+
+We know that the in Neon the identification of a neighbour Cell of a uniform grid is done through 3D offsets.
+For example if I want to identify the cell on the left (in the positive X direction), we use the 3D offset {1,0,0}.
+The same abstraction is valid for stencil operation between nodes or between voxels.
+
+The 3D offset abstraction is extended also to jumps between node and voxel grids as shown by the following example in
+2D.
+
+<figure markdown>
+  ![Image title](img/staggeredGrid-offsets.png){ width="400px" align=center}
+  <figcaption></figcaption>
+</figure>
+
+!!! Notes
+
+    - In a jump beteen node and voxel grids, only the niarest neightours can be accesses (stencil of radious one). 
+    - The componed of a 3D offset for a grid jump are always 1 or -1, and 0 is not a valid option.
+    - While the offset {1,1,1} can be both associated with a standard stencil operation and a grid jump, 
+      the actual semantic is extracted by the context (i.e. the method it is called with).
+
+Now that we know how 3D offsets are formalized for the jump between primal and dual grids like in the following snipped
+of code, where we create container that sums up the temperature values of the neighboring nodes and stores it in the
+voxel.
+
+```cpp linenums="40" title="Neon/tutorials/staggered-grids/src/containers.cu" hl_lines="21-28"
+template <typename StaggeredGrid, typename T>
+auto Containers<StaggeredGrid, T>::sumNodesOnVoxels(Self::VoxelField&      densityField,
+                                                    const Self::NodeField& temperatureField)
+    -> Neon::set::Container
+{
+    return densityField.getGrid().getContainerOnVoxels(
+        "sumNodesOnVoxels",
+        // Neon Loading Lambda
+        [&](Neon::set::Loader& loader) {
+            auto&       density = loader.load(densityField);
+            const auto& temperature = loader.load(temperatureField, Neon::Compute::STENCIL);
+
+            // Neon Compute Lambda
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Self::VoxelField::Voxel& voxHandle) mutable {
+                Type          sum = 0;
+                constexpr int componentId = 0;
+
+                // We visit all the neighbour nodes around voxHandle.
+                // Relative discrete offers are used to identify the neighbour node.
+                // As by construction all nodes of a voxel are active, we don't have to do any extra check.
+                sum += temperature.template getNghNodeValue<1, 1, 1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<1, 1, -1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<1, -1, 1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<1, -1, -1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<-1, 1, 1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<-1, 1, -1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<-1, -1, 1>(voxHandle, componentId);
+                sum += temperature.template getNghNodeValue<-1, -1, -1>(voxHandle, componentId);
+
+                // Storing the final result in the target voxel.
+                density(voxHandle, 0) = sum;
+            };
+        });
+}
+```
+
+Now that we now have our container, we just need to extend our main function to run it, and export the data to vti to
+check the result.
 
 ```cpp linenums="71" title="Neon/tutorials/staggered-grids/src/staggeredGrid.cpp"
     // ... 
@@ -190,12 +303,28 @@ auto Containers<StaggeredGrid, T>::resetValue(Self::NodeField  field,
 }
 ```
 
-<figure markdown>
-  ![Image title](img/staggeredGrid-offsets.png){ width="400px" align=center}
-  <figcaption></figcaption>
-</figure>
+!!! warning
 
-```cpp linenums="79" title="Neon/tutorials/staggered-grids/src/containers.cu"
+    The `sumNodesOnVoxels` Container represents a stencil opertation, therefore the halo of the temperature field must be up to 
+    date before executing the container.
+    There are two wasy for addressing this, we can update the halo manually (as in the tutorial code) or we can use the Skeleton.
+    In this tutorial we choose the first solution as we are showcasing mechanisms at the Domain level. Finally, the 
+    halo update code is in the tutorial code but has not reported here as it is not the focus out topic: Staggered grids.
+
+The resulting visualization of the results is not exciting, but it conforms that it confirms that the code is working:
+all temperature nodes are still set to one as in the initialization step while all density voxel are now set to 8.
+This is exactly the result we were expecting as each voxel is surrounded by exactly 8 voxels.
+
+![Mapping between cells and hardware devices](img/staggeredGrid-tutorial-0001.png)
+
+<a name="access-to-neighbouring-voxels-from-nodes">
+## ** Step 3 - Access to neighbouring voxels **
+</a>
+
+In this last step we implement a container that given a nodes it fetches values from all the neighbouring density
+voxels, sum them up, and it finally stores one with of the sum into the node temperature value.
+
+```cpp linenums="49" title="Neon/tutorials/staggered-grids/src/containers.cu"
 template <typename StaggeredGrid, typename T>
 auto Containers<StaggeredGrid, T>::sumVoxelsOnNodesAndDivideBy8(Self::NodeField&        temperatureField,
                                                                 const Self::VoxelField& densityField) -> Neon::set::Container
@@ -234,14 +363,19 @@ auto Containers<StaggeredGrid, T>::sumVoxelsOnNodesAndDivideBy8(Self::NodeField&
             };
         });
 }
-
 ```
 
-![Mapping between cells and hardware devices](img/staggeredGrid-tutorial-0001.png)
+The structure of the above Container is the similar to the previous one. However `getNghVoxelValue` has a different
+signature. Indeed, while all nodes of a voxel are active by construction, the same is not true for the neighbouring
+voxels of a node. Therefore `getNghVoxelValue` returns a structure that contains both the value of the neighbour node
+field and an active flag.
 
-<a name="access-to-neighbouring-voxels-from-nodes">
-## ** Step 3 - Access to neighbouring voxels **
-</a>
+Instead, explicitly checking if the neighbour voxel is active or not, we use the parameter of getNghVoxelValue, which
+define value returned by the method for non-active voxels. We set the parameter to
+zero (`returnValueIfVoxelIsNotActive`), which is the neutral element of the sum operator.
+
+The final thing to is to run our new Container from the main function and export the resulting data to vtk as shown
+below.
 
 ```cpp linenums="49" title="Neon/tutorials/staggered-grids/src/staggeredGrid.cpp"
     {  // Accessing nodes from voxels
@@ -262,41 +396,9 @@ auto Containers<StaggeredGrid, T>::sumVoxelsOnNodesAndDivideBy8(Self::NodeField&
 }
 ```
 
-```cpp linenums="49" title="Neon/tutorials/staggered-grids/src/containers.cu"
-template <typename StaggeredGrid, typename T>
-auto Containers<StaggeredGrid, T>::sumNodesOnVoxels(Self::VoxelField&      densityField,
-                                                    const Self::NodeField& temperatureField)
-    -> Neon::set::Container
-{
-    return densityField.getGrid().getContainerOnVoxels(
-        "sumNodesOnVoxels",
-        // Neon Loading Lambda
-        [&](Neon::set::Loader& loader) {
-            auto&       density = loader.load(densityField);
-            const auto& temperature = loader.load(temperatureField, Neon::Compute::STENCIL);
+!!! warning
 
-            // Neon Compute Lambda
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Self::VoxelField::Voxel& voxHandle) mutable {
-                Type          sum = 0;
-                constexpr int componentId = 0;
-
-                // We visit all the neighbour nodes around voxHandle.
-                // Relative discrete offers are used to identify the neighbour node.
-                // As by construction all nodes of a voxel are active, we don't have to do any extra check.
-                sum += temperature.template getNghNodeValue<1, 1, 1>(voxHandle, componentId);
-                sum += temperature.template getNghNodeValue<1, 1, -1>(voxHandle, componentId);
-                sum += temperature.template getNghNodeValue<1, -1, 1>(voxHandle, componentId);
-                sum += temperature.template getNghNodeValue<1, -1, -1>(voxHandle, componentId);
-                sum += temperature.template getNghNodeValue<-1, 1, 1>(voxHandle, componentId);
-                sum += temperature.template getNghNodeValue<-1, 1, -1>(voxHandle, componentId);
-                sum += temperature.template getNghNodeValue<-1, -1, 1>(voxHandle, componentId);
-                sum += temperature.template getNghNodeValue<-1, -1, -1>(voxHandle, componentId);
-
-                // Storing the final result in the target voxel.
-                density(voxHandle, 0) = sum;
-            };
-        });
-}
-```
+    The `sumVoxelsOnNodesAndDivideBy8` Container represents a stencil opertation, therefore the halo of the temperature field must be up to 
+    date before executing the container.
 
 ![Mapping between cells and hardware devices](img/staggeredGrid-tutorial-0002.png)
