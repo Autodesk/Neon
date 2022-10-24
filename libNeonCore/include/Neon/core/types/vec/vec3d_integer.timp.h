@@ -1,9 +1,3 @@
-
-
-// $Id$
-
-// $Log$
-
 #pragma once
 
 #include <cmath>
@@ -13,6 +7,7 @@
 #include <string>
 #include <type_traits>
 
+#include "Neon/core/types/Macros.h"
 // #include <cuda.h>
 // #include <cuda_runtime_api.h>
 
@@ -686,7 +681,11 @@ void Vec_3d<IntegerType_ta, true, false>::forEach(const self_t&                 
                                                   std::function<void(Integer idxX, Integer idxY, Integer idxZ)> lambda)
 {
     if constexpr (computeMode_ta == Neon::computeMode_t::par) {
+#ifdef NEON_OS_WINDOWS
+#pragma omp parallel for
+#else
 #pragma omp parallel for simd collapse(3)
+#endif
         for (Integer z = 0; z < len.z; z++) {
             for (Integer y = 0; y < len.y; y++) {
                 for (Integer x = 0; x < len.x; x++) {
@@ -713,7 +712,11 @@ auto Vec_3d<IntegerType_ta, true, false>::forEach(const Lambda& lambda) const
 {
     if constexpr (std::is_invocable_v<Lambda, Integer, Integer, Integer>) {
         if constexpr (computeMode_ta == Neon::computeMode_t::par) {
+#ifdef NEON_OS_WINDOWS
+#pragma omp parallel for
+#else
 #pragma omp parallel for simd collapse(3)
+#endif
             for (Integer zIdx = 0; zIdx < this->z; zIdx++) {
                 for (Integer yIdx = 0; yIdx < this->y; yIdx++) {
                     for (Integer xIdx = 0; xIdx < this->x; xIdx++) {
@@ -734,7 +737,11 @@ auto Vec_3d<IntegerType_ta, true, false>::forEach(const Lambda& lambda) const
     }
     if constexpr (std::is_invocable_v<Lambda, Vec_3d<IntegerType_ta, true, false>>) {
         if constexpr (computeMode_ta == Neon::computeMode_t::par) {
+#ifdef NEON_OS_WINDOWS
+#pragma omp parallel for
+#else
 #pragma omp parallel for simd collapse(3)
+#endif
             for (Integer zIdx = 0; zIdx < this->z; zIdx++) {
                 for (Integer yIdx = 0; yIdx < this->y; yIdx++) {
                     for (Integer xIdx = 0; xIdx < this->x; xIdx++) {

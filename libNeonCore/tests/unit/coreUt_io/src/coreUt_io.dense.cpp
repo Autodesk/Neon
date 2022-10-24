@@ -73,4 +73,5 @@ TEST(coreUt_io, denseDiffRandom)
         ASSERT_EQ(maxDiff.z, id.z);
         ASSERT_EQ(maxCard, card);
     }
+        A.ioVtk("A", "A");
 }
