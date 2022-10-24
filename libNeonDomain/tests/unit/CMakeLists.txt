@@ -4,6 +4,8 @@ add_subdirectory("domainUt_sGrid")
 add_subdirectory("gUt_containers")
 add_subdirectory("gUt_dataView_patterns")
 add_subdirectory("domain-unit-test-map")
+add_subdirectory("domain-unit-test-cast")
+
 add_subdirectory("gUt_patterns_container")
 add_subdirectory("domainUt_swap")
 add_subdirectory("gUt_tools")
