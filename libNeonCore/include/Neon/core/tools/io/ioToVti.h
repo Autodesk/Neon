@@ -628,7 +628,7 @@ template <typename intType_ta, typename real_tt = double>
 
     if (!(voxSpace == (nodeSpace - 1))) {
         NeonException exception("ioToVTI");
-        exception << "Inconsistent data. NodeGeneric space dimension should be bigger than voxel of one unit.";
+        exception << "Inconsistent data. Node space dimension should be bigger than voxel of one unit.";
         NEON_THROW(exception);
     }
 
@@ -679,7 +679,7 @@ void ioToVTI(const std::vector<VtiInputData_t<real_tt, intType_ta>>& gridsInfo,
     using namespace internal_implicit::ns_help_write_vti;
     if (!(voxSpace == (nodeSpace - 1))) {
         NeonException exception("ioToVTI");
-        exception << "Inconsistent data. NodeGeneric space dimension should be bigger than voxel of one unit.";
+        exception << "Inconsistent data. Node space dimension should be bigger than voxel of one unit.";
         NEON_THROW(exception);
     }
 

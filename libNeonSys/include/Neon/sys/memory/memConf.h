@@ -179,7 +179,7 @@ struct [[deprecated("This feature is going to be replaced by a new API for Neon 
      *
      * @return
      */
-    auto padding() const->const Neon::memLayout_et::    padding_e&
+    auto padding() const->const Neon::memLayout_et::padding_e&
     {
         return m_paddingEt;
     }

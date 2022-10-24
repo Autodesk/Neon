@@ -1104,7 +1104,7 @@ class vtiOutput_t
         interlivingError = interlivingError || ((!isNode) && m_voxelSectionDone);
         if (interlivingError) {
             std::string msg = std::string(
-                "VoxelGeneric and NodeGeneric data can not be interleaved in the same VTI file. Pleas add "
+                "Voxel and Node data can not be interleaved in the same VTI file. Pleas add "
                 "first all the data for one of the two, then add the remaining one.");
             throw std::runtime_error(msg);
         }

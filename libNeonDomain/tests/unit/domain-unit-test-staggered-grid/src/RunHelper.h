@@ -21,7 +21,7 @@ using namespace Neon::domain::tool::testing;
 using namespace Neon::domain::tool;
 
 template <typename G, typename T, int C>
-void runAllTestConfiguration(const std::string&                      ,
+void runAllTestConfiguration(const std::string&,
                              std::function<void(TestData<G, T, C>&)> f,
                              int                                     nGpus,
                              int                                     minNumGpus)
@@ -33,12 +33,12 @@ void runAllTestConfiguration(const std::string&                      ,
         }
         // std::vector<int> nGpuTest{2,4,6,8};
         std::vector<int> cardinalityTest{1};
-        //nGpuTest = std::vector<int>(1,1);
+        // nGpuTest = std::vector<int>(1,1);
 
-        std::vector<Neon::index_3d> dimTest{{60, 10, 250}, {10, 50, 40}};
+        std::vector<Neon::index_3d> dimTest{{60, 10, 250}, {10, 50, 80}};
         std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp, Neon::Runtime::stream};
-        //std::vector<Neon::index_3d> dimTest{{3}};
-        //std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::stream};
+        // std::vector<Neon::index_3d> dimTest{{3}};
+        // std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::stream};
 
         std::vector<Geometry> geos;
 
@@ -66,7 +66,8 @@ void runAllTestConfiguration(const std::string&                      ,
                                 ids.push_back(i % maxnGPUs);
                             }
 
-                            Neon::Backend       backend(ids, runtime);
+                            Neon::Backend backend(ids, runtime);
+                            NEON_INFO("{}",backend.toString());
                             Neon::MemoryOptions memoryOptions = backend.getMemoryOptions();
 
                             TestData<G, T, C> testData(backend,
@@ -75,7 +76,7 @@ void runAllTestConfiguration(const std::string&                      ,
                                                        memoryOptions,
                                                        geo);
 
-                            std::cout << testData.toString() << std::endl;
+                            NEON_INFO("{}", testData.toString() );
 
                             f(testData);
                         }

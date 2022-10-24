@@ -7,12 +7,11 @@
 #include "containers.h"
 
 #include "Neon/domain/StaggeredGrid.h"
+#include "TestInformation.h"
 
 #define EXECUTE_IO_TO_VTK 0
 
 using namespace Neon::domain::tool::testing;
-static const std::string testFilePrefix("domain-unit-test-staggered-grid");
-
 
 template <typename G, typename T, int C>
 void StaggeredGrid_Map(TestData<G, T, C>& data)
@@ -51,7 +50,8 @@ void StaggeredGrid_Map(TestData<G, T, C>& data)
     temperature.updateCompute(Neon::Backend::mainStreamIdx);
     density.updateCompute(Neon::Backend::mainStreamIdx);
 
-    const std::string appName(testFilePrefix + "_Map_" + data.getGrid().getImplementationName());
+    const std::string appName = TestInformation::fullName("_map_", data.getGrid().getImplementationName());
+
     if constexpr (EXECUTE_IO_TO_VTK == 1) {
         temperature.ioToVtk(appName + "-temperature_asVoxels", "temperature", false, Neon::IoFileType::ASCII, false);
         density.ioToVtk(appName + "-density_0000", "density");
@@ -98,12 +98,16 @@ template <typename G, typename T, int C>
 void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
 {
     //
-    Neon::int32_3d                     dims{3, 2, 4};
+    Neon::int32_3d voxDim = [&] {
+        auto dim = data.getGrid().getDimension();
+        return dim;
+    }();
+
     std::vector<Neon::domain::Stencil> empty;
     using FeaGrid = Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<G>;
     FeaGrid FEA(
         data.getBackend(),
-        dims,
+        voxDim,
         [](const Neon::index_3d&) -> bool {
             return true;
         });

@@ -13,7 +13,7 @@ namespace set {
  */
 struct Capture_t
 {
-    friend Backend_t;
+    friend Backend;
 
    private:
     Neon::dev_et::enum_e m_devType;  /** type of device */
