@@ -171,14 +171,14 @@ void StaggeredGrid_NodeToVoxels(TestData<G, T, C>& data)
     nodeIDX.forEachActiveCell([](const Neon::index_3d& idx,
                                  const int&            cardinality,
                                  TEST_TYPE&            value) {
-        value = idx.v[cardinality];
+        value = static_cast<TEST_TYPE>(idx.v[cardinality]);
     });
 
     auto voxelIDX = FEA.template newVoxelField<TEST_TYPE, 3>("voxelIdx", 3, 0);
     voxelIDX.forEachActiveCell([](const Neon::index_3d& idx,
                                   const int&            cardinality,
                                   TEST_TYPE&            value) {
-        value = idx.v[cardinality];
+        value = static_cast<TEST_TYPE>(idx.v[cardinality]);
     });
 
     auto errorFlagField = FEA.template newNodeField<TEST_TYPE, 1>("ErrorFlag", 1, 0);
