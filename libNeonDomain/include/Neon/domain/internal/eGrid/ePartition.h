@@ -291,6 +291,7 @@ struct ePartition
     NEON_CUDA_HOST_DEVICE inline auto
     mem()
         -> T*;
+
 };
 }  // namespace Neon::domain::internal::eGrid
 

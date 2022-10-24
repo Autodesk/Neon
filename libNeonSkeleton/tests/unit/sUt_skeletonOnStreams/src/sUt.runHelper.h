@@ -63,6 +63,7 @@ void runAllTestConfiguration(const std::string&                      gname,
                             for (int i = 0; i < ngpu; i++) {
                                 ids.push_back(i % maxnGPUs);
                             }
+
                             Neon::Backend       backend(ids, runtime);
                             Neon::MemoryOptions memoryOptions = backend.getMemoryOptions();
 
