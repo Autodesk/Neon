@@ -10,6 +10,7 @@
 #include "Neon/set/container/DeviceThenHostManagedContainer.h"
 #include "Neon/set/container/HostManagedContainer.h"
 #include "Neon/set/container/OldDeviceManagedContainer.h"
+#include "Neon/set/container/DataTransferContainer.h"
 
 #include "Neon/set/container/GraphContainer.h"
 
@@ -30,7 +31,7 @@ auto Container::factory(const std::string&                                 name,
                                                                                      blockSize, shMemSizeFun);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-    return Container(tmp);
+    return {tmp};
 }
 
 template <typename DataContainerT,
@@ -46,7 +47,7 @@ auto Container::factoryOldManaged(const std::string&                            
                                                                                                a, f);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-    return Container(tmp);
+    return {tmp};
 }
 
 template <typename DataContainerT,
@@ -66,7 +67,7 @@ auto Container::factoryHostManaged(const std::string&                           
                                                                                           presSyncType);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-    return Container(tmp);
+    return {tmp};
 }
 
 template <typename DataContainerT,
@@ -82,8 +83,20 @@ auto Container::factoryDeviceManaged(const std::string&                         
                                                                                             a, f);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-    return Container(tmp);
+    return {tmp};
 }
 
+template <typename MultiXpuDataT>
+auto Container::factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
+                                    Neon::set::TransferMode     transferMode,
+                                    Neon::set::TransferSemantic transferSemantic)
+    -> Neon::set::Container{
+    auto k = new Neon::set::internal::DataTransferContainer(multiXpuData,
+                                       transferMode,
+                                       transferSemantic );
+
+    std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
+    return {tmp};
+}
 
 }  // namespace Neon::set

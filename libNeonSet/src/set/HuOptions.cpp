@@ -27,7 +27,8 @@ HuOptions::HuOptions(Neon::set::TransferMode transferMode,
     // EMPTY
 }
 
-auto HuOptions::getPeerTransferOpt(const Neon::Backend& bk) -> Neon::set::PeerTransferOption&
+auto HuOptions::getPeerTransferOpt(const Neon::Backend& bk)
+    -> Neon::set::PeerTransferOption&
 {
     if (m_peerTransferOpt.operationMode() ==
         Neon::set::PeerTransferOption::operationMode_e::storeInfo) {
@@ -52,7 +53,8 @@ auto HuOptions::streamSetIdx() const
     return m_streamSetIdx;
 }
 
-auto HuOptions::transfers() -> std::vector<Neon::set::Transfer>&
+auto HuOptions::transfers()
+    -> std::vector<Neon::set::Transfer>&
 {
     return m_peerTransferOpt.transfers();
 }
@@ -75,7 +77,8 @@ auto HuOptions::isExecuteMode() const
     return operationMode() == Neon::set::PeerTransferOption::operationMode_e::execute;
 }
 
-auto HuOptions::structure() -> Neon::set::TransferSemantic
+auto HuOptions::getSemantic()
+    const -> Neon::set::TransferSemantic
 {
     return m_structure;
 }

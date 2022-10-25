@@ -30,7 +30,7 @@ struct HuOptions
     auto operationMode() const -> Neon::set::PeerTransferOption::operationMode_e;
     auto transferMode() const -> Neon::set::TransferMode;
     auto isExecuteMode() const -> bool;
-    auto structure() -> Neon::set::TransferSemantic;
+    auto getSemantic() const -> Neon::set::TransferSemantic;
 };
 }  // namespace set
 }  // namespace Neon

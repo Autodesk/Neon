@@ -73,12 +73,12 @@ struct DeviceThenHostManagedContainer : ContainerAPI
         auto const& devTokens = mDevice->getTokens();
 
         for (auto const& token : devTokens) {
-            getTokenRef().push_back(token);
+            getTokensRef().push_back(token);
         }
         std::vector<Neon::set::dataDependency::Token> filtered;
         for (auto const& token : hostTokens) {
             bool foundMatch = false;
-            for (auto& acceptedTokens : getTokenRef()) {
+            for (auto& acceptedTokens : getTokensRef()) {
                 if (token.uid() == acceptedTokens.uid()) {
                     acceptedTokens.mergeAccess(token.access());
                     foundMatch = true;
@@ -90,7 +90,7 @@ struct DeviceThenHostManagedContainer : ContainerAPI
         }
 
         for (auto const& token : filtered) {
-            getTokenRef().push_back(token);
+            getTokensRef().push_back(token);
         }
 
         return getTokens();

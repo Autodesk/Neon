@@ -3,67 +3,78 @@
 namespace Neon::set::internal {
 
 
-auto ContainerAPI::addToken(Neon::set::dataDependency::Token& dataParsing)
-    -> void
+auto ContainerAPI::
+    addToken(Neon::set::dataDependency::Token& dataParsing)
+        -> void
 {
     mParsed.push_back(dataParsing);
 }
 
-auto ContainerAPI::getName() const
+auto ContainerAPI::
+    getName() const
     -> const std::string&
 {
     return mName;
 }
 
-auto ContainerAPI::getTokens() const
-    -> const std::vector<Neon::set::dataDependency::Token>&
+auto ContainerAPI::
+    getTokens()
+        const -> const std::vector<Neon::set::dataDependency::Token>&
 {
     return mParsed;
 }
 
-auto ContainerAPI::getTokenRef()
-    -> std::vector<Neon::set::dataDependency::Token>&
+auto ContainerAPI::
+    getTokensRef()
+        -> std::vector<Neon::set::dataDependency::Token>&
 {
     return mParsed;
 }
 
-auto ContainerAPI::setName(const std::string& name)
-    -> void
+auto ContainerAPI::
+    setName(const std::string& name)
+        -> void
 {
     mName = name;
 }
 
-auto ContainerAPI::setLaunchParameters(Neon::DataView dw)
-    -> Neon::set::LaunchParameters&
+auto ContainerAPI::
+    setLaunchParameters(Neon::DataView dw)
+        -> Neon::set::LaunchParameters&
 {
     return mLaunchParameters[DataViewUtil::toInt(dw)];
 }
 
-auto ContainerAPI::getLaunchParameters(Neon::DataView dw) const
-    -> const Neon::set::LaunchParameters&
+auto ContainerAPI::
+    getLaunchParameters(Neon::DataView dw)
+        const -> const Neon::set::LaunchParameters&
 {
     return mLaunchParameters[DataViewUtil::toInt(dw)];
 }
 
-auto ContainerAPI::getDataViewSupport() const -> ContainerAPI::DataViewSupport
+auto ContainerAPI::
+    getDataViewSupport() const -> ContainerAPI::DataViewSupport
 {
     return mDataViewSupport;
 }
 
-auto ContainerAPI::setDataViewSupport(ContainerAPI::DataViewSupport dataViewSupport)
-    -> void
+auto ContainerAPI::
+    setDataViewSupport(ContainerAPI::DataViewSupport dataViewSupport)
+        -> void
 {
     mDataViewSupport = dataViewSupport;
 }
 
-auto ContainerAPI::setContainerPattern(Neon::set::ContainerPatternType patternType)
-    -> void
+auto ContainerAPI::
+    setContainerPattern(Neon::set::ContainerPatternType patternType)
+        -> void
 {
     this->mContainerPatternType = patternType;
 }
 
-auto ContainerAPI::setContainerPattern(const std::vector<Neon::set::dataDependency::Token>& tokens)
-    -> void
+auto ContainerAPI::
+    setContainerPattern(const std::vector<Neon::set::dataDependency::Token>& tokens)
+        -> void
 {
     Neon::set::ContainerPatternType patternType = Neon::set::ContainerPatternType::map;
 
@@ -84,8 +95,9 @@ auto ContainerAPI::setContainerPattern(const std::vector<Neon::set::dataDependen
     this->mContainerPatternType = patternType;
 }
 
-auto ContainerAPI::toLog(uint64_t uid)
-    -> void
+auto ContainerAPI::
+    toLog(uint64_t uid)
+        -> void
 {
     std::stringstream listOfTokes;
     for (auto& token : mParsed) {
@@ -97,41 +109,47 @@ auto ContainerAPI::toLog(uint64_t uid)
     NEON_INFO("Container {}: tokens = [{}]", uid, listOfTokes.str());
 }
 
-auto ContainerAPI::getContainerExecutionType()
-    const
+auto ContainerAPI::
+    getContainerExecutionType()
+        const
     -> ContainerExecutionType
 {
     return mContainerExecutionType;
 }
 
-auto ContainerAPI::getContainerOperationType()
-    const
+auto ContainerAPI::
+    getContainerOperationType()
+        const
     -> ContainerOperationType
 {
     return mContainerOperationType;
 }
 
-auto ContainerAPI::getContainerPatternType()
-    const
+auto ContainerAPI::
+    getContainerPatternType()
+        const
     -> ContainerPatternType
 {
     return mContainerPatternType;
 }
 
-auto ContainerAPI::setContainerExecutionType(ContainerExecutionType containerType)
-    -> void
+auto ContainerAPI::
+    setContainerExecutionType(ContainerExecutionType containerType)
+        -> void
 {
     mContainerExecutionType = containerType;
 }
 
-auto ContainerAPI::setContainerOperationType(ContainerOperationType containerType)
-    -> void
+auto ContainerAPI::
+    setContainerOperationType(ContainerOperationType containerType)
+        -> void
 {
     mContainerOperationType = containerType;
 }
 
-auto ContainerAPI::getGraph()
-    -> const Neon::set::container::Graph&
+auto ContainerAPI::
+    getGraph()
+        -> const Neon::set::container::Graph&
 {
     std::string         description = helpGetNameForError();
     Neon::NeonException exp("ContainerAPI");
@@ -141,8 +159,9 @@ auto ContainerAPI::getGraph()
     NEON_THROW(exp);
 }
 
-auto ContainerAPI::getHostContainer()
-    -> std::shared_ptr<ContainerAPI>
+auto ContainerAPI::
+    getHostContainer()
+        -> std::shared_ptr<ContainerAPI>
 {
     std::string         description = helpGetNameForError();
     Neon::NeonException exp("ContainerAPI");
@@ -152,8 +171,9 @@ auto ContainerAPI::getHostContainer()
     NEON_THROW(exp);
 }
 
-auto ContainerAPI::helpGetNameForError()
-    -> std::string
+auto ContainerAPI::
+    helpGetNameForError()
+        const -> std::string
 {
     std::stringstream s;
     s << getName()
@@ -164,8 +184,9 @@ auto ContainerAPI::helpGetNameForError()
     return s.str();
 }
 
-auto ContainerAPI::getDeviceContainer()
-    -> std::shared_ptr<ContainerAPI>
+auto ContainerAPI::
+    getDeviceContainer()
+        -> std::shared_ptr<ContainerAPI>
 {
     std::string         description = helpGetNameForError();
     Neon::NeonException exp("ContainerAPI");
@@ -175,13 +196,39 @@ auto ContainerAPI::getDeviceContainer()
     NEON_THROW(exp);
 }
 
-auto ContainerAPI::isParsingDataUpdated() -> bool
+auto ContainerAPI::
+    isParsingDataUpdated() -> bool
 {
     return mParsingDataUpdated;
 }
 
-auto ContainerAPI::setParsingDataUpdated(bool status) -> void
+auto ContainerAPI::
+    setParsingDataUpdated(bool status) -> void
 {
     mParsingDataUpdated = status;
+}
+
+auto ContainerAPI::
+    parse()
+        -> const std::vector<Neon::set::dataDependency::Token>&
+{
+    std::string         description = helpGetNameForError();
+    Neon::NeonException exp("ContainerAPI");
+    exp << description << " "
+        << "parse"
+        << " is not supported.";
+    NEON_THROW(exp);
+}
+
+auto ContainerAPI::
+    getTransferMode()
+        const -> Neon::set::TransferMode
+{
+    std::string         description = helpGetNameForError();
+    Neon::NeonException exp("ContainerAPI");
+    exp << description << " "
+        << "getTransferMode"
+        << " is not supported.";
+    NEON_THROW(exp);
 }
 }  // namespace Neon::set::internal

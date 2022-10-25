@@ -45,16 +45,6 @@ auto GraphContainer::getGraph() -> const Neon::set::container::Graph&
     return *mGraph;
 }
 
-auto GraphContainer::getHostContainer() -> std::shared_ptr<internal::ContainerAPI>
-{
-    NEON_THROW_UNSUPPORTED_OPTION("A managed Container Container is not associated with any host operation.");
-}
-
-auto GraphContainer::getDeviceContainer() -> std::shared_ptr<internal::ContainerAPI>
-{
-    NEON_THROW_UNSUPPORTED_OPTION("A managed Container Container is not associated with any host operation.");
-}
-
 /**
  * Run container over streams
  * @param streamIdx

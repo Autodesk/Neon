@@ -8,13 +8,6 @@ namespace Neon {
 namespace set {
 namespace internal {
 
-/**
- * Specialized implementation of KContainer_i
- *
- *
- * @tparam DataIteratorContainerT
- * @tparam UserComputeLambdaT
- */
 template <typename DataIteratorContainerT,
           typename UserComputeLambdaT>
 struct DeviceContainer : ContainerAPI
@@ -22,7 +15,6 @@ struct DeviceContainer : ContainerAPI
    public:
     virtual ~DeviceContainer() override = default;
 
-   public:
     DeviceContainer(const std::string&                            name,
                     ContainerAPI::DataViewSupport                 dataViewSupport,
                     const DataIteratorContainerT&                 dataIteratorContainer,
@@ -90,23 +82,13 @@ struct DeviceContainer : ContainerAPI
         return getTokens();
     }
 
-
-    auto
-    getHostContainer() -> std::shared_ptr<ContainerAPI> final
-    {
-        NEON_THROW_UNSUPPORTED_OPTION("This Container type can not be decoupled.");
-    }
-
-    virtual auto getDeviceContainer() -> std::shared_ptr<ContainerAPI> final
-    {
-        NEON_THROW_UNSUPPORTED_OPTION("This Container type can not be decoupled.");
-    }
     /**
      * Run container over streams
      * @param streamIdx
      * @param dataView
      */
-    virtual auto run(int streamIdx = 0, Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
+    virtual auto run(int            streamIdx = 0,
+                     Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
     {
 
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
@@ -132,7 +114,9 @@ struct DeviceContainer : ContainerAPI
      * @param streamIdx
      * @param dataView
      */
-    virtual auto run(Neon::SetIdx setIdx, int streamIdx, Neon::DataView dataView) -> void override
+    virtual auto run(Neon::SetIdx   setIdx,
+                     int            streamIdx,
+                     Neon::DataView dataView) -> void override
     {
 
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
@@ -143,7 +127,10 @@ struct DeviceContainer : ContainerAPI
                 setIdx,
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::DeviceType devE, Neon::SetIdx setIdx, Neon::DataView dataView) -> UserComputeLambdaT {
+                [&](Neon::DeviceType devE,
+                    Neon::SetIdx     setIdx,
+                    Neon::DataView   dataView)
+                    -> UserComputeLambdaT {
                     Loader             loader = this->newLoader(devE, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;

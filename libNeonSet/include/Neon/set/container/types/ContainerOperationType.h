@@ -14,7 +14,7 @@ enum struct ContainerOperationType
 {
     compute = 0 /**< Compute container, can be on host or device */,
     graph = 1 /**<  A graph based container */,
-    halo = 2 /**< Halo update container **/,
+    communication = 2 /**< Halo update container **/,
     sync = 3 /**< Synchronization Container */,
     anchor = 4 /**< Synchronization Container: begin or end */
 };
@@ -46,4 +46,3 @@ struct ContainerOperationTypeUtils
 std::ostream& operator<<(std::ostream& os, Neon::set::ContainerOperationType const& m);
 
 }  // namespace Neon::set
-

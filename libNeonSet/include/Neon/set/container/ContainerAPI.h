@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Neon/set/container/ContainerOperationType.h"
-#include "Neon/set/container/ContainerPatternType.h"
+#include "Neon/set/container/types/ContainerOperationType.h"
+#include "Neon/set/container/types/ContainerPatternType.h"
 
 #include "Neon/set/DevSet.h"
-#include "Neon/set/container/ContainerExecutionType.h"
+#include "Neon/set/container/types/ContainerExecutionType.h"
 
 
 #include "Neon/set/dependency/Token.h"
@@ -44,13 +44,16 @@ struct ContainerAPI
     /**
      * Run this Container over a stream.
      */
-    virtual auto run(int streamIdx, Neon::DataView dataView = Neon::DataView::STANDARD)
+    virtual auto run(int            streamIdx,
+                     Neon::DataView dataView = Neon::DataView::STANDARD)
         -> void = 0;
 
     /**
      * Run this Container over a stream.
      */
-    virtual auto run(Neon::SetIdx idx, int streamIdx, Neon::DataView dataView)
+    virtual auto run(Neon::SetIdx   idx,
+                     int            streamIdx,
+                     Neon::DataView dataView)
         -> void = 0;
 
     /**
@@ -76,8 +79,10 @@ struct ContainerAPI
      * @return
      */
     virtual auto parse()
-        -> const std::vector<Neon::set::dataDependency::Token>& = 0;
+        -> const std::vector<Neon::set::dataDependency::Token>&;
 
+    virtual auto getTransferMode()const
+        ->Neon::set::TransferMode ;
 
     /**
      * Returns a name associated to the container.
@@ -90,12 +95,6 @@ struct ContainerAPI
      */
     auto getTokens() const
         -> const std::vector<Neon::set::dataDependency::Token>&;
-
-    /**
-     * Returns a list of tokens as result of parsing the Container loading lambda.
-     */
-    auto getTokenRef()
-        -> std::vector<Neon::set::dataDependency::Token>&;
 
     /**
      * Get the execution type for the Container.
@@ -128,6 +127,12 @@ struct ContainerAPI
 
    protected:
     /**
+     * Returns a list of tokens as result of parsing the Container loading lambda.
+     */
+    auto getTokensRef()
+        -> std::vector<Neon::set::dataDependency::Token>&;
+
+    /**
      * Add a new token
      */
     auto addToken(Neon::set::dataDependency::Token& dataParsing)
@@ -155,7 +160,7 @@ struct ContainerAPI
      * Generate a string that will be printed in case or exceptions
      * @return
      */
-    auto helpGetNameForError()
+    auto helpGetNameForError() const
         -> std::string;
 
     /**
@@ -195,6 +200,7 @@ struct ContainerAPI
 
     auto setParsingDataUpdated(bool)
         -> void;
+
 
    private:
     using TokenList = std::vector<Neon::set::dataDependency::Token>;

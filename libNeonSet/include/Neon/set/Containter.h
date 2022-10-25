@@ -6,7 +6,8 @@
 #include "type_traits"
 
 #include "Neon/set/container/ContainerAPI.h"
-#include "Neon/set/container/HostManagedSyncType.h"
+#include "Neon/set/container/types/HostManagedSyncType.h"
+
 #include "Neon/set/container/Loader.h"
 
 namespace Neon::set {
@@ -105,6 +106,12 @@ struct Container
                                              Container&         device,
                                              Container&         host)
         -> Container;
+
+    template <typename MultiXpuDataT>
+    static auto factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
+                                    Neon::set::TransferMode     transferMode,
+                                    Neon::set::TransferSemantic transferSemantic)
+        -> Neon::set::Container;
 
     static auto factoryAnchor(const std::string& name /**< A user's string to identify the computation done by the Container. */)
         -> Container;

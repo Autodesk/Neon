@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Neon/set/container/ContainerAPI.h"
-#include "Neon/set/container/HostManagedSyncType.h"
 #include "Neon/set/container/Loader.h"
+#include "Neon/set/container/types/HostManagedSyncType.h"
 
 namespace Neon::set::internal {
 
