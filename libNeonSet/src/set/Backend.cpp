@@ -396,7 +396,7 @@ auto Backend::sync() const -> void
         return selfData().streamSetVec[0].sync();
     }
     NeonException exp("BackendConfig_t");
-    exp << "Backend_t::sync() not permitted for a " << Neon::RuntimeUtils::toString(runtime()) << "backend";
+    exp << "Backend::sync() not permitted for a " << Neon::RuntimeUtils::toString(runtime()) << "backend";
     NEON_THROW(exp);
 }
 
@@ -413,7 +413,7 @@ auto Backend::syncAll() const -> void
         return;
     }
     NeonException exp("BackendConfig_t");
-    exp << "Backend_t::syncAll() not permitted for a " << Neon::RuntimeUtils::toString(runtime()) << "backend";
+    exp << "Backend::syncAll() not permitted for a " << Neon::RuntimeUtils::toString(runtime()) << "backend";
     NEON_THROW(exp);
 }
 
@@ -427,7 +427,7 @@ auto Backend::sync(int idx) const -> void
         return;
     }
     NeonException exp("BackendConfig_t");
-    exp << "Backend_t::sync with idx not permitted for a " << Neon::RuntimeUtils::toString(runtime()) << "backend";
+    exp << "Backend::sync with idx not permitted for a " << Neon::RuntimeUtils::toString(runtime()) << "backend";
     NEON_THROW(exp);
 }
 
@@ -441,7 +441,7 @@ auto Backend::sync(Neon::SetIdx setIdx, int idx) const -> void
         return;
     }
     NeonException exp("BackendConfig_t");
-    exp << "Backend_t::sync with idx not permitted for a " << Neon::RuntimeUtils::toString(runtime()) << "backend";
+    exp << "Backend::sync with idx not permitted for a " << Neon::RuntimeUtils::toString(runtime()) << "backend";
     NEON_THROW(exp);
 }
 
@@ -477,7 +477,7 @@ std::string Backend::toString(Neon::Runtime e)
 std::string Backend::toString() const
 {
     std::ostringstream msg;
-    msg << "Backend_t (" << this << ") - [runtime:" << toString(selfData().runtime) << "] [nDev:" << selfData().devSet->setCardinality() << "] ";
+    msg << "Backend (" << this << ") - [runtime:" << toString(selfData().runtime) << "] [nDev:" << selfData().devSet->setCardinality() << "] ";
     switch (selfData().devSet->type()) {
         case Neon::DeviceType::OMP:
         case Neon::DeviceType::CPU: {

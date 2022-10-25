@@ -201,7 +201,7 @@ struct dPartition
     {
         cellNgh = Cell(eId.get().x + xOff,
                        eId.get().y + yOff,
-                       eId.get().z + yOff);
+                       eId.get().z + zOff);
         Cell cellNgh_global(cellNgh.get() + m_origin);
         // const bool isValidNeighbour = (cellNgh_global >= 0 && cellNgh < (m_dim + m_halo) && cellNgh_global < m_fullGridSize);
         bool isValidNeighbour = true;

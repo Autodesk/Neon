@@ -1,9 +1,3 @@
-
-
-// $Id$
-
-// $Log$
-
 #pragma once
 
 #include <cmath>
@@ -13,8 +7,9 @@
 #include <string>
 #include <type_traits>
 
-//#include <cuda.h>
-//#include <cuda_runtime_api.h>
+#include "Neon/core/types/Macros.h"
+// #include <cuda.h>
+// #include <cuda_runtime_api.h>
 
 #include "Neon/core/types/BasicTypes.h"
 #include "Neon/core/types/Exceptions.h"
@@ -686,7 +681,11 @@ void Vec_3d<IntegerType_ta, true, false>::forEach(const self_t&                 
                                                   std::function<void(Integer idxX, Integer idxY, Integer idxZ)> lambda)
 {
     if constexpr (computeMode_ta == Neon::computeMode_t::par) {
+#ifdef NEON_OS_WINDOWS
+#pragma omp parallel for
+#else
 #pragma omp parallel for simd collapse(3)
+#endif
         for (Integer z = 0; z < len.z; z++) {
             for (Integer y = 0; y < len.y; y++) {
                 for (Integer x = 0; x < len.x; x++) {
@@ -707,25 +706,61 @@ void Vec_3d<IntegerType_ta, true, false>::forEach(const self_t&                 
 
 template <typename IntegerType_ta>
 template <Neon::computeMode_t::computeMode_e computeMode_ta, class Lambda>
-void Vec_3d<IntegerType_ta, true, false>::forEach(const Lambda& lambda) const
+auto Vec_3d<IntegerType_ta, true, false>::forEach(const Lambda& lambda) const
+-> std::enable_if_t<std::is_invocable_v<Lambda, Vec_3d<IntegerType_ta, true, false>> ||
+                        std::is_invocable_v<Lambda, Integer, Integer, Integer>, void>
 {
-    if constexpr (computeMode_ta == Neon::computeMode_t::par) {
-        #pragma omp parallel for simd collapse(3)
-        for (Integer zIdx = 0; zIdx < this->z; zIdx++) {
-            for (Integer yIdx = 0; yIdx < this->y; yIdx++) {
-                for (Integer xIdx = 0; xIdx < this->x; xIdx++) {
-                    lambda(xIdx, yIdx, zIdx);
+    if constexpr (std::is_invocable_v<Lambda, Integer, Integer, Integer>) {
+        if constexpr (computeMode_ta == Neon::computeMode_t::par) {
+#ifdef NEON_OS_WINDOWS
+#pragma omp parallel for
+#else
+#pragma omp parallel for simd collapse(3)
+#endif
+            for (Integer zIdx = 0; zIdx < this->z; zIdx++) {
+                for (Integer yIdx = 0; yIdx < this->y; yIdx++) {
+                    for (Integer xIdx = 0; xIdx < this->x; xIdx++) {
+                        lambda(xIdx, yIdx, zIdx);
+                    }
+                }
+            }
+        } else {
+            for (Integer zIdx = 0; zIdx < this->z; zIdx++) {
+                for (Integer yIdx = 0; yIdx < this->y; yIdx++) {
+                    for (Integer xIdx = 0; xIdx < this->x; xIdx++) {
+                        lambda(xIdx, yIdx, zIdx);
+                    }
                 }
             }
         }
-    } else {
-        for (Integer zIdx = 0; zIdx < this->z; zIdx++) {
-            for (Integer yIdx = 0; yIdx < this->y; yIdx++) {
-                for (Integer xIdx = 0; xIdx < this->x; xIdx++) {
-                    lambda(xIdx, yIdx, zIdx);
+        return;
+    }
+    if constexpr (std::is_invocable_v<Lambda, Vec_3d<IntegerType_ta, true, false>>) {
+        if constexpr (computeMode_ta == Neon::computeMode_t::par) {
+#ifdef NEON_OS_WINDOWS
+#pragma omp parallel for
+#else
+#pragma omp parallel for simd collapse(3)
+#endif
+            for (Integer zIdx = 0; zIdx < this->z; zIdx++) {
+                for (Integer yIdx = 0; yIdx < this->y; yIdx++) {
+                    for (Integer xIdx = 0; xIdx < this->x; xIdx++) {
+                        Vec_3d<IntegerType_ta, true, false> point(xIdx, yIdx, zIdx);
+                        lambda(point);
+                    }
+                }
+            }
+        } else {
+            for (Integer zIdx = 0; zIdx < this->z; zIdx++) {
+                for (Integer yIdx = 0; yIdx < this->y; yIdx++) {
+                    for (Integer xIdx = 0; xIdx < this->x; xIdx++) {
+                        Vec_3d<IntegerType_ta, true, false> point(xIdx, yIdx, zIdx);
+                        lambda(point);
+                    }
                 }
             }
         }
+        return;
     }
 }
 

@@ -1,8 +1,12 @@
 #pragma once
 
+#include <array>
 #include <iostream>
 #include <string>
-#include <array>
+#include <vector>
+
+#include "Neon/core/types/DataUse.h"
+
 namespace Neon {
 
 enum struct Execution
@@ -33,12 +37,16 @@ struct ExecutionUtils
     static auto getAllOptions()
         -> const std::array<Execution, ExecutionUtils::numConfigurations>&;
 
+    static auto getCompatibleOptions(Neon::DataUse dataUse)
+        -> std::vector<Execution>;
+
+    static auto checkCompatibility(Neon::DataUse   dataUse,
+                                    Neon::Execution execution)
+        -> bool;
+
    private:
     static constexpr std::array<Execution, ExecutionUtils::numConfigurations> mAllOptions{Execution::device, Execution::host};
 };
-
-}  // namespace Neon
-
 
 /**
  * operator<<
@@ -48,3 +56,4 @@ struct ExecutionUtils
  * @return
  */
 std::ostream& operator<<(std::ostream& os, Neon::Execution const& m);
+}  // namespace Neon

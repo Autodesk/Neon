@@ -11,7 +11,7 @@ struct NghInfo
     T_ta value;
     bool isValid;
     NghInfo() = default;
-    NEON_CUDA_HOST_DEVICE NghInfo(T_ta& val, bool status)
+    NEON_CUDA_HOST_DEVICE NghInfo(const T_ta& val, bool status)
     {
         this->value = val;
         this->isValid = status;
