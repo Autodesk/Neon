@@ -455,6 +455,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                 mData->mActiveMask[l].eRef(devID, cell.getBlockMaskStride(refFactor) + cell.getMaskLocalID(refFactor), 0) |= 1 << cell.getMaskBitPosition(refFactor);
             };
 
+            //to track if the first child has been set
+            bool firstChildSet = false;
 
             //set active mask
             for (Cell::Location::Integer z = 0; z < refFactor; z++) {
@@ -463,6 +465,19 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
                         if (levelBitMaskIsSet(l, block3DIndex, {x, y, z})) {
                             setCellActiveMask(x, y, z);
+
+                            if (l > 0 && !firstChildSet) {
+                                Neon::index_3d childBase = mData->mDescriptor.parentToChild(blockOrigin, l, {x, y, z});
+                                auto           child_it = mData->mBlockOriginTo1D[l - 1].getMetadata(childBase);
+
+                                if (!child_it) {
+                                    NeonException exp("bGrid::bGrid");
+                                    exp << "Something went wrong during constructing bGrid. Can not find the right first child of a block\n";
+                                    NEON_THROW(exp);
+                                }
+                                mData->mFirstChildBlockID[l].eRef(devID, blockIdx) = *child_it;
+                                firstChildSet = true;
+                            }
                         }
                     }
                 }
