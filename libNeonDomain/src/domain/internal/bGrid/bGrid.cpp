@@ -309,14 +309,24 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                                                                 mData->mNumBlocks[l]);
     }
 
-    //parent
-    mData->mParent.resize(mData->mDescriptor.getDepth());
+    //parent block ID
+    mData->mParentBlockID.resize(mData->mDescriptor.getDepth());
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-        mData->mParent[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
-                                                                          1,
-                                                                          memOptions,
-                                                                          mData->mNumBlocks[l]);
+        mData->mParentBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+                                                                                 1,
+                                                                                 memOptions,
+                                                                                 mData->mNumBlocks[l]);
     }
+
+    //first child block ID
+    mData->mFirstChildBlockID.resize(mData->mDescriptor.getDepth());
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+        mData->mFirstChildBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+                                                                                     1,
+                                                                                     memOptions,
+                                                                                     mData->mNumBlocks[l]);
+    }
+
 
     //parent local index
     mData->mParentLocalID.resize(mData->mDescriptor.getDepth());
@@ -497,7 +507,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                     exp << "Something went wrong during constructing bGrid. Can not find the right parent of a block\n";
                     NEON_THROW(exp);
                 }
-                mData->mParent[l].eRef(devID, blockIdx) = *grand_parent;
+                mData->mParentBlockID[l].eRef(devID, blockIdx) = *grand_parent;
 
                 //set the parent local ID
                 // loop over this grand parent block to find the local index which maps back to the parent block
@@ -535,7 +545,8 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
         for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
             mData->mActiveMask[l].updateCompute(backend, 0);
             mData->mOrigin[l].updateCompute(backend, 0);
-            mData->mParent[l].updateCompute(backend, 0);
+            mData->mParentBlockID[l].updateCompute(backend, 0);
+            mData->mFirstChildBlockID[l].updateCompute(backend, 0);
             mData->mParentLocalID[l].updateCompute(backend, 0);
             mData->mNeighbourBlocks[l].updateCompute(backend, 0);
         }
@@ -718,10 +729,15 @@ auto bGrid::getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32
     return mData->mOrigin[level];
 }
 
-auto bGrid::getParents(int level) const -> const Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getParentsBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&
 {
-    return mData->mParent[level];
+    return mData->mParentBlockID[level];
 }
+auto bGrid::getFirstChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&
+{
+    return mData->mFirstChildBlockID[level];
+}
+
 
 auto bGrid::getParentLocalID(int level) const -> const Neon::set::MemSet_t<Cell::Location>&
 {

@@ -34,6 +34,8 @@ class bPartition
                         uint32_t*       parent,
                         Cell::Location* parentLocalID,
                         uint32_t*       mask,
+                        uint32_t*       maskLowerLevel,
+                        uint32_t*       firstChildBlockID,
                         T               defaultValue,
                         nghIdx_t*       stencilNghIndex,
                         int*            descriptor,
@@ -73,6 +75,28 @@ class bPartition
 
     NEON_CUDA_HOST_DEVICE inline auto hasParent(const Cell& local) const -> bool;
 
+    NEON_CUDA_HOST_DEVICE inline auto isRefined(const Cell& local) const -> bool;
+
+    template <typename FuncT>
+    NEON_CUDA_HOST_DEVICE inline auto forEachActiveChild(const Cell& local,
+                                                         FuncT       op) const -> void
+    {
+        assert(mLevel > 0);
+        int childRefLevel = mRefFactors[mLevel - 1];
+        for (Cell::Location::Integer i = 0; i < childRefLevel; ++i) {
+            for (Cell::Location::Integer j = 0; j < childRefLevel; ++j) {
+                for (Cell::Location::Integer k = 0; k < childRefLevel; ++k) {
+                    Cell child(i, j, k);
+                    child.mBlockID;  //???
+                    child.mBlockSize = mRefFactors[mLevel - 1];
+                    //if (child.computeIsActive(mMaskLowerLevel)) {
+                    //    op(child.mLocation, );
+                    //}
+                }
+            }
+        }
+    }
+
    private:
     inline NEON_CUDA_HOST_DEVICE auto pitch(const Cell& cell, int card) const -> uint32_t;
     inline NEON_CUDA_HOST_DEVICE auto setNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell;
@@ -86,9 +110,11 @@ class bPartition
     int                       mCardinality;
     uint32_t*                 mNeighbourBlocks;
     Neon::int32_3d*           mOrigin;
-    uint32_t*                 mParent;
+    uint32_t*                 mParentBlockID;
     Cell::Location*           mParentLocalID;
     uint32_t*                 mMask;
+    uint32_t*                 mMaskLowerLevel;
+    uint32_t*                 mFirstChildBlockID;
     T                         mOutsideValue;
     nghIdx_t*                 mStencilNghIndex;
     int*                      mRefFactors;

@@ -15,9 +15,11 @@ bPartition<T, C>::bPartition()
       mCardinality(0),
       mNeighbourBlocks(nullptr),
       mOrigin(nullptr),
-      mParent(nullptr),
+      mParentBlockID(nullptr),
       mParentLocalID(nullptr),
       mMask(nullptr),
+      mMaskLowerLevel(nullptr),
+      mFirstChildBlockID(nullptr),
       mOutsideValue(0),
       mStencilNghIndex(nullptr),
       mRefFactors(nullptr),
@@ -38,9 +40,11 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
                              int             cardinality,
                              uint32_t*       neighbourBlocks,
                              Neon::int32_3d* origin,
-                             uint32_t*       parent,
+                             uint32_t*       parentBlockID,
                              Cell::Location* parentLocalID,
                              uint32_t*       mask,
+                             uint32_t*       maskLowerLevel,
+                             uint32_t*       firstChildBlockID,
                              T               outsideValue,
                              nghIdx_t*       stencilNghIndex,
                              int*            refFactors,
@@ -53,9 +57,11 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
       mCardinality(cardinality),
       mNeighbourBlocks(neighbourBlocks),
       mOrigin(origin),
-      mParent(parent),
+      mParentBlockID(parentBlockID),
       mParentLocalID(parentLocalID),
       mMask(mask),
+      mMaskLowerLevel(maskLowerLevel),
+      mFirstChildBlockID(firstChildBlockID),
       mOutsideValue(outsideValue),
       mStencilNghIndex(stencilNghIndex),
       mRefFactors(refFactors),
@@ -141,12 +147,20 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::hasParent(const Cell& local)
 }
 
 template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::isRefined(const Cell& local) const -> bool
+{
+    if (mMemChild == nullptr || mMaskLowerLevel == nullptr) {
+        return true;
+    }
+}
+
+template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::parent(const Cell& eId,
                                                            int         card) -> T&
 {
     if (mMemParent != nullptr) {
         Cell parentCell;
-        parentCell.mBlockID = mParent[eId.mBlockID];
+        parentCell.mBlockID = mParentBlockID[eId.mBlockID];
         parentCell.mLocation = mParentLocalID[eId.mBlockID];
         parentCell.mBlockSize = mRefFactors[mLevel + 1];
         return mMemParent[pitch(parentCell, card)];
