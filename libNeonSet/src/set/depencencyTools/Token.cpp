@@ -1,3 +1,5 @@
+#include <utility>
+
 #include "Neon/set//dependency/Token.h"
 
 namespace Neon::set::dataDependency {
@@ -51,11 +53,12 @@ auto Token::toString() const -> std::string
 }
 
 
-auto Token::setHaloUpdate(std::function<void(Neon::set::HuOptions& opt)>               hu,
-                          std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)> huPerDevice) -> void
+auto Token::
+    setHaloUpdate(std::function<void(Neon::set::HuOptions& opt)>               hu,
+                  std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)> huPerDevice) -> void
 {
-    mHu = hu;
-    mHuPerDevice = huPerDevice;
+    mHu = std::move(hu);
+    mHuPerDevice = std::move(huPerDevice);
 }
 
 auto Token::getHaloUpdate() const

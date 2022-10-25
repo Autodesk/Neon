@@ -82,6 +82,36 @@ auto Graph::
 }
 
 auto Graph::
+    addDependency(const GraphNode&                        nodeA,
+                  const GraphNode&                        nodeB,
+                  const Neon::set::dataDependency::Token& token)
+        -> GraphDependency&
+{
+    helpCheckBackendStatus();
+    if (nodeA.getGraphData().getUid() == nodeB.getGraphData().getUid()) {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+    helpInvalidateScheduling();
+
+    if (mRawGraph.hasEdge(nodeA.getGraphData().getUid(),
+                          nodeB.getGraphData().getUid())) {
+        GraphDependency& graphDependency = mRawGraph.getEdgeProperty({nodeA.getGraphData().getUid(),
+                                                                       nodeB.getGraphData().getUid()});
+        graphDependency.addToken(token);
+    } else {
+        GraphDependency ab(token);
+
+        mRawGraph.addEdge(nodeA.getGraphData().getUid(),
+                          nodeB.getGraphData().getUid(),
+                          ab);
+    }
+
+
+    return mRawGraph.getEdgeProperty({nodeA.getGraphData().getUid(),
+                                      nodeB.getGraphData().getUid()});
+}
+
+auto Graph::
     removeNode(GraphNode& gn)
         -> Container
 {
@@ -933,12 +963,33 @@ auto Graph::
         NEON_THROW(exception);
     }
 }
+
 auto Graph::
     getNumberOfNodes()
         -> int
 {
     // We remove 2 because of the head and tail holders.
     return int(mRawGraph.numVertices() - 2);
+}
+
+auto Graph::
+    forEachDependency(const std::function<void(const GraphDependency&)>& fun)
+    const -> void
+{
+    mRawGraph.forEachEdge([&](const auto& edge){
+        const auto& dep = this->mRawGraph.getEdgeProperty(edge);
+        fun(dep);
+    });
+}
+
+auto Graph::
+    forEachNode(const std::function<void(const GraphNode&)>& fun)
+        const -> void
+{
+    mRawGraph.forEachVertex([&](size_t nodeId){
+        auto node = this->mRawGraph.getVertexProperty(nodeId);
+        fun(node);
+    });
 }
 
 

@@ -34,36 +34,39 @@ void MultiXpuGraph::parse(int                                       setCardinalt
     }
 }
 
-void MultiXpuGraph::helpParseNewContainer(const Neon::set::Container& inContainer)
+void MultiXpuGraph::
+    helpParseNewContainer(const Neon::set::Container& inContainer)
 {
 
     // Register and retrieve the id for the new container
     // add a node
-    Neon::set::container::GraphInfo::NodeUid graphNodeUid = helpAddNewContainerToGraph(inContainer);
+    Neon::set::container::GraphInfo::NodeUid graphNodeUid;
+    graphNodeUid = helpAddNewContainerToGraph(inContainer);
 
     // Parsing all the data toke used by the kernel container
-    std::vector<Neon::set::dataDependency::Token> tokens = helpParseContainer(mGraph().getGraphNode(graphNodeUid).getContainer());
+    std::vector<Neon::set::dataDependency::Token> tokens;
+    tokens = helpParseContainer(mGraph().helpGetGraphNode(graphNodeUid).getContainer());
 
     // Tokens are based on the multi-GPU data loaded by Containers
     for (auto& token : tokens) {
         // update the dependency state machine with the new token.
         // newDependencies are the detected dependencies
 
-        auto newDependencies = m_dataRecords().updateStatus(graphNodeUid, token.access(), token.uid());
+        auto newDependencies = m_dataRecords().updateStatus(graphNodeUid,
+                                                            token.access(),
+                                                            token.uid());
 
         for (auto& dep : newDependencies) {
-            const auto& n0 = mGraph().getGraphNode(dep.t0());
-            const auto& n1 = mGraph().getGraphNode(dep.t1());
-            mGraph().appendDataDependency(n0, n1,
-                                          dep.type(),
-                                          token.uid(),
-                                          token.compute());
+            const auto& n0 = mGraph().helpGetGraphNode(dep.t0());
+            const auto& n1 = mGraph().helpGetGraphNode(dep.t1());
+            mGraph().addDependency(n0, n1, token);
         }
     }
 }
 
-auto MultiXpuGraph::helpParseContainer(Neon::set::Container& container)
-    -> std::vector<Neon::set::dataDependency::Token>
+auto MultiXpuGraph::
+    helpParseContainer(Neon::set::Container& container)
+        -> std::vector<Neon::set::dataDependency::Token>
 {
     auto& kcInterface = container.getContainerInterface();
     auto& tokens = kcInterface.parse();
@@ -76,20 +79,27 @@ auto MultiXpuGraph::h_io2Dot([[maybe_unused]] const std::string& fname,
     io2Dot(fname, graphName, true);
 }
 
-auto MultiXpuGraph::io2Dot(const std::string& fname, const std::string& graphName, bool debug) -> void
+auto MultiXpuGraph::
+    io2Dot(const std::string& fname,
+           const std::string& graphName,
+           bool               debug) -> void
 {
     mGraph().ioToDot(fname, graphName, debug);
 }
 
-auto MultiXpuGraph::io2DotOriginalApp(const std::string& fname, const std::string& graphName, bool debug) -> void
+auto MultiXpuGraph::
+    io2DotOriginalApp(const std::string& fname,
+                      const std::string& graphName,
+                      bool               debug) -> void
 {
     mGraph().ioToDot(fname, graphName, debug);
 }
 
 auto MultiXpuGraph::helpAddNewContainerToGraph(const Neon::set::Container& container) -> Neon::set::container::GraphInfo::NodeUid
 {
-    const auto&                          graphNode = mGraph().addNode(container);
-    Neon::set::container::GraphInfo::NodeUid uid = graphNode.getGraphData().getUid();
+    const auto&                              graphNode = mGraph().addNode(container);
+    Neon::set::container::GraphInfo::NodeUid uid;
+    uid = graphNode.getGraphData().getUid();
     return uid;
 }
 
@@ -592,9 +602,8 @@ auto MultiXpuGraph::addSyncAndMemoryTransfers(const Neon::skeleton::Options&) ->
 
         auto stencilInfo = dep.getListStencilInfo();
 
-        for(auto& infoPrt : stencilInfo){
+        for (auto& infoPrt : stencilInfo) {
             mGraph().addNodeInBetween(dep.)
-
         }
     }
 

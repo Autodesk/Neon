@@ -81,6 +81,14 @@ struct Graph
         -> GraphDependency&;
 
     /**
+     * Adds a dependency between two node of the graph
+     */
+    auto addDependency(const GraphNode&                        nodeA,
+                       const GraphNode&                        nodeB,
+                       const Neon::set::dataDependency::Token& token)
+        -> GraphDependency&;
+
+    /**
      * Returns the dependency type between two nodes.
      */
     auto getDependencyType(const GraphNode& nodeA,
@@ -151,6 +159,12 @@ struct Graph
 
     auto getNumberOfNodes()
         -> int;
+
+    auto forEachDependency(const std::function<void(const GraphDependency&)> &fun)
+        const -> void;
+
+    auto forEachNode(const std::function<void(const GraphNode&)> &fun)
+        const -> void;
 
    protected:
     /**
