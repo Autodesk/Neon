@@ -209,16 +209,26 @@ void MultiResAtomicAddParent()
                     if (l == 0) {
                         //the lowest/most refined level won't chance since it does not
                         //have children to write into it
-                        EXPECT_EQ(val, l + 1);
+                        EXPECT_EQ(val, l + 1) << "level= " << l << " id= " << id;
                     } else {
                         //only the part of this level that overlaps with Level 0 will change
                         //otherwise, it will stay the same since there is no children to write to it
                         if (id.x < SectionX[l - 1]) {
-                            EXPECT_EQ(val, (l + 1) +  //init value on this level
-                                                      //value added by all children
-                                               (l)*descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l));
+                            Type init_val = l + 1;
+                            Type val_added_by_child = (l)*descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l);
+                            Type val_added_by_self = 0;
+                            if (l > 1) {
+                                if (id.x < SectionX[l - 2]) {
+                                    val_added_by_self = (l - 1) * descriptor.getRefFactor(l - 1) * descriptor.getRefFactor(l - 1) * descriptor.getRefFactor(l - 1) *
+                                                        descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l);
+                                }
+                            }
+                            EXPECT_EQ(val, init_val +                //init value on this level
+                                               val_added_by_child +  //value added by all children
+                                               val_added_by_self)    //value added by the level itself from previous run
+                                << "level= " << l << " id= " << id << " val= " << val;
                         } else {
-                            EXPECT_EQ(val, l + 1);
+                            EXPECT_EQ(val, l + 1) << "level= " << l << " id= " << id << " val= " << val;
                         }
                     }
                 });
