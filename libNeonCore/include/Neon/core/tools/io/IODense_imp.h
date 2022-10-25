@@ -59,7 +59,7 @@ template <typename ExportType,
 IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&                                                    d,
                                       int                                                                           c,
                                       const std::function<ExportType(const Integer_3d<IntType>&, int cardinality)>& fun)
-    : mSpace(d), mCardinality(c), mRepresentation(Representation::IMPLICIT), mImplicitFun(fun)
+    : mSpace(d), mCardinality(c), mOrder(), mRepresentation(Representation::IMPLICIT), mImplicitFun(fun)
 
 {
     initPitch();

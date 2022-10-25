@@ -45,7 +45,7 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eCell>
      * Default constructor
      */
     eGrid();
-
+    virtual ~eGrid() = default;
     /**
      * Constructor for an eGrid object
      * TODO: include a list of stencil instead of only one
@@ -211,7 +211,7 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eCell>
 #include "ePartitionIndexSpace.h"
 #include "ePartitionIndexSpace_imp.h"
 
-//#include "Neon/domain/sparse/eGrid/ePartition_imp.h"
+// #include "Neon/domain/sparse/eGrid/ePartition_imp.h"
 #include "eField.h"
 #include "eField_imp.h"
 #include "eGridStorage.h"

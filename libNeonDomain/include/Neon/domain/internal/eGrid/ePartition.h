@@ -72,10 +72,6 @@ struct ePartition
      */
 
 
-    inline auto
-    mem() const
-        -> const T*;
-
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
     using Self = ePartition<T, cardinality_ta>;   //<- this type
@@ -167,6 +163,15 @@ struct ePartition
     operator()(Cell eId, int cardinalityIdx)
         -> T&;
 
+    template <typename ComputeType>
+    NEON_CUDA_HOST_DEVICE inline auto
+    castRead(Cell eId, int cardinalityIdx) const
+        -> ComputeType;
+
+    template <typename ComputeType>
+    NEON_CUDA_HOST_DEVICE inline auto
+    castWrite(Cell eId, int cardinalityIdx, const ComputeType& value)
+        -> void;
     /**
      * Retrieve value of a neighbour for a field with multiple cardinalities
      * @tparam dataView_ta
@@ -213,6 +218,10 @@ struct ePartition
     NEON_CUDA_HOST_DEVICE inline auto
     globalLocation(Cell cell) const
         -> Neon::index_3d;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    mem() const
+        -> const T*;
 
    private:
     /**
@@ -282,11 +291,7 @@ struct ePartition
     NEON_CUDA_HOST_DEVICE inline auto
     mem()
         -> T*;
-    /**
-     * Returns raw pointer of the field
-     * @tparam dataView_ta
-     * @return
-     */
+
 };
 }  // namespace Neon::domain::internal::eGrid
 
