@@ -260,6 +260,24 @@ struct dPartition
         return m_mem[p];
     }
 
+    template <typename ComputeType>
+    NEON_CUDA_HOST_DEVICE inline auto castRead(const Cell& cell,
+                                               int         cardinalityIdx) const -> ComputeType
+    {
+        Type value = this->operator()(cell, cardinalityIdx);
+        ComputeType           output = static_cast<ComputeType>(value);
+        return output;
+    }
+
+    template <typename ComputeType>
+    NEON_CUDA_HOST_DEVICE inline auto castWrite(const Cell&     cell,
+                                                int             cardinalityIdx,
+                                                const ComputeType& value) -> void
+    {
+        Type  output = static_cast<Type>(value);
+        this->operator()(cell, cardinalityIdx) = output;
+    }
+
     NEON_CUDA_HOST_DEVICE inline auto ePrt(const index_3d& cell,
                                            int             cardinalityIdx) -> T_ta*
     {

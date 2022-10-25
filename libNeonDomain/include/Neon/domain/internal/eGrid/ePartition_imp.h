@@ -52,6 +52,28 @@ ePartition<T, C>::operator()(Cell eId, int cardinalityIdx) -> T&
     return m_mem[jump];
 }
 
+template <typename T, int C>
+template <typename ComputeType>
+NEON_CUDA_HOST_DEVICE inline auto
+ePartition<T, C>::castRead(Cell eId,
+                           int  cardinalityIdx) const -> ComputeType
+{
+    Type value = this->operator()(eId, cardinalityIdx);
+    ComputeType           output = static_cast<ComputeType>(value);
+    return output;
+}
+
+template <typename T, int C>
+template <typename ComputeType>
+NEON_CUDA_HOST_DEVICE inline auto
+ePartition<T, C>::castWrite(Cell            eId,
+                            int             cardinalityIdx,
+                            const ComputeType& value) -> void
+{
+    Type  output = static_cast<Type>(value);
+    this->operator()(eId, cardinalityIdx) = output;
+}
+
 template <typename T,
           int C>
 template <bool enableLDG, int shadowCardinality_ta>

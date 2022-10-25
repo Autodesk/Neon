@@ -20,7 +20,6 @@
 #include "sGridRunHelper.h"
 
 #include "Neon/domain/sGrid.h"
-using namespace Neon::domain::tool::testing;
 static const std::string testFilePrefix("domainUt_sGrid");
 namespace help {
 
