@@ -5,7 +5,7 @@ namespace Neon {
 namespace set {
 
 template <typename T_ta>
-auto Memory::MemSet(Neon::Backend&                      bk,
+auto Memory::MemSet(const Neon::Backend&                      bk,
                     int                                 cardinality,
                     const Neon::set::DataSet<uint64_t>& nElementVec,
                     Neon::DataUse                       dataUse,
@@ -51,7 +51,7 @@ auto Memory::MemSet(Neon::Backend&                      bk,
 }
 
 template <typename T_ta>
-auto Memory::MemSet(Neon::Backend&        bk,
+auto Memory::MemSet(const Neon::Backend&        bk,
                     int                   cardinality,
                     const uint64_t&       nElementInEachPartition,
                     Neon::DataUse         dataUse,
