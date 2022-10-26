@@ -5,16 +5,19 @@
 
 template <typename Field>
 auto expandLevelSet(Field& sdf,
-                 double expantion)
-    ->Neon::set::Container
+                    double expansion)
+    -> Neon::set::Container
 {
     return sdf.getGrid().getContainer(
-        "ExpandLevelSet", [&, expantion](Neon::set::Loader& L) {
+        "ExpandLevelSet",
+        // Neon Loading Lambda
+        [&, expansion](Neon::set::Loader& L) {
             auto& px = L.load(sdf);
 
+            // Neon Compute Lambda
             return [=] NEON_CUDA_HOST_DEVICE(
                        const typename Field::Cell& cell) mutable {
-                px(cell, 0) -= expantion;
+                px(cell, 0) -= expansion;
             };
         });
 }

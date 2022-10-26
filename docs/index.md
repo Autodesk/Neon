@@ -7,6 +7,8 @@ To reach its goal, Neon takes a domain-specific approach based on the parallel s
 Neon provides a set of domain-specific and programmable patterns that users compose through a sequential programming model to author their applications. 
 Then, thanks to the knowledge of the domain, the patterns and their composition, Neon automatically optimizes the sequential code into an execution optimized for multi-device systems.
 
+![Neon logo](img/high-level-idea.png "High level idea")
+
 Currently, Neon targets grid-based computations on multi-core CPUs or single node multi-GPU systems.
 
 It is important to keep in mind that Neon is a research project in continuous evolution. 
