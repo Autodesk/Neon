@@ -9,10 +9,12 @@ GraphDependency::
 }
 
 auto GraphDependency::
-    setType(GraphDependencyType type)
+    setType(GraphDependencyType   type,
+            const RawGraph::Edge& edge)
         -> void
 {
     mType = type;
+    mEdge = edge;
 }
 
 auto GraphDependency::
@@ -22,41 +24,45 @@ auto GraphDependency::
     return mType;
 }
 GraphDependency::
-    GraphDependency(GraphDependencyType type)
+    GraphDependency(GraphDependencyType   type,
+                    const RawGraph::Edge& edge)
 {
-    setType(type);
+    setType(type, edge);
 }
 
 GraphDependency::
-    GraphDependency(const dataDependency::Token& token)
-    : mType(GraphDependencyType::data)
+    GraphDependency(const dataDependency::Token& token,
+                    const RawGraph::Edge&        edge)
 {
+    setType(GraphDependencyType::data, edge);
     mTokens.push_back(token);
 }
 
 GraphDependency::
-    GraphDependency(const std::vector<Neon::set::dataDependency::Token>& tokens)
-    : mType(GraphDependencyType::data)
+    GraphDependency(const std::vector<Neon::set::dataDependency::Token>& tokens,
+                    const RawGraph::Edge&                                edge)
 {
+    setType(GraphDependencyType::data, edge);
     mTokens = tokens;
 }
 
 auto GraphDependency::
     getLabel()
-        -> std::string
+        const -> std::string
 {
     return GraphDependencyTypeUtil::toString(getType());
 }
 
 auto GraphDependency::
-    addToken(const Neon::set::dataDependency::Token& token) -> void
+    addToken(const Token& token)
+        -> void
 {
     mTokens.push_back(token);
 }
 
 
-
-auto GraphDependency::getTokens() const -> const std::vector<Neon::set::dataDependency::Token>&
+auto GraphDependency::getTokens()
+    const -> const Tokens&
 {
     return mTokens;
 }
@@ -70,6 +76,24 @@ auto GraphDependency::hasStencilDependency()
                                      return token.compute() == Neon::Compute::STENCIL;
                                  });
     return isStencil;
+}
+
+auto GraphDependency::getRawEdge()
+    const -> RawGraph::Edge
+{
+    return mEdge;
+}
+
+auto GraphDependency::getSourceNode(const Graph& graph)
+    const -> const GraphNode&
+{
+    return graph.helpGetGraphNode(mEdge.first);
+}
+
+auto GraphDependency::getDestinationNode(const Graph& graph)
+    const -> const GraphNode&
+{
+    return graph.helpGetGraphNode(mEdge.second);
 }
 
 

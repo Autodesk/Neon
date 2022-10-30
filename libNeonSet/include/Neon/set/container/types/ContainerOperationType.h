@@ -15,7 +15,7 @@ enum struct ContainerOperationType
     compute = 0 /**< Compute container, can be on host or device */,
     graph = 1 /**<  A graph based container */,
     communication = 2 /**< Halo update container **/,
-    sync = 3 /**< Synchronization Container */,
+    synchronization = 3 /**< Synchronization Container */,
     anchor = 4 /**< Synchronization Container: begin or end */
 };
 

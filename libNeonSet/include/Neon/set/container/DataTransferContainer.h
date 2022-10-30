@@ -2,19 +2,17 @@
 #include "Neon/core/core.h"
 
 #include "Neon/set/container/ContainerAPI.h"
-#include "Neon/set/container/DeviceContainer.h"
-#include "Neon/set/container/Graph.h"
 #include "Neon/set/container/Loader.h"
 
 namespace Neon::set::internal {
 
-template <typename MultiXpuDataT>
+template <typename MxpuDataT>
 struct DataTransferContainer
     : ContainerAPI
 {
     virtual ~DataTransferContainer() override = default;
 
-    DataTransferContainer(const MultiXpuDataT&        multiXpuData,
+    DataTransferContainer(const MxpuDataT&        multiXpuData,
                           Neon::set::TransferMode     transferMode,
                           Neon::set::TransferSemantic transferSemantic)
         : mMultiXpuData(multiXpuData),
@@ -27,7 +25,7 @@ struct DataTransferContainer
         setContainerOperationType(ContainerOperationType::communication);
         setDataViewSupport(DataViewSupport::off);
 
-        mCompute = [&](Neon::SetIdx setIdx,
+        mDataTransferFun = [&](Neon::SetIdx setIdx,
                        int          streamIdx) {
             Neon::set::HuOptions options(this->mTransferMode,
                                          false,
@@ -38,7 +36,7 @@ struct DataTransferContainer
     }
 
     auto run(int            streamIdx,
-             Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
+             Neon::DataView dataView) -> void override
     {
         const Neon::Backend& bk = mMultiXpuData.getBackend();
         const int            setCardinality = bk.devSet().setCardinality();
@@ -54,7 +52,7 @@ struct DataTransferContainer
              Neon::DataView dataView) -> void override
     {
         if (ContainerExecutionType::deviceManaged == this->getContainerType()) {
-            mCompute(setIdx, streamIdx);
+            mDataTransferFun(setIdx, streamIdx);
             return;
         }
         NEON_THROW_UNSUPPORTED_OPTION("");
@@ -63,8 +61,8 @@ struct DataTransferContainer
    private:
     std::function<void(Neon::SetIdx setIdx,
                        int          streamIdx)>
-                                mCompute;
-    MultiXpuDataT               mMultiXpuData;
+                                mDataTransferFun;
+    MxpuDataT               mMultiXpuData;
     Neon::set::TransferMode     mTransferMode;
     Neon::set::TransferSemantic mTransferSemantic;
 };

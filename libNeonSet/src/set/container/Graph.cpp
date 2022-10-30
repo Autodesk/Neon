@@ -71,7 +71,10 @@ auto Graph::
     }
     helpInvalidateScheduling();
 
-    GraphDependency ab(type);
+    auto aUid = nodeA.getGraphData().getUid();
+    auto bUid = nodeB.getGraphData().getUid();
+
+    GraphDependency ab(type, {aUid, bUid});
 
     mRawGraph.addEdge(nodeA.getGraphData().getUid(),
                       nodeB.getGraphData().getUid(),
@@ -96,7 +99,7 @@ auto Graph::
     if (mRawGraph.hasEdge(nodeA.getGraphData().getUid(),
                           nodeB.getGraphData().getUid())) {
         GraphDependency& graphDependency = mRawGraph.getEdgeProperty({nodeA.getGraphData().getUid(),
-                                                                       nodeB.getGraphData().getUid()});
+                                                                      nodeB.getGraphData().getUid()});
         graphDependency.addToken(token);
     } else {
         GraphDependency ab(token);
@@ -298,8 +301,22 @@ auto Graph::
     return dependencyType;
 }
 
-auto Graph::helpInvalidateScheduling()
-    -> void
+auto Graph::
+    getDependency(const GraphNode& nodeA,
+                  const GraphNode& nodeB)
+        const -> const GraphDependency&
+{
+    auto uidA = nodeA.getGraphData().getUid();
+    auto uidB = nodeB.getGraphData().getUid();
+
+    const auto& dependency = mRawGraph.getEdgeProperty({uidA, uidB});
+
+    return dependency;
+}
+
+auto Graph::
+    helpInvalidateScheduling()
+        -> void
 {
     mSchedulingStatusIsValid = false;
 }
@@ -974,9 +991,9 @@ auto Graph::
 
 auto Graph::
     forEachDependency(const std::function<void(const GraphDependency&)>& fun)
-    const -> void
+        const -> void
 {
-    mRawGraph.forEachEdge([&](const auto& edge){
+    mRawGraph.forEachEdge([&](const auto& edge) {
         const auto& dep = this->mRawGraph.getEdgeProperty(edge);
         fun(dep);
     });
@@ -986,10 +1003,86 @@ auto Graph::
     forEachNode(const std::function<void(const GraphNode&)>& fun)
         const -> void
 {
-    mRawGraph.forEachVertex([&](size_t nodeId){
+    mRawGraph.forEachVertex([&](size_t nodeId) {
         auto node = this->mRawGraph.getVertexProperty(nodeId);
         fun(node);
     });
+}
+
+auto Graph::helpMergeGraphBetweenNodes(const Graph&     graphOriginal,
+                                       const GraphNode& A,
+                                       const GraphNode& B)
+{
+    Graph inputGraph = graphOriginal;
+    inputGraph.expandSubGraphs();
+
+    std::unordered_map<const GraphNode*, GraphNode*> fromInputToLocal;
+
+    auto isInternalNode = [&](const GraphNode& inputNode) {
+        if (&graphOriginal.getBeginNode() != &inputNode &&
+            &graphOriginal.getEndNode() != &inputNode) {
+            return true;
+        }
+        return false;
+    };
+
+    auto isInternalDependency = [&](const GraphDependency& inputDependency) {
+        const auto& source = inputDependency.getSourceNode(graphOriginal);
+        const auto& dest = inputDependency.getDestinationNode(graphOriginal);
+
+        if (isInternalNode(source) &&
+            isInternalNode(dest)) {
+            return true;
+        }
+        return false;
+    };
+
+    // adding nodes to the graph
+    inputGraph.forEachNode([&](const GraphNode& inputNode) {
+        // discarding begin and end nodes
+        if (isInternalNode(inputNode)) {
+            auto& container = inputNode.getContainer();
+            auto  newGraphNode = this->addNode(container);
+
+            fromInputToLocal[&inputNode] = &newGraphNode;
+        }
+    });
+
+    // adding dependency to the graph
+    inputGraph.forEachDependency([&](const GraphDependency& inputDependency) {
+        // discarding begin and end nodes
+        if (isInternalDependency(inputDependency)) {
+            const auto& sourceInput = inputDependency.getSourceNode(graphOriginal);
+            const auto& destInput = inputDependency.getDestinationNode(graphOriginal);
+
+            auto source = fromInputToLocal[&sourceInput];
+            auto dest = fromInputToLocal[&destInput];
+
+            this->addDependency(*source, *dest, inputDependency.getType());
+        }
+    });
+
+    {  // Connecting node A with all the child of the input graph begin node
+        const auto&             inputBeginNode = inputGraph.getBeginNode();
+        std::vector<GraphNode*> subsequentGraphNodes = inputGraph.getSubsequentGraphNodes(inputBeginNode);
+        for (auto inputGraphNodePtr : subsequentGraphNodes) {
+            auto        source = &A;
+            auto        dest = fromInputToLocal[inputGraphNodePtr];
+            const auto& inputDependency = inputGraph.getDependency(inputBeginNode, *inputGraphNodePtr);
+            this->addDependency(*source, *dest, inputDependency.getType());
+        }
+    }
+
+    {  // Connecting node B with all the parents of the input graph end node
+        const auto&             inputEndNode = inputGraph.getEndNode();
+        std::vector<GraphNode*> proceedingGraphNodes = inputGraph.getProceedingGraphNodes(inputEndNode);
+        for (auto inputGraphNodePtr : proceedingGraphNodes) {
+            auto        source = fromInputToLocal[inputGraphNodePtr];
+            auto        dest = &B;
+            const auto& inputDependency = inputGraph.getDependency(*inputGraphNodePtr, inputEndNode);
+            this->addDependency(*source, *dest, inputDependency.getType());
+        }
+    }
 }
 
 

@@ -5,11 +5,18 @@
 
 #include "Neon/set/container/graph/Bfs.h"
 #include "Neon/set/container/graph/GraphDependency.h"
+#include "Neon/set/container/graph/GraphDependencyType.h"
 #include "Neon/set/container/graph/GraphNode.h"
+
 
 namespace Neon::skeleton::internal {
 struct MultiXpuGraph;
 }
+
+namespace Neon::set::container {
+struct GraphNode;
+struct GraphDependency;
+}  // namespace Neon::set::container
 
 namespace Neon::set::container {
 
@@ -25,6 +32,8 @@ struct Graph
     using Uid = GraphData::Uid;
     using Index = GraphData::Index;
     friend struct Bfs;
+    friend Neon::set::container::GraphNode;
+    friend Neon::set::container::GraphDependency;
     friend Neon::skeleton::internal::MultiXpuGraph;
 
    public:
@@ -95,6 +104,9 @@ struct Graph
                            const GraphNode& nodeB)
         -> GraphDependencyType;
 
+    auto getDependency(const GraphNode& nodeA,
+                       const GraphNode& nodeB)
+        const -> const GraphDependency&;
     /**
      * Clone a node and return a reference to the new clone.
      * The cloning process connects the clone the the same nodes of the original
@@ -117,7 +129,9 @@ struct Graph
      */
     auto getSubsequentGraphNodes(const GraphNode&                        graphNode,
                                  const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
-                                                                                            GraphDependencyType::data}) -> std::vector<GraphNode*>;
+                                                                                            GraphDependencyType::data})
+        -> std::vector<GraphNode*>;
+
     /**
      * Set the stream to run the graph.
      * We provide a preset function so that some initialization
@@ -160,10 +174,10 @@ struct Graph
     auto getNumberOfNodes()
         -> int;
 
-    auto forEachDependency(const std::function<void(const GraphDependency&)> &fun)
+    auto forEachDependency(const std::function<void(const GraphDependency&)>& fun)
         const -> void;
 
-    auto forEachNode(const std::function<void(const GraphNode&)> &fun)
+    auto forEachNode(const std::function<void(const GraphNode&)>& fun)
         const -> void;
 
    protected:
@@ -295,6 +309,12 @@ struct Graph
     auto helpComputeScheduling_04_ensureResources(int maxStreamId, int maxEventId)
         -> void;
 
+    /**
+     * Adding a graph between two nodes
+     */
+    auto helpMergeGraphBetweenNodes(const Graph&     graph,
+                                    const GraphNode& A,
+                                    const GraphNode& B);
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
 

@@ -5,14 +5,15 @@
 #include "functional"
 #include "type_traits"
 
+#include "Neon/set/container/DataTransferContainer.h"
 #include "Neon/set/container/DeviceContainer.h"
 #include "Neon/set/container/DeviceManagedContainer.h"
 #include "Neon/set/container/DeviceThenHostManagedContainer.h"
+#include "Neon/set/container/GraphContainer.h"
 #include "Neon/set/container/HostManagedContainer.h"
 #include "Neon/set/container/OldDeviceManagedContainer.h"
-#include "Neon/set/container/DataTransferContainer.h"
+#include "Neon/set/container/SynchronizationContainer.h"
 
-#include "Neon/set/container/GraphContainer.h"
 
 namespace Neon::set {
 
@@ -87,13 +88,27 @@ auto Container::factoryDeviceManaged(const std::string&                         
 }
 
 template <typename MultiXpuDataT>
-auto Container::factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
-                                    Neon::set::TransferMode     transferMode,
-                                    Neon::set::TransferSemantic transferSemantic)
-    -> Neon::set::Container{
+auto Container::
+    factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
+                        Neon::set::TransferMode     transferMode,
+                        Neon::set::TransferSemantic transferSemantic)
+        -> Neon::set::Container
+{
     auto k = new Neon::set::internal::DataTransferContainer(multiXpuData,
-                                       transferMode,
-                                       transferSemantic );
+                                                            transferMode,
+                                                            transferSemantic);
+
+    std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
+    return {tmp};
+}
+
+template <typename MxpuDataT>
+auto Container::
+    factorySynchronization(const MxpuDataT&             multiXpuData,
+                           SynchronizationContainerType syncType) -> Container
+{
+    auto k = new Neon::set::internal::SynchronizationContainer(multiXpuData,
+                                                               syncType);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
     return {tmp};

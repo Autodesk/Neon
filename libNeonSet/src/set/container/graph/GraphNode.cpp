@@ -8,7 +8,8 @@ GraphNode::GraphNode()
 {
 }
 
-auto GraphNode::newBeginNode() -> GraphNode
+auto GraphNode::
+    newBeginNode() -> GraphNode
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::beginUid);
@@ -16,7 +17,8 @@ auto GraphNode::newBeginNode() -> GraphNode
     return node;
 }
 
-auto GraphNode::newEndNode() -> GraphNode
+auto GraphNode::
+    newEndNode() -> GraphNode
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::endUid);
@@ -24,49 +26,62 @@ auto GraphNode::newEndNode() -> GraphNode
     return node;
 }
 
-auto GraphNode::getGraphData() -> GraphData&
+auto GraphNode::
+    getGraphData() -> GraphData&
 {
     return mGraphNodeOrganization;
 }
 
-auto GraphNode::getGraphData() const -> const GraphData&
+auto GraphNode::
+    getGraphData()
+        const -> const GraphData&
 {
     return mGraphNodeOrganization;
 }
 
-auto GraphNode::getScheduling() -> GraphNodeScheduling&
+auto GraphNode::
+    getScheduling() -> GraphNodeScheduling&
 {
     return mGraphNodeScheduling;
 }
 
-auto GraphNode::getScheduling() const -> const GraphNodeScheduling&
+auto GraphNode::
+    getScheduling()
+        const -> const GraphNodeScheduling&
 {
     return mGraphNodeScheduling;
 }
 
-auto GraphNode::getContainer() -> Container&
+auto GraphNode::
+    getContainer() -> Container&
 {
     return mContainer;
 }
 
-auto GraphNode::getContainer() const -> const Container&
+auto GraphNode::
+    getContainer() const -> const Container&
 {
     return mContainer;
 }
 
-GraphNode::GraphNode(const Container& container, GraphData::Uid uid)
+GraphNode::
+    GraphNode(const Container& container, GraphData::Uid uid)
 {
     mContainer = container;
     mGraphNodeOrganization.setUid(uid);
 }
 
-auto GraphNode::toString() -> std::string
+auto GraphNode::
+    toString()
+        const -> std::string
 {
     return std::string();
 }
 
 
-auto GraphNode::helpGetDotProperties() -> std::string
+auto GraphNode::
+    helpGetDotProperties()
+        const -> std::string
 {
     if (getContainerOperationType() == Neon::set::ContainerOperationType::anchor) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
@@ -74,22 +89,25 @@ auto GraphNode::helpGetDotProperties() -> std::string
     if (getContainerOperationType() == Neon::set::ContainerOperationType::compute) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
-    if (getContainerOperationType() == Neon::set::ContainerOperationType::halo) {
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::communication) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
-    if (getContainerOperationType() == Neon::set::ContainerOperationType::sync) {
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::synchronization) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
-auto GraphNode::helpGetDotName() -> std::string
+auto GraphNode::
+    helpGetDotName()
+        const -> std::string
 {
     return getContainer().getName();
 }
-auto GraphNode::helpGetDotInfo() -> std::string
+auto GraphNode::helpGetDotInfo()
+    const -> std::string
 {
     if (getContainerOperationType() == Neon::set::ContainerOperationType::anchor) {
-        return std::string();
+        return {};
     }
     if (getContainerOperationType() == Neon::set::ContainerOperationType::compute) {
         std::stringstream s;
@@ -97,26 +115,30 @@ auto GraphNode::helpGetDotInfo() -> std::string
         s << "DataView = " << Neon::DataViewUtil::toString(getScheduling().getDataView());
         return s.str();
     }
-    if (getContainerOperationType() == Neon::set::ContainerOperationType::halo) {
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::communication) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
-    if (getContainerOperationType() == Neon::set::ContainerOperationType::sync) {
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::synchronization) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
-auto GraphNode::getContainerOperationType() const -> Neon::set::ContainerOperationType
+auto GraphNode::
+    getContainerOperationType() const -> Neon::set::ContainerOperationType
 {
     return getContainer().getContainerInterface().getContainerOperationType();
 }
 
-auto GraphNode::getContainerpatternType() const -> Neon::set::ContainerPatternType
+auto GraphNode::
+    getContainerpatternType() const -> Neon::set::ContainerPatternType
 {
     return getContainer().getContainerInterface().getContainerPatternType();
 }
 
-auto GraphNode::getLabel(bool debug) -> std::string
+auto GraphNode::
+    getLabel(bool debug)
+        const -> std::string
 {
     auto containerOperationType = getContainerOperationType();
 
@@ -192,7 +214,7 @@ auto GraphNode::getLabel(bool debug) -> std::string
         }
         return s.str();
     }
-    if (containerOperationType == Neon::set::ContainerOperationType::halo) {
+    if (containerOperationType == Neon::set::ContainerOperationType::communication) {
         std::stringstream s;
         s << "Halo Update "
              " - Name: "
@@ -200,7 +222,7 @@ auto GraphNode::getLabel(bool debug) -> std::string
         s << " - UID: " << getContainer().getUid();
         return s.str();
     }
-    if (containerOperationType == Neon::set::ContainerOperationType::sync) {
+    if (containerOperationType == Neon::set::ContainerOperationType::synchronization) {
         std::stringstream s;
         s << "Sync "
              " - Name: "
@@ -223,7 +245,9 @@ auto GraphNode::getLabel(bool debug) -> std::string
 }
 
 
-auto GraphNode::getLabelProperty() -> std::string
+auto GraphNode::
+    getLabelProperty()
+        const -> std::string
 {
     auto containerOperationType = getContainerOperationType();
     if (containerOperationType == Neon::set::ContainerOperationType::anchor) {
@@ -233,7 +257,7 @@ auto GraphNode::getLabelProperty() -> std::string
         if (this->getGraphData().endUid == getGraphData().getUid()) {
             return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
         }
-        //NEON_THROW_UNSUPPORTED_OPERATION("");
+        // NEON_THROW_UNSUPPORTED_OPERATION("");
         return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
     }
     if (containerOperationType == Neon::set::ContainerOperationType::compute) {
@@ -253,11 +277,11 @@ auto GraphNode::getLabelProperty() -> std::string
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
 
-    if (containerOperationType == Neon::set::ContainerOperationType::halo) {
+    if (containerOperationType == Neon::set::ContainerOperationType::communication) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
 
-    if (containerOperationType == Neon::set::ContainerOperationType::sync) {
+    if (containerOperationType == Neon::set::ContainerOperationType::synchronization) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
     if (containerOperationType == Neon::set::ContainerOperationType::graph) {

@@ -16,7 +16,7 @@ void MultiXpuGraph::init(Neon::Backend&                           bk,
     h_io2Dot("t0_" + name + ".dot", "i");
     optimizations(options);
     h_io2Dot("t1_" + name + ".dot", "i");
-    addSyncAndMemoryTransfers(options);
+    addCommunications(options);
 
     mGraph().helpRemoveRedundantDependencies();
 
@@ -581,24 +581,26 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
 }
 
 
-auto MultiXpuGraph::addSyncAndMemoryTransfers(const Neon::skeleton::Options&) -> void
+auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options&) -> void
 {
 
     if (m_setCardinality() == 1) {
         return;
     }
 
-    std::vector<const Neon::set::container::GraphDependency*> stencilDependencies;
+    // List all dependencies related to stencil operations
+    std::vector<const Neon::set::container::GraphDependency*> stencilTypeDependencies;
     mGraph().forEachDependency([&](const Neon::set::container::GraphDependency& dep) {
         if (dep.hasStencilDependency()) {
-            stencilDependencies.push_back(&dep);
+            stencilTypeDependencies.push_back(&dep);
         }
     });
 
-    for (auto depPtr : stencilDependencies) {
+    for (auto depPtr : stencilTypeDependencies) {
         const auto& dep = *depPtr;
-        auto        nodeA = mGraph().getGraphNode(dep.getSource());
-        auto        nodeB = mGraph().getGraphNode(dep.getDestination());
+        const auto rawEdge = dep.getRawEdge();
+        auto        nodeA = mGraph().helpGetGraphNode(rawEdge.first);
+        auto        nodeB = mGraph().helpGetGraphNode(rawEdge.second);
 
         auto stencilInfo = dep.getListStencilInfo();
 

@@ -165,7 +165,7 @@ struct MultiXpuGraph
     auto optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&)
         -> void;
 
-    auto addSyncAndMemoryTransfers(const Neon::skeleton::Options& options)
+    auto addCommunications(const Neon::skeleton::Options&)
         -> void;
 
     auto checkCoherency()
