@@ -4,9 +4,7 @@
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/container/Loader.h"
 
-namespace Neon {
-namespace set {
-namespace internal {
+namespace Neon::set::internal {
 
 template <typename DataIteratorContainerT,
           typename UserComputeLambdaT>
@@ -150,6 +148,4 @@ struct DeviceContainer : ContainerAPI
     DataIteratorContainerT m_dataIteratorContainer;
 };
 
-}  // namespace internal
-}  // namespace set
 }  // namespace Neon

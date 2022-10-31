@@ -3,8 +3,8 @@
 #include <vector>
 
 #include "Neon/core/core.h"
+#include "Neon/set/StencilSemantic.h"
 #include "Neon/set/TransferMode.h"
-#include "Neon/set/TransferSemantic.h"
 
 namespace Neon {
 namespace set {
@@ -31,14 +31,14 @@ struct Transfer
     Endpoint_t       m_dst;
     Endpoint_t       m_src;
     size_t           m_size{0};
-    TransferSemantic m_structure;
+    StencilSemantic  m_structure;
 
    public:
     Transfer(TransferMode      mode,
              const Endpoint_t& dst,
              const Endpoint_t& src,
              size_t            size,
-             TransferSemantic  structure = TransferSemantic::grid)
+             StencilSemantic   structure = StencilSemantic::standard)
         : m_mode(mode), m_dst(dst), m_src(src), m_size(size), m_structure(structure)
     {
     }
@@ -96,14 +96,14 @@ struct PeerTransferOption
     operationMode_e        m_operationMode = Neon::set::PeerTransferOption::execute;
     TransferMode           m_transferMode = Neon::set::TransferMode::get;
 
-    Neon::set::TransferSemantic m_structure;
+    Neon::set::StencilSemantic m_structure;
 
    public:
     /**
      * Constructor with stream parameter
      */
     explicit PeerTransferOption(TransferMode                tranferMode,
-                                Neon::set::TransferSemantic structure)
+                                Neon::set::StencilSemantic structure)
         : m_transfers(nullptr),
           m_streamSet(nullptr),
           m_operationMode(operationMode_e::execute),
@@ -120,7 +120,7 @@ struct PeerTransferOption
      */
     PeerTransferOption(TransferMode                    tranferMode,
                        std::vector<Transfer>& NEON_OUT transfers,
-                       Neon::set::TransferSemantic     structure)
+                       Neon::set::StencilSemantic      structure)
         : m_transfers(&transfers),
           m_streamSet(nullptr),
           m_operationMode(operationMode_e::storeInfo),
@@ -180,7 +180,7 @@ struct PeerTransferOption
         return *m_transfers;
     }
 
-    auto structure() const -> const Neon::set::TransferSemantic&
+    auto structure() const -> const Neon::set::StencilSemantic&
     {
         return m_structure;
     }

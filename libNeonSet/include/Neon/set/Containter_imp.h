@@ -5,6 +5,8 @@
 #include "functional"
 #include "type_traits"
 
+#include "Neon/set/container/Loader.h"
+
 #include "Neon/set/container/DataTransferContainer.h"
 #include "Neon/set/container/DeviceContainer.h"
 #include "Neon/set/container/DeviceManagedContainer.h"
@@ -91,7 +93,7 @@ template <typename MultiXpuDataT>
 auto Container::
     factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
                         Neon::set::TransferMode     transferMode,
-                        Neon::set::TransferSemantic transferSemantic)
+                        Neon::set::StencilSemantic transferSemantic)
         -> Neon::set::Container
 {
     auto k = new Neon::set::internal::DataTransferContainer(multiXpuData,

@@ -27,8 +27,6 @@ struct DataDependency
      *
      * Example: a read after write where kernel B reads results from kernel A
      *          Dependency_t(B, RAW, A)
-     * @param A
-     * @param B
      */
     DataDependency(Neon::set::container::GraphInfo::NodeUid      t1,
                    Neon::set::dataDependency::DataDependencyType type,

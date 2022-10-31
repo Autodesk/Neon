@@ -1,10 +1,14 @@
 #pragma once
 
+#include "ComputeType.h"
 #include "Neon/set/Backend.h"
 #include "Neon/set/HuOptions.h"
 #include "Neon/set/MultiXpuDataUid.h"
 #include "Neon/set/dependency/AccessType.h"
-#include "Neon/set/dependency/ComputeType.h"
+
+namespace Neon::set {
+struct Container;
+}
 
 namespace Neon::set::dataDependency {
 
@@ -58,18 +62,12 @@ struct Token
 
     /**
      * It sets the halo update container associated to the multi-GPU data.
-     * @param hu
-     * @param huPerDevice
      */
-    auto setHaloUpdate(std::function<void(Neon::set::HuOptions& opt)>               hu,
-                       std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)> huPerDevice)
+    auto setDataTransferContainer(std::function<Neon::set::Container(Neon::set::TransferMode transferMode)> huPerDevice)
         -> void;
 
-    auto getHaloUpdate()
-        const -> const std::function<void(Neon::set::HuOptions& opt)>&;
-
-    auto getHaloUpdatePerDevice()
-        const -> const std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)>&;
+    auto getDataTransferContainer(Neon::set::TransferMode transferMode)
+        const -> Neon::set::Container;
 
     auto mergeAccess(AccessType)
         -> void;
@@ -80,8 +78,7 @@ struct Token
     Neon::set::dataDependency::AccessType      mAccess;
     Neon::Compute                              mCompute;
 
-    std::function<void(Neon::set::HuOptions& opt)>               mHu;
-    std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)> mHuPerDevice;
+    std::function<Neon::set::Container(Neon::set::TransferMode transferMode)> mHaloUpdateExtractor;
 };
 
 }  // namespace Neon::set::dataDependency

@@ -14,7 +14,7 @@ struct DataTransferContainer
 
     DataTransferContainer(const MxpuDataT&        multiXpuData,
                           Neon::set::TransferMode     transferMode,
-                          Neon::set::TransferSemantic transferSemantic)
+                          Neon::set::StencilSemantic transferSemantic)
         : mMultiXpuData(multiXpuData),
           mTransferMode(transferMode),
           mTransferSemantic(transferSemantic)
@@ -64,7 +64,7 @@ struct DataTransferContainer
                                 mDataTransferFun;
     MxpuDataT               mMultiXpuData;
     Neon::set::TransferMode     mTransferMode;
-    Neon::set::TransferSemantic mTransferSemantic;
+    Neon::set::StencilSemantic  mTransferSemantic;
 };
 
 }  // namespace Neon::set::internal

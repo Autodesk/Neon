@@ -581,7 +581,7 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
 }
 
 
-auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options&) -> void
+auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options& skeletonOptions) -> void
 {
 
     if (m_setCardinality() == 1) {
@@ -596,81 +596,95 @@ auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options&) -> void
         }
     });
 
+    std::vector<const Neon::set::container::GraphDependency*> toBeRemoved;
+
+
     for (auto depPtr : stencilTypeDependencies) {
         const auto& dep = *depPtr;
-        const auto rawEdge = dep.getRawEdge();
+        const auto  rawEdge = dep.getRawEdge();
         auto        nodeA = mGraph().helpGetGraphNode(rawEdge.first);
         auto        nodeB = mGraph().helpGetGraphNode(rawEdge.second);
 
-        auto stencilInfo = dep.getListStencilInfo();
+        const Neon::set::container::GraphDependency::Tokens& tokens = dep.getTokens();
+        int                                                  numNewNodes = 0;
 
-        for (auto& infoPrt : stencilInfo) {
-            mGraph().addNodeInBetween(dep.)
+        for (const auto& token : tokens) {
+            auto container = token.getDataTransferContainer(skeletonOptions.transferMode());
+            numNewNodes += mGraph().expandAndMerge(nodeA, container, nodeB);
+        }
+
+        if (numNewNodes > 0) {
+            toBeRemoved.push_back(depPtr);
         }
     }
 
-
-    // Detects all stencil nodes
-    std::vector<Neon::set::container::GraphInfo::NodeUid> stencilNodesUids;
-
-    mGraph().forEachNode([&](Neon::set::container::GraphInfo::NodeUid nodeUid) {
-        const auto& node = mGraph().getGraphNode(nodeUid);
-        auto        pattern = node.getContainer().getContainerInterface().getContainerPatternType();
-        if (pattern == Neon::set::ContainerPatternType::stencil) {
-            auto dw = node.getScheduling().getDataView();
-            if (dw != Neon::DataView::INTERNAL) {
-                stencilNodesUids.push_back(nodeUid);
-            }
-        }
-    });
-
-    for (auto&& stencilNodeUid : stencilNodesUids) {
-        const auto& stencilNode = mGraph().getGraphNode(stencilNodeUid);
-
-        const auto             inEdges = m_graph().inEdges(stencilNode);
-        int                    detectedStencilEdges = 0;
-        [[maybe_unused]] auto& nodeInfo = m_graph().getVertexProperty(stencilNode);
-
-
-        // m_graph().forEachInEdge(stencilNode,
-        // We are using a copy of the inEdges,
-        // so we can modify the graph without any issue
-        std::for_each(inEdges.begin(), inEdges.end(),
-                      [&](const DiGraph::Edge& edge) {
-                          bool  visited = false;
-                          auto& edgeP = m_graph().getEdgeProperty(edge);
-                          auto& targetProperty = edgeP.infoMutable();
-
-                          // remove_if only  move elements at the end of the vector
-                          auto end = std::remove_if(targetProperty.begin(),
-                                                    targetProperty.end(),
-                                                    [&](Edge::Info& info) -> bool {
-                                                        if (info.token.compute() == Neon::Compute::STENCIL && !info.flag_discardStencilDep) {
-                                                            visited = true;
-                                                            detectedStencilEdges++;
-                                                            h_add_hUpdateSyncNodes(edge.first,
-                                                                                   edge.second,
-                                                                                   info,
-                                                                                   options.transferMode());
-
-                                                            return true;
-                                                        } else {
-                                                            visited = true;
-                                                            return false;
-                                                        }
-                                                    });
-
-                          targetProperty.erase(end, targetProperty.end());
-                          if (detectedStencilEdges > 0 && m_graph().getEdgeProperty(edge).nDependencies() == 0) {
-                              m_graph().removeEdge(edge);
-                          }
-                      });
-
-        if (detectedStencilEdges != 1) {
-            NEON_THROW_UNSUPPORTED_OPTION("Only one stencil in field is supported for now");
-        }
+    for (auto depPtr : toBeRemoved) {
+        mGraph().removeDependency(*depPtr);
     }
-    NEON_DEV_UNDER_CONSTRUCTION("");
+
+
+    //
+    //    // Detects all stencil nodes
+    //    std::vector<Neon::set::container::GraphInfo::NodeUid> stencilNodesUids;
+    //
+    //    mGraph().forEachNode([&](Neon::set::container::GraphInfo::NodeUid nodeUid) {
+    //        const auto& node = mGraph().getGraphNode(nodeUid);
+    //        auto        pattern = node.getContainer().getContainerInterface().getContainerPatternType();
+    //        if (pattern == Neon::set::ContainerPatternType::stencil) {
+    //            auto dw = node.getScheduling().getDataView();
+    //            if (dw != Neon::DataView::INTERNAL) {
+    //                stencilNodesUids.push_back(nodeUid);
+    //            }
+    //        }
+    //    });
+    //
+    //    for (auto&& stencilNodeUid : stencilNodesUids) {
+    //        const auto& stencilNode = mGraph().getGraphNode(stencilNodeUid);
+    //
+    //        const auto             inEdges = m_graph().inEdges(stencilNode);
+    //        int                    detectedStencilEdges = 0;
+    //        [[maybe_unused]] auto& nodeInfo = m_graph().getVertexProperty(stencilNode);
+    //
+    //
+    //        // m_graph().forEachInEdge(stencilNode,
+    //        // We are using a copy of the inEdges,
+    //        // so we can modify the graph without any issue
+    //        std::for_each(inEdges.begin(), inEdges.end(),
+    //                      [&](const DiGraph::Edge& edge) {
+    //                          bool  visited = false;
+    //                          auto& edgeP = m_graph().getEdgeProperty(edge);
+    //                          auto& targetProperty = edgeP.infoMutable();
+    //
+    //                          // remove_if only  move elements at the end of the vector
+    //                          auto end = std::remove_if(targetProperty.begin(),
+    //                                                    targetProperty.end(),
+    //                                                    [&](Edge::Info& info) -> bool {
+    //                                                        if (info.token.compute() == Neon::Compute::STENCIL && !info.flag_discardStencilDep) {
+    //                                                            visited = true;
+    //                                                            detectedStencilEdges++;
+    //                                                            h_add_hUpdateSyncNodes(edge.first,
+    //                                                                                   edge.second,
+    //                                                                                   info,
+    //                                                                                   options.transferMode());
+    //
+    //                                                            return true;
+    //                                                        } else {
+    //                                                            visited = true;
+    //                                                            return false;
+    //                                                        }
+    //                                                    });
+    //
+    //                          targetProperty.erase(end, targetProperty.end());
+    //                          if (detectedStencilEdges > 0 && m_graph().getEdgeProperty(edge).nDependencies() == 0) {
+    //                              m_graph().removeEdge(edge);
+    //                          }
+    //                      });
+    //
+    //        if (detectedStencilEdges != 1) {
+    //            NEON_THROW_UNSUPPORTED_OPTION("Only one stencil in field is supported for now");
+    //        }
+    //    }
+    //    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 auto MultiXpuGraph::checkCoherency() -> void

@@ -1,4 +1,5 @@
 #include "Neon/set/container/ContainerAPI.h"
+#include "Neon/set/dependency/Token.h"
 
 namespace Neon::set::internal {
 
@@ -149,7 +150,7 @@ auto ContainerAPI::
 
 auto ContainerAPI::
     getGraph()
-        -> const Neon::set::container::Graph&
+        const -> const Neon::set::container::Graph&
 {
     std::string         description = helpGetNameForError();
     Neon::NeonException exp("ContainerAPI");

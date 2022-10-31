@@ -3,9 +3,10 @@
 
 namespace Neon::set::internal {
 
-GraphContainer::GraphContainer(const std::string&                         name,
-                               const Neon::set::container::Graph&         containerGraph,
-                               std::function<void(Neon::SetIdx, Loader&)> loadingLambda)
+GraphContainer::
+    GraphContainer(const std::string&                         name,
+                   const Neon::set::container::Graph&         containerGraph,
+                   std::function<void(Neon::SetIdx, Loader&)> loadingLambda)
     : mLoadingLambda(loadingLambda)
 {
     mGraph = std::make_shared<Neon::set::container::Graph>(containerGraph);
@@ -17,7 +18,9 @@ GraphContainer::GraphContainer(const std::string&                         name,
     this->parse();
 }
 
-auto GraphContainer::newParser() -> Loader
+auto GraphContainer::
+    newParser()
+        -> Loader
 {
     auto parser = Loader(*this,
                          Neon::DeviceType::CPU,
@@ -27,7 +30,9 @@ auto GraphContainer::newParser() -> Loader
     return parser;
 }
 
-auto GraphContainer::parse() -> const std::vector<Neon::set::dataDependency::Token>&
+auto GraphContainer::
+    parse()
+        -> const std::vector<Neon::set::dataDependency::Token>&
 {
     Neon::SetIdx setIdx(0);
     if (!this->isParsingDataUpdated()) {
@@ -40,7 +45,9 @@ auto GraphContainer::parse() -> const std::vector<Neon::set::dataDependency::Tok
     return getTokens();
 }
 
-auto GraphContainer::getGraph() -> const Neon::set::container::Graph&
+auto GraphContainer::
+    getGraph()
+        const -> const Neon::set::container::Graph&
 {
     return *mGraph;
 }
@@ -50,15 +57,17 @@ auto GraphContainer::getGraph() -> const Neon::set::container::Graph&
  * @param streamIdx
  * @param dataView
  */
-auto GraphContainer::run(int            streamIdx,
-                         Neon::DataView dataView) -> void
+auto GraphContainer::
+    run(int            streamIdx,
+        Neon::DataView dataView) -> void
 {
     mGraph->run(streamIdx, dataView);
 }
 
-auto GraphContainer::run(Neon::SetIdx   setIdx,
-                         int            streamIdx,
-                         Neon::DataView dataView) -> void
+auto GraphContainer::
+    run(Neon::SetIdx   setIdx,
+        int            streamIdx,
+        Neon::DataView dataView) -> void
 {
     mGraph->run(setIdx, streamIdx, dataView);
 }

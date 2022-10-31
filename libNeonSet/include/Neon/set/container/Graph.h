@@ -97,6 +97,8 @@ struct Graph
                        const Neon::set::dataDependency::Token& token)
         -> GraphDependency&;
 
+    auto removeDependency(const GraphDependency&)
+        -> void;
     /**
      * Returns the dependency type between two nodes.
      */
@@ -179,6 +181,16 @@ struct Graph
 
     auto forEachNode(const std::function<void(const GraphNode&)>& fun)
         const -> void;
+
+    /**
+     * Adding a graph between two nodes A and B
+     * The method works only on Graph type containers.
+     * Finally, it returns the number of added nodes.
+     */
+    auto expandAndMerge(const GraphNode& A,
+                        const Container& graphOriginal,
+                        const GraphNode& B)
+        -> int;
 
    protected:
     /**
@@ -309,12 +321,6 @@ struct Graph
     auto helpComputeScheduling_04_ensureResources(int maxStreamId, int maxEventId)
         -> void;
 
-    /**
-     * Adding a graph between two nodes
-     */
-    auto helpMergeGraphBetweenNodes(const Graph&     graph,
-                                    const GraphNode& A,
-                                    const GraphNode& B);
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
 

@@ -28,7 +28,7 @@ struct GraphContainer : ContainerAPI
         -> const std::vector<Neon::set::dataDependency::Token>& override;
 
     auto getGraph()
-        -> const Neon::set::container::Graph& override;
+      const  -> const Neon::set::container::Graph& override;
 
     auto run(int            streamIdx = 0,
              Neon::DataView dataView = Neon::DataView::STANDARD)

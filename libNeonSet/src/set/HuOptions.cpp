@@ -7,7 +7,7 @@ namespace set {
 HuOptions::HuOptions(Neon::set::TransferMode     transferMode,
                      bool                        startWithBarrier,
                      int                         streamSetIdx,
-                     Neon::set::TransferSemantic structure)
+                     Neon::set::StencilSemantic structure)
     : m_startWithBarrier(startWithBarrier),
       m_streamSetIdx(streamSetIdx),
       m_peerTransferOpt(transferMode, structure),
@@ -18,7 +18,7 @@ HuOptions::HuOptions(Neon::set::TransferMode     transferMode,
 
 HuOptions::HuOptions(Neon::set::TransferMode transferMode,
                      NEON_OUT std::vector<Neon::set::Transfer>& transfers,
-                     Neon::set::TransferSemantic                structure)
+                     Neon::set::StencilSemantic                 structure)
     : m_startWithBarrier(false),
       m_streamSetIdx(0),
       m_peerTransferOpt(transferMode, transfers, structure),
@@ -78,7 +78,7 @@ auto HuOptions::isExecuteMode() const
 }
 
 auto HuOptions::getSemantic()
-    const -> Neon::set::TransferSemantic
+    const -> Neon::set::StencilSemantic
 {
     return m_structure;
 }

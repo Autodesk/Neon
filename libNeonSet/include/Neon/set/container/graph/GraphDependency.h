@@ -25,6 +25,7 @@ struct GraphDependency
 
    public:
     GraphDependency();
+
     explicit GraphDependency(GraphDependencyType   type,
                              const RawGraph::Edge& edge);
 

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Neon/set/DevSet.h"
-#include "Neon/set/dependency/Token.h"
 #include "functional"
 #include "type_traits"
 
@@ -9,10 +8,9 @@
 #include "Neon/set/container/types/HostManagedSyncType.h"
 #include "Neon/set/container/types/SynchronizationContainerType.h"
 
-#include "Neon/set/container/Loader.h"
-
 namespace Neon::set {
 
+struct Loader;
 
 struct Container
 {
@@ -111,7 +109,7 @@ struct Container
     template <typename MultiXpuDataT>
     static auto factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
                                     Neon::set::TransferMode     transferMode,
-                                    Neon::set::TransferSemantic transferSemantic)
+                                    Neon::set::StencilSemantic transferSemantic)
         -> Neon::set::Container;
 
     template <typename MxpuDataT>

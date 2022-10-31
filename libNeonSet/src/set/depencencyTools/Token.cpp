@@ -1,6 +1,7 @@
 #include <utility>
 
 #include "Neon/set//dependency/Token.h"
+#include "Neon/set/Containter.h"
 
 namespace Neon::set::dataDependency {
 
@@ -18,16 +19,13 @@ auto Token::update(MultiXpuDataUid uid,
     mUid = uid;
     mAccess = access;
     mCompute = compute;
-    setHaloUpdate(
-        [&](Neon::set::HuOptions&) -> void {
+
+    setDataTransferContainer(
+        [&](Neon::set::TransferMode)
+            -> Neon::set::Container {
         NeonException exp("Token");
         exp << "This is not a stencil token and this is not a valid operation";
-        NEON_THROW(exp); },
-        [&](Neon::SetIdx, Neon::set::HuOptions&) -> void {
-            NeonException exp("Token");
-            exp << "This is not a stencil token and this is not a valid operation";
-            NEON_THROW(exp);
-        });
+        NEON_THROW(exp); });
 }
 
 auto Token::access() const -> AccessType
@@ -45,34 +43,29 @@ auto Token::uid() const -> MultiXpuDataUid
     return mUid;
 }
 
-auto Token::toString() const -> std::string
+auto Token::
+    toString() const -> std::string
 {
     return " uid " + std::to_string(mUid) +
            " [Op " + AccessTypeUtils::toString(mAccess) +
            " Model " + Neon::ComputeUtils::toString(mCompute) + "]";
 }
 
+auto Token::
+    setDataTransferContainer(std::function<Neon::set::Container(Neon::set::TransferMode transferMode)> huPerDevice) -> void
+{
+    mHaloUpdateExtractor = std::move(huPerDevice);
+}
 
 auto Token::
-    setHaloUpdate(std::function<void(Neon::set::HuOptions& opt)>               hu,
-                  std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)> huPerDevice) -> void
+    getDataTransferContainer(Neon::set::TransferMode transferMode)
+        const -> Neon::set::Container
 {
-    mHu = std::move(hu);
-    mHuPerDevice = std::move(huPerDevice);
+    return mHaloUpdateExtractor(transferMode);
 }
 
-auto Token::getHaloUpdate() const
-    -> const std::function<void(Neon::set::HuOptions& opt)>&
-{
-    return mHu;
-}
-
-auto Token::getHaloUpdatePerDevice() const
-    -> const std::function<void(Neon::SetIdx, Neon::set::HuOptions& opt)>&
-{
-    return mHuPerDevice;
-}
-auto Token::mergeAccess(AccessType tomerge) -> void
+auto Token::
+    mergeAccess(AccessType tomerge) -> void
 {
     mAccess = AccessTypeUtils::merge(mAccess, tomerge);
 }

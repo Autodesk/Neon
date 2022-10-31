@@ -1,13 +1,11 @@
 #pragma once
 
-#include "Neon/set/container/types/ContainerOperationType.h"
-#include "Neon/set/container/types/ContainerPatternType.h"
-
 #include "Neon/set/DevSet.h"
 #include "Neon/set/container/types/ContainerExecutionType.h"
+#include "Neon/set/container/types/ContainerOperationType.h"
+#include "Neon/set/container/types/ContainerPatternType.h"
+//#include "Neon/set/dependency/Token.h"
 
-
-#include "Neon/set/dependency/Token.h"
 #include "functional"
 #include "type_traits"
 
@@ -17,6 +15,10 @@ struct Loader;
 
 namespace Neon::set::container {
 struct Graph;
+}
+
+namespace Neon::set::dataDependency {
+struct Token;
 }
 
 namespace Neon::set::internal {
@@ -71,7 +73,7 @@ struct ContainerAPI
     /**
      * Returns a handle to the internal graph of Containers.
      */
-    virtual auto getGraph()
+    virtual auto getGraph() const
         -> const Neon::set::container::Graph&;
 
     /**
@@ -81,8 +83,8 @@ struct ContainerAPI
     virtual auto parse()
         -> const std::vector<Neon::set::dataDependency::Token>&;
 
-    virtual auto getTransferMode()const
-        ->Neon::set::TransferMode ;
+    virtual auto getTransferMode() const
+        -> Neon::set::TransferMode;
 
     /**
      * Returns a name associated to the container.

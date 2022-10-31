@@ -67,7 +67,7 @@ class eFieldDevice_t
         std::array<
             std::array<
                 std::vector<Neon::set::Transfer>,
-                Neon::set::TransferSemanticUtils::nOptions>,
+                Neon::set::StencilSemanticUtils::nOptions>,
             Neon::set::TransferModeUtils::nOptions>
             m_haloUpdateInfo;
     };
@@ -125,7 +125,7 @@ class eFieldDevice_t
                     for (auto mode : {Neon::set::TransferMode::get, Neon::set::TransferMode::put}) {
 
                         {  // (GET,PUT), FORWARD, GRID
-                            const auto           structure = Neon::set::TransferSemantic::grid;
+                            const auto           structure = Neon::set::StencilSemantic::standard;
                             auto&                transfers = h_haloUpdateInfo(mode, structure);
                             Neon::set::HuOptions huOptions(mode, transfers, structure);
                             this->haloUpdate__(m_data->grid->getBackend(), huOptions);
@@ -143,7 +143,7 @@ class eFieldDevice_t
     }
 
     auto h_haloUpdateInfo(Neon::set::TransferMode     mode,
-                          Neon::set::TransferSemantic structure)
+                          Neon::set::StencilSemantic structure)
         -> std::vector<Neon::set::Transfer>&
     {
         return m_data->m_haloUpdateInfo[static_cast<int>(mode)]
@@ -491,7 +491,7 @@ class eFieldDevice_t
 #pragma omp parallel for num_threads(ompNDevs) default(shared)
                 for (int setIdx = 0; setIdx < nDevs; setIdx++) {
                     for (int cardIdx = 0; cardIdx < self().cardinality(); cardIdx++) {
-                        constexpr auto structure = Neon::set::TransferSemantic::grid;
+                        constexpr auto structure = Neon::set::StencilSemantic::standard;
 
                         auto& peerTransferOpt = opt.getPeerTransferOpt(bk);
                         h_huSoAByCardSingleDevFwd(peerTransferOpt,
@@ -656,7 +656,7 @@ class eFieldDevice_t
 
                         Neon::set::PeerTransferOption& peerTransferOpt = huOptions.getPeerTransferOpt(bk);
                         // LATTICE + FORWARD
-                        constexpr auto structure = Neon::set::TransferSemantic::lattice;
+                        constexpr auto structure = Neon::set::StencilSemantic::streaming;
 
                         h_huSoAByCardSingleDevFwd(peerTransferOpt,
                                                   gpuIdx, cardIdx,
@@ -808,7 +808,7 @@ class eFieldDevice_t
     auto h_huSoAByCardSingleDevFwd(Neon::set::PeerTransferOption opt,
                                    int                           devIdx,
                                    const int                     cardIdx,
-                                   Neon::set::TransferSemantic   structure) const
+                                   Neon::set::StencilSemantic    structure) const
         -> void
     {
         const Neon::Backend& bk = m_data->grid->getBackend();
@@ -846,7 +846,7 @@ class eFieldDevice_t
                 }
             }
 
-            if (structure == Neon::set::TransferSemantic::lattice) {
+            if (structure == Neon::set::StencilSemantic::streaming) {
                 index_3d dir = grid().getStencil().neighbours().at(cardIdx);
                 switch (comDirection) {
                     case ComDirection_e::COM_DW: {

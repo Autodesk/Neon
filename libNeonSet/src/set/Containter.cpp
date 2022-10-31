@@ -1,6 +1,7 @@
 #include "Neon/set/Containter.h"
 #include "Neon/set/container/AnchorContainer.h"
 #include "Neon/set/container/SynchronizationContainer.h"
+#include "Neon/set/container/Loader.h"
 
 namespace Neon::set {
 
