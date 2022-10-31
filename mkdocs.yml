@@ -135,8 +135,7 @@ nav:
             - Skeleton Level: ./learn/guided-tutorials/the-bases/04-skeleton-level.md
           - Staggered Grids: ./learn/guided-tutorials/staggered-grids/staggered-grid.md
           - Multi-resolution: ./learn/guided-tutorials/multi-resolution/multi-resolution.md
-      - Examples:
-          - Mandelbrot: learn/examples/mandelbrot.md
+      - Applications: ./learn/apps/apps.md          
   - References:
       - Papers and Presentations: references/papers-presentations.md
       - API Documentation: references/api-documentation.md
