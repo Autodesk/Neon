@@ -105,6 +105,7 @@ template <typename T, int C>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::operator()(const bCell& cell,
                                                                int          card) -> T&
 {
+
     if (mIsInSharedMem) {
         return mMemSharedMem[shmemPitch(cell, card)];
     } else {
@@ -158,11 +159,64 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::childID(const Cell& cell) co
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::hasParent(const Cell& cell) const -> bool
 {
-    //TODO
     if (mMemParent) {
         return true;
     }
     return false;
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getChild(const Cell&   cell,
+                                                             Neon::int8_3d child) const -> Cell
+{
+    Cell childCell;
+    childCell.mBlockID = childID(cell);
+    childCell.mBlockSize = mRefFactors[mLevel - 1];
+    childCell.mLocation.x = child.x;
+    childCell.mLocation.y = child.y;
+    childCell.mLocation.z = child.z;
+    childCell.computeIsActive(mMaskLowerLevel);
+
+    return childCell;
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::childVal(const Cell& childCell,
+                                                             int         card) -> T&
+{
+    return mMemChild[pitch(childCell, card)];
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::childVal(const Cell& childCell,
+                                                             int         card) const -> const T&
+{
+    return mMemChild[pitch(childCell, card)];
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::childVal(const Cell&   parent_cell,
+                                                             Neon::int8_3d child,
+                                                             int           card,
+                                                             const T&      alternativeVal) const -> NghInfo<T>
+{
+    NghInfo<T> ret;
+    ret.value = alternativeVal;
+    ret.isValid = false;
+    if (!parent_cell.mIsActive || !hasChildren(parent_cell)) {
+        return ret;
+    }
+
+    Cell child_cell = getChild(parent_cell, child);
+
+    if (!child_cell.mIsActive) {
+        return ret;
+    }
+
+    ret.isValid = true;
+    ret.value = childVal(child_cell, card);
+
+    return ret;
 }
 
 template <typename T, int C>

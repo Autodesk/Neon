@@ -60,6 +60,21 @@ class bPartition
                                              int         card,
                                              const T&    alternativeVal) const -> NghInfo<T>;
 
+    NEON_CUDA_HOST_DEVICE inline auto childVal(const Cell&   parent_cell,
+                                               Neon::int8_3d child,
+                                               int           card,
+                                               const T&      alternativeVal) const -> NghInfo<T>;
+
+    NEON_CUDA_HOST_DEVICE inline auto getChild(const Cell&   cell,
+                                               Neon::int8_3d child) const -> Cell;
+
+    NEON_CUDA_HOST_DEVICE inline auto childVal(const Cell& childCell,
+                                               int         card) -> T&;
+
+    NEON_CUDA_HOST_DEVICE inline auto childVal(const Cell& childCell,
+                                               int         card) const -> const T&;
+
+
     NEON_CUDA_HOST_DEVICE inline auto parent(const Cell& eId,
                                              int         card) -> T&;
 

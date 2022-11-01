@@ -71,7 +71,7 @@ void MultiResChild()
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         if (xLocal.hasChildren(cell)) {
                             isRefinedLocal(cell, 0) = 1;
-                            //xLocal(cell, 0) = xLocal.parent(cell, 0);
+                            //xLocal(cell, 0) = xLocal.childVal(cell, {0, 0, 0}, 0, 0).value;
                         }
                     };
                 });
