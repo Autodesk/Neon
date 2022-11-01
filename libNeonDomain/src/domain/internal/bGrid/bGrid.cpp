@@ -325,12 +325,26 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
 
     //child block ID
+    std::vector<Neon::set::DataSet<uint64_t>> childAllocSize(mData->mDescriptor.getDepth());
+    for (int l = 0; l < descriptor.getDepth(); ++l) {
+        childAllocSize[l] = getBackend().devSet().template newDataSet<uint64_t>();
+        for (int64_t i = 0; i < childAllocSize[l].size(); ++i) {
+            if (l > 0) {
+                childAllocSize[l][i] = mData->mNumBlocks[l][i] *
+                                       descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l);
+            } else {
+                //we actually don't need to store anything at level 0
+                childAllocSize[l][i] = 1;
+            }
+        }
+    }
+
     mData->mChildBlockID.resize(mData->mDescriptor.getDepth());
-    for (int l = 1; l < mData->mDescriptor.getDepth(); ++l) {
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mChildBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
-                                                                                descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l),
+                                                                                1,
                                                                                 memOptionsSoA,
-                                                                                mData->mNumBlocks[l]);
+                                                                                childAllocSize[l]);
     }
 
 
@@ -479,7 +493,9 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                                 if (child_it) {
                                     child_id = *child_it;
                                 }
-                                mData->mChildBlockID[l].eRef(devID, blockIdx, int(localChild.mPitch(3, 3))) = child_id;
+                                mData->mChildBlockID[l].eRef(devID,
+                                                             blockIdx * refFactor * refFactor * refFactor +
+                                                                 x + y * refFactor + z * refFactor * refFactor) = child_id;
                             }
                         }
                     }

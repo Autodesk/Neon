@@ -7,6 +7,7 @@
 #include "Neon/skeleton/Options.h"
 #include "Neon/skeleton/Skeleton.h"
 
+#include "MultiResChild.h"
 #include "MultiResMap.h"
 #include "MultiResParent.h"
 #include "MultiResStencil.h"

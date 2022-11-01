@@ -19,7 +19,7 @@ bPartition<T, C>::bPartition()
       mParentLocalID(nullptr),
       mMask(nullptr),
       mMaskLowerLevel(nullptr),
-      mFirstChildBlockID(nullptr),
+      mChildBlockID(nullptr),
       mOutsideValue(0),
       mStencilNghIndex(nullptr),
       mRefFactors(nullptr),
@@ -44,7 +44,7 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
                              Cell::Location* parentLocalID,
                              uint32_t*       mask,
                              uint32_t*       maskLowerLevel,
-                             uint32_t*       firstChildBlockID,
+                             uint32_t*       childBlockID,
                              T               outsideValue,
                              nghIdx_t*       stencilNghIndex,
                              int*            refFactors,
@@ -61,7 +61,7 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
       mParentLocalID(parentLocalID),
       mMask(mask),
       mMaskLowerLevel(maskLowerLevel),
-      mFirstChildBlockID(firstChildBlockID),
+      mChildBlockID(childBlockID),
       mOutsideValue(outsideValue),
       mStencilNghIndex(stencilNghIndex),
       mRefFactors(refFactors),
@@ -74,21 +74,21 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Cell& local) const -> Neon::index_3d
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Cell& cell) const -> Neon::index_3d
 {
-    Neon::index_3d ret = mOrigin[local.mBlockID];
+    Neon::index_3d ret = mOrigin[cell.mBlockID];
 #ifdef NEON_PLACE_CUDA_DEVICE
     if constexpr (Cell::sUseSwirlIndex) {
-        Cell::Location swirl = local.toSwirl();
+        Cell::Location swirl = cell.toSwirl();
         ret.x += swirl.x;
         ret.y += swirl.y;
         ret.z += swirl.z;
     } else {
 #endif
         const int sp = (mLevel == 0) ? 1 : mSpacing[mLevel - 1];
-        ret.x += local.mLocation.x * sp;
-        ret.y += local.mLocation.y * sp;
-        ret.z += local.mLocation.z * sp;
+        ret.x += cell.mLocation.x * sp;
+        ret.y += cell.mLocation.y * sp;
+        ret.z += cell.mLocation.z * sp;
 #ifdef NEON_PLACE_CUDA_DEVICE
     }
 #endif
@@ -138,8 +138,27 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int 
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::hasParent(const Cell& local) const -> bool
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::childID(const Cell& cell) const -> uint32_t
 {
+    //return the child block id corresponding to this cell
+    //the child block id lives at level mLevel-1
+
+    const uint32_t childPitch =
+        //stride across all block before cell's block
+        cell.mBlockID *
+            cell.mBlockSize * cell.mBlockSize * cell.mBlockSize +
+        //stride within the block
+        cell.mLocation.x +
+        cell.mLocation.y * cell.mBlockSize +
+        cell.mLocation.z * cell.mBlockSize * cell.mBlockSize;
+
+    return mChildBlockID[childPitch];
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::hasParent(const Cell& cell) const -> bool
+{
+    //TODO
     if (mMemParent) {
         return true;
     }
@@ -147,11 +166,15 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::hasParent(const Cell& local)
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::isRefined(const Cell& local) const -> bool
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::hasChildren(const Cell& cell) const -> bool
 {
-    if (mMemChild == nullptr || mMaskLowerLevel == nullptr) {
-        return true;
+    if (mMemChild == nullptr || mMaskLowerLevel == nullptr || mLevel == 0) {
+        return false;
     }
+    if (childID(cell) == std::numeric_limits<uint32_t>::max()) {
+        return false;
+    }
+    return true;
 }
 
 template <typename T, int C>

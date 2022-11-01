@@ -35,7 +35,7 @@ class bPartition
                         Cell::Location* parentLocalID,
                         uint32_t*       mask,
                         uint32_t*       maskLowerLevel,
-                        uint32_t*       firstChildBlockID,
+                        uint32_t*       childBlockID,
                         T               defaultValue,
                         nghIdx_t*       stencilNghIndex,
                         int*            descriptor,
@@ -71,11 +71,11 @@ class bPartition
                                                               const nghIdx_t::Integer    stencilRadius,
                                                               Neon::sys::ShmemAllocator& shmemAlloc) const;
 
-    NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Cell& local) const -> Neon::index_3d;
+    NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Cell& cell) const -> Neon::index_3d;
 
-    NEON_CUDA_HOST_DEVICE inline auto hasParent(const Cell& local) const -> bool;
+    NEON_CUDA_HOST_DEVICE inline auto hasParent(const Cell& cell) const -> bool;
 
-    NEON_CUDA_HOST_DEVICE inline auto isRefined(const Cell& local) const -> bool;
+    NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Cell& cell) const -> bool;
 
     template <typename FuncT>
     NEON_CUDA_HOST_DEVICE inline auto forEachActiveChild(const Cell& local,
@@ -99,6 +99,7 @@ class bPartition
 
    private:
     inline NEON_CUDA_HOST_DEVICE auto pitch(const Cell& cell, int card) const -> uint32_t;
+    inline NEON_CUDA_HOST_DEVICE auto childID(const Cell& cell) const -> uint32_t;
     inline NEON_CUDA_HOST_DEVICE auto setNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell;
     inline NEON_CUDA_HOST_DEVICE auto shmemPitch(Cell cell, const int card) const -> Cell::Location::Integer;
 
@@ -114,7 +115,7 @@ class bPartition
     Cell::Location*           mParentLocalID;
     uint32_t*                 mMask;
     uint32_t*                 mMaskLowerLevel;
-    uint32_t*                 mFirstChildBlockID;
+    uint32_t*                 mChildBlockID;
     T                         mOutsideValue;
     nghIdx_t*                 mStencilNghIndex;
     int*                      mRefFactors;
