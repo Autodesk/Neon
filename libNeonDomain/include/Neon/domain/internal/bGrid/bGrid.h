@@ -114,7 +114,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getBlockOriginTo1D(int level) const -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
     auto getParentsBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
     auto getParentLocalID(int level) const -> const Neon::set::MemSet_t<Cell::Location>&;
-    auto getFirstChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
 
     //for compatibility with other grids that can work on cub and cublas engine
     auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
@@ -174,8 +174,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //stores the parent of the block
         std::vector<Neon::set::MemSet_t<uint32_t>> mParentBlockID;
 
-        //stores the parent of the block
-        std::vector<Neon::set::MemSet_t<uint32_t>> mFirstChildBlockID;
+        //Given a block at level L, we store R children block IDs for each block in L where R is the refinement factor
+        std::vector<Neon::set::MemSet_t<uint32_t>> mChildBlockID;
 
         //store the parent local index within its block
         std::vector<Neon::set::MemSet_t<Cell::Location>> mParentLocalID;

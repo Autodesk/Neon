@@ -295,17 +295,23 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                           origin);
 
 
-    Neon::MemoryOptions memOptions(Neon::DeviceType::CPU,
-                                   Neon::Allocator::MALLOC,
-                                   Neon::DeviceType::CUDA,
-                                   ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
-                                   Neon::MemoryLayout::arrayOfStructs);
+    Neon::MemoryOptions memOptionsAoS(Neon::DeviceType::CPU,
+                                      Neon::Allocator::MALLOC,
+                                      Neon::DeviceType::CUDA,
+                                      ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
+                                      Neon::MemoryLayout::arrayOfStructs);
+    Neon::MemoryOptions memOptionsSoA(Neon::DeviceType::CPU,
+                                      Neon::Allocator::MALLOC,
+                                      Neon::DeviceType::CUDA,
+                                      ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
+                                      Neon::MemoryLayout::structOfArrays);
+
     //origin
     mData->mOrigin.resize(mData->mDescriptor.getDepth());
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mOrigin[l] = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
                                                                                 1,
-                                                                                memOptions,
+                                                                                memOptionsAoS,
                                                                                 mData->mNumBlocks[l]);
     }
 
@@ -314,17 +320,17 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mParentBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                                  1,
-                                                                                 memOptions,
+                                                                                 memOptionsAoS,
                                                                                  mData->mNumBlocks[l]);
     }
 
-    //first child block ID
-    mData->mFirstChildBlockID.resize(mData->mDescriptor.getDepth());
-    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-        mData->mFirstChildBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
-                                                                                     1,
-                                                                                     memOptions,
-                                                                                     mData->mNumBlocks[l]);
+    //child block ID
+    mData->mChildBlockID.resize(mData->mDescriptor.getDepth());
+    for (int l = 1; l < mData->mDescriptor.getDepth(); ++l) {
+        mData->mChildBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+                                                                                descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l),
+                                                                                memOptionsSoA,
+                                                                                mData->mNumBlocks[l]);
     }
 
 
@@ -333,7 +339,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mParentLocalID[l] = backend.devSet().template newMemSet<Cell::Location>({Neon::DataUse::IO_COMPUTE},
                                                                                        1,
-                                                                                       memOptions,
+                                                                                       memOptionsAoS,
                                                                                        mData->mNumBlocks[l]);
     }
 
@@ -345,7 +351,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
     mData->mStencilNghIndex = backend.devSet().template newMemSet<nghIdx_t>({Neon::DataUse::IO_COMPUTE},
                                                                             1,
-                                                                            memOptions,
+                                                                            memOptionsAoS,
                                                                             stencilNghSize);
 
     for (int32_t c = 0; c < mData->mStencilNghIndex.cardinality(); ++c) {
@@ -364,7 +370,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     }
     mData->mRefFactors = backend.devSet().template newMemSet<int>({Neon::DataUse::IO_COMPUTE},
                                                                   1,
-                                                                  memOptions,
+                                                                  memOptionsAoS,
                                                                   descriptorSize);
     for (int32_t c = 0; c < mData->mRefFactors.cardinality(); ++c) {
         SetIdx devID(c);
@@ -375,7 +381,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
     mData->mSpacing = backend.devSet().template newMemSet<int>({Neon::DataUse::IO_COMPUTE},
                                                                1,
-                                                               memOptions,
+                                                               memOptionsAoS,
                                                                descriptorSize);
     for (int32_t c = 0; c < mData->mSpacing.cardinality(); ++c) {
         SetIdx devID(c);
@@ -398,7 +404,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
 
         mData->mActiveMask[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                               1,
-                                                                              memOptions,
+                                                                              memOptionsAoS,
                                                                               mData->mActiveMaskSize[l]);
     }
 
@@ -419,7 +425,7 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mNeighbourBlocks[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                                    26,
-                                                                                   memOptions,
+                                                                                   memOptionsAoS,
                                                                                    mData->mNumBlocks[l]);
         // init neighbor blocks to invalid block id
         for (int32_t c = 0; c < mData->mNeighbourBlocks[l].cardinality(); ++c) {
@@ -455,28 +461,25 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
                 mData->mActiveMask[l].eRef(devID, cell.getBlockMaskStride(refFactor) + cell.getMaskLocalID(refFactor), 0) |= 1 << cell.getMaskBitPosition(refFactor);
             };
 
-            //to track if the first child has been set
-            bool firstChildSet = false;
 
-            //set active mask
+            //set active mask and child ID
             for (Cell::Location::Integer z = 0; z < refFactor; z++) {
                 for (Cell::Location::Integer y = 0; y < refFactor; y++) {
                     for (Cell::Location::Integer x = 0; x < refFactor; x++) {
 
-                        if (levelBitMaskIsSet(l, block3DIndex, {x, y, z})) {
+                        const Neon::index_3d localChild(x, y, z);
+
+                        if (levelBitMaskIsSet(l, block3DIndex, localChild)) {
                             setCellActiveMask(x, y, z);
 
-                            if (l > 0 && !firstChildSet) {
-                                Neon::index_3d childBase = mData->mDescriptor.parentToChild(blockOrigin, l, {x, y, z});
+                            uint32_t child_id = std::numeric_limits<uint32_t>::max();
+                            if (l > 0) {
+                                Neon::index_3d childBase = mData->mDescriptor.parentToChild(blockOrigin, l, localChild);
                                 auto           child_it = mData->mBlockOriginTo1D[l - 1].getMetadata(childBase);
-
-                                if (!child_it) {
-                                    NeonException exp("bGrid::bGrid");
-                                    exp << "Something went wrong during constructing bGrid. Can not find the right first child of a block\n";
-                                    NEON_THROW(exp);
+                                if (child_it) {
+                                    child_id = *child_it;
                                 }
-                                mData->mFirstChildBlockID[l].eRef(devID, blockIdx) = *child_it;
-                                firstChildSet = true;
+                                mData->mChildBlockID[l].eRef(devID, blockIdx, int(localChild.mPitch(3, 3))) = child_id;
                             }
                         }
                     }
@@ -561,9 +564,12 @@ bGrid::bGrid(const Neon::Backend&                                    backend,
             mData->mActiveMask[l].updateCompute(backend, 0);
             mData->mOrigin[l].updateCompute(backend, 0);
             mData->mParentBlockID[l].updateCompute(backend, 0);
-            mData->mFirstChildBlockID[l].updateCompute(backend, 0);
             mData->mParentLocalID[l].updateCompute(backend, 0);
             mData->mNeighbourBlocks[l].updateCompute(backend, 0);
+
+            if (l > 0) {
+                mData->mChildBlockID[l].updateCompute(backend, 0);
+            }
         }
         mData->mStencilNghIndex.updateCompute(backend, 0);
         mData->mRefFactors.updateCompute(backend, 0);
@@ -748,9 +754,9 @@ auto bGrid::getParentsBlockID(int level) const -> const Neon::set::MemSet_t<uint
 {
     return mData->mParentBlockID[level];
 }
-auto bGrid::getFirstChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&
 {
-    return mData->mFirstChildBlockID[level];
+    return mData->mChildBlockID[level];
 }
 
 
