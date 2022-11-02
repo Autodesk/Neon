@@ -117,5 +117,7 @@ void MultiResChild()
 
 TEST(MultiRes, Child)
 {
-    MultiResChild();
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        MultiResChild();
+    }
 }
