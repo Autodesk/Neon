@@ -69,10 +69,10 @@ class bPartition
                                                Neon::int8_3d child) const -> Cell;
 
     NEON_CUDA_HOST_DEVICE inline auto childVal(const Cell& childCell,
-                                               int         card) -> T&;
+                                               int         card = 0) -> T&;
 
     NEON_CUDA_HOST_DEVICE inline auto childVal(const Cell& childCell,
-                                               int         card) const -> const T&;
+                                               int         card = 0) const -> const T&;
 
 
     NEON_CUDA_HOST_DEVICE inline auto parent(const Cell& eId,

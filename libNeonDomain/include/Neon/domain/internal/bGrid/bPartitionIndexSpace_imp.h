@@ -46,8 +46,8 @@ bPartitionIndexSpace::setAndValidate(bCell&        cell,
 
     if (cell.mBlockID >= mNumBlocks) {
         cell.mIsActive = false;
-        return false;
     }
+
 
     if (blockOrigin[cell.mBlockID].x + cell.mLocation.x * mSpacing >= mDomainSize.x ||
         blockOrigin[cell.mBlockID].y + cell.mLocation.y * mSpacing >= mDomainSize.y ||
@@ -56,7 +56,7 @@ bPartitionIndexSpace::setAndValidate(bCell&        cell,
         cell.mIsActive = false;
     }
 
-    return true;
+    return cell.mIsActive;
 }
 
 }  // namespace Neon::domain::internal::bGrid

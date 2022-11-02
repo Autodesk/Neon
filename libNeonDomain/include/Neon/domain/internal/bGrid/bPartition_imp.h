@@ -175,8 +175,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getChild(const Cell&   cell,
     childCell.mLocation.x = child.x;
     childCell.mLocation.y = child.y;
     childCell.mLocation.z = child.z;
-    childCell.computeIsActive(mMaskLowerLevel);
-
+    childCell.mIsActive = childCell.computeIsActive(mMaskLowerLevel);
     return childCell;
 }
 
