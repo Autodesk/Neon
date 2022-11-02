@@ -139,6 +139,18 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int 
 }
 
 template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getRefFactor(const int level) const -> int
+{
+    return mRefFactors[level];
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getSpacing(const int level) const -> int
+{
+    return mSpacing[level];
+}
+
+template <typename T, int C>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::childID(const Cell& cell) const -> uint32_t
 {
     //return the child block id corresponding to this cell

@@ -32,7 +32,7 @@ void MultiResChild()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //BGrid.topologyToVTK("bGrid111.vtk", false);
+        //BGrid.topologyToVTK("bGrid112.vtk", false);
 
         auto XField = BGrid.newField<Type>("XField", 1, -1);
         auto isRefinedField = BGrid.newField<Type>("isRefined", 1, -1);
@@ -64,14 +64,30 @@ void MultiResChild()
             BGrid.setCurrentLevel(level);
 
             auto container = BGrid.getContainer(
-                "isRefined", [&, level](Neon::set::Loader& loader) {
+                "isRefined", [&, level, descriptor](Neon::set::Loader& loader) {
                     auto& xLocal = loader.load(XField);
                     auto& isRefinedLocal = loader.load(isRefinedField);
+
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         if (xLocal.hasChildren(cell)) {
                             isRefinedLocal(cell, 0) = 1;
-                            //xLocal(cell, 0) = xLocal.childVal(cell, {0, 0, 0}, 0, 0).value;
+
+                            Neon::index_3d cellOrigin = xLocal.mapToGlobal(cell);
+
+                            const int refFactor = xLocal.getRefFactor(level - 1);
+
+                            for (int8_t z = 0; z < refFactor; ++z) {
+                                for (int8_t y = 0; y < refFactor; ++y) {
+                                    for (int8_t x = 0; x < refFactor; ++x) {
+                                        auto child = xLocal.getChild(cell, {x, y, z});
+
+                                        if (child.isActive()) {
+                                            xLocal.childVal(child) = cellOrigin.mPitch(refFactor, refFactor);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     };
                 });
@@ -102,15 +118,15 @@ void MultiResChild()
                 });
 
 
-            /*XField.forEachActiveCell(
+            XField.forEachActiveCell(
                 l,
-                [&](const Neon::int32_3d, const int, Type& val) {
-                    if (l != descriptor.getDepth() - 1) {
-                        EXPECT_EQ(val, l + 1);
-                    } else {
-                        EXPECT_EQ(val, l);
+                [&](const Neon::int32_3d id, const int, Type& val) {
+                    if (l < descriptor.getDepth() - 1) {
+                        const int      refFactor = descriptor.getRefFactor(l);
+                        Neon::index_3d blockOrigin = descriptor.toBaseIndexSpace(descriptor.childToParent(id, l), l + 1);
+                        EXPECT_EQ(val, blockOrigin.mPitch(refFactor, refFactor));
                     }
-                });*/
+                });
         }
     }
 }

@@ -92,6 +92,10 @@ class bPartition
 
     NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Cell& cell) const -> bool;
 
+    NEON_CUDA_HOST_DEVICE inline auto getRefFactor(const int level) const -> int;
+
+    NEON_CUDA_HOST_DEVICE inline auto getSpacing(const int level) const -> int;
+
     template <typename FuncT>
     NEON_CUDA_HOST_DEVICE inline auto forEachActiveChild(const Cell& local,
                                                          FuncT       op) const -> void
