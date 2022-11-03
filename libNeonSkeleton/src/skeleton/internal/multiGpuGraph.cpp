@@ -11,14 +11,14 @@ void MultiXpuGraph::init(Neon::Backend&                           bk,
     mGraph() = Neon::set::container::Graph(bk);
     parse(bk.devSet().setCardinality(),
           std::forward<const std::vector<Neon::set::Container>&&>(operations));
-    mGraph().helpRemoveRedundantDependencies();
+    mGraph().removeRedundantDependencies();
 
     h_io2Dot("t0_" + name + ".dot", "i");
     optimizations(options);
     h_io2Dot("t1_" + name + ".dot", "i");
     addCommunications(options);
 
-    mGraph().helpRemoveRedundantDependencies();
+    mGraph().removeRedundantDependencies();
 
     checkCoherency();
     h_io2Dot("t2_" + name + ".dot", "i");
@@ -584,6 +584,8 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
 auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options& skeletonOptions) -> void
 {
 
+    mGraph().ioToDot("before-comm", "app-before-comm", true);
+
     if (m_setCardinality() == 1) {
         return;
     }
@@ -609,18 +611,17 @@ auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options& skeletonOpt
         int                                                  numNewNodes = 0;
 
         for (const auto& token : tokens) {
-            auto container = token.getDataTransferContainer(skeletonOptions.transferMode());
-            numNewNodes += mGraph().expandAndMerge(nodeA, container, nodeB);
-        }
-
-        if (numNewNodes > 0) {
-            toBeRemoved.push_back(depPtr);
+            if(token.compute() == Neon::Compute::STENCIL) {
+                auto container = token.getDataTransferContainer(skeletonOptions.transferMode());
+                numNewNodes += mGraph().expandAndMerge(nodeA, container, nodeB);
+            }
         }
     }
 
     for (auto depPtr : toBeRemoved) {
         mGraph().removeDependency(*depPtr);
     }
+    mGraph().ioToDot("after-comm", "app_after_comm", true);
 
 
     //

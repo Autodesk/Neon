@@ -27,6 +27,10 @@ struct SynchronizationContainer
         setContainerExecutionType(ContainerExecutionType::deviceManaged);
         setContainerOperationType(ContainerOperationType::synchronization);
         setDataViewSupport(DataViewSupport::off);
+
+        if (syncType != SynchronizationContainerType::hostOmpBarrier) {
+            NEON_THROW_UNSUPPORTED_OPERATION("");
+        }
     }
 
     auto run(int            streamIdx,

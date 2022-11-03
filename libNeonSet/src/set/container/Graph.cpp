@@ -85,6 +85,17 @@ auto Graph::
                       nodeB.getGraphData().getUid(),
                       ab);
 
+    if(mRawGraph.hasEdge(aUid, GraphData::endUid)
+        &&
+        GraphData::endUid != bUid){
+        mRawGraph.removeEdge(aUid, GraphData::endUid);
+    }
+
+    if(mRawGraph.hasEdge(GraphData::beginUid, bUid) &&
+        GraphData::beginUid != aUid){
+        mRawGraph.removeEdge(GraphData::beginUid, bUid);
+    }
+
     return mRawGraph.getEdgeProperty({nodeA.getGraphData().getUid(),
                                       nodeB.getGraphData().getUid()});
 }
@@ -355,7 +366,7 @@ auto Graph::
 }
 
 auto Graph::
-    helpRemoveRedundantDependencies()
+    removeRedundantDependencies()
         -> void
 {
     // Vectors of edges to be removed
@@ -779,7 +790,7 @@ auto Graph::
             bool               debug)
         -> void
 {
-    this->helpRemoveRedundantDependencies();
+    this->removeRedundantDependencies();
 
     auto vertexLabel = [&](size_t v) -> std::string {
         auto& node = mRawGraph.getVertexProperty(v);
@@ -947,7 +958,7 @@ auto Graph::expandSubGraphs() -> void
         if (!validTarget) {
             if (atLeastOneWasFound) {
                 helpInvalidateScheduling();
-                this->helpRemoveRedundantDependencies();
+                this->removeRedundantDependencies();
                 // this->ioToDot(std::to_string(i) + "_t_05", "kllkj", true);
             }
             return;
@@ -1053,14 +1064,16 @@ auto Graph::
     }
 
     Graph toMergeGraph = container.getContainerInterface().getGraph();
+    toMergeGraph.ioToDot("toMerge", "toMerge", true);
     toMergeGraph.expandSubGraphs();
     int numNodes = toMergeGraph.getNumberOfNodes();
 
-    std::unordered_map<const GraphNode*, GraphNode*> fromInputToLocal;
+    std::unordered_map<size_t, size_t> fromInputToLocal;
 
     auto isInternalNode = [&](const GraphNode& inputNode) {
-        if (&toMergeGraph.getBeginNode() != &inputNode &&
-            &toMergeGraph.getEndNode() != &inputNode) {
+        auto inputUid = inputNode.getGraphData().getUid();
+        if (GraphData::beginUid != inputUid &&
+            GraphData::endUid != inputUid) {
             return true;
         }
         return false;
@@ -1076,17 +1089,20 @@ auto Graph::
         }
         return false;
     };
+    this->ioToDot("000","addingNJpo", true);
 
     // adding nodes to the graph
     toMergeGraph.forEachNode([&](const GraphNode& inputNode) {
         // discarding begin and end nodes
         if (isInternalNode(inputNode)) {
             auto& container = inputNode.getContainer();
-            auto  newGraphNode = this->addNode(container);
+            auto& newGraphNode = this->addNode(container);
 
-            fromInputToLocal[&inputNode] = &newGraphNode;
+            fromInputToLocal[inputNode.getGraphData().getUid()] =
+                newGraphNode.getGraphData().getUid();
         }
     });
+    this->ioToDot("00","addingNJpo", true);
 
     // adding dependency to the graph
     toMergeGraph.forEachDependency([&](const GraphDependency& inputDependency) {
@@ -1095,34 +1111,46 @@ auto Graph::
             const auto& sourceInput = inputDependency.getSourceNode(toMergeGraph);
             const auto& destInput = inputDependency.getDestinationNode(toMergeGraph);
 
-            auto source = fromInputToLocal[&sourceInput];
-            auto dest = fromInputToLocal[&destInput];
+            size_t sourceUid = fromInputToLocal[sourceInput.getGraphData().getUid()];
+            size_t destUid = fromInputToLocal[destInput.getGraphData().getUid()];
 
-            this->addDependency(*source, *dest, inputDependency.getType());
+            const GraphNode& source = this->helpGetGraphNode(sourceUid);
+            const GraphNode& dest = this->helpGetGraphNode(destUid);
+
+            this->addDependency(source, dest, inputDependency.getType());
         }
     });
+    this->ioToDot("01-addingNodes","addingNJpo", true);
+
 
     {  // Connecting node A with all the child of the input graph begin node
         const auto&             inputBeginNode = toMergeGraph.getBeginNode();
         std::vector<GraphNode*> subsequentGraphNodes = toMergeGraph.getSubsequentGraphNodes(inputBeginNode);
         for (auto inputGraphNodePtr : subsequentGraphNodes) {
-            auto        source = &A;
-            auto        dest = fromInputToLocal[inputGraphNodePtr];
-            const auto& inputDependency = toMergeGraph.getDependency(inputBeginNode, *inputGraphNodePtr);
-            this->addDependency(*source, *dest, inputDependency.getType());
+            const auto&  source = A;
+            const size_t destUid = fromInputToLocal[inputGraphNodePtr->getGraphData().getUid()];
+            auto         dest = this->helpGetGraphNode(destUid);
+            const auto&  inputDependency = toMergeGraph.getDependency(inputBeginNode, *inputGraphNodePtr);
+            this->addDependency(source, dest, inputDependency.getType());
         }
     }
+    this->ioToDot("02-ConnectingA","Connecting", true);
+
 
     {  // Connecting node B with all the parents of the input graph end node
         const auto&             inputEndNode = toMergeGraph.getEndNode();
         std::vector<GraphNode*> proceedingGraphNodes = toMergeGraph.getProceedingGraphNodes(inputEndNode);
         for (auto inputGraphNodePtr : proceedingGraphNodes) {
-            auto        source = fromInputToLocal[inputGraphNodePtr];
-            auto        dest = &B;
-            const auto& inputDependency = toMergeGraph.getDependency(*inputGraphNodePtr, inputEndNode);
-            this->addDependency(*source, *dest, inputDependency.getType());
+            const size_t sourceUid= fromInputToLocal[inputGraphNodePtr->getGraphData().getUid()];
+
+            const auto&  source = this->helpGetGraphNode(sourceUid);
+            const auto&  dest = B;
+
+            const auto&  inputDependency = toMergeGraph.getDependency(*inputGraphNodePtr, inputEndNode);
+            this->addDependency(source, dest, inputDependency.getType());
         }
     }
+    this->ioToDot("03-ConnectingB","Connecting", true);
 
     return numNodes;
 }

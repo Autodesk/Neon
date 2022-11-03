@@ -351,7 +351,7 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     -> const Partition&
 {
     const Neon::DataUse dataUse = this->getDataUse();
-    bool       isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
+    bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
         if (execution == Neon::Execution::device) {
             return m_gpu.getPartition(Neon::DeviceType::CUDA, setIdx, dataView);
@@ -513,6 +513,51 @@ auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
 }
 
 template <typename T, int C>
+auto dField<T, C>::haloUpdateContainer(set::HuOptions& opt) const -> Neon::set::Container
+{
+    NEON_THROW_UNSUPPORTED_OPERATION("");
+}
+
+template <typename T, int C>
+auto dField<T, C>::
+    haloUpdateContainer(Neon::set::TransferMode    transferMode,
+                        Neon::set::StencilSemantic stencilSemantic)
+        const -> Neon::set::Container
+{
+    Neon::set::Container dataTransferContainer =
+        Neon::set::Container::factoryDataTransfer(*this,
+                                                  transferMode,
+                                                  stencilSemantic);
+
+    Neon::set::Container SyncContainer =
+        Neon::set::Container::factorySynchronization(*this,
+                                                     Neon::set::SynchronizationContainerType::hostOmpBarrier);
+    Neon::set::container::Graph graph(this->getBackend());
+    const auto&                 dataTransferNode = graph.addNode(dataTransferContainer);
+    const auto&                 syncNode = graph.addNode(SyncContainer);
+
+    switch (transferMode) {
+        case Neon::set::TransferMode::put:
+            graph.addDependency(dataTransferNode, syncNode, Neon::GraphDependencyType::data);
+            break;
+        case Neon::set::TransferMode::get:
+            graph.addDependency(syncNode, dataTransferNode, Neon::GraphDependencyType::data);
+            break;
+        default:
+            NEON_THROW_UNSUPPORTED_OPTION();
+            break;
+    }
+
+    graph.removeRedundantDependencies();
+
+    Neon::set::Container output =
+        Neon::set::Container::factoryGraph("dGrid-Halo-Update",
+                                           graph,
+                                           [](Neon::SetIdx, Neon::set::Loader&) {});
+    return output;
+}
+
+template <typename T, int C>
 auto dField<T, C>::dot(Neon::set::patterns::BlasSet<T>& blasSet,
                        const dField<T>&                 input,
                        Neon::set::MemDevSet<T>&         output,
@@ -584,10 +629,5 @@ auto dField<T, C>::swap(dField::Field& A, dField::Field& B) -> void
     std::swap(A, B);
 }
 
-template <typename T, int C>
-auto dField<T, C>::haloUpdateContainer(set::HuOptions& opt) const -> Neon::set::Container
-{
-    NEON_THROW_UNSUPPORTED_OPERATION("");
-}
 
 }  // namespace Neon::domain::internal::dGrid

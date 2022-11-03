@@ -99,6 +99,13 @@ struct Graph
 
     auto removeDependency(const GraphDependency&)
         -> void;
+
+
+    /**
+     * Helper - it removes redundant dependencies
+     */
+    auto removeRedundantDependencies() -> void;
+
     /**
      * Returns the dependency type between two nodes.
      */
@@ -203,10 +210,6 @@ struct Graph
      */
     auto helpCheckBackendStatus() -> void;
 
-    /**
-     * Helper - it removes redundant dependencies
-     */
-    auto helpRemoveRedundantDependencies() -> void;
 
     /**
      * Compute BFS

@@ -56,8 +56,8 @@ struct DataTransferExtractor
     // Neon::set::HuOptions_t& /*opt*/
    private:
     template <typename T>
-    using HaloUpdate = decltype(std::declval<T>().haloUpdate(std::declval<Neon::set::TransferMode>(),
-                                                             std::declval<Neon::set::StencilSemantic>()));
+    using HaloUpdate = decltype(std::declval<T>().haloUpdateContainer(std::declval<Neon::set::TransferMode>(),
+                                                                      std::declval<Neon::set::StencilSemantic>()));
 
     template <typename T>
     static constexpr bool HasHaloUpdateMethod = tmp::is_detected_v<HaloUpdate, T>;
@@ -67,15 +67,19 @@ struct DataTransferExtractor
     {
         if constexpr (HasHaloUpdateMethod<Field_ta>) {
             auto huFun = [field](Neon::set::TransferMode    transferMode,
-                                 Neon::set::StencilSemantic transferSemantic) {
-                field.haloUpdate(transferMode, transferSemantic);
+                                 Neon::set::StencilSemantic stencilSemantic)
+                -> Neon::set::Container {
+                Neon::set::Container container = field.haloUpdateContainer(transferMode, stencilSemantic);
+                return container;
             };
             return huFun;
         } else {
             auto huFun = [field](Neon::set::TransferMode    transferMode,
-                                 Neon::set::StencilSemantic transferSemantic) {
+                                 Neon::set::StencilSemantic stencilSemantic)
+                -> Neon::set::Container {
                 (void)transferMode;
-                (void)transferSemantic;
+                (void)stencilSemantic;
+                return {};
             };
 
             return huFun;
@@ -157,12 +161,6 @@ auto Loader::
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
-auto Loader::
-    computeMode() -> bool
-{
-    return m_loadingMode == Neon::set::internal::LoadingMode_e::EXTRACT_LAMBDA;
-}
-
 /**
  * Loading a const field
  */
@@ -191,7 +189,7 @@ auto Loader::
                         auto                 huFun = internal::DataTransferExtractor<Field_ta>::get(field);
                         Neon::set::Container container = huFun(transferMode, stencilSemantic);
 
-                        if(container.getContainerInterface().getContainerExecutionType() != ContainerExecutionType::graph){
+                        if (container.getContainerInterface().getContainerExecutionType() != ContainerExecutionType::graph) {
                             NEON_THROW_UNSUPPORTED_OPERATION("Halo update Containers type should be Graph");
                         }
 

@@ -52,7 +52,8 @@ auto Token::
 }
 
 auto Token::
-    setDataTransferContainer(std::function<Neon::set::Container(Neon::set::TransferMode transferMode)> huPerDevice) -> void
+    setDataTransferContainer(std::function<Neon::set::Container(Neon::set::TransferMode transferMode)> huPerDevice)
+        -> void
 {
     mHaloUpdateExtractor = std::move(huPerDevice);
 }

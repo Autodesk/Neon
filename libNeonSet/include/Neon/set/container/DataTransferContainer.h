@@ -12,8 +12,8 @@ struct DataTransferContainer
 {
     virtual ~DataTransferContainer() override = default;
 
-    DataTransferContainer(const MxpuDataT&        multiXpuData,
-                          Neon::set::TransferMode     transferMode,
+    DataTransferContainer(const MxpuDataT&           multiXpuData,
+                          Neon::set::TransferMode    transferMode,
                           Neon::set::StencilSemantic transferSemantic)
         : mMultiXpuData(multiXpuData),
           mTransferMode(transferMode),
@@ -26,7 +26,7 @@ struct DataTransferContainer
         setDataViewSupport(DataViewSupport::off);
 
         mDataTransferFun = [&](Neon::SetIdx setIdx,
-                       int          streamIdx) {
+                               int          streamIdx) {
             Neon::set::HuOptions options(this->mTransferMode,
                                          false,
                                          streamIdx,
@@ -51,7 +51,7 @@ struct DataTransferContainer
              int            streamIdx,
              Neon::DataView dataView) -> void override
     {
-        if (ContainerExecutionType::deviceManaged == this->getContainerType()) {
+        if (ContainerExecutionType::deviceManaged == this->getContainerExecutionType()) {
             mDataTransferFun(setIdx, streamIdx);
             return;
         }
@@ -61,10 +61,10 @@ struct DataTransferContainer
    private:
     std::function<void(Neon::SetIdx setIdx,
                        int          streamIdx)>
-                                mDataTransferFun;
-    MxpuDataT               mMultiXpuData;
-    Neon::set::TransferMode     mTransferMode;
-    Neon::set::StencilSemantic  mTransferSemantic;
+                               mDataTransferFun;
+    MxpuDataT                  mMultiXpuData;
+    Neon::set::TransferMode    mTransferMode;
+    Neon::set::StencilSemantic mTransferSemantic;
 };
 
 }  // namespace Neon::set::internal

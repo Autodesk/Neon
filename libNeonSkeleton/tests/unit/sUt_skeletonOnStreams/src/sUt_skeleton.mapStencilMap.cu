@@ -142,6 +142,14 @@ TEST(MapStencilMap_NoOCC, eGrid)
     runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilNoOCC<Grid, Type, 0>, nGpus, 1);
 }
 
+TEST(MapStencilMap_NoOCC, dGrid)
+{
+    int nGpus = getNGpus();
+    using Grid = Neon::domain::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilNoOCC<Grid, Type, 0>, nGpus, 2);
+}
+
 TEST(MapStencilMap_OCC, eGrid)
 {
     int nGpus = getNGpus();
