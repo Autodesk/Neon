@@ -809,9 +809,9 @@ auto Graph::
 
         if (edgeMeta.getType() == GraphDependencyType::scheduling) {
             // return "style=dashed, color=\"#2A9D8F\"";
-            return "style=dashed, color=\"#F4A261\", penwidth=7";
+            return "style=dashed, color=\"#F4A261\", penwidth=3";
         }
-        return "color=\"#d9d9d9\", penwidth=7";
+        return " penwidth=3";
     };
 
     auto vertexLabelProperty = [&](const size_t& v) {

@@ -151,7 +151,7 @@ auto GraphNode::
             }
             return std::string("None");
         };
-        auto printNonEptyListOrNone = [](const std::vector<int>& ids) {
+        auto printNonEmptyListOrNone = [](const std::vector<int>& ids) {
             if (ids.size() == 0) {
                 return std::string("None");
             }
@@ -173,7 +173,7 @@ auto GraphNode::
         s << "\\lScheduling " << getContainer().getName();
         s << "\\l - DataView: " << getScheduling().getDataView();
         s << "\\l - Stream  : " << getScheduling().getStream();
-        s << "\\l - Wait    : " << printNonEptyListOrNone(getScheduling().getDependentEvents());
+        s << "\\l - Wait    : " << printNonEmptyListOrNone(getScheduling().getDependentEvents());
         s << "\\l - Signal  : " << printPositiveOrNone(getScheduling().getEvent());
         s << "\\l ---- ";
 
@@ -217,17 +217,17 @@ auto GraphNode::
     if (containerOperationType == Neon::set::ContainerOperationType::communication) {
         std::stringstream s;
         s << "Halo Update "
-             " - Name: "
+             "\\l  - Name: "
           << getContainer().getName();
-        s << " - UID: " << getContainer().getUid();
+        s << "\\l  - UID: " << getContainer().getUid();
         return s.str();
     }
     if (containerOperationType == Neon::set::ContainerOperationType::synchronization) {
         std::stringstream s;
         s << "Sync "
-             " - Name: "
+             "\\l  - Name: "
           << getContainer().getName();
-        s << " - UID: " << getContainer().getUid();
+        s << "\\l  - UID: " << getContainer().getUid();
         return s.str();
     }
     if (containerOperationType == Neon::set::ContainerOperationType::graph) {
