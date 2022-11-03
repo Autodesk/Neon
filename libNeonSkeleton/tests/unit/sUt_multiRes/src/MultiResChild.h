@@ -9,7 +9,7 @@ void MultiResChild()
 
     const Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1});
 
-    for (auto runtime : {Neon::Runtime::stream, Neon::Runtime::openmp}) {
+    for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
 
         auto bk = Neon::Backend(gpuIds, runtime);
 
@@ -64,7 +64,7 @@ void MultiResChild()
             BGrid.setCurrentLevel(level);
 
             auto container = BGrid.getContainer(
-                "isRefined", [&, level, descriptor](Neon::set::Loader& loader) {
+                "hasChildren", [&, level, descriptor](Neon::set::Loader& loader) {
                     auto& xLocal = loader.load(XField);
                     auto& isRefinedLocal = loader.load(isRefinedField);
 
@@ -80,7 +80,10 @@ void MultiResChild()
                             for (int8_t z = 0; z < refFactor; ++z) {
                                 for (int8_t y = 0; y < refFactor; ++y) {
                                     for (int8_t x = 0; x < refFactor; ++x) {
-                                        auto child = xLocal.getChild(cell, {x, y, z});
+
+                                        Neon::int8_3d child_dir(x, y, z);
+
+                                        auto child = xLocal.getChild(cell, child_dir);
 
                                         if (child.isActive()) {
                                             xLocal.childVal(child) = cellOrigin.mPitch(refFactor, refFactor);

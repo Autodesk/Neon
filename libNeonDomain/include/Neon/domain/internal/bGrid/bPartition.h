@@ -38,7 +38,7 @@ class bPartition
                         uint32_t*       childBlockID,
                         T               defaultValue,
                         nghIdx_t*       stencilNghIndex,
-                        int*            descriptor,
+                        int*            refFactors,
                         int*            spacing);
 
     inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int;
