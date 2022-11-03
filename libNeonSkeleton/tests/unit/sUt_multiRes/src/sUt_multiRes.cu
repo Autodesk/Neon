@@ -8,6 +8,7 @@
 #include "Neon/skeleton/Skeleton.h"
 
 #include "MultiResChild.h"
+#include "MultiResDemo.h"
 #include "MultiResMap.h"
 #include "MultiResParent.h"
 #include "MultiResStencil.h"
