@@ -9,9 +9,6 @@ auto Bfs::getNumberOfLevels() -> int
     return int(data.size());
 }
 
-/**
- * Returns a reference to a level and it's level index
- */
 auto Bfs::getNewLevel() -> std::pair<std::vector<GraphData::Uid>&, int>
 {
     data.push_back(std::vector<GraphData::Uid>());
@@ -19,26 +16,17 @@ auto Bfs::getNewLevel() -> std::pair<std::vector<GraphData::Uid>&, int>
     return {data[idx], idx};
 }
 
-/**
- * Returns a reference to a specific level
- */
 auto Bfs::getLevel(int levelId) const
     -> const std::vector<GraphData::Uid>&
 {
     return data[levelId];
 }
 
-/**
- * Returns a reference to a specific level
- */
 auto Bfs::getLevel(int levelId) -> std::vector<GraphData::Uid>&
 {
     return data[levelId];
 }
 
-/**
- * Returns max level width
- */
 auto Bfs::getMaxLevelWidth() const -> int
 {
     int maxWidth = 0;
@@ -48,9 +36,6 @@ auto Bfs::getMaxLevelWidth() const -> int
     return maxWidth;
 }
 
-/**
- * Returns max level width
- */
 auto Bfs::getLevelWidth(int levelIdx) const
     -> int
 {
@@ -61,6 +46,7 @@ auto Bfs::clear() -> void
 {
     data.clear();
 }
+
 auto Bfs::toString() -> std::string
 {
     std::stringstream s;

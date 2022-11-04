@@ -38,25 +38,22 @@ struct Skeleton
         }
         mOptions = options;
         mMultiGraph.init(mBackend, operations, name, options);
-        mMultiGraph.io2Dot("DB_multiGpuGraph", "graphname");
+        mMultiGraph.ioToDot("DB_multiGpuGraph", "graphname");
         // mStreamScheduler.init(mBackend, mMultiGraph);
         // m_streamScheduler.io2Dot("DB_streamScheduler", "graphname");
     }
 
 
-    void ioToDot(std::string fname, std::string graphname = "")
+    void ioToDot(std::string fname,
+                 std::string graphname = "",
+                 bool        debug = false)
     {
-        // m_multiGraph.io2Dot(fname + ".multiGpu.dot", graphname);
-        mMultiGraph.io2DotOriginalApp(fname + ".appGraph.dot", graphname);
-        //        mStreamScheduler.io2Dot(fname + ".scheduler.dot", graphname);
-        //        mStreamScheduler.io2DotOrder(fname + ".order.dot", graphname);
+        mMultiGraph.ioToDot(fname, graphname, debug);
     }
 
     void run()
     {
         mMultiGraph.execute();
-        //NEON_DEV_UNDER_CONSTRUCTION("");
-        // mStreamScheduler.run(mOptions);
     }
 
    private:

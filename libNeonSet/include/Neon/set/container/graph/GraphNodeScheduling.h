@@ -56,7 +56,7 @@ class GraphNodeScheduling
     auto setEvent(int event /**< Event to be used to signal the completion of the Container */)
         -> void;
 
-    auto getExecutionOrder()
+    auto getExecutionOrder() const
         -> int;
 
     auto setExecutionOerder(int)

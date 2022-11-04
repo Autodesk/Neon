@@ -43,7 +43,7 @@ struct MultiXpuGraph
      * @param fname
      * @param graphName
      */
-    auto io2Dot(const std::string& fname,
+    auto ioToDot(const std::string& fname,
                 const std::string& graphName,
                 bool               debug = false)
         -> void;
@@ -151,7 +151,7 @@ struct MultiXpuGraph
      * @param fname
      * @param graphName
      */
-    auto h_io2Dot([[maybe_unused]] const std::string& fname,
+    auto h_ioToDot([[maybe_unused]] const std::string& fname,
                   [[maybe_unused]] const std::string& graphName)
         -> void;
 

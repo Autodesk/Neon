@@ -221,9 +221,8 @@ struct Graph
      * Returns the out-neighbour of a target node
      */
     auto helpGetOutNeighbors(GraphData::Uid,
-                             bool                                    fileterOutEnd = true,
-                             const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
-                                                                                        GraphDependencyType::data})
+                             bool                                    fileterOutEnd ,
+                             const std::vector<GraphDependencyType>& dependencyTypes )
         -> std::set<GraphData::Uid>;
 
     /**

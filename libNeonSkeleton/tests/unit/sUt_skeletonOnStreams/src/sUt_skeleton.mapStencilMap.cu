@@ -58,7 +58,9 @@ void MapStencilMap(TestData<G, T, C>&      data,
 
         skl.sequence(ops, appName, opt);
 
-        skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()));
+        skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()),
+                    "",
+                    true);
 
         timer.start();
         for (int i = 0; i < nIterations; i++) {
@@ -176,12 +178,29 @@ TEST(MapStencilMap_ExtendedOCC, eGrid)
     runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilExtendedOCC<Grid, Type, 0>, nGpus, 1);
 }
 
+TEST(MapStencilMap_ExtendedOCC, dGrid)
+{
+    int nGpus = getNGpus();
+    NEON_INFO("MapStencilMap_ExtendedOCC");
+    using Grid = Neon::domain::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilExtendedOCC<Grid, Type, 0>, nGpus, 1);
+}
+
 TEST(MapStencilMap_TwoWayExtendedOCC, eGrid)
 {
     int nGpus = getNGpus();
     using Grid = Neon::domain::internal::eGrid::eGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilTwoWayExtendedOCC<Grid, Type, 0>, nGpus, 1);
+}
+
+TEST(MapStencilMap_TwoWayExtendedOCC, dGrid)
+{
+    int nGpus = getNGpus();
+    using Grid = Neon::domain::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilTwoWayExtendedOCC<Grid, Type, 0>, nGpus, 2);
 }
 
 TEST(MapStencilMap_NoOCC, bGrid)

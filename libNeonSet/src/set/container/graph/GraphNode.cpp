@@ -168,14 +168,12 @@ auto GraphNode::
         s << "\\l - Stream  : " << getScheduling().getStream();
         s << "\\l - Wait    : " << printNonEmptyListOrNone(getScheduling().getDependentEvents());
         s << "\\l - Signal  : " << printPositiveOrNone(getScheduling().getEvent());
-        s << "\\l - Exec Ord: " << printPositiveOrNone(getScheduling().getEvent());
+        s << "\\l - Exec Ord: " << printPositiveOrNone(getScheduling().getExecutionOrder());
 
     };
 
     auto printNodeInformation = [this, addSchedulingInfo]() {
         std::stringstream s;
-
-
 
         s << "\\l - UID: " << getContainer().getUid();
         s << "\\l - Execution: " << getContainer().getContainerExecutionType();
@@ -206,7 +204,7 @@ auto GraphNode::
             return s.str();
         }
         std::stringstream s;
-        s << "Sporious Anchor ";
+        s << "Spurious Anchor ";
         if (debug) {
             s << printNodeInformation();
         }
@@ -216,7 +214,7 @@ auto GraphNode::
     if (containerOperationType == Neon::set::ContainerOperationType::compute) {
         std::stringstream s;
         if (debug) {
-            s << "Container " << getContainer().getName();
+            s << getContainer().getName();
             s << printNodeInformation();
         } else {
             s << getContainer().getName();
@@ -225,37 +223,28 @@ auto GraphNode::
     }
     if (containerOperationType == Neon::set::ContainerOperationType::communication) {
         std::stringstream s;
-        s << "Halo Update "
-             "\\l  - Name: "
-          << getContainer().getName();
-        s << "\\l - UID: " << getContainer().getUid();
-        s << "\\lGraph ";
-        s << "\\l - Node id: " << this->getGraphData().getUid();
-
-        addSchedulingInfo(s);
-
-        s << "\\l ---- ";
-
+        if (debug) {
+            s << getContainer().getName();
+            s << printNodeInformation();
+        } else {
+            s << getContainer().getName();
+        }
         return s.str();
     }
     if (containerOperationType == Neon::set::ContainerOperationType::synchronization) {
         std::stringstream s;
-        s << "Sync "
-             "\\l - Name: "
-          << getContainer().getName();
-        s << "\\l - UID: " << getContainer().getUid();
-        s << "\\lGraph ";
-        s << "\\l - Node id: " << this->getGraphData().getUid();
-
-        addSchedulingInfo(s);
-
-        s << "\\l ---- ";
+        if (debug) {
+            s << getContainer().getName();
+            s << printNodeInformation();
+        } else {
+            s << getContainer().getName();
+        }
         return s.str();
     }
     if (containerOperationType == Neon::set::ContainerOperationType::graph) {
         std::stringstream s;
         if (debug) {
-            s << "Graph " << getContainer().getName();
+            s << getContainer().getName();
             s << printNodeInformation();
         } else {
             s << getContainer().getName();
