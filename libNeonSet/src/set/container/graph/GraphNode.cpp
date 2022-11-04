@@ -168,6 +168,8 @@ auto GraphNode::
         s << "\\l - Stream  : " << getScheduling().getStream();
         s << "\\l - Wait    : " << printNonEmptyListOrNone(getScheduling().getDependentEvents());
         s << "\\l - Signal  : " << printPositiveOrNone(getScheduling().getEvent());
+        s << "\\l - Exec Ord: " << printPositiveOrNone(getScheduling().getEvent());
+
     };
 
     auto printNodeInformation = [this, addSchedulingInfo]() {

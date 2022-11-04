@@ -545,7 +545,7 @@ auto Graph::
     Frontier* nextFrontier = &b;
 
     [[maybe_unused]] auto printFrontier = [](const Frontier* frontier,
-                            std::string     prefix = "") {
+                                             std::string     prefix = "") {
         std::stringstream s;
         s << "[";
         s << prefix << " ";
@@ -584,19 +584,20 @@ auto Graph::
             *currentFrontier = tmp;
         }
 
-        //printFrontier(currentFrontier, "currentFrontier");
-        //printFrontier(nextFrontier, "nextFrontier");
+        // printFrontier(currentFrontier, "currentFrontier");
+        // printFrontier(nextFrontier, "nextFrontier");
         for (auto& currentFrontierNode : *currentFrontier) {
             // At this any currentFrontierNode has .second ==0;
-            //printFrontier(currentFrontier, "currentFrontier");
-            //std::cout << "selecting " << currentFrontierNode.first << std::endl;
+            // printFrontier(currentFrontier, "currentFrontier");
+            // std::cout << "selecting " << currentFrontierNode.first << std::endl;
 
             // All incoming dependencies have been resolved.
             // The node is ready to be added to the current BFS level
             newLevel.push_back(currentFrontierNode.first);
 
             // Adding the node's children to the next frontier
-            auto currentFrontierNodeChildren = helpGetOutNeighbors(currentFrontierNode.first, filterOutBeginEnd);
+            auto currentFrontierNodeChildren = helpGetOutNeighbors(currentFrontierNode.first,
+                                                                   filterOutBeginEnd, dependencyTypes);
             for (const auto& child : currentFrontierNodeChildren) {
                 auto it = std::find_if(nextFrontier->begin(), nextFrontier->end(),
                                        [&child](auto& entry) {
@@ -605,11 +606,11 @@ auto Graph::
                 if (it != nextFrontier->end()) {
                     it->second--;
                 } else {
-                    auto numChildDependencies = helpGetInEdges(child, filterOutBeginEnd).size();
+                    auto numChildDependencies = helpGetInEdges(child, filterOutBeginEnd, dependencyTypes).size();
                     nextFrontier->insert({child, numChildDependencies - 1});
                 }
             }
-            //printFrontier(nextFrontier, "nextFrontier");
+            // printFrontier(nextFrontier, "nextFrontier");
         }
         std::swap(currentFrontier, nextFrontier);
     }
@@ -623,9 +624,12 @@ auto Graph::
 {
     helpComputeScheduling_00_resetData();
     mBfs = helpComputeScheduling_01_generatingBFS(filterOutAnchors);
+    std::cout << mBfs.toString();
     int maxStreamId = helpComputeScheduling_02_mappingStreams(mBfs, filterOutAnchors, anchorStream);
     int maxEventId = helpComputeScheduling_03_events(mBfs);
     helpComputeScheduling_04_ensureResources(maxStreamId, maxEventId);
+    helpComputeScheduling_05_executionOrder(filterOutAnchors, mBfs);
+    std::cout << mBfs.toString();
 }
 
 auto Graph::
@@ -720,7 +724,7 @@ auto Graph::
         for (auto& nodeUid : level) {
             auto& node = mRawGraph.getVertexProperty(nodeUid);
 
-            int associatedStream = [&]() -> int {
+            int helpAssociatedStream = [&]() -> int {
                 if (levelIdx == 0) {
                     return bookFirstAvailableStream();
                 }
@@ -734,11 +738,11 @@ auto Graph::
                 return -1;
             }();
 
-            if (associatedStream == -1) {
+            if (helpAssociatedStream == -1) {
                 // track nodes that need to go through step 2
                 delayedBooking.push_back(&node);
             } else {
-                node.getScheduling().setStream(associatedStream);
+                node.getScheduling().setStream(helpAssociatedStream);
             }
         }
 
@@ -768,17 +772,17 @@ auto Graph::
     int eventCount = 0;
 
     bfs.forEachNodeByLevel(*this, [&](GraphNode& targetNode, int /*levelId*/) {
-        int  targetStreamId = targetNode.getScheduling().getStream();
-        auto preNodeIds = mRawGraph.inNeighbors(targetNode.getGraphData().getUid());
-        if (preNodeIds.size() == 0) {
+        int targetStreamId = targetNode.getScheduling().getStream();
+
+        auto preNodeIds = this->getProceedingGraphNodes(targetNode);
+        if (preNodeIds.empty()) {
             // this is the first node, no need to have dependencies
             return;
         }
         // Processing PreNodes on different streams than the node
         std::vector<GraphNode*> preNodesOnDifferentStreams;
-        for (auto nodeId : preNodeIds) {
-            auto& preNode = mRawGraph.getVertexProperty(nodeId);
-            auto  preNodeStream = preNode.getScheduling().getStream();
+        for (auto* preNode : preNodeIds) {
+            auto preNodeStream = preNode->getScheduling().getStream();
             if (preNodeStream == targetStreamId) {
                 continue;
             }
@@ -787,10 +791,10 @@ auto Graph::
             // b. add the pre-node event to the list of the target node
 
             // a.
-            int preNodeEvent = preNode.getScheduling().getEvent();
+            int preNodeEvent = preNode->getScheduling().getEvent();
             if (preNodeEvent == -1) {
                 preNodeEvent = eventCount;
-                preNode.getScheduling().setEvent(preNodeEvent);
+                preNode->getScheduling().setEvent(preNodeEvent);
                 eventCount++;
             }
             // b.
@@ -847,6 +851,22 @@ auto Graph::
     };
     mRawGraph.exportDotFile(fname + ".dot", graphName, vertexLabel, edgeLabel,
                             vertexLabelProperty, edgeLabelProperty);
+}
+
+auto Graph::helpComputeScheduling_05_executionOrder(bool filterOutAnchors, Bfs& bfs) -> void
+{
+    bfs = helpGetBFS(filterOutAnchors, {GraphDependencyType::data,
+                                        GraphDependencyType::user,
+                                        GraphDependencyType::scheduling});
+
+    int levels = bfs.getNumberOfLevels();
+    int execOrder = 0;
+    for (int i = 0; i < levels; i++) {
+        bfs.forEachNodeAtLevel(i, *this, [&](Neon::set::container::GraphNode& graphNode) {
+            graphNode.getScheduling().setExecutionOerder(execOrder);
+            execOrder++;
+        });
+    }
 }
 
 Graph::

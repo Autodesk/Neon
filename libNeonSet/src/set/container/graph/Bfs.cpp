@@ -1,4 +1,5 @@
 #include "Neon/set/container/graph/Bfs.h"
+#include <sstream>
 
 namespace Neon::set::container {
 
@@ -59,6 +60,21 @@ auto Bfs::getLevelWidth(int levelIdx) const
 auto Bfs::clear() -> void
 {
     data.clear();
+}
+auto Bfs::toString() -> std::string
+{
+    std::stringstream s;
+    s << "Num levels "<<data.size();
+    int i=0;
+    for(const auto& level : data){
+        s <<"\t\tLevel "<<i<<" (";
+        for(const auto& uid : level){
+            s << uid << " ";
+        }
+        s<<")"<<std::endl;
+        i++;
+    }
+    return s.str();
 }
 
 }  // namespace Neon::set::container

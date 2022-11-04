@@ -57,8 +57,21 @@ auto GraphNodeScheduling::reset() -> void
 {
     mStream = -1;
     mEvent = -1;
+    mExecutionOrder = -1;
     mDataView = DataView::STANDARD;
     mDependentEvents.clear();
+}
+
+auto GraphNodeScheduling::getExecutionOrder()
+    -> int
+{
+    return mExecutionOrder;
+}
+
+auto GraphNodeScheduling::setExecutionOerder(int order)
+    -> void
+{
+    mExecutionOrder = order;
 }
 
 

@@ -56,6 +56,12 @@ class GraphNodeScheduling
     auto setEvent(int event /**< Event to be used to signal the completion of the Container */)
         -> void;
 
+    auto getExecutionOrder()
+        -> int;
+
+    auto setExecutionOerder(int)
+        -> void;
+
     /**
      * Reset all scheduling data
      */
@@ -65,6 +71,7 @@ class GraphNodeScheduling
    private:
     int              mStream{-1} /**< Stream for each operation for the node */;
     int              mEvent{-1} /**< Event to be used to signal the completion of the node container */;
+    int              mExecutionOrder;
     std::vector<int> mDependentEvents /**< Events to be waited for before running the Container */;
     Neon::DataView   mDataView{DataView::STANDARD};
 };

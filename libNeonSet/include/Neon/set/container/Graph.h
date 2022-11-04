@@ -197,7 +197,7 @@ struct Graph
     auto expandAndMerge(const GraphNode& A,
                         const Container& graphOriginal,
                         const GraphNode& B,
-                        bool propagateSchedulingHints)
+                        bool             propagateSchedulingHints)
         -> int;
 
    protected:
@@ -311,7 +311,9 @@ struct Graph
      * Helper - it maps node to streams.
      * Returns the max stream Id used by the scheduling
      */
-    auto helpComputeScheduling_02_mappingStreams(Bfs& bfs, bool filterOutAnchors, int anchorStream)
+    auto helpComputeScheduling_02_mappingStreams(Bfs& bfs,
+                                                 bool filterOutAnchors,
+                                                 int  anchorStream)
         -> int;
 
     /**
@@ -324,9 +326,15 @@ struct Graph
     /**
      * Helper - it Books the required resources from the backend.
      */
-    auto helpComputeScheduling_04_ensureResources(int maxStreamId, int maxEventId)
+    auto helpComputeScheduling_04_ensureResources(int maxStreamId,
+                                                  int maxEventId)
         -> void;
 
+    /**
+     * Helper - it Books the required resources from the backend.
+     */
+    auto helpComputeScheduling_05_executionOrder(bool filterOutAnchors, Bfs& bfs)
+        -> void;
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
 
