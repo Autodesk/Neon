@@ -14,6 +14,9 @@ namespace Neon::skeleton::internal {
 struct MultiXpuGraph
 {
 
+    auto execute()
+        -> void;
+
    public:
     /**
      * Default empty constructor
@@ -150,6 +153,9 @@ struct MultiXpuGraph
      */
     auto h_io2Dot([[maybe_unused]] const std::string& fname,
                   [[maybe_unused]] const std::string& graphName)
+        -> void;
+
+    auto computeScheduling()
         -> void;
 
    private:

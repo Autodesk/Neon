@@ -54,7 +54,8 @@ struct Skeleton
 
     void run()
     {
-        NEON_DEV_UNDER_CONSTRUCTION("");
+        mMultiGraph.execute();
+        //NEON_DEV_UNDER_CONSTRUCTION("");
         // mStreamScheduler.run(mOptions);
     }
 

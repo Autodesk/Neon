@@ -43,7 +43,8 @@ void MapStencilMap(TestData<G, T, C>&      data,
     fR() = scalarVal;
     data.getBackend().syncAll();
 
-    data.resetValuesToRandom(1, 50);
+    //data.resetValuesToRandom(1, 50);
+    data.resetValuesToMasked(1);
     Neon::Timer_sec timer;
 
     {  // SKELETON
@@ -156,6 +157,14 @@ TEST(MapStencilMap_OCC, eGrid)
     using Grid = Neon::domain::internal::eGrid::eGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilOCC<Grid, Type, 0>, nGpus, 1);
+}
+
+TEST(MapStencilMap_OCC, dGrid)
+{
+    int nGpus = getNGpus();
+    using Grid = Neon::domain::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilOCC<Grid, Type, 0>, nGpus, 2);
 }
 
 TEST(MapStencilMap_ExtendedOCC, eGrid)

@@ -85,14 +85,13 @@ auto Graph::
                       nodeB.getGraphData().getUid(),
                       ab);
 
-    if(mRawGraph.hasEdge(aUid, GraphData::endUid)
-        &&
-        GraphData::endUid != bUid){
+    if (mRawGraph.hasEdge(aUid, GraphData::endUid) &&
+        GraphData::endUid != bUid) {
         mRawGraph.removeEdge(aUid, GraphData::endUid);
     }
 
-    if(mRawGraph.hasEdge(GraphData::beginUid, bUid) &&
-        GraphData::beginUid != aUid){
+    if (mRawGraph.hasEdge(GraphData::beginUid, bUid) &&
+        GraphData::beginUid != aUid) {
         mRawGraph.removeEdge(GraphData::beginUid, bUid);
     }
 
@@ -540,10 +539,23 @@ auto Graph::
 
     Frontier a;
     Frontier b;
+    Frontier tmp;
 
     Frontier* currentFrontier = &a;
     Frontier* nextFrontier = &b;
 
+    [[maybe_unused]] auto printFrontier = [](const Frontier* frontier,
+                            std::string     prefix = "") {
+        std::stringstream s;
+        s << "[";
+        s << prefix << " ";
+        for (auto& el : *frontier) {
+            auto [nodeId, counter] = el;
+            s << "(" << nodeId << "," << counter << ")";
+        }
+        s << "]";
+        std::cout << s.str() << std::endl;
+    };
 
     if (!filterOutBeginEnd) {
         currentFrontier->insert({getBeginNode().getGraphData().getUid(), 0});
@@ -559,30 +571,45 @@ auto Graph::
     while (currentFrontier->size() != 0) {
         auto [newLevel, newLevelIdx] = bfs.getNewLevel();
         nextFrontier->clear();
+        tmp.clear();
 
-        for (auto& currentFrontierNode : *currentFrontier) {
-            if (currentFrontierNode.second == 0) {
-                // All incoming dependencies have been resolved.
-                // The node is ready to be added to the current BFS level
-                newLevel.push_back(currentFrontierNode.first);
-
-                // Adding the node's children to the next frontier
-                auto currentFrontierNodeChildren = helpGetOutNeighbors(currentFrontierNode.first, filterOutBeginEnd);
-                for (const auto& child : currentFrontierNodeChildren) {
-                    auto it = std::find_if(nextFrontier->begin(), nextFrontier->end(),
-                                           [&child](auto& entry) {
-                                               return (entry.first == child);
-                                           });
-                    if (it != nextFrontier->end()) {
-                        it->second--;
-                    } else {
-                        auto numChildDependencies = helpGetInEdges(child, filterOutBeginEnd).size();
-                        nextFrontier->insert({child, numChildDependencies - 1});
-                    }
+        {  // all nodes with a counter higher than 1 are moved directly to the next frontier
+            for (auto& currentFrontierNode : *currentFrontier) {
+                if (currentFrontierNode.second == 0) {
+                    tmp.insert(currentFrontierNode);
+                } else {
+                    nextFrontier->insert(currentFrontierNode);
                 }
-            } else {
-                nextFrontier->insert(currentFrontierNode);
             }
+            *currentFrontier = tmp;
+        }
+
+        //printFrontier(currentFrontier, "currentFrontier");
+        //printFrontier(nextFrontier, "nextFrontier");
+        for (auto& currentFrontierNode : *currentFrontier) {
+            // At this any currentFrontierNode has .second ==0;
+            //printFrontier(currentFrontier, "currentFrontier");
+            //std::cout << "selecting " << currentFrontierNode.first << std::endl;
+
+            // All incoming dependencies have been resolved.
+            // The node is ready to be added to the current BFS level
+            newLevel.push_back(currentFrontierNode.first);
+
+            // Adding the node's children to the next frontier
+            auto currentFrontierNodeChildren = helpGetOutNeighbors(currentFrontierNode.first, filterOutBeginEnd);
+            for (const auto& child : currentFrontierNodeChildren) {
+                auto it = std::find_if(nextFrontier->begin(), nextFrontier->end(),
+                                       [&child](auto& entry) {
+                                           return (entry.first == child);
+                                       });
+                if (it != nextFrontier->end()) {
+                    it->second--;
+                } else {
+                    auto numChildDependencies = helpGetInEdges(child, filterOutBeginEnd).size();
+                    nextFrontier->insert({child, numChildDependencies - 1});
+                }
+            }
+            //printFrontier(nextFrontier, "nextFrontier");
         }
         std::swap(currentFrontier, nextFrontier);
     }
@@ -921,8 +948,9 @@ auto Graph::
 
     int ndevs = getBackend().devSet().setCardinality();
     {
-#pragma omp parallel for num_threads(ndevs)
-        for (int setIdx = 0; setIdx < ndevs; setIdx++) {
+#pragma omp parallel num_threads(ndevs) default(none) shared(anchorStream)
+        {
+            const int setIdx = omp_get_thread_num();
             helpExecute(setIdx, anchorStream);
         }
     }
@@ -1056,7 +1084,8 @@ auto Graph::
 auto Graph::
     expandAndMerge(const GraphNode& A,
                    const Container& container,
-                   const GraphNode& B)
+                   const GraphNode& B,
+                   bool             propagateSchedulingHints)
         -> int
 {
     if (container.getContainerExecutionType() != ContainerExecutionType::graph) {
@@ -1067,6 +1096,8 @@ auto Graph::
     toMergeGraph.ioToDot("toMerge", "toMerge", true);
     toMergeGraph.expandSubGraphs();
     int numNodes = toMergeGraph.getNumberOfNodes();
+
+    auto schedulingDepOfB = getProceedingGraphNodes(B, {GraphDependencyType::scheduling});
 
     std::unordered_map<size_t, size_t> fromInputToLocal;
 
@@ -1089,7 +1120,7 @@ auto Graph::
         }
         return false;
     };
-    this->ioToDot("000","addingNJpo", true);
+    this->ioToDot("000", "addingNJpo", true);
 
     // adding nodes to the graph
     toMergeGraph.forEachNode([&](const GraphNode& inputNode) {
@@ -1102,7 +1133,7 @@ auto Graph::
                 newGraphNode.getGraphData().getUid();
         }
     });
-    this->ioToDot("00","addingNJpo", true);
+    this->ioToDot("00", "addingNJpo", true);
 
     // adding dependency to the graph
     toMergeGraph.forEachDependency([&](const GraphDependency& inputDependency) {
@@ -1120,37 +1151,46 @@ auto Graph::
             this->addDependency(source, dest, inputDependency.getType());
         }
     });
-    this->ioToDot("01-addingNodes","addingNJpo", true);
+    this->ioToDot("01-addingNodes", "addingNJpo", true);
 
 
-    {  // Connecting node A with all the child of the input graph begin node
+    {  // Connecting node A with all the children of the input graph begin node
+        // And propagating the scheduling dependencies of B too
         const auto&             inputBeginNode = toMergeGraph.getBeginNode();
         std::vector<GraphNode*> subsequentGraphNodes = toMergeGraph.getSubsequentGraphNodes(inputBeginNode);
+
         for (auto inputGraphNodePtr : subsequentGraphNodes) {
             const auto&  source = A;
             const size_t destUid = fromInputToLocal[inputGraphNodePtr->getGraphData().getUid()];
             auto         dest = this->helpGetGraphNode(destUid);
             const auto&  inputDependency = toMergeGraph.getDependency(inputBeginNode, *inputGraphNodePtr);
             this->addDependency(source, dest, inputDependency.getType());
+
+            if (propagateSchedulingHints) {
+                for (auto& schedulingAnteNode : schedulingDepOfB) {
+                    this->addDependency(*schedulingAnteNode, dest, GraphDependencyType::scheduling);
+                }
+            }
         }
     }
-    this->ioToDot("02-ConnectingA","Connecting", true);
+
+    this->ioToDot("02-ConnectingA", "Connecting", true);
 
 
     {  // Connecting node B with all the parents of the input graph end node
         const auto&             inputEndNode = toMergeGraph.getEndNode();
         std::vector<GraphNode*> proceedingGraphNodes = toMergeGraph.getProceedingGraphNodes(inputEndNode);
         for (auto inputGraphNodePtr : proceedingGraphNodes) {
-            const size_t sourceUid= fromInputToLocal[inputGraphNodePtr->getGraphData().getUid()];
+            const size_t sourceUid = fromInputToLocal[inputGraphNodePtr->getGraphData().getUid()];
 
-            const auto&  source = this->helpGetGraphNode(sourceUid);
-            const auto&  dest = B;
+            const auto& source = this->helpGetGraphNode(sourceUid);
+            const auto& dest = B;
 
-            const auto&  inputDependency = toMergeGraph.getDependency(*inputGraphNodePtr, inputEndNode);
+            const auto& inputDependency = toMergeGraph.getDependency(*inputGraphNodePtr, inputEndNode);
             this->addDependency(source, dest, inputDependency.getType());
         }
     }
-    this->ioToDot("03-ConnectingB","Connecting", true);
+    this->ioToDot("03-ConnectingB", "Connecting", true);
 
     return numNodes;
 }

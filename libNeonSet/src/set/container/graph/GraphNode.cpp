@@ -142,39 +142,46 @@ auto GraphNode::
 {
     auto containerOperationType = getContainerOperationType();
 
-    auto printNodeInformation = [this]() {
-        std::stringstream s;
-
-        auto printPositiveOrNone = [](int val) {
-            if (val >= 0) {
-                return std::to_string(val);
-            }
+    auto printPositiveOrNone = [](int val) {
+        if (val >= 0) {
+            return std::to_string(val);
+        }
+        return std::string("None");
+    };
+    auto printNonEmptyListOrNone = [](const std::vector<int>& ids) {
+        if (ids.size() == 0) {
             return std::string("None");
-        };
-        auto printNonEmptyListOrNone = [](const std::vector<int>& ids) {
-            if (ids.size() == 0) {
-                return std::string("None");
+        }
+        std::stringstream tmp;
+        for (size_t i = 0; i < ids.size(); i++) {
+            if (i != 0) {
+                tmp << " ";
             }
-            std::stringstream tmp;
-            for (size_t i = 0; i < ids.size(); i++) {
-                if (i != 0) {
-                    tmp << " ";
-                }
-                tmp << ids[i];
-            }
-            return tmp.str();
-        };
+            tmp << ids[i];
+        }
+        return tmp.str();
+    };
 
-        s << "\\l - UID: " << getContainer().getUid();
-        s << "\\l - Execution: " << getContainer().getContainerExecutionType();
-        s << "\\lGraphData ";
-        s << "\\l - Graph Node id: " << this->getGraphData().getUid();
-
-        s << "\\lScheduling " << getContainer().getName();
+    auto addSchedulingInfo=[this, printNonEmptyListOrNone, printPositiveOrNone](std::stringstream&s ){
+        s << "\\lScheduling ";
         s << "\\l - DataView: " << getScheduling().getDataView();
         s << "\\l - Stream  : " << getScheduling().getStream();
         s << "\\l - Wait    : " << printNonEmptyListOrNone(getScheduling().getDependentEvents());
         s << "\\l - Signal  : " << printPositiveOrNone(getScheduling().getEvent());
+    };
+
+    auto printNodeInformation = [this, addSchedulingInfo]() {
+        std::stringstream s;
+
+
+
+        s << "\\l - UID: " << getContainer().getUid();
+        s << "\\l - Execution: " << getContainer().getContainerExecutionType();
+        s << "\\lGraph ";
+        s << "\\l - Node id: " << this->getGraphData().getUid();
+
+        addSchedulingInfo(s);
+
         s << "\\l ---- ";
 
         return s.str();
@@ -219,15 +226,28 @@ auto GraphNode::
         s << "Halo Update "
              "\\l  - Name: "
           << getContainer().getName();
-        s << "\\l  - UID: " << getContainer().getUid();
+        s << "\\l - UID: " << getContainer().getUid();
+        s << "\\lGraph ";
+        s << "\\l - Node id: " << this->getGraphData().getUid();
+
+        addSchedulingInfo(s);
+
+        s << "\\l ---- ";
+
         return s.str();
     }
     if (containerOperationType == Neon::set::ContainerOperationType::synchronization) {
         std::stringstream s;
         s << "Sync "
-             "\\l  - Name: "
+             "\\l - Name: "
           << getContainer().getName();
-        s << "\\l  - UID: " << getContainer().getUid();
+        s << "\\l - UID: " << getContainer().getUid();
+        s << "\\lGraph ";
+        s << "\\l - Node id: " << this->getGraphData().getUid();
+
+        addSchedulingInfo(s);
+
+        s << "\\l ---- ";
         return s.str();
     }
     if (containerOperationType == Neon::set::ContainerOperationType::graph) {

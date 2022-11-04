@@ -196,7 +196,8 @@ struct Graph
      */
     auto expandAndMerge(const GraphNode& A,
                         const Container& graphOriginal,
-                        const GraphNode& B)
+                        const GraphNode& B,
+                        bool propagateSchedulingHints)
         -> int;
 
    protected:
@@ -278,7 +279,8 @@ struct Graph
      * - order of execution
      * - mapping between streams and graph nodes
      */
-    auto helpComputeScheduling(bool filterOutAnchors, int anchorStream)
+    auto helpComputeScheduling(bool filterOutAnchors,
+                               int  anchorStream)
         -> void;
 
     /**
@@ -290,7 +292,8 @@ struct Graph
     /**
      * Helper - it executes the graph on a target device
      */
-    auto helpExecute(Neon::SetIdx setIdx, int anchorStream)
+    auto helpExecute(Neon::SetIdx setIdx,
+                     int          anchorStream)
         -> void;
     /**
      * Helper - It resets node scheduling data
