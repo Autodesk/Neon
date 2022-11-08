@@ -14,9 +14,6 @@ namespace Neon::skeleton::internal {
 struct MultiXpuGraph
 {
 
-    auto execute()
-        -> void;
-
    public:
     /**
      * Default empty constructor
@@ -44,67 +41,56 @@ struct MultiXpuGraph
      * @param graphName
      */
     auto ioToDot(const std::string& fname,
-                const std::string& graphName,
-                bool               debug = false)
+                 const std::string& graphName,
+                 bool               debug = false)
         -> void;
 
+    auto execute(const Neon::skeleton::Options& options)
+        -> void;
 
    private:
-    struct Storage
-    {
-        std::vector<Neon::set::Container> m_kContainers;
-        UserDataManager                   m_dataRecords;
 
-        size_t m_rootNodeId;
-        size_t m_finalNodeId;
-        int    m_setCardinality = 0;
-
-        Neon::set::container::Graph mGraph;
-    };
-
-
-    std::shared_ptr<Storage> m_storage;
 
     /**
      * Access methods to members
      * @return
      */
-    inline auto m_kContainers()
+    inline auto getContainers()
         -> std::vector<Neon::set::Container>&
     {
-        return m_storage->m_kContainers;
+        return mStorage->mContainers;
     }
 
-    inline auto m_kContainers()
+    inline auto getContainers()
         const -> const std::vector<Neon::set::Container>&
     {
-        return m_storage->m_kContainers;
+        return mStorage->mContainers;
     }
 
     /**
      * Access methods to members
      * @return
      */
-    inline auto m_dataRecords()
+    inline auto getDataRecords()
         -> UserDataManager&
     {
-        return m_storage->m_dataRecords;
+        return mStorage->mDataRecords;
     }
 
-    inline auto mGraph()
+    inline auto getGraph()
         -> Neon::set::container::Graph&
     {
-        return m_storage->mGraph;
+        return mStorage->mGraph;
     }
 
     /**
      * Access methods to members
      * @return
      */
-    inline auto m_setCardinality()
+    inline auto getSetCardinality()
         -> int&
     {
-        return m_storage->m_setCardinality;
+        return mStorage->mSetCardinality;
     }
 
 
@@ -133,30 +119,20 @@ struct MultiXpuGraph
     /**
      * Helper function to add a new kernel to the graph
      * The dependencies are extracted from the kernel container
-     * @param container
      */
     auto helpParseNewContainer(const Neon::set::Container& inContainer)
         -> void;
 
     /**
      * Parsing of a container of the task list
-     * @param kernelContainerIdx
-     * @return
      */
     auto helpParseContainer(Neon::set::Container& kernelContainerIdx)
         -> std::vector<Neon::set::dataDependency::Token>;
 
-    /**
-     * helper function to export a dot file
-     * @param fname
-     * @param graphName
-     */
-    auto h_ioToDot([[maybe_unused]] const std::string& fname,
-                  [[maybe_unused]] const std::string& graphName)
-        -> void;
-
     auto computeScheduling()
         -> void;
+
+
 
    private:
     auto helpAddNewContainerToGraph(const Neon::set::Container& container)
@@ -176,5 +152,15 @@ struct MultiXpuGraph
 
     auto checkCoherency()
         -> void;
+
+    struct Storage
+    {
+        std::vector<Neon::set::Container> mContainers;
+        UserDataManager                   mDataRecords;
+        int                               mSetCardinality = 0;
+        Neon::set::container::Graph       mGraph;
+    };
+
+    std::shared_ptr<Storage> mStorage;
 };
 }  // namespace Neon::skeleton::internal

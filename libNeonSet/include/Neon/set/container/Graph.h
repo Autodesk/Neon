@@ -285,7 +285,7 @@ struct Graph
     /**
      * Helper - it executes the graph on all devices
      */
-    auto helpExecute(int anchorStream)
+    auto helpExecuteWithOmpAtNodeLevel(int anchorStream)
         -> void;
 
     /**

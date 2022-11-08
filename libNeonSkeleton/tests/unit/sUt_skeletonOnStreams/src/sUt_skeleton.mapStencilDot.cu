@@ -140,13 +140,13 @@ int getNGpus()
 }
 }  // namespace
 
-//TEST(MapStencilDotNoOcc, bGrid)
-//{
-//    int nGpus = 1;
-//    using Grid = Neon::domain::bGrid;
-//    using Type = double;
-//    runAllTestConfiguration<Grid, Type, 0>("bGrid_t", MapStencilDotNoOcc<Grid, Type, 0>, nGpus, 1);
-//}
+TEST(MapStencilDotNoOcc, DISABLED_bGrid)
+{
+    int nGpus = 1;
+    using Grid = Neon::domain::bGrid;
+    using Type = double;
+    runAllTestConfiguration<Grid, Type, 0>("bGrid_t", MapStencilDotNoOcc<Grid, Type, 0>, nGpus, 1);
+}
 
 TEST(MapStencilDotNoOcc, dGrid)
 {

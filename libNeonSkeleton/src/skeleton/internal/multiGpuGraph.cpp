@@ -8,16 +8,16 @@ void MultiXpuGraph::init(Neon::Backend&                           bk,
                          std::string                              /*name*/,
                          Options                                  options)
 {
-    mGraph() = Neon::set::container::Graph(bk);
+    getGraph() = Neon::set::container::Graph(bk);
     parse(bk.devSet().setCardinality(),
           std::forward<const std::vector<Neon::set::Container>&&>(operations));
-    mGraph().removeRedundantDependencies();
+    getGraph().removeRedundantDependencies();
 
     // h_ioToDot("t0_" + name + ".dot", "i");
     optimizations(options);
     // h_ioToDot("t1_" + name + ".dot", "i");
     addCommunications(options);
-    mGraph().removeRedundantDependencies();
+    getGraph().removeRedundantDependencies();
 
     checkCoherency();
     // h_ioToDot("t2_" + name + ".dot", "i");
@@ -28,7 +28,7 @@ void MultiXpuGraph::init(Neon::Backend&                           bk,
 void MultiXpuGraph::parse(int                                       setCardinalty,
                           const std::vector<Neon::set::Container>&& operations)
 {
-    m_setCardinality() = setCardinalty;
+    getSetCardinality() = setCardinalty;
 
     for (auto&& k : operations) {
         helpParseNewContainer(k);
@@ -46,21 +46,21 @@ void MultiXpuGraph::
 
     // Parsing all the data toke used by the kernel container
     std::vector<Neon::set::dataDependency::Token> tokens;
-    tokens = helpParseContainer(mGraph().helpGetGraphNode(graphNodeUid).getContainer());
+    tokens = helpParseContainer(getGraph().helpGetGraphNode(graphNodeUid).getContainer());
 
     // Tokens are based on the multi-GPU data loaded by Containers
     for (auto& token : tokens) {
         // update the dependency state machine with the new token.
         // newDependencies are the detected dependencies
 
-        auto newDependencies = m_dataRecords().updateStatus(graphNodeUid,
+        auto newDependencies = getDataRecords().updateStatus(graphNodeUid,
                                                             token.access(),
                                                             token.uid());
 
         for (auto& dep : newDependencies) {
-            const auto& n0 = mGraph().helpGetGraphNode(dep.t0());
-            const auto& n1 = mGraph().helpGetGraphNode(dep.t1());
-            mGraph().addDependency(n0, n1, token);
+            const auto& n0 = getGraph().helpGetGraphNode(dep.t0());
+            const auto& n1 = getGraph().helpGetGraphNode(dep.t1());
+            getGraph().addDependency(n0, n1, token);
         }
     }
 }
@@ -74,18 +74,12 @@ auto MultiXpuGraph::
     return tokens;
 }
 
-auto MultiXpuGraph::h_ioToDot([[maybe_unused]] const std::string& fname,
-                             [[maybe_unused]] const std::string& graphName) -> void
-{
-    ioToDot(fname, graphName, true);
-}
-
 auto MultiXpuGraph::
     ioToDot(const std::string& fname,
            const std::string& graphName,
            bool               debug) -> void
 {
-    mGraph().ioToDot(fname, graphName, debug);
+    getGraph().ioToDot(fname, graphName, debug);
 }
 
 auto MultiXpuGraph::
@@ -93,12 +87,12 @@ auto MultiXpuGraph::
                       const std::string& graphName,
                       bool               debug) -> void
 {
-    mGraph().ioToDot(fname, graphName, debug);
+    getGraph().ioToDot(fname, graphName, debug);
 }
 
 auto MultiXpuGraph::helpAddNewContainerToGraph(const Neon::set::Container& container) -> Neon::set::container::GraphInfo::NodeUid
 {
-    const auto&                              graphNode = mGraph().addNode(container);
+    const auto&                              graphNode = getGraph().addNode(container);
     Neon::set::container::GraphInfo::NodeUid uid;
     uid = graphNode.getGraphData().getUid();
     return uid;
@@ -122,7 +116,7 @@ auto MultiXpuGraph::optimizations(const Neon::skeleton::Options& options) -> voi
 auto MultiXpuGraph::optimizeStandardOCC(const Neon::skeleton::Options&) -> void
 {
     std::vector<Neon::set::container::GraphData::Uid> stencilNodeUidList;
-    mGraph().forEachNode([&](const Neon::set::container::GraphNode& graphNode) {
+    getGraph().forEachNode([&](const Neon::set::container::GraphNode& graphNode) {
         const auto type =
             graphNode.getContainer().getContainerInterface().getContainerPatternType();
         if (Neon::set::ContainerPatternType::stencil == type) {
@@ -134,20 +128,20 @@ auto MultiXpuGraph::optimizeStandardOCC(const Neon::skeleton::Options&) -> void
     });
 
     for (auto stencilNodeUid : stencilNodeUidList) {
-        auto& boundary_sten = mGraph().helpGetGraphNode(stencilNodeUid);
-        auto& internal_sten = mGraph().cloneNode(boundary_sten);
+        auto& boundary_sten = getGraph().helpGetGraphNode(stencilNodeUid);
+        auto& internal_sten = getGraph().cloneNode(boundary_sten);
 
         internal_sten.getScheduling().setDataView(Neon::DataView::INTERNAL);
         boundary_sten.getScheduling().setDataView(Neon::DataView::BOUNDARY);
 
-        mGraph().addDependency(internal_sten, boundary_sten, Neon::GraphDependencyType::scheduling);
+        getGraph().addDependency(internal_sten, boundary_sten, Neon::GraphDependencyType::scheduling);
     }
 }
 
 auto MultiXpuGraph::optimizeExtendedOCC(const Neon::skeleton::Options&) -> void
 {
     std::vector<Neon::set::container::GraphData::Uid> stencilNodeUidList;
-    mGraph().forEachNode([&](const Neon::set::container::GraphNode& graphNode) {
+    getGraph().forEachNode([&](const Neon::set::container::GraphNode& graphNode) {
         const auto type =
             graphNode.getContainer().getContainerInterface().getContainerPatternType();
         if (Neon::set::ContainerPatternType::stencil == type) {
@@ -160,7 +154,7 @@ auto MultiXpuGraph::optimizeExtendedOCC(const Neon::skeleton::Options&) -> void
 
     auto proceedingNodesAreMapOnly = [&](const Neon::set::container::GraphNode& node)
         -> std::vector<Neon::set::container::GraphNode*> {
-        auto proceeding = this->mGraph().getProceedingGraphNodes(node);
+        auto proceeding = this->getGraph().getProceedingGraphNodes(node);
         for (auto preNodePtr : proceeding) {
             if (preNodePtr->getContainer().getContainerInterface().getContainerPatternType() !=
                 Neon::set::ContainerPatternType::map) {
@@ -174,7 +168,7 @@ auto MultiXpuGraph::optimizeExtendedOCC(const Neon::skeleton::Options&) -> void
     };
 
     for (auto stencilNodeUid : stencilNodeUidList) {
-        auto proceedingNodes = proceedingNodesAreMapOnly(mGraph().helpGetGraphNode(stencilNodeUid));
+        auto proceedingNodes = proceedingNodesAreMapOnly(getGraph().helpGetGraphNode(stencilNodeUid));
 
         if (proceedingNodes.empty()) {
             continue;
@@ -182,28 +176,28 @@ auto MultiXpuGraph::optimizeExtendedOCC(const Neon::skeleton::Options&) -> void
 
         for (auto mapNodePtr : proceedingNodes) {
             auto& boundary_map = *mapNodePtr;
-            auto& internal_map = mGraph().cloneNode(boundary_map);
+            auto& internal_map = getGraph().cloneNode(boundary_map);
 
             internal_map.getScheduling().setDataView(Neon::DataView::INTERNAL);
             boundary_map.getScheduling().setDataView(Neon::DataView::BOUNDARY);
 
-            mGraph().addDependency(boundary_map, internal_map, Neon::GraphDependencyType::scheduling);
+            getGraph().addDependency(boundary_map, internal_map, Neon::GraphDependencyType::scheduling);
         }
 
-        auto& boundary_sten = mGraph().helpGetGraphNode(stencilNodeUid);
-        auto& internal_sten = mGraph().cloneNode(boundary_sten);
+        auto& boundary_sten = getGraph().helpGetGraphNode(stencilNodeUid);
+        auto& internal_sten = getGraph().cloneNode(boundary_sten);
 
         internal_sten.getScheduling().setDataView(Neon::DataView::INTERNAL);
         boundary_sten.getScheduling().setDataView(Neon::DataView::BOUNDARY);
 
-        mGraph().addDependency(internal_sten, boundary_sten, Neon::GraphDependencyType::scheduling);
+        getGraph().addDependency(internal_sten, boundary_sten, Neon::GraphDependencyType::scheduling);
     }
 }
 
 auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) -> void
 {
     std::vector<Neon::set::container::GraphData::Uid> stencilNodeUidList;
-    mGraph().forEachNode([&](const Neon::set::container::GraphNode& graphNode) {
+    getGraph().forEachNode([&](const Neon::set::container::GraphNode& graphNode) {
         const auto type =
             graphNode.getContainer().getContainerInterface().getContainerPatternType();
         if (Neon::set::ContainerPatternType::stencil == type) {
@@ -216,7 +210,7 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
 
     auto proceedingNodesAreMapOnly = [&](const Neon::set::container::GraphNode& node)
         -> std::vector<Neon::set::container::GraphNode*> {
-        auto proceeding = this->mGraph().getProceedingGraphNodes(node);
+        auto proceeding = this->getGraph().getProceedingGraphNodes(node);
         for (auto preNodePtr : proceeding) {
             if (preNodePtr->getContainer().getContainerInterface().getContainerPatternType() !=
                 Neon::set::ContainerPatternType::map) {
@@ -230,7 +224,7 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
     };
     auto subsequentNodesAreMapOnly = [&](const Neon::set::container::GraphNode& node)
         -> std::vector<Neon::set::container::GraphNode*> {
-        auto subsequent = this->mGraph().getSubsequentGraphNodes(node);
+        auto subsequent = this->getGraph().getSubsequentGraphNodes(node);
         for (auto postNodePtr : subsequent) {
             if (postNodePtr->getContainer().getContainerInterface().getContainerPatternType() !=
                     Neon::set::ContainerPatternType::map &&
@@ -246,8 +240,8 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
     };
 
     for (auto stencilNodeUid : stencilNodeUidList) {
-        auto proceedingNodes = proceedingNodesAreMapOnly(mGraph().helpGetGraphNode(stencilNodeUid));
-        auto subsequentNodes = subsequentNodesAreMapOnly(mGraph().helpGetGraphNode(stencilNodeUid));
+        auto proceedingNodes = proceedingNodesAreMapOnly(getGraph().helpGetGraphNode(stencilNodeUid));
+        auto subsequentNodes = subsequentNodesAreMapOnly(getGraph().helpGetGraphNode(stencilNodeUid));
 
         if (proceedingNodes.empty() || subsequentNodes.empty()) {
             continue;
@@ -255,50 +249,50 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
 
         for (auto mapNodePtr : proceedingNodes) {
             auto& boundary_map = *mapNodePtr;
-            auto& internal_map = mGraph().cloneNode(boundary_map);
+            auto& internal_map = getGraph().cloneNode(boundary_map);
 
             internal_map.getScheduling().setDataView(Neon::DataView::INTERNAL);
             boundary_map.getScheduling().setDataView(Neon::DataView::BOUNDARY);
 
-            mGraph().addDependency(boundary_map, internal_map, Neon::GraphDependencyType::scheduling);
+            getGraph().addDependency(boundary_map, internal_map, Neon::GraphDependencyType::scheduling);
         }
 
-        auto& boundary_stencil = mGraph().helpGetGraphNode(stencilNodeUid);
-        auto& internal_stencil = mGraph().cloneNode(boundary_stencil);
+        auto& boundary_stencil = getGraph().helpGetGraphNode(stencilNodeUid);
+        auto& internal_stencil = getGraph().cloneNode(boundary_stencil);
 
         internal_stencil.getScheduling().setDataView(Neon::DataView::INTERNAL);
         boundary_stencil.getScheduling().setDataView(Neon::DataView::BOUNDARY);
 
-        mGraph().addDependency(internal_stencil, boundary_stencil, Neon::GraphDependencyType::scheduling);
+        getGraph().addDependency(internal_stencil, boundary_stencil, Neon::GraphDependencyType::scheduling);
 
         for (auto mapOrReduceNodePtr : subsequentNodes) {
             if(mapOrReduceNodePtr->getContainer().getContainerInterface().getContainerPatternType()
                 == Neon::set::ContainerPatternType::map) {
                 auto& boundary_map = *mapOrReduceNodePtr;
-                auto& internal_map = mGraph().cloneNode(boundary_map);
+                auto& internal_map = getGraph().cloneNode(boundary_map);
 
                 internal_map.getScheduling().setDataView(Neon::DataView::INTERNAL);
                 boundary_map.getScheduling().setDataView(Neon::DataView::BOUNDARY);
 
-                mGraph().addDependency(internal_map, boundary_stencil, Neon::GraphDependencyType::scheduling);
+                getGraph().addDependency(internal_map, boundary_stencil, Neon::GraphDependencyType::scheduling);
 
-                mGraph().removeDependency(mGraph().getDependency(internal_stencil, boundary_map));
-                mGraph().removeDependency(mGraph().getDependency(boundary_stencil, internal_map));
+                getGraph().removeDependency(getGraph().getDependency(internal_stencil, boundary_map));
+                getGraph().removeDependency(getGraph().getDependency(boundary_stencil, internal_map));
             }
             if(mapOrReduceNodePtr->getContainer().getContainerInterface().getContainerPatternType()
                 == Neon::set::ContainerPatternType::reduction) {
                 auto& boundary_red = *mapOrReduceNodePtr;
-                auto& internal_red = mGraph().cloneNode(boundary_red);
+                auto& internal_red = getGraph().cloneNode(boundary_red);
 
                 internal_red.getScheduling().setDataView(Neon::DataView::INTERNAL);
                 boundary_red.getScheduling().setDataView(Neon::DataView::BOUNDARY);
 
-                mGraph().addDependency(internal_red, boundary_stencil, Neon::GraphDependencyType::scheduling);
+                getGraph().addDependency(internal_red, boundary_stencil, Neon::GraphDependencyType::scheduling);
 
-                mGraph().removeDependency(mGraph().getDependency(internal_stencil, boundary_red));
-                mGraph().removeDependency(mGraph().getDependency(boundary_stencil, internal_red));
+                getGraph().removeDependency(getGraph().getDependency(internal_stencil, boundary_red));
+                getGraph().removeDependency(getGraph().getDependency(boundary_stencil, internal_red));
 
-                mGraph().addDependency(internal_red, boundary_red, Neon::GraphDependencyType::data);
+                getGraph().addDependency(internal_red, boundary_red, Neon::GraphDependencyType::data);
             }
         }
     }
@@ -307,16 +301,16 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
 
 auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options& skeletonOptions) -> void
 {
-    if (m_setCardinality() == 1) {
+    if (getSetCardinality() == 1) {
         return;
     }
 
     // List all dependencies related to stencil operations
     std::vector<const Neon::set::container::GraphDependency*> stencilTypeDependencies;
-    mGraph().forEachDependency([&](const Neon::set::container::GraphDependency& dep) {
+    getGraph().forEachDependency([&](const Neon::set::container::GraphDependency& dep) {
         if (dep.getType() != Neon::GraphDependencyType::scheduling) {
             if (dep.hasStencilDependency()) {
-                auto dw = dep.getDestinationNode(mGraph()).getScheduling().getDataView();
+                auto dw = dep.getDestinationNode(getGraph()).getScheduling().getDataView();
                 if (Neon::DataView::INTERNAL != dw) {
                     stencilTypeDependencies.push_back(&dep);
                 }
@@ -330,8 +324,8 @@ auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options& skeletonOpt
     for (auto depPtr : stencilTypeDependencies) {
         const auto& dep = *depPtr;
         const auto  rawEdge = dep.getRawEdge();
-        auto        nodeA = mGraph().helpGetGraphNode(rawEdge.first);
-        auto        nodeB = mGraph().helpGetGraphNode(rawEdge.second);
+        auto        nodeA = getGraph().helpGetGraphNode(rawEdge.first);
+        auto        nodeB = getGraph().helpGetGraphNode(rawEdge.second);
 
         const Neon::set::container::GraphDependency::Tokens& tokens = dep.getTokens();
         int                                                  numNewNodes = 0;
@@ -339,19 +333,19 @@ auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options& skeletonOpt
         for (const auto& token : tokens) {
             if (token.compute() == Neon::Compute::STENCIL) {
                 auto container = token.getDataTransferContainer(skeletonOptions.transferMode());
-                numNewNodes += mGraph().expandAndMerge(nodeA, container, nodeB, true);
+                numNewNodes += getGraph().expandAndMerge(nodeA, container, nodeB, true);
             }
         }
 
-        auto schedulingDepOfB = this->mGraph().getProceedingGraphNodes(nodeB, {GraphDependencyType::scheduling});
+        auto schedulingDepOfB = this->getGraph().getProceedingGraphNodes(nodeB, {GraphDependencyType::scheduling});
         for (auto nodePtr : schedulingDepOfB) {
-            const auto& dependency = mGraph().getDependency(*nodePtr, nodeB);
+            const auto& dependency = getGraph().getDependency(*nodePtr, nodeB);
             toBeRemoved.push_back(&dependency);
         }
     }
 
     for (auto depPtr : toBeRemoved) {
-        mGraph().removeDependency(*depPtr);
+        getGraph().removeDependency(*depPtr);
     }
 }
 
@@ -393,19 +387,23 @@ auto MultiXpuGraph::checkCoherency() -> void
 MultiXpuGraph::
     MultiXpuGraph()
 {
-    m_storage = std::make_shared<Storage>();
+    mStorage = std::make_shared<Storage>();
 }
 
 auto MultiXpuGraph::
     computeScheduling() -> void
 {
-    mGraph().runtimePreSet(Neon::Backend::mainStreamIdx);
+    getGraph().runtimePreSet(Neon::Backend::mainStreamIdx);
 }
 
 auto MultiXpuGraph::
-    execute()
+    execute(const Neon::skeleton::Options& options)
         -> void
 {
-    this->mGraph().helpExecute(Neon::Backend::mainStreamIdx);
+    if(options.executor() == Neon::skeleton::Executor::ompAtNodeLevel) {
+        this->getGraph().helpExecuteWithOmpAtNodeLevel(Neon::Backend::mainStreamIdx);
+    }else{
+        NEON_DEV_UNDER_CONSTRUCTION("");
+    };
 }
 }  // namespace Neon::skeleton::internal

@@ -58,7 +58,7 @@ struct Skeleton
 #ifdef NEON_USE_NVTX
         nvtxRangePush("Skeleton");
 #endif
-        mMultiGraph.execute();
+        mMultiGraph.execute(mOptions);
 #ifdef NEON_USE_NVTX
         nvtxRangePop();
 #endif
