@@ -26,14 +26,19 @@ struct OldDeviceManagedContainer : ContainerAPI
      */
     OldDeviceManagedContainer(const std::string&                                 name,
                               Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
+                              Neon::set::ContainerPatternType patternType,
                               const DataContainer&                               dataIteratorContainer,
                               std::function<ComputeLambdaT(Loader&)>             loadingLambda)
         : mLoadingLambda(loadingLambda),
           mDataContainer(dataIteratorContainer)
     {
-        setContainerExecutionType(ContainerExecutionType::deviceManaged);
-        setDataViewSupport(dataViewSupport);
         setName(name);
+
+        setContainerExecutionType(ContainerExecutionType::deviceManaged);
+        setContainerOperationType(ContainerOperationType::compute);
+        setContainerPattern(patternType);
+
+        setDataViewSupport(dataViewSupport);
     }
 
     auto newLoader(Neon::DeviceType devE,

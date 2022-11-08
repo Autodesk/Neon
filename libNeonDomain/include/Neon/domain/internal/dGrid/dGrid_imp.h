@@ -219,6 +219,7 @@ auto dGrid::dot(const std::string&               name,
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
+            Neon::set::ContainerPatternType::reduction,
             *this, [&](Neon::set::Loader& loader) {
                 loader.load(input1);
                 if (input1.getUid() != input2.getUid()) {
@@ -245,6 +246,7 @@ auto dGrid::dot(const std::string&               name,
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
+            Neon::set::ContainerPatternType::reduction,
             *this, [&](Neon::set::Loader& loader) {
                 loader.load(input1);
                 if (input1.getUid() != input2.getUid()) {

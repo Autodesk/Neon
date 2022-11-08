@@ -81,6 +81,8 @@ class PatternScalar
      */
     auto operator()(const Neon::DataView& dataView) -> T&;
 
+    auto getName() const -> std::string;
+
    private:
     auto updateIO(int streamId = 0)
         -> void final;
@@ -109,6 +111,8 @@ class PatternScalar
     T internalResult;
     T standardResult;
 };
+
+
 
 }  // namespace Neon
 

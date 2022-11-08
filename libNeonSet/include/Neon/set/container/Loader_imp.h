@@ -63,22 +63,29 @@ struct DataTransferExtractor
     static constexpr bool HasHaloUpdateMethod = tmp::is_detected_v<HaloUpdate, T>;
 
    public:
-    static auto get([[maybe_unused]] const Field_ta& field) -> auto
+    /**
+     * Function that extract that wraps the haloUpdateContainer method of a field for future use.
+     * If the function is not detected the input parameter status flag is set to false.
+     */
+    static auto get([[maybe_unused]] const Field_ta& field /**< target field */,
+                    bool&                            status /**< status flag. True means extraction was successful */) -> auto
     {
         if constexpr (HasHaloUpdateMethod<Field_ta>) {
-            auto huFun = [field](Neon::set::TransferMode    transferMode,
-                                 Neon::set::StencilSemantic stencilSemantic)
+            auto huFun = [field, &status](Neon::set::TransferMode    transferMode,
+                                          Neon::set::StencilSemantic stencilSemantic)
                 -> Neon::set::Container {
                 Neon::set::Container container = field.haloUpdateContainer(transferMode, stencilSemantic);
+                status = true;
                 return container;
             };
             return huFun;
         } else {
-            auto huFun = [field](Neon::set::TransferMode    transferMode,
-                                 Neon::set::StencilSemantic stencilSemantic)
+            auto huFun = [field, &status](Neon::set::TransferMode    transferMode,
+                                          Neon::set::StencilSemantic stencilSemantic)
                 -> Neon::set::Container {
                 (void)transferMode;
                 (void)stencilSemantic;
+                status = true;
                 return {};
             };
 
@@ -88,41 +95,41 @@ struct DataTransferExtractor
     }
 };
 
-template <typename Field_ta>
-struct HaloUpdatePerDeviceExtractor_t
-{
-    // field.haloUpdate(bk, opt);
-    // const Neon::set::Backend& /*bk*/,
-    // Neon::set::HuOptions_t& /*opt*/
-   private:
-    template <typename T>
-    using HaloUpdatePerDevice = decltype(std::declval<T>().haloUpdate(std::declval<Neon::SetIdx&>(),
-                                                                      std::declval<Neon::set::HuOptions&>()));
-
-    template <typename T>
-    static constexpr bool HasHaloUpdatePerDevice = tmp::is_detected_v<HaloUpdatePerDevice, T>;
-
-   public:
-    static auto get([[maybe_unused]] const Field_ta& field) -> auto
-    {
-        if constexpr (HasHaloUpdatePerDevice<Field_ta>) {
-            auto huFun = [field](Neon::SetIdx          setIdx,
-                                 Neon::set::HuOptions& opt) {
-                field.haloUpdate(setIdx, opt);
-            };
-            return huFun;
-        } else {
-            auto huFun = [field](Neon::SetIdx          setIdx,
-                                 Neon::set::HuOptions& opt) {
-                (void)opt;
-                (void)setIdx;
-            };
-
-            return huFun;
-        }
-        NEON_THROW_UNSUPPORTED_OPTION("");
-    }
-};
+// template <typename Field_ta>
+// struct HaloUpdatePerDeviceExtractor_t
+//{
+//     // field.haloUpdate(bk, opt);
+//     // const Neon::set::Backend& /*bk*/,
+//     // Neon::set::HuOptions_t& /*opt*/
+//    private:
+//     template <typename T>
+//     using HaloUpdatePerDevice = decltype(std::declval<T>().haloUpdate(std::declval<Neon::SetIdx&>(),
+//                                                                       std::declval<Neon::set::HuOptions&>()));
+//
+//     template <typename T>
+//     static constexpr bool HasHaloUpdatePerDevice = tmp::is_detected_v<HaloUpdatePerDevice, T>;
+//
+//    public:
+//     static auto get([[maybe_unused]] const Field_ta& field) -> auto
+//     {
+//         if constexpr (HasHaloUpdatePerDevice<Field_ta>) {
+//             auto huFun = [field](Neon::SetIdx          setIdx,
+//                                  Neon::set::HuOptions& opt) {
+//                 field.haloUpdate(setIdx, opt);
+//             };
+//             return huFun;
+//         } else {
+//             auto huFun = [field](Neon::SetIdx          setIdx,
+//                                  Neon::set::HuOptions& opt) {
+//                 (void)opt;
+//                 (void)setIdx;
+//             };
+//
+//             return huFun;
+//         }
+//         NEON_THROW_UNSUPPORTED_OPTION("");
+//     }
+// };
 
 }  // namespace internal
 
@@ -186,7 +193,15 @@ auto Loader::
                         // TODO: add back following line with template metaprogramming
                         // field.haloUpdate(bk, opt);
                         // https://gist.github.com/fenbf/d2cd670704b82e2ce7fd
-                        auto                 huFun = internal::DataTransferExtractor<Field_ta>::get(field);
+                        bool                 status;
+                        auto                 huFun = internal::DataTransferExtractor<Field_ta>::get(field, status);
+
+                        if (!status) {
+                            Neon::NeonException e("Neon::Loader");
+                            e << std::string("Unable to extract haloUpdateContainer from the target field: ") + field.getName() + " UID " + std::to_string(field.getUid());
+                            NEON_THROW(e);
+                        }
+
                         Neon::set::Container container = huFun(transferMode, stencilSemantic);
 
                         if (container.getContainerInterface().getContainerExecutionType() != ContainerExecutionType::graph) {

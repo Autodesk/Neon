@@ -41,13 +41,17 @@ template <typename DataContainerT,
           typename UserLoadingLambdaT>
 auto Container::factoryOldManaged(const std::string&                                 name,
                                   Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
+                                  Neon::set::ContainerPatternType                    patternType,
                                   DataContainerT                                     a,
                                   const UserLoadingLambdaT&                          f)
     -> Container
 {
     using ManagedLaunch = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
-    auto k = new Neon::set::internal::OldDeviceManagedContainer<DataContainerT, ManagedLaunch>(name, dataViewSupport,
-                                                                                               a, f);
+    auto k = new Neon::set::internal::OldDeviceManagedContainer<DataContainerT, ManagedLaunch>(name,
+                                                                                               dataViewSupport,
+                                                                                               patternType,
+                                                                                               a,
+                                                                                               f);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
     return {tmp};
@@ -91,8 +95,8 @@ auto Container::factoryDeviceManaged(const std::string&                         
 
 template <typename MultiXpuDataT>
 auto Container::
-    factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
-                        Neon::set::TransferMode     transferMode,
+    factoryDataTransfer(const MultiXpuDataT&       multiXpuData,
+                        Neon::set::TransferMode    transferMode,
                         Neon::set::StencilSemantic transferSemantic)
         -> Neon::set::Container
 {

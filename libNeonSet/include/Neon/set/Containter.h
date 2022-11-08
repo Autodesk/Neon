@@ -75,6 +75,7 @@ struct Container
               typename UserLoadingLambdaT>
     static auto factoryOldManaged(const std::string&                                 name,
                                   Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
+                                  Neon::set::ContainerPatternType                    patternType,
                                   DataContainerT                                     a,
                                   const UserLoadingLambdaT&                          f)
         -> Container;

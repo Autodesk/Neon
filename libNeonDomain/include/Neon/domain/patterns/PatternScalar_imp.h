@@ -189,6 +189,11 @@ auto PatternScalar<T>::getBlasSet(const Neon::DataView& dataView) -> Neon::set::
     }
 }
 
+template <typename T>
+auto PatternScalar<T>::getName() const -> std::string
+{
+    return "PatternScalar";
+}
 
 extern template class PatternScalar<float>;
 extern template class PatternScalar<double>;
