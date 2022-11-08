@@ -16,12 +16,12 @@ GpuStream::GpuStream(ComputeID gpuIdx, cudaStream_t cudaStream)
     m_referenceCounter = new std::atomic_size_t(1);
 }
 
-//GpuStream_t::GpuStream_t(gpu_id gpuIdx, cudaStream_t cudaStream, GpuStreamSet* streamSet){
-//    m_gpuId = gpuIdx;
-//    m_cudaStream = cudaStream;
-//    m_referenceCounter = nullptr;
+// GpuStream_t::GpuStream_t(gpu_id gpuIdx, cudaStream_t cudaStream, GpuStreamSet* streamSet){
+//     m_gpuId = gpuIdx;
+//     m_cudaStream = cudaStream;
+//     m_referenceCounter = nullptr;
 //
-//}
+// }
 
 GpuStream::GpuStream(const GpuStream& other)
 {
@@ -161,6 +161,27 @@ const ComputeID& GpuStream::gpuId() const
     return m_gpuId;
 }
 
+template <run_et::et runMode>
+auto GpuStream::sync() const -> void
+{
+    if constexpr (run_et::et::sync == runMode) {
+        ::Neon::sys::globalSpace::gpuSysObj().dev(m_gpuId).tools.setActiveDevContext();
+        cudaError_t retCode = cudaStreamSynchronize(m_cudaStream);
+        if (cudaSuccess != retCode) {
+            NeonException exc("GpuStream_t");
+            exc << "CUDA error completing cudaStreamSynchronize operation.\n";
+            exc << "   target device: " << m_gpuId;
+            exc << "\n   Error: " << cudaGetErrorString(retCode);
+            NEON_THROW(exc);
+        }
+        return;
+    } else {
+        return;
+    }
+}
+
+template auto GpuStream::sync<run_et::et::sync>() const -> void;
+template auto GpuStream::sync<run_et::et::async>() const -> void;
 
 }  // End of namespace sys
 }  // End of namespace Neon

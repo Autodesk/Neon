@@ -242,6 +242,7 @@ class Backend
     std::string toString() const;
 
     auto toReport(Neon::Report& report, Report::SubBlock* subdocAPI = nullptr) const -> void;
+    void syncEvent(SetIdx setIdx, int eventIdx) const;
 };
 
 }  // namespace Neon

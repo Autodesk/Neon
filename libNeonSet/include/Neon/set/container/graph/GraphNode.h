@@ -2,9 +2,16 @@
 
 #include "GraphData.h"
 #include "GraphNodeScheduling.h"
-#include "Neon/set/Containter.h"
+#include "Neon/set/container/types/ContainerOperationType.h"
+#include "Neon/set/container/types/ContainerPatternType.h"
+
+namespace Neon::set {
+struct Container;
+}
 
 namespace Neon::set::container {
+
+
 
 struct GraphNode
 {
@@ -94,10 +101,10 @@ struct GraphNode
     auto helpGetDotInfo()
         const -> std::string;
 
-    Container            mContainer /**< Any Neon container */;
-    GraphNodeScheduling  mGraphNodeScheduling /**< Scheduling information for the node */;
-    GraphData            mGraphNodeOrganization /**< Information to organize the node w.r.t. the rest of the graph */;
-    ContainerPatternType getContainerpatternType() const;
+    std::shared_ptr<Container> mContainerPrt /**< Any Neon container */;
+    GraphNodeScheduling        mGraphNodeScheduling /**< Scheduling information for the node */;
+    GraphData                  mGraphNodeOrganization /**< Information to organize the node w.r.t. the rest of the graph */;
+    ContainerPatternType       getContainerpatternType() const;
 };
 
 }  // namespace Neon::set::container

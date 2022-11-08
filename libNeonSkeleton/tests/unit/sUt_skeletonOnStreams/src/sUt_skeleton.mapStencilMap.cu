@@ -37,14 +37,14 @@ void MapStencilMap(TestData<G, T, C>&      data,
     Neon::skeleton::Options  opt(occ, transfer);
 
     const Type scalarVal = 2;
-    const int  nIterations = 10;
+    const int  nIterations = 1;
 
     auto fR = data.getGrid().template newPatternScalar<Type>();
     fR() = scalarVal;
     data.getBackend().syncAll();
 
     //data.resetValuesToRandom(1, 50);
-    data.resetValuesToMasked(1);
+    data.resetValuesToMasked(1,1,3);
     Neon::Timer_sec timer;
 
     {  // SKELETON
@@ -65,6 +65,8 @@ void MapStencilMap(TestData<G, T, C>&      data,
         timer.start();
         for (int i = 0; i < nIterations; i++) {
             skl.run();
+            data.getBackend().syncAll();
+            NEON_TRACE("__________________________________________");
         }
         data.getBackend().syncAll();
         timer.stop();
@@ -86,13 +88,13 @@ void MapStencilMap(TestData<G, T, C>&      data,
     bool isOk = data.compare(FieldNames::X);
     isOk = isOk && data.compare(FieldNames::Y);
 
-    /*{  // DEBUG
+    {  // DEBUG
         data.getIODomain(FieldNames::X).ioToVti("IODomain_X", "X");
         data.getField(FieldNames::X).ioToVtk("Field_X", "X");
 
         data.getIODomain(FieldNames::Y).ioToVti("IODomain_Y", "Y");
         data.getField(FieldNames::Y).ioToVtk("Field_Y", "Y");
-    }*/
+    }
 
     ASSERT_TRUE(isOk);
 }
@@ -203,10 +205,10 @@ TEST(MapStencilMap_TwoWayExtendedOCC, dGrid)
     runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilTwoWayExtendedOCC<Grid, Type, 0>, nGpus, 2);
 }
 
-TEST(MapStencilMap_NoOCC, bGrid)
-{
-    int nGpus = 1;
-    using Grid = Neon::domain::internal::bGrid::bGrid;
-    using Type = int32_t;
-    runAllTestConfiguration<Grid, Type, 0>("bGrid_t", MapStencilNoOCC<Grid, Type, 0>, nGpus, 1);
-}
+//TEST(MapStencilMap_NoOCC, bGrid)
+//{
+//    int nGpus = 1;
+//    using Grid = Neon::domain::internal::bGrid::bGrid;
+//    using Type = int32_t;
+//    runAllTestConfiguration<Grid, Type, 0>("bGrid_t", MapStencilNoOCC<Grid, Type, 0>, nGpus, 1);
+//}

@@ -438,6 +438,7 @@ template <typename T, int C>
 auto dField<T, C>::haloUpdate(Neon::set::HuOptions& opt) const
     -> void
 {
+    NEON_TRACE("haloUpdate stream {} transferMode {} ", opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
     auto& bk = self().getBackend();
     auto  fieldDev = field(bk.devType());
     switch (opt.transferMode()) {
@@ -458,13 +459,19 @@ auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
                               Neon::set::HuOptions& opt) const
     -> void
 {
+
+
     auto& bk = self().getBackend();
     auto  fieldDev = field(bk.devType());
     switch (opt.transferMode()) {
         case Neon::set::TransferMode::put:
+            NEON_TRACE("TRACE haloUpdate PUT setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+
             fieldDev.template haloUpdate<Neon::set::TransferMode::put>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
             break;
         case Neon::set::TransferMode::get:
+            NEON_TRACE("TRACE haloUpdate GET setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+
             fieldDev.template haloUpdate<Neon::set::TransferMode::get>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
             break;
         default:
@@ -477,6 +484,8 @@ template <typename T, int C>
 auto dField<T, C>::haloUpdate(Neon::set::HuOptions& opt)
     -> void
 {
+    NEON_TRACE("haloUpdate stream {} transferMode {} ", opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+
     auto& bk = self().getBackend();
     auto  fieldDev = field(bk.devType());
     switch (opt.transferMode()) {
@@ -501,9 +510,17 @@ auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
     auto  fieldDev = field(bk.devType());
     switch (opt.transferMode()) {
         case Neon::set::TransferMode::put:
+#pragma omp critical
+        {
+            NEON_TRACE("TRACE haloUpdate PUT setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+        }
             fieldDev.template haloUpdate<Neon::set::TransferMode::put>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
             break;
         case Neon::set::TransferMode::get:
+#pragma omp critical
+        {
+            NEON_TRACE("TRACE haloUpdate GET setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+        }
             fieldDev.template haloUpdate<Neon::set::TransferMode::get>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
             break;
         default:

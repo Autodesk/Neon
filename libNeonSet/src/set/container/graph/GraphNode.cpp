@@ -1,11 +1,12 @@
 #include "Neon/set/container/graph/GraphNode.h"
-#include "Neon/set/container/AnchorContainer.h"
 #include "Neon/set/container/types/ContainerExecutionType.h"
+#include "Neon/set/Containter.h"
 
 namespace Neon::set::container {
 
 GraphNode::GraphNode()
 {
+    mContainerPrt = std::make_shared<Container>();
 }
 
 auto GraphNode::
@@ -13,7 +14,7 @@ auto GraphNode::
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::beginUid);
-    node.mContainer = Neon::set::Container::factoryAnchor("Begin");
+    node.mContainerPrt = std::make_shared<Container>(Neon::set::Container::factoryAnchor("Begin"));
     return node;
 }
 
@@ -22,7 +23,7 @@ auto GraphNode::
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::endUid);
-    node.mContainer = Neon::set::Container::factoryAnchor("End");
+    node.mContainerPrt = std::make_shared<Container>(Neon::set::Container::factoryAnchor("End"));
     return node;
 }
 
@@ -55,19 +56,20 @@ auto GraphNode::
 auto GraphNode::
     getContainer() -> Container&
 {
-    return mContainer;
+    return *mContainerPrt;
 }
 
 auto GraphNode::
     getContainer() const -> const Container&
 {
-    return mContainer;
+    return *mContainerPrt;
 }
 
 GraphNode::
-    GraphNode(const Container& container, GraphData::Uid uid)
+    GraphNode(const Container& container,
+              GraphData::Uid uid)
 {
-    mContainer = container;
+    mContainerPrt = std::make_shared<Neon::set::Container>(container);
     mGraphNodeOrganization.setUid(uid);
 }
 

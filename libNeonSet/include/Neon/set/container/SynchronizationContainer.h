@@ -5,6 +5,7 @@
 #include "Neon/set/container/DeviceContainer.h"
 #include "Neon/set/container/Graph.h"
 #include "Neon/set/container/Loader.h"
+#include "Neon/set/container/graph/GraphNode.h"
 #include "Neon/set/container/types/SynchronizationContainerType.h"
 
 #include <omp.h>
@@ -39,26 +40,43 @@ struct SynchronizationContainer
         const Neon::Backend& bk = mMultiXpuData.getBackend();
         const int            setCardinality = bk.devSet().setCardinality();
 
-#pragma omp parallel num_threads(setCardinality)
-        {
-            const int threadRank = omp_get_thread_num();
-            run(Neon::SetIdx(threadRank), streamIdx, dataView);
-        }
+        bk.sync(streamIdx);
     }
 
     auto
     run(Neon::SetIdx   setIdx,
         int            streamIdx,
-        Neon::DataView dataView) -> void override
+        Neon::DataView dataView)
+        -> void override
     {
         const auto& bk = mMultiXpuData.getBackend();
-        bk.sync(setIdx, streamIdx);
+        if (mEvents.empty()) {
+            bk.sync(setIdx, streamIdx);
+        } else {
+            for (auto eventId : mEvents) {
+                bk.syncEvent(setIdx, eventId);
+            }
+        }
+
 #pragma omp barrier
+#pragma omp critical
+        {
+            const int threadRank = omp_get_thread_num();
+            NEON_TRACE("TRACE SynchronizationContainer rank {} setIdx {} stream {} event {}", threadRank, setIdx.idx(), streamIdx, mEvents[0]);
+        };
+    }
+
+    auto configureWithScheduling(Neon::set::container::GraphNode& graphNode)
+        -> void override
+    {
+      //  mEvents = graphNode.getScheduling().getDependentEvents();
+       // graphNode.getScheduling().getDependentEvents().clear();
     }
 
    private:
     MxpuDataT                    mMultiXpuData;
     SynchronizationContainerType mSynchronizationType;
+    std::vector<int>             mEvents;
 
 };  // namespace Neon::set::internal
 

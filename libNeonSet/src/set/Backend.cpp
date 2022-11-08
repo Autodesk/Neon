@@ -445,6 +445,21 @@ auto Backend::sync(Neon::SetIdx setIdx, int idx) const -> void
     NEON_THROW(exp);
 }
 
+auto Backend::syncEvent(Neon::SetIdx setIdx, int eventIdx) const -> void
+{
+    if (runtime() == Neon::Runtime::openmp) {
+        return;
+    }
+    if (runtime() == Neon::Runtime::stream) {
+        const Neon::set::GpuEventSet& eventSet = selfData().eventSetVec.at(eventIdx);
+        eventSet.sync(setIdx);
+        return;
+    }
+    NeonException exp("BackendConfig_t");
+    exp << "Backend::sync with idx not permitted for a " << Neon::RuntimeUtils::toString(runtime()) << "backend";
+    NEON_THROW(exp);
+}
+
 auto Backend::runMode() const -> const Neon::run_et ::et&
 {
     return selfData().runMode;

@@ -1,4 +1,6 @@
 #include "Neon/set/container/graph/GraphDependency.h"
+#include "Neon/set/container/Graph.h"
+
 #include <string>
 
 namespace Neon::set::container {

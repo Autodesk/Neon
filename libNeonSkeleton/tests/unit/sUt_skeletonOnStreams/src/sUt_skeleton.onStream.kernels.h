@@ -65,6 +65,11 @@ auto axpy(const Neon::template PatternScalar<T>& fR,
             const auto fRVal = fRLocal();
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
                 //printf("%d yLocal.cardinality()\n", yLocal.cardinality());
+#ifdef NEON_PLACE_CUDA_DEVICE
+                if(yLocal.prtID()==0) {
+                    __nanosleep(2000000U);
+                }
+#endif
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
                     //printf("%d %d (%d) x\n", e, xLocal(e, i), i);

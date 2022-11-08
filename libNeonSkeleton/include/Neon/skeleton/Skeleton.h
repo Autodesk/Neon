@@ -4,7 +4,9 @@
 #include "Neon/skeleton/Options.h"
 #include "Neon/skeleton/internal/MultiXpuGraph.h"
 // #include "Neon/skeleton/internal/StreamScheduler.h"
-
+#ifdef NEON_USE_NVTX
+#include <nvToolsExt.h>
+#endif
 namespace Neon::skeleton {
 
 struct Skeleton
@@ -53,7 +55,13 @@ struct Skeleton
 
     void run()
     {
+#ifdef NEON_USE_NVTX
+        nvtxRangePush("Skeleton");
+#endif
         mMultiGraph.execute();
+#ifdef NEON_USE_NVTX
+        nvtxRangePop();
+#endif
     }
 
    private:

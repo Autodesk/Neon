@@ -1,7 +1,10 @@
+#include "Neon/set/Containter.h"
 #include "Neon/set/container/Graph.h"
 #include <algorithm>
 #include "Neon/set/container/graph/Bfs.h"
-
+#ifdef NEON_USE_NVTX
+#include <nvToolsExt.h>
+#endif
 namespace Neon::set::container {
 
 Graph::Graph()
@@ -982,14 +985,78 @@ auto Graph::
         NEON_THROW(ex);
     }
 
-    int ndevs = getBackend().devSet().setCardinality();
+#if 1
+     #ifdef NEON_USE_NVTX
+         nvtxRangePush("Graph Iteration");
+     #endif
+         int levels = mBfs.getNumberOfLevels();
+         for (int i = 0; i < levels; i++) {
+             mBfs.forEachNodeAtLevel(i, *this, [&](Neon::set::container::GraphNode& graphNode) {
+                 auto&       scheduling = graphNode.getScheduling();
+                 auto&       container = graphNode.getContainer();
+                 const auto& waitingEvents = scheduling.getDependentEvents();
+                 const auto& signalEvents = scheduling.getEvent();
+                 const auto& stream = scheduling.getStream();
+
+                 for (auto toBeWaited : waitingEvents) {
+                     mBackend.waitEventOnStream(toBeWaited, stream);
+                 }
+#ifdef NEON_USE_NVTX
+                 nvtxRangePush((std::string("Container Run") + container.getName()).c_str());
+#endif
+                 container.run(stream, scheduling.getDataView());
+#ifdef NEON_USE_NVTX
+                 nvtxRangePop();
+#endif
+                 if (signalEvents >= 0) {
+                     mBackend.pushEventOnStream(signalEvents, stream);
+                 }
+             });
+         }
+     #ifdef NEON_USE_NVTX
+         nvtxRangePop();
+     #endif
+
+#else
+#ifdef NEON_USE_NVTX
+    nvtxRangePush("Graph Iteration");
+#endif
+
+    const int setCardinality = mBackend.devSet().setCardinality();
+
+    int levels = mBfs.getNumberOfLevels();
+#pragma omp parallel num_threads(setCardinality)
     {
-#pragma omp parallel num_threads(ndevs) default(none) shared(anchorStream)
-        {
-            const int setIdx = omp_get_thread_num();
-            helpExecute(setIdx, anchorStream);
+        const int threadRank = omp_get_thread_num();
+
+        for (int i = 0; i < levels; i++) {
+            mBfs.forEachNodeAtLevel(i, *this, [&](Neon::set::container::GraphNode& graphNode) {
+                auto&       scheduling = graphNode.getScheduling();
+                auto&       container = graphNode.getContainer();
+                const auto& waitingEvents = scheduling.getDependentEvents();
+                const auto& signalEvents = scheduling.getEvent();
+                const auto& stream = scheduling.getStream();
+
+                for (auto toBeWaited : waitingEvents) {
+                    mBackend.waitEventOnStream(threadRank, toBeWaited, stream);
+                }
+#ifdef NEON_USE_NVTX
+                nvtxRangePush((container.getName()+Neon::DataViewUtil::toString(scheduling.getDataView())).c_str());
+#endif
+                container.run(threadRank, stream, scheduling.getDataView());
+#ifdef NEON_USE_NVTX
+                nvtxRangePop();
+#endif
+                if (signalEvents >= 0) {
+                    mBackend.pushEventOnStream(threadRank, signalEvents, stream);
+                }
+            });
         }
     }
+#ifdef NEON_USE_NVTX
+    nvtxRangePop();
+#endif
+#endif
 }
 
 auto Graph::runtimePreSet(int anchorStream) -> void
@@ -997,7 +1064,13 @@ auto Graph::runtimePreSet(int anchorStream) -> void
     helpComputeScheduling(false, anchorStream);
     mAnchorStreamPreSet = anchorStream;
     mFilterOutAnchorsPreSet = false;
+    for (int i = 0; i < mBfs.getNumberOfLevels(); i++) {
+        mBfs.forEachNodeAtLevel(i, *this, [&](Neon::set::container::GraphNode& graphNode) {
+            graphNode.getContainer().getContainerInterface().configureWithScheduling(graphNode);
+        });
+    }
 }
+
 auto Graph::expandSubGraphs() -> void
 {
     bool atLeastOneWasFound = false;

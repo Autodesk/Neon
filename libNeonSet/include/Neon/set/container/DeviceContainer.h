@@ -120,6 +120,13 @@ struct DeviceContainer : ContainerAPI
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
         Neon::set::KernelConfig kernelConfig(dataView, bk, streamIdx, this->getLaunchParameters(dataView));
 
+#pragma omp critical
+        {
+            const int threadRank = omp_get_thread_num();
+            NEON_TRACE("TRACE DeviceContainer run rank {} setIdx {} stream {} dw {}",
+                       threadRank, setIdx.idx(), kernelConfig.stream(), Neon::DataViewUtil::toString(kernelConfig.dataView()));
+        };
+
         if (ContainerExecutionType::device == this->getContainerExecutionType()) {
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 setIdx,
@@ -148,4 +155,4 @@ struct DeviceContainer : ContainerAPI
     DataIteratorContainerT m_dataIteratorContainer;
 };
 
-}  // namespace Neon
+}  // namespace Neon::set::internal

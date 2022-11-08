@@ -232,4 +232,12 @@ auto ContainerAPI::
         << " is not supported.";
     NEON_THROW(exp);
 }
+
+
+auto ContainerAPI::
+ configureWithScheduling(Neon::set::container::GraphNode& graphNode)
+        -> void{
+
+}
+
 }  // namespace Neon::set::internal

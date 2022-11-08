@@ -4,7 +4,7 @@
 #include "Neon/set/container/types/ContainerExecutionType.h"
 #include "Neon/set/container/types/ContainerOperationType.h"
 #include "Neon/set/container/types/ContainerPatternType.h"
-//#include "Neon/set/dependency/Token.h"
+// #include "Neon/set/dependency/Token.h"
 
 #include "functional"
 #include "type_traits"
@@ -15,7 +15,8 @@ struct Loader;
 
 namespace Neon::set::container {
 struct Graph;
-}
+struct GraphNode;
+}  // namespace Neon::set::container
 
 namespace Neon::set::dataDependency {
 struct Token;
@@ -29,6 +30,8 @@ namespace Neon::set::internal {
  */
 struct ContainerAPI
 {
+    virtual auto configureWithScheduling(Neon::set::container::GraphNode& graphNode) -> void;
+
    public:
     friend Neon::set::Loader;
 
@@ -202,7 +205,6 @@ struct ContainerAPI
 
     auto setParsingDataUpdated(bool)
         -> void;
-
 
    private:
     using TokenList = std::vector<Neon::set::dataDependency::Token>;

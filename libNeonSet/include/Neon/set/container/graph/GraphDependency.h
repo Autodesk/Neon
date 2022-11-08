@@ -2,7 +2,7 @@
 
 #include "Neon/set/container/graph/GraphNode.h"
 #include "Neon/set/dependency/Token.h"
-
+#include "Neon/core/types/digraph.h"
 #include "GraphDependencyType.h"
 
 namespace Neon::skeleton::internal {
