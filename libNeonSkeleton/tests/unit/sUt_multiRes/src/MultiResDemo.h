@@ -39,49 +39,51 @@ inline float sdfDodecahedron(Neon::float_3d p, float r = 1.0)
 
 inline float sdfMenger(Neon::float_3d p)
 {
-    auto maxcomp = [](Neon::float_3d p) -> float { return std::max(p.x, std::max(p.y, p.z)); };
+    auto mod = [](float x, float y) { return x - y * floor(x / y); };
 
     auto length = [&](const Neon::float_3d& x) -> float {
         return std::sqrt(x.v[0] * x.v[0] + x.v[1] * x.v[1] + x.v[2] * x.v[2]);
     };
 
+    auto maxcomp = [](Neon::float_3d q) { return std::max(q.x, std::max(q.y, q.z)); };
 
-    auto sdBox = [maxcomp, length](Neon::float_3d p, Neon::float_3d b) -> float {
-        Neon::float_3d di = Neon::float_3d(std::abs(p.x) - b.x,
-                                           std::abs(p.y) - b.y,
-                                           std::abs(p.z) - b.z);
+    auto sdBox = [length, maxcomp](Neon::float_3d q, Neon::float_3d b) -> float {
+        Neon::float_3d di(std::abs(q.x) - b.x,
+                          std::abs(q.y) - b.y,
+                          std::abs(q.z) - b.z);
 
         float mc = maxcomp(di);
 
-        Neon::float_3d di_max = Neon::float_3d(std::max(di.x, 0.f),
-                                               std::max(di.y, 0.f),
-                                               std::max(di.z, 0.f));
+        Neon::float_3d di_max(std::max(di.x, 0.f),
+                              std::max(di.y, 0.f),
+                              std::max(di.z, 0.f));
+
         return std::min(mc, length(di_max));
     };
-    auto mod = [](float x, float y) { return x - y * floor(x / y); };
 
-    float d = sdBox(p, Neon::float_3d(1.0, 1.0, 1.0));
+    Neon::float_3d one(1.f, 1.f, 1.f);
+
+    float d = sdBox(p, one);
+
 
     float s = 1.0;
+    for (int m = 0; m < 4; m++) {
 
-    Neon::float_3d ps = p * s;
-
-
-    for (int m = 0; m < 7; ++m) {
-
-        Neon::float_3d a = Neon::float_3d(mod(ps.x, 2.f) - 1.0,
-                                          mod(ps.y, 2.f) - 1.0,
-                                          mod(ps.z, 2.f) - 1.0);
+        Neon::float_3d a(mod(p.x * s, 2.f) - 1.f,
+                         mod(p.y * s, 2.f) - 1.f,
+                         mod(p.z * s, 2.f) - 1.f);
 
         s *= 3.0;
-        Neon::float_3d r = Neon::float_3d(std::abs(1.0 - 3.0 * std::abs(a.x)),
-                                          std::abs(1.0 - 3.0 * std::abs(a.y)),
-                                          std::abs(1.0 - 3.0 * std::abs(a.z)));
+
+        Neon::float_3d r(std::abs(1.0 - 3.0 * std::abs(a.x)),
+                         std::abs(1.0 - 3.0 * std::abs(a.y)),
+                         std::abs(1.0 - 3.0 * std::abs(a.z)));
 
         float da = std::max(r.x, r.y);
         float db = std::max(r.y, r.z);
         float dc = std::max(r.z, r.x);
         float c = (std::min(da, std::min(db, dc)) - 1.0) / s;
+
         d = std::max(d, c);
     }
 
@@ -95,16 +97,22 @@ void MultiResDemo()
     std::vector<int> gpusIds(nGPUs, 0);
     auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
 
-    Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 2});
+    Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1, 1, 1});
 
     const float eps = std::numeric_limits<float>::epsilon();
 
-    Neon::domain::bGrid b_grid(
+    Neon::domain::bGrid grid(
         bk,
         dim,
         {[&](const Neon::index_3d id) -> bool {
              //return sdfDodecahedron(mapToCube(id, dim)) < eps;
              return sdfMenger(mapToCube(id, dim)) < eps;
+         },
+         [&](const Neon::index_3d&) -> bool {
+             return false;
+         },
+         [&](const Neon::index_3d&) -> bool {
+             return false;
          },
          [&](const Neon::index_3d&) -> bool {
              return false;
@@ -121,19 +129,65 @@ void MultiResDemo()
         s << descriptor.getLog2RefFactor(i);
     }
 
-    b_grid.topologyToVTK(s.str() + ".vtk", false);
+    grid.topologyToVTK(s.str() + ".vtk", false);
 
-    /*auto field = b_grid.newField<float>("myField", 1, 0);
+    auto field = grid.newField<float>("myField", 1, -10000);
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
-        field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
+        field.forEachActiveCell(
             l,
-            [&]([[maybe_unused]] const Neon::int32_3d idx, const int , float& val) {
-                val = 20 + float(l);
+            [&]([[maybe_unused]] const Neon::int32_3d idx, const int, float& val) {
+                if (l == 0) {
+                    val = mapToCube(idx, dim).norm();
+                } else {
+                    val = 0;
+                }
             });
     }
 
-    field.ioToVtk(s.str(), "f");*/
+    field.updateCompute();
+
+    for (int level = 1; level < descriptor.getDepth(); ++level) {
+        field.setCurrentLevel(level);
+        grid.setCurrentLevel(level);
+
+        auto container = grid.getContainer(
+            "container", [&, level](Neon::set::Loader& loader) {
+                auto& local = loader.load(field);
+
+                return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                    if (!local.hasChildren(cell)) {
+
+                        local(cell, 0) = -1.0;
+
+                    } else {
+
+                        float     val = 0;
+                        const int refFactor = local.getRefFactor(level - 1);
+
+                        for (int8_t z = 0; z < refFactor; ++z) {
+                            for (int8_t y = 0; y < refFactor; ++y) {
+                                for (int8_t x = 0; x < refFactor; ++x) {
+
+                                    Neon::int8_3d child_dir(x, y, z);
+
+                                    val = std::max(val, local.childVal(cell, child_dir, 0, 0).value);
+                                }
+                            }
+                            local(cell, 0) = val;
+                        }
+                    }
+                };
+            });
+
+        container.run(0);
+        grid.getBackend().syncAll();
+    }
+
+
+    field.updateIO();
+
+    field.ioToVtk(s.str(), "f");
 }
 
 
