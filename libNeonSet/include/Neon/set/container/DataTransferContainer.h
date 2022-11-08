@@ -49,7 +49,7 @@ struct DataTransferContainer
 
     auto run(Neon::SetIdx   setIdx,
              int            streamIdx,
-             Neon::DataView dataView) -> void override
+             Neon::DataView /*dataView*/) -> void override
     {
         if (ContainerExecutionType::deviceManaged == this->getContainerExecutionType()) {
             mDataTransferFun(setIdx, streamIdx);

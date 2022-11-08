@@ -75,9 +75,9 @@ struct DataTransferExtractor
                                           Neon::set::StencilSemantic stencilSemantic)
                 -> Neon::set::Container {
                 Neon::set::Container container = field.haloUpdateContainer(transferMode, stencilSemantic);
-                status = true;
                 return container;
             };
+            status = true;
             return huFun;
         } else {
             auto huFun = [field, &status](Neon::set::TransferMode    transferMode,
@@ -85,10 +85,9 @@ struct DataTransferExtractor
                 -> Neon::set::Container {
                 (void)transferMode;
                 (void)stencilSemantic;
-                status = true;
                 return {};
             };
-
+            status = false;
             return huFun;
         }
         NEON_THROW_UNSUPPORTED_OPTION("");

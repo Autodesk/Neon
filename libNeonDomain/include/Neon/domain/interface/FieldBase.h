@@ -57,7 +57,8 @@ class FieldBase
     virtual auto haloUpdate(Neon::set::HuOptions& opt)
         -> void = 0;
 
-    virtual auto haloUpdateContainer(Neon::set::HuOptions& opt) const
+    virtual auto haloUpdateContainer(Neon::set::TransferMode    transferMode,
+                                     Neon::set::StencilSemantic stencilSemantic) const
         -> Neon::set::Container;
 
     auto getDimension() const

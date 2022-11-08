@@ -309,6 +309,7 @@ auto dGrid::norm2(const std::string&               name,
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
+            Neon::set::ContainerPatternType::reduction,
             *this, [&](Neon::set::Loader& loader) {
                 loader.load(input);
 
@@ -332,6 +333,7 @@ auto dGrid::norm2(const std::string&               name,
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
+            Neon::set::ContainerPatternType::reduction,
             *this, [&](Neon::set::Loader& loader) {
                 loader.load(input);
 

@@ -12,7 +12,6 @@ struct Container;
 namespace Neon::set::container {
 
 
-
 struct GraphNode
 {
 
@@ -101,10 +100,13 @@ struct GraphNode
     auto helpGetDotInfo()
         const -> std::string;
 
+    auto getContainerpatternType()
+        const -> ContainerPatternType;
+
+
     std::shared_ptr<Container> mContainerPrt /**< Any Neon container */;
     GraphNodeScheduling        mGraphNodeScheduling /**< Scheduling information for the node */;
     GraphData                  mGraphNodeOrganization /**< Information to organize the node w.r.t. the rest of the graph */;
-    ContainerPatternType       getContainerpatternType() const;
 };
 
 }  // namespace Neon::set::container

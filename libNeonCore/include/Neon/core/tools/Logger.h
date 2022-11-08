@@ -53,14 +53,11 @@ LIBNEONCORE_EXPORT extern Logger LoggerObj;
 
 }  // namespace Neon
 
-#define NEON_ACTIVETE_TRACING
 #if defined( NEON_ACTIVETE_TRACING)
 #define NEON_TRACE(...) ::Neon::globalSpace::LoggerObj.getLogger()->trace(__VA_ARGS__)
 #else
-#define NEON_TRACE(...) ::Neon::globalSpace::LoggerObj.getLogger()->trace(__VA_ARGS__)
+#define NEON_TRACE(...)
 #endif
-
-
 
 #define NEON_INFO(...) ::Neon::globalSpace::LoggerObj.getLogger()->info(__VA_ARGS__)
 #define NEON_WARNING(...)                                                                         \

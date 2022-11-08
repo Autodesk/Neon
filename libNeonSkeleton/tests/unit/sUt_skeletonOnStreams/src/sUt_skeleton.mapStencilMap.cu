@@ -66,7 +66,6 @@ void MapStencilMap(TestData<G, T, C>&      data,
         for (int i = 0; i < nIterations; i++) {
             skl.run();
             data.getBackend().syncAll();
-            NEON_TRACE("__________________________________________");
         }
         data.getBackend().syncAll();
         timer.stop();
