@@ -61,12 +61,9 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto haloUpdate(Neon::set::HuOptions& opt) const
         -> void final;
 
-    auto haloUpdateContainer(Neon::set::HuOptions& opt) const
-        -> Neon::set::Container final;
-
     auto haloUpdateContainer(Neon::set::TransferMode,
                              Neon::set::StencilSemantic)
-        const -> Neon::set::Container;
+        const -> Neon::set::Container final;
 
     auto haloUpdate(SetIdx setIdx, Neon::set::HuOptions& opt) const
         -> void;  // TODO add this function to the API if performance boost is reasonable -> void final;

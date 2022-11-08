@@ -35,18 +35,16 @@ struct SynchronizationContainer
     }
 
     auto run(int            streamIdx,
-             Neon::DataView dataView) -> void override
+             Neon::DataView /*dataView*/) -> void override
     {
         const Neon::Backend& bk = mMultiXpuData.getBackend();
-        const int            setCardinality = bk.devSet().setCardinality();
-
         bk.sync(streamIdx);
     }
 
     auto
     run(Neon::SetIdx   setIdx,
         int            streamIdx,
-        Neon::DataView dataView)
+        Neon::DataView /*dataView*/)
         -> void override
     {
         const auto& bk = mMultiXpuData.getBackend();
@@ -66,7 +64,7 @@ struct SynchronizationContainer
 //        };
     }
 
-    auto configureWithScheduling(Neon::set::container::GraphNode& graphNode)
+    auto configureWithScheduling(Neon::set::container::GraphNode& /*graphNode*/)
         -> void override
     {
 //        mEvents = graphNode.getScheduling().getDependentEvents();

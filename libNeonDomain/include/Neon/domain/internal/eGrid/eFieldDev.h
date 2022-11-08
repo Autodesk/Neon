@@ -142,7 +142,7 @@ class eFieldDevice_t
         }
     }
 
-    auto h_haloUpdateInfo(Neon::set::TransferMode     mode,
+    auto h_haloUpdateInfo(Neon::set::TransferMode    mode,
                           Neon::set::StencilSemantic structure)
         -> std::vector<Neon::set::Transfer>&
     {
@@ -202,7 +202,7 @@ class eFieldDevice_t
      */
     auto uid() const -> Neon::set::dataDependency::MultiXpuDataUid
     {
-        void*                           addr = static_cast<void*>(m_data.get());
+        void*                                      addr = static_cast<void*>(m_data.get());
         Neon::set::dataDependency::MultiXpuDataUid uidRes = (size_t)addr;
         return uidRes;
     }
@@ -562,6 +562,106 @@ class eFieldDevice_t
         }  //------------------------------------------------
     }
 
+    auto haloUpdate__(const Neon::Backend&  bk,
+                      Neon::SetIdx          setIdx,
+                      Neon::set::HuOptions& opt) const
+        -> void
+    {
+
+        // No halo update operation can be performed on a filed where halo was not activated.
+        if (m_data->haloStatus != Neon::domain::haloStatus_et::ON) {
+            NEON_THROW_UNSUPPORTED_OPERATION("Halo support was not activated for this field.");
+        }
+
+        // We don't need any update if the number of devices is one.
+        if (m_data->devSet.setCardinality() == 1) {
+            return;
+        }
+
+        // If we are in execution mode, then we use on omp thread per device
+        // If we are in storeInfo mode, then we use only one thread, which will
+        // insert information on the transfer vectors sequentially
+
+        // This sync goes before the following loop.
+        // This is a complete barrier over the stream and
+        // it can not be put inside the loop
+        // The sync is done only if opt.isExecuteMode() == true
+        if (opt.startWithBarrier() && opt.isExecuteMode()) {
+            bk.sync(opt.streamSetIdx());
+        }
+
+        // Different behaviour base on the data layout
+        switch (m_data->memOrder) {
+            case Neon::memLayout_et::order_e::structOfArrays: {
+                    for (int cardIdx = 0; cardIdx < self().cardinality(); cardIdx++) {
+                        constexpr auto structure = Neon::set::StencilSemantic::standard;
+
+                        auto& peerTransferOpt = opt.getPeerTransferOpt(bk);
+                        h_huSoAByCardSingleDevFwd(peerTransferOpt,
+                                                  setIdx,
+                                                  cardIdx,
+                                                  structure);
+                    }
+
+                break;
+            }
+            //------------------------------------------------
+            case Neon::memLayout_et::order_e::arrayOfStructs: {
+
+                    // ARRAYS OF STRUCTURES
+                    // -> for each voxel the components are stored contiguously
+                    // -> We follow the same configuration either for Lattice or Standard
+                    // -> We use the Standard as reference
+
+                    const int            dstIdx = setIdx.idx();
+                    LocalIndexingInfo_t& dst = m_data->frame_shp->template localIndexingInfo<Neon::Access::readWrite>(dstIdx);
+
+                    const std::array<internals::partition_idx, ComDirection_e::COM_NUM>
+                        srcIdx = {dst.nghIdx(ComDirection_e::COM_DW),
+                                  dst.nghIdx(ComDirection_e::COM_UP)};
+
+                    for (const auto& comDirection : {ComDirection_e::COM_DW,
+                                                     ComDirection_e::COM_UP}) {
+
+                        // In terms of elements we need to a number of values
+                        // equivalent to the number of elements (voxels)
+                        // by the number of values per element (=cardinality)
+                        count_t      transferEl = dst.remoteBdrCount(comDirection) * self().cardinality();
+                        Cell::Offset remoteOffset = dst.remoteBdrOff(comDirection);
+                        Cell::Offset localOffset = dst.ghostOff(comDirection);
+
+                        T_ta*       dstMem = m_data->memoryStorage.mem(dstIdx);
+                        const T_ta* srcMem = m_data->memoryStorage.mem(srcIdx[comDirection]);
+
+                        T_ta*       dstBuf = dstMem + localOffset;
+                        const T_ta* srcBuf = srcMem + remoteOffset;
+
+                        // For partition 0, communication are only in the UP direction
+                        if (setIdx.idx() == 0 && comDirection == ComDirection_e::COM_DW)
+                            continue;
+
+                        // For the last, communication are only in the DW direction
+                        if (setIdx.idx() == (bk.devSet().setCardinality() - 1) && comDirection == ComDirection_e::COM_UP)
+                            continue;
+
+                        assert(transferEl > -1);
+                        if (transferEl > 0) {
+                            // auto&                             streamSet = bk.streamSet(opt.streamSetIdx());
+                            Neon::set::Transfer::Endpoint_t srcEndPoint(srcIdx[comDirection], (void*)srcBuf);
+                            Neon::set::Transfer::Endpoint_t dstEndPoint(dstIdx, (void*)dstBuf);
+
+                            Neon::set::Transfer transfer(opt.transferMode(),
+                                                         dstEndPoint,
+                                                         srcEndPoint,
+                                                         transferEl * sizeof(T_ta));
+
+                            m_data->devSet.peerTransfer(opt.getPeerTransferOpt(bk), transfer);
+                        }
+                    }
+
+            }
+        }  //------------------------------------------------
+    }
     /**
      * Do Update by cardinality
      * @param bk

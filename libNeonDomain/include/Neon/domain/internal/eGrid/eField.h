@@ -142,6 +142,14 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto haloUpdate(Neon::set::HuOptions& opt)
         -> void final;
 
+    auto haloUpdate(Neon::SetIdx          setIdx,
+                    Neon::set::HuOptions& opt)
+        -> void;
+
+    auto haloUpdateContainer(Neon::set::TransferMode    transferMode,
+                             Neon::set::StencilSemantic stencilSemantic)
+        const -> Neon::set::Container final;
+
     static auto swap(Field& A, Field& B) -> void;
 
    private:
@@ -201,6 +209,7 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto helpUpdate(const Neon::set::StreamSet& streamSet,
                     const Neon::DeviceType&     devEt)
         -> void;
+
     /**
      *
      * @param streamSet
@@ -222,5 +231,6 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
     bool                  mGpuLink{false};
     Neon::set::DataConfig m_dataConfig;
 };
+
 
 }  // namespace Neon::domain::internal::eGrid

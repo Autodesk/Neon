@@ -275,7 +275,8 @@ auto FieldBase<T, C>::getClassName() const -> const std::string&
 }
 
 template <typename T, int C>
-auto FieldBase<T, C>::haloUpdateContainer(set::HuOptions& /*opt*/) const -> Neon::set::Container
+auto FieldBase<T, C>::haloUpdateContainer(Neon::set::TransferMode,
+                                          Neon::set::StencilSemantic) const -> Neon::set::Container
 {
     NEON_THROW_UNSUPPORTED_OPERATION("");
 }
