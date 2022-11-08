@@ -166,24 +166,24 @@ auto Backend::eventSet(Neon::EventIdx eventdx) -> Neon::set::GpuEventSet&
     return selfData().userEventSetVec.at(eventdx);
 }
 
-auto Backend::streamSetRotate(int&                    rotateIdx,
-                              const std::vector<int>& streamIdxVec)
-    const
-    -> const Neon::set::StreamSet&
-{
-    int streamIdx = Backend::streamSetIdxRotate(rotateIdx, streamIdxVec);
-    return selfData().streamSetVec.at(streamIdx);
-}
-
-auto Backend::streamSetIdxRotate(int&                    rotateIdx,
-                                 const std::vector<int>& streamIdxVec)
-    -> int
-{
-    int streamIdx = streamIdxVec.at(rotateIdx);
-    rotateIdx++;
-    rotateIdx = rotateIdx % streamIdxVec.size();
-    return streamIdx;
-}
+//auto Backend::streamSetRotate(int&                    rotateIdx,
+//                              const std::vector<int>& streamIdxVec)
+//    const
+//    -> const Neon::set::StreamSet&
+//{
+//    int streamIdx = Backend::streamSetIdxRotate(rotateIdx, streamIdxVec);
+//    return selfData().streamSetVec.at(streamIdx);
+//}
+//
+//auto Backend::streamSetIdxRotate(int&                    rotateIdx,
+//                                 const std::vector<int>& streamIdxVec)
+//    -> int
+//{
+//    int streamIdx = streamIdxVec.at(rotateIdx);
+//    rotateIdx++;
+//    rotateIdx = rotateIdx % streamIdxVec.size();
+//    return streamIdx;
+//}
 
 auto Backend::pushEventOnStream(int eventId, int streamId)
     -> void
@@ -299,63 +299,63 @@ auto Backend::waitEventOnStream(Neon::SetIdx setIdx, int eventId, int streamId)
     }
 }
 
-auto Backend::streamEventBarrier(const std::vector<int>& streamIdxVec) -> void
-{
-    switch (selfData().runtime) {
-        case Neon::Runtime::openmp: {
-            return;
-        }
-        case Neon::Runtime::stream: {
-            break;
-            ;
-        }
-        default: {
-            NEON_THROW_UNSUPPORTED_OPTION("");
-        }
-    }
-
-    for (int i = 0; i < int(streamIdxVec.size()); i++) {
-        selfData().streamSetVec.at(i).enqueueEvent(selfData().eventSetVec.at(i));
-    }
-
-
-    auto nextPowerOfTwo = [](unsigned int n) -> unsigned int {
-        // if n=4 v=4
-        // if n=5 v=8
-        int v = n;
-
-        v--;
-        v |= v >> 1;
-        v |= v >> 2;
-        v |= v >> 4;
-        v |= v >> 8;
-        v |= v >> 16;
-        v++;  // next power of 2
-
-        return v;
-    };
-    const unsigned int nstreams = (unsigned int)(streamIdxVec.size());
-    const unsigned int nstreamsPow2 = nextPowerOfTwo(nstreams);
-
-    for (int rLevel = 1; rLevel < int(nstreamsPow2); rLevel *= 2) {
-        const int waiterJump = rLevel * 2;
-        const int neighbourToWaitJump = rLevel;
-        for (int waiterId = 0; waiterId < int(nstreams); waiterId += waiterJump) {
-            const int neighbourId = waiterId + neighbourToWaitJump;
-            if (neighbourId < int(nstreams)) {
-                int waiterStreamId = streamIdxVec[waiterId];
-                int neighbourEventId = streamIdxVec[neighbourId];
-
-                auto waiterStream = selfData().streamSetVec.at(waiterStreamId);
-                auto neighborEvent = selfData().eventSetVec.at(neighbourEventId);
-                waiterStream.waitForEvent(neighborEvent);
-                // std::cout << " waiterStreamId " << waiterStreamId <<" neighbourEventId " <<neighbourEventId<<std::endl;
-            }
-        }
-    }
-
-    return;
-}
+//auto Backend::streamEventBarrier(const std::vector<int>& streamIdxVec) -> void
+//{
+//    switch (selfData().runtime) {
+//        case Neon::Runtime::openmp: {
+//            return;
+//        }
+//        case Neon::Runtime::stream: {
+//            break;
+//            ;
+//        }
+//        default: {
+//            NEON_THROW_UNSUPPORTED_OPTION("");
+//        }
+//    }
+//
+//    for (int i = 0; i < int(streamIdxVec.size()); i++) {
+//        selfData().streamSetVec.at(i).enqueueEvent(selfData().eventSetVec.at(i));
+//    }
+//
+//
+//    auto nextPowerOfTwo = [](unsigned int n) -> unsigned int {
+//        // if n=4 v=4
+//        // if n=5 v=8
+//        int v = n;
+//
+//        v--;
+//        v |= v >> 1;
+//        v |= v >> 2;
+//        v |= v >> 4;
+//        v |= v >> 8;
+//        v |= v >> 16;
+//        v++;  // next power of 2
+//
+//        return v;
+//    };
+//    const unsigned int nstreams = (unsigned int)(streamIdxVec.size());
+//    const unsigned int nstreamsPow2 = nextPowerOfTwo(nstreams);
+//
+//    for (int rLevel = 1; rLevel < int(nstreamsPow2); rLevel *= 2) {
+//        const int waiterJump = rLevel * 2;
+//        const int neighbourToWaitJump = rLevel;
+//        for (int waiterId = 0; waiterId < int(nstreams); waiterId += waiterJump) {
+//            const int neighbourId = waiterId + neighbourToWaitJump;
+//            if (neighbourId < int(nstreams)) {
+//                int waiterStreamId = streamIdxVec[waiterId];
+//                int neighbourEventId = streamIdxVec[neighbourId];
+//
+//                auto waiterStream = selfData().streamSetVec.at(waiterStreamId);
+//                auto neighborEvent = selfData().eventSetVec.at(neighbourEventId);
+//                waiterStream.waitForEvent(neighborEvent);
+//                // std::cout << " waiterStreamId " << waiterStreamId <<" neighbourEventId " <<neighbourEventId<<std::endl;
+//            }
+//        }
+//    }
+//
+//    return;
+//}
 
 auto Backend::setAvailableStreamSet(int nStreamSets) -> void
 {
@@ -451,7 +451,7 @@ auto Backend::syncEvent(Neon::SetIdx setIdx, int eventIdx) const -> void
         return;
     }
     if (runtime() == Neon::Runtime::stream) {
-        const Neon::set::GpuEventSet& eventSet = selfData().eventSetVec.at(eventIdx);
+        const Neon::set::GpuEventSet& eventSet = selfData().userEventSetVec.at(eventIdx);
         eventSet.sync(setIdx);
         return;
     }

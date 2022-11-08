@@ -37,7 +37,7 @@ void MapStencilMap(TestData<G, T, C>&      data,
     Neon::skeleton::Options  opt(occ, transfer);
 
     const Type scalarVal = 2;
-    const int  nIterations = 1;
+    const int  nIterations = 10;
 
     auto fR = data.getGrid().template newPatternScalar<Type>();
     fR() = scalarVal;

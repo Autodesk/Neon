@@ -58,7 +58,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
 
     dGrid(const dGrid& rhs) = default;
 
-    ~dGrid() = default;
+    virtual ~dGrid() = default;
 
     /**
      * Constructor compatible with the general grid API

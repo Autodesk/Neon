@@ -235,7 +235,7 @@ auto ContainerAPI::
 
 
 auto ContainerAPI::
- configureWithScheduling(Neon::set::container::GraphNode& graphNode)
+ configureWithScheduling([[maybe_unused]] Neon::set::container::GraphNode& graphNode)
         -> void{
 
 }

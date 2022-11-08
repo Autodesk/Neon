@@ -59,18 +59,18 @@ struct SynchronizationContainer
         }
 
 #pragma omp barrier
-#pragma omp critical
-        {
-            const int threadRank = omp_get_thread_num();
-            NEON_TRACE("TRACE SynchronizationContainer rank {} setIdx {} stream {} event {}", threadRank, setIdx.idx(), streamIdx, mEvents[0]);
-        };
+//#pragma omp critical
+//        {
+//            const int threadRank = omp_get_thread_num();
+//            NEON_TRACE("TRACE SynchronizationContainer rank {} setIdx {} stream {} ", threadRank, setIdx.idx(), streamIdx);
+//        };
     }
 
     auto configureWithScheduling(Neon::set::container::GraphNode& graphNode)
         -> void override
     {
-      //  mEvents = graphNode.getScheduling().getDependentEvents();
-       // graphNode.getScheduling().getDependentEvents().clear();
+//        mEvents = graphNode.getScheduling().getDependentEvents();
+//        graphNode.getScheduling().getDependentEvents().clear();
     }
 
    private:

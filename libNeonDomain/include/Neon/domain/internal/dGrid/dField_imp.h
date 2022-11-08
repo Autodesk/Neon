@@ -530,7 +530,7 @@ auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
 }
 
 template <typename T, int C>
-auto dField<T, C>::haloUpdateContainer(set::HuOptions& opt) const -> Neon::set::Container
+auto dField<T, C>::haloUpdateContainer(set::HuOptions& ) const -> Neon::set::Container
 {
     NEON_THROW_UNSUPPORTED_OPERATION("");
 }

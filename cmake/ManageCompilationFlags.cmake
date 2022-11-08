@@ -38,7 +38,7 @@ set(NeonCXXFlags
         $<$<CXX_COMPILER_ID:GNU>:-m64 -Wall -Wextra -Werror -Wno-unused-function -Wno-deprecated-declarations -Wno-class-memaccess -Wno-deprecated-declarations>
 
         #Add Clang specific compiler flags here
-        $<$<CXX_COMPILER_ID:Clang>:-m64 -Wall -Wextra -Werror -Wno-unused-function -Wno-deprecated-declarations -Wno-deprecated-copy -Wno-unused-parameter -Wno-unused-private-field -Wno-braced-scalar-init -Wno-unused-variable -Wno-unused-but-set-variable>
+        $<$<CXX_COMPILER_ID:Clang>:-m64 -Wall -Wextra -Werror -Wno-unused-function -Wno-deprecated-declarations -Wno-deprecated-copy -Wno-unused-parameter -Wno-unused-private-field -Wno-braced-scalar-init -Wno-unused-variable -Wno-unused-but-set-variable -Wno-deprecated-declarations >
         )
 
 set(NeonCUDAFlags
