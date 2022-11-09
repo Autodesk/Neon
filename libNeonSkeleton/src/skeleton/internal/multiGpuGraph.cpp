@@ -5,8 +5,8 @@ namespace Neon::skeleton::internal {
 
 void MultiXpuGraph::init(Neon::Backend&                           bk,
                          const std::vector<Neon::set::Container>& operations,
-                         std::string                              /*name*/,
-                         Options                                  options)
+                         std::string /*name*/,
+                         Options options)
 {
     getGraph() = Neon::set::container::Graph(bk);
     parse(bk.devSet().setCardinality(),
@@ -54,8 +54,8 @@ void MultiXpuGraph::
         // newDependencies are the detected dependencies
 
         auto newDependencies = getDataRecords().updateStatus(graphNodeUid,
-                                                            token.access(),
-                                                            token.uid());
+                                                             token.access(),
+                                                             token.uid());
 
         for (auto& dep : newDependencies) {
             const auto& n0 = getGraph().helpGetGraphNode(dep.t0());
@@ -76,8 +76,8 @@ auto MultiXpuGraph::
 
 auto MultiXpuGraph::
     ioToDot(const std::string& fname,
-           const std::string& graphName,
-           bool               debug) -> void
+            const std::string& graphName,
+            bool               debug) -> void
 {
     getGraph().ioToDot(fname, graphName, debug);
 }
@@ -266,8 +266,7 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
         getGraph().addDependency(internal_stencil, boundary_stencil, Neon::GraphDependencyType::scheduling);
 
         for (auto mapOrReduceNodePtr : subsequentNodes) {
-            if(mapOrReduceNodePtr->getContainer().getContainerInterface().getContainerPatternType()
-                == Neon::set::ContainerPatternType::map) {
+            if (mapOrReduceNodePtr->getContainer().getContainerInterface().getContainerPatternType() == Neon::set::ContainerPatternType::map) {
                 auto& boundary_map = *mapOrReduceNodePtr;
                 auto& internal_map = getGraph().cloneNode(boundary_map);
 
@@ -279,8 +278,7 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
                 getGraph().removeDependency(getGraph().getDependency(internal_stencil, boundary_map));
                 getGraph().removeDependency(getGraph().getDependency(boundary_stencil, internal_map));
             }
-            if(mapOrReduceNodePtr->getContainer().getContainerInterface().getContainerPatternType()
-                == Neon::set::ContainerPatternType::reduction) {
+            if (mapOrReduceNodePtr->getContainer().getContainerInterface().getContainerPatternType() == Neon::set::ContainerPatternType::reduction) {
                 auto& boundary_red = *mapOrReduceNodePtr;
                 auto& internal_red = getGraph().cloneNode(boundary_red);
 
@@ -400,9 +398,9 @@ auto MultiXpuGraph::
     execute(const Neon::skeleton::Options& options)
         -> void
 {
-    if(options.executor() == Neon::skeleton::Executor::ompAtNodeLevel) {
+    if (options.executor() == Neon::skeleton::Executor::ompAtNodeLevel) {
         this->getGraph().helpExecuteWithOmpAtNodeLevel(Neon::Backend::mainStreamIdx);
-    }else{
+    } else {
         NEON_DEV_UNDER_CONSTRUCTION("");
     };
 }
