@@ -11,6 +11,7 @@
 #include "MultiResDemo.h"
 #include "MultiResMap.h"
 #include "MultiResParent.h"
+#include "MultiResSkeleton.h"
 #include "MultiResStencil.h"
 
 int main(int argc, char** argv)
