@@ -71,10 +71,10 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
     auto occName = Neon::skeleton::OccUtils::toString(occ);
 
     occName[0] = toupper(occName[0]);
-    const std::string appName(testFilePrefix + "_" + occName );
+    const std::string appName(testFilePrefix + "_" + occName);
 
     Neon::skeleton::Skeleton skl(data.getBackend());
-    Neon::skeleton::Options opt(occ, transfer);
+    Neon::skeleton::Options  opt(occ, transfer);
 
     const Type scalarVal = 2;
     const int  nIterations = 10;
@@ -90,12 +90,8 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
         auto& X = data.getField(FieldNames::X);
         auto& Y = data.getField(FieldNames::Y);
 
-        std::vector<Neon::set::Container> ops;
-        Neon::set::Container              first = UserTools::laplace(X, Y);
-        Neon::set::Container              second = UserTools::laplace(Y, X);
-
-        ops.push_back(first);
-        ops.push_back(second);
+        std::vector<Neon::set::Container> ops{UserTools::laplace(X, Y),
+                                              UserTools::laplace(Y, X)};
 
         skl.sequence(ops, appName, opt);
         skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()), "", true);
