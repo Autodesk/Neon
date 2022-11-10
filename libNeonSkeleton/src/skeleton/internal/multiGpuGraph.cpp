@@ -13,13 +13,17 @@ void MultiXpuGraph::init(Neon::Backend&                           bk,
           std::forward<const std::vector<Neon::set::Container>&&>(operations));
     getGraph().removeRedundantDependencies();
 
+    // Stencil dependencies with the beginNode are not detected by the data dependency analysis.
+    // We fix them manually after all redundant dependencies are cleaned.
+    fixingDependenciesWithBeginNode();
+
     // h_ioToDot("t0_" + name + ".dot", "i");
     optimizations(options);
     // h_ioToDot("t1_" + name + ".dot", "i");
-    addCommunications(options);
+    communications(options);
     getGraph().removeRedundantDependencies();
 
-    checkCoherency();
+
     // h_ioToDot("t2_" + name + ".dot", "i");
     this->computeScheduling();
     // h_ioToDot("final" + name + ".dot", "i");
@@ -297,7 +301,7 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
 }
 
 
-auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options& skeletonOptions) -> void
+auto MultiXpuGraph::communications(const Neon::skeleton::Options& skeletonOptions) -> void
 {
     if (getSetCardinality() == 1) {
         return;
@@ -347,39 +351,23 @@ auto MultiXpuGraph::addCommunications(const Neon::skeleton::Options& skeletonOpt
     }
 }
 
-auto MultiXpuGraph::checkCoherency() -> void
+auto MultiXpuGraph::fixingDependenciesWithBeginNode() -> void
 {
-    //    // Detects all stencil nodes
-    //    std::vector<size_t> stencilNodes;
-    //    m_graph().forEachVertex([&](size_t nodeId) {
-    //        const auto& node = m_graph().getVertexProperty(nodeId);
-    //        if (node.getCompute() == Neon::Compute::STENCIL) {
-    //            if (m_setCardinality() == 1) {
-    //                m_graph().getVertexProperty(nodeId).setAsCoherent();
-    //                return;
-    //            }
-    //
-    //            if (node.getDataView() == Neon::DataView::INTERNAL) {
-    //                m_graph().getVertexProperty(nodeId).setAsCoherent();
-    //            } else {
-    //                stencilNodes.push_back(nodeId);
-    //            }
-    //        }
-    //    });
-    //    for (auto&& stencilNode : stencilNodes) {
-    //        bool isMemoryCoherent = true;
-    //        m_graph().forEachInEdge(stencilNode, [&](const DiGraph::Edge& edge) -> void {
-    //            const auto& e = m_graph().getEdgeProperty(edge);
-    //            for (const auto& i : e.info()) {
-    //                if (i.isStencil() && !i.isHu()) {
-    //                    isMemoryCoherent = false;
-    //                }
-    //            }
-    //        });
-    //        if (isMemoryCoherent) {
-    //            m_graph().getVertexProperty(stencilNode).setAsCoherent();
-    //        }
-    //    }
+    auto& beginNode = getGraph().getBeginNode();
+    auto  nodesAfterBeginPtrVec = getGraph().getSubsequentGraphNodes(beginNode);
+
+    for (auto nodePtr : nodesAfterBeginPtrVec) {
+        const auto& tokens = nodePtr->getContainer().getContainerInterface().getTokens();
+        bool        dependencyWasReInit = false;
+        for (const auto& token : tokens) {
+            const auto computeType = token.compute();
+            if (Neon::Compute::STENCIL == computeType) {
+                // 1. remove current dependency between begin and target node
+                auto& dep = getGraph().getMutableDependency(beginNode, *nodePtr);
+                dep.addToken(token);
+            }
+        }
+    }
 }
 
 MultiXpuGraph::

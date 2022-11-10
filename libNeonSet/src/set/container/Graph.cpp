@@ -362,6 +362,19 @@ auto Graph::
 }
 
 auto Graph::
+    getMutableDependency(const GraphNode& nodeA,
+                         const GraphNode& nodeB)
+        -> GraphDependency&
+{
+    auto uidA = nodeA.getGraphData().getUid();
+    auto uidB = nodeB.getGraphData().getUid();
+
+    auto& dependency = mRawGraph.getEdgeProperty({uidA, uidB});
+
+    return dependency;
+}
+
+auto Graph::
     helpInvalidateScheduling()
         -> void
 {
@@ -985,36 +998,36 @@ auto Graph::
         NEON_THROW(ex);
     }
 
-     #ifdef NEON_USE_NVTX
-         nvtxRangePush("Graph Iteration");
-     #endif
-         int levels = mBfs.getNumberOfLevels();
-         for (int i = 0; i < levels; i++) {
-             mBfs.forEachNodeAtLevel(i, *this, [&](Neon::set::container::GraphNode& graphNode) {
-                 auto&       scheduling = graphNode.getScheduling();
-                 auto&       container = graphNode.getContainer();
-                 const auto& waitingEvents = scheduling.getDependentEvents();
-                 const auto& signalEvents = scheduling.getEvent();
-                 const auto& stream = scheduling.getStream();
+#ifdef NEON_USE_NVTX
+    nvtxRangePush("Graph Iteration");
+#endif
+    int levels = mBfs.getNumberOfLevels();
+    for (int i = 0; i < levels; i++) {
+        mBfs.forEachNodeAtLevel(i, *this, [&](Neon::set::container::GraphNode& graphNode) {
+            auto&       scheduling = graphNode.getScheduling();
+            auto&       container = graphNode.getContainer();
+            const auto& waitingEvents = scheduling.getDependentEvents();
+            const auto& signalEvents = scheduling.getEvent();
+            const auto& stream = scheduling.getStream();
 
-                 for (auto toBeWaited : waitingEvents) {
-                     mBackend.waitEventOnStream(toBeWaited, stream);
-                 }
+            for (auto toBeWaited : waitingEvents) {
+                mBackend.waitEventOnStream(toBeWaited, stream);
+            }
 #ifdef NEON_USE_NVTX
-                 nvtxRangePush((std::string("Container Run") + container.getName()).c_str());
+            nvtxRangePush((std::string("Container Run") + container.getName()).c_str());
 #endif
-                 container.run(stream, scheduling.getDataView());
+            container.run(stream, scheduling.getDataView());
 #ifdef NEON_USE_NVTX
-                 nvtxRangePop();
+            nvtxRangePop();
 #endif
-                 if (signalEvents >= 0) {
-                     mBackend.pushEventOnStream(signalEvents, stream);
-                 }
-             });
-         }
-     #ifdef NEON_USE_NVTX
-         nvtxRangePop();
-     #endif
+            if (signalEvents >= 0) {
+                mBackend.pushEventOnStream(signalEvents, stream);
+            }
+        });
+    }
+#ifdef NEON_USE_NVTX
+    nvtxRangePop();
+#endif
 
 //#ifdef NEON_USE_NVTX
 //    nvtxRangePush("Graph Iteration");

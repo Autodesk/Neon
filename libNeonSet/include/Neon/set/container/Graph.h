@@ -116,6 +116,11 @@ struct Graph
     auto getDependency(const GraphNode& nodeA,
                        const GraphNode& nodeB)
         const -> const GraphDependency&;
+
+    auto getMutableDependency(const GraphNode& nodeA,
+                              const GraphNode& nodeB)
+        -> GraphDependency&;
+
     /**
      * Clone a node and return a reference to the new clone.
      * The cloning process connects the clone the the same nodes of the original
