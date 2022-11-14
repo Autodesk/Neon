@@ -79,10 +79,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Cell& cell
     Neon::index_3d ret = mOrigin[cell.mBlockID];
 #ifdef NEON_PLACE_CUDA_DEVICE
     if constexpr (Cell::sUseSwirlIndex) {
-        Cell::Location swirl = cell.toSwirl();
-        ret.x += swirl.x;
-        ret.y += swirl.y;
-        ret.z += swirl.z;
+        auto swirl = cell.toSwirl();
+        ret.x += swirl.mLocation.x;
+        ret.y += swirl.mLocation.y;
+        ret.z += swirl.mLocation.z;
     } else {
 #endif
         const int sp = (mLevel == 0) ? 1 : mSpacing[mLevel - 1];
