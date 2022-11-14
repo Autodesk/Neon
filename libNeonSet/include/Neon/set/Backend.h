@@ -55,7 +55,7 @@ class Backend
     Backend();
 
     /**
-     * Creating a Backend_t object with the first nGpus devices.
+     * Creating a Backend object with the first nGpus devices.
      */
     Backend(int                    nGpus /*!   Number of devices. The devices are selected in the order specifies by CUDA */,
             Neon::Runtime runtime /*! Type of runtime to use */);

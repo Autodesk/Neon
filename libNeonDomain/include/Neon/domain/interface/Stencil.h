@@ -13,7 +13,8 @@ struct Stencil
      * @param listOfPoinst
      * @param filterCenterOut
      */
-    Stencil(std::vector<Neon::index_3d> const& listOfPoinst, bool filterCenterOut = true);
+    Stencil(std::vector<Neon::index_3d> const& listOfPoinst,
+            bool                               filterCenterOut = true);
 
     /**
      * Default constructor
@@ -24,28 +25,31 @@ struct Stencil
      * Returns number of point in the stencil
      * @return
      */
-    auto nPoints() const
-        -> int;
+    auto nPoints()
+        const -> int;
 
     /*
-     * Returns the id of a direction.
-     * Id is just the index of the direction in the vector of points
+     * Returns the index of the direction in the vector of points.
+     * -1 is returned if the 3dIndex is not found.
      */
-    auto find(const Neon::index_3d& direction) const
-        -> int;
+    auto find(const Neon::index_3d& direction)
+        const -> int;
 
     /**
      * Returns number of neighbours for the stencil
      * @return
      */
-    auto nNeighbours() const
-        -> int;
+    auto nNeighbours()
+        const -> int;
 
-    auto points() const
-        -> const std::vector<Neon::index_3d>&;
+    auto points()
+        const -> const std::vector<Neon::index_3d>&;
 
-    auto neighbours() const
-        -> const std::vector<Neon::index_3d>&;
+    auto neighbours()
+        const -> const std::vector<Neon::index_3d>&;
+
+    auto addPoint(const Neon::index_3d& newPoint)
+        -> void;
 
     /**
      * static method to create a 19 point stencil
@@ -81,6 +85,9 @@ struct Stencil
      * @return
      */
     static auto s6_Jacobi_t()
+        -> Stencil;
+
+    static auto getUnion(const std::vector<Stencil>& vec)
         -> Stencil;
 
    private:

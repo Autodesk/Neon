@@ -71,7 +71,6 @@ struct ePartition
      *  |--)
      */
 
-
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
     using Self = ePartition<T, cardinality_ta>;   //<- this type

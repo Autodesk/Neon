@@ -64,7 +64,7 @@ template <typename Field_ta>
 struct HaloUpdateExtractor_t
 {
     // field.haloUpdate(bk, opt);
-    // const Neon::set::Backend_t& /*bk*/,
+    // const Neon::set::Backend& /*bk*/,
     // Neon::set::HuOptions_t& /*opt*/
    private:
     template <typename T>
@@ -96,7 +96,7 @@ template <typename Field_ta>
 struct HaloUpdatePerDeviceExtractor_t
 {
     // field.haloUpdate(bk, opt);
-    // const Neon::set::Backend_t& /*bk*/,
+    // const Neon::set::Backend& /*bk*/,
     // Neon::set::HuOptions_t& /*opt*/
    private:
     template <typename T>

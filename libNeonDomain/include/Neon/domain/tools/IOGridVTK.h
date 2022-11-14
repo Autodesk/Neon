@@ -34,6 +34,11 @@ class IOGridVTK : private IoToVTK<intType_ta, real_tt>
               bool                                     isNodeSpace = true,
               IoFileType                               vtiIOe = IoFileType::ASCII /*! Binary or ASCII file  */);
 
+    IOGridVTK(const Neon::domain::interface::GridBase& grid,
+              const Neon::double_3d&                   oringOffset,
+              const std::string&                       filename /*!   File name */,
+              bool                                     isNodeSpace = true,
+              IoFileType                               vtiIOe = IoFileType::ASCII /*! Binary or ASCII file  */);
     /**
      * Add a field to the file
      */
