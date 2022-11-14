@@ -63,14 +63,6 @@ void MultiResSkeleton()
                         local(cell, 0) = global.v[0];
                         local(cell, 1) = global.v[1];
                         local(cell, 2) = global.v[2];
-                        printf("\n cell.BlockId= %d, cell.id= %d, %d, %d, val= %d, %d, %d",
-                               int(cell.mBlockID),
-                               int(cell.mLocation.x),
-                               int(cell.mLocation.y),
-                               int(cell.mLocation.z),
-                               local(cell, 0),
-                               local(cell, 1),
-                               local(cell, 2));
                     };
                 }));
         }
