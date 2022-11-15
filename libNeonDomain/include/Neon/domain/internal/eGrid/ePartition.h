@@ -162,12 +162,12 @@ struct ePartition
     operator()(Cell eId, int cardinalityIdx)
         -> T&;
 
-    template <typename ComputeType>
+    template <typename StoreType, typename ComputeType>
     NEON_CUDA_HOST_DEVICE inline auto
     castRead(Cell eId, int cardinalityIdx) const
         -> ComputeType;
 
-    template <typename ComputeType>
+    template <typename StoreType, typename ComputeType>
     NEON_CUDA_HOST_DEVICE inline auto
     castWrite(Cell eId, int cardinalityIdx, const ComputeType& value)
         -> void;
@@ -290,7 +290,6 @@ struct ePartition
     NEON_CUDA_HOST_DEVICE inline auto
     mem()
         -> T*;
-
 };
 }  // namespace Neon::domain::internal::eGrid
 

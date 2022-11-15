@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Neon/domain/internal/eGrid/ePartition.h"
+#include "cuda_fp16.h"
 
 namespace Neon::domain::internal::eGrid {
 
@@ -53,25 +54,43 @@ ePartition<T, C>::operator()(Cell eId, int cardinalityIdx) -> T&
 }
 
 template <typename T, int C>
-template <typename ComputeType>
+template <typename StoreType, typename ComputeType>
 NEON_CUDA_HOST_DEVICE inline auto
 ePartition<T, C>::castRead(Cell eId,
                            int  cardinalityIdx) const -> ComputeType
 {
-    Type value = this->operator()(eId, cardinalityIdx);
-    ComputeType           output = static_cast<ComputeType>(value);
-    return output;
+    StoreType value = this->operator()(eId, cardinalityIdx);
+    if constexpr (std::is_same_v<__half, StoreType>) {
+
+        if constexpr (std::is_same_v<float, ComputeType>) {
+            return __half2float(value);
+        }
+        if constexpr (std::is_same_v<double, ComputeType>) {
+            return static_cast<double>(__half2float(value));
+        }
+    } else {
+        return static_cast<ComputeType>(value);
+    }
 }
 
 template <typename T, int C>
-template <typename ComputeType>
+template <typename StoreType, typename ComputeType>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::castWrite(Cell            eId,
-                            int             cardinalityIdx,
+ePartition<T, C>::castWrite(Cell               eId,
+                            int                cardinalityIdx,
                             const ComputeType& value) -> void
 {
-    Type  output = static_cast<Type>(value);
-    this->operator()(eId, cardinalityIdx) = output;
+
+    if constexpr (std::is_same_v<__half, StoreType>) {
+        if constexpr (std::is_same_v<float, ComputeType>) {
+            this->operator()(eId, cardinalityIdx) = __float2half(value);
+        }
+        if constexpr (std::is_same_v<double, ComputeType>) {
+            this->operator()(eId, cardinalityIdx) = __double2half(value);
+        }
+    } else {
+        this->operator()(eId, cardinalityIdx) = static_cast<StoreType>(value);
+    }
 }
 
 template <typename T,
