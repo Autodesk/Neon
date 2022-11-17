@@ -1,14 +1,12 @@
 #include <tuple>
 #include <vector>
 
-#include "Neon/core/types/vec.h"
-
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::internal::mGrid {
 
 /**
- * @brief bGrid descriptor that defines the depth of the grid levels and how each level is partitioned. 
+ * @brief mGrid descriptor that defines the depth of the grid levels and how each level is partitioned. 
 */
-struct bGridDescriptor
+struct mGridDescriptor
 {
     /**     
      * Each level is defined by its refinement factor e.g., block data structure (i.e., a single-depth grid) with 8^3 blocks 
@@ -17,21 +15,21 @@ struct bGridDescriptor
      * 1) 0-level (finest) as 8^3 voxels  
      * 2) 1-level as 16^3 blocks 
      * 3) 2-level (coarsest) as 32^3 blocks
-     * can be described as bGridDescriptor({3,4,5})
+     * can be described as mGridDescriptor({3,4,5})
      * The refinement factor have to be of power of 2 and thus it is defined by its log2
      * @param levels as described above defaulted to 3 levels octree 
     */
-    bGridDescriptor(std::initializer_list<int> log2RefFactors)
+    mGridDescriptor(std::initializer_list<int> log2RefFactors)
         : mLog2RefFactors(log2RefFactors), mSpacing(log2RefFactors)
     {
         computeSpacing();
     }
 
     /**
-     * This constructor can be use for the default bGrid descriptor that defines a grid of single depth partitioned 
+     * This constructor can be use for the default mGrid descriptor that defines a grid of single depth partitioned 
      * by 8^3 blocks i.e., block data structure 
     */
-    bGridDescriptor()
+    mGridDescriptor()
         : mLog2RefFactors({3}), mSpacing({2 * 2 * 2})
     {
     }
@@ -53,7 +51,7 @@ struct bGridDescriptor
     int getLog2RefFactor(int level) const
     {
         if (level >= int(getDepth())) {
-            NeonException ex("bGridDescriptor::getLog2RefFactor()");
+            NeonException ex("mGridDescriptor::getLog2RefFactor()");
             ex << "Runtime input level is greater than the grid depth!";
             NEON_THROW(ex);
         }
@@ -80,7 +78,7 @@ struct bGridDescriptor
         }
 
         if (level >= int(getDepth())) {
-            NeonException ex("bGridDescriptor::getSpacing()");
+            NeonException ex("mGridDescriptor::getSpacing()");
             ex << "Runtime input level is greater than the grid depth!";
             NEON_THROW(ex);
         }
@@ -116,7 +114,7 @@ struct bGridDescriptor
     Neon::index_3d parentToChild(const Neon::index_3d& baseParent, const int parentLevel, const Neon::index_3d& localChild) const
     {
         if (localChild.x < 0 || localChild.y < 0 || localChild.z < 0) {
-            NeonException ex("bGridDescriptor::parentToChild()");
+            NeonException ex("mGridDescriptor::parentToChild()");
             ex << "Child local index should be >=0. The input localChild: " << localChild;
             NEON_THROW(ex);
         }
@@ -124,7 +122,7 @@ struct bGridDescriptor
         if (localChild.x >= getRefFactor(parentLevel) ||
             localChild.y >= getRefFactor(parentLevel) ||
             localChild.z >= getRefFactor(parentLevel)) {
-            NeonException ex("bGridDescriptor::parentToChild()");
+            NeonException ex("mGridDescriptor::parentToChild()");
             ex << "Child local index should be less than the refinement factor of the parent. The input localChild: " << localChild;
             NEON_THROW(ex);
         }
@@ -226,4 +224,4 @@ struct bGridDescriptor
     std::vector<int> mLog2RefFactors;
     std::vector<int> mSpacing;
 };
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::internal::mGrid

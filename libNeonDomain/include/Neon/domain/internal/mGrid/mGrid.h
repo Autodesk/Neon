@@ -1,0 +1,214 @@
+#pragma once
+#include "Neon/core/core.h"
+
+#include "Neon/set/memory/memSet.h"
+
+#include "Neon/domain/bGrid.h"
+#include "Neon/domain/internal/bGrid/bCell.h"
+#include "Neon/domain/internal/bGrid/bPartition.h"
+
+#include "Neon/domain/internal/mGrid/mField.h"
+#include "Neon/domain/internal/mGrid/mGridDescriptor.h"
+#include "Neon/domain/patterns/PatternScalar.h"
+#include "Neon/set/Containter.h"
+
+
+namespace Neon::domain::internal::mGrid {
+
+template <typename T, int C>
+class mField;
+
+class mGrid
+{
+   public:
+    using Grid = mGrid;
+    using Cell = Neon::domain::internal::bGrid::bCell;
+
+    template <typename T, int C = 0>
+    using Partition = Neon::domain::internal::bGrid::bPartition<T, C>;
+
+    template <typename T, int C = 0>
+    using Field = Neon::domain::internal::mGrid::mField<T, C>;
+
+    using nghIdx_t = typename Partition<int>::nghIdx_t;
+
+    using PartitionIndexSpace = Neon::domain::internal::bGrid::bPartitionIndexSpace;
+
+    mGrid() = default;
+    virtual ~mGrid(){};
+
+    /**
+     * General-purpose constructor for multi-resolution grid with variable depth and variable refinement factor at each level
+     * Check mGridDescriptor to see how to define the grid 
+    */
+    mGrid(const Neon::Backend&                                    backend,
+          const Neon::int32_3d&                                   domainSize,
+          std::vector<std::function<bool(const Neon::index_3d&)>> activeCellLambda,
+          const Neon::domain::Stencil&                            stencil,
+          const mGridDescriptor                                   descriptor,
+          bool                                                    isStrongBalanced = true,
+          const double_3d&                                        spacingData = double_3d(1, 1, 1),
+          const double_3d&                                        origin = double_3d(0, 0, 0));
+
+
+    auto isInsideDomain(const Neon::index_3d& idx, int level) const -> bool;
+
+
+    template <typename T, int C = 0>
+    auto newField(const std::string          name,
+                  int                        cardinality,
+                  T                          inactiveValue,
+                  Neon::DataUse              dataUse = Neon::DataUse::IO_COMPUTE,
+                  const Neon::MemoryOptions& memoryOptions = Neon::MemoryOptions()) const
+        -> Field<T, C>;
+
+    template <typename LoadingLambda>
+    auto getContainer(const std::string& name,
+                      int                level,
+                      index_3d           blockSize,
+                      size_t             sharedMem,
+                      LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <typename LoadingLambda>
+    auto getContainer(const std::string& name,
+                      int                level,
+                      LoadingLambda      lambda) const -> Neon::set::Container;
+
+
+    auto getLaunchParameters(Neon::DataView        dataView,
+                             const Neon::index_3d& blockSize,
+                             const size_t&         sharedMem,
+                             int                   level) const -> Neon::set::LaunchParameters;
+
+    auto getPartitionIndexSpace(Neon::DeviceType dev,
+                                SetIdx           setIdx,
+                                Neon::DataView   dataView,
+                                int              level) -> const PartitionIndexSpace&;
+
+    auto getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&;
+    auto getOrigins(int level) const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
+    auto getNeighbourBlocks(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getActiveMask(int level) const -> Neon::set::MemSet_t<uint32_t>&;
+    auto getBlockOriginTo1D(int level) const -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
+    auto getParentsBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getParentLocalID(int level) const -> const Neon::set::MemSet_t<Cell::Location>&;
+    auto getChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
+
+    //for compatibility with other grids that can work on cub and cublas engine
+    auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
+
+    /*template <typename T>
+    auto newPatternScalar() const -> Neon::template PatternScalar<T>;
+
+    template <typename T>
+    auto dot(const std::string&               name,
+             Field<T>&                        input1,
+             Field<T>&                        input2,
+             Neon::template PatternScalar<T>& scalar,
+             const int                        level) const -> Neon::set::Container;
+
+    template <typename T>
+    auto norm2(const std::string&               name,
+               Field<T>&                        input,
+               Neon::template PatternScalar<T>& scalar,
+               const int                        level) const -> Neon::set::Container;*/
+
+    auto getDimension(int level) const -> const Neon::index_3d;
+
+    auto getDimension() const -> const Neon::index_3d;
+
+    /**
+     * Number of blocks is the number blocks at a certain level where each block subsumes 
+     * a number of voxels defined by the refinement factor at this level. Note that level-0 is composed of
+     * number of blocks each containing number of voxels. In case of using bGrid as a uniform grid, the 
+     * total number of voxels can be obtained from getDimension
+    */
+    auto getNumBlocks(int level) const -> const Neon::index_3d&;
+
+    auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d;
+    auto getDescriptor() const -> const mGridDescriptor&;
+    auto getRefFactors() const -> const Neon::set::MemSet_t<int>&;
+    auto getLevelSpacing() const -> const Neon::set::MemSet_t<int>&;
+    void topologyToVTK(std::string fileName, bool filterOverlaps) const;
+    auto setCurrentLevel(const int level) -> void;
+
+   private:
+    struct Data
+    {
+        //int mCurrentLevel;
+
+        //number of active voxels in each block at each level
+        //std::vector<Neon::set::DataSet<uint64_t>> mNumActiveVoxel;
+
+
+        //block origin coordinates
+        //std::vector to store the origin of each block at each level
+        //std::vector<Neon::set::MemSet_t<Neon::int32_3d>> mOrigin;
+
+        //stores the parent of the block
+        std::vector<Neon::set::MemSet_t<uint32_t>> mParentBlockID;
+
+        //Given a block at level L, we store R children block IDs for each block in L where R is the refinement factor
+        std::vector<Neon::set::MemSet_t<uint32_t>> mChildBlockID;
+
+        //store the parent local index within its block
+        std::vector<Neon::set::MemSet_t<Cell::Location>> mParentLocalID;
+
+        //Stencil neighbor indices
+        //Neon::set::MemSet_t<nghIdx_t> mStencilNghIndex;
+
+        //gird levels refinement factors
+        Neon::set::MemSet_t<int> mRefFactors;
+
+        //gird levels spacing
+        Neon::set::MemSet_t<int> mSpacing;
+
+        //active voxels bitmask
+        //std::vector to store the active mask (and its size) per block per level
+        //std::vector<Neon::set::DataSet<uint64_t>>  mActiveMaskSize;
+        //std::vector<Neon::set::MemSet_t<uint32_t>> mActiveMask;
+
+
+        //1d index of 26 neighbor blocks
+        //every block is typically neighbor to 26 other blocks. Here we store the 1d index of these 26 neighbor blocks
+        //we could use this 1d index to (for example) index the origin of the neighbor block or its active mask
+        //as maybe needed by stencil operations
+        //If one of this neighbor blocks does not exist (e.g., not allocated or at the domain border), we store
+        //std::numeric_limits<uint32_t>::max() to indicate that there is no neighbor block at this location
+        //std::vector to store the neighbor blocks per block per level
+        //std::vector<Neon::set::MemSet_t<uint32_t>> mNeighbourBlocks;
+
+        //Partition index space
+        //It is an std vector for the three type of data views we have
+        //it is a vector of an array where the outer vector is for different levels
+        //and the inner array for the three types of data views
+        //std::vector<std::array<Neon::set::DataSet<PartitionIndexSpace>, 3>> mPartitionIndexSpace;
+
+        //Store the block origin as a key and its 1d index as value
+        //std::vector to store the map from the block origin to its 1d index per level
+        //std::vector<Neon::domain::tool::PointHashTable<int32_t, uint32_t>> mBlockOriginTo1D;
+
+        //Total number of blocks in the domain
+        //std::vector so we store the number of blocks at each level
+        std::vector<Neon::index_3d> mTotalNumBlocks;
+
+        //number of blocks in each device
+        //std::vector so we store the number of blocks at each level
+        //std::vector<Neon::set::DataSet<uint64_t>> mNumBlocks;
+
+        mGridDescriptor mDescriptor{};
+
+        bool mStrongBalanced;
+
+        //bitmask of the active cells at each level and works as if the grid is dense at each level
+        std::vector<std::vector<uint32_t>> denseLevelsBitmask;
+
+        //collection of bGrids that make up the multi-resolution grid
+        std::vector<Neon::domain::bGrid> grids;
+    };
+    std::shared_ptr<Data> mData;
+};
+
+}  // namespace Neon::domain::internal::mGrid
+
+#include "Neon/domain/internal/mGrid/mGrid_imp.h"
