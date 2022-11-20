@@ -26,49 +26,6 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
     using Cell = typename PopulationField::Cell;
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    macroscopic(const Cell&        i,
-                const LbmStoreType popIn[D3Q19::q])
-        -> std::array<LbmComputeType, 3>
-    {
-        const LbmComputeType X_M1 = popIn[0] + popIn[3] +
-                                    popIn[4] + popIn[5] +
-                                    popIn[6];
-
-        const LbmComputeType X_P1 = popIn[10] + popIn[13] +
-                                    popIn[14] + popIn[15] +
-                                    popIn[16];
-
-        const LbmComputeType X_0 = popIn[9] + popIn[1] +
-                                   popIn[2] + popIn[7] +
-                                   popIn[8] + popIn[11] +
-                                   popIn[12] + popIn[17] +
-                                   popIn[18];
-
-        const LbmComputeType Y_M1 = popIn[1] + popIn[3] +
-                                    popIn[7] + popIn[8] +
-                                    popIn[14];
-
-        const LbmComputeType Y_P1 = popIn[4] + popIn[11] +
-                                    popIn[13] + popIn[17] +
-                                    popIn[18];
-
-        const LbmComputeType Z_M1 = popIn[2] + popIn[5] +
-                                    popIn[7] + popIn[16] +
-                                    popIn[18];
-
-        const LbmComputeType Z_P1 = popIn[6] + popIn[8] +
-                                    popIn[12] + popIn[15] +
-                                    popIn[17];
-
-        const LbmComputeType          rho = X_M1 + X_P1 + X_0;
-        std::array<LbmComputeType, 3> u{(X_P1 - X_M1) / rho,
-                                        (Y_P1 - Y_M1) / rho,
-                                        (Z_P1 - Z_M1) / rho};
-
-        return std::make_tuple(rho, u);
-    }
-
-    static inline NEON_CUDA_HOST_DEVICE auto
     loadPopulation(Cell const&                                i,
                    uint32_t&                                  bounceBackBitflag,
                    typename PopulationField::Partition const& fin,
@@ -200,7 +157,7 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
         const double pop_out_opp_08 = (1. - omega) * static_cast<LbmComputeType>(pop[18]) + omega * eqopp_08;
 
 
-#define DIRECTION_AND_OPPOSITE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                               \
+#define COMPUTE_GO_AND_BACK(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                               \
     {                                                                                                                                  \
         /** NOTE the double point operation is always used with GOid */                                                                \
         /** As all data is computed parametrically w.r.t the first part of the symmetry */                                             \
@@ -223,17 +180,17 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
         }                                                                                                                              \
     }
 
-        DIRECTION_AND_OPPOSITE(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10)
-        DIRECTION_AND_OPPOSITE(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11)
-        DIRECTION_AND_OPPOSITE(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12)
-        DIRECTION_AND_OPPOSITE(-1, -1, 0, /* GOid */ 3, /* --- */ 1, 1, 0, /*  BKid */ 13)
-        DIRECTION_AND_OPPOSITE(-1, 1, 0, /*  GOid */ 4, /* --- */ 1, -1, 0, /* BKid */ 14)
-        DIRECTION_AND_OPPOSITE(-1, 0, -1, /* GOid */ 5, /* --- */ 1, 0, 1, /*  BKid */ 15)
-        DIRECTION_AND_OPPOSITE(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16)
-        DIRECTION_AND_OPPOSITE(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17)
-        DIRECTION_AND_OPPOSITE(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18)
+        COMPUTE_GO_AND_BACK(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10)
+        COMPUTE_GO_AND_BACK(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11)
+        COMPUTE_GO_AND_BACK(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12)
+        COMPUTE_GO_AND_BACK(-1, -1, 0, /* GOid */ 3, /* --- */ 1, 1, 0, /*  BKid */ 13)
+        COMPUTE_GO_AND_BACK(-1, 1, 0, /*  GOid */ 4, /* --- */ 1, -1, 0, /* BKid */ 14)
+        COMPUTE_GO_AND_BACK(-1, 0, -1, /* GOid */ 5, /* --- */ 1, 0, 1, /*  BKid */ 15)
+        COMPUTE_GO_AND_BACK(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16)
+        COMPUTE_GO_AND_BACK(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17)
+        COMPUTE_GO_AND_BACK(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18)
 
-#undef DIRECTION_AND_OPPOSITE
+#undef COMPUTE_GO_AND_BACK
 
         {
             const LbmComputeType pop_out_09 = (1. - omega) * static_cast<LbmComputeType>(pop[D3Q19::centerDirection]) +
