@@ -1,3 +1,5 @@
+#pragma once
+
 struct CellType
 {
     enum Classification : int

@@ -7,7 +7,125 @@ template <typename StorageFP, typename ComputeFP>
 struct D3Q19
 {
    public:
-    D3Q19(const Neon::Backend& bc);
+    explicit D3Q19(const Neon::Backend& backend)
+    {
+        // The discrete velocities of the D3Q19 mesh.
+        points = std::vector<Neon::index_3d>(
+            {
+                {-1, 0, 0} /*!  0  Symmetry first section (GO) */,
+                {0, -1, 0} /*!  1  */,
+                {0, 0, -1} /*!  2  */,
+                {-1, -1, 0} /*! 3  */,
+                {-1, 1, 0} /*!  4  */,
+                {-1, 0, -1} /*! 5  */,
+                {-1, 0, 1} /*!  6  */,
+                {0, -1, -1} /*! 7  */,
+                {0, -1, 1} /*!  8  */,
+                {0, 0, 0} /*!   9  The center */,
+                {1, 0, 0} /*!   10 Symmetry mirror section (BK) */,
+                {0, 1, 0} /*!   11 */,
+                {0, 0, 1} /*!   12 */,
+                {1, 1, 0} /*!   13 */,
+                {1, -1, 0} /*!  14 */,
+                {1, 0, 1} /*!   15 */,
+                {1, 0, -1} /*!  16 */,
+                {0, 1, 1} /*!   17 */,
+                {0, 1, -1} /*!  18 */,
+            });
+
+        auto c_neon = Neon::set::Memory::MemSet<Neon::index_3d>(backend, 1, points.size(),
+                                                                Neon::DataUse::IO_COMPUTE);
+
+
+        for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
+            for (int j = 0; j < int(points.size()); j++) {
+                c_neon.eRef(i, j).x = static_cast<int8_t>(points[j].x);
+                c_neon.eRef(i, j).y = static_cast<int8_t>(points[j].y);
+                c_neon.eRef(i, j).z = static_cast<int8_t>(points[j].z);
+            }
+        }
+        // The opposite of a given direction.
+        std::vector<int> opp_vect = {
+            10 /*!  0   */,
+            11 /*! 1  */,
+            12 /*! 2  */,
+            13 /*! 3  */,
+            14 /*! 4  */,
+            15 /*! 5  */,
+            16 /*! 6  */,
+            17 /*! 7  */,
+            18 /*! 8  */,
+            9 /*!  9 */,
+            0 /*!  10  */,
+            1 /*!  11 */,
+            2 /*!  12 */,
+            3 /*!  13 */,
+            4 /*!  14 */,
+            5 /*!  15 */,
+            6 /*!  16 */,
+            7 /*!  17 */,
+            8 /*!  18 */,
+        };
+
+        {  // Check correctness of opposite
+            for (int i = 0; i < static_cast<int>(points.size()); i++) {
+                auto point = points[i];
+                auto opposite = point * -1;
+                if (opposite != points[opp_vect[i]]) {
+                    Neon::NeonException exp("");
+                    exp << "Incompatible opposite";
+                    NEON_THROW(exp);
+                }
+            }
+        }
+
+        this->opp = Neon::set::Memory::MemSet<int>(backend, 1, opp_vect.size(),
+                                                   Neon::DataUse::IO_COMPUTE);
+
+        for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
+            for (size_t j = 0; j < opp_vect.size(); j++) {
+                this->opp.eRef(i, j, 0) = opp_vect[j];
+            }
+        }
+
+        // The lattice weights.
+        std::vector<double> t_vect = {
+            1. / 18. /*!  0   */,
+            1. / 18. /*!  1   */,
+            1. / 18. /*!  2   */,
+            1. / 36. /*!  3   */,
+            1. / 36. /*!  4   */,
+            1. / 36. /*!  5   */,
+            1. / 36. /*!  6   */,
+            1. / 36. /*!  7   */,
+            1. / 36. /*!  8   */,
+            1. / 3. /*!   9  */,
+            1. / 18. /*!  10   */,
+            1. / 18. /*!  11  */,
+            1. / 18. /*!  12  */,
+            1. / 36. /*!  13  */,
+            1. / 36. /*!  14  */,
+            1. / 36. /*!  15  */,
+            1. / 36. /*!  16  */,
+            1. / 36. /*!  17  */,
+            1. / 36. /*!  18  */,
+        };
+
+        this->t = Neon::set::Memory::MemSet<double>(backend, 1, opp_vect.size(),
+                                                    Neon::DataUse::IO_COMPUTE);
+
+        for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
+            for (size_t j = 0; j < t_vect.size(); j++) {
+                this->t.eRef(i, j, 0) = t_vect[j];
+            }
+        }
+
+        if (backend.runtime() == Neon::Runtime::stream) {
+            this->c.template update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
+            this->opp.template update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
+            this->t.template update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
+        }
+    }
 
     static constexpr int q = 19;              /** number of directions */
     static constexpr int centerDirection = 9; /** Position of direction {0,0,0} */
@@ -33,124 +151,3 @@ struct D3Q19
     Neon::set::MemSet_t<StorageFP>     t;
     std::vector<Neon::index_3d>        points;
 };
-
-template <typename StorageFP, typename ComputeFP>
-D3Q19<StorageFP, ComputeFP>::D3Q19(const Neon::Backend& backend)
-{
-    // The discrete velocities of the D3Q19 mesh.
-    points = std::vector<Neon::index_3d>(
-        {
-            {-1, 0, 0} /*!  0  Symmetry first section (GO) */,
-            {0, -1, 0} /*!  1  */,
-            {0, 0, -1} /*!  2  */,
-            {-1, -1, 0} /*! 3  */,
-            {-1, 1, 0} /*!  4  */,
-            {-1, 0, -1} /*! 5  */,
-            {-1, 0, 1} /*!  6  */,
-            {0, -1, -1} /*! 7  */,
-            {0, -1, 1} /*!  8  */,
-            {0, 0, 0} /*!   9  The center */,
-            {1, 0, 0} /*!   10 Symmetry mirror section (BK) */,
-            {0, 1, 0} /*!   11 */,
-            {0, 0, 1} /*!   12 */,
-            {1, 1, 0} /*!   13 */,
-            {1, -1, 0} /*!  14 */,
-            {1, 0, 1} /*!   15 */,
-            {1, 0, -1} /*!  16 */,
-            {0, 1, 1} /*!   17 */,
-            {0, 1, -1} /*!  18 */,
-        });
-
-    auto c_neon = Neon::set::Memory::MemSet<Neon::index_3d>(backend, 1, points.size(),
-                                                            Neon::DataUse::IO_COMPUTE);
-
-
-    for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
-        for (int j = 0; j < int(points.size()); j++) {
-            c_neon.eRef(i, j).x = static_cast<int8_t>(points[j].x);
-            c_neon.eRef(i, j).y = static_cast<int8_t>(points[j].y);
-            c_neon.eRef(i, j).z = static_cast<int8_t>(points[j].z);
-        }
-    }
-    // The opposite of a given direction.
-    std::vector<int> opp_vect = {
-        10 /*!  0   */,
-        11 /*! 1  */,
-        12 /*! 2  */,
-        13 /*! 3  */,
-        14 /*! 4  */,
-        15 /*! 5  */,
-        16 /*! 6  */,
-        17 /*! 7  */,
-        18 /*! 8  */,
-        9 /*!  9 */,
-        0 /*!  10  */,
-        1 /*!  11 */,
-        2 /*!  12 */,
-        3 /*!  13 */,
-        4 /*!  14 */,
-        5 /*!  15 */,
-        6 /*!  16 */,
-        7 /*!  17 */,
-        8 /*!  18 */,
-    };
-
-    {  // Check correctness of opposite
-        for (int i = 0; i < static_cast<int>(points.size()); i++) {
-            auto point = points[i];
-            auto opposite = point * -1;
-            if (opposite != points[opp_vect[i]]) {
-                Neon::NeonException exp("");
-                exp << "Incompatible opposite";
-                NEON_THROW(exp);
-            }
-        }
-    }
-
-    this->opp = Neon::set::Memory::MemSet<int>(backend, 1, opp_vect.size(),
-                                               Neon::DataUse::IO_COMPUTE);
-
-    for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
-        for (size_t j = 0; j < opp_vect.size(); j++) {
-            this->opp.eRef(i, j, 0) = opp_vect[j];
-        }
-    }
-
-    // The lattice weights.
-    std::vector<double> t_vect = {
-        1. / 18. /*!  0   */,
-        1. / 18. /*!  1   */,
-        1. / 18. /*!  2   */,
-        1. / 36. /*!  3   */,
-        1. / 36. /*!  4   */,
-        1. / 36. /*!  5   */,
-        1. / 36. /*!  6   */,
-        1. / 36. /*!  7   */,
-        1. / 36. /*!  8   */,
-        1. / 3. /*!   9  */,
-        1. / 18. /*!  10   */,
-        1. / 18. /*!  11  */,
-        1. / 18. /*!  12  */,
-        1. / 36. /*!  13  */,
-        1. / 36. /*!  14  */,
-        1. / 36. /*!  15  */,
-        1. / 36. /*!  16  */,
-        1. / 36. /*!  17  */,
-        1. / 36. /*!  18  */,
-    };
-
-    this->t = Neon::set::Memory::MemSet<double>(backend, 1, opp_vect.size(),
-                                                Neon::DataUse::IO_COMPUTE);
-
-    for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
-        for (size_t j = 0; j < t_vect.size(); j++) {
-            this->t.eRef(i, j, 0) = t_vect[j];
-        }
-    }
-
-    if (backend.runtime() == Neon::Runtime::stream) {
-        this->c.template update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
-        this->opp.template update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
-        this->t.template update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
-    }
-}

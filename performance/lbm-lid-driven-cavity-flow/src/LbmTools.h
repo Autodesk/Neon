@@ -1,6 +1,7 @@
 #include "CellType.h"
 #include "D3Q19.h"
 #include "Neon/Neon.h"
+#include "Neon/set/Containter.h"
 
 template <typename DKQW,
           typename PopulationField,
@@ -61,7 +62,7 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
         LOADPOP(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17)
         LOADPOP(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18)
 
-        // Treat the case of the "rest-population" (c[k] = {0, 0, 0,}).
+        // Treat the case of the center (c[k] = {0, 0, 0,}).
         {
             popIn[D3Q19::centerDirection] = fin(i, D3Q19::centerDirection);
             bounceBackBitflag = bounceBackBitflag | (uint32_t(1) << D3Q19::centerDirection);
@@ -70,9 +71,11 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
 
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    macroscopic(const Cell&        i,
-                const LbmStoreType pop[D3Q19::q])
-        -> std::array<LbmComputeType, 3>
+    macroscopic(const Cell&              i,
+                const LbmStoreType       pop[D3Q19::q],
+                NEON_OUT LbmComputeType& rho,
+                NEON_OUT std::array<LbmComputeType, 3>& u)
+        -> void
     {
 #define POP(IDX) static_cast<LbmComputeType>(pop[IDX])
         const LbmComputeType X_M1 = POP(0) + POP(3) + POP(4) + POP(5) + POP(6);
@@ -89,9 +92,12 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
         const LbmComputeType Z_P1 = POP(6) + POP(8) + POP(12) + POP(15) + POP(17);
 #undef POP
 
-        const LbmComputeType          rho = X_M1 + X_P1 + X_0;
-        std::array<LbmComputeType, 3> u{(X_P1 - X_M1) / rho, (Y_P1 - Y_M1) / rho, (Z_P1 - Z_M1) / rho};
-        return std::make_tuple(rho, u);
+        rho = X_M1 + X_P1 + X_0;
+        u[0] = (X_P1 - X_M1) / rho;
+        u[1] = (Y_P1 - Y_M1) / rho;
+        u[2] = (Z_P1 - Z_M1) / rho;
+
+        return;
     }
 
 
@@ -157,7 +163,7 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
         const double pop_out_opp_08 = (1. - omega) * static_cast<LbmComputeType>(pop[18]) + omega * eqopp_08;
 
 
-#define COMPUTE_GO_AND_BACK(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                               \
+#define COMPUTE_GO_AND_BACK(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                                  \
     {                                                                                                                                  \
         /** NOTE the double point operation is always used with GOid */                                                                \
         /** As all data is computed parametrically w.r.t the first part of the symmetry */                                             \
@@ -197,5 +203,45 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
                                               omega * eq_09;
             fOut(i, D3Q19::centerDirection) = static_cast<LbmStoreType>(pop_out_09);
         }
+    }
+
+    static auto
+    iteration(Neon::set::TransferSemantic stencilSemantic,
+              const PopulationField&      fInField /*!   inpout population field */,
+              const CellTypeField&        cellTypeField /*!       Cell type field     */,
+              const LbmComputeType        omega /*! LBM omega parameter */,
+              PopulationField&            fOutField /*!  output Population field */)
+        -> Neon::set::Container
+    {
+        Neon::set::Container container = fInField.grid().getContainer(
+            "LBM_iteration",
+            [&, omega](Neon::set::Loader& L) -> auto {
+                auto&       fIn = L.load(fInField, Neon::Compute::STENCIL, stencilSemantic);
+                auto&       fOut = L.load(fOutField);
+                const auto& cellInfoPartition = L.load(cellTypeField);
+
+                return [=] NEON_CUDA_HOST_DEVICE(const PopulationField::Cell& cell) mutable {
+                    const CellType cellInfo = cellInfoPartition(cell);
+                    if (cellInfo.classification == CellType::bulk) {
+
+                        LbmStoreType popIn[D3Q19::q];
+                        loadPopulation(i, cellInfo.bounceBackNghBitflag, fIn, NEON_OUT popIn);
+
+                        LbmComputeType                rho;
+                        std::array<LbmComputeType, 3> u;
+                        macroscopic(i, popIn, NEON_OUT rho, NEON_OUT u);
+
+                        LbmComputeType usqr = 1.5 * (u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+                        collideAndStreamBgkUnrolled(i,
+                                                    popIn,
+                                                    fIn,
+                                                    rho, u,
+                                                    usqr, omega,
+                                                    flagData.bounceBackNghBitflag,
+                                                    NEON_OUT fOut);
+                    }
+                };
+            });
+        return container;
     }
 };

@@ -1,58 +1,102 @@
 #include "CellType.h"
 #include "D3Q19.h"
+#include "LbmTools.h"
 #include "Neon/Neon.h"
 #include "Neon/set/Backend.h"
 #include "Neon/set/Containter.h"
+#include "Neon/skeleton/Skeleton.h"
+
+template <typename DKQW,
+          typename PopulationField,
+          typename LbmComputeType>
+struct LbmIteration
+{
+};
+
 
 template <typename PopulationField,
           typename LbmComputeType>
-struct LbmIteration
+struct LbmIteration<D3Q19<typename PopulationField::Type, LbmComputeType>,
+                    PopulationField,
+                    LbmComputeType>
 {
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
     using D3Q19 = D3Q19<LbmStoreType, LbmComputeType>;
+    using LbmTools = LbmTools<D3Q19, PopulationField, LbmComputeType>;
 
-    static auto
-    iterationUnrolled(Neon::set::TransferSemantic stencilSemantic,
-                      const D3Q19&                d3q19,
-                      const PopulationField&      fInField /*!   inpout population field */,
-                      PopulationField&            fOutField /*!  output Population field */,
-                      const CellTypeField&        cellTypeField /*!       Cell type field     */,
-                      const LatticeParameters&    lpGlobal /*!         Lattice parameters  */,
-                      const LbmComputeType        omega /*! LBM omega parameter */)
-        -> Neon::set::Container
+
+    LbmIteration(Neon::set::TransferSemantic stencilSemantic,
+                 Neon::skeleton::Occ         occ,
+                 Neon::set::TransferMode     transfer,
+                 PopulationField&            fIn /*!   inpout population field */,
+                 PopulationField&            fOut,
+                 CellTypeField&              cellTypeField /*!       Cell type field     */,
+                 LbmComputeType              omega /*! LBM omega parameter */)
     {
-        Neon::set::Container container = fInField.grid().getContainer(
-            "LBM_iteration",
-            [&, omega](Neon::set::Loader& L) -> auto {
-                auto&       fIn = L.load(fInField, Neon::Compute::STENCIL, stencilSemantic);
-                auto&       fOut = L.load(fOutField);
-                const auto& cellInfo = L.load(cellTypeField);
+        pop[0] = fIn;
+        pop[1] = fOut;
 
-                const auto&               Lp = L.load(lpGlobal);
-
-                return [=] NEON_CUDA_HOST_DEVICE(const PopulationField::Cell& cell) mutable {
-                    const CellType cellType = cellInfo(cell);
-                    if (cellType.classification == CellType::bulk) {
-                        LbmComputeType popIn[D3Q19::q];
-                        Krn::loadPop(s19->s, i, flagData.bounceBackNghBitflag, flag, fIn, popIn);
-
-                        const auto [rho, u] = Krn::macroscopic(i, popIn);
-
-                        const Element usqr = 1.5 * (u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
-                        Krn::collideAndStreamBgkUnrolled(s19->s,
-                                                         i,
-                                                         popIn,
-                                                         fIn,
-                                                         Lp,
-                                                         rho, u,
-                                                         usqr, omega,
-                                                         flagData.bounceBackNghBitflag,
-                                                         flag,
-                                                         fOut);
-                    }
-                };
-            });
-        return Kontainer;
+        setupSkeletons(0, stencilSemantic, occ, transfer, fIn, fOut, cellTypeField, omega);
+        setupSkeletons(1, stencilSemantic, occ, transfer, fOut, fIn, cellTypeField, omega);
+        parity = 0;
     }
+    auto getInput()
+        -> PopulationField&
+    {
+        return pop[parity];
+    }
+
+    auto getOutput()
+        -> PopulationField&
+    {
+        int other = parity == 0 ? 1 : 0;
+        return pop[other];
+    }
+
+    auto run()
+        -> void
+    {
+        lbmTwoPop[parity].run();
+        updateParity();
+    }
+
+    auto sync()
+        -> void
+    {
+        pop[0].getBackend().syncAll();
+    }
+
+   private:
+    auto updateParity()
+        -> void
+    {
+        parity = parity == 0 ? 1 : 0;
+    }
+
+    auto setupSkeletons(int                         target,
+                        Neon::set::TransferSemantic stencilSemantic,
+                        Neon::skeleton::Occ         occ,
+                        Neon::set::TransferMode     transfer,
+                        PopulationField&            inField /*!   inpout population field */,
+                        PopulationField&            outField,
+                        CellTypeField&              cellTypeField /*!       Cell type field     */,
+                        LbmComputeType              omega /*! LBM omega parameter */)
+    {
+        std::vector<Neon::set::Container> ops;
+        lbmTwoPop[target] = Neon::skeleton::Skeleton(inField.getBackend());
+        Neon::skeleton::Options opt(occ, transfer);
+        ops.push_back(LbmTools::iteration(stencilSemantic,
+                                          inField,
+                                          cellTypeField,
+                                          omega,
+                                          outField));
+        std::stringstream appName;
+        appName << "LBM_iteration_" << std::to_string(target);
+        lbmTwoPop[target].sequence(ops, appName.str(), opt);
+    }
+
+    Neon::skeleton::Skeleton lbmTwoPop[2];
+    PopulationField          pop[2];
+    int                      parity;
 };

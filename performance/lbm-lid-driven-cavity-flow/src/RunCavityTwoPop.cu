@@ -3,6 +3,7 @@
 #include "Neon/domain/dGrid.h"
 
 #include "CellType.h"
+#include "LbmIteration.h"
 #include "Metrics.h"
 #include "Repoert.h"
 
@@ -11,14 +12,15 @@ namespace CavityTwoPop {
 auto run(Config& config,
          Report& report) -> void
 {
-    using Grid = Neon::domain::dGrid;
     using StorageFP = double;
     using ComputeFP = double;
-    constexpr int latticeRank = 19;
+    using Grid = Neon::domain::dGrid;
+    using D3Q19 = D3Q19<StorageFP, ComputeFP>;
+    using PopulationField = typename Grid::Field<StorageFP, D3Q19::q>;
 
     Neon::Backend bk(config.devices, Neon::Runtime::openmp);
 
-    D3Q19 lattice = D3Q19<StorageFP, ComputeFP>(bk);
+    D3Q19 lattice(bk);
 
     // Neon Grid and Fields initialization
     auto [start, clock_iter] = metrics::restartClock(bk, true);
@@ -27,11 +29,20 @@ auto run(Config& config,
         [](const Neon::index_3d&) { return true; },
         lattice.points);
 
-    auto pop0 = grid.newField<StorageFP, latticeRank>("Population", latticeRank, StorageFP(0.0));
-    auto pop1 = grid.newField<StorageFP, latticeRank>("Population", latticeRank, StorageFP(0.0));
+    PopulationField pop0 = grid.newField<StorageFP, D3Q19::q>("Population", D3Q19::q, StorageFP(0.0));
+    PopulationField pop1 = grid.newField<StorageFP, D3Q19::q>("Population", D3Q19::q, StorageFP(0.0));
 
     CellType defaultCelltype;
     auto     flag = grid.newField<CellType, 1>("Material", 1, defaultCelltype);
+
+    LbmIteration<D3Q19, PopulationField, ComputeFP> iteration(config.transferSemantic,
+                                                              config.occ,
+                                                              config.transferMode,
+                                                              pop0,
+                                                              pop1,
+                                                              defaultCelltype,
+                                                              config.mLbmParameters.omega);
+
     metrics::recordGridInitMetrics(bk, report, start);
 
     // Problem Setup
@@ -56,7 +67,7 @@ auto run(Config& config,
             tie(start, clock_iter) = metrics::restartClock(bk, false);
         }
 
-        usleep(10);
+        iteration.run();
 
         ++clock_iter;
     }
