@@ -9,65 +9,91 @@ struct D3Q19
    public:
     D3Q19(const Neon::Backend& bc);
 
-    Neon::set::MemSet_t<Neon::index_3d> c;
-    Neon::set::MemSet_t<int>            opp;
-    Neon::set::MemSet_t<StorageFP>      t;
+    static constexpr int q = 19;              /** number of directions */
+    static constexpr int centerDirection = 9; /** Position of direction {0,0,0} */
+    static constexpr int goRangeBegin = 0;    /** Symmetry is represented as "go" direction and the "back" their opposite */
+    static constexpr int goRangeEnd = 8;
+    static constexpr int goBackOffset = 10; /** Offset to compute apply symmetry */
+
+    template <int go>
+    static constexpr auto getOpposite()
+        -> int
+    {
+        if constexpr (go == centerDirection)
+            return centerDirection;
+        if constexpr (go <= goRangeEnd)
+            return go + goBackOffset;
+        if constexpr (go <= goRangeEnd + goBackOffset)
+            return go - goBackOffset;
+    }
+
+
+    Neon::set::MemSet_t<Neon::int8_3d> c;
+    Neon::set::MemSet_t<int>           opp;
+    Neon::set::MemSet_t<StorageFP>     t;
+    std::vector<Neon::index_3d>        points;
 };
 
 template <typename StorageFP, typename ComputeFP>
 D3Q19<StorageFP, ComputeFP>::D3Q19(const Neon::Backend& backend)
 {
     // The discrete velocities of the D3Q19 mesh.
-    auto points = std::vector<Neon::index_3d>(
-        {{-1, 0, 0} /*!  0  */,
-         {0, -1, 0} /*!  1  */,
-         {0, 0, -1} /*!  2  */,
-         {-1, -1, 0} /*! 3  */,
-         {-1, 1, 0} /*!  4  */,
-         {-1, 0, -1} /*! 5  */,
-         {-1, 0, 1} /*!  6  */,
-         {0, -1, -1} /*! 7  */,
-         {0, -1, 1} /*!  8  */,
-         {1, 0, 0} /*!   9  */,
-         {0, 1, 0} /*!   10 */,
-         {0, 0, 1} /*!   11 */,
-         {1, 1, 0} /*!   12 */,
-         {1, -1, 0} /*!  13 */,
-         {1, 0, 1} /*!   14 */,
-         {1, 0, -1} /*!  15 */,
-         {0, 1, 1} /*!   16 */,
-         {0, 1, -1} /*!  17 */,
-         {0, 0, 0} /*!   Zero is the last one!!! */});
+    points = std::vector<Neon::index_3d>(
+        {
+            {-1, 0, 0} /*!  0  Symmetry first section (GO) */,
+            {0, -1, 0} /*!  1  */,
+            {0, 0, -1} /*!  2  */,
+            {-1, -1, 0} /*! 3  */,
+            {-1, 1, 0} /*!  4  */,
+            {-1, 0, -1} /*! 5  */,
+            {-1, 0, 1} /*!  6  */,
+            {0, -1, -1} /*! 7  */,
+            {0, -1, 1} /*!  8  */,
+            {0, 0, 0} /*!   9  The center */,
+            {1, 0, 0} /*!   10 Symmetry mirror section (BK) */,
+            {0, 1, 0} /*!   11 */,
+            {0, 0, 1} /*!   12 */,
+            {1, 1, 0} /*!   13 */,
+            {1, -1, 0} /*!  14 */,
+            {1, 0, 1} /*!   15 */,
+            {1, 0, -1} /*!  16 */,
+            {0, 1, 1} /*!   17 */,
+            {0, 1, -1} /*!  18 */,
+        });
 
     auto c_neon = Neon::set::Memory::MemSet<Neon::index_3d>(backend, 1, points.size(),
                                                             Neon::DataUse::IO_COMPUTE);
 
 
     for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
-        for (size_t j = 0; j < points.size(); j++) {
-            c_neon.eRef(i, j) = points[j];
+        for (int j = 0; j < int(points.size()); j++) {
+            c_neon.eRef(i, j).x = static_cast<int8_t>(points[j].x);
+            c_neon.eRef(i, j).y = static_cast<int8_t>(points[j].y);
+            c_neon.eRef(i, j).z = static_cast<int8_t>(points[j].z);
         }
     }
     // The opposite of a given direction.
-    std::vector<int> opp_vect = {9 /*! 0   */,
-                                 10 /*! 1  */,
-                                 11 /*! 2  */,
-                                 12 /*! 3  */,
-                                 13 /*! 4  */,
-                                 14 /*! 5  */,
-                                 15 /*! 6  */,
-                                 16 /*! 7  */,
-                                 17 /*! 8  */,
-                                 0 /*!  9  */,
-                                 1 /*!  10 */,
-                                 2 /*!  11 */,
-                                 3 /*!  12 */,
-                                 4 /*!  13 */,
-                                 5 /*!  14 */,
-                                 6 /*!  15 */,
-                                 7 /*!  16 */,
-                                 8 /*!  17 */,
-                                 18 /*! 18 */};
+    std::vector<int> opp_vect = {
+        10 /*!  0   */,
+        11 /*! 1  */,
+        12 /*! 2  */,
+        13 /*! 3  */,
+        14 /*! 4  */,
+        15 /*! 5  */,
+        16 /*! 6  */,
+        17 /*! 7  */,
+        18 /*! 8  */,
+        9 /*!  9 */,
+        0 /*!  10  */,
+        1 /*!  11 */,
+        2 /*!  12 */,
+        3 /*!  13 */,
+        4 /*!  14 */,
+        5 /*!  15 */,
+        6 /*!  16 */,
+        7 /*!  17 */,
+        8 /*!  18 */,
+    };
 
     {  // Check correctness of opposite
         for (int i = 0; i < static_cast<int>(points.size()); i++) {
@@ -101,16 +127,16 @@ D3Q19<StorageFP, ComputeFP>::D3Q19(const Neon::Backend& backend)
         1. / 36. /*!  6   */,
         1. / 36. /*!  7   */,
         1. / 36. /*!  8   */,
-        1. / 18. /*!  9   */,
-        1. / 18. /*!  10  */,
+        1. / 3. /*!   9  */,
+        1. / 18. /*!  10   */,
         1. / 18. /*!  11  */,
-        1. / 36. /*!  12  */,
+        1. / 18. /*!  12  */,
         1. / 36. /*!  13  */,
         1. / 36. /*!  14  */,
         1. / 36. /*!  15  */,
         1. / 36. /*!  16  */,
         1. / 36. /*!  17  */,
-        1. / 3. /*!   18  */,
+        1. / 36. /*!  18  */,
     };
 
     this->t = Neon::set::Memory::MemSet<double>(backend, 1, opp_vect.size(),
@@ -123,8 +149,8 @@ D3Q19<StorageFP, ComputeFP>::D3Q19(const Neon::Backend& backend)
     }
 
     if (backend.runtime() == Neon::Runtime::stream) {
-        this->c.update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
-        this->c.opp.update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
-        this->t.update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
+        this->c.template update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
+        this->opp.template update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
+        this->t.template update<Neon::run_et::et::sync>(backend.streamSet(0), Neon::DeviceType::CUDA);
     }
 }

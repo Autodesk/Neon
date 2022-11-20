@@ -1,47 +1,64 @@
+#include "CellType.h"
+#include "D3Q19.h"
 #include "Neon/Neon.h"
 
-template <typename Population,
+template <typename DKQW,
+          typename PopulationField,
           typename LbmComputeType>
 struct LbmTools
 {
-    using LbmStoreType = typename Population::Type;
-    using Cell = typename Population::Cell;
-    using LatticeParameters = dGridCoPhase::LatticeParameters<LbmComputeType>;
-    using PopulationPrt = typename Population::Partition;
+};
+
+/**
+ * Specialization for D3Q19
+ * @tparam PopulationField
+ * @tparam LbmComputeType
+ */
+template <typename PopulationField,
+          typename LbmComputeType>
+struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
+                PopulationField,
+                LbmComputeType>
+{
+    using LbmStoreType = typename PopulationField::Type;
+    using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
+    using D3Q19 = D3Q19<LbmStoreType, LbmComputeType>;
+    using Cell = typename PopulationField::Cell;
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    macroscopic(const Cell&          i,
-                const PopulationPrt& fin)
+    macroscopic(const Cell&        i,
+                const LbmStoreType popIn[D3Q19::q])
+        -> std::array<LbmComputeType, 3>
     {
-        const LbmComputeType X_M1 = fin.eVal(i, 0) + fin.eVal(i, 3) +
-                                    fin.eVal(i, 4) + fin.eVal(i, 5) +
-                                    fin.eVal(i, 6);
+        const LbmComputeType X_M1 = popIn[0] + popIn[3] +
+                                    popIn[4] + popIn[5] +
+                                    popIn[6];
 
-        const LbmComputeType X_P1 = fin.eVal(i, 10 - 1) + fin.eVal(i, 13 - 1) +
-                                    fin.eVal(i, 14 - 1) + fin.eVal(i, 15 - 1) +
-                                    fin.eVal(i, 16 - 1);
+        const LbmComputeType X_P1 = popIn[10] + popIn[13] +
+                                    popIn[14] + popIn[15] +
+                                    popIn[16];
 
-        const LbmComputeType X_0 = fin.eVal(i, 9 + 9) + fin.eVal(i, 1) +
-                                   fin.eVal(i, 2) + fin.eVal(i, 7) +
-                                   fin.eVal(i, 8) + fin.eVal(i, 11 - 1) +
-                                   fin.eVal(i, 12 - 1) + fin.eVal(i, 17 - 1) +
-                                   fin.eVal(i, 18 - 1);
+        const LbmComputeType X_0 = popIn[9] + popIn[1] +
+                                   popIn[2] + popIn[7] +
+                                   popIn[8] + popIn[11] +
+                                   popIn[12] + popIn[17] +
+                                   popIn[18];
 
-        const LbmComputeType Y_M1 = fin.eVal(i, 1) + fin.eVal(i, 3) +
-                                    fin.eVal(i, 7) + fin.eVal(i, 8) +
-                                    fin.eVal(i, 14 - 1);
+        const LbmComputeType Y_M1 = popIn[1] + popIn[3] +
+                                    popIn[7] + popIn[8] +
+                                    popIn[14];
 
-        const LbmComputeType Y_P1 = fin.eVal(i, 4) + fin.eVal(i, 11 - 1) +
-                                    fin.eVal(i, 13 - 1) + fin.eVal(i, 17 - 1) +
-                                    fin.eVal(i, 18 - 1);
+        const LbmComputeType Y_P1 = popIn[4] + popIn[11] +
+                                    popIn[13] + popIn[17] +
+                                    popIn[18];
 
-        const LbmComputeType Z_M1 = fin.eVal(i, 2) + fin.eVal(i, 5) +
-                                    fin.eVal(i, 7) + fin.eVal(i, 16 - 1) +
-                                    fin.eVal(i, 18 - 1);
+        const LbmComputeType Z_M1 = popIn[2] + popIn[5] +
+                                    popIn[7] + popIn[16] +
+                                    popIn[18];
 
-        const LbmComputeType Z_P1 = fin.eVal(i, 6) + fin.eVal(i, 8) +
-                                    fin.eVal(i, 12 - 1) + fin.eVal(i, 15 - 1) +
-                                    fin.eVal(i, 17 - 1);
+        const LbmComputeType Z_P1 = popIn[6] + popIn[8] +
+                                    popIn[12] + popIn[15] +
+                                    popIn[17];
 
         const LbmComputeType          rho = X_M1 + X_P1 + X_0;
         std::array<LbmComputeType, 3> u{(X_P1 - X_M1) / rho,
@@ -52,171 +69,176 @@ struct LbmTools
     }
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    macroscopic(const Cell& i, typename FLocal_ta::LbmComputeType_t const* const pop)
+    loadPopulation(Cell const&                                i,
+                   uint32_t&                                  bounceBackBitflag,
+                   typename PopulationField::Partition const& fin,
+                   NEON_OUT LbmStoreType                      popIn[19])
     {
-        const LbmComputeType X_M1 = pop[0] + pop[3] + pop[4] + pop[5] + pop[6];
-        const LbmComputeType X_P1 = pop[10 - 1] + pop[13 - 1] + pop[14 - 1] + pop[15 - 1] + pop[16 - 1];
-        const LbmComputeType X_0 =
-            pop[9 + 9] + pop[1] + pop[2] + pop[7] + pop[8] + pop[11 - 1] + pop[12 - 1] + pop[17 - 1] +
-            pop[18 - 1];
 
-        const LbmComputeType Y_M1 = pop[1] + pop[3] + pop[7] + pop[8] + pop[14 - 1];
-        const LbmComputeType Y_P1 = pop[4] + pop[11 - 1] + pop[13 - 1] + pop[17 - 1] + pop[18 - 1];
+#define LOADPOP(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                         \
+    {                                                                             \
+        { /*GO*/                                                                  \
+            bool isBounceBack = (bounceBackBitflag & (uint32_t(1) << BKid)) != 0; \
+            if (isBounceBack) {                                                   \
+                popIn[GOid] = fin(i, BKid);                                       \
+            } else {                                                              \
+                popIn[GOid] = fin.nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;      \
+            }                                                                     \
+        }                                                                         \
+        { /*BK*/                                                                  \
+            bool isBounceBack = (bounceBackBitflag & (uint32_t(1) << GOid)) != 0; \
+            if (isBounceBack) {                                                   \
+                popIn[BKid] = fin(i, GOid);                                       \
+            } else {                                                              \
+                popIn[BKid] = fin.nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value;      \
+            }                                                                     \
+        }                                                                         \
+    }
+        LOADPOP(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10)
+        LOADPOP(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11)
+        LOADPOP(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12)
+        LOADPOP(-1, -1, 0, /* GOid */ 3, /* --- */ 1, 1, 0, /*  BKid */ 13)
+        LOADPOP(-1, 1, 0, /*  GOid */ 4, /* --- */ 1, -1, 0, /* BKid */ 14)
+        LOADPOP(-1, 0, -1, /* GOid */ 5, /* --- */ 1, 0, 1, /*  BKid */ 15)
+        LOADPOP(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16)
+        LOADPOP(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17)
+        LOADPOP(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18)
 
-        const LbmComputeType Z_M1 = pop[2] + pop[5] + pop[7] + pop[16 - 1] + pop[18 - 1];
-        const LbmComputeType Z_P1 = pop[6] + pop[8] + pop[12 - 1] + pop[15 - 1] + pop[17 - 1];
+        // Treat the case of the "rest-population" (c[k] = {0, 0, 0,}).
+        {
+            popIn[D3Q19::centerDirection] = fin(i, D3Q19::centerDirection);
+            bounceBackBitflag = bounceBackBitflag | (uint32_t(1) << D3Q19::centerDirection);
+        }
+    }
+
+
+    static inline NEON_CUDA_HOST_DEVICE auto
+    macroscopic(const Cell&        i,
+                const LbmStoreType pop[D3Q19::q])
+        -> std::array<LbmComputeType, 3>
+    {
+#define POP(IDX) static_cast<LbmComputeType>(pop[IDX])
+        const LbmComputeType X_M1 = POP(0) + POP(3) + POP(4) + POP(5) + POP(6);
+        const LbmComputeType X_P1 = POP(10) + POP(13) + POP(14) + POP(15) + POP(16);
+
+        const LbmComputeType X_0 = POP(9) +
+                                   POP(1) + POP(2) + POP(7) + POP(8) +
+                                   POP(11) + POP(12) + POP(17) + POP(18);
+
+        const LbmComputeType Y_M1 = POP(1) + POP(3) + POP(7) + POP(8) + POP(14);
+        const LbmComputeType Y_P1 = POP(4) + POP(11) + POP(13) + POP(17) + POP(18);
+
+        const LbmComputeType Z_M1 = POP(2) + POP(5) + POP(7) + POP(16) + POP(18);
+        const LbmComputeType Z_P1 = POP(6) + POP(8) + POP(12) + POP(15) + POP(17);
+#undef POP
 
         const LbmComputeType          rho = X_M1 + X_P1 + X_0;
         std::array<LbmComputeType, 3> u{(X_P1 - X_M1) / rho, (Y_P1 - Y_M1) / rho, (Z_P1 - Z_M1) / rho};
         return std::make_tuple(rho, u);
     }
 
-    static inline NEON_CUDA_HOST_DEVICE auto stream(const Neon::int8_3d*  s,
-                                                    const Cell&           i /*!         Iterator                   */,
-                                                    const int&            k /*!         Lattice direction          */,
-                                                    const int&            kOpposit /*!  Opposite lattice direction */,
-                                                    const FLocal_ta&      fIn /*!       Populations                */,
-                                                    const Flag::local_t&  flag /*!      Material type              */,
-                                                    const LbmComputeType& pop_out /*!   Computed population out    */,
-                                                    NEON_OUT FLocal_ta&
-
-                                                        fOut /*!      Populations                */)
-    {
-        // We don't need to check if it is a valid neighbour.
-        // stream is called only on bulk cells
-        // The bulk cells are all surrounded by boundary cells
-        auto flagNBval = flag.nghVal(i, s[k], Flag::local_t::LbmComputeType_t::bulk).value;
-        if (flagNBval == CellType::bounce_back) {
-            fOut.eRef(i, kOpposit) = pop_out + fIn.nghVal(i, s[k], k, 0.0).value;
-        } else {
-            fOut.nghRef(i, s[k], k) = pop_out;
-        }
-    }
-
-    // Execute second-order BGK collision on a cell.
-    static inline NEON_CUDA_HOST_DEVICE auto collideBgk(Cell const&                                i /*!     LbmComputeType iterator   */,
-                                                        FLocal_ta const&                           fin /*!   Population         */,
-                                                        typename LatticeParameters::local_t const& lp /*!    Lattice parameters */,
-                                                        int const&                                 k /*!     Target cardinality */,
-                                                        int const&                                 kOpposite /*!     Target cardinality */,
-                                                        LbmComputeType const&                      rho /*!   Density            */,
-                                                        std::array<double, 3> const&               u /*!     Velocity           */,
-                                                        LbmComputeType const&                      usqr /*!  Usqr               */,
-                                                        LbmComputeType const&                      omega /*! Omega              */)
-    {
-        const LbmComputeType ck_u = lp.c.eRef(k).x * u[0] + lp.c.eRef(k).y * u[1] + lp.c.eRef(k).z * u[2];
-        const LbmComputeType eq = rho * lp.t.eRef(k) * (1. + 3. * ck_u + 4.5 * ck_u * ck_u - usqr);
-        const LbmComputeType eqOpp = eq - 6. * rho * lp.t.eRef(k) * ck_u;
-        const LbmComputeType popOut = (1. - omega) * fin.eVal(i, k) + omega * eq;
-        const LbmComputeType popOutOpp = (1. - omega) * fin(i, kOpposite) + omega * eqOpp;
-        return std::make_pair(popOut, popOutOpp);
-    }
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    collideAndStreamBgkUnrolled(const Neon::int8_3d*                              s,
-                                Cell
-                                const&                                       i /*!     LbmComputeType iterator   */,
-                                typename FLocal_ta::LbmComputeType_t const* const pop,
-                                FLocal_ta const&                                  fin /*!   Population         */,
-                                typename LatticeParameters::local_t const&        lp /*!    Lattice parameters */,
-                                LbmComputeType const&                             rho /*!   Density            */,
-                                std::array<double, 3> const&                      u /*!     Velocity           */,
-                                LbmComputeType const&                             usqr /*!  Usqr               */,
-                                LbmComputeType const&                             omega /*! Omega              */,
-                                const Flag::local_t&                              flag /*!  Material type      */,
-                                FLocal_ta&                                        fOut /*!  Population         */)
+    collideAndStreamBgkUnrolled(Cell const&                                i /*!     LbmComputeType iterator   */,
+                                const LbmStoreType                         pop[D3Q19::q],
+                                typename PopulationField::Partition const& fin /*!   Population         */,
+                                LbmComputeType const&                      rho /*!   Density            */,
+                                std::array<double, 3> const&               u /*!     Velocity           */,
+                                LbmComputeType const&                      usqr /*!  Usqr               */,
+                                LbmComputeType const&                      omega /*! Omega              */,
+                                uint32_t const&                            bounceBackBitflag /*!  BC mask */,
+                                typename PopulationField::Partition&       fOut /*!  Population         */)
 
         -> void
     {
+        const LbmComputeType ck_u03 = u[0] + u[1];
+        const LbmComputeType ck_u04 = u[0] - u[1];
+        const LbmComputeType ck_u05 = u[0] + u[2];
+        const LbmComputeType ck_u06 = u[0] - u[2];
+        const LbmComputeType ck_u07 = u[1] + u[2];
+        const LbmComputeType ck_u08 = u[1] - u[2];
 
-        const double ck_u03 = u[0] + u[1];
-        const double ck_u04 = u[0] - u[1];
-        const double ck_u05 = u[0] + u[2];
-        const double ck_u06 = u[0] - u[2];
-        const double ck_u07 = u[1] + u[2];
-        const double ck_u08 = u[1] - u[2];
+        const LbmComputeType eq_00 = rho * (1. / 18.) * (1. - 3. * u[0] + 4.5 * u[0] * u[0] - usqr);
+        const LbmComputeType eq_01 = rho * (1. / 18.) * (1. - 3. * u[1] + 4.5 * u[1] * u[1] - usqr);
+        const LbmComputeType eq_02 = rho * (1. / 18.) * (1. - 3. * u[2] + 4.5 * u[2] * u[2] - usqr);
+        const LbmComputeType eq_03 = rho * (1. / 36.) * (1. - 3. * ck_u03 + 4.5 * ck_u03 * ck_u03 - usqr);
+        const LbmComputeType eq_04 = rho * (1. / 36.) * (1. - 3. * ck_u04 + 4.5 * ck_u04 * ck_u04 - usqr);
+        const LbmComputeType eq_05 = rho * (1. / 36.) * (1. - 3. * ck_u05 + 4.5 * ck_u05 * ck_u05 - usqr);
+        const LbmComputeType eq_06 = rho * (1. / 36.) * (1. - 3. * ck_u06 + 4.5 * ck_u06 * ck_u06 - usqr);
+        const LbmComputeType eq_07 = rho * (1. / 36.) * (1. - 3. * ck_u07 + 4.5 * ck_u07 * ck_u07 - usqr);
+        const LbmComputeType eq_08 = rho * (1. / 36.) * (1. - 3. * ck_u08 + 4.5 * ck_u08 * ck_u08 - usqr);
+        const LbmComputeType eq_09 = rho * (1. / 3.) * (1. - usqr);
 
-        const double eq_00 = rho * (1. / 18.) * (1. - 3. * u[0] + 4.5 * u[0] * u[0] - usqr);
-        const double eq_01 = rho * (1. / 18.) * (1. - 3. * u[1] + 4.5 * u[1] * u[1] - usqr);
-        const double eq_02 = rho * (1. / 18.) * (1. - 3. * u[2] + 4.5 * u[2] * u[2] - usqr);
-        const double eq_03 = rho * (1. / 36.) * (1. - 3. * ck_u03 + 4.5 * ck_u03 * ck_u03 - usqr);
-        const double eq_04 = rho * (1. / 36.) * (1. - 3. * ck_u04 + 4.5 * ck_u04 * ck_u04 - usqr);
-        const double eq_05 = rho * (1. / 36.) * (1. - 3. * ck_u05 + 4.5 * ck_u05 * ck_u05 - usqr);
-        const double eq_06 = rho * (1. / 36.) * (1. - 3. * ck_u06 + 4.5 * ck_u06 * ck_u06 - usqr);
-        const double eq_07 = rho * (1. / 36.) * (1. - 3. * ck_u07 + 4.5 * ck_u07 * ck_u07 - usqr);
-        const double eq_08 = rho * (1. / 36.) * (1. - 3. * ck_u08 + 4.5 * ck_u08 * ck_u08 - usqr);
-        const double eq_09 = rho * (1. / 3.) * (1. - usqr);
+        const LbmComputeType eqopp_00 = eq_00 + rho * (1. / 18.) * 6. * u[0];
+        const LbmComputeType eqopp_01 = eq_01 + rho * (1. / 18.) * 6. * u[1];
+        const LbmComputeType eqopp_02 = eq_02 + rho * (1. / 18.) * 6. * u[2];
+        const LbmComputeType eqopp_03 = eq_03 + rho * (1. / 36.) * 6. * ck_u03;
+        const LbmComputeType eqopp_04 = eq_04 + rho * (1. / 36.) * 6. * ck_u04;
+        const LbmComputeType eqopp_05 = eq_05 + rho * (1. / 36.) * 6. * ck_u05;
+        const LbmComputeType eqopp_06 = eq_06 + rho * (1. / 36.) * 6. * ck_u06;
+        const LbmComputeType eqopp_07 = eq_07 + rho * (1. / 36.) * 6. * ck_u07;
+        const LbmComputeType eqopp_08 = eq_08 + rho * (1. / 36.) * 6. * ck_u08;
 
-        const double eqopp_00 = eq_00 + rho * (1. / 18.) * 6. * u[0];
-        const double eqopp_01 = eq_01 + rho * (1. / 18.) * 6. * u[1];
-        const double eqopp_02 = eq_02 + rho * (1. / 18.) * 6. * u[2];
-        const double eqopp_03 = eq_03 + rho * (1. / 36.) * 6. * ck_u03;
-        const double eqopp_04 = eq_04 + rho * (1. / 36.) * 6. * ck_u04;
-        const double eqopp_05 = eq_05 + rho * (1. / 36.) * 6. * ck_u05;
-        const double eqopp_06 = eq_06 + rho * (1. / 36.) * 6. * ck_u06;
-        const double eqopp_07 = eq_07 + rho * (1. / 36.) * 6. * ck_u07;
-        const double eqopp_08 = eq_08 + rho * (1. / 36.) * 6. * ck_u08;
+        const double pop_out_00 = (1. - omega) * static_cast<LbmComputeType>(pop[0]) + omega * eq_00;
+        const double pop_out_01 = (1. - omega) * static_cast<LbmComputeType>(pop[1]) + omega * eq_01;
+        const double pop_out_02 = (1. - omega) * static_cast<LbmComputeType>(pop[2]) + omega * eq_02;
+        const double pop_out_03 = (1. - omega) * static_cast<LbmComputeType>(pop[3]) + omega * eq_03;
+        const double pop_out_04 = (1. - omega) * static_cast<LbmComputeType>(pop[4]) + omega * eq_04;
+        const double pop_out_05 = (1. - omega) * static_cast<LbmComputeType>(pop[5]) + omega * eq_05;
+        const double pop_out_06 = (1. - omega) * static_cast<LbmComputeType>(pop[6]) + omega * eq_06;
+        const double pop_out_07 = (1. - omega) * static_cast<LbmComputeType>(pop[7]) + omega * eq_07;
+        const double pop_out_08 = (1. - omega) * static_cast<LbmComputeType>(pop[8]) + omega * eq_08;
 
-        const double pop_out_00 = (1. - omega) * pop[0] + omega * eq_00;
-        const double pop_out_01 = (1. - omega) * pop[1] + omega * eq_01;
-        const double pop_out_02 = (1. - omega) * pop[2] + omega * eq_02;
-        const double pop_out_03 = (1. - omega) * pop[3] + omega * eq_03;
-        const double pop_out_04 = (1. - omega) * pop[4] + omega * eq_04;
-        const double pop_out_05 = (1. - omega) * pop[5] + omega * eq_05;
-        const double pop_out_06 = (1. - omega) * pop[6] + omega * eq_06;
-        const double pop_out_07 = (1. - omega) * pop[7] + omega * eq_07;
-        const double pop_out_08 = (1. - omega) * pop[8] + omega * eq_08;
+        const double pop_out_opp_00 = (1. - omega) * static_cast<LbmComputeType>(pop[10]) + omega * eqopp_00;
+        const double pop_out_opp_01 = (1. - omega) * static_cast<LbmComputeType>(pop[11]) + omega * eqopp_01;
+        const double pop_out_opp_02 = (1. - omega) * static_cast<LbmComputeType>(pop[12]) + omega * eqopp_02;
+        const double pop_out_opp_03 = (1. - omega) * static_cast<LbmComputeType>(pop[13]) + omega * eqopp_03;
+        const double pop_out_opp_04 = (1. - omega) * static_cast<LbmComputeType>(pop[14]) + omega * eqopp_04;
+        const double pop_out_opp_05 = (1. - omega) * static_cast<LbmComputeType>(pop[15]) + omega * eqopp_05;
+        const double pop_out_opp_06 = (1. - omega) * static_cast<LbmComputeType>(pop[16]) + omega * eqopp_06;
+        const double pop_out_opp_07 = (1. - omega) * static_cast<LbmComputeType>(pop[17]) + omega * eqopp_07;
+        const double pop_out_opp_08 = (1. - omega) * static_cast<LbmComputeType>(pop[18]) + omega * eqopp_08;
 
-        const double pop_out_opp_00 = (1. - omega) * pop[10 - 1] + omega * eqopp_00;
-        const double pop_out_opp_01 = (1. - omega) * pop[11 - 1] + omega * eqopp_01;
-        const double pop_out_opp_02 = (1. - omega) * pop[12 - 1] + omega * eqopp_02;
-        const double pop_out_opp_03 = (1. - omega) * pop[13 - 1] + omega * eqopp_03;
-        const double pop_out_opp_04 = (1. - omega) * pop[14 - 1] + omega * eqopp_04;
-        const double pop_out_opp_05 = (1. - omega) * pop[15 - 1] + omega * eqopp_05;
-        const double pop_out_opp_06 = (1. - omega) * pop[16 - 1] + omega * eqopp_06;
-        const double pop_out_opp_07 = (1. - omega) * pop[17 - 1] + omega * eqopp_07;
-        const double pop_out_opp_08 = (1. - omega) * pop[18 - 1] + omega * eqopp_08;
 
-        const double pop_out_09 = (1. - omega) * pop[9 + 9] + omega * eq_09;
-
-#define DIRECTION_AND_OPPOSITE(DIRECTION)                                                             \
-    {                                                                                                 \
-        {                                                                                             \
-            constexpr int k = DIRECTION;                                                              \
-            constexpr int kOpposite = ((DIRECTION) + 10) - 1;                                         \
-            auto          flagNBval = flag.nghVal(i, s[k], 0, dGridCoPhase::CellType::bulk).value;    \
-            if (flagNBval == dGridCoPhase::CellType::bounce_back) {                                   \
-                fOut.eRef(i, kOpposite) = (pop_out_0##DIRECTION + fin.nghVal(i, s[k], k, 0.0).value); \
-            } else {                                                                                  \
-                fOut.nghRef(i, s[k], k) = pop_out_0##DIRECTION;                                       \
-            }                                                                                         \
-        }                                                                                             \
-        {                                                                                             \
-            constexpr int GO = ((DIRECTION) + 10) - 1;                                                \
-            constexpr int BK = DIRECTION;                                                             \
-            auto          flagNBval = flag.nghVal(i, s[GO], 0, dGridCoPhase::CellType::bulk).value;   \
-            if (flagNBval == dGridCoPhase::CellType::bounce_back) {                                   \
-                fOut.eRef(i, BK) = (pop_out_opp_0##DIRECTION + fin.nghVal(i, s[GO], GO, 0.0).value);  \
-            } else {                                                                                  \
-                fOut.nghRef(i, s[GO], GO) = pop_out_opp_0##DIRECTION;                                 \
-            }                                                                                         \
-        }                                                                                             \
+#define DIRECTION_AND_OPPOSITE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                               \
+    {                                                                                                                                  \
+        /** NOTE the double point operation is always used with GOid */                                                                \
+        /** As all data is computed parametrically w.r.t the first part of the symmetry */                                             \
+        {                                                                                                                              \
+            if (bounceBackBitflag & (uint32_t(1) << GOid)) {                                                                           \
+                fOut(i, BKid) = static_cast<LbmStoreType>(pop_out_0##GOid +                                                            \
+                                                          static_cast<LbmComputeType>(fin.nghVal<GOx, GOy, GOz>(i, GOid, 0.0).value)); \
+            } else {                                                                                                                   \
+                fOut(i, GOid) = static_cast<LbmStoreType>(pop_out_0##GOid);                                                            \
+            }                                                                                                                          \
+        }                                                                                                                              \
+                                                                                                                                       \
+        {                                                                                                                              \
+            if (bounceBackBitflag & (uint32_t(1) << BKid)) {                                                                           \
+                fOut(i, GOid) = static_cast<LbmStoreType>(pop_out_opp_0##GOid +                                                        \
+                                                          static_cast<LbmComputeType>(fin.nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value)); \
+            } else {                                                                                                                   \
+                fOut(i, BKid) = static_cast<LbmStoreType>(pop_out_opp_0##GOid);                                                        \
+            }                                                                                                                          \
+        }                                                                                                                              \
     }
 
-        DIRECTION_AND_OPPOSITE(0);
-        DIRECTION_AND_OPPOSITE(1);
-        DIRECTION_AND_OPPOSITE(2);
-        DIRECTION_AND_OPPOSITE(3);
-        DIRECTION_AND_OPPOSITE(4);
-        DIRECTION_AND_OPPOSITE(5);
-        DIRECTION_AND_OPPOSITE(6);
-        DIRECTION_AND_OPPOSITE(7);
-        DIRECTION_AND_OPPOSITE(8);
+        DIRECTION_AND_OPPOSITE(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10)
+        DIRECTION_AND_OPPOSITE(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11)
+        DIRECTION_AND_OPPOSITE(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12)
+        DIRECTION_AND_OPPOSITE(-1, -1, 0, /* GOid */ 3, /* --- */ 1, 1, 0, /*  BKid */ 13)
+        DIRECTION_AND_OPPOSITE(-1, 1, 0, /*  GOid */ 4, /* --- */ 1, -1, 0, /* BKid */ 14)
+        DIRECTION_AND_OPPOSITE(-1, 0, -1, /* GOid */ 5, /* --- */ 1, 0, 1, /*  BKid */ 15)
+        DIRECTION_AND_OPPOSITE(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16)
+        DIRECTION_AND_OPPOSITE(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17)
+        DIRECTION_AND_OPPOSITE(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18)
+
 #undef DIRECTION_AND_OPPOSITE
 
         {
-            constexpr int GO = 9 + 9;
-            fOut.eRef(i, GO) = pop_out_09;
+            const LbmComputeType pop_out_09 = (1. - omega) * static_cast<LbmComputeType>(pop[D3Q19::centerDirection]) +
+                                              omega * eq_09;
+            fOut(i, D3Q19::centerDirection) = static_cast<LbmStoreType>(pop_out_09);
         }
     }
 };

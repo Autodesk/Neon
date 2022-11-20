@@ -5,6 +5,15 @@
 #include "Neon/core/tools/clipp.h"
 #include "Neon/skeleton/Skeleton.h"
 
+template <typename ComputeType>
+struct LbmParameters
+{
+    ComputeType nu = 0;
+    ComputeType omega = 0;
+    ComputeType dx = 0;
+    ComputeType dt = 0;
+};
+
 struct Config
 {
     double                      Re = 100.;                                    // Reynolds number
@@ -16,6 +25,7 @@ struct Config
     int                         dataFrequency = 0;                            // Non-benchmark mode: Frequency in LU of full data dump (use 0 for no data dump)
     int                         benchIniIter = 1000;                          // Benchmark mode: Number of warmup iterations
     int                         benchMaxIter = 2000;                          // Benchmark mode: Total number of iterations
+    int                         repetitions = 1;                              // Benchmark mode: number of time the test is run
     std::vector<int>            devices = std::vector<int>(0);                // Devices for the execution
     std::string                 reportFile = "lbm-lid-driven-cavity-flow";    // Report file name
     std::string                 gridType = "dGrid";                           // Neon grid type
@@ -24,21 +34,15 @@ struct Config
     Neon::set::TransferSemantic transferSemantic = Neon::set::TransferSemantic::lattice;
     bool                        vti = false;  // Export vti file
 
-    clipp::group mClip;
-
-    Config();
+    LbmParameters<double> mLbmParameters;
 
     auto toString()
         const -> std::string;
 
-    auto getClip() -> clipp::group&;
-};
+    auto parseArgs(int argc, char* argv[])
+        -> int;
 
-
-struct LBMparameters
-{
-    double nu = 0;
-    double omega = 0;
-    double dx = 0;
-    double dt = 0;
+   private:
+    auto helpSetLbmParameters()
+        -> void;
 };

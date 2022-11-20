@@ -1,12 +1,17 @@
 
 #include "Config.h"
+#include "Repoert.h"
+#include "RunCavityTwoPop.h"
+
 #include "Neon/core/tools/clipp.h"
 #include "Neon/domain/dGrid.h"
-
-Config config;
+#include "Neon/Neon.h"
 
 int main(int argc, char** argv)
 {
+    Config config;
+    Neon::init();
+
     config.Re = 100.;         // Reynolds number
     config.ulb = 0.02;        // Velocity in lattice units
     config.N = 60;            // Number of nodes in x-direction
@@ -22,15 +27,21 @@ int main(int argc, char** argv)
                               //    config.occ = Neon::skeleton::Options_t::Occ::none
 
 
-    if (!clipp::parse(argc, argv, config.getClip())) {
-        auto fmt = clipp::doc_formatting{}.doc_column(31);
-        std::cout << make_man_page(config.getClip(), argv[0], fmt) << '\n';
+    if (config.parseArgs(argc, argv) != 0) {
         return -1;
     }
 
-    std::cout << "------------ Parameters ------------";
+    std::cout << "--------------- Parameters ---------------\n";
     std::cout << config.toString();
-    std::cout << " -------------------------------------";
+    std::cout << "-------------------------------------------\n";
+
+    Report report(config);
+
+    for(int i=0; i<config.repetitions; i++){
+        CavityTwoPop::run(config, report);
+    }
+
+    report.save();
 
     return 0;
 }

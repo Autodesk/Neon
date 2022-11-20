@@ -10,7 +10,9 @@ struct Report
     std::string  mFname;
 
     std::vector<double> mMLUPS;
-    std::vector<double> mTime;
+    std::vector<double> mLoopTime;
+    std::vector<double> mNeonGridInitTime;
+    std::vector<double> mProblemSetupTime;
 
     std::string mtimeUnit = "";
 
@@ -19,8 +21,16 @@ struct Report
     auto recordMLUPS(double mlups)
         -> void;
 
-    auto recordTime(double             time,
-                    const std::string& unit)
+    auto recordLoopTime(double             time,
+                        const std::string& unit)
+        -> void;
+
+    auto recordNeonGridInitTime(double             time,
+                                const std::string& unit)
+        -> void;
+
+    auto recordProblemSetupTime(double             time,
+                                const std::string& unit)
         -> void;
 
     auto save()

@@ -9,8 +9,14 @@ auto Config::toString() const -> std::string
 
     auto vecToSting = [](const std::vector<int>& v) {
         std::stringstream s;
+        bool              firstTime = true;
         for (auto e : v) {
-            s << " " + std::to_string(e);
+            if (firstTime) {
+                firstTime = false;
+            } else {
+                s << " ";
+            }
+            s << std::to_string(e);
         }
         return s.str();
     };
@@ -35,27 +41,28 @@ auto Config::toString() const -> std::string
     s << "....... transfer Mode " << Neon::set::TransferModeUtils::toString(c.transferMode) << std::endl;
     s << "... transfer Semantic " << Neon::set::TransferSemanticUtils::toString(c.transferSemantic) << std::endl;
 
+    s << ". ............... nu " << mLbmParameters.nu << std::endl;
+    s << ".............. omega " << mLbmParameters.omega << std::endl;
+    s << "................. dx " << mLbmParameters.dx << std::endl;
+    s << "................. dt " << mLbmParameters.dt << std::endl;
+
     return s.str();
 }
 
-auto Config::getClip()
-     -> clipp::group&
-{
-        return mClip;
-}
-
-Config::Config()
+auto Config::parseArgs(const int argc, char* argv[])
+    -> int
 {
     auto& config = *this;
 
     auto cli =
         (
 
-            clipp::option("--gpus") & clipp::integers("gpus", config.devices) % "Device ids to use",
+            clipp::required("--gpus") & clipp::integers("gpus", config.devices) % "Device ids to use",
             clipp::option("--grid") & clipp::value("grid", config.gridType) % "Could be eGrid or dGrid",
             clipp::option("--domain-size") & clipp::integer("domain_size", config.N) % "Voxels along each dimension of the cube domain",
             clipp::option("--warmup-iter") & clipp::integer("warmup_iter", config.benchIniIter) % "Number of iteration for warm up. max_iter = warmup_iter + timed_iters",
             clipp::option("--max-iter") & clipp::integer("max_iter", config.benchMaxIter) % "Maximum solver iterations",
+            clipp::option("--repetitions") & clipp::integer("repetitions", config.repetitions) % "Number of times the benchmark is run.",
             clipp::option("--report-filename ") & clipp::value("keeper_filename", config.reportFile) % "Output perf keeper filename",
 
             (
@@ -75,4 +82,22 @@ Config::Config()
                 clipp::option("--vti").set(config.vti, true) % "Standard OCC")
 
         );
+
+    if (!clipp::parse(argc, argv, cli)) {
+        auto fmt = clipp::doc_formatting{}.doc_column(31);
+        std::cout << make_man_page(cli, argv[0], fmt) << '\n';
+        return -1;
+    }
+
+    helpSetLbmParameters();
+
+    return 0;
+}
+
+auto Config::helpSetLbmParameters() -> void
+{
+    mLbmParameters.nu = ulb * static_cast<double>(N - 2) / Re;
+    mLbmParameters.omega = 1. / (3. * mLbmParameters.nu + 0.5);
+    mLbmParameters.dx = 1. / static_cast<double>(N - 2);
+    mLbmParameters.dt = mLbmParameters.dx * ulb;
 }
