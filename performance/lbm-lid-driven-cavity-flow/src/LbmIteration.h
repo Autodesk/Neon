@@ -16,23 +16,21 @@ struct LbmIteration
 
 template <typename PopulationField,
           typename LbmComputeType>
-struct LbmIteration<D3Q19<typename PopulationField::Type, LbmComputeType>,
-                    PopulationField,
-                    LbmComputeType>
+struct LbmIterationD3Q19
 {
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
-    using D3Q19 = D3Q19<LbmStoreType, LbmComputeType>;
-    using LbmTools = LbmTools<D3Q19, PopulationField, LbmComputeType>;
+    using D3Q19 = D3Q19Template<LbmStoreType, LbmComputeType>;
+    using LbmTools = LbmToolsTemplate<D3Q19, PopulationField, LbmComputeType>;
 
 
-    LbmIteration(Neon::set::TransferSemantic stencilSemantic,
-                 Neon::skeleton::Occ         occ,
-                 Neon::set::TransferMode     transfer,
-                 PopulationField&            fIn /*!   inpout population field */,
-                 PopulationField&            fOut,
-                 CellTypeField&              cellTypeField /*!       Cell type field     */,
-                 LbmComputeType              omega /*! LBM omega parameter */)
+    LbmIterationD3Q19(Neon::set::TransferSemantic stencilSemantic,
+                      Neon::skeleton::Occ         occ,
+                      Neon::set::TransferMode     transfer,
+                      PopulationField&            fIn /*!   inpout population field */,
+                      PopulationField&            fOut,
+                      CellTypeField&              cellTypeField /*!       Cell type field     */,
+                      LbmComputeType              omega /*! LBM omega parameter */)
     {
         pop[0] = fIn;
         pop[1] = fOut;

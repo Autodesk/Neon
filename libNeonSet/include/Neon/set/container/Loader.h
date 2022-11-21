@@ -217,9 +217,11 @@ struct Loader
      */
     template <typename Field_ta>
     auto load(Field_ta&     field /**< the const field to be loaded            */,
-              Neon::Compute computeE = Neon::Compute::MAP /**< computation patter applied to the field */)
+              Neon::Compute computeE = Neon::Compute::MAP /**< computation patter applied to the field */,
+              StencilOptions stencilOptions = StencilOptions::DEFAULT)
         -> std::enable_if_t<std::is_const_v<Field_ta>, const typename Field_ta::Partition&>
     {
+        (void)stencilOptions;
         switch (m_loadingMode) {
             case Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA: {
                 using namespace Neon::set::internal::dependencyTools;

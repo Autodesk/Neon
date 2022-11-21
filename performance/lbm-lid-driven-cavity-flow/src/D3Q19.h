@@ -1,13 +1,15 @@
+#pragma once
+
 #include "Neon/Neon.h"
 #include "Neon/set/Backend.h"
 #include "Neon/set/memory/memSet.h"
 #include "Neon/set/memory/memory.h"
 
 template <typename StorageFP, typename ComputeFP>
-struct D3Q19
+struct D3Q19Template
 {
    public:
-    explicit D3Q19(const Neon::Backend& backend)
+    explicit D3Q19Template(const Neon::Backend& backend)
     {
         // The discrete velocities of the D3Q19 mesh.
         points = std::vector<Neon::index_3d>(

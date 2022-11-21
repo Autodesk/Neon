@@ -6,7 +6,7 @@
 template <typename DKQW,
           typename PopulationField,
           typename LbmComputeType>
-struct LbmTools
+struct LbmToolsTemplate
 {
 };
 
@@ -17,13 +17,13 @@ struct LbmTools
  */
 template <typename PopulationField,
           typename LbmComputeType>
-struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
-                PopulationField,
-                LbmComputeType>
+struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmComputeType>,
+                        PopulationField,
+                        LbmComputeType>
 {
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
-    using D3Q19 = D3Q19<LbmStoreType, LbmComputeType>;
+    using D3Q19 = D3Q19Template<LbmStoreType, LbmComputeType>;
     using Cell = typename PopulationField::Cell;
 
     static inline NEON_CUDA_HOST_DEVICE auto
@@ -33,24 +33,24 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
                    NEON_OUT LbmStoreType                      popIn[19])
     {
 
-#define LOADPOP(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                         \
-    {                                                                             \
-        { /*GO*/                                                                  \
-            bool isBounceBack = (bounceBackBitflag & (uint32_t(1) << BKid)) != 0; \
-            if (isBounceBack) {                                                   \
-                popIn[GOid] = fin(i, BKid);                                       \
-            } else {                                                              \
-                popIn[GOid] = fin.nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;      \
-            }                                                                     \
-        }                                                                         \
-        { /*BK*/                                                                  \
-            bool isBounceBack = (bounceBackBitflag & (uint32_t(1) << GOid)) != 0; \
-            if (isBounceBack) {                                                   \
-                popIn[BKid] = fin(i, GOid);                                       \
-            } else {                                                              \
-                popIn[BKid] = fin.nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value;      \
-            }                                                                     \
-        }                                                                         \
+#define LOADPOP(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                             \
+    {                                                                                 \
+        { /*GO*/                                                                      \
+            bool isBounceBack = (bounceBackBitflag & (uint32_t(1) << BKid)) != 0;     \
+            if (isBounceBack) {                                                       \
+                popIn[GOid] = fin(i, BKid);                                           \
+            } else {                                                                  \
+                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value; \
+            }                                                                         \
+        }                                                                             \
+        { /*BK*/                                                                      \
+            bool isBounceBack = (bounceBackBitflag & (uint32_t(1) << GOid)) != 0;     \
+            if (isBounceBack) {                                                       \
+                popIn[BKid] = fin(i, GOid);                                           \
+            } else {                                                                  \
+                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value; \
+            }                                                                         \
+        }                                                                             \
     }
         LOADPOP(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10)
         LOADPOP(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11)
@@ -71,8 +71,7 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
 
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    macroscopic(const Cell&              i,
-                const LbmStoreType       pop[D3Q19::q],
+    macroscopic(const LbmStoreType       pop[D3Q19::q],
                 NEON_OUT LbmComputeType& rho,
                 NEON_OUT std::array<LbmComputeType, 3>& u)
         -> void
@@ -170,7 +169,7 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
         {                                                                                                                              \
             if (bounceBackBitflag & (uint32_t(1) << GOid)) {                                                                           \
                 fOut(i, BKid) = static_cast<LbmStoreType>(pop_out_0##GOid +                                                            \
-                                                          static_cast<LbmComputeType>(fin.nghVal<GOx, GOy, GOz>(i, GOid, 0.0).value)); \
+                                                          static_cast<LbmComputeType>(fin.template nghVal<GOx, GOy, GOz>(i, GOid, 0.0).value)); \
             } else {                                                                                                                   \
                 fOut(i, GOid) = static_cast<LbmStoreType>(pop_out_0##GOid);                                                            \
             }                                                                                                                          \
@@ -179,7 +178,7 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
         {                                                                                                                              \
             if (bounceBackBitflag & (uint32_t(1) << BKid)) {                                                                           \
                 fOut(i, GOid) = static_cast<LbmStoreType>(pop_out_opp_0##GOid +                                                        \
-                                                          static_cast<LbmComputeType>(fin.nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value)); \
+                                                          static_cast<LbmComputeType>(fin.template nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value)); \
             } else {                                                                                                                   \
                 fOut(i, BKid) = static_cast<LbmStoreType>(pop_out_opp_0##GOid);                                                        \
             }                                                                                                                          \
@@ -213,31 +212,37 @@ struct LbmTools<D3Q19<typename PopulationField::Type, LbmComputeType>,
               PopulationField&            fOutField /*!  output Population field */)
         -> Neon::set::Container
     {
-        Neon::set::Container container = fInField.grid().getContainer(
+        Neon::set::Loader::StencilOptions soption =
+            stencilSemantic == Neon::set::TransferSemantic::grid
+                ? Neon::set::Loader::StencilOptions::DEFAULT
+                : Neon::set::Loader::StencilOptions::LATTICE;
+
+        Neon::set::Container container = fInField.getGrid().getContainer(
             "LBM_iteration",
             [&, omega](Neon::set::Loader& L) -> auto {
-                auto&       fIn = L.load(fInField, Neon::Compute::STENCIL, stencilSemantic);
+                auto&       fIn = L.load(fInField,
+                                         Neon::Compute::STENCIL, soption);
                 auto&       fOut = L.load(fOutField);
                 const auto& cellInfoPartition = L.load(cellTypeField);
 
-                return [=] NEON_CUDA_HOST_DEVICE(const PopulationField::Cell& cell) mutable {
-                    const CellType cellInfo = cellInfoPartition(cell);
+                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
+                    CellType cellInfo = cellInfoPartition(cell, 0);
                     if (cellInfo.classification == CellType::bulk) {
 
                         LbmStoreType popIn[D3Q19::q];
-                        loadPopulation(i, cellInfo.bounceBackNghBitflag, fIn, NEON_OUT popIn);
+                        loadPopulation(cell, cellInfo.bounceBackNghBitflag, fIn, NEON_OUT popIn);
 
                         LbmComputeType                rho;
                         std::array<LbmComputeType, 3> u;
-                        macroscopic(i, popIn, NEON_OUT rho, NEON_OUT u);
+                        macroscopic( popIn, NEON_OUT rho, NEON_OUT u);
 
                         LbmComputeType usqr = 1.5 * (u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
-                        collideAndStreamBgkUnrolled(i,
+                        collideAndStreamBgkUnrolled(cell,
                                                     popIn,
                                                     fIn,
                                                     rho, u,
                                                     usqr, omega,
-                                                    flagData.bounceBackNghBitflag,
+                                                    cellInfo.bounceBackNghBitflag,
                                                     NEON_OUT fOut);
                     }
                 };

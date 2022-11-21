@@ -42,6 +42,19 @@ struct Config
     auto parseArgs(int argc, char* argv[])
         -> int;
 
+    template <class ComputeType>
+    auto getLbmParameters()
+        -> LbmParameters<ComputeType>
+    {
+        LbmParameters<ComputeType> output;
+        output.nu = static_cast<ComputeType>(mLbmParameters.nu);
+        output.omega = static_cast<ComputeType>(mLbmParameters.omega);
+        output.dx = static_cast<ComputeType>(mLbmParameters.dx);
+        output.dt = static_cast<ComputeType>(mLbmParameters.dt);
+
+        return output;
+    }
+
    private:
     auto helpSetLbmParameters()
         -> void;

@@ -15,7 +15,7 @@ auto run(Config& config,
     using StorageFP = double;
     using ComputeFP = double;
     using Grid = Neon::domain::dGrid;
-    using D3Q19 = D3Q19<StorageFP, ComputeFP>;
+    using D3Q19 = D3Q19Template<StorageFP, ComputeFP>;
     using PopulationField = typename Grid::Field<StorageFP, D3Q19::q>;
 
     Neon::Backend bk(config.devices, Neon::Runtime::openmp);
@@ -34,14 +34,16 @@ auto run(Config& config,
 
     CellType defaultCelltype;
     auto     flag = grid.newField<CellType, 1>("Material", 1, defaultCelltype);
+    auto     lbmParameters = config.getLbmParameters<ComputeFP>();
 
-    LbmIteration<D3Q19, PopulationField, ComputeFP> iteration(config.transferSemantic,
-                                                              config.occ,
-                                                              config.transferMode,
-                                                              pop0,
-                                                              pop1,
-                                                              defaultCelltype,
-                                                              config.mLbmParameters.omega);
+    LbmIterationD3Q19<PopulationField, ComputeFP>
+        iteration(config.transferSemantic,
+                  config.occ,
+                  config.transferMode,
+                  pop0,
+                  pop1,
+                  flag,
+                  lbmParameters.omega);
 
     metrics::recordGridInitMetrics(bk, report, start);
 
