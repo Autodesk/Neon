@@ -22,12 +22,10 @@ auto mGrid::getContainer(const std::string& name,
                          size_t             sharedMem,
                          LoadingLambda      lambda) const -> Neon::set::Container
 {
-    Neon::set::Container kContainer = Neon::set::Container::factory(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    blockSize,
-                                                                    [sharedMem](const Neon::index_3d&) { return sharedMem; });
+
+
+    Neon::set::Container kContainer = mData->grids[level].getContainer(name, blockSizem sharedMem, lambda);
+
     return kContainer;
 }
 
@@ -36,13 +34,8 @@ auto mGrid::getContainer(const std::string& name,
                          int                level,
                          LoadingLambda      lambda) const -> Neon::set::Container
 {
-    const Neon::index_3d& defaultBlockSize = getDefaultBlock();
-    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    defaultBlockSize,
-                                                                    [](const Neon::index_3d&) { return size_t(0); });
+    Neon::set::Container kContainer = mData->grids[level].getContainer(name, lambda);
+
     return kContainer;
 }
 

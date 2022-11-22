@@ -117,7 +117,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
     auto getDimension() const -> const Neon::index_3d;
 
-    auto getNumBlocks() const -> const Neon::index_3d&;
+    auto getNumBlocks() const -> const Neon::set::DataSet<uint64_t>&;
 
     auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;

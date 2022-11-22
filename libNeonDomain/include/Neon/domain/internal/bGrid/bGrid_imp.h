@@ -47,12 +47,11 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                     NEON_DIVIDE_UP(domainSize.z, blockSize));
 
 
-    uint32_t blockId = 0;
     for (int bz = 0; bz < numBlockInDomain.z; bz++) {
         for (int by = 0; by < numBlockInDomain.y; by++) {
             for (int bx = 0; bx < numBlockInDomain.x; bx++) {
 
-                bool isActiveBlock = false;
+                int numVoxelsInBlock = 0;
 
                 Neon::int32_3d blockOrigin(bx * blockSize,
                                            by * blockSize,
@@ -67,18 +66,18 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                     blockOrigin.z + z);
 
                             if (activeCellLambda(id)) {
-                                isActiveBlock = true;
-                                mData->mNumActiveVoxel[0]++;
+                                numVoxelsInBlock++;
                             }
                         }
                     }
                 }
 
+                mData->mNumActiveVoxel[0] += numVoxelsInBlock;
 
-                if (isActiveBlock) {
+                if (numVoxelsInBlock > 0) {
                     mData->mNumBlocks[0]++;
-                    mData->mBlockOriginTo1D.addPoint(blockOrigin, blockId);
-                    blockId++;
+                    mData->mBlockOriginTo1D.addPoint(blockOrigin,
+                                                     uint32_t(mData->mBlockOriginTo1D.size()));
                 }
             }
         }
@@ -176,12 +175,11 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
         mData->mOrigin.eRef(devID, blockIdx) = blockOrigin;
 
-        Neon::int32_3d block3DIndex = blockOrigin;
 
         auto setCellActiveMask = [&](Cell::Location::Integer x, Cell::Location::Integer y, Cell::Location::Integer z) {
             Cell cell(x, y, z);
             cell.mBlockID = blockIdx;
-            cell.mBlockSize = refFactor;
+            cell.mBlockSize = blockSize;
             mData->mActiveMask.eRef(devID, cell.getBlockMaskStride(blockSize) + cell.getMaskLocalID(blockSize), 0) |= 1 << cell.getMaskBitPosition(blockSize);
         };
 

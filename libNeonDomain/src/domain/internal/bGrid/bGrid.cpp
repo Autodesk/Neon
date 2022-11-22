@@ -144,9 +144,9 @@ auto bGrid::getDimension() const -> const Neon::index_3d
     return GridBase::getDimension();
 }
 
-auto bGrid::getNumBlocks() const -> const Neon::index_3d&
+auto bGrid::getNumBlocks() const -> const Neon::set::DataSet<uint64_t>&
 {
-    return mData->mNumBlocks[0];
+    return mData->mNumBlocks;
 }
 
 }  // namespace Neon::domain::internal::bGrid
