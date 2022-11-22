@@ -358,7 +358,6 @@ auto MultiXpuGraph::fixingDependenciesWithBeginNode() -> void
 
     for (auto nodePtr : nodesAfterBeginPtrVec) {
         const auto& tokens = nodePtr->getContainer().getContainerInterface().getTokens();
-        bool        dependencyWasReInit = false;
         for (const auto& token : tokens) {
             const auto computeType = token.compute();
             if (Neon::Compute::STENCIL == computeType) {
