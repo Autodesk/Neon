@@ -697,7 +697,7 @@ auto Graph::
     constexpr bool usedStream = true;
     constexpr bool availableStream = false;
 
-    const auto bookFirstAvailableStream = [](std::vector<bool>& streamsStatus) {
+    const auto bookFirstAvailableStream = [&](std::vector<bool>& streamsStatus) {
         for (int i = 0; i < int(streamsStatus.size()); i++) {
             if (availableStream == streamsStatus.at(i)) {
                 streamsStatus[i] = usedStream;
@@ -707,7 +707,7 @@ auto Graph::
         NEON_THROW_UNSUPPORTED_OPERATION("");
     };
 
-    const auto bookStream = [](std::vector<bool>& streamsStatus,
+    const auto bookStream = [&](std::vector<bool>& streamsStatus,
                                int                streamId)
         -> bool {
         if (streamsStatus.at(streamId) == availableStream) {
@@ -717,7 +717,7 @@ auto Graph::
         return false;
     };
 
-    const auto resetBooking = [](std::vector<bool>& streamsStatus)
+    const auto resetBooking = [&](std::vector<bool>& streamsStatus)
         -> void {
         for (auto&& entry : streamsStatus) {
             entry = availableStream;
