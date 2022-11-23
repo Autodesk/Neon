@@ -85,13 +85,13 @@ sPartition<OuterGridT, T, C>::operator()(Cell const& eId,
 }
 
 template <typename OuterGridT, typename T, int C>
-template <typename StoreType, typename ComputeType>
+template <typename ComputeType>
 NEON_CUDA_HOST_DEVICE inline auto
 sPartition<OuterGridT, T, C>::castRead(Cell eId,
                                        int  cardinalityIdx) const -> ComputeType
 {
-    StoreType value = this->operator()(eId, cardinalityIdx);
-    if constexpr (std::is_same_v<__half, StoreType>) {
+    Type value = this->operator()(eId, cardinalityIdx);
+    if constexpr (std::is_same_v<__half, Type>) {
 
         if constexpr (std::is_same_v<float, ComputeType>) {
             return __half2float(value);
@@ -105,14 +105,14 @@ sPartition<OuterGridT, T, C>::castRead(Cell eId,
 }
 
 template <typename OuterGridT, typename T, int C>
-template <typename StoreType, typename ComputeType>
+template <typename ComputeType>
 NEON_CUDA_HOST_DEVICE inline auto
 sPartition<OuterGridT, T, C>::castWrite(Cell               eId,
                                         int                cardinalityIdx,
                                         const ComputeType& value) -> void
 {
 
-    if constexpr (std::is_same_v<__half, StoreType>) {
+    if constexpr (std::is_same_v<__half, Type>) {
         if constexpr (std::is_same_v<float, ComputeType>) {
             this->operator()(eId, cardinalityIdx) = __float2half(value);
         }
@@ -120,7 +120,7 @@ sPartition<OuterGridT, T, C>::castWrite(Cell               eId,
             this->operator()(eId, cardinalityIdx) = __double2half(value);
         }
     } else {
-        this->operator()(eId, cardinalityIdx) = static_cast<StoreType>(value);
+        this->operator()(eId, cardinalityIdx) = static_cast<Type>(value);
     }
 }
 

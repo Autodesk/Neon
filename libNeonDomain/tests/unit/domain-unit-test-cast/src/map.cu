@@ -9,7 +9,7 @@
 
 namespace map {
 
-template <typename StoreType, typename ComputeType, typename Field>
+template <typename ComputeType, typename Field>
 auto mapContainer_axpy(int                   streamIdx,
                        typename Field::Type& val,
                        const Field&          filedA,
@@ -26,11 +26,11 @@ auto mapContainer_axpy(int                   streamIdx,
                                  return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
                                      for (int i = 0; i < a.cardinality(); i++) {
                                          // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
-                                         ComputeType x = a.template castRead<StoreType, ComputeType>(e, i);
-                                         ComputeType y = b.template castRead<StoreType, ComputeType>(e, i);
+                                         ComputeType x = a.template castRead<ComputeType>(e, i);
+                                         ComputeType y = b.template castRead<ComputeType>(e, i);
                                          ComputeType val_c = static_cast<ComputeType>(val);
                                          ComputeType output = val_c * x + y;
-                                         b.template castWrite<StoreType, ComputeType>(e, i, output);
+                                         b.castWrite(e, i, output);
                                      }
                                  };
                              });
@@ -38,7 +38,7 @@ auto mapContainer_axpy(int                   streamIdx,
 
 using namespace Neon::domain::tool::testing;
 
-template <typename G, typename T, int C, typename StoreType, typename ComputeType>
+template <typename G, typename T, int C, typename ComputeType>
 auto run(TestData<G, T, C>& data) -> void
 {
 
@@ -59,7 +59,7 @@ auto run(TestData<G, T, C>& data) -> void
         auto& Y = data.getField(FieldNames::Y);
 
 
-        mapContainer_axpy<StoreType, ComputeType>(Neon::Backend::mainStreamIdx,
+        mapContainer_axpy<ComputeType>(Neon::Backend::mainStreamIdx,
                                                   val, X, Y)
             .run(0);
 
@@ -88,7 +88,7 @@ auto run(TestData<G, T, C>& data) -> void
     ASSERT_TRUE(isOk);
 }
 
-template auto run<Neon::domain::eGrid, int64_t, 0, int64_t, double>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
-template auto run<Neon::domain::dGrid, int64_t, 0, int64_t, double>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
+template auto run<Neon::domain::eGrid, int64_t, 0, double>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
+template auto run<Neon::domain::dGrid, int64_t, 0, double>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace map

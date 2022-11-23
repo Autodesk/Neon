@@ -260,12 +260,12 @@ struct dPartition
         return m_mem[p];
     }
 
-    template <typename StoreType, typename ComputeType>
+    template <typename ComputeType>
     NEON_CUDA_HOST_DEVICE inline auto castRead(const Cell& cell,
                                                int         cardinalityIdx) const -> ComputeType
     {
-        StoreType value = this->operator()(cell, cardinalityIdx);
-        if constexpr (std::is_same_v<__half, StoreType>) {
+        Type value = this->operator()(cell, cardinalityIdx);
+        if constexpr (std::is_same_v<__half, Type>) {
 
             if constexpr (std::is_same_v<float, ComputeType>) {
                 return __half2float(value);
@@ -278,12 +278,12 @@ struct dPartition
         }
     }
 
-    template <typename StoreType, typename ComputeType>
+    template <typename ComputeType>
     NEON_CUDA_HOST_DEVICE inline auto castWrite(const Cell&        cell,
                                                 int                cardinalityIdx,
                                                 const ComputeType& value) -> void
     {
-        if constexpr (std::is_same_v<__half, StoreType>) {
+        if constexpr (std::is_same_v<__half, Type>) {
             if constexpr (std::is_same_v<float, ComputeType>) {
                 this->operator()(cell, cardinalityIdx) = __float2half(value);
             }
@@ -291,7 +291,7 @@ struct dPartition
                 this->operator()(cell, cardinalityIdx) = __double2half(value);
             }
         } else {
-            this->operator()(cell, cardinalityIdx) = static_cast<StoreType>(value);
+            this->operator()(cell, cardinalityIdx) = static_cast<Type>(value);
         }
     }
 

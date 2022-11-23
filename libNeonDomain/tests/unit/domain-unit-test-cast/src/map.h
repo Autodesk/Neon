@@ -11,10 +11,10 @@
 namespace map {
 using namespace Neon::domain::tool::testing;
 
-template <typename G, typename T, int C, typename StoreType, typename ComputeType>
+template <typename G, typename T, int C, typename ComputeType>
 auto run(TestData<G, T, C>& data) -> void;
 
-extern template auto run<Neon::domain::eGrid, int64_t, 0, int64_t, double>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
-extern template auto run<Neon::domain::dGrid, int64_t, 0, int64_t, double>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
+extern template auto run<Neon::domain::eGrid, int64_t, 0, double>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
+extern template auto run<Neon::domain::dGrid, int64_t, 0, double>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace map
