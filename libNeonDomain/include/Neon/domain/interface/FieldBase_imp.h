@@ -300,8 +300,11 @@ FieldBase<T, C>::Storage::Storage(const std::string              FieldBaseUserNa
         name = "Anonymous";
     }
 }
-
-
+    
+#if defined(NEON_OS_WINDOWS)
+#pragma warning(push)
+#pragma warning(disable : 4244)
+#endif
 template <typename T, int C>
 FieldBase<T, C>::Storage::Storage()
     : dimension(0),
@@ -314,4 +317,8 @@ FieldBase<T, C>::Storage::Storage()
       origin(0.0)
 {
 }
+#if defined(NEON_OS_WINDOWS)
+#pragma warning(pop)
+#endif
+    
 }  // namespace Neon::domain::interface
