@@ -140,7 +140,9 @@ void runSingleDot(TestData<G, T, C>& data)
 template <typename G, typename T, int C>
 void runSingleStencilTestData(TestData<G, T, C>& data)
 {
+    std::cout << "Executing Occ::none" << std::endl;
     help::SingleStencilTestData<G, T, C>(data, Neon::skeleton::Occ::none, Neon::set::TransferMode::get);
+    std::cout << "Executing Occ::standard" << std::endl;
     help::SingleStencilTestData<G, T, C>(data, Neon::skeleton::Occ::standard, Neon::set::TransferMode::get);
 }
 
