@@ -253,7 +253,7 @@ TEST(VoxToNodes, dGrid)
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_VoxToNodes<Grid, Type, 0>, nGpus, 1);
 }
 
-TEST(NodeToVoxels, dGrid)
+TEST(DISABLED_NodeToVoxels, dGrid)
 {
     Neon::init();
     int nGpus = getNGpus();
