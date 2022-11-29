@@ -8,14 +8,14 @@ void MultiResSkeleton()
     const Neon::int32_3d   dim(64, 64, 64);
     const std::vector<int> gpusIds(nGPUs, 0);
 
-    const Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1, 1, 1});
+    const Neon::domain::mGridDescriptor descriptor({1, 1, 1, 1, 1});
 
 
     for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
 
         auto bk = Neon::Backend(gpusIds, runtime);
 
-        Neon::domain::bGrid grid(
+        Neon::domain::mGrid grid(
             bk,
             dim,
             {[&](const Neon::index_3d id) -> bool {
@@ -29,7 +29,7 @@ void MultiResSkeleton()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //BGrid.topologyToVTK("bGrid111.vtk", false);
+        //grid.topologyToVTK("grid111.vtk", false);
 
         auto field = grid.newField<Type>("field", 3, -1);
 
@@ -52,12 +52,12 @@ void MultiResSkeleton()
 
         //map operation at the top level
         {
-            field.setCurrentLevel(descriptor.getDepth() - 1);
-            grid.setCurrentLevel(descriptor.getDepth() - 1);
+            int level = 0;
             containers.push_back(grid.getContainer(
                 "map",
-                [&](Neon::set::Loader& loader) {
-                    auto& local = loader.load(field);
+                level,
+                [&, level](Neon::set::Loader& loader) {
+                    auto& local = loader.load(field(level));
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         Neon::index_3d global = local.mapToGlobal(cell);
                         local(cell, 0) = global.v[0];
@@ -69,12 +69,11 @@ void MultiResSkeleton()
 
         //all other levels
         for (int level = descriptor.getDepth() - 2; level >= 0; --level) {
-            grid.setCurrentLevel(level);
-            field.setCurrentLevel(level);
             containers.push_back(grid.getContainer(
                 "ReadParent" + std::to_string(level),
+                level,
                 [&](Neon::set::Loader& loader) {
-                    auto& local = loader.load(field);
+                    auto& local = loader.load(field(level));
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         assert(local.hasParent(cell));
 
@@ -98,8 +97,6 @@ void MultiResSkeleton()
 
         //verify
         for (int l = descriptor.getDepth() - 1; l >= 0; --l) {
-            grid.setCurrentLevel(l);
-            field.setCurrentLevel(l);
 
             int parent_level = descriptor.getDepth() - 1;
             field.forEachActiveCell(

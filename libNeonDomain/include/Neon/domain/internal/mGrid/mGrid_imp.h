@@ -24,7 +24,7 @@ auto mGrid::getContainer(const std::string& name,
 {
 
 
-    Neon::set::Container kContainer = mData->grids[level].getContainer(name, blockSizem sharedMem, lambda);
+    Neon::set::Container kContainer = mData->grids[level].getContainer(name, blockSizem, sharedMem, lambda);
 
     return kContainer;
 }

@@ -264,42 +264,6 @@ auto bField<T, C>::getMem() -> Neon::set::MemSet_t<T>&
     return mData->mem;
 }
 
-
-template <typename T, int C>
-auto bField<T, C>::ioToVtk(const std::string& fileName,
-                           const std::string& fieldName,
-                           Neon::IoFileType   ioFileType) const -> void
-{
-    const auto& descriptor = mData->grid->getDescriptor();
-
-    for (int l = 0; l < descriptor.getDepth(); ++l) {
-
-        double spacing = double(descriptor.getSpacing(l - 1));
-
-        auto iovtk = IoToVTK<int, T>(fileName + "_level" + std::to_string(l),
-                                     mData->grid->getDimension(l) + 1,
-                                     {spacing, spacing, spacing},
-                                     {0, 0, 0},
-                                     ioFileType);
-
-
-        iovtk.addField(
-            [&](Neon::index_3d idx, int card) -> T {
-                idx = descriptor.toBaseIndexSpace(idx, l);
-
-                if (mData->grid->isInsideDomain(idx, l)) {
-                    return operator()(idx, card, l);
-                } else {
-                    return this->getOutsideValue();
-                }
-            },
-            this->getCardinality(), fieldName, ioToVTKns::VtiDataType_e::voxel);
-
-        iovtk.flushAndClear();
-    }
-}
-
-
 template <typename T, int C>
 auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius) const -> size_t
 {

@@ -7,7 +7,7 @@ void MultiResChild()
     const Neon::index_3d   dim(24, 24, 24);
     const std::vector<int> gpuIds(nGPUs, 0);
 
-    const Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1});
+    const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
 
     for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
 
@@ -18,7 +18,7 @@ void MultiResChild()
         SectionX[1] = 16;
         SectionX[2] = 24;
 
-        Neon::domain::bGrid BGrid(
+        Neon::domain::mGrid grid(
             bk,
             dim,
             {[&](const Neon::index_3d id) -> bool {
@@ -32,10 +32,10 @@ void MultiResChild()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //BGrid.topologyToVTK("bGrid112.vtk", false);
+        //grid.topologyToVTK("grid112.vtk", false);
 
-        auto XField = BGrid.newField<Type>("XField", 1, -1);
-        auto isRefinedField = BGrid.newField<Type>("isRefined", 1, -1);
+        auto XField = grid.newField<Type>("XField", 1, -1);
+        auto isRefinedField = grid.newField<Type>("isRefined", 1, -1);
 
 
         //Init fields
@@ -59,17 +59,15 @@ void MultiResChild()
         //XField.ioToVtk("f", "f");
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
-            XField.setCurrentLevel(level);
-            isRefinedField.setCurrentLevel(level);
-            BGrid.setCurrentLevel(level);
 
-            auto container = BGrid.getContainer(
-                "hasChildren", [&, level, descriptor](Neon::set::Loader& loader) {
-                    auto& xLocal = loader.load(XField);
-                    auto& isRefinedLocal = loader.load(isRefinedField);
+            auto container = grid.getContainer(
+
+                "hasChildren", level, [&, level, descriptor](Neon::set::Loader& loader) {
+                    auto& xLocal = loader.load(XField(level));
+                    auto& isRefinedLocal = loader.load(isRefinedField(level));
 
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
                         if (xLocal.hasChildren(cell)) {
                             isRefinedLocal(cell, 0) = 1;
 
@@ -96,7 +94,7 @@ void MultiResChild()
                 });
 
             container.run(0);
-            BGrid.getBackend().syncAll();
+            grid.getBackend().syncAll();
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {

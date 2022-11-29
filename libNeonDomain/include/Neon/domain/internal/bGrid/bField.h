@@ -74,27 +74,20 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     auto getMem() -> Neon::set::MemSet_t<T>&;
 
-    /*auto dot(Neon::set::patterns::BlasSet<T>& blasSet,
+    auto dot(Neon::set::patterns::BlasSet<T>& blasSet,
              const bField<T>&                 input,
              Neon::set::MemDevSet<T>&         output,
-             const Neon::DataView&            dataView,
-             const int                        level = 0) -> void;
+             const Neon::DataView&            dataView) -> void;
 
     auto norm2(Neon::set::patterns::BlasSet<T>& blasSet,
                Neon::set::MemDevSet<T>&         output,
-               const Neon::DataView&            dataView,
-               const int                        level = 0) -> void;*/
+               const Neon::DataView&            dataView) -> void;
 
 
     template <Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par>
     auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
                                                     const int& cardinality,
                                                     T&)>& fun) -> void;
-
-
-    auto ioToVtk(const std::string& fileName,
-                 const std::string& FieldName,
-                 Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII) const -> void;
 
 
    private:

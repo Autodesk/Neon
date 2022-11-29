@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 void MultiResSingleMap()
 {
@@ -10,13 +10,13 @@ void MultiResSingleMap()
     const Type             XLevelVal[3] = {2, 5, 10};
     const Type             YInitVal = 1;
 
-    const Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1});
+    const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
 
     for (auto runtime : {Neon::Runtime::stream, Neon::Runtime::openmp}) {
 
         auto bk = Neon::Backend(gpusIds, runtime);
 
-        Neon::domain::bGrid BGrid(
+        Neon::domain::mGrid grid(
             bk,
             dim,
             {[&](const Neon::index_3d id) -> bool {
@@ -30,10 +30,10 @@ void MultiResSingleMap()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //BGrid.topologyToVTK("bGrid111.vtk", false);
+        //grid.topologyToVTK("grid111.vtk", false);
 
-        auto XField = BGrid.newField<Type>("XField", 1, -1);
-        auto YField = BGrid.newField<Type>("YField", 1, -1);
+        auto XField = grid.newField<Type>("XField", 1, -1);
+        auto YField = grid.newField<Type>("YField", 1, -1);
 
         //Init fields
         for (int l = 0; l < descriptor.getDepth(); ++l) {
@@ -58,16 +58,13 @@ void MultiResSingleMap()
 
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
-            XField.setCurrentLevel(level);
-            YField.setCurrentLevel(level);
-            BGrid.setCurrentLevel(level);
 
-            auto container = BGrid.getContainer(
-                "AXPY", [&, a, level](Neon::set::Loader& loader) {
-                    auto& xLocal = loader.load(XField);
-                    auto& yLocal = loader.load(YField);
+            auto container = grid.getContainer(
+                "AXPY", level, [&, a, level](Neon::set::Loader& loader) {
+                    auto& xLocal = loader.load(XField(level));
+                    auto& yLocal = loader.load(YField(level));
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
                         for (int card = 0; card < xLocal.cardinality(); card++) {
                             yLocal(cell, card) = a * xLocal(cell, card) + yLocal(cell, card);
                         }
@@ -75,7 +72,7 @@ void MultiResSingleMap()
                 });
 
             container.run(0);
-            BGrid.getBackend().syncAll();
+            grid.getBackend().syncAll();
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {

@@ -97,11 +97,11 @@ void MultiResDemo()
     std::vector<int> gpusIds(nGPUs, 0);
     auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
 
-    Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1, 1, 1});
+    const Neon::domain::mGridDescriptor descriptor({1, 1, 1, 1, 1});
 
     const float eps = std::numeric_limits<float>::epsilon();
 
-    Neon::domain::bGrid grid(
+    Neon::domain::mGrid grid(
         bk,
         dim,
         {[&](const Neon::index_3d id) -> bool {
@@ -123,7 +123,7 @@ void MultiResDemo()
         Neon::domain::Stencil::s7_Laplace_t(),
         descriptor);
 
-    std::stringstream s("bGridDemo", std::ios_base::app | std::ios_base::out);
+    std::stringstream s("mGridDemo", std::ios_base::app | std::ios_base::out);
 
     for (int i = 0; i < descriptor.getDepth(); ++i) {
         s << descriptor.getLog2RefFactor(i);
@@ -148,12 +148,10 @@ void MultiResDemo()
     field.updateCompute();
 
     for (int level = 1; level < descriptor.getDepth(); ++level) {
-        field.setCurrentLevel(level);
-        grid.setCurrentLevel(level);
 
         auto container = grid.getContainer(
-            "container", [&, level](Neon::set::Loader& loader) {
-                auto& local = loader.load(field);
+            "container", level, [&, level](Neon::set::Loader& loader) {
+                auto& local = loader.load(field(level));
 
                 return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                     if (!local.hasChildren(cell)) {

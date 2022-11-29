@@ -9,13 +9,13 @@ void MultiResSameLevelStencil()
     const Type             XVal = 42;
     const Type             YVal = 55;
 
-    const Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 1});
+    const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
 
     for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
 
         auto bk = Neon::Backend(gpusIds, runtime);
 
-        Neon::domain::bGrid BGrid(
+        Neon::domain::mGrid grid(
             bk,
             dim,
             {[&](const Neon::index_3d) -> bool {
@@ -29,10 +29,10 @@ void MultiResSameLevelStencil()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //BGrid.topologyToVTK("bGrid111.vtk", false);
+        //grid.topologyToVTK("grid111.vtk", false);
 
-        auto XField = BGrid.newField<Type>("XField", 1, -1);
-        auto YField = BGrid.newField<Type>("YField", 1, -1);
+        auto XField = grid.newField<Type>("XField", 1, -1);
+        auto YField = grid.newField<Type>("YField", 1, -1);
 
         //Init fields
         for (int l = 0; l < descriptor.getDepth(); ++l) {
@@ -57,16 +57,13 @@ void MultiResSameLevelStencil()
 
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
-            XField.setCurrentLevel(level);
-            YField.setCurrentLevel(level);
-            BGrid.setCurrentLevel(level);
 
-            auto container = BGrid.getContainer(
-                "SameLevelStencil", [&, level](Neon::set::Loader& loader) {
-                    auto& xLocal = loader.load(XField);
-                    auto& yLocal = loader.load(YField);
+            auto container = grid.getContainer(
+                "SameLevelStencil", level, [&, level](Neon::set::Loader& loader) {
+                    auto& xLocal = loader.load(XField(level));
+                    auto& yLocal = loader.load(YField(level));
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
                         for (int card = 0; card < xLocal.cardinality(); card++) {
                             Type res = 0;
 
@@ -80,7 +77,7 @@ void MultiResSameLevelStencil()
                 });
 
             container.run(0);
-            BGrid.getBackend().syncAll();
+            grid.getBackend().syncAll();
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
@@ -96,11 +93,11 @@ void MultiResSameLevelStencil()
                     EXPECT_NE(val, YVal);
                     Type TrueVal = 6 * XVal;
                     for (int i = 0; i < 3; ++i) {
-                        if (idx.v[i] + BGrid.getDescriptor().getSpacing(l - 1) >= dim.v[i]) {
+                        if (idx.v[i] + grid.getDescriptor().getSpacing(l - 1) >= dim.v[i]) {
                             TrueVal -= XVal;
                         }
 
-                        if (idx.v[i] - BGrid.getDescriptor().getSpacing(l - 1) < 0) {
+                        if (idx.v[i] - grid.getDescriptor().getSpacing(l - 1) < 0) {
                             TrueVal -= XVal;
                         }
                     }

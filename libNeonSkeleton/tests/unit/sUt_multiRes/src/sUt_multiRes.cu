@@ -2,7 +2,7 @@
 
 #include "Neon/Neon.h"
 
-#include "Neon/domain/bGrid.h"
+#include "Neon/domain/mGrid.h"
 
 #include "Neon/skeleton/Options.h"
 #include "Neon/skeleton/Skeleton.h"
