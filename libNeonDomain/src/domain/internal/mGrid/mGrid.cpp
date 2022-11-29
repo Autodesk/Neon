@@ -1,6 +1,5 @@
 #include "Neon/domain/internal/mGrid/mGrid.h"
-#include "Neon/domain/bGrid.h"
-#include "Neon/domain/internal/bGrid/bPartitionIndexSpace.h"
+
 
 namespace Neon::domain::internal::mGrid {
 
@@ -10,13 +9,14 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
              const Neon::domain::Stencil&                            stencil,
              const mGridDescriptor                                   descriptor,
              bool                                                    isStrongBalanced,
+             const double_3d&                                        spacingData,
              const double_3d&                                        origin)
 {
 
 
     if (backend.devSet().setCardinality() > 1) {
-        NeonException exp("bGrid");
-        exp << "bGrid only supported on a single GPU";
+        NeonException exp("mGrid");
+        exp << "mGrid only supported on a single GPU";
         NEON_THROW(exp);
     }
 
@@ -238,32 +238,32 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
     mData->grids.resize(mData->mDescriptor.getDepth());
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
 
-        Neon::index_3d blockSize = mData->mDescriptor.getRefFactor(l);
-        int            spacing1D = mData->mDescriptor.getSpacing(l);
+        int blockSize = mData->mDescriptor.getRefFactor(l);
+        int blockSpacing = mData->mDescriptor.getSpacing(l);
 
-        Neon::index_3d levelDomainSize(spacing1D * blockSize.x,
-                                       spacing1D * blockSize.y,
-                                       spacing1D * blockSize.z);
+        Neon::int32_3d levelDomainSize(blockSpacing * blockSize,
+                                       blockSpacing * blockSize,
+                                       blockSpacing * blockSize);
 
-        Neon::double_3d spacing3D(spacing1D, spacing1D, spacing1D);
+        mData->grids[l] =
+            InternalGrid(
+                backend,
+                levelDomainSize,
+                [&](Neon::int32_3d id) {
+                    Neon::index_3d blockID(id.x / blockSize,
+                                           id.y / blockSize,
+                                           id.z / blockSize);
 
-        mData->grids[l] = Neon::domain::bGrid(
-            backend,
-            levelDomainSize,
-            [&](Neon::int32_3d id) {
-                Neon::index_3d blockID(id.x / blockSize.x,
-                                       id.y / blockSize.y,
-                                       id.z / blockSize.z);
-
-                Neon::index_3d localID(id.x % blockSize.x,
-                                       id.y % blockSize.y,
-                                       id.z % blockSize.z);
-                return levelBitMaskIsSet(l, blockID, localID);
-            },
-            stencil,
-            blockSize,
-            spacing3D,
-            origin);
+                    Neon::index_3d localID(id.x % blockSize,
+                                           id.y % blockSize,
+                                           id.z % blockSize);
+                    return levelBitMaskIsSet(l, blockID, localID);
+                },
+                stencil,
+                blockSize,
+                blockSpacing,
+                spacingData,
+                origin);
     }
 
     Neon::MemoryOptions memOptionsAoS(Neon::DeviceType::CPU,
@@ -397,8 +397,8 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
 
                 auto grand_parent = mData->grids[l + 1].getBlockOriginTo1D().getMetadata(grandParentOrigin);
                 if (!grand_parent) {
-                    NeonException exp("bGrid::bGrid");
-                    exp << "Something went wrong during constructing bGrid. Can not find the right parent of a block\n";
+                    NeonException exp("mGrid::mGrid");
+                    exp << "Something went wrong during constructing mGrid. Can not find the right parent of a block\n";
                     NEON_THROW(exp);
                 }
                 mData->mParentBlockID[l].eRef(devID, blockIdx) = *grand_parent;
@@ -427,8 +427,8 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
                 }
 
                 if (!found) {
-                    NeonException exp("bGrid::bGrid");
-                    exp << "Something went wrong during constructing bGrid. Can not find the right local index of a parent of a block\n";
+                    NeonException exp("mGrid::mGrid");
+                    exp << "Something went wrong during constructing mGrid. Can not find the right local index of a parent of a block\n";
                     NEON_THROW(exp);
                 }
             }
@@ -469,7 +469,7 @@ auto mGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
 
         cell.mBlockID = *itr;
         cell.mBlockSize = mData->mDescriptor.getRefFactor(level);
-        cell.mIsActive = cell.computeIsActive(mData->.grids[level].getActiveMask().rawMem(devID, Neon::DeviceType::CPU));
+        cell.mIsActive = cell.computeIsActive(mData->grids[level].getActiveMask().rawMem(devID, Neon::DeviceType::CPU));
         return cell.mIsActive;
     }
     return false;
@@ -492,7 +492,7 @@ auto mGrid::setReduceEngine(Neon::sys::patterns::Engine eng) -> void
 {
     if (eng != Neon::sys::patterns::Engine::CUB) {
         NeonException exp("mGrid::setReduceEngine");
-        exp << "bGrid only work on CUB engine for reduction";
+        exp << "mGrid only work on CUB engine for reduction";
         NEON_THROW(exp);
     }
 }
@@ -503,7 +503,7 @@ auto mGrid::getLaunchParameters(Neon::DataView                         dataView,
                                 int                                    level) const -> Neon::set::LaunchParameters
 {
     if (dataView != Neon::DataView::STANDARD) {
-        NEON_WARNING("Requesting LaunchParameters on {} data view but bGrid only supports Standard data view on a single GPU",
+        NEON_WARNING("Requesting LaunchParameters on {} data view but mGrid only supports Standard data view on a single GPU",
                      Neon::DataViewUtil::toString(dataView));
     }
 
@@ -530,7 +530,7 @@ auto mGrid::getLaunchParameters(Neon::DataView                         dataView,
     return ret;
 }
 
-auto mGrid::getGrid(int level) const -> const Neon::domain::bGrid&
+auto mGrid::getGrid(int level) const -> const InternalGrid&
 {
     return mData->grids[level];
 }
@@ -584,12 +584,21 @@ auto mGrid::getNumBlocks(int level) const -> const Neon::index_3d&
     return mData->mTotalNumBlocks[level];
 }
 
+auto mGrid::getBackend() const -> const Backend&
+{
+    return mData->backend;
+}
+auto mGrid::getBackend() -> Backend&
+{
+    return mData->backend;
+}
+
 void mGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
 {
 
     std::ofstream file(fileName);
     file << "# vtk DataFile Version 2.0\n";
-    file << "bGrid\n";
+    file << "mGrid\n";
     file << "ASCII\n";
     file << "DATASET UNSTRUCTURED_GRID\n";
     file << "POINTS " << (getDimension(0).rMax() + 1) * (getDimension(0).rMax() + 1) * (getDimension(0).rMax() + 1) << " float \n";

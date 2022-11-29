@@ -6,7 +6,7 @@
 
 namespace Neon::domain::internal::bGrid {
 
-template <typename T, int C>
+/*template <typename T, int C>
 auto bField<T, C>::dot(Neon::set::patterns::BlasSet<T>& blasSet,
                        const bField<T>&                 input,
                        Neon::set::MemDevSet<T>&         output,
@@ -107,7 +107,7 @@ template void bField<double, 0>::norm2(Neon::set::patterns::BlasSet<double>&,
 template void bField<float, 0>::norm2(Neon::set::patterns::BlasSet<float>&,
                                       Neon::set::MemDevSet<float>&,
                                       const Neon::DataView&,
-                                      const int);
+                                      const int);*/
 
 
 }  // namespace Neon::domain::internal::bGrid

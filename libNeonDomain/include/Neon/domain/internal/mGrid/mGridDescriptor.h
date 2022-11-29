@@ -1,7 +1,7 @@
 #include <tuple>
 #include <vector>
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain {
 
 /**
  * @brief mGrid descriptor that defines the depth of the grid levels and how each level is partitioned. 
@@ -224,4 +224,4 @@ struct mGridDescriptor
     std::vector<int> mLog2RefFactors;
     std::vector<int> mSpacing;
 };
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain

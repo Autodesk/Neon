@@ -4,11 +4,13 @@
 #include "Neon/set/memory/memSet.h"
 
 #include "Neon/domain/bGrid.h"
-#include "Neon/domain/internal/bGrid/bCell.h"
-#include "Neon/domain/internal/bGrid/bPartition.h"
 
-#include "Neon/domain/internal/mGrid/mField.h"
 #include "Neon/domain/internal/mGrid/mGridDescriptor.h"
+
+#include "Neon/domain/internal/bGrid/bCell.h"
+#include "Neon/domain/internal/mGrid/mField.h"
+#include "Neon/domain/internal/mGrid/mPartition.h"
+
 #include "Neon/domain/patterns/PatternScalar.h"
 #include "Neon/set/Containter.h"
 
@@ -22,31 +24,31 @@ class mGrid
 {
    public:
     using Grid = mGrid;
-    using Cell = Neon::domain::internal::bGrid::bCell;
+    using InternalGrid = typename Neon::domain::internal::bGrid::bGrid;
+    using Cell = typename InternalGrid::Cell;
+
 
     template <typename T, int C = 0>
-    using Partition = Neon::domain::internal::bGrid::bPartition<T, C>;
+    using Partition = Neon::domain::internal::mGrid::mPartition<T, C>;
 
+    //TODO maybe should change to mField ??
     template <typename T, int C = 0>
     using Field = Neon::domain::internal::mGrid::mField<T, C>;
 
     using nghIdx_t = typename Partition<int>::nghIdx_t;
 
-    using PartitionIndexSpace = Neon::domain::internal::bGrid::bPartitionIndexSpace;
+    using PartitionIndexSpace = typename InternalGrid::PartitionIndexSpace;
 
     mGrid() = default;
     virtual ~mGrid(){};
 
-    /**
-     * General-purpose constructor for multi-resolution grid with variable depth and variable refinement factor at each level
-     * Check mGridDescriptor to see how to define the grid 
-    */
     mGrid(const Neon::Backend&                                    backend,
           const Neon::int32_3d&                                   domainSize,
           std::vector<std::function<bool(const Neon::index_3d&)>> activeCellLambda,
           const Neon::domain::Stencil&                            stencil,
           const mGridDescriptor                                   descriptor,
           bool                                                    isStrongBalanced = true,
+          const double_3d&                                        spacingData = double_3d(1, 1, 1),
           const double_3d&                                        origin = double_3d(0, 0, 0));
 
 
@@ -115,12 +117,14 @@ class mGrid
      * total number of voxels can be obtained from getDimension
     */
     auto getNumBlocks(int level) const -> const Neon::index_3d&;
-    auto getGrid(int level) const -> const Neon::domain::bGrid&;
+    auto getGrid(int level) const -> const InternalGrid&;
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d;
     auto getDescriptor() const -> const mGridDescriptor&;
     auto getRefFactors() const -> const Neon::set::MemSet_t<int>&;
     auto getLevelSpacing() const -> const Neon::set::MemSet_t<int>&;
     void topologyToVTK(std::string fileName, bool filterOverlaps) const;
+    auto getBackend() const -> const Backend&;
+    auto getBackend() -> Backend&;
 
 
    private:
@@ -158,7 +162,7 @@ class mGrid
         std::vector<std::vector<uint32_t>> denseLevelsBitmask;
 
         //collection of bGrids that make up the multi-resolution grid
-        std::vector<Neon::domain::bGrid> grids;
+        std::vector<InternalGrid> grids;
 
         Neon::Backend backend;
     };

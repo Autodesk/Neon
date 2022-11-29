@@ -9,7 +9,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
              const Neon::domain::Stencil& stencil,
              const double_3d&             spacingData,
              const double_3d&             origin)
-    : bGrid(backend, domainSize, activeCellLambda, stencil, 8, spacingData, origin)
+    : bGrid(backend, domainSize, activeCellLambda, stencil, 8, 1, spacingData, origin)
 {
 }
 
@@ -19,6 +19,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
              const ActiveCellLambda       activeCellLambda,
              const Neon::domain::Stencil& stencil,
              const int                    blockSize,
+             const int                    blockSpacing,
              const double_3d&             spacingData,
              const double_3d&             origin)
 {
@@ -32,6 +33,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
     mData = std::make_shared<Data>();
     mData->blockSize = blockSize;
+    mData->blockSpacing = blockSpacing;
 
     mData->mBlockOriginTo1D = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
 
@@ -89,7 +91,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                           backend,
                           domainSize,
                           Neon::domain::Stencil(),
-                          mData->mNumActiveVoxel[0],
+                          mData->mNumActiveVoxel,
                           Neon::int32_3d(blockSize, blockSize, blockSize),
                           spacingData,
                           origin);
@@ -160,7 +162,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
     for (int32_t c = 0; c < mData->mNeighbourBlocks.cardinality(); ++c) {
         //TODO
         SetIdx devID(c);
-        for (uint64_t i = 0; i < mData->mNumBlock[c]; ++i) {
+        for (uint64_t i = 0; i < mData->mNumBlocks[c]; ++i) {
             for (int n = 0; n < 26; ++n) {
                 mData->mNeighbourBlocks.eRef(devID, i, n) = std::numeric_limits<uint32_t>::max();
             }
@@ -309,8 +311,8 @@ auto bGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
 {
     // TODO this sets the numBlocks for only Standard dataView.
     auto pattern = Neon::PatternScalar<T>(getBackend(), Neon::sys::patterns::Engine::CUB);
-    for (SetIdx id = 0; id < mData->mNumBlocks[0].cardinality(); id++) {
-        pattern.getBlasSet(Neon::DataView::STANDARD).getBlas(id.idx()).setNumBlocks(uint32_t(mData->mNumBlocks[0][id]));
+    for (SetIdx id = 0; id < mData->mNumBlocks.cardinality(); id++) {
+        pattern.getBlasSet(Neon::DataView::STANDARD).getBlas(id.idx()).setNumBlocks(uint32_t(mData->mNumBlocks[id]));
     }
     return pattern;
 }

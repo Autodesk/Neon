@@ -37,46 +37,6 @@ TEST(bGrid, activeCell)
     }
 }
 
-TEST(bGrid, multiRes)
-{
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        int              nGPUs = 1;
-        Neon::int32_3d   dim(16, 16, 16);
-        std::vector<int> gpusIds(nGPUs, 0);
-        auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
-
-        Neon::domain::internal::bGrid::bGridDescriptor descriptor({1, 1, 2});
-
-        Neon::domain::bGrid b_grid(
-            bk,
-            dim,
-            {[&](Neon::index_3d id) -> bool {
-                 return id.x == 8 && id.y == 8 && id.z == 0;
-             },
-             [&](const Neon::index_3d&) -> bool {
-                 return false;
-             },
-             [&](const Neon::index_3d& id) -> bool {
-                 return id.x == 4 && id.y == 4 && id.z == 0;
-             }},
-            Neon::domain::Stencil::s7_Laplace_t(),
-            descriptor);
-
-        b_grid.topologyToVTK("bGrid112.vtk", false);
-
-        auto field = b_grid.newField<float>("myField", 1, 0);
-
-        for (int l = 0; l < descriptor.getDepth(); ++l) {
-            field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
-                l,
-                [&]([[maybe_unused]] const Neon::int32_3d idx, const int /*card*/, float& val) {
-                    val = 20 + float(l);
-                });
-        }
-
-        field.ioToVtk("f", "f");
-    }
-}
 
 int main(int argc, char** argv)
 {

@@ -52,7 +52,7 @@ auto mGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
 
 
 template <typename T>
-auto bGrid::dot(const std::string&               name,
+auto mGrid::dot(const std::string&               name,
                 Field<T>&                        input1,
                 Field<T>&                        input2,
                 Neon::template PatternScalar<T>& scalar,
@@ -69,14 +69,14 @@ auto bGrid::dot(const std::string&               name,
 
             return [&](int streamIdx, Neon::DataView dataView) mutable -> void {
                 if (dataView != Neon::DataView::STANDARD) {
-                    NeonException exc("bGrid");
-                    exc << "Reduction operation on bGrid works only on standard dataview";
+                    NeonException exc("mGrid");
+                    exc << "Reduction operation on mGrid works only on standard dataview";
                     exc << "Input dataview is" << Neon::DataViewUtil::toString(dataView);
                     NEON_THROW(exc);
                 }
 
                 if (dataView != Neon::DataView::STANDARD && getBackend().devSet().setCardinality() == 1) {
-                    NeonException exc("bGrid");
+                    NeonException exc("mGrid");
                     exc << "Reduction operation can only run on standard data view when the number of partitions/GPUs is 1";
                     NEON_THROW(exc);
                 }
@@ -117,7 +117,7 @@ auto bGrid::dot(const std::string&               name,
 }*/
 
 /*template <typename T>
-auto bGrid::norm2(const std::string&               name,
+auto mGrid::norm2(const std::string&               name,
                   Field<T>&                        input,
                   Neon::template PatternScalar<T>& scalar,
                   const int                        level) const -> Neon::set::Container
@@ -131,14 +131,14 @@ auto bGrid::norm2(const std::string&               name,
 
             return [&](int streamIdx, Neon::DataView dataView) mutable -> void {
                 if (dataView != Neon::DataView::STANDARD) {
-                    NeonException exc("bGrid");
-                    exc << "Reduction operation on bGrid works only on standard dataview";
+                    NeonException exc("mGrid");
+                    exc << "Reduction operation on mGrid works only on standard dataview";
                     exc << "Input dataview is" << Neon::DataViewUtil::toString(dataView);
                     NEON_THROW(exc);
                 }
 
                 if (dataView != Neon::DataView::STANDARD && getBackend().devSet().setCardinality() == 1) {
-                    NeonException exc("bGrid");
+                    NeonException exc("mGrid");
                     exc << "Reduction operation can only run on standard data view when the number of partitions/GPUs is 1";
                     NEON_THROW(exc);
                 }

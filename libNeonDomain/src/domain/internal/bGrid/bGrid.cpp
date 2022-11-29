@@ -149,4 +149,14 @@ auto bGrid::getNumBlocks() const -> const Neon::set::DataSet<uint64_t>&
     return mData->mNumBlocks;
 }
 
+auto bGrid::getBlockSize() const -> int
+{
+    return mData->blockSize;
+}
+
+auto bGrid::getBlockSpacing() const -> int
+{
+    return mData->blockSpacing;
+}
+
 }  // namespace Neon::domain::internal::bGrid

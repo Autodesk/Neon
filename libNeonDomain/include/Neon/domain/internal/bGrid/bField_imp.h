@@ -23,139 +23,97 @@ bField<T, C>::bField(const std::string&             name,
 {
     mData = std::make_shared<Data>();
 
-    mData->mGrid = std::make_shared<bGrid>(grid);
-    mData->mCurrentLevel = 0;
+    mData->grid = std::make_shared<bGrid>(grid);
     mData->mCardinality = cardinality;
 
-    const auto& descriptor = mData->mGrid->getDescriptor();
+    int blockSize = mData->grid->getBlockSize();
 
     //the allocation size is the number of blocks x block size x cardinality
-    std::vector<Neon::set::DataSet<uint64_t>> allocSize(descriptor.getDepth());
-
-    for (int l = 0; l < descriptor.getDepth(); ++l) {
-        allocSize[l] = mData->mGrid->getBackend().devSet().template newDataSet<uint64_t>();
-        for (int64_t i = 0; i < allocSize[l].size(); ++i) {
-            allocSize[l][i] = mData->mGrid->getNumBlocksPerPartition(int(l))[i] *
-                              descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l) *
-                              cardinality;
-        }
+    Neon::set::DataSet<uint64_t> allocSize;
+    allocSize = mData->grid->getBackend().devSet().template newDataSet<uint64_t>();
+    for (int64_t i = 0; i < allocSize.size(); ++i) {
+        allocSize[i] = mData->grid->getNumBlocks()[i] *
+                       blockSize * blockSize * blockSize *
+                       cardinality;
     }
+
 
     Neon::MemoryOptions memOptions(Neon::DeviceType::CPU,
                                    Neon::Allocator::MALLOC,
                                    Neon::DeviceType::CUDA,
-                                   ((mData->mGrid->getBackend().devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
+                                   ((mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                    Neon::MemoryLayout::structOfArrays);
 
-    mData->mMem.resize(descriptor.getDepth());
-    for (int l = 0; l < descriptor.getDepth(); ++l) {
-        mData->mMem[l] = mData->mGrid->getBackend().devSet().template newMemSet<T>({Neon::DataUse::IO_COMPUTE},
-                                                                                   1,
-                                                                                   memOptions,
-                                                                                   allocSize[l]);
-    }
 
-    mData->mPartitions.resize(descriptor.getDepth());
+    mData->mem = mData->grid->getBackend().devSet().template newMemSet<T>({Neon::DataUse::IO_COMPUTE},
+                                                                          1,
+                                                                          memOptions,
+                                                                          allocSize);
 
-    for (int l = 0; l < int(descriptor.getDepth()); ++l) {
-        auto origins = mData->mGrid->getOrigins(l);
-        auto parent = mData->mGrid->getParentsBlockID(l);
-        auto parentLocalID = mData->mGrid->getParentLocalID(l);
-        auto neighbours_blocks = mData->mGrid->getNeighbourBlocks(l);
-        auto childBlockID = mData->mGrid->getChildBlockID(l);
-        auto stencil_ngh = mData->mGrid->getStencilNghIndex();
-        auto refFactorSet = mData->mGrid->getRefFactors();
-        auto spacingSet = mData->mGrid->getLevelSpacing();
-        auto active_mask = mData->mGrid->getActiveMask(l);
 
-        for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
-            mData->mPartitions[l][PartitionBackend::cpu][dvID] = mData->mGrid->getBackend().devSet().template newDataSet<Partition>();
-            mData->mPartitions[l][PartitionBackend::gpu][dvID] = mData->mGrid->getBackend().devSet().template newDataSet<Partition>();
+    auto origins = mData->grid->getOrigins();
+    auto neighbours_blocks = mData->grid->getNeighbourBlocks();
+    auto stencil_ngh = mData->grid->getStencilNghIndex();
+    auto active_mask = mData->grid->getActiveMask();
 
-            for (int32_t gpuID = 0; gpuID < int32_t(mData->mPartitions[l][PartitionBackend::cpu][dvID].size()); gpuID++) {
+    for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
+        mData->partitions[PartitionBackend::cpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
+        mData->partitions[PartitionBackend::gpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
 
-                getPartition(Neon::DeviceType::CPU, Neon::SetIdx(gpuID), Neon::DataView(dvID), l) = bPartition<T, C>(
-                    Neon::DataView(dvID),
-                    l,
-                    mData->mMem[l].rawMem(gpuID, Neon::DeviceType::CPU),
-                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->mMem[l + 1].rawMem(gpuID, Neon::DeviceType::CPU),  //parent
-                    (l == 0) ? nullptr : mData->mMem[l - 1].rawMem(gpuID, Neon::DeviceType::CPU),                               //child
-                    mData->mCardinality,
-                    neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CPU),
-                    origins.rawMem(gpuID, Neon::DeviceType::CPU),
-                    parent.rawMem(gpuID, Neon::DeviceType::CPU),
-                    parentLocalID.rawMem(gpuID, Neon::DeviceType::CPU),
-                    active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
-                    (l == 0) ? nullptr : mData->mGrid->getActiveMask(l - 1).rawMem(gpuID, Neon::DeviceType::CPU),  //lower-level mask
-                    (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
-                    outsideVal,
-                    stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
-                    refFactorSet.rawMem(gpuID, Neon::DeviceType::CPU),
-                    spacingSet.rawMem(gpuID, Neon::DeviceType::CPU));
+        for (int32_t gpuID = 0; gpuID < int32_t(mData->partitions[PartitionBackend::cpu][dvID].size()); gpuID++) {
 
-                getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID), l) = bPartition<T, C>(
-                    Neon::DataView(dvID),
-                    l,
-                    mData->mMem[l].rawMem(gpuID, Neon::DeviceType::CUDA),
-                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->mMem[l + 1].rawMem(gpuID, Neon::DeviceType::CUDA),  //parent
-                    (l == 0) ? nullptr : mData->mMem[l - 1].rawMem(gpuID, Neon::DeviceType::CUDA),                               //child
-                    mData->mCardinality,
-                    neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    origins.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    parent.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    parentLocalID.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    (l == 0) ? nullptr : mData->mGrid->getActiveMask(l - 1).rawMem(gpuID, Neon::DeviceType::CUDA),  //lower-level mask
-                    (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    outsideVal,
-                    stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    refFactorSet.rawMem(gpuID, Neon::DeviceType::CUDA),
-                    spacingSet.rawMem(gpuID, Neon::DeviceType::CUDA));
-            }
+            getPartition(Neon::DeviceType::CPU, Neon::SetIdx(gpuID), Neon::DataView(dvID)) = bPartition<T, C>(
+                Neon::DataView(dvID),
+                mData->mem.rawMem(gpuID, Neon::DeviceType::CPU),
+                mData->mCardinality,
+                neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CPU),
+                origins.rawMem(gpuID, Neon::DeviceType::CPU),
+                active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
+                outsideVal,
+                stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU));
+
+            getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID)) = bPartition<T, C>(
+                Neon::DataView(dvID),
+                mData->mem.rawMem(gpuID, Neon::DeviceType::CUDA),
+                mData->mCardinality,
+                neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CUDA),
+                origins.rawMem(gpuID, Neon::DeviceType::CUDA),
+                active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
+                outsideVal,
+                stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA));
         }
     }
-}
-
-template <typename T, int C>
-template <Neon::computeMode_t::computeMode_e mode>
-auto bField<T, C>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
-                                                              const int& cardinality,
-                                                              T&)>& fun) -> void
-
-{
-    forEachActiveCell<mode>(mData->mCurrentLevel, fun);
 }
 
 template <typename T, int C>
 template <Neon::computeMode_t::computeMode_e mode>
 auto bField<T, C>::forEachActiveCell(
-    const int                      level,
     const std::function<void(const Neon::index_3d&,
                              const int& cardinality,
                              T&)>& fun)
     -> void
 {
-    const auto& descriptor = mData->mGrid->getDescriptor();
 
     //TODO need to figure out which device owns this block
     SetIdx devID(0);
 
-    const int refFactor = descriptor.getRefFactor(level);
+    const int blockSize = mData->grid->getBlockSize();
+    const int blockSpacing = mData->grid->getBlockSpacing();
 
-    mData->mGrid->getBlockOriginTo1D(level).forEach(
+    mData->grid->getBlockOriginTo1D().forEach(
         [&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-            for (int16_t z = 0; z < refFactor; z++) {
-                for (int16_t y = 0; y < refFactor; y++) {
-                    for (int16_t x = 0; x < refFactor; x++) {
+            for (int16_t z = 0; z < blockSize; z++) {
+                for (int16_t y = 0; y < blockSize; y++) {
+                    for (int16_t x = 0; x < blockSize; x++) {
 
                         Cell cell(x, y, z);
                         cell.mBlockID = blockIdx;
-                        cell.mBlockSize = refFactor;
-                        if (cell.computeIsActive(mData->mGrid->getActiveMask(level).rawMem(devID, Neon::DeviceType::CPU))) {
+                        cell.mBlockSize = blockSize;
+                        if (cell.computeIsActive(mData->grid->getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
                             for (int c = 0; c < this->getCardinality(); c++) {
-                                const Neon::index_3d local(x, y, z);
-                                Neon::index_3d       index3D = blockOrigin + descriptor.toBaseIndexSpace(local, level);
-                                fun(index3D, c, this->getReference(index3D, c, level));
+                                Neon::index_3d local(x * blockSpacing, y * blockSpacing, z * blockSpacing);
+                                Neon::index_3d index3D = blockOrigin + local;
+                                fun(index3D, c, this->getReference(index3D, c));
                             }
                         }
                     }
@@ -166,35 +124,13 @@ auto bField<T, C>::forEachActiveCell(
 template <typename T, int C>
 auto bField<T, C>::getPartition(const Neon::DeviceType& devType,
                                 const Neon::SetIdx&     idx,
-                                const Neon::DataView&   dataView,
-                                const int               level) const -> const Partition&
-{
-    if (devType == Neon::DeviceType::CUDA) {
-        return mData->mPartitions[level][PartitionBackend::gpu][Neon::DataViewUtil::toInt(dataView)][idx];
-    } else {
-        return mData->mPartitions[level][PartitionBackend::cpu][Neon::DataViewUtil::toInt(dataView)][idx];
-    }
-}
-
-template <typename T, int C>
-auto bField<T, C>::getPartition(const Neon::DeviceType& devType,
-                                const Neon::SetIdx&     idx,
-                                const Neon::DataView&   dataView,
-                                const int               level) -> Partition&
-{
-    if (devType == Neon::DeviceType::CUDA) {
-        return mData->mPartitions[level][PartitionBackend::gpu][Neon::DataViewUtil::toInt(dataView)][idx];
-    } else {
-        return mData->mPartitions[level][PartitionBackend::cpu][Neon::DataViewUtil::toInt(dataView)][idx];
-    }
-}
-
-template <typename T, int C>
-auto bField<T, C>::getPartition(const Neon::DeviceType& devType,
-                                const Neon::SetIdx&     idx,
                                 const Neon::DataView&   dataView) const -> const Partition&
 {
-    return getPartition(devType, idx, dataView, mData->mCurrentLevel);
+    if (devType == Neon::DeviceType::CUDA) {
+        return mData->partitions[PartitionBackend::gpu][Neon::DataViewUtil::toInt(dataView)][idx];
+    } else {
+        return mData->partitions[PartitionBackend::cpu][Neon::DataViewUtil::toInt(dataView)][idx];
+    }
 }
 
 template <typename T, int C>
@@ -202,41 +138,45 @@ auto bField<T, C>::getPartition(const Neon::DeviceType& devType,
                                 const Neon::SetIdx&     idx,
                                 const Neon::DataView&   dataView) -> Partition&
 {
-    return getPartition(devType, idx, dataView, mData->mCurrentLevel);
+    if (devType == Neon::DeviceType::CUDA) {
+        return mData->partitions[PartitionBackend::gpu][Neon::DataViewUtil::toInt(dataView)][idx];
+    } else {
+        return mData->partitions[PartitionBackend::cpu][Neon::DataViewUtil::toInt(dataView)][idx];
+    }
 }
 
+
 template <typename T, int C>
-auto bField<T, C>::isInsideDomain(const Neon::index_3d& idx, const int level) const -> bool
+auto bField<T, C>::isInsideDomain(const Neon::index_3d& idx) const -> bool
 {
-    return mData->mGrid->isInsideDomain(idx, level);
+    return mData->grid->isInsideDomain(idx);
 }
 
 template <typename T, int C>
 auto bField<T, C>::getRef(const Neon::index_3d& idx,
-                          const int&            cardinality,
-                          const int             level) const -> T&
+                          const int&            cardinality) const -> T&
 {
     //TODO need to figure out which device owns this block
     SetIdx devID(0);
 
-    if (!isInsideDomain(idx, level)) {
+    if (!isInsideDomain(idx)) {
         return this->getOutsideValue();
     }
 
-    auto partition = getPartition(Neon::DeviceType::CPU, devID, Neon::DataView::STANDARD, level);
+    auto partition = getPartition(Neon::DeviceType::CPU, devID, Neon::DataView::STANDARD);
 
-    Neon::int32_3d block_origin = mData->mGrid->getOriginBlock3DIndex(idx, level);
+    Neon::int32_3d blockOrigin = mData->grid->getOriginBlock3DIndex(idx);
 
-    auto itr = mData->mGrid->getBlockOriginTo1D(level).getMetadata(block_origin);
+    auto itr = mData->grid->getBlockOriginTo1D().getMetadata(blockOrigin);
 
-    Neon::index_3d localID = mData->mGrid->getDescriptor().toLocalIndex(idx, level);
+    auto blockSize = mData->grid->getBlockSize();
 
-    Cell cell(static_cast<Cell::Location::Integer>(localID.x),
-              static_cast<Cell::Location::Integer>(localID.y),
-              static_cast<Cell::Location::Integer>(localID.z));
+    Cell cell(static_cast<Cell::Location::Integer>(idx.x % blockSize),
+              static_cast<Cell::Location::Integer>(idx.y % blockSize),
+              static_cast<Cell::Location::Integer>(idx.z % blockSize));
 
     cell.mBlockID = *itr;
-    cell.mBlockSize = mData->mGrid->getDescriptor().getRefFactor(level);
+    cell.mBlockSize = blockSize;
     return partition(cell, cardinality);
 }
 
@@ -244,30 +184,14 @@ template <typename T, int C>
 auto bField<T, C>::operator()(const Neon::index_3d& idx,
                               const int&            cardinality) const -> T
 {
-    return getRef(idx, cardinality, mData->mCurrentLevel);
-}
-
-template <typename T, int C>
-auto bField<T, C>::operator()(const Neon::index_3d& idx,
-                              const int&            cardinality,
-                              const int             level) const -> T
-{
-    return getRef(idx, cardinality, level);
+    return getRef(idx, cardinality);
 }
 
 template <typename T, int C>
 auto bField<T, C>::getReference(const Neon::index_3d& idx,
                                 const int&            cardinality) -> T&
 {
-    return getRef(idx, cardinality, mData->mCurrentLevel);
-}
-
-template <typename T, int C>
-auto bField<T, C>::getReference(const Neon::index_3d& idx,
-                                const int&            cardinality,
-                                const int             level) -> T&
-{
-    return getRef(idx, cardinality, level);
+    return getRef(idx, cardinality);
 }
 
 template <typename T, int C>
@@ -287,29 +211,36 @@ auto bField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) -> void
 template <typename T, int C>
 auto bField<T, C>::updateIO(int streamId) -> void
 {
-    for (size_t l = 0; l < mData->mMem.size(); ++l) {
-        if (mData->mGrid->getBackend().devType() == Neon::DeviceType::CUDA) {
-            mData->mMem[l].updateIO(mData->mGrid->getBackend(), streamId);
-        }
+
+    if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {
+        mData->mem.updateIO(mData->grid->getBackend(), streamId);
     }
 }
 
 template <typename T, int C>
 auto bField<T, C>::updateCompute(int streamId) -> void
 {
-    for (size_t l = 0; l < mData->mMem.size(); ++l) {
-        if (mData->mGrid->getBackend().devType() == Neon::DeviceType::CUDA) {
-            mData->mMem[l].updateCompute(mData->mGrid->getBackend(), streamId);
-        }
+
+    if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {
+        mData->mem.updateCompute(mData->grid->getBackend(), streamId);
     }
 }
+
 
 template <typename T, int C>
 auto bField<T, C>::getPartition(Neon::Execution       exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) const -> const Partition&
 {
-    return getPartition(exec, idx, dataView, mData->mCurrentLevel);
+
+    if (exec == Neon::Execution::device) {
+        return getPartition(Neon::DeviceType::CUDA, idx, dataView);
+    }
+    if (exec == Neon::Execution::host) {
+        return getPartition(Neon::DeviceType::CPU, idx, dataView);
+    }
+
+    NEON_THROW_UNSUPPORTED_OPERATION("bField::getPartition() unsupported Execution");
 }
 
 template <typename T, int C>
@@ -317,25 +248,20 @@ auto bField<T, C>::getPartition(Neon::Execution       exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) -> Partition&
 {
-    return getPartition(exec, idx, dataView, mData->mCurrentLevel);
+    if (exec == Neon::Execution::device) {
+        return getPartition(Neon::DeviceType::CUDA, idx, dataView);
+    }
+    if (exec == Neon::Execution::host) {
+        return getPartition(Neon::DeviceType::CPU, idx, dataView);
+    }
+
+    NEON_THROW_UNSUPPORTED_OPERATION("bField::getPartition() unsupported Execution");
 }
 
 template <typename T, int C>
-auto bField<T, C>::getPartition([[maybe_unused]] Neon::Execution       exec,
-                                [[maybe_unused]] Neon::SetIdx          idx,
-                                [[maybe_unused]] const Neon::DataView& dataView,
-                                [[maybe_unused]] const int             level) const -> const Partition&
+auto bField<T, C>::getMem() -> Neon::set::MemSet_t<T>&
 {
-    NEON_DEV_UNDER_CONSTRUCTION("bField::getPartition");
-}
-
-template <typename T, int C>
-auto bField<T, C>::getPartition([[maybe_unused]] Neon::Execution       exec,
-                                [[maybe_unused]] Neon::SetIdx          idx,
-                                [[maybe_unused]] const Neon::DataView& dataView,
-                                [[maybe_unused]] const int             level) -> Partition&
-{
-    NEON_DEV_UNDER_CONSTRUCTION("bField::getPartition");
+    return mData->mem;
 }
 
 
@@ -344,14 +270,14 @@ auto bField<T, C>::ioToVtk(const std::string& fileName,
                            const std::string& fieldName,
                            Neon::IoFileType   ioFileType) const -> void
 {
-    const auto& descriptor = mData->mGrid->getDescriptor();
+    const auto& descriptor = mData->grid->getDescriptor();
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
 
         double spacing = double(descriptor.getSpacing(l - 1));
 
         auto iovtk = IoToVTK<int, T>(fileName + "_level" + std::to_string(l),
-                                     mData->mGrid->getDimension(l) + 1,
+                                     mData->grid->getDimension(l) + 1,
                                      {spacing, spacing, spacing},
                                      {0, 0, 0},
                                      ioFileType);
@@ -361,7 +287,7 @@ auto bField<T, C>::ioToVtk(const std::string& fileName,
             [&](Neon::index_3d idx, int card) -> T {
                 idx = descriptor.toBaseIndexSpace(idx, l);
 
-                if (mData->mGrid->isInsideDomain(idx, l)) {
+                if (mData->grid->isInsideDomain(idx, l)) {
                     return operator()(idx, card, l);
                 } else {
                     return this->getOutsideValue();
@@ -375,22 +301,17 @@ auto bField<T, C>::ioToVtk(const std::string& fileName,
 
 
 template <typename T, int C>
-auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius, int level) const -> size_t
+auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius) const -> size_t
 {
     //This return the optimal shared memory size give a stencil radius
     //i.e., only N layers is read from neighbor blocks into shared memory in addition
     // to the block itself where N = stencilRadius
-    int refFactor = mData->mGrid->getDescriptor().getRefFactor(level);
+    int blockSize = mData->grid->getBlockSize();
     return sizeof(T) *
            this->getCardinality() *
-           (refFactor + 2 * stencilRadius) *
-           (refFactor + 2 * stencilRadius) *
-           (refFactor + 2 * stencilRadius);
+           (blockSize + 2 * stencilRadius) *
+           (blockSize + 2 * stencilRadius) *
+           (blockSize + 2 * stencilRadius);
 }
 
-template <typename T, int C>
-auto bField<T, C>::setCurrentLevel(const int level) -> void
-{
-    mData->mCurrentLevel = level;
-}
 }  // namespace Neon::domain::internal::bGrid
