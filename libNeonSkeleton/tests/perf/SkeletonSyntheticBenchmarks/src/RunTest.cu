@@ -125,7 +125,7 @@ struct PerformanceMetrics
     }
 
     auto log(Neon::Report& report) -> void
-    {  // Adding performance metrics
+    {  // Adding benchmarks metrics
         NEON_INFO(
             "Performance Repetition ID {} => [MCPSPD {}], [MCPS {}], [Iteration Time {} us], [Elapsed Time {} us]",
             repetitionId, MCPSPD, MCPS, iterationTimeUs, elapsedUs);

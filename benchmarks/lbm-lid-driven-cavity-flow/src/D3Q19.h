@@ -9,10 +9,19 @@ template <typename StorageFP, typename ComputeFP>
 struct D3Q19Template
 {
    public:
+    static constexpr int Q = 19; /** number of directions */
+    static constexpr int D = 3;  /** Space dimension */
+
+    static constexpr int centerDirection = 9; /** Position of direction {0,0,0} */
+    static constexpr int goRangeBegin = 0;    /** Symmetry is represented as "go" direction and the "back" their opposite */
+    static constexpr int goRangeEnd = 8;
+    static constexpr int goBackOffset = 10; /** Offset to compute apply symmetry */
+
+
     explicit D3Q19Template(const Neon::Backend& backend)
     {
-        // The discrete velocities of the D3Q19 mesh.
-        points = std::vector<Neon::index_3d>(
+        // The discrete velocities of the Lattice mesh.
+        c_vect = std::vector<Neon::index_3d>(
             {
                 {-1, 0, 0} /*!  0  Symmetry first section (GO) */,
                 {0, -1, 0} /*!  1  */,
@@ -35,15 +44,15 @@ struct D3Q19Template
                 {0, 1, -1} /*!  18 */,
             });
 
-        auto c_neon = Neon::set::Memory::MemSet<Neon::index_3d>(backend, 1, points.size(),
+        auto c_neon = Neon::set::Memory::MemSet<Neon::index_3d>(backend, 1, c_vect.size(),
                                                                 Neon::DataUse::IO_COMPUTE);
 
 
         for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
-            for (int j = 0; j < int(points.size()); j++) {
-                c_neon.eRef(i, j).x = static_cast<int8_t>(points[j].x);
-                c_neon.eRef(i, j).y = static_cast<int8_t>(points[j].y);
-                c_neon.eRef(i, j).z = static_cast<int8_t>(points[j].z);
+            for (int j = 0; j < int(c_vect.size()); j++) {
+                c_neon.eRef(i, j).x = static_cast<int8_t>(c_vect[j].x);
+                c_neon.eRef(i, j).y = static_cast<int8_t>(c_vect[j].y);
+                c_neon.eRef(i, j).z = static_cast<int8_t>(c_vect[j].z);
             }
         }
         // The opposite of a given direction.
@@ -70,10 +79,10 @@ struct D3Q19Template
         };
 
         {  // Check correctness of opposite
-            for (int i = 0; i < static_cast<int>(points.size()); i++) {
-                auto point = points[i];
+            for (int i = 0; i < static_cast<int>(c_vect.size()); i++) {
+                auto point = c_vect[i];
                 auto opposite = point * -1;
-                if (opposite != points[opp_vect[i]]) {
+                if (opposite != c_vect[opp_vect[i]]) {
                     Neon::NeonException exp("");
                     exp << "Incompatible opposite";
                     NEON_THROW(exp);
@@ -91,7 +100,7 @@ struct D3Q19Template
         }
 
         // The lattice weights.
-        std::vector<double> t_vect = {
+        t_vect = {
             1. / 18. /*!  0   */,
             1. / 18. /*!  1   */,
             1. / 18. /*!  2   */,
@@ -129,11 +138,6 @@ struct D3Q19Template
         }
     }
 
-    static constexpr int q = 19;              /** number of directions */
-    static constexpr int centerDirection = 9; /** Position of direction {0,0,0} */
-    static constexpr int goRangeBegin = 0;    /** Symmetry is represented as "go" direction and the "back" their opposite */
-    static constexpr int goRangeEnd = 8;
-    static constexpr int goBackOffset = 10; /** Offset to compute apply symmetry */
 
     template <int go>
     static constexpr auto getOpposite()
@@ -151,5 +155,6 @@ struct D3Q19Template
     Neon::set::MemSet_t<Neon::int8_3d> c;
     Neon::set::MemSet_t<int>           opp;
     Neon::set::MemSet_t<StorageFP>     t;
-    std::vector<Neon::index_3d>        points;
+    std::vector<double>                t_vect;
+    std::vector<Neon::index_3d>        c_vect;
 };

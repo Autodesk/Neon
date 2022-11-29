@@ -47,9 +47,6 @@ auto Report::
                const std::string& unit)
         -> void
 {
-    if (unit.length() != 0) {
-        NEON_THROW_UNSUPPORTED_OPERATION("Time unit is missing");
-    }
     if (mtimeUnit.length() == 0) {
         mtimeUnit = unit;
     }
@@ -61,9 +58,6 @@ auto Report::
 
 auto Report::recordNeonGridInitTime(double time, const std::string& unit) -> void
 {
-    if (unit.length() != 0) {
-        NEON_THROW_UNSUPPORTED_OPERATION("Time unit is missing");
-    }
     if (mtimeUnit.length() == 0) {
         mtimeUnit = unit;
     }
@@ -75,9 +69,6 @@ auto Report::recordNeonGridInitTime(double time, const std::string& unit) -> voi
 
 auto Report::recordProblemSetupTime(double time, const std::string& unit) -> void
 {
-    if (unit.length() != 0) {
-        NEON_THROW_UNSUPPORTED_OPERATION("Time unit is missing");
-    }
     if (mtimeUnit.length() == 0) {
         mtimeUnit = unit;
     }

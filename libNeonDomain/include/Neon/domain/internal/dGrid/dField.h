@@ -62,13 +62,13 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         -> void final;
 
     auto haloUpdate(SetIdx setIdx, Neon::set::HuOptions& opt) const
-        -> void;  //TODO add this function to the API if performance boost is reasonable -> void final;
+        -> void;  //TODO add this function to the API if benchmarks boost is reasonable -> void final;
 
     auto haloUpdate(Neon::set::HuOptions& opt)
         -> void final;
 
     auto haloUpdate(SetIdx setIdx, Neon::set::HuOptions& opt)
-        -> void;  //TODO add this function to the API if performance boost is reasonable -> void final;
+        -> void;  //TODO add this function to the API if benchmarks boost is reasonable -> void final;
 
     virtual auto getReference(const Neon::index_3d& idx,
                               const int&            cardinality)

@@ -35,8 +35,9 @@ struct LbmIterationD3Q19
         pop[0] = fIn;
         pop[1] = fOut;
 
-        setupSkeletons(0, stencilSemantic, occ, transfer, fIn, fOut, cellTypeField, omega);
-        setupSkeletons(1, stencilSemantic, occ, transfer, fOut, fIn, cellTypeField, omega);
+        setupSkeletons(0, stencilSemantic, occ, transfer, pop[0], pop[1], cellTypeField, omega);
+        setupSkeletons(1, stencilSemantic, occ, transfer, pop[1], pop[0], cellTypeField, omega);
+
         parity = 0;
     }
     auto getInput()

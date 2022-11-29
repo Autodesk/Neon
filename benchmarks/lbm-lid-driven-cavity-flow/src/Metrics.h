@@ -18,7 +18,7 @@ auto restartClock(Neon::Backend& bk, bool sync = true)
 }  // namespace
 
 // Compute the time elapsed since a starting point, and the corresponding
-// performance of the code in Mega Lattice site updates per second (MLups).
+// benchmarks of the code in Mega Lattice site updates per second (MLups).
 template <class TimePoint>
 void recordMetrics(Neon::Backend& bk,
                    const Config&  config,
