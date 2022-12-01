@@ -98,7 +98,7 @@ auto bField<T, C>::forEachActiveCell(
     SetIdx devID(0);
 
     const int blockSize = mData->grid->getBlockSize();
-    const int blockSpacing = mData->grid->getBlockSpacing();
+    const int voxelSpacing = mData->grid->getVoxelSpacing();
 
     mData->grid->getBlockOriginTo1D().forEach(
         [&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
@@ -111,7 +111,7 @@ auto bField<T, C>::forEachActiveCell(
                         cell.mBlockSize = blockSize;
                         if (cell.computeIsActive(mData->grid->getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
                             for (int c = 0; c < this->getCardinality(); c++) {
-                                Neon::index_3d local(x * blockSpacing, y * blockSpacing, z * blockSpacing);
+                                Neon::index_3d local(x * voxelSpacing, y * voxelSpacing, z * voxelSpacing);
                                 Neon::index_3d index3D = blockOrigin + local;
                                 fun(index3D, c, this->getReference(index3D, c));
                             }

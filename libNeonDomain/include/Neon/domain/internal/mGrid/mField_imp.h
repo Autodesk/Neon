@@ -22,7 +22,7 @@ mField<T, C>::mField(const std::string&             name,
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
         mData->fields[l] = xField<T, C>(name,
-                                        grid.getGrid(l),
+                                        grid(l),
                                         cardinality,
                                         outsideVal,
                                         dataUse,
@@ -37,10 +37,10 @@ mField<T, C>::mField(const std::string&             name,
 
         auto mem = mData->fields[l].mData->field.getMem();
 
-        auto origins = grid.getGrid(l).getOrigins();
-        auto neighbours_blocks = grid.getGrid(l).getNeighbourBlocks();
-        auto stencil_ngh = grid.getGrid(l).getStencilNghIndex();
-        auto active_mask = grid.getGrid(l).getActiveMask();
+        auto origins = grid(l).getOrigins();
+        auto neighbours_blocks = grid(l).getNeighbourBlocks();
+        auto stencil_ngh = grid(l).getStencilNghIndex();
+        auto active_mask = grid(l).getActiveMask();
         auto parent = mData->grid->getParentsBlockID(l);
         auto parentLocalID = mData->grid->getParentLocalID(l);
         auto childBlockID = mData->grid->getChildBlockID(l);
@@ -65,7 +65,7 @@ mField<T, C>::mField(const std::string&             name,
                         parent.rawMem(gpuID, Neon::DeviceType::CPU),
                         parentLocalID.rawMem(gpuID, Neon::DeviceType::CPU),
                         active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
-                        (l == 0) ? nullptr : grid.getGrid(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),  //lower-level mask
+                        (l == 0) ? nullptr : grid(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),  //lower-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
                         outsideVal,
                         stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
@@ -85,7 +85,7 @@ mField<T, C>::mField(const std::string&             name,
                         parent.rawMem(gpuID, Neon::DeviceType::CUDA),
                         parentLocalID.rawMem(gpuID, Neon::DeviceType::CUDA),
                         active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        (l == 0) ? nullptr : grid.getGrid(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),  //lower-level mask
+                        (l == 0) ? nullptr : grid(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),  //lower-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
                         outsideVal,
                         stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),
@@ -113,7 +113,7 @@ auto mField<T, C>::forEachActiveCell(
 
     const int refFactor = descriptor.getRefFactor(level);
 
-    mData->grid->getGrid(level).getBlockOriginTo1D().forEach(
+    mData->grid->operator()(level).getBlockOriginTo1D().forEach(
         [&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
             for (int16_t z = 0; z < refFactor; z++) {
                 for (int16_t y = 0; y < refFactor; y++) {
@@ -122,7 +122,7 @@ auto mField<T, C>::forEachActiveCell(
                         Cell cell(x, y, z);
                         cell.mBlockID = blockIdx;
                         cell.mBlockSize = refFactor;
-                        if (cell.computeIsActive(mData->grid->getGrid(level).getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
+                        if (cell.computeIsActive(mData->grid->operator()(level).getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
                             for (int c = 0; c < mData->fields[level].getCardinality(); c++) {
                                 const Neon::index_3d local(x, y, z);
                                 Neon::index_3d       index3D = blockOrigin + descriptor.toBaseIndexSpace(local, level);

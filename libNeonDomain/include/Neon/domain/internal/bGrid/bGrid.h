@@ -54,7 +54,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
           const ActiveCellLambda       activeCellLambda,
           const Neon::domain::Stencil& stencil,
           const int                    blockSize,
-          const int                    blockSpacing,
+          const int                    voxelSpacing,
           const double_3d&             spacingData = double_3d(1, 1, 1),
           const double_3d&             origin = double_3d(0, 0, 0));
 
@@ -120,7 +120,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
     auto getNumBlocks() const -> const Neon::set::DataSet<uint64_t>&;
     auto getBlockSize() const -> int;
-    auto getBlockSpacing() const -> int;
+    auto getVoxelSpacing() const -> int;
     auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
     auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
 
@@ -129,7 +129,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     struct Data
     {
         int blockSize;
-        int blockSpacing;
+        int voxelSpacing;
 
         //number of active voxels in each block
         Neon::set::DataSet<uint64_t> mNumActiveVoxel;

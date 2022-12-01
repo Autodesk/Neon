@@ -154,9 +154,9 @@ auto bGrid::getBlockSize() const -> int
     return mData->blockSize;
 }
 
-auto bGrid::getBlockSpacing() const -> int
+auto bGrid::getVoxelSpacing() const -> int
 {
-    return mData->blockSpacing;
+    return mData->voxelSpacing;
 }
 
 }  // namespace Neon::domain::internal::bGrid

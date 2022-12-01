@@ -19,7 +19,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
              const ActiveCellLambda       activeCellLambda,
              const Neon::domain::Stencil& stencil,
              const int                    blockSize,
-             const int                    blockSpacing,
+             const int                    voxelSpacing,
              const double_3d&             spacingData,
              const double_3d&             origin)
 {
@@ -33,9 +33,9 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
     mData = std::make_shared<Data>();
     mData->blockSize = blockSize;
-    mData->blockSpacing = blockSpacing;
+    mData->voxelSpacing = voxelSpacing;
 
-    mData->mBlockOriginTo1D = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize);
+    mData->mBlockOriginTo1D = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize * voxelSpacing);
 
     mData->mNumBlocks = backend.devSet().template newDataSet<uint64_t>();
 
@@ -55,19 +55,19 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
                 int numVoxelsInBlock = 0;
 
-                Neon::int32_3d blockOrigin(bx * blockSize,
-                                           by * blockSize,
-                                           bz * blockSize);
+                Neon::int32_3d blockOrigin(bx * blockSize * voxelSpacing,
+                                           by * blockSize * voxelSpacing,
+                                           bz * blockSize * voxelSpacing);
 
                 for (int z = 0; z < blockSize; z++) {
                     for (int y = 0; y < blockSize; y++) {
                         for (int x = 0; x < blockSize; x++) {
 
-                            const Neon::int32_3d id(blockOrigin.x + x,
-                                                    blockOrigin.y + y,
-                                                    blockOrigin.z + z);
+                            const Neon::int32_3d id(blockOrigin.x + x * voxelSpacing,
+                                                    blockOrigin.y + y * voxelSpacing,
+                                                    blockOrigin.z + z * voxelSpacing);
 
-                            if (activeCellLambda(id)) {
+                            if (id < domainSize * voxelSpacing && activeCellLambda(id)) {
                                 numVoxelsInBlock++;
                             }
                         }
@@ -191,11 +191,11 @@ bGrid::bGrid(const Neon::Backend&         backend,
             for (Cell::Location::Integer y = 0; y < blockSize; y++) {
                 for (Cell::Location::Integer x = 0; x < blockSize; x++) {
 
-                    const Neon::int32_3d id(blockOrigin.x + x,
-                                            blockOrigin.y + y,
-                                            blockOrigin.z + z);
+                    const Neon::int32_3d id(blockOrigin.x + x * voxelSpacing,
+                                            blockOrigin.y + y * voxelSpacing,
+                                            blockOrigin.z + z * voxelSpacing);
 
-                    if (activeCellLambda(id)) {
+                    if (id < domainSize * voxelSpacing && activeCellLambda(id)) {
                         setCellActiveMask(x, y, z);
                     }
                 }
@@ -211,10 +211,10 @@ bGrid::bGrid(const Neon::Backend&         backend,
                         continue;
                     }
 
-                    Neon::int32_3d neighbourBlockOrigin(i, j, k);
-                    neighbourBlockOrigin.x = neighbourBlockOrigin.x * blockSize + blockOrigin.x;
-                    neighbourBlockOrigin.y = neighbourBlockOrigin.y * blockSize + blockOrigin.y;
-                    neighbourBlockOrigin.z = neighbourBlockOrigin.z * blockSize + blockOrigin.z;
+                    Neon::int32_3d neighbourBlockOrigin;
+                    neighbourBlockOrigin.x = i * blockSize * voxelSpacing + blockOrigin.x;
+                    neighbourBlockOrigin.y = j * blockSize * voxelSpacing + blockOrigin.y;
+                    neighbourBlockOrigin.z = k * blockSize * voxelSpacing + blockOrigin.z;
 
                     auto neighbour_it = mData->mBlockOriginTo1D.getMetadata(neighbourBlockOrigin);
 
@@ -255,6 +255,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mDataView = dv;
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mDomainSize = domainSize;
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mBlockSize = blockSize;
+            mData->mPartitionIndexSpace[dv_id][gpuIdx].mSpacing = voxelSpacing;
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[gpuIdx]);
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask.rawMem(gpuIdx, Neon::DeviceType::CPU);
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask.rawMem(gpuIdx, Neon::DeviceType::CUDA);

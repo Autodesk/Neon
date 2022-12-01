@@ -239,24 +239,19 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
 
         int blockSize = mData->mDescriptor.getRefFactor(l);
-        int blockSpacing = mData->mDescriptor.getSpacing(l);
+        int blockSpacing = mData->mDescriptor.getSpacing(l - 1);
 
-        Neon::int32_3d levelDomainSize(blockSpacing * blockSize,
-                                       blockSpacing * blockSize,
-                                       blockSpacing * blockSize);
+        Neon::int32_3d levelDomainSize(mData->mTotalNumBlocks[l].x * blockSize,
+                                       mData->mTotalNumBlocks[l].y * blockSize,
+                                       mData->mTotalNumBlocks[l].z * blockSize);
 
         mData->grids[l] =
             InternalGrid(
                 backend,
                 levelDomainSize,
                 [&](Neon::int32_3d id) {
-                    Neon::index_3d blockID(id.x / blockSize,
-                                           id.y / blockSize,
-                                           id.z / blockSize);
-
-                    Neon::index_3d localID(id.x % blockSize,
-                                           id.y % blockSize,
-                                           id.z % blockSize);
+                    Neon::index_3d blockID = mData->mDescriptor.childToParent(id, l);
+                    Neon::index_3d localID = mData->mDescriptor.toLocalIndex(id, l);
                     return levelBitMaskIsSet(l, blockID, localID);
                 },
                 stencil,
@@ -371,17 +366,18 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
 
                         if (levelBitMaskIsSet(l, block3DIndex, localChild)) {
 
-
-                            uint32_t child_id = std::numeric_limits<uint32_t>::max();
                             if (l > 0) {
                                 Neon::index_3d childBase = mData->mDescriptor.parentToChild(blockOrigin, l, localChild);
                                 auto           child_it = mData->grids[l - 1].getBlockOriginTo1D().getMetadata(childBase);
                                 if (child_it) {
-                                    child_id = *child_it;
+                                    mData->mChildBlockID[l].eRef(devID,
+                                                                 blockIdx * refFactor * refFactor * refFactor +
+                                                                     x + y * refFactor + z * refFactor * refFactor) = *child_it;
+                                } else {
+                                    mData->mChildBlockID[l].eRef(devID,
+                                                                 blockIdx * refFactor * refFactor * refFactor +
+                                                                     x + y * refFactor + z * refFactor * refFactor) = std::numeric_limits<uint32_t>::max();
                                 }
-                                mData->mChildBlockID[l].eRef(devID,
-                                                             blockIdx * refFactor * refFactor * refFactor +
-                                                                 x + y * refFactor + z * refFactor * refFactor) = child_id;
                             }
                         }
                     }
@@ -475,6 +471,18 @@ auto mGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
     return false;
 }
 
+
+auto mGrid::operator()(int level) -> InternalGrid&
+{
+    return mData->grids[level];
+}
+
+auto mGrid::operator()(int level) const -> const InternalGrid&
+{
+    return mData->grids[level];
+}
+
+
 auto mGrid::getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d
 {
     //round n to nearest multiple of m
@@ -528,11 +536,6 @@ auto mGrid::getLaunchParameters(Neon::DataView                         dataView,
         }
     }
     return ret;
-}
-
-auto mGrid::getGrid(int level) const -> const InternalGrid&
-{
-    return mData->grids[level];
 }
 
 auto mGrid::getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&

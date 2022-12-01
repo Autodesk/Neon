@@ -54,6 +54,9 @@ class mGrid
 
     auto isInsideDomain(const Neon::index_3d& idx, int level) const -> bool;
 
+    auto operator()(int level) -> InternalGrid&;
+
+    auto operator()(int level) const -> const InternalGrid&;
 
     template <typename T, int C = 0>
     auto newField(const std::string          name,
@@ -90,22 +93,6 @@ class mGrid
     //for compatibility with other grids that can work on cub and cublas engine
     auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
 
-    /*template <typename T>
-    auto newPatternScalar() const -> Neon::template PatternScalar<T>;
-
-    template <typename T>
-    auto dot(const std::string&               name,
-             Field<T>&                        input1,
-             Field<T>&                        input2,
-             Neon::template PatternScalar<T>& scalar,
-             const int                        level) const -> Neon::set::Container;
-
-    template <typename T>
-    auto norm2(const std::string&               name,
-               Field<T>&                        input,
-               Neon::template PatternScalar<T>& scalar,
-               const int                        level) const -> Neon::set::Container;*/
-
     auto getDimension(int level) const -> const Neon::index_3d;
 
     auto getDimension() const -> const Neon::index_3d;
@@ -117,7 +104,6 @@ class mGrid
      * total number of voxels can be obtained from getDimension
     */
     auto getNumBlocks(int level) const -> const Neon::index_3d&;
-    auto getGrid(int level) const -> const InternalGrid&;
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d;
     auto getDescriptor() const -> const mGridDescriptor&;
     auto getRefFactors() const -> const Neon::set::MemSet_t<int>&;
