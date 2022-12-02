@@ -253,7 +253,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
         for (int gpuIdx = 0; gpuIdx < backend.devSet().setCardinality(); gpuIdx++) {
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mDataView = dv;
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDomainSize = domainSize;
+            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDomainSize = domainSize * voxelSpacing;
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mBlockSize = blockSize;
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mSpacing = voxelSpacing;
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[gpuIdx]);

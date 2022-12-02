@@ -7,23 +7,29 @@ void MultiResParent()
     const Neon::int32_3d   dim(24, 24, 24);
     const std::vector<int> gpusIds(nGPUs, 0);
 
+    int SectionX[3];
+    SectionX[0] = 8;
+    SectionX[1] = 16;
+    SectionX[2] = 24;
+
     const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
 
-    for (auto runtime : {Neon::Runtime::stream, Neon::Runtime::openmp}) {
+    for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
 
         auto bk = Neon::Backend(gpusIds, runtime);
+
 
         Neon::domain::mGrid grid(
             bk,
             dim,
             {[&](const Neon::index_3d id) -> bool {
-                 return id.x < 8;
+                 return id.x < SectionX[0];
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return id.x >= 8 && id.x < 16;
+                 return id.x >= SectionX[0] && id.x < SectionX[1];
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return id.x >= 16;
+                 return id.x >= SectionX[1] && id.x < SectionX[2];
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
@@ -65,6 +71,8 @@ void MultiResParent()
                         if (xLocal.hasParent(cell)) {
                             hasParentLocal(cell, 0) = 1;
                             xLocal(cell, 0) = xLocal.parent(cell, 0);
+                        } else {
+                            hasParentLocal(cell, 0) = -1;
                         }
                     };
                 });
@@ -94,11 +102,11 @@ void MultiResParent()
 
             XField.forEachActiveCell(
                 l,
-                [&](const Neon::int32_3d, const int, Type& val) {
+                [&](const Neon::int32_3d id, const int, Type& val) {
                     if (l != descriptor.getDepth() - 1) {
-                        EXPECT_EQ(val, l + 1);
+                        EXPECT_EQ(val, l + 1) << "l = " << l << " id = " << id;                        
                     } else {
-                        EXPECT_EQ(val, l);
+                        EXPECT_EQ(val, l) << "l = " << l << " id = " << id;
                     }
                 });
         }

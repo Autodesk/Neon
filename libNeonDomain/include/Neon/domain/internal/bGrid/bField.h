@@ -84,10 +84,10 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                const Neon::DataView&            dataView) -> void;
 
 
-    template <Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par>
     auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
                                                     const int& cardinality,
-                                                    T&)>& fun) -> void;
+                                                    T&)>&     fun,
+                           Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par) -> void override;
 
 
    private:

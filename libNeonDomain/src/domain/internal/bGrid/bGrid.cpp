@@ -38,9 +38,9 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx) const -> bool
     auto itr = mData->mBlockOriginTo1D.getMetadata(block_origin);
     if (itr) {
 
-        Cell cell(static_cast<Cell::Location::Integer>(idx.x % mData->blockSize),
-                  static_cast<Cell::Location::Integer>(idx.y % mData->blockSize),
-                  static_cast<Cell::Location::Integer>(idx.z % mData->blockSize));
+        Cell cell(static_cast<Cell::Location::Integer>((idx.x / mData->voxelSpacing) % mData->blockSize),
+                  static_cast<Cell::Location::Integer>((idx.y / mData->voxelSpacing) % mData->blockSize),
+                  static_cast<Cell::Location::Integer>((idx.z / mData->voxelSpacing) % mData->blockSize));        
 
         cell.mBlockID = *itr;
         cell.mBlockSize = mData->blockSize;
@@ -57,9 +57,9 @@ auto bGrid::getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32
         return (n / m) * m;
     };
 
-    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->blockSize),
-                                roundDownToNearestMultiple(idx.y, mData->blockSize),
-                                roundDownToNearestMultiple(idx.z, mData->blockSize));
+    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->blockSize * mData->voxelSpacing),
+                                roundDownToNearestMultiple(idx.y, mData->blockSize * mData->voxelSpacing),
+                                roundDownToNearestMultiple(idx.z, mData->blockSize * mData->voxelSpacing));
     return block_origin;
 }
 

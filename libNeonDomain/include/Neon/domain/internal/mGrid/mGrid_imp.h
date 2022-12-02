@@ -9,7 +9,7 @@ auto mGrid::newField(const std::string          name,
                      Neon::DataUse              dataUse,
                      const Neon::MemoryOptions& memoryOptions) const -> Field<T, C>
 {
-    mField<T, C> field(name, *this, cardinality, inactiveValue, dataUse, memoryOptions, Neon::domain::haloStatus_et::ON);
+    mField<T, C> field(name, *this, cardinality, inactiveValue, dataUse, memoryOptions);
 
     return field;
 }

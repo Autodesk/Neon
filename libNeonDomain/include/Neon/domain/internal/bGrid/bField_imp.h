@@ -86,11 +86,11 @@ bField<T, C>::bField(const std::string&             name,
 }
 
 template <typename T, int C>
-template <Neon::computeMode_t::computeMode_e mode>
 auto bField<T, C>::forEachActiveCell(
     const std::function<void(const Neon::index_3d&,
                              const int& cardinality,
-                             T&)>& fun)
+                             T&)>&     fun,
+    Neon::computeMode_t::computeMode_e mode)
     -> void
 {
 
@@ -171,9 +171,9 @@ auto bField<T, C>::getRef(const Neon::index_3d& idx,
 
     auto blockSize = mData->grid->getBlockSize();
 
-    Cell cell(static_cast<Cell::Location::Integer>(idx.x % blockSize),
-              static_cast<Cell::Location::Integer>(idx.y % blockSize),
-              static_cast<Cell::Location::Integer>(idx.z % blockSize));
+    Cell cell(static_cast<Cell::Location::Integer>((idx.x / mData->grid->getVoxelSpacing()) % blockSize),
+              static_cast<Cell::Location::Integer>((idx.y / mData->grid->getVoxelSpacing()) % blockSize),
+              static_cast<Cell::Location::Integer>((idx.z / mData->grid->getVoxelSpacing()) % blockSize));
 
     cell.mBlockID = *itr;
     cell.mBlockSize = blockSize;

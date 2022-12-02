@@ -11,7 +11,6 @@
 #include "Neon/domain/internal/mGrid/mField.h"
 #include "Neon/domain/internal/mGrid/mPartition.h"
 
-#include "Neon/domain/patterns/PatternScalar.h"
 #include "Neon/set/Containter.h"
 
 

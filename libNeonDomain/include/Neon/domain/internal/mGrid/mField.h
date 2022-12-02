@@ -2,7 +2,7 @@
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/internal/bGrid/bField.h"
 #include "Neon/domain/internal/mGrid/mPartition.h"
-#include "Neon/set/patterns/BlasSet.h"
+
 
 namespace Neon::domain::internal::mGrid {
 class mGrid;
@@ -24,13 +24,12 @@ class xField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     xField() = default;
 
-    xField(const std::string&             name,
-           const Grid&                    grid,
-           int                            cardinality,
-           T                              outsideVal,
-           Neon::DataUse                  dataUse,
-           const Neon::MemoryOptions&     memoryOptions,
-           Neon::domain::haloStatus_et::e haloStatus)
+    xField(const std::string&         name,
+           const Grid&                grid,
+           int                        cardinality,
+           T                          outsideVal,
+           Neon::DataUse              dataUse,
+           const Neon::MemoryOptions& memoryOptions)
         : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                                  name,
                                                                                  "xbField",
@@ -38,10 +37,10 @@ class xField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                                  outsideVal,
                                                                                  dataUse,
                                                                                  memoryOptions,
-                                                                                 haloStatus)
+                                                                                 Neon::domain::haloStatus_et::ON)
     {
         mData = std::make_shared<Data>();
-        mData->field = Neon::domain::internal::bGrid::bField<T, C>(name, grid, cardinality, outsideVal, dataUse, memoryOptions, haloStatus);
+        mData->field = grid.newField(name, cardinality, outsideVal, dataUse, memoryOptions);
     }
 
 
@@ -190,6 +189,16 @@ class mField
     auto operator()(int level) const -> const xField<T, C>&;
 
 
+    auto operator()(const Neon::index_3d& idx,
+                    const int&            cardinality,
+                    const int             level) -> T&;
+
+
+    auto operator()(const Neon::index_3d& idx,
+                    const int&            cardinality,
+                    const int             level) const -> const T&;
+
+
     auto getReference(const Neon::index_3d& idx,
                       const int&            cardinality,
                       const int             level) -> T&;
@@ -208,21 +217,10 @@ class mField
 
     auto getSharedMemoryBytes(const int32_t stencilRadius, int level = 0) const -> size_t;
 
-    /*auto dot(Neon::set::patterns::BlasSet<T>& blasSet,
-             const mField<T>&                 input,
-             Neon::set::MemDevSet<T>&         output,
-             const Neon::DataView&            dataView,
-             const int                        level = 0) -> void;
 
-    auto norm2(Neon::set::patterns::BlasSet<T>& blasSet,
-               Neon::set::MemDevSet<T>&         output,
-               const Neon::DataView&            dataView,
-               const int                        level = 0) -> void;*/
-
-
-    template <Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par>
     auto forEachActiveCell(int                                                                           level,
-                           const std::function<void(const Neon::index_3d&, const int& cardinality, T&)>& fun) -> void;
+                           const std::function<void(const Neon::index_3d&, const int& cardinality, T&)>& fun,
+                           Neon::computeMode_t::computeMode_e                                            mode = Neon::computeMode_t::computeMode_e::par) -> void;
 
 
     auto ioToVtk(const std::string& fileName,
@@ -230,13 +228,12 @@ class mField
                  Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII) const -> void;
 
    private:
-    mField(const std::string&             name,
-           const mGrid&                   grid,
-           int                            cardinality,
-           T                              outsideVal,
-           Neon::DataUse                  dataUse,
-           const Neon::MemoryOptions&     memoryOptions,
-           Neon::domain::haloStatus_et::e haloStatus);
+    mField(const std::string&         name,
+           const mGrid&               grid,
+           int                        cardinality,
+           T                          outsideVal,
+           Neon::DataUse              dataUse,
+           const Neon::MemoryOptions& memoryOptions);
 
     auto getRef(const Neon::index_3d& idx, const int& cardinality, const int level = 0) const -> T&;
 

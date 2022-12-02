@@ -5,13 +5,12 @@
 namespace Neon::domain::internal::mGrid {
 
 template <typename T, int C>
-mField<T, C>::mField(const std::string&             name,
-                     const mGrid&                   grid,
-                     int                            cardinality,
-                     T                              outsideVal,
-                     Neon::DataUse                  dataUse,
-                     const Neon::MemoryOptions&     memoryOptions,
-                     Neon::domain::haloStatus_et::e haloStatus)
+mField<T, C>::mField(const std::string&         name,
+                     const mGrid&               grid,
+                     int                        cardinality,
+                     T                          outsideVal,
+                     Neon::DataUse              dataUse,
+                     const Neon::MemoryOptions& memoryOptions)
 {
     mData = std::make_shared<Data>();
 
@@ -26,8 +25,7 @@ mField<T, C>::mField(const std::string&             name,
                                         cardinality,
                                         outsideVal,
                                         dataUse,
-                                        memoryOptions,
-                                        haloStatus);
+                                        memoryOptions);
     }
 
     auto refFactorSet = mData->grid->getRefFactors();
@@ -98,41 +96,15 @@ mField<T, C>::mField(const std::string&             name,
 
 
 template <typename T, int C>
-template <Neon::computeMode_t::computeMode_e mode>
 auto mField<T, C>::forEachActiveCell(
-    const int                      level,
+    const int                          level,
     const std::function<void(const Neon::index_3d&,
                              const int& cardinality,
-                             T&)>& fun)
+                             T&)>&     fun,
+    Neon::computeMode_t::computeMode_e mode)
     -> void
 {
-    const auto& descriptor = mData->grid->getDescriptor();
-
-    //TODO need to figure out which device owns this block
-    SetIdx devID(0);
-
-    const int refFactor = descriptor.getRefFactor(level);
-
-    mData->grid->operator()(level).getBlockOriginTo1D().forEach(
-        [&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-            for (int16_t z = 0; z < refFactor; z++) {
-                for (int16_t y = 0; y < refFactor; y++) {
-                    for (int16_t x = 0; x < refFactor; x++) {
-
-                        Cell cell(x, y, z);
-                        cell.mBlockID = blockIdx;
-                        cell.mBlockSize = refFactor;
-                        if (cell.computeIsActive(mData->grid->operator()(level).getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
-                            for (int c = 0; c < mData->fields[level].getCardinality(); c++) {
-                                const Neon::index_3d local(x, y, z);
-                                Neon::index_3d       index3D = blockOrigin + descriptor.toBaseIndexSpace(local, level);
-                                fun(index3D, c, this->getReference(index3D, c, level));
-                            }
-                        }
-                    }
-                }
-            }
-        });
+    mData->fields[level].mData->field.forEachActiveCell(fun, mode);
 }
 
 
@@ -147,28 +119,8 @@ auto mField<T, C>::getRef(const Neon::index_3d& idx,
                           const int&            cardinality,
                           const int             level) const -> T&
 {
-    //TODO need to figure out which device owns this block
-    SetIdx devID(0);
 
-    if (!isInsideDomain(idx, level)) {
-        return mData->fields[level].getOutsideValue();
-    }
-
-    auto partition = getPartition(Neon::DeviceType::CPU, devID, Neon::DataView::STANDARD, level);
-
-    Neon::int32_3d block_origin = mData->grid->getOriginBlock3DIndex(idx, level);
-
-    auto itr = mData->grid->getBlockOriginTo1D(level).getMetadata(block_origin);
-
-    Neon::index_3d localID = mData->grid->getDescriptor().toLocalIndex(idx, level);
-
-    Cell cell(static_cast<Cell::Location::Integer>(localID.x),
-              static_cast<Cell::Location::Integer>(localID.y),
-              static_cast<Cell::Location::Integer>(localID.z));
-
-    cell.mBlockID = *itr;
-    cell.mBlockSize = mData->grid->getDescriptor().getRefFactor(level);
-    return partition(cell, cardinality);
+    return mData->fields[level].getReference(idx, cardinality);
 }
 
 template <typename T, int C>
@@ -183,13 +135,29 @@ auto mField<T, C>::operator()(int level) const -> const xField<T, C>&
     return mData->fields[level];
 }
 
+template <typename T, int C>
+auto mField<T, C>::operator()(const Neon::index_3d& idx,
+                              const int&            cardinality,
+                              const int             level) -> T&
+{
+    return getReference(idx, cardinality, level);
+}
+
+
+template <typename T, int C>
+auto mField<T, C>::operator()(const Neon::index_3d& idx,
+                              const int&            cardinality,
+                              const int             level) const -> const T&
+{
+    return getReference(idx, cardinality, level);
+}
 
 template <typename T, int C>
 auto mField<T, C>::getReference(const Neon::index_3d& idx,
                                 const int&            cardinality,
                                 const int             level) -> T&
 {
-    return mData->fields[level].operator()(idx, cardinality);
+    return mData->fields[level].getReference()(idx, cardinality);
 }
 
 template <typename T, int C>
@@ -197,7 +165,7 @@ auto mField<T, C>::getReference(const Neon::index_3d& idx,
                                 const int&            cardinality,
                                 const int             level) const -> const T&
 {
-    return mData->fields[level].operator()(idx, cardinality);
+    return mData->fields[level].getReference(idx, cardinality);
 }
 
 template <typename T, int C>
@@ -219,7 +187,7 @@ auto mField<T, C>::updateIO(int streamId) -> void
 {
 
     for (size_t l = 0; l < mData->fields.size(); ++l) {
-        mData->fields[l].updateIO(streamId);
+        mData->fields[l].mData->field.updateIO(streamId);
     }
 }
 
@@ -227,7 +195,7 @@ template <typename T, int C>
 auto mField<T, C>::updateCompute(int streamId) -> void
 {
     for (size_t l = 0; l < mData->fields.size(); ++l) {
-        mData->fields[l].updateCompute(streamId);
+        mData->fields[l].mData->field.updateCompute(streamId);
     }
 }
 
