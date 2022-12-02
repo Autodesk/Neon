@@ -151,8 +151,7 @@ void MultiResDemo()
 
         auto container = grid.getContainer(
             "container", level, [&, level](Neon::set::Loader& loader) {
-                auto& local = loader.load(field(level));
-
+                auto& local = field.load(loader, level, Neon::MultiResCompute::MAP);
                 return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                     if (!local.hasChildren(cell)) {
 

@@ -57,7 +57,7 @@ void MultiResSkeleton()
                 "map" + std::to_string(level),
                 level,
                 [&, level](Neon::set::Loader& loader) {
-                    auto& local = loader.load(field(level));
+                    auto& local = field.load(loader, level, Neon::MultiResCompute::MAP);
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         Neon::index_3d global = local.mapToGlobal(cell);
                         local(cell, 0) = global.v[0];
@@ -73,8 +73,7 @@ void MultiResSkeleton()
                 "ReadParent" + std::to_string(level),
                 level,
                 [&, level](Neon::set::Loader& loader) {
-                    auto&       local = loader.load(field(level));
-                    const auto& parent_local = loader.load(field(level + 1));
+                    auto& local = field.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         assert(local.hasParent(cell));
 

@@ -60,8 +60,9 @@ void MultiResSameLevelStencil()
 
             auto container = grid.getContainer(
                 "SameLevelStencil", level, [&, level](Neon::set::Loader& loader) {
-                    auto& xLocal = loader.load(XField(level));
-                    auto& yLocal = loader.load(YField(level));
+                    auto& xLocal = XField.load(loader, level, Neon::MultiResCompute::STENCIL);
+                    auto& yLocal = YField.load(loader, level, Neon::MultiResCompute::MAP);
+
 
                     return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
                         for (int card = 0; card < xLocal.cardinality(); card++) {

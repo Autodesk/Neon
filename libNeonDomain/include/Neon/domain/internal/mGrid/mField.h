@@ -1,7 +1,21 @@
 #pragma once
+#include "Neon/set/container/Loader.h"
+
+
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/internal/bGrid/bField.h"
 #include "Neon/domain/internal/mGrid/mPartition.h"
+
+namespace Neon {
+
+enum struct MultiResCompute
+{
+    MAP /**< Map operation */,
+    STENCIL /**< Stencil that reads the neighbor at the same level */,
+    STENCIL_UP /**< Stencil that reads the parent */,
+    STENCIL_DOWN /**< Stencil that reads the children */,
+};
+}
 
 
 namespace Neon::domain::internal::mGrid {
@@ -226,6 +240,8 @@ class mField
     auto ioToVtk(const std::string& fileName,
                  const std::string& FieldName,
                  Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII) const -> void;
+
+    auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) -> typename xField<T, C>::Partition&;
 
    private:
     mField(const std::string&         name,

@@ -63,8 +63,8 @@ void MultiResChild()
             auto container = grid.getContainer(
 
                 "hasChildren", level, [&, level, descriptor](Neon::set::Loader& loader) {
-                    auto& xLocal = loader.load(XField(level));
-                    auto& isRefinedLocal = loader.load(isRefinedField(level));
+                    auto& xLocal = XField.load(loader, level, Neon::MultiResCompute::MAP);
+                    auto& isRefinedLocal = isRefinedField.load(loader, level, Neon::MultiResCompute::MAP);
 
 
                     return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {

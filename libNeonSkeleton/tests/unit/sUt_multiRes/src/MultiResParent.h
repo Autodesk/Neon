@@ -64,8 +64,8 @@ void MultiResParent()
 
             auto container = grid.getContainer(
                 "Parent", level, [&, level](Neon::set::Loader& loader) {
-                    auto& xLocal = loader.load(XField(level));
-                    auto& hasParentLocal = loader.load(hasParentField(level));
+                    auto& xLocal = XField.load(loader, level, Neon::MultiResCompute::MAP);
+                    auto& hasParentLocal = hasParentField.load(loader, level, Neon::MultiResCompute::MAP);
 
                     return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
                         if (xLocal.hasParent(cell)) {
@@ -104,7 +104,7 @@ void MultiResParent()
                 l,
                 [&](const Neon::int32_3d id, const int, Type& val) {
                     if (l != descriptor.getDepth() - 1) {
-                        EXPECT_EQ(val, l + 1) << "l = " << l << " id = " << id;                        
+                        EXPECT_EQ(val, l + 1) << "l = " << l << " id = " << id;
                     } else {
                         EXPECT_EQ(val, l) << "l = " << l << " id = " << id;
                     }
@@ -178,7 +178,7 @@ void MultiResAtomicAddParent()
 
             auto container = grid.getContainer(
                 "Parent", level, [&, level](Neon::set::Loader& loader) {
-                    auto& xLocal = loader.load(XField(level));
+                    auto& xLocal = XField.load(loader, level, Neon::MultiResCompute::MAP);
 
                     return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
                         if (xLocal.hasParent(cell)) {

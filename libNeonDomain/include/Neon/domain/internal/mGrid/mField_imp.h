@@ -199,6 +199,35 @@ auto mField<T, C>::updateCompute(int streamId) -> void
     }
 }
 
+template <typename T, int C>
+auto mField<T, C>::load(Neon::set::Loader     loader,
+                        int                   level,
+                        Neon::MultiResCompute compute) -> typename xField<T, C>::Partition&
+{
+    switch (compute) {
+        case Neon::MultiResCompute::MAP: {
+            return loader.load(operator()(level), Neon::Compute::MAP);
+            break;
+        }
+        case Neon::MultiResCompute::STENCIL: {
+            return loader.load(operator()(level), Neon::Compute::STENCIL);
+            break;
+        }
+        case Neon::MultiResCompute::STENCIL_UP: {
+            loader.load(operator()(level + 1), Neon::Compute::MAP);
+            return loader.load(operator()(level), Neon::Compute::MAP);
+            break;
+        }
+        case Neon::MultiResCompute::STENCIL_DOWN: {
+            loader.load(operator()(level - 1), Neon::Compute::MAP);
+            return loader.load(operator()(level), Neon::Compute::MAP);
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 
 template <typename T, int C>
 auto mField<T, C>::ioToVtk(const std::string& fileName,
