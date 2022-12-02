@@ -52,9 +52,9 @@ void MultiResSkeleton()
 
         //map operation at the top level
         {
-            int level = 0;
+            int level = descriptor.getDepth() - 1;
             containers.push_back(grid.getContainer(
-                "map",
+                "map" + std::to_string(level),
                 level,
                 [&, level](Neon::set::Loader& loader) {
                     auto& local = loader.load(field(level));
@@ -72,8 +72,9 @@ void MultiResSkeleton()
             containers.push_back(grid.getContainer(
                 "ReadParent" + std::to_string(level),
                 level,
-                [&](Neon::set::Loader& loader) {
-                    auto& local = loader.load(field(level));
+                [&, level](Neon::set::Loader& loader) {
+                    auto&       local = loader.load(field(level));
+                    const auto& parent_local = loader.load(field(level + 1));
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         assert(local.hasParent(cell));
 
@@ -87,6 +88,7 @@ void MultiResSkeleton()
 
         Neon::skeleton::Skeleton skl(grid.getBackend());
         skl.sequence(containers, "MultiResSkeleton");
+        skl.ioToDot("MultiRes");
         skl.run();
 
         grid.getBackend().syncAll();
@@ -112,7 +114,7 @@ void MultiResSkeleton()
         }
     }
 }
-TEST(MultiRes, DISABLED_Skeleton)
+TEST(MultiRes, Skeleton)
 {
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
         MultiResSkeleton();
