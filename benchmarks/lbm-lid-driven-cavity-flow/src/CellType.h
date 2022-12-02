@@ -28,6 +28,14 @@ struct CellType
         wallNghBitflag = 0;
     }
 
+
+
     uint32_t       wallNghBitflag;
     Classification classification;
 };
+
+std::ostream& operator<<(std::ostream& os, const CellType& dt)
+{
+    os << static_cast<double>(dt.classification);
+    return os;
+}

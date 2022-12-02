@@ -37,6 +37,7 @@ auto run(Config& config,
     Grid::Field<StorageFP, 3> u;
 
     if (!config.benchmark) {
+        std::cout << "Allocating rho and u" << std::endl;
         rho = grid.newField<StorageFP, 1>("rho", 1, StorageFP(0.0));
         u = grid.newField<StorageFP, 3>("u", 3, StorageFP(0.0));
     }
@@ -70,6 +71,7 @@ auto run(Config& config,
         container.run(Neon::Backend::mainStreamIdx);
         u.updateIO(Neon::Backend::mainStreamIdx);
         rho.updateIO(Neon::Backend::mainStreamIdx);
+        //iteration.getInput().updateIO(Neon::Backend::mainStreamIdx);
 
         bk.syncAll();
         size_t      numDigits = 5;
@@ -78,6 +80,9 @@ auto run(Config& config,
 
         u.ioToVtk("u_" + iterIdStr, "u", false);
         rho.ioToVtk("rho_" + iterIdStr, "rho", false);
+        //iteration.getInput().ioToVtk("pop_" + iterIdStr, "u", false);
+        //flag.ioToVtk("flag_" + iterIdStr, "u", false);
+
     };
 
 
@@ -87,6 +92,8 @@ auto run(Config& config,
     // 1. init all lattice to equilibrium
     {
         auto&          inPop = iteration.getInput();
+        auto&          outPop = iteration.getOutput();
+
         Neon::index_3d dim(config.N, config.N, config.N);
 
         const auto& t = lattice.t_vect;
@@ -96,21 +103,63 @@ auto run(Config& config,
                                                                       const int&            k,
                                                                       StorageFP&            val) {
             val = t.at(k);
-            flag.getReference(idx, 0).classification = CellType::bulk;
 
-            if (idx.x == 0 || idx.x == dim.x - 1 || idx.y == 0 || idx.y == dim.y - 1 || idx.z == 0 || idx.z == dim.z - 1) {
-                flag.getReference(idx, 0).classification = CellType::bounceBack;
+            if (idx.x == 0 || idx.x == dim.x - 1 ||
+                idx.y == 0 || idx.y == dim.y - 1 ||
+                idx.z == 0 || idx.z == dim.z - 1) {
+
                 if (idx.x == dim.x - 1) {
                     val = -6. * t.at(k) * config.ulb *
                           (c.at(k).v[0] * ulid.v[0] +
                            c.at(k).v[1] * ulid.v[1] +
                            c.at(k).v[2] * ulid.v[2]);
-                    flag.getReference(idx, 0).classification = CellType::movingWall;
+                } else {
+                    val = 0;
+                }
+            }
+        });
+
+        outPop.forEachActiveCell([&c, &t, &dim, &flag, &ulid, &config](const Neon::index_3d& idx,
+                                                                      const int&            k,
+                                                                      StorageFP&            val) {
+            val = t.at(k);
+
+            if (idx.x == 0 || idx.x == dim.x - 1 ||
+                idx.y == 0 || idx.y == dim.y - 1 ||
+                idx.z == 0 || idx.z == dim.z - 1) {
+
+                if (idx.x == dim.x - 1) {
+                    val = -6. * t.at(k) * config.ulb *
+                          (c.at(k).v[0] * ulid.v[0] +
+                           c.at(k).v[1] * ulid.v[1] +
+                           c.at(k).v[2] * ulid.v[2]);
+                } else {
+                    val = 0;
+                }
+            }
+        });
+
+        flag.forEachActiveCell([&dim](const Neon::index_3d& idx,
+                                      const int&,
+                                      CellType& flagVal) {
+            flagVal.classification = CellType::bulk;
+            flagVal.wallNghBitflag = 0;
+
+            if (idx.x == 0 || idx.x == dim.x - 1 ||
+                idx.y == 0 || idx.y == dim.y - 1 ||
+                idx.z == 0 || idx.z == dim.z - 1) {
+
+                flagVal.classification = CellType::bounceBack;
+
+                if (idx.x == dim.x - 1) {
+                    flagVal.classification = CellType::movingWall;
                 }
             }
         });
 
         inPop.updateCompute(Neon::Backend::mainStreamIdx);
+        outPop.updateCompute(Neon::Backend::mainStreamIdx);
+
         flag.updateCompute(Neon::Backend::mainStreamIdx);
         bk.syncAll();
         Neon::set::HuOptions hu(Neon::set::TransferMode::get,
