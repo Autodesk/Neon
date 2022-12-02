@@ -57,31 +57,33 @@ auto run(Config& config,
                   lbmParameters.omega);
 
     auto exportRhoAndU = [&bk, &rho, &u, &iteration, &flag](int iterationId) {
-        auto& f = iteration.getInput();
-        bk.syncAll();
-        Neon::set::HuOptions hu(Neon::set::TransferMode::get,
-                                false,
-                                Neon::Backend::mainStreamIdx,
-                                Neon::set::TransferSemantic::grid);
+        if((iterationId)%100 == 0) {
+            auto& f = iteration.getInput();
+            bk.syncAll();
+            Neon::set::HuOptions hu(Neon::set::TransferMode::get,
+                                    false,
+                                    Neon::Backend::mainStreamIdx,
+                                    Neon::set::TransferSemantic::grid);
 
-        f.haloUpdate(hu);
-        bk.syncAll();
-        auto container = LbmToolsTemplate<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
+            f.haloUpdate(hu);
+            bk.syncAll();
+            auto container = LbmToolsTemplate<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
 
-        container.run(Neon::Backend::mainStreamIdx);
-        u.updateIO(Neon::Backend::mainStreamIdx);
-        rho.updateIO(Neon::Backend::mainStreamIdx);
-        //iteration.getInput().updateIO(Neon::Backend::mainStreamIdx);
+            container.run(Neon::Backend::mainStreamIdx);
+            u.updateIO(Neon::Backend::mainStreamIdx);
+            rho.updateIO(Neon::Backend::mainStreamIdx);
+            // iteration.getInput().updateIO(Neon::Backend::mainStreamIdx);
 
-        bk.syncAll();
-        size_t      numDigits = 5;
-        std::string iterIdStr = std::to_string(iterationId);
-        iterIdStr = std::string(numDigits - std::min(numDigits, iterIdStr.length()), '0') + iterIdStr;
+            bk.syncAll();
+            size_t      numDigits = 5;
+            std::string iterIdStr = std::to_string(iterationId);
+            iterIdStr = std::string(numDigits - std::min(numDigits, iterIdStr.length()), '0') + iterIdStr;
 
-        u.ioToVtk("u_" + iterIdStr, "u", false);
-        rho.ioToVtk("rho_" + iterIdStr, "rho", false);
-        //iteration.getInput().ioToVtk("pop_" + iterIdStr, "u", false);
-        //flag.ioToVtk("flag_" + iterIdStr, "u", false);
+            u.ioToVtk("u_" + iterIdStr, "u", false);
+            rho.ioToVtk("rho_" + iterIdStr, "rho", false);
+            // iteration.getInput().ioToVtk("pop_" + iterIdStr, "u", false);
+            // flag.ioToVtk("flag_" + iterIdStr, "u", false);
+        }
 
     };
 
