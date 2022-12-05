@@ -51,7 +51,7 @@ mPartition<T, C>::mPartition(Neon::DataView  dataView,
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline Neon::index_3d mPartition<T, C>::mapToGlobal(const Cell& cell) const
 {
-    Neon::index_3d ret = mOrigin[cell.mBlockID];
+    Neon::index_3d ret = this->mOrigin[cell.mBlockID];
 #ifdef NEON_PLACE_CUDA_DEVICE
     if constexpr (Cell::sUseSwirlIndex) {
         auto swirl = cell.toSwirl();
@@ -128,14 +128,14 @@ template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Cell& childCell,
                                                              int         card) -> T&
 {
-    return mMemChild[pitch(childCell, card)];
+    return mMemChild[this->pitch(childCell, card)];
 }
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Cell& childCell,
                                                              int         card) const -> const T&
 {
-    return mMemChild[pitch(childCell, card)];
+    return mMemChild[this->pitch(childCell, card)];
 }
 
 template <typename T, int C>
@@ -184,7 +184,7 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parent(const Cell& eId,
         parentCell.mBlockID = mParentBlockID[eId.mBlockID];
         parentCell.mLocation = mParentLocalID[eId.mBlockID];
         parentCell.mBlockSize = mRefFactors[mLevel + 1];
-        return mMemParent[pitch(parentCell, card)];
+        return mMemParent[this->pitch(parentCell, card)];
     }
 }
 
