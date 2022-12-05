@@ -89,8 +89,8 @@ template <typename T, int C>
 auto bField<T, C>::forEachActiveCell(
     const std::function<void(const Neon::index_3d&,
                              const int& cardinality,
-                             T&)>&     fun,
-    Neon::computeMode_t::computeMode_e mode)
+                             T&)>&                      fun,
+    [[maybe_unused]] Neon::computeMode_t::computeMode_e mode)
     -> void
 {
 

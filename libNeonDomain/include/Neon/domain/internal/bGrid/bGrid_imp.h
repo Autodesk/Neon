@@ -372,12 +372,13 @@ auto bGrid::dot(const std::string&               name,
                 } else {
 
                     scalar() = 0;
-                    input1.template forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
+                    input1.forEachActiveCell(
                         [&](const Neon::index_3d& idx,
                             const int&            cardinality,
                             T&                    in1) {
                             scalar() += in1 * input2(idx, cardinality);
-                        });
+                        },
+                        Neon::computeMode_t::computeMode_e::seq);
                 }
             };
         });
@@ -432,12 +433,13 @@ auto bGrid::norm2(const std::string&               name,
                 } else {
 
                     scalar() = 0;
-                    input.template forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
+                    input.forEachActiveCell(
                         [&]([[maybe_unused]] const Neon::index_3d& idx,
                             [[maybe_unused]] const int&            cardinality,
                             T&                                     in) {
                             scalar() += in * in;
-                        });
+                        },
+                        Neon::computeMode_t::computeMode_e::seq);
                 }
                 scalar() = std::sqrt(scalar());
             };

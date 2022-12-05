@@ -34,11 +34,12 @@ TEST(mGrid, multiRes)
         auto field = grid.newField<float>("myField", 1, 0);
 
         for (int l = 0; l < descriptor.getDepth(); ++l) {
-            field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
+            field.forEachActiveCell(
                 l,
                 [&]([[maybe_unused]] const Neon::int32_3d idx, const int /*card*/, float& val) {
                     val = 20 + float(l);
-                });
+                },
+                Neon::computeMode_t::computeMode_e::seq);
         }
 
         field.ioToVtk("f", "f");
