@@ -122,7 +122,7 @@ struct D3Q19Template
             1. / 36. /*!  18  */,
         };
 
-        this->t = Neon::set::Memory::MemSet<double>(backend, 1, opp_vect.size(),
+        this->t = Neon::set::Memory::MemSet<StorageFP>(backend, 1, opp_vect.size(),
                                                     Neon::DataUse::IO_COMPUTE);
 
         for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {

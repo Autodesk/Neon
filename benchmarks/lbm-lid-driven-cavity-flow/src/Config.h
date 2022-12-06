@@ -26,6 +26,7 @@ struct Config
     int                         benchIniIter = 1000;                          // Benchmark mode: Number of warmup iterations
     int                         benchMaxIter = 2000;                          // Benchmark mode: Total number of iterations
     int                         repetitions = 1;                              // Benchmark mode: number of time the test is run
+    std::string                 deviceType = "gpu";
     std::vector<int>            devices = std::vector<int>(0);                // Devices for the execution
     std::string                 reportFile = "lbm-lid-driven-cavity-flow";    // Report file name
     std::string                 gridType = "dGrid";                           // Neon grid type
@@ -33,6 +34,8 @@ struct Config
     Neon::set::TransferMode     transferMode = Neon::set::TransferMode::get;  // Neon transfer mode for halo update
     Neon::set::TransferSemantic transferSemantic = Neon::set::TransferSemantic::lattice;
     bool                        vti = false;  // Export vti file
+    std::string                 computeType = "double";
+    std::string                 storeType = "double";
 
     LbmParameters<double> mLbmParameters;
 

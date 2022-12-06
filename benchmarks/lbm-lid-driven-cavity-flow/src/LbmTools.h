@@ -3,6 +3,8 @@
 #include "Neon/Neon.h"
 #include "Neon/set/Containter.h"
 
+#define COMPUTE_CAST(VAR) static_cast<LbmComputeType>((VAR))
+
 template <typename Lattice,
           typename PopulationField,
           typename LbmComputeType>
@@ -79,7 +81,7 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
             if (wallBitFlag & (uint32_t(1) << GOid)) {                                                                  \
                 /*std::cout << "cell " << i.mLocation << " direction " << GOid << " opposite " << BKid << std::endl; */ \
                 popIn[GOid] = fin(i, BKid) +                                                                            \
-                              fin.template nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value;                    \
+                              fin.template nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value;                                   \
             } else {                                                                                                    \
                 popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;                                   \
             }                                                                                                           \
@@ -150,7 +152,7 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
     collideBgkUnrolled(Cell const&                          i /*!     LbmComputeType iterator   */,
                        const LbmStoreType                   pop[Lattice::Q],
                        LbmComputeType const&                rho /*!   Density            */,
-                       std::array<double, 3> const&         u /*!     Velocity           */,
+                       std::array<LbmComputeType, 3> const& u /*!     Velocity           */,
                        LbmComputeType const&                usqr /*!  Usqr               */,
                        LbmComputeType const&                omega /*! Omega              */,
                        typename PopulationField::Partition& fOut /*!  Population         */)
@@ -376,9 +378,9 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                             popIn[9] = fIn(cell, 9);
 
                             rho = 1.0;
-                            u = std::array<LbmComputeType, 3>{popIn[0] / (6. * 1. / 18.),
-                                                              popIn[1] / (6. * 1. / 18.),
-                                                              popIn[2] / (6. * 1. / 18.)};
+                            u = std::array<LbmComputeType, 3>{COMPUTE_CAST(popIn[0]) / COMPUTE_CAST(6. * 1. / 18.),
+                                                              COMPUTE_CAST(popIn[1]) / COMPUTE_CAST(6. * 1. / 18.),
+                                                              COMPUTE_CAST(popIn[2]) / COMPUTE_CAST(6. * 1. / 18.)};
                         }
                     }
 
@@ -391,3 +393,5 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
         return container;
     }
 };
+
+#undef COMPUTE_CAST

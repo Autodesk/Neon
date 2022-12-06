@@ -8,6 +8,7 @@
 namespace metrics {
 // Return a new clock for the current time, for benchmarking.
 namespace {
+
 auto restartClock(Neon::Backend& bk, bool sync = true)
 {
     if (sync) {
@@ -15,7 +16,15 @@ auto restartClock(Neon::Backend& bk, bool sync = true)
     }
     return make_pair(std::chrono::high_resolution_clock::now(), 0);
 }
+
+void recordBackend(Neon::Backend& bk,
+                   Report&        report)
+{
+    report.recordBk(bk);
+}
+
 }  // namespace
+
 
 // Compute the time elapsed since a starting point, and the corresponding
 // benchmarks of the code in Mega Lattice site updates per second (MLups).
@@ -53,5 +62,21 @@ void recordGridInitMetrics(Neon::Backend& bk,
 
     std::cout << "Metrics: " << std::endl;
     std::cout << "    Grid Init: " << std::setprecision(4) << duration.count() << " microseconds" << std::endl;
+}
+
+
+template <class TimePoint>
+void recordProblemSetupMetrics(Neon::Backend& bk,
+                               Report&        report,
+                               TimePoint      start)
+{
+    bk.syncAll();
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+
+    report.recordProblemSetupTime(duration.count(), "microseconds");
+
+    std::cout << "Metrics: " << std::endl;
+    std::cout << "    Problem Setup: " << std::setprecision(4) << duration.count() << " microseconds" << std::endl;
 }
 }  // namespace metrics

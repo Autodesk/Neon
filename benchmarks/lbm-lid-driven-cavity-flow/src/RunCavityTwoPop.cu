@@ -9,16 +9,37 @@
 
 namespace CavityTwoPop {
 
+int backendWasReported = false;
+
+namespace details {
+template <typename Grid,
+          typename StorageFP,
+          typename ComputeFP>
 auto run(Config& config,
          Report& report) -> void
 {
-    using StorageFP = double;
-    using ComputeFP = double;
-    using Grid = Neon::domain::dGrid;
     using Lattice = D3Q19Template<StorageFP, ComputeFP>;
-    using PopulationField = typename Grid::Field<StorageFP, Lattice::Q>;
+    using PopulationField = typename Grid::template Field<StorageFP, Lattice::Q>;
 
-    Neon::Backend bk(config.devices, Neon::Runtime::openmp);
+
+    Neon::Backend bk = [&] {
+        if (config.deviceType == "cpu") {
+            Neon::Backend bk(config.devices, Neon::Runtime::openmp);
+            return bk;
+        }
+        if (config.deviceType == "gpu") {
+            Neon::Backend bk(config.devices, Neon::Runtime::stream);
+            return bk;
+        }
+        Neon::NeonException exce("run");
+        exce << config.deviceType << " is not a supported option as device type";
+        NEON_THROW(exce);
+    }();
+
+    if(!backendWasReported) {
+        metrics::recordBackend(bk, report);
+        backendWasReported = true;
+    }
 
     Neon::double_3d ulid(0., 1., 0.);
     Lattice         lattice(bk);
@@ -30,21 +51,21 @@ auto run(Config& config,
         [](const Neon::index_3d&) { return true; },
         lattice.c_vect);
 
-    PopulationField pop0 = grid.newField<StorageFP, Lattice::Q>("Population", Lattice::Q, StorageFP(0.0));
-    PopulationField pop1 = grid.newField<StorageFP, Lattice::Q>("Population", Lattice::Q, StorageFP(0.0));
+    PopulationField pop0 = grid.template newField<StorageFP, Lattice::Q>("Population", Lattice::Q, StorageFP(0.0));
+    PopulationField pop1 = grid.template newField<StorageFP, Lattice::Q>("Population", Lattice::Q, StorageFP(0.0));
 
-    Grid::Field<StorageFP, 1> rho;
-    Grid::Field<StorageFP, 3> u;
+    typename Grid::template Field<StorageFP, 1> rho;
+    typename Grid::template Field<StorageFP, 3> u;
 
     if (!config.benchmark) {
         std::cout << "Allocating rho and u" << std::endl;
-        rho = grid.newField<StorageFP, 1>("rho", 1, StorageFP(0.0));
-        u = grid.newField<StorageFP, 3>("u", 3, StorageFP(0.0));
+        rho = grid.template newField<StorageFP, 1>("rho", 1, StorageFP(0.0));
+        u = grid.template newField<StorageFP, 3>("u", 3, StorageFP(0.0));
     }
 
 
     CellType defaultCelltype;
-    auto     flag = grid.newField<CellType, 1>("Material", 1, defaultCelltype);
+    auto     flag = grid.template newField<CellType, 1>("Material", 1, defaultCelltype);
     auto     lbmParameters = config.getLbmParameters<ComputeFP>();
 
     LbmIterationD3Q19<PopulationField, ComputeFP>
@@ -57,7 +78,7 @@ auto run(Config& config,
                   lbmParameters.omega);
 
     auto exportRhoAndU = [&bk, &rho, &u, &iteration, &flag](int iterationId) {
-        if((iterationId)%100 == 0) {
+        if ((iterationId) % 100 == 0) {
             auto& f = iteration.getInput();
             bk.syncAll();
             Neon::set::HuOptions hu(Neon::set::TransferMode::get,
@@ -84,17 +105,17 @@ auto run(Config& config,
             // iteration.getInput().ioToVtk("pop_" + iterIdStr, "u", false);
             // flag.ioToVtk("flag_" + iterIdStr, "u", false);
         }
-
     };
 
 
     metrics::recordGridInitMetrics(bk, report, start);
+    tie(start, clock_iter) = metrics::restartClock(bk, true);
 
     // Problem Setup
     // 1. init all lattice to equilibrium
     {
-        auto&          inPop = iteration.getInput();
-        auto&          outPop = iteration.getOutput();
+        auto& inPop = iteration.getInput();
+        auto& outPop = iteration.getOutput();
 
         Neon::index_3d dim(config.N, config.N, config.N);
 
@@ -122,8 +143,8 @@ auto run(Config& config,
         });
 
         outPop.forEachActiveCell([&c, &t, &dim, &flag, &ulid, &config](const Neon::index_3d& idx,
-                                                                      const int&            k,
-                                                                      StorageFP&            val) {
+                                                                       const int&            k,
+                                                                       StorageFP&            val) {
             val = t.at(k);
 
             if (idx.x == 0 || idx.x == dim.x - 1 ||
@@ -175,6 +196,9 @@ auto run(Config& config,
         container.run(Neon::Backend::mainStreamIdx);
         bk.syncAll();
     }
+
+    metrics::recordProblemSetupMetrics(bk, report, start);
+
     // Reset the clock, to be used when a benchmark simulation is executed.
     tie(start, clock_iter) = metrics::restartClock(bk, true);
 
@@ -205,5 +229,46 @@ auto run(Config& config,
     }
     std::cout << "Iterations completed" << std::endl;
     metrics::recordMetrics(bk, config, report, start, clock_iter);
+}
+
+template <typename Grid, typename StorageFP>
+auto runFilterComputeType(Config& config, Report& report) -> void
+{
+    if (config.computeType == "double") {
+        return run<Grid, StorageFP, double>(config, report);
+    }
+    if (config.computeType == "float") {
+        return run<Grid, StorageFP, float>(config, report);
+    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
+}
+
+template <typename Grid>
+auto runFilterStoreType(Config& config,
+                        Report& report)
+    -> void
+{
+    if (config.storeType == "double") {
+        return runFilterComputeType<Neon::domain::dGrid, double>(config, report);
+    }
+    if (config.storeType == "float") {
+        return runFilterComputeType<Neon::domain::dGrid, float>(config, report);
+    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
+}
+}  // namespace details
+
+auto run(Config& config,
+         Report& report) -> void
+{
+    if (config.gridType == "dGrid") {
+        return details::runFilterStoreType<Neon::domain::dGrid>(config, report);
+    }
+    if (config.gridType == "eGrid") {
+        NEON_DEV_UNDER_CONSTRUCTION("");
+    }
+    if (config.gridType == "bGrid") {
+        NEON_DEV_UNDER_CONSTRUCTION("");
+    }
 }
 }  // namespace CavityTwoPop

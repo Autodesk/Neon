@@ -35,4 +35,5 @@ struct Report
 
     auto save()
         -> void;
+    void recordBk(Neon::Backend& backend);
 };
