@@ -41,6 +41,7 @@ set(NeonCXXFlags
         $<$<CXX_COMPILER_ID:Clang>:-m64 -Wall -Wextra -Werror -Wno-unused-function -Wno-deprecated-declarations -Wno-deprecated-copy -Wno-unused-parameter -Wno-unused-private-field -Wno-braced-scalar-init -Wno-unused-variable -Wno-unused-but-set-variable -Wno-deprecated-declarations >
         )
 
+set(MSVC_XCOMPILER_FLAGS "/openmp /std:c++17")
 set(NeonCUDAFlags
         # Optimization flags for Release
         $<$<CXX_COMPILER_ID:GNU>: $<$<CONFIG:Release>:-O3> >
@@ -51,7 +52,7 @@ set(NeonCUDAFlags
         # Host compiler
         $<$<CXX_COMPILER_ID:GNU>:-Xcompiler -fopenmp -std=c++17 $<$<CONFIG:Release>:-O3> $<$<CONFIG:Debug>:-O0> >
         $<$<CXX_COMPILER_ID:Clang>:-Xcompiler -fopenmp -std=c++17 $<$<CONFIG:Release>:-O3> $<$<CONFIG:Debug>:-O0>>
-        $<$<CXX_COMPILER_ID:MSVC>:-Xcompiler /std:c++17>
+        $<$<CXX_COMPILER_ID:MSVC>:-Xcompiler ${MSVC_XCOMPILER_FLAGS}>
         #Disables warning
         #177-D "function XXX was declared but never referenced"
         -Xcudafe "--display_error_number --diag_suppress=177"
