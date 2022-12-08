@@ -23,7 +23,7 @@ class mGrid
 {
    public:
     using Grid = mGrid;
-    using InternalGrid = typename Neon::domain::internal::bGrid::bGrid;
+    using InternalGrid = Neon::domain::internal::bGrid::bGrid;
     using Cell = typename InternalGrid::Cell;
 
 

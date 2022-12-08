@@ -17,10 +17,13 @@ enum struct MultiResCompute
 };
 }
 
+namespace Neon::domain::internal::bGrid {
+class bGrid;
+}
 
 namespace Neon::domain::internal::mGrid {
 class mGrid;
-class Neon::domain::internal::bGrid::bGrid;
+
 
 template <typename T, int C = 0>
 class xField : public Neon::domain::interface::FieldBaseTemplate<T,
@@ -33,7 +36,7 @@ class xField : public Neon::domain::interface::FieldBaseTemplate<T,
    public:
     using Field = typename Neon::domain::internal::bGrid::bField<T, C>;
     using Partition = typename Neon::domain::internal::mGrid::mPartition<T, C>;
-    using Grid = typename Neon::domain::internal::bGrid::bGrid;
+    using Grid = Neon::domain::internal::bGrid::bGrid;
 
 
     xField() = default;
@@ -183,9 +186,9 @@ class mField
 
    public:
     using Type = T;
-    using Grid = typename Neon::domain::internal::mGrid::mGrid;
+    using Grid = Neon::domain::internal::mGrid::mGrid;
     using Partition = Neon::domain::internal::mGrid::mPartition<T, C>;
-    using InternalGrid = typename Neon::domain::internal::bGrid::bGrid;
+    using InternalGrid = Neon::domain::internal::bGrid::bGrid;
     using Cell = Neon::domain::internal::bGrid::bCell;
     using ngh_idx = typename Partition::nghIdx_t;
 

@@ -20,8 +20,8 @@ mField<T, C>::mField(const std::string&         name,
 
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
-        mData->fields[l] = xField<T, C>(name,
-                                        grid(l),
+        mData->fields[l] = xField<T, C>(name,                                       
+                                        mData->grid->operator()(l),
                                         cardinality,
                                         outsideVal,
                                         dataUse,
@@ -34,19 +34,19 @@ mField<T, C>::mField(const std::string&         name,
     for (int l = 0; l < descriptor.getDepth(); ++l) {
 
         auto mem = mData->fields[l].mData->field.getMem();
-
-        auto origins = grid(l).getOrigins();
-        auto neighbours_blocks = grid(l).getNeighbourBlocks();
-        auto stencil_ngh = grid(l).getStencilNghIndex();
-        auto active_mask = grid(l).getActiveMask();
+        
+        auto origins = mData->grid->operator()(l).getOrigins();
+        auto neighbours_blocks = mData->grid->operator()(l).getNeighbourBlocks();
+        auto stencil_ngh = mData->grid->operator()(l).getStencilNghIndex();
+        auto active_mask = mData->grid->operator()(l).getActiveMask();
         auto parent = mData->grid->getParentsBlockID(l);
         auto parentLocalID = mData->grid->getParentLocalID(l);
         auto childBlockID = mData->grid->getChildBlockID(l);
 
 
         for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
-            mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID] = grid.getBackend().devSet().template newDataSet<Partition>();
-            mData->fields[l].mData->mPartitions[PartitionBackend::gpu][dvID] = grid.getBackend().devSet().template newDataSet<Partition>();
+            mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
+            mData->fields[l].mData->mPartitions[PartitionBackend::gpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
 
             for (int32_t gpuID = 0; gpuID < int32_t(mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID].size()); gpuID++) {
 
@@ -63,7 +63,7 @@ mField<T, C>::mField(const std::string&         name,
                         parent.rawMem(gpuID, Neon::DeviceType::CPU),
                         parentLocalID.rawMem(gpuID, Neon::DeviceType::CPU),
                         active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
-                        (l == 0) ? nullptr : grid(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),  //lower-level mask
+                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),  //lower-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
                         outsideVal,
                         stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
@@ -83,7 +83,7 @@ mField<T, C>::mField(const std::string&         name,
                         parent.rawMem(gpuID, Neon::DeviceType::CUDA),
                         parentLocalID.rawMem(gpuID, Neon::DeviceType::CUDA),
                         active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        (l == 0) ? nullptr : grid(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),  //lower-level mask
+                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),  //lower-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
                         outsideVal,
                         stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),
@@ -272,7 +272,7 @@ auto mField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius, int level) 
     // to the block itself where N = stencilRadius
     int refFactor = mData->grid->getDescriptor().getRefFactor(level);
     return sizeof(T) *
-           mData->fields[l].getCardinality() *
+           mData->fields[level].getCardinality() *
            (refFactor + 2 * stencilRadius) *
            (refFactor + 2 * stencilRadius) *
            (refFactor + 2 * stencilRadius);
