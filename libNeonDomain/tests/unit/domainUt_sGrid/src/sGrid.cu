@@ -6,7 +6,7 @@
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/dGrid.h"
 #include "Neon/domain/eGrid.h"
-//#include "Neon/domain/sGrid.h"
+// #include "Neon/domain/sGrid.h"
 #include "Neon/skeleton/Options.h"
 #include "Neon/skeleton/Skeleton.h"
 
@@ -114,16 +114,16 @@ void sGridTestContainerRun(TestData<G, T, C>& data)
         auto& X = data.getField(FieldNames::X);
         auto& Y = data.getField(FieldNames::Y);
 
-        dim.forEach([&](int x, int y, int z) {
-#pragma omp critial
-            {
-                index_3d newE(x, y, z);
-                if (X.isInsideDomain(newE)) {
-                    if (X(newE, 0) % 2 == 0) {
-                        elements.push_back(newE);
-                    }
+        dim.forEach<Neon::computeMode_t::seq>([&](int x, int y, int z) {
+            // #pragma omp critial
+            //             {
+            index_3d newE(x, y, z);
+            if (X.isInsideDomain(newE)) {
+                if (X(newE, 0) % 2 == 0) {
+                    elements.push_back(newE);
                 }
             }
+            //            }
         });
 
         Neon::domain::sGrid<G> sGrid(grid, elements);
@@ -223,15 +223,15 @@ void sGridTestSkeleton(TestData<G, T, C>& data)
         auto& Y = data.getField(FieldNames::Y);
 
         dim.template forEach<Neon::computeMode_t::seq>([&](int x, int y, int z) {
-#pragma omp critial
-            {
-                index_3d newE(x, y, z);
-                if (X.isInsideDomain(newE)) {
-                    if (X(newE, 0) % 2 == 0) {
-                        elements.push_back(newE);
-                    }
+            // #pragma omp critial
+            //             {
+            index_3d newE(x, y, z);
+            if (X.isInsideDomain(newE)) {
+                if (X(newE, 0) % 2 == 0) {
+                    elements.push_back(newE);
                 }
             }
+            //            }
         });
 
         Neon::domain::sGrid<G> sGrid(grid, elements);
