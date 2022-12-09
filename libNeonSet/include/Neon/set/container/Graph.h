@@ -5,7 +5,18 @@
 
 #include "Neon/set/container/graph/Bfs.h"
 #include "Neon/set/container/graph/GraphDependency.h"
+#include "Neon/set/container/graph/GraphDependencyType.h"
 #include "Neon/set/container/graph/GraphNode.h"
+
+
+namespace Neon::skeleton::internal {
+struct MultiXpuGraph;
+}
+
+namespace Neon::set::container {
+struct GraphNode;
+struct GraphDependency;
+}  // namespace Neon::set::container
 
 namespace Neon::set::container {
 
@@ -15,13 +26,15 @@ namespace Neon::set::container {
  * directed edges of the graph are dependencies between the containers.
  * Dependencies my be data driven or user provided.
  *
- *
  */
 struct Graph
 {
     using Uid = GraphData::Uid;
     using Index = GraphData::Index;
     friend struct Bfs;
+    friend Neon::set::container::GraphNode;
+    friend Neon::set::container::GraphDependency;
+    friend Neon::skeleton::internal::MultiXpuGraph;
 
    public:
     Graph();
@@ -77,11 +90,36 @@ struct Graph
         -> GraphDependency&;
 
     /**
+     * Adds a dependency between two node of the graph
+     */
+    auto addDependency(const GraphNode&                        nodeA,
+                       const GraphNode&                        nodeB,
+                       const Neon::set::dataDependency::Token& token)
+        -> GraphDependency&;
+
+    auto removeDependency(const GraphDependency&)
+        -> void;
+
+
+    /**
+     * Helper - it removes redundant dependencies
+     */
+    auto removeRedundantDependencies() -> void;
+
+    /**
      * Returns the dependency type between two nodes.
      */
     auto getDependencyType(const GraphNode& nodeA,
                            const GraphNode& nodeB)
         -> GraphDependencyType;
+
+    auto getDependency(const GraphNode& nodeA,
+                       const GraphNode& nodeB)
+        const -> const GraphDependency&;
+
+    auto getMutableDependency(const GraphNode& nodeA,
+                              const GraphNode& nodeB)
+        -> GraphDependency&;
 
     /**
      * Clone a node and return a reference to the new clone.
@@ -105,7 +143,9 @@ struct Graph
      */
     auto getSubsequentGraphNodes(const GraphNode&                        graphNode,
                                  const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
-                                                                                            GraphDependencyType::data}) -> std::vector<GraphNode*>;
+                                                                                            GraphDependencyType::data})
+        -> std::vector<GraphNode*>;
+
     /**
      * Set the stream to run the graph.
      * We provide a preset function so that some initialization
@@ -146,7 +186,24 @@ struct Graph
         -> void;
 
     auto getNumberOfNodes()
-        ->int;
+        -> int;
+
+    auto forEachDependency(const std::function<void(const GraphDependency&)>& fun)
+        const -> void;
+
+    auto forEachNode(const std::function<void(const GraphNode&)>& fun)
+        const -> void;
+
+    /**
+     * Adding a graph between two nodes A and B
+     * The method works only on Graph type containers.
+     * Finally, it returns the number of added nodes.
+     */
+    auto expandAndMerge(const GraphNode& A,
+                        const Container& graphOriginal,
+                        const GraphNode& B,
+                        bool             propagateSchedulingHints)
+        -> int;
 
    protected:
     /**
@@ -159,10 +216,6 @@ struct Graph
      */
     auto helpCheckBackendStatus() -> void;
 
-    /**
-     * Helper - it removes redundant dependencies
-     */
-    auto helpRemoveRedundantDependencies() -> void;
 
     /**
      * Compute BFS
@@ -173,9 +226,8 @@ struct Graph
      * Returns the out-neighbour of a target node
      */
     auto helpGetOutNeighbors(GraphData::Uid,
-                             bool                                    fileterOutEnd = true,
-                             const std::vector<GraphDependencyType>& dependencyTypes = {GraphDependencyType::user,
-                                                                                        GraphDependencyType::data})
+                             bool                                    fileterOutEnd,
+                             const std::vector<GraphDependencyType>& dependencyTypes)
         -> std::set<GraphData::Uid>;
 
     /**
@@ -231,19 +283,21 @@ struct Graph
      * - order of execution
      * - mapping between streams and graph nodes
      */
-    auto helpComputeScheduling(bool filterOutAnchors, int anchorStream)
+    auto helpComputeScheduling(bool filterOutAnchors,
+                               int  anchorStream)
         -> void;
 
     /**
      * Helper - it executes the graph on all devices
      */
-    auto helpExecute(int anchorStream)
+    auto helpExecuteWithOmpAtNodeLevel(int anchorStream)
         -> void;
 
     /**
      * Helper - it executes the graph on a target device
      */
-    auto helpExecute(Neon::SetIdx setIdx, int anchorStream)
+    auto helpExecute(Neon::SetIdx setIdx,
+                     int          anchorStream)
         -> void;
     /**
      * Helper - It resets node scheduling data
@@ -261,7 +315,9 @@ struct Graph
      * Helper - it maps node to streams.
      * Returns the max stream Id used by the scheduling
      */
-    auto helpComputeScheduling_02_mappingStreams(Bfs& bfs, bool filterOutAnchors, int anchorStream)
+    auto helpComputeScheduling_02_mappingStreams(Bfs& bfs,
+                                                 bool filterOutAnchors,
+                                                 int  anchorStream)
         -> int;
 
     /**
@@ -274,9 +330,15 @@ struct Graph
     /**
      * Helper - it Books the required resources from the backend.
      */
-    auto helpComputeScheduling_04_ensureResources(int maxStreamId, int maxEventId)
+    auto helpComputeScheduling_04_ensureResources(int maxStreamId,
+                                                  int maxEventId)
         -> void;
 
+    /**
+     * Helper - it Books the required resources from the backend.
+     */
+    auto helpComputeScheduling_05_executionOrder(bool filterOutAnchors, Bfs& bfs)
+        -> void;
 
     using RawGraph = DiGraph<GraphNode, GraphDependency>;
 

@@ -13,26 +13,25 @@ AnchorContainer::AnchorContainer(const std::string& name)
 }
 
 
-auto AnchorContainer::parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>&
+auto AnchorContainer::
+    parse()
+        -> const std::vector<Neon::set::dataDependency::Token>&
 {
     return mEmtpy;
 }
 
-auto AnchorContainer::getHostContainer() -> std::shared_ptr<ContainerAPI>
-{
-    NEON_THROW_UNSUPPORTED_OPTION("This Container type can not be decoupled.");
-}
-
-auto AnchorContainer::getDeviceContainer() -> std::shared_ptr<ContainerAPI>
-{
-    NEON_THROW_UNSUPPORTED_OPTION("This Container type can not be decoupled.");
-}
-
-auto AnchorContainer::run(int /*streamIdx*/ , Neon::DataView /*dataView*/ ) -> void
+auto AnchorContainer::
+    run(int /*streamIdx*/,
+        Neon::DataView /*dataView*/)
+        -> void
 {
 }
 
-auto AnchorContainer::run(Neon::SetIdx /*setIdx*/, int /*streamIdx*/, Neon::DataView /*dataView*/) -> void
+auto AnchorContainer::
+    run(Neon::SetIdx /*setIdx*/,
+        int /*streamIdx*/,
+        Neon::DataView /*dataView*/)
+        -> void
 {
 }
 

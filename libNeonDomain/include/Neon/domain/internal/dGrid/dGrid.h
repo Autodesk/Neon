@@ -58,7 +58,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
 
     dGrid(const dGrid& rhs) = default;
 
-    ~dGrid() = default;
+    virtual ~dGrid() = default;
 
     /**
      * Constructor compatible with the general grid API
@@ -88,7 +88,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
      * Creates a new Field
      */
     template <typename T, int C = 0>
-    auto newField(const std::string   fieldUserName,
+    auto newField(const std::string&  fieldUserName,
                   int                 cardinality,
                   T                   inactiveValue,
                   Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE,

@@ -1,5 +1,7 @@
 #include "Neon/set/Containter.h"
 #include "Neon/set/container/AnchorContainer.h"
+#include "Neon/set/container/SynchronizationContainer.h"
+#include "Neon/set/container/Loader.h"
 
 namespace Neon::set {
 
@@ -129,6 +131,5 @@ auto Container::factoryGraph(const std::string&                         name,
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
     return Container(tmp);
 }
-
 
 }  // namespace Neon::set

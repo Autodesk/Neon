@@ -2,6 +2,7 @@
 
 #include "Neon/set/GpuEventSet.h"
 #include "Neon/sys/devices/gpu/GpuStream.h"
+#include <omp.h>
 
 namespace Neon {
 namespace set {
@@ -143,8 +144,9 @@ class StreamSet
         // Without nDev>0, VS on debug mode displays this annoying message
         //"User Error 1001: argument to num_threads clause must be positive"
         if (run_et::et::sync == runMode && nDev > 0) {
-#pragma omp parallel for num_threads(nDev)
-            for (int idx = 0; idx < nDev; idx++) {
+#pragma omp parallel num_threads(nDev)
+            {
+                const int idx = omp_get_thread_num();
                 m_streamVec[idx].sync<runMode>();
             }
             return;
@@ -192,7 +194,7 @@ class StreamSet
      */
     auto validateId(SetIdx id) const
         -> void;
-};
+};  // namespace set
 
 }  // namespace set
 }  // End of namespace Neon

@@ -235,7 +235,7 @@ int getNGpus()
 }
 }  // namespace
 
-TEST(Map, dGrid)
+TEST(DISABLED_Map, dGrid)
 {
     Neon::init();
     int nGpus = getNGpus();
@@ -244,7 +244,7 @@ TEST(Map, dGrid)
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_Map<Grid, Type, 0>, nGpus, 1);
 }
 
-TEST(VoxToNodes, dGrid)
+TEST(DISABLED_CodeVoxToNodes, dGrid)
 {
     Neon::init();
     int nGpus = getNGpus();
@@ -253,7 +253,7 @@ TEST(VoxToNodes, dGrid)
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_VoxToNodes<Grid, Type, 0>, nGpus, 1);
 }
 
-TEST(NodeToVoxels, dGrid)
+TEST(DISABLED_NodeToVoxels, dGrid)
 {
     Neon::init();
     int nGpus = getNGpus();

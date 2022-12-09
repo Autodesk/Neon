@@ -1,72 +1,89 @@
 #include "Neon/set/container/graph/GraphNode.h"
-#include "Neon/set/container/AnchorContainer.h"
-#include "Neon/set/container/ContainerExecutionType.h"
+#include "Neon/set/container/types/ContainerExecutionType.h"
+#include "Neon/set/Containter.h"
 
 namespace Neon::set::container {
 
 GraphNode::GraphNode()
 {
+    mContainerPrt = std::make_shared<Container>();
 }
 
-auto GraphNode::newBeginNode() -> GraphNode
+auto GraphNode::
+    newBeginNode() -> GraphNode
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::beginUid);
-    node.mContainer = Neon::set::Container::factoryAnchor("Begin");
+    node.mContainerPrt = std::make_shared<Container>(Neon::set::Container::factoryAnchor("Begin"));
     return node;
 }
 
-auto GraphNode::newEndNode() -> GraphNode
+auto GraphNode::
+    newEndNode() -> GraphNode
 {
     GraphNode node;
     node.mGraphNodeOrganization.setUid(GraphData::endUid);
-    node.mContainer = Neon::set::Container::factoryAnchor("End");
+    node.mContainerPrt = std::make_shared<Container>(Neon::set::Container::factoryAnchor("End"));
     return node;
 }
 
-auto GraphNode::getGraphData() -> GraphData&
+auto GraphNode::
+    getGraphData() -> GraphData&
 {
     return mGraphNodeOrganization;
 }
 
-auto GraphNode::getGraphData() const -> const GraphData&
+auto GraphNode::
+    getGraphData()
+        const -> const GraphData&
 {
     return mGraphNodeOrganization;
 }
 
-auto GraphNode::getScheduling() -> GraphNodeScheduling&
+auto GraphNode::
+    getScheduling() -> GraphNodeScheduling&
 {
     return mGraphNodeScheduling;
 }
 
-auto GraphNode::getScheduling() const -> const GraphNodeScheduling&
+auto GraphNode::
+    getScheduling()
+        const -> const GraphNodeScheduling&
 {
     return mGraphNodeScheduling;
 }
 
-auto GraphNode::getContainer() -> Container&
+auto GraphNode::
+    getContainer() -> Container&
 {
-    return mContainer;
+    return *mContainerPrt;
 }
 
-auto GraphNode::getContainer() const -> const Container&
+auto GraphNode::
+    getContainer() const -> const Container&
 {
-    return mContainer;
+    return *mContainerPrt;
 }
 
-GraphNode::GraphNode(const Container& container, GraphData::Uid uid)
+GraphNode::
+    GraphNode(const Container& container,
+              GraphData::Uid uid)
 {
-    mContainer = container;
+    mContainerPrt = std::make_shared<Neon::set::Container>(container);
     mGraphNodeOrganization.setUid(uid);
 }
 
-auto GraphNode::toString() -> std::string
+auto GraphNode::
+    toString()
+        const -> std::string
 {
     return std::string();
 }
 
 
-auto GraphNode::helpGetDotProperties() -> std::string
+auto GraphNode::
+    helpGetDotProperties()
+        const -> std::string
 {
     if (getContainerOperationType() == Neon::set::ContainerOperationType::anchor) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
@@ -74,22 +91,25 @@ auto GraphNode::helpGetDotProperties() -> std::string
     if (getContainerOperationType() == Neon::set::ContainerOperationType::compute) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
-    if (getContainerOperationType() == Neon::set::ContainerOperationType::halo) {
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::communication) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
-    if (getContainerOperationType() == Neon::set::ContainerOperationType::sync) {
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::synchronization) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
-auto GraphNode::helpGetDotName() -> std::string
+auto GraphNode::
+    helpGetDotName()
+        const -> std::string
 {
     return getContainer().getName();
 }
-auto GraphNode::helpGetDotInfo() -> std::string
+auto GraphNode::helpGetDotInfo()
+    const -> std::string
 {
     if (getContainerOperationType() == Neon::set::ContainerOperationType::anchor) {
-        return std::string();
+        return {};
     }
     if (getContainerOperationType() == Neon::set::ContainerOperationType::compute) {
         std::stringstream s;
@@ -97,62 +117,73 @@ auto GraphNode::helpGetDotInfo() -> std::string
         s << "DataView = " << Neon::DataViewUtil::toString(getScheduling().getDataView());
         return s.str();
     }
-    if (getContainerOperationType() == Neon::set::ContainerOperationType::halo) {
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::communication) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
-    if (getContainerOperationType() == Neon::set::ContainerOperationType::sync) {
+    if (getContainerOperationType() == Neon::set::ContainerOperationType::synchronization) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
-auto GraphNode::getContainerOperationType() const -> Neon::set::ContainerOperationType
+auto GraphNode::
+    getContainerOperationType() const -> Neon::set::ContainerOperationType
 {
     return getContainer().getContainerInterface().getContainerOperationType();
 }
 
-auto GraphNode::getContainerpatternType() const -> Neon::set::ContainerPatternType
+auto GraphNode::
+    getContainerpatternType() const -> Neon::set::ContainerPatternType
 {
     return getContainer().getContainerInterface().getContainerPatternType();
 }
 
-auto GraphNode::getLabel(bool debug) -> std::string
+auto GraphNode::
+    getLabel(bool debug)
+        const -> std::string
 {
     auto containerOperationType = getContainerOperationType();
 
-    auto printNodeInformation = [this]() {
-        std::stringstream s;
-
-        auto printPositiveOrNone = [](int val) {
-            if (val >= 0) {
-                return std::to_string(val);
-            }
+    auto printPositiveOrNone = [](int val) {
+        if (val >= 0) {
+            return std::to_string(val);
+        }
+        return std::string("None");
+    };
+    auto printNonEmptyListOrNone = [](const std::vector<int>& ids) {
+        if (ids.size() == 0) {
             return std::string("None");
-        };
-        auto printNonEptyListOrNone = [](const std::vector<int>& ids) {
-            if (ids.size() == 0) {
-                return std::string("None");
+        }
+        std::stringstream tmp;
+        for (size_t i = 0; i < ids.size(); i++) {
+            if (i != 0) {
+                tmp << " ";
             }
-            std::stringstream tmp;
-            for (size_t i = 0; i < ids.size(); i++) {
-                if (i != 0) {
-                    tmp << " ";
-                }
-                tmp << ids[i];
-            }
-            return tmp.str();
-        };
+            tmp << ids[i];
+        }
+        return tmp.str();
+    };
+
+    auto addSchedulingInfo=[this, printNonEmptyListOrNone, printPositiveOrNone](std::stringstream&s ){
+        s << "\\lScheduling ";
+        s << "\\l - DataView: " << getScheduling().getDataView();
+        s << "\\l - Stream  : " << getScheduling().getStream();
+        s << "\\l - Wait    : " << printNonEmptyListOrNone(getScheduling().getDependentEvents());
+        s << "\\l - Signal  : " << printPositiveOrNone(getScheduling().getEvent());
+        s << "\\l - Exec Ord: " << printPositiveOrNone(getScheduling().getExecutionOrder());
+
+    };
+
+    auto printNodeInformation = [this, addSchedulingInfo]() {
+        std::stringstream s;
 
         s << "\\l - UID: " << getContainer().getUid();
         s << "\\l - Execution: " << getContainer().getContainerExecutionType();
-        s << "\\lGraphData ";
-        s << "\\l - Graph Node id: " << this->getGraphData().getUid();
+        s << "\\lGraph ";
+        s << "\\l - Node id: " << this->getGraphData().getUid();
 
-        s << "\\lScheduling " << getContainer().getName();
-        s << "\\l - DataView: " << getScheduling().getDataView();
-        s << "\\l - Stream  : " << getScheduling().getStream();
-        s << "\\l - Wait    : " << printNonEptyListOrNone(getScheduling().getDependentEvents());
-        s << "\\l - Signal  : " << printPositiveOrNone(getScheduling().getEvent());
+        addSchedulingInfo(s);
+
         s << "\\l ---- ";
 
         return s.str();
@@ -175,7 +206,7 @@ auto GraphNode::getLabel(bool debug) -> std::string
             return s.str();
         }
         std::stringstream s;
-        s << "Sporious Anchor ";
+        s << "Spurious Anchor ";
         if (debug) {
             s << printNodeInformation();
         }
@@ -185,33 +216,37 @@ auto GraphNode::getLabel(bool debug) -> std::string
     if (containerOperationType == Neon::set::ContainerOperationType::compute) {
         std::stringstream s;
         if (debug) {
-            s << "Container " << getContainer().getName();
+            s << getContainer().getName();
             s << printNodeInformation();
         } else {
             s << getContainer().getName();
         }
         return s.str();
     }
-    if (containerOperationType == Neon::set::ContainerOperationType::halo) {
+    if (containerOperationType == Neon::set::ContainerOperationType::communication) {
         std::stringstream s;
-        s << "Halo Update "
-             " - Name: "
-          << getContainer().getName();
-        s << " - UID: " << getContainer().getUid();
+        if (debug) {
+            s << getContainer().getName();
+            s << printNodeInformation();
+        } else {
+            s << getContainer().getName();
+        }
         return s.str();
     }
-    if (containerOperationType == Neon::set::ContainerOperationType::sync) {
+    if (containerOperationType == Neon::set::ContainerOperationType::synchronization) {
         std::stringstream s;
-        s << "Sync "
-             " - Name: "
-          << getContainer().getName();
-        s << " - UID: " << getContainer().getUid();
+        if (debug) {
+            s << getContainer().getName();
+            s << printNodeInformation();
+        } else {
+            s << getContainer().getName();
+        }
         return s.str();
     }
     if (containerOperationType == Neon::set::ContainerOperationType::graph) {
         std::stringstream s;
         if (debug) {
-            s << "Graph " << getContainer().getName();
+            s << getContainer().getName();
             s << printNodeInformation();
         } else {
             s << getContainer().getName();
@@ -223,7 +258,9 @@ auto GraphNode::getLabel(bool debug) -> std::string
 }
 
 
-auto GraphNode::getLabelProperty() -> std::string
+auto GraphNode::
+    getLabelProperty()
+        const -> std::string
 {
     auto containerOperationType = getContainerOperationType();
     if (containerOperationType == Neon::set::ContainerOperationType::anchor) {
@@ -233,7 +270,7 @@ auto GraphNode::getLabelProperty() -> std::string
         if (this->getGraphData().endUid == getGraphData().getUid()) {
             return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
         }
-        //NEON_THROW_UNSUPPORTED_OPERATION("");
+        // NEON_THROW_UNSUPPORTED_OPERATION("");
         return R"(shape=doublecircle, style=filled, fillcolor="#d9d9d9", color="#6c6c6c")";
     }
     if (containerOperationType == Neon::set::ContainerOperationType::compute) {
@@ -253,11 +290,11 @@ auto GraphNode::getLabelProperty() -> std::string
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
 
-    if (containerOperationType == Neon::set::ContainerOperationType::halo) {
+    if (containerOperationType == Neon::set::ContainerOperationType::communication) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
 
-    if (containerOperationType == Neon::set::ContainerOperationType::sync) {
+    if (containerOperationType == Neon::set::ContainerOperationType::synchronization) {
         return R"(shape=octagon, style="rounded,filled", fillcolor="#fb8072", color="#b11605")";
     }
     if (containerOperationType == Neon::set::ContainerOperationType::graph) {

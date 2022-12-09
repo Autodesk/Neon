@@ -1,9 +1,9 @@
+#include <omp.h>
+#include <vector>
 #include "Neon/core/core.h"
 #include "Neon/set/GpuStreamSet.h"
 #include "Neon/sys/devices/gpu/ComputeID.h"
 #include "Neon/sys/global/GpuSysGlobal.h"
-
-#include <vector>
 
 namespace Neon {
 namespace set {
@@ -61,9 +61,10 @@ auto StreamSet::enqueueEvent(GpuEventSet& eventSet) const
     -> void
 {
     const int ndevs = int(m_streamVec.size());
-#pragma omp parallel for num_threads(ndevs)
-    for (int i = 0; i < ndevs; i++) {
-        m_streamVec.at(i).enqueueEvent(eventSet.event<Neon::Access::readWrite>(i));
+#pragma omp parallel num_threads(ndevs)
+    {
+        int tid = omp_get_thread_num();
+        m_streamVec.at(tid).enqueueEvent(eventSet.event<Neon::Access::readWrite>(tid));
     }
 }
 
@@ -78,9 +79,10 @@ auto StreamSet::waitForEvent(GpuEventSet& eventSet) const
     -> void
 {
     const int ndevs = int(m_streamVec.size());
-#pragma omp parallel for num_threads(ndevs)
-    for (int i = 0; i < ndevs; i++) {
-        m_streamVec.at(i).waitForEvent(eventSet.event<Neon::Access::readWrite>(i));
+#pragma omp parallel num_threads(ndevs)
+    {
+        int tid = omp_get_thread_num();
+        m_streamVec.at(tid).waitForEvent(eventSet.event<Neon::Access::readWrite>(tid));
     }
 }
 

@@ -87,7 +87,7 @@ class dFieldDev
 
     ~dFieldDev() = default;
 
-    auto uid() const -> Neon::set::MultiDeviceObjectUid;
+    auto uid() const -> Neon::set::dataDependency::MultiXpuDataUid;
 
     auto grid() -> grid_t&;
 

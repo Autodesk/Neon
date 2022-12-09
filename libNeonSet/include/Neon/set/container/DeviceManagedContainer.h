@@ -62,7 +62,7 @@ struct DeviceManagedContainer : ContainerAPI
         return parser;
     }
 
-    auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
+    auto parse() -> const std::vector<Neon::set::dataDependency::Token>& override
     {
         Neon::SetIdx setIdx(0);
         if (!this->mParsingDataUpdated) {
@@ -108,9 +108,6 @@ struct DeviceManagedContainer : ContainerAPI
         if (ContainerExecutionType::deviceManaged == this->getContainerType()) {
             const Neon::Backend& bk = mDataContainer.getBackend();
 
-            // We use device 0 as a dummy setIdx to create a loader.
-            // The actual value is not important as the managed container will take care of launching on all devices.
-            SetIdx         dummyTargetSetIdx = 0;
             Loader         loader = this->newLoader(bk.devType(), setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
             ComputeLambdaT computeLambda = this->mLoadingLambda(setIdx, loader);
             computeLambda(streamIdx, dataView);

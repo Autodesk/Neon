@@ -1,4 +1,4 @@
-#include "Neon/set/container/ContainerOperationType.h"
+#include "Neon/set/container/types/ContainerOperationType.h"
 
 /**
  * Abstract interface to hide
@@ -15,11 +15,11 @@ auto ContainerOperationTypeUtils::toString(ContainerOperationType option) -> std
         case ContainerOperationType::graph: {
             return "graph";
         }
-        case ContainerOperationType::halo: {
-            return "halo";
+        case ContainerOperationType::communication: {
+            return "communication";
         }
-        case ContainerOperationType::sync: {
-            return "sync";
+        case ContainerOperationType::synchronization: {
+            return "synchronization";
         }
         case ContainerOperationType::anchor: {
             return "anchor";
@@ -45,8 +45,8 @@ auto ContainerOperationTypeUtils::getOptions() -> std::array<ContainerOperationT
 {
     std::array<ContainerOperationType, nOptions> opts = {ContainerOperationType::compute,
                                                          ContainerOperationType::graph,
-                                                         ContainerOperationType::halo,
-                                                         ContainerOperationType::sync,
+                                                         ContainerOperationType::communication,
+                                                         ContainerOperationType::synchronization,
                                                          ContainerOperationType::anchor};
     return opts;
 }

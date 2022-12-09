@@ -4,17 +4,8 @@
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/container/Loader.h"
 
-namespace Neon {
-namespace set {
-namespace internal {
+namespace Neon::set::internal {
 
-/**
- * Specialized implementation of KContainer_i
- *
- *
- * @tparam DataIteratorContainerT
- * @tparam UserComputeLambdaT
- */
 template <typename DataIteratorContainerT,
           typename UserComputeLambdaT>
 struct DeviceContainer : ContainerAPI
@@ -22,7 +13,6 @@ struct DeviceContainer : ContainerAPI
    public:
     virtual ~DeviceContainer() override = default;
 
-   public:
     DeviceContainer(const std::string&                            name,
                     ContainerAPI::DataViewSupport                 dataViewSupport,
                     const DataIteratorContainerT&                 dataIteratorContainer,
@@ -78,7 +68,7 @@ struct DeviceContainer : ContainerAPI
         return parser;
     }
 
-    auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override
+    auto parse() -> const std::vector<Neon::set::dataDependency::Token>& override
     {
         if (!this->isParsingDataUpdated()) {
             auto parser = newParser();
@@ -90,23 +80,13 @@ struct DeviceContainer : ContainerAPI
         return getTokens();
     }
 
-
-    auto
-    getHostContainer() -> std::shared_ptr<ContainerAPI> final
-    {
-        NEON_THROW_UNSUPPORTED_OPTION("This Container type can not be decoupled.");
-    }
-
-    virtual auto getDeviceContainer() -> std::shared_ptr<ContainerAPI> final
-    {
-        NEON_THROW_UNSUPPORTED_OPTION("This Container type can not be decoupled.");
-    }
     /**
      * Run container over streams
      * @param streamIdx
      * @param dataView
      */
-    virtual auto run(int streamIdx = 0, Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
+    virtual auto run(int            streamIdx = 0,
+                     Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
     {
 
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
@@ -132,18 +112,30 @@ struct DeviceContainer : ContainerAPI
      * @param streamIdx
      * @param dataView
      */
-    virtual auto run(Neon::SetIdx setIdx, int streamIdx, Neon::DataView dataView) -> void override
+    virtual auto run(Neon::SetIdx   setIdx,
+                     int            streamIdx,
+                     Neon::DataView dataView) -> void override
     {
 
         const Neon::Backend&    bk = m_dataIteratorContainer.getBackend();
         Neon::set::KernelConfig kernelConfig(dataView, bk, streamIdx, this->getLaunchParameters(dataView));
+
+#pragma omp critical
+        {
+            const int threadRank = omp_get_thread_num();
+            NEON_TRACE("TRACE DeviceContainer run rank {} setIdx {} stream {} dw {}",
+                       threadRank, setIdx.idx(), kernelConfig.stream(), Neon::DataViewUtil::toString(kernelConfig.dataView()));
+        };
 
         if (ContainerExecutionType::device == this->getContainerExecutionType()) {
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 setIdx,
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::DeviceType devE, Neon::SetIdx setIdx, Neon::DataView dataView) -> UserComputeLambdaT {
+                [&](Neon::DeviceType devE,
+                    Neon::SetIdx     setIdx,
+                    Neon::DataView   dataView)
+                    -> UserComputeLambdaT {
                     Loader             loader = this->newLoader(devE, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;
@@ -163,6 +155,4 @@ struct DeviceContainer : ContainerAPI
     DataIteratorContainerT m_dataIteratorContainer;
 };
 
-}  // namespace internal
-}  // namespace set
-}  // namespace Neon
+}  // namespace Neon::set::internal

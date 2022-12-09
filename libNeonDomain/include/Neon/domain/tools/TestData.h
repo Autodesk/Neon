@@ -4,6 +4,7 @@
 #include "Neon/set/Backend.h"
 #include "Neon/set/MemoryOptions.h"
 
+#include "Neon/Neon.h"
 #include "Neon/domain/interface/Stencil.h"
 #include "Neon/domain/tools/Geometries.h"
 #include "Neon/domain/tools/IODomain.h"
@@ -131,6 +132,8 @@ TestData<G, T, C>::TestData(const Neon::Backend&         backend,
                             const domain::Stencil&       stencil,
                             Type                         outsideValue)
 {
+    Neon::init();
+
     mGeometry = geometry;
     Neon::domain::tool::GeometryMask geometryMask(geometry,
                                                   dimension,

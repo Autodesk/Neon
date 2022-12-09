@@ -4,80 +4,140 @@
 namespace Neon::skeleton::internal {
 
 
-DependencyAnalyser::DependencyAnalyser(DataUId_t uid, DataIdx_t idx)
+DependencyAnalyser::
+    DependencyAnalyser(Neon::set::dataDependency::MultiXpuDataUid uid,
+                       Neon::set::dataDependency::MultiXpuDataIdx idx)
 {
-    m_uid = uid;
-    m_idx = idx;
+    mUid = uid;
+    mIdx = idx;
 }
 
-auto DependencyAnalyser::update(ContainerIdx newKernel, Access_e newOp)
-    -> std::vector<Dependency>
+auto DependencyAnalyser::
+    update(Neon::set::container::GraphInfo::NodeUid newKernel,
+           Neon::set::dataDependency::AccessType    newOp)
+        -> std::vector<DataDependency>
 {
     switch (newOp) {
-        case Access_e::READ: {
-            if (m_parsedW.size() == 0) {
-                // Parsing a Read operation with no write before
-                // We are at the beginning of the dependencies
-                // a. just add the kernel in the parsed read kernels
-                m_parsedR.push_back(newKernel);
-                return std::vector<Dependency>(0);
-            }
-            if (m_parsedW.size() == 1) {
-                // Parsing a Read operation with one write before
-                // We have a RaW dependency
-                // a. add the new kernel to the read queue
-                // b. return a RaW between the new R and the old W
-                m_parsedR.push_back(newKernel);
-                auto       t0W = m_parsedW[0];
-                auto       t1R = newKernel;
-                Dependency d(t1R, Dependencies_e::RAW, m_uid, t0W);
-                return {d};
-            } else {
-                // Violation of the state machine integrity
-                NEON_THROW_UNSUPPORTED_OPERATION("");
-            }
-            break;
-        }
-        case Access_e::WRITE: {
-            if (m_parsedR.size() == 0 && m_parsedW.size() == 0) {
-                // Parsing a kernel for the first time and it is a W
-                // Return an empty dependency
-                m_parsedW.push_back(newKernel);
-                return std::vector<Dependency>(0);
-            }
-            if (m_parsedR.size() != 0 && m_parsedW.size() <= 1) {
-                // Parsing a W kernel after
-                // .. none or one W old kernel
-                // .. one or more R old kernels
+        case Neon::set::dataDependency::AccessType::READ: {
+            if (mParsedW.size() == 0) {
+                // We are parsing a READ with no previous WRITE
+                // STEPS:
+                // a. Register the current kernel in the READ state machine
+                // b. Returns no dependencies
 
-                // Fire a WaR dependency between the new W and the old Rs
-                std::vector<Dependency> res;
-                for (auto t0R : m_parsedR) {
-                    auto t1W = newKernel;
-                    if (t1W == t0R) {
-                        continue;
+                // Executing step a.
+                mParsedR.push_back(newKernel);
+                // Executing step b.
+                return std::vector<DataDependency>(0);
+            }
+            if (mParsedW.size() == 1) {
+                std::vector<DataDependency> output;
+                // Parsing a READ after a WRITE
+                // STEPS:
+                // a. Return a RaW between the new READing kernel and the old WRITing kernel
+                // b. Register the current kernel in the READ state machine
+                //------
+
+
+                {  // Executing a.
+                    auto t0W = mParsedW[0];
+                    auto t1R = newKernel;
+                    if (t0W != t1R) {
+                        DataDependency d(t1R, Neon::set::dataDependency::DataDependencyType::RAW, mUid, t0W);
+                        output.push_back(d);
                     }
-                    Dependency d(t1W, Dependencies_e::WAR, m_uid, t0R);
-                    res.push_back(d);
                 }
-                m_parsedR.clear();
-                m_parsedW = std::vector<ContainerIdx>(1, newKernel);
-                return res;
-            }
 
-            if (m_parsedR.size() == 0 && m_parsedW.size() <= 1) {
-                // Parsing a W kernel after a W old kernel
-                NEON_WARNING("Skeleton: WaW dependency detected.");
-                auto       t0W = m_parsedW[0];
-                auto       t1W = newKernel;
-                Dependency d(t1W, Dependencies_e::WAW, m_uid, t0W);
-                m_parsedW = std::vector<ContainerIdx>(1, newKernel);
-                return std::vector<Dependency>(1, d);
-                ;
+                {  // Executing b.
+                    mParsedR.push_back(newKernel);
+                }
+                return output;
+
+            } else {
+                NEON_THROW_UNSUPPORTED_OPERATION("A Violation of the state machine integrity was detected");
             }
             break;
         }
-        case Access_e::NONE: {
+        case Neon::set::dataDependency::AccessType::WRITE: {
+            if (mParsedR.empty() && mParsedW.empty()) {
+                // Parsing a WRITE as the first operation in the Container sequence.
+                //
+                // STEPS:
+                // a. Record the Write operation in the state machine
+                // b. Return no dependency
+                //------
+
+                {  // Executing a.
+                    mParsedW.push_back(newKernel);
+                }
+
+                {  // Executing b.
+                    return std::vector<DataDependency>(0);
+                }
+            }
+
+            if (!mParsedR.empty() && mParsedW.empty()) {
+                std::vector<DataDependency> output;
+                // Parsing a WRITE after some READs
+                //
+
+                // STEPS:
+                // a. creation the vector of WAR dependencies to be returned
+                // b. clear state machine state, cleaning previous read token and storing the new write token
+
+                {  // Executing a.
+                    for (const auto token_t0_READ : mParsedR) {
+                        const auto token_t1_WRITE = newKernel;
+                        if (token_t1_WRITE != token_t0_READ) {
+                            DataDependency d(token_t1_WRITE, Neon::set::dataDependency::DataDependencyType::WAR, mUid, token_t0_READ);
+                            output.push_back(d);
+                        }
+                    }
+                }
+
+                {  // Executing b.
+                    mParsedR.clear();
+                    mParsedW = std::vector<Neon::set::container::GraphInfo::NodeUid>(1, newKernel);
+                }
+
+                return output;
+            }
+
+            if (!mParsedW.empty()) {
+                std::vector<DataDependency> output;
+                // STEPS:
+                // a. flag a WaW dependency
+                // b. flag possible WaR dependencies
+                // b. clear state machine state, cleaning previous read token and storing the new write token
+
+                NEON_WARNING("Skeleton: WaW dependency detected.");
+                {  // Executing Step a.
+                    auto token_t0_WRITE = mParsedW[0];
+                    auto token_t1_WRITE = newKernel;
+                    if (token_t0_WRITE != token_t1_WRITE) {
+                        DataDependency d(token_t1_WRITE, Neon::set::dataDependency::DataDependencyType::WAW, mUid, token_t0_WRITE);
+                        output.push_back(d);
+                    }
+                }
+                {  // Executing Step b.
+                    for (const auto token_t0_READ : mParsedR) {
+                        const auto token_t1_WRITE = newKernel;
+                        if (token_t1_WRITE != token_t0_READ) {
+                            DataDependency d(token_t1_WRITE, Neon::set::dataDependency::DataDependencyType::WAR, mUid, token_t0_READ);
+                            output.push_back(d);
+                        }
+                    }
+                }
+                {  // Executing c.
+
+                    mParsedR.clear();
+                    mParsedW = std::vector<Neon::set::container::GraphInfo::NodeUid>(1, newKernel);
+                }
+                return output;
+            }
+            break;
+        }
+        case Neon::set::dataDependency::AccessType::NONE: {
             // Error
             NEON_THROW_UNSUPPORTED_OPTION("");
         }

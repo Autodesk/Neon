@@ -157,7 +157,7 @@ auto FieldBaseTemplate<T, C, G, P, S>::swapUIDBeforeFullSwap(FieldBaseTemplate::
             << " are incompatible for a swap operation.";
         NEON_THROW(exp);
     }
-    Neon::set::interface::MultiDeviceObjectInterface<P, S>::swapUIDs(A, B);
+    Neon::set::interface::MultiXpuDataInterface<P, S>::swapUIDs(A,B);
 }
 
 

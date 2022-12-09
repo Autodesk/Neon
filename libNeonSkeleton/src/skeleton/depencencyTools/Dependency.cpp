@@ -1,48 +1,49 @@
-#include "Neon/skeleton/internal/dependencyTools/Dependency.h"
+#include "Neon/skeleton/internal/dependencyTools/DataDependency.h"
 
 namespace Neon::skeleton::internal {
 
-Dependency::Dependency(ContainerIdx   t1,
-                       Dependencies_e type,
-                       DataUId_t      uid,
-                       ContainerIdx   t0)
+DataDependency::DataDependency(Neon::set::container::GraphInfo::NodeUid               t1,
+                               Neon::set::dataDependency::DataDependencyType type,
+                               Neon::set::dataDependency::MultiXpuDataUid uid,
+                               Neon::set::container::GraphInfo::NodeUid               t0)
 {
-    m_t1 = t1;
-    m_type = type;
-    m_uid = uid;
-    m_t0 = t0;
+    mT1 = t1;
+    mType = type;
+    mDataUid = uid;
+    mT0 = t0;
 }
 
-bool Dependency::isValid()
+bool DataDependency::isValid()
 {
-    return m_type != Dependencies_e::NONE;
+    return mType != Neon::set::dataDependency::DataDependencyType::NONE;
 }
 
-auto Dependency::toString() -> std::string
+auto DataDependency::toString() -> std::string
 {
-    return std::to_string(m_t1) +
-           " -> (" + Dependencies_et::toString(m_type) +
-           " [" + std::to_string(m_uid) +
-           "]) -> " + std::to_string(m_t0);
+    return std::to_string(mT1) +
+           " -> (" + Neon::set::dataDependency::DataDependencyTypeUtils::toString(mType) +
+           " [" + std::to_string(mDataUid) +
+           "]) -> " + std::to_string(mT0);
 }
 
-auto Dependency::type() -> Dependencies_e
+auto DataDependency::type() -> Neon::set::dataDependency::DataDependencyType
 {
-    return m_type;
+    return mType;
 }
 
-Dependency Dependency::getEmpty()
+DataDependency DataDependency::getEmpty()
 {
-    return Dependency();
-}
-auto Dependency::t0() -> ContainerIdx
-{
-    return m_t0;
+    return {};
 }
 
-auto Dependency::t1() -> ContainerIdx
+auto DataDependency::t0() -> Neon::set::container::GraphInfo::NodeUid
 {
-    return m_t1;
+    return mT0;
+}
+
+auto DataDependency::t1() -> Neon::set::container::GraphInfo::NodeUid
+{
+    return mT1;
 }
 
 }  // namespace Neon::skeleton::internal
