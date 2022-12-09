@@ -246,6 +246,8 @@ class mField
 
     auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) -> typename xField<T, C>::Partition&;
 
+    auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) const -> const typename xField<T, C>::Partition&;
+
    private:
     mField(const std::string&         name,
            const mGrid&               grid,

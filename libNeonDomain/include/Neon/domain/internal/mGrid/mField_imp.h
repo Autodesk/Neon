@@ -20,7 +20,7 @@ mField<T, C>::mField(const std::string&         name,
 
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
-        mData->fields[l] = xField<T, C>(name,                                       
+        mData->fields[l] = xField<T, C>(name,
                                         mData->grid->operator()(l),
                                         cardinality,
                                         outsideVal,
@@ -34,14 +34,14 @@ mField<T, C>::mField(const std::string&         name,
     for (int l = 0; l < descriptor.getDepth(); ++l) {
 
         auto mem = mData->fields[l].mData->field.getMem();
-        
+
         auto origins = mData->grid->operator()(l).getOrigins();
         auto neighbours_blocks = mData->grid->operator()(l).getNeighbourBlocks();
         auto stencil_ngh = mData->grid->operator()(l).getStencilNghIndex();
         auto active_mask = mData->grid->operator()(l).getActiveMask();
-        auto parent = mData->grid->getParentsBlockID(l);
-        auto parentLocalID = mData->grid->getParentLocalID(l);
-        auto childBlockID = mData->grid->getChildBlockID(l);
+        auto                            parent = mData->grid->getParentsBlockID(l);
+        auto                            parentLocalID = mData->grid->getParentLocalID(l);
+        auto                            childBlockID = mData->grid->getChildBlockID(l);
 
 
         for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
@@ -203,6 +203,36 @@ template <typename T, int C>
 auto mField<T, C>::load(Neon::set::Loader     loader,
                         int                   level,
                         Neon::MultiResCompute compute) -> typename xField<T, C>::Partition&
+{
+    switch (compute) {
+        case Neon::MultiResCompute::MAP: {
+            return loader.load(operator()(level), Neon::Compute::MAP);
+            break;
+        }
+        case Neon::MultiResCompute::STENCIL: {
+            return loader.load(operator()(level), Neon::Compute::STENCIL);
+            break;
+        }
+        case Neon::MultiResCompute::STENCIL_UP: {
+            loader.load(operator()(level + 1), Neon::Compute::MAP);
+            return loader.load(operator()(level), Neon::Compute::MAP);
+            break;
+        }
+        case Neon::MultiResCompute::STENCIL_DOWN: {
+            loader.load(operator()(level - 1), Neon::Compute::MAP);
+            return loader.load(operator()(level), Neon::Compute::MAP);
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+
+template <typename T, int C>
+auto mField<T, C>::load(Neon::set::Loader     loader,
+                        int                   level,
+                        Neon::MultiResCompute compute) const -> const typename xField<T, C>::Partition&
 {
     switch (compute) {
         case Neon::MultiResCompute::MAP: {
