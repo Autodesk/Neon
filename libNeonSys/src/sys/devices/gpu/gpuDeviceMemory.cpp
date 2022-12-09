@@ -39,7 +39,7 @@ void GpuDevice::memory_t::enablePeerAccsessWith(ComputeID gpuId) const
 
         if (cudaErrorPeerAccessAlreadyEnabled == res) {
             cudaGetLastError();  //so that we don't see this error when we do cuda error checking
-            NEON_WARNING("GpuDev: CUDA device {} is already enabled for peer access w.r.t. CUDA device, {}", gpuDev.getIdx().idx(), gpuId.idx());
+            //NEON_WARNING("GpuDev: CUDA device {} is already enabled for peer access w.r.t. CUDA device, {}", gpuDev.getIdx().idx(), gpuId.idx());
             return;
         }
 
