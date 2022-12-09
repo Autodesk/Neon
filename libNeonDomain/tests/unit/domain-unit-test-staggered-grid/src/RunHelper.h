@@ -35,7 +35,7 @@ void runAllTestConfiguration(const std::string&,
         std::vector<int> cardinalityTest{1};
         // nGpuTest = std::vector<int>(1,1);
 
-        std::vector<Neon::index_3d> dimTest{{60, 10, 250}, {10, 50, 80}};
+        std::vector<Neon::index_3d> dimTest{{60, 40, 250}, {10, 50, 80}};
         std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp, Neon::Runtime::stream};
         // std::vector<Neon::index_3d> dimTest{{3}};
         // std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::stream};

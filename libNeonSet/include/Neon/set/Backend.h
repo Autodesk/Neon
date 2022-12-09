@@ -139,34 +139,34 @@ class Backend
 
     auto eventSet(Neon::EventIdx eventdx)
         -> Neon::set::GpuEventSet&;
-    /**
-     * Extract a stream base in the provided streamIds.
-     * The method uses a circular policy to select the stream.
-     * The parameter rotateIdx is the index used to store the
-     * state of the circular polity in between calls.
-     *
-     * @param rotateIdx
-     * @param streamIdxVec
-     * @return
-     */
-    auto streamSetRotate(int&                    rotateIdx,
-                         const std::vector<int>& streamIdxVec)
-        const
-        -> const Neon::set::StreamSet&;
-
-    /**
-     * Extract a stream base in the provided streamIds.
-     * The method uses a circular policy to select the stream.
-     * The parameter rotateIdx is the index used to store the
-     * state of the circular polity in between calls.
-     *
-     * @param rotateIdx
-     * @param streamIdxVec
-     * @return
-     */
-    static auto streamSetIdxRotate(int&                    rotateIdx,
-                                   const std::vector<int>& streamIdxVec)
-        -> int;
+//    /**
+//     * Extract a stream base in the provided streamIds.
+//     * The method uses a circular policy to select the stream.
+//     * The parameter rotateIdx is the index used to store the
+//     * state of the circular polity in between calls.
+//     *
+//     * @param rotateIdx
+//     * @param streamIdxVec
+//     * @return
+//     */
+//    auto streamSetRotate(int&                    rotateIdx,
+//                         const std::vector<int>& streamIdxVec)
+//        const
+//        -> const Neon::set::StreamSet&;
+//
+//    /**
+//     * Extract a stream base in the provided streamIds.
+//     * The method uses a circular policy to select the stream.
+//     * The parameter rotateIdx is the index used to store the
+//     * state of the circular polity in between calls.
+//     *
+//     * @param rotateIdx
+//     * @param streamIdxVec
+//     * @return
+//     */
+//    static auto streamSetIdxRotate(int&                    rotateIdx,
+//                                   const std::vector<int>& streamIdxVec)
+//        -> int;
 
     /**
      *
@@ -213,14 +213,14 @@ class Backend
 
     auto waitEventOnStream(Neon::SetIdx setIdx, int eventId, int streamId)
         -> void;
-    /**
-     * Create a set of cuda events to create an exit barrier.
-     * I.e. one streams sync with all the others
-     * The stream holding the barrier is the first in the streamIdxVec vector.
-     *
-     * @param streamIdxVec
-     */
-    auto streamEventBarrier(const std::vector<int>& streamIdxVec) -> void;
+//    /**
+//     * Create a set of cuda events to create an exit barrier.
+//     * I.e. one streams sync with all the others
+//     * The stream holding the barrier is the first in the streamIdxVec vector.
+//     *
+//     * @param streamIdxVec
+//     */
+//    auto streamEventBarrier(const std::vector<int>& streamIdxVec) -> void;
 
     auto getMemoryOptions(Neon::MemoryLayout order) const
         -> Neon::MemoryOptions;
@@ -242,6 +242,7 @@ class Backend
     std::string toString() const;
 
     auto toReport(Neon::Report& report, Report::SubBlock* subdocAPI = nullptr) const -> void;
+    void syncEvent(SetIdx setIdx, int eventIdx) const;
 };
 
 }  // namespace Neon

@@ -25,6 +25,12 @@ auto GraphNodeScheduling::getDependentEvents()
     return mDependentEvents;
 }
 
+auto GraphNodeScheduling::getDependentEvents()
+    const -> const std::vector<int>&
+{
+    return mDependentEvents;
+}
+
 auto GraphNodeScheduling::setStream(int stream)
     -> void
 {
@@ -51,8 +57,21 @@ auto GraphNodeScheduling::reset() -> void
 {
     mStream = -1;
     mEvent = -1;
-    mDataView = DataView::STANDARD;
+    mExecutionOrder = -1;
     mDependentEvents.clear();
 }
+
+auto GraphNodeScheduling::getExecutionOrder()
+    const -> int
+{
+    return mExecutionOrder;
+}
+
+auto GraphNodeScheduling::setExecutionOerder(int order)
+    -> void
+{
+    mExecutionOrder = order;
+}
+
 
 }  // namespace Neon::set::container

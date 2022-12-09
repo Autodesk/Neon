@@ -140,7 +140,7 @@ int getNGpus()
 }
 }  // namespace
 
-TEST(MapStencilDotNoOcc, bGrid)
+TEST(MapStencilDotNoOcc, DISABLED_bGrid)
 {
     int nGpus = 1;
     using Grid = Neon::domain::bGrid;

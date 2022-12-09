@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Neon/set/container/graph/GraphData.h"
+#include <string>
 
 namespace Neon::set::container {
 
@@ -62,9 +63,10 @@ struct Bfs
      */
     auto clear() -> void;
 
+    auto toString()->std::string;
+
    private:
     std::vector<Level> data;
 };
 
 }  // namespace Neon::set::container
-

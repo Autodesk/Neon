@@ -66,11 +66,10 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
                            Neon::skeleton::Occ     occ,
                            Neon::set::TransferMode transfer)
 {
-
-
     using Type = typename TestData<G, T, C>::Type;
 
     auto occName = Neon::skeleton::OccUtils::toString(occ);
+
     occName[0] = toupper(occName[0]);
     const std::string appName(testFilePrefix + "_" + occName);
 
@@ -78,7 +77,7 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
     Neon::skeleton::Options  opt(occ, transfer);
 
     const Type scalarVal = 2;
-    const int  nIterations = 2;
+    const int  nIterations = 10;
 
     auto fR = data.getGrid().template newPatternScalar<Type>();
     fR() = scalarVal;
@@ -91,18 +90,17 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
         auto& X = data.getField(FieldNames::X);
         auto& Y = data.getField(FieldNames::Y);
 
-        std::vector<Neon::set::Container> ops{
-            UserTools::laplace(X, Y),
-            UserTools::laplace(Y, X)};
+        std::vector<Neon::set::Container> ops{UserTools::laplace(X, Y),
+                                              UserTools::laplace(Y, X)};
 
         skl.sequence(ops, appName, opt);
-
-        skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()));
+        skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()), "", true);
 
         timer.start();
         for (int i = 0; i < nIterations; i++) {
             skl.run();
         }
+
         data.getBackend().syncAll();
         timer.stop();
     }
@@ -126,7 +124,6 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
     }
 #endif
 
-
     bool isOk = data.compare(FieldNames::Y);
     isOk = isOk && data.compare(FieldNames::X);
 
@@ -143,7 +140,10 @@ void runSingleDot(TestData<G, T, C>& data)
 template <typename G, typename T, int C>
 void runSingleStencilTestData(TestData<G, T, C>& data)
 {
+    std::cout << "Executing Occ::none" << std::endl;
     help::SingleStencilTestData<G, T, C>(data, Neon::skeleton::Occ::none, Neon::set::TransferMode::get);
+    std::cout << "Executing Occ::standard" << std::endl;
+    help::SingleStencilTestData<G, T, C>(data, Neon::skeleton::Occ::standard, Neon::set::TransferMode::get);
 }
 
 int getNGpus()
@@ -177,7 +177,7 @@ TEST(SingleStencilTestData, dGrid)
 }
 
 
-TEST(SingleDot, bGrid)
+TEST(SingleDot, DISABLED_bGrid)
 {
     int nGpus = 1;
     using Grid = Neon::domain::bGrid;
@@ -185,7 +185,7 @@ TEST(SingleDot, bGrid)
     runAllTestConfiguration<Grid, Type, 0>("bGrid", runSingleDot<Grid, Type, 0>, nGpus, 1);
 }
 
-TEST(SingleStencilTestData, bGrid)
+TEST(SingleStencilTestData, DISABLED_bGrid)
 {
     int nGpus = 1;
     using Grid = Neon::domain::bGrid;

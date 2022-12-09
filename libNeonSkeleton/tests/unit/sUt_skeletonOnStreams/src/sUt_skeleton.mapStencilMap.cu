@@ -43,7 +43,8 @@ void MapStencilMap(TestData<G, T, C>&      data,
     fR() = scalarVal;
     data.getBackend().syncAll();
 
-    data.resetValuesToRandom(1, 50);
+    //data.resetValuesToRandom(1, 50);
+    data.resetValuesToMasked(1,1,3);
     Neon::Timer_sec timer;
 
     {  // SKELETON
@@ -57,11 +58,14 @@ void MapStencilMap(TestData<G, T, C>&      data,
 
         skl.sequence(ops, appName, opt);
 
-        skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()));
+        skl.ioToDot(appName + "_" + Neon::skeleton::OccUtils::toString(opt.occ()),
+                    "",
+                    true);
 
         timer.start();
         for (int i = 0; i < nIterations; i++) {
             skl.run();
+            data.getBackend().syncAll();
         }
         data.getBackend().syncAll();
         timer.stop();
@@ -83,13 +87,13 @@ void MapStencilMap(TestData<G, T, C>&      data,
     bool isOk = data.compare(FieldNames::X);
     isOk = isOk && data.compare(FieldNames::Y);
 
-    /*{  // DEBUG
+    {  // DEBUG
         data.getIODomain(FieldNames::X).ioToVti("IODomain_X", "X");
         data.getField(FieldNames::X).ioToVtk("Field_X", "X");
 
         data.getIODomain(FieldNames::Y).ioToVti("IODomain_Y", "Y");
         data.getField(FieldNames::Y).ioToVtk("Field_Y", "Y");
-    }*/
+    }
 
     ASSERT_TRUE(isOk);
 }
@@ -142,12 +146,28 @@ TEST(MapStencilMap_NoOCC, eGrid)
     runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilNoOCC<Grid, Type, 0>, nGpus, 1);
 }
 
+TEST(MapStencilMap_NoOCC, dGrid)
+{
+    int nGpus = getNGpus();
+    using Grid = Neon::domain::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilNoOCC<Grid, Type, 0>, nGpus, 2);
+}
+
 TEST(MapStencilMap_OCC, eGrid)
 {
     int nGpus = getNGpus();
     using Grid = Neon::domain::internal::eGrid::eGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilOCC<Grid, Type, 0>, nGpus, 1);
+}
+
+TEST(MapStencilMap_OCC, dGrid)
+{
+    int nGpus = getNGpus();
+    using Grid = Neon::domain::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilOCC<Grid, Type, 0>, nGpus, 2);
 }
 
 TEST(MapStencilMap_ExtendedOCC, eGrid)
@@ -159,6 +179,15 @@ TEST(MapStencilMap_ExtendedOCC, eGrid)
     runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilExtendedOCC<Grid, Type, 0>, nGpus, 1);
 }
 
+TEST(MapStencilMap_ExtendedOCC, dGrid)
+{
+    int nGpus = getNGpus();
+    NEON_INFO("MapStencilMap_ExtendedOCC");
+    using Grid = Neon::domain::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilExtendedOCC<Grid, Type, 0>, nGpus, 1);
+}
+
 TEST(MapStencilMap_TwoWayExtendedOCC, eGrid)
 {
     int nGpus = getNGpus();
@@ -167,7 +196,15 @@ TEST(MapStencilMap_TwoWayExtendedOCC, eGrid)
     runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilTwoWayExtendedOCC<Grid, Type, 0>, nGpus, 1);
 }
 
-TEST(MapStencilMap_NoOCC, bGrid)
+TEST(MapStencilMap_TwoWayExtendedOCC, dGrid)
+{
+    int nGpus = getNGpus();
+    using Grid = Neon::domain::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilTwoWayExtendedOCC<Grid, Type, 0>, nGpus, 2);
+}
+
+TEST(MapStencilMap_NoOCC, DISABLED_bGrid)
 {
     int nGpus = 1;
     using Grid = Neon::domain::internal::bGrid::bGrid;

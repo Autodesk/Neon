@@ -23,29 +23,27 @@ struct AnchorContainer : ContainerAPI
    public:
     AnchorContainer(const std::string& name);
 
-    auto parse() -> const std::vector<Neon::set::internal::dependencyTools::DataToken>& override;
-
-    auto getHostContainer() -> std::shared_ptr<ContainerAPI> final;
-
-    virtual auto getDeviceContainer() -> std::shared_ptr<ContainerAPI> final;
+    auto parse() -> const std::vector<Neon::set::dataDependency::Token>& override;
 
     /**
      * Run container over streams
      * @param streamIdx
      * @param dataView
      */
-    virtual auto run(int streamIdx = 0, Neon::DataView dataView = Neon::DataView::STANDARD) -> void override;
+    virtual auto run(int            streamIdx = 0,
+                     Neon::DataView dataView = Neon::DataView::STANDARD) -> void override;
 
     /**
      * Run container over streams
      * @param streamIdx
      * @param dataView
      */
-    virtual auto run(Neon::SetIdx setIdx, int streamIdx, Neon::DataView dataView) -> void override;
+    virtual auto run(Neon::SetIdx   setIdx,
+                     int            streamIdx,
+                     Neon::DataView dataView) -> void override;
 
    private:
-    std::vector<Neon::set::internal::dependencyTools::DataToken> mEmtpy;
-
+    std::vector<Neon::set::dataDependency::Token> mEmtpy;
 };
 
 }  // namespace internal

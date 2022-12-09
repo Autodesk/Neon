@@ -4,22 +4,22 @@
 
 #include "Neon/core/core.h"
 #include "Neon/core/types/Execution.h"
-#include "Neon/set/MultiDeviceObjectUid.h"
+#include "Neon/set/MultiXpuDataUid.h"
 
 namespace Neon::set::interface {
 
 template <typename P, typename S>
-class MultiDeviceObjectInterface
+class MultiXpuDataInterface
 {
    public:
     using Partition = P;
     using Storage = S;
 
-    using Self = MultiDeviceObjectInterface<Partition, Storage>;
+    using Self = MultiXpuDataInterface<Partition, Storage>;
 
-    virtual ~MultiDeviceObjectInterface() = default;
+    virtual ~MultiXpuDataInterface() = default;
 
-    MultiDeviceObjectInterface();
+    MultiXpuDataInterface();
 
     virtual auto updateIO(int streamId = 0)
         -> void = 0;
@@ -44,7 +44,7 @@ class MultiDeviceObjectInterface
 
     auto getStorage() const -> const Storage&;
 
-    auto getUid() const -> Neon::set::MultiDeviceObjectUid;
+    auto getUid() const -> Neon::set::dataDependency::MultiXpuDataUid;
 
    protected:
     static auto swapUIDs(Self& A, Self& B) -> void;
@@ -56,33 +56,33 @@ class MultiDeviceObjectInterface
 };
 
 template <typename P, typename S>
-auto MultiDeviceObjectInterface<P, S>::getStorage() -> Storage&
+auto MultiXpuDataInterface<P, S>::getStorage() -> Storage&
 {
     return *(mStorage.get());
 }
 template <typename P, typename S>
-auto MultiDeviceObjectInterface<P, S>::getStorage() const -> const Storage&
+auto MultiXpuDataInterface<P, S>::getStorage() const -> const Storage&
 {
     return *(mStorage.get());
 }
 
 template <typename P, typename S>
-auto MultiDeviceObjectInterface<P, S>::getUid() const -> Neon::set::MultiDeviceObjectUid
+auto MultiXpuDataInterface<P, S>::getUid() const -> Neon::set::dataDependency::MultiXpuDataUid
 {
     void*                           addr = static_cast<void*>(mUid.get());
-    Neon::set::MultiDeviceObjectUid uidRes = (size_t)addr;
+    Neon::set::dataDependency::MultiXpuDataUid uidRes = (size_t)addr;
     return uidRes;
 }
 
 template <typename P, typename S>
-MultiDeviceObjectInterface<P, S>::MultiDeviceObjectInterface()
+MultiXpuDataInterface<P, S>::MultiXpuDataInterface()
 {
     mStorage = std::make_shared<Storage>();
     mUid = std::make_shared<int>();
 }
 
 template <typename P, typename S>
-auto MultiDeviceObjectInterface<P, S>::swapUIDs(MultiDeviceObjectInterface::Self& A, MultiDeviceObjectInterface::Self& B) -> void
+auto MultiXpuDataInterface<P, S>::swapUIDs(MultiXpuDataInterface::Self& A, MultiXpuDataInterface::Self& B) -> void
 {
     std::swap(A.mUid,B.mUid);
 }
