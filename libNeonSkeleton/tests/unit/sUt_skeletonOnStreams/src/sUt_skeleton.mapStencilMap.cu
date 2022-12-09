@@ -44,7 +44,7 @@ void MapStencilMap(TestData<G, T, C>&      data,
     data.getBackend().syncAll();
 
     //data.resetValuesToRandom(1, 50);
-    data.resetValuesToMasked(1,1,3);
+    data.resetValuesToMasked(1, 1, 3);
     Neon::Timer_sec timer;
 
     {  // SKELETON
@@ -204,7 +204,7 @@ TEST(MapStencilMap_TwoWayExtendedOCC, dGrid)
     runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilTwoWayExtendedOCC<Grid, Type, 0>, nGpus, 2);
 }
 
-TEST(MapStencilMap_NoOCC, DISABLED_bGrid)
+TEST(MapStencilMap_NoOCC, bGrid)
 {
     int nGpus = 1;
     using Grid = Neon::domain::internal::bGrid::bGrid;
