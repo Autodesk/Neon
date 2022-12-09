@@ -177,7 +177,7 @@ TEST(SingleStencilTestData, dGrid)
 }
 
 
-TEST(SingleDot, bGrid)
+TEST(SingleDot, DISABLED_bGrid)
 {
     int nGpus = 1;
     using Grid = Neon::domain::bGrid;
@@ -185,7 +185,7 @@ TEST(SingleDot, bGrid)
     runAllTestConfiguration<Grid, Type, 0>("bGrid", runSingleDot<Grid, Type, 0>, nGpus, 1);
 }
 
-TEST(SingleStencilTestData, bGrid)
+TEST(SingleStencilTestData, DISABLED_bGrid)
 {
     int nGpus = 1;
     using Grid = Neon::domain::bGrid;

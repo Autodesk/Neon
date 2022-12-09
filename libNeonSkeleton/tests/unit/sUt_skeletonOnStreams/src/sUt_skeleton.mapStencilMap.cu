@@ -44,7 +44,7 @@ void MapStencilMap(TestData<G, T, C>&      data,
     data.getBackend().syncAll();
 
     //data.resetValuesToRandom(1, 50);
-    data.resetValuesToMasked(1, 1, 3);
+    data.resetValuesToMasked(1,1,3);
     Neon::Timer_sec timer;
 
     {  // SKELETON
