@@ -1,23 +1,21 @@
 # Guided Tutorial - Introduction
 
-Neon aims at making **multi-XPU** easier for computation on **volumetric data structure** by providing users with a
-simple
-sequential programming model.
+Neon aims at making **multi-XPU** programming easier for computation on **volumetric data structure** by providing users
+with a simple sequential programming model.
 
-Nowadays, computing accelerators come in different types and configurations. With the term **XPU**, we refer to an
-abstract
-computing device like CPU, GPU, FPGA, TPU etc. We target a collection of XPU computing accelerators that can be
-connected in shared memory or distributed fashion. While this is the long-term scope of the project, at the moment, we
-support shared memory CPU and GPUs. In particular, our current implementation is based on openMP and CUDA.
+Nowadays, accelerators are at the core of high performance computing and they   
+ come in different types and configurations. Term **XPU** has been introduced as generic term to capture the diversity of accelerators, GPU, FPGA, TPU etc.
+We target a collection of XPU computing accelerators that can be connected in shared memory or distributed fashion.
+While this is the long-term scope of the project, at the moment, we support shared memory CPU and GPUs.
+In particular, our current implementation is based on openMP and CUDA.
 
 **Volumetric data** structures capture properties of a digitized representation of an object and are used in different
 fields, from graphics to simulation. Neon primarily focuses on supporting local operations, usually called stencil
 operations. Stencil operations are at the core of various numerical methods such as finite difference, finite element,
 lattice Boltzmann and others.
 
-
-| Simple user application in Neon and its dependency graph                               |                                                                                             |
-|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| Simple user application in Neon and its dependency graph                                    |                                                                                             |
+|---------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | <image src = "/learn/guided-tutorials/img/axpy-laplace-dot-code.png" width="300px"></image> | <image src = "/learn/guided-tutorials/img/axpy-laplace-dot-app.png" width="300px" ></image> |
 
 | Different Multi-XPU Graph created by Neon                                                   ||
