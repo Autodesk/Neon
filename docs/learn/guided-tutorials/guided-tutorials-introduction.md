@@ -1,19 +1,22 @@
 # Guided Tutorial - Introduction
 
 Neon aims at making **multi-XPU** programming easier for computation on **volumetric data structure** by providing users
-with a simple sequential programming model.
+with a simple sequential programming model, while automatically applying varius optimizations under the hood.
 
 Nowadays, accelerators are at the core of high performance computing and they   
  come in different types and configurations. Term **XPU** has been introduced as generic term to capture the diversity of accelerators, GPU, FPGA, TPU etc.
 We target a collection of XPU computing accelerators that can be connected in shared memory or distributed fashion.
 While this is the long-term scope of the project, at the moment, we support shared memory CPU and GPUs.
-In particular, our current implementation is based on openMP and CUDA.
+In particular, our current implementation is based on openMP (on the CPU) and CUDA (on GPU).
 
-**Volumetric data** structures capture properties of a digitized representation of an object and are used in different
-fields, from graphics to simulation. Neon primarily focuses on supporting local operations, usually called stencil
-operations. Stencil operations are at the core of various numerical methods such as finite difference, finite element,
-lattice Boltzmann and others.
+**Volumetric data** structures are used as a way to create a digital representation of properties of three-dimensional objects. For example, we can use them to represent pressure, displacement or material properties. Volumetric data structures are used both in simulation and computer graphics tools. 
 
+Automatic parallelization of generic sequential code is still an open challenge which could be referred as the holy grail. 
+Neon tackles a more tractable challenge by restricting the problem to specific domains. Neon focus on problems based on regular spatial discretions like uniform cartesian grids (support for non-uniform cartesian is in development). Moreover, Neon primarily support local operations like map (the value of a cell depends only on the metadata stored in the same cell) or stencil (a cell value is computed using metadata associated to close cells). Reductions (like dot or norm) are the only global operations. Thanks to the information on both the structure of volumetric representation and the supported operations, Neon is able to automatically decompose the problem data in different partitions, map partition to XPUs, handle any required communication between partitions and finally to decompose the computation to introduce optimizations like overlapping computation and communication which are essential to achieve good performance.  
+
+In the following we run through a simple example to spread some light on what Neon does automatically under the hood.  
+
+Consider a simple computation where apply a 
 | Simple user application in Neon and its dependency graph                                    |                                                                                             |
 |---------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | <image src = "/learn/guided-tutorials/img/axpy-laplace-dot-code.png" width="300px"></image> | <image src = "/learn/guided-tutorials/img/axpy-laplace-dot-app.png" width="300px" ></image> |
