@@ -1,20 +1,20 @@
 set -x
 
-DOMAIN_SIZE_LIST="128 192 256 320"
+DOMAIN_SIZE_LIST="128 192 256 320 384 448 512"
 GRID="dGrid"
 STORAGE_FP_LIST="double float"
 COMPUTE_FP_LIST="double float"
 OCC="nOCC"
 
-for COMPUTE_FP in ${COMPUTE_FP_LIST}; do
+for DOMAIN_SIZE in ${DOMAIN_SIZE_LIST}; do
   for STORAGE_FP in ${STORAGE_FP_LIST}; do
-    for DOMAIN_SIZE in ${DOMAIN_SIZE_LIST}; do
+    for COMPUTE_FP in ${COMPUTE_FP_LIST}; do
 
       if [ "${STORAGE_FP}_${COMPUTE_FP}" = "double_float" ]; then
-        continue 
+        continue
       fi
 
-      ./lbm-lid-driven-cavity-flow \
+      echo ./lbm-lid-driven-cavity-flow \
         --deviceType gpu --deviceIds 0 \
         --grid "${GRID}" \
         --domain-size "${DOMAIN_SIZE}" \
