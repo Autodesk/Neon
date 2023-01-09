@@ -182,7 +182,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
             Cell cell(x, y, z);
             cell.mBlockID = blockIdx;
             cell.mBlockSize = blockSize;
-            mData->mActiveMask.eRef(devID, cell.getBlockMaskStride(blockSize) + cell.getMaskLocalID(blockSize), 0) |= 1 << cell.getMaskBitPosition(blockSize);
+            mData->mActiveMask.eRef(devID, cell.getBlockMaskStride() + cell.getMaskLocalID(), 0) |= 1 << cell.getMaskBitPosition();
         };
 
 

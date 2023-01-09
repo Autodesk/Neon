@@ -48,13 +48,6 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::getLocal1DID() const -> Location::Integ
 #endif
 }
 
-NEON_CUDA_HOST_DEVICE inline auto bCell::getLocal1DID(int blockSize) const -> Location::Integer
-{
-    return mLocation.x +
-           mLocation.y * Location::Integer(blockSize) +
-           mLocation.z * Location::Integer(blockSize) * Location::Integer(blockSize);
-}
-
 NEON_CUDA_HOST_DEVICE inline auto bCell::swirlToCanonical(const Location::Integer id) -> Location::Integer
 {
     //from 0-7, no change
@@ -351,19 +344,9 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::getMaskLocalID() const -> int32_t
     return getLocal1DID() / sMaskSize;
 }
 
-NEON_CUDA_HOST_DEVICE inline auto bCell::getMaskLocalID(int blockSize) const -> int32_t
-{
-    return getLocal1DID(blockSize) / sMaskSize;
-}
-
 NEON_CUDA_HOST_DEVICE inline auto bCell::getMaskBitPosition() const -> int32_t
 {
     return getLocal1DID() % sMaskSize;
-}
-
-NEON_CUDA_HOST_DEVICE inline auto bCell::getMaskBitPosition(int blockSize) const -> int32_t
-{
-    return getLocal1DID(blockSize) % sMaskSize;
 }
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::getBlockMaskStride() const -> int32_t
@@ -371,10 +354,6 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::getBlockMaskStride() const -> int32_t
     return mBlockID * NEON_DIVIDE_UP(mBlockSize * mBlockSize * mBlockSize, sMaskSize);
 }
 
-NEON_CUDA_HOST_DEVICE inline auto bCell::getBlockMaskStride(int blockSize) const -> int32_t
-{
-    return mBlockID * NEON_DIVIDE_UP(blockSize * blockSize * blockSize, sMaskSize);
-}
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::computeIsActive(const uint32_t* activeMask) const -> bool
 {
@@ -382,11 +361,7 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::computeIsActive(const uint32_t* activeM
     return (mask & (1 << getMaskBitPosition()));
 }
 
-NEON_CUDA_HOST_DEVICE inline auto bCell::computeIsActive(const uint32_t* activeMask, int blockSize) const -> bool
-{
-    const uint32_t mask = activeMask[getBlockMaskStride(blockSize) + getMaskLocalID(blockSize)];
-    return (mask & (1 << getMaskBitPosition(blockSize)));
-}
+
 NEON_CUDA_HOST_DEVICE inline auto bCell::isActive() const -> bool
 {
     return mIsActive;
