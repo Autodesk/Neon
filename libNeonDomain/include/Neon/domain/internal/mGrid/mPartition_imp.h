@@ -111,11 +111,11 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasParent(const Cell& cell) 
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getChild(const Cell&   cell,
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getChild(const Cell&   parent_cell,
                                                              Neon::int8_3d child) const -> Cell
 {
     Cell childCell;
-    childCell.mBlockID = childID(cell);
+    childCell.mBlockID = childID(parent_cell);
     childCell.mBlockSize = mRefFactors[mLevel - 1];
     childCell.mLocation.x = child.x;
     childCell.mLocation.y = child.y;
