@@ -1,5 +1,6 @@
 
 #include "Neon/Neon.h"
+#include "cuda_fp16.h"
 #include "gtest/gtest.h"
 #include "map.h"
 #include "runHelper.h"
@@ -7,8 +8,7 @@
 TEST(domain, map)
 {
     int nGpus = 3;
-    using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::domain::eGrid, Type, 0, double>),
+    runAllTestConfiguration(std::function(map::run<Neon::domain::eGrid, int64_t, 0, double>),
                             nGpus,
                             1);
 }

@@ -134,6 +134,17 @@ struct sPartition
     operator()(Cell const& eId,
                int         cardinalityIdx) -> T&;
 
+
+    template <typename ComputeType>
+    NEON_CUDA_HOST_DEVICE inline auto
+    castRead(Cell eId, int cardinalityIdx) const
+        -> ComputeType;
+
+    template <typename ComputeType>
+    NEON_CUDA_HOST_DEVICE inline auto
+    castWrite(Cell eId, int cardinalityIdx, const ComputeType& value)
+        -> void;
+
     /**
      * Translate a sGrid cell to a outer grid cell
      */
