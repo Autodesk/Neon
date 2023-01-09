@@ -6,7 +6,7 @@
 
 #include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
-#include "Neon/set/MultiDeviceObjectInterface.h"
+#include "Neon/set/MultiXpuDataInterface.h"
 #include "Neon/set/memory/memSet.h"
 
 #include "Neon/domain/interface/FieldBase.h"
@@ -21,7 +21,7 @@ template <typename T /** Field's cell metadata type */,
           typename P /** Type of a Partition */,
           typename S /** Storage type */>
 class FieldBaseTemplate : public FieldBase<T, C>,
-                          public Neon::set::interface::MultiDeviceObjectInterface<P, S>
+                          public Neon::set::interface::MultiXpuDataInterface<P, S>
 {
    public:
     using Partition = P;

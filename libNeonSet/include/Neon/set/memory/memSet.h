@@ -115,10 +115,10 @@ class MemSet_t
         m_memSet_shp = std::make_shared<Mem_vec>(numEntries);
     }
 
-    auto uid() const -> Neon::set::MultiDeviceObjectUid
+    auto uid() const -> Neon::set::dataDependency::MultiXpuDataUid
     {
-        void*                           addr = static_cast<void*>(m_memSet_shp.get());
-        Neon::set::MultiDeviceObjectUid uidRes = (size_t)addr;
+        void* addr = static_cast<void*>(m_memSet_shp.get());
+        auto  uidRes = (Neon::set::dataDependency::MultiXpuDataUid)addr;
         return uidRes;
     }
 

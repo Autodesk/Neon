@@ -4,8 +4,8 @@
 
 #include "Neon/domain/tools/TestData.h"
 #include "TestInformation.h"
+#include "cuda_fp16.h"
 #include "gtest/gtest.h"
-
 
 namespace map {
 
@@ -60,7 +60,7 @@ auto run(TestData<G, T, C>& data) -> void
 
 
         mapContainer_axpy<ComputeType>(Neon::Backend::mainStreamIdx,
-                                       val, X, Y)
+                                                  val, X, Y)
             .run(0);
 
         data.getBackend().sync(0);

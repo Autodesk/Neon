@@ -1,11 +1,11 @@
 
 #pragma once
 #include <functional>
-#include "Neon/domain/eGrid.h"
 #include "Neon/domain/dGrid.h"
+#include "Neon/domain/eGrid.h"
+#include "cuda_fp16.h"
 
 #include "Neon/domain/tools/TestData.h"
-
 
 
 namespace map {

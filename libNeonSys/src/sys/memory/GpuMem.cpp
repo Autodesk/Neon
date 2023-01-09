@@ -52,7 +52,7 @@ void* GpuMem::allocateMem(const Neon::Allocator& allocType, size_t size)
 
         default: {
             Neon::NeonException exp("GpuMem_t");
-            exp << "Unsupported memory allocation m_type " << AllocatorUtils::toString(allocType) << " for device " << m_gpuDev->getIdx();
+            exp << "Unsupported memory allocation mType " << AllocatorUtils::toString(allocType) << " for device " << m_gpuDev->getIdx();
             NEON_THROW(exp);
         }
     }
@@ -71,7 +71,7 @@ void GpuMem::releaseMem(const Neon::Allocator& allocType, size_t size, void* mem
 
         default: {
             Neon::NeonException exp("GpuMem_t");
-            exp << "Unsupported memory de-allocation m_type " << allocType << " for device " << m_gpuDev->getIdx();
+            exp << "Unsupported memory de-allocation mType " << allocType << " for device " << m_gpuDev->getIdx();
             NEON_THROW(exp);
         }
     }

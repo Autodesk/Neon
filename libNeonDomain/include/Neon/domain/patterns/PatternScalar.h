@@ -1,13 +1,13 @@
 #pragma once
 #include "Neon/set/Backend.h"
-#include "Neon/set/MultiDeviceObjectInterface.h"
+#include "Neon/set/MultiXpuDataInterface.h"
 #include "Neon/set/patterns/BlasSet.h"
 
 namespace Neon {
 
 template <typename T>
 class PatternScalar
-    : public set::interface::MultiDeviceObjectInterface<PatternScalar<T>, int>
+    : public set::interface::MultiXpuDataInterface<PatternScalar<T>, int>
 {
 
    public:
@@ -37,7 +37,7 @@ class PatternScalar
     /**
      * Returns a unique identifier to be used for the loading process
      */
-    auto uid() const -> Neon::set::MultiDeviceObjectUid;
+    auto uid() const -> Neon::set::dataDependency::MultiXpuDataUid;
 
     auto getPartition(const Neon::DeviceType& devType,
                       const Neon::SetIdx&     idx,
@@ -81,6 +81,8 @@ class PatternScalar
      */
     auto operator()(const Neon::DataView& dataView) -> T&;
 
+    auto getName() const -> std::string;
+
    private:
     auto updateIO(int streamId = 0)
         -> void final;
@@ -109,6 +111,8 @@ class PatternScalar
     T internalResult;
     T standardResult;
 };
+
+
 
 }  // namespace Neon
 

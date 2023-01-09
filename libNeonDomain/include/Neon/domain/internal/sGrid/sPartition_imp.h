@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Neon/domain/internal/sGrid/sPartition.h"
+#include "cuda_fp16.h"
 
 namespace Neon::domain::internal::sGrid {
 
@@ -82,6 +83,47 @@ sPartition<OuterGridT, T, C>::operator()(Cell const& eId,
     Jump jump = helpGetJump(eId, cardinalityIdx);
     return mMemory[jump];
 }
+
+template <typename OuterGridT, typename T, int C>
+template <typename ComputeType>
+NEON_CUDA_HOST_DEVICE inline auto
+sPartition<OuterGridT, T, C>::castRead(Cell eId,
+                                       int  cardinalityIdx) const -> ComputeType
+{
+    Type value = this->operator()(eId, cardinalityIdx);
+    if constexpr (std::is_same_v<__half, Type>) {
+
+        if constexpr (std::is_same_v<float, ComputeType>) {
+            return __half2float(value);
+        }
+        if constexpr (std::is_same_v<double, ComputeType>) {
+            return static_cast<double>(__half2float(value));
+        }
+    } else {
+        return static_cast<ComputeType>(value);
+    }
+}
+
+template <typename OuterGridT, typename T, int C>
+template <typename ComputeType>
+NEON_CUDA_HOST_DEVICE inline auto
+sPartition<OuterGridT, T, C>::castWrite(Cell               eId,
+                                        int                cardinalityIdx,
+                                        const ComputeType& value) -> void
+{
+
+    if constexpr (std::is_same_v<__half, Type>) {
+        if constexpr (std::is_same_v<float, ComputeType>) {
+            this->operator()(eId, cardinalityIdx) = __float2half(value);
+        }
+        if constexpr (std::is_same_v<double, ComputeType>) {
+            this->operator()(eId, cardinalityIdx) = __double2half(value);
+        }
+    } else {
+        this->operator()(eId, cardinalityIdx) = static_cast<Type>(value);
+    }
+}
+
 template <typename OuterGridT, typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto
 sPartition<OuterGridT, T, C>::mapToOuterGrid(const sPartition::Cell& cell) const

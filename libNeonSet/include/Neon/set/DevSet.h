@@ -12,6 +12,7 @@
 #include <tuple>
 #include <type_traits>
 #include <vector>
+#include <omp.h>
 
 // #include "Neon/set/backend.h"
 #include "Neon/set/DataSet.h"
@@ -311,8 +312,9 @@ class DevSet
         const LaunchParameters& launchInfoSet = kernelConfig.launchInfoSet();
         const int               nGpus = int(m_devIds.size());
         {
-#pragma omp parallel for num_threads(nGpus) default(shared) firstprivate(lambdaHolder)
-            for (int idx = 0; idx < nGpus; idx++) {
+#pragma omp parallel num_threads(nGpus) default(shared) firstprivate(lambdaHolder)
+            {
+                int idx = omp_get_thread_num();
                 const Neon::sys::GpuDevice& dev = Neon::sys::globalSpace::gpuSysObj().dev(m_devIds[idx]);
                 // std::tuple<funParametersType_ta& ...>argsForIthGpuFunction(parametersVec.at(i) ...);
 

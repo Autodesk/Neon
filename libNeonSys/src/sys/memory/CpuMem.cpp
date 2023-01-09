@@ -112,7 +112,7 @@ void* CpuMem::allocateMem(const Neon::Allocator& allocType, size_t size)
         }
         default: {
             Neon::NeonException exp("CpuMem_t");
-            exp << "Unsupported->memory.allocation m_type " << allocType << " for device " << m_cpuDev->getIdx();
+            exp << "Unsupported->memory.allocation mType " << allocType << " for device " << m_cpuDev->getIdx();
             NEON_THROW(exp);
         }
     }
@@ -145,7 +145,7 @@ void CpuMem::releaseMem(const Neon::Allocator& allocType, size_t size, void* mem
         }
         default: {
             Neon::NeonException exp("CpuMem_t");
-            exp << "Unsupported memory de-allocation m_type " << allocType << " for device " << m_cpuDev->getIdx();
+            exp << "Unsupported memory de-allocation mType " << allocType << " for device " << m_cpuDev->getIdx();
             NEON_THROW(exp);
         }
     }

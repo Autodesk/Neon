@@ -3,7 +3,7 @@
 #include <memory>
 #include "Neon/set/Containter.h"
 #include "Neon/set/DevSet.h"
-#include "Neon/set/MultiDeviceObjectInterface.h"
+#include "Neon/set/MultiXpuDataInterface.h"
 
 
 namespace Neon::set::internal::datum {
@@ -69,7 +69,7 @@ namespace Neon::set {
  * @tparam Obj
  */
 template <typename Obj>
-class Replica : public Neon::set::interface::MultiDeviceObjectInterface<Neon::set::internal::datum::Partition<Obj>,
+class Replica : public Neon::set::interface::MultiXpuDataInterface<Neon::set::internal::datum::Partition<Obj>,
                                                                         Neon::set::internal::datum::Storage<Obj>>
 {
    public:

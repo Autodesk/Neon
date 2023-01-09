@@ -6,8 +6,8 @@
 #include "Neon/set/DevSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
 #include "Neon/sys/memory/mem3d.h"
+#include "cuda_fp16.h"
 #include "dCell.h"
-
 namespace Neon::domain::internal::dGrid {
 
 /**
@@ -265,17 +265,34 @@ struct dPartition
                                                int         cardinalityIdx) const -> ComputeType
     {
         Type value = this->operator()(cell, cardinalityIdx);
-        ComputeType           output = static_cast<ComputeType>(value);
-        return output;
+        if constexpr (std::is_same_v<__half, Type>) {
+
+            if constexpr (std::is_same_v<float, ComputeType>) {
+                return __half2float(value);
+            }
+            if constexpr (std::is_same_v<double, ComputeType>) {
+                return static_cast<double>(__half2double(value));
+            }
+        } else {
+            return static_cast<ComputeType>(value);
+        }
     }
 
     template <typename ComputeType>
-    NEON_CUDA_HOST_DEVICE inline auto castWrite(const Cell&     cell,
-                                                int             cardinalityIdx,
+    NEON_CUDA_HOST_DEVICE inline auto castWrite(const Cell&        cell,
+                                                int                cardinalityIdx,
                                                 const ComputeType& value) -> void
     {
-        Type  output = static_cast<Type>(value);
-        this->operator()(cell, cardinalityIdx) = output;
+        if constexpr (std::is_same_v<__half, Type>) {
+            if constexpr (std::is_same_v<float, ComputeType>) {
+                this->operator()(cell, cardinalityIdx) = __float2half(value);
+            }
+            if constexpr (std::is_same_v<double, ComputeType>) {
+                this->operator()(cell, cardinalityIdx) = __double2half(value);
+            }
+        } else {
+            this->operator()(cell, cardinalityIdx) = static_cast<Type>(value);
+        }
     }
 
     NEON_CUDA_HOST_DEVICE inline auto ePrt(const index_3d& cell,
@@ -284,7 +301,6 @@ struct dPartition
         int64_t p = elPitch(cell, cardinalityIdx);
         return m_mem + p;
     }
-
 
     NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Cell& local) const -> Neon::index_3d
     {
@@ -311,4 +327,6 @@ struct dPartition
 #endif
     }
 };
+
+
 }  // namespace Neon::domain::internal::dGrid

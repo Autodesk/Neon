@@ -13,8 +13,8 @@ FieldBase<T, C>::FieldBase()
 }
 
 template <typename T, int C>
-FieldBase<T, C>::FieldBase(const std::string              FieldBaseUserName,
-                           const std::string              fieldClassName,
+FieldBase<T, C>::FieldBase(const std::string&             FieldBaseUserName,
+                           const std::string&             fieldClassName,
                            const Neon::index_3d&          dimension,
                            int                            cardinality,
                            T                              outsideVal,
@@ -275,6 +275,13 @@ auto FieldBase<T, C>::getClassName() const -> const std::string&
 }
 
 template <typename T, int C>
+auto FieldBase<T, C>::haloUpdateContainer(Neon::set::TransferMode,
+                                          Neon::set::StencilSemantic) const -> Neon::set::Container
+{
+    NEON_THROW_UNSUPPORTED_OPERATION("");
+}
+
+template <typename T, int C>
 FieldBase<T, C>::Storage::Storage(const std::string              FieldBaseUserName,
                                   const std::string              fieldClassName,
                                   const Neon::index_3d&          dimension,
@@ -300,13 +307,16 @@ FieldBase<T, C>::Storage::Storage(const std::string              FieldBaseUserNa
         name = "Anonymous";
     }
 }
-
-
+    
+#if defined(NEON_OS_WINDOWS)
+#pragma warning(push)
+#pragma warning(disable : 4244)
+#endif
 template <typename T, int C>
 FieldBase<T, C>::Storage::Storage()
     : dimension(0),
       cardinality(0),
-      outsideVal(0),
+      outsideVal(static_cast<T>(0.0)),
       dataUse(),
       memoryOptions(),
       haloStatus(),
@@ -314,4 +324,8 @@ FieldBase<T, C>::Storage::Storage()
       origin(0.0)
 {
 }
+#if defined(NEON_OS_WINDOWS)
+#pragma warning(pop)
+#endif
+    
 }  // namespace Neon::domain::interface

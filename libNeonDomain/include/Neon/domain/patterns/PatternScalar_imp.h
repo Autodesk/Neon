@@ -45,10 +45,10 @@ auto PatternScalar<T>::operator()() const -> const T&
 }
 
 template <typename T>
-auto PatternScalar<T>::uid() const -> Neon::set::MultiDeviceObjectUid
+auto PatternScalar<T>::uid() const -> Neon::set::dataDependency::MultiXpuDataUid
 {
     void*                           addr = static_cast<void*>(mData.get());
-    Neon::set::MultiDeviceObjectUid uidRes = (size_t)addr;
+    Neon::set::dataDependency::MultiXpuDataUid uidRes = (size_t)addr;
     return uidRes;
 }
 
@@ -189,6 +189,11 @@ auto PatternScalar<T>::getBlasSet(const Neon::DataView& dataView) -> Neon::set::
     }
 }
 
+template <typename T>
+auto PatternScalar<T>::getName() const -> std::string
+{
+    return "PatternScalar";
+}
 
 extern template class PatternScalar<float>;
 extern template class PatternScalar<double>;

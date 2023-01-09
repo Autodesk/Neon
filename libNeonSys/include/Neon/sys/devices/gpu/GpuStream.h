@@ -3,11 +3,10 @@
 #include <atomic>
 #include <vector>
 #include "Neon/core/core.h"
-#include "Neon/sys/devices/gpu/GpuEvent.h"
 #include "Neon/sys/devices/gpu/ComputeID.h"
+#include "Neon/sys/devices/gpu/GpuEvent.h"
 
-namespace Neon {
-namespace sys {
+namespace Neon::sys {
 
 struct GpuStream
 {
@@ -131,24 +130,10 @@ struct GpuStream
      * @tparam runMode
      */
     template <run_et::et runMode = run_et::et::sync>
-    void sync() const
-    {
-        if constexpr (run_et::et::sync == runMode) {
-            cudaError_t retCode = cudaStreamSynchronize(m_cudaStream);
-            if (cudaSuccess != retCode) {
-                NeonException exc("GpuStream_t");
-                exc << "CUDA error completing cudaStreamSynchronize operation.\n";
-                exc << "   target device: " << m_gpuId;
-                exc << "\n   Error: " << cudaGetErrorString(retCode);
-                NEON_THROW(exc);
-            }
-            return;
-        } else {
-            return;
-        }
-    }
+    auto sync() const -> void;
 };
 
+extern template auto GpuStream::sync<run_et::et::sync>() const -> void;
+extern template auto GpuStream::sync<run_et::et::async>() const -> void;
 
-}  // End of namespace sys
 }  // End of namespace Neon

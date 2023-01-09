@@ -1,21 +1,22 @@
 #pragma once
 
 #include "Neon/set/DevSet.h"
-#include "Neon/set/dependencyTools/DataParsing.h"
 #include "functional"
 #include "type_traits"
 
 #include "Neon/set/container/ContainerAPI.h"
-#include "Neon/set/container/HostManagedSyncType.h"
-#include "Neon/set/container/Loader.h"
+#include "Neon/set/container/types/HostManagedSyncType.h"
+#include "Neon/set/container/types/SynchronizationContainerType.h"
 
 namespace Neon::set {
 
+struct Loader;
 
 struct Container
 {
    public:
     Container() = default;
+    virtual ~Container() = default;
 
     /**
      * Run a Neon Container on a given stream and with a given data view
@@ -74,6 +75,7 @@ struct Container
               typename UserLoadingLambdaT>
     static auto factoryOldManaged(const std::string&                                 name,
                                   Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
+                                  Neon::set::ContainerPatternType                    patternType,
                                   DataContainerT                                     a,
                                   const UserLoadingLambdaT&                          f)
         -> Container;
@@ -103,6 +105,17 @@ struct Container
     static auto factoryDeviceThenHostManaged(const std::string& name,
                                              Container&         device,
                                              Container&         host)
+        -> Container;
+
+    template <typename MultiXpuDataT>
+    static auto factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
+                                    Neon::set::TransferMode     transferMode,
+                                    Neon::set::StencilSemantic transferSemantic)
+        -> Neon::set::Container;
+
+    template <typename MxpuDataT>
+    static auto factorySynchronization(const MxpuDataT&             multiXpuData,
+                                       SynchronizationContainerType syncType)
         -> Container;
 
     static auto factoryAnchor(const std::string& name /**< A user's string to identify the computation done by the Container. */)
