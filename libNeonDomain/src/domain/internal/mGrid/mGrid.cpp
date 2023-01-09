@@ -650,7 +650,7 @@ void mGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
                             cell.mBlockSize = refFactor;
 
                             if (cell.computeIsActive(
-                                    mData->grids[l].getActiveMask().rawMem(devID, Neon::DeviceType::CPU), refFactor)) {
+                                    mData->grids[l].getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
 
                                 Neon::int32_3d corner(blockOrigin.x + x * childSpacing,
                                                       blockOrigin.y + y * childSpacing,
