@@ -197,7 +197,6 @@ void dumpTextDataIntoFile(std::ofstream&                                        
                           const Integer_3d<intType_ta>&                                    space)
 {
     Neon::Integer_3d<intType_ta> idx;
-
     for (intType_ta z = 0; z < space.z; z++) {
         for (intType_ta y = 0; y < space.y; y++) {
             for (intType_ta x = 0; x < space.x; x++) {

@@ -26,14 +26,18 @@ TEST(bGrid, activeCell)
 
         auto field = b_grid.newField<float>("myField", 1, 0);
 
-        field.forEachActiveCell<Neon::computeMode_t::computeMode_e::seq>(
+        //field.ioToVtk("f", "f");
+
+        field.forEachActiveCell(
             [](const Neon::int32_3d id, const int card, float) {
                 EXPECT_TRUE(((id.x == 0 && id.y == 0 && id.z == 0) ||
                              (id.x == 8 && id.y == 8 && id.z == 8)) &&
                             card == 0);
-            });
+            },
+            Neon::computeMode_t::computeMode_e::seq);
     }
 }
+
 
 int main(int argc, char** argv)
 {

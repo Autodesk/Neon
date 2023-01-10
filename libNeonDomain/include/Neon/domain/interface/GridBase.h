@@ -135,7 +135,6 @@ class GridBase
         -> const Neon::index_3d&;
 
 
-
    protected:
     /**
      * Protected constructor

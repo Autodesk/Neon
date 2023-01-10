@@ -8,10 +8,10 @@
 #include "Neon/set/DevSet.h"
 #include "Neon/set/memory/memSet.h"
 
-#include "Neon/domain/internal/aGrid/aFieldStorage.h"
-#include "Neon/domain/internal/aGrid/aPartition.h"
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/interface/common.h"
+#include "Neon/domain/internal/aGrid/aFieldStorage.h"
+#include "Neon/domain/internal/aGrid/aPartition.h"
 #include "Neon/set/MemoryOptions.h"
 
 namespace Neon::domain::internal::aGrid {
@@ -20,10 +20,10 @@ class aGrid /** Forward declaration for aField */;
 
 template <typename T, int C = 0>
 class aField : public Neon::domain::interface::FieldBaseTemplate<T,
-                                                                C,
-                                                                aGrid,
-                                                                aPartition<T, C>,
-                                                                Storage<T, C>>
+                                                                 C,
+                                                                 aGrid,
+                                                                 aPartition<T, C>,
+                                                                 Storage<T, C>>
 {
     friend aGrid;
 
@@ -32,7 +32,7 @@ class aField : public Neon::domain::interface::FieldBaseTemplate<T,
     using Partition = aPartition<T, C>; /**< Type of the associated fieldCompute */
     using Type = typename Partition::Type /**< Type of the information stored in one element */;
     using Cell = typename Partition::Cell /**< Internal type that represent the location in memory of a element */;
-    using Field = aField<T,C>;
+    using Field = aField<T, C>;
     static constexpr int Cardinality = C;
 
     // ALIAS
@@ -111,20 +111,20 @@ class aField : public Neon::domain::interface::FieldBaseTemplate<T,
 
    private:
     using BaseTemplate = Neon::domain::interface::FieldBaseTemplate<T,
-                                                                   C,
-                                                                   aGrid,
-                                                                   aPartition<T, C>,
+                                                                    C,
+                                                                    aGrid,
+                                                                    aPartition<T, C>,
                                                                     Neon::domain::internal::aGrid::Storage<T, C>>;
     /**
      * Private constructor used by aGrid
      */
-    aField(const std::string             fieldUserName,
-           const aGrid&                  grid,
-           int                           cardinality,
-           T                             outsideVal,
+    aField(const std::string              fieldUserName,
+           const aGrid&                   grid,
+           int                            cardinality,
+           T                              outsideVal,
            Neon::domain::haloStatus_et::e haloStatus,
-           Neon::DataUse                 dataUse,
-           const Neon::MemoryOptions&    memoryOptions);
+           Neon::DataUse                  dataUse,
+           const Neon::MemoryOptions&     memoryOptions);
 
     /**
      * Internal helper function to allocate and initialized memory
@@ -140,4 +140,4 @@ class aField : public Neon::domain::interface::FieldBaseTemplate<T,
 extern template class aField<int, 0>;
 extern template class aField<double, 0>;
 
-}  // namespace Neon::domain::array
+}  // namespace Neon::domain::internal::aGrid

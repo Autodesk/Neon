@@ -110,7 +110,7 @@ auto DependencyAnalyser::
                 // b. flag possible WaR dependencies
                 // b. clear state machine state, cleaning previous read token and storing the new write token
 
-                NEON_WARNING("Skeleton: WaW dependency detected.");
+                //NEON_WARNING("Skeleton: WaW dependency detected.");
                 {  // Executing Step a.
                     auto token_t0_WRITE = mParsedW[0];
                     auto token_t1_WRITE = newKernel;

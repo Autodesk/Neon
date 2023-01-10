@@ -3,7 +3,8 @@
 namespace Neon::domain::internal::aGrid {
 
 aGrid::aGrid()
-    : Neon::domain::interface::GridBaseTemplate<aGrid, aCell>() {
+    : Neon::domain::interface::GridBaseTemplate<aGrid, aCell>()
+{
     mStorage = std::make_shared<Storage>();
 };
 
@@ -75,7 +76,7 @@ auto aGrid::init(const Neon::Backend&              backend,
 
     for (int i = 0; i < getDevSet().setCardinality(); i++) {
         for (auto indexing : {Neon::DataView::STANDARD}) {
-            getDefaultLaunchParameters(indexing) =getLaunchParameters(indexing, blockDim, 0);
+            getDefaultLaunchParameters(indexing) = getLaunchParameters(indexing, blockDim, 0);
         }
     }
 

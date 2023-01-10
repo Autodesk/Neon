@@ -33,7 +33,8 @@ FieldBaseTemplate<T, C, G, P, S>::FieldBaseTemplate(const Grid*                 
                                                haloStatus,
                                                gridPtr->getSpacing(),
                                                gridPtr->getOrigin()),
-      mGridPrt(gridPtr) {
+      mGridPrt(gridPtr)
+{
 }
 
 template <typename T, int C, typename G, typename P, typename S>
@@ -84,10 +85,10 @@ auto FieldBaseTemplate<T, C, G, P, S>::toString() const
     s << "| Active Cells    " << this->getBaseGridTool().getNumActiveCells() << "-> [";
     bool firstTime = true;
     for (auto a : this->getBaseGridTool().getNumActiveCellsPerPartition()) {
-        if(!firstTime){
+        if (!firstTime) {
             s << " ";
         }
-        s << a ;
+        s << a;
         firstTime = false;
     }
     s << "]\n";
@@ -155,7 +156,6 @@ auto FieldBaseTemplate<T, C, G, P, S>::swapUIDBeforeFullSwap(FieldBaseTemplate::
         exp << "Provided fields " << A.getName() << " and " << B.getName()
             << " are incompatible for a swap operation.";
         NEON_THROW(exp);
-
     }
     Neon::set::interface::MultiXpuDataInterface<P, S>::swapUIDs(A,B);
 }

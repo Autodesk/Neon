@@ -95,11 +95,10 @@ class FieldBase
      * @tparam mode
      * @param fun
      */
-    template <Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par>
-    auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
-                                                    const int& cardinality,
-                                                    T&)>& fun)
-        -> void;
+    virtual auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
+                                                            const int& cardinality,
+                                                            T&)>&     fun,
+                                   Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par) -> void;
 
     /**
      * For each operator that target all cells in the cubic domain.

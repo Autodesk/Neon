@@ -271,7 +271,7 @@ inline Vec_3d<IntegerType_ta, true, false> Vec_3d<IntegerType_ta, true, false>::
 template <typename IntegerType_ta>
 inline IntegerType_ta Vec_3d<IntegerType_ta, true, false>::norm() const
 {
-    return std::sqrt(x * x + y * y + z * z);
+    return static_cast<IntegerType_ta>(std::sqrt(x * x + y * y + z * z));
 }
 
 
