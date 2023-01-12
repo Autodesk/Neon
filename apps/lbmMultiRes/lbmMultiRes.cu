@@ -2,7 +2,7 @@
 #include "Neon/domain/mGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
-template <unsigned int DIM, unsigned int COMP>
+template <unsigned int DIM, unsigned int Q>
 Neon::domain::Stencil create_stencil();
 
 template <>
@@ -24,6 +24,88 @@ Neon::domain::Stencil create_stencil<3, 19>()
     // filterCenterOut = false;
     return Neon::domain::Stencil::s19_t(false);
 }
+
+NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity2D[9][2] = {
+    {0, 0},
+    {0, -1},
+    {0, 1},
+    {-1, 0},
+    {-1, -1},
+    {-1, 1},
+    {1, 0},
+    {1, -1},
+    {1, 1}};
+
+NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity3D[27][3] = {
+    {0, 0, 0},
+    {0, -1, 0},
+    {0, 1, 0},
+    {-1, 0, 0},
+    {-1, -1, 0},
+    {-1, 1, 0},
+    {1, 0, 0},
+    {1, -1, 0},
+    {1, 1, 0},
+
+    {0, 0, -1},
+    {0, -1, -1},
+    {0, 1, -1},
+    {-1, 0, -1},
+    {-1, -1, -1},
+    {-1, 1, -1},
+    {1, 0, -1},
+    {1, -1, -1},
+    {1, 1, -1},
+
+    {0, 0, 1},
+    {0, -1, 1},
+    {0, 1, 1},
+    {-1, 0, 1},
+    {-1, -1, 1},
+    {-1, 1, 1},
+    {1, 0, 1},
+    {1, -1, 1},
+    {1, 1, 1}
+
+};
+
+template <int DIM, int Q>
+struct latticeWeight
+{
+    NEON_CUDA_HOST_DEVICE __inline__ constexpr latticeWeight()
+        : t()
+    {
+        if constexpr (DIM == 2) {
+
+            for (int i = 0; i < Q; ++i) {
+                if (latticeVelocity2D[i][0] * latticeVelocity2D[i][0] +
+                        latticeVelocity2D[i][1] * latticeVelocity2D[i][1] <
+                    1.1f) {
+                    t[i] = 1.0f / 9.0f;
+                } else {
+                    t[i] = 1.0f / 36.0f;
+                }
+            }
+            t[0] = 4.0f / 9.0f;
+        }
+
+        if constexpr (DIM == 3) {
+            for (int i = 0; i < Q; ++i) {
+                if (latticeVelocity2D[i][0] * latticeVelocity2D[i][0] +
+                        latticeVelocity2D[i][1] * latticeVelocity2D[i][1] +
+                        latticeVelocity2D[i][2] * latticeVelocity2D[i][2] <
+                    1.1f) {
+                    t[i] = 2.0f / 36.0f;
+                } else {
+                    t[i] = 1.0f / 36.0f;
+                }
+            }
+            t[0] = 1.0f / 3.0f;
+        }
+    }
+    float t[Q];
+};
+
 
 template <typename Field>
 inline void exportVTI(const int t, Field& field)
@@ -47,6 +129,7 @@ inline void exportVTI(const int t, Field& field)
         });
 }*/
 
+
 template <typename T>
 NEON_CUDA_HOST_DEVICE T computeOmega(T omega0, int level, int num_levels)
 {
@@ -55,31 +138,103 @@ NEON_CUDA_HOST_DEVICE T computeOmega(T omega0, int level, int num_levels)
     return 2 * omega0 / (scalbln(1.0, ilevel + 1) + (1. - scalbln(1.0, ilevel)) * omega0);
 }
 
-template <typename T>
-Neon::set::Container velocity(Neon::domain::mGrid& grid, int level, Neon::domain::mGrid::Field<T>& fin)
+template <typename T, int DIM, int Q>
+NEON_CUDA_HOST_DEVICE Neon::Vec_3d<T> velocity(const T* fin,
+                                               const T  rho)
+{
+    Neon::Vec_3d<T> vel(0, 0, 0);
+    if constexpr (DIM == 2) {
+        for (int i = 0; i < Q; ++i) {
+            const T f = fin[i];
+            for (int d = 0; d < DIM; ++d) {
+                vel.v[d] += f * latticeVelocity2D[i][d];
+            }
+        }
+    }
+
+    if constexpr (DIM == 3) {
+        for (int i = 0; i < Q; ++i) {
+            const T f = fin[i];
+            for (int d = 0; d < DIM; ++d) {
+                vel.v[d] += f * latticeVelocity3D[i][d];
+            }
+        }
+    }
+
+    for (int d = 0; d < DIM; ++d) {
+        vel.v[d] /= rho;
+    }
+    return vel;
+}
+
+template <typename T, int DIM, int Q>
+Neon::set::Container collide(Neon::domain::mGrid&                 grid,
+                             T                                    omega0,
+                             int                                  level,
+                             int                                  max_level,
+                             const Neon::domain::mGrid::Field<T>& fin,
+                             Neon::domain::mGrid::Field<T>&       fout)
 {
     return grid.getContainer(
-        "SetOmega" + std::to_string(level), level,
+        "Collide" + std::to_string(level), level,
         [=](Neon::set::Loader& loader) {
-            auto& flocal = fin.load(loader, level, Neon::MultiResCompute::MAP);
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {};
+            const auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
+            auto        out = fout.load(loader, level, Neon::MultiResCompute::MAP);
+            const T     omega = computeOmega(omega0, level, max_level);
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                constexpr auto t = latticeWeight<DIM, Q>();
+
+                //fin
+                T ins[Q];
+                for (int i = 0; i < Q; ++i) {
+                    ins[i] = in(cell, i);
+                }
+
+                //density
+                T rho = 0;
+                for (int i = 0; i < Q; ++i) {
+                    rho += ins[i];
+                }
+
+                //velocity
+                const Neon::Vec_3d<T> vel = velocity<T, DIM, Q>(ins, rho);
+
+
+                const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+                for (int i = 0; i < Q; ++i) {
+                    T cu = 0;
+                    for (int d = 0; d < DIM; ++d) {
+                        cu += latticeVelocity2D[i][d] * vel.v[d];
+                    }
+                    //equilibrium
+                    T feq = rho * t.t[i] * (1. + cu + 0.5 * cu * cu - usqr);
+
+                    //collide
+                    out(cell, i) = ins[i] - omega * (ins[i] - feq);
+                }
+            };
         });
 }
 
-template <typename T>
-void nonUniformTimestepRecursive(Neon::domain::mGrid&               grid,
-                                 T                                  omega0,
-                                 int                                level,
-                                 int                                max_level,
-                                 Neon::domain::mGrid::Field<T>&     fin,
-                                 Neon::domain::mGrid::Field<T>&     fout,
-                                 std::vector<Neon::set::Container>& containers)
+
+template <typename T, int DIM, int Q>
+void nonUniformTimestepRecursive(Neon::domain::mGrid&                 grid,
+                                 const T                              omega0,
+                                 const int                            level,
+                                 const int                            max_level,
+                                 const Neon::domain::mGrid::Field<T>& fin,
+                                 Neon::domain::mGrid::Field<T>&       fout,
+                                 std::vector<Neon::set::Container>&   containers)
 {
+    // 1) collision for all voxels at level L=ilevel
+    containers.push_back(collide<T, DIM, Q>(grid, omega0, level, max_level, fin, fout));
 }
 
 int main(int argc, char** argv)
 {
     Neon::init();
+
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
         using T = double;
 
@@ -89,7 +244,7 @@ int main(int argc, char** argv)
         Neon::Backend    backend(gpu_ids, runtime);
 
         constexpr int DIM = 2;
-        constexpr int COMP = (DIM == 2) ? 9 : 19;
+        constexpr int Q = (DIM == 2) ? 9 : 19;
 
         const int dim_x = 4;
         const int dim_y = 4;
@@ -111,7 +266,7 @@ int main(int argc, char** argv)
              [&](const Neon::index_3d&) -> bool {
                  return true;
              }},
-            create_stencil<DIM, COMP>(), descriptor);
+            create_stencil<DIM, Q>(), descriptor);
 
 
         //LBM problem
@@ -123,8 +278,8 @@ int main(int argc, char** argv)
         const T   smagorinskyConstant = 0.02;
         const T   omega = 1.0 / (3. * visclb + 0.5);
 
-        auto fin = grid.newField<T>("fin", COMP, 0);
-        auto fout = grid.newField<T>("fout", COMP, 0);
+        auto fin = grid.newField<T>("fin", Q, 0);
+        auto fout = grid.newField<T>("fout", Q, 0);
 
         //TODO init fin and fout
 
@@ -133,7 +288,11 @@ int main(int argc, char** argv)
 
         std::vector<Neon::set::Container> containers;
 
-        nonUniformTimestepRecursive(grid, omega, 0, descriptor.getDepth(), fin, fout, containers);
+        nonUniformTimestepRecursive<T, DIM, Q>(grid,
+                                               omega,
+                                               descriptor.getDepth() - 1,
+                                               descriptor.getDepth(),
+                                               fin, fout, containers);
 
         Neon::skeleton::Skeleton skl(grid.getBackend());
         skl.sequence(containers, "MultiResLBM");
