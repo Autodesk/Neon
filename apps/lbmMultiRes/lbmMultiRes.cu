@@ -221,14 +221,40 @@ Neon::set::Container collide(Neon::domain::mGrid&                 grid,
 template <typename T, int DIM, int Q>
 void nonUniformTimestepRecursive(Neon::domain::mGrid&                 grid,
                                  const T                              omega0,
-                                 const int                            level,
+                                 const int                            ilevel,
                                  const int                            max_level,
                                  const Neon::domain::mGrid::Field<T>& fin,
                                  Neon::domain::mGrid::Field<T>&       fout,
                                  std::vector<Neon::set::Container>&   containers)
 {
     // 1) collision for all voxels at level L=ilevel
-    containers.push_back(collide<T, DIM, Q>(grid, omega0, level, max_level, fin, fout));
+    containers.push_back(collide<T, DIM, Q>(grid, omega0, ilevel, max_level, fin, fout));
+
+    // 2) Storing fine(ilevel) data for later "coalescence" pulled by the coarse(ilevel)
+
+    // 3) recurse down
+    if (ilevel != 0) {
+        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, ilevel - 1, max_level, fin, fout, containers);
+    }
+
+    // 4) Streaming step that also performs the necessary "explosion" and "coalescence" steps.
+
+    // 5) stop
+    if (ilevel == max_level - 1) {
+        return;
+    }
+
+    // 6) collision for all voxels at level L = ilevel
+    containers.push_back(collide<T, DIM, Q>(grid, omega0, ilevel, max_level, fin, fout));
+
+    // 7) Storing fine(ilevel) data for later "coalescence" pulled by the coarse(ilevel)
+
+    // 8) recurse down
+    if (ilevel != 0) {
+        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, ilevel - 1, max_level, fin, fout, containers);
+    }
+
+    // 9) Streaming step.
 }
 
 int main(int argc, char** argv)
