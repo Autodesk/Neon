@@ -1,13 +1,13 @@
 # Guided Tutorial - Introduction
 
-Neon aims at making **multi-XPU** programming easier for computation on **volumetric data structure** by providing users
+Neon aims at making **multi-XPU** programming easier for computations on **volumetric data structure** by providing users
 with a simple sequential programming model, while automatically applying varius optimizations under the hood.
 
 Nowadays, accelerators are at the core of high performance computing and they   
  come in different types and configurations. Term **XPU** has been introduced as generic term to capture the diversity of accelerators, GPU, FPGA, TPU etc.
 We target a collection of XPU computing accelerators that can be connected in shared memory or distributed fashion.
 While this is the long-term scope of the project, at the moment, we support shared memory CPU and GPUs.
-In particular, our current implementation is based on openMP (on the CPU) and CUDA (on GPU).
+In particular, our current implementation is based on openMP (on CPU) and CUDA (on GPU).
 
 **Volumetric data** structures are used as a way to create a digital representation of properties of three-dimensional objects. For example, we can use them to represent pressure, displacement or material properties. Volumetric data structures are used both in simulation and computer graphics tools. 
 
@@ -34,26 +34,45 @@ The following picture shows the main high-level mechanisms provided by each leve
 
 ![](img/neon-layers.png){ style="width:500"}
 
-The Domain and Skeleton are the most important abstraction for Neon users.
+The **[Domain](the-bases/03-domain-level.md)** and **[Skeleton](the-bases/04-skeleton-level.md)** are the most important abstraction for a Neon users.
 As expected by its name, the Domain level introduces domain-specific mechanisms, as for now we target voxel based
 computations and the mechanisms are Cartesian grids, fields and stencils. The Skeleton level provides users with a
 sequential programming model and in charge of transforming and optimizing user applications to be deployed into a
 multi-device system.
+Both the Domain and Skeleton rely on the other Neon abstraction levels: the **[System](the-bases/01-system-level.md)**, 
+which abstracts the specific XPU capabilities, 
+and the Set **[Set](the-bases/02-the-set-level.md)**, which provides a simple interface to manage a set of XPUs. 
 
-!!! Note
-
-    To learn how to write an application with Neon, new users can mainly focus on the Domain and Skeleton documentation as it implicitelly covers all the nedded information from the other Neon abtraction levels. 
 
 The following is the structure of the `Introduction and tutorial` section:
 
+[//]: # ()
+[//]: # ()
+[//]: # (<center>)
 
-<center>
+[//]: # ()
+[//]: # ()
+[//]: # (| Abstraction |           Description           |                      Library                      |                                    )
 
-| Abstraction |           Description           |     Library     |                                   Link |
-|-------------|:-------------------------------:|:---------------:|---------------------------------------:|
-| System      |        Device management        |   libNeonSys    |   [info](the-bases/01-system-level.md) |
-| Set         |     Multi device management     |   libNeonSet    |  [info](the-bases/02-the-set-level.md) |
-| Domain      | Domain mechanism  - voxel grids |  libNeonDomain  |   [info](the-bases/03-domain-level.md) |
-| Skeleton    |  Sequential programming model   | libNeonSkeleton | [info](the-bases/04-skeleton-level.md) |
+[//]: # ()
+[//]: # (|-------------|:-------------------------------:|:-------------------------------------------------:|)
 
-</center>
+[//]: # ()
+[//]: # (| System      |        Device management        |    [libNeonSys]&#40;the-bases/01-system-level.md&#41;     |)
+
+[//]: # ()
+[//]: # (| Set         |     Multi device management     |    [libNeonSet]&#40;the-bases/02-the-set-level.md&#41;    |)
+
+[//]: # ()
+[//]: # (| Domain      | Domain mechanism  - voxel grids |   [libNeonDomain]&#40;the-bases/03-domain-level.md&#41;   |)
+
+[//]: # ()
+[//]: # (| Skeleton    |  Sequential programming model   | [libNeonSkeleton]&#40;the-bases/04-skeleton-level.md&#41; |)
+
+[//]: # ()
+[//]: # ()
+[//]: # (</center>)
+
+!!! Note
+
+    To learn how to write an application with Neon, new users can mainly focus on the **Domain** ([link](the-bases/03-domain-level.md)) and **Skeleton** ([link](the-bases/04-skeleton-level.md)) documentation as it implicitelly covers all the nedded information from the other Neon abtraction levels. 
