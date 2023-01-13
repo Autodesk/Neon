@@ -44,7 +44,7 @@ auto Config::toString() const -> std::string
 
     s << ". ............... occ " << Neon::skeleton::OccUtils::toString(c.occ) << std::endl;
     s << "....... transfer Mode " << Neon::set::TransferModeUtils::toString(c.transferMode) << std::endl;
-    s << "... transfer Semantic " << Neon::set::TransferSemanticUtils::toString(c.transferSemantic) << std::endl;
+    s << "... transfer Semantic " << Neon::set::StencilSemanticUtils::toString(c.stencilSemantic) << std::endl;
 
     s << ". ............... nu " << mLbmParameters.nu << std::endl;
     s << ".............. omega " << mLbmParameters.omega << std::endl;
@@ -80,8 +80,8 @@ auto Config::parseArgs(const int argc, char* argv[])
                 (clipp::option("--put").set(config.transferMode, Neon::set::TransferMode::put) % "Set transfer mode to PUT") |
                 (clipp::option("--get").set(config.transferMode, Neon::set::TransferMode::get) % "Set transfer mode to GET (on by default)")),
             (
-                (clipp::option("--huLattice").set(config.transferSemantic, Neon::set::TransferSemantic::lattice) % "Halo update with lattice semantic (on by default)") |
-                (clipp::option("--huGrid").set(config.transferSemantic, Neon::set::TransferSemantic::grid) % "Halo update with grid semantic ")),
+                (clipp::option("--huLattice").set(config.stencilSemantic, Neon::set::StencilSemantic::streaming) % "Halo update with lattice semantic (on by default)") |
+                (clipp::option("--huGrid").set(config.stencilSemantic, Neon::set::StencilSemantic::standard) % "Halo update with grid semantic ")),
             (
                 (clipp::option("--benchmark").set(config.benchmark, true) % "Run benchmark mode") |
                 (clipp::option("--visual").set(config.benchmark, false) % "Run export partial data")),

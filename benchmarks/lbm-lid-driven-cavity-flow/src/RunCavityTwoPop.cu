@@ -69,7 +69,7 @@ auto run(Config& config,
     auto     lbmParameters = config.getLbmParameters<ComputeFP>();
 
     LbmIterationD3Q19<PopulationField, ComputeFP>
-        iteration(config.transferSemantic,
+        iteration(config.stencilSemantic,
                   config.occ,
                   config.transferMode,
                   pop0,
@@ -84,7 +84,7 @@ auto run(Config& config,
             Neon::set::HuOptions hu(Neon::set::TransferMode::get,
                                     false,
                                     Neon::Backend::mainStreamIdx,
-                                    Neon::set::TransferSemantic::grid);
+                                    Neon::set::StencilSemantic::standard);
 
             f.haloUpdate(hu);
             bk.syncAll();
@@ -188,7 +188,7 @@ auto run(Config& config,
         Neon::set::HuOptions hu(Neon::set::TransferMode::get,
                                 false,
                                 Neon::Backend::mainStreamIdx,
-                                Neon::set::TransferSemantic::grid);
+                                Neon::set::StencilSemantic::standard);
 
         flag.haloUpdate(hu);
         bk.syncAll();

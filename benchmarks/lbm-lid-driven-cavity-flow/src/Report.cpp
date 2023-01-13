@@ -33,7 +33,7 @@ Report::Report(const Config& c)
 
     mReport.addMember("occ", Neon::skeleton::OccUtils::toString(c.occ));
     mReport.addMember("transferMode", Neon::set::TransferModeUtils::toString(c.transferMode));
-    mReport.addMember("transferSemantic", Neon::set::TransferSemanticUtils::toString(c.transferSemantic));
+    mReport.addMember("transferSemantic", Neon::set::StencilSemanticUtils::toString(c.stencilSemantic));
 
     mReport.addMember("nu", c.mLbmParameters.nu);
     mReport.addMember("omega", c.mLbmParameters.omega);

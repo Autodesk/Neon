@@ -24,13 +24,13 @@ struct LbmIterationD3Q19
     using LbmTools = LbmToolsTemplate<D3Q19, PopulationField, LbmComputeType>;
 
 
-    LbmIterationD3Q19(Neon::set::TransferSemantic stencilSemantic,
-                      Neon::skeleton::Occ         occ,
-                      Neon::set::TransferMode     transfer,
-                      PopulationField&            fIn /*!   inpout population field */,
-                      PopulationField&            fOut,
-                      CellTypeField&              cellTypeField /*!       Cell type field     */,
-                      LbmComputeType              omega /*! LBM omega parameter */)
+    LbmIterationD3Q19(Neon::set::StencilSemantic stencilSemantic,
+                      Neon::skeleton::Occ        occ,
+                      Neon::set::TransferMode    transfer,
+                      PopulationField&           fIn /*!   inpout population field */,
+                      PopulationField&           fOut,
+                      CellTypeField&             cellTypeField /*!       Cell type field     */,
+                      LbmComputeType             omega /*! LBM omega parameter */)
     {
         pop[0] = fIn;
         pop[1] = fOut;
@@ -73,14 +73,14 @@ struct LbmIterationD3Q19
         parity = parity == 0 ? 1 : 0;
     }
 
-    auto setupSkeletons(int                         target,
-                        Neon::set::TransferSemantic stencilSemantic,
-                        Neon::skeleton::Occ         occ,
-                        Neon::set::TransferMode     transfer,
-                        PopulationField&            inField /*!   inpout population field */,
-                        PopulationField&            outField,
-                        CellTypeField&              cellTypeField /*!       Cell type field     */,
-                        LbmComputeType              omega /*! LBM omega parameter */)
+    auto setupSkeletons(int                        target,
+                        Neon::set::StencilSemantic stencilSemantic,
+                        Neon::skeleton::Occ        occ,
+                        Neon::set::TransferMode    transfer,
+                        PopulationField&           inField /*!   inpout population field */,
+                        PopulationField&           outField,
+                        CellTypeField&             cellTypeField /*!       Cell type field     */,
+                        LbmComputeType             omega /*! LBM omega parameter */)
     {
         std::vector<Neon::set::Container> ops;
         lbmTwoPop[target] = Neon::skeleton::Skeleton(inField.getBackend());

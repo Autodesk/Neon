@@ -235,23 +235,19 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
     }
 
     static auto
-    iteration(Neon::set::TransferSemantic stencilSemantic,
-              const PopulationField&      fInField /*!   inpout population field */,
-              const CellTypeField&        cellTypeField /*!       Cell type field     */,
-              const LbmComputeType        omega /*! LBM omega parameter */,
-              PopulationField&            fOutField /*!  output Population field */)
+    iteration(Neon::set::StencilSemantic stencilSemantic,
+              const PopulationField&     fInField /*!   inpout population field */,
+              const CellTypeField&       cellTypeField /*!       Cell type field     */,
+              const LbmComputeType       omega /*! LBM omega parameter */,
+              PopulationField&           fOutField /*!  output Population field */)
         -> Neon::set::Container
     {
-        Neon::set::Loader::StencilOptions soption =
-            stencilSemantic == Neon::set::TransferSemantic::grid
-                ? Neon::set::Loader::StencilOptions::DEFAULT
-                : Neon::set::Loader::StencilOptions::LATTICE;
 
         Neon::set::Container container = fInField.getGrid().getContainer(
             "LBM_iteration",
             [&, omega](Neon::set::Loader& L) -> auto {
                 auto&       fIn = L.load(fInField,
-                                         Neon::Compute::STENCIL, soption);
+                                         Neon::Compute::STENCIL, stencilSemantic);
                 auto&       fOut = L.load(fOutField);
                 const auto& cellInfoPartition = L.load(cellTypeField);
 
