@@ -137,7 +137,6 @@ auto Report::device() -> void
             addSubdoc("CUDA", subdoc);
         }
 
-
         addMember("num_gpus", num_gpus);
 
         for (int d = 0; d < num_gpus; ++d) {

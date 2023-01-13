@@ -13,8 +13,6 @@ struct Options
    public:
     /**
      * Constructor that defines options for the skeleton
-     * @param occ
-     * @param transferMode
      */
     explicit Options(Occ occ, Neon::set::TransferMode transferMode = Neon::set::TransferMode::get);
     explicit Options() = default;

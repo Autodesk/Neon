@@ -14,7 +14,7 @@
 #include <string>
 #include <typeinfo>
 #include <vector>
-
+#include "cuda_fp16.h"
 
 #include <iomanip>
 #include "Neon/core/tools/io/ioToVti.h"
@@ -27,7 +27,7 @@ namespace Neon {
  */
 namespace ioToVTKns {
 /**
- * Implicit function that defines the data stores by a user fiels
+ * Implicit function that defines the data stores by a user fields
  */
 template <class real_tt, typename intType_ta>
 using UserFieldAccessGenericFunction_t = std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx)>;
@@ -197,14 +197,18 @@ void dumpTextDataIntoFile(std::ofstream&                                        
                           const Integer_3d<intType_ta>&                                    space)
 {
     Neon::Integer_3d<intType_ta> idx;
-
     for (intType_ta z = 0; z < space.z; z++) {
         for (intType_ta y = 0; y < space.y; y++) {
             for (intType_ta x = 0; x < space.x; x++) {
                 idx.set(x, y, z);
                 for (int v = 0; v < nComponents; v++) {
-                    real_tt val = static_cast<real_tt>(fieldData(idx, v));
-                    out << val << " ";
+                    if constexpr (std::is_same_v<real_tt, __half>) {
+                        float val = __half2float(fieldData(idx, v));
+                        out << val << " ";
+                    } else if constexpr (!std::is_same_v<real_tt, __half>) {
+                        real_tt val = static_cast<real_tt>(fieldData(idx, v));
+                        out << val << " ";
+                    }
                 }
             }
             out << "\n";
@@ -241,6 +245,8 @@ void writeData(std::ofstream&                                                   
         out << "int ";
     } else if constexpr (std::is_same<real_tt, char>::value) {
         out << "short ";
+    } else if constexpr (std::is_same<real_tt, __half>::value) {
+        out << "half ";
     } else {
         NEON_THROW_UNSUPPORTED_OPTION("");
     }
@@ -411,8 +417,8 @@ void ioToVTK(const std::vector<ioToVTKns::UserFieldInformation<intType_ta, real_
 
     std::ofstream out(filename + ".vtk", std::ios::out | std::ios::binary);
     if (!out.is_open()) {
-        std::string     msg = std::string("[VoxelGrid::WriteToBin] File ") + filename + std::string(" could not be open!!!");
-        NeonException   exception("ioToVTI");
+        std::string   msg = std::string("[VoxelGrid::WriteToBin] File ") + filename + std::string(" could not be open!!!");
+        NeonException exception("ioToVTI");
         exception << msg;
         NEON_THROW(exception);
     }
@@ -437,8 +443,8 @@ void ioToVTK(const std::vector<ioToVTKns::UserFieldInformation<intType_ta, real_
                                                                           nodeSpace,
                                                                           voxSpace, spacingData, origin, vtiIOe);
     } catch (...) {
-        std::string     msg = std::string("An error on file operations where encountered when writing field data");
-        NeonException   exception("ioToVTI");
+        std::string   msg = std::string("An error on file operations where encountered when writing field data");
+        NeonException exception("ioToVTI");
         exception << msg;
         NEON_THROW(exception);
     }
@@ -480,12 +486,12 @@ struct IoToVTK
         if (m_fiedVec.size() != 0) {
             std::string filename;
             if (m_iteration == -1) {
-                filename = m_filename ;
+                filename = m_filename;
             } else {
                 std::stringstream ss;
                 ss << std::setw(5) << std::setfill('0') << m_iteration;
                 std::string s = ss.str();
-                filename = m_filename + s ;
+                filename = m_filename + s;
             }
             ioToVTKns::ioToVTK<intType_ta, real_tt>(m_fiedVec,
                                                     filename,

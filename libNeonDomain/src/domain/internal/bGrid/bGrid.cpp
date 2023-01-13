@@ -37,10 +37,13 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx) const -> bool
 
     auto itr = mData->mBlockOriginTo1D.getMetadata(block_origin);
     if (itr) {
-        Cell cell(static_cast<Cell::Location::Integer>(idx.x % Cell::sBlockSizeX),
-                  static_cast<Cell::Location::Integer>(idx.y % Cell::sBlockSizeY),
-                  static_cast<Cell::Location::Integer>(idx.z % Cell::sBlockSizeZ));
+
+        Cell cell(static_cast<Cell::Location::Integer>((idx.x / mData->voxelSpacing) % mData->blockSize),
+                  static_cast<Cell::Location::Integer>((idx.y / mData->voxelSpacing) % mData->blockSize),
+                  static_cast<Cell::Location::Integer>((idx.z / mData->voxelSpacing) % mData->blockSize));        
+
         cell.mBlockID = *itr;
+        cell.mBlockSize = mData->blockSize;
         cell.mIsActive = cell.computeIsActive(mData->mActiveMask.rawMem(devID, Neon::DeviceType::CPU));
         return cell.mIsActive;
     }
@@ -54,9 +57,9 @@ auto bGrid::getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32
         return (n / m) * m;
     };
 
-    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, Cell::sBlockSizeX),
-                                roundDownToNearestMultiple(idx.y, Cell::sBlockSizeY),
-                                roundDownToNearestMultiple(idx.z, Cell::sBlockSizeZ));
+    Neon::int32_3d block_origin(roundDownToNearestMultiple(idx.x, mData->blockSize * mData->voxelSpacing),
+                                roundDownToNearestMultiple(idx.y, mData->blockSize * mData->voxelSpacing),
+                                roundDownToNearestMultiple(idx.z, mData->blockSize * mData->voxelSpacing));
     return block_origin;
 }
 
@@ -73,12 +76,15 @@ auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
                                 [[maybe_unused]] const Neon::index_3d& blockSize,
                                 const size_t&                          sharedMem) const -> Neon::set::LaunchParameters
 {
-    //TODO
     if (dataView != Neon::DataView::STANDARD) {
         NEON_WARNING("Requesting LaunchParameters on {} data view but bGrid only supports Standard data view on a single GPU",
                      Neon::DataViewUtil::toString(dataView));
     }
-    const Neon::int32_3d        cuda_block(Cell::sBlockSizeX, Cell::sBlockSizeY, Cell::sBlockSizeZ);
+
+    const Neon::int32_3d cuda_block(mData->blockSize,
+                                    mData->blockSize,
+                                    mData->blockSize);
+
     Neon::set::LaunchParameters ret = getBackend().devSet().newLaunchParameters();
     for (int i = 0; i < ret.cardinality(); ++i) {
         if (getBackend().devType() == Neon::DeviceType::CUDA) {
@@ -87,24 +93,23 @@ auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
                        cuda_block, sharedMem);
         } else {
             ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::domainGridMode,
-                       Neon::int32_3d(int32_t(mData->mNumBlocks[i]) * Cell::sBlockSizeX * Cell::sBlockSizeY * Cell::sBlockSizeZ, 1, 1),
+                       Neon::int32_3d(int32_t(mData->mNumBlocks[i]) *
+                                          mData->blockSize *
+                                          mData->blockSize *
+                                          mData->blockSize,
+                                      1, 1),
                        cuda_block, sharedMem);
         }
     }
     return ret;
 }
 
+
 auto bGrid::getPartitionIndexSpace(Neon::DeviceType dev,
                                    SetIdx           setIdx,
                                    Neon::DataView   dataView) -> const PartitionIndexSpace&
 {
-    return mData->mPartitionIndexSpace.at(Neon::DataViewUtil::toInt(dataView)).local(dev, setIdx, dataView);
-}
-
-
-auto bGrid::getNumBlocksPerPartition() const -> const Neon::set::DataSet<uint64_t>&
-{
-    return mData->mNumBlocks;
+    return mData->mPartitionIndexSpace[Neon::DataViewUtil::toInt(dataView)].local(dev, setIdx, dataView);
 }
 
 auto bGrid::getOrigins() const -> const Neon::set::MemSet_t<Neon::int32_3d>&
@@ -112,40 +117,46 @@ auto bGrid::getOrigins() const -> const Neon::set::MemSet_t<Neon::int32_3d>&
     return mData->mOrigin;
 }
 
-auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>& 
+auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&
 {
     return mData->mStencilNghIndex;
 }
+
 
 auto bGrid::getNeighbourBlocks() const -> const Neon::set::MemSet_t<uint32_t>&
 {
     return mData->mNeighbourBlocks;
 }
 
-auto bGrid::getActiveMask() const -> const Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getActiveMask() const -> Neon::set::MemSet_t<uint32_t>&
 {
     return mData->mActiveMask;
 }
 
-auto bGrid::getBlockOriginTo1D() const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
+auto bGrid::getBlockOriginTo1D() const -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
 {
     return mData->mBlockOriginTo1D;
 }
 
-auto bGrid::getKernelConfig(int            streamIdx,
-                            Neon::DataView dataView) -> Neon::set::KernelConfig
+
+auto bGrid::getDimension() const -> const Neon::index_3d
 {
-    Neon::domain::KernelConfig kernelConfig(streamIdx, dataView);
-    if (kernelConfig.runtime() != Neon::Runtime::system) {
-        NEON_DEV_UNDER_CONSTRUCTION("bGrid::getKernelConfig");
-    }
-
-    Neon::set::LaunchParameters launchInfoSet = getLaunchParameters(dataView,
-                                                                    getDefaultBlock(), 0);
-
-    kernelConfig.expertSetLaunchParameters(launchInfoSet);
-    kernelConfig.expertSetBackend(getBackend());
-
-    return kernelConfig;
+    return GridBase::getDimension();
 }
+
+auto bGrid::getNumBlocks() const -> const Neon::set::DataSet<uint64_t>&
+{
+    return mData->mNumBlocks;
+}
+
+auto bGrid::getBlockSize() const -> int
+{
+    return mData->blockSize;
+}
+
+auto bGrid::getVoxelSpacing() const -> int
+{
+    return mData->voxelSpacing;
+}
+
 }  // namespace Neon::domain::internal::bGrid

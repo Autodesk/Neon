@@ -2,24 +2,26 @@
 
 namespace Neon::skeleton::internal {
 
-auto UserDataManager::helpGetIdx(DataUId_t uid) -> DataIdx_t
+auto UserDataManager::helpGetIdx(Neon::set::dataDependency::MultiXpuDataUid uid)
+    -> Neon::set::dataDependency::MultiXpuDataIdx
 {
-    auto count = m_uid2Idx.count(uid);
+    auto count = mUid2Idx.count(uid);
     if (count == 0) {
-        DataIdx_t idx = m_depAnalyserVec.size();
-        m_depAnalyserVec.emplace_back(uid, idx);
-        m_uid2Idx[uid] = idx;
+        Neon::set::dataDependency::MultiXpuDataIdx idx = mDepAnalyserVec.size();
+        mDepAnalyserVec.emplace_back(uid, idx);
+        mUid2Idx[uid] = idx;
         return idx;
     }
-    return m_uid2Idx[uid];
+    return mUid2Idx[uid];
 }
 
-auto UserDataManager::updateStatus(ContainerIdx newKernel,
-                                   Access_e     op,
-                                   DataUId_t    uid) -> std::vector<Dependency>
+auto UserDataManager::updateStatus(Neon::set::container::GraphInfo::NodeUid nodeUid,
+                                   Neon::set::dataDependency::AccessType                           op,
+                                   Neon::set::dataDependency::MultiXpuDataUid dataUid)
+    -> std::vector<DataDependency>
 {
-    auto idx = helpGetIdx(uid);
-    auto depVec = m_depAnalyserVec[idx].update(newKernel, op);
+    auto idx = helpGetIdx(dataUid);
+    auto depVec = mDepAnalyserVec[idx].update(nodeUid, op);
     return depVec;
 }
 

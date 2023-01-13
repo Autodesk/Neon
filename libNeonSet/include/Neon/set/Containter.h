@@ -1,62 +1,67 @@
 #pragma once
 
 #include "Neon/set/DevSet.h"
-#include "Neon/set/dependencyTools/DataParsing.h"
 #include "functional"
 #include "type_traits"
 
-#include "Neon/set/ContainerTools/DeviceContainer.h"
-#include "Neon/set/ContainerTools/DeviceManagedContainer.h"
-#include "Neon/set/ContainerTools/DeviceThenHostManagedContainer.h"
-#include "Neon/set/ContainerTools/HostManagedContainer.h"
-#include "Neon/set/ContainerTools/OldDeviceManagedContainer.h"
+#include "Neon/set/container/ContainerAPI.h"
+#include "Neon/set/container/types/HostManagedSyncType.h"
+#include "Neon/set/container/types/SynchronizationContainerType.h"
 
 namespace Neon::set {
+
+struct Loader;
 
 struct Container
 {
    public:
     Container() = default;
+    virtual ~Container() = default;
 
-    auto run(int            streamIdx,
-             Neon::DataView dataView = Neon::DataView::STANDARD) -> void
-    {
-        mContainer->run(streamIdx, dataView);
-    }
+    /**
+     * Run a Neon Container on a given stream and with a given data view
+     */
+    auto run(int            streamIdx /**< Target stream */,
+             Neon::DataView dataView = Neon::DataView::STANDARD /**< Target data view ( STANDARD by default ) */)
+        -> void;
 
-    auto run(Neon::SetIdx   setIdx,
-             int            streamIdx,
-             Neon::DataView dataView = Neon::DataView::STANDARD) -> void
-    {
-        mContainer->run(setIdx, streamIdx, dataView);
-    }
+    /**
+     * Runs a Neon Container on a given stream and with a given data view
+     */
+    auto run(Neon::SetIdx   setIdx /**< Set index of a target device */,
+             int            streamIdx /**< Target stream */,
+             Neon::DataView dataView = Neon::DataView::STANDARD /**< Target data view ( STANDARD by default ) */)
+        -> void;
 
-    auto getContainerInterface() -> Neon::set::internal::ContainerAPI&
-    {
-        return mContainer.operator*();
-    }
+    /**
+     * Returns the internal interface of a Neon Container.
+     */
+    auto getContainerInterface()
+        -> Neon::set::internal::ContainerAPI&;
 
-    auto getContainerInterfaceShrPtr() -> std::shared_ptr<Neon::set::internal::ContainerAPI>
-    {
-        return mContainer;
-    }
+    /**
+     * Returns the internal interface of a Neon Container.
+     */
+    auto getContainerInterface() const
+        -> const Neon::set::internal::ContainerAPI&;
 
+    /**
+     * Returns the internal interface of a Neon Container.
+     */
+    auto getContainerInterfaceShrPtr()
+        -> std::shared_ptr<Neon::set::internal::ContainerAPI>;
+
+    /**
+     * Factory function to create a Neon Container
+     */
     template <typename DataContainerT, typename UserLoadingLambdaT>
-    static auto factory(const std::string&                                 name,
-                        Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
-                        const DataContainerT&                              a,
-                        const UserLoadingLambdaT&                          f,
-                        const index_3d&                                    blockSize,
-                        std::function<int(const index_3d& blockSize)>      shMemSizeFun) -> Container
-    {
-        using LoadingLambda = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
-        auto k = new Neon::set::internal::DeviceContainer<DataContainerT, LoadingLambda>(name, dataViewSupport,
-                                                                                         a, f,
-                                                                                         blockSize, shMemSizeFun);
-
-        std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-        return Container(tmp);
-    }
+    static auto factory(const std::string&                                 name /**< A user's string to identify the computation done by the Container. */,
+                        Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport /**< Defines the data view support for the new Container */,
+                        const DataContainerT&                              a /**< Multi device object that will be used for the creating of the Container */,
+                        const UserLoadingLambdaT&                          f /**< User's loading lambda for the new Container */,
+                        const index_3d&                                    blockSize /**< Block size for the thread grid */,
+                        std::function<int(const index_3d& blockSize)>      shMemSizeFun /**< User's function to implicitly compute the required shared memory */)
+        -> Container;
 
     /**
      * Factory function to generate a kContainer object.
@@ -70,100 +75,80 @@ struct Container
               typename UserLoadingLambdaT>
     static auto factoryOldManaged(const std::string&                                 name,
                                   Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
+                                  Neon::set::ContainerPatternType                    patternType,
                                   DataContainerT                                     a,
-                                  const UserLoadingLambdaT&                          f) -> Container
-    {
-        using ManagedLaunch = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
-        auto k = new Neon::set::internal::OldDeviceManagedContainer<DataContainerT, ManagedLaunch>(name, dataViewSupport,
-                                                                                                   a, f);
-
-        std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-        return Container(tmp);
-    }
+                                  const UserLoadingLambdaT&                          f)
+        -> Container;
 
     template <typename DataContainerT,
               typename UserLoadingLambdaT>
     static auto factoryHostManaged(const std::string&                                 name,
                                    Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
+                                   Neon::set::internal::HostManagedSyncType           preSyncType,
+                                   Neon::set::internal::HostManagedSyncType           presSyncType,
                                    DataContainerT                                     a,
-                                   const UserLoadingLambdaT&                          f) -> Container
-    {
-        using ManagedLaunch = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
-        auto k = new Neon::set::internal::HostManagedContainer<DataContainerT, ManagedLaunch>(name, dataViewSupport,
-                                                                                              a, f);
-
-        std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-        return Container(tmp);
-    }
+                                   const UserLoadingLambdaT&                          f)
+        -> Container;
 
     template <typename DataContainerT,
               typename UserLoadingLambdaT>
     static auto factoryDeviceManaged(const std::string&                                 name,
                                      Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
                                      DataContainerT                                     a,
-                                     const UserLoadingLambdaT&                          f) -> Container
-    {
-        using ManagedLaunch = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
-        auto k = new Neon::set::internal::DeviceManagedContainer<DataContainerT, ManagedLaunch>(name, dataViewSupport,
-                                                                                                a, f);
+                                     const UserLoadingLambdaT&                          f)
+        -> Container;
 
-        std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-        return Container(tmp);
-    }
+    static auto factoryGraph(const std::string&                         name,
+                             const container::Graph&                    graph,
+                             std::function<void(Neon::SetIdx, Loader&)> loadingLambda) -> Container;
 
     static auto factoryDeviceThenHostManaged(const std::string& name,
                                              Container&         device,
-                                             Container&         host) -> Container
-    {
-        auto k = new Neon::set::internal::DeviceThenHostManagedContainer(name,
-                                                                         device.getContainerInterfaceShrPtr(),
-                                                                         host.getContainerInterfaceShrPtr());
+                                             Container&         host)
+        -> Container;
 
-        std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-        return Container(tmp);
-    }
+    template <typename MultiXpuDataT>
+    static auto factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
+                                    Neon::set::TransferMode     transferMode,
+                                    Neon::set::StencilSemantic transferSemantic)
+        -> Neon::set::Container;
 
-    auto getName() const -> const std::string&
-    {
-        return mContainer->getName();
-    }
+    template <typename MxpuDataT>
+    static auto factorySynchronization(const MxpuDataT&             multiXpuData,
+                                       SynchronizationContainerType syncType)
+        -> Container;
 
-    auto getUid() const -> uint64_t
-    {
-        const auto uid = (uint64_t)mContainer.get();
-        return uid;
-    }
+    static auto factoryAnchor(const std::string& name /**< A user's string to identify the computation done by the Container. */)
+        -> Container;
 
-    auto logTokens() -> void
-    {
-        return mContainer->toLog(getUid());
-    }
+    auto getName() const
+        -> const std::string&;
+
+    auto getUid() const
+        -> uint64_t;
+
+    auto logTokens()
+        -> void;
+
+    auto getHostContainer() const
+        -> Container;
+
+    virtual auto getDeviceContainer() const -> Container;
+
+    auto getDataViewSupport() const
+        -> Neon::set::internal::ContainerAPI::DataViewSupport;
+
+    auto getContainerExecutionType() const
+        -> Neon::set::ContainerExecutionType;
 
    protected:
     std::shared_ptr<Neon::set::internal::ContainerAPI> mContainer;
 
-    Container(std::shared_ptr<Neon::set::internal::ContainerAPI>& container)
-        : mContainer(container)
-    {
-        // Empty
-    }
-    Container(std::shared_ptr<Neon::set::internal::ContainerAPI>&& container)
-        : mContainer(container)
-    {
-        // Empty
-    }
+    Container(std::shared_ptr<Neon::set::internal::ContainerAPI>& container);
 
-    auto getHostContainer() -> Container
-    {
-        std::shared_ptr<Neon::set::internal::ContainerAPI> hostAPI = mContainer->getHostContainer();
-        return Container(hostAPI);
-    }
-
-    virtual auto getDeviceContainer() -> Container
-    {
-        std::shared_ptr<Neon::set::internal::ContainerAPI> deviceAPI = mContainer->getDeviceContainer();
-        return Container(deviceAPI);
-    }
+    Container(std::shared_ptr<Neon::set::internal::ContainerAPI>&& container);
 };
 
 }  // namespace Neon::set
+
+#include "Neon/set/Containter_imp.h"

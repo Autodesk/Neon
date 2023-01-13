@@ -19,8 +19,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                                                                              T(0),
                                                                              dataUse,
                                                                              memoryOptions,
-                                                                             haloStatus)
-{
+                                                                             haloStatus) {
     mDataUse = dataUse;
     mMemoryOptions = memoryOptions;
 
@@ -345,22 +344,46 @@ auto dField<T, C>::getPartition(const Neon::DeviceType& devType,
 }
 
 template <typename T, int C>
-auto dField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
-                                [[maybe_unused]] Neon::SetIdx,
-                                [[maybe_unused]] const Neon::DataView& dataView)
+auto dField<T, C>::getPartition(Neon::Execution       execution,
+                                Neon::SetIdx          setIdx,
+                                const Neon::DataView& dataView)
     const
     -> const Partition&
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    const Neon::DataUse dataUse = this->getDataUse();
+    bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
+    if (isOk) {
+        if (execution == Neon::Execution::device) {
+            return m_gpu.getPartition(Neon::DeviceType::CUDA, setIdx, dataView);
+        }
+        if (execution == Neon::Execution::host) {
+            return m_cpu.getPartition(Neon::DeviceType::OMP, setIdx, dataView);
+        }
+    }
+    std::stringstream message;
+    message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
+    NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
 template <typename T, int C>
-auto dField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
-                                [[maybe_unused]] Neon::SetIdx          idx,
-                                [[maybe_unused]] const Neon::DataView& dataView)
+auto dField<T, C>::getPartition(Neon::Execution       execution,
+                                Neon::SetIdx          setIdx,
+                                const Neon::DataView& dataView)
     -> Partition&
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    const auto dataUse = this->getDataUse();
+    bool       isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
+    if (isOk) {
+        if (execution == Neon::Execution::device) {
+            return m_gpu.getPartition(Neon::DeviceType::CUDA, setIdx, dataView);
+        }
+        if (execution == Neon::Execution::host) {
+            return m_cpu.getPartition(Neon::DeviceType::OMP, setIdx, dataView);
+        }
+    }
+    std::stringstream message;
+    message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
+    NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
 template <typename T, int C>
@@ -415,6 +438,7 @@ template <typename T, int C>
 auto dField<T, C>::haloUpdate(Neon::set::HuOptions& opt) const
     -> void
 {
+    NEON_TRACE("haloUpdate stream {} transferMode {} ", opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
     auto& bk = self().getBackend();
     auto  fieldDev = field(bk.devType());
     switch (opt.transferMode()) {
@@ -435,13 +459,19 @@ auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
                               Neon::set::HuOptions& opt) const
     -> void
 {
+
+
     auto& bk = self().getBackend();
     auto  fieldDev = field(bk.devType());
     switch (opt.transferMode()) {
         case Neon::set::TransferMode::put:
+            NEON_TRACE("TRACE haloUpdate PUT setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+
             fieldDev.template haloUpdate<Neon::set::TransferMode::put>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
             break;
         case Neon::set::TransferMode::get:
+            NEON_TRACE("TRACE haloUpdate GET setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+
             fieldDev.template haloUpdate<Neon::set::TransferMode::get>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
             break;
         default:
@@ -454,6 +484,8 @@ template <typename T, int C>
 auto dField<T, C>::haloUpdate(Neon::set::HuOptions& opt)
     -> void
 {
+    NEON_TRACE("haloUpdate stream {} transferMode {} ", opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+
     auto& bk = self().getBackend();
     auto  fieldDev = field(bk.devType());
     switch (opt.transferMode()) {
@@ -478,15 +510,63 @@ auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
     auto  fieldDev = field(bk.devType());
     switch (opt.transferMode()) {
         case Neon::set::TransferMode::put:
+#pragma omp critical
+        {
+            NEON_TRACE("TRACE haloUpdate PUT setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+        }
             fieldDev.template haloUpdate<Neon::set::TransferMode::put>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
             break;
         case Neon::set::TransferMode::get:
+#pragma omp critical
+        {
+            NEON_TRACE("TRACE haloUpdate GET setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+        }
             fieldDev.template haloUpdate<Neon::set::TransferMode::get>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
             break;
         default:
             NEON_THROW_UNSUPPORTED_OPTION();
             break;
     }
+}
+
+
+template <typename T, int C>
+auto dField<T, C>::
+    haloUpdateContainer(Neon::set::TransferMode    transferMode,
+                        Neon::set::StencilSemantic stencilSemantic)
+        const -> Neon::set::Container
+{
+    Neon::set::Container dataTransferContainer =
+        Neon::set::Container::factoryDataTransfer(*this,
+                                                  transferMode,
+                                                  stencilSemantic);
+
+    Neon::set::Container SyncContainer =
+        Neon::set::Container::factorySynchronization(*this,
+                                                     Neon::set::SynchronizationContainerType::hostOmpBarrier);
+    Neon::set::container::Graph graph(this->getBackend());
+    const auto&                 dataTransferNode = graph.addNode(dataTransferContainer);
+    const auto&                 syncNode = graph.addNode(SyncContainer);
+
+    switch (transferMode) {
+        case Neon::set::TransferMode::put:
+            graph.addDependency(dataTransferNode, syncNode, Neon::GraphDependencyType::data);
+            break;
+        case Neon::set::TransferMode::get:
+            graph.addDependency(syncNode, dataTransferNode, Neon::GraphDependencyType::data);
+            break;
+        default:
+            NEON_THROW_UNSUPPORTED_OPTION();
+            break;
+    }
+
+    graph.removeRedundantDependencies();
+
+    Neon::set::Container output =
+        Neon::set::Container::factoryGraph("dGrid-Halo-Update",
+                                           graph,
+                                           [](Neon::SetIdx, Neon::set::Loader&) {});
+    return output;
 }
 
 template <typename T, int C>
@@ -560,5 +640,6 @@ auto dField<T, C>::swap(dField::Field& A, dField::Field& B) -> void
     Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>::swapUIDBeforeFullSwap(A, B);
     std::swap(A, B);
 }
+
 
 }  // namespace Neon::domain::internal::dGrid

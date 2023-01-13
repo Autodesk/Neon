@@ -223,7 +223,7 @@ inline Vec_2d<IntegerType_ta, true, false> Vec_2d<IntegerType_ta, true, false>::
 template <typename IntegerType_ta>
 inline IntegerType_ta Vec_2d<IntegerType_ta, true, false>::norm() const
 {
-    return std::sqrt(x * x + y * y);
+    return static_cast<IntegerType_ta>(std::sqrt(x * x + y * y));
 }
 
 //---- [Index SECTION] ----------------------------------------------------------------------------------------------

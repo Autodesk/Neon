@@ -4,6 +4,7 @@
 #include "Neon/set/Backend.h"
 #include "Neon/set/MemoryOptions.h"
 
+#include "Neon/Neon.h"
 #include "Neon/domain/interface/Stencil.h"
 #include "Neon/domain/tools/Geometries.h"
 #include "Neon/domain/tools/IODomain.h"
@@ -131,6 +132,8 @@ TestData<G, T, C>::TestData(const Neon::Backend&         backend,
                             const domain::Stencil&       stencil,
                             Type                         outsideValue)
 {
+    Neon::init();
+
     mGeometry = geometry;
     Neon::domain::tool::GeometryMask geometryMask(geometry,
                                                   dimension,
@@ -300,13 +303,13 @@ template <typename G, typename T, int C>
 auto TestData<G, T, C>::axpy(const Type* alpha, IODomain& A, IODomain& B)
     -> void
 {
-    this->template forEachActiveIODomain([&](const Neon::index_3d& idx,
-                                             int                   cardinality,
-                                             Type&                 a,
-                                             Type&                 b) {
+    this->forEachActiveIODomain([&](const Neon::index_3d& /*idx*/,
+                                    int /*cardinality*/,
+                                    Type& a,
+                                    Type& b) {
         b += (*alpha) * a;
     },
-                                         A, B);
+                                A, B);
 }
 
 template <typename G, typename T, int C>
@@ -318,8 +321,8 @@ auto TestData<G, T, C>::laplace(IODomain& A, NEON_IO IODomain& B)
     }
     this->template forEachActiveIODomain([&](const Neon::index_3d& idx,
                                              int                   cardinality,
-                                             Type&                 a,
-                                             Type&                 b) {
+                                             Type& /*a*/,
+                                             Type& b) {
         // Laplacian stencil operates on 6 neighbors (assuming 3D)
         T    res = 0;
         bool isValid = false;
@@ -342,23 +345,24 @@ auto TestData<G, T, C>::laplace(IODomain& A, NEON_IO IODomain& B)
 }
 
 template <typename G, typename T, int C>
-auto TestData<G, T, C>::compare(FieldNames name, T tollerance) -> bool
+auto TestData<G, T, C>::compare(FieldNames         name,
+                                [[maybe_unused]] T tollerance) -> bool
 {
     bool isTheSame = false;
     if constexpr (std::is_integral_v<T>) {
         bool foundAnIssue = false;
-        this->compare(name, [&](const Neon::index_3d& idx,
-                                int                   cardinality,
-                                const T&              golden,
-                                const T&              computed) {
+        this->compare(name, [&](const Neon::index_3d& /*idx*/,
+                                int /*cardinality*/,
+                                const T& golden,
+                                const T& computed) {
             if (golden != computed) {
                 {
 #pragma omp critical
                     {
                         foundAnIssue = true;
-                        //std::stringstream s;
-                        //s << idx.to_string() << " " << golden << " " << computed << std::endl;
-                        //NEON_INFO(s.str());
+                        // std::stringstream s;
+                        // s << idx.to_string() << " " << golden << " " << computed << std::endl;
+                        // NEON_INFO(s.str());
                     }
                 }
             }
@@ -375,7 +379,7 @@ auto TestData<G, T, C>::compare(FieldNames name, T tollerance) -> bool
             T maxAbs = std::max(goldenABS, computedABS);
 
             auto relativeDiff = (maxAbs == 0.0 ? 0.0 : std::abs(golden - computed) / maxAbs);
-            foundAnIssue = relativeDiff >= 0.00001;
+            foundAnIssue = relativeDiff >= tollerance;
         });
         isTheSame = !foundAnIssue;
     }

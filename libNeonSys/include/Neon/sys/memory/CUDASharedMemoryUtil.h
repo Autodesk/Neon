@@ -11,30 +11,31 @@ namespace Neon::sys {
 
 extern __shared__ char SHMEM_START[];
 
+#ifdef NEON_PLACE_CUDA_DEVICE
 /**
  * Load data in shared memory using memcpu_async API with optional sync  
+ * @param block cooperative group block 
  * @param in input buffer in global memory 
  * @param size number of elements to load
  * @param out output buffer in shared memory
  * @param with_wait whether to wait after loading in shared memory or not
 */
-template <typename T, typename SizeT>
-NEON_CUDA_DEVICE_ONLY __inline__ void loadSharedMemAsync([[maybe_unused]] const T*    in,
-                                                         [[maybe_unused]] const SizeT size,
-                                                         [[maybe_unused]] T*          out,
-                                                         [[maybe_unused]] bool        withWait)
+template <typename T, typename SizeT, typename CGType>
+NEON_CUDA_DEVICE_ONLY __inline__ void loadSharedMemAsync(
+    CGType&     block,
+    const T*    in,
+    const SizeT size,
+    T*          out,
+    bool        with_wait)
 {
-#ifdef NEON_PLACE_CUDA_DEVICE
-    namespace cg = cooperative_groups;
-    cg::thread_block block = cg::this_thread_block();
 
-    cg::memcpy_async(block, out, in, sizeof(T) * size);
+    cooperative_groups::memcpy_async(block, out, in, sizeof(T) * size);
 
-    if (withWait) {
-        cg::wait(block);
+    if (with_wait) {
+        cooperative_groups::wait(block);
     }
-#endif
 }
+#endif
 
 /**
  * Shared memory allocator that should make it easy to allocate different

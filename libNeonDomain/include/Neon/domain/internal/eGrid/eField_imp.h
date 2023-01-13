@@ -21,7 +21,8 @@ eField<T, C>::eField(const std::string&             fieldUserName,
                                                                                                            outsideVal,
                                                                                                            dataUse,
                                                                                                            memoryOptions,
-                                                                                                           haloStatus) {
+                                                                                                           haloStatus)
+{
 
     m_dataConfig = dataConfig;
 
@@ -373,6 +374,32 @@ auto eField<T, C>::haloUpdate(Neon::set::HuOptions& opt) const
 }
 
 template <typename T, int C>
+auto eField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
+                              Neon::set::HuOptions& opt)
+    -> void
+{
+    auto field = [this](const Neon::DeviceType& devType) {
+        switch (devType) {
+            case Neon::DeviceType::CPU:
+            case Neon::DeviceType::OMP: {
+                return mCpu;
+            }
+            case Neon::DeviceType::CUDA: {
+                return mGpu;
+            }
+            default: {
+                NeonException exp("eField_t");
+                exp << "Incompatible device parameter.";
+                NEON_THROW(exp);
+            }
+        }
+    };
+    auto& bk = self().getBackend();
+    auto  fieldDev = field(bk.devType());
+    fieldDev.haloUpdate__(bk, setIdx, opt);
+}
+
+template <typename T, int C>
 auto eField<T, C>::haloUpdate(Neon::set::HuOptions& opt)
     -> void
 {
@@ -397,10 +424,51 @@ auto eField<T, C>::haloUpdate(Neon::set::HuOptions& opt)
     fieldDev.haloUpdate__(bk, opt);
 }
 
+
+template <typename T, int C>
+auto eField<T, C>::
+    haloUpdateContainer(Neon::set::TransferMode    transferMode,
+                        Neon::set::StencilSemantic stencilSemantic)
+        const -> Neon::set::Container
+{
+    Neon::set::Container dataTransferContainer =
+        Neon::set::Container::factoryDataTransfer(*this,
+                                                  transferMode,
+                                                  stencilSemantic);
+
+    Neon::set::Container SyncContainer =
+        Neon::set::Container::factorySynchronization(*this,
+                                                     Neon::set::SynchronizationContainerType::hostOmpBarrier);
+
+    Neon::set::container::Graph graph(this->getBackend());
+    const auto&                 dataTransferNode = graph.addNode(dataTransferContainer);
+    const auto&                 syncNode = graph.addNode(SyncContainer);
+
+    switch (transferMode) {
+        case Neon::set::TransferMode::put:
+            graph.addDependency(dataTransferNode, syncNode, Neon::GraphDependencyType::data);
+            break;
+        case Neon::set::TransferMode::get:
+            graph.addDependency(syncNode, dataTransferNode, Neon::GraphDependencyType::data);
+            break;
+        default:
+            NEON_THROW_UNSUPPORTED_OPTION();
+            break;
+    }
+
+    graph.removeRedundantDependencies();
+
+    Neon::set::Container output =
+        Neon::set::Container::factoryGraph("dGrid-Halo-Update",
+                                           graph,
+                                           [](Neon::SetIdx, Neon::set::Loader&) {});
+    return output;
+}
+
 template <typename T, int C>
 auto eField<T, C>::swap(Field& A, Field& B) -> void
 {
-    Neon::domain::interface::FieldBaseTemplate<T, C, typename Self::Grid, typename Self::Partition, int>::swapUIDBeforeFullSwap(A,B);
+    Neon::domain::interface::FieldBaseTemplate<T, C, typename Self::Grid, typename Self::Partition, int>::swapUIDBeforeFullSwap(A, B);
     std::swap(A, B);
 }
 

@@ -2,9 +2,11 @@
 #include "Neon/set/Backend.h"
 #include "Neon/set/Containter.h"
 #include "Neon/skeleton/Options.h"
-#include "Neon/skeleton/internal/MultiGpuGraph.h"
-#include "Neon/skeleton/internal/StreamScheduler.h"
-
+#include "Neon/skeleton/internal/MultiXpuGraph.h"
+// #include "Neon/skeleton/internal/StreamScheduler.h"
+#ifdef NEON_USE_NVTX
+#include <nvToolsExt.h>
+#endif
 namespace Neon::skeleton {
 
 struct Skeleton
@@ -38,30 +40,35 @@ struct Skeleton
         }
         mOptions = options;
         mMultiGraph.init(mBackend, operations, name, options);
-        // m_multiGraph.io2Dot("DB_multiGpuGraph", "graphname");
-        mStreamScheduler.init(mBackend, mMultiGraph);
+        mMultiGraph.ioToDot("DB_multiGpuGraph", "graphname");
+        // mStreamScheduler.init(mBackend, mMultiGraph);
         // m_streamScheduler.io2Dot("DB_streamScheduler", "graphname");
     }
 
 
-    void ioToDot(std::string fname, std::string graphname = "")
+    void ioToDot(std::string fname,
+                 std::string graphname = "",
+                 bool        debug = false)
     {
-        // m_multiGraph.io2Dot(fname + ".multiGpu.dot", graphname);
-        mMultiGraph.io2DotOriginalApp(fname + ".appGraph.dot", graphname);
-        mStreamScheduler.io2Dot(fname + ".scheduler.dot", graphname);
-        mStreamScheduler.io2DotOrder(fname + ".order.dot", graphname);
+        mMultiGraph.ioToDot(fname, graphname, debug);
     }
 
     void run()
     {
-        mStreamScheduler.run(mOptions);
+#ifdef NEON_USE_NVTX
+        nvtxRangePush("Skeleton");
+#endif
+        mMultiGraph.execute(mOptions);
+#ifdef NEON_USE_NVTX
+        nvtxRangePop();
+#endif
     }
 
    private:
-    Neon::Backend                             mBackend;
-    Options                                   mOptions;
-    Neon::skeleton::internal::MultiGpuGraph   mMultiGraph;
-    Neon::skeleton::internal::StreamScheduler mStreamScheduler;
+    Neon::Backend                           mBackend;
+    Options                                 mOptions;
+    Neon::skeleton::internal::MultiXpuGraph mMultiGraph;
+    //    Neon::skeleton::internal::StreamScheduler mStreamScheduler;
 
     bool m_inited = {false};
 };

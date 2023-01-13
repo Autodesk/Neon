@@ -1,12 +1,13 @@
 #include "Neon/domain/interface/Stencil.h"
+#include <unordered_set>
 
 
 namespace Neon::domain {
 
 Stencil::Stencil(std::vector<Neon::index_3d> const& points,
                  bool                               filterCenterOut)
+    : m_points(points)
 {
-    m_points = points;
     p_updateNeighbourList(filterCenterOut);
 }
 
@@ -19,9 +20,7 @@ auto Stencil::find(const Neon::index_3d& direction) const -> int
 {
     auto it = std::find(m_neighbour.begin(), m_neighbour.end(), direction);
     if (it == m_neighbour.end()) {
-        Neon::NeonException exp("stencil_t");
-        exp << "Unable to find requested stencil point.";
-        NEON_THROW(exp);
+        return -1;
     }
     int index = static_cast<int>(std::distance(m_neighbour.begin(), it));
     return index;
@@ -159,6 +158,29 @@ auto Stencil::nNeighbours() const
     -> int32_t
 {
     return int(m_neighbour.size());
+}
+auto Stencil::getUnion(const std::vector<Stencil>& vec) -> Stencil
+{
+    if (vec.empty()) {
+        return {};
+    }
+    Stencil output(vec[0].neighbours(), false);
+
+    for (size_t i = 1; i < vec.size(); i++) {
+       for(const auto& point: vec[i].neighbours()){
+            output.addPoint(point);
+       }
+    }
+    return output;
+}
+
+auto Stencil::addPoint(const index_3d& newPoint) -> void
+{
+    int position = this->find(newPoint);
+    if (position == -1) {
+        m_neighbour.push_back(newPoint);
+        m_points.push_back(newPoint);
+    }
 }
 
 }  // namespace Neon::domain

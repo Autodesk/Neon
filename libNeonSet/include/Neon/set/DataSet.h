@@ -2,7 +2,7 @@
 #include <vector>
 
 #include "Neon/core/types/DataView.h"
-#include "Neon/set/MultiDeviceObjectUid.h"
+#include "Neon/set/MultiXpuDataUid.h"
 #include "Neon/sys/devices/DevInterface.h"
 
 namespace Neon {
@@ -103,10 +103,11 @@ struct DataSet
      * Returns a unique identifier for the data set.
      * @return
      */
-    auto uid() -> MultiDeviceObjectUid
+    auto uid()
+        const -> Neon::set::dataDependency::MultiXpuDataUid
     {
-        T_ta*                addr = m_data.get();
-        MultiDeviceObjectUid uidRes = (size_t)addr;
+        T_ta* addr = m_data.get();
+        auto  uidRes = (Neon::set::dataDependency::MultiXpuDataUid)addr;
         return uidRes;
     }
 
@@ -114,7 +115,8 @@ struct DataSet
      *
      * @return
      */
-    auto local(Neon::DeviceType, SetIdx setIdx, const Neon::DataView& dataView = Neon::DataView::STANDARD)
+    auto local(Neon::DeviceType, SetIdx setIdx,
+               const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> T_ta&
     {
         (void)dataView;

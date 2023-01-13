@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 jobs:
   UbuntuRun:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: Jimver/cuda-toolkit@v0.2.7
         id: cuda-toolkit
