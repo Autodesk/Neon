@@ -119,16 +119,6 @@ inline void exportVTI(const int t, Field& field)
     field.ioToVtk(fname, "field");
 }
 
-/*Neon::set::Container setOmega(Neon::domain::mGrid& grid, int level)
-{
-    return grid.getContainer(
-        "SetOmega" + std::to_string(level), level,
-        [=](Neon::set::Loader& loader) {
-            //auto& local = field.load(loader, level, Neon::MultiResCompute::MAP);
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {};
-        });
-}*/
-
 
 template <typename T>
 NEON_CUDA_HOST_DEVICE T computeOmega(T omega0, int level, int num_levels)
@@ -217,44 +207,149 @@ Neon::set::Container collide(Neon::domain::mGrid&                 grid,
         });
 }
 
+template <typename T, int DIM, int Q>
+Neon::set::Container stream(Neon::domain::mGrid&                 grid,
+                            int                                  level,
+                            const Neon::domain::mGrid::Field<T>& fpop_postcollision,
+                            Neon::domain::mGrid::Field<T>&       fpop_poststreaming)
+{
+    //TODO
+    //regular Streaming of the normal voxels at level L which are not interfaced with L+1 and L-1 levels.
+
+    return grid.getContainer(
+        "Stream" + std::to_string(level), level,
+        [=](Neon::set::Loader& loader) {
+            const auto& fpost_col = fpop_postcollision.load(loader, level, Neon::MultiResCompute::STENCIL);
+            auto        fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::MAP);
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                for (int i = 0; i < Q; ++i) {
+
+                    //TODO filter out cells that interface with L+1 or L-1
+                    //TODO figure out the right direction to push/pull the data in the i-direction
+                    fpost_stm(cell, i) = fpost_col(cell, i);
+                }
+            };
+        });
+}
 
 template <typename T, int DIM, int Q>
-void nonUniformTimestepRecursive(Neon::domain::mGrid&                 grid,
-                                 const T                              omega0,
-                                 const int                            ilevel,
-                                 const int                            max_level,
-                                 const Neon::domain::mGrid::Field<T>& fin,
-                                 Neon::domain::mGrid::Field<T>&       fout,
-                                 std::vector<Neon::set::Container>&   containers)
+Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
+                                   int                                  level,
+                                   const Neon::domain::mGrid::Field<T>& fpop_postcollision,
+                                   Neon::domain::mGrid::Field<T>&       fpop_poststreaming)
 {
-    // 1) collision for all voxels at level L=ilevel
-    containers.push_back(collide<T, DIM, Q>(grid, omega0, ilevel, max_level, fin, fout));
+    //TODO
+    // Initiated by the fine level (hence "pull"), this function performs a coarse (level+1) to
+    // fine (level) communication or "explosion" by simply distributing copies of coarse grid onto the fine grid.
+    // In other words, this function updates the "halo" cells of the fine level by making copies of the coarse cell
+    // values.
 
-    // 2) Storing fine(ilevel) data for later "coalescence" pulled by the coarse(ilevel)
+
+    return grid.getContainer(
+        "explosionPull" + std::to_string(level), level,
+        [=](Neon::set::Loader& loader) {
+            const auto& fpost_col = fpop_postcollision.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
+            auto        fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::MAP);
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                for (int i = 0; i < Q; ++i) {
+                }
+            };
+        });
+}
+
+
+template <typename T, int DIM, int Q>
+Neon::set::Container coalescencePull(Neon::domain::mGrid&           grid,
+                                     int                            level,
+                                     Neon::domain::mGrid::Field<T>& fpop_poststreaming)
+{
+    //TODO
+    // Initiated by the coarse level (hence "pull"), this function performs fine (level-1) to coarse
+    // (level) communication or "coalescence" by simply averaging the fine data stored in self.fpop_halo
+
+    return grid.getContainer(
+        "explosionPull" + std::to_string(level), level,
+        [=](Neon::set::Loader& loader) {
+            auto fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                for (int i = 0; i < Q; ++i) {
+                }
+            };
+        });
+}
+
+template <typename T, int DIM, int Q>
+void stream(Neon::domain::mGrid&                 grid,
+            int                                  level,
+            const int                            max_level,
+            const Neon::domain::mGrid::Field<T>& fpop_postcollision,
+            Neon::domain::mGrid::Field<T>&       fpop_poststreaming,
+            std::vector<Neon::set::Container>&   containers)
+{
+    containers.push_back(stream<T, DIM, Q>(grid, level, fpop_postcollision, fpop_poststreaming));
+
+    /*
+    * Streaming for interface voxels that have
+    *  (i) coarser or (ii) finer neighbors at level+1 and level-1 and hence require
+    *  (i) "explosion" or (ii) coalescence
+    */
+    if (level != max_level - 1) {
+        /* Explosion: pull missing populations from coarser neighbors by copying coarse (level+1) to fine (level) 
+        * neighbors, initiated by the fine level ("Pull").
+        */
+        containers.push_back(explosionPull<T, DIM, Q>(grid, level, fpop_postcollision, fpop_poststreaming));
+    }
+
+    if (level != 0) {
+        /* Coalescence: pull missing populations from finer neighbors by "smart" averaging fine (level-1) 
+        * to coarse (level) communication, initiated by the coarse level ("Pull").
+        */
+        containers.push_back(coalescencePull<T, DIM, Q>(grid, level, fpop_poststreaming));
+    }
+}
+
+template <typename T, int DIM, int Q>
+void nonUniformTimestepRecursive(Neon::domain::mGrid&               grid,
+                                 const T                            omega0,
+                                 const int                          level,
+                                 const int                          max_level,
+                                 Neon::domain::mGrid::Field<T>&     fin,
+                                 Neon::domain::mGrid::Field<T>&     fout,
+                                 std::vector<Neon::set::Container>& containers)
+{
+    // 1) collision for all voxels at level L=level
+    containers.push_back(collide<T, DIM, Q>(grid, omega0, level, max_level, fin, fout));
+
+    // 2) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
 
     // 3) recurse down
-    if (ilevel != 0) {
-        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, ilevel - 1, max_level, fin, fout, containers);
+    if (level != 0) {
+        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, level - 1, max_level, fin, fout, containers);
     }
 
     // 4) Streaming step that also performs the necessary "explosion" and "coalescence" steps.
+    stream<T, DIM, Q>(grid, level, max_level, fout, fin, containers);
 
     // 5) stop
-    if (ilevel == max_level - 1) {
+    if (level == max_level - 1) {
         return;
     }
 
-    // 6) collision for all voxels at level L = ilevel
-    containers.push_back(collide<T, DIM, Q>(grid, omega0, ilevel, max_level, fin, fout));
+    // 6) collision for all voxels at level L = level
+    containers.push_back(collide<T, DIM, Q>(grid, omega0, level, max_level, fin, fout));
 
-    // 7) Storing fine(ilevel) data for later "coalescence" pulled by the coarse(ilevel)
+    // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
 
     // 8) recurse down
-    if (ilevel != 0) {
-        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, ilevel - 1, max_level, fin, fout, containers);
+    if (level != 0) {
+        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, level - 1, max_level, fin, fout, containers);
     }
 
-    // 9) Streaming step.
+    // 9) Streaming step
+    stream<T, DIM, Q>(grid, level, max_level, fout, fin, containers);
 }
 
 int main(int argc, char** argv)
