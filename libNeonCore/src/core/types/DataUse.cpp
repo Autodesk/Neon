@@ -25,10 +25,10 @@ auto DataUseUtils::toString(Neon::DataUse option) -> const char*
         }
     }
 }
-}  // namespace Neon
-
 
 std::ostream& operator<<(std::ostream& os, Neon::DataUse const& m)
 {
     return os << std::string(Neon::DataUseUtils::toString(m));
 }
+
+}  // namespace Neon

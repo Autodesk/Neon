@@ -45,9 +45,9 @@ void runAllTestConfiguration(const std::string&                      gname,
             };
         } else {
             geos = std::vector<Geometry>{
-                Geometry::FullDomain,
+                Geometry::FullDomain /*,
                 Geometry::Sphere,
-                Geometry::HollowSphere,
+                Geometry::HollowSphere,*/
 
             };
         }

@@ -74,10 +74,10 @@ auto dFieldDev<T, C>::operator=(dFieldDev&& other) -> dFieldDev&
 }
 
 template <typename T, int C>
-auto dFieldDev<T, C>::uid() const -> Neon::set::MultiDeviceObjectUid
+auto dFieldDev<T, C>::uid() const -> Neon::set::dataDependency::MultiXpuDataUid
 {
     void*                           addr = static_cast<void*>(m_data.get());
-    Neon::set::MultiDeviceObjectUid uidRes = (size_t)addr;
+    Neon::set::dataDependency::MultiXpuDataUid uidRes = (size_t)addr;
     return uidRes;
 }
 

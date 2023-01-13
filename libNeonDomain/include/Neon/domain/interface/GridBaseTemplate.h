@@ -31,8 +31,6 @@ class GridBaseTemplate : public GridBase
      */
     auto ioDomainToVtk(const std::string& fileName,
                        Neon::IoFileType   vtiIOe = IoFileType::ASCII) const -> void;
-
-
 };
 }  // namespace Neon::domain::interface
 

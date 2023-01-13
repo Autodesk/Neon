@@ -110,7 +110,7 @@ dGrid::dGrid(const Neon::Backend&                    backend,
 
 
 template <typename T, int C>
-auto dGrid::newField(const std::string   fieldUserName,
+auto dGrid::newField(const std::string&  fieldUserName,
                      int                 cardinality,
                      [[maybe_unused]] T  inactiveValue,
                      Neon::DataUse       dataUse,
@@ -162,11 +162,11 @@ auto dGrid::getContainer(const std::string& name,
 {
     const Neon::index_3d& defaultBlockSize = getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    defaultBlockSize,
-                                                                    [](const Neon::index_3d&) { return size_t(0); });
+                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                     *this,
+                                                                     lambda,
+                                                                     defaultBlockSize,
+                                                                     [](const Neon::index_3d&) { return size_t(0); });
     return kContainer;
 }
 
@@ -180,11 +180,11 @@ auto dGrid::getContainer(const std::string& name,
 {
     const Neon::index_3d& defaultBlockSize = getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    blockSize,
-                                                                    [sharedMem](const Neon::index_3d&) { return sharedMem; });
+                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                     *this,
+                                                                     lambda,
+                                                                     blockSize,
+                                                                     [sharedMem](const Neon::index_3d&) { return sharedMem; });
     return kContainer;
 }
 
@@ -219,6 +219,7 @@ auto dGrid::dot(const std::string&               name,
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
+            Neon::set::ContainerPatternType::reduction,
             *this, [&](Neon::set::Loader& loader) {
                 loader.load(input1);
                 if (input1.getUid() != input2.getUid()) {
@@ -245,6 +246,7 @@ auto dGrid::dot(const std::string&               name,
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
+            Neon::set::ContainerPatternType::reduction,
             *this, [&](Neon::set::Loader& loader) {
                 loader.load(input1);
                 if (input1.getUid() != input2.getUid()) {
@@ -307,6 +309,7 @@ auto dGrid::norm2(const std::string&               name,
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
+            Neon::set::ContainerPatternType::reduction,
             *this, [&](Neon::set::Loader& loader) {
                 loader.load(input);
 
@@ -330,6 +333,7 @@ auto dGrid::norm2(const std::string&               name,
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
+            Neon::set::ContainerPatternType::reduction,
             *this, [&](Neon::set::Loader& loader) {
                 loader.load(input);
 

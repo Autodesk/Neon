@@ -45,8 +45,8 @@
 #include "Neon/set/DevSet.h"
 
 #include "Neon/domain/interface/GridBaseTemplate.h"
-#include "Neon/domain/interface/common.h"
 #include "Neon/domain/interface/KernelConfig.h"
+#include "Neon/domain/interface/common.h"
 
 #include "Neon/domain/internal/aGrid/aField.h"
 #include "Neon/domain/internal/aGrid/aFieldStorage.h"
@@ -91,11 +91,11 @@ class aGrid : public Neon::domain::interface::GridBaseTemplate<aGrid, aCell>
     /**
      * Constructor specific for aGrid, where users can specify manually the size of each partition
      */
-    aGrid(const Neon::Backend&                backend,
+    aGrid(const Neon::Backend&              backend,
           const Neon::set::DataSet<size_t>& lenghts /**< Length of each vector stored on accelerator */,
-          const int32_3d&                     blockDim = int32_3d(256, 1, 1) /**< Default block size */,
-          const Vec_3d<double>&               spacingData = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
-          const Vec_3d<double>&               origin = Vec_3d<double>(0, 0, 0) /**< Origin  */);
+          const int32_3d&                   blockDim = int32_3d(256, 1, 1) /**< Default block size */,
+          const Vec_3d<double>&             spacingData = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
+          const Vec_3d<double>&             origin = Vec_3d<double>(0, 0, 0) /**< Origin  */);
 
     /**
      * Returns a LaunchParameters configured for the specified inputs
@@ -169,12 +169,12 @@ class aGrid : public Neon::domain::interface::GridBaseTemplate<aGrid, aCell>
     /**
      * Internal helper function for initialization
      */
-    auto init(const Neon::Backend&                backend,
-              const Neon::int32_3d&               dimension,
+    auto init(const Neon::Backend&              backend,
+              const Neon::int32_3d&             dimension,
               const Neon::set::DataSet<size_t>& lenghts,
-              const int32_3d&                     blockDim,
-              const Vec_3d<double>&               spacingData,
-              const Vec_3d<double>&               origin)
+              const int32_3d&                   blockDim,
+              const Vec_3d<double>&             spacingData,
+              const Vec_3d<double>&             origin)
         -> void;
 
     /**
@@ -210,7 +210,7 @@ AGRID_NEW_FIELD_EXPLICIT_INSTANTIATION(int32_t)
 AGRID_NEW_FIELD_EXPLICIT_INSTANTIATION(int64_t)
 
 #undef AGRID_NEW_FIELD_EXPLICIT_INSTANTIATION
-}  // namespace Neon::domain::array
+}  // namespace Neon::domain::internal::aGrid
 
 #include "Neon/domain/internal/aGrid/aFieldStorage_imp.h"
 #include "Neon/domain/internal/aGrid/aField_imp.h"

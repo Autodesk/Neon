@@ -21,7 +21,7 @@ auto GridBaseTemplate<GridT, CellT>::ioDomainToVtk(const std::string& fileName, 
 
     io.addField([&](const Neon::index_3d& idx, int) {
         const auto& cellProperties = this->getProperties(idx);
-        if(!cellProperties.isInside()){
+        if (!cellProperties.isInside()) {
             return -1;
         }
         auto setIdx = cellProperties.getSetIdx();

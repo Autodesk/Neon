@@ -13,8 +13,8 @@ FieldBase<T, C>::FieldBase()
 }
 
 template <typename T, int C>
-FieldBase<T, C>::FieldBase(const std::string              FieldBaseUserName,
-                           const std::string              fieldClassName,
+FieldBase<T, C>::FieldBase(const std::string&             FieldBaseUserName,
+                           const std::string&             fieldClassName,
                            const Neon::index_3d&          dimension,
                            int                            cardinality,
                            T                              outsideVal,
@@ -94,14 +94,14 @@ auto FieldBase<T, C>::getName() const
 }
 
 template <typename T, int C>
-template <Neon::computeMode_t::computeMode_e mode>
 auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
                                                                  const int& cardinality,
-                                                                 T&)>& fun)
+                                                                 T&)>&     fun,
+                                        Neon::computeMode_t::computeMode_e mode)
     -> void
 {
     const auto& dim = getDimension();
-    if constexpr (mode == Neon::computeMode_t::computeMode_e::par) {
+    if (mode == Neon::computeMode_t::computeMode_e::par) {
 #ifdef _MSC_VER
 #pragma omp parallel for
 #else
@@ -237,9 +237,9 @@ auto FieldBase<T, C>::ioFromDense(const Neon::IODense<ImportType, ImportIndex>& 
             NEON_THROW(exp);
         }
     }
-    forEachActiveCell<Neon::computeMode_t::computeMode_e::par>([&](const Neon::index_3d& point,
-                                                                   const int&            cardinality,
-                                                                   T&                    value) {
+    forEachActiveCell([&](const Neon::index_3d& point,
+                          const int&            cardinality,
+                          T&                    value) {
         value = ioDense(point.template newType<ImportIndex>(), cardinality);
     });
 }
@@ -275,6 +275,13 @@ auto FieldBase<T, C>::getClassName() const -> const std::string&
 }
 
 template <typename T, int C>
+auto FieldBase<T, C>::haloUpdateContainer(Neon::set::TransferMode,
+                                          Neon::set::StencilSemantic) const -> Neon::set::Container
+{
+    NEON_THROW_UNSUPPORTED_OPERATION("");
+}
+
+template <typename T, int C>
 FieldBase<T, C>::Storage::Storage(const std::string              FieldBaseUserName,
                                   const std::string              fieldClassName,
                                   const Neon::index_3d&          dimension,
@@ -300,13 +307,16 @@ FieldBase<T, C>::Storage::Storage(const std::string              FieldBaseUserNa
         name = "Anonymous";
     }
 }
-
-
+    
+#if defined(NEON_OS_WINDOWS)
+#pragma warning(push)
+#pragma warning(disable : 4244)
+#endif
 template <typename T, int C>
 FieldBase<T, C>::Storage::Storage()
     : dimension(0),
       cardinality(0),
-      outsideVal(0),
+      outsideVal(static_cast<T>(0.0)),
       dataUse(),
       memoryOptions(),
       haloStatus(),
@@ -314,4 +324,8 @@ FieldBase<T, C>::Storage::Storage()
       origin(0.0)
 {
 }
+#if defined(NEON_OS_WINDOWS)
+#pragma warning(pop)
+#endif
+    
 }  // namespace Neon::domain::interface

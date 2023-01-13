@@ -56,10 +56,10 @@ IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&  d,
 
 template <typename ExportType,
           typename IntType>
-IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&                                             d,
-                                      int                                                                    c,
+IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&                                                    d,
+                                      int                                                                           c,
                                       const std::function<ExportType(const Integer_3d<IntType>&, int cardinality)>& fun)
-    : mSpace(d), mCardinality(c), mRepresentation(Representation::IMPLICIT), mImplicitFun(fun)
+    : mSpace(d), mCardinality(c), mOrder(), mRepresentation(Representation::IMPLICIT), mImplicitFun(fun)
 
 {
     initPitch();
@@ -280,10 +280,13 @@ auto IODense<ExportType, IntType>::maxDiff(const IODense<ExportType, IntType>& a
         const auto newDiff = std::abs(valA - valB);
         const int  threadId = omp_get_thread_num();
         if (newDiff > std::get<0>(max_diff[threadId])) {
+#pragma omp critical
+            if (newDiff > std::get<0>(max_diff[threadId])) {
             Values& md = max_diff[threadId];
             std::get<0>(md) = newDiff;
             std::get<1>(md) = idx;
             std::get<2>(md) = c;
+        }
         }
     },
               b);

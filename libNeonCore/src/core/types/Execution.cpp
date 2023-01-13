@@ -20,14 +20,13 @@ auto ExecutionUtils::toInt(Neon::Execution option) -> int
 {
     switch (option) {
         case Neon::Execution::device: {
-            return  static_cast<int>(Neon::Execution::device);
+            return static_cast<int>(Neon::Execution::device);
         }
         case Neon::Execution::host: {
-            return  static_cast<int>(Neon::Execution::host);
+            return static_cast<int>(Neon::Execution::host);
         }
     }
     NEON_THROW_UNSUPPORTED_OPTION("ExecutionUtils");
-
 }
 
 auto ExecutionUtils::getAllOptions() -> const std::array<Execution, ExecutionUtils::numConfigurations>&
@@ -35,9 +34,44 @@ auto ExecutionUtils::getAllOptions() -> const std::array<Execution, ExecutionUti
     return mAllOptions;
 }
 
-}  // namespace Neon
+auto ExecutionUtils::getCompatibleOptions(Neon::DataUse dataUse)
+    -> std::vector<Execution>
+{
+    switch (dataUse) {
+        case DataUse::IO_COMPUTE: {
+            return {Execution::device,
+                    Execution::host};
+        }
+        case DataUse::COMPUTE: {
+            return {Execution::device};
+        }
+        case DataUse::IO_POSTPROCESSING: {
+            return {Execution::host};
+        }
+    }
+    NEON_THROW_UNSUPPORTED_OPERATION("");
+}
+
+auto ExecutionUtils::checkCompatibility(Neon::DataUse   dataUse,
+                                         Neon::Execution execution)
+    -> bool
+{
+    switch (dataUse) {
+        case DataUse::IO_COMPUTE: {
+            return true;
+        }
+        case DataUse::COMPUTE: {
+            return execution == Execution::device;
+        }
+        case DataUse::IO_POSTPROCESSING: {
+            return execution == Execution::host;
+        }
+    }
+    NEON_THROW_UNSUPPORTED_OPERATION("");
+}
 
 std::ostream& operator<<(std::ostream& os, Neon::Execution const& m)
 {
     return os << std::string(Neon::ExecutionUtils::toString(m));
 }
+}  // namespace Neon

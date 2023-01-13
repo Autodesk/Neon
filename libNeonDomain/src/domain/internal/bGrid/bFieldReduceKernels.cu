@@ -17,15 +17,34 @@ auto bField<T, C>::dot(Neon::set::patterns::BlasSet<T>& blasSet,
         NEON_DEV_UNDER_CONSTRUCTION("bField::dot");
     }
 
-    Neon::domain::internal::dotCUB<T,
-                                   Cell::sBlockSizeX,
-                                   Cell::sBlockSizeY,
-                                   Cell::sBlockSizeZ>(blasSet,
-                                                      *mData->mGrid,
-                                                      *this,
-                                                      input,
-                                                      output,
-                                                      dataView);
+    const int blockSize = mData->grid->getBlockSize();
+
+    if (blockSize == 2) {
+        Neon::domain::internal::dotCUB<T, 2, 2, 2>(blasSet,
+                                                   *mData->grid,
+                                                   *this,
+                                                   input,
+                                                   output,
+                                                   dataView);
+    } else if (blockSize == 4) {
+        Neon::domain::internal::dotCUB<T, 4, 4, 4>(blasSet,
+                                                   *mData->grid,
+                                                   *this,
+                                                   input,
+                                                   output,
+                                                   dataView);
+    } else if (blockSize == 8) {
+        Neon::domain::internal::dotCUB<T, 8, 8, 8>(blasSet,
+                                                   *mData->grid,
+                                                   *this,
+                                                   input,
+                                                   output,
+                                                   dataView);
+    } else {
+        NeonException exc("bField::dot");
+        exc << "block size (" << blockSize << ")is too big.";
+        NEON_THROW(exc);
+    }
 }
 
 
@@ -39,14 +58,31 @@ auto bField<T, C>::norm2(Neon::set::patterns::BlasSet<T>& blasSet,
         NEON_DEV_UNDER_CONSTRUCTION("bField::norm2");
     }
 
-    Neon::domain::internal::norm2CUB<T,
-                                     Cell::sBlockSizeX,
-                                     Cell::sBlockSizeY,
-                                     Cell::sBlockSizeZ>(blasSet,
-                                                        *mData->mGrid,
-                                                        *this,
-                                                        output,
-                                                        dataView);
+    const int blockSize = mData->grid->getBlockSize();
+
+    if (blockSize == 2) {
+        Neon::domain::internal::norm2CUB<T, 2, 2, 2>(blasSet,
+                                                     *mData->grid,
+                                                     *this,
+                                                     output,
+                                                     dataView);
+    } else if (blockSize == 4) {
+        Neon::domain::internal::norm2CUB<T, 4, 4, 4>(blasSet,
+                                                     *mData->grid,
+                                                     *this,
+                                                     output,
+                                                     dataView);
+    } else if (blockSize == 8) {
+        Neon::domain::internal::norm2CUB<T, 8, 8, 8>(blasSet,
+                                                     *mData->grid,
+                                                     *this,
+                                                     output,
+                                                     dataView);
+    } else {
+        NeonException exc("bField::norm2");
+        exc << "block size (" << blockSize << ")is too big.";
+        NEON_THROW(exc);
+    }
 }
 
 template void bField<double, 0>::dot(Neon::set::patterns::BlasSet<double>&,

@@ -169,7 +169,7 @@ auto eGrid::isInsideDomain(const index_3d& idx) const -> bool
     isInsideBox = (idx.x >= 0) && isInsideBox;
     isInsideBox = (idx.y >= 0) && isInsideBox;
     isInsideBox = (idx.z >= 0) && isInsideBox;
-    if(!isInsideBox){
+    if (!isInsideBox) {
         return false;
     }
     const auto& GtoL = frame()->globalToLocal();
@@ -197,9 +197,11 @@ auto eGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellPr
     return cellProperties;
 }
 
-auto eGrid::getLaunchParameters(Neon::DataView  dataView,
-                                const index_3d& blockDim,
-                                const size_t&   shareMem) const -> Neon::set::LaunchParameters
+auto eGrid::
+    getLaunchParameters(Neon::DataView  dataView,
+                        const index_3d& blockDim,
+                        const size_t&   shareMem)
+        const -> Neon::set::LaunchParameters
 {
     if (blockDim.y != 1 || blockDim.z != 1) {
         NeonException exc("eGrid");
@@ -216,6 +218,12 @@ auto eGrid::getLaunchParameters(Neon::DataView  dataView,
         newLaunchParameters[i].set(gridMode, gridDim, blockDim, shareMem);
     }
     return newLaunchParameters;
+}
+
+auto eGrid::setReduceEngine(Neon::sys::patterns::Engine )
+    -> void
+{
+    return;
 }
 
 }  // namespace Neon::domain::internal::eGrid
