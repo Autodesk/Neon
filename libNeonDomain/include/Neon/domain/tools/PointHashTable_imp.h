@@ -21,6 +21,12 @@ template <typename IntegerT, typename MetaT>
 auto PointHashTable<IntegerT, MetaT>::getMetadata(Point const& point) const
     -> Meta const*
 {
+    if (point.v[0] >= mBBox.v[0] || point.v[0] < 0 ||
+        point.v[1] >= mBBox.v[1] || point.v[1] < 0 ||
+        point.v[2] >= mBBox.v[2] || point.v[2] < 0) {
+        return nullptr;
+    }
+
     const size_t key = point.mPitch(mBBox);
     auto         it = mMap.find(key);
     if (it == mMap.end()) {
@@ -33,6 +39,12 @@ template <typename IntegerT, typename MetaT>
 auto PointHashTable<IntegerT, MetaT>::getMetadata(Point const& point)
     -> Meta*
 {
+    if (point.v[0] >= mBBox.v[0] || point.v[0] < 0 ||
+        point.v[1] >= mBBox.v[1] || point.v[1] < 0 ||
+        point.v[2] >= mBBox.v[2] || point.v[2] < 0) {
+        return nullptr;
+    }
+
     const Key key = helpGetKey(point);
     auto      it = mMap.find(key);
     if (it == mMap.end()) {
@@ -46,6 +58,13 @@ auto PointHashTable<IntegerT, MetaT>::addPoint(const Point& point,
                                                const Meta&  data)
     -> void
 {
+    if (point.v[0] >= mBBox.v[0] || point.v[0] < 0 ||
+        point.v[1] >= mBBox.v[1] || point.v[1] < 0 ||
+        point.v[2] >= mBBox.v[2] || point.v[2] < 0) {
+        NeonException exp("PointHashTable::getMetadata()");
+        exp << "Point " << point << " is outside the bounding box" << mBBox;
+        NEON_THROW(exp);
+    }
     const Key key = helpGetKey(point);
     mMap.insert({key, data});
 }
@@ -79,5 +98,11 @@ auto PointHashTable<IntegerT, MetaT>::forEach(const UserLambda& f)
 
         it++;
     }
+}
+
+template <typename IntegerT, typename MetaT>
+auto PointHashTable<IntegerT, MetaT>::size() const -> size_t
+{
+    return mMap.size();
 }
 }  // namespace Neon::domain::tool

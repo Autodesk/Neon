@@ -56,6 +56,11 @@ class PointHashTable
     template <typename UserLambda>
     auto forEach(const UserLambda&);
 
+    /**
+     * get the current size of the map
+    */
+    auto size() const -> size_t;
+
    private:
     using Key = size_t;
 

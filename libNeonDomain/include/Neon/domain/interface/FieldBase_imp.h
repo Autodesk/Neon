@@ -94,14 +94,14 @@ auto FieldBase<T, C>::getName() const
 }
 
 template <typename T, int C>
-template <Neon::computeMode_t::computeMode_e mode>
 auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
                                                                  const int& cardinality,
-                                                                 T&)>& fun)
+                                                                 T&)>&     fun,
+                                        Neon::computeMode_t::computeMode_e mode)
     -> void
 {
     const auto& dim = getDimension();
-    if constexpr (mode == Neon::computeMode_t::computeMode_e::par) {
+    if (mode == Neon::computeMode_t::computeMode_e::par) {
 #ifdef _MSC_VER
 #pragma omp parallel for
 #else
@@ -237,9 +237,9 @@ auto FieldBase<T, C>::ioFromDense(const Neon::IODense<ImportType, ImportIndex>& 
             NEON_THROW(exp);
         }
     }
-    forEachActiveCell<Neon::computeMode_t::computeMode_e::par>([&](const Neon::index_3d& point,
-                                                                   const int&            cardinality,
-                                                                   T&                    value) {
+    forEachActiveCell([&](const Neon::index_3d& point,
+                          const int&            cardinality,
+                          T&                    value) {
         value = ioDense(point.template newType<ImportIndex>(), cardinality);
     });
 }

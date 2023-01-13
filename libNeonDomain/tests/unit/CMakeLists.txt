@@ -12,4 +12,5 @@ add_subdirectory("domain-unit-test-staggered-grid")
 add_subdirectory("gUt_tools")
 add_subdirectory("gUt_vtk")
 add_subdirectory("gUt_bGrid")
+add_subdirectory("gUt_mGrid")
 

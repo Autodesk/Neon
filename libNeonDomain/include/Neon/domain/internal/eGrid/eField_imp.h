@@ -21,7 +21,8 @@ eField<T, C>::eField(const std::string&             fieldUserName,
                                                                                                            outsideVal,
                                                                                                            dataUse,
                                                                                                            memoryOptions,
-                                                                                                           haloStatus) {
+                                                                                                           haloStatus)
+{
 
     m_dataConfig = dataConfig;
 

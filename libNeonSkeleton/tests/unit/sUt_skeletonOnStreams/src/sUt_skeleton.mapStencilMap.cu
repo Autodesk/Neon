@@ -204,7 +204,7 @@ TEST(MapStencilMap_TwoWayExtendedOCC, dGrid)
     runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilTwoWayExtendedOCC<Grid, Type, 0>, nGpus, 2);
 }
 
-TEST(MapStencilMap_NoOCC, DISABLED_bGrid)
+TEST(MapStencilMap_NoOCC, bGrid)
 {
     int nGpus = 1;
     using Grid = Neon::domain::internal::bGrid::bGrid;
