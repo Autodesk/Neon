@@ -12,19 +12,22 @@ In particular, our current implementation is based on openMP (on the CPU) and CU
 **Volumetric data** structures are used as a way to create a digital representation of properties of three-dimensional objects. For example, we can use them to represent pressure, displacement or material properties. Volumetric data structures are used both in simulation and computer graphics tools. 
 
 Automatic parallelization of generic sequential code is still an open challenge which could be referred as the holy grail. 
-Neon tackles a more tractable challenge by restricting the problem to specific domains. Neon focus on problems based on regular spatial discretions like uniform cartesian grids (support for non-uniform cartesian is in development). Moreover, Neon primarily support local operations like map (the value of a cell depends only on the metadata stored in the same cell) or stencil (a cell value is computed using metadata associated to close cells). Reductions (like dot or norm) are the only global operations. Thanks to the information on both the structure of volumetric representation and the supported operations, Neon is able to automatically decompose the problem data in different partitions, map partition to XPUs, handle any required communication between partitions and finally to decompose the computation to introduce optimizations like overlapping computation and communication which are essential to achieve good performance.  
+Neon tackles a more tractable challenge by **restricting the problem to specific domains**. Neon focus on problems based on regular spatial discretions like uniform cartesian grids (support for non-uniform cartesian is in development). 
+
+Moreover, Neon primarily support **local operations** like **map** (the value of a cell depends only on the metadata stored in the same cell) or **stencil** (a cell value is computed using metadata associated to close cells). Reductions (like dot or norm) are the only global operations. Thanks to the information on both the structure of volumetric representation and the supported operations, Neon is able to **automatically decompose the problem domain** in different partitions, map partition to the XPUs, handle any required communication between partitions and finally to decompose the computation **to introduce optimizations like overlapping computation and communication** which are essential to achieve good performance.  
 
 In the following we run through a simple example to spread some light on what Neon does automatically under the hood.  
 
 Consider a simple computation where apply a 
-| Simple user application in Neon and its dependency graph                                    |                                                                                             |
-|---------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| <image src = "/learn/guided-tutorials/img/axpy-laplace-dot-code.png" width="300px"></image> | <image src = "/learn/guided-tutorials/img/axpy-laplace-dot-app.png" width="300px" ></image> |
 
-| Different Multi-XPU Graph created by Neon                                                   ||
-|---------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| <image src = "/learn/guided-tutorials/img/axpy-laplace-dot-nocc.png" width="400px"></image> |<image src = "/learn/guided-tutorials/img/axpy-laplace-dot-eocc.png" width="400px"></image>  |
-| <image src = "/learn/guided-tutorials/img/axpy-laplace-dot-socc.png" width="400px"></image> |<image src = "/learn/guided-tutorials/img/axpy-laplace-dot-e2occ.png" width="400px"></image> |
+| Simple user application in Neon and its dependency graph                            |                                                                                     |
+|-------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| <image src = "/learn/img/axpy-laplace-dot-code.png" width="300px"></image> | <image src = "/learn/img/axpy-laplace-dot-app.png" width="300px" ></image> |
+
+| Different Multi-XPU Graph created by Neon                                   ||
+|-----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| <image src = "/learn/img/axpy-laplace-dot-nocc.png" width="400px"></image> |<image src = "/learn/img/axpy-laplace-dot-eocc.png" width="400px"></image>  |
+| <image src = "/learn/img/axpy-laplace-dot-socc.png" width="400px"></image> |<image src = "/learn/img/axpy-laplace-dot-e2occ.png" width="400px"></image> |
 
 Neon is composed of a set of abstraction levels, each one represented by a C++ library.
 The following picture shows the main high-level mechanisms provided by each level.
