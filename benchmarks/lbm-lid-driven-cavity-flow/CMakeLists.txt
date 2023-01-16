@@ -18,5 +18,3 @@ target_compile_options(${APP} INTERFACE
 		$<$<COMPILE_LANGUAGE:CXX>:${NeonCXXFlags}>
 		$<$<COMPILE_LANGUAGE:CUDA>:${NeonCUDAFlags}>
 		)
-
-add_test(NAME ${APP} COMMAND ${APP})
