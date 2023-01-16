@@ -40,7 +40,7 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx) const -> bool
 
         Cell cell(static_cast<Cell::Location::Integer>((idx.x / mData->voxelSpacing) % mData->blockSize),
                   static_cast<Cell::Location::Integer>((idx.y / mData->voxelSpacing) % mData->blockSize),
-                  static_cast<Cell::Location::Integer>((idx.z / mData->voxelSpacing) % mData->blockSize));        
+                  static_cast<Cell::Location::Integer>((idx.z / mData->voxelSpacing) % mData->blockSize));
 
         cell.mBlockID = *itr;
         cell.mBlockSize = mData->blockSize;
@@ -123,7 +123,7 @@ auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&
 }
 
 
-auto bGrid::getNeighbourBlocks() const -> const Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getNeighbourBlocks() const -> Neon::set::MemSet_t<uint32_t>&
 {
     return mData->mNeighbourBlocks;
 }

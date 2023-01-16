@@ -37,6 +37,7 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
                         uint32_t*       mask,
                         uint32_t*       maskLowerLevel,
                         uint32_t*       childBlockID,
+                        uint32_t*       parentNeighbourBlocks,
                         T               defaultValue,
                         nghIdx_t*       stencilNghIndex,
                         int*            refFactors,
@@ -63,6 +64,7 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
     NEON_CUDA_HOST_DEVICE inline auto getChild(const Cell&   parent_cell,
                                                Neon::int8_3d child) const -> Cell;
 
+
     /**
      * Given a child cell (as returned by getChild), return the value of this child 
      * @param childCell the child cell as returned by getChild 
@@ -80,12 +82,34 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
                                                int         card = 0) const -> const T&;
 
     /**
+     * Check if the cell is refined i.e., has children 
+     * @param cell the cell i.e., parent at which the children are checked 
+     * @return 
+    */
+    NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Cell& cell) const -> bool;
+
+
+    /**
+     * Get a cell that represents the parent of a given cell
+     * @param cell the child cell for which the parent is queried 
+    */
+    NEON_CUDA_HOST_DEVICE inline auto getParent(const Cell& cell) const -> Cell;
+
+    /**
      * Given a cell (child), return the value of the parent 
      * @param eId the cell 
      * @param card the cardinality in case of vector-valued data           
     */
-    NEON_CUDA_HOST_DEVICE inline auto parent(const Cell& eId,
-                                             int         card) -> T&;
+    NEON_CUDA_HOST_DEVICE inline auto parentVal(const Cell& eId,
+                                                int         card) -> T&;
+
+    /**
+     * Given a cell (child), return the value of the parent 
+     * @param eId the cell 
+     * @param card the cardinality in case of vector-valued data           
+    */
+    NEON_CUDA_HOST_DEVICE inline auto parentVal(const Cell& eId,
+                                                int         card) const -> const T&;
 
     /**
      * check if the cell has a parent as defined by the user during the construction of the mGrid 
@@ -93,12 +117,8 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
     */
     NEON_CUDA_HOST_DEVICE inline auto hasParent(const Cell& cell) const -> bool;
 
-    /**
-     * Check if the cell is refined i.e., has children 
-     * @param cell the cell i.e., parent at which the children are checked 
-     * @return 
-    */
-    NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Cell& cell) const -> bool;
+    NEON_CUDA_HOST_DEVICE inline auto getUncle(const Cell&   cell,
+                                               Neon::int8_3d direction) const -> Cell;
 
     /**
      * Get the refinement factor i.e., number of children at each dimension
@@ -127,6 +147,7 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
     Cell::Location* mParentLocalID;
     uint32_t*       mMaskLowerLevel;
     uint32_t*       mChildBlockID;
+    uint32_t*       mParentNeighbourBlocks;
     int*            mRefFactors;
     int*            mSpacing;
 };

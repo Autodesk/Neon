@@ -77,9 +77,9 @@ void MultiResSkeleton()
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         assert(local.hasParent(cell));
 
-                        local(cell, 0) = local.parent(cell, 0);
-                        local(cell, 1) = local.parent(cell, 1);
-                        local(cell, 2) = local.parent(cell, 2);
+                        local(cell, 0) = local.parentVal(cell, 0);
+                        local(cell, 1) = local.parentVal(cell, 1);
+                        local(cell, 2) = local.parentVal(cell, 2);
                     };
                 }));
         }

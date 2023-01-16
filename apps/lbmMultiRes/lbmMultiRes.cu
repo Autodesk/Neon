@@ -223,11 +223,20 @@ Neon::set::Container stream(Neon::domain::mGrid&                 grid,
             auto        fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                for (int i = 0; i < Q; ++i) {
+                auto parent = fpost_stm.getParent(cell);
+                bool hasChildren = fpost_stm.hasChildren(cell);
 
+                for (int i = 0; i < Q; ++i) {
                     //TODO filter out cells that interface with L+1 or L-1
                     //TODO figure out the right direction to push/pull the data in the i-direction
-                    fpost_stm(cell, i) = fpost_col(cell, i);
+                    // fpost_stm(cell, i) = fpost_col(cell, i);
+
+                    //if (parent.isActive()) {
+                    //    auto uncle = fpost_stm.setNghCell()
+                    //}
+
+                    if (hasChildren) {
+                    }
                 }
             };
         });

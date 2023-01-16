@@ -65,6 +65,7 @@ mField<T, C>::mField(const std::string&         name,
                         active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
                         (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),  //lower-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
+                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getNeighbourBlocks().rawMem(gpuID, Neon::DeviceType::CPU),  //parent neighbor
                         outsideVal,
                         stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
                         refFactorSet.rawMem(gpuID, Neon::DeviceType::CPU),
@@ -85,6 +86,7 @@ mField<T, C>::mField(const std::string&         name,
                         active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
                         (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),  //lower-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
+                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getNeighbourBlocks().rawMem(gpuID, Neon::DeviceType::CUDA),  //parent neighbor
                         outsideVal,
                         stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),
                         refFactorSet.rawMem(gpuID, Neon::DeviceType::CUDA),

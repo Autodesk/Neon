@@ -70,7 +70,7 @@ void MultiResParent()
                     return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
                         if (xLocal.hasParent(cell)) {
                             hasParentLocal(cell, 0) = 1;
-                            xLocal(cell, 0) = xLocal.parent(cell, 0);
+                            xLocal(cell, 0) = xLocal.parentVal(cell, 0);
                         } else {
                             hasParentLocal(cell, 0) = -1;
                         }
@@ -184,11 +184,11 @@ void MultiResAtomicAddParent()
                         if (xLocal.hasParent(cell)) {
 
 #ifdef NEON_PLACE_CUDA_DEVICE
-                            atomicAdd(&xLocal.parent(cell, 0), xLocal(cell, 0));
+                            atomicAdd(&xLocal.parentVal(cell, 0), xLocal(cell, 0));
 #else
 
 #pragma omp atomic
-                            xLocal.parent(cell, 0) += xLocal(cell, 0);
+                            xLocal.parentVal(cell, 0) += xLocal(cell, 0);
 #endif
                         }
                     };

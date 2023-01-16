@@ -111,8 +111,20 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int 
 }
 
 template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getneighbourBlocksPtr(const Cell& cell) const -> const uint32_t*
+{
+    if (mSharedNeighbourBlocks != nullptr) {
+        return mSharedNeighbourBlocks;
+    } else {
+        return mNeighbourBlocks + (26 * cell.mBlockID);
+    }
+}
+
+
+template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     cell,
-                                                               const nghIdx_t& offset) const -> Cell
+                                                               const nghIdx_t& offset,
+                                                               const uint32_t* neighbourBlocks) const -> Cell
 {
     Cell ngh_cell(cell.mLocation.x + offset.x,
                   cell.mLocation.y + offset.y,
@@ -151,11 +163,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     c
             ngh_cell.mLocation.z -= cell.mBlockSize;
         }
 
-        if (mSharedNeighbourBlocks != nullptr) {
-            ngh_cell.mBlockID = mSharedNeighbourBlocks[Cell::getNeighbourBlockID(block_offset)];
-        } else {
-            ngh_cell.mBlockID = mNeighbourBlocks[26 * cell.mBlockID + Cell::getNeighbourBlockID(block_offset)];
-        }
+        ngh_cell.mBlockID = neighbourBlocks[Cell::getNeighbourBlockID(block_offset)];
 
     } else {
         ngh_cell.mBlockID = cell.mBlockID;
@@ -191,7 +199,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
         Cell swirl_cell = cell.toSwirl();
         swirl_cell.mBlockSize = cell.mBlockSize;
 
-        Cell ngh_cell = setNghCell(swirl_cell, offset);
+        Cell ngh_cell = setNghCell(swirl_cell, offset, getneighbourBlocksPtr(swirl_cell));
         ngh_cell.mBlockSize = cell.mBlockSize;
         if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
             //TODO maybe ngh_cell should be mapped to its memory layout
@@ -207,8 +215,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
         }
 
     } else {
-        Cell ngh_cell = setNghCell(cell, offset);
-        ngh_cell.mBlockSize = cell.mBlockSize;
+        Cell ngh_cell = setNghCell(cell, offset, getneighbourBlocksPtr(cell));
         if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
             ret.isValid = ngh_cell.computeIsActive(mMask);
             if (ret.isValid) {
