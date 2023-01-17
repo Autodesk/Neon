@@ -17,7 +17,13 @@ Then, thanks to the knowledge of the domain, the patterns and their composition,
 The rest of the documentation is structured as follows:
 
 **Learn:** 
-: it contains a simple blog-post-style tutorial to help new users to get used to Neon syntax and mechanisms. 
+: a set of simple blog-post-style tutorials to help new users to get used to Neon syntax and mechanisms. 
 
-References
-: it groups reference information for the project, like publications, presentation, API documentation and performance analysis of the benchmarks included in Neon. 
+**References**
+: information about the project, like publications, presentation, API documentation and performance analysis of the benchmarks included in Neon. 
+
+**Gallery**
+: a collection of plots, simulation outputs that showcase Neon capabilities on different applications
+
+**Community**
+: information of the community, from how to collaborate to Neon and to a list of current and past contributors. 
