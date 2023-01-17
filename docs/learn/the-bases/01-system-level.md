@@ -1,8 +1,11 @@
 ![](img/01-layers-system.png){align=right style="width:200px"}
+
 # The System Level
 
-The **System** abstraction shields the rest of Neon from architecture and hardware-specific mechanisms. 
-It defines an object-oriented interface to manage resources and requires the following back end capabilities:
+The **System** abstraction shields the rest of Neon from architecture and hardware-specific mechanisms.
+This abstraction level should be entirely invisible to the final Neon users.
+
+The System defines an object-oriented interface to manage resources and requires the following back end capabilities:
 
 **Memory Management**:
     This allows Neon to create device buffers and move data between devices or the host.
