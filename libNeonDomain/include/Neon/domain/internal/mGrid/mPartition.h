@@ -88,6 +88,14 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
     */
     NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Cell& cell) const -> bool;
 
+    /**
+     * Check if a neighbor to 'cell' has children 
+     * @param cell 
+     * @param cell 
+     * @return 
+    */
+    NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Cell& cell, const Neon::int8_3d nghDir) const -> bool;
+
 
     /**
      * Get a cell that represents the parent of a given cell

@@ -213,8 +213,8 @@ Neon::set::Container stream(Neon::domain::mGrid&                 grid,
                             const Neon::domain::mGrid::Field<T>& fpop_postcollision,
                             Neon::domain::mGrid::Field<T>&       fpop_poststreaming)
 {
-    //TODO
     //regular Streaming of the normal voxels at level L which are not interfaced with L+1 and L-1 levels.
+    //This is "pull" stream
 
     return grid.getContainer(
         "Stream" + std::to_string(level), level,
@@ -224,18 +224,29 @@ Neon::set::Container stream(Neon::domain::mGrid&                 grid,
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 auto parent = fpost_stm.getParent(cell);
-                bool hasChildren = fpost_stm.hasChildren(cell);
 
-                for (int i = 0; i < Q; ++i) {
-                    //TODO filter out cells that interface with L+1 or L-1
-                    //TODO figure out the right direction to push/pull the data in the i-direction
-                    // fpost_stm(cell, i) = fpost_col(cell, i);
 
-                    //if (parent.isActive()) {
-                    //    auto uncle = fpost_stm.setNghCell()
-                    //}
+                //If this cell has children i.e., it is been refined, that we should not work on it
+                //because this cell is only there to allow query and not to operate on
+                if (!fpost_stm.hasChildren(cell)) {
 
-                    if (hasChildren) {
+                    for (int8_t q = 0; q < Q; ++q) {
+                        Neon::int8_3d dir;
+                        if constexpr (DIM == 2) {
+                            dir = Neon::int8_3d(-latticeVelocity2D[q][0], -latticeVelocity2D[q][1], 0);
+                        }
+                        if constexpr (DIM == 3) {
+                            dir = Neon::int8_3d(-latticeVelocity3D[q][0], -latticeVelocity3D[q][1], -latticeVelocity3D[q][2]);
+                        }
+
+                        auto neighbor = fpost_col.nghVal(cell, dir, q, T(0));
+
+                        if (neighbor.isValid) {
+                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 along q direction
+                            if (!fpost_stm.hasChildren(cell, dir)) {
+                                fpost_stm(cell, q) = neighbor.value;
+                            }
+                        }
                     }
                 }
             };
@@ -262,7 +273,7 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
             auto        fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                for (int i = 0; i < Q; ++i) {
+                for (int8_t q = 0; q < Q; ++q) {
                 }
             };
         });
@@ -369,16 +380,16 @@ int main(int argc, char** argv)
         using T = double;
 
         //Neon grid
-        auto             runtime = Neon::Runtime::stream;
+        auto             runtime = Neon::Runtime::openmp;
         std::vector<int> gpu_ids{0};
         Neon::Backend    backend(gpu_ids, runtime);
 
         constexpr int DIM = 2;
         constexpr int Q = (DIM == 2) ? 9 : 19;
 
-        const int dim_x = 4;
-        const int dim_y = 4;
-        const int dim_z = (DIM < 3) ? 1 : 4;
+        const int dim_x = 12;
+        const int dim_y = 12;
+        const int dim_z = (DIM < 3) ? 4 : 4;
 
         const Neon::index_3d grid_dim(dim_x, dim_y, dim_z);
 
@@ -388,16 +399,17 @@ int main(int argc, char** argv)
         Neon::domain::mGrid grid(
             backend, grid_dim,
             {[&](const Neon::index_3d id) -> bool {
-                 return true;
+                 return id.x > 7;
              },
-             [&](const Neon::index_3d&) -> bool {
-                 return true;
+             [&](const Neon::index_3d& id) -> bool {
+                 return id.x > 3;
              },
              [&](const Neon::index_3d&) -> bool {
                  return true;
              }},
             create_stencil<DIM, Q>(), descriptor);
 
+        //grid.topologyToVTK("lbm.vtk", false);
 
         //LBM problem
         const int max_iter = 300;
