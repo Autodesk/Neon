@@ -120,6 +120,11 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getneighbourBlocksPtr(const 
     }
 }
 
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell
+{
+    return setNghCell(cell, offset, getneighbourBlocksPtr(cell));
+}
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     cell,
@@ -168,6 +173,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     c
     } else {
         ngh_cell.mBlockID = cell.mBlockID;
     }
+    ngh_cell.mIsActive = (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max());
     return ngh_cell;
 }
 
@@ -201,7 +207,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
 
         Cell ngh_cell = setNghCell(swirl_cell, offset, getneighbourBlocksPtr(swirl_cell));
         ngh_cell.mBlockSize = cell.mBlockSize;
-        if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
+        if (ngh_cell.isActive()) {
             //TODO maybe ngh_cell should be mapped to its memory layout
             ret.isValid = ngh_cell.computeIsActive(mMask);
             if (ret.isValid) {
@@ -216,7 +222,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
 
     } else {
         Cell ngh_cell = setNghCell(cell, offset, getneighbourBlocksPtr(cell));
-        if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
+        if (ngh_cell.isActive()) {
             ret.isValid = ngh_cell.computeIsActive(mMask);
             if (ret.isValid) {
                 if (mIsInSharedMem) {

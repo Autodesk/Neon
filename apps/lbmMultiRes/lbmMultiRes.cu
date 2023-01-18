@@ -120,6 +120,27 @@ inline void exportVTI(const int t, Field& field)
 }
 
 
+NEON_CUDA_HOST_DEVICE inline Neon::int8_3d explosionUnlceOffset(const Neon::domain::bGrid::Cell& cell, const Neon::int8_3d& q)
+{
+    //given a local index within a cell and a population direction (q)
+    //find the uncle's (the parent neighbor) offset from which the desired population (q) should be read
+    //this offset is wrt the cell containing the localID (i.e., the parent of localID)
+
+    auto off = [](const int8_t i, const int8_t j) {
+        //0, -1 --> -1
+        //1, -1 --> 0
+        //0, 1 --> 0
+        //0, 0 --> 0
+        //1, 1 --> 1
+        const int8_t s = i + j;
+        return (s <= 0) ? s : s - 1;
+    };
+
+    Neon::int8_3d offset(off(cell.mLocation.x, q.x), off(cell.mLocation.y, q.y), off(cell.mLocation.z, q.z));
+    return offset;
+}
+
+
 template <typename T>
 NEON_CUDA_HOST_DEVICE T computeOmega(T omega0, int level, int num_levels)
 {
@@ -223,9 +244,6 @@ Neon::set::Container stream(Neon::domain::mGrid&                 grid,
             auto        fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                auto parent = fpost_stm.getParent(cell);
-
-
                 //If this cell has children i.e., it is been refined, that we should not work on it
                 //because this cell is only there to allow query and not to operate on
                 if (!fpost_stm.hasChildren(cell)) {
@@ -238,12 +256,10 @@ Neon::set::Container stream(Neon::domain::mGrid&                 grid,
                         if constexpr (DIM == 3) {
                             dir = Neon::int8_3d(-latticeVelocity3D[q][0], -latticeVelocity3D[q][1], -latticeVelocity3D[q][2]);
                         }
-
-                        auto neighbor = fpost_col.nghVal(cell, dir, q, T(0));
-
-                        if (neighbor.isValid) {
-                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 along q direction
-                            if (!fpost_stm.hasChildren(cell, dir)) {
+                        //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+                        if (!fpost_stm.hasChildren(cell, dir)) {
+                            auto neighbor = fpost_col.nghVal(cell, dir, q, T(0));
+                            if (neighbor.isValid) {
                                 fpost_stm(cell, q) = neighbor.value;
                             }
                         }
@@ -259,7 +275,6 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
                                    const Neon::domain::mGrid::Field<T>& fpop_postcollision,
                                    Neon::domain::mGrid::Field<T>&       fpop_poststreaming)
 {
-    //TODO
     // Initiated by the fine level (hence "pull"), this function performs a coarse (level+1) to
     // fine (level) communication or "explosion" by simply distributing copies of coarse grid onto the fine grid.
     // In other words, this function updates the "halo" cells of the fine level by making copies of the coarse cell
@@ -274,6 +289,39 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 for (int8_t q = 0; q < Q; ++q) {
+                    //If this cell has children i.e., it is been refined, that we should not work on it
+                    //because this cell is only there to allow query and not to operate on
+                    if (!fpost_stm.hasChildren(cell)) {
+                        Neon::int8_3d dir;
+                        if constexpr (DIM == 2) {
+                            dir = Neon::int8_3d(-latticeVelocity2D[q][0], -latticeVelocity2D[q][1], 0);
+                        }
+                        if constexpr (DIM == 3) {
+                            dir = Neon::int8_3d(-latticeVelocity3D[q][0], -latticeVelocity3D[q][1], -latticeVelocity3D[q][2]);
+                        }
+
+                        //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+                        //we want to only work on cells that interface with L+1 (coarse) cell along q                        
+                        if (!fpost_stm.hasChildren(cell, dir)) {
+
+                            //try to query the cell along this direction (opposite of the population direction) as we do
+                            //in 'normal' streaming
+                            auto neighborCell = fpost_col.setNghCell(cell, dir);
+                            if (!neighborCell.isActive()) {
+                                //only if we can not do normal streaming, then we may have a coarser neighbor from which
+                                //we can read this pop
+
+                                //get the uncle direction/offset i.e., the neighbor of the cell's parent 
+                                //this direction/offset is wrt to the cell's parent 
+                                Neon::int8_3d uncleDir = explosionUnlceOffset(cell, dir);
+
+                                auto uncle = fpost_col.uncleVal(cell, uncleDir, q, T(0));
+                                if (uncle.isValid) {
+                                    fpost_stm(cell, q) = uncle.value;
+                                }
+                            }
+                        }
+                    }
                 }
             };
         });
@@ -290,7 +338,7 @@ Neon::set::Container coalescencePull(Neon::domain::mGrid&           grid,
     // (level) communication or "coalescence" by simply averaging the fine data stored in self.fpop_halo
 
     return grid.getContainer(
-        "explosionPull" + std::to_string(level), level,
+        "coalescencePull" + std::to_string(level), level,
         [=](Neon::set::Loader& loader) {
             auto fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
@@ -372,6 +420,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&               grid,
     stream<T, DIM, Q>(grid, level, max_level, fout, fin, containers);
 }
 
+
 int main(int argc, char** argv)
 {
     Neon::init();
@@ -410,6 +459,7 @@ int main(int argc, char** argv)
             create_stencil<DIM, Q>(), descriptor);
 
         //grid.topologyToVTK("lbm.vtk", false);
+
 
         //LBM problem
         const int max_iter = 300;

@@ -234,9 +234,28 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getUncle(const Cell&   cell,
     Cell uncle = getParent(cell);
     if (uncle.isActive()) {
         uncle = this->setNghCell(uncle, direction, mParentNeighbourBlocks);
+        uncle.mBlockSize = mRefFactors[mLevel + 1];
         uncle.mIsActive = uncle.mBlockID != std::numeric_limits<uint32_t>::max();
     }
     return uncle;
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::uncleVal(const Cell&   cell,
+                                                             Neon::int8_3d direction,
+                                                             int           card,
+                                                             const T&      alternativeVal) const -> NghInfo<T>
+{
+    NghInfo<T> ret;
+    ret.value = alternativeVal;
+    ret.isValid = false;
+
+    Cell uncle = getUncle(cell, direction);
+    ret.isValid = uncle.isActive();
+    if (ret.isValid) {
+        ret.value = mMemParent[this->pitch(uncle, card)];
+    }
+    return ret;
 }
 
 

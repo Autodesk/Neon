@@ -128,6 +128,11 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
     NEON_CUDA_HOST_DEVICE inline auto getUncle(const Cell&   cell,
                                                Neon::int8_3d direction) const -> Cell;
 
+    NEON_CUDA_HOST_DEVICE inline auto uncleVal(const Cell&   cell,
+                                               Neon::int8_3d direction,
+                                               int           card,
+                                               const T&      alternativeVal) const -> NghInfo<T>;
+
     /**
      * Get the refinement factor i.e., number of children at each dimension
      * @param level at which the refinement factor is queried      
