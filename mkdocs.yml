@@ -139,7 +139,7 @@ nav:
   - References:
       - Papers and Presentations: references/papers-presentations.md
       - API Documentation: references/api-documentation.md
-      - Performance: references/performance-considerations.md
+      - Performance: references/benchmarks-considerations.md
   - Community:
       - Contributing : CONTRIBUTING.md
       - Contributors : CONTRIBUTORS.md

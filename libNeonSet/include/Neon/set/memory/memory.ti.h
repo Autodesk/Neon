@@ -45,7 +45,7 @@ auto Memory::MemSet(const Neon::Backend&                      bk,
 
 
     Neon::sys::memConf_t cpuSysConfig(Neon::DeviceType::CPU, cpuConfig.allocator(Neon::DeviceType::CPU), m_orderCPU);
-    Neon::sys::memConf_t gpuSysConfig(Neon::DeviceType::CUDA, cpuConfig.allocator(Neon::DeviceType::CUDA), m_orderGPU);
+    Neon::sys::memConf_t gpuSysConfig(Neon::DeviceType::CUDA, gpuConfig.allocator(Neon::DeviceType::CUDA), m_orderGPU);
 
     return devSet.template newMemSet<T_ta>(cardinality, cpuSysConfig, gpuSysConfig, nElementVec);
 }
