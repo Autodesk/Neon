@@ -28,9 +28,9 @@ struct dCell
 
 
     dCell() = default;
+    Location mLocation = 0;
 
    private:
-    Location mLocation = 0;
 
     NEON_CUDA_HOST_DEVICE inline explicit dCell(const Location::Integer &x,
                                                 const Location::Integer &y,
