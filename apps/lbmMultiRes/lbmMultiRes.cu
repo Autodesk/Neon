@@ -69,6 +69,18 @@ NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity3D[27][3] = {
 
 };
 
+
+template <int DIM>
+NEON_CUDA_HOST_DEVICE Neon::int8_3d getDir(const int8_t q)
+{
+    if constexpr (DIM == 2) {
+        return Neon::int8_3d(latticeVelocity2D[q][0], latticeVelocity2D[q][1], 0);
+    }
+    if constexpr (DIM == 3) {
+        return Neon::int8_3d(latticeVelocity3D[q][0], latticeVelocity3D[q][1], latticeVelocity3D[q][2]);
+    }
+}
+
 template <int DIM, int Q>
 struct latticeWeight
 {
@@ -119,8 +131,8 @@ inline void exportVTI(const int t, Field& field)
     field.ioToVtk(fname, "field");
 }
 
-
-NEON_CUDA_HOST_DEVICE inline Neon::int8_3d explosionUnlceOffset(const Neon::domain::bGrid::Cell& cell, const Neon::int8_3d& q)
+template <typename T>
+NEON_CUDA_HOST_DEVICE inline Neon::int8_3d unlceOffset(const T& cell, const Neon::int8_3d& q)
 {
     //given a local index within a cell and a population direction (q)
     //find the uncle's (the parent neighbor) offset from which the desired population (q) should be read
@@ -129,14 +141,14 @@ NEON_CUDA_HOST_DEVICE inline Neon::int8_3d explosionUnlceOffset(const Neon::doma
     auto off = [](const int8_t i, const int8_t j) {
         //0, -1 --> -1
         //1, -1 --> 0
-        //0, 1 --> 0
         //0, 0 --> 0
+        //0, 1 --> 0
         //1, 1 --> 1
         const int8_t s = i + j;
         return (s <= 0) ? s : s - 1;
     };
 
-    Neon::int8_3d offset(off(cell.mLocation.x, q.x), off(cell.mLocation.y, q.y), off(cell.mLocation.z, q.z));
+    Neon::int8_3d offset(off(cell.x, q.x), off(cell.y, q.y), off(cell.z, q.z));
     return offset;
 }
 
@@ -194,35 +206,38 @@ Neon::set::Container collide(Neon::domain::mGrid&                 grid,
             const T     omega = computeOmega(omega0, level, max_level);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                constexpr auto t = latticeWeight<DIM, Q>();
+                if (!in.hasChildren(cell)) {
 
-                //fin
-                T ins[Q];
-                for (int i = 0; i < Q; ++i) {
-                    ins[i] = in(cell, i);
-                }
+                    constexpr auto t = latticeWeight<DIM, Q>();
 
-                //density
-                T rho = 0;
-                for (int i = 0; i < Q; ++i) {
-                    rho += ins[i];
-                }
-
-                //velocity
-                const Neon::Vec_3d<T> vel = velocity<T, DIM, Q>(ins, rho);
-
-
-                const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
-                for (int i = 0; i < Q; ++i) {
-                    T cu = 0;
-                    for (int d = 0; d < DIM; ++d) {
-                        cu += latticeVelocity2D[i][d] * vel.v[d];
+                    //fin
+                    T ins[Q];
+                    for (int i = 0; i < Q; ++i) {
+                        ins[i] = in(cell, i);
                     }
-                    //equilibrium
-                    T feq = rho * t.t[i] * (1. + cu + 0.5 * cu * cu - usqr);
 
-                    //collide
-                    out(cell, i) = ins[i] - omega * (ins[i] - feq);
+                    //density
+                    T rho = 0;
+                    for (int i = 0; i < Q; ++i) {
+                        rho += ins[i];
+                    }
+
+                    //velocity
+                    const Neon::Vec_3d<T> vel = velocity<T, DIM, Q>(ins, rho);
+
+
+                    const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+                    for (int i = 0; i < Q; ++i) {
+                        T cu = 0;
+                        for (int d = 0; d < DIM; ++d) {
+                            cu += latticeVelocity2D[i][d] * vel.v[d];
+                        }
+                        //equilibrium
+                        T feq = rho * t.t[i] * (1. + cu + 0.5 * cu * cu - usqr);
+
+                        //collide
+                        out(cell, i) = ins[i] - omega * (ins[i] - feq);
+                    }
                 }
             };
         });
@@ -244,18 +259,13 @@ Neon::set::Container stream(Neon::domain::mGrid&                 grid,
             auto        fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                //If this cell has children i.e., it is been refined, that we should not work on it
+                //If this cell has children i.e., it is been refined, than we should not work on it
                 //because this cell is only there to allow query and not to operate on
                 if (!fpost_stm.hasChildren(cell)) {
 
                     for (int8_t q = 0; q < Q; ++q) {
-                        Neon::int8_3d dir;
-                        if constexpr (DIM == 2) {
-                            dir = Neon::int8_3d(-latticeVelocity2D[q][0], -latticeVelocity2D[q][1], 0);
-                        }
-                        if constexpr (DIM == 3) {
-                            dir = Neon::int8_3d(-latticeVelocity3D[q][0], -latticeVelocity3D[q][1], -latticeVelocity3D[q][2]);
-                        }
+                        const Neon::int8_3d dir = -getDir<DIM>(q);
+
                         //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                         if (!fpost_stm.hasChildren(cell, dir)) {
                             auto neighbor = fpost_col.nghVal(cell, dir, q, T(0));
@@ -288,20 +298,15 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
             auto        fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                for (int8_t q = 0; q < Q; ++q) {
-                    //If this cell has children i.e., it is been refined, that we should not work on it
-                    //because this cell is only there to allow query and not to operate on
-                    if (!fpost_stm.hasChildren(cell)) {
-                        Neon::int8_3d dir;
-                        if constexpr (DIM == 2) {
-                            dir = Neon::int8_3d(-latticeVelocity2D[q][0], -latticeVelocity2D[q][1], 0);
-                        }
-                        if constexpr (DIM == 3) {
-                            dir = Neon::int8_3d(-latticeVelocity3D[q][0], -latticeVelocity3D[q][1], -latticeVelocity3D[q][2]);
-                        }
+                //If this cell has children i.e., it is been refined, that we should not work on it
+                //because this cell is only there to allow query and not to operate on
+                if (!fpost_stm.hasChildren(cell)) {
+                    for (int8_t q = 0; q < Q; ++q) {
+
+                        const Neon::int8_3d dir = -getDir<DIM>(q);
 
                         //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
-                        //we want to only work on cells that interface with L+1 (coarse) cell along q                        
+                        //we want to only work on cells that interface with L+1 (coarse) cell along q
                         if (!fpost_stm.hasChildren(cell, dir)) {
 
                             //try to query the cell along this direction (opposite of the population direction) as we do
@@ -311,9 +316,9 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
                                 //only if we can not do normal streaming, then we may have a coarser neighbor from which
                                 //we can read this pop
 
-                                //get the uncle direction/offset i.e., the neighbor of the cell's parent 
-                                //this direction/offset is wrt to the cell's parent 
-                                Neon::int8_3d uncleDir = explosionUnlceOffset(cell, dir);
+                                //get the uncle direction/offset i.e., the neighbor of the cell's parent
+                                //this direction/offset is wrt to the cell's parent
+                                Neon::int8_3d uncleDir = unlceOffset(cell.mLocation, dir);
 
                                 auto uncle = fpost_col.uncleVal(cell, uncleDir, q, T(0));
                                 if (uncle.isValid) {
@@ -333,21 +338,123 @@ Neon::set::Container coalescencePull(Neon::domain::mGrid&           grid,
                                      int                            level,
                                      Neon::domain::mGrid::Field<T>& fpop_poststreaming)
 {
-    //TODO
-    // Initiated by the coarse level (hence "pull"), this function performs fine (level-1) to coarse
-    // (level) communication or "coalescence" by simply averaging the fine data stored in self.fpop_halo
+    // Initiated by the coarse level (hence "pull"), this function simply read the missing population
+    // across the interface between coarse<->fine boundary by reading the population prepare during the store()
 
     return grid.getContainer(
         "coalescencePull" + std::to_string(level), level,
         [=](Neon::set::Loader& loader) {
-            auto fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
+            auto fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                for (int i = 0; i < Q; ++i) {
+                //If this cell has children i.e., it is been refined, than we should not work on it
+                //because this cell is only there to allow query and not to operate on
+                if (!fpost_stm.hasChildren(cell)) {
+
+                    for (int q = 0; q < Q; ++q) {
+                        const Neon::int8_3d dir = -getDir<DIM>(q);
+                        //if we have a neighbor at the same level that has been refined, then cell is on
+                        //the interface and this is where we should do the coalescence
+                        if (fpost_stm.hasChildren(cell, dir)) {
+                            auto neighbor = fpost_stm.nghVal(cell, dir, q, T(0));
+                            if (neighbor.isValid) {
+                                fpost_stm(cell, q) = neighbor.value;
+                            }
+                        }
+                    }
                 }
             };
         });
 }
+
+
+template <typename T, int DIM, int Q>
+Neon::set::Container store(Neon::domain::mGrid&           grid,
+                           int                            level,
+                           Neon::domain::mGrid::Field<T>& fpop_poststreaming)
+{
+    //Initiated by the coarse level (level), this function prepares and stores the fine (level - 1)
+    // information for further pulling initiated by the coarse (this) level invoked by coalescence_pull
+    //
+    //Where a coarse cell stores its information? at itself i.e., pull
+    //Where a coarse cell reads the needed info? from its children and neighbor cell's children (level -1)
+    //This function only operates on a coarse cell that has children.
+    //For such cell, we check its neighbor cells at the same level. If any of these neighbor has NO
+    //children, then we need to prepare something for them to be read during coalescence. What
+    //we prepare is some sort of averaged the data from the children (the cell's children and/or
+    //its neighbor's children)
+
+    return grid.getContainer(
+        "store" + std::to_string(level), level,
+        [=](Neon::set::Loader& loader) {
+            auto fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                //if the cell is refined, we might need to store something in it for its neighbor
+                if (fpost_stm.hasChildren(cell)) {
+
+                    const int refFactor = fpost_stm.getRefFactor(level);
+
+                    bool should_accumelate =  ((int(fpost_stm(cell, 0)) % refFactor) != 0);
+
+                    fpost_stm(cell, 0) += 1;
+
+
+                    //for each direction aka for each neighbor
+                    //we skip the center here
+                    for (int8_t q = 1; q < Q; ++q) {
+                        const Neon::int8_3d q_dir = getDir<DIM>(q);
+
+                        //check if the neighbor in this direction has children
+                        if (!fpost_stm.hasChildren(cell, q_dir)) {
+                            //now, we know that there is actually something we need to store for this neighbor
+                            //in cell along q (q_dir) direction
+                            int num = 0;
+                            T   sum = 0;
+
+
+                            //for every neighbor cell including the center cell (i.e., cell)
+                            for (int8_t p = 0; p < Q; ++p) {
+                                const Neon::int8_3d p_dir = getDir<DIM>(p);
+
+                                //relative direction of q w.r.t p
+                                //i.e., in which direction we should move starting from p to land on q
+                                const Neon::int8_3d r_dir = q_dir - p_dir;
+
+                                //if this neighbor is refined
+                                if (fpost_stm.hasChildren(cell, p_dir)) {
+
+                                    //for each children of p
+                                    for (int8_t i = 0; i < refFactor; ++i) {
+                                        for (int8_t j = 0; j < refFactor; ++j) {
+                                            for (int8_t k = 0; k < refFactor; ++k) {
+                                                const Neon::int8_3d c(i, j, k);
+
+                                                //cq is coarse neighbor (i.e., uncle) that we need to go in order to read q
+                                                //for c (this is what we do for explosion but here we do this just for the check)
+                                                const Neon::int8_3d cq = unlceOffset(c, q_dir);
+                                                if (cq == r_dir) {
+                                                    num++;
+                                                    sum += fpost_stm.childVal(cell, c, q, 0).value;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (should_accumelate) {
+                                fpost_stm(cell, q) += sum / static_cast<T>(num * refFactor);
+                            } else {
+                                fpost_stm(cell, q) = sum / static_cast<T>(num * refFactor);
+                            }
+                        }
+                    }
+                }
+            };
+        });
+}
+
 
 template <typename T, int DIM, int Q>
 void stream(Neon::domain::mGrid&                 grid,
@@ -391,7 +498,11 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&               grid,
     // 1) collision for all voxels at level L=level
     containers.push_back(collide<T, DIM, Q>(grid, omega0, level, max_level, fin, fout));
 
-    // 2) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
+    // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
+    if (level != max_level) {
+        store<T, DIM, Q>(grid, level + 1, fout);
+    }
+
 
     // 3) recurse down
     if (level != 0) {
@@ -410,6 +521,9 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&               grid,
     containers.push_back(collide<T, DIM, Q>(grid, omega0, level, max_level, fin, fout));
 
     // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
+    if (level != max_level) {
+        store<T, DIM, Q>(grid, level + 1, fout);
+    }
 
     // 8) recurse down
     if (level != 0) {
@@ -474,6 +588,18 @@ int main(int argc, char** argv)
         auto fout = grid.newField<T>("fout", Q, 0);
 
         //TODO init fin and fout
+        for (int l = 0; l < descriptor.getDepth(); ++l) {
+            fin.forEachActiveCell(
+                l,
+                [&](const Neon::int32_3d, const int, T& val) {
+                    val = 0;
+                });
+            fout.forEachActiveCell(
+                l,
+                [&](const Neon::int32_3d, const int, T& val) {
+                    val = 0;
+                });
+        }
 
         fin.updateCompute();
         fout.updateCompute();
