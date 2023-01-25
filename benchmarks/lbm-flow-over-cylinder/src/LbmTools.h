@@ -366,7 +366,7 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                     LbmStoreType                  popIn[Lattice::Q];
 
                     // TODO add code for zouhe
-                    
+
                     if (cellInfo.classification == CellType::bulk) {
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
                         macroscopic(popIn, NEON_OUT rho, NEON_OUT u);

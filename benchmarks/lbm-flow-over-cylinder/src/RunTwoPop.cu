@@ -15,8 +15,8 @@ namespace details {
 template <typename Grid,
           typename StorageFP,
           typename ComputeFP>
-auto runTwoPop(Config& config,
-               Report& report) -> void
+auto runSpecialized(Config& config,
+                    Report& report) -> void
 {
     using Lattice = D3Q19Template<StorageFP, ComputeFP>;
     using PopulationField = typename Grid::template Field<StorageFP, Lattice::Q>;
@@ -69,7 +69,9 @@ auto runTwoPop(Config& config,
 
     auto isInsideSphere =
         [&](const Neon::index_3d& idx) -> bool {
-        if (idx < 0)
+        if (idx.x < 0 ||
+            idx.y < 0 ||
+            idx.z < 0)
             return false;
         if (idx.x >= config.N ||
             idx.y >= config.N ||
@@ -101,10 +103,14 @@ auto runTwoPop(Config& config,
         if (idx.x == config.N - 1) {
             return CellType::Classification::outlet;
         }
+        if(isInsideSphere(idx)){
+            return CellType::Classification::undefined;
+        }
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 for (int k = -1; k < 2; k++) {
-                    Neon::index_3d neighbour(i, j, k);
+                    Neon::index_3d offset(i, j, k);
+                    Neon::index_3d neighbour= idx+offset;
                     bool           isIn = isInsideSphere(neighbour);
                     if (isIn) {
                         return CellType::Classification::bounceBack;
@@ -112,6 +118,7 @@ auto runTwoPop(Config& config,
                 }
             }
         }
+        return CellType::Classification::bulk;
     };
 
     // Neon Grid and Fields initialization
@@ -137,7 +144,9 @@ auto runTwoPop(Config& config,
 
     CellType defaultCelltype;
     auto     flag = grid.template newField<CellType, 1>("Material", 1, defaultCelltype);
-    auto     lbmParameters = config.getLbmParameters<ComputeFP>();
+    auto     bcTypeForDebugging = grid.template newField<double, 1>("BCtype", 1, 33);
+
+    auto lbmParameters = config.getLbmParameters<ComputeFP>();
 
     LbmIterationD3Q19<PopulationField, ComputeFP>
         iteration(config.stencilSemantic,
@@ -196,10 +205,14 @@ auto runTwoPop(Config& config,
         flag.forEachActiveCell([&](const Neon::index_3d& idx,
                                    const int&,
                                    CellType& flagVal) {
-            flagVal.classification = CellType::bulk;
+            flagVal.classification = CellType::undefined;
             flagVal.wallNghBitflag = 0;
             flagVal.classification = getBoundaryType(idx);
+
+            bcTypeForDebugging.getReference(idx, 0) = static_cast<double>(flagVal.classification);
         });
+        bcTypeForDebugging.ioToVtk("bcFlags", "cb", false);
+
 
         inPop.forEachActiveCell([&](const Neon::index_3d& idx,
                                     const int&            k,
@@ -275,10 +288,10 @@ template <typename Grid, typename StorageFP>
 auto runFilterComputeType(Config& config, Report& report) -> void
 {
     if (config.computeType == "double") {
-        return runTwoPop<Grid, StorageFP, double>(config, report);
+        return runSpecialized<Grid, StorageFP, double>(config, report);
     }
     if (config.computeType == "float") {
-        return runTwoPop<Grid, StorageFP, float>(config, report);
+        return runSpecialized<Grid, StorageFP, float>(config, report);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
@@ -298,8 +311,8 @@ auto runFilterStoreType(Config& config,
 }
 }  // namespace details
 
-auto run(Config& config,
-         Report& report) -> void
+auto runTwoPop(Config& config,
+               Report& report) -> void
 {
     if (config.gridType == "dGrid") {
         return details::runFilterStoreType<Neon::domain::dGrid>(config, report);

@@ -4,12 +4,12 @@ struct CellType
 {
     enum Classification : int
     {
-        bounceBack,
-        movingWall,
-        bulk,
-        undefined,
-        inlet,
-        outlet
+        bounceBack=1,
+        movingWall=2,
+        bulk=3,
+        undefined=4,
+        inlet=5,
+        outlet=6
     };
 
     NEON_CUDA_HOST_DEVICE CellType(int dummy = 0)
