@@ -8,7 +8,8 @@ struct CellType
         movingWall,
         bulk,
         undefined,
-        prescribed
+        inlet,
+        outlet
     };
 
     NEON_CUDA_HOST_DEVICE CellType(int dummy = 0)

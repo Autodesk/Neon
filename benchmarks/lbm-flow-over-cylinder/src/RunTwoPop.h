@@ -7,6 +7,6 @@
 
 namespace CavityTwoPop {
 
-auto run(Config& config,
+auto runTwoPop(Config& config,
          Report& report) -> void;
 }  // namespace CavityTwoPop

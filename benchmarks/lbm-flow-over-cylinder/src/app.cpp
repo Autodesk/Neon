@@ -38,7 +38,7 @@ int main(int argc, char** argv)
     Report report(config);
 
     for(int i=0; i<config.repetitions; i++){
-        CavityTwoPop::run(config, report);
+        CavityTwoPop::runTwoPop(config, report);
     }
 
     report.save();

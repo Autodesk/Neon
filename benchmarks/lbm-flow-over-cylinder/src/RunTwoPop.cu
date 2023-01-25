@@ -15,8 +15,8 @@ namespace details {
 template <typename Grid,
           typename StorageFP,
           typename ComputeFP>
-auto run(Config& config,
-         Report& report) -> void
+auto runTwoPop(Config& config,
+               Report& report) -> void
 {
     using Lattice = D3Q19Template<StorageFP, ComputeFP>;
     using PopulationField = typename Grid::template Field<StorageFP, Lattice::Q>;
@@ -36,18 +36,89 @@ auto run(Config& config,
         NEON_THROW(exce);
     }();
 
-    if(!backendWasReported) {
+    if (!backendWasReported) {
         metrics::recordBackend(bk, report);
         backendWasReported = true;
     }
 
-    Neon::double_3d ulid(0., 1., 0.);
-    Lattice         lattice(bk);
+    Lattice               lattice(bk);
+    const double          radiusDomainLenRatio = 1.0 / 7;
+    const Neon::double_3d center = {config.N / 2.0, config.N / 2.0, config.N / 2.0};
+    const double          radius = config.N * radiusDomainLenRatio;
+
+    auto isFluidDomain =
+        [&](const Neon::index_3d& idx)
+        -> bool {
+        if (idx < 0)
+            return false;
+        if (idx.x >= config.N ||
+            idx.y >= config.N ||
+            idx.z >= config.N) {
+            return false;
+        }
+        const auto point = idx.newType<double>();
+        const auto offset = std::pow(point.x - center.x, 2) +
+                            std::pow(point.y - center.y, 2) +
+                            std::pow(point.z - center.z, 2);
+        if (offset <= radius * radius) {
+            // we are in the sphere
+            return false;
+        }
+        return true;
+    };
+
+    auto isInsideSphere =
+        [&](const Neon::index_3d& idx) -> bool {
+        if (idx < 0)
+            return false;
+        if (idx.x >= config.N ||
+            idx.y >= config.N ||
+            idx.z >= config.N) {
+            return false;
+        }
+        const auto point = idx.newType<double>();
+        const auto offset = std::pow(point.x - center.x, 2) +
+                            std::pow(point.y - center.y, 2) +
+                            std::pow(point.z - center.z, 2);
+        if (offset <= radius * radius) {
+            // we are in the sphere
+            return true;
+        }
+        return false;
+    };
+
+    auto getBoundaryType =
+        [&](const Neon::index_3d& idx) -> CellType::Classification {
+        if (idx.z == 0 || idx.z == config.N - 1) {
+            return CellType::Classification::bounceBack;
+        }
+        if (idx.y == 0 || idx.y == config.N - 1) {
+            return CellType::Classification::bounceBack;
+        }
+        if (idx.x == 0) {
+            return CellType::Classification::inlet;
+        }
+        if (idx.x == config.N - 1) {
+            return CellType::Classification::outlet;
+        }
+        for (int i = -1; i < 2; i++) {
+            for (int j = -1; j < 2; j++) {
+                for (int k = -1; k < 2; k++) {
+                    Neon::index_3d neighbour(i, j, k);
+                    bool           isIn = isInsideSphere(neighbour);
+                    if (isIn) {
+                        return CellType::Classification::bounceBack;
+                    }
+                }
+            }
+        }
+    };
 
     // Neon Grid and Fields initialization
     auto [start, clock_iter] = metrics::restartClock(bk, true);
     Grid grid(
-        bk, {config.N, config.N, config.N},
+        bk,
+        {config.N, config.N, config.N},
         [](const Neon::index_3d&) { return true; },
         lattice.c_vect);
 
@@ -122,63 +193,32 @@ auto run(Config& config,
         const auto& t = lattice.t_vect;
         const auto& c = lattice.c_vect;
 
-        inPop.forEachActiveCell([&c, &t, &dim, &flag, &ulid, &config](const Neon::index_3d& idx,
-                                                                      const int&            k,
-                                                                      StorageFP&            val) {
-            val = t.at(k);
-
-            if (idx.x == 0 || idx.x == dim.x - 1 ||
-                idx.y == 0 || idx.y == dim.y - 1 ||
-                idx.z == 0 || idx.z == dim.z - 1) {
-
-                if (idx.x == dim.x - 1) {
-                    val = -6. * t.at(k) * config.ulb *
-                          (c.at(k).v[0] * ulid.v[0] +
-                           c.at(k).v[1] * ulid.v[1] +
-                           c.at(k).v[2] * ulid.v[2]);
-                } else {
-                    val = 0;
-                }
-            }
-        });
-
-        outPop.forEachActiveCell([&c, &t, &dim, &flag, &ulid, &config](const Neon::index_3d& idx,
-                                                                       const int&            k,
-                                                                       StorageFP&            val) {
-            val = t.at(k);
-
-            if (idx.x == 0 || idx.x == dim.x - 1 ||
-                idx.y == 0 || idx.y == dim.y - 1 ||
-                idx.z == 0 || idx.z == dim.z - 1) {
-
-                if (idx.x == dim.x - 1) {
-                    val = -6. * t.at(k) * config.ulb *
-                          (c.at(k).v[0] * ulid.v[0] +
-                           c.at(k).v[1] * ulid.v[1] +
-                           c.at(k).v[2] * ulid.v[2]);
-                } else {
-                    val = 0;
-                }
-            }
-        });
-
-        flag.forEachActiveCell([&dim](const Neon::index_3d& idx,
-                                      const int&,
-                                      CellType& flagVal) {
+        flag.forEachActiveCell([&](const Neon::index_3d& idx,
+                                   const int&,
+                                   CellType& flagVal) {
             flagVal.classification = CellType::bulk;
             flagVal.wallNghBitflag = 0;
+            flagVal.classification = getBoundaryType(idx);
+        });
 
-            if (idx.x == 0 || idx.x == dim.x - 1 ||
-                idx.y == 0 || idx.y == dim.y - 1 ||
-                idx.z == 0 || idx.z == dim.z - 1) {
-
-                flagVal.classification = CellType::bounceBack;
-
-                if (idx.x == dim.x - 1) {
-                    flagVal.classification = CellType::movingWall;
-                }
+        inPop.forEachActiveCell([&](const Neon::index_3d& idx,
+                                    const int&            k,
+                                    StorageFP&            val) {
+            val = t.at(k);
+            if (flag(idx, 0).classification == CellType::bounceBack) {
+                val = 0;
             }
         });
+
+        outPop.forEachActiveCell([&](const Neon::index_3d& idx,
+                                     const int&            k,
+                                     StorageFP&            val) {
+            val = t.at(k);
+            if (flag(idx, 0).classification == CellType::bounceBack) {
+                val = 0;
+            }
+        });
+
 
         inPop.updateCompute(Neon::Backend::mainStreamIdx);
         outPop.updateCompute(Neon::Backend::mainStreamIdx);
@@ -235,10 +275,10 @@ template <typename Grid, typename StorageFP>
 auto runFilterComputeType(Config& config, Report& report) -> void
 {
     if (config.computeType == "double") {
-        return run<Grid, StorageFP, double>(config, report);
+        return runTwoPop<Grid, StorageFP, double>(config, report);
     }
     if (config.computeType == "float") {
-        return run<Grid, StorageFP, float>(config, report);
+        return runTwoPop<Grid, StorageFP, float>(config, report);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }

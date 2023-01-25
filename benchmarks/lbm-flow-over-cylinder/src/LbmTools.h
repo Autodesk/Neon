@@ -253,7 +253,12 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
 
                 return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
                     CellType cellInfo = cellInfoPartition(cell, 0);
-                    if (cellInfo.classification == CellType::bulk) {
+                    if (cellInfo.classification == CellType::bulk ||
+                        cellInfo.classification == CellType::inlet ||
+                        cellInfo.classification == CellType::outlet) {
+
+
+                        // TODO add code for zouhe
 
                         LbmStoreType popIn[Lattice::Q];
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
@@ -311,6 +316,9 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                     cellType.wallNghBitflag = 0;
 
                     if (cellType.classification == CellType::bulk) {
+
+                        // TODO add code for zouhe
+
                         COMPUTE_MASK_WALL(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10)
                         COMPUTE_MASK_WALL(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11)
                         COMPUTE_MASK_WALL(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12)
@@ -357,6 +365,8 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                     std::array<LbmComputeType, 3> u{.0, .0, .0};
                     LbmStoreType                  popIn[Lattice::Q];
 
+                    // TODO add code for zouhe
+                    
                     if (cellInfo.classification == CellType::bulk) {
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
                         macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
