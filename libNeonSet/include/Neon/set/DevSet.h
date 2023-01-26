@@ -14,7 +14,7 @@
 #include <vector>
 #include <omp.h>
 
-//#include "Neon/set/backend.h"
+// #include "Neon/set/backend.h"
 #include "Neon/set/DataSet.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/GpuEventSet.h"
@@ -406,8 +406,8 @@ class DevSet
         {
             for (int idx = 0; idx < nGpus; idx++) {
                 auto      iterator = dataSetContainer.getPartitionIndexSpace(Neon::DeviceType::CPU,
-                                                                        idx,
-                                                                        kernelConfig.dataView());
+                                                                             idx,
+                                                                             kernelConfig.dataView());
                 Lambda_ta lambda = lambdaHolder(Neon::DeviceType::CPU, idx, kernelConfig.dataView());
                 Neon::set::internal::execLambdaWithIterator_omp<DataSetContainer_ta, Lambda_ta>(launchInfoSet[idx].domainGrid(), iterator, lambda);
             }
@@ -557,7 +557,9 @@ class DevSet
                       Neon::memLayout_et::padding_e       padding = Neon::memLayout_et::padding_e::OFF) const
         -> MemDevSet<T_ta>
     {
-        if (m_devType != Neon::DeviceType::CUDA && devType == Neon::DeviceType::CUDA && allocType != Neon::Allocator::NULL_MEM) {
+        if (m_devType != Neon::DeviceType::CUDA &&
+            devType == Neon::DeviceType::CUDA &&
+            allocType != Neon::Allocator::NULL_MEM) {
             Neon::NeonException exp("DevSet");
             exp << "Error, DevSet::invalid operation on a non GPU type of device.\n";
             NEON_THROW(exp);
@@ -695,7 +697,7 @@ class DevSet
         -> void;
 
 
-    auto peerTransfer(PeerTransferOption&          opt,
+    auto peerTransfer(PeerTransferOption&        opt,
                       const Neon::set::Transfer& transfer)
         const
         -> void;
@@ -750,20 +752,20 @@ class DevSet
 };  // namespace set
 
 extern template auto Neon::set::DevSet::peerTransfer<Neon::set::TransferMode::put>(const StreamSet& streamSet,
-                                                                               SetIdx           dstSetId,
-                                                                               char*            dstBuf,
-                                                                               SetIdx           srcSetIdx,
-                                                                               const char*      srcBuf,
-                                                                               size_t           numBytes)
+                                                                                   SetIdx           dstSetId,
+                                                                                   char*            dstBuf,
+                                                                                   SetIdx           srcSetIdx,
+                                                                                   const char*      srcBuf,
+                                                                                   size_t           numBytes)
     const
     -> void;
 
 extern template auto Neon::set::DevSet::peerTransfer<Neon::set::TransferMode::get>(const StreamSet& streamSet,
-                                                                               SetIdx           dstSetId,
-                                                                               char*            dstBuf,
-                                                                               SetIdx           srcSetIdx,
-                                                                               const char*      srcBuf,
-                                                                               size_t           numBytes)
+                                                                                   SetIdx           dstSetId,
+                                                                                   char*            dstBuf,
+                                                                                   SetIdx           srcSetIdx,
+                                                                                   const char*      srcBuf,
+                                                                                   size_t           numBytes)
     const
     -> void;
 
