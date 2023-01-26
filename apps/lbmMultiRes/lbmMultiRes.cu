@@ -182,16 +182,16 @@ template <typename T, int DIM, int Q>
 Neon::set::Container collide(Neon::domain::mGrid&                 grid,
                              T                                    omega0,
                              int                                  level,
-                             int                                  max_level,
+                             int                                  num_levels,
                              const Neon::domain::mGrid::Field<T>& fin,
                              Neon::domain::mGrid::Field<T>&       fout)
 {
     return grid.getContainer(
-        "Collide" + std::to_string(level), level,
-        [=](Neon::set::Loader& loader) {
+        "collide_" + std::to_string(level), level,
+        [&, level, omega0, num_levels](Neon::set::Loader& loader) {
             const auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
             auto        out = fout.load(loader, level, Neon::MultiResCompute::MAP);
-            const T     omega = computeOmega(omega0, level, max_level);
+            const T     omega = computeOmega(omega0, level, num_levels);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 if (!in.hasChildren(cell)) {
@@ -241,8 +241,8 @@ Neon::set::Container stream(Neon::domain::mGrid&                 grid,
     //This is "pull" stream
 
     return grid.getContainer(
-        "Stream" + std::to_string(level), level,
-        [=](Neon::set::Loader& loader) {
+        "stream_" + std::to_string(level), level,
+        [&, level](Neon::set::Loader& loader) {
             const auto& fpost_col = fpop_postcollision.load(loader, level, Neon::MultiResCompute::STENCIL);
             auto        fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::MAP);
 
@@ -280,8 +280,8 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
 
 
     return grid.getContainer(
-        "explosionPull" + std::to_string(level), level,
-        [=](Neon::set::Loader& loader) {
+        "Explosion_" + std::to_string(level), level,
+        [&, level](Neon::set::Loader& loader) {
             const auto& fpost_col = fpop_postcollision.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
             auto        fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::MAP);
 
@@ -330,9 +330,9 @@ Neon::set::Container coalescencePull(Neon::domain::mGrid&           grid,
     // across the interface between coarse<->fine boundary by reading the population prepare during the store()
 
     return grid.getContainer(
-        "coalescencePull" + std::to_string(level), level,
-        [=](Neon::set::Loader& loader) {
-            auto fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
+        "Coalescence" + std::to_string(level), level,
+        [&, level](Neon::set::Loader& loader) {
+            auto& fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 //If this cell has children i.e., it is been refined, than we should not work on it
@@ -373,9 +373,9 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
     //its neighbor's children)
 
     return grid.getContainer(
-        "store" + std::to_string(level), level,
-        [=](Neon::set::Loader& loader) {
-            auto fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
+        "store_" + std::to_string(level), level,
+        [&, level](Neon::set::Loader& loader) {
+            auto& fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 //if the cell is refined, we might need to store something in it for its neighbor
@@ -451,7 +451,7 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
 template <typename T, int DIM, int Q>
 void stream(Neon::domain::mGrid&                 grid,
             int                                  level,
-            const int                            max_level,
+            const int                            num_levels,
             const Neon::domain::mGrid::Field<T>& fpop_postcollision,
             Neon::domain::mGrid::Field<T>&       fpop_poststreaming,
             std::vector<Neon::set::Container>&   containers)
@@ -463,7 +463,7 @@ void stream(Neon::domain::mGrid&                 grid,
     *  (i) coarser or (ii) finer neighbors at level+1 and level-1 and hence require
     *  (i) "explosion" or (ii) coalescence
     */
-    if (level != max_level - 1) {
+    if (level != num_levels - 1) {
         /* Explosion: pull missing populations from coarser neighbors by copying coarse (level+1) to fine (level) 
         * neighbors, initiated by the fine level ("Pull").
         */
@@ -482,50 +482,64 @@ template <typename T, int DIM, int Q>
 void nonUniformTimestepRecursive(Neon::domain::mGrid&               grid,
                                  const T                            omega0,
                                  const int                          level,
-                                 const int                          max_level,
+                                 const int                          num_levels,
                                  Neon::domain::mGrid::Field<T>&     fin,
                                  Neon::domain::mGrid::Field<T>&     fout,
                                  std::vector<Neon::set::Container>& containers)
 {
     // 1) collision for all voxels at level L=level
-    containers.push_back(collide<T, DIM, Q>(grid, omega0, level, max_level, fin, fout));
+    containers.push_back(collide<T, DIM, Q>(grid, omega0, level, num_levels, fin, fout));
 
     // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
-    if (level != max_level) {
-        store<T, DIM, Q>(grid, level + 1, fout);
+    if (level != num_levels - 1) {
+        containers.push_back(store<T, DIM, Q>(grid, level + 1, fout));
     }
 
 
     // 3) recurse down
     if (level != 0) {
-        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, level - 1, max_level, fin, fout, containers);
+        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, level - 1, num_levels, fin, fout, containers);
     }
 
     // 4) Streaming step that also performs the necessary "explosion" and "coalescence" steps.
-    stream<T, DIM, Q>(grid, level, max_level, fout, fin, containers);
+    stream<T, DIM, Q>(grid, level, num_levels, fout, fin, containers);
 
     // 5) stop
-    if (level == max_level - 1) {
+    if (level == num_levels - 1) {
         return;
     }
 
     // 6) collision for all voxels at level L = level
-    containers.push_back(collide<T, DIM, Q>(grid, omega0, level, max_level, fin, fout));
+    containers.push_back(collide<T, DIM, Q>(grid, omega0, level, num_levels, fin, fout));
 
     // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
-    if (level != max_level) {
-        store<T, DIM, Q>(grid, level + 1, fout);
+    if (level != num_levels - 1) {
+        containers.push_back(store<T, DIM, Q>(grid, level + 1, fout));
     }
 
     // 8) recurse down
     if (level != 0) {
-        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, level - 1, max_level, fin, fout, containers);
+        nonUniformTimestepRecursive<T, DIM, Q>(grid, omega0, level - 1, num_levels, fin, fout, containers);
     }
 
     // 9) Streaming step
-    stream<T, DIM, Q>(grid, level, max_level, fout, fin, containers);
+    stream<T, DIM, Q>(grid, level, num_levels, fout, fin, containers);
 }
 
+Neon::float_3d mapToCube(Neon::index_3d p, Neon::index_3d dim)
+{
+    //map p to an axis-aligned cube from -1 to 1
+    Neon::float_3d half_dim = dim.newType<float>() * 0.5;
+    Neon::float_3d ret = (p.newType<float>() - half_dim) / half_dim;
+    return ret;
+}
+inline float sdfCube(Neon::float_3d p, float b = 1.0)
+{
+    Neon::float_3d d(std::abs(p.x) - b, std::abs(p.y) - b, std::abs(p.z) - b);
+    Neon::float_3d d_max(std::max(d.x, 0.f), std::max(d.y, 0.f), std::max(d.z, 0.f));
+    float          len = std::sqrt(d_max.x * d_max.x + d_max.y * d_max.y + d_max.z * d_max.z);
+    return std::min(std::max(d.x, std::max(d.y, d.z)), 0.f) + len;
+}
 
 int main(int argc, char** argv)
 {
@@ -541,30 +555,37 @@ int main(int argc, char** argv)
 
         constexpr int DIM = 2;
         constexpr int Q = (DIM == 2) ? 9 : 19;
+        constexpr int depth = 3;
 
-        const int dim_x = 6;
-        const int dim_y = 6;
-        const int dim_z = 4;
+        const Neon::index_3d grid_dim(24, 24, 24);
 
-        const Neon::index_3d grid_dim(dim_x, dim_y, dim_z);
 
-        const Neon::domain::mGridDescriptor descriptor({1, 1});
+        const Neon::domain::mGridDescriptor descriptor(depth);
+
+        float levelSDF[depth + 1];
+        levelSDF[0] = 0;
+        levelSDF[1] = -0.3;
+        levelSDF[2] = -0.6;
+        levelSDF[3] = -1.0;
 
 
         Neon::domain::mGrid grid(
             backend, grid_dim,
             {[&](const Neon::index_3d id) -> bool {
-                 return ((id.x == 2 && id.y == 2) ||
-                         (id.x == 3 && id.y == 2) ||
-                         (id.x == 2 && id.y == 3) ||
-                         (id.x == 3 && id.y == 3));
+                 return sdfCube(mapToCube(id, grid_dim)) <= levelSDF[0] &&
+                        sdfCube(mapToCube(id, grid_dim)) > levelSDF[1];
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return true;
+                 return sdfCube(mapToCube(id, grid_dim)) <= levelSDF[1] &&
+                        sdfCube(mapToCube(id, grid_dim)) > levelSDF[2];
+             },
+             [&](const Neon::index_3d& id) -> bool {
+                 return sdfCube(mapToCube(id, grid_dim)) <= levelSDF[2] &&
+                        sdfCube(mapToCube(id, grid_dim)) > levelSDF[3];
              }},
             create_stencil<DIM, Q>(), descriptor);
 
-        grid.topologyToVTK("lbm.vtk", false);
+        //grid.topologyToVTK("lbm.vtk", false);
 
 
         //LBM problem
@@ -593,6 +614,8 @@ int main(int argc, char** argv)
                 });
         }
 
+        fin.ioToVtk("sdf", "f");
+
         fin.updateCompute();
         fout.updateCompute();
 
@@ -606,7 +629,7 @@ int main(int argc, char** argv)
 
         Neon::skeleton::Skeleton skl(grid.getBackend());
         skl.sequence(containers, "MultiResLBM");
-        //skl.ioToDot("MultiRes");
+        //skl.ioToDot("MultiResLBM", "", true);
 
         skl.run();
 
