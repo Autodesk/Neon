@@ -121,13 +121,13 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getneighbourBlocksPtr(const 
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell
 {
-    return setNghCell(cell, offset, getneighbourBlocksPtr(cell));
+    return getNghCell(cell, offset, getneighbourBlocksPtr(cell));
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     cell,
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell&     cell,
                                                                const nghIdx_t& offset,
                                                                const uint32_t* neighbourBlocks) const -> Cell
 {
@@ -205,7 +205,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
         Cell swirl_cell = cell.toSwirl();
         swirl_cell.mBlockSize = cell.mBlockSize;
 
-        Cell ngh_cell = setNghCell(swirl_cell, offset, getneighbourBlocksPtr(swirl_cell));
+        Cell ngh_cell = getNghCell(swirl_cell, offset, getneighbourBlocksPtr(swirl_cell));
         ngh_cell.mBlockSize = cell.mBlockSize;
         if (ngh_cell.isActive()) {
             //TODO maybe ngh_cell should be mapped to its memory layout
@@ -221,7 +221,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
         }
 
     } else {
-        Cell ngh_cell = setNghCell(cell, offset, getneighbourBlocksPtr(cell));
+        Cell ngh_cell = getNghCell(cell, offset, getneighbourBlocksPtr(cell));
         if (ngh_cell.isActive()) {
             ret.isValid = ngh_cell.computeIsActive(mMask);
             if (ret.isValid) {

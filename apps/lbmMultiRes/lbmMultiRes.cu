@@ -119,18 +119,6 @@ struct latticeWeight
 };
 
 
-template <typename Field>
-inline void exportVTI(const int t, Field& field)
-{
-    printf("\n Exporting Frame =%d", t);
-    int                precision = 4;
-    std::ostringstream oss;
-    oss << std::setw(precision) << std::setfill('0') << t;
-    std::string prefix = "lbm" + std::to_string(field.getCardinality()) + "D_";
-    std::string fname = prefix + oss.str();
-    field.ioToVtk(fname, "field");
-}
-
 template <typename T>
 NEON_CUDA_HOST_DEVICE inline Neon::int8_3d unlceOffset(const T& cell, const Neon::int8_3d& q)
 {
@@ -301,7 +289,7 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
                 //If this cell has children i.e., it is been refined, that we should not work on it
                 //because this cell is only there to allow query and not to operate on
                 if (!fpost_stm.hasChildren(cell)) {
-                    for (int8_t q = 0; q < Q; ++q) {
+                    for (int8_t q = 1; q < Q; ++q) {
 
                         const Neon::int8_3d dir = -getDir<DIM>(q);
 
@@ -311,7 +299,7 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
 
                             //try to query the cell along this direction (opposite of the population direction) as we do
                             //in 'normal' streaming
-                            auto neighborCell = fpost_col.setNghCell(cell, dir);
+                            auto neighborCell = fpost_col.getNghCell(cell, dir);
                             if (!neighborCell.isActive()) {
                                 //only if we can not do normal streaming, then we may have a coarser neighbor from which
                                 //we can read this pop
@@ -344,14 +332,14 @@ Neon::set::Container coalescencePull(Neon::domain::mGrid&           grid,
     return grid.getContainer(
         "coalescencePull" + std::to_string(level), level,
         [=](Neon::set::Loader& loader) {
-            auto fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL);
+            auto fpost_stm = fpop_poststreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 //If this cell has children i.e., it is been refined, than we should not work on it
                 //because this cell is only there to allow query and not to operate on
                 if (!fpost_stm.hasChildren(cell)) {
 
-                    for (int q = 0; q < Q; ++q) {
+                    for (int q = 1; q < Q; ++q) {
                         const Neon::int8_3d dir = -getDir<DIM>(q);
                         //if we have a neighbor at the same level that has been refined, then cell is on
                         //the interface and this is where we should do the coalescence
@@ -395,7 +383,7 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
 
                     const int refFactor = fpost_stm.getRefFactor(level);
 
-                    bool should_accumelate =  ((int(fpost_stm(cell, 0)) % refFactor) != 0);
+                    bool should_accumelate = ((int(fpost_stm(cell, 0)) % refFactor) != 0);
 
                     fpost_stm(cell, 0) += 1;
 
@@ -406,47 +394,51 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
                         const Neon::int8_3d q_dir = getDir<DIM>(q);
 
                         //check if the neighbor in this direction has children
-                        if (!fpost_stm.hasChildren(cell, q_dir)) {
-                            //now, we know that there is actually something we need to store for this neighbor
-                            //in cell along q (q_dir) direction
-                            int num = 0;
-                            T   sum = 0;
+                        auto neighborCell = fpost_stm.getNghCell(cell, q_dir);
+                        if (neighborCell.isActive()) {
+
+                            if (!fpost_stm.hasChildren(neighborCell)) {
+                                //now, we know that there is actually something we need to store for this neighbor
+                                //in cell along q (q_dir) direction
+                                int num = 0;
+                                T   sum = 0;
 
 
-                            //for every neighbor cell including the center cell (i.e., cell)
-                            for (int8_t p = 0; p < Q; ++p) {
-                                const Neon::int8_3d p_dir = getDir<DIM>(p);
+                                //for every neighbor cell including the center cell (i.e., cell)
+                                for (int8_t p = 0; p < Q; ++p) {
+                                    const Neon::int8_3d p_dir = getDir<DIM>(p);
 
-                                //relative direction of q w.r.t p
-                                //i.e., in which direction we should move starting from p to land on q
-                                const Neon::int8_3d r_dir = q_dir - p_dir;
+                                    //relative direction of q w.r.t p
+                                    //i.e., in which direction we should move starting from p to land on q
+                                    const Neon::int8_3d r_dir = q_dir - p_dir;
 
-                                //if this neighbor is refined
-                                if (fpost_stm.hasChildren(cell, p_dir)) {
+                                    //if this neighbor is refined
+                                    if (fpost_stm.hasChildren(cell, p_dir)) {
 
-                                    //for each children of p
-                                    for (int8_t i = 0; i < refFactor; ++i) {
-                                        for (int8_t j = 0; j < refFactor; ++j) {
-                                            for (int8_t k = 0; k < refFactor; ++k) {
-                                                const Neon::int8_3d c(i, j, k);
+                                        //for each children of p
+                                        for (int8_t i = 0; i < refFactor; ++i) {
+                                            for (int8_t j = 0; j < refFactor; ++j) {
+                                                for (int8_t k = 0; k < refFactor; ++k) {
+                                                    const Neon::int8_3d c(i, j, k);
 
-                                                //cq is coarse neighbor (i.e., uncle) that we need to go in order to read q
-                                                //for c (this is what we do for explosion but here we do this just for the check)
-                                                const Neon::int8_3d cq = unlceOffset(c, q_dir);
-                                                if (cq == r_dir) {
-                                                    num++;
-                                                    sum += fpost_stm.childVal(cell, c, q, 0).value;
+                                                    //cq is coarse neighbor (i.e., uncle) that we need to go in order to read q
+                                                    //for c (this is what we do for explosion but here we do this just for the check)
+                                                    const Neon::int8_3d cq = unlceOffset(c, q_dir);
+                                                    if (cq == r_dir) {
+                                                        num++;
+                                                        sum += fpost_stm.childVal(cell, c, q, 0).value;
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            if (should_accumelate) {
-                                fpost_stm(cell, q) += sum / static_cast<T>(num * refFactor);
-                            } else {
-                                fpost_stm(cell, q) = sum / static_cast<T>(num * refFactor);
+                                if (should_accumelate) {
+                                    fpost_stm(cell, q) += sum / static_cast<T>(num * refFactor);
+                                } else {
+                                    fpost_stm(cell, q) = sum / static_cast<T>(num * refFactor);
+                                }
                             }
                         }
                     }
@@ -550,29 +542,29 @@ int main(int argc, char** argv)
         constexpr int DIM = 2;
         constexpr int Q = (DIM == 2) ? 9 : 19;
 
-        const int dim_x = 12;
-        const int dim_y = 12;
-        const int dim_z = (DIM < 3) ? 4 : 4;
+        const int dim_x = 6;
+        const int dim_y = 6;
+        const int dim_z = 4;
 
         const Neon::index_3d grid_dim(dim_x, dim_y, dim_z);
 
-        const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
+        const Neon::domain::mGridDescriptor descriptor({1, 1});
 
 
         Neon::domain::mGrid grid(
             backend, grid_dim,
             {[&](const Neon::index_3d id) -> bool {
-                 return id.x > 7;
+                 return ((id.x == 2 && id.y == 2) ||
+                         (id.x == 3 && id.y == 2) ||
+                         (id.x == 2 && id.y == 3) ||
+                         (id.x == 3 && id.y == 3));
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return id.x > 3;
-             },
-             [&](const Neon::index_3d&) -> bool {
                  return true;
              }},
             create_stencil<DIM, Q>(), descriptor);
 
-        //grid.topologyToVTK("lbm.vtk", false);
+        grid.topologyToVTK("lbm.vtk", false);
 
 
         //LBM problem

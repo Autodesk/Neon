@@ -178,7 +178,7 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Cell& cell
         return false;
     }
 
-    Cell nghCell = this->setNghCell(cell, nghDir, this->getneighbourBlocksPtr(cell));
+    Cell nghCell = this->getNghCell(cell, nghDir, this->getneighbourBlocksPtr(cell));
     if (!nghCell.isActive()) {
         return false;
     }
@@ -233,7 +233,7 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getUncle(const Cell&   cell,
 {
     Cell uncle = getParent(cell);
     if (uncle.isActive()) {
-        uncle = this->setNghCell(uncle, direction, mParentNeighbourBlocks);
+        uncle = this->getNghCell(uncle, direction, mParentNeighbourBlocks);
         uncle.mBlockSize = mRefFactors[mLevel + 1];
         uncle.mIsActive = uncle.mBlockID != std::numeric_limits<uint32_t>::max();
     }

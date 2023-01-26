@@ -49,7 +49,7 @@ class bPartition
     NEON_CUDA_HOST_DEVICE inline auto nghVal(const Cell& eId,
                                              uint8_t     nghID,
                                              int         card,
-                                             const T&    alternativeVal) const -> NghInfo<T>;
+                                             const T&    alternativeVal) const -> NghInfo<T>;    
 
 
     NEON_CUDA_HOST_DEVICE inline void loadInSharedMemory(const Cell&                cell,
@@ -62,12 +62,12 @@ class bPartition
 
     NEON_CUDA_HOST_DEVICE inline Neon::index_3d mapToGlobal(const Cell& cell) const;
 
-    inline NEON_CUDA_HOST_DEVICE auto setNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell;
+    inline NEON_CUDA_HOST_DEVICE auto getNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell;
 
    protected:
-    inline NEON_CUDA_HOST_DEVICE auto pitch(const Cell& cell, int card) const -> uint32_t;    
-    inline NEON_CUDA_HOST_DEVICE auto setNghCell(const Cell& cell, const nghIdx_t& offset, const uint32_t* neighbourBlocks) const -> Cell;
-    inline NEON_CUDA_HOST_DEVICE auto shmemPitch(Cell cell, const int card) const -> Cell::Location::Integer;    
+    inline NEON_CUDA_HOST_DEVICE auto pitch(const Cell& cell, int card) const -> uint32_t;
+    inline NEON_CUDA_HOST_DEVICE auto getNghCell(const Cell& cell, const nghIdx_t& offset, const uint32_t* neighbourBlocks) const -> Cell;
+    inline NEON_CUDA_HOST_DEVICE auto shmemPitch(Cell cell, const int card) const -> Cell::Location::Integer;
     inline NEON_CUDA_HOST_DEVICE auto getneighbourBlocksPtr(const Cell& cell) const -> const uint32_t*;
 
     Neon::DataView            mDataView;
