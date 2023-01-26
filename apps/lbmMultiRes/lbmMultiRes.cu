@@ -218,7 +218,11 @@ Neon::set::Container collide(Neon::domain::mGrid&                 grid,
                     for (int i = 0; i < Q; ++i) {
                         T cu = 0;
                         for (int d = 0; d < DIM; ++d) {
-                            cu += latticeVelocity2D[i][d] * vel.v[d];
+                            if constexpr (DIM == 2) {
+                                cu += latticeVelocity2D[i][d] * vel.v[d];
+                            } else {
+                                cu += latticeVelocity3D[i][d] * vel.v[d];
+                            }
                         }
                         //equilibrium
                         T feq = rho * t.t[i] * (1. + cu + 0.5 * cu * cu - usqr);
@@ -526,19 +530,51 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&               grid,
     stream<T, DIM, Q>(grid, level, num_levels, fout, fin, containers);
 }
 
-Neon::float_3d mapToCube(Neon::index_3d p, Neon::index_3d dim)
+
+inline float sdfCube(Neon::index_3d id, Neon::index_3d dim, float b = 1.0)
 {
-    //map p to an axis-aligned cube from -1 to 1
-    Neon::float_3d half_dim = dim.newType<float>() * 0.5;
-    Neon::float_3d ret = (p.newType<float>() - half_dim) / half_dim;
-    return ret;
-}
-inline float sdfCube(Neon::float_3d p, float b = 1.0)
-{
+    auto mapToCube = [&](Neon::index_3d id) {
+        //map p to an axis-aligned cube from -1 to 1
+        Neon::float_3d half_dim = dim.newType<float>() * 0.5;
+        Neon::float_3d ret = (id.newType<float>() - half_dim) / half_dim;
+        return ret;
+    };
+    Neon::float_3d p = mapToCube(id);
+
     Neon::float_3d d(std::abs(p.x) - b, std::abs(p.y) - b, std::abs(p.z) - b);
     Neon::float_3d d_max(std::max(d.x, 0.f), std::max(d.y, 0.f), std::max(d.z, 0.f));
     float          len = std::sqrt(d_max.x * d_max.x + d_max.y * d_max.y + d_max.z * d_max.z);
     return std::min(std::max(d.x, std::max(d.y, d.z)), 0.f) + len;
+}
+
+template <typename T, int DIM, int Q>
+void postProcess(Neon::domain::mGrid&                 grid,
+                 const int                            num_levels,
+                 const Neon::domain::mGrid::Field<T>& fpop,
+                 Neon::domain::mGrid::Field<T>&       vel,
+                 Neon::domain::mGrid::Field<T>&       rho)
+{
+    fpop.updateIO();
+
+    for (int level = 0; level < num_levels; ++level) {
+        grid.getContainer(
+            "postProcess_" + std::to_string(level), level,
+            [&, level](Neon::set::Loader& loader) {
+                const auto& pop = fpop.load(loader, level, Neon::MultiResCompute::STENCIL);
+                auto        u = vel.load(loader, level, Neon::MultiResCompute::MAP);
+                auto        rh = rho.load(loader, level, Neon::MultiResCompute::MAP);
+
+                return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+
+                };
+            });
+    }
+
+    vel.updateIO();
+    rho.updateIO();
+
+    vel.ioToVtk("vel_", "vel");
+    rho.ioToVtk("rho_", "rho");
 }
 
 int main(int argc, char** argv)
@@ -572,16 +608,16 @@ int main(int argc, char** argv)
         Neon::domain::mGrid grid(
             backend, grid_dim,
             {[&](const Neon::index_3d id) -> bool {
-                 return sdfCube(mapToCube(id, grid_dim)) <= levelSDF[0] &&
-                        sdfCube(mapToCube(id, grid_dim)) > levelSDF[1];
+                 return sdfCube(id, grid_dim) <= levelSDF[0] &&
+                        sdfCube(id, grid_dim) > levelSDF[1];
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return sdfCube(mapToCube(id, grid_dim)) <= levelSDF[1] &&
-                        sdfCube(mapToCube(id, grid_dim)) > levelSDF[2];
+                 return sdfCube(id, grid_dim) <= levelSDF[1] &&
+                        sdfCube(id, grid_dim) > levelSDF[2];
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return sdfCube(mapToCube(id, grid_dim)) <= levelSDF[2] &&
-                        sdfCube(mapToCube(id, grid_dim)) > levelSDF[3];
+                 return sdfCube(id, grid_dim) <= levelSDF[2] &&
+                        sdfCube(id, grid_dim) > levelSDF[3];
              }},
             create_stencil<DIM, Q>(), descriptor);
 
@@ -589,32 +625,62 @@ int main(int argc, char** argv)
 
 
         //LBM problem
-        const int max_iter = 300;
-        const T   ulb = 0.01;
-        const T   Re = 20;
-        const T   clength = grid_dim.x;
-        const T   visclb = ulb * clength / Re;
-        const T   smagorinskyConstant = 0.02;
-        const T   omega = 1.0 / (3. * visclb + 0.5);
+        const int             max_iter = 300;
+        const T               ulb = 0.02;
+        const T               Re = 100;
+        const T               clength = grid_dim.x;
+        const T               visclb = ulb * clength / Re;
+        const T               smagorinskyConstant = 0.02;
+        const T               omega = 1.0 / (3. * visclb + 0.5);
+        const Neon::double_3d ulid(1.0, 0., 0.);
 
         auto fin = grid.newField<T>("fin", Q, 0);
         auto fout = grid.newField<T>("fout", Q, 0);
 
+        auto vel = grid.newField<T>("vel", 3, 0);
+        auto rho = grid.newField<T>("rho", 1, 0);
+
         //TODO init fin and fout
+        constexpr auto t = latticeWeight<DIM, Q>();
+
+        auto init = [&](const Neon::int32_3d idx, const int q) {
+            T ret = t.t[q];
+
+            if (idx.x == 0 || idx.x == grid_dim.x - 1 ||
+                idx.y == 0 || idx.y == grid_dim.y - 1 ||
+                idx.z == 0 || idx.z == grid_dim.z - 1) {
+
+                if (idx.x == grid_dim.x - 1) {
+                    ret = 0;
+                    for (int d = 0; d < DIM; ++d) {
+                        if (DIM == 2) {
+                            ret += latticeVelocity2D[q][d] * ulid.v[d];
+                        } else {
+                            ret += latticeVelocity3D[q][d] * ulid.v[d];
+                        }
+                    }
+                    ret *= -6. * t.t[q] * ulb;
+                } else {
+                    ret = 0;
+                }
+            }
+            return ret;
+        };
+
         for (int l = 0; l < descriptor.getDepth(); ++l) {
             fin.forEachActiveCell(
                 l,
-                [&](const Neon::int32_3d, const int, T& val) {
-                    val = 0;
+                [&](const Neon::int32_3d idx, const int q, T& val) {
+                    val = init(idx, q);
                 });
             fout.forEachActiveCell(
                 l,
-                [&](const Neon::int32_3d, const int, T& val) {
-                    val = 0;
+                [&](const Neon::int32_3d idx, const int q, T& val) {
+                    val = init(idx, q);
                 });
         }
 
-        fin.ioToVtk("sdf", "f");
+        //fin.ioToVtk("sdf", "f");
 
         fin.updateCompute();
         fout.updateCompute();
@@ -631,7 +697,9 @@ int main(int argc, char** argv)
         skl.sequence(containers, "MultiResLBM");
         //skl.ioToDot("MultiResLBM", "", true);
 
-        skl.run();
+        for (int t = 0; t < max_iter; ++t) {
+            skl.run();
+        }
 
         grid.getBackend().syncAll();
         fin.updateIO();
