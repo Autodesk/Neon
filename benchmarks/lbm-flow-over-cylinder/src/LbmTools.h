@@ -260,6 +260,7 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
 
                         // TODO add code for zouhe
 
+
                         LbmStoreType popIn[Lattice::Q];
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
 
@@ -298,6 +299,41 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
         }                                                                                                     \
     }
 
+
+#define COMPUTE_NORMAL(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid, alreadyFoundAMatch)                          \
+    {                                                                                                         \
+        bool localMatch = false;                                                                              \
+                                                                                                              \
+        { /*GO*/                                                                                              \
+            CellType nghCellType = infoIn.template nghVal<GOx, GOy, GOz>(cell, 0, CellType::undefined).value; \
+            if (nghCellType.classification == CellType::bulk) {                                               \
+                localMatch = true;                                                                            \
+                cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << 0));                     \
+            }                                                                                                 \
+        }                                                                                                     \
+        { /*BK*/                                                                                              \
+            CellType nghCellType = infoIn.template nghVal<GOx, GOy, GOz>(cell, 0, CellType::undefined).value; \
+            if (nghCellType.classification != CellType::bulk) {                                               \
+                localMatch = true;                                                                            \
+            }                                                                                                 \
+        }                                                                                                     \
+        if (localMatch) {                                                                                     \
+            if (GOx != 0) {                                                                                   \
+                cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << 1));                     \
+            }                                                                                                 \
+            if (GOy != 0) {                                                                                   \
+                cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << 2));                     \
+            }                                                                                                 \
+            if (GOz != 0) {                                                                                   \
+                cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << 3));                     \
+            }                                                                                                 \
+            if (alreadyFoundAMatch) {                                                                         \
+                printf("INCONSISTENT DATA;\n");                                                               \
+            }                                                                                                 \
+            alreadyFoundAMatch = localMatch;                                                                  \
+        }                                                                                                     \
+    }
+
     static auto
     computeWallNghMask(const CellTypeField& infoInField,
                        CellTypeField&       infoOutpeField)
@@ -330,6 +366,21 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                         COMPUTE_MASK_WALL(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18)
 
                         infoOut(cell, 0) = cellType;
+                    }
+                    if (cellType.classification == CellType::inlet ||
+                        cellType.classification == CellType::outlet) {
+
+                        /**
+                         * BITS position
+                         * 0 -> positive (0) or negative (1) direction
+                         * 1 -> x is the target (1)
+                         * 2 -> y is the target (1)
+                         * 3 -> z is the target (1)
+                         */
+                        bool match = false;
+                        COMPUTE_NORMAL(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10, match);
+                        COMPUTE_NORMAL(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11, match);
+                        COMPUTE_NORMAL(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12, match);
                     }
                 };
             });

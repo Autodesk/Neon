@@ -45,6 +45,8 @@ auto runSpecialized(Config& config,
     const double          radiusDomainLenRatio = 1.0 / 7;
     const Neon::double_3d center = {config.N / 2.0, config.N / 2.0, config.N / 2.0};
     const double          radius = config.N * radiusDomainLenRatio;
+    const double          rhoPrescribedInlet = 1.1;
+    const double          rhoPrescribedOutlet = 1.0;
 
     auto isFluidDomain =
         [&](const Neon::index_3d& idx)
@@ -103,14 +105,14 @@ auto runSpecialized(Config& config,
         if (idx.x == config.N - 1) {
             return CellType::Classification::outlet;
         }
-        if(isInsideSphere(idx)){
+        if (isInsideSphere(idx)) {
             return CellType::Classification::undefined;
         }
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 for (int k = -1; k < 2; k++) {
                     Neon::index_3d offset(i, j, k);
-                    Neon::index_3d neighbour= idx+offset;
+                    Neon::index_3d neighbour = idx + offset;
                     bool           isIn = isInsideSphere(neighbour);
                     if (isIn) {
                         return CellType::Classification::bounceBack;
@@ -213,13 +215,24 @@ auto runSpecialized(Config& config,
         });
         bcTypeForDebugging.ioToVtk("bcFlags", "cb", false);
 
-
         inPop.forEachActiveCell([&](const Neon::index_3d& idx,
                                     const int&            k,
                                     StorageFP&            val) {
             val = t.at(k);
             if (flag(idx, 0).classification == CellType::bounceBack) {
                 val = 0;
+            }
+            if (flag(idx, 0).classification == CellType::outlet) {
+                val = 0;
+                if (k == 0) {
+                    val = rhoPrescribedOutlet;
+                }
+            }
+            if (flag(idx, 0).classification == CellType::inlet) {
+                val = 0;
+                if (k == 0) {
+                    val = rhoPrescribedInlet;
+                }
             }
         });
 
@@ -229,6 +242,18 @@ auto runSpecialized(Config& config,
             val = t.at(k);
             if (flag(idx, 0).classification == CellType::bounceBack) {
                 val = 0;
+            }
+            if (flag(idx, 0).classification == CellType::outlet) {
+                val = 0;
+                if (k == 0) {
+                    val = rhoPrescribedOutlet;
+                }
+            }
+            if (flag(idx, 0).classification == CellType::inlet) {
+                val = 0;
+                if (k == 0) {
+                    val = rhoPrescribedInlet;
+                }
             }
         });
 
