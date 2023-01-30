@@ -95,6 +95,47 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
         }                                                                                                               \
     }
 
+    static inline NEON_CUDA_HOST_DEVICE auto static inline NEON_CUDA_HOST_DEVICE auto
+    zouhe(Cell const&                           cell,
+          CellType::Classification              cellType,
+          float                                 rho,
+          Neon::float_3d                        u,
+          CellType::LatticeSectionUnk const&    unknowns,
+          CellType::LatticeSectionMiddle const& middle,
+          NEON_OUT LbmStoreType                 popIn[19])
+    {
+        if (cellType == CellType::pressure || cellType == CellType::velocity) {
+
+            LbmComputeType knownSum = 0;
+            LbmComputeType middelSum = 0;
+
+#define KNOWN_SUM(X) \
+    knownSum += popIn[unknowns.X < 9 ? unknowns.X + 10 : unknowns.X - 10]
+            KNOWN_SUM(mA);
+            KNOWN_SUM(mB);
+            KNOWN_SUM(mC);
+            KNOWN_SUM(mD);
+            KNOWN_SUM(mE);
+#undef KNOWN_SUM
+
+#define MIDDLE_SUM(X)              \
+    middelSum += popIn[middle.X]; \
+    middelSum += popIn[middle.X + 10]
+
+            MIDDLE_SUM(mA);
+            MIDDLE_SUM(mB);
+            MIDDLE_SUM(mC);
+            MIDDLE_SUM(mD);
+#undef MIDDLE_SUM
+
+            auto uNormal = ((middelSum + 2 * knownSum) / rho) - 1;
+            u.x = 0;
+            u.y = 0;
+            u.z = 0;
+            u.v[unknowns.mA < 9 ? unknowns.mA : unknowns.mA - 10] = uNormal * (unknowns.mA < 9 ? 1 : -1 );
+        }
+    }
+
     static inline NEON_CUDA_HOST_DEVICE auto
     pullStream(Cell const&                                i,
                const uint32_t&                            wallBitFlag,
@@ -300,40 +341,6 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
     }
 
 
-#define COMPUTE_NORMAL(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid, alreadyFoundAMatch)                          \
-    {                                                                                                         \
-        bool localMatch = false;                                                                              \
-                                                                                                              \
-        { /*GO*/                                                                                              \
-            CellType nghCellType = infoIn.template nghVal<GOx, GOy, GOz>(cell, 0, CellType::undefined).value; \
-            if (nghCellType.classification == CellType::bulk) {                                               \
-                localMatch = true;                                                                            \
-                cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << 0));                     \
-            }                                                                                                 \
-        }                                                                                                     \
-        { /*BK*/                                                                                              \
-            CellType nghCellType = infoIn.template nghVal<GOx, GOy, GOz>(cell, 0, CellType::undefined).value; \
-            if (nghCellType.classification != CellType::bulk) {                                               \
-                localMatch = true;                                                                            \
-            }                                                                                                 \
-        }                                                                                                     \
-        if (localMatch) {                                                                                     \
-            if (GOx != 0) {                                                                                   \
-                cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << 1));                     \
-            }                                                                                                 \
-            if (GOy != 0) {                                                                                   \
-                cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << 2));                     \
-            }                                                                                                 \
-            if (GOz != 0) {                                                                                   \
-                cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << 3));                     \
-            }                                                                                                 \
-            if (alreadyFoundAMatch) {                                                                         \
-                printf("INCONSISTENT DATA;\n");                                                               \
-            }                                                                                                 \
-            alreadyFoundAMatch = localMatch;                                                                  \
-        }                                                                                                     \
-    }
-
     static auto
     computeWallNghMask(const CellTypeField& infoInField,
                        CellTypeField&       infoOutpeField)
@@ -351,7 +358,9 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                     CellType cellType = infoIn(cell, 0);
                     cellType.wallNghBitflag = 0;
 
-                    if (cellType.classification == CellType::bulk) {
+                    if (cellType.classification == CellType::bulk ||
+                        cellType.classification == CellType::inlet ||
+                        cellType.classification == CellType::outlet) {
 
                         // TODO add code for zouhe
 
@@ -367,8 +376,8 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
 
                         infoOut(cell, 0) = cellType;
                     }
-                    if (cellType.classification == CellType::inlet ||
-                        cellType.classification == CellType::outlet) {
+                    if (cellType.classification == CellType::pressure ||
+                        cellType.classification == CellType::velocity) {
 
                         /**
                          * BITS position
@@ -378,9 +387,56 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                          * 3 -> z is the target (1)
                          */
                         bool match = false;
-                        COMPUTE_NORMAL(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10, match);
-                        COMPUTE_NORMAL(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11, match);
-                        COMPUTE_NORMAL(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12, match);
+                        auto byDirection = [&](Neon::int8_3d mainDirection) {
+                            auto info = infoIn.nghVal(cell, mainDirection, 0);
+                            if (!info.isValid) {
+                                if (match == true) {
+                                    printf("Error\n");
+                                }
+                                match = true;
+                                const int mapUnkowns[6][5] = {
+                                    {10, 13, 14, 15},     // 0 norm -1, 0, 0 -> (1, 0, 0), ...
+                                    {11, 4, 13, 17, 18},  // 1 norm 0, -1, 0
+                                    {12, 6, 8, 15, 17},   // 2 norm 0, 0, -1
+                                    {0, 3, 4, 5, 6},      // 3 norm 1, 0, 0 -> (-1, 0, 0), ...
+                                    {1, 3, 7, 8, 14},     // 4 norm 0, 1, 0 ->
+                                    {2, 5, 7, 16, 18},    // 5 norm 0, 0, 1 ->
+                                };
+                                const int mapMiddle[3][4] = {
+                                    {1, 2, 7, 8},  // 0 norm -1, 0, 0 -> (1, 0, 0), ...
+                                    {0, 2, 5, 6},  // 1 norm 0, -1, 0
+                                    {0, 1, 2, 3},  // 2 norm 0, 0, -1
+                                };
+                                int targetRaw = -1;
+                                targetRaw = (mainDirection.x == 1) ? 3 : targetRaw;
+                                targetRaw = (mainDirection.x == -1) ? 0 : targetRaw;
+                                targetRaw = (mainDirection.y == 1) ? 4 : targetRaw;
+                                targetRaw = (mainDirection.y == -1) ? 1 : targetRaw;
+                                targetRaw = (mainDirection.z == 1) ? 5 : targetRaw;
+                                targetRaw = (mainDirection.z == -1) ? 2 : targetRaw;
+
+                                infoIn(cell, 0).unknowns.mA = mapUnkowns[targetRaw][0];
+                                infoIn(cell, 0).unknowns.mB = mapUnkowns[targetRaw][1];
+                                infoIn(cell, 0).unknowns.mC = mapUnkowns[targetRaw][2];
+                                infoIn(cell, 0).unknowns.mD = mapUnkowns[targetRaw][3];
+                                infoIn(cell, 0).unknowns.mE = mapUnkowns[targetRaw][4];
+
+                                targetRaw = (mainDirection.x != 0) ? 0 : targetRaw;
+                                targetRaw = (mainDirection.y != 0) ? 1 : targetRaw;
+                                targetRaw = (mainDirection.z != 0) ? 2 : targetRaw;
+
+                                infoIn(cell, 0).middle.mA = mapMiddle[targetRaw][0];
+                                infoIn(cell, 0).middle.mB = mapMiddle[targetRaw][1];
+                                infoIn(cell, 0).middle.mC = mapMiddle[targetRaw][2];
+                                infoIn(cell, 0).middle.mD = mapMiddle[targetRaw][3];
+                            }
+                        };
+                        byDirection({-1, 0, 0});
+                        byDirection({0, -1, 0});
+                        byDirection({0, 0, -1});
+                        byDirection({1, 0, 0});
+                        byDirection({0, 1, 0});
+                        byDirection({0, 0, 1});
                     }
                 };
             });

@@ -222,16 +222,14 @@ auto runSpecialized(Config& config,
             if (flag(idx, 0).classification == CellType::bounceBack) {
                 val = 0;
             }
-            if (flag(idx, 0).classification == CellType::outlet) {
-                val = 0;
+            if (flag(idx, 0).classification == CellType::pressure) {
                 if (k == 0) {
-                    val = rhoPrescribedOutlet;
+                    flag.getReference(idx, 0).rho = rhoPrescribedOutlet;
                 }
             }
-            if (flag(idx, 0).classification == CellType::inlet) {
-                val = 0;
+            if (flag(idx, 0).classification == CellType::velocity) {
                 if (k == 0) {
-                    val = rhoPrescribedInlet;
+                    flag.getReference(idx, 0).rho = rhoPrescribedInlet;
                 }
             }
         });
@@ -243,16 +241,14 @@ auto runSpecialized(Config& config,
             if (flag(idx, 0).classification == CellType::bounceBack) {
                 val = 0;
             }
-            if (flag(idx, 0).classification == CellType::outlet) {
-                val = 0;
+            if (flag(idx, 0).classification == CellType::pressure) {
                 if (k == 0) {
-                    val = rhoPrescribedOutlet;
+                    flag.getReference(idx, 0).rho = rhoPrescribedOutlet;
                 }
             }
-            if (flag(idx, 0).classification == CellType::inlet) {
-                val = 0;
+            if (flag(idx, 0).classification == CellType::velocity) {
                 if (k == 0) {
-                    val = rhoPrescribedInlet;
+                    flag.getReference(idx, 0).rho = rhoPrescribedInlet;
                 }
             }
         });

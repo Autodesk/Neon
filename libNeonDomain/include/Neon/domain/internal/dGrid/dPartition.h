@@ -131,6 +131,19 @@ struct dPartition
         return NghInfo<T_ta>(val, isValidNeighbour);
     }
 
+    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Cell& eId,
+                                             nghIdx_t    nghOffset,
+                                             int         card) const -> NghInfo<T_ta>
+    {
+        Cell       cellNgh;
+        const bool isValidNeighbour = nghIdx(eId, nghOffset, cellNgh);
+        T_ta       val;
+        if (isValidNeighbour) {
+            val = operator()(cellNgh, card);
+        }
+        return NghInfo<T_ta>(val, isValidNeighbour);
+    }
+
     template <int xOff, int yOff, int zOff>
     NEON_CUDA_HOST_DEVICE inline auto nghVal(const Cell& eId,
                                              int         card,
