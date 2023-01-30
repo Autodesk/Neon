@@ -128,7 +128,7 @@ int main(int argc, char** argv)
 
     Neon::init();
 
-    // CLI for benchmarks test
+    // CLI for performance test
     auto cli =
         (clipp::option("--gpus") & clipp::integers("gpus", DEVICES) % "GPU ids to use",
          clipp::option("--grid") & clipp::value("grid", GRID_TYPE) % "Could be eGrid, dGrid, or bGrid",
