@@ -389,13 +389,13 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                         LbmStoreType popIn[Lattice::Q];
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
 
-                        zouhe(cell, cellInfo.classification,
-                              cellInfo.unknowns,
-                              cellInfo.middle,
-                              NEON_IO  popIn,
-                              NEON_OUT usqr,
-                              NEON_IO  rho,
-                              NEON_IO  u.data());
+                        //                        zouhe(cell, cellInfo.classification,
+                        //                              cellInfo.unknowns,
+                        //                              cellInfo.middle,
+                        //                              NEON_IO  popIn,
+                        //                              NEON_OUT usqr,
+                        //                              NEON_IO  rho,
+                        //                              NEON_IO  u.data());
 
                         collideBgkUnrolled(cell,
                                            popIn,
@@ -412,13 +412,17 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
     {                                                                                                         \
         { /*GO*/                                                                                              \
             CellType nghCellType = infoIn.template nghVal<BKx, BKy, BKz>(cell, 0, CellType::undefined).value; \
-            if (nghCellType.classification != CellType::bulk) {                                               \
+            if (nghCellType.classification != CellType::bulk &&                                               \
+                nghCellType.classification != CellType::pressure &&                                           \
+                nghCellType.classification != CellType::velocity) {                                           \
                 cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << GOid));                  \
             }                                                                                                 \
         }                                                                                                     \
         { /*BK*/                                                                                              \
             CellType nghCellType = infoIn.template nghVal<GOx, GOy, GOz>(cell, 0, CellType::undefined).value; \
-            if (nghCellType.classification != CellType::bulk) {                                               \
+            if (nghCellType.classification != CellType::bulk &&                                               \
+                nghCellType.classification != CellType::pressure &&                                           \
+                nghCellType.classification != CellType::velocity) {                                               \
                 cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << BKid));                  \
             }                                                                                                 \
         }                                                                                                     \

@@ -101,10 +101,13 @@ auto runSpecialized(Config& config,
         if (idx.y == 0 || idx.y == config.N - 1) {
             return CellType::Classification::bounceBack;
         }
-        if (idx.x == 0) {
+        if (idx.x == 0 || idx.x == config.N - 1) {
+            return CellType::Classification::bounceBack;
+        }
+        if (idx.x == 1) {
             return CellType::Classification::pressure;
         }
-        if (idx.x == config.N - 1) {
+        if (idx.x == config.N - 2) {
             return CellType::Classification::velocity;
         }
         if (isInsideSphere(idx)) {
