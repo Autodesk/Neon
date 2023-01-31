@@ -6,7 +6,8 @@
 #include "LbmIteration.h"
 #include "Metrics.h"
 #include "Repoert.h"
-
+#define _GNU_SOURCE
+#include <fenv.h>
 namespace CavityTwoPop {
 
 int backendWasReported = false;
@@ -21,6 +22,7 @@ auto runSpecialized(Config& config,
     using Lattice = D3Q19Template<StorageFP, ComputeFP>;
     using PopulationField = typename Grid::template Field<StorageFP, Lattice::Q>;
 
+    feenableexcept(FE_DIVBYZERO);
 
     Neon::Backend bk = [&] {
         if (config.deviceType == "cpu") {
@@ -45,7 +47,7 @@ auto runSpecialized(Config& config,
     const double          radiusDomainLenRatio = 1.0 / 7;
     const Neon::double_3d center = {config.N / 2.0, config.N / 2.0, config.N / 2.0};
     const double          radius = config.N * radiusDomainLenRatio;
-    const double          rhoPrescribedInlet = 1.1;
+    const double          rhoPrescribedInlet = 1.0;
     const double          rhoPrescribedOutlet = 1.0;
 
     auto isFluidDomain =
@@ -100,10 +102,10 @@ auto runSpecialized(Config& config,
             return CellType::Classification::bounceBack;
         }
         if (idx.x == 0) {
-            return CellType::Classification::inlet;
+            return CellType::Classification::pressure;
         }
         if (idx.x == config.N - 1) {
-            return CellType::Classification::outlet;
+            return CellType::Classification::velocity;
         }
         if (isInsideSphere(idx)) {
             return CellType::Classification::undefined;
@@ -160,7 +162,9 @@ auto runSpecialized(Config& config,
                   lbmParameters.omega);
 
     auto exportRhoAndU = [&bk, &rho, &u, &iteration, &flag](int iterationId) {
-        if ((iterationId) % 100 == 0) {
+        if (true) {
+            std::cout << "Exporting\n"
+                      << std::endl;
             auto& f = iteration.getInput();
             bk.syncAll();
             Neon::set::HuOptions hu(Neon::set::TransferMode::get,
