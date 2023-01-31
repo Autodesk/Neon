@@ -13,7 +13,7 @@ bPartition<T, C>::bPartition()
       mNeighbourBlocks(nullptr),
       mOrigin(nullptr),
       mMask(nullptr),
-      mOutsideValue(0),
+      mOutsideValue(T()),
       mStencilNghIndex(nullptr),
       mIsInSharedMem(false),
       mMemSharedMem(nullptr),
