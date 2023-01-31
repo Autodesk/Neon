@@ -27,9 +27,9 @@ Neon::domain::Stencil create_stencil<2, 9>()
 }
 
 template <>
-Neon::domain::Stencil create_stencil<3, 19>()
+Neon::domain::Stencil create_stencil<3, 27>()
 {
-    return Neon::domain::Stencil::s19_t(false);
+    return Neon::domain::Stencil::s27_t(false);
 }
 
 NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity2D[9][2] = {
@@ -112,9 +112,9 @@ struct latticeWeight
 
         if constexpr (DIM == 3) {
             for (int i = 0; i < Q; ++i) {
-                if (latticeVelocity2D[i][0] * latticeVelocity2D[i][0] +
-                        latticeVelocity2D[i][1] * latticeVelocity2D[i][1] +
-                        latticeVelocity2D[i][2] * latticeVelocity2D[i][2] <
+                if (latticeVelocity3D[i][0] * latticeVelocity3D[i][0] +
+                        latticeVelocity3D[i][1] * latticeVelocity3D[i][1] +
+                        latticeVelocity3D[i][2] * latticeVelocity3D[i][2] <
                     1.1f) {
                     t[i] = 2.0f / 36.0f;
                 } else {
@@ -554,7 +554,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 }
 
 
-inline float sdfCube(Neon::index_3d id, Neon::index_3d dim, float b = 1.0)
+inline float sdfCube(Neon::index_3d id, Neon::index_3d dim, Neon::float_3d b = {1.0, 1.0, 1.0})
 {
     auto mapToCube = [&](Neon::index_3d id) {
         //map p to an axis-aligned cube from -1 to 1
@@ -564,10 +564,12 @@ inline float sdfCube(Neon::index_3d id, Neon::index_3d dim, float b = 1.0)
     };
     Neon::float_3d p = mapToCube(id);
 
-    Neon::float_3d d(std::abs(p.x) - b, std::abs(p.y) - b, std::abs(p.z) - b);
+    Neon::float_3d d(std::abs(p.x) - b.x, std::abs(p.y) - b.y, std::abs(p.z) - b.z);
+
     Neon::float_3d d_max(std::max(d.x, 0.f), std::max(d.y, 0.f), std::max(d.z, 0.f));
     float          len = std::sqrt(d_max.x * d_max.x + d_max.y * d_max.y + d_max.z * d_max.z);
-    return std::min(std::max(d.x, std::max(d.y, d.z)), 0.f) + len;
+    float          val = std::min(std::max(d.x, std::max(d.y, d.z)), 0.f) + len;
+    return val;
 }
 
 template <typename T, int DIM, int Q>
@@ -575,6 +577,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
                  const int                                   numLevels,
                  const Neon::domain::mGrid::Field<T>&        fpop,
                  const Neon::domain::mGrid::Field<CellType>& cellType,
+                 const int                                   iteration,
                  Neon::domain::mGrid::Field<T>&              vel,
                  Neon::domain::mGrid::Field<T>&              rho)
 {
@@ -660,8 +663,8 @@ void postProcess(Neon::domain::mGrid&                        grid,
     //vel.updateIO();
     //rho.updateIO();
 
-    vel.ioToVtk("vel_", "vel");
-    rho.ioToVtk("rho_", "rho");
+    vel.ioToVtk("vel_" + std::to_string(iteration), "vel");
+    rho.ioToVtk("rho_" + std::to_string(iteration), "rho");
 }
 
 int main(int argc, char** argv)
@@ -676,35 +679,41 @@ int main(int argc, char** argv)
         std::vector<int> gpu_ids{0};
         Neon::Backend    backend(gpu_ids, runtime);
 
-        constexpr int DIM = 2;
-        constexpr int Q = (DIM == 2) ? 9 : 19;
+        constexpr int DIM = 3;
+        constexpr int Q = (DIM == 2) ? 9 : 27;
         constexpr int depth = 3;
-
-        const Neon::index_3d grid_dim(24, 24, 4);
-
 
         const Neon::domain::mGridDescriptor descriptor(depth);
 
-        float levelSDF[depth + 1];
+        //const Neon::index_3d grid_dim(144, 144, 144);
+        //float                levelSDF[depth + 1];
+        //levelSDF[0] = 0;
+        //levelSDF[1] = -28.0 / 144.0;
+        //levelSDF[2] = -56.0 / 144.0;
+        //levelSDF[3] = -1.0;
+
+
+        const Neon::index_3d grid_dim(24, 24, 24);
+        float                levelSDF[depth + 1];
         levelSDF[0] = 0;
-        levelSDF[1] = -0.3;
-        levelSDF[2] = -0.6;
+        levelSDF[1] = -8 / 24.0;
+        levelSDF[2] = -16 / 24.0;
         levelSDF[3] = -1.0;
 
 
         Neon::domain::mGrid grid(
             backend, grid_dim,
             {[&](const Neon::index_3d id) -> bool {
-                 return sdfCube(id, grid_dim) <= levelSDF[0] &&
-                        sdfCube(id, grid_dim) > levelSDF[1];
+                 return sdfCube(id, grid_dim - 1) <= levelSDF[0] &&
+                        sdfCube(id, grid_dim - 1) > levelSDF[1];
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return sdfCube(id, grid_dim) <= levelSDF[1] &&
-                        sdfCube(id, grid_dim) > levelSDF[2];
+                 return sdfCube(id, grid_dim - 1) <= levelSDF[1] &&
+                        sdfCube(id, grid_dim - 1) > levelSDF[2];
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return sdfCube(id, grid_dim) <= levelSDF[2] &&
-                        sdfCube(id, grid_dim) > levelSDF[3];
+                 return sdfCube(id, grid_dim - 1) <= levelSDF[2] &&
+                        sdfCube(id, grid_dim - 1) > levelSDF[3];
              }},
             create_stencil<DIM, Q>(), descriptor);
 
@@ -712,12 +721,11 @@ int main(int argc, char** argv)
 
 
         //LBM problem
-        const int             max_iter = 300;
-        const T               ulb = 0.02;
-        const T               Re = 100;
+        const int             max_iter = 3000;
+        const T               ulb = 0.04;
+        const T               Re = 1000;
         const T               clength = grid_dim.x;
         const T               visclb = ulb * clength / Re;
-        const T               smagorinskyConstant = 0.02;
         const T               omega = 1.0 / (3. * visclb + 0.5);
         const Neon::double_3d ulid(ulb, 0., 0.);
 
@@ -788,13 +796,17 @@ int main(int argc, char** argv)
                 [&](const Neon::int32_3d idx, const int q, T& val) {
                     val = init(idx, q);
                 });
+            vel.forEachActiveCell(l, [&](const Neon::int32_3d, const int, T& val) {
+                val = 0;
+            });
+            rho.forEachActiveCell(l, [&](const Neon::int32_3d, const int, T& val) {
+                val = 0;
+            });
         }
         fin.updateCompute();
         fout.updateCompute();
 
         //fin.ioToVtk("fin", "f");
-
-        postProcess<T, DIM, Q>(grid, descriptor.getDepth(), fout, cellType, vel, rho);
 
         //skeleton
         std::vector<Neon::set::Container> containers;
@@ -812,9 +824,10 @@ int main(int argc, char** argv)
         //execution
         for (int t = 0; t < max_iter; ++t) {
             skl.run();
-            if (t % 10 == 0) {
-                postProcess<T, DIM, Q>(grid, descriptor.getDepth(), fout, cellType, vel, rho);
+            if (t % 100 == 0) {
+                postProcess<T, DIM, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho);
             }
+            
         }
 
         grid.getBackend().syncAll();
