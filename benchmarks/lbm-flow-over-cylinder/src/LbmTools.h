@@ -125,24 +125,24 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
             KNOWN_SUM(mE);
 #undef KNOWN_SUM
 
-#define MIDDLE_SUM(X)             \
-    middelSum += popIn[middle.X]; \
-    middelSum += popIn[middle.X + 10]
+            middelSum += popIn[middle.mA];
+            middelSum += popIn[middle.mA + 10];
+            middelSum += popIn[middle.mB];
+            middelSum += popIn[middle.mB + 10];
+            middelSum += popIn[middle.mC];
+            middelSum += popIn[middle.mC + 10];
+            middelSum += popIn[middle.mD];
+            middelSum += popIn[middle.mD + 10];
 
-            MIDDLE_SUM(mA);
-            MIDDLE_SUM(mB);
-            MIDDLE_SUM(mC);
-            MIDDLE_SUM(mD);
-#undef MIDDLE_SUM
 
-            auto uNormal = 0;  //((middelSum + 2 * knownSum) / rho) - 1;
+            auto uNormal = ((middelSum + 2 * knownSum) / rho) - 1;
             {
                 const unsigned int normalOppositeIdx = unknowns.mA;
                 const unsigned int normalIdx = normalOppositeIdx < 9 ? normalOppositeIdx : normalOppositeIdx - 10;
                 u[0] = 0;
                 u[1] = 0;
                 u[2] = 0;
-                u[normalIdx] = 0;  // uNormal * (normalOppositeIdx < 9 ? 1 : -1);
+                u[normalIdx] = uNormal * (normalOppositeIdx < 9 ? 1 : -1);
             }
         }
 
@@ -182,7 +182,7 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
     {                                                  \
         const unsigned int iu = unknowns.X;            \
         const unsigned int ik = iu < 9 ? iu : iu - 10; \
-        /*popIn[iu] = popIn[ik]; + eq[iu] - eq[ik];*/  \
+        popIn[iu] = popIn[ik] + eq[iu] - eq[ik];       \
     }
 
         UPDATE_POPULATIONS(mA);
@@ -389,13 +389,13 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                         LbmStoreType popIn[Lattice::Q];
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
 
-                        //                        zouhe(cell, cellInfo.classification,
-                        //                              cellInfo.unknowns,
-                        //                              cellInfo.middle,
-                        //                              NEON_IO  popIn,
-                        //                              NEON_OUT usqr,
-                        //                              NEON_IO  rho,
-                        //                              NEON_IO  u.data());
+                        zouhe(cell, cellInfo.classification,
+                              cellInfo.unknowns,
+                              cellInfo.middle,
+                              NEON_IO  popIn,
+                              NEON_OUT usqr,
+                              NEON_IO  rho,
+                              NEON_IO  u.data());
 
                         collideBgkUnrolled(cell,
                                            popIn,
@@ -422,7 +422,7 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
             CellType nghCellType = infoIn.template nghVal<GOx, GOy, GOz>(cell, 0, CellType::undefined).value; \
             if (nghCellType.classification != CellType::bulk &&                                               \
                 nghCellType.classification != CellType::pressure &&                                           \
-                nghCellType.classification != CellType::velocity) {                                               \
+                nghCellType.classification != CellType::velocity) {                                           \
                 cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << BKid));                  \
             }                                                                                                 \
         }                                                                                                     \
@@ -472,6 +472,7 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
             infoOut(cell, 0).middle.mB = mapMiddle[targetRaw][1];            \
             infoOut(cell, 0).middle.mC = mapMiddle[targetRaw][2];            \
             infoOut(cell, 0).middle.mD = mapMiddle[targetRaw][3];            \
+            printf("HERE %d\n", mapMiddle[targetRaw][3]);                         \
         }                                                                    \
     }
 

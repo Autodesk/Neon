@@ -48,7 +48,7 @@ auto runSpecialized(Config& config,
     const Neon::double_3d center = {config.N / 2.0, config.N / 2.0, config.N / 2.0};
     const double          radius = config.N * radiusDomainLenRatio;
     const double          rhoPrescribedInlet = 1.0;
-    const double          rhoPrescribedOutlet = 1.0;
+    const double          rhoPrescribedOutlet = 1.005;
 
     auto isFluidDomain =
         [&](const Neon::index_3d& idx)
