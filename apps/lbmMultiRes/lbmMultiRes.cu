@@ -59,41 +59,32 @@ NEON_CUDA_DEVICE_ONLY static constexpr char latticeOppositeID[27] = {
     0, 2, 1, 6, 8, 7, 3, 5, 4, 18, 20, 19, 24, 26, 25, 21, 23, 22, 9, 11, 10, 15, 17, 16, 12, 14, 13};*/
 
 NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity3D[19][3] = {
-    {0, 0, 0},    //0  -> 0   || 00000 -> 00000
-    {0, -1, 0},   //1  -> 2   || 00001 -> 00010
-    {0, 1, 0},    //2  -> 1   || 00010 -> 00001
-    {-1, 0, 0},   //3  -> 6   || 00100 -> 00110
-    {-1, -1, 0},  //4  -> 8   || 00100 -> 01000
-    {-1, 1, 0},   //5  -> 7   || 00101 -> 00111
-    {1, 0, 0},    //6  -> 3   || 00110 -> 00011
-    {1, -1, 0},   //7  -> 5   || 00111 -> 00101
-    {1, 1, 0},    //8  -> 4   || 01000 -> 00100
+    {0, 0, 0},    //0  -> 0
+    {0, -1, 0},   //1  -> 2
+    {0, 1, 0},    //2  -> 1
+    {-1, 0, 0},   //3  -> 6
+    {-1, -1, 0},  //4  -> 8
+    {-1, 1, 0},   //5  -> 7
+    {1, 0, 0},    //6  -> 3
+    {1, -1, 0},   //7  -> 5
+    {1, 1, 0},    //8  -> 4
 
-    {0, 0, -1},   //9  -> 18 || 01000 -> 10010
-    {0, -1, -1},  //10 -> 20 || 01010 -> 10100
-    {0, 1, -1},   //11 -> 19 || 01011 -> 10011
-    {-1, 0, -1},  //12 -> 24 || 01100 -> 11000
-    //{-1, -1, -1},//13 -> 26 || 01101 -> 11010
-    //{-1, 1, -1}, //14 -> 25 || 01110 -> 11001
-    {1, 0, -1},  //15 -> 21 || 01111 -> 10101
-    //{1, -1, -1}, //16 -> 23 || 10000 -> 10111
-    //{1, 1, -1},  //17 -> 22 || 10001 -> 10110
+    {0, 0, -1},   //9  -> 14
+    {0, -1, -1},  //10 -> 16
+    {0, 1, -1},   //11 -> 15
+    {-1, 0, -1},  //12 -> 18
+    {1, 0, -1},   //13 -> 17
 
-
-    {0, 0, 1},   //18 -> 9   || 10010 -> 01001
-    {0, -1, 1},  //19 -> 11  || 10011 -> 01011
-    {0, 1, 1},   //20 -> 10  || 10100 -> 01010
-    {-1, 0, 1},  //21 -> 15  || 10101 -> 01111
-    //{-1, -1, 1},//22 -> 17  || 10110 -> 10001
-    //{-1, 1, 1}, //23 -> 16  || 10111 -> 10000
-    {1, 0, 1},  //24 -> 12  || 11000 -> 01100
-    //{1, -1, 1}, //25 -> 14  || 11001 -> 01110
-    //{1, 1, 1}   //26 -> 13  || 11010 -> 01101
+    {0, 0, 1},   //14 -> 9
+    {0, -1, 1},  //15 -> 11
+    {0, 1, 1},   //16 -> 10
+    {-1, 0, 1},  //17 -> 13
+    {1, 0, 1},   //18 -> 12
 
 };
 NEON_CUDA_DEVICE_ONLY static constexpr char latticeOppositeID[19] = {
     //opposite q for 2d is a subset of what is in 3d so only use one
-    0, 2, 1, 6, 8, 7, 3, 5, 4, 18, 20, 19, 24, 21, 9, 11, 10, 15, 12};
+    0, 2, 1, 6, 8, 7, 3, 5, 4, 14, 16, 15, 18, 17, 9, 11, 10, 13, 12};
 
 
 NEON_CUDA_HOST_DEVICE Neon::int8_3d getDir(const int8_t q)
@@ -258,12 +249,15 @@ Neon::set::Container stream(Neon::domain::mGrid&                        grid,
 
                             //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                             if (!fpost_stm.hasChildren(cell, dir)) {
+                                auto nghType = type.nghVal(cell, dir, 0, CellType::undefined);
 
-                                if (type.nghVal(cell, dir, 0, CellType::undefined).value == CellType::bulk) {
-                                    fpost_stm(cell, q) = fpost_col.nghVal(cell, dir, q, T(0)).value;
-                                } else {
-                                    const int8_t opposte_q = latticeOppositeID[q];
-                                    fpost_stm(cell, q) = fpost_col(cell, opposte_q) + fpost_col.nghVal(cell, dir, opposte_q, T(0)).value;
+                                if (nghType.isValid) {
+                                    if (nghType.value == CellType::bulk) {
+                                        fpost_stm(cell, q) = fpost_col.nghVal(cell, dir, q, T(0)).value;
+                                    } else {
+                                        const int8_t opposte_q = latticeOppositeID[q];
+                                        fpost_stm(cell, q) = fpost_col(cell, opposte_q) + fpost_col.nghVal(cell, dir, opposte_q, T(0)).value;
+                                    }
                                 }
                             }
                         }
@@ -578,59 +572,36 @@ void postProcess(Neon::domain::mGrid&                        grid,
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         constexpr auto t = latticeWeight<Q>();
 
-                        if (type(cell, 0) == CellType::bulk) {
+                        if (!pop.hasChildren(cell)) {
+                            if (type(cell, 0) == CellType::bulk) {
 
-                            //fin
-                            T ins[Q];
-                            for (int i = 0; i < Q; ++i) {
-                                ins[i] = pop(cell, i);
-                            }
-
-                            //density
-                            T r = 0;
-                            for (int i = 0; i < Q; ++i) {
-                                r += ins[i];
-                            }
-                            rh(cell, 0) = r;
-
-                            //velocity
-                            const Neon::Vec_3d<T> vel = velocity<T, Q>(ins, r);
-
-                            u(cell, 0) = vel.v[0];
-                            u(cell, 1) = vel.v[1];
-                            u(cell, 2) = vel.v[2];
-
-
-                            /*T st[Q];
-                            T r = 0;
-                            if (!pop.hasChildren(cell)) {
-                                assert(!pop.hasChildren(cell));
-                                for (int8_t q = 0; q < Q; ++q) {
-                                    const Neon::int8_3d dir = -getDir(q);
-                                    if (!pop.hasChildren(cell, dir)) {
-                                        auto neighbor = pop.nghVal(cell, dir, q, T(0));
-                                        if (neighbor.isValid) {
-                                            st[q] = neighbor.value;
-                                            r += st[q];
-                                        }
-                                    }
+                                //fin
+                                T ins[Q];
+                                for (int i = 0; i < Q; ++i) {
+                                    ins[i] = pop(cell, i);
                                 }
 
+                                //density
+                                T r = 0;
+                                for (int i = 0; i < Q; ++i) {
+                                    r += ins[i];
+                                }
                                 rh(cell, 0) = r;
 
-                                const Neon::Vec_3d<T> vel = velocity<T, Q>(ins, rho);
+                                //velocity
+                                const Neon::Vec_3d<T> vel = velocity<T, Q>(ins, r);
+
+                                u(cell, 0) = vel.v[0];
+                                u(cell, 1) = vel.v[1];
+                                u(cell, 2) = vel.v[2];
+                            }
+                            if (type(cell, 0) == CellType::movingWall) {
+                                rh(cell, 0) = 1.0;
 
                                 for (int d = 0; d < 3; ++d) {
-                                    u(cell, d) = vel.v[d];
+                                    int i = (d == 0) ? 3 : ((d == 1) ? 1 : 9);
+                                    u(cell, d) = pop(cell, i) / (6.0 * 1.0 / 18.0);
                                 }
-                            }*/
-                        }
-                        if (type(cell, 0) == CellType::movingWall) {
-                            rh(cell, 0) = 1.0;
-
-                            for (int d = 0; d < 3; ++d) {
-                                int i = (d == 0) ? 3 : ((d == 1) ? 1 : 9);
-                                u(cell, d) = pop(cell, i) / (6.0 * 1.0 / 18.0);
                             }
                         }
                     };
@@ -665,20 +636,20 @@ int main(int argc, char** argv)
 
         const Neon::domain::mGridDescriptor descriptor(depth);
 
-        //const Neon::index_3d grid_dim(144, 144, 144);
-        //float                levelSDF[depth + 1];
-        //levelSDF[0] = 0;
-        //levelSDF[1] = -28.0 / 144.0;
-        //levelSDF[2] = -56.0 / 144.0;
-        //levelSDF[3] = -1.0;
-
-
-        const Neon::index_3d grid_dim(24, 24, 24);
+        const Neon::index_3d grid_dim(144, 144, 144);
         float                levelSDF[depth + 1];
         levelSDF[0] = 0;
-        levelSDF[1] = -8 / 24.0;
-        levelSDF[2] = -16 / 24.0;
+        levelSDF[1] = -28.0 / 144.0;
+        levelSDF[2] = -56.0 / 144.0;
         levelSDF[3] = -1.0;
+
+
+        //const Neon::index_3d grid_dim(24, 24, 24);
+        //float                levelSDF[depth + 1];
+        //levelSDF[0] = 0;
+        //levelSDF[1] = -8 / 24.0;
+        //levelSDF[2] = -16 / 24.0;
+        //levelSDF[3] = -1.0;
 
 
         Neon::domain::mGrid grid(
@@ -741,21 +712,23 @@ int main(int argc, char** argv)
         // init fin and fout
         constexpr auto t = latticeWeight<Q>();
 
-        auto init = [&](const Neon::int32_3d idx, const int q) {
+        auto init = [&](const Neon::int32_3d idx, const int q, const int l) {
             T ret = t.t[q];
 
-            if (idx.x == 0 || idx.x == grid_dim.x - 1 ||
-                idx.y == 0 || idx.y == grid_dim.y - 1 ||
-                idx.z == 0 || idx.z == grid_dim.z - 1) {
+            if (l == 0) {
+                if (idx.x == 0 || idx.x == grid_dim.x - 1 ||
+                    idx.y == 0 || idx.y == grid_dim.y - 1 ||
+                    idx.z == 0 || idx.z == grid_dim.z - 1) {
 
-                if (idx.y == grid_dim.y - 1) {
-                    ret = 0;
-                    for (int d = 0; d < 3; ++d) {
-                        ret += latticeVelocity3D[q][d] * ulid.v[d];
+                    if (idx.y == grid_dim.y - 1) {
+                        ret = 0;
+                        for (int d = 0; d < 3; ++d) {
+                            ret += latticeVelocity3D[q][d] * ulid.v[d];
+                        }
+                        ret *= -6. * t.t[q] * ulb;
+                    } else {
+                        ret = 0;
                     }
-                    ret *= -6. * t.t[q] * ulb;
-                } else {
-                    ret = 0;
                 }
             }
             return ret;
@@ -765,12 +738,12 @@ int main(int argc, char** argv)
             fin.forEachActiveCell(
                 l,
                 [&](const Neon::int32_3d idx, const int q, T& val) {
-                    val = init(idx, q);
+                    val = init(idx, q, l);
                 });
             fout.forEachActiveCell(
                 l,
                 [&](const Neon::int32_3d idx, const int q, T& val) {
-                    val = init(idx, q);
+                    val = init(idx, q, l);
                 });
             vel.forEachActiveCell(l, [&](const Neon::int32_3d, const int, T& val) {
                 val = 0;
@@ -795,7 +768,7 @@ int main(int argc, char** argv)
 
         Neon::skeleton::Skeleton skl(grid.getBackend());
         skl.sequence(containers, "MultiResLBM");
-        //skl.ioToDot("MultiResLBM", "", true);
+        // skl.ioToDot("MultiResLBM", "", true);
 
         //execution
         for (int t = 0; t < max_iter; ++t) {
