@@ -2,6 +2,7 @@
 #include "Neon/domain/mGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
+
 enum CellType : int
 {
     bounceBack = 0,
@@ -209,6 +210,8 @@ Neon::set::Container collide(Neon::domain::mGrid&                        grid,
                             for (int d = 0; d < 3; ++d) {
                                 cu += latticeVelocity3D[i][d] * vel.v[d];
                             }
+                            cu *= 3.0;
+
                             //equilibrium
                             T feq = rho * t.t[i] * (1. + cu + 0.5 * cu * cu - usqr);
 
@@ -556,7 +559,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
                  Neon::domain::mGrid::Field<T>&              vel,
                  Neon::domain::mGrid::Field<T>&              rho)
 {
-    //fpop.updateIO();
+    grid.getBackend().syncAll();
 
     for (int level = 0; level < numLevels; ++level) {
         auto container =
@@ -612,11 +615,17 @@ void postProcess(Neon::domain::mGrid&                        grid,
 
     grid.getBackend().syncAll();
 
-    //vel.updateIO();
-    //rho.updateIO();
+    if (grid.getBackend().runtime() == Neon::Runtime::stream) {
+        vel.updateIO();
+        rho.updateIO();
+    }
 
-    vel.ioToVtk("vel_" + std::to_string(iteration), "vel");
-    rho.ioToVtk("rho_" + std::to_string(iteration), "rho");
+    int                precision = 4;
+    std::ostringstream suffix;
+    suffix << std::setw(precision) << std::setfill('0') << iteration;
+
+    vel.ioToVtk("Velocity_" + suffix.str());
+    rho.ioToVtk("Density_" + suffix.str());
 }
 
 int main(int argc, char** argv)
@@ -636,20 +645,20 @@ int main(int argc, char** argv)
 
         const Neon::domain::mGridDescriptor descriptor(depth);
 
-        const Neon::index_3d grid_dim(144, 144, 144);
-        float                levelSDF[depth + 1];
-        levelSDF[0] = 0;
-        levelSDF[1] = -28.0 / 144.0;
-        levelSDF[2] = -56.0 / 144.0;
-        levelSDF[3] = -1.0;
-
-
-        //const Neon::index_3d grid_dim(24, 24, 24);
+        //const Neon::index_3d grid_dim(144, 144, 144);
         //float                levelSDF[depth + 1];
         //levelSDF[0] = 0;
-        //levelSDF[1] = -8 / 24.0;
-        //levelSDF[2] = -16 / 24.0;
+        //levelSDF[1] = -28.0 / 144.0;
+        //levelSDF[2] = -56.0 / 144.0;
         //levelSDF[3] = -1.0;
+
+
+        const Neon::index_3d grid_dim(24, 24, 24);
+        float                levelSDF[depth + 1];
+        levelSDF[0] = 0;
+        levelSDF[1] = -8 / 24.0;
+        levelSDF[2] = -16 / 24.0;
+        levelSDF[3] = -1.0;
 
 
         Neon::domain::mGrid grid(
@@ -668,14 +677,11 @@ int main(int argc, char** argv)
              }},
             Neon::domain::Stencil::s19_t(false), descriptor);
 
-        //grid.topologyToVTK("lbm.vtk", false);
-
-
         //LBM problem
         const int             max_iter = 3000;
         const T               ulb = 0.04;
-        const T               Re = 1000;
-        const T               clength = grid_dim.x;
+        const T               Re = 50;
+        const T               clength = grid_dim.x * std::pow(2, -(descriptor.getDepth() - 1));
         const T               visclb = ulb * clength / Re;
         const T               omega = 1.0 / (3. * visclb + 0.5);
         const Neon::double_3d ulid(ulb, 0., 0.);
@@ -685,8 +691,9 @@ int main(int argc, char** argv)
         auto fout = grid.newField<T>("fout", Q, 0);
         auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
-        auto vel = grid.newField<T>("vel", 3, 0);
-        auto rho = grid.newField<T>("rho", 1, 0);
+        auto vel = grid.newField<T>("vel", 3, -50);
+        auto rho = grid.newField<T>("rho", 1, -50);
+
 
         //classify voxels
         for (int l = 0; l < descriptor.getDepth(); ++l) {
@@ -725,7 +732,7 @@ int main(int argc, char** argv)
                         for (int d = 0; d < 3; ++d) {
                             ret += latticeVelocity3D[q][d] * ulid.v[d];
                         }
-                        ret *= -6. * t.t[q] * ulb;
+                        ret *= -6. * t.t[q];
                     } else {
                         ret = 0;
                     }
@@ -755,8 +762,6 @@ int main(int argc, char** argv)
         fin.updateCompute();
         fout.updateCompute();
 
-        //fin.ioToVtk("fin", "f");
-
         //skeleton
         std::vector<Neon::set::Container> containers;
         nonUniformTimestepRecursive<T, Q>(grid,
@@ -773,13 +778,11 @@ int main(int argc, char** argv)
         //execution
         for (int t = 0; t < max_iter; ++t) {
             skl.run();
-            if (t % 100 == 0) {
+            if (t % 10 == 0) {
                 postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho);
             }
         }
 
-        grid.getBackend().syncAll();
-        //fin.updateIO();
-        //fout.updateIO();
+        postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, max_iter, vel, rho);
     }
 }

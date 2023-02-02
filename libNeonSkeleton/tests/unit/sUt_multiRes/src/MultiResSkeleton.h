@@ -29,8 +29,7 @@ void MultiResSkeleton()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //grid.topologyToVTK("grid111.vtk", false);
-
+        
         auto field = grid.newField<Type>("field", 3, -1);
 
 
@@ -46,7 +45,7 @@ void MultiResSkeleton()
         if (bk.runtime() == Neon::Runtime::stream) {
             field.updateCompute();
         }
-        //field.ioToVtk("f", "f");
+        //field.ioToVtk("f");
 
         std::vector<Neon::set::Container> containers;
 

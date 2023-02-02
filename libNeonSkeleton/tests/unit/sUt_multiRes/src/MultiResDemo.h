@@ -128,9 +128,7 @@ void MultiResDemo()
     for (int i = 0; i < descriptor.getDepth(); ++i) {
         s << descriptor.getLog2RefFactor(i);
     }
-
-    grid.topologyToVTK(s.str() + ".vtk", false);
-
+        
     auto field = grid.newField<float>("myField", 1, -10000);
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
@@ -184,7 +182,7 @@ void MultiResDemo()
 
     field.updateIO();
 
-    field.ioToVtk(s.str(), "f");
+    field.ioToVtk(s.str());
 }
 
 

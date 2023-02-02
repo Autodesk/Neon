@@ -154,8 +154,7 @@ void MultiResAtomicAddParent()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //grid.topologyToVTK("grid111.vtk", false);
-
+        
         auto XField = grid.newField<Type>("XField", 1, -1);
 
 
@@ -171,7 +170,7 @@ void MultiResAtomicAddParent()
         if (bk.runtime() == Neon::Runtime::stream) {
             XField.updateCompute();
         }
-        //XField.ioToVtk("f", "f");
+        //XField.ioToVtk("f");
 
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
