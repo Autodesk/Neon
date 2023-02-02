@@ -72,14 +72,14 @@ auto bGrid::setReduceEngine(Neon::sys::patterns::Engine eng) -> void
     }
 }
 
-auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
+auto bGrid::getLaunchParameters([[maybe_unused]] Neon::DataView        dataView,
                                 [[maybe_unused]] const Neon::index_3d& blockSize,
                                 const size_t&                          sharedMem) const -> Neon::set::LaunchParameters
 {
-    if (dataView != Neon::DataView::STANDARD) {
-        NEON_WARNING("Requesting LaunchParameters on {} data view but bGrid only supports Standard data view on a single GPU",
-                     Neon::DataViewUtil::toString(dataView));
-    }
+    //if (dataView != Neon::DataView::STANDARD) {
+    //    NEON_WARNING("Requesting LaunchParameters on {} data view but bGrid only supports Standard data view on a single GPU",
+    //                 Neon::DataViewUtil::toString(dataView));
+    //}
 
     const Neon::int32_3d cuda_block(mData->blockSize,
                                     mData->blockSize,

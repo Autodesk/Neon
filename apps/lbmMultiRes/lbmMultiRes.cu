@@ -11,17 +11,6 @@ enum CellType : int
     undefined = 3,
 };
 
-/*NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity2D[9][2] = {
-    {0, 0},    //0 -> 0 || 0000 -> 0000
-    {0, -1},   //1 -> 2 || 0001 -> 0010
-    {0, 1},    //2 -> 1 || 0010 -> 0001
-    {-1, 0},   //3 -> 6 || 0100 -> 0110
-    {-1, -1},  //4 -> 8 || 0100 -> 1000
-    {-1, 1},   //5 -> 7 || 0101 -> 0111
-    {1, 0},    //6 -> 3 || 0110 -> 0011
-    {1, -1},   //7 -> 5 || 0111 -> 0101
-    {1, 1}};   //8 -> 4 || 1000 -> 0100*/
-
 /*NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity3D[27][3] = {
     {0, 0, 0},    //0  -> 0   || 00000 -> 00000
     {0, -1, 0},   //1  -> 2   || 00001 -> 00010
@@ -617,7 +606,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
 
     if (grid.getBackend().runtime() == Neon::Runtime::stream) {
         vel.updateIO();
-        rho.updateIO();
+        //rho.updateIO();
     }
 
     int                precision = 4;
@@ -625,7 +614,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
     suffix << std::setw(precision) << std::setfill('0') << iteration;
 
     vel.ioToVtk("Velocity_" + suffix.str());
-    rho.ioToVtk("Density_" + suffix.str());
+    //rho.ioToVtk("Density_" + suffix.str());
 }
 
 int main(int argc, char** argv)
@@ -636,7 +625,7 @@ int main(int argc, char** argv)
         using T = double;
 
         //Neon grid
-        auto             runtime = Neon::Runtime::openmp;
+        auto             runtime = Neon::Runtime::stream;
         std::vector<int> gpu_ids{0};
         Neon::Backend    backend(gpu_ids, runtime);
 
@@ -651,7 +640,6 @@ int main(int argc, char** argv)
         //levelSDF[1] = -28.0 / 144.0;
         //levelSDF[2] = -56.0 / 144.0;
         //levelSDF[3] = -1.0;
-
 
         const Neon::index_3d grid_dim(24, 24, 24);
         float                levelSDF[depth + 1];
@@ -678,10 +666,10 @@ int main(int argc, char** argv)
             Neon::domain::Stencil::s19_t(false), descriptor);
 
         //LBM problem
-        const int             max_iter = 3000;
-        const T               ulb = 0.04;
-        const T               Re = 50;
-        const T               clength = grid_dim.x * std::pow(2, -(descriptor.getDepth() - 1));
+        const int             max_iter = 5000;
+        const T               ulb = 0.02;
+        const T               Re = 100;
+        const T               clength = (grid_dim.x * std::pow(2, -(descriptor.getDepth() - 1)) - 1);
         const T               visclb = ulb * clength / Re;
         const T               omega = 1.0 / (3. * visclb + 0.5);
         const Neon::double_3d ulid(ulb, 0., 0.);
@@ -691,8 +679,8 @@ int main(int argc, char** argv)
         auto fout = grid.newField<T>("fout", Q, 0);
         auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
-        auto vel = grid.newField<T>("vel", 3, -50);
-        auto rho = grid.newField<T>("rho", 1, -50);
+        auto vel = grid.newField<T>("vel", 3, 0);
+        auto rho = grid.newField<T>("rho", 1, 0);
 
 
         //classify voxels
@@ -778,7 +766,7 @@ int main(int argc, char** argv)
         //execution
         for (int t = 0; t < max_iter; ++t) {
             skl.run();
-            if (t % 10 == 0) {
+            if (t % 100 == 0) {
                 postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho);
             }
         }
