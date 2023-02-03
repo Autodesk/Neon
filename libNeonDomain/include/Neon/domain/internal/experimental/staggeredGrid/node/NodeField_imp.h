@@ -94,7 +94,7 @@ auto NodeField<BuildingBlockGridT, T, C>::
                  const SetIdx&     idx,
                  const DataView&   dataView) const -> const NodeField::Partition&
 {
-    const Neon::Execution execution = DeviceTypeUtil::getExecution(devType);
+    const Neon::Place execution = DeviceTypeUtil::getExecution(devType);
     const auto&           partition = getPartition(execution, idx, dataView);
     return partition;
 }
@@ -106,14 +106,14 @@ auto NodeField<BuildingBlockGridT, T, C>::
                  const DataView&   dataView)
         -> NodeField::Partition&
 {
-    const Neon::Execution execution = DeviceTypeUtil::getExecution(devType);
+    const Neon::Place execution = DeviceTypeUtil::getExecution(devType);
     auto&                 partition = getPartition(execution, idx, dataView);
     return partition;
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
 auto NodeField<BuildingBlockGridT, T, C>::
-    getPartition(Neon::Execution execution,
+    getPartition(Neon::Place execution,
                  Neon::SetIdx    setIdx,
                  const DataView& dataView)
         const -> const NodeField::Partition&
@@ -132,7 +132,7 @@ auto NodeField<BuildingBlockGridT, T, C>::
 
 template <typename BuildingBlockGridT, typename T, int C>
 auto NodeField<BuildingBlockGridT, T, C>::
-    getPartition(Neon::Execution execution,
+    getPartition(Neon::Place execution,
                  Neon::SetIdx    setIdx,
                  const DataView& dataView) -> NodeField::Partition&
 {

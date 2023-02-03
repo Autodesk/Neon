@@ -9,10 +9,12 @@
 
 #include "Neon/Report.h"
 #include "Neon/core/core.h"
+#include "Neon/set/Execution.h"
 #include "Neon/set/MemoryOptions.h"
 #include "Neon/set/Runtime.h"
-//#include "Neon/core/types/mode.h"
-//#include "Neon/core/types/devType.h"
+
+// #include "Neon/core/types/mode.h"
+// #include "Neon/core/types/devType.h"
 
 namespace Neon {
 using StreamIdx = int;
@@ -22,32 +24,12 @@ class DevSet;
 class StreamSet;
 class GpuEventSet;
 }  // namespace set
+
+
 class Backend
 {
    public:
     static constexpr int mainStreamIdx{0};
-
-   private:
-    struct Data_t
-    {
-        Neon::Runtime    runtime{Neon::Runtime::none};
-        Neon::run_et::et runMode{Neon::run_et::async};
-
-        std::vector<Neon::set::StreamSet>   streamSetVec;
-        std::vector<Neon::set::GpuEventSet> eventSetVec;
-        std::vector<Neon::set::GpuEventSet> userEventSetVec;
-
-        std::shared_ptr<Neon::set::DevSet> devSet;
-    };
-    auto selfData() -> Data_t&;
-    auto selfData() const -> const Data_t&;
-
-    std::shared_ptr<Data_t> m_data;
-
-   public:
-    //--------------------------------------------------------------------------
-    // INITIALIZATION
-    //--------------------------------------------------------------------------
 
     /**
      * Empty constructor
@@ -57,7 +39,7 @@ class Backend
     /**
      * Creating a Backend object with the first nGpus devices.
      */
-    Backend(int                    nGpus /*!   Number of devices. The devices are selected in the order specifies by CUDA */,
+    Backend(int           nGpus /*!   Number of devices. The devices are selected in the order specifies by CUDA */,
             Neon::Runtime runtime /*! Type of runtime to use */);
 
     /**
@@ -87,6 +69,10 @@ class Backend
 
     auto clone(Neon::Runtime runtime = Neon::Runtime::system) -> Backend;
 
+    auto getXpuCount()
+        const
+        -> int;
+
     auto h_initFirstEvent() -> void;
     /**
      * Returns target device for computation
@@ -99,6 +85,7 @@ class Backend
     auto devSet()
         const
         -> const Neon::set::DevSet&;
+
     /**
      * Returns the mode for the kernel lauch
      * @return
@@ -122,8 +109,6 @@ class Backend
 
     /**
      *
-     * @param streamIdx
-     * @return
      */
     auto streamSet(int streamIdx)
         const
@@ -139,34 +124,6 @@ class Backend
 
     auto eventSet(Neon::EventIdx eventdx)
         -> Neon::set::GpuEventSet&;
-//    /**
-//     * Extract a stream base in the provided streamIds.
-//     * The method uses a circular policy to select the stream.
-//     * The parameter rotateIdx is the index used to store the
-//     * state of the circular polity in between calls.
-//     *
-//     * @param rotateIdx
-//     * @param streamIdxVec
-//     * @return
-//     */
-//    auto streamSetRotate(int&                    rotateIdx,
-//                         const std::vector<int>& streamIdxVec)
-//        const
-//        -> const Neon::set::StreamSet&;
-//
-//    /**
-//     * Extract a stream base in the provided streamIds.
-//     * The method uses a circular policy to select the stream.
-//     * The parameter rotateIdx is the index used to store the
-//     * state of the circular polity in between calls.
-//     *
-//     * @param rotateIdx
-//     * @param streamIdxVec
-//     * @return
-//     */
-//    static auto streamSetIdxRotate(int&                    rotateIdx,
-//                                   const std::vector<int>& streamIdxVec)
-//        -> int;
 
     /**
      *
@@ -194,40 +151,48 @@ class Backend
 
     /**
      *
-     * @param idx
      */
-    auto sync(int idx) const
+    auto sync(int idx)
+        const
         -> void;
 
-    auto sync(Neon::SetIdx setIdx, int idx) const
+    auto sync(Neon::SetIdx setIdx,
+              int          idx)
+        const
         -> void;
 
-    auto pushEventOnStream(int eventId, int streamId)
+    auto pushEventOnStream(int eventId,
+                           int streamId)
         -> void;
 
-    auto waitEventOnStream(int eventId, int streamId)
+    auto waitEventOnStream(int eventId,
+                           int streamId)
         -> void;
 
-    auto pushEventOnStream(Neon::SetIdx setIdx, int eventId, int streamId)
+    auto pushEventOnStream(Neon::SetIdx setIdx,
+                           int          eventId,
+                           int          streamId)
         -> void;
 
     auto waitEventOnStream(Neon::SetIdx setIdx, int eventId, int streamId)
         -> void;
-//    /**
-//     * Create a set of cuda events to create an exit barrier.
-//     * I.e. one streams sync with all the others
-//     * The stream holding the barrier is the first in the streamIdxVec vector.
-//     *
-//     * @param streamIdxVec
-//     */
-//    auto streamEventBarrier(const std::vector<int>& streamIdxVec) -> void;
+    //    /**
+    //     * Create a set of cuda events to create an exit barrier.
+    //     * I.e. one streams sync with all the others
+    //     * The stream holding the barrier is the first in the streamIdxVec vector.
+    //     *
+    //     * @param streamIdxVec
+    //     */
+    //    auto streamEventBarrier(const std::vector<int>& streamIdxVec) -> void;
 
-    auto getMemoryOptions(Neon::MemoryLayout order) const
+    auto getMemoryOptions(Neon::MemoryLayout order)
+        const
         -> Neon::MemoryOptions;
 
     auto getMemoryOptions(Neon::Allocator    ioAllocator,
                           Neon::Allocator    computeAllocators[Neon::DeviceTypeUtil::nConfig],
-                          Neon::MemoryLayout order) const
+                          Neon::MemoryLayout order)
+        const
         -> Neon::MemoryOptions;
 
     auto getMemoryOptions() const
@@ -236,13 +201,51 @@ class Backend
     static std::string toString(Neon::Runtime e);
 
     /**
-     *
-     * @return
+     * Log the information of this backend object to a string
      */
-    std::string toString() const;
+    auto toString()
+        const
+        -> std::string;
 
-    auto toReport(Neon::Report& report, Report::SubBlock* subdocAPI = nullptr) const -> void;
-    void syncEvent(SetIdx setIdx, int eventIdx) const;
+    /**
+     *
+     */
+    auto toReport(Neon::Report&     report,
+                  Report::SubBlock* subdocAPI = nullptr)
+        const
+        -> void;
+
+    void syncEvent(SetIdx setIdx, int eventIdx)
+        const;
+
+    template <Neon::Execution, typename UserFunction>
+    auto forEachXpu(UserFunction function)
+        const
+        -> void;
+
+   private:
+    struct Data
+    {
+        int              nXpu{0};
+        Neon::Runtime    runtime{Neon::Runtime::none};
+        Neon::run_et::et runMode{Neon::run_et::async};
+
+        std::vector<Neon::set::StreamSet>   streamSetVec;
+        std::vector<Neon::set::GpuEventSet> eventSetVec;
+        std::vector<Neon::set::GpuEventSet> userEventSetVec;
+
+        std::shared_ptr<Neon::set::DevSet> devSet;
+    };
+
+    auto getData() -> Data&;
+
+    auto getData()
+        const
+        -> const Data&;
+
+    std::shared_ptr<Data> m_data;
 };
 
 }  // namespace Neon
+
+#include "Neon/set/Backend_imp.h"

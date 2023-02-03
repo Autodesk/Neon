@@ -330,7 +330,7 @@ auto eField<T, C>::getPartition(const Neon::DeviceType& devType,
 }
 
 template <typename T, int C>
-auto eField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
+auto eField<T, C>::getPartition([[maybe_unused]] Neon::Place,
                                 [[maybe_unused]] Neon::SetIdx,
                                 [[maybe_unused]] const Neon::DataView& dataView)
     const
@@ -340,7 +340,7 @@ auto eField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
 }
 
 template <typename T, int C>
-auto eField<T, C>::getPartition([[maybe_unused]] Neon::Execution,
+auto eField<T, C>::getPartition([[maybe_unused]] Neon::Place,
                                 [[maybe_unused]] Neon::SetIdx          idx,
                                 [[maybe_unused]] const Neon::DataView& dataView)
     -> Partition&

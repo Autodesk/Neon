@@ -29,20 +29,20 @@ class sFieldStorage
 
     Neon::set::MemSet_t<T> rawMem;
 
-    auto getPartition(Neon::Execution, Neon::DataView, Neon::SetIdx) -> Partition&;
+    auto getPartition(Neon::Place, Neon::DataView, Neon::SetIdx) -> Partition&;
 
-    auto getPartition(Neon::Execution, Neon::DataView, Neon::SetIdx) const-> const Partition&;
+    auto getPartition(Neon::Place, Neon::DataView, Neon::SetIdx) const-> const Partition&;
 
-    auto getPartitionSet(Neon::Execution, Neon::DataView) -> Neon::set::DataSet<Partition>&;
+    auto getPartitionSet(Neon::Place, Neon::DataView) -> Neon::set::DataSet<Partition>&;
 
    private:
     /**
      * This multi-level array returns a DataSet of Partition
-     * given a DataView and an Execution types
+     * given a DataView and an ExecutionPlace types
      */
     std::array<std::array<Neon::set::DataSet<Partition>,
                           Neon::DataViewUtil::nConfig>,
-               Neon::ExecutionUtils::numConfigurations>
+               Neon::PlaceUtils::numConfigurations>
         partitions;
 };
 }  // namespace Neon::domain::array

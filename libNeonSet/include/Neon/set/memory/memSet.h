@@ -207,7 +207,7 @@ class MemSet_t
         return entryRef(id).rawMem(devEt);
     }
 
-    auto rawMem(Neon::Execution execution, SetIdx id) -> T_ta*
+    auto rawMem(Neon::Place execution, SetIdx id) -> T_ta*
     {
         return entryRef(id).rawMem(execution);
     }

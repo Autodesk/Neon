@@ -49,12 +49,12 @@ class PatternScalar
                       const Neon::DataView&   dataView = Neon::DataView::STANDARD)
         -> Partition&;
 
-    auto getPartition(Neon::Execution       execution,
+    auto getPartition(Neon::Place  execution,
                       Neon::SetIdx          setIdx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD) const
         -> const Partition& final;
 
-    auto getPartition(Neon::Execution       execution,
+    auto getPartition(Neon::Place  execution,
                       Neon::SetIdx          setIdx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Partition& final;

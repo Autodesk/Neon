@@ -228,15 +228,15 @@ auto bField<T, C>::updateCompute(int streamId) -> void
 
 
 template <typename T, int C>
-auto bField<T, C>::getPartition(Neon::Execution       exec,
+auto bField<T, C>::getPartition(Neon::Place  exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) const -> const Partition&
 {
 
-    if (exec == Neon::Execution::device) {
+    if (exec == Neon::Place::device) {
         return getPartition(Neon::DeviceType::CUDA, idx, dataView);
     }
-    if (exec == Neon::Execution::host) {
+    if (exec == Neon::Place::host) {
         return getPartition(Neon::DeviceType::CPU, idx, dataView);
     }
 
@@ -244,14 +244,14 @@ auto bField<T, C>::getPartition(Neon::Execution       exec,
 }
 
 template <typename T, int C>
-auto bField<T, C>::getPartition(Neon::Execution       exec,
+auto bField<T, C>::getPartition(Neon::Place  exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) -> Partition&
 {
-    if (exec == Neon::Execution::device) {
+    if (exec == Neon::Place::device) {
         return getPartition(Neon::DeviceType::CUDA, idx, dataView);
     }
-    if (exec == Neon::Execution::host) {
+    if (exec == Neon::Place::host) {
         return getPartition(Neon::DeviceType::CPU, idx, dataView);
     }
 

@@ -60,13 +60,13 @@ auto aField<T, C>::iniMemory() -> void
 template <typename T, int C>
 auto aField<T, C>::initPartitions() -> void
 {
-    auto initPartitionSet = [&](Neon::Execution execution) {
+    auto initPartitionSet = [&](Neon::Place execution) {
         auto& partitionSet = self().getStorage().getPartitionSet(execution, Neon::DataView::STANDARD);
         partitionSet = self().getDevSet().template newDataSet<Partition>();
     };
 
-    initPartitionSet(Neon::Execution::device);
-    initPartitionSet(Neon::Execution::host);
+    initPartitionSet(Neon::Place::device);
+    initPartitionSet(Neon::Place::host);
 
     auto computePitch = [&](int setIdx) {
         int nelements = int(this->getGrid().getNumActiveCellsPerPartition()[setIdx]);
@@ -83,7 +83,7 @@ auto aField<T, C>::initPartitions() -> void
     };
 
     for (int i = 0; i < self().getDevSet().setCardinality(); ++i) {
-        for (auto execution : {Neon::Execution::device, Neon::Execution::host}) {
+        for (auto execution : {Neon::Place::device, Neon::Place::host}) {
             auto& partition = self().getStorage().getPartition(execution, Neon::DataView::STANDARD, i);
             /**
              * This is how it should be after the refactoring of devSet and Mem_t
@@ -97,7 +97,7 @@ auto aField<T, C>::initPartitions() -> void
             // TODO The following implementation will be changed once
             // the refactoring on the deFvSet is completed.
             T* mem = nullptr;
-            if (execution == Neon::Execution::host) {
+            if (execution == Neon::Place::host) {
                 mem = self().getStorage().rawMem.rawMem(i, Neon::DeviceType::CPU);
             } else {
                 if (self().getDevSet().type() == Neon::DeviceType::CPU) {
@@ -200,10 +200,10 @@ auto aField<T, C>::getPartition(Neon::DeviceType      devEt,
 {
     switch (devEt) {
         case Neon::DeviceType::CPU: {
-            return self().getStorage().getPartition(Neon::Execution::host, dataView, setIdx);
+            return self().getStorage().getPartition(Neon::Place::host, dataView, setIdx);
         }
         case Neon::DeviceType::CUDA: {
-            return self().getStorage().getPartition(Neon::Execution::device, dataView, setIdx);
+            return self().getStorage().getPartition(Neon::Place::device, dataView, setIdx);
         }
         default: {
             NEON_THROW_UNSUPPORTED_OPTION();
@@ -219,10 +219,10 @@ auto aField<T, C>::getPartition(Neon::DeviceType      devEt,
 {
     switch (devEt) {
         case Neon::DeviceType::CPU: {
-            return self().getStorage().getPartition(Neon::Execution::host, dataView, setIdx);
+            return self().getStorage().getPartition(Neon::Place::host, dataView, setIdx);
         }
         case Neon::DeviceType::CUDA: {
-            return self().getStorage().getPartition(Neon::Execution::device, dataView, setIdx);
+            return self().getStorage().getPartition(Neon::Place::device, dataView, setIdx);
         }
         default: {
             NEON_THROW_UNSUPPORTED_OPTION();
@@ -232,7 +232,7 @@ auto aField<T, C>::getPartition(Neon::DeviceType      devEt,
 
 
 template <typename T, int C>
-auto aField<T, C>::getPartition(Neon::Execution       execution,
+auto aField<T, C>::getPartition(Neon::Place  execution,
                                 Neon::SetIdx          setIdx,
                                 const Neon::DataView& dataView) const -> const Partition&
 {
@@ -243,7 +243,7 @@ auto aField<T, C>::getPartition(Neon::Execution       execution,
 }
 
 template <typename T, int C>
-auto aField<T, C>::getPartition(Neon::Execution       execution,
+auto aField<T, C>::getPartition(Neon::Place  execution,
                                 Neon::SetIdx          setIdx,
                                 const Neon::DataView& dataView) -> Partition&
 {

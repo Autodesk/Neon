@@ -55,12 +55,12 @@ class xField : public Neon::domain::interface::FieldBaseTemplate<T,
                       const Neon::SetIdx&     idx,
                       const Neon::DataView&   dataView) -> Partition&;
 
-    auto getPartition(Neon::Execution       exec,
+    auto getPartition(Neon::Place  exec,
                       Neon::SetIdx          idx,
                       const Neon::DataView& dataView) const -> const Partition& final;
 
 
-    auto getPartition(Neon::Execution       exec,
+    auto getPartition(Neon::Place  exec,
                       Neon::SetIdx          idx,
                       const Neon::DataView& dataView) -> Partition& final;
 

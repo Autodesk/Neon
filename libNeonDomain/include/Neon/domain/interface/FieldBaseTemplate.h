@@ -49,12 +49,12 @@ class FieldBaseTemplate : public FieldBase<T, C>,
     /**
      * Return a partition based on a set of parameters: execution type, target device, dataView
      */
-    virtual auto getPartition(Neon::Execution       execution,
+    virtual auto getPartition(Neon::Place  execution,
                               Neon::SetIdx          setIdx,
                               const Neon::DataView& dataView = Neon::DataView::STANDARD) const
         -> const Partition& = 0;
 
-    virtual auto getPartition(Neon::Execution       execution,
+    virtual auto getPartition(Neon::Place  execution,
                               Neon::SetIdx          setIdx,
                               const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Partition& = 0;

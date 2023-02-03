@@ -96,7 +96,7 @@ auto FieldBaseTemplate<T, C, G, P, S>::toString() const
                     Neon::DataView::INTERNAL,
                     Neon::DataView::BOUNDARY}) {
         try {
-            [[maybe_unused]] const auto& tmp = this->getPartition(Neon::Execution::device, 0, dw);
+            [[maybe_unused]] const auto& tmp = this->getPartition(Neon::Place::device, 0, dw);
 
             const auto& launchParameters = this->getBaseGridTool().getDefaultLaunchParameters(dw);
             s << "| DW::" << Neon::DataViewUtil::toString(dw);
@@ -119,12 +119,12 @@ auto FieldBaseTemplate<T, C, G, P, S>::toString() const
             }
             s << "\n|   Accelerator first pointers";
             for (int i = 0; i < launchParameters.cardinality(); i++) {
-                const auto& partitionCompute = this->getPartition(Neon::Execution::device, i, dw);
+                const auto& partitionCompute = this->getPartition(Neon::Place::device, i, dw);
                 s << " " << partitionCompute.mem() << " ";
             }
             s << "\n|   Host first pointers       ";
             for (int i = 0; i < launchParameters.cardinality(); i++) {
-                const auto& partitionCompute = this->getPartition(Neon::Execution::host, i, dw);
+                const auto& partitionCompute = this->getPartition(Neon::Place::host, i, dw);
                 s << " " << partitionCompute.mem() << " ";
             }
             s << "\n";

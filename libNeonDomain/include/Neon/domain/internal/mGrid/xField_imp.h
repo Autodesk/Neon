@@ -89,15 +89,15 @@ auto xField<T, C>::getPartition(const Neon::DeviceType& devType,
 }
 
 template <typename T, int C>
-auto xField<T, C>::getPartition(Neon::Execution       exec,
+auto xField<T, C>::getPartition(Neon::Place  exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) const -> const Partition&
 {
 
-    if (exec == Neon::Execution::device) {
+    if (exec == Neon::Place::device) {
         return getPartition(Neon::DeviceType::CUDA, idx, dataView);
     }
-    if (exec == Neon::Execution::host) {
+    if (exec == Neon::Place::host) {
         return getPartition(Neon::DeviceType::CPU, idx, dataView);
     }
 
@@ -106,14 +106,14 @@ auto xField<T, C>::getPartition(Neon::Execution       exec,
 
 
 template <typename T, int C>
-auto xField<T, C>::getPartition(Neon::Execution       exec,
+auto xField<T, C>::getPartition(Neon::Place  exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) -> Partition&
 {
-    if (exec == Neon::Execution::device) {
+    if (exec == Neon::Place::device) {
         return getPartition(Neon::DeviceType::CUDA, idx, dataView);
     }
-    if (exec == Neon::Execution::host) {
+    if (exec == Neon::Place::host) {
         return getPartition(Neon::DeviceType::CPU, idx, dataView);
     }
 

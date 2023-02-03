@@ -76,11 +76,11 @@ auto sField<OuterGridT, T, C>::initPartitions(Neon::set::MemSet_t<typename Outer
     };
 
     for (int setIdx = 0; setIdx < self().getDevSet().setCardinality(); ++setIdx) {
-        for (auto execution : {Neon::Execution::device, Neon::Execution::host}) {
+        for (auto execution : {Neon::Place::device, Neon::Place::host}) {
             for (auto& dw : DataViewUtil::validOptions()) {
 
                 T* mem = nullptr;
-                if (execution == Neon::Execution::host) {
+                if (execution == Neon::Place::host) {
                     mem = self().getStorage().rawMem.rawMem(setIdx, Neon::DeviceType::CPU);
                 } else {
                     if (self().getDevSet().type() == Neon::DeviceType::CPU) {
@@ -176,10 +176,10 @@ auto sField<OuterGridT, T, C>::getPartition(Neon::DeviceType      devEt,
 {
     switch (devEt) {
         case Neon::DeviceType::CPU: {
-            return self().getStorage().getPartition(Neon::Execution::host, dataView, setIdx);
+            return self().getStorage().getPartition(Neon::Place::host, dataView, setIdx);
         }
         case Neon::DeviceType::CUDA: {
-            return self().getStorage().getPartition(Neon::Execution::device, dataView, setIdx);
+            return self().getStorage().getPartition(Neon::Place::device, dataView, setIdx);
         }
         default: {
             NEON_THROW_UNSUPPORTED_OPTION();
@@ -196,10 +196,10 @@ auto sField<OuterGridT, T, C>::getPartition(Neon::DeviceType      devEt,
 {
     switch (devEt) {
         case Neon::DeviceType::CPU: {
-            return self().getStorage().getPartition(Neon::Execution::host, dataView, setIdx);
+            return self().getStorage().getPartition(Neon::Place::host, dataView, setIdx);
         }
         case Neon::DeviceType::CUDA: {
-            return self().getStorage().getPartition(Neon::Execution::device, dataView, setIdx);
+            return self().getStorage().getPartition(Neon::Place::device, dataView, setIdx);
         }
         default: {
             NEON_THROW_UNSUPPORTED_OPTION();
@@ -210,7 +210,7 @@ auto sField<OuterGridT, T, C>::getPartition(Neon::DeviceType      devEt,
 
 template <typename OuterGridT, typename T, int C>
 
-auto sField<OuterGridT, T, C>::getPartition(Neon::Execution       execution,
+auto sField<OuterGridT, T, C>::getPartition(Neon::Place  execution,
                                             Neon::SetIdx          setIdx,
                                             const Neon::DataView& dataView) const -> const Partition&
 {
@@ -221,7 +221,7 @@ auto sField<OuterGridT, T, C>::getPartition(Neon::Execution       execution,
 }
 
 template <typename OuterGridT, typename T, int C>
-auto sField<OuterGridT, T, C>::getPartition(Neon::Execution       execution,
+auto sField<OuterGridT, T, C>::getPartition(Neon::Place  execution,
                                             Neon::SetIdx          setIdx,
                                             const Neon::DataView& dataView) -> Partition&
 {

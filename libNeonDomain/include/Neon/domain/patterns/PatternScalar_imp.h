@@ -70,7 +70,7 @@ auto PatternScalar<T>::getPartition([[maybe_unused]] const DeviceType& devType,
 }
 
 template <typename T>
-auto PatternScalar<T>::getPartition([[maybe_unused]] Neon::Execution execution,
+auto PatternScalar<T>::getPartition([[maybe_unused]] Neon::Place execution,
                                     [[maybe_unused]] Neon::SetIdx    setIdx,
                                     [[maybe_unused]] const DataView& dataView) const -> const PatternScalar::Partition&
 {
@@ -89,7 +89,7 @@ auto PatternScalar<T>::updateCompute([[maybe_unused]] int streamId) -> void
 }
 
 template <typename T>
-auto PatternScalar<T>::getPartition([[maybe_unused]] Neon::Execution execution,
+auto PatternScalar<T>::getPartition([[maybe_unused]] Neon::Place execution,
                                     [[maybe_unused]] Neon::SetIdx    setIdx,
                                     [[maybe_unused]] const DataView& dataView)
     -> PatternScalar::Partition&

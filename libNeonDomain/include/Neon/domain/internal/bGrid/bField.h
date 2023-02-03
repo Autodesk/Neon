@@ -44,11 +44,11 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                       const Neon::SetIdx&     idx,
                       const Neon::DataView&   dataView) -> Partition&;
 
-    auto getPartition(Neon::Execution,
+    auto getPartition(Neon::Place,
                       Neon::SetIdx,
                       const Neon::DataView& dataView) const -> const Partition& final;
 
-    auto getPartition(Neon::Execution,
+    auto getPartition(Neon::Place,
                       Neon::SetIdx,
                       const Neon::DataView& dataView) -> Partition& final;
 

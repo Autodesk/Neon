@@ -49,14 +49,14 @@ auto DeviceTypeUtil::getDevType(int devTypeidx) -> DeviceType
     NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
-auto DeviceTypeUtil::getExecution(Neon::DeviceType devType) -> Neon::Execution
+auto DeviceTypeUtil::getExecution(Neon::DeviceType devType) -> Neon::Place
 {
     if (DeviceType::CPU == devType)
-        return Execution::host;
+        return Neon::Place::host;
     if (DeviceType::OMP == devType)
-        return Execution::host;
+        return Neon::Place::host;
     if (DeviceType::CUDA == devType)
-        return Execution::device;
+        return Neon::Place::device;
     NEON_THROW_UNSUPPORTED_OPERATION("");}
 
 

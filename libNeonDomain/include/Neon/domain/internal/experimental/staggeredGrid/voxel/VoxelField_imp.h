@@ -101,7 +101,7 @@ auto VoxelField<BuildingBlockGridT, T, C>::
                  const DataView&   dataView)
         const -> const VoxelField::Partition&
 {
-    const Neon::Execution execution = DeviceTypeUtil::getExecution(devType);
+    const Neon::Place execution = DeviceTypeUtil::getExecution(devType);
     const auto&           partition = getPartition(execution, idx, dataView);
     return partition;
 }
@@ -113,14 +113,14 @@ auto VoxelField<BuildingBlockGridT, T, C>::
                  const DataView&   dataView)
         -> VoxelField::Partition&
 {
-    const Neon::Execution execution = DeviceTypeUtil::getExecution(devType);
+    const Neon::Place execution = DeviceTypeUtil::getExecution(devType);
     auto&                 partition = getPartition(execution, idx, dataView);
     return partition;
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
 auto VoxelField<BuildingBlockGridT, T, C>::
-    getPartition(Neon::Execution execution,
+    getPartition(Neon::Place execution,
                  Neon::SetIdx    setIdx,
                  const DataView& dataView)
         const -> const VoxelField::Partition&
@@ -139,7 +139,7 @@ auto VoxelField<BuildingBlockGridT, T, C>::
 
 template <typename BuildingBlockGridT, typename T, int C>
 auto VoxelField<BuildingBlockGridT, T, C>::
-    getPartition(Neon::Execution execution,
+    getPartition(Neon::Place execution,
                  Neon::SetIdx    setIdx,
                  const DataView& dataView)
         -> VoxelField::Partition&

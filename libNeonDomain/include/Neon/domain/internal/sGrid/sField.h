@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Neon/core/core.h"
-#include "Neon/core/types/Execution.h"
 #include "Neon/core/types/Macros.h"
+#include "Neon/core/types/Place.h"
 
 #include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
@@ -100,14 +100,14 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
      * Return a constant reference to a specific partition based on a set of parameters:
      * execution type, target device, dataView
      */
-    auto getPartition(Neon::Execution       execution,
+    auto getPartition(Neon::Place  execution,
                       Neon::SetIdx          setIdx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD) const -> const Partition&;
     /**
      * Return a reference to a specific partition based on a set of parameters:
      * execution type, target device, dataView
      */
-    auto getPartition(Neon::Execution       execution,
+    auto getPartition(Neon::Place  execution,
                       Neon::SetIdx          setIdx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD) -> Partition&;
 

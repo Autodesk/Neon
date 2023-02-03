@@ -3,7 +3,7 @@
 #include <memory>
 
 #include "Neon/core/core.h"
-#include "Neon/core/types/Execution.h"
+#include "Neon/core/types/Place.h"
 #include "Neon/set/MultiXpuDataUid.h"
 
 namespace Neon::set::interface {
@@ -30,12 +30,12 @@ class MultiXpuDataInterface
     /**
      * Return a partition based on a set of parameters: execution type, target device, dataView
      */
-    virtual auto getPartition(Neon::Execution       execution,
+    virtual auto getPartition(Neon::Place  execution,
                               Neon::SetIdx          setIdx,
                               const Neon::DataView& dataView = Neon::DataView::STANDARD) const
         -> const Self::Partition& = 0;
 
-    virtual auto getPartition(Neon::Execution       execution,
+    virtual auto getPartition(Neon::Place  execution,
                               Neon::SetIdx          setIdx,
                               const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Self::Partition& = 0;

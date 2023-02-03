@@ -344,19 +344,19 @@ auto dField<T, C>::getPartition(const Neon::DeviceType& devType,
 }
 
 template <typename T, int C>
-auto dField<T, C>::getPartition(Neon::Execution       execution,
+auto dField<T, C>::getPartition(Neon::Place  execution,
                                 Neon::SetIdx          setIdx,
                                 const Neon::DataView& dataView)
     const
     -> const Partition&
 {
     const Neon::DataUse dataUse = this->getDataUse();
-    bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
+    bool                isOk = Neon::PlaceUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        if (execution == Neon::Execution::device) {
+        if (execution == Neon::Place::device) {
             return m_gpu.getPartition(Neon::DeviceType::CUDA, setIdx, dataView);
         }
-        if (execution == Neon::Execution::host) {
+        if (execution == Neon::Place::host) {
             return m_cpu.getPartition(Neon::DeviceType::OMP, setIdx, dataView);
         }
     }
@@ -366,18 +366,18 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
 }
 
 template <typename T, int C>
-auto dField<T, C>::getPartition(Neon::Execution       execution,
+auto dField<T, C>::getPartition(Neon::Place  execution,
                                 Neon::SetIdx          setIdx,
                                 const Neon::DataView& dataView)
     -> Partition&
 {
     const auto dataUse = this->getDataUse();
-    bool       isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
+    bool       isOk = Neon::PlaceUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        if (execution == Neon::Execution::device) {
+        if (execution == Neon::Place::device) {
             return m_gpu.getPartition(Neon::DeviceType::CUDA, setIdx, dataView);
         }
-        if (execution == Neon::Execution::host) {
+        if (execution == Neon::Place::host) {
             return m_cpu.getPartition(Neon::DeviceType::OMP, setIdx, dataView);
         }
     }

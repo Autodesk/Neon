@@ -40,16 +40,16 @@ struct VoxelStorage
     {
         auto& bk = buildingBlocksField.getGrid().getBackend();
         {  // Setting up the mask for supported executions (i.e host and device | host only | device only)
-            for (Neon::Execution execution : Neon::ExecutionUtils::getAllOptions()) {
-                mSupportedExecutions[ExecutionUtils::toInt(execution)] = false;
+            for (Neon::Place execution : Neon::PlaceUtils::getAllOptions()) {
+                mSupportedExecutions[PlaceUtils::toInt(execution)] = false;
             }
-            for (Neon::Execution execution : Neon::ExecutionUtils::getCompatibleOptions(dataUse)) {
-                mSupportedExecutions[ExecutionUtils::toInt(execution)] = true;
+            for (Neon::Place execution : Neon::PlaceUtils::getCompatibleOptions(dataUse)) {
+                mSupportedExecutions[PlaceUtils::toInt(execution)] = true;
             }
         }
 
         {  // Setting up the mask for supported executions (i.e host and device | host only | device only)
-            for (Neon::Execution execution : Neon::ExecutionUtils::getCompatibleOptions(dataUse)) {
+            for (Neon::Place execution : Neon::PlaceUtils::getCompatibleOptions(dataUse)) {
                 for (auto dw : Neon::DataViewUtil::validOptions()) {
                     getPartitionDataSet(execution, dw) = bk.devSet().template newDataSet<VoxelPartition<BuildingBlockGridT, T, C>>();
                     for (Neon::SetIdx setIdx : bk.devSet().getRange()) {
@@ -66,30 +66,30 @@ struct VoxelStorage
         }
     }
 
-    auto getPartition(Neon::Execution execution, Neon::DataView dw, Neon::SetIdx setIdx)
+    auto getPartition(Neon::Place execution, Neon::DataView dw, Neon::SetIdx setIdx)
         -> VoxelPartition<BuildingBlockGridT, T, C>&
     {
         int   dwInt = Neon::DataViewUtil::toInt(dw);
-        int   executionInt = Neon::ExecutionUtils::toInt(execution);
+        int   executionInt = Neon::PlaceUtils::toInt(execution);
         auto& output = mPartitionsByExecutionViewAndDevIdx[executionInt][dwInt][setIdx.idx()];
         return output;
     }
 
-    auto getPartition(Neon::Execution execution,
+    auto getPartition(Neon::Place execution,
                       Neon::DataView  dw,
                       Neon::SetIdx    setIdx)
         const -> const VoxelPartition<BuildingBlockGridT, T, C>&
     {
         int         dwInt = Neon::DataViewUtil::toInt(dw);
-        int         executionInt = Neon::ExecutionUtils::toInt(execution);
+        int         executionInt = Neon::PlaceUtils::toInt(execution);
         const auto& output = mPartitionsByExecutionViewAndDevIdx[executionInt][dwInt][setIdx.idx()];
         return output;
     }
 
-    auto isSupported(Neon::Execution ex)
+    auto isSupported(Neon::Place ex)
         const -> bool
     {
-        int  exInt = Neon::ExecutionUtils::toInt(ex);
+        int  exInt = Neon::PlaceUtils::toInt(ex);
         bool output = mSupportedExecutions[exInt];
         return output;
     }
@@ -112,23 +112,23 @@ struct VoxelStorage
     }
 
    private:
-    auto getPartitionDataSet(Neon::Execution execution, Neon::DataView dw)
+    auto getPartitionDataSet(Neon::Place execution, Neon::DataView dw)
         -> Neon::set::DataSet<VoxelPartition<BuildingBlockGridT, T, C>>&
     {
 
         int dwInt = Neon::DataViewUtil::toInt(dw);
-        int executionInt = Neon::ExecutionUtils::toInt(execution);
+        int executionInt = Neon::PlaceUtils::toInt(execution);
         return mPartitionsByExecutionViewAndDevIdx[executionInt][dwInt];
     }
 
     typename BuildingBlocks::Field                            mBuildingBlockField;
     typename BuildingBlocks::FieldNodeToVoxelMask             mNodeToVoxelMaskField;
-    std::array<bool, Neon::ExecutionUtils::numConfigurations> mSupportedExecutions;
+    std::array<bool, Neon::PlaceUtils::numConfigurations> mSupportedExecutions;
     Neon::DataUse                                             mDataUse;
 
     std::array<std::array<Neon::set::DataSet<VoxelPartition<BuildingBlockGridT, T, C>>,
                           Neon::DataViewUtil::nConfig>,
-               Neon::ExecutionUtils::numConfigurations>
+               Neon::PlaceUtils::numConfigurations>
         mPartitionsByExecutionViewAndDevIdx;
 };
 
@@ -226,7 +226,7 @@ class VoxelField : public Neon::domain::interface::FieldBaseTemplate<T,
      * Return a constant reference to a specific partition based on a set of parameters:
      * execution type, target device, dataView
      */
-    auto getPartition(Neon::Execution       execution,
+    auto getPartition(Neon::Place  execution,
                       Neon::SetIdx          setIdx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD) const
         -> const Partition& final;
@@ -234,7 +234,7 @@ class VoxelField : public Neon::domain::interface::FieldBaseTemplate<T,
      * Return a reference to a specific partition based on a set of parameters:
      * execution type, target device, dataView
      */
-    auto getPartition(Neon::Execution       execution,
+    auto getPartition(Neon::Place  execution,
                       Neon::SetIdx          setIdx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Partition& final;

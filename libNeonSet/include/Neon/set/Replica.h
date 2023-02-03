@@ -52,7 +52,7 @@ struct Storage
 {
     PartitionIndexSpace<Obj> indexSpace;
     std::array<Neon::set::DataSet<Partition<Obj>>,
-               Neon::ExecutionUtils::numConfigurations>
+               Neon::PlaceUtils::numConfigurations>
         partitionByView;
 
     Neon::set::MemSet_t<Obj> obj;
@@ -94,12 +94,12 @@ class Replica : public Neon::set::interface::MultiXpuDataInterface<Neon::set::in
     virtual auto updateCompute(int streamId = 0)
         -> void;
 
-    virtual auto getPartition(Neon::Execution       execution,
+    virtual auto getPartition(Neon::Place  execution,
                               Neon::SetIdx          setIdx,
                               const Neon::DataView& dataView = Neon::DataView::STANDARD) const
         -> const Self::Partition&;
 
-    virtual auto getPartition(Neon::Execution       execution,
+    virtual auto getPartition(Neon::Place  execution,
                               Neon::SetIdx          setIdx,
                               const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Self::Partition&;

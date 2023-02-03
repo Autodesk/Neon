@@ -25,16 +25,16 @@ Replica<Obj>::Replica(Neon::Backend&      bk,
 
 
     const int nDev = bk.devSet().setCardinality();
-    for (auto target : {Neon::Execution::host, Neon::Execution::device}) {
-        int targetIdx = Neon::ExecutionUtils::toInt(target);
+    for (auto target : {Neon::Place::host, Neon::Place::device}) {
+        int targetIdx = Neon::PlaceUtils::toInt(target);
         storage.partitionByView[targetIdx] = bk.devSet().template newDataSet<Self::Partition>();
         for (int setIdx = 0; setIdx < nDev; setIdx++) {
             auto addr = storage.obj.rawMem(target, setIdx);
             storage.partitionByView[targetIdx][setIdx].objPrt = addr;
         }
-        if (target == Neon::Execution::device && (bk.devType() == Neon::DeviceType::CPU || bk.devType() == Neon::DeviceType::OMP)) {
-            int hostIdx = Neon::ExecutionUtils::toInt(Neon::Execution::host);
-            int deviceIdx = Neon::ExecutionUtils::toInt(Neon::Execution::device);
+        if (target == Neon::Place::device && (bk.devType() == Neon::DeviceType::CPU || bk.devType() == Neon::DeviceType::OMP)) {
+            int hostIdx = Neon::PlaceUtils::toInt(Neon::Place::host);
+            int deviceIdx = Neon::PlaceUtils::toInt(Neon::Place::device);
             for (int setIdx = 0; setIdx < nDev; setIdx++) {
                 storage.partitionByView[deviceIdx][setIdx].objPrt = storage.partitionByView[hostIdx][setIdx].objPrt;
             }
@@ -82,23 +82,23 @@ auto Replica<Obj>::updateCompute(int streamId)
  * Return a partition based on a set of parameters: execution type, target device, dataView
  */
 template <typename Obj>
-auto Replica<Obj>::getPartition(Neon::Execution execution,
+auto Replica<Obj>::getPartition(Neon::Place execution,
                                 Neon::SetIdx    setIdx,
                                 const Neon::DataView&) const
     -> const Self::Partition&
 {
     auto& storage = this->getStorage();
-    return storage.partitionByView[Neon::ExecutionUtils::toInt(execution)][setIdx];
+    return storage.partitionByView[Neon::PlaceUtils::toInt(execution)][setIdx];
 }
 
 template <typename Obj>
-auto Replica<Obj>::getPartition(Neon::Execution execution,
+auto Replica<Obj>::getPartition(Neon::Place execution,
                                 Neon::SetIdx    setIdx,
                                 const Neon::DataView&)
     -> Self::Partition&
 {
     auto& storage = this->getStorage();
-    return storage.partitionByView[Neon::ExecutionUtils::toInt(execution)][setIdx];
+    return storage.partitionByView[Neon::PlaceUtils::toInt(execution)][setIdx];
 }
 
 template <typename Obj>
@@ -110,13 +110,13 @@ auto Replica<Obj>::getPartition(Neon::DeviceType      execution,
     auto&          storage = this->getStorage();
     const Backend& bk = storage.bk;
     if (execution == DeviceType::CUDA) {
-        return getPartition(Neon::Execution::device, setIdx, dw);
+        return getPartition(Neon::Place::device, setIdx, dw);
     }
     if (execution == DeviceType::OMP || execution == DeviceType::CPU) {
         if (bk.devSet().type() == DeviceType::CUDA)
-            return getPartition(Neon::Execution::host, setIdx, dw);
+            return getPartition(Neon::Place::host, setIdx, dw);
         else
-            return getPartition(Neon::Execution::device, setIdx, dw);
+            return getPartition(Neon::Place::device, setIdx, dw);
     }
     NEON_THROW_UNSUPPORTED_OPTION("");
 }
@@ -130,13 +130,13 @@ auto Replica<Obj>::getPartition(Neon::DeviceType      execution,
     auto&          storage = this->getStorage();
     const Backend& bk = storage.bk;
     if (execution == DeviceType::CUDA) {
-        return getPartition(Neon::Execution::device, setIdx, dw);
+        return getPartition(Neon::Place::device, setIdx, dw);
     }
     if (execution == DeviceType::OMP || execution == DeviceType::CPU) {
         if (bk.devSet().type() == DeviceType::CUDA)
-            return getPartition(Neon::Execution::host, setIdx, dw);
+            return getPartition(Neon::Place::host, setIdx, dw);
         else
-            return getPartition(Neon::Execution::device, setIdx, dw);
+            return getPartition(Neon::Place::device, setIdx, dw);
     }
     NEON_THROW_UNSUPPORTED_OPTION("");
 }

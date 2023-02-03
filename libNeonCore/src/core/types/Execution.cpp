@@ -1,59 +1,59 @@
-#include "Neon/core/types/Execution.h"
 #include "Neon/core/core.h"
+#include "Neon/core/types/Place.h"
 namespace Neon {
 
-auto ExecutionUtils::toString(Neon::Execution option) -> const char*
+auto PlaceUtils::toString(Neon::Place option) -> const char*
 {
     switch (option) {
-        case Neon::Execution::device: {
+        case Neon::Place::device: {
             return "DeviceExecution";
         }
-        case Neon::Execution::host: {
+        case Neon::Place::host: {
             return "HostExecution";
         }
     }
-    NEON_THROW_UNSUPPORTED_OPTION("ExecutionUtils");
+    NEON_THROW_UNSUPPORTED_OPTION("PlaceUtils");
 }
 
 
-auto ExecutionUtils::toInt(Neon::Execution option) -> int
+auto PlaceUtils::toInt(Neon::Place option) -> int
 {
     switch (option) {
-        case Neon::Execution::device: {
-            return static_cast<int>(Neon::Execution::device);
+        case Neon::Place::device: {
+            return static_cast<int>(Neon::Place::device);
         }
-        case Neon::Execution::host: {
-            return static_cast<int>(Neon::Execution::host);
+        case Neon::Place::host: {
+            return static_cast<int>(Neon::Place::host);
         }
     }
-    NEON_THROW_UNSUPPORTED_OPTION("ExecutionUtils");
+    NEON_THROW_UNSUPPORTED_OPTION("PlaceUtils");
 }
 
-auto ExecutionUtils::getAllOptions() -> const std::array<Execution, ExecutionUtils::numConfigurations>&
+auto PlaceUtils::getAllOptions() -> const std::array<Neon::Place, PlaceUtils::numConfigurations>&
 {
     return mAllOptions;
 }
 
-auto ExecutionUtils::getCompatibleOptions(Neon::DataUse dataUse)
-    -> std::vector<Execution>
+auto PlaceUtils::getCompatibleOptions(Neon::DataUse dataUse)
+    -> std::vector<Neon::Place>
 {
     switch (dataUse) {
         case DataUse::IO_COMPUTE: {
-            return {Execution::device,
-                    Execution::host};
+            return {Neon::Place::device,
+                    Neon::Place::host};
         }
         case DataUse::COMPUTE: {
-            return {Execution::device};
+            return {Neon::Place::device};
         }
         case DataUse::IO_POSTPROCESSING: {
-            return {Execution::host};
+            return {Neon::Place::host};
         }
     }
     NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
-auto ExecutionUtils::checkCompatibility(Neon::DataUse   dataUse,
-                                         Neon::Execution execution)
+auto PlaceUtils::checkCompatibility(Neon::DataUse dataUse,
+                                    Neon::Place   execution)
     -> bool
 {
     switch (dataUse) {
@@ -61,17 +61,17 @@ auto ExecutionUtils::checkCompatibility(Neon::DataUse   dataUse,
             return true;
         }
         case DataUse::COMPUTE: {
-            return execution == Execution::device;
+            return execution == Neon::Place::device;
         }
         case DataUse::IO_POSTPROCESSING: {
-            return execution == Execution::host;
+            return execution == Neon::Place::host;
         }
     }
     NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
-std::ostream& operator<<(std::ostream& os, Neon::Execution const& m)
+std::ostream& operator<<(std::ostream& os, Neon::Place const& m)
 {
-    return os << std::string(Neon::ExecutionUtils::toString(m));
+    return os << std::string(Neon::PlaceUtils::toString(m));
 }
 }  // namespace Neon

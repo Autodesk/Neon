@@ -5,7 +5,7 @@
 #include <atomic>
 
 #include "Neon/core/core.h"
-#include "Neon/core/types/Execution.h"
+#include "Neon/core/types/Place.h"
 
 #include "Neon/core/tools/io/exportVTI.h"
 #include "Neon/core/types/Allocator.h"
@@ -246,10 +246,10 @@ struct MemMirror
         return target->mem();
     }
 
-    auto rawMem(Neon::Execution execution) -> T_ta*
+    auto rawMem(Neon::Place execution) -> T_ta*
     {
         MemDevice<T_ta>* target;
-        if (Neon::Execution::host == execution) {
+        if (Neon::Place::host == execution) {
             target = &m_cpu;
         } else {
             target = &m_gpu;
@@ -257,10 +257,10 @@ struct MemMirror
         return target->mem();
     }
 
-    auto rawMem(Neon::Execution execution) const -> T_ta const*
+    auto rawMem(Neon::Place execution) const -> T_ta const*
     {
         MemDevice<T_ta> const* target;
-        if (Neon::Execution::host == execution) {
+        if (Neon::Place::host == execution) {
             target = &m_cpu;
         } else {
             target = &m_gpu;

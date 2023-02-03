@@ -124,13 +124,13 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
                       const Neon::DataView&   dataView = Neon::DataView::STANDARD)
         -> Partition&;
 
-    auto getPartition(Neon::Execution,
+    auto getPartition(Neon::Place,
                       Neon::SetIdx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD)
         const
         -> const Partition& final;
 
-    auto getPartition(Neon::Execution,
+    auto getPartition(Neon::Place,
                       Neon::SetIdx          idx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Partition& final;

@@ -9,13 +9,13 @@
 
 namespace Neon {
 
-enum struct Execution
+enum struct Place
 {
     device = 0 /**< A device accelerated execution */,
     host = 1 /**< Pre/post processing execution done on the host */
 };
 
-struct ExecutionUtils
+struct PlaceUtils
 {
     constexpr static int numConfigurations = 2;
 
@@ -25,27 +25,27 @@ struct ExecutionUtils
      * @param option
      * @return
      */
-    static auto toString(Neon::Execution option) -> const char*;
+    static auto toString(Neon::Place option) -> const char*;
 
     /**
-     * Safely convert an Execution to integer
+     * Safely convert an ExecutionPlace to integer
      * @param option
      * @return
      */
-    static auto toInt(Neon::Execution option) -> int;
+    static auto toInt(Neon::Place option) -> int;
 
     static auto getAllOptions()
-        -> const std::array<Execution, ExecutionUtils::numConfigurations>&;
+        -> const std::array<Place, PlaceUtils::numConfigurations>&;
 
     static auto getCompatibleOptions(Neon::DataUse dataUse)
-        -> std::vector<Execution>;
+        -> std::vector<Place>;
 
     static auto checkCompatibility(Neon::DataUse   dataUse,
-                                    Neon::Execution execution)
+                                    Neon::Place execution)
         -> bool;
 
    private:
-    static constexpr std::array<Execution, ExecutionUtils::numConfigurations> mAllOptions{Execution::device, Execution::host};
+    static constexpr std::array<Place, PlaceUtils::numConfigurations> mAllOptions{Place::device, Place::host};
 };
 
 /**
@@ -55,5 +55,5 @@ struct ExecutionUtils
  * @param m
  * @return
  */
-std::ostream& operator<<(std::ostream& os, Neon::Execution const& m);
+std::ostream& operator<<(std::ostream& os, Neon::Place const& m);
 }  // namespace Neon

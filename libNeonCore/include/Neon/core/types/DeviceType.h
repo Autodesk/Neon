@@ -4,7 +4,7 @@
 #include <array>
 #include <iostream>
 #include "Neon/core/tools/Report.h"
-#include "Neon/core/types/Execution.h"
+#include "Neon/core/types/Place.h"
 namespace Neon {
 
 /**
@@ -28,7 +28,7 @@ struct DeviceTypeUtil
     static auto      toString(DeviceType dataView) -> std::string;
     static auto      toInt(DeviceType dt) -> int32_t;
     static auto      fromString(const std::string& option) -> DeviceType;
-    static auto      getExecution(Neon::DeviceType devType) -> Neon::Execution;
+    static auto      getExecution(Neon::DeviceType devType) -> Neon::Place;
 
     struct Cli
     {
