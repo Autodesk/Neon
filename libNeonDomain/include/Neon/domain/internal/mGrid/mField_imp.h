@@ -216,12 +216,14 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
-            loader.load(operator()(level + 1), Neon::Compute::MAP);
+            const auto& parent = operator()(level + 1);
+            loader.load(parent, Neon::Compute::STENCIL);
             return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
-            loader.load(operator()(level - 1), Neon::Compute::MAP);
+            const auto& child = operator()(level - 1);
+            loader.load(child, Neon::Compute::STENCIL);
             return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
@@ -246,12 +248,14 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
-            loader.load(operator()(level + 1), Neon::Compute::MAP);
+            const auto& parent = operator()(level + 1);
+            loader.load(parent, Neon::Compute::STENCIL);
             return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
-            loader.load(operator()(level - 1), Neon::Compute::MAP);
+            const auto& child = operator()(level - 1);
+            loader.load(child, Neon::Compute::STENCIL);
             return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
@@ -377,7 +381,7 @@ auto mField<T, C>::ioToVtk(std::string fileName,
                                              << "\n";
                                     } else if (op == Op::OutputData) {
                                         for (int c = 0; c < card; ++c) {
-                                            file << (*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(cell, c)<< "\n";
+                                            file << (*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(cell, c) << "\n";
                                         }
                                     }
                                 }

@@ -39,6 +39,7 @@ inline float sdfDodecahedron(Neon::float_3d p, float r = 1.0)
 
 inline float sdfMenger(Neon::float_3d p)
 {
+    //https://github.com/tovacinni/sdf-explorer/blob/master/data-files/sdf/Fractal/Menger.glsl
     auto mod = [](float x, float y) { return x - y * floor(x / y); };
 
     auto length = [&](const Neon::float_3d& x) -> float {
