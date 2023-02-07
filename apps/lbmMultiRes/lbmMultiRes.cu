@@ -314,9 +314,10 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
 
 
 template <typename T, int Q>
-Neon::set::Container coalescencePull(Neon::domain::mGrid&           grid,
-                                     int                            level,
-                                     Neon::domain::mGrid::Field<T>& postStreaming)
+Neon::set::Container coalescencePull(Neon::domain::mGrid&                 grid,
+                                     int                                  level,
+                                     const Neon::domain::mGrid::Field<T>& postCollision,
+                                     Neon::domain::mGrid::Field<T>&       postStreaming)
 {
     // Initiated by the coarse level (hence "pull"), this function simply read the missing population
     // across the interface between coarse<->fine boundary by reading the population prepare during the store()
@@ -324,7 +325,8 @@ Neon::set::Container coalescencePull(Neon::domain::mGrid&           grid,
     return grid.getContainer(
         "Coalescence" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
-            auto& fpost_stm = postStreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
+            const auto& fpost_col = postCollision.load(loader, level, Neon::MultiResCompute::STENCIL);
+            auto&       fpost_stm = postStreaming.load(loader, level, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 //If this cell has children i.e., it is been refined, than we should not work on it
@@ -336,7 +338,7 @@ Neon::set::Container coalescencePull(Neon::domain::mGrid&           grid,
                         //if we have a neighbor at the same level that has been refined, then cell is on
                         //the interface and this is where we should do the coalescence
                         if (fpost_stm.hasChildren(cell, dir)) {
-                            auto neighbor = fpost_stm.nghVal(cell, dir, q, T(0));
+                            auto neighbor = fpost_col.nghVal(cell, dir, q, T(0));
                             if (neighbor.isValid) {
                                 fpost_stm(cell, q) = neighbor.value;
                             }
@@ -351,7 +353,7 @@ Neon::set::Container coalescencePull(Neon::domain::mGrid&           grid,
 template <typename T, int Q>
 Neon::set::Container store(Neon::domain::mGrid&           grid,
                            int                            level,
-                           Neon::domain::mGrid::Field<T>& postStreaming)
+                           Neon::domain::mGrid::Field<T>& postCollision)
 {
     //Initiated by the coarse level (level), this function prepares and stores the fine (level - 1)
     // information for further pulling initiated by the coarse (this) level invoked by coalescence_pull
@@ -367,17 +369,18 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
     return grid.getContainer(
         "store_" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
-            auto& fpost_stm = postStreaming.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
+            auto& fpost_col = postCollision.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 //if the cell is refined, we might need to store something in it for its neighbor
-                if (fpost_stm.hasChildren(cell)) {
+                if (fpost_col.hasChildren(cell)) {
 
-                    const int refFactor = fpost_stm.getRefFactor(level);
+                    const int refFactor = fpost_col.getRefFactor(level);
 
-                    bool should_accumelate = ((int(fpost_stm(cell, 0)) % refFactor) != 0);
+                    bool should_accumelate = ((int(fpost_col(cell, 0)) % refFactor) != 0);
 
-                    fpost_stm(cell, 0) += 1;
+                    //fpost_col(cell, 0) += 1;
+                    fpost_col(cell, 0) = (int(fpost_col(cell, 0)) + 1) % refFactor;
 
 
                     //for each direction aka for each neighbor
@@ -386,10 +389,10 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
                         const Neon::int8_3d q_dir = getDir(q);
 
                         //check if the neighbor in this direction has children
-                        auto neighborCell = fpost_stm.getNghCell(cell, q_dir);
+                        auto neighborCell = fpost_col.getNghCell(cell, q_dir);
                         if (neighborCell.isActive()) {
 
-                            if (!fpost_stm.hasChildren(neighborCell)) {
+                            if (!fpost_col.hasChildren(neighborCell)) {
                                 //now, we know that there is actually something we need to store for this neighbor
                                 //in cell along q (q_dir) direction
                                 int num = 0;
@@ -405,7 +408,7 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
                                     const Neon::int8_3d r_dir = q_dir - p_dir;
 
                                     //if this neighbor is refined
-                                    if (fpost_stm.hasChildren(cell, p_dir)) {
+                                    if (fpost_col.hasChildren(cell, p_dir)) {
 
                                         //for each children of p
                                         for (int8_t i = 0; i < refFactor; ++i) {
@@ -418,7 +421,7 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
                                                     const Neon::int8_3d cq = unlceOffset(c, q_dir);
                                                     if (cq == r_dir) {
                                                         num++;
-                                                        sum += fpost_stm.childVal(cell, c, q, 0).value;
+                                                        sum += fpost_col.childVal(cell, c, q, 0).value;
                                                     }
                                                 }
                                             }
@@ -427,9 +430,9 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
                                 }
 
                                 if (should_accumelate) {
-                                    fpost_stm(cell, q) += sum / static_cast<T>(num * refFactor);
+                                    fpost_col(cell, q) += sum / static_cast<T>(num * refFactor);
                                 } else {
-                                    fpost_stm(cell, q) = sum / static_cast<T>(num * refFactor);
+                                    fpost_col(cell, q) = sum / static_cast<T>(num * refFactor);
                                 }
                             }
                         }
@@ -467,7 +470,7 @@ void stream(Neon::domain::mGrid&                        grid,
         /* Coalescence: pull missing populations from finer neighbors by "smart" averaging fine (level-1) 
         * to coarse (level) communication, initiated by the coarse level ("Pull").
         */
-        containers.push_back(coalescencePull<T, Q>(grid, level, postStreaming));
+        containers.push_back(coalescencePull<T, Q>(grid, level, postCollision, postStreaming));
     }
 }
 
@@ -641,6 +644,7 @@ int main(int argc, char** argv)
         //levelSDF[2] = -56.0 / 144.0;
         //levelSDF[3] = -1.0;
 
+        //const Neon::index_3d grid_dim(48, 48, 48);
         const Neon::index_3d grid_dim(24, 24, 24);
         float                levelSDF[depth + 1];
         levelSDF[0] = 0;
@@ -666,7 +670,7 @@ int main(int argc, char** argv)
             Neon::domain::Stencil::s19_t(false), descriptor);
 
         //LBM problem
-        const int             max_iter = 5000;
+        const int             max_iter = 20000;
         const T               ulb = 0.02;
         const T               Re = 100;
         const T               clength = (grid_dim.x * std::pow(2, -(descriptor.getDepth() - 1)) - 1);
@@ -750,6 +754,79 @@ int main(int argc, char** argv)
         fin.updateCompute();
         fout.updateCompute();
 
+        //init fields
+        for (int level = 0; level < descriptor.getDepth(); ++level) {
+            auto container =
+                grid.getContainer(
+                    "Init_" + std::to_string(level), level,
+                    [&fin, &fout, &cellType, &vel, &rho, level, grid_dim, ulid, Q](Neon::set::Loader& loader) {
+                        auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
+                        auto& out = fout.load(loader, level, Neon::MultiResCompute::MAP);
+                        auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
+                        auto& u = vel.load(loader, level, Neon::MultiResCompute::MAP);
+                        auto& rh = rho.load(loader, level, Neon::MultiResCompute::MAP);
+
+                        return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                            constexpr auto t = latticeWeight<Q>();
+
+                            //velocity and density
+                            /*u(cell, 0) = 0;
+                            u(cell, 1) = 0;
+                            u(cell, 2) = 0;
+                            rh(cell, 0) = 0;
+                            type(cell, 0) = CellType::bulk;*/
+
+                            if (!in.hasChildren(cell)) {
+                                /*const Neon::index_3d idx = in.mapToGlobal(cell);
+
+                                //pop
+                                for (int q = 0; q < Q; ++q) {
+                                    T pop_init_val = t.t[q];
+
+                                    if (level == 0) {
+                                        if (idx.x == 0 || idx.x == grid_dim.x - 1 ||
+                                            idx.y == 0 || idx.y == grid_dim.y - 1 ||
+                                            idx.z == 0 || idx.z == grid_dim.z - 1) {
+                                            type(cell, 0) = CellType::bounceBack;
+
+                                            if (idx.y == grid_dim.y - 1) {
+                                                type(cell, 0) = CellType::movingWall;
+                                                pop_init_val = 0;
+                                                for (int d = 0; d < 3; ++d) {
+                                                    pop_init_val += latticeVelocity3D[q][d] * ulid.v[d];
+                                                }
+                                                pop_init_val *= -6. * t.t[q];
+                                            } else {
+                                                pop_init_val = 0;
+                                            }
+                                        }
+                                    }
+
+                                    out(cell, q) = pop_init_val;
+                                    in(cell, q) = pop_init_val;
+                                }*/
+
+
+                            } else {
+                                in(cell, 0) = 0;
+                                out(cell, 0) = 0;
+
+                                /*for (int q = 0; q < Q; ++q) {
+                                    in(cell, q) = 0;
+                                    out(cell, q) = 0;
+                                }*/
+                            }
+                        };
+                    });
+
+            container.run(0);
+        }
+
+        //rho.updateIO();
+        //vel.updateIO();
+        //fin.updateIO();
+        //fout.updateIO();
+
         //skeleton
         std::vector<Neon::set::Container> containers;
         nonUniformTimestepRecursive<T, Q>(grid,
@@ -765,8 +842,9 @@ int main(int argc, char** argv)
 
         //execution
         for (int t = 0; t < max_iter; ++t) {
+            printf("\n Iteration = %d", t);
             skl.run();
-            if (t % 100 == 0) {
+            if (t % 20 == 0) {
                 postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho);
             }
         }
