@@ -8,7 +8,7 @@
 template <typename Lattice,
           typename PopulationField,
           typename LbmComputeType>
-struct LbmToolsTemplate
+struct LbmContainers
 {
 };
 
@@ -19,7 +19,7 @@ struct LbmToolsTemplate
  */
 template <typename PopulationField,
           typename LbmComputeType>
-struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmComputeType>,
+struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeType>,
                         PopulationField,
                         LbmComputeType>
 {

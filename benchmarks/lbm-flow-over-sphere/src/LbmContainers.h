@@ -8,7 +8,7 @@
 template <typename Lattice,
           typename PopulationField,
           typename LbmComputeType>
-struct LbmToolsTemplate
+struct LbmContainers
 {
 };
 
@@ -19,9 +19,9 @@ struct LbmToolsTemplate
  */
 template <typename PopulationField,
           typename LbmComputeType>
-struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmComputeType>,
-                        PopulationField,
-                        LbmComputeType>
+struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeType>,
+                     PopulationField,
+                     LbmComputeType>
 {
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
@@ -103,11 +103,14 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
           NEON_IO LbmStoreType                  popIn[19],
           NEON_OUT LbmComputeType               usqr,
           NEON_IO LbmComputeType&               rho,
-          NEON_IO LbmComputeType                u[3])
+          NEON_IO LbmComputeType                u[3],
+          Neon::index_3d                        position)
     {
         // TODO WE have
         if (cellType == CellType::pressure || cellType == CellType::velocity) {
-
+            if (position == Neon::index_3d(1, 2, 1)) {
+                printf("1, 2, 1\n");
+            }
             LbmComputeType knownSum = 0;
             LbmComputeType middelSum = 0;
 
@@ -389,13 +392,15 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                         LbmStoreType popIn[Lattice::Q];
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
 
+                        Neon::index_3d globalPos = fIn.mapToGlobal(cell);
                         zouhe(cell, cellInfo.classification,
                               cellInfo.unknowns,
                               cellInfo.middle,
                               NEON_IO  popIn,
                               NEON_OUT usqr,
                               NEON_IO  rho,
-                              NEON_IO  u.data());
+                              NEON_IO  u.data(),
+                              globalPos);
 
                         collideBgkUnrolled(cell,
                                            popIn,
@@ -428,53 +433,6 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
         }                                                                                                     \
     }
 
-#define BYDIRECTION(mainDirectionVAL)                                        \
-    {                                                                        \
-        Neon::int8_3d mainDirection = mainDirectionVAL;                      \
-        auto          info = infoIn.nghVal(cell, mainDirection, 0);          \
-        if (!info.isValid) {                                                 \
-            if (match == true) {                                             \
-                printf("Error\n");                                           \
-            }                                                                \
-            match = true;                                                    \
-            const int mapUnkowns[6][5] = {                                   \
-                {10, 13, 14, 15},    /* 0 norm -1, 0, 0 -> (1, 0, 0), ...*/  \
-                {11, 4, 13, 17, 18}, /*  1 norm 0, -1, 0 */                  \
-                {12, 6, 8, 15, 17},  /* 2 norm 0, 0, -1*/                    \
-                {0, 3, 4, 5, 6},     /* 3 norm 1, 0, 0 -> (-1, 0, 0), ... */ \
-                {1, 3, 7, 8, 14},    /*  4 norm 0, 1, 0 -> */                \
-                {2, 5, 7, 16, 18},   /* 5 norm 0, 0, 1 -> */                 \
-            };                                                               \
-            const int mapMiddle[3][4] = {                                    \
-                {1, 2, 7, 8}, /*  0 norm -1, 0, 0 -> (1, 0, 0), ...*/        \
-                {0, 2, 5, 6}, /*  1 norm 0, -1, 0*/                          \
-                {0, 1, 2, 3}, /*  2 norm 0, 0, -1*/                          \
-            };                                                               \
-            int targetRaw = -1;                                              \
-            targetRaw = (mainDirection.x == 1) ? 3 : targetRaw;              \
-            targetRaw = (mainDirection.x == -1) ? 0 : targetRaw;             \
-            targetRaw = (mainDirection.y == 1) ? 4 : targetRaw;              \
-            targetRaw = (mainDirection.y == -1) ? 1 : targetRaw;             \
-            targetRaw = (mainDirection.z == 1) ? 5 : targetRaw;              \
-            targetRaw = (mainDirection.z == -1) ? 2 : targetRaw;             \
-                                                                             \
-            infoOut(cell, 0).unknowns.mA = mapUnkowns[targetRaw][0];         \
-            infoOut(cell, 0).unknowns.mB = mapUnkowns[targetRaw][1];         \
-            infoOut(cell, 0).unknowns.mC = mapUnkowns[targetRaw][2];         \
-            infoOut(cell, 0).unknowns.mD = mapUnkowns[targetRaw][3];         \
-            infoOut(cell, 0).unknowns.mE = mapUnkowns[targetRaw][4];         \
-                                                                             \
-            targetRaw = (mainDirection.x != 0) ? 0 : targetRaw;              \
-            targetRaw = (mainDirection.y != 0) ? 1 : targetRaw;              \
-            targetRaw = (mainDirection.z != 0) ? 2 : targetRaw;              \
-                                                                             \
-            infoOut(cell, 0).middle.mA = mapMiddle[targetRaw][0];            \
-            infoOut(cell, 0).middle.mB = mapMiddle[targetRaw][1];            \
-            infoOut(cell, 0).middle.mC = mapMiddle[targetRaw][2];            \
-            infoOut(cell, 0).middle.mD = mapMiddle[targetRaw][3];            \
-            printf("HERE %d\n", mapMiddle[targetRaw][3]);                         \
-        }                                                                    \
-    }
 
     static auto
     computeWallNghMask(const CellTypeField& infoInField,
@@ -513,7 +471,65 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                     }
                     if (cellType.classification == CellType::pressure ||
                         cellType.classification == CellType::velocity) {
+                        bool match = false;
 
+                        auto byDirection = [&](Neon::int8_3d mainDirectionVAL) {
+                            Neon::int8_3d mainDirection = mainDirectionVAL;
+                            auto          info = infoIn.nghVal(cell, mainDirection, 0);
+                            Neon::int8_3d oppositeToMain = mainDirectionVAL * -1;
+                            auto          oppositeInfo = infoIn.nghVal(cell, oppositeToMain, 0);
+
+                            if (info.value.classification == CellType::bounceBack &&
+                                info.value.classification == CellType::bulk) {
+                                auto globalIndex = infoIn.mapToGlobal(cell);
+                                if (match == true) {
+                                    printf(
+                                        "Error %d %d %d direction %d %d %d !!!!\n",
+                                        globalIndex.x, globalIndex.y, globalIndex.z,
+                                        mainDirection.x, mainDirection.y, mainDirection.z);
+                                }
+                                if(globalIndex == Neon::index_3d {1, 2, 1}){
+                                    printf("\n");
+                                }
+                                match = true;
+                                const int mapUnkowns[6][5] = {
+                                    {10, 13, 14, 15},    /* 0 norm -1, 0, 0 -> (1, 0, 0), ...*/
+                                    {11, 4, 13, 17, 18}, /*  1 norm 0, -1, 0 */
+                                    {12, 6, 8, 15, 17},  /* 2 norm 0, 0, -1*/
+                                    {0, 3, 4, 5, 6},     /* 3 norm 1, 0, 0 -> (-1, 0, 0), ... */
+                                    {1, 3, 7, 8, 14},    /*  4 norm 0, 1, 0 -> */
+                                    {2, 5, 7, 16, 18},   /* 5 norm 0, 0, 1 -> */
+                                };
+                                const int mapMiddle[3][4] = {
+                                    {1, 2, 7, 8}, /*  0 norm -1, 0, 0 -> (1, 0, 0), ...*/
+                                    {0, 2, 5, 6}, /*  1 norm 0, -1, 0*/
+                                    {0, 1, 2, 3}, /*  2 norm 0, 0, -1*/
+                                };
+                                int targetRaw = -1;
+                                targetRaw = (mainDirection.x == 1) ? 3 : targetRaw;
+                                targetRaw = (mainDirection.x == -1) ? 0 : targetRaw;
+                                targetRaw = (mainDirection.y == 1) ? 4 : targetRaw;
+                                targetRaw = (mainDirection.y == -1) ? 1 : targetRaw;
+                                targetRaw = (mainDirection.z == 1) ? 5 : targetRaw;
+                                targetRaw = (mainDirection.z == -1) ? 2 : targetRaw;
+
+                                infoOut(cell, 0).unknowns.mA = mapUnkowns[targetRaw][0];
+                                infoOut(cell, 0).unknowns.mB = mapUnkowns[targetRaw][1];
+                                infoOut(cell, 0).unknowns.mC = mapUnkowns[targetRaw][2];
+                                infoOut(cell, 0).unknowns.mD = mapUnkowns[targetRaw][3];
+                                infoOut(cell, 0).unknowns.mE = mapUnkowns[targetRaw][4];
+
+                                targetRaw = (mainDirection.x != 0) ? 0 : targetRaw;
+                                targetRaw = (mainDirection.y != 0) ? 1 : targetRaw;
+                                targetRaw = (mainDirection.z != 0) ? 2 : targetRaw;
+
+                                infoOut(cell, 0).middle.mA = mapMiddle[targetRaw][0];
+                                infoOut(cell, 0).middle.mB = mapMiddle[targetRaw][1];
+                                infoOut(cell, 0).middle.mC = mapMiddle[targetRaw][2];
+                                infoOut(cell, 0).middle.mD = mapMiddle[targetRaw][3];
+                            }
+                        };
+                        // byDirection(Neon::int8_3d(-1, 0, 0));
                         /**
                          * BITS position
                          * 0 -> positive (0) or negative (1) direction
@@ -521,14 +537,13 @@ struct LbmToolsTemplate<D3Q19Template<typename PopulationField::Type, LbmCompute
                          * 2 -> y is the target (1)
                          * 3 -> z is the target (1)
                          */
-                        bool match = false;
 
-                        BYDIRECTION(Neon::int8_3d(-1, 0, 0));
-                        BYDIRECTION(Neon::int8_3d(0, -1, 0));
-                        BYDIRECTION(Neon::int8_3d(0, 0, -1));
-                        BYDIRECTION(Neon::int8_3d(1, 0, 0));
-                        BYDIRECTION(Neon::int8_3d(0, 1, 0));
-                        BYDIRECTION(Neon::int8_3d(0, 0, 1));
+                        byDirection(Neon::int8_3d(-1, 0, 0));
+                        byDirection(Neon::int8_3d(0, -1, 0));
+                        byDirection(Neon::int8_3d(0, 0, -1));
+                        byDirection(Neon::int8_3d(1, 0, 0));
+                        byDirection(Neon::int8_3d(0, 1, 0));
+                        byDirection(Neon::int8_3d(0, 0, 1));
                     }
                 };
             });

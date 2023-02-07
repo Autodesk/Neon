@@ -88,7 +88,7 @@ auto run(Config& config,
 
             f.haloUpdate(hu);
             bk.syncAll();
-            auto container = LbmToolsTemplate<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
+            auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
 
             container.run(Neon::Backend::mainStreamIdx);
             u.updateIO(Neon::Backend::mainStreamIdx);
@@ -192,7 +192,7 @@ auto run(Config& config,
 
         flag.haloUpdate(hu);
         bk.syncAll();
-        auto container = LbmToolsTemplate<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
+        auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
         container.run(Neon::Backend::mainStreamIdx);
         bk.syncAll();
     }

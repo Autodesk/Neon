@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
-SET(APP "lbm-flow-over-cylinder")
+SET(APP "lbm-flow-over-sphere")
 
 file(GLOB_RECURSE SrcFiles src/*.*)
 

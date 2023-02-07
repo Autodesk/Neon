@@ -3,10 +3,12 @@
 #include "Neon/domain/dGrid.h"
 
 #include "CellType.h"
-#include "LbmIteration.h"
+#include "LbmSkeleton.h"
 #include "Metrics.h"
 #include "Repoert.h"
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <fenv.h>
 namespace CavityTwoPop {
 
@@ -104,6 +106,19 @@ auto runSpecialized(Config& config,
         if (idx.x == 0 || idx.x == config.N - 1) {
             return CellType::Classification::bounceBack;
         }
+        for (Neon::index_3d corners : {
+                 Neon::index_3d{1, 1, 1},
+                 Neon::index_3d{1, 1, config.N - 2},
+                 Neon::index_3d{1, config.N - 2, 1},
+                 Neon::index_3d{1, config.N - 2, config.N - 2},
+                 Neon::index_3d{config.N - 2, 1, 1},
+                 Neon::index_3d{config.N - 2, 1, config.N - 2},
+                 Neon::index_3d{config.N - 2, config.N - 2, 1},
+                 Neon::index_3d{config.N - 2, config.N - 2, config.N - 2},
+             }) {
+            if (idx == corners)
+                return CellType::Classification::bounceBack;
+        }
         if (idx.x == 1) {
             return CellType::Classification::pressure;
         }
@@ -177,7 +192,7 @@ auto runSpecialized(Config& config,
 
             f.haloUpdate(hu);
             bk.syncAll();
-            auto container = LbmToolsTemplate<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
+            auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
 
             container.run(Neon::Backend::mainStreamIdx);
             u.updateIO(Neon::Backend::mainStreamIdx);
@@ -273,7 +288,7 @@ auto runSpecialized(Config& config,
 
         flag.haloUpdate(hu);
         bk.syncAll();
-        auto container = LbmToolsTemplate<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
+        auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
         container.run(Neon::Backend::mainStreamIdx);
         bk.syncAll();
     }
