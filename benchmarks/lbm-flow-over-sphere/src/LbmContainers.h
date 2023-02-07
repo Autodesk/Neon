@@ -109,7 +109,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         // TODO WE have
         if (cellType == CellType::pressure || cellType == CellType::velocity) {
             if (position == Neon::index_3d(1, 2, 1)) {
-                printf("1, 2, 1\n");
+                printf("38, 2, 2\n");
             }
             LbmComputeType knownSum = 0;
             LbmComputeType middelSum = 0;
@@ -181,11 +181,11 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         eq[17] = eq[7] + rho * (1. / 36.) * 6. * ck_u07;
         eq[18] = eq[8] + rho * (1. / 36.) * 6. * ck_u08;
 
-#define UPDATE_POPULATIONS(X)                          \
-    {                                                  \
-        const unsigned int iu = unknowns.X;            \
-        const unsigned int ik = iu < 9 ? iu : iu - 10; \
-        popIn[iu] = popIn[ik] + eq[iu] - eq[ik];       \
+#define UPDATE_POPULATIONS(X)                               \
+    {                                                       \
+        const unsigned int iu = unknowns.X;                 \
+        const unsigned int ik = iu < 9 ? iu + 10 : iu - 10; \
+        popIn[iu] = popIn[ik] + eq[iu] - eq[ik];            \
     }
 
         UPDATE_POPULATIONS(mA);
@@ -469,41 +469,48 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
                         infoOut(cell, 0) = cellType;
                     }
+                    auto globalIndex = infoIn.mapToGlobal(cell);
+                    if (globalIndex == Neon::index_3d{38, 2, 2}) {
+                        printf("\n");
+                    }
+
                     if (cellType.classification == CellType::pressure ||
                         cellType.classification == CellType::velocity) {
                         bool match = false;
 
                         auto byDirection = [&](Neon::int8_3d mainDirectionVAL) {
+                            if (globalIndex == Neon::index_3d{38, 2, 2}) {
+                                printf("\n");
+                            }
                             Neon::int8_3d mainDirection = mainDirectionVAL;
                             auto          info = infoIn.nghVal(cell, mainDirection, 0);
                             Neon::int8_3d oppositeToMain = mainDirectionVAL * -1;
                             auto          oppositeInfo = infoIn.nghVal(cell, oppositeToMain, 0);
 
                             if (info.value.classification == CellType::bounceBack &&
-                                info.value.classification == CellType::bulk) {
-                                auto globalIndex = infoIn.mapToGlobal(cell);
+                                oppositeInfo.value.classification == CellType::bulk) {
                                 if (match == true) {
                                     printf(
                                         "Error %d %d %d direction %d %d %d !!!!\n",
                                         globalIndex.x, globalIndex.y, globalIndex.z,
                                         mainDirection.x, mainDirection.y, mainDirection.z);
                                 }
-                                if(globalIndex == Neon::index_3d {1, 2, 1}){
+                                if (globalIndex == Neon::index_3d{38, 2, 2}) {
                                     printf("\n");
                                 }
                                 match = true;
                                 const int mapUnkowns[6][5] = {
-                                    {10, 13, 14, 15},    /* 0 norm -1, 0, 0 -> (1, 0, 0), ...*/
-                                    {11, 4, 13, 17, 18}, /*  1 norm 0, -1, 0 */
-                                    {12, 6, 8, 15, 17},  /* 2 norm 0, 0, -1*/
-                                    {0, 3, 4, 5, 6},     /* 3 norm 1, 0, 0 -> (-1, 0, 0), ... */
-                                    {1, 3, 7, 8, 14},    /*  4 norm 0, 1, 0 -> */
-                                    {2, 5, 7, 16, 18},   /* 5 norm 0, 0, 1 -> */
+                                    {10, 13, 14, 15, 16}, /* 0 norm -1, 0, 0 -> (1, 0, 0), ...*/
+                                    {11, 4, 13, 17, 18},  /*  1 norm 0, -1, 0 */
+                                    {12, 6, 8, 15, 17},   /* 2 norm 0, 0, -1*/
+                                    {0, 3, 4, 5, 6},      /* 3 norm 1, 0, 0 -> (-1, 0, 0), ... */
+                                    {1, 3, 7, 8, 14},     /*  4 norm 0, 1, 0 -> */
+                                    {2, 5, 7, 16, 18},    /* 5 norm 0, 0, 1 -> */
                                 };
                                 const int mapMiddle[3][4] = {
                                     {1, 2, 7, 8}, /*  0 norm -1, 0, 0 -> (1, 0, 0), ...*/
                                     {0, 2, 5, 6}, /*  1 norm 0, -1, 0*/
-                                    {0, 1, 2, 3}, /*  2 norm 0, 0, -1*/
+                                    {0, 1, 3, 4}, /*  2 norm 0, 0, -1*/
                                 };
                                 int targetRaw = -1;
                                 targetRaw = (mainDirection.x == 1) ? 3 : targetRaw;
