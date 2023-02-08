@@ -105,7 +105,7 @@ struct latticeWeight
 
 
 template <typename T>
-NEON_CUDA_HOST_DEVICE inline Neon::int8_3d unlceOffset(const T& cell, const Neon::int8_3d& q)
+NEON_CUDA_HOST_DEVICE inline Neon::int8_3d uncleOffset(const T& cell, const Neon::int8_3d& q)
 {
     //given a local index within a cell and a population direction (q)
     //find the uncle's (the parent neighbor) offset from which the desired population (q) should be read
@@ -298,7 +298,9 @@ Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
 
                                 //get the uncle direction/offset i.e., the neighbor of the cell's parent
                                 //this direction/offset is wrt to the cell's parent
-                                Neon::int8_3d uncleDir = unlceOffset(cell.mLocation, dir);
+                                Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, dir);
+
+                                auto uncleLoc = fpost_col.getUncle(cell, uncleDir);
 
                                 auto uncle = fpost_col.uncleVal(cell, uncleDir, q, T(0));
                                 if (uncle.isValid) {
@@ -418,7 +420,7 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
 
                                                     //cq is coarse neighbor (i.e., uncle) that we need to go in order to read q
                                                     //for c (this is what we do for explosion but here we do this just for the check)
-                                                    const Neon::int8_3d cq = unlceOffset(c, q_dir);
+                                                    const Neon::int8_3d cq = uncleOffset(c, q_dir);
                                                     if (cq == r_dir) {
                                                         num++;
                                                         sum += fpost_col.childVal(cell, c, q, 0).value;
@@ -607,10 +609,10 @@ void postProcess(Neon::domain::mGrid&                        grid,
 
     grid.getBackend().syncAll();
 
-    if (grid.getBackend().runtime() == Neon::Runtime::stream) {
-        vel.updateIO();
-        //rho.updateIO();
-    }
+
+    vel.updateIO();
+    //rho.updateIO();
+
 
     int                precision = 4;
     std::ostringstream suffix;
@@ -644,8 +646,7 @@ int main(int argc, char** argv)
         //levelSDF[2] = -56.0 / 144.0;
         //levelSDF[3] = -1.0;
 
-        //const Neon::index_3d grid_dim(48, 48, 48);
-        const Neon::index_3d grid_dim(24, 24, 24);
+        const Neon::index_3d grid_dim(48, 48, 48);
         float                levelSDF[depth + 1];
         levelSDF[0] = 0;
         levelSDF[1] = -8 / 24.0;
@@ -687,73 +688,6 @@ int main(int argc, char** argv)
         auto rho = grid.newField<T>("rho", 1, 0);
 
 
-        //classify voxels
-        for (int l = 0; l < descriptor.getDepth(); ++l) {
-            cellType.forEachActiveCell(
-                l,
-                [&](const Neon::int32_3d idx, const int q, CellType& val) {
-                    val = CellType::bulk;
-                    if (idx.x == 0 || idx.x == grid_dim.x - 1 ||
-                        idx.y == 0 || idx.y == grid_dim.y - 1 ||
-                        idx.z == 0 || idx.z == grid_dim.z - 1) {
-
-                        val = CellType::bounceBack;
-
-                        if (idx.y == grid_dim.y - 1) {
-                            val = CellType::movingWall;
-                        }
-                    }
-                });
-        }
-        cellType.updateCompute();
-
-
-        // init fin and fout
-        constexpr auto t = latticeWeight<Q>();
-
-        auto init = [&](const Neon::int32_3d idx, const int q, const int l) {
-            T ret = t.t[q];
-
-            if (l == 0) {
-                if (idx.x == 0 || idx.x == grid_dim.x - 1 ||
-                    idx.y == 0 || idx.y == grid_dim.y - 1 ||
-                    idx.z == 0 || idx.z == grid_dim.z - 1) {
-
-                    if (idx.y == grid_dim.y - 1) {
-                        ret = 0;
-                        for (int d = 0; d < 3; ++d) {
-                            ret += latticeVelocity3D[q][d] * ulid.v[d];
-                        }
-                        ret *= -6. * t.t[q];
-                    } else {
-                        ret = 0;
-                    }
-                }
-            }
-            return ret;
-        };
-
-        for (int l = 0; l < descriptor.getDepth(); ++l) {
-            fin.forEachActiveCell(
-                l,
-                [&](const Neon::int32_3d idx, const int q, T& val) {
-                    val = init(idx, q, l);
-                });
-            fout.forEachActiveCell(
-                l,
-                [&](const Neon::int32_3d idx, const int q, T& val) {
-                    val = init(idx, q, l);
-                });
-            vel.forEachActiveCell(l, [&](const Neon::int32_3d, const int, T& val) {
-                val = 0;
-            });
-            rho.forEachActiveCell(l, [&](const Neon::int32_3d, const int, T& val) {
-                val = 0;
-            });
-        }
-        fin.updateCompute();
-        fout.updateCompute();
-
         //init fields
         for (int level = 0; level < descriptor.getDepth(); ++level) {
             auto container =
@@ -770,14 +704,14 @@ int main(int argc, char** argv)
                             constexpr auto t = latticeWeight<Q>();
 
                             //velocity and density
-                            /*u(cell, 0) = 0;
+                            u(cell, 0) = 0;
                             u(cell, 1) = 0;
                             u(cell, 2) = 0;
                             rh(cell, 0) = 0;
-                            type(cell, 0) = CellType::bulk;*/
+                            type(cell, 0) = CellType::bulk;
 
                             if (!in.hasChildren(cell)) {
-                                /*const Neon::index_3d idx = in.mapToGlobal(cell);
+                                const Neon::index_3d idx = in.mapToGlobal(cell);
 
                                 //pop
                                 for (int q = 0; q < Q; ++q) {
@@ -804,17 +738,10 @@ int main(int argc, char** argv)
 
                                     out(cell, q) = pop_init_val;
                                     in(cell, q) = pop_init_val;
-                                }*/
-
-
+                                }
                             } else {
                                 in(cell, 0) = 0;
                                 out(cell, 0) = 0;
-
-                                /*for (int q = 0; q < Q; ++q) {
-                                    in(cell, q) = 0;
-                                    out(cell, q) = 0;
-                                }*/
                             }
                         };
                     });
@@ -822,10 +749,8 @@ int main(int argc, char** argv)
             container.run(0);
         }
 
-        //rho.updateIO();
-        //vel.updateIO();
-        //fin.updateIO();
-        //fout.updateIO();
+        grid.getBackend().syncAll();
+
 
         //skeleton
         std::vector<Neon::set::Container> containers;
