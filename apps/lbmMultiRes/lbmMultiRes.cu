@@ -639,19 +639,19 @@ int main(int argc, char** argv)
 
         const Neon::domain::mGridDescriptor descriptor(depth);
 
-        //const Neon::index_3d grid_dim(144, 144, 144);
-        //float                levelSDF[depth + 1];
-        //levelSDF[0] = 0;
-        //levelSDF[1] = -28.0 / 144.0;
-        //levelSDF[2] = -56.0 / 144.0;
-        //levelSDF[3] = -1.0;
-
-        const Neon::index_3d grid_dim(48, 48, 48);
+        const Neon::index_3d grid_dim(144, 144, 144);
         float                levelSDF[depth + 1];
         levelSDF[0] = 0;
-        levelSDF[1] = -8 / 24.0;
-        levelSDF[2] = -16 / 24.0;
+        levelSDF[1] = -28.0 / 144.0;
+        levelSDF[2] = -56.0 / 144.0;
         levelSDF[3] = -1.0;
+
+        //const Neon::index_3d grid_dim(48, 48, 48);
+        //float                levelSDF[depth + 1];
+        //levelSDF[0] = 0;
+        //levelSDF[1] = -8 / 24.0;
+        //levelSDF[2] = -16 / 24.0;
+        //levelSDF[3] = -1.0;
 
 
         Neon::domain::mGrid grid(
@@ -690,10 +690,12 @@ int main(int argc, char** argv)
 
         //init fields
         for (int level = 0; level < descriptor.getDepth(); ++level) {
+            constexpr auto t = latticeWeight<Q>();
+
             auto container =
                 grid.getContainer(
                     "Init_" + std::to_string(level), level,
-                    [&fin, &fout, &cellType, &vel, &rho, level, grid_dim, ulid, Q](Neon::set::Loader& loader) {
+                    [&fin, &fout, &cellType, &vel, &rho, level, grid_dim, ulid, Q, t](Neon::set::Loader& loader) {
                         auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                         auto& out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                         auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -701,8 +703,6 @@ int main(int argc, char** argv)
                         auto& rh = rho.load(loader, level, Neon::MultiResCompute::MAP);
 
                         return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                            constexpr auto t = latticeWeight<Q>();
-
                             //velocity and density
                             u(cell, 0) = 0;
                             u(cell, 1) = 0;
@@ -769,7 +769,7 @@ int main(int argc, char** argv)
         for (int t = 0; t < max_iter; ++t) {
             printf("\n Iteration = %d", t);
             skl.run();
-            if (t % 20 == 0) {
+            if (t % 100 == 0) {
                 postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho);
             }
         }
