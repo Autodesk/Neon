@@ -106,19 +106,22 @@ auto runSpecialized(Config& config,
         if (idx.x == 0 || idx.x == config.N - 1) {
             return CellType::Classification::bounceBack;
         }
-        for (Neon::index_3d corners : {
-                 Neon::index_3d{1, 1, 1},
-                 Neon::index_3d{1, 1, config.N - 2},
-                 Neon::index_3d{1, config.N - 2, 1},
-                 Neon::index_3d{1, config.N - 2, config.N - 2},
-                 Neon::index_3d{config.N - 2, 1, 1},
-                 Neon::index_3d{config.N - 2, 1, config.N - 2},
-                 Neon::index_3d{config.N - 2, config.N - 2, 1},
-                 Neon::index_3d{config.N - 2, config.N - 2, config.N - 2},
-             }) {
-            if (idx == corners)
-                return CellType::Classification::bounceBack;
+
+        if (idx.x == 1 && idx.z == 1) {
+            return CellType::Classification::bulk;
         }
+        if (idx.x == 1 && idx.z == config.N - 2) {
+            return CellType::Classification::bulk;
+        }
+        if (idx.x == config.N - 2 && idx.z == 1) {
+            return CellType::Classification::bulk;
+        }
+        if (idx.x == config.N - 2 && idx.z == config.N - 2) {
+            return CellType::Classification::bulk;
+        }
+
+
+
         if (idx.x == 1) {
             return CellType::Classification::pressure;
         }

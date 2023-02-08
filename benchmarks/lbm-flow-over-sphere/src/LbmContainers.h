@@ -95,21 +95,21 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                 printf("38, 2, 2\n");
             }
 
-#define PULL_STREAM_ZOUHE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                   \
-    {                                                                                 \
-        { /*GO*/                                                                      \
-            if (wallBitFlag & (uint32_t(1) << GOid)) {                                \
-                                                                                      \
-            } else {                                                                  \
+#define PULL_STREAM_ZOUHE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                      \
+    {                                                                                    \
+        { /*GO*/                                                                         \
+            if (wallBitFlag & (uint32_t(1) << GOid)) {                                   \
+                                                                                         \
+            } else {                                                                     \
                 popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(cell, GOid, 0.0).value; \
-            }                                                                         \
-        }                                                                             \
-        { /*BK*/                                                                      \
-            if (wallBitFlag & (uint32_t(1) << BKid)) {                                \
-            } else {                                                                  \
+            }                                                                            \
+        }                                                                                \
+        { /*BK*/                                                                         \
+            if (wallBitFlag & (uint32_t(1) << BKid)) {                                   \
+            } else {                                                                     \
                 popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(cell, BKid, 0.0).value; \
-            }                                                                         \
-        }                                                                             \
+            }                                                                            \
+        }                                                                                \
     }
 
 
@@ -210,6 +210,14 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     }
 
 
+    static inline NEON_CUDA_HOST_DEVICE auto
+    pullStream(Cell const&                                i,
+               const uint32_t&                            wallBitFlag,
+               typename PopulationField::Partition const& fin,
+               NEON_OUT LbmStoreType                      popIn[19])
+    {
+        // #pragma omp critical
+        //        {
 #define PULL_STREAM(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                           \
     {                                                                                                                   \
         { /*GO*/                                                                                                        \
@@ -229,14 +237,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
             }                                                                                                           \
         }                                                                                                               \
     }
-    static inline NEON_CUDA_HOST_DEVICE auto
-    pullStream(Cell const&                                i,
-               const uint32_t&                            wallBitFlag,
-               typename PopulationField::Partition const& fin,
-               NEON_OUT LbmStoreType                      popIn[19])
-    {
-        // #pragma omp critical
-        //        {
+
 
         PULL_STREAM(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10);
         PULL_STREAM(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11);
@@ -390,7 +391,9 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                     if (cellInfo.classification == CellType::bulk) {
 
                         LbmStoreType popIn[Lattice::Q];
-                        pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
+                        pullStream(
+                            cell,
+                            cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
 
                         LbmComputeType                rho;
                         std::array<LbmComputeType, 3> u{.0, .0, .0};
@@ -424,15 +427,18 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                         LbmStoreType popIn[Lattice::Q];
 
                         Neon::index_3d globalPos = fIn.mapToGlobal(cell);
-                        zouhe(cell, cellInfo.classification,
-                              cellInfo.unknowns,
-                              cellInfo.middle,
-                              NEON_IO  popIn,
-                              NEON_OUT usqr,
-                              NEON_IO  rho,
-                              NEON_IO  u.data(),
-                              globalPos,
-                              cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
+                        zouhe(
+                            cell,
+                            cellInfo.classification,
+                            cellInfo.wallNghBitflag,
+                            cellInfo.unknowns,
+                            cellInfo.middle,
+                            NEON_OUT usqr,
+                            NEON_IO  rho,
+                            NEON_IO  u.data(),
+                            globalPos,
+                            fIn,
+                            NEON_OUT popIn);
 
                         collideBgkUnrolled(cell,
                                            popIn,
