@@ -75,44 +75,55 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     }
 #undef LOADPOP
 
-#define PULL_STREAM(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                           \
-    {                                                                                                                   \
-        { /*GO*/                                                                                                        \
-            if (wallBitFlag & (uint32_t(1) << GOid)) {                                                                  \
-                /*std::cout << "cell " << i.mLocation << " direction " << GOid << " opposite " << BKid << std::endl; */ \
-                popIn[GOid] = fin(i, BKid) +                                                                            \
-                              fin.template nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value;                                   \
-            } else {                                                                                                    \
-                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;                                   \
-            }                                                                                                           \
-        }                                                                                                               \
-        { /*BK*/                                                                                                        \
-            if (wallBitFlag & (uint32_t(1) << BKid)) {                                                                  \
-                popIn[BKid] = fin(i, GOid) + fin.template nghVal<GOx, GOy, GOz>(i, GOid, 0.0).value;                    \
-            } else {                                                                                                    \
-                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value;                                   \
-            }                                                                                                           \
-        }                                                                                                               \
-    }
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    zouhe(Cell const&                           cell,
-          CellType::Classification              cellType,
-          CellType::LatticeSectionUnk const&    unknowns,
-          CellType::LatticeSectionMiddle const& middle,
-          NEON_IO LbmStoreType                  popIn[19],
-          NEON_OUT LbmComputeType               usqr,
-          NEON_IO LbmComputeType&               rho,
-          NEON_IO LbmComputeType                u[3],
-          Neon::index_3d                        position)
+    zouhe(Cell const&                                cell,
+          CellType::Classification                   cellType,
+          const uint32_t&                            wallBitFlag,
+          CellType::LatticeSectionUnk const&         unknowns,
+          CellType::LatticeSectionMiddle const&      middle,
+          NEON_OUT LbmComputeType                    usqr,
+          NEON_IO LbmComputeType&                    rho,
+          NEON_IO LbmComputeType                     u[3],
+          Neon::index_3d                             position,
+          typename PopulationField::Partition const& fin,
+          NEON_OUT LbmStoreType                      popIn[19])
     {
         // TODO WE have
         if (cellType == CellType::pressure || cellType == CellType::velocity) {
             if (position == Neon::index_3d(1, 2, 1)) {
                 printf("38, 2, 2\n");
             }
-            LbmComputeType knownSum = 0;
-            LbmComputeType middelSum = 0;
+
+#define PULL_STREAM_ZOUHE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                   \
+    {                                                                                 \
+        { /*GO*/                                                                      \
+            if (wallBitFlag & (uint32_t(1) << GOid)) {                                \
+                                                                                      \
+            } else {                                                                  \
+                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(cell, GOid, 0.0).value; \
+            }                                                                         \
+        }                                                                             \
+        { /*BK*/                                                                      \
+            if (wallBitFlag & (uint32_t(1) << BKid)) {                                \
+            } else {                                                                  \
+                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(cell, BKid, 0.0).value; \
+            }                                                                         \
+        }                                                                             \
+    }
+
+
+            PULL_STREAM_ZOUHE(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10);
+            PULL_STREAM_ZOUHE(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11);
+            PULL_STREAM_ZOUHE(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12);
+            PULL_STREAM_ZOUHE(-1, -1, 0, /* GOid */ 3, /* --- */ 1, 1, 0, /*  BKid */ 13);
+            PULL_STREAM_ZOUHE(-1, 1, 0, /*  GOid */ 4, /* --- */ 1, -1, 0, /* BKid */ 14);
+            PULL_STREAM_ZOUHE(-1, 0, -1, /* GOid */ 5, /* --- */ 1, 0, 1, /*  BKid */ 15);
+            PULL_STREAM_ZOUHE(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16);
+            PULL_STREAM_ZOUHE(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17);
+            PULL_STREAM_ZOUHE(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18);
+#undef PULL_STREAM_ZOUHE
+
 
 #define KNOWN_SUM(X)                          \
     {                                         \
@@ -120,7 +131,8 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         const int ik = iu < 9 ? iu : iu - 10; \
         knownSum += popIn[ik];                \
     }
-
+            LbmComputeType knownSum = 0;
+            LbmComputeType middelSum = 0;
             KNOWN_SUM(mA);
             KNOWN_SUM(mB);
             KNOWN_SUM(mC);
@@ -197,6 +209,26 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 #undef MIDDLE_SUM
     }
 
+
+#define PULL_STREAM(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                           \
+    {                                                                                                                   \
+        { /*GO*/                                                                                                        \
+            if (wallBitFlag & (uint32_t(1) << GOid)) {                                                                  \
+                /*std::cout << "cell " << i.mLocation << " direction " << GOid << " opposite " << BKid << std::endl; */ \
+                popIn[GOid] = fin(i, BKid) +                                                                            \
+                              fin.template nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value;                                   \
+            } else {                                                                                                    \
+                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;                                   \
+            }                                                                                                           \
+        }                                                                                                               \
+        { /*BK*/                                                                                                        \
+            if (wallBitFlag & (uint32_t(1) << BKid)) {                                                                  \
+                popIn[BKid] = fin(i, GOid) + fin.template nghVal<GOx, GOy, GOz>(i, GOid, 0.0).value;                    \
+            } else {                                                                                                    \
+                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value;                                   \
+            }                                                                                                           \
+        }                                                                                                               \
+    }
     static inline NEON_CUDA_HOST_DEVICE auto
     pullStream(Cell const&                                i,
                const uint32_t&                            wallBitFlag,
@@ -390,7 +422,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                         };
 
                         LbmStoreType popIn[Lattice::Q];
-                        pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
 
                         Neon::index_3d globalPos = fIn.mapToGlobal(cell);
                         zouhe(cell, cellInfo.classification,
@@ -400,7 +431,8 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                               NEON_OUT usqr,
                               NEON_IO  rho,
                               NEON_IO  u.data(),
-                              globalPos);
+                              globalPos,
+                              cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
 
                         collideBgkUnrolled(cell,
                                            popIn,
