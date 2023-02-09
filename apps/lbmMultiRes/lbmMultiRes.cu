@@ -643,11 +643,11 @@ int main(int argc, char** argv)
 
         const Neon::domain::mGridDescriptor descriptor(depth);
 
-        const Neon::index_3d grid_dim(144, 144, 144);
+        const Neon::index_3d grid_dim(160, 160, 160);
         float                levelSDF[depth + 1];
         levelSDF[0] = 0;
-        levelSDF[1] = -28.0 / 144.0;
-        levelSDF[2] = -56.0 / 144.0;
+        levelSDF[1] = -31.0 / 160.0;
+        levelSDF[2] = -64 / 160.0;
         levelSDF[3] = -1.0;
 
         //const Neon::index_3d grid_dim(48, 48, 48);
@@ -657,32 +657,27 @@ int main(int argc, char** argv)
         //levelSDF[2] = -16 / 24.0;
         //levelSDF[3] = -1.0;
 
-        //const Neon::index_3d grid_dim(12, 12, 4);
-
         Neon::domain::mGrid grid(
             backend, grid_dim,
             {[&](const Neon::index_3d id) -> bool {
                  return sdfCube(id, grid_dim - 1) <= levelSDF[0] &&
                         sdfCube(id, grid_dim - 1) > levelSDF[1];
-                 //return id.x < 4 && id.z == 0;
              },
              [&](const Neon::index_3d& id) -> bool {
                  return sdfCube(id, grid_dim - 1) <= levelSDF[1] &&
                         sdfCube(id, grid_dim - 1) > levelSDF[2];
-                 //return id.x >= 4 && id.x < 8 && id.z == 0;
              },
              [&](const Neon::index_3d& id) -> bool {
                  return sdfCube(id, grid_dim - 1) <= levelSDF[2] &&
                         sdfCube(id, grid_dim - 1) > levelSDF[3];
-                 //return id.z == 0;
              }},
             Neon::domain::Stencil::s19_t(false), descriptor);
 
         //LBM problem
         const int             max_iter = 200000;
-        const T               ulb = 0.02;
-        const T               Re = 100;
-        const T               clength = (grid_dim.x * std::pow(2, -(descriptor.getDepth() - 1)) - 1);
+        const T               ulb = 0.04;
+        const T               Re = 1000;
+        const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
         const T               visclb = ulb * clength / Re;
         const T               omega = 1.0 / (3. * visclb + 0.5);
         const Neon::double_3d ulid(ulb, 0., 0.);
@@ -694,8 +689,7 @@ int main(int argc, char** argv)
 
         auto vel = grid.newField<T>("vel", 3, 0);
         auto rho = grid.newField<T>("rho", 1, 0);
-
-
+              
         //init fields
         for (int level = 0; level < descriptor.getDepth(); ++level) {
             constexpr auto t = latticeWeight<Q>();
@@ -759,8 +753,6 @@ int main(int argc, char** argv)
 
         grid.getBackend().syncAll();
 
-
-        //vel.ioToVtk("test");
 
         //skeleton
         std::vector<Neon::set::Container> containers;
