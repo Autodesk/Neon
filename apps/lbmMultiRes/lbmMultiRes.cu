@@ -405,6 +405,7 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
                                 for (int8_t p = 0; p < Q; ++p) {
                                     const Neon::int8_3d p_dir = getDir(p);
 
+                                    const auto p_cell = fpost_col.getNghCell(cell, p_dir);
                                     //relative direction of q w.r.t p
                                     //i.e., in which direction we should move starting from p to land on q
                                     const Neon::int8_3d r_dir = q_dir - p_dir;
@@ -422,8 +423,11 @@ Neon::set::Container store(Neon::domain::mGrid&           grid,
                                                     //for c (this is what we do for explosion but here we do this just for the check)
                                                     const Neon::int8_3d cq = uncleOffset(c, q_dir);
                                                     if (cq == r_dir) {
-                                                        num++;
-                                                        sum += fpost_col.childVal(cell, c, q, 0).value;
+                                                        auto childVal = fpost_col.childVal(p_cell, c, q, 0);
+                                                        if (childVal.isValid) {
+                                                            num++;
+                                                            sum += childVal.value;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -647,31 +651,35 @@ int main(int argc, char** argv)
         levelSDF[3] = -1.0;
 
         //const Neon::index_3d grid_dim(48, 48, 48);
-        //float                levelSDF[depth + 1];
+        //float levelSDF[depth + 1];
         //levelSDF[0] = 0;
         //levelSDF[1] = -8 / 24.0;
         //levelSDF[2] = -16 / 24.0;
         //levelSDF[3] = -1.0;
 
+        //const Neon::index_3d grid_dim(12, 12, 4);
 
         Neon::domain::mGrid grid(
             backend, grid_dim,
             {[&](const Neon::index_3d id) -> bool {
                  return sdfCube(id, grid_dim - 1) <= levelSDF[0] &&
                         sdfCube(id, grid_dim - 1) > levelSDF[1];
+                 //return id.x < 4 && id.z == 0;
              },
              [&](const Neon::index_3d& id) -> bool {
                  return sdfCube(id, grid_dim - 1) <= levelSDF[1] &&
                         sdfCube(id, grid_dim - 1) > levelSDF[2];
+                 //return id.x >= 4 && id.x < 8 && id.z == 0;
              },
              [&](const Neon::index_3d& id) -> bool {
                  return sdfCube(id, grid_dim - 1) <= levelSDF[2] &&
                         sdfCube(id, grid_dim - 1) > levelSDF[3];
+                 //return id.z == 0;
              }},
             Neon::domain::Stencil::s19_t(false), descriptor);
 
         //LBM problem
-        const int             max_iter = 20000;
+        const int             max_iter = 200000;
         const T               ulb = 0.02;
         const T               Re = 100;
         const T               clength = (grid_dim.x * std::pow(2, -(descriptor.getDepth() - 1)) - 1);
@@ -752,6 +760,8 @@ int main(int argc, char** argv)
         grid.getBackend().syncAll();
 
 
+        //vel.ioToVtk("test");
+
         //skeleton
         std::vector<Neon::set::Container> containers;
         nonUniformTimestepRecursive<T, Q>(grid,
@@ -769,7 +779,7 @@ int main(int argc, char** argv)
         for (int t = 0; t < max_iter; ++t) {
             printf("\n Iteration = %d", t);
             skl.run();
-            if (t % 100 == 0) {
+            if (t % 200 == 0) {
                 postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho);
             }
         }
