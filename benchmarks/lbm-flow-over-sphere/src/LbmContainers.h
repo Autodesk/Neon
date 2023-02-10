@@ -89,11 +89,10 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
           typename PopulationField::Partition const& fin,
           NEON_OUT LbmStoreType                      popIn[19])
     {
-        // TODO WE have
-        if (cellType == CellType::pressure || cellType == CellType::velocity) {
-            if (position == Neon::index_3d(1, 2, 1)) {
-                printf("38, 2, 2\n");
-            }
+
+        if (position == Neon::index_3d(1, 1, 2)) {
+            printf("1, 1, 2\n");
+        }
 
 #define PULL_STREAM_ZOUHE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                      \
     {                                                                                    \
@@ -111,55 +110,53 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         }                                                                                \
     }
 
-            PULL_STREAM_ZOUHE(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10);
-            PULL_STREAM_ZOUHE(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11);
-            PULL_STREAM_ZOUHE(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12);
-            PULL_STREAM_ZOUHE(-1, -1, 0, /* GOid */ 3, /* --- */ 1, 1, 0, /*  BKid */ 13);
-            PULL_STREAM_ZOUHE(-1, 1, 0, /*  GOid */ 4, /* --- */ 1, -1, 0, /* BKid */ 14);
-            PULL_STREAM_ZOUHE(-1, 0, -1, /* GOid */ 5, /* --- */ 1, 0, 1, /*  BKid */ 15);
-            PULL_STREAM_ZOUHE(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16);
-            PULL_STREAM_ZOUHE(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17);
-            PULL_STREAM_ZOUHE(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18);
+        PULL_STREAM_ZOUHE(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10);
+        PULL_STREAM_ZOUHE(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11);
+        PULL_STREAM_ZOUHE(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12);
+        PULL_STREAM_ZOUHE(-1, -1, 0, /* GOid */ 3, /* --- */ 1, 1, 0, /*  BKid */ 13);
+        PULL_STREAM_ZOUHE(-1, 1, 0, /*  GOid */ 4, /* --- */ 1, -1, 0, /* BKid */ 14);
+        PULL_STREAM_ZOUHE(-1, 0, -1, /* GOid */ 5, /* --- */ 1, 0, 1, /*  BKid */ 15);
+        PULL_STREAM_ZOUHE(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16);
+        PULL_STREAM_ZOUHE(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17);
+        PULL_STREAM_ZOUHE(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18);
 #undef PULL_STREAM_ZOUHE
+        popIn[Lattice::centerDirection] = fin(cell, Lattice::centerDirection);
 
-            popIn[Lattice::centerDirection] = fin(cell, Lattice::centerDirection);
-
-            LbmComputeType knownSum = 0;
-            LbmComputeType middelSum = 0;
-#define KNOWN_SUM(X)                               \
-    {                                              \
-        const int iu = unknowns.X;                 \
-        const int ik = iu < 9 ? iu + 10 : iu - 10; \
-        knownSum += popIn[ik];                     \
+        LbmComputeType knownSum = 0;
+        LbmComputeType middelSum = 0;
+#define KNOWN_SUM(X)                                                      \
+    {                                                                     \
+        const int iu = unknowns.X;                                        \
+        const int ik = iu < Lattice::centerDirection ? iu + 10 : iu - 10; \
+        knownSum += popIn[ik];                                            \
     }
-
-            KNOWN_SUM(mA);
-            KNOWN_SUM(mB);
-            KNOWN_SUM(mC);
-            KNOWN_SUM(mD);
-            KNOWN_SUM(mE);
+        KNOWN_SUM(mA);
+        KNOWN_SUM(mB);
+        KNOWN_SUM(mC);
+        KNOWN_SUM(mD);
+        KNOWN_SUM(mE);
 #undef KNOWN_SUM
 
-            middelSum += popIn[middle.mA];
-            middelSum += popIn[middle.mA + 10];
-            middelSum += popIn[middle.mB];
-            middelSum += popIn[middle.mB + 10];
-            middelSum += popIn[middle.mC];
-            middelSum += popIn[middle.mC + 10];
-            middelSum += popIn[middle.mD];
-            middelSum += popIn[middle.mD + 10];
+        middelSum += popIn[middle.mA];
+        middelSum += popIn[middle.mA + 10];
+        middelSum += popIn[middle.mB];
+        middelSum += popIn[middle.mB + 10];
+        middelSum += popIn[middle.mC];
+        middelSum += popIn[middle.mC + 10];
+        middelSum += popIn[middle.mD];
+        middelSum += popIn[middle.mD + 10];
+        middelSum += popIn[Lattice::centerDirection];
 
-
-            auto uNormal = ((middelSum + 2 * knownSum) / rho) - 1;
-            {
-                const unsigned int normalOppositeDirection = unknowns.mA;
-                const unsigned int normalIdx = normalOppositeDirection < 9 ? normalOppositeDirection : normalOppositeDirection - 10;
-                u[0] = 0;
-                u[1] = 0;
-                u[2] = 0;
-                u[normalIdx] = uNormal * (normalOppositeDirection < 9 ? 1 : -1);
-            }
+        {
+            auto               uNormal = ((middelSum + knownSum * 2) / rho) - 1;
+            const unsigned int normalOppositeDirection = unknowns.mA;
+            const unsigned int normalIdx = normalOppositeDirection < Lattice::centerDirection ? normalOppositeDirection : normalOppositeDirection - 10;
+            u[0] = 0;
+            u[1] = 0;
+            u[2] = 0;
+            u[normalIdx] = uNormal * (normalOppositeDirection < Lattice::centerDirection ? 1 : -1);
         }
+
 
         usqr = 1.5 * (u[0] * u[0] +
                       u[1] * u[1] +
@@ -193,11 +190,11 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         eq[17] = eq[7] + rho * (1. / 36.) * 6. * ck_u07;
         eq[18] = eq[8] + rho * (1. / 36.) * 6. * ck_u08;
 
-#define UPDATE_POPULATIONS(X)                               \
-    {                                                       \
-        const unsigned int iu = unknowns.X;                 \
-        const unsigned int ik = iu < 9 ? iu + 10 : iu - 10; \
-        popIn[iu] = popIn[ik] + eq[iu] - eq[ik];            \
+#define UPDATE_POPULATIONS(X)                                                      \
+    {                                                                              \
+        const unsigned int iu = unknowns.X;                                        \
+        const unsigned int ik = iu < Lattice::centerDirection ? iu + 10 : iu - 10; \
+        popIn[iu] = popIn[ik] + eq[iu] - eq[ik];                                   \
     }
 
         UPDATE_POPULATIONS(mA);
@@ -205,8 +202,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         UPDATE_POPULATIONS(mC);
         UPDATE_POPULATIONS(mD);
         UPDATE_POPULATIONS(mE);
-
-#undef MIDDLE_SUM
+#undef UPDATE_POPULATIONS
     }
 
 
@@ -442,9 +438,11 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                             NEON_OUT popIn);
 
                         collideBgkUnrolled(cell,
-                                           popIn,
-                                           rho, u,
-                                           usqr, omega,
+                                           NEON_IN  popIn,
+                                           NEON_IN  rho,
+                                           NEON_IN  u,
+                                           NEON_IN  usqr,
+                                           NEON_IN  omega,
                                            NEON_OUT fOut);
                         return;
                     }
@@ -629,7 +627,9 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
                     // TODO add code for zouhe
 
-                    if (cellInfo.classification == CellType::bulk) {
+                    if (cellInfo.classification == CellType::bulk ||
+                        cellInfo.classification == CellType::pressure ||
+                        cellInfo.classification == CellType::velocity) {
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
                         macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
                     } else {
