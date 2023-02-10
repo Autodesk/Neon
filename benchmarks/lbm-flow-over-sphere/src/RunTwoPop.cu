@@ -107,20 +107,25 @@ auto runSpecialized(Config& config,
             return CellType::Classification::bounceBack;
         }
 
-        if (idx.x == 1 && idx.z == 1) {
-            return CellType::Classification::bulk;
-        }
-        if (idx.x == 1 && idx.z == config.N - 2) {
-            return CellType::Classification::bulk;
-        }
-        if (idx.x == config.N - 2 && idx.z == 1) {
-            return CellType::Classification::bulk;
-        }
-        if (idx.x == config.N - 2 && idx.z == config.N - 2) {
-            return CellType::Classification::bulk;
-        }
+        auto idEdge = [idx, config](int d1, int d2) {
+            if ((idx.v[d1] == 1 && idx.v[d2] == 1) ||
+                (idx.v[d1] == 1 && idx.v[d2] == config.N - 2) ||
+                (idx.v[d1] == config.N - 2 && idx.v[d2] == 1) ||
+                (idx.v[d1] == config.N - 2 && idx.v[d2] == config.N - 2)) {
+                return true;
+            }
+            return false;
+        };
 
-
+        if (idEdge(0,1)) {
+            return CellType::Classification::bulk;
+        }
+        if (idEdge(0,2)) {
+            return CellType::Classification::bulk;
+        }
+        if (idEdge(1,2)) {
+            return CellType::Classification::bulk;
+        }
 
         if (idx.x == 1) {
             return CellType::Classification::pressure;
