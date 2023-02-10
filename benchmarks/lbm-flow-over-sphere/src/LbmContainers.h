@@ -82,7 +82,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
           const uint32_t&                            wallBitFlag,
           CellType::LatticeSectionUnk const&         unknowns,
           CellType::LatticeSectionMiddle const&      middle,
-          NEON_OUT LbmComputeType                    usqr,
+          NEON_OUT LbmComputeType&                   usqr,
           NEON_IO LbmComputeType&                    rho,
           NEON_IO LbmComputeType                     u[3],
           Neon::index_3d                             position,
@@ -408,6 +408,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                                            rho, u,
                                            usqr, omega,
                                            NEON_OUT fOut);
+                        return;
                     }
                     if (
                         cellInfo.classification == CellType::pressure ||
@@ -445,6 +446,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                                            rho, u,
                                            usqr, omega,
                                            NEON_OUT fOut);
+                        return;
                     }
                 };
             });
