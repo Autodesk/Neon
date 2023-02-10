@@ -99,7 +99,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     {                                                                                    \
         { /*GO*/                                                                         \
             if (wallBitFlag & (uint32_t(1) << GOid)) {                                   \
-                                                                                         \
             } else {                                                                     \
                 popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(cell, GOid, 0.0).value; \
             }                                                                            \
@@ -112,7 +111,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         }                                                                                \
     }
 
-
             PULL_STREAM_ZOUHE(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10);
             PULL_STREAM_ZOUHE(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11);
             PULL_STREAM_ZOUHE(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12);
@@ -124,15 +122,17 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
             PULL_STREAM_ZOUHE(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18);
 #undef PULL_STREAM_ZOUHE
 
+            popIn[Lattice::centerDirection] = fin(cell, Lattice::centerDirection);
 
-#define KNOWN_SUM(X)                          \
-    {                                         \
-        const int iu = unknowns.X;            \
-        const int ik = iu < 9 ? iu : iu - 10; \
-        knownSum += popIn[ik];                \
-    }
             LbmComputeType knownSum = 0;
             LbmComputeType middelSum = 0;
+#define KNOWN_SUM(X)                               \
+    {                                              \
+        const int iu = unknowns.X;                 \
+        const int ik = iu < 9 ? iu + 10 : iu - 10; \
+        knownSum += popIn[ik];                     \
+    }
+
             KNOWN_SUM(mA);
             KNOWN_SUM(mB);
             KNOWN_SUM(mC);
@@ -152,12 +152,12 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
             auto uNormal = ((middelSum + 2 * knownSum) / rho) - 1;
             {
-                const unsigned int normalOppositeIdx = unknowns.mA;
-                const unsigned int normalIdx = normalOppositeIdx < 9 ? normalOppositeIdx : normalOppositeIdx - 10;
+                const unsigned int normalOppositeDirection = unknowns.mA;
+                const unsigned int normalIdx = normalOppositeDirection < 9 ? normalOppositeDirection : normalOppositeDirection - 10;
                 u[0] = 0;
                 u[1] = 0;
                 u[2] = 0;
-                u[normalIdx] = uNormal * (normalOppositeIdx < 9 ? 1 : -1);
+                u[normalIdx] = uNormal * (normalOppositeDirection < 9 ? 1 : -1);
             }
         }
 
