@@ -90,10 +90,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
           NEON_OUT LbmStoreType                      popIn[19])
     {
 
-        if (position == Neon::index_3d(1, 1, 2)) {
-            printf("1, 1, 2\n");
-        }
-
 #define PULL_STREAM_ZOUHE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                      \
     {                                                                                    \
         { /*GO*/                                                                         \
@@ -124,11 +120,10 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
         LbmComputeType knownSum = 0;
         LbmComputeType middelSum = 0;
-#define KNOWN_SUM(X)                                                      \
-    {                                                                     \
-        const int iu = unknowns.X;                                        \
-        const int ik = iu < Lattice::centerDirection ? iu + 10 : iu - 10; \
-        knownSum += popIn[ik];                                            \
+#define KNOWN_SUM(X)                                     \
+    {                                                    \
+        const int ik = Lattice::getOpposite(unknowns.X); \
+        knownSum += popIn[ik];                           \
     }
         KNOWN_SUM(mA);
         KNOWN_SUM(mB);
@@ -150,7 +145,9 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         {
             auto               uNormal = ((middelSum + knownSum * 2) / rho) - 1;
             const unsigned int normalOppositeDirection = unknowns.mA;
-            const unsigned int normalIdx = normalOppositeDirection < Lattice::centerDirection ? normalOppositeDirection : normalOppositeDirection - 10;
+            const unsigned int normalIdx = normalOppositeDirection < Lattice::centerDirection
+                                               ? normalOppositeDirection
+                                               : normalOppositeDirection - 10;
             u[0] = 0;
             u[1] = 0;
             u[2] = 0;
@@ -218,7 +215,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     {                                                                                                                   \
         { /*GO*/                                                                                                        \
             if (wallBitFlag & (uint32_t(1) << GOid)) {                                                                  \
-                /*std::cout << "cell " << i.mLocation << " direction " << GOid << " opposite " << BKid << std::endl; */ \
                 popIn[GOid] = fin(i, BKid) +                                                                            \
                               fin.template nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value;                                   \
             } else {                                                                                                    \

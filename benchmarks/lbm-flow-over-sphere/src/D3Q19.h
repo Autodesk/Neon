@@ -151,6 +151,12 @@ struct D3Q19Template
             return go - goBackOffset;
     }
 
+    NEON_CUDA_HOST_DEVICE
+    static inline auto getOpposite(int direction)
+        -> int
+    {
+        return direction < centerDirection ? direction + 10 : direction - 10;
+    }
 
     Neon::set::MemSet_t<Neon::int8_3d> c;
     Neon::set::MemSet_t<int>           opp;
