@@ -3,7 +3,7 @@
 
 struct CellType
 {
-    enum Classification : int
+    enum Classification : uint16_t
     {
         bounceBack = 1,
         movingWall = 2,
@@ -40,11 +40,13 @@ struct CellType
         wallNghBitflag = 0;
     }
 
-    NEON_CUDA_HOST_DEVICE explicit CellType(Classification c, uint32_t n)
+    NEON_CUDA_HOST_DEVICE explicit CellType(Classification c,
+                                            uint32_t       n)
     {
         classification = c;
         wallNghBitflag = n;
     }
+
     NEON_CUDA_HOST_DEVICE explicit CellType(Classification c)
     {
         classification = c;

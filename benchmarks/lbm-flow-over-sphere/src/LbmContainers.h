@@ -75,13 +75,101 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     }
 #undef LOADPOP
 
+    static inline NEON_CUDA_HOST_DEVICE auto
+    composeZouheData(Cell const&                                cell,
+                     typename PopulationField::Partition const& fin,
+                     CellType::Classification                   cellType,
+                     NEON_OUT CellType::LatticeSectionUnk& latticeSectionUnk,
+                     NEON_OUT CellType::LatticeSectionMiddle& latticeSectionMiddle,
+                     NEON_OUT LbmComputeType&                 rho,
+                     NEON_OUT LbmComputeType                  u[3]) -> void
+    {
+        if (cellType == CellType::pressure) {
+            fin(cell, 0) = rho;
+        } else {
+            fin(cell, 0) = u[0];
+            fin(cell, 1) = u[1];
+            fin(cell, 2) = u[2];
+        }
+        if constexpr (std::is_same_v<LbmStoreType, double>) {
+            LbmStoreType  knStorageVal;
+            LbmStoreType* knStoragePtr = &knStorageVal;
+            const int*    nkPtr = (int*)knStoragePtr;
+            *(CellType::LatticeSectionUnk*)&(nkPtr[0]) = latticeSectionUnk;
+            *(CellType::LatticeSectionMiddle*)&(nkPtr[1]) = latticeSectionMiddle;
+            fin(cell, 3) = knStorageVal;
+            return;
+        } else if constexpr (std::is_same_v<LbmStoreType, float>) {
+            {
+                LbmStoreType  storageVal;
+                LbmStoreType* storagePtr = &storageVal;
+                const int*    nkPtr = (int*)storagePtr;
+                *(CellType::LatticeSectionUnk*)&(nkPtr[0]) = latticeSectionUnk;
+                fin(cell, 3) = storageVal;
+            }
+            {
+                LbmStoreType  storageVal;
+                LbmStoreType* storagePtr = &storageVal;
+                const int*    nkPtr = (int*)storagePtr;
+                latticeSectionMiddle = *(CellType::LatticeSectionMiddle*)&(nkPtr[0]);
+                fin(cell, 4) = storageVal;
+            }
+            return;
+        } else {
+            printf("Error\n");
+        }
+        return;
+    }
+
+    template <int dX, int dY, int dZ>
+    static inline NEON_CUDA_HOST_DEVICE auto
+    extractZouheData(Cell const&                                cell,
+                     typename PopulationField::Partition const& fin,
+                     CellType::Classification                   cellType,
+                     NEON_OUT CellType::LatticeSectionUnk& latticeSectionUnk,
+                     NEON_OUT CellType::LatticeSectionMiddle& latticeSectionMiddle,
+                     NEON_OUT LbmComputeType&                 rho,
+                     NEON_OUT LbmComputeType                  u[3]) -> void
+    {
+        if (cellType == CellType::pressure) {
+            rho = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, 0, 0.0).value);
+        } else {
+            u[0] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, 0, 0.0).value);
+            u[1] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, 1, 0.0).value);
+            u[2] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, 2, 0.0).value);
+        }
+        if constexpr (std::is_same_v<LbmStoreType, double>) {
+            LbmStoreType  knStorageVal = fin.template nghVal<dX, dY, dZ>(cell, 3, 0.0).value;
+            LbmStoreType* knStoragePtr = &knStorageVal;
+            const int*    nkPtr = (int*)knStoragePtr;
+            latticeSectionUnk = *(CellType::LatticeSectionUnk*)&(nkPtr[0]);
+            latticeSectionMiddle = *(CellType::LatticeSectionMiddle*)&(nkPtr[1]);
+            return;
+        } else if constexpr (std::is_same_v<LbmStoreType, float>) {
+            {
+                LbmStoreType  storageVal = fin.template nghVal<dX, dY, dZ>(cell, 3, 0.0).value;
+                LbmStoreType* storagePtr = &storageVal;
+                const int*    nkPtr = (int*)storagePtr;
+                latticeSectionUnk = *(CellType::LatticeSectionUnk*)&(nkPtr[0]);
+            }
+            {
+                LbmStoreType  storageVal = fin.template nghVal<dX, dY, dZ>(cell, 4, 0.0).value;
+                LbmStoreType* storagePtr = &storageVal;
+                const int*    nkPtr = (int*)storagePtr;
+                latticeSectionMiddle = *(CellType::LatticeSectionMiddle*)&(nkPtr[0]);
+            }
+            return;
+        } else {
+            printf("Error\n");
+        }
+        return;
+    }
+
 
     static inline NEON_CUDA_HOST_DEVICE auto
     zouhe(Cell const&                                cell,
           CellType::Classification                   cellType,
           const uint32_t&                            wallBitFlag,
-          CellType::LatticeSectionUnk const&         unknowns,
-          CellType::LatticeSectionMiddle const&      middle,
           NEON_OUT LbmComputeType&                   usqr,
           NEON_IO LbmComputeType&                    rho,
           NEON_IO LbmComputeType                     u[3],
@@ -89,17 +177,32 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
           typename PopulationField::Partition const& fin,
           NEON_OUT LbmStoreType                      popIn[19])
     {
-
+        CellType::LatticeSectionUnk    unknowns;
+        CellType::LatticeSectionMiddle middle;
 #define PULL_STREAM_ZOUHE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                      \
     {                                                                                    \
         { /*GO*/                                                                         \
             if (wallBitFlag & (uint32_t(1) << GOid)) {                                   \
+                extractZouheData<BKx, BKy, BKz>(cell,                                    \
+                                                fin,                                     \
+                                                cellType,                                \
+                                                unknowns,                                \
+                                                middle,                                  \
+                                                rho,                                     \
+                                                u);                                      \
             } else {                                                                     \
                 popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(cell, GOid, 0.0).value; \
             }                                                                            \
         }                                                                                \
         { /*BK*/                                                                         \
             if (wallBitFlag & (uint32_t(1) << BKid)) {                                   \
+                extractZouheData<GOx, GOy, GOz>(cell,                                    \
+                                                fin,                                     \
+                                                cellType,                                \
+                                                unknowns,                                \
+                                                middle,                                  \
+                                                rho,                                     \
+                                                u);                                      \
             } else {                                                                     \
                 popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(cell, BKid, 0.0).value; \
             }                                                                            \
@@ -211,23 +314,23 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     {
         // #pragma omp critical
         //        {
-#define PULL_STREAM(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                           \
-    {                                                                                                                   \
-        { /*GO*/                                                                                                        \
-            if (wallBitFlag & (uint32_t(1) << GOid)) {                                                                  \
-                popIn[GOid] = fin(i, BKid) +                                                                            \
-                              fin.template nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value;                                   \
-            } else {                                                                                                    \
-                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;                                   \
-            }                                                                                                           \
-        }                                                                                                               \
-        { /*BK*/                                                                                                        \
-            if (wallBitFlag & (uint32_t(1) << BKid)) {                                                                  \
-                popIn[BKid] = fin(i, GOid) + fin.template nghVal<GOx, GOy, GOz>(i, GOid, 0.0).value;                    \
-            } else {                                                                                                    \
-                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value;                                   \
-            }                                                                                                           \
-        }                                                                                                               \
+#define PULL_STREAM(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                        \
+    {                                                                                                \
+        { /*GO*/                                                                                     \
+            if (wallBitFlag & (uint32_t(1) << GOid)) {                                               \
+                popIn[GOid] = fin(i, BKid) +                                                         \
+                              fin.template nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value;                \
+            } else {                                                                                 \
+                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;                \
+            }                                                                                        \
+        }                                                                                            \
+        { /*BK*/                                                                                     \
+            if (wallBitFlag & (uint32_t(1) << BKid)) {                                               \
+                popIn[BKid] = fin(i, GOid) + fin.template nghVal<GOx, GOy, GOz>(i, GOid, 0.0).value; \
+            } else {                                                                                 \
+                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value;                \
+            }                                                                                        \
+        }                                                                                            \
     }
 
 
@@ -424,8 +527,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                             cell,
                             cellInfo.classification,
                             cellInfo.wallNghBitflag,
-                            cellInfo.unknowns,
-                            cellInfo.middle,
                             NEON_OUT usqr,
                             NEON_IO  rho,
                             NEON_IO  u.data(),
