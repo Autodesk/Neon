@@ -131,35 +131,39 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                      NEON_OUT LbmComputeType&                 rho,
                      NEON_OUT LbmComputeType                  u[3]) -> void
     {
-        if (cellType == CellType::pressure) {
-            rho = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, 0, 0.0).value);
-        } else {
-            u[0] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, 0, 0.0).value);
-            u[1] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, 1, 0.0).value);
-            u[2] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, 2, 0.0).value);
-        }
-        if constexpr (std::is_same_v<LbmStoreType, double>) {
-            LbmStoreType  knStorageVal = fin.template nghVal<dX, dY, dZ>(cell, 3, 0.0).value;
+        /*
+            0 directions -> latticeSectionUnk
+            latticeSectionUnk.mA -> rho
+
+            latticeSectionUnk.mA -> u[1]
+            latticeSectionUnk.mB -> u[2]
+            latticeSectionUnk.mC -> u[3]
+
+            latticeSectionUnk.mD -> latticeSectionMiddle
+         */
+        {
+            LbmStoreType  knStorageVal = fin.template nghVal<dX, dY, dZ>(cell, 0, 0.0).value;
             LbmStoreType* knStoragePtr = &knStorageVal;
             const int*    nkPtr = (int*)knStoragePtr;
             latticeSectionUnk = *(CellType::LatticeSectionUnk*)&(nkPtr[0]);
-            latticeSectionMiddle = *(CellType::LatticeSectionMiddle*)&(nkPtr[1]);
-            return;
-        } else if constexpr (std::is_same_v<LbmStoreType, float>) {
-            {
-                LbmStoreType  storageVal = fin.template nghVal<dX, dY, dZ>(cell, 3, 0.0).value;
-                LbmStoreType* storagePtr = &storageVal;
-                const int*    nkPtr = (int*)storagePtr;
-                latticeSectionUnk = *(CellType::LatticeSectionUnk*)&(nkPtr[0]);
-            }
-            {
-                LbmStoreType  storageVal = fin.template nghVal<dX, dY, dZ>(cell, 4, 0.0).value;
-                LbmStoreType* storagePtr = &storageVal;
-                const int*    nkPtr = (int*)storagePtr;
-                latticeSectionMiddle = *(CellType::LatticeSectionMiddle*)&(nkPtr[0]);
-            }
-            return;
+        }
+
+
+        if (cellType == CellType::pressure) {
+            rho = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mA, 0.0).value);
         } else {
+            u[0] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mA, 0.0).value);
+            u[1] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mB, 0.0).value);
+            u[2] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mC, 0.0).value);
+        }
+        {
+            LbmStoreType  storageVal = fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mD, 0.0).value;
+            LbmStoreType* storagePtr = &storageVal;
+            const int*    nkPtr = (int*)storagePtr;
+            latticeSectionMiddle = *(CellType::LatticeSectionMiddle*)&(nkPtr[0]);
+        }
+        if constexpr (!std::is_same_v<LbmStoreType, double> ||
+                      !std::is_same_v<LbmStoreType, float>) {
             printf("Error\n");
         }
         return;
