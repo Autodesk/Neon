@@ -55,9 +55,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                    typename PopulationField::Partition const& fin,
                    NEON_OUT LbmStoreType                      popIn[19])
     {
-        // #pragma omp critical
-        //        {
-
         LOADPOP(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10);
         LOADPOP(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11);
         LOADPOP(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12);
@@ -67,9 +64,9 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         LOADPOP(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16);
         LOADPOP(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17);
         LOADPOP(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18);
-        //  }
-        // Treat the case of the center (c[k] = {0, 0, 0,}).
+
         {
+            // Treat the case of the center (c[k] = {0, 0, 0,}).
             popIn[Lattice::centerDirection] = fin(i, Lattice::centerDirection);
         }
     }
@@ -123,31 +120,20 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
     template <int dX, int dY, int dZ>
     static inline NEON_CUDA_HOST_DEVICE auto
-    extractZouheData(Cell const&                                cell,
-                     typename PopulationField::Partition const& fin,
-                     CellType::Classification                   cellType,
-                     NEON_OUT CellType::LatticeSectionUnk& latticeSectionUnk,
-                     NEON_OUT CellType::LatticeSectionMiddle& latticeSectionMiddle,
-                     NEON_OUT LbmComputeType&                 rho,
-                     NEON_OUT LbmComputeType                  u[3]) -> void
+    extractZouheDataByDirection(Cell const&                                cell,
+                                typename PopulationField::Partition const& fin,
+                                CellType::Classification                   cellType,
+                                NEON_OUT CellType::LatticeSectionUnk& latticeSectionUnk,
+                                NEON_OUT CellType::LatticeSectionMiddle& latticeSectionMiddle,
+                                NEON_OUT LbmComputeType&                 rho,
+                                NEON_OUT LbmComputeType                  u[3]) -> void
     {
-        /*
-            0 directions -> latticeSectionUnk
-            latticeSectionUnk.mA -> rho
-
-            latticeSectionUnk.mA -> u[1]
-            latticeSectionUnk.mB -> u[2]
-            latticeSectionUnk.mC -> u[3]
-
-            latticeSectionUnk.mD -> latticeSectionMiddle
-         */
         {
             LbmStoreType  knStorageVal = fin.template nghVal<dX, dY, dZ>(cell, 0, 0.0).value;
             LbmStoreType* knStoragePtr = &knStorageVal;
             const int*    nkPtr = (int*)knStoragePtr;
             latticeSectionUnk = *(CellType::LatticeSectionUnk*)&(nkPtr[0]);
         }
-
 
         if (cellType == CellType::pressure) {
             rho = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mA, 0.0).value);
@@ -171,15 +157,15 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    zouhe(Cell const&                                cell,
-          CellType::Classification                   cellType,
-          const uint32_t&                            wallBitFlag,
-          NEON_OUT LbmComputeType&                   usqr,
-          NEON_IO LbmComputeType&                    rho,
-          NEON_IO LbmComputeType                     u[3],
-          Neon::index_3d                             position,
-          typename PopulationField::Partition const& fin,
-          NEON_OUT LbmStoreType                      popIn[19])
+    streamAndZouhe(Cell const&                                cell,
+                   CellType::Classification                   cellType,
+                   const uint32_t&                            wallBitFlag,
+                   NEON_OUT LbmComputeType&                   usqr,
+                   NEON_IO LbmComputeType&                    rho,
+                   NEON_IO LbmComputeType                     u[3],
+                   Neon::index_3d                             position,
+                   typename PopulationField::Partition const& fin,
+                   NEON_OUT LbmStoreType                      popIn[19])
     {
         CellType::LatticeSectionUnk    unknowns;
         CellType::LatticeSectionMiddle middle;
@@ -187,26 +173,26 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     {                                                                                    \
         { /*GO*/                                                                         \
             if (wallBitFlag & (uint32_t(1) << GOid)) {                                   \
-                extractZouheData<BKx, BKy, BKz>(cell,                                    \
-                                                fin,                                     \
-                                                cellType,                                \
-                                                unknowns,                                \
-                                                middle,                                  \
-                                                rho,                                     \
-                                                u);                                      \
+                extractZouheDataByDirection<BKx, BKy, BKz>(cell,                         \
+                                                           fin,                          \
+                                                           cellType,                     \
+                                                           unknowns,                     \
+                                                           middle,                       \
+                                                           rho,                          \
+                                                           u);                           \
             } else {                                                                     \
                 popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(cell, GOid, 0.0).value; \
             }                                                                            \
         }                                                                                \
         { /*BK*/                                                                         \
             if (wallBitFlag & (uint32_t(1) << BKid)) {                                   \
-                extractZouheData<GOx, GOy, GOz>(cell,                                    \
-                                                fin,                                     \
-                                                cellType,                                \
-                                                unknowns,                                \
-                                                middle,                                  \
-                                                rho,                                     \
-                                                u);                                      \
+                extractZouheDataByDirection<GOx, GOy, GOz>(cell,                         \
+                                                           fin,                          \
+                                                           cellType,                     \
+                                                           unknowns,                     \
+                                                           middle,                       \
+                                                           rho,                          \
+                                                           u);                           \
             } else {                                                                     \
                 popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(cell, BKid, 0.0).value; \
             }                                                                            \
@@ -316,8 +302,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                typename PopulationField::Partition const& fin,
                NEON_OUT LbmStoreType                      popIn[19])
     {
-        // #pragma omp critical
-        //        {
 #define PULL_STREAM(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                        \
     {                                                                                                \
         { /*GO*/                                                                                     \
@@ -517,17 +501,11 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                         LbmComputeType                rho;
                         std::array<LbmComputeType, 3> u{.0, .0, .0};
                         LbmComputeType                usqr = 0.0;
-
-                        if (cellInfo.classification == CellType::pressure) {
-                            rho = LbmComputeType(cellInfo.rho);
-                        } else {
-                            rho = LbmComputeType(cellInfo.rho);
-                        };
-
-                        LbmStoreType popIn[Lattice::Q];
-
+                        LbmStoreType                  popIn[Lattice::Q];
+                        
                         Neon::index_3d globalPos = fIn.mapToGlobal(cell);
-                        zouhe(
+
+                        streamAndZouhe(
                             cell,
                             cellInfo.classification,
                             cellInfo.wallNghBitflag,
