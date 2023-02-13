@@ -502,7 +502,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                         std::array<LbmComputeType, 3> u{.0, .0, .0};
                         LbmComputeType                usqr = 0.0;
                         LbmStoreType                  popIn[Lattice::Q];
-                        
+
                         Neon::index_3d globalPos = fIn.mapToGlobal(cell);
 
                         streamAndZouhe(
