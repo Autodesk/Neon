@@ -455,6 +455,18 @@ auto dField<T, C>::haloUpdate(Neon::set::HuOptions& opt) const
 }
 
 template <typename T, int C>
+auto dField<T, C>::hostHaloUpdate() const
+    -> void
+{
+    Neon::set::HuOptions opt(Neon::set::TransferMode::get, false);
+    NEON_TRACE("haloUpdate stream {} transferMode {} ", opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
+    auto& bk = self().getBackend();
+    auto  fieldDev = field(Neon::DeviceType::CPU);
+
+    fieldDev.template haloUpdate<Neon::set::TransferMode::get>(bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
+}
+
+template <typename T, int C>
 auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
                               Neon::set::HuOptions& opt) const
     -> void

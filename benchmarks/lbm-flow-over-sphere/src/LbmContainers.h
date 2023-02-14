@@ -530,6 +530,31 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         return container;
     }
 
+
+    static auto
+    computeWallNghMask(const CellTypeField& infoInField,
+                       CellTypeField&       infoOutpeField)
+
+        -> Neon::set::Container
+    {
+
+
+        Neon::set::Container container = infoInField.getGrid().getContainer(
+            "LBM_iteration",
+            [&](Neon::set::Loader& L) -> auto {
+                auto& infoIn = L.load(infoInField,
+                                      Neon::Compute::STENCIL);
+                auto& infoOut = L.load(infoOutpeField);
+
+                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
+                    CellType cellType = infoIn(cell, 0);
+                    cellType.wallNghBitflag = 0;
+
+                    if (cellType.classification == CellType::bulk ||
+                        cellType.classification == CellType::pressure ||
+                        cellType.classification == CellType::velocity) {
+
+                    // TODO add code for zouhe
 #define COMPUTE_MASK_WALL(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                           \
     {                                                                                                         \
         { /*GO*/                                                                                              \
@@ -550,30 +575,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         }                                                                                                     \
     }
 
-
-    static auto
-    computeWallNghMask(const CellTypeField& infoInField,
-                       CellTypeField&       infoOutpeField)
-
-        -> Neon::set::Container
-    {
-        Neon::set::Container container = infoInField.getGrid().getContainer(
-            "LBM_iteration",
-            [&](Neon::set::Loader& L) -> auto {
-                auto& infoIn = L.load(infoInField,
-                                      Neon::Compute::STENCIL);
-                auto& infoOut = L.load(infoOutpeField);
-
-                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
-                    CellType cellType = infoIn(cell, 0);
-                    cellType.wallNghBitflag = 0;
-
-                    if (cellType.classification == CellType::bulk ||
-                        cellType.classification == CellType::pressure ||
-                        cellType.classification == CellType::velocity) {
-
-                        // TODO add code for zouhe
-
                         COMPUTE_MASK_WALL(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10)
                         COMPUTE_MASK_WALL(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11)
                         COMPUTE_MASK_WALL(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12)
@@ -585,6 +586,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                         COMPUTE_MASK_WALL(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18)
 
                         infoOut(cell, 0) = cellType;
+#undef COMPUTE_MASK_WALL
                     }
                     auto globalIndex = infoIn.mapToGlobal(cell);
                     if (globalIndex == Neon::index_3d{38, 2, 2}) {
@@ -673,8 +675,114 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
             });
         return container;
     }
-#undef COMPUTE_MASK_WALL
 #undef BYDIRECTION
+
+    static auto
+    computeZouheGhostCells(const CellTypeField& infoInField,
+                           CellTypeField&       infoOutpeField,
+                           LbmStoreType         prescribeRho,
+                           LbmStoreType         prescrivedVel[3])
+
+        -> Neon::set::Container
+    {
+
+
+        Neon::set::Container container = infoInField.getGrid().getContainer(
+            "LBM_iteration",
+            [&](Neon::set::Loader& L) -> auto {
+                auto& infoIn = L.load(infoInField,
+                                      Neon::Compute::STENCIL);
+                auto& infoOut = L.load(infoOutpeField);
+
+                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
+                    CellType cellType = infoIn(cell, 0);
+
+                    if (cellType.classification == CellType::pressure ||
+                        cellType.classification == CellType::velocity) {
+                        bool match = false;
+
+                        auto byDirection = [&](Neon::int8_3d mainDirectionVAL) {
+                            Neon::int8_3d mainDirection = mainDirectionVAL * -1;
+                            auto          info = infoIn.nghVal(cell, mainDirection, 0);
+
+                            if (info.value.classification == CellType::pressure ||
+                                info.value.classification == CellType::velocity) {
+                                if (match == true) {
+                                    printf(
+                                        "Error");
+                                }
+
+                                match = true;
+
+                                const int mapUnkowns[6][5] = {
+                                    {10, 13, 14, 15, 16}, /* 0 norm -1, 0, 0 -> (1, 0, 0), ...*/
+                                    {11, 4, 13, 17, 18},  /*  1 norm 0, -1, 0 */
+                                    {12, 6, 8, 15, 17},   /* 2 norm 0, 0, -1*/
+                                    {0, 3, 4, 5, 6},      /* 3 norm 1, 0, 0 -> (-1, 0, 0), ... */
+                                    {1, 3, 7, 8, 14},     /*  4 norm 0, 1, 0 -> */
+                                    {2, 5, 7, 16, 18},    /* 5 norm 0, 0, 1 -> */
+                                };
+                                const int mapMiddle[3][4] = {
+                                    {1, 2, 7, 8}, /*  0 norm -1, 0, 0 -> (1, 0, 0), ...*/
+                                    {0, 2, 5, 6}, /*  1 norm 0, -1, 0*/
+                                    {0, 1, 3, 4}, /*  2 norm 0, 0, -1*/
+                                };
+                                int targetRaw = -1;
+                                targetRaw = (mainDirection.x == 1) ? 3 : targetRaw;
+                                targetRaw = (mainDirection.x == -1) ? 0 : targetRaw;
+                                targetRaw = (mainDirection.y == 1) ? 4 : targetRaw;
+                                targetRaw = (mainDirection.y == -1) ? 1 : targetRaw;
+                                targetRaw = (mainDirection.z == 1) ? 5 : targetRaw;
+                                targetRaw = (mainDirection.z == -1) ? 2 : targetRaw;
+
+                                CellType::LatticeSectionUnk un;
+
+                                un.mA = mapUnkowns[targetRaw][0];
+                                un.mB = mapUnkowns[targetRaw][1];
+                                un.mC = mapUnkowns[targetRaw][2];
+                                un.mD = mapUnkowns[targetRaw][3];
+                                un.mE = mapUnkowns[targetRaw][4];
+
+                                targetRaw = (mainDirection.x != 0) ? 0 : targetRaw;
+                                targetRaw = (mainDirection.y != 0) ? 1 : targetRaw;
+                                targetRaw = (mainDirection.z != 0) ? 2 : targetRaw;
+
+                                CellType::LatticeSectionMiddle im;
+
+                                im.mA = mapMiddle[targetRaw][0];
+                                im.mB = mapMiddle[targetRaw][1];
+                                im.mC = mapMiddle[targetRaw][2];
+                                im.mD = mapMiddle[targetRaw][3];
+
+                                composeZouheData(cell, infoIn,
+                                                 info.value.classification,
+                                                 un,
+                                                 im,
+                                                 prescribeRho,
+                                                 prescrivedVel);
+                            }
+                        };
+                        // byDirection(Neon::int8_3d(-1, 0, 0));
+                        /**
+                         * BITS position
+                         * 0 -> positive (0) or negative (1) direction
+                         * 1 -> x is the target (1)
+                         * 2 -> y is the target (1)
+                         * 3 -> z is the target (1)
+                         */
+
+                        byDirection(Neon::int8_3d(-1, 0, 0));
+                        byDirection(Neon::int8_3d(0, -1, 0));
+                        byDirection(Neon::int8_3d(0, 0, -1));
+                        byDirection(Neon::int8_3d(1, 0, 0));
+                        byDirection(Neon::int8_3d(0, 1, 0));
+                        byDirection(Neon::int8_3d(0, 0, 1));
+                    }
+                };
+            });
+        return container;
+    }
+
 
 #define BC_LOAD(GOID, DKID)        \
     popIn[GOID] = fIn(cell, GOID); \

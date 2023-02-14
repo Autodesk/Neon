@@ -58,8 +58,11 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                     const int&            cardinality) const
         -> Type final;
 
-    auto haloUpdate(Neon::set::HuOptions& opt) const
-        -> void final;
+    auto hostHaloUpdate()
+        const -> void;
+
+    auto haloUpdate(Neon::set::HuOptions& opt)
+        const -> void final;
 
     auto haloUpdateContainer(Neon::set::TransferMode,
                              Neon::set::StencilSemantic)
@@ -191,7 +194,6 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     Neon::DataUse       mDataUse;
     Neon::MemoryOptions mMemoryOptions;
 };
-
 
 
 }  // namespace Neon::domain::internal::dGrid

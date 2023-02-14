@@ -6,6 +6,8 @@
 #include "LbmSkeleton.h"
 #include "Metrics.h"
 #include "Repoert.h"
+#include "problemSetup.h"
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -47,112 +49,12 @@ auto runSpecialized(Config& config,
 
     Lattice               lattice(bk);
     const double          radiusDomainLenRatio = 1.0 / 7;
-    const Neon::double_3d center = {config.N / 2.0, config.N / 2.0, config.N / 2.0};
-    const double          radius = config.N * radiusDomainLenRatio;
     const double          rhoPrescribedInlet = 1.0;
     const double          rhoPrescribedOutlet = 1.005;
 
-    auto isFluidDomain =
-        [&](const Neon::index_3d& idx)
-        -> bool {
-        if (idx < 0)
-            return false;
-        if (idx.x >= config.N ||
-            idx.y >= config.N ||
-            idx.z >= config.N) {
-            return false;
-        }
-        const auto point = idx.newType<double>();
-        const auto offset = std::pow(point.x - center.x, 2) +
-                            std::pow(point.y - center.y, 2) +
-                            std::pow(point.z - center.z, 2);
-        if (offset <= radius * radius) {
-            // we are in the sphere
-            return false;
-        }
-        return true;
-    };
-
-    auto isInsideSphere =
-        [&](const Neon::index_3d& idx) -> bool {
-        if (idx.x < 0 ||
-            idx.y < 0 ||
-            idx.z < 0)
-            return false;
-        if (idx.x >= config.N ||
-            idx.y >= config.N ||
-            idx.z >= config.N) {
-            return false;
-        }
-        const auto point = idx.newType<double>();
-        const auto offset = std::pow(point.x - center.x, 2) +
-                            std::pow(point.y - center.y, 2) +
-                            std::pow(point.z - center.z, 2);
-        if (offset <= radius * radius) {
-            // we are in the sphere
-            return true;
-        }
-        return false;
-    };
-
-    auto getBoundaryType =
-        [&](const Neon::index_3d& idx) -> CellType::Classification {
-        if (idx.z == 0 || idx.z == config.N - 1) {
-            return CellType::Classification::bounceBack;
-        }
-        if (idx.y == 0 || idx.y == config.N - 1) {
-            return CellType::Classification::bounceBack;
-        }
-        if (idx.x == 0 || idx.x == config.N - 1) {
-            return CellType::Classification::bounceBack;
-        }
-
-        auto idEdge = [idx, config](int d1, int d2) {
-            if ((idx.v[d1] == 1 && idx.v[d2] == 1) ||
-                (idx.v[d1] == 1 && idx.v[d2] == config.N - 2) ||
-                (idx.v[d1] == config.N - 2 && idx.v[d2] == 1) ||
-                (idx.v[d1] == config.N - 2 && idx.v[d2] == config.N - 2)) {
-                return true;
-            }
-            return false;
-        };
-
-        if (idEdge(0,1)) {
-            return CellType::Classification::bulk;
-        }
-        if (idEdge(0,2)) {
-            return CellType::Classification::bulk;
-        }
-        if (idEdge(1,2)) {
-            return CellType::Classification::bulk;
-        }
-
-        if (idx.x == 1) {
-            return CellType::Classification::pressure;
-        }
-        if (idx.x == config.N - 2) {
-            return CellType::Classification::velocity;
-        }
-        if (isInsideSphere(idx)) {
-            return CellType::Classification::undefined;
-        }
-        for (int i = -1; i < 2; i++) {
-            for (int j = -1; j < 2; j++) {
-                for (int k = -1; k < 2; k++) {
-                    Neon::index_3d offset(i, j, k);
-                    Neon::index_3d neighbour = idx + offset;
-                    bool           isIn = isInsideSphere(neighbour);
-                    if (isIn) {
-                        return CellType::Classification::bounceBack;
-                    }
-                }
-            }
-        }
-        return CellType::Classification::bulk;
-    };
-
     // Neon Grid and Fields initialization
     auto [start, clock_iter] = metrics::restartClock(bk, true);
+
     Grid grid(
         bk,
         {config.N, config.N, config.N},
@@ -170,7 +72,6 @@ auto runSpecialized(Config& config,
         rho = grid.template newField<StorageFP, 1>("rho", 1, StorageFP(0.0));
         u = grid.template newField<StorageFP, 3>("u", 3, StorageFP(0.0));
     }
-
 
     CellType defaultCelltype;
     auto     flag = grid.template newField<CellType, 1>("Material", 1, defaultCelltype);
@@ -219,104 +120,16 @@ auto runSpecialized(Config& config,
         }
     };
 
-
     metrics::recordGridInitMetrics(bk, report, start);
     tie(start, clock_iter) = metrics::restartClock(bk, true);
 
-    // Problem Setup
-    // 1. init all lattice to equilibrium
-    {
-        auto& inPop = iteration.getInput();
-        auto& outPop = iteration.getOutput();
-
-        Neon::index_3d dim(config.N, config.N, config.N);
-
-        const auto& t = lattice.t_vect;
-        const auto& c = lattice.c_vect;
-
-        flag.forEachActiveCell([&](const Neon::index_3d& idx,
-                                   const int&,
-                                   CellType& flagVal) {
-            flagVal.classification = CellType::undefined;
-            flagVal.wallNghBitflag = 0;
-            flagVal.classification = getBoundaryType(idx);
-
-            bcTypeForDebugging.getReference(idx, 0) = static_cast<double>(flagVal.classification);
-        });
-        bcTypeForDebugging.ioToVtk("bcFlags", "cb", false);
-
-        // Population initialization
-        inPop.forEachActiveCell([&](const Neon::index_3d& idx,
-                                    const int&            k,
-                                    StorageFP&            val) {
-            val = t.at(k);
-            if (flag(idx, 0).classification == CellType::bounceBack) {
-                val = 0;
-            }
-            if (flag(idx, 0).classification == CellType::pressure) {
-                if (k == 0) {
-                    flag.getReference(idx, 0).rho = rhoPrescribedOutlet;
-                }
-            }
-            if (flag(idx, 0).classification == CellType::velocity) {
-                if (k == 0) {
-                    flag.getReference(idx, 0).rho = rhoPrescribedInlet;
-                }
-            }
-        });
-
-        inPop.forEachActiveCell([&](const Neon::index_3d& idx,
-                                    const int&            k,
-                                    StorageFP&            val) {
-
-            if (flag(idx, 0).classification == CellType::pressure) {
-                if (k == 0) {
-
-                }
-            }
-            if (flag(idx, 0).classification == CellType::velocity) {
-                if (k == 0) {
-                    flag.getReference(idx, 0).rho = rhoPrescribedInlet;
-                }
-            }
-        });
-
-        outPop.forEachActiveCell([&](const Neon::index_3d& idx,
-                                     const int&            k,
-                                     StorageFP&            val) {
-            val = t.at(k);
-            if (flag(idx, 0).classification == CellType::bounceBack) {
-                val = 0;
-            }
-            if (flag(idx, 0).classification == CellType::pressure) {
-                if (k == 0) {
-                    flag.getReference(idx, 0).rho = rhoPrescribedOutlet;
-                }
-            }
-            if (flag(idx, 0).classification == CellType::velocity) {
-                if (k == 0) {
-                    flag.getReference(idx, 0).rho = rhoPrescribedInlet;
-                }
-            }
-        });
-
-
-        inPop.updateCompute(Neon::Backend::mainStreamIdx);
-        outPop.updateCompute(Neon::Backend::mainStreamIdx);
-
-        flag.updateCompute(Neon::Backend::mainStreamIdx);
-        bk.syncAll();
-        Neon::set::HuOptions hu(Neon::set::TransferMode::get,
-                                false,
-                                Neon::Backend::mainStreamIdx,
-                                Neon::set::StencilSemantic::standard);
-
-        flag.haloUpdate(hu);
-        bk.syncAll();
-        auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
-        container.run(Neon::Backend::mainStreamIdx);
-        bk.syncAll();
-    }
+    problemSetup(config,
+                 flag,
+                 iteration.getInput(),
+                 iteration.getOutput(),
+                 bcTypeForDebugging,
+                 lattice,
+                 report);
 
     metrics::recordProblemSetupMetrics(bk, report, start);
 

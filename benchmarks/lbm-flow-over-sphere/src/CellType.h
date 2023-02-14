@@ -56,10 +56,10 @@ struct CellType
 
     uint32_t             wallNghBitflag;
     Classification       classification;
-    LatticeSectionUnk    unknowns;
-    LatticeSectionMiddle middle;
-    float                rho;
-    Neon::float_3d       u;
+//    LatticeSectionUnk    unknowns;
+//    LatticeSectionMiddle middle;
+//    float                rho;
+//    Neon::float_3d       u;
 };
 
 std::ostream& operator<<(std::ostream& os, const CellType& dt)
