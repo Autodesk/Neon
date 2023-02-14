@@ -245,6 +245,7 @@ auto runSpecialized(Config& config,
         });
         bcTypeForDebugging.ioToVtk("bcFlags", "cb", false);
 
+        // Population initialization
         inPop.forEachActiveCell([&](const Neon::index_3d& idx,
                                     const int&            k,
                                     StorageFP&            val) {
@@ -255,6 +256,22 @@ auto runSpecialized(Config& config,
             if (flag(idx, 0).classification == CellType::pressure) {
                 if (k == 0) {
                     flag.getReference(idx, 0).rho = rhoPrescribedOutlet;
+                }
+            }
+            if (flag(idx, 0).classification == CellType::velocity) {
+                if (k == 0) {
+                    flag.getReference(idx, 0).rho = rhoPrescribedInlet;
+                }
+            }
+        });
+
+        inPop.forEachActiveCell([&](const Neon::index_3d& idx,
+                                    const int&            k,
+                                    StorageFP&            val) {
+
+            if (flag(idx, 0).classification == CellType::pressure) {
+                if (k == 0) {
+
                 }
             }
             if (flag(idx, 0).classification == CellType::velocity) {

@@ -171,6 +171,24 @@ auto dGrid::getContainer(const std::string& name,
 }
 
 template <typename LoadingLambda>
+auto dGrid::getHostContainer(const std::string& name,
+                         LoadingLambda      lambda)
+    const
+    -> Neon::set::Container
+{
+    const Neon::index_3d& defaultBlockSize = getDefaultBlock();
+    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
+                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                     *this,
+                                                                     lambda,
+                                                                     defaultBlockSize,
+                                                                     [](const Neon::index_3d&) { return size_t(0); });
+    return kContainer;
+}
+
+
+
+template <typename LoadingLambda>
 auto dGrid::getContainer(const std::string& name,
                          index_3d           blockSize,
                          size_t             sharedMem,

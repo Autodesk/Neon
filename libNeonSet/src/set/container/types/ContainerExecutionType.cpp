@@ -27,6 +27,9 @@ auto ContainerExecutionTypeUtils::toString(ContainerExecutionType option) -> std
         case ContainerExecutionType::communication: {
             return "communication";
         }
+        case ContainerExecutionType::host: {
+            return "host";
+        }
         case ContainerExecutionType::none: {
             return "none";
         }
@@ -54,7 +57,8 @@ auto ContainerExecutionTypeUtils::getOptions() -> std::array<ContainerExecutionT
                                                          ContainerExecutionType::deviceThenHostManaged,
                                                          ContainerExecutionType::hostManaged,
                                                          ContainerExecutionType::graph,
-                                                         ContainerExecutionType::communication};
+                                                         ContainerExecutionType::communication,
+                                                         ContainerExecutionType::host};
     return opts;
 }
 

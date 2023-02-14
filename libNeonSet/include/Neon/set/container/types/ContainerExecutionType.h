@@ -18,13 +18,14 @@ enum struct ContainerExecutionType
     hostManaged = 3 /** host managed container */,
     graph = 4 /** A complex container */,
     communication = 5,
-    none = 6
+    host = 6,
+    none = 7
 };
 
 
 struct ContainerExecutionTypeUtils
 {
-    static constexpr int nOptions = 6;
+    static constexpr int nOptions = 7;
 
     static auto toString(ContainerExecutionType option)
         -> std::string;

@@ -109,6 +109,12 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
         const
         -> Neon::set::Container;
 
+    template <typename LoadingLambda>
+    auto getHostContainer(const std::string& name,
+                      LoadingLambda      lambda)
+        const
+        -> Neon::set::Container;
+
     auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
 
     template <typename T>

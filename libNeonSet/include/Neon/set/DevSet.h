@@ -5,6 +5,7 @@
 #include "Neon/set/Capture.h"
 #include "Neon/set/MemoryOptions.h"
 
+#include <omp.h>
 #include <functional>
 #include <future>
 #include <iostream>
@@ -12,7 +13,6 @@
 #include <tuple>
 #include <type_traits>
 #include <vector>
-#include <omp.h>
 
 // #include "Neon/set/backend.h"
 #include "Neon/set/DataSet.h"
@@ -292,6 +292,29 @@ class DevSet
         }
     }
 
+    template <typename DataSetContainer_ta, typename Lambda_ta>
+    inline auto kernelHostLambdaWithIterator(Neon::SetIdx                             setIdx,
+                                             const Neon::set::KernelConfig&           kernelConfig,
+                                             DataSetContainer_ta&                     dataSetContainer,
+                                             std::function<Lambda_ta(SetIdx,
+                                                                     Neon::DataView)> lambdaHolder) const -> void
+    {
+        Neon::Runtime mode = Neon::Runtime::openmp;
+        switch (mode) {
+            case Neon::Runtime::openmp: {
+                this->template h_kLambdaWithIterator_openmp<DataSetContainer_ta, Lambda_ta>(setIdx,
+                                                                                            kernelConfig,
+                                                                                            dataSetContainer,
+                                                                                            lambdaHolder);
+                return;
+            };
+            default: {
+                NeonException exception;
+                exception << "Unsupported configuration";
+                NEON_THROW(exception);
+            }
+        }
+    }
 
     template <typename DataSetContainer_ta, typename Lambda_ta>
     inline auto h_kLambdaWithIterator_cudaStreams([[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
@@ -314,7 +337,7 @@ class DevSet
         {
 #pragma omp parallel num_threads(nGpus) default(shared) firstprivate(lambdaHolder)
             {
-                int idx = omp_get_thread_num();
+                int                         idx = omp_get_thread_num();
                 const Neon::sys::GpuDevice& dev = Neon::sys::globalSpace::gpuSysObj().dev(m_devIds[idx]);
                 // std::tuple<funParametersType_ta& ...>argsForIthGpuFunction(parametersVec.at(i) ...);
 

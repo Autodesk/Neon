@@ -135,7 +135,6 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Partition& final;
 
-
     auto haloUpdate(Neon::set::HuOptions& opt) const
         -> void final;
 

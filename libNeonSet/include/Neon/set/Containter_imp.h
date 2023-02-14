@@ -37,6 +37,23 @@ auto Container::factory(const std::string&                                 name,
     return {tmp};
 }
 
+template <typename DataContainerT, typename UserLoadingLambdaT>
+auto Container::hostFactory(const std::string&                                 name,
+                        Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
+                        const DataContainerT&                              a,
+                        const UserLoadingLambdaT&                          f,
+                        const index_3d&                                    blockSize,
+                        std::function<int(const index_3d& blockSize)>      shMemSizeFun) -> Container
+{
+    using LoadingLambda = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
+    auto k = new Neon::set::internal::DeviceContainer<DataContainerT, LoadingLambda>(name, dataViewSupport,
+                                                                                     a, f,
+                                                                                     blockSize, shMemSizeFun);
+
+    std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
+    return {tmp};
+}
+
 template <typename DataContainerT,
           typename UserLoadingLambdaT>
 auto Container::factoryOldManaged(const std::string&                                 name,
