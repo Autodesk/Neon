@@ -14,16 +14,13 @@ auto setToPitch(Field& fieldB)
     -> Neon::set::Container
 {
     const auto& grid = fieldB.getGrid();
-    return grid.getContainer(
+    return grid.getHostContainer(
         "HostSetToPitch",
         [&](Neon::set::Loader& loader) {
             auto b = loader.load(fieldB);
 
             return [=](const typename Field::Cell& e) mutable {
                 Neon::index_3d const global = b.mapToGlobal(e);
-                if (global == Neon::index_3d(50, 8, 171)) {
-                    printf("here");
-                }
                 for (int i = 0; i < b.cardinality(); i++) {
                     auto const           domainSize = b.getDomainSize();
                     typename Field::Type result = (global + domainSize * i).mPitch(domainSize);
@@ -38,12 +35,11 @@ using namespace Neon::domain::tool::testing;
 template <typename G, typename T, int C>
 auto runHost(TestData<G, T, C>& data) -> void
 {
-
     using Type = typename TestData<G, T, C>::Type;
     auto&             grid = data.getGrid();
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
 
-    NEON_INFO(grid.toString());
+    // NEON_INFO(grid.toString());
 
     data.resetValuesToConst(1, 1);
 
@@ -57,6 +53,7 @@ auto runHost(TestData<G, T, C>& data) -> void
         setToPitch(Y)
             .run(Neon::Backend::mainStreamIdx);
         Y.updateCompute(Neon::Backend::mainStreamIdx);
+
         // The TestData compare capabilities assumes that all data is on the device
         // We need therefore to update the compute part with the data from the host.
         data.getBackend().sync(Neon::Backend::mainStreamIdx);
@@ -67,9 +64,6 @@ auto runHost(TestData<G, T, C>& data) -> void
         data.forEachActiveIODomain([&](const Neon::index_3d& global,
                                        int                   i,
                                        Type&                 b) {
-            if (global == Neon::index_3d(50, 8, 171)) {
-                printf("here");
-            }
             Neon::index_3d const domainSize = Y.getDimension();
             Type                 result = (global + domainSize * i).mPitch(domainSize);
             b = result;

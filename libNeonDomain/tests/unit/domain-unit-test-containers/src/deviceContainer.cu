@@ -17,7 +17,6 @@ auto setToPitch(Field& fieldB)
         "DeviceSetToPitch",
         [&](Neon::set::Loader& loader) {
             auto b = loader.load(fieldB);
-
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
                 for (int i = 0; i < b.cardinality(); i++) {
                     Neon::index_3d const global = b.mapToGlobal(e);
@@ -34,20 +33,16 @@ using namespace Neon::domain::tool::testing;
 template <typename G, typename T, int C>
 auto runDevice(TestData<G, T, C>& data) -> void
 {
-    std::cout << data.toString() << std::endl;
-
     using Type = typename TestData<G, T, C>::Type;
     auto&             grid = data.getGrid();
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
 
     data.resetValuesToLinear(1, 100);
-    T val = T(33);
 
     {  // NEON
         const Neon::index_3d        dim = grid.getDimension();
         std::vector<Neon::index_3d> elements;
 
-        auto& X = data.getField(FieldNames::X);
         auto& Y = data.getField(FieldNames::Y);
 
 

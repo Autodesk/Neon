@@ -15,6 +15,7 @@
 #include "Neon/set/container/HostManagedContainer.h"
 #include "Neon/set/container/OldDeviceManagedContainer.h"
 #include "Neon/set/container/SynchronizationContainer.h"
+#include "Neon/set/container/HostContainer.h"
 
 
 namespace Neon::set {
@@ -46,7 +47,7 @@ auto Container::hostFactory(const std::string&                                 n
                         std::function<int(const index_3d& blockSize)>      shMemSizeFun) -> Container
 {
     using LoadingLambda = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
-    auto k = new Neon::set::internal::DeviceContainer<DataContainerT, LoadingLambda>(name, dataViewSupport,
+    auto k = new Neon::set::internal::HostContainer<DataContainerT, LoadingLambda>(name, dataViewSupport,
                                                                                      a, f,
                                                                                      blockSize, shMemSizeFun);
 

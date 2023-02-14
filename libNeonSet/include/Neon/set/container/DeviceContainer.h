@@ -96,7 +96,10 @@ struct DeviceContainer : ContainerAPI
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::DeviceType devE, Neon::SetIdx setIdx, Neon::DataView dataView) -> UserComputeLambdaT {
+                [&](Neon::DeviceType devE,
+                    Neon::SetIdx     setIdx,
+                    Neon::DataView   dataView)
+                    -> UserComputeLambdaT {
                     Loader             loader = this->newLoader(devE, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;
@@ -122,7 +125,7 @@ struct DeviceContainer : ContainerAPI
 
 #pragma omp critical
         {
-            [[maybe_unused]]  int const threadRank = omp_get_thread_num();
+            [[maybe_unused]] int const threadRank = omp_get_thread_num();
             NEON_TRACE("TRACE DeviceContainer run rank {} setIdx {} stream {} dw {}",
                        threadRank, setIdx.idx(), kernelConfig.stream(), Neon::DataViewUtil::toString(kernelConfig.dataView()));
         };

@@ -23,7 +23,7 @@ struct HostContainer : ContainerAPI
           m_dataIteratorContainer(dataIteratorContainer)
     {
         setName(name);
-        setContainerExecutionType(ContainerExecutionType::);
+        setContainerExecutionType(ContainerExecutionType::host);
         setContainerOperationType(ContainerOperationType::compute);
 
         setDataViewSupport(dataViewSupport);
@@ -96,8 +96,8 @@ struct HostContainer : ContainerAPI
             bk.devSet().template kernelHostLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::SetIdx setIdx, Neon::DataView dataView) -> UserComputeLambdaT {
-                    Loader             loader = this->newLoader(Neon::DeviceType::CPU, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
+                [&](Neon::DeviceType devE, Neon::SetIdx setIdx, Neon::DataView dataView) -> UserComputeLambdaT {
+                    Loader             loader = this->newLoader(devE, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;
                 });
@@ -122,7 +122,7 @@ struct HostContainer : ContainerAPI
 
 #pragma omp critical
         {
-            const int threadRank = omp_get_thread_num();
+            [[maybe_unused]] const int threadRank = omp_get_thread_num();
             NEON_TRACE("TRACE HostContainer run rank {} setIdx {} stream {} dw {}",
                        threadRank, setIdx.idx(), kernelConfig.stream(), Neon::DataViewUtil::toString(kernelConfig.dataView()));
         };
@@ -132,7 +132,8 @@ struct HostContainer : ContainerAPI
                 setIdx,
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::SetIdx   setIdx,
+                [&](Neon::DeviceType,
+                    Neon::SetIdx   setIdx,
                     Neon::DataView dataView)
                     -> UserComputeLambdaT {
                     Loader             loader = this->newLoader(Neon::DeviceType::CPU, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);

@@ -228,11 +228,12 @@ class DevSet
         -> LaunchParameters;
 
     template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto kernelLambdaWithIterator(const Neon::set::KernelConfig&           kernelConfig,
-                                         DataSetContainer_ta&                     dataSetContainer,
-                                         std::function<Lambda_ta(Neon::DeviceType,
-                                                                 SetIdx,
-                                                                 Neon::DataView)> lambdaHolder) const -> void
+    inline auto kernelLambdaWithIterator(
+        const Neon::set::KernelConfig&           kernelConfig,
+        DataSetContainer_ta&                     dataSetContainer,
+        std::function<Lambda_ta(Neon::DeviceType,
+                                SetIdx,
+                                Neon::DataView)> lambdaHolder) const -> void
     {
         Neon::Runtime mode = kernelConfig.backend().runtime();
         // ORDER is IMPORTANT
@@ -244,6 +245,32 @@ class DevSet
                                                                                                  lambdaHolder);
                 return;
             };
+            case Neon::Runtime::openmp: {
+                this->template h_kLambdaWithIterator_openmp<DataSetContainer_ta, Lambda_ta>(kernelConfig,
+                                                                                            dataSetContainer,
+                                                                                            lambdaHolder);
+                return;
+            };
+            default: {
+                NeonException exception;
+                exception << "Unsupported configuration";
+                NEON_THROW(exception);
+            }
+        }
+    }
+
+    template <typename DataSetContainer_ta, typename Lambda_ta>
+    inline auto kernelHostLambdaWithIterator(
+        const Neon::set::KernelConfig&           kernelConfig,
+        DataSetContainer_ta&                     dataSetContainer,
+        std::function<Lambda_ta(Neon::DeviceType,
+                                SetIdx,
+                                Neon::DataView)> lambdaHolder) const -> void
+    {
+        Neon::Runtime mode = Neon::Runtime::openmp;
+        // ORDER is IMPORTANT
+        // KEEP OPENMP for last
+        switch (mode) {
             case Neon::Runtime::openmp: {
                 this->template h_kLambdaWithIterator_openmp<DataSetContainer_ta, Lambda_ta>(kernelConfig,
                                                                                             dataSetContainer,
@@ -296,7 +323,8 @@ class DevSet
     inline auto kernelHostLambdaWithIterator(Neon::SetIdx                             setIdx,
                                              const Neon::set::KernelConfig&           kernelConfig,
                                              DataSetContainer_ta&                     dataSetContainer,
-                                             std::function<Lambda_ta(SetIdx,
+                                             std::function<Lambda_ta(Neon::DeviceType,
+                                                                     SetIdx,
                                                                      Neon::DataView)> lambdaHolder) const -> void
     {
         Neon::Runtime mode = Neon::Runtime::openmp;
@@ -412,18 +440,14 @@ class DevSet
     }
 
     template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto h_kLambdaWithIterator_openmp([[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
-                                             [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
-                                             [[maybe_unused]] std::function<Lambda_ta(Neon::DeviceType,
-                                                                                      SetIdx,
-                                                                                      Neon::DataView)> lambdaHolder)
+    inline auto h_kLambdaWithIterator_openmp(
+        [[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
+        [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
+        [[maybe_unused]] std::function<Lambda_ta(Neon::DeviceType,
+                                                 SetIdx,
+                                                 Neon::DataView)> lambdaHolder)
         const -> void
     {
-        if (m_devType != Neon::DeviceType::CPU) {
-            Neon::NeonException exp("DevSet");
-            exp << "Error, DevSet::invalid operation on a non GPU type of device.\n";
-            NEON_THROW(exp);
-        }
         const LaunchParameters& launchInfoSet = kernelConfig.launchInfoSet();
         const int               nGpus = static_cast<int>(m_devIds.size());
         {
