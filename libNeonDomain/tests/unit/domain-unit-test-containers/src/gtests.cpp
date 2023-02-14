@@ -1,14 +1,23 @@
 
 #include "Neon/Neon.h"
 #include "gtest/gtest.h"
-#include "map.h"
 #include "runHelper.h"
+#include "testSignature.h"
 
-TEST(domain, map)
+//TEST(domain, hostContainer)
+//{
+//    int nGpus = 3;
+//    using Type = int64_t;
+//    runAllTestConfiguration(std::function(host::runHost<Neon::domain::dGrid, Type, 0>),
+//                            nGpus,
+//                            1);
+//}
+
+TEST(domain, deviceContainer)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::domain::eGrid, Type, 0>),
+    runAllTestConfiguration(std::function(device::runDevice<Neon::domain::dGrid, Type, 0>),
                             nGpus,
                             1);
 }

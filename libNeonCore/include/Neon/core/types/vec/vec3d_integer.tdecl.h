@@ -1,20 +1,3 @@
-/**
-
-   System:          Neon
-   Component Name:  Core
-   Language:        C++
-
-   Licensed Material - Property of Autodesk Corp
-
-   AUTODESK Copyright 2017. All rights reserved.
-
-   Address:
-            Autodesk Research
-            210 King Street East, Suite 500
-            Toronto, ON M5A 1J7
-            Canada
-**/
-
 // $Id$
 /**
  * @date   June, 2017

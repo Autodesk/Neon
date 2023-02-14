@@ -324,20 +324,14 @@ struct dPartition
                local.mLocation.y < m_dim.y &&
                local.mLocation.z < m_dim.z + m_zHaloRadius);
 
-        switch (m_dataView) {
-            case Neon::DataView::STANDARD: {
-                return local.mLocation + m_origin;
-            }
-            default: {
-            }
-        }
-#if defined(NEON_PLACE_CUDA_HOST)
-        NEON_THROW_UNSUPPORTED_OPTION();
-#else
-        int* error = nullptr;
-        error[0] = 0xBAD;
-        return int64_t(size_t(0xffffffffffffffff) - 1);
-#endif
+        Neon::index_3d result = local.mLocation + m_origin;
+        result.z -=  m_zHaloRadius;
+        return result;
+    }
+
+    inline auto getDomainSize() -> Neon::index_3d
+    {
+        return m_fullGridSize;
     }
 };
 

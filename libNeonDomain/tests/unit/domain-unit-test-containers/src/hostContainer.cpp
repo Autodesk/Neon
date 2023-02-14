@@ -7,20 +7,24 @@
 #include "gtest/gtest.h"
 
 
-namespace device {
+namespace host {
+
 template <typename Field>
 auto setToPitch(Field& fieldB)
     -> Neon::set::Container
 {
     const auto& grid = fieldB.getGrid();
     return grid.getContainer(
-        "DeviceSetToPitch",
+        "HostSetToPitch",
         [&](Neon::set::Loader& loader) {
             auto b = loader.load(fieldB);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+            return [=](const typename Field::Cell& e) mutable {
+                Neon::index_3d const global = b.mapToGlobal(e);
+                if (global == Neon::index_3d(50, 8, 171)) {
+                    printf("here");
+                }
                 for (int i = 0; i < b.cardinality(); i++) {
-                    Neon::index_3d const global = b.mapToGlobal(e);
                     auto const           domainSize = b.getDomainSize();
                     typename Field::Type result = (global + domainSize * i).mPitch(domainSize);
                     b(e, i) = result;
@@ -32,48 +36,53 @@ auto setToPitch(Field& fieldB)
 using namespace Neon::domain::tool::testing;
 
 template <typename G, typename T, int C>
-auto runDevice(TestData<G, T, C>& data) -> void
+auto runHost(TestData<G, T, C>& data) -> void
 {
-    std::cout << data.toString() << std::endl;
 
     using Type = typename TestData<G, T, C>::Type;
     auto&             grid = data.getGrid();
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
 
-    data.resetValuesToLinear(1, 100);
-    T val = T(33);
+    NEON_INFO(grid.toString());
+
+    data.resetValuesToConst(1, 1);
 
     {  // NEON
         const Neon::index_3d        dim = grid.getDimension();
         std::vector<Neon::index_3d> elements;
 
-        auto& X = data.getField(FieldNames::X);
         auto& Y = data.getField(FieldNames::Y);
 
 
         setToPitch(Y)
-            .run(0);
-
-        data.getBackend().sync(0);
+            .run(Neon::Backend::mainStreamIdx);
+        Y.updateCompute(Neon::Backend::mainStreamIdx);
+        // The TestData compare capabilities assumes that all data is on the device
+        // We need therefore to update the compute part with the data from the host.
+        data.getBackend().sync(Neon::Backend::mainStreamIdx);
     }
 
     {  // Golden data
-        auto& X = data.getIODomain(FieldNames::X);
         auto& Y = data.getIODomain(FieldNames::Y);
         data.forEachActiveIODomain([&](const Neon::index_3d& global,
                                        int                   i,
                                        Type&                 b) {
+            if (global == Neon::index_3d(50, 8, 171)) {
+                printf("here");
+            }
             Neon::index_3d const domainSize = Y.getDimension();
-            b = (global + domainSize * i).mPitch(domainSize);
+            Type                 result = (global + domainSize * i).mPitch(domainSize);
+            b = result;
         },
                                    Y);
     }
 
     bool isOk = data.compare(FieldNames::Y);
+
     ASSERT_TRUE(isOk);
 }
 
-// template auto run<Neon::domain::eGrid, int64_t, 0>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
-template auto runDevice<Neon::domain::dGrid, int64_t, 0>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
+// template auto runHost<Neon::domain::eGrid, int64_t, 0>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
+template auto runHost<Neon::domain::dGrid, int64_t, 0>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
 
-}  // namespace device
+}  // namespace host
