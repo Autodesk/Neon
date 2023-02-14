@@ -88,9 +88,11 @@ class mField
                            Neon::computeMode_t::computeMode_e                                            mode = Neon::computeMode_t::computeMode_e::par) -> void;
 
 
-    auto ioToVtk(const std::string& fileName,
-                 const std::string& FieldName,
-                 Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII) const -> void;
+    auto ioToVtk(std::string fileName,
+                 bool        outputLevels = true,
+                 bool        outputBlockID = true,
+                 bool        outputVoxelID = true,
+                 bool        filterOverlaps = true) const -> void;
 
     auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) -> typename xField<T, C>::Partition&;
 

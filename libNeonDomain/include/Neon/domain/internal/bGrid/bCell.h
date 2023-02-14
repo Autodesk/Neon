@@ -30,7 +30,7 @@ class bCell
     //i.e., each entry in the mask array store the state of 32 voxels
     static constexpr uint32_t sMaskSize = 32;
 
-    bCell() = default;
+    bCell();
     virtual ~bCell() = default;
 
     NEON_CUDA_HOST_DEVICE inline auto isActive() const -> bool;

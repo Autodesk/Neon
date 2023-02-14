@@ -175,7 +175,6 @@ class mGrid
     auto getDescriptor() const -> const mGridDescriptor&;
     auto getRefFactors() const -> const Neon::set::MemSet_t<int>&;
     auto getLevelSpacing() const -> const Neon::set::MemSet_t<int>&;
-    void topologyToVTK(std::string fileName, bool filterOverlaps) const;
     auto getBackend() const -> const Backend&;
     auto getBackend() -> Backend&;
 

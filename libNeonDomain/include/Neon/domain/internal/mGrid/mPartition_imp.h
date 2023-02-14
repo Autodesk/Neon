@@ -31,6 +31,7 @@ mPartition<T, C>::mPartition(Neon::DataView  dataView,
                              uint32_t*       mask,
                              uint32_t*       maskLowerLevel,
                              uint32_t*       childBlockID,
+                             uint32_t*       parentNeighbourBlocks,
                              T               outsideValue,
                              nghIdx_t*       stencilNghIndex,
                              int*            refFactors,
@@ -43,6 +44,7 @@ mPartition<T, C>::mPartition(Neon::DataView  dataView,
       mParentLocalID(parentLocalID),
       mMaskLowerLevel(maskLowerLevel),
       mChildBlockID(childBlockID),
+      mParentNeighbourBlocks(parentNeighbourBlocks),
       mRefFactors(refFactors),
       mSpacing(spacing)
 {
@@ -102,27 +104,21 @@ inline NEON_CUDA_HOST_DEVICE auto mPartition<T, C>::childID(const Cell& cell) co
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasParent(const Cell& cell) const -> bool
-{
-    if (mMemParent) {
-        return true;
-    }
-    return false;
-}
-
-template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getChild(const Cell&   parent_cell,
                                                              Neon::int8_3d child) const -> Cell
 {
     Cell childCell;
-    childCell.mBlockID = childID(parent_cell);
-    childCell.mBlockSize = mRefFactors[mLevel - 1];
-    childCell.mLocation.x = child.x;
-    childCell.mLocation.y = child.y;
-    childCell.mLocation.z = child.z;
-    childCell.mIsActive = childCell.computeIsActive(mMaskLowerLevel);
+    if (hasChildren(parent_cell)) {
+        childCell.mBlockID = childID(parent_cell);
+        childCell.mBlockSize = mRefFactors[mLevel - 1];
+        childCell.mLocation.x = child.x;
+        childCell.mLocation.y = child.y;
+        childCell.mLocation.z = child.z;
+        childCell.mIsActive = childCell.computeIsActive(mMaskLowerLevel);
+    }
     return childCell;
 }
+
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Cell& childCell,
@@ -176,16 +172,90 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Cell& cell
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parent(const Cell& eId,
-                                                           int         card) -> T&
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Cell& cell, const Neon::int8_3d nghDir) const -> bool
 {
+    if (mMemChild == nullptr || mMaskLowerLevel == nullptr || mLevel == 0) {
+        return false;
+    }
+
+    Cell nghCell = this->getNghCell(cell, nghDir, this->getneighbourBlocksPtr(cell));
+    if (!nghCell.isActive()) {
+        return false;
+    }
+    return hasChildren(nghCell);
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getParent(const Cell& cell) const -> Cell
+{
+    Cell parentCell;
     if (mMemParent != nullptr) {
-        Cell parentCell;
-        parentCell.mBlockID = mParentBlockID[eId.mBlockID];
-        parentCell.mLocation = mParentLocalID[eId.mBlockID];
+        parentCell.mBlockID = mParentBlockID[cell.mBlockID];
+        parentCell.mLocation = mParentLocalID[cell.mBlockID];
         parentCell.mBlockSize = mRefFactors[mLevel + 1];
+        parentCell.mIsActive = true;
+    }
+    return parentCell;
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parentVal(const Cell& eId,
+                                                              int         card) -> T&
+{
+    auto parentCell = getParent(eId);
+    if (parentCell.isActive()) {
         return mMemParent[this->pitch(parentCell, card)];
     }
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parentVal(const Cell& eId,
+                                                              int         card) const -> const T&
+{
+    auto parentCell = getParent(eId);
+    if (parentCell.isActive()) {
+        return mMemParent[this->pitch(parentCell, card)];
+    }
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasParent(const Cell& cell) const -> bool
+{
+    if (mMemParent) {
+        return true;
+    }
+    return false;
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getUncle(const Cell&   cell,
+                                                             Neon::int8_3d direction) const -> Cell
+{
+    Cell uncle = getParent(cell);
+    if (uncle.isActive()) {
+        uncle = this->getNghCell(uncle, direction, (mParentNeighbourBlocks + (26 * uncle.mBlockID)));
+        uncle.mBlockSize = mRefFactors[mLevel + 1];
+        uncle.mIsActive = uncle.mBlockID != std::numeric_limits<uint32_t>::max();
+    }
+    return uncle;
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::uncleVal(const Cell&   cell,
+                                                             Neon::int8_3d direction,
+                                                             int           card,
+                                                             const T&      alternativeVal) const -> NghInfo<T>
+{
+    NghInfo<T> ret;
+    ret.value = alternativeVal;
+    ret.isValid = false;
+
+    Cell uncle = getUncle(cell, direction);
+    ret.isValid = uncle.isActive();
+    if (ret.isValid) {
+        ret.value = mMemParent[this->pitch(uncle, card)];
+    }
+    return ret;
 }
 
 

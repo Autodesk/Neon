@@ -20,7 +20,7 @@ struct mGridDescriptor
      * @param levels as described above defaulted to 3 levels octree 
     */
     mGridDescriptor(std::initializer_list<int> log2RefFactors)
-        : mLog2RefFactors(log2RefFactors), mSpacing(log2RefFactors)
+        : mLog2RefFactors(log2RefFactors)
     {
         computeSpacing();
     }
@@ -30,8 +30,19 @@ struct mGridDescriptor
      * by 8^3 blocks i.e., block data structure 
     */
     mGridDescriptor()
-        : mLog2RefFactors({3}), mSpacing({2 * 2 * 2})
     {
+        mLog2RefFactors.resize(3, 1);
+        computeSpacing();
+    }
+
+    /**
+     * This constructor can be use for the default mGrid descriptor that defines a grid of single depth partitioned 
+     * by 8^3 blocks i.e., block data structure 
+    */
+    mGridDescriptor(int depth)
+    {
+        mLog2RefFactors.resize(depth, 1);
+        computeSpacing();
     }
 
 

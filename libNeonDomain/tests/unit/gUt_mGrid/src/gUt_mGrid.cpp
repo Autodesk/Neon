@@ -29,8 +29,6 @@ TEST(mGrid, multiRes)
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
 
-        grid.topologyToVTK("bGrid112.vtk", false);
-
         auto field = grid.newField<float>("myField", 1, 0);
 
         for (int l = 0; l < descriptor.getDepth(); ++l) {
@@ -42,7 +40,7 @@ TEST(mGrid, multiRes)
                 Neon::computeMode_t::computeMode_e::seq);
         }
 
-        field.ioToVtk("f", "f");
+        field.ioToVtk("f");
     }
 }
 

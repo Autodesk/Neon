@@ -94,7 +94,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
 
     auto getOrigins() const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
-    auto getNeighbourBlocks() const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getNeighbourBlocks() const -> Neon::set::MemSet_t<uint32_t>&;
     auto getActiveMask() const -> Neon::set::MemSet_t<uint32_t>&;
     auto getBlockOriginTo1D() const -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
 

@@ -487,6 +487,13 @@ NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false> Vec_3d<IntegerT
 
 
 template <typename IntegerType_ta>
+NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false> Vec_3d<IntegerType_ta, true, false>::operator-() const
+{
+    Vec_3d<Integer> res(-x, -y, -z);
+    return res;
+}
+
+template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline bool Vec_3d<IntegerType_ta, true, false>::operator>(const Vec_3d<IntegerType_ta, true, false>& B) const
 {
     const Vec_3d<Integer>& A = *this;

@@ -40,7 +40,7 @@ auto bGrid::isInsideDomain(const Neon::index_3d& idx) const -> bool
 
         Cell cell(static_cast<Cell::Location::Integer>((idx.x / mData->voxelSpacing) % mData->blockSize),
                   static_cast<Cell::Location::Integer>((idx.y / mData->voxelSpacing) % mData->blockSize),
-                  static_cast<Cell::Location::Integer>((idx.z / mData->voxelSpacing) % mData->blockSize));        
+                  static_cast<Cell::Location::Integer>((idx.z / mData->voxelSpacing) % mData->blockSize));
 
         cell.mBlockID = *itr;
         cell.mBlockSize = mData->blockSize;
@@ -72,14 +72,14 @@ auto bGrid::setReduceEngine(Neon::sys::patterns::Engine eng) -> void
     }
 }
 
-auto bGrid::getLaunchParameters(Neon::DataView                         dataView,
+auto bGrid::getLaunchParameters([[maybe_unused]] Neon::DataView        dataView,
                                 [[maybe_unused]] const Neon::index_3d& blockSize,
                                 const size_t&                          sharedMem) const -> Neon::set::LaunchParameters
 {
-    if (dataView != Neon::DataView::STANDARD) {
-        NEON_WARNING("Requesting LaunchParameters on {} data view but bGrid only supports Standard data view on a single GPU",
-                     Neon::DataViewUtil::toString(dataView));
-    }
+    //if (dataView != Neon::DataView::STANDARD) {
+    //    NEON_WARNING("Requesting LaunchParameters on {} data view but bGrid only supports Standard data view on a single GPU",
+    //                 Neon::DataViewUtil::toString(dataView));
+    //}
 
     const Neon::int32_3d cuda_block(mData->blockSize,
                                     mData->blockSize,
@@ -123,7 +123,7 @@ auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&
 }
 
 
-auto bGrid::getNeighbourBlocks() const -> const Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getNeighbourBlocks() const -> Neon::set::MemSet_t<uint32_t>&
 {
     return mData->mNeighbourBlocks;
 }

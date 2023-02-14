@@ -2,6 +2,16 @@
 
 namespace Neon::domain::internal::bGrid {
 
+NEON_CUDA_HOST_DEVICE inline bCell::bCell()
+    : mLocation(std::numeric_limits<Location::Integer>::max(),
+                std::numeric_limits<Location::Integer>::max(),
+                std::numeric_limits<Location::Integer>::max()),
+      mBlockID(std::numeric_limits<uint32_t>::max()),
+      mIsActive(false),
+      mBlockSize(-1)
+{
+}
+
 NEON_CUDA_HOST_DEVICE inline bCell::bCell(const Location& location)
 {
     mLocation = location;
