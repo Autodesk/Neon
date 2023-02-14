@@ -83,16 +83,14 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
 
     /**
      * Check if the cell is refined i.e., has children 
-     * @param cell the cell i.e., parent at which the children are checked 
-     * @return 
+     * @param cell the cell i.e., parent at which the children are checked      
     */
     NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Cell& cell) const -> bool;
 
     /**
      * Check if a neighbor to 'cell' has children 
-     * @param cell 
-     * @param cell 
-     * @return 
+     * @param cell the main cell 
+     * @param nghDir the direction relative to cell 
     */
     NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Cell& cell, const Neon::int8_3d nghDir) const -> bool;
 
@@ -125,9 +123,23 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
     */
     NEON_CUDA_HOST_DEVICE inline auto hasParent(const Cell& cell) const -> bool;
 
+    /**
+     * The uncle of a cell at level L is a cell at level L+1 and is a neighbor to the cell's parent. 
+     * This function returns the uncle of a given cell in a certain direction w.r.t the cell's parent
+     * @param cell the main cell at level L 
+     * @param direction the direction w.r.t the parent of cell      
+    */
     NEON_CUDA_HOST_DEVICE inline auto getUncle(const Cell&   cell,
                                                Neon::int8_3d direction) const -> Cell;
 
+    /**
+     * The uncle of a cell at level L is a cell at level L+1 and is a neighbor to the cell's parent. 
+     * This function returns the value of a give cell in a certain direction w.r.t the cell's parent along a certain cardinality.  
+     * @param cell the main cell at level L 
+     * @param direction the direction w.r.t the parent of cell      
+     * @param card the cardinality 
+     * @param alternativeVal alternative value in case the uncle does not exist. 
+    */
     NEON_CUDA_HOST_DEVICE inline auto uncleVal(const Cell&   cell,
                                                Neon::int8_3d direction,
                                                int           card,
