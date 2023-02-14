@@ -64,6 +64,18 @@ struct Container
         -> Container;
 
     /**
+     * Factory function to create a Neon Host Container
+     */
+    template <typename DataContainerT, typename UserLoadingLambdaT>
+    static auto hostFactory(const std::string&                                 name /**< A user's string to identify the computation done by the Container. */,
+                        Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport /**< Defines the data view support for the new Container */,
+                        const DataContainerT&                              a /**< Multi device object that will be used for the creating of the Container */,
+                        const UserLoadingLambdaT&                          f /**< User's loading lambda for the new Container */,
+                        const index_3d&                                    blockSize /**< Block size for the thread grid */,
+                        std::function<int(const index_3d& blockSize)>      shMemSizeFun /**< User's function to implicitly compute the required shared memory */)
+        -> Container;
+
+    /**
      * Factory function to generate a kContainer object.
      * @tparam A: the type of the structure managing the iterator
      * @tparam F: the type of the lambda function that iterated over the data

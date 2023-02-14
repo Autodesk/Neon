@@ -177,7 +177,7 @@ auto dGrid::getHostContainer(const std::string& name,
     -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = getDefaultBlock();
-    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
+    Neon::set::Container  kContainer = Neon::set::Container::hostFactory(name,
                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
                                                                      *this,
                                                                      lambda,
