@@ -25,6 +25,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 {
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
+
     using Lattice = D3Q19Template<LbmStoreType, LbmComputeType>;
     using Cell = typename PopulationField::Cell;
     using Grid = typename PopulationField::Grid;
@@ -73,48 +74,38 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 #undef LOADPOP
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    composeZouheData(Cell const&                                cell,
-                     typename PopulationField::Partition const& fin,
-                     CellType::Classification                   cellType,
+    composeZouheData(Cell const&                          cell,
+                     typename PopulationField::Partition& fin,
+                     CellType::Classification             nghCellType,
                      NEON_OUT CellType::LatticeSectionUnk& latticeSectionUnk,
                      NEON_OUT CellType::LatticeSectionMiddle& latticeSectionMiddle,
-                     NEON_OUT LbmComputeType&                 rho,
-                     NEON_OUT LbmComputeType                  u[3]) -> void
+                     NEON_OUT LbmComputeType const&           rho,
+                     NEON_OUT Neon::Real_3d<LbmStoreType> const u) -> void
     {
-        if (cellType == CellType::pressure) {
-            fin(cell, 0) = rho;
-        } else {
-            fin(cell, 0) = u[0];
-            fin(cell, 1) = u[1];
-            fin(cell, 2) = u[2];
+        const int index0 = Lattice::centerDirection;
+        ;
+        const int index1 = Lattice::getOpposite(latticeSectionUnk.mA);
+        const int index2 = Lattice::getOpposite(latticeSectionUnk.mB);
+        ;
+        const int index3 = Lattice::getOpposite(latticeSectionUnk.mC);
+        ;
+        const int index4 = Lattice::getOpposite(latticeSectionUnk.mD);
+        ;
+
+        {
+            fin(cell, index0) = CellType::LatticeSectionUnkUtils::toFloatingPoint<LbmStoreType>(latticeSectionUnk);
         }
-        if constexpr (std::is_same_v<LbmStoreType, double>) {
-            LbmStoreType  knStorageVal;
-            LbmStoreType* knStoragePtr = &knStorageVal;
-            const int*    nkPtr = (int*)knStoragePtr;
-            *(CellType::LatticeSectionUnk*)&(nkPtr[0]) = latticeSectionUnk;
-            *(CellType::LatticeSectionMiddle*)&(nkPtr[1]) = latticeSectionMiddle;
-            fin(cell, 3) = knStorageVal;
-            return;
-        } else if constexpr (std::is_same_v<LbmStoreType, float>) {
-            {
-                LbmStoreType  storageVal;
-                LbmStoreType* storagePtr = &storageVal;
-                const int*    nkPtr = (int*)storagePtr;
-                *(CellType::LatticeSectionUnk*)&(nkPtr[0]) = latticeSectionUnk;
-                fin(cell, 3) = storageVal;
-            }
-            {
-                LbmStoreType  storageVal;
-                LbmStoreType* storagePtr = &storageVal;
-                const int*    nkPtr = (int*)storagePtr;
-                latticeSectionMiddle = *(CellType::LatticeSectionMiddle*)&(nkPtr[0]);
-                fin(cell, 4) = storageVal;
-            }
-            return;
+
+        if (nghCellType == CellType::pressure) {
+            fin(cell, index1) = rho;
         } else {
-            printf("Error\n");
+            fin(cell, index1) = u.v[0];
+            //            fin(cell, index2) = u.v[1];
+            //            fin(cell, index3) = u.v[2];
         }
+
+        fin(cell, index4) = CellType::LatticeSectionMiddleUtils::toFloatingPoint<LbmStoreType>(latticeSectionMiddle);
+
         return;
     }
 
@@ -128,30 +119,26 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                                 NEON_OUT LbmComputeType&                 rho,
                                 NEON_OUT LbmComputeType                  u[3]) -> void
     {
-        {
-            LbmStoreType  knStorageVal = fin.template nghVal<dX, dY, dZ>(cell, 0, 0.0).value;
-            LbmStoreType* knStoragePtr = &knStorageVal;
-            const int*    nkPtr = (int*)knStoragePtr;
-            latticeSectionUnk = *(CellType::LatticeSectionUnk*)&(nkPtr[0]);
-        }
+        const int    index0 = Lattice::centerDirection;
+        LbmStoreType floatingVal = fin.template nghVal<dX, dY, dZ>(cell, index0, 33).value;
+        latticeSectionUnk = CellType::LatticeSectionUnkUtils::fromFloatingPoint<LbmStoreType>(floatingVal);
+        const int index1 = Lattice::getOpposite(latticeSectionUnk.mA);
+        const int index2 = Lattice::getOpposite(latticeSectionUnk.mB);
+        const int index3 = Lattice::getOpposite(latticeSectionUnk.mC);
+        const int index4 = Lattice::getOpposite(latticeSectionUnk.mD);
 
         if (cellType == CellType::pressure) {
-            rho = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mA, 0.0).value);
+            rho = fin.template nghVal<dX, dY, dZ>(cell, index1, 0.0).value;
         } else {
-            u[0] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mA, 0.0).value);
-            u[1] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mB, 0.0).value);
-            u[2] = static_cast<LbmComputeType>(fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mC, 0.0).value);
+            rho = fin.template nghVal<dX, dY, dZ>(cell, index1, 0.0).value;
+            //            u[0] = fin.template nghVal<dX, dY, dZ>(cell, index1, 0.0).value;
+            //            u[2] = fin.template nghVal<dX, dY, dZ>(cell, index2, 0.0).value;
+            //            u[2] = fin.template nghVal<dX, dY, dZ>(cell, index3, 0.0).value;
         }
-        {
-            LbmStoreType  storageVal = fin.template nghVal<dX, dY, dZ>(cell, latticeSectionUnk.mD, 0.0).value;
-            LbmStoreType* storagePtr = &storageVal;
-            const int*    nkPtr = (int*)storagePtr;
-            latticeSectionMiddle = *(CellType::LatticeSectionMiddle*)&(nkPtr[0]);
-        }
-        if constexpr (!std::is_same_v<LbmStoreType, double> ||
-                      !std::is_same_v<LbmStoreType, float>) {
-            printf("Error\n");
-        }
+
+        floatingVal = fin.template nghVal<dX, dY, dZ>(cell, index4, 0.0).value;
+        latticeSectionMiddle = CellType::LatticeSectionMiddleUtils::fromFloatingPoint<LbmStoreType>(floatingVal);
+
         return;
     }
 
@@ -169,45 +156,50 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     {
         CellType::LatticeSectionUnk    unknowns;
         CellType::LatticeSectionMiddle middle;
-#define PULL_STREAM_ZOUHE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                      \
+
+
+#define PULL_STREAM_ZOUHE(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid, idMain)              \
     {                                                                                    \
         { /*GO*/                                                                         \
             if (wallBitFlag & (uint32_t(1) << GOid)) {                                   \
-                extractZouheDataByDirection<BKx, BKy, BKz>(cell,                         \
-                                                           fin,                          \
-                                                           cellType,                     \
-                                                           unknowns,                     \
-                                                           middle,                       \
-                                                           rho,                          \
-                                                           u);                           \
+                if (idMain)                                                              \
+                    extractZouheDataByDirection<BKx, BKy, BKz>(cell,                     \
+                                                               fin,                      \
+                                                               cellType,                 \
+                                                               unknowns,                 \
+                                                               middle,                   \
+                                                               rho,                      \
+                                                               u);                       \
             } else {                                                                     \
                 popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(cell, GOid, 0.0).value; \
             }                                                                            \
         }                                                                                \
         { /*BK*/                                                                         \
             if (wallBitFlag & (uint32_t(1) << BKid)) {                                   \
-                extractZouheDataByDirection<GOx, GOy, GOz>(cell,                         \
-                                                           fin,                          \
-                                                           cellType,                     \
-                                                           unknowns,                     \
-                                                           middle,                       \
-                                                           rho,                          \
-                                                           u);                           \
+                if (idMain)                                                              \
+                    extractZouheDataByDirection<GOx, GOy, GOz>(cell,                     \
+                                                               fin,                      \
+                                                               cellType,                 \
+                                                               unknowns,                 \
+                                                               middle,                   \
+                                                               rho,                      \
+                                                               u);                       \
             } else {                                                                     \
                 popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(cell, BKid, 0.0).value; \
             }                                                                            \
         }                                                                                \
     }
 
-        PULL_STREAM_ZOUHE(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10);
-        PULL_STREAM_ZOUHE(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11);
-        PULL_STREAM_ZOUHE(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12);
-        PULL_STREAM_ZOUHE(-1, -1, 0, /* GOid */ 3, /* --- */ 1, 1, 0, /*  BKid */ 13);
-        PULL_STREAM_ZOUHE(-1, 1, 0, /*  GOid */ 4, /* --- */ 1, -1, 0, /* BKid */ 14);
-        PULL_STREAM_ZOUHE(-1, 0, -1, /* GOid */ 5, /* --- */ 1, 0, 1, /*  BKid */ 15);
-        PULL_STREAM_ZOUHE(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16);
-        PULL_STREAM_ZOUHE(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17);
-        PULL_STREAM_ZOUHE(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18);
+        PULL_STREAM_ZOUHE(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10, true);
+        PULL_STREAM_ZOUHE(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11, true);
+        PULL_STREAM_ZOUHE(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12, true);
+        PULL_STREAM_ZOUHE(-1, -1, 0, /* GOid */ 3, /* --- */ 1, 1, 0, /*  BKid */ 13, false);
+        PULL_STREAM_ZOUHE(-1, 1, 0, /*  GOid */ 4, /* --- */ 1, -1, 0, /* BKid */ 14, false);
+        PULL_STREAM_ZOUHE(-1, 0, -1, /* GOid */ 5, /* --- */ 1, 0, 1, /*  BKid */ 15, false);
+        PULL_STREAM_ZOUHE(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16, false);
+        PULL_STREAM_ZOUHE(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17, false);
+        PULL_STREAM_ZOUHE(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18, false);
+
 #undef PULL_STREAM_ZOUHE
         popIn[Lattice::centerDirection] = fin(cell, Lattice::centerDirection);
 
@@ -588,89 +580,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                         infoOut(cell, 0) = cellType;
 #undef COMPUTE_MASK_WALL
                     }
-                    auto globalIndex = infoIn.mapToGlobal(cell);
-                    if (globalIndex == Neon::index_3d{38, 2, 2}) {
-                        printf("\n");
-                    }
-
-                    if (cellType.classification == CellType::pressure ||
-                        cellType.classification == CellType::velocity) {
-                        bool match = false;
-
-                        auto byDirection = [&](Neon::int8_3d mainDirectionVAL) {
-                            if (globalIndex == Neon::index_3d{38, 2, 2}) {
-                                printf("\n");
-                            }
-                            Neon::int8_3d mainDirection = mainDirectionVAL;
-                            auto          info = infoIn.nghVal(cell, mainDirection, 0);
-                            Neon::int8_3d oppositeToMain = mainDirectionVAL * -1;
-                            auto          oppositeInfo = infoIn.nghVal(cell, oppositeToMain, 0);
-
-                            if (info.value.classification == CellType::bounceBack &&
-                                oppositeInfo.value.classification == CellType::bulk) {
-                                if (match == true) {
-                                    printf(
-                                        "Error %d %d %d direction %d %d %d !!!!\n",
-                                        globalIndex.x, globalIndex.y, globalIndex.z,
-                                        mainDirection.x, mainDirection.y, mainDirection.z);
-                                }
-                                if (globalIndex == Neon::index_3d{38, 2, 2}) {
-                                    printf("\n");
-                                }
-                                match = true;
-                                const int mapUnkowns[6][5] = {
-                                    {10, 13, 14, 15, 16}, /* 0 norm -1, 0, 0 -> (1, 0, 0), ...*/
-                                    {11, 4, 13, 17, 18},  /*  1 norm 0, -1, 0 */
-                                    {12, 6, 8, 15, 17},   /* 2 norm 0, 0, -1*/
-                                    {0, 3, 4, 5, 6},      /* 3 norm 1, 0, 0 -> (-1, 0, 0), ... */
-                                    {1, 3, 7, 8, 14},     /*  4 norm 0, 1, 0 -> */
-                                    {2, 5, 7, 16, 18},    /* 5 norm 0, 0, 1 -> */
-                                };
-                                const int mapMiddle[3][4] = {
-                                    {1, 2, 7, 8}, /*  0 norm -1, 0, 0 -> (1, 0, 0), ...*/
-                                    {0, 2, 5, 6}, /*  1 norm 0, -1, 0*/
-                                    {0, 1, 3, 4}, /*  2 norm 0, 0, -1*/
-                                };
-                                int targetRaw = -1;
-                                targetRaw = (mainDirection.x == 1) ? 3 : targetRaw;
-                                targetRaw = (mainDirection.x == -1) ? 0 : targetRaw;
-                                targetRaw = (mainDirection.y == 1) ? 4 : targetRaw;
-                                targetRaw = (mainDirection.y == -1) ? 1 : targetRaw;
-                                targetRaw = (mainDirection.z == 1) ? 5 : targetRaw;
-                                targetRaw = (mainDirection.z == -1) ? 2 : targetRaw;
-
-                                infoOut(cell, 0).unknowns.mA = mapUnkowns[targetRaw][0];
-                                infoOut(cell, 0).unknowns.mB = mapUnkowns[targetRaw][1];
-                                infoOut(cell, 0).unknowns.mC = mapUnkowns[targetRaw][2];
-                                infoOut(cell, 0).unknowns.mD = mapUnkowns[targetRaw][3];
-                                infoOut(cell, 0).unknowns.mE = mapUnkowns[targetRaw][4];
-
-                                targetRaw = (mainDirection.x != 0) ? 0 : targetRaw;
-                                targetRaw = (mainDirection.y != 0) ? 1 : targetRaw;
-                                targetRaw = (mainDirection.z != 0) ? 2 : targetRaw;
-
-                                infoOut(cell, 0).middle.mA = mapMiddle[targetRaw][0];
-                                infoOut(cell, 0).middle.mB = mapMiddle[targetRaw][1];
-                                infoOut(cell, 0).middle.mC = mapMiddle[targetRaw][2];
-                                infoOut(cell, 0).middle.mD = mapMiddle[targetRaw][3];
-                            }
-                        };
-                        // byDirection(Neon::int8_3d(-1, 0, 0));
-                        /**
-                         * BITS position
-                         * 0 -> positive (0) or negative (1) direction
-                         * 1 -> x is the target (1)
-                         * 2 -> y is the target (1)
-                         * 3 -> z is the target (1)
-                         */
-
-                        byDirection(Neon::int8_3d(-1, 0, 0));
-                        byDirection(Neon::int8_3d(0, -1, 0));
-                        byDirection(Neon::int8_3d(0, 0, -1));
-                        byDirection(Neon::int8_3d(1, 0, 0));
-                        byDirection(Neon::int8_3d(0, 1, 0));
-                        byDirection(Neon::int8_3d(0, 0, 1));
-                    }
                 };
             });
         return container;
@@ -678,41 +587,47 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 #undef BYDIRECTION
 
     static auto
-    computeZouheGhostCells(const CellTypeField& infoInField,
-                           CellTypeField&       infoOutpeField,
-                           LbmStoreType         prescribeRho,
-                           LbmStoreType         prescrivedVel[3])
+    computeZouheGhostCells(CellTypeField const&        flagField,
+                           PopulationField&            popInField,
+                           PopulationField&            popOutField,
+                           LbmStoreType                prescribeRho,
+                           Neon::Real_3d<LbmStoreType> prescrivedVel)
 
         -> Neon::set::Container
     {
 
 
-        Neon::set::Container container = infoInField.getGrid().getContainer(
+        Neon::set::Container container = flagField.getGrid().getContainer(
             "LBM_iteration",
             [&](Neon::set::Loader& L) -> auto {
-                auto& infoIn = L.load(infoInField,
+                auto& infoIn = L.load(flagField,
                                       Neon::Compute::STENCIL);
-                auto& infoOut = L.load(infoOutpeField);
+                auto& popIn = L.load(popInField);
+                auto& popOut = L.load(popOutField);
 
                 return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
                     CellType cellType = infoIn(cell, 0);
 
-                    if (cellType.classification == CellType::pressure ||
-                        cellType.classification == CellType::velocity) {
-                        bool match = false;
+                    if (cellType.classification == CellType::bounceBack) {
+                        bool          match = false;
+                        Neon::int8_3d oldDirection;
+                        auto          byMajourDirection = [&](Neon::int8_3d nghDirection) {
+                            auto nghInfo = infoIn.nghVal(cell, nghDirection, CellType::undefined);
+                            if (!nghInfo.isValid)
+                                return;
+                            if (nghInfo.value.classification == CellType::pressure ||
+                                nghInfo.value.classification == CellType::velocity) {
 
-                        auto byDirection = [&](Neon::int8_3d mainDirectionVAL) {
-                            Neon::int8_3d mainDirection = mainDirectionVAL * -1;
-                            auto          info = infoIn.nghVal(cell, mainDirection, 0);
-
-                            if (info.value.classification == CellType::pressure ||
-                                info.value.classification == CellType::velocity) {
                                 if (match == true) {
-                                    printf(
-                                        "Error");
+                                    cell.printf();
+                                    printf("Error from MajourDirection\n");
                                 }
 
                                 match = true;
+                                oldDirection = nghDirection;
+
+                                CellType::LatticeSectionUnk    un;
+                                CellType::LatticeSectionMiddle im;
 
                                 const int mapUnkowns[6][5] = {
                                     {10, 13, 14, 15, 16}, /* 0 norm -1, 0, 0 -> (1, 0, 0), ...*/
@@ -727,15 +642,14 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                                     {0, 2, 5, 6}, /*  1 norm 0, -1, 0*/
                                     {0, 1, 3, 4}, /*  2 norm 0, 0, -1*/
                                 };
-                                int targetRaw = -1;
-                                targetRaw = (mainDirection.x == 1) ? 3 : targetRaw;
-                                targetRaw = (mainDirection.x == -1) ? 0 : targetRaw;
-                                targetRaw = (mainDirection.y == 1) ? 4 : targetRaw;
-                                targetRaw = (mainDirection.y == -1) ? 1 : targetRaw;
-                                targetRaw = (mainDirection.z == 1) ? 5 : targetRaw;
-                                targetRaw = (mainDirection.z == -1) ? 2 : targetRaw;
-
-                                CellType::LatticeSectionUnk un;
+                                int  targetRaw = -1;
+                                auto normDirection = nghDirection * -1;
+                                targetRaw = (normDirection.x == 1) ? 3 : targetRaw;
+                                targetRaw = (normDirection.x == -1) ? 0 : targetRaw;
+                                targetRaw = (normDirection.y == 1) ? 4 : targetRaw;
+                                targetRaw = (normDirection.y == -1) ? 1 : targetRaw;
+                                targetRaw = (normDirection.z == 1) ? 5 : targetRaw;
+                                targetRaw = (normDirection.z == -1) ? 2 : targetRaw;
 
                                 un.mA = mapUnkowns[targetRaw][0];
                                 un.mB = mapUnkowns[targetRaw][1];
@@ -743,26 +657,28 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                                 un.mD = mapUnkowns[targetRaw][3];
                                 un.mE = mapUnkowns[targetRaw][4];
 
-                                targetRaw = (mainDirection.x != 0) ? 0 : targetRaw;
-                                targetRaw = (mainDirection.y != 0) ? 1 : targetRaw;
-                                targetRaw = (mainDirection.z != 0) ? 2 : targetRaw;
-
-                                CellType::LatticeSectionMiddle im;
+                                targetRaw = (normDirection.x != 0) ? 0 : targetRaw;
+                                targetRaw = (normDirection.y != 0) ? 1 : targetRaw;
+                                targetRaw = (normDirection.z != 0) ? 2 : targetRaw;
 
                                 im.mA = mapMiddle[targetRaw][0];
                                 im.mB = mapMiddle[targetRaw][1];
                                 im.mC = mapMiddle[targetRaw][2];
                                 im.mD = mapMiddle[targetRaw][3];
 
-                                composeZouheData(cell, infoIn,
-                                                 info.value.classification,
-                                                 un,
-                                                 im,
-                                                 prescribeRho,
-                                                 prescrivedVel);
+                                composeZouheData(cell,
+                                                          popIn,
+                                                          nghInfo.value.classification,
+                                                          un,
+                                                          im,
+                                                          prescribeRho,
+                                                          prescrivedVel);
+
+                                for (int q = 0; q < 19; q++) {
+                                    popOut(cell, q) = popIn(cell, q);
+                                }
                             }
                         };
-                        // byDirection(Neon::int8_3d(-1, 0, 0));
                         /**
                          * BITS position
                          * 0 -> positive (0) or negative (1) direction
@@ -770,13 +686,12 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                          * 2 -> y is the target (1)
                          * 3 -> z is the target (1)
                          */
-
-                        byDirection(Neon::int8_3d(-1, 0, 0));
-                        byDirection(Neon::int8_3d(0, -1, 0));
-                        byDirection(Neon::int8_3d(0, 0, -1));
-                        byDirection(Neon::int8_3d(1, 0, 0));
-                        byDirection(Neon::int8_3d(0, 1, 0));
-                        byDirection(Neon::int8_3d(0, 0, 1));
+                        byMajourDirection(Neon::int8_3d(-1, 0, 0));
+                        byMajourDirection(Neon::int8_3d(0, -1, 0));
+                        byMajourDirection(Neon::int8_3d(0, 0, -1));
+                        byMajourDirection(Neon::int8_3d(1, 0, 0));
+                        byMajourDirection(Neon::int8_3d(0, 1, 0));
+                        byMajourDirection(Neon::int8_3d(0, 0, 1));
                     }
                 };
             });

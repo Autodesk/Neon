@@ -158,18 +158,7 @@ auto problemSetup(Config&                              config,
         if (flagField(idx, 0).classification == CellType::bounceBack) {
             val = 0;
         }
-        if (flagField(idx, 0).classification == CellType::pressure) {
-            if (k == 0) {
-                flagField.getReference(idx, 0).rho = rhoPrescribedOutlet;
-            }
-        }
-        if (flagField(idx, 0).classification == CellType::velocity) {
-            if (k == 0) {
-                flagField.getReference(idx, 0).rho = rhoPrescribedInlet;
-            }
-        }
     });
-
 
     popOutField.forEachActiveCell([&](const Neon::index_3d& idx,
                                       const int&            k,
@@ -183,7 +172,6 @@ auto problemSetup(Config&                              config,
 
     popInField.updateCompute(Neon::Backend::mainStreamIdx);
     popOutField.updateCompute(Neon::Backend::mainStreamIdx);
-
     flagField.updateCompute(Neon::Backend::mainStreamIdx);
 
     flagField.getBackend().syncAll();
@@ -194,8 +182,21 @@ auto problemSetup(Config&                              config,
 
     flagField.haloUpdate(hu);
     flagField.getBackend().syncAll();
-    auto container = LbmContainers<Lattice, FieldPop, ComputeFP>::computeWallNghMask(flagField, flagField);
-    container.run(Neon::Backend::mainStreamIdx);
+
+    auto computeWallNghMask = LbmContainers<Lattice, FieldPop, ComputeFP>::computeWallNghMask(flagField, flagField);
+    computeWallNghMask.run(Neon::Backend::mainStreamIdx);
+
+    Neon::Real_3d<StorageFP> prescrivedVel (rhoPrescribedOutlet,0,0);
+
+    auto computeZouheGhostCells = LbmContainers<Lattice, FieldPop, ComputeFP>::computeZouheGhostCells(
+        flagField,
+        popInField,
+        popOutField,
+        rhoPrescribedInlet,
+        prescrivedVel);
+
+    computeZouheGhostCells.run(Neon::Backend::mainStreamIdx);
+
     flagField.getBackend().syncAll();
 }
 
