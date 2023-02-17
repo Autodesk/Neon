@@ -24,7 +24,7 @@ auto problemSetup(Config&                              config,
 
     const double radiusDomainLenRatio = 1.0 / 7;
     const double rhoPrescribedInlet = 1.0;
-    const double rhoPrescribedOutlet = 1.05;
+    const double rhoPrescribedOutlet = 1.005;
 
     const Neon::double_3d center = {config.N / 2.0, config.N / 2.0, config.N / 2.0};
     const double          radius = config.N * radiusDomainLenRatio;
@@ -145,8 +145,9 @@ auto problemSetup(Config&                              config,
         flagVal.classification = getBoundaryType(idx);
 
         bcTypeForDebugging.getReference(idx, 0) = static_cast<double>(flagVal.classification);
-        bcTypeForDebugging.ioToVtk("bcFlags", "cb", false);
     });
+    bcTypeForDebugging.ioToVtk("bcFlags", "cb", false);
+
     std::cout << "... [DONE]\n";
 
     std::cout << "Init Population...";

@@ -619,7 +619,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                                 nghInfo.value.classification == CellType::velocity) {
 
                                 if (match == true) {
-                                    cell.printf();
                                     printf("Error from MajourDirection\n");
                                 }
 
@@ -729,9 +728,9 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
                     // TODO add code for zouhe
 
-                    if (cellInfo.classification == CellType::bulk ||
-                        cellInfo.classification == CellType::pressure ||
-                        cellInfo.classification == CellType::velocity) {
+                    if (cellInfo.classification == CellType::bulk ){
+//                        cellInfo.classification == CellType::pressure ||
+//                        cellInfo.classification == CellType::velocity) {
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
                         macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
                     } else {
