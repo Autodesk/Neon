@@ -140,7 +140,7 @@ struct D3Q19Template
 
 
     template <int go>
-    static constexpr auto getOpposite()
+    static auto NEON_CUDA_HOST_DEVICE getOpposite()
         -> int
     {
         if constexpr (go == centerDirection)

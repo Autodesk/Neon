@@ -35,7 +35,7 @@ struct CellType
 
 
         template <class FLOAT_TYPE>
-        static auto toFloatingPoint(LatticeSectionUnk val) -> FLOAT_TYPE
+        static auto NEON_CUDA_HOST_DEVICE toFloatingPoint(LatticeSectionUnk val) -> FLOAT_TYPE
         {
             LatticeSectionUnkUnion data;
             data.f[0] = 0;
@@ -53,7 +53,7 @@ struct CellType
         }
 
         template <class FLOAT_TYPE>
-        static auto fromFloatingPoint(FLOAT_TYPE val) -> LatticeSectionUnk
+        static auto NEON_CUDA_HOST_DEVICE fromFloatingPoint(FLOAT_TYPE val) -> LatticeSectionUnk
         {
             LatticeSectionUnkUnion data;
             data.f[0] = 0;
@@ -88,7 +88,7 @@ struct CellType
 
 
         template <class FLOAT_TYPE>
-        static auto toFloatingPoint(LatticeSectionMiddle val) -> FLOAT_TYPE
+        static auto NEON_CUDA_HOST_DEVICE toFloatingPoint(LatticeSectionMiddle val) -> FLOAT_TYPE
         {
             LatticeSectionMiddleUnion data;
             data.f[0] = 0;
@@ -106,7 +106,7 @@ struct CellType
         }
 
         template <class FLOAT_TYPE>
-        static auto fromFloatingPoint(FLOAT_TYPE val) -> LatticeSectionMiddle
+        static auto NEON_CUDA_HOST_DEVICE fromFloatingPoint(FLOAT_TYPE val) -> LatticeSectionMiddle
         {
             LatticeSectionMiddleUnion data;
             data.f[0] = 0;

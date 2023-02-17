@@ -86,14 +86,13 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         ;
         const int index1 = Lattice::getOpposite(latticeSectionUnk.mA);
         const int index2 = Lattice::getOpposite(latticeSectionUnk.mB);
-        ;
         const int index3 = Lattice::getOpposite(latticeSectionUnk.mC);
-        ;
         const int index4 = Lattice::getOpposite(latticeSectionUnk.mD);
         ;
 
         {
-            fin(cell, index0) = CellType::LatticeSectionUnkUtils::toFloatingPoint<LbmStoreType>(latticeSectionUnk);
+            auto res = CellType::LatticeSectionUnkUtils::toFloatingPoint<LbmStoreType>(latticeSectionUnk);
+            fin(cell, index0) = res;
         }
 
         if (nghCellType == CellType::pressure) {
@@ -599,11 +598,14 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
         Neon::set::Container container = flagField.getGrid().getContainer(
             "LBM_iteration",
-            [&](Neon::set::Loader& L) -> auto {
-                auto& infoIn = L.load(flagField,
-                                      Neon::Compute::STENCIL);
-                auto& popIn = L.load(popInField);
-                auto& popOut = L.load(popOutField);
+            [&popInField, &popOutField,
+             flagField,
+             prescribeRho,
+             prescrivedVel](Neon::set::Loader& L) -> auto {
+                auto& infoIn = L.load(flagField, Neon::Compute::STENCIL);
+
+                typename PopulationField::Partition& popIn = L.load(popInField);
+                auto&                                popOut = L.load(popOutField);
 
                 return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
                     CellType cellType = infoIn(cell, 0);
@@ -728,9 +730,9 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
                     // TODO add code for zouhe
 
-                    if (cellInfo.classification == CellType::bulk ){
-//                        cellInfo.classification == CellType::pressure ||
-//                        cellInfo.classification == CellType::velocity) {
+                    if (cellInfo.classification == CellType::bulk) {
+                        //                        cellInfo.classification == CellType::pressure ||
+                        //                        cellInfo.classification == CellType::velocity) {
                         pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
                         macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
                     } else {

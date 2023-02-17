@@ -104,6 +104,8 @@ auto runSpecialized(Config& config,
             auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
 
             container.run(Neon::Backend::mainStreamIdx);
+            bk.syncAll();
+
             u.updateIO(Neon::Backend::mainStreamIdx);
             rho.updateIO(Neon::Backend::mainStreamIdx);
             // iteration.getInput().updateIO(Neon::Backend::mainStreamIdx);

@@ -136,7 +136,7 @@ auto problemSetup(Config&                              config,
 
     Neon::index_3d dim(config.N, config.N, config.N);
 
-    std::cout << "Init flags...";
+    std::cout << "Init flags..." << std::flush;
     flagField.forEachActiveCell([&](const Neon::index_3d& idx,
                                     const int&,
                                     CellType& flagVal) {
@@ -150,7 +150,7 @@ auto problemSetup(Config&                              config,
 
     std::cout << "... [DONE]\n";
 
-    std::cout << "Init Population...";
+    std::cout << "Init Population..." << std::flush;
     popInField.forEachActiveCell([&](const Neon::index_3d& idx,
                                      const int&            k,
                                      StorageFP&            val) {
@@ -170,7 +170,7 @@ auto problemSetup(Config&                              config,
     });
     std::cout << "... [DONE]\n";
 
-    std::cout << "Update Device ...";
+    std::cout << "Update Device ..." << std::flush;
     popInField.updateCompute(Neon::Backend::mainStreamIdx);
     popOutField.updateCompute(Neon::Backend::mainStreamIdx);
     flagField.updateCompute(Neon::Backend::mainStreamIdx);
@@ -183,14 +183,15 @@ auto problemSetup(Config&                              config,
 
     flagField.haloUpdate(hu);
     flagField.getBackend().syncAll();
-    auto computeWallNghMask = LbmContainers<Lattice, FieldPop, ComputeFP>::computeWallNghMask(flagField, flagField);
     std::cout << "... [DONE]\n";
 
+
     std::cout << "Init masks ...";
+    auto computeWallNghMask = LbmContainers<Lattice, FieldPop, ComputeFP>::computeWallNghMask(flagField, flagField);
     computeWallNghMask.run(Neon::Backend::mainStreamIdx);
     std::cout << "... [DONE]\n";
 
-    Neon::Real_3d<StorageFP> prescrivedVel (rhoPrescribedOutlet,0,0);
+    Neon::Real_3d<StorageFP> prescrivedVel(rhoPrescribedOutlet, 0, 0);
 
     std::cout << "Init zhoue ...";
     auto computeZouheGhostCells = LbmContainers<Lattice, FieldPop, ComputeFP>::computeZouheGhostCells(
