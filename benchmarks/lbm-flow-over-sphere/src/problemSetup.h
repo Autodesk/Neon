@@ -24,7 +24,7 @@ auto problemSetup(Config&                              config,
 
     const double radiusDomainLenRatio = 1.0 / 7;
     const double rhoPrescribedInlet = 1.0;
-    const double rhoPrescribedOutlet = 1.005;
+    const double rhoPrescribedOutlet = 1.05;
 
     const Neon::double_3d center = {config.N / 2.0, config.N / 2.0, config.N / 2.0};
     const double          radius = config.N * radiusDomainLenRatio;
@@ -136,7 +136,7 @@ auto problemSetup(Config&                              config,
 
     Neon::index_3d dim(config.N, config.N, config.N);
 
-
+    std::cout << "Init flags...";
     flagField.forEachActiveCell([&](const Neon::index_3d& idx,
                                     const int&,
                                     CellType& flagVal) {
@@ -147,10 +147,9 @@ auto problemSetup(Config&                              config,
         bcTypeForDebugging.getReference(idx, 0) = static_cast<double>(flagVal.classification);
         bcTypeForDebugging.ioToVtk("bcFlags", "cb", false);
     });
+    std::cout << "... [DONE]\n";
 
-    flagField.hostHaloUpdate();
-
-    // Population initialization
+    std::cout << "Init Population...";
     popInField.forEachActiveCell([&](const Neon::index_3d& idx,
                                      const int&            k,
                                      StorageFP&            val) {
@@ -168,8 +167,9 @@ auto problemSetup(Config&                              config,
             val = 0;
         }
     });
+    std::cout << "... [DONE]\n";
 
-
+    std::cout << "Update Device ...";
     popInField.updateCompute(Neon::Backend::mainStreamIdx);
     popOutField.updateCompute(Neon::Backend::mainStreamIdx);
     flagField.updateCompute(Neon::Backend::mainStreamIdx);
@@ -182,12 +182,16 @@ auto problemSetup(Config&                              config,
 
     flagField.haloUpdate(hu);
     flagField.getBackend().syncAll();
-
     auto computeWallNghMask = LbmContainers<Lattice, FieldPop, ComputeFP>::computeWallNghMask(flagField, flagField);
+    std::cout << "... [DONE]\n";
+
+    std::cout << "Init masks ...";
     computeWallNghMask.run(Neon::Backend::mainStreamIdx);
+    std::cout << "... [DONE]\n";
 
     Neon::Real_3d<StorageFP> prescrivedVel (rhoPrescribedOutlet,0,0);
 
+    std::cout << "Init zhoue ...";
     auto computeZouheGhostCells = LbmContainers<Lattice, FieldPop, ComputeFP>::computeZouheGhostCells(
         flagField,
         popInField,
