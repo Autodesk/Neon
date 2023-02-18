@@ -6,6 +6,112 @@
 #include "Metrics.h"
 #include "Repoert.h"
 
+struct LatticeStructure
+{
+
+   private:
+    struct BBox
+    {
+        Neon::index_3d origin;
+        Neon::index_3d max;
+        Neon::index_3d len;
+    } mBb;
+    int    mUnitCellSize;
+    double mUnitCellRadious;
+
+    double cylinderSDF(const double P[3], const double center[3], const double K[3], double r)
+    {
+        // Compute the unit vector parallel to K
+        double mag_K = std::sqrt(K[0] * K[0] + K[1] * K[1] + K[2] * K[2]);
+        double u[3] = {K[0] / mag_K, K[1] / mag_K, K[2] / mag_K};
+
+        // Project P onto the plane perpendicular to K and centered at C
+        double Q[3] = {P[0] - (P[0] - center[0]) * u[0] - (P[1] - center[1]) * u[1] - (P[2] - center[2]) * u[2],
+                       P[1] - (P[0] - center[0]) * u[1] - (P[1] - center[1]) * u[1] - (P[2] - center[2]) * u[2],
+                       P[2] - (P[0] - center[0]) * u[2] - (P[1] - center[1]) * u[1] - (P[2] - center[2]) * u[2]};
+
+        // Compute the distance from Q to C
+        double d = std::sqrt((Q[0] - center[0]) * (Q[0] - center[0]) + (Q[1] - center[1]) * (Q[1] - center[1]) + (Q[2] - center[2]) * (Q[2] - center[2]));
+
+        // Compute the signed distance
+        if (d < r) {
+            // Inside the cylinder
+            double h = std::sqrt((P[0] - Q[0]) * (P[0] - Q[0]) + (P[1] - Q[1]) * (P[1] - Q[1]) + (P[2] - Q[2]) * (P[2] - Q[2]) - r * r);
+            return -std::sqrt(h * h + d * d - r * r);
+        } else {
+            // Outside the cylinder
+            return d - r;
+        }
+    }
+
+    auto isInsideCrossBars(const Neon::double_3d p /** p is a point in the unit cell [0-1]^3 **/,
+                           double                radius)
+        -> bool
+    {
+        // Neon::double_3d center(.5);
+        //        std::vector<Neon::double_3d> lowerCorners /** uppser corners of a unit cube */ {{1., 0., 0.}, {1., 1., 0.}, {0., 1., 0.}, {0., 0., 0.}};
+        //        for (const auto& corner : lowerCorners) {
+        //            Neon::double_3d opposite(corner.x == 0 ? 1 : 0,
+        //                                     corner.y == 0 ? 1 : 0,
+        //                                     corner.z == 0 ? 1 : 0);
+        //            auto   direction = corner - opposite;
+        //            double d = cylinderSDF(p.v, center.v, direction.v, radius);
+        //            if (d <= 0)
+        //                return false;
+        //        }
+        //        return true;
+
+        bool xCylinder = std::pow(p.z - .5, 2) + std::pow(p.y - .5, 2) <= radius * radius;
+        bool yCylinder = std::pow(p.z - .5, 2) + std::pow(p.x - .5, 2) <= radius * radius;
+        bool zCylinder = std::pow(p.y - .5, 2) + std::pow(p.x - .5, 2) <= radius * radius;
+
+        if (xCylinder ||
+            yCylinder ||
+            zCylinder) {
+            return true;
+        }
+        return false;
+    }
+
+   public:
+    LatticeStructure(Neon::index_3d bbOrigin,
+                     Neon::index_3d bbLen,
+                     int            uCellLen,
+                     double         uCellRadisu)
+    {
+        mBb.origin = bbOrigin;
+        mBb.len = bbLen;
+        mUnitCellSize = uCellLen;
+        mUnitCellRadious = uCellRadisu;
+        mBb.max = mBb.origin + mBb.len;
+    }
+
+    bool isIn(Neon::index_3d p)
+    {
+        if (p.x < mBb.origin.x ||
+            p.y < mBb.origin.y ||
+            p.z < mBb.origin.z) {
+            return false;
+        }
+        if (p.x > mBb.max.x ||
+            p.y > mBb.max.y ||
+            p.z > mBb.max.z) {
+            return false;
+        }
+        Neon::index_3d reminder(p.x % mUnitCellSize,
+                                p.y % mUnitCellSize,
+                                p.z % mUnitCellSize);
+
+        Neon::double_3d unitCellPosition = reminder.newType<double>() / (1.0 * mUnitCellSize);
+        // if (unitCellPosition.x < .3) {
+        //     return true;
+        // }
+        // return false;
+        return isInsideCrossBars(unitCellPosition, mUnitCellRadious);
+        //return false;
+    }
+};
+
 namespace CavityTwoPop {
 template <typename FieldFlag,
           typename FieldPop,
@@ -29,6 +135,9 @@ auto problemSetup(Config&                              config,
     const Neon::double_3d center = {config.N / 2.0, config.N / 2.0, config.N / 2.0};
     const double          radius = config.N * radiusDomainLenRatio;
     const auto&           t = lattice.t_vect;
+
+    LatticeStructure latticeStructure({6, 6, 6},
+                                      {config.N - 10, config.N - 10, config.N - 10}, 20, .2);
 
     auto isFluidDomain =
         [&](const Neon::index_3d& idx)
@@ -62,15 +171,17 @@ auto problemSetup(Config&                              config,
             idx.z >= config.N) {
             return false;
         }
-        const auto point = idx.newType<double>();
-        const auto offset = std::pow(point.x - center.x, 2) +
-                            std::pow(point.y - center.y, 2) +
-                            std::pow(point.z - center.z, 2);
-        if (offset <= radius * radius) {
-            // we are in the sphere
-            return true;
-        }
-        return false;
+//        const auto point = idx.newType<double>();
+//        const auto offset = std::pow(point.x - center.x, 2) +
+//                            std::pow(point.y - center.y, 2) +
+//                            std::pow(point.z - center.z, 2);
+//        if (offset <= radius * radius) {
+//            // we are in the sphere
+//            return true;
+//        }
+//        return false;
+        return latticeStructure.isIn(idx);
+
     };
 
     auto getBoundaryType =
