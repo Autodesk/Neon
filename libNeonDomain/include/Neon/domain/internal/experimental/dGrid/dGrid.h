@@ -13,17 +13,21 @@
 
 #include "Neon/sys/memory/MemDevice.h"
 
+#include "Neon/domain/aGrid.h"
+
 #include "Neon/domain/interface/GridBaseTemplate.h"
 #include "Neon/domain/interface/KernelConfig.h"
 #include "Neon/domain/interface/LaunchConfig.h"
 #include "Neon/domain/interface/Stencil.h"
 #include "Neon/domain/interface/common.h"
+
+#include "Neon/domain/tools/SpanTable.h"
+
 #include "Neon/domain/patterns/PatternScalar.h"
 
-#include "Neon/domain/internal/dGrid/dField.h"
-#include "Neon/domain/internal/dGrid/dFieldDev.h"
-#include "Neon/domain/internal/dGrid/dPartition.h"
-#include "Neon/domain/internal/dGrid/dPartitionIndexSpace.h"
+#include "Neon/domain/internal/experimental/dGrid/dField.h"
+#include "Neon/domain/internal/experimental/dGrid/dPartition.h"
+#include "Neon/domain/internal/experimental/dGrid/dSpan.h"
 
 
 namespace Neon::domain::internal::exp::dGrid {
@@ -46,9 +50,10 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
     template <typename T_ta, int cardinality_ta = 0>
     using Partition = typename Field<T_ta, cardinality_ta>::Partition;
 
-    using PartitionIndexSpace = dPartitionIndexSpace;
+    using PartitionIndexSpace = dSpan;
+    using Span = dSpan;
 
-    using ngh_idx = typename Partition<int>::nghIdx_t;
+    using NghIdx = typename Partition<int>::NghIdx;
 
     template <typename T, int C>
     friend class dFieldDev;
@@ -111,7 +116,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
 
     template <typename LoadingLambda>
     auto getHostContainer(const std::string& name,
-                      LoadingLambda      lambda)
+                          LoadingLambda      lambda)
         const
         -> Neon::set::Container;
 
@@ -135,9 +140,9 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
         -> Neon::set::Container;
 
     auto convertToNgh(const std::vector<Neon::index_3d>& stencilOffsets)
-        -> std::vector<ngh_idx>;
+        -> std::vector<NghIdx>;
 
-    auto convertToNgh(const Neon::index_3d stencilOffsets) -> ngh_idx;
+    auto convertToNgh(const Neon::index_3d stencilOffsets) -> NghIdx;
 
     auto getKernelConfig(int            streamIdx,
                          Neon::DataView dataView)
@@ -150,51 +155,55 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
         -> GridBaseTemplate::CellProperties final;
 
    private:
-    auto partitions() const
-        -> const Neon::set::DataSet<index_3d>;
+    auto partitions()
+        const -> const Neon::set::DataSet<index_3d>;
 
     auto flattenedLengthSet(Neon::DataView dataView = Neon::DataView::STANDARD)
         const -> const Neon::set::DataSet<size_t>;
 
-    auto flattenedPartitions(Neon::DataView dataView = Neon::DataView::STANDARD) const
-        -> const Neon::set::DataSet<size_t>;
+    auto flattenedPartitions(Neon::DataView dataView = Neon::DataView::STANDARD)
+        const -> const Neon::set::DataSet<size_t>;
 
-    auto getLaunchInfo(const Neon::DataView dataView) const
-        -> Neon::set::LaunchParameters;
+    auto getLaunchInfo(const Neon::DataView dataView)
+        const -> Neon::set::LaunchParameters;
 
     auto stencil() const
         -> const Neon::domain::Stencil&;
 
-    auto newGpuLaunchParameters() const -> Neon::set::LaunchParameters;
+    auto newGpuLaunchParameters()
+        const -> Neon::set::LaunchParameters;
 
-    template <typename T_ta, int cardinality_ta = 0>
-    auto newFieldDev(Neon::sys::memConf_t           memConf,
-                     int                            cardinality,
-                     [[maybe_unused]] T_ta          inactiveValue,
-                     Neon::domain::haloStatus_et::e haloStatus)
-        -> dFieldDev<T_ta, cardinality_ta>;
+    auto setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig)
+        const -> void;
 
-    void setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig) const;
-
+    auto getMemoryGrid()
+        const -> const Neon::domain::aGrid&;
 
    private:
     using Self = dGrid;
 
-    struct data_t
+    struct Data
     {
+        Data() = default;
+        Data(const Neon::Backend& bk);
+
         //  m_partitionDims indicates the size of each partition. For example,
         // given a gridDim of size 77 (in 1D for simplicity) distrusted over 5
         // device, it should be distributed as (16 16 15 15 15)
-        Neon::set::DataSet<index_3d> partitionDims;
+        Neon::set::DataSet<index_3d>         partitionDims;
+        Neon::domain::tool::SpanTable<dSpan> spanTable;
 
         Neon::index_3d                                       halo;
         std::vector<Neon::set::DataSet<PartitionIndexSpace>> partitionIndexSpaceVec;
         Neon::sys::patterns::Engine                          reduceEngine;
+        Neon::domain::aGrid                                  memoryGrid;
+
+        Neon::set::MemSet_t<Neon::int8_3d> stencilIdTo3dOffset;
     };
-    std::shared_ptr<data_t> m_data;
+
+    std::shared_ptr<Data> mData;
 };
 
-}  // namespace Neon::domain::internal::dGrid
-#include "dFieldDev_imp.h"
+}  // namespace Neon::domain::internal::exp::dGrid
 #include "dField_imp.h"
 #include "dGrid_imp.h"

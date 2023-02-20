@@ -8,12 +8,10 @@ struct dCell
 {
     using OuterCell = dCell;
 
-    friend struct ePartitionIndexSpace;
-
     template <typename T,
               int Cardinality>
     friend struct dPartition;
-    friend class dPartitionIndexSpace;
+    friend class dSpan;
     friend class dGrid;
 
     template <typename T,

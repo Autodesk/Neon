@@ -1,52 +1,56 @@
-namespace Neon::domain::internal::exp::dGrid {
+#include "Neon/domain/internal/experimental/dGrid/dGrid.h"
 
-namespace Neon::domain::internal::dGrid {
+namespace Neon::domain::internal::exp::dGrid {
 
 dGrid::dGrid()
 {
-    m_data = std::make_shared<data_t>();
+    mData = std::make_shared<Data>();
 }
 
-auto dGrid::partitions() const -> const Neon::set::DataSet<index_3d>
+auto dGrid::partitions()
+    const -> const Neon::set::DataSet<index_3d>
 {
-    return m_data->partitionDims;
+    return mData->partitionDims;
 }
 
-auto dGrid::flattenedLengthSet(Neon::DataView dataView) const -> const Neon::set::DataSet<size_t>
+auto dGrid::flattenedLengthSet(Neon::DataView dataView)
+    const -> const Neon::set::DataSet<size_t>
 {
     return flattenedPartitions(dataView);
 }
 
-auto dGrid::setReduceEngine(Neon::sys::patterns::Engine eng) -> void
+auto dGrid::setReduceEngine(Neon::sys::patterns::Engine eng)
+    -> void
 {
-    m_data->reduceEngine = eng;
+    mData->reduceEngine = eng;
 }
 
-auto dGrid::flattenedPartitions(Neon::DataView dataView) const -> const Neon::set::DataSet<size_t>
+auto dGrid::flattenedPartitions(Neon::DataView dataView)
+    const -> const Neon::set::DataSet<size_t>
 {
-    Neon::set::DataSet<size_t> flat_parts(m_data->partitionDims.cardinality());
+    Neon::set::DataSet<size_t> flat_parts(mData->partitionDims.cardinality());
     switch (dataView) {
         case Neon::DataView::STANDARD: {
             for (int i = 0; i < flat_parts.cardinality(); ++i) {
-                flat_parts[i] = m_data->partitionDims[i].rMulTyped<size_t>();
+                flat_parts[i] = mData->partitionDims[i].rMulTyped<size_t>();
             }
             return flat_parts;
         }
         case Neon::DataView::INTERNAL: {
             for (int i = 0; i < flat_parts.cardinality(); ++i) {
-                flat_parts[i] = m_data->partitionDims[i].rMulTyped<size_t>() -
-                                2 * size_t(m_data->halo.z) *
-                                    size_t(m_data->partitionDims[i].y) *
-                                    size_t(m_data->partitionDims[i].x);
+                flat_parts[i] = mData->partitionDims[i].rMulTyped<size_t>() -
+                                2 * size_t(mData->halo.z) *
+                                    size_t(mData->partitionDims[i].y) *
+                                    size_t(mData->partitionDims[i].x);
             }
             return flat_parts;
         }
         case Neon::DataView::BOUNDARY: {
             for (int i = 0; i < flat_parts.cardinality(); ++i) {
                 flat_parts[i] = 2 *
-                                size_t(m_data->halo.z) *
-                                size_t(m_data->partitionDims[i].y) *
-                                size_t(m_data->partitionDims[i].x);
+                                size_t(mData->halo.z) *
+                                size_t(mData->partitionDims[i].y) *
+                                size_t(mData->partitionDims[i].x);
             }
             return flat_parts;
         }
@@ -61,16 +65,16 @@ auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
                                 const size_t&         shareMem) const -> Neon::set::LaunchParameters
 {
     Neon::set::LaunchParameters ret = getBackend().devSet().newLaunchParameters();
-    int                         m_zBoundaryRadius = m_data->halo.z;
+    int                         m_zBoundaryRadius = mData->halo.z;
 
     switch (dataView) {
         case Neon::DataView::STANDARD: {
             auto dims = getDevSet().newDataSet<index_3d>();
             // Only works z partitions.
-            assert(m_data->halo.x == 0 && m_data->halo.y == 0);
+            assert(mData->halo.x == 0 && mData->halo.y == 0);
 
             for (int32_t i = 0; i < dims.size(); ++i) {
-                dims[i] = m_data->partitionDims[i];
+                dims[i] = mData->partitionDims[i];
             }
             ret.set(Neon::sys::GpuLaunchInfo::domainGridMode,
                     dims,
@@ -81,10 +85,10 @@ auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
         case Neon::DataView::BOUNDARY: {
             auto dims = getDevSet().newDataSet<index_3d>();
             // Only works z partitions.
-            assert(m_data->halo.x == 0 && m_data->halo.y == 0);
+            assert(mData->halo.x == 0 && mData->halo.y == 0);
 
             for (int32_t i = 0; i < dims.size(); ++i) {
-                dims[i] = m_data->partitionDims[i];
+                dims[i] = mData->partitionDims[i];
                 dims[i].z = m_zBoundaryRadius * 2;
             }
 
@@ -97,15 +101,15 @@ auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
         case Neon::DataView::INTERNAL: {
             auto dims = getDevSet().newDataSet<index_3d>();
             // Only works z partitions.
-            assert(m_data->halo.x == 0 && m_data->halo.y == 0);
+            assert(mData->halo.x == 0 && mData->halo.y == 0);
 
             for (int32_t i = 0; i < dims.size(); ++i) {
-                dims[i] = m_data->partitionDims[i];
+                dims[i] = mData->partitionDims[i];
                 dims[i].z = dims[i].z - m_zBoundaryRadius * 2;
                 if (dims[i].z <= 0 && dims.size() > 1) {
                     NeonException exp("dGrid");
                     exp << "The grid size is too small to support the data view model correctly \n";
-                    exp << dims[i] << " for setIdx "<< i << " and device " << getDevSet().devId(i);
+                    exp << dims[i] << " for setIdx " << i << " and device " << getDevSet().devId(i);
                     NEON_THROW(exp);
                 }
             }
@@ -128,7 +132,7 @@ auto dGrid::getPartitionIndexSpace(Neon::DeviceType devE,
                                    Neon::DataView   dataView)
     -> const PartitionIndexSpace&
 {
-    return m_data->partitionIndexSpaceVec.at(static_cast<int>(dataView)).local(devE, setIdx, dataView);
+    return mData->partitionIndexSpaceVec.at(static_cast<int>(dataView)).local(devE, setIdx, dataView);
 }
 
 auto dGrid::newGpuLaunchParameters() const -> Neon::set::LaunchParameters
@@ -137,16 +141,18 @@ auto dGrid::newGpuLaunchParameters() const -> Neon::set::LaunchParameters
     return getBackend().devSet().newLaunchParameters();
 }
 
-auto dGrid::convertToNgh(const std::vector<Neon::index_3d>& stencilOffsets) -> std::vector<ngh_idx>
+auto dGrid::convertToNgh(const std::vector<Neon::index_3d>& stencilOffsets)
+    -> std::vector<NghIdx>
 {
-    std::vector<ngh_idx> res;
+    std::vector<NghIdx> res;
     for (const auto& offset : stencilOffsets) {
         res.push_back(offset.template newType<int8_t>());
     }
     return res;
 }
 
-auto dGrid::convertToNgh(const Neon::index_3d stencilOffsets) -> ngh_idx
+auto dGrid::convertToNgh(const Neon::index_3d stencilOffsets)
+    -> NghIdx
 {
     return stencilOffsets.template newType<int8_t>();
 }
@@ -177,9 +183,9 @@ auto dGrid::setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig) const
     }
 
     // LaunchParameters is generated for the standard view
-    Neon::set::LaunchParameters launchInfoSet(int(m_data->partitionDims.size()));
+    Neon::set::LaunchParameters launchInfoSet(int(mData->partitionDims.size()));
     launchInfoSet.set(Neon::sys::GpuLaunchInfo::domainGridMode,
-                      m_data->partitionDims, getDefaultBlock(), 0);
+                      mData->partitionDims, getDefaultBlock(), 0);
 
 
     gridKernelConfig.expertSetLaunchParameters(launchInfoSet);
@@ -209,12 +215,12 @@ auto dGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellPr
         Neon::SetIdx   setIdx;
         Neon::DataView dataView = DataView::BOUNDARY;
         for (int i = 0; i < this->getDevSet().setCardinality(); i++) {
-            zCounter += m_data->partitionDims[i].z;
+            zCounter += mData->partitionDims[i].z;
             if (idx.z < zCounter) {
                 setIdx = i;
             }
-            if ((zCounterPrevious + m_data->halo.z >= idx.z) &&
-                (zCounter - m_data->halo.z < idx.z)) {
+            if ((zCounterPrevious + mData->halo.z >= idx.z) &&
+                (zCounter - mData->halo.z < idx.z)) {
                 dataView = Neon::DataView::INTERNAL;
             }
             zCounterPrevious = zCounter;
@@ -223,4 +229,4 @@ auto dGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellPr
     }
     return cellProperties;
 }
-}  // namespace Neon::domain::internal::dGrid
+}  // namespace Neon::domain::internal::exp::dGrid

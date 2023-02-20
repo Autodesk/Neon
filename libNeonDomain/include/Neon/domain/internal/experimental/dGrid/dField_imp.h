@@ -4,6 +4,12 @@
 namespace Neon::domain::internal::exp::dGrid {
 
 template <typename T, int C>
+dField<T, C>::dField()
+{
+    mData = std::make_shared<Self::Data>();
+}
+
+template <typename T, int C>
 dField<T, C>::dField(const std::string&                        fieldUserName,
                      Neon::DataUse                             dataUse,
                      const Neon::MemoryOptions&                memoryOptions,
@@ -11,7 +17,8 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                      const Neon::set::DataSet<Neon::index_3d>& dims,
                      int                                       zHaloDim,
                      Neon::domain::haloStatus_et::e            haloStatus,
-                     int                                       cardinality)
+                     int                                       cardinality,
+                     const Neon::set::MemSet_t<Neon::int8_3d>& stencilIdTo3dOffset)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "dField",
@@ -20,8 +27,6 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                                                                              dataUse,
                                                                              memoryOptions,
                                                                              haloStatus) {
-    mDataUse = dataUse;
-    mMemoryOptions = memoryOptions;
 
     // only works if dims in x and y direction for all partitions match
     for (int i = 0; i < dims.size() - 1; ++i) {
@@ -34,250 +39,92 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
         }
     }
 
+    mData = std::make_shared<Self::Data>();
+    mData->dataUse = dataUse;
+    mData->memoryOptions = memoryOptions;
+    mData->cardinality = cardinality;
+    mData->memoryOptions = memoryOptions;
+    mData->grid = std::make_shared<Grid>(grid);
+    mData->haloStatus = (mData->grid->getDevSet().setCardinality() == 1) ? haloStatus_et::e::OFF : haloStatus;
+    const int haloRadius = mData->haloStatus == Neon::domain::haloStatus_et::ON ? mData->zHaloDim : 0;
+    mData->zHaloDim = zHaloDim;
 
-    m_gpu = dFieldDev<T, C>(grid,
-                            dims,
-                            zHaloDim,
-                            haloStatus,
-                            memoryOptions.getComputeType(),
-                            Neon::memLayout_et::convert(memoryOptions.getOrder()),
-                            memoryOptions.getComputeAllocator(dataUse),
-                            cardinality);
+    Neon::set::DataSet<index_3d> origins = this->getGrid().getBackend().template newDataSet<index_3d>({0, 0, 0});
+    {  // Computing origins
+        origins.forEachSeq(
+            [&](Neon::SetIdx setIdx, Neon::index_3d& val) {
+                if (setIdx == 0) {
+                    val.z = 0;
+                    return;
+                }
+                const Neon::SetIdx proceedingIdx = setIdx - 1;
+                val.z = origins[proceedingIdx].z + dims[proceedingIdx].z;
+            });
+    }
 
-    m_cpu = dFieldDev<T, C>(grid,
-                            dims,
-                            zHaloDim,
-                            haloStatus,
-                            memoryOptions.getIOType(),
-                            Neon::memLayout_et::convert(memoryOptions.getOrder()),
-                            memoryOptions.getIOAllocator(dataUse),
-                            cardinality);
+    {  // Computing Pitch
+        mData.pitch.forEachSeq(
+            [&](Neon::SetIdx setIdx, Neon::size_4d& pitch) {
+                switch (mData->memoryOptions.getOrder()) {
+                    case MemoryLayout::structOfArrays: {
+                        pitch.x = 1;
+                        pitch.y = pitch.x * dims[setIdx.idx()].x;
+                        pitch.z = pitch.y * dims[setIdx.idx()].y;
+                        pitch.w = pitch.z * (dims[setIdx.idx()].z + 2 * haloRadius);
+                        break;
+                    }
+                    case MemoryLayout::arrayOfStructs: {
+                        pitch.x = mData->cardinality;
+                        pitch.y = pitch.x * dims[setIdx.idx()].x;
+                        pitch.z = pitch.y * dims[setIdx.idx()].y;
+                        pitch.w = 1;
+                        break;
+                    }
+                }
+            });
+    }
+
+    {  // Setting up partitions
+        Neon::domain::aGrid& aGrid = mData.grid.getMemoryGrid();
+        mData.memoryField = aGrid.newField(fieldUserName + "-storage", cardinality, T(), dataUse, memoryOptions);
+        const int setCardinality = mData.grid.devSet.setCardinality();
+        mData.partitionTable.forEachConfiguration(
+            [&](Neon::Execution           execution,
+                Neon::SetIdx              setIdx,
+                Neon::DataView            dw,
+                typename Self::Partition& partition, typename Data::PartitionUserData& userData) {
+                auto memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, dw);
+
+                partition = dPartition<T, C>(dw,
+                                             memoryFieldPartition.mem(),
+                                             dims[setIdx],
+                                             haloRadius,
+                                             mData->zHaloDim,
+                                             mData->pitch[setIdx],
+                                             setIdx.idx(),
+                                             origins[setIdx],
+                                             mData->cardinality,
+                                             mData->grid->getDimension(),
+                                             stencilIdTo3dOffset.rawMem(execution, setIdx));
+            });
+    }
+
 }
 
-template <typename T, int C>
-auto dField<T, C>::deviceField(const Neon::Backend& backendConfig) -> FieldDev&
-{
-    switch (backendConfig.devType()) {
-        case Neon::DeviceType::OMP:
-        case Neon::DeviceType::CPU: {
-            return m_cpu;
-        }
-        case Neon::DeviceType::CUDA: {
-            return m_gpu;
-        }
-        default: {
-            NEON_THROW_UNSUPPORTED_OPERATION("");
-        }
-    }
-}
-
-template <typename T, int C>
-template <Neon::run_et::et runMode_ta>
-auto dField<T, C>::update(const Neon::set::StreamSet& streamSet,
-                          const Neon::DeviceType&     devEt) -> void
-{
-    if (self().getGrid().getDevSet().type() == Neon::DeviceType::CPU) {
-        return;
-    }
-
-    if (m_cpu.devType() == Neon::DeviceType::NONE ||
-        m_gpu.devType() == Neon::DeviceType::NONE ||
-        m_cpu.m_data->memAlloc == Neon::Allocator::NULL_MEM ||
-        m_gpu.m_data->memAlloc == Neon::Allocator::NULL_MEM) {
-        NeonException exp("dField_t");
-        exp << "CPU/GPU field is not initialized properly.";
-        NEON_THROW(exp);
-    }
-
-    switch (devEt) {
-        case Neon::DeviceType::CPU: {
-            m_cpu.m_data->memory.template updateFrom<runMode_ta>(streamSet,
-                                                                 m_gpu.m_data->memory);
-            break;
-        }
-        case Neon::DeviceType::CUDA: {
-            m_gpu.m_data->memory.template updateFrom<runMode_ta>(streamSet,
-                                                                 m_cpu.m_data->memory);
-            break;
-        }
-        default: {
-            NeonException exp("dField_t");
-            NEON_THROW(exp);
-        }
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::updateCompute(const Neon::set::StreamSet& streamSet)
-    -> void
-{
-    if (m_cpu.devType() == Neon::DeviceType::NONE && m_gpu.devType() == Neon::DeviceType::NONE) {
-        NeonException exp("dField");
-        exp << "Invalid operation on a not fully initialized mirror.";
-        NEON_THROW(exp);
-    }
-
-    if (mDataUse == Neon::DataUse::IO_COMPUTE) {
-        if (mMemoryOptions.getComputeType() == Neon::DeviceType::CPU) {
-            return;
-        }
-        if (mMemoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
-            this->update(streamSet, Neon::DeviceType::CUDA);
-            return;
-        }
-        NEON_THROW_UNSUPPORTED_OPTION("");
-    }
-}
 
 template <typename T, int C>
 auto dField<T, C>::updateCompute(int streamSetId)
     -> void
 {
-    const Neon::Backend& backendConfig = self().getGrid().getBackend();
-    if (m_cpu.devType() == Neon::DeviceType::NONE && m_gpu.devType() == Neon::DeviceType::NONE) {
-        NeonException exp("dField");
-        exp << "Invalid operation on a not fully initialized mirror.";
-        NEON_THROW(exp);
-    }
-
-    if (mDataUse == Neon::DataUse::IO_COMPUTE) {
-        if (mMemoryOptions.getComputeType() == Neon::DeviceType::CPU) {
-            return;
-        }
-        if (mMemoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
-            this->update(backendConfig.streamSet(streamSetId), Neon::DeviceType::CUDA);
-            return;
-        }
-        NEON_THROW_UNSUPPORTED_OPTION("");
-    }
+mData.memoryField.updateCompute(streamSetId);
 }
 
 template <typename T, int C>
 auto dField<T, C>::updateIO(int streamSetId)
     -> void
 {
-    const Neon::Backend& backendConfig = self().getGrid().getBackend();
-    if (m_cpu.devType() == Neon::DeviceType::NONE && m_gpu.devType() == Neon::DeviceType::NONE) {
-        NeonException exp("dField");
-        exp << "Invalid operation on a not fully initialized mirror.";
-        NEON_THROW(exp);
-    }
-    if (mDataUse == Neon::DataUse::IO_COMPUTE) {
-        if (mMemoryOptions.getComputeType() == Neon::DeviceType::CPU) {
-            return;
-        }
-        if (mMemoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
-            this->update(backendConfig.streamSet(streamSetId), Neon::DeviceType::CPU);
-            return;
-        }
-        NEON_THROW_UNSUPPORTED_OPTION("");
-    }
-}
+mData.memoryField.updateIO(streamSetId);
 
-template <typename T, int C>
-auto dField<T, C>::updateIO(const Neon::set::StreamSet& streamSet)
-    -> void
-{
-    if (m_cpu.devType() == Neon::DeviceType::NONE && m_gpu.devType() == Neon::DeviceType::NONE) {
-        NeonException exp("dField");
-        exp << "Invalid operation on a not fully initialized mirror.";
-        NEON_THROW(exp);
-    }
-    if (mDataUse == Neon::DataUse::IO_COMPUTE) {
-        if (mMemoryOptions.getComputeType() == Neon::DeviceType::CPU) {
-            return;
-        }
-        if (mMemoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
-            this->update(streamSet, Neon::DeviceType::CPU);
-            return;
-        }
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::field(const Neon::DeviceType& devType) const -> const FieldDev&
-{
-    switch (devType) {
-        case Neon::DeviceType::CPU:
-        case Neon::DeviceType::OMP: {
-            return m_cpu;
-        }
-        case Neon::DeviceType::CUDA: {
-            return m_gpu;
-        }
-        default: {
-            NeonException exp("dField_t");
-            NEON_THROW(exp);
-        }
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::field(Neon::Backend& backendConfig) const -> const FieldDev&
-{
-    switch (backendConfig.devType()) {
-        case Neon::DeviceType::CPU:
-        case Neon::DeviceType::OMP: {
-            return m_cpu;
-        }
-        case Neon::DeviceType::CUDA: {
-            return m_gpu;
-        }
-        default: {
-            NeonException exp("dField_t");
-            NEON_THROW(exp);
-        }
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::field(const Neon::DeviceType& devType) -> FieldDev&
-{
-    switch (devType) {
-        case Neon::DeviceType::CPU:
-        case Neon::DeviceType::OMP: {
-            return m_cpu;
-        }
-        case Neon::DeviceType::CUDA: {
-            return m_gpu;
-        }
-        default: {
-            NeonException exp("dField_t");
-            NEON_THROW(exp);
-        }
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::field(Neon::Backend& backendConfig) -> FieldDev&
-{
-    switch (backendConfig.devType()) {
-        case Neon::DeviceType::CPU:
-        case Neon::DeviceType::OMP: {
-            return m_cpu;
-        }
-        case Neon::DeviceType::CUDA: {
-            return m_gpu;
-        }
-        default: {
-            NeonException exp("dField_t");
-            NEON_THROW(exp);
-        }
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::cpu()
-    -> FieldDev&
-{
-    return m_cpu;
-}
-
-template <typename T, int C>
-auto dField<T, C>::gpu()
-    -> FieldDev&
-{
-    return m_gpu;
 }
 
 template <typename T, int C>
@@ -287,19 +134,6 @@ auto dField<T, C>::getLaunchInfo(const Neon::DataView dataView) const
     return m_gpu.getLaunchInfo(dataView);
 }
 
-template <typename T, int C>
-auto dField<T, C>::ccpu() const
-    -> const FieldDev&
-{
-    return m_cpu;
-}
-
-template <typename T, int C>
-auto dField<T, C>::cgpu() const
-    -> const FieldDev&
-{
-    return m_gpu;
-}
 
 template <typename T, int C>
 auto dField<T, C>::getPartition(const Neon::DeviceType& devType,
@@ -307,6 +141,7 @@ auto dField<T, C>::getPartition(const Neon::DeviceType& devType,
                                 const Neon::DataView&   dataView) const
     -> const Partition&
 {
+    mData.partitionTable.getPartition()
     switch (devType) {
         case Neon::DeviceType::CPU:
         case Neon::DeviceType::OMP: {
@@ -353,12 +188,7 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        if (execution == Neon::Execution::device) {
-            return m_gpu.getPartition(Neon::DeviceType::CUDA, setIdx, dataView);
-        }
-        if (execution == Neon::Execution::host) {
-            return m_cpu.getPartition(Neon::DeviceType::OMP, setIdx, dataView);
-        }
+        mData.partitionTable.getPartition(execution, setIdx, dataView);
     }
     std::stringstream message;
     message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
@@ -374,12 +204,7 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     const auto dataUse = this->getDataUse();
     bool       isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        if (execution == Neon::Execution::device) {
-            return m_gpu.getPartition(Neon::DeviceType::CUDA, setIdx, dataView);
-        }
-        if (execution == Neon::Execution::host) {
-            return m_cpu.getPartition(Neon::DeviceType::OMP, setIdx, dataView);
-        }
+        mData.partitionTable.getPartition(execution, setIdx, dataView);
     }
     std::stringstream message;
     message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
@@ -660,5 +485,11 @@ auto dField<T, C>::swap(dField::Field& A, dField::Field& B) -> void
     std::swap(A, B);
 }
 
+template <typename T, int C>
+auto dField<T, C>::getData() -> typename Self::Data&
+{
+    return std::ref(mData);
+}
 
-}  // namespace Neon::domain::internal::dGrid
+
+}  // namespace Neon::domain::internal::exp::dGrid

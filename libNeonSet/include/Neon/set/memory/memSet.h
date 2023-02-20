@@ -212,6 +212,11 @@ class MemSet_t
         return entryRef(id).rawMem(execution);
     }
 
+    auto rawMem(Neon::Execution execution, SetIdx id)
+        const -> T_ta const*
+    {
+        return entryRef(id).rawMem(execution);
+    }
     /**
      * Returns a dataSet with the raw pointers, one entry for each mirror.
      */

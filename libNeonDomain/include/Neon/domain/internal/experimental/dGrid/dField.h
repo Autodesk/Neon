@@ -2,12 +2,16 @@
 
 #include "Neon/core/core.h"
 #include "Neon/core/types/Macros.h"
-#include "Neon/domain/interface/FieldBaseTemplate.h"
+
 #include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/HuOptions.h"
 
-#include "dFieldDev.h"
+
+#include "Neon/domain/aGrid.h"
+#include "Neon/domain/interface/FieldBaseTemplate.h"
+#include "Neon/domain/tools/PartitionTable.h"
+
 #include "dPartition.h"
 
 namespace Neon::domain::internal::exp::dGrid {
@@ -34,15 +38,13 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     static constexpr int Cardinality = C;
     using Type = T;
     using Self = dField<Type, Cardinality>;
-
     using Grid = dGrid;
     using Field = dField;
     using Partition = dPartition<T, C>;
-    using FieldDev = dFieldDev<T, C>;
     using Cell = typename Partition::Cell;
-    using NghIdx = typename Partition::nghIdx_t;  // for compatibility with eGrid
+    using NghIdx = typename Partition::NghIdx;
 
-    dField() = default;
+    dField();
 
     virtual ~dField() = default;
 
@@ -59,9 +61,6 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                     const int&            cardinality) const
         -> Type final;
 
-    auto hostHaloUpdate()
-        const -> void;
-
     auto haloUpdate(Neon::set::HuOptions& opt)
         const -> void final;
 
@@ -70,13 +69,13 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         const -> Neon::set::Container final;
 
     auto haloUpdate(SetIdx setIdx, Neon::set::HuOptions& opt) const
-        -> void;  // TODO add this function to the API if performance boost is reasonable -> void final;
+        -> void;
 
     auto haloUpdate(Neon::set::HuOptions& opt)
         -> void final;
 
     auto haloUpdate(SetIdx setIdx, Neon::set::HuOptions& opt)
-        -> void;  // TODO add this function to the API if performance boost is reasonable -> void final;
+        -> void;
 
     virtual auto getReference(const Neon::index_3d& idx,
                               const int&            cardinality)
@@ -119,52 +118,43 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto dot(Neon::set::patterns::BlasSet<T>& blasSet,
              const dField<T>&                 input,
              Neon::set::MemDevSet<T>&         output,
-             const Neon::DataView&            dataView = Neon::DataView::STANDARD) -> T;
+             const Neon::DataView&            dataView = Neon::DataView::STANDARD)
+        -> T;
 
     auto dotCUB(Neon::set::patterns::BlasSet<T>& blasSet,
                 const dField<T>&                 input,
                 Neon::set::MemDevSet<T>&         output,
-                const Neon::DataView&            dataView = Neon::DataView::STANDARD) -> void;
+                const Neon::DataView&            dataView = Neon::DataView::STANDARD)
+        -> void;
 
     auto norm2(Neon::set::patterns::BlasSet<T>& blasSet,
                Neon::set::MemDevSet<T>&         output,
-               const Neon::DataView&            dataView = Neon::DataView::STANDARD) -> T;
+               const Neon::DataView&            dataView = Neon::DataView::STANDARD)
+        -> T;
 
     auto norm2CUB(Neon::set::patterns::BlasSet<T>& blasSet,
                   Neon::set::MemDevSet<T>&         output,
-                  const Neon::DataView&            dataView = Neon::DataView::STANDARD) -> void;
+                  const Neon::DataView&            dataView = Neon::DataView::STANDARD)
+        -> void;
 
-    static auto swap(Field& A, Field& B) -> void;
+    static auto swap(Field& A, Field& B)
+        -> void;
 
    private:
-    auto deviceField(const Neon::Backend& backendConfig) -> FieldDev&;
-
     template <Neon::run_et::et runMode_ta = Neon::run_et::et::async>
-    auto update(const Neon::set::StreamSet& streamSet, const Neon::DeviceType& devEt) -> void;
+    auto update(const Neon::set::StreamSet& streamSet,
+                const Neon::DeviceType&     devEt)
+        -> void;
 
-    auto updateCompute(const Neon::set::StreamSet& streamSet) -> void;
+    auto updateCompute(const Neon::set::StreamSet& streamSet)
+        -> void;
 
 
     auto updateIO(const Neon::set::StreamSet& streamSet)
         -> void;
 
-    auto field(const Neon::DeviceType& devType) const -> const FieldDev&;
-
-    auto field(Neon::Backend& backendConfig) const -> const FieldDev&;
-
-    auto field(const Neon::DeviceType& devType) -> FieldDev&;
-
-    auto field(Neon::Backend& backendConfig) -> FieldDev&;
-
-    FieldDev& cpu();
-
-    FieldDev& gpu();
-
-    auto getLaunchInfo(const Neon::DataView dataView) const -> Neon::set::LaunchParameters;
-
-    const FieldDev& ccpu() const;
-
-    const FieldDev& cgpu() const;
+    auto getLaunchInfo(const Neon::DataView dataView)
+        const -> Neon::set::LaunchParameters;
 
 
     template <Neon::set::TransferMode transferMode_ta>
@@ -180,7 +170,6 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                     int                  streamSetIdx = 0)
         -> void;
 
-
     dField(const std::string&                        fieldUserName,
            Neon::DataUse                             dataUse,
            const Neon::MemoryOptions&                memoryOptions,
@@ -188,13 +177,37 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
            const Neon::set::DataSet<Neon::index_3d>& dims,
            int                                       zHaloDim,
            Neon::domain::haloStatus_et::e            haloStatus,
-           int                                       cardinality);
+           int                                       cardinality,
+           const Neon::set::MemSet_t<Neon::int8_3d>& stencilIdTo3dOffset);
 
-    FieldDev            m_cpu;
-    FieldDev            m_gpu;
-    Neon::DataUse       mDataUse;
-    Neon::MemoryOptions mMemoryOptions;
+    struct Data
+    {
+        struct PartitionUserData
+        {
+            int startIDByView;
+            int nElementsByView;
+        };
+
+        Neon::domain::tool::PartitionTable<Partition, PartitionUserData> partitionTable;
+        Neon::domain::aGrid::Field<T, C>                                 memoryField;
+
+        Neon::DataUse                     dataUse;
+        Neon::MemoryOptions               memoryOptions;
+        int                               cardinality;
+        Neon::set::DataSet<Neon::size_4d> pitch;
+
+        std::shared_ptr<Grid>          grid;
+        int                            zHaloDim;
+        Neon::domain::haloStatus_et::e haloStatus;
+        bool                           periodic_z;
+
+        Neon::set::MemSet<NghIdx> stencilNghIndex;
+        // Neon::set::DataSet<element_t*>                  userPointersSet;
+
+    } mData;
+
+    auto getData() -> Data&;
 };
 
 
-}  // namespace Neon::domain::internal::dGrid
+}  // namespace Neon::domain::internal::exp::dGrid

@@ -5,6 +5,14 @@
 
 namespace Neon::domain::internal::exp::dGrid {
 
+dGrid::Data::Data(const Neon::Backend& backend)
+{
+    partitionDims = backend.devSet().newDataSet<index_3d>(0);
+    halo = index_3d(0, 0, 0);
+    spanTable = Neon::domain::tool::SpanTable<dSpan>(backend);
+    reduceEngine = Neon::sys::patterns::Engine::cuBlas;
+}
+
 template <typename ActiveCellLambda>
 dGrid::dGrid(const Neon::Backend&                    backend,
              const Neon::int32_3d&                   dimension,
@@ -14,6 +22,8 @@ dGrid::dGrid(const Neon::Backend&                    backend,
              const Vec_3d<double>&                   origin)
 
 {
+    mData = std::make_shared<Data>(backend);
+    const index_3d defaultBlockSize(256, 1, 1);
 
     {
         auto nElementsPerPartition = backend.devSet().template newDataSet<size_t>(0);
@@ -28,84 +38,103 @@ dGrid::dGrid(const Neon::Backend&                    backend,
                               spacingData,
                               origin);
     }
-    m_data = std::make_shared<data_t>();
 
-    m_data->reduceEngine = Neon::sys::patterns::Engine::cuBlas;
-
-    const int32_t num_devices = getBackend().devSet().setCardinality();
-    if (num_devices == 1) {
+    const int32_t numDevices = getBackend().devSet().setCardinality();
+    if (numDevices == 1) {
         // Single device
-        m_data->partitionDims = Neon::set::DataSet<index_3d>(1, getDimension());
-    } else if (getDimension().z < num_devices) {
+        mData->partitionDims[0] = getDimension();
+    } else if (getDimension().z < numDevices) {
         NeonException exc("dGrid_t");
-        exc << "The grid size in the z-direction (" << getDimension().z << ") is less the number of devices (" << num_devices
+        exc << "The grid size in the z-direction (" << getDimension().z << ") is less the number of devices (" << numDevices
             << "). It is ambiguous how to distribute the gird";
         NEON_THROW(exc);
     } else {
         // we only partition along the z-direction. Each partition has uniform_z
         // along the z-direction. The rest is distribute to make the partitions
         // as equal as possible
-        int32_t uniform_z = getDimension().z / num_devices;
-        int32_t reminder = getDimension().z % num_devices;
-        m_data->partitionDims = Neon::set::DataSet<index_3d>(num_devices, getDimension());
+        int32_t uniform_z = getDimension().z / numDevices;
+        int32_t reminder = getDimension().z % numDevices;
 
-        for (int32_t i = 0; i < num_devices; ++i) {
-            m_data->partitionDims[i].x = getDimension().x;
-            m_data->partitionDims[i].y = getDimension().y;
+        for (int32_t i = 0; i < numDevices; ++i) {
+            mData->partitionDims[i].x = getDimension().x;
+            mData->partitionDims[i].y = getDimension().y;
             if (i < reminder) {
-                m_data->partitionDims[i].z = uniform_z + 1;
+                mData->partitionDims[i].z = uniform_z + 1;
             } else {
-                m_data->partitionDims[i].z = uniform_z;
+                mData->partitionDims[i].z = uniform_z;
             }
         }
     }
 
-
-    // we partition along z so we only need halo along z
-    m_data->halo.x = m_data->halo.y = m_data->halo.z = 0;
-    for (const auto& ngh : stencil.neighbours()) {
-        m_data->halo.z = std::max(m_data->halo.z, std::abs(ngh.z));
-    }
-
-    const index_3d defaultBlockSize(256, 1, 1);
-
-    for (const auto& dw : DataViewUtil::validOptions()) {
-        getDefaultLaunchParameters(dw) = getLaunchParameters(dw, defaultBlockSize, 0);
-    }
-    m_data->partitionIndexSpaceVec = std::vector<Neon::set::DataSet<PartitionIndexSpace>>(3);
-
-    for (auto& i : {Neon::DataView::STANDARD,
-                    Neon::DataView::INTERNAL,
-                    Neon::DataView::BOUNDARY}) {
-        if (static_cast<int>(i) > 2) {
-            NeonException exp("dGrid");
-            exp << "Inconsistent enumeration for DataView_t";
-            NEON_THROW(exp);
-        }
-        m_data->partitionIndexSpaceVec[static_cast<int>(i)] = getDevSet().newDataSet<PartitionIndexSpace>();
-        int setCardinality = getDevSet().setCardinality();
-        for (int gpuIdx = 0; gpuIdx < setCardinality; gpuIdx++) {
-
-
-            m_data->partitionIndexSpaceVec[static_cast<int>(i)][gpuIdx].m_dataView = i;
-            m_data->partitionIndexSpaceVec[static_cast<int>(i)][gpuIdx].m_zHaloRadius = setCardinality == 1 ? 0 : m_data->halo.z;
-            m_data->partitionIndexSpaceVec[static_cast<int>(i)][gpuIdx].m_zBoundaryRadius = m_data->halo.z;
-            m_data->partitionIndexSpaceVec[static_cast<int>(i)][gpuIdx].m_dim = m_data->partitionDims[gpuIdx];
+    {  // Computing halo size
+        // we partition along z so we only need halo along z
+        mData->halo = Neon::index_3d(0, 0, 0);
+        for (const auto& ngh : stencil.neighbours()) {
+            mData->halo.z = std::max(mData->halo.z, std::abs(ngh.z));
         }
     }
 
-    Neon::set::DataSet<size_t> nElementsPerPartition = backend.devSet().template newDataSet<size_t>([this](Neon::SetIdx idx, size_t& size) {
-        size = m_data->partitionDims[idx.idx()].template rMulTyped<size_t>();
-    });
+    {  // Computing halo size
+        for (const auto& dw : DataViewUtil::validOptions()) {
+            getDefaultLaunchParameters(dw) = getLaunchParameters(dw, defaultBlockSize, 0);
+        }
+    }
 
-    dGrid::GridBase::init("dGrid",
-                          backend,
-                          dimension,
-                          stencil,
-                          nElementsPerPartition,
-                          defaultBlockSize,
-                          spacingData,
-                          origin);
+    {  // Initialization of the span table
+        const int setCardinality = getDevSet().setCardinality();
+        mData->spanTable.forEachConfiguration([&](Neon::SetIdx setIdx, Neon::DataView dw, dSpan& span) {
+            span.m_dataView = dw;
+            span.m_zHaloRadius = setCardinality == 1 ? 0 : mData->halo.z;
+            span.m_zBoundaryRadius = mData->halo.z;
+            span.m_dim = mData->partitionDims[setIdx.idx()];
+        });
+    }
+
+
+    {  // a Grid allocation
+        auto haloStatus = Neon::domain::haloStatus_et::ON;
+        haloStatus = (backend.devSet().setCardinality() == 1) ? haloStatus_et::e::OFF : haloStatus;
+        auto                       partitionMemoryDim = mData->partitionDims;
+        Neon::set::DataSet<size_t> elementPerPartition = backend.devSet().template newDataSet<size_t>(
+            [&](Neon::SetIdx setIdx, size_t& count) {
+                size_3d dim = partitionMemoryDim[setIdx.idx()].newType<size_t>();
+                if (haloStatus) {
+                    dim.z = mData->halo.z * 2;
+                }
+                count = dim.rMul();
+            });
+        mData->memoryGrid = Neon::domain::aGrid(backend, elementPerPartition);
+    }
+
+    {  // Stencil Idx to 3d offset
+        auto nPoints = backend.devSet().newDataSet<uint64_t>(stencil.nNeighbours());
+        mData->stencilIdTo3dOffset = backend.devSet().template newMemSet<int8_3d>(Neon::DataUse::IO_COMPUTE,
+                                                                                  1,
+                                                                                  backend.getMemoryOptions(),
+                                                                                  nPoints);
+        for (int i = 0; i < stencil.nNeighbours(); ++i) {
+            for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
+                index_3d      pLong = stencil.neighbours()[i];
+                Neon::int8_3d pShort(pLong.x, pLong.y, pLong.z);
+                mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
+            }
+        }
+        mData->stencilIdTo3dOffset.updateCompute(backend, Neon::Backend::mainStreamIdx);
+    }
+
+    {  // Init base class information
+        Neon::set::DataSet<size_t> nElementsPerPartition = backend.devSet().template newDataSet<size_t>([this](Neon::SetIdx idx, size_t& size) {
+            size = mData->partitionDims[idx.idx()].template rMulTyped<size_t>();
+        });
+        dGrid::GridBase::init("dGrid",
+                              backend,
+                              dimension,
+                              stencil,
+                              nElementsPerPartition,
+                              defaultBlockSize,
+                              spacingData,
+                              origin);
+    }
 }
 
 
@@ -130,28 +159,18 @@ auto dGrid::newField(const std::string&  fieldUserName,
                        dataUse,
                        memoryOptions,
                        *this,
-                       m_data->partitionDims,
-                       m_data->halo.z,
+                       mData->partitionDims,
+                       mData->halo.z,
                        haloStatus,
                        cardinality);
 
     return field;
 }
 
-template <typename T, int C>
-auto dGrid::newFieldDev(Neon::sys::memConf_t           memConf,
-                        int                            cardinality,
-                        [[maybe_unused]] T             inactiveValue,
-                        Neon::domain::haloStatus_et::e haloStatus)
-    -> dFieldDev<T, C>
+auto dGrid::getMemoryGrid()
+    const -> const Neon::domain::aGrid&
 {
-    haloStatus = Neon::domain::haloStatus_et::ON;
-    if (memConf.padding() == Neon::memLayout_et::padding_e::ON) {
-        NEON_DEV_UNDER_CONSTRUCTION("TODO: waiting for refactoring of memory options");
-    }
-    Neon::index_3d halo = (haloStatus == Neon::domain::haloStatus_et::ON) ? m_data->halo : Neon::index_3d(0, 0, 0);
-    return dFieldDev<T, C>(*this, getDimension(),
-                           halo, memConf, cardinality);
+    return mData->memoryGrid;
 }
 
 template <typename LoadingLambda>
@@ -172,20 +191,19 @@ auto dGrid::getContainer(const std::string& name,
 
 template <typename LoadingLambda>
 auto dGrid::getHostContainer(const std::string& name,
-                         LoadingLambda      lambda)
+                             LoadingLambda      lambda)
     const
     -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::hostFactory(name,
-                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                     *this,
-                                                                     lambda,
-                                                                     defaultBlockSize,
-                                                                     [](const Neon::index_3d&) { return size_t(0); });
+                                                                         Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                         *this,
+                                                                         lambda,
+                                                                         defaultBlockSize,
+                                                                         [](const Neon::index_3d&) { return size_t(0); });
     return kContainer;
 }
-
 
 
 template <typename LoadingLambda>
@@ -209,9 +227,9 @@ auto dGrid::getContainer(const std::string& name,
 template <typename T>
 auto dGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
 {
-    auto pattern = Neon::PatternScalar<T>(getBackend(), m_data->reduceEngine);
+    auto pattern = Neon::PatternScalar<T>(getBackend(), mData->reduceEngine);
 
-    if (m_data->reduceEngine == Neon::sys::patterns::Engine::CUB) {
+    if (mData->reduceEngine == Neon::sys::patterns::Engine::CUB) {
         for (auto& dataview : {Neon::DataView::STANDARD,
                                Neon::DataView::INTERNAL,
                                Neon::DataView::BOUNDARY}) {
@@ -233,7 +251,7 @@ auto dGrid::dot(const std::string&               name,
                 dField<T>&                       input2,
                 Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
 {
-    if (m_data->reduceEngine == Neon::sys::patterns::Engine::cuBlas || getBackend().devType() == Neon::DeviceType::CPU) {
+    if (mData->reduceEngine == Neon::sys::patterns::Engine::cuBlas || getBackend().devType() == Neon::DeviceType::CPU) {
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
@@ -259,7 +277,7 @@ auto dGrid::dot(const std::string&               name,
                     }
                 };
             });
-    } else if (m_data->reduceEngine == Neon::sys::patterns::Engine::CUB) {
+    } else if (mData->reduceEngine == Neon::sys::patterns::Engine::CUB) {
 
         return Neon::set::Container::factoryOldManaged(
             name,
@@ -323,7 +341,7 @@ auto dGrid::norm2(const std::string&               name,
                   dField<T>&                       input,
                   Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
 {
-    if (m_data->reduceEngine == Neon::sys::patterns::Engine::cuBlas || getBackend().devType() == Neon::DeviceType::CPU) {
+    if (mData->reduceEngine == Neon::sys::patterns::Engine::cuBlas || getBackend().devType() == Neon::DeviceType::CPU) {
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
@@ -347,7 +365,7 @@ auto dGrid::norm2(const std::string&               name,
                     }
                 };
             });
-    } else if (m_data->reduceEngine == Neon::sys::patterns::Engine::CUB) {
+    } else if (mData->reduceEngine == Neon::sys::patterns::Engine::CUB) {
         return Neon::set::Container::factoryOldManaged(
             name,
             Neon::set::internal::ContainerAPI::DataViewSupport::on,
@@ -401,4 +419,4 @@ auto dGrid::norm2(const std::string&               name,
     }
 }
 
-}  // namespace Neon::domain::internal::dGrid
+}  // namespace Neon::domain::internal::exp::dGrid

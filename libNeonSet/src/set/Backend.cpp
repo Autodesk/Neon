@@ -139,6 +139,7 @@ auto Backend::devSet()
 {
     return *selfData().devSet.get();
 }
+
 auto Backend::runtime()
     const
     -> const Neon::Runtime&

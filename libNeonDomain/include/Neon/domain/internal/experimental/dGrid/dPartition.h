@@ -15,13 +15,14 @@ namespace Neon::domain::internal::exp::dGrid {
  * works as a wrapper for the mem3d which represent the allocated memory on a
  * single device.
  **/
-class dPartitionIndexSpace;
+class dSpan;
 
 template <typename T_ta, int cardinality_ta = 0>
 struct dPartition
 {
    public:
-    using PartitionIndexSpace = dPartitionIndexSpace;
+    using PartitionIndexSpace = dSpan;
+    using Span = dSpan;
     using Self = dPartition<T_ta, cardinality_ta>;
     using Cell = dCell;
     using NghIdx = int8_3d;

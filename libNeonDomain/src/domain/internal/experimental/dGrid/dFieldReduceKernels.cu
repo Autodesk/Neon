@@ -1,6 +1,4 @@
-#include "Neon/domain/internal/dGrid/dFieldDev.h"
-#include "Neon/domain/internal/dGrid/dGrid.h"
-
+#include "Neon/domain/internal/experimental/dGrid/dGrid.h"
 #include "Neon/domain/patterns/ReduceKernels.cuh"
 
 namespace Neon::domain::internal::exp::dGrid {

@@ -115,8 +115,7 @@ struct DataSet
      *
      * @return
      */
-    auto local(Neon::DeviceType, SetIdx setIdx,
-               const Neon::DataView& dataView = Neon::DataView::STANDARD)
+    auto local(Neon::DeviceType, SetIdx setIdx, const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> T_ta&
     {
         (void)dataView;
@@ -218,6 +217,14 @@ struct DataSet
             newDataSet[id] = newType_ta(self()[id]);
         }
         return newDataSet;
+    }
+
+    template <typename Lambda>
+    auto forEachSeq(Lambda const& fun)
+    {
+        for (SetIdx id = 0; id < self().cardinality(); id++) {
+            fun(id, self()[id]);
+        }
     }
 };
 
