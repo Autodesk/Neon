@@ -136,8 +136,8 @@ auto problemSetup(Config&                              config,
     const double          radius = config.N * radiusDomainLenRatio;
     const auto&           t = lattice.t_vect;
 
-    LatticeStructure latticeStructure({6, 6, 6},
-                                      {config.N - 10, config.N - 10, config.N - 10}, 20, .2);
+    LatticeStructure latticeStructure({40, 6, 6},
+                                      {config.N - 80, config.N - 10, config.N - 10}, 20, .25);
 
     auto isFluidDomain =
         [&](const Neon::index_3d& idx)

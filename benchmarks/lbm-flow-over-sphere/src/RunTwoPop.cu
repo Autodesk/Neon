@@ -118,7 +118,7 @@ auto runSpecialized(Config& config,
             //u.ioToVtk("u_" + iterIdStr, "u", false);
             u.ioToVtk("u_" + iterIdStr, "u", false, Neon::IoFileType::BINARY, true);
 
-            rho.ioToVtk("rho_" + iterIdStr, "rho", false);
+            // rho.ioToVtk("rho_" + iterIdStr, "rho", false);
             // iteration.getInput().ioToVtk("pop_" + iterIdStr, "u", false);
             // flag.ioToVtk("flag_" + iterIdStr, "u", false);
         }
