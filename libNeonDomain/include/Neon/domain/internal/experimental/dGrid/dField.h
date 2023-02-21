@@ -141,6 +141,10 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         -> void;
 
    private:
+    /** Convert a global 3d index into a Partition local offset */
+    auto helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
+        const -> std::pair<Neon::index_3d, int>;
+
     template <Neon::run_et::et runMode_ta = Neon::run_et::et::async>
     auto update(const Neon::set::StreamSet& streamSet,
                 const Neon::DeviceType&     devEt)
@@ -149,13 +153,11 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto updateCompute(const Neon::set::StreamSet& streamSet)
         -> void;
 
-
     auto updateIO(const Neon::set::StreamSet& streamSet)
         -> void;
 
     auto getLaunchInfo(const Neon::DataView dataView)
         const -> Neon::set::LaunchParameters;
-
 
     template <Neon::set::TransferMode transferMode_ta>
     auto haloUpdate(const Neon::Backend& bk,
@@ -182,14 +184,14 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     struct Data
     {
-        struct PartitionUserData
+        struct ReductionInformation
         {
-            int startIDByView;
-            int nElementsByView;
+            std::vector<int> startIDByView /* one entry for each cardinality */;
+            std::vector<int> nElementsByView /* one entry for each cardinality */;
         };
 
-        Neon::domain::tool::PartitionTable<Partition, PartitionUserData> partitionTable;
-        Neon::domain::aGrid::Field<T, C>                                 memoryField;
+        Neon::domain::tool::PartitionTable<Partition, ReductionInformation> partitionTable;
+        Neon::domain::aGrid::Field<T, C>                                    memoryField;
 
         Neon::DataUse                     dataUse;
         Neon::MemoryOptions               memoryOptions;

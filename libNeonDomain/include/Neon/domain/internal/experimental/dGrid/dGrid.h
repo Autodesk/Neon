@@ -179,6 +179,9 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
     auto getMemoryGrid()
         const -> const Neon::domain::aGrid&;
 
+    auto helpGetFirstZindex()
+        const -> const  Neon::set::DataSet<int32_t>& ;
+
    private:
     using Self = dGrid;
 
@@ -191,6 +194,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
         // given a gridDim of size 77 (in 1D for simplicity) distrusted over 5
         // device, it should be distributed as (16 16 15 15 15)
         Neon::set::DataSet<index_3d>         partitionDims;
+        Neon::set::DataSet<index_t>          firstZIndex;
         Neon::domain::tool::SpanTable<dSpan> spanTable;
 
         Neon::index_3d                                       halo;

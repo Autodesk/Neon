@@ -31,6 +31,7 @@ struct dCell
     NEON_CUDA_HOST_DEVICE inline explicit dCell(const Location::Integer &x,
                                                 const Location::Integer &y,
                                                 const Location::Integer &z);
+
     NEON_CUDA_HOST_DEVICE inline explicit dCell(const Location& location);
 
     NEON_CUDA_HOST_DEVICE inline auto set() -> Location&;

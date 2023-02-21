@@ -7,7 +7,9 @@ namespace Neon::domain::internal::exp::dGrid {
 
 dGrid::Data::Data(const Neon::Backend& backend)
 {
-    partitionDims = backend.devSet().newDataSet<index_3d>(0);
+    partitionDims = backend.devSet().newDataSet<index_3d>({0, 0, 0});
+    firstZIndex = backend.devSet().newDataSet<index_t>(0);
+
     halo = index_3d(0, 0, 0);
     spanTable = Neon::domain::tool::SpanTable<dSpan>(backend);
     reduceEngine = Neon::sys::patterns::Engine::cuBlas;
@@ -54,7 +56,7 @@ dGrid::dGrid(const Neon::Backend&                    backend,
         // as equal as possible
         int32_t uniform_z = getDimension().z / numDevices;
         int32_t reminder = getDimension().z % numDevices;
-
+        mData->firstZIndex[0] = 0;
         for (int32_t i = 0; i < numDevices; ++i) {
             mData->partitionDims[i].x = getDimension().x;
             mData->partitionDims[i].y = getDimension().y;
@@ -62,6 +64,10 @@ dGrid::dGrid(const Neon::Backend&                    backend,
                 mData->partitionDims[i].z = uniform_z + 1;
             } else {
                 mData->partitionDims[i].z = uniform_z;
+            }
+            if (i > 1) {
+                mData->firstZIndex[i] = mData->firstZIndex[i - 1] +
+                                        mData->partitionDims[i - 1].z;
             }
         }
     }

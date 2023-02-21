@@ -229,4 +229,8 @@ auto dGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellPr
     }
     return cellProperties;
 }
+auto dGrid::helpGetFirstZindex() const -> const Neon::set::DataSet<int32_t>&
+{
+    return mData->firstZIndex;
+}
 }  // namespace Neon::domain::internal::exp::dGrid

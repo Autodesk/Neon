@@ -265,6 +265,12 @@ struct dPartition
         return m_mem;
     }
 
+    NEON_CUDA_HOST_DEVICE inline auto mem(const Cell& cell,
+                                                 int         cardinalityIdx) -> T_ta*
+    {
+        int64_t p = getPitch(cell, cardinalityIdx);
+        return m_mem[p];
+    }
 
     NEON_CUDA_HOST_DEVICE inline auto operator()(const Cell& cell,
                                                  int         cardinalityIdx) -> T_ta&
