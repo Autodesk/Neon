@@ -129,7 +129,7 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
            Neon::domain::haloStatus_et::e                                   haloStatus,
            Neon::DataUse                                                    dataUse,
            Neon::MemoryOptions const&                                       memoryOptions,
-           Neon::set::MemSet_t<typename OuterGridT::Cell::OuterCell> const& tabelSCellToOuterCell);
+           Neon::set::MemSet<typename OuterGridT::Cell::OuterCell> const& tabelSCellToOuterCell);
 
     /**
      * Internal helper function to allocate and initialized memory
@@ -139,7 +139,7 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
     /**
      * Internal helper function to initialize the partition structures
      */
-    auto initPartitions(Neon::set::MemSet_t<typename OuterGridT::Cell::OuterCell> const&) -> void;
+    auto initPartitions(Neon::set::MemSet<typename OuterGridT::Cell::OuterCell> const&) -> void;
 };
 
 

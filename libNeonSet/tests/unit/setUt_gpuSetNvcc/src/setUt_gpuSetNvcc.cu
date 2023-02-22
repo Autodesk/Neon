@@ -103,7 +103,7 @@ class cudaLaunchKernel_test
     Neon::set::StreamSet       m_gpuStreamSet;
     std::vector<int32_3d>      m_domainGridVec;
     Neon::set::LaunchParameters   m_kernelInfoSet;
-    Neon::set::MemSet_t<int>   m_mirror;
+    Neon::set::MemSet<int>   m_mirror;
 
     Neon::set::DataSet<testDataRedundancy_t<int>> m_testDataRedundancyVec;
 

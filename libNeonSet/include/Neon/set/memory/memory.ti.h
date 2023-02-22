@@ -10,7 +10,7 @@ auto Memory::MemSet(const Neon::Backend&                      bk,
                     const Neon::set::DataSet<uint64_t>& nElementVec,
                     Neon::DataUse                       dataUse,
                     Neon::MemSetOptions_t               cpuConfig,
-                    Neon::MemSetOptions_t               gpuConfig) -> MemSet_t<T_ta>
+                    Neon::MemSetOptions_t               gpuConfig) -> MemSet<T_ta>
 {
     auto& devSet = bk.devSet();
 
@@ -57,7 +57,7 @@ auto Memory::MemSet(const Neon::Backend&        bk,
                     Neon::DataUse         dataUse,
                     Neon::MemSetOptions_t cpuConfig,
                     Neon::MemSetOptions_t gpuConfig)
-    -> MemSet_t<T_ta>
+    -> MemSet<T_ta>
 {
     auto dataSetSize = bk.devSet().template newDataSet<uint64_t>(nElementInEachPartition);
     return Neon::set::Memory::MemSet<T_ta>(bk, cardinality, dataSetSize, dataUse, cpuConfig, gpuConfig);

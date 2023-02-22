@@ -26,7 +26,7 @@ class Storage
     using Partition = aPartition<T, C>;
     using Grid = aGrid;
 
-    Neon::set::MemSet_t<T> rawMem;
+    Neon::set::MemSet<T> rawMem;
 
     auto getPartition(Neon::Execution, Neon::DataView, Neon::SetIdx) -> Partition&;
 

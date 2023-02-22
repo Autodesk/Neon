@@ -27,7 +27,7 @@ namespace set {
  * @tparam T_ta
  */
 template <typename T_ta>
-class MemSet_t
+class MemSet
 {
     /**
      * Design Note:
@@ -43,7 +43,7 @@ class MemSet_t
     friend class DevSet;
 
     // using MemComputeSet_t = Neon::set::DataSet<Neon::sys::Memlocal_t<T_ta>>;
-    using self_t = MemSet_t<T_ta>;
+    using self_t = MemSet<T_ta>;
     using local_t = Neon::sys::Memlocal_t<T_ta>;
     using element_t = T_ta;
 
@@ -91,7 +91,7 @@ class MemSet_t
     inline auto checkId(SetIdx id) const
     {
         if (size_t(id.idx()) >= size_t(this->cardinality())) {
-            Neon::NeonException exception("MemSet_t");
+            Neon::NeonException exception("MemSet");
             exception << "Incompatible set index was detected. Requested " << id.idx() << " but max is " << this->cardinality();
             NEON_THROW(exception);
         }
@@ -102,7 +102,7 @@ class MemSet_t
     /**
      * Empty constructor. No resource allocation is done
      * */
-    MemSet_t()
+    MemSet()
     {
         m_memSet_shp = std::make_shared<Mem_vec>();
     }
@@ -110,7 +110,7 @@ class MemSet_t
     /**
      * Initialize the object to hold numEntries object of type Neon::sys::Mem_t. No resource allocation is done
      * */
-    MemSet_t(int numEntries)
+    MemSet(int numEntries)
     {
         m_memSet_shp = std::make_shared<Mem_vec>(numEntries);
     }

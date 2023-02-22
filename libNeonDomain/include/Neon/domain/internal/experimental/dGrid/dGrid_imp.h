@@ -15,14 +15,14 @@ dGrid::Data::Data(const Neon::Backend& backend)
     reduceEngine = Neon::sys::patterns::Engine::cuBlas;
 }
 
-template <typename ActiveCellLambda>
-dGrid::dGrid(const Neon::Backend&                    backend,
-             const Neon::int32_3d&                   dimension,
-             [[maybe_unused]] const ActiveCellLambda activeCellLambda,
-             const Neon::domain::Stencil&            stencil,
-             const Vec_3d<double>&                   spacingData,
-             const Vec_3d<double>&                   origin)
 
+template <Neon::domain::ActiveCellLambda ActiveCellLambda>
+dGrid::dGrid(const Neon::Backend&         backend,
+             const Neon::int32_3d&        dimension,
+             const ActiveCellLambda&      activeCellLambda,
+             const Neon::domain::Stencil& stencil,
+             const Vec_3d<double>&        spacing,
+             const Vec_3d<double>&        origin)
 {
     mData = std::make_shared<Data>(backend);
     const index_3d defaultBlockSize(256, 1, 1);
@@ -37,7 +37,7 @@ dGrid::dGrid(const Neon::Backend&                    backend,
                               stencil,
                               nElementsPerPartition,
                               Neon::index_3d(256, 1, 1),
-                              spacingData,
+                              spacing,
                               origin);
     }
 
@@ -56,6 +56,7 @@ dGrid::dGrid(const Neon::Backend&                    backend,
         // as equal as possible
         int32_t uniform_z = getDimension().z / numDevices;
         int32_t reminder = getDimension().z % numDevices;
+
         mData->firstZIndex[0] = 0;
         for (int32_t i = 0; i < numDevices; ++i) {
             mData->partitionDims[i].x = getDimension().x;
@@ -138,7 +139,7 @@ dGrid::dGrid(const Neon::Backend&                    backend,
                               stencil,
                               nElementsPerPartition,
                               defaultBlockSize,
-                              spacingData,
+                              spacing,
                               origin);
     }
 }

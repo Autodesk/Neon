@@ -140,9 +140,9 @@ class mGrid
 
 
     auto getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&;
-    auto getParentsBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getParentLocalID(int level) const -> const Neon::set::MemSet_t<Cell::Location>&;
-    auto getChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getParentsBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&;
+    auto getParentLocalID(int level) const -> const Neon::set::MemSet<Cell::Location>&;
+    auto getChildBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&;
 
 
     /**
@@ -173,8 +173,8 @@ class mGrid
 
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d;
     auto getDescriptor() const -> const mGridDescriptor&;
-    auto getRefFactors() const -> const Neon::set::MemSet_t<int>&;
-    auto getLevelSpacing() const -> const Neon::set::MemSet_t<int>&;
+    auto getRefFactors() const -> const Neon::set::MemSet<int>&;
+    auto getLevelSpacing() const -> const Neon::set::MemSet<int>&;
     void topologyToVTK(std::string fileName, bool filterOverlaps) const;
     auto getBackend() const -> const Backend&;
     auto getBackend() -> Backend&;
@@ -186,20 +186,20 @@ class mGrid
         Neon::index_3d domainSize;
 
         //stores the parent of the block
-        std::vector<Neon::set::MemSet_t<uint32_t>> mParentBlockID;
+        std::vector<Neon::set::MemSet<uint32_t>> mParentBlockID;
 
         //Given a block at level L, we store R children block IDs for each block in L where R is the refinement factor
-        std::vector<Neon::set::MemSet_t<uint32_t>> mChildBlockID;
+        std::vector<Neon::set::MemSet<uint32_t>> mChildBlockID;
 
         //store the parent local index within its block
-        std::vector<Neon::set::MemSet_t<Cell::Location>> mParentLocalID;
+        std::vector<Neon::set::MemSet<Cell::Location>> mParentLocalID;
 
 
         //gird levels refinement factors
-        Neon::set::MemSet_t<int> mRefFactors;
+        Neon::set::MemSet<int> mRefFactors;
 
         //gird levels spacing
-        Neon::set::MemSet_t<int> mSpacing;
+        Neon::set::MemSet<int> mSpacing;
 
 
         //Total number of blocks in the domain

@@ -18,7 +18,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                      int                                       zHaloDim,
                      Neon::domain::haloStatus_et::e            haloStatus,
                      int                                       cardinality,
-                     const Neon::set::MemSet_t<Neon::int8_3d>& stencilIdTo3dOffset)
+                     const Neon::set::MemSet<Neon::int8_3d>& stencilIdTo3dOffset)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "dField",

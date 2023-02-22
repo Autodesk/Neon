@@ -152,9 +152,9 @@ struct D3Q19Template
     }
 
 
-    Neon::set::MemSet_t<Neon::int8_3d> c;
-    Neon::set::MemSet_t<int>           opp;
-    Neon::set::MemSet_t<StorageFP>     t;
+    Neon::set::MemSet<Neon::int8_3d> c;
+    Neon::set::MemSet<int>           opp;
+    Neon::set::MemSet<StorageFP>     t;
     std::vector<double>                t_vect;
     std::vector<Neon::index_3d>        c_vect;
 };

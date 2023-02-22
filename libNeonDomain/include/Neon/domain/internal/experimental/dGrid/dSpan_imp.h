@@ -2,9 +2,8 @@
 
 namespace Neon::domain::internal::exp::dGrid {
 
-
 NEON_CUDA_HOST_DEVICE inline auto
-dSpan::setAndValidate(Cell&         cell,
+dSpan::setAndValidate(Voxel&        cell,
                       const size_t& x,
                       const size_t& y,
                       const size_t& z)
@@ -16,32 +15,34 @@ dSpan::setAndValidate(Cell&         cell,
     cell.set().y = int(y);
     cell.set().z = int(z);
 
-    switch (m_dataView) {
+    switch (mDataView) {
         case Neon::DataView::STANDARD: {
-            if (cell.get() < m_dim) {
+            if (cell.get() < mDim) {
                 res = true;
             }
-            cell.set().z += m_zHaloRadius;
+            cell.set().z += mZHaloRadius;
             return res;
         }
         case Neon::DataView::INTERNAL: {
-            if (cell.get().x < (m_dim.x) &&
-                cell.get().y < (m_dim.y) &&
-                cell.get().z < (m_dim.z - 2 * m_zBoundaryRadius)) {
+            if (cell.get().x < (mDim.x) &&
+                cell.get().y < (mDim.y) &&
+                cell.get().z < (mDim.z - 2 * mZBoundaryRadius)) {
                 res = true;
             }
-            cell.set().z += m_zHaloRadius + m_zBoundaryRadius;
+            cell.set().z += mZHaloRadius + mZBoundaryRadius;
 
             return res;
         }
         case Neon::DataView::BOUNDARY: {
-            if (cell.get().x < (m_dim.x) &&
-                cell.get().y < (m_dim.y) &&
-                cell.get().z < (m_zBoundaryRadius * 2)) {
+            if (cell.get().x < (mDim.x) &&
+                cell.get().y < (mDim.y) &&
+                cell.get().z < (mZBoundaryRadius * 2)) {
                 res = true;
             }
-            cell.set().z += cell.get().z < m_zBoundaryRadius ? 0 : (m_dim.z - 1) + (-1 * m_zBoundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
-            cell.set().z += m_zHaloRadius;
+            cell.set().z += cell.get().z < mZBoundaryRadius
+                                ? 0
+                                : (mDim.z - 1) + (-1 * mZBoundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
+            cell.set().z += mZHaloRadius;
 
             return res;
         }

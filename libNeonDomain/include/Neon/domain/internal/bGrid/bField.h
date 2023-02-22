@@ -72,7 +72,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     auto getSharedMemoryBytes(const int32_t stencilRadius) const -> size_t;
 
-    auto getMem() -> Neon::set::MemSet_t<T>&;
+    auto getMem() -> Neon::set::MemSet<T>&;
 
     auto dot(Neon::set::patterns::BlasSet<T>& blasSet,
              const bField<T>&                 input,
@@ -105,7 +105,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
         std::shared_ptr<bGrid> grid;
 
-        Neon::set::MemSet_t<T> mem;
+        Neon::set::MemSet<T> mem;
 
         int mCardinality;
 

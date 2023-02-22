@@ -55,7 +55,7 @@ struct Storage
                Neon::ExecutionUtils::numConfigurations>
         partitionByView;
 
-    Neon::set::MemSet_t<Obj> obj;
+    Neon::set::MemSet<Obj> obj;
     Neon::Backend            bk;
     Neon::MemoryOptions      memoryOptions;
     Neon::DataUse            dataUse;

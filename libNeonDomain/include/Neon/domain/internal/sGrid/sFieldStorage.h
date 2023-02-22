@@ -27,7 +27,7 @@ class sFieldStorage
     using Partition = sPartition<OuterGridT, T, C>;
     using Grid = sGrid<OuterGridT>;
 
-    Neon::set::MemSet_t<T> rawMem;
+    Neon::set::MemSet<T> rawMem;
 
     auto getPartition(Neon::Execution, Neon::DataView, Neon::SetIdx) -> Partition&;
 

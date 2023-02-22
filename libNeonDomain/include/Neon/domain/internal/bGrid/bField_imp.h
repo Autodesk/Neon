@@ -259,7 +259,7 @@ auto bField<T, C>::getPartition(Neon::Execution       exec,
 }
 
 template <typename T, int C>
-auto bField<T, C>::getMem() -> Neon::set::MemSet_t<T>&
+auto bField<T, C>::getMem() -> Neon::set::MemSet<T>&
 {
     return mData->mem;
 }

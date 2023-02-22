@@ -11,7 +11,7 @@ sField<OuterGridT, T, C>::sField(std::string const&                             
                                  Neon::domain::haloStatus_et::e                                   haloStatus,
                                  Neon::DataUse                                                    dataUse,
                                  Neon::MemoryOptions const&                                       memoryOptions,
-                                 Neon::set::MemSet_t<typename OuterGridT::Cell::OuterCell> const& tabelSCellToOuterCell)
+                                 Neon::set::MemSet<typename OuterGridT::Cell::OuterCell> const& tabelSCellToOuterCell)
     : Neon::domain::interface::FieldBaseTemplate<Type,
                                                  Cardinality,
                                                  typename Self::Grid,
@@ -58,7 +58,7 @@ auto sField<OuterGridT, T, C>::initMemory() -> void
 }
 
 template <typename OuterGridT, typename T, int C>
-auto sField<OuterGridT, T, C>::initPartitions(Neon::set::MemSet_t<typename OuterGridT::Cell::OuterCell> const& mapToOuterCell) -> void
+auto sField<OuterGridT, T, C>::initPartitions(Neon::set::MemSet<typename OuterGridT::Cell::OuterCell> const& mapToOuterCell) -> void
 {
 
     auto computePitch = [&](int setIdx) {

@@ -189,7 +189,7 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
 
         Neon::domain::tool::PointHashTableSet<int, Meta>         map;
         OuterGrid                                                outerGrid;
-        Neon::set::MemSet_t<typename OuterGrid::Cell::OuterCell> tableToOuterCell;
+        Neon::set::MemSet<typename OuterGrid::Cell::OuterCell> tableToOuterCell;
 
        private:
         std::array<Neon::set::DataSet<size_t>, Neon::DataViewUtil::nConfig>               count;

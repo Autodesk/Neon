@@ -93,9 +93,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
                                 Neon::DataView   dataView) -> const PartitionIndexSpace&;
 
 
-    auto getOrigins() const -> const Neon::set::MemSet_t<Neon::int32_3d>&;
-    auto getNeighbourBlocks() const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getActiveMask() const -> Neon::set::MemSet_t<uint32_t>&;
+    auto getOrigins() const -> const Neon::set::MemSet<Neon::int32_3d>&;
+    auto getNeighbourBlocks() const -> const Neon::set::MemSet<uint32_t>&;
+    auto getActiveMask() const -> Neon::set::MemSet<uint32_t>&;
     auto getBlockOriginTo1D() const -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
 
     //for compatibility with other grids that can work on cub and cublas engine
@@ -122,7 +122,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getBlockSize() const -> int;
     auto getVoxelSpacing() const -> int;
     auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
-    auto getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&;
+    auto getStencilNghIndex() const -> const Neon::set::MemSet<nghIdx_t>&;
 
 
    private:
@@ -135,14 +135,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         Neon::set::DataSet<uint64_t> mNumActiveVoxel;
 
         //block origin coordinates
-        Neon::set::MemSet_t<Neon::int32_3d> mOrigin;
+        Neon::set::MemSet<Neon::int32_3d> mOrigin;
 
         //Stencil neighbor indices
-        Neon::set::MemSet_t<nghIdx_t> mStencilNghIndex;
+        Neon::set::MemSet<nghIdx_t> mStencilNghIndex;
 
 
         Neon::set::DataSet<uint64_t>  mActiveMaskSize;
-        Neon::set::MemSet_t<uint32_t> mActiveMask;
+        Neon::set::MemSet<uint32_t> mActiveMask;
 
 
         //1d index of 26 neighbor blocks
@@ -151,7 +151,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //as maybe needed by stencil operations
         //If one of this neighbor blocks does not exist (e.g., not allocated or at the domain border), we store
         //std::numeric_limits<uint32_t>::max() to indicate that there is no neighbor block at this location
-        Neon::set::MemSet_t<uint32_t> mNeighbourBlocks;
+        Neon::set::MemSet<uint32_t> mNeighbourBlocks;
 
         //Partition index space
         //It is an std vector for the three type of data views we have

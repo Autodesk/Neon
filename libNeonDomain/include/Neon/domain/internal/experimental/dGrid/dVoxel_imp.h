@@ -3,12 +3,12 @@
 
 namespace Neon::domain::internal::exp::dGrid {
 
-NEON_CUDA_HOST_DEVICE inline dCell::dCell(const Location& location)
+NEON_CUDA_HOST_DEVICE inline dVoxel::dVoxel(const Location& location)
 {
     mLocation = location;
 }
 
-NEON_CUDA_HOST_DEVICE inline dCell::dCell(const Location::Integer &x,
+NEON_CUDA_HOST_DEVICE inline dVoxel::dVoxel(const Location::Integer &x,
                                             const Location::Integer &y,
                                             const Location::Integer &z){
     mLocation.x = x;
@@ -16,11 +16,11 @@ NEON_CUDA_HOST_DEVICE inline dCell::dCell(const Location::Integer &x,
     mLocation.z = z;
 }
 
-NEON_CUDA_HOST_DEVICE inline auto dCell::set() -> Location&
+NEON_CUDA_HOST_DEVICE inline auto dVoxel::set() -> Location&
 {
     return mLocation;
 }
-NEON_CUDA_HOST_DEVICE inline auto dCell::get() const -> const Location&
+NEON_CUDA_HOST_DEVICE inline auto dVoxel::get() const -> const Location&
 {
     return mLocation;
 }

@@ -112,23 +112,23 @@ auto bGrid::getPartitionIndexSpace(Neon::DeviceType dev,
     return mData->mPartitionIndexSpace[Neon::DataViewUtil::toInt(dataView)].local(dev, setIdx, dataView);
 }
 
-auto bGrid::getOrigins() const -> const Neon::set::MemSet_t<Neon::int32_3d>&
+auto bGrid::getOrigins() const -> const Neon::set::MemSet<Neon::int32_3d>&
 {
     return mData->mOrigin;
 }
 
-auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet_t<nghIdx_t>&
+auto bGrid::getStencilNghIndex() const -> const Neon::set::MemSet<nghIdx_t>&
 {
     return mData->mStencilNghIndex;
 }
 
 
-auto bGrid::getNeighbourBlocks() const -> const Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getNeighbourBlocks() const -> const Neon::set::MemSet<uint32_t>&
 {
     return mData->mNeighbourBlocks;
 }
 
-auto bGrid::getActiveMask() const -> Neon::set::MemSet_t<uint32_t>&
+auto bGrid::getActiveMask() const -> Neon::set::MemSet<uint32_t>&
 {
     return mData->mActiveMask;
 }

@@ -543,26 +543,26 @@ auto mGrid::getNumBlocksPerPartition(int level) const -> const Neon::set::DataSe
     return mData->grids[level].getNumBlocks();
 }
 
-auto mGrid::getParentsBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&
+auto mGrid::getParentsBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&
 {
     return mData->mParentBlockID[level];
 }
-auto mGrid::getChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&
+auto mGrid::getChildBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&
 {
     return mData->mChildBlockID[level];
 }
 
-auto mGrid::getParentLocalID(int level) const -> const Neon::set::MemSet_t<Cell::Location>&
+auto mGrid::getParentLocalID(int level) const -> const Neon::set::MemSet<Cell::Location>&
 {
     return mData->mParentLocalID[level];
 }
 
-auto mGrid::getRefFactors() const -> const Neon::set::MemSet_t<int>&
+auto mGrid::getRefFactors() const -> const Neon::set::MemSet<int>&
 {
     return mData->mRefFactors;
 }
 
-auto mGrid::getLevelSpacing() const -> const Neon::set::MemSet_t<int>&
+auto mGrid::getLevelSpacing() const -> const Neon::set::MemSet<int>&
 {
     return mData->mSpacing;
 }

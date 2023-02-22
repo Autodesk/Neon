@@ -24,7 +24,6 @@ class dGrid;
  * the field with data as well was exporting it to VTI. To create a new dField,
  * use the newField function in dGrid.
  */
-
 template <typename T, int C = 0>
 class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
@@ -41,15 +40,14 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     using Grid = dGrid;
     using Field = dField;
     using Partition = dPartition<T, C>;
-    using Cell = typename Partition::Cell;
+    using Voxel = typename Partition::Voxel;
     using NghIdx = typename Partition::NghIdx;
 
-    dField();
 
+    dField();
     virtual ~dField() = default;
 
     auto self() -> Self&;
-
     auto self() const -> const Self&;
 
     /**
@@ -61,42 +59,21 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                     const int&            cardinality) const
         -> Type final;
 
-    auto haloUpdate(Neon::set::HuOptions& opt)
-        const -> void final;
-
-    auto haloUpdateContainer(Neon::set::TransferMode,
-                             Neon::set::StencilSemantic)
-        const -> Neon::set::Container final;
-
-    auto haloUpdate(SetIdx setIdx, Neon::set::HuOptions& opt) const
-        -> void;
-
-    auto haloUpdate(Neon::set::HuOptions& opt)
-        -> void final;
-
-    auto haloUpdate(SetIdx setIdx, Neon::set::HuOptions& opt)
-        -> void;
+    auto newHaloUpdateContainer(int                        streamSetIdx,
+                                Neon::set::StencilSemantic semantic,
+                                Neon::set::TransferMode    transferMode,
+                                Neon::Execution            execution)
+        const -> Neon::set::Container;
 
     virtual auto getReference(const Neon::index_3d& idx,
                               const int&            cardinality)
         -> Type& final;
 
-    auto updateCompute(int streamSetId)
+    auto updateDeviceData(int streamSetId)
         -> void;
 
-    auto updateIO(int streamSetId)
+    auto updateHostData(int streamSetId)
         -> void;
-
-    auto getPartition(const Neon::DeviceType& devType,
-                      const Neon::SetIdx&     idx,
-                      const Neon::DataView&   dataView = Neon::DataView::STANDARD)
-        const
-        -> const Partition&;
-
-    auto getPartition(const Neon::DeviceType& devType,
-                      const Neon::SetIdx&     idx,
-                      const Neon::DataView&   dataView = Neon::DataView::STANDARD)
-        -> Partition&;
 
     /**
      * Return a constant reference to a specific partition based on a set of parameters:
@@ -141,35 +118,23 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         -> void;
 
    private:
+    auto haloUpdate(SetIdx                     setIdx,
+                    int                        streamSetIdx,
+                    Neon::set::StencilSemantic semantic,
+                    Neon::set::TransferMode    transferMode,
+                    Neon::Execution            execution) const
+        -> void;
+
     /** Convert a global 3d index into a Partition local offset */
     auto helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
         const -> std::pair<Neon::index_3d, int>;
 
-    template <Neon::run_et::et runMode_ta = Neon::run_et::et::async>
-    auto update(const Neon::set::StreamSet& streamSet,
-                const Neon::DeviceType&     devEt)
-        -> void;
-
-    auto updateCompute(const Neon::set::StreamSet& streamSet)
-        -> void;
-
-    auto updateIO(const Neon::set::StreamSet& streamSet)
-        -> void;
-
     auto getLaunchInfo(const Neon::DataView dataView)
         const -> Neon::set::LaunchParameters;
 
-    template <Neon::set::TransferMode transferMode_ta>
-    auto haloUpdate(const Neon::Backend& bk,
-                    bool                 startWithBarrier = true,
-                    int                  streamSetIdx = 0)
-        -> void;
-
-    template <Neon::set::TransferMode transferMode_ta>
-    auto haloUpdate(const Neon::Backend& bk,
-                    int                  cardinality,
-                    bool                 startWithBarrier = true,
-                    int                  streamSetIdx = 0)
+    auto haloUpdate(int                     streamSetIdx,
+                    Neon::set::TransferMode transferMode,
+                    Neon::Execution         execution)
         -> void;
 
     dField(const std::string&                        fieldUserName,
@@ -180,7 +145,7 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
            int                                       zHaloDim,
            Neon::domain::haloStatus_et::e            haloStatus,
            int                                       cardinality,
-           const Neon::set::MemSet_t<Neon::int8_3d>& stencilIdTo3dOffset);
+           const Neon::set::MemSet<Neon::int8_3d>&   stencilIdTo3dOffset);
 
     struct Data
     {

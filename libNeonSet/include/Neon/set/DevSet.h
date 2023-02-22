@@ -647,14 +647,14 @@ class DevSet
                    Neon::sys::memConf_t                cpuConfig,
                    Neon::sys::memConf_t                gpuConfig,
                    const Neon::set::DataSet<uint64_t>& nElementVec) const
-        -> Neon::set::MemSet_t<T_ta>
+        -> Neon::set::MemSet<T_ta>
     {
         if (cpuConfig.devEt() != Neon::DeviceType::CPU || gpuConfig.devEt() != Neon::DeviceType::CUDA) {
             Neon::NeonException exp("DevSet");
             exp << "Error, DevSet::invalid configuration for memory.\n";
             NEON_THROW(exp);
         }
-        Neon::set::MemSet_t<T_ta> mirror(this->setCardinality());
+        Neon::set::MemSet<T_ta> mirror(this->setCardinality());
 
         MemDevSet<T_ta> memCpu = newMemDevSet<T_ta>(cardinality, cpuConfig, nElementVec);
         MemDevSet<T_ta> memGpu = newMemDevSet<T_ta>(cardinality, gpuConfig, nElementVec);
@@ -670,7 +670,7 @@ class DevSet
                    int                                 cardinality,
                    Neon::MemoryOptions                 memoryOptions,
                    const Neon::set::DataSet<uint64_t>& nElementVec) const
-        -> Neon::set::MemSet_t<T_ta>
+        -> Neon::set::MemSet<T_ta>
     {
         memoryOptions = sanitizeMemoryOption(memoryOptions);
         Neon::sys::memConf_t cpuConfig(Neon::DeviceType::CPU,

@@ -1,6 +1,6 @@
 #pragma once
 #include "Neon/set/DevSet.h"
-#include "dCell.h"
+#include "dVoxel.h"
 namespace Neon::domain::internal::exp::dGrid {
 
 /**
@@ -11,26 +11,25 @@ namespace Neon::domain::internal::exp::dGrid {
 class dSpan
 {
    public:
-    using Cell = dCell;
+    using Voxel = dVoxel;
 
     friend class dGrid;
 
     static constexpr int SpaceDim = 3;
 
-    NEON_CUDA_HOST_DEVICE inline auto setAndValidate(Cell&                          cell,
+    NEON_CUDA_HOST_DEVICE inline auto setAndValidate(Voxel&                         voxel,
                                                      const size_t&                  x,
                                                      [[maybe_unused]] const size_t& y,
                                                      [[maybe_unused]] const size_t& z) const
         -> bool;
 
    private:
-
-    Neon::DataView m_dataView;
-    int            m_zHaloRadius;
-    int            m_zBoundaryRadius;
-    Neon::index_3d m_dim;
+    Neon::DataView mDataView;
+    int            mZHaloRadius;
+    int            mZBoundaryRadius;
+    Neon::index_3d mDim;
 };
 
-}  // namespace Neon::domain::dense
+}  // namespace Neon::domain::internal::exp::dGrid
 
 #include "dSpan_imp.h"

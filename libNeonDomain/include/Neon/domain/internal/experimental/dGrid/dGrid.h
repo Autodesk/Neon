@@ -16,6 +16,7 @@
 #include "Neon/domain/aGrid.h"
 
 #include "Neon/domain/interface/GridBaseTemplate.h"
+#include "Neon/domain/interface/GridConcept.h"
 #include "Neon/domain/interface/KernelConfig.h"
 #include "Neon/domain/interface/LaunchConfig.h"
 #include "Neon/domain/interface/Stencil.h"
@@ -38,11 +39,11 @@ namespace Neon::domain::internal::exp::dGrid {
  * be able to create field. dGrid also manages launching kernels and exporting
  * fields to VTI
  */
-class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
+class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dVoxel>
 {
    public:
     using Grid = dGrid;
-    using Cell = dCell;
+    using Cell = dVoxel;
 
     template <typename T_ta, int cardinality_ta = 0>
     using Field = dField<T_ta, cardinality_ta>;
@@ -50,30 +51,23 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
     template <typename T_ta, int cardinality_ta = 0>
     using Partition = typename Field<T_ta, cardinality_ta>::Partition;
 
-    using PartitionIndexSpace = dSpan;
     using Span = dSpan;
-
     using NghIdx = typename Partition<int>::NghIdx;
-
-    template <typename T, int C>
-    friend class dFieldDev;
 
    public:
     dGrid();
-
     dGrid(const dGrid& rhs) = default;
-
     virtual ~dGrid() = default;
 
     /**
      * Constructor compatible with the general grid API
      */
-    template <typename ActiveCellLambda>
-    dGrid(const Neon::Backend&         backend,
-          const Neon::int32_3d&        dimension /**< Dimension of the box containing the sparse domain */,
-          const ActiveCellLambda       activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
-          const Neon::domain::Stencil& stencil,
-          const Vec_3d<double>&        spacingData = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
+    template <Neon::domain::ActiveCellLambda ActiveCellLambda>
+    dGrid(const Neon::Backend&         backend /** Backend to target for computation */,
+          const Neon::int32_3d&        dimension /**< Dimension of the box containing the domain */,
+          const ActiveCellLambda&      activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
+          const Neon::domain::Stencil& stencil /* Stencil used by any computation on the grid */,
+          const Vec_3d<double>&        spacing = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
           const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**<      Origin  */);
 
     /**
@@ -84,10 +78,10 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
                              const size_t&         shareMem) const
         -> Neon::set::LaunchParameters;
 
-    auto getPartitionIndexSpace(Neon::DeviceType devE,
-                                SetIdx           setIdx,
-                                Neon::DataView   dataView)
-        -> const PartitionIndexSpace&;
+    auto getSpan(Neon::DeviceType devE,
+                 SetIdx           setIdx,
+                 Neon::DataView   dataView)
+        const -> const Span&;
 
     /**
      * Creates a new Field
@@ -102,21 +96,16 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
 
 
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       index_3d           blockSize,
                       size_t             sharedMem,
                       LoadingLambda      lambda) const
         -> Neon::set::Container;
 
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
-                      LoadingLambda      lambda)
-        const
-        -> Neon::set::Container;
-
-    template <typename LoadingLambda>
-    auto getHostContainer(const std::string& name,
-                          LoadingLambda      lambda)
+    auto newContainer(const std::string& name,
+                      LoadingLambda      lambda,
+                      Neon::Execution    execution)
         const
         -> Neon::set::Container;
 
@@ -155,19 +144,16 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
         -> GridBaseTemplate::CellProperties final;
 
    private:
-    auto partitions()
+    auto helpGetPartitionDim()
         const -> const Neon::set::DataSet<index_3d>;
 
-    auto flattenedLengthSet(Neon::DataView dataView = Neon::DataView::STANDARD)
-        const -> const Neon::set::DataSet<size_t>;
-
-    auto flattenedPartitions(Neon::DataView dataView = Neon::DataView::STANDARD)
+    auto helpGetPartitionSize(Neon::DataView dataView = Neon::DataView::STANDARD)
         const -> const Neon::set::DataSet<size_t>;
 
     auto getLaunchInfo(const Neon::DataView dataView)
         const -> Neon::set::LaunchParameters;
 
-    auto stencil() const
+    auto getStencil() const
         -> const Neon::domain::Stencil&;
 
     auto newGpuLaunchParameters()
@@ -176,15 +162,13 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
     auto setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig)
         const -> void;
 
-    auto getMemoryGrid()
+    auto helpGetMemoryGrid()
         const -> const Neon::domain::aGrid&;
 
     auto helpGetFirstZindex()
-        const -> const  Neon::set::DataSet<int32_t>& ;
+        const -> const Neon::set::DataSet<int32_t>&;
 
    private:
-    using Self = dGrid;
-
     struct Data
     {
         Data() = default;
@@ -197,12 +181,12 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dCell>
         Neon::set::DataSet<index_t>          firstZIndex;
         Neon::domain::tool::SpanTable<dSpan> spanTable;
 
-        Neon::index_3d                                       halo;
-        std::vector<Neon::set::DataSet<PartitionIndexSpace>> partitionIndexSpaceVec;
-        Neon::sys::patterns::Engine                          reduceEngine;
-        Neon::domain::aGrid                                  memoryGrid;
+        Neon::index_3d                        halo;
+        std::vector<Neon::set::DataSet<Span>> partitionIndexSpaceVec;
+        Neon::sys::patterns::Engine           reduceEngine;
+        Neon::domain::aGrid                   memoryGrid;
 
-        Neon::set::MemSet_t<Neon::int8_3d> stencilIdTo3dOffset;
+        Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
     };
 
     std::shared_ptr<Data> mData;
