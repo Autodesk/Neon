@@ -55,8 +55,19 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     using NghIdx = typename Partition<int>::NghIdx;
 
    public:
+    /**
+     * Empty constructor
+     */
     dGrid();
+
+    /**
+     * Copy constructor with a shallow copy semantic
+     */
     dGrid(const dGrid& rhs) = default;
+
+    /**
+     * Destructor
+     */
     virtual ~dGrid() = default;
 
     /**
@@ -73,7 +84,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     /**
      * Returns a LaunchParameters configured for the specified inputs
      */
-    auto getLaunchParameters(Neon::DataView        dataView,
+    auto helpGetLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
                              const size_t&         shareMem) const
         -> Neon::set::LaunchParameters;
@@ -164,10 +175,11 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
         Neon::set::DataSet<index_3d>         partitionDims;
         Neon::set::DataSet<index_t>          firstZIndex;
         Neon::domain::tool::SpanTable<dSpan> spanTable;
+        Neon::domain::tool::SpanTable<int>   elementsPerPartition;
 
-        Neon::index_3d                        halo;
-        Neon::sys::patterns::Engine           reduceEngine;
-        Neon::domain::aGrid                   memoryGrid;
+        Neon::index_3d              halo;
+        Neon::sys::patterns::Engine reduceEngine;
+        Neon::domain::aGrid         memoryGrid;
 
         Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
     };

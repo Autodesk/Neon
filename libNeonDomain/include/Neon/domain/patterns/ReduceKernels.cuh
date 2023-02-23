@@ -91,7 +91,7 @@ auto dotCUB(Neon::set::patterns::BlasSet<T>& blasSet,
     int nGpus = grid.getBackend().devSet().setCardinality();
 
     const Neon::index_3d blockSize(blockDimX, blockDimY, blockDimZ);
-    auto                 launchInfoSet = grid.getLaunchParameters(dataView, blockSize, 0);
+    auto                 launchInfoSet = grid.helpGetLaunchParameters(dataView, blockSize, 0);
 
 #pragma omp parallel for num_threads(nGpus) default(shared)
     for (int idx = 0; idx < nGpus; idx++) {
@@ -147,7 +147,7 @@ auto norm2CUB(Neon::set::patterns::BlasSet<T>& blasSet,
     int nGpus = grid.getBackend().devSet().setCardinality();
 
     const Neon::index_3d blockSize(blockDimX, blockDimY, blockDimZ);
-    auto                 launchInfoSet = grid.getLaunchParameters(dataView, blockSize, 0);
+    auto                 launchInfoSet = grid.helpGetLaunchParameters(dataView, blockSize, 0);
 
 #pragma omp parallel for num_threads(nGpus) default(shared)
     for (int idx = 0; idx < nGpus; idx++) {

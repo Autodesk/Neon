@@ -17,7 +17,7 @@ SpanTable<IndexSpace>::SpanTable(const Neon::Backend& bk)
 template <typename IndexSpace>
 auto SpanTable<IndexSpace>::
     getSpan(Neon::SetIdx   setIdx,
-                  Neon::DataView dw)
+            Neon::DataView dw)
         -> IndexSpace&
 {
     int const dwInt = Neon::DataViewUtil::toInt(dw);
@@ -28,7 +28,7 @@ auto SpanTable<IndexSpace>::
 template <typename IndexSpace>
 auto SpanTable<IndexSpace>::
     getSpan(Neon::SetIdx   setIdx,
-                  Neon::DataView dw)
+            Neon::DataView dw)
         const -> const IndexSpace&
 {
     int const dwInt = Neon::DataViewUtil::toInt(dw);
@@ -48,5 +48,13 @@ auto SpanTable<IndexSpace>::forEachConfiguration(const Lambda& lambda)
             }
         }
     }
+}
+
+template <typename IndexSpace>
+auto SpanTable<IndexSpace>::getSpan(Neon::DataView dw) const -> const IndexSpace&
+{
+    int const dwInt = Neon::DataViewUtil::toInt(dw);
+    auto&     output = mSpanTable[dwInt];
+    return output;
 }
 }  // namespace Neon::domain::tool

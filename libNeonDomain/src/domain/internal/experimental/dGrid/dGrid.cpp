@@ -25,7 +25,7 @@ auto dGrid::helpGetPartitionDim()
 auto dGrid::helpPointsPerPartition(Neon::DataView dataView)
     const -> const Neon::set::DataSet<size_t>
 {
-    return flattenedPartitions(dataView);
+    return mData->elementsPerPartition.getSpan(dataView);
 }
 
 auto dGrid::setReduceEngine(Neon::sys::patterns::Engine eng)
@@ -34,42 +34,7 @@ auto dGrid::setReduceEngine(Neon::sys::patterns::Engine eng)
     mData->reduceEngine = eng;
 }
 
-auto dGrid::flattenedPartitions(Neon::DataView dataView)
-    const -> const Neon::set::DataSet<size_t>
-{
-    Neon::set::DataSet<size_t> flat_parts(mData->partitionDims.cardinality());
-    switch (dataView) {
-        case Neon::DataView::STANDARD: {
-            for (int i = 0; i < flat_parts.cardinality(); ++i) {
-                flat_parts[i] = mData->partitionDims[i].rMulTyped<size_t>();
-            }
-            return flat_parts;
-        }
-        case Neon::DataView::INTERNAL: {
-            for (int i = 0; i < flat_parts.cardinality(); ++i) {
-                flat_parts[i] = mData->partitionDims[i].rMulTyped<size_t>() -
-                                2 * size_t(mData->halo.z) *
-                                    size_t(mData->partitionDims[i].y) *
-                                    size_t(mData->partitionDims[i].x);
-            }
-            return flat_parts;
-        }
-        case Neon::DataView::BOUNDARY: {
-            for (int i = 0; i < flat_parts.cardinality(); ++i) {
-                flat_parts[i] = 2 *
-                                size_t(mData->halo.z) *
-                                size_t(mData->partitionDims[i].y) *
-                                size_t(mData->partitionDims[i].x);
-            }
-            return flat_parts;
-        }
-        default: {
-            NEON_THROW_UNSUPPORTED_OPERATION("");
-        }
-    }
-}
-
-auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
+auto dGrid::helpGetLaunchParameters(Neon::DataView  dataView,
                                 const Neon::index_3d& blockSize,
                                 const size_t&         shareMem) const -> Neon::set::LaunchParameters
 {

@@ -80,7 +80,7 @@ dGrid::dGrid(const Neon::Backend&         backend,
 
     {  // Computing halo size
         for (const auto& dw : DataViewUtil::validOptions()) {
-            getDefaultLaunchParameters(dw) = getLaunchParameters(dw, defaultBlockSize, 0);
+            getDefaultLaunchParameters(dw) = helpGetLaunchParameters(dw, defaultBlockSize, 0);
         }
     }
 
@@ -132,6 +132,12 @@ dGrid::dGrid(const Neon::Backend&         backend,
                     NEON_THROW(exc);
                 }
             }
+        });
+
+        mData->elementsPerPartition.forEachConfiguration([&](Neon::SetIdx   setIdx,
+                                                             Neon::DataView dw,
+                                                             int&         count) {
+                count = mData->spanTable.getSpan(setIdx,dw).mDim.rMul();
         });
     }
 
@@ -278,7 +284,7 @@ auto dGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
         for (auto& dataview : {Neon::DataView::STANDARD,
                                Neon::DataView::INTERNAL,
                                Neon::DataView::BOUNDARY}) {
-            auto launchParam = getLaunchParameters(dataview, getDefaultBlock(), 0);
+            auto launchParam = helpGetLaunchParameters(dataview, getDefaultBlock(), 0);
             for (SetIdx id = 0; id < launchParam.cardinality(); id++) {
                 uint32_t numBlocks = launchParam[id].cudaGrid().x *
                                      launchParam[id].cudaGrid().y *
