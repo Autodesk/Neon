@@ -42,11 +42,24 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     using Idx = typename Partition::Idx;
     using NghIdx = typename Partition::NghIdx;
 
-
+    /**
+     * Empty constructor
+     */
     dField();
+
+    /**
+     * Destructor
+     */
     virtual ~dField() = default;
 
+    /**
+     * Self operator
+     */
     auto self() -> Self&;
+
+    /**
+     * Self operator
+     */
     auto self() const -> const Self&;
 
     /**
@@ -58,6 +71,9 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                     const int&            cardinality) const
         -> Type final;
 
+    /**
+     * Creates a container that executes a halo update operation on host or device
+     */
     auto newHaloUpdate(int                        streamSetIdx,
                        Neon::set::StencilSemantic semantic,
                        Neon::set::TransferMode    transferMode,
@@ -69,19 +85,27 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                  const int&            cardinality)
         -> Type& final;
 
+    /**
+     * It copies host data to the device
+     * @param streamSetId
+     */
     auto updateDeviceData(int streamSetId)
         -> void;
 
+    /**
+     * It copies device data to the host
+     * @param streamSetId
+     */
     auto updateHostData(int streamSetId)
         -> void;
 
     /**
-     * Return a constant reference to a specific partition based on a set of parameters:
+     * Returns a constant reference to a specific partition based on a set of parameters:
      * execution type, target device, dataView
      */
     auto getPartition(Neon::Execution       execution,
                       Neon::SetIdx          setIdx,
-                      const Neon::DataView& dataView = Neon::DataView::STANDARD) const
+                      const Neon::DataView& dataView) const
         -> const Partition& final;
 
     /**
@@ -90,28 +114,24 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
      */
     auto getPartition(Neon::Execution       execution,
                       Neon::SetIdx          setIdx,
-                      const Neon::DataView& dataView = Neon::DataView::STANDARD)
+                      const Neon::DataView& dataView)
         -> Partition& final;
 
     static auto swap(Field& A, Field& B)
         -> void;
 
    private:
-
     auto helpHaloUpdate(SetIdx                     setIdx,
-                    int                        streamIdx,
-                    Neon::set::StencilSemantic semantic,
-                    std::vector<int> const&    cardinalities,
-                    Neon::set::TransferMode    transferMode,
-                    Neon::Execution            execution) const
+                        int                        streamIdx,
+                        Neon::set::StencilSemantic semantic,
+                        std::vector<int> const&    cardinalities,
+                        Neon::set::TransferMode    transferMode,
+                        Neon::Execution            execution) const
         -> void;
 
     /** Convert a global 3d index into a Partition local offset */
     auto helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
         const -> std::pair<Neon::index_3d, int>;
-
-    auto helpGetLaunchInfo(const Neon::DataView dataView)
-        const -> Neon::set::LaunchParameters;
 
     dField(const std::string&                        fieldUserName,
            Neon::DataUse                             dataUse,
@@ -147,7 +167,6 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         Neon::set::MemSet<NghIdx> stencilNghIndex;
 
     } mData;
-
     auto getData() -> Data&;
 };
 

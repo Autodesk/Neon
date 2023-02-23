@@ -7,7 +7,6 @@ dGrid::dGrid()
     mData = std::make_shared<Data>();
 }
 
-
 auto dGrid::getSpan(SetIdx         setIdx,
                     Neon::DataView dataView)
     const -> const Span&
@@ -22,7 +21,7 @@ auto dGrid::helpGetPartitionDim()
     return mData->partitionDims;
 }
 
-auto dGrid::helpPointsPerPartition(Neon::DataView dataView)
+auto dGrid::helpIdexPerPartition(Neon::DataView dataView)
     const -> const Neon::set::DataSet<size_t>
 {
     return mData->elementsPerPartition.getSpan(dataView);
@@ -53,7 +52,7 @@ auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
 }
 
 auto dGrid::convertToNghIdx(const std::vector<Neon::index_3d>& stencilOffsets)
-    -> std::vector<NghIdx>
+    const -> std::vector<NghIdx>
 {
     std::vector<NghIdx> res;
     for (const auto& offset : stencilOffsets) {
@@ -62,12 +61,11 @@ auto dGrid::convertToNghIdx(const std::vector<Neon::index_3d>& stencilOffsets)
     return res;
 }
 
-auto dGrid::convertToNghIdx(const Neon::index_3d stencilOffsets)
-    -> NghIdx
+auto dGrid::convertToNghIdx(Neon::index_3d const& stencilOffsets)
+    const -> NghIdx
 {
     return stencilOffsets.template newType<int8_t>();
 }
-
 
 auto dGrid::isInsideDomain(const index_3d& idx) const -> bool
 {

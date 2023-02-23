@@ -82,13 +82,17 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
           const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */);
 
     /**
-     * Returns a LaunchParameters configured for the specified inputs
+     * Returns a LaunchParameters configured for the specified inputs.
+     * This methods used by the Container infrastructure.
      */
     auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
                              const size_t&         shareMem) const
         -> Neon::set::LaunchParameters;
 
+    /**
+     * Method used by the Container infrastructure to retrieve the thread space
+     */
     auto getSpan(SetIdx         setIdx,
                  Neon::DataView dataView)
         const -> const Span&;
@@ -104,14 +108,20 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
                   Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 
-
+    /**
+     * Creates a new container running on this grid
+     */
     template <typename LoadingLambda>
     auto newContainer(const std::string& name,
                       index_3d           blockSize,
                       size_t             sharedMem,
-                      LoadingLambda      lambda) const
+                      LoadingLambda      lambda,
+                      Neon::Execution    execution) const
         -> Neon::set::Container;
 
+    /**
+     * Creates a new container running on this grid
+     */
     template <typename LoadingLambda>
     auto newContainer(const std::string& name,
                       LoadingLambda      lambda,
@@ -119,13 +129,22 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
         const
         -> Neon::set::Container;
 
+    /**
+     * Switch for different reduction engines.
+     */
     auto setReduceEngine(Neon::sys::patterns::Engine eng)
         -> void;
 
+    /**
+     * Creation of a new scalar type that can store output from reduction operations
+     */
     template <typename T>
     auto newPatternScalar()
         const -> Neon::template PatternScalar<T>;
 
+    /**
+     * creates a container implementing a dot product
+     */
     template <typename T>
     auto dot(const std::string&               name,
              dField<T>&                       input1,
@@ -133,20 +152,36 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
              Neon::template PatternScalar<T>& scalar) const
         -> Neon::set::Container;
 
+    /**
+     * creates a container implementing a norm2 operation
+     */
     template <typename T>
     auto norm2(const std::string&               name,
                dField<T>&                       input,
                Neon::template PatternScalar<T>& scalar) const
         -> Neon::set::Container;
 
-    auto convertToNghIdx(const std::vector<Neon::index_3d>& stencilOffsets)
-        -> std::vector<NghIdx>;
+    /**
+     * Convert a list of 3d offsets for stencil operation in 1D local offsets
+     */
+    auto convertToNghIdx(std::vector<Neon::index_3d> const& stencilOffsets)
+        const -> std::vector<NghIdx>;
 
-    auto convertToNghIdx(const Neon::index_3d stencilOffsets) -> NghIdx;
+    /**
+     * Convert a list of 3d offsets for stencil operation in 1D local offsets
+     */
+    auto convertToNghIdx(Neon::index_3d const& stencilOffsets)
+        const -> NghIdx;
 
-    auto isInsideDomain(const Neon::index_3d& idx) const
-        -> bool final;
+    /**
+     * The methods returns true if the the domain index has been flagged as active during initialization
+     */
+    auto isInsideDomain(const Neon::index_3d& idx)
+        const -> bool final;
 
+    /**
+     * Return the properties of a point
+     */
     auto getProperties(const Neon::index_3d& idx) const
         -> GridBaseTemplate::CellProperties final;
 
@@ -154,10 +189,10 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     auto helpGetPartitionDim()
         const -> const Neon::set::DataSet<index_3d>;
 
-    auto helpGetPartitionSize(Neon::DataView dataView = Neon::DataView::STANDARD)
+    auto helpIdexPerPartition(Neon::DataView dataView = Neon::DataView::STANDARD)
         const -> const Neon::set::DataSet<size_t>;
 
-    auto helpGetMemoryGrid()
+    auto helpFieldMemoryAllocator()
         const -> const Neon::domain::aGrid&;
 
     auto helpGetFirstZindex()
@@ -169,17 +204,17 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
         Data() = default;
         Data(const Neon::Backend& bk);
 
-        //  m_partitionDims indicates the size of each partition. For example,
+        //  partitionDims indicates the size of each partition. For example,
         // given a gridDim of size 77 (in 1D for simplicity) distrusted over 5
         // device, it should be distributed as (16 16 15 15 15)
-        Neon::set::DataSet<index_3d>         partitionDims;
-        Neon::set::DataSet<index_t>          firstZIndex;
-        Neon::domain::tool::SpanTable<dSpan> spanTable;
-        Neon::domain::tool::SpanTable<int>   elementsPerPartition;
+        Neon::set::DataSet<index_3d>         partitionDims /** Bounding box size of each partition */;
+        Neon::set::DataSet<index_t>          firstZIndex /** Lower z-index for each partition */;
+        Neon::domain::tool::SpanTable<dSpan> spanTable /** Span for each data view configurations */;
+        Neon::domain::tool::SpanTable<int>   elementsPerPartition /** Number of indexes for each partition */;
 
         Neon::index_3d              halo;
         Neon::sys::patterns::Engine reduceEngine;
-        Neon::domain::aGrid         memoryGrid;
+        Neon::domain::aGrid         memoryGrid /** memory allocator for fields */;
 
         Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
     };

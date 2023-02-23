@@ -6,9 +6,10 @@ dGrid::Data::Data(const Neon::Backend& backend)
 {
     partitionDims = backend.devSet().newDataSet<index_3d>({0, 0, 0});
     firstZIndex = backend.devSet().newDataSet<index_t>(0);
+    spanTable = Neon::domain::tool::SpanTable<dSpan>(backend);
+    elementsPerPartition = Neon::domain::tool::SpanTable<int>(backend);
 
     halo = index_3d(0, 0, 0);
-    spanTable = Neon::domain::tool::SpanTable<dSpan>(backend);
     reduceEngine = Neon::sys::patterns::Engine::cuBlas;
 }
 
@@ -136,8 +137,8 @@ dGrid::dGrid(const Neon::Backend&         backend,
 
         mData->elementsPerPartition.forEachConfiguration([&](Neon::SetIdx   setIdx,
                                                              Neon::DataView dw,
-                                                             int&         count) {
-                count = mData->spanTable.getSpan(setIdx,dw).mDim.rMul();
+                                                             int&           count) {
+            count = mData->spanTable.getSpan(setIdx, dw).mDim.rMul();
         });
     }
 
@@ -218,7 +219,7 @@ auto dGrid::newField(const std::string&  fieldUserName,
     return field;
 }
 
-auto dGrid::getMemoryGrid()
+auto dGrid::helpFieldMemoryAllocator()
     const -> const Neon::domain::aGrid&
 {
     return mData->memoryGrid;
@@ -226,7 +227,8 @@ auto dGrid::getMemoryGrid()
 
 template <typename LoadingLambda>
 auto dGrid::newContainer(const std::string& name,
-                         LoadingLambda      lambda)
+                         LoadingLambda      lambda,
+                         Neon::Execution    execution)
     const
     -> Neon::set::Container
 {
@@ -241,27 +243,11 @@ auto dGrid::newContainer(const std::string& name,
 }
 
 template <typename LoadingLambda>
-auto dGrid::getHostContainer(const std::string& name,
-                             LoadingLambda      lambda)
-    const
-    -> Neon::set::Container
-{
-    const Neon::index_3d& defaultBlockSize = getDefaultBlock();
-    Neon::set::Container  kContainer = Neon::set::Container::hostFactory(name,
-                                                                         Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                         *this,
-                                                                         lambda,
-                                                                         defaultBlockSize,
-                                                                         [](const Neon::index_3d&) { return size_t(0); });
-    return kContainer;
-}
-
-
-template <typename LoadingLambda>
-auto dGrid::getContainer(const std::string& name,
+auto dGrid::newContainer(const std::string& name,
                          index_3d           blockSize,
                          size_t             sharedMem,
-                         LoadingLambda      lambda)
+                         LoadingLambda      lambda,
+                         Neon::Execution    execution)
     const
     -> Neon::set::Container
 {

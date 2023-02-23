@@ -265,13 +265,6 @@ auto dField<T, C>::updateHostData(int streamSetId)
 }
 
 template <typename T, int C>
-auto dField<T, C>::helpGetLaunchInfo(const Neon::DataView dataView) const
-    -> Neon::set::LaunchParameters
-{
-    return m_gpu.getLaunchInfo(dataView);
-}
-
-template <typename T, int C>
 auto dField<T, C>::getPartition(Neon::Execution       execution,
                                 Neon::SetIdx          setIdx,
                                 const Neon::DataView& dataView)
