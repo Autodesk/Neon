@@ -45,13 +45,13 @@ struct HostContainer : ContainerAPI
         }
     }
 
-    auto newLoader(Neon::DeviceType devE,
+    auto newLoader(Neon::Execution execution,
                    Neon::SetIdx     setIdx,
                    Neon::DataView   dataView,
                    LoadingMode_e::e loadingMode) -> Loader
     {
         auto loader = Loader(*this,
-                             devE,
+                             execution,
                              setIdx,
                              dataView,
                              loadingMode);
@@ -61,7 +61,7 @@ struct HostContainer : ContainerAPI
     auto newParser() -> Loader
     {
         auto parser = Loader(*this,
-                             Neon::DeviceType::CPU,
+                             Execution::host,
                              Neon::SetIdx(0),
                              Neon::DataView::STANDARD,
                              Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA);
@@ -96,8 +96,8 @@ struct HostContainer : ContainerAPI
             bk.devSet().template kernelHostLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::DeviceType devE, Neon::SetIdx setIdx, Neon::DataView dataView) -> UserComputeLambdaT {
-                    Loader             loader = this->newLoader(devE, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
+                [&](Neon::Execution execution, Neon::SetIdx setIdx, Neon::DataView dataView) -> UserComputeLambdaT {
+                    Loader             loader = this->newLoader(execution, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;
                 });
@@ -132,11 +132,11 @@ struct HostContainer : ContainerAPI
                 setIdx,
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::DeviceType,
+                [&](Neon::Execution,
                     Neon::SetIdx   setIdx,
                     Neon::DataView dataView)
                     -> UserComputeLambdaT {
-                    Loader             loader = this->newLoader(Neon::DeviceType::CPU, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
+                    Loader             loader = this->newLoader(Execution::host, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;
                 });

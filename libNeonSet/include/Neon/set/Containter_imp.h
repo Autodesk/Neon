@@ -23,6 +23,7 @@ namespace Neon::set {
 
 template <typename DataContainerT, typename UserLoadingLambdaT>
 auto Container::factory(const std::string&                                 name,
+                        Neon::Execution execution,
                         Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
                         const DataContainerT&                              a,
                         const UserLoadingLambdaT&                          f,
@@ -30,7 +31,8 @@ auto Container::factory(const std::string&                                 name,
                         std::function<int(const index_3d& blockSize)>      shMemSizeFun) -> Container
 {
     using LoadingLambda = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
-    auto k = new Neon::set::internal::DeviceContainer<DataContainerT, LoadingLambda>(name, dataViewSupport,
+    auto k = new Neon::set::internal::DeviceContainer<DataContainerT, LoadingLambda>(name,
+                                                                                     execution, dataViewSupport,
                                                                                      a, f,
                                                                                      blockSize, shMemSizeFun);
 

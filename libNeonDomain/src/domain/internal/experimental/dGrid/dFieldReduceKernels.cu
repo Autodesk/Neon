@@ -2,7 +2,7 @@
 #include "Neon/domain/patterns/ReduceKernels.cuh"
 
 namespace Neon::domain::internal::exp::dGrid {
-
+#if 0
 template <typename T, int C>
 auto dFieldDev<T, C>::dotCUB(
     Neon::set::patterns::BlasSet<T>& blasSet,
@@ -58,5 +58,5 @@ template void dFieldDev<float, 0>::norm2CUB(Neon::set::patterns::BlasSet<float>&
 template void dFieldDev<int64_t, 0>::norm2CUB(Neon::set::patterns::BlasSet<int64_t>&,
                                             Neon::set::MemDevSet<int64_t>&,
                                             const Neon::DataView&);
-
+#endif
 }  // namespace Neon::domain::internal::dGrid

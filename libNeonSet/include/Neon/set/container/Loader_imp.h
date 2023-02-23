@@ -158,10 +158,10 @@ auto Loader::
 
             m_container.addToken(token);
 
-            return field.getPartition(m_devE, m_setIdx, m_dataView);
+            return field.getPartition(mExecution, m_setIdx, m_dataView);
         }
         case Neon::set::internal::LoadingMode_e::EXTRACT_LAMBDA: {
-            return field.getPartition(m_devE, m_setIdx, m_dataView);
+            return field.getPartition(mExecution, m_setIdx, m_dataView);
         }
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
@@ -212,10 +212,10 @@ auto Loader::
             }
             m_container.addToken(token);
 
-            return field.getPartition(m_devE, m_setIdx, m_dataView);
+            return field.getPartition(mExecution, m_setIdx, m_dataView);
         }
         case Neon::set::internal::LoadingMode_e::EXTRACT_LAMBDA: {
-            return field.getPartition(m_devE, m_setIdx, m_dataView);
+            return field.getPartition(mExecution, m_setIdx, m_dataView);
         }
     }
     NEON_DEV_UNDER_CONSTRUCTION("");

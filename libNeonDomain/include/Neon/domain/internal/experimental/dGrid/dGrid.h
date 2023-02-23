@@ -190,7 +190,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
         const -> const Neon::set::DataSet<index_3d>;
 
     auto helpIdexPerPartition(Neon::DataView dataView = Neon::DataView::STANDARD)
-        const -> const Neon::set::DataSet<size_t>;
+        const -> const Neon::set::DataSet<int>;
 
     auto helpFieldMemoryAllocator()
         const -> const Neon::domain::aGrid&;

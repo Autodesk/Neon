@@ -40,19 +40,19 @@ struct Loader
    private:
     Neon::set::internal::ContainerAPI& m_container;
 
-    Neon::DeviceType                      m_devE;
+    Neon::Execution                       mExecution;
     Neon::SetIdx                          m_setIdx;
     Neon::DataView                        m_dataView;
     Neon::set::internal::LoadingMode_e::e m_loadingMode;
 
    public:
     Loader(Neon::set::internal::ContainerAPI&    container,
-           Neon::DeviceType                      devE,
+           Neon::Execution                       execution,
            Neon::SetIdx                          setIdx,
            Neon::DataView                        dataView,
            Neon::set::internal::LoadingMode_e::e loadingMode)
         : m_container(container),
-          m_devE(devE),
+          mExecution(execution),
           m_setIdx(setIdx),
           m_dataView(dataView),
           m_loadingMode(loadingMode)

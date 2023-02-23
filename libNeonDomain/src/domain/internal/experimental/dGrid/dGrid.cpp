@@ -7,11 +7,22 @@ dGrid::dGrid()
     mData = std::make_shared<Data>();
 }
 
+dGrid::Data::Data(const Neon::Backend& backend)
+{
+    partitionDims = backend.devSet().newDataSet<index_3d>({0, 0, 0});
+    firstZIndex = backend.devSet().newDataSet<index_t>(0);
+    spanTable = Neon::domain::tool::SpanTable<dSpan>(backend);
+    elementsPerPartition = Neon::domain::tool::SpanTable<int>(backend);
+
+    halo = index_3d(0, 0, 0);
+    reduceEngine = Neon::sys::patterns::Engine::cuBlas;
+}
+
 auto dGrid::getSpan(SetIdx         setIdx,
                     Neon::DataView dataView)
     const -> const Span&
 {
-    mData->spanTable.getSpan(setIdx, dataView);
+   return mData->spanTable.getSpan(setIdx, dataView);
 }
 
 
@@ -22,7 +33,7 @@ auto dGrid::helpGetPartitionDim()
 }
 
 auto dGrid::helpIdexPerPartition(Neon::DataView dataView)
-    const -> const Neon::set::DataSet<size_t>
+    const -> const Neon::set::DataSet<int>
 {
     return mData->elementsPerPartition.getSpan(dataView);
 }

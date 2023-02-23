@@ -196,7 +196,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                                     for (int c = 0; c < mData->cardinality; ++c) {
                                         {  // up
                                             auto const boundaryRadius = mData->zHaloDim;
-                                            int const  startPoint = c * dims[setIdx].x * dims[i].y * (dims[setIdx].z + 2 * haloRadius) +
+                                            int const  startPoint = c * dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + 2 * haloRadius) +
                                                                    dims[setIdx].x * dims[setIdx].y * haloRadius;
                                             int const nElements = dims[setIdx].x * dims[setIdx].y * boundaryRadius;
 
@@ -325,26 +325,16 @@ auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
     return result;
 }
 
-
 template <typename T, int C>
-template <Neon::set::TransferMode transferMode_ta>
-auto dField<T, C>::haloUpdate(const Neon::Backend& bk,
-                              bool                 startWithBarrier,
-                              int                  streamSetIdx)
+auto dField<T, C>::helpHaloUpdate(SetIdx                     setIdx,
+                                  int                        streamIdx,
+                                  Neon::set::StencilSemantic semantic,
+                                  int const&                 cardIdx,
+                                  Neon::set::TransferMode    transferMode,
+                                  Neon::Execution            execution) const
     -> void
 {
-    auto fieldDev = this->field(bk.devType());
-    fieldDev.template haloUpdate<transferMode_ta>(bk, startWithBarrier, streamSetIdx);
-}
-
-
-template <typename T, int C>
-auto dField<T, C>::haloUpdate(Neon::Execution         execution,
-                              int                     cardIdx,
-                              int                     streamSetIdx,
-                              Neon::set::TransferMode transferMode)
-    -> void
-{
+#if 0
     const int setCardinality = mData->grid->getBackend().devSet().setCardinality();
 
     switch (mData->memoryOptions.getOrder()) {
@@ -366,7 +356,7 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
                         auto& partition = mData.partitionTable.getPartition(execution,
                                                                             southDevice,
                                                                             Neon::DataView::STANDARD);
-                        dCell firstBoundaryNorthCell(0, 0, partition.dim.z - mData->zHaloDim);
+                        dIndex firstBoundaryNorthCell(0, 0, partition.dim.z - mData->zHaloDim);
                         T*    result = partition.mem(firstBoundaryNorthCell, 0);
                         return result;
                     }();
@@ -376,7 +366,7 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
                         auto& partition = mData.partitionTable.getPartition(execution,
                                                                             northDevice,
                                                                             Neon::DataView::STANDARD);
-                        dCell firstBoundarySouthCell(0, 0, 0);
+                        dIndex firstBoundarySouthCell(0, 0, 0);
                         T*    result = partition.mem(firstBoundarySouthCell, 0);
                         result = result - mData.zHaloDim * partition.getPitchData().z;
                         return result;
@@ -395,12 +385,12 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
                 // send to the next partition (+z)
                 const size_t transferBytes = sizeof(T) * mData->zHaloDim * mData->pitch[setId].z;
 
-                if (setId != ndevs - 1) {  // Addressing all partitions that needs to send data north
+                if (setId != setCardinality - 1) {  // Addressing all partitions that needs to send data north
                     auto& partition = mData.partitionTable.getPartition(Neon::Execution::device,
                                                                         setId,
                                                                         Neon::DataView::STANDARD);
 
-                    dCell srcIdx(0, 0, partition.dim().z - 1);
+                    dIndex srcIdx(0, 0, partition.dim().z - 1);
 
                     T* src = partition(src_idx, 0);
                     field_compute[setId].mem() + field_compute[setId].elPitch(src_idx);
@@ -513,42 +503,16 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
             }
         }
     }
-}
-
-
-template <typename T, int C>
-auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
-                              Neon::set::HuOptions& opt)
-    -> void
-{
-    auto& bk = self().getBackend();
-    auto  fieldDev = field(bk.devType());
-    switch (opt.transferMode()) {
-        case Neon::set::TransferMode::put:
-#pragma omp critical
-        {
-            NEON_TRACE("TRACE haloUpdate PUT setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
-        }
-            fieldDev.template haloUpdate<Neon::set::TransferMode::put>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
-            break;
-        case Neon::set::TransferMode::get:
-#pragma omp critical
-        {
-            NEON_TRACE("TRACE haloUpdate GET setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
-        }
-            fieldDev.template haloUpdate<Neon::set::TransferMode::get>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
-            break;
-        default:
-            NEON_THROW_UNSUPPORTED_OPTION();
-            break;
-    }
+#endif
 }
 
 
 template <typename T, int C>
 auto dField<T, C>::
-    haloUpdateContainer(Neon::set::TransferMode    transferMode,
-                        Neon::set::StencilSemantic stencilSemantic)
+    newHaloUpdate(int                        streamSetIdx,
+                  Neon::set::StencilSemantic stencilSemantic,
+                  Neon::set::TransferMode    transferMode,
+                  Neon::Execution            execution)
         const -> Neon::set::Container
 {
     // We need to define a graph of Containers

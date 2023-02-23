@@ -220,7 +220,7 @@ struct DataSet
     }
 
     template <typename Lambda>
-    auto forEach(Lambda const& fun)
+    auto forEachSeq(Lambda const& fun)
     {
         for (SetIdx id = 0; id < self().cardinality(); id++) {
             fun(id, self()[id]);

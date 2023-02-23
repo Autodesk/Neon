@@ -1,5 +1,5 @@
 #include <functional>
-#include "Neon/domain/dGrid.h"
+#include "Neon/domain/internal/experimental/dGrid/dGrid.h"
 #include "Neon/domain/eGrid.h"
 
 #include "Neon/domain/tools/TestData.h"
@@ -13,11 +13,11 @@ auto setToPitch(Field& fieldB)
     -> Neon::set::Container
 {
     const auto& grid = fieldB.getGrid();
-    return grid.getContainer(
+    return grid.newContainer(
         "DeviceSetToPitch",
         [&](Neon::set::Loader& loader) {
             auto b = loader.load(fieldB);
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < b.cardinality(); i++) {
                     Neon::index_3d const global = b.mapToGlobal(e);
                     auto const           domainSize = b.getDomainSize();
@@ -25,7 +25,8 @@ auto setToPitch(Field& fieldB)
                     b(e, i) = result;
                 }
             };
-        });
+        },
+        Neon::Execution::device);
 }
 
 using namespace Neon::domain::tool::testing;
@@ -69,6 +70,6 @@ auto runDevice(TestData<G, T, C>& data) -> void
 }
 
 // template auto run<Neon::domain::eGrid, int64_t, 0>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
-template auto runDevice<Neon::domain::dGrid, int64_t, 0>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
+template auto runDevice<Neon::domain::internal::exp::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::internal::exp::dGrid::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace device

@@ -22,7 +22,7 @@ struct SpanTable
         const -> const IndexSpace&;
 
     auto getSpan(Neon::DataView dw)
-        const -> const IndexSpace&;
+        const -> const Neon::set::DataSet<IndexSpace>&;
 
     template <class Lambda>
     auto forEachConfiguration(const Lambda& lambda) -> void;
@@ -37,3 +37,5 @@ struct SpanTable
 
 
 }  // namespace Neon::domain::tool
+
+#include "Neon/domain/tools/SpanTable_imp.h"

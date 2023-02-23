@@ -14,6 +14,7 @@ struct DeviceContainer : ContainerAPI
     virtual ~DeviceContainer() override = default;
 
     DeviceContainer(const std::string&                            name,
+                    Neon::Execution                               execution,
                     ContainerAPI::DataViewSupport                 dataViewSupport,
                     const DataIteratorContainerT&                 dataIteratorContainer,
                     std::function<UserComputeLambdaT(Loader&)>    loadingLambda,
@@ -23,9 +24,9 @@ struct DeviceContainer : ContainerAPI
           m_dataIteratorContainer(dataIteratorContainer)
     {
         setName(name);
+        mExecution = execution;
         setContainerExecutionType(ContainerExecutionType::device);
         setContainerOperationType(ContainerOperationType::compute);
-
         setDataViewSupport(dataViewSupport);
 
         initLaunchParameters(dataIteratorContainer, blockSize, shMemSizeFun);
@@ -45,13 +46,12 @@ struct DeviceContainer : ContainerAPI
         }
     }
 
-    auto newLoader(Neon::DeviceType devE,
-                   Neon::SetIdx     setIdx,
+    auto newLoader(Neon::SetIdx     setIdx,
                    Neon::DataView   dataView,
                    LoadingMode_e::e loadingMode) -> Loader
     {
         auto loader = Loader(*this,
-                             devE,
+                             mExecution,
                              setIdx,
                              dataView,
                              loadingMode);
@@ -61,7 +61,7 @@ struct DeviceContainer : ContainerAPI
     auto newParser() -> Loader
     {
         auto parser = Loader(*this,
-                             Neon::DeviceType::CPU,
+                             Neon::Execution::host,
                              Neon::SetIdx(0),
                              Neon::DataView::STANDARD,
                              Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA);
@@ -94,13 +94,13 @@ struct DeviceContainer : ContainerAPI
 
         if (ContainerExecutionType::device == this->getContainerExecutionType()) {
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
+                mExecution,
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::DeviceType devE,
-                    Neon::SetIdx     setIdx,
-                    Neon::DataView   dataView)
+                [&](Neon::SetIdx   setIdx,
+                    Neon::DataView dataView)
                     -> UserComputeLambdaT {
-                    Loader             loader = this->newLoader(devE, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
+                    Loader             loader = this->newLoader(setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;
                 });
@@ -132,14 +132,14 @@ struct DeviceContainer : ContainerAPI
 
         if (ContainerExecutionType::device == this->getContainerExecutionType()) {
             bk.devSet().template kernelLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
+                mExecution,
                 setIdx,
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::DeviceType devE,
-                    Neon::SetIdx     setIdx,
-                    Neon::DataView   dataView)
+                [&](Neon::SetIdx   setIdx,
+                    Neon::DataView dataView)
                     -> UserComputeLambdaT {
-                    Loader             loader = this->newLoader(devE, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
+                    Loader             loader = this->newLoader(setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;
                 });
@@ -156,6 +156,7 @@ struct DeviceContainer : ContainerAPI
      * Most probably, this is going to be one of the grids: dGrid, eGrid
      */
     DataIteratorContainerT m_dataIteratorContainer;
+    Neon::Execution        mExecution;
 };
 
 }  // namespace Neon::set::internal

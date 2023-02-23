@@ -11,7 +11,7 @@ SpanTable<IndexSpace>::SpanTable(const Neon::Backend& bk)
         mSpanTable[Neon::DataViewUtil::toInt(dw)] =
             bk.devSet().template newDataSet<IndexSpace>();
     }
-    mSetSize = bk.devSet().getCardianlity();
+    mSetSize = bk.devSet().setCardinality();
 }
 
 template <typename IndexSpace>
@@ -51,7 +51,8 @@ auto SpanTable<IndexSpace>::forEachConfiguration(const Lambda& lambda)
 }
 
 template <typename IndexSpace>
-auto SpanTable<IndexSpace>::getSpan(Neon::DataView dw) const -> const IndexSpace&
+auto SpanTable<IndexSpace>::getSpan(Neon::DataView dw)
+    const -> const Neon::set::DataSet<IndexSpace>&
 {
     int const dwInt = Neon::DataViewUtil::toInt(dw);
     auto&     output = mSpanTable[dwInt];

@@ -2,16 +2,6 @@
 
 namespace Neon::domain::internal::exp::dGrid {
 
-dGrid::Data::Data(const Neon::Backend& backend)
-{
-    partitionDims = backend.devSet().newDataSet<index_3d>({0, 0, 0});
-    firstZIndex = backend.devSet().newDataSet<index_t>(0);
-    spanTable = Neon::domain::tool::SpanTable<dSpan>(backend);
-    elementsPerPartition = Neon::domain::tool::SpanTable<int>(backend);
-
-    halo = index_3d(0, 0, 0);
-    reduceEngine = Neon::sys::patterns::Engine::cuBlas;
-}
 
 
 template <Neon::domain::SparsityPattern ActiveCellLambda>
@@ -122,7 +112,7 @@ dGrid::dGrid(const Neon::Backend&         backend,
                     if (span.mDim.z <= 0 && setCardinality > 1) {
                         NeonException exp("dGrid");
                         exp << "The grid size is too small to support the data view model correctly \n";
-                        exp << span.mDim << " for setIdx " << setIdx << " and device " << getDevSet().devId(i);
+                        exp << span.mDim << " for setIdx " << setIdx << " and device " << getDevSet().devId(setIdx);
                         NEON_THROW(exp);
                     }
 
@@ -234,6 +224,7 @@ auto dGrid::newContainer(const std::string& name,
 {
     const Neon::index_3d& defaultBlockSize = getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory(name,
+                                                                     execution,
                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
                                                                      *this,
                                                                      lambda,
@@ -251,8 +242,8 @@ auto dGrid::newContainer(const std::string& name,
     const
     -> Neon::set::Container
 {
-    const Neon::index_3d& defaultBlockSize = getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory(name,
+                                                                     execution,
                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
                                                                      *this,
                                                                      lambda,

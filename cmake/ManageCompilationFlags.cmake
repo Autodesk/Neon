@@ -25,8 +25,8 @@ set(CMAKE_CUDA_FLAGS_INIT
 set(NeonCXXFlags
         $<$<CXX_COMPILER_ID:GNU>:$<$<CONFIG:Debug>:-O0 -g3>>
         $<$<CXX_COMPILER_ID:Clang>:$<$<CONFIG:Debug>:-O0 -g3>>
-        $<$<CXX_COMPILER_ID:GNU>:$<$<CONFIG:Release>:-O3>>
-        $<$<CXX_COMPILER_ID:Clang>:$<$<CONFIG:Release>:-O3>>
+        $<$<CXX_COMPILER_ID:GNU>:$<$<CONFIG:Release>:-O3 -Wno-deprecated-declarations>>
+        $<$<CXX_COMPILER_ID:Clang>:$<$<CONFIG:Release>:-O3 -Wno-deprecated-declarations>>
         #Add MSVC-specific compiler flags here
         # Ignore "Conditional expression is constant" warning until NVCC support c++17. Once that happens we can change the code to use if constexpr
         # Ignore "OpenMP Collapse warning until VS supports full OpenMP functionality

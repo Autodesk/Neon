@@ -21,11 +21,17 @@ class MultiXpuDataInterface
 
     MultiXpuDataInterface();
 
-    virtual auto updateIO(int streamId = 0)
-        -> void = 0;
+    virtual auto updateIO([[maybe_unused]] int streamId = 0)
+        -> void
+    {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
 
-    virtual auto updateCompute(int streamId = 0)
-        -> void = 0;
+    virtual auto updateCompute([[maybe_unused]]  int streamId = 0)
+        -> void
+    {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
 
     /**
      * Return a partition based on a set of parameters: execution type, target device, dataView
@@ -50,7 +56,6 @@ class MultiXpuDataInterface
     static auto swapUIDs(Self& A, Self& B) -> void;
 
    private:
-
     std::shared_ptr<int>     mUid;
     std::shared_ptr<Storage> mStorage;
 };
@@ -69,7 +74,7 @@ auto MultiXpuDataInterface<P, S>::getStorage() const -> const Storage&
 template <typename P, typename S>
 auto MultiXpuDataInterface<P, S>::getUid() const -> Neon::set::dataDependency::MultiXpuDataUid
 {
-    void*                           addr = static_cast<void*>(mUid.get());
+    void*                                      addr = static_cast<void*>(mUid.get());
     Neon::set::dataDependency::MultiXpuDataUid uidRes = (size_t)addr;
     return uidRes;
 }
@@ -84,7 +89,7 @@ MultiXpuDataInterface<P, S>::MultiXpuDataInterface()
 template <typename P, typename S>
 auto MultiXpuDataInterface<P, S>::swapUIDs(MultiXpuDataInterface::Self& A, MultiXpuDataInterface::Self& B) -> void
 {
-    std::swap(A.mUid,B.mUid);
+    std::swap(A.mUid, B.mUid);
 }
 
 }  // namespace Neon::set::interface

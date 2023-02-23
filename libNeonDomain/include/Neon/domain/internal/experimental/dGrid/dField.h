@@ -124,10 +124,11 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto helpHaloUpdate(SetIdx                     setIdx,
                         int                        streamIdx,
                         Neon::set::StencilSemantic semantic,
-                        std::vector<int> const&    cardinalities,
+                        int const&    cardIdx,
                         Neon::set::TransferMode    transferMode,
                         Neon::Execution            execution) const
         -> void;
+
 
     /** Convert a global 3d index into a Partition local offset */
     auto helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
