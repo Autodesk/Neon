@@ -45,14 +45,17 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     using Grid = dGrid;
     using Idx = dIndex;
 
-    template <typename T_ta, int cardinality_ta = 0>
-    using Field = dField<T_ta, cardinality_ta>;
+    template <typename T, int CardinalityTa = 0>
+    using Field = dField<T, CardinalityTa>;
 
-    template <typename T_ta, int cardinality_ta = 0>
-    using Partition = typename Field<T_ta, cardinality_ta>::Partition;
+    template <typename T, int CardinalityTa = 0>
+    using Partition = typename Field<T, CardinalityTa>::Partition;
 
     using Span = dSpan;
     using NghIdx = typename Partition<int>::NghIdx;
+
+    template <typename T, int CardinalityTa>
+    friend class dField;
 
    public:
     /**

@@ -11,8 +11,8 @@
 #include "Neon/core/core.h"
 #include "Neon/set/MemoryOptions.h"
 #include "Neon/set/Runtime.h"
-// #include "Neon/core/types/mode.h"
-// #include "Neon/core/types/devType.h"
+//#include "Neon/core/types/mode.h"
+//#include "Neon/core/types/devType.h"
 #include "Neon/set/DataSet.h"
 
 namespace Neon {
@@ -58,7 +58,7 @@ class Backend
     /**
      * Creating a Backend object with the first nGpus devices.
      */
-    Backend(int           nGpus /*!   Number of devices. The devices are selected in the order specifies by CUDA */,
+    Backend(int                    nGpus /*!   Number of devices. The devices are selected in the order specifies by CUDA */,
             Neon::Runtime runtime /*! Type of runtime to use */);
 
     /**
@@ -85,6 +85,9 @@ class Backend
      */
     Backend(const Neon::set::DevSet&    devSet,
             const Neon::set::StreamSet& streamSet);
+
+    template<typename T>
+    auto newDataSet()-> Neon::set::DataSet<T>;
 
     auto clone(Neon::Runtime runtime = Neon::Runtime::system) -> Backend;
 
@@ -140,34 +143,34 @@ class Backend
 
     auto eventSet(Neon::EventIdx eventdx)
         -> Neon::set::GpuEventSet&;
-    //    /**
-    //     * Extract a stream base in the provided streamIds.
-    //     * The method uses a circular policy to select the stream.
-    //     * The parameter rotateIdx is the index used to store the
-    //     * state of the circular polity in between calls.
-    //     *
-    //     * @param rotateIdx
-    //     * @param streamIdxVec
-    //     * @return
-    //     */
-    //    auto streamSetRotate(int&                    rotateIdx,
-    //                         const std::vector<int>& streamIdxVec)
-    //        const
-    //        -> const Neon::set::StreamSet&;
-    //
-    //    /**
-    //     * Extract a stream base in the provided streamIds.
-    //     * The method uses a circular policy to select the stream.
-    //     * The parameter rotateIdx is the index used to store the
-    //     * state of the circular polity in between calls.
-    //     *
-    //     * @param rotateIdx
-    //     * @param streamIdxVec
-    //     * @return
-    //     */
-    //    static auto streamSetIdxRotate(int&                    rotateIdx,
-    //                                   const std::vector<int>& streamIdxVec)
-    //        -> int;
+//    /**
+//     * Extract a stream base in the provided streamIds.
+//     * The method uses a circular policy to select the stream.
+//     * The parameter rotateIdx is the index used to store the
+//     * state of the circular polity in between calls.
+//     *
+//     * @param rotateIdx
+//     * @param streamIdxVec
+//     * @return
+//     */
+//    auto streamSetRotate(int&                    rotateIdx,
+//                         const std::vector<int>& streamIdxVec)
+//        const
+//        -> const Neon::set::StreamSet&;
+//
+//    /**
+//     * Extract a stream base in the provided streamIds.
+//     * The method uses a circular policy to select the stream.
+//     * The parameter rotateIdx is the index used to store the
+//     * state of the circular polity in between calls.
+//     *
+//     * @param rotateIdx
+//     * @param streamIdxVec
+//     * @return
+//     */
+//    static auto streamSetIdxRotate(int&                    rotateIdx,
+//                                   const std::vector<int>& streamIdxVec)
+//        -> int;
 
     /**
      *
@@ -214,14 +217,14 @@ class Backend
 
     auto waitEventOnStream(Neon::SetIdx setIdx, int eventId, int streamId)
         -> void;
-    //    /**
-    //     * Create a set of cuda events to create an exit barrier.
-    //     * I.e. one streams sync with all the others
-    //     * The stream holding the barrier is the first in the streamIdxVec vector.
-    //     *
-    //     * @param streamIdxVec
-    //     */
-    //    auto streamEventBarrier(const std::vector<int>& streamIdxVec) -> void;
+//    /**
+//     * Create a set of cuda events to create an exit barrier.
+//     * I.e. one streams sync with all the others
+//     * The stream holding the barrier is the first in the streamIdxVec vector.
+//     *
+//     * @param streamIdxVec
+//     */
+//    auto streamEventBarrier(const std::vector<int>& streamIdxVec) -> void;
 
     auto getMemoryOptions(Neon::MemoryLayout order) const
         -> Neon::MemoryOptions;

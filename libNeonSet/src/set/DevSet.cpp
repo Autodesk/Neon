@@ -78,7 +78,7 @@ auto DevSet::set(const Neon::DeviceType&                  devType,
     if (set.size() > 1 && m_devType == Neon::DeviceType::CUDA) {
         std::vector<std::vector<Neon::sys::ComputeID>> errors(m_devIds.size());
 
-        this->forEachSetIdx(
+        this->forEachSetIdxPar(
             [&](const Neon::SetIdx& setIdx) {
                 const Neon::sys::ComputeID gpuIdx = this->devId(setIdx.idx());
                 for (auto&& peerId : this->m_devIds) {
@@ -268,7 +268,7 @@ auto DevSet::newStreamSet()
     if (m_devType == Neon::DeviceType::CUDA) {
         StreamSet streamSet(this->setCardinality());
 
-        this->forEachSetIdx(
+        this->forEachSetIdxPar(
             [&](const Neon::SetIdx& setIdx) {
                 const Neon::sys::ComputeID  gpuId = this->devId(setIdx.idx());
                 const Neon::sys::GpuDevice& dev = Neon::sys::globalSpace::gpuSysObj().dev(gpuId);
@@ -301,7 +301,7 @@ auto DevSet::newEventSet(bool disableTiming)
 
         GpuEventSet eventSet(this->setCardinality());
 
-        this->forEachSetIdx([&](const Neon::SetIdx& setIdx) {
+        this->forEachSetIdxPar([&](const Neon::SetIdx& setIdx) {
             const Neon::sys::ComputeID  gpuId = this->devId(setIdx.idx());
             const Neon::sys::GpuDevice& dev = Neon::sys::globalSpace::gpuSysObj().dev(gpuId);
             eventSet.event<Neon::Access::readWrite>(setIdx.idx()) = dev.tools.event(disableTiming);

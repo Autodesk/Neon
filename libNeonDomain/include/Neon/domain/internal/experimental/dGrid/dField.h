@@ -124,7 +124,7 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto helpHaloUpdate(SetIdx                     setIdx,
                         int                        streamIdx,
                         Neon::set::StencilSemantic semantic,
-                        int const&    cardIdx,
+                        int const&                 cardIdx,
                         Neon::set::TransferMode    transferMode,
                         Neon::Execution            execution) const
         -> void;
@@ -142,10 +142,12 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
            int                                       zHaloDim,
            Neon::domain::haloStatus_et::e            haloStatus,
            int                                       cardinality,
-           const Neon::set::MemSet<Neon::int8_3d>&   stencilIdTo3dOffset);
+           Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset);
 
     struct Data
     {
+        Data() = default;
+
         struct ReductionInformation
         {
             std::vector<int> startIDByView /* one entry for each cardinality */;
@@ -166,9 +168,10 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         bool                           periodic_z;
 
         Neon::set::MemSet<NghIdx> stencilNghIndex;
+    };
 
-    } mData;
-    auto getData() -> Data&;
+    std::shared_ptr<Data> mData;
+    auto                  getData() -> Data&;
 };
 
 

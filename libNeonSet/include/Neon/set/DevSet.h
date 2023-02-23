@@ -16,7 +16,6 @@
 
 // #include "Neon/set/backend.h"
 #include "Neon/set/DataSet.h"
-#include "Neon/set/DevSet.h"
 #include "Neon/set/GpuEventSet.h"
 #include "Neon/set/GpuStreamSet.h"
 #include "Neon/set/KernelConfig.h"
@@ -159,7 +158,7 @@ class DevSet
         -> const std::vector<int>;
 
     template <typename ta_Lambda>
-    auto forEachSetIdx(const ta_Lambda& lambda) const
+    auto forEachSetIdxPar(const ta_Lambda& lambda) const
         -> void
     {
         const int setCard = setCardinality();

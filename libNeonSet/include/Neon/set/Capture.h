@@ -1,7 +1,6 @@
 #pragma once
 #include <functional>
 #include "Neon/core/types/DataView.h"
-#include "Neon/set/Backend.h"
 
 namespace Neon {
 namespace set {

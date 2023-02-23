@@ -41,11 +41,9 @@ template <class Lambda>
 auto SpanTable<IndexSpace>::forEachConfiguration(const Lambda& lambda)
     -> void
 {
-    for (Neon::Execution execution : Neon::ExecutionUtils::getAllOptions()) {
-        for (auto dw : Neon::DataViewUtil::validOptions()) {
-            for (auto setIdx = 0; setIdx < mSetSize; setIdx++) {
-                lambda(setIdx, dw, getSpan(setIdx, dw));
-            }
+    for (auto dw : Neon::DataViewUtil::validOptions()) {
+        for (auto setIdx = 0; setIdx < mSetSize; setIdx++) {
+            lambda(setIdx, dw, getSpan(setIdx, dw));
         }
     }
 }

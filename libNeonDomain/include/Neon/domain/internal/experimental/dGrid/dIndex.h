@@ -21,7 +21,7 @@ struct dIndex
 
     template <typename T,
               int Cardinality>
-    friend class dFieldDev;
+    friend class dField;
 
     // dGrid specific types
     using Offset = int32_t;

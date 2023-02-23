@@ -6,7 +6,7 @@ namespace Neon::domain::internal::exp::dGrid {
 template <typename T, int C>
 dField<T, C>::dField()
 {
-    mData = std::make_shared<Self::Data>();
+    mData = std::make_shared<Data>();
 }
 
 template <typename T, int C>
@@ -18,7 +18,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                      int                                       zHaloDim,
                      Neon::domain::haloStatus_et::e            haloStatus,
                      int                                       cardinality,
-                     const Neon::set::MemSet<Neon::int8_3d>&   stencilIdTo3dOffset)
+                     Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "dField",
@@ -39,7 +39,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
         }
     }
 
-    mData = std::make_shared<Self::Data>();
+    mData = std::make_shared<Data>();
     mData->dataUse = dataUse;
     mData->memoryOptions = memoryOptions;
     mData->cardinality = cardinality;
@@ -65,7 +65,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
     }
 
     {  // Computing Pitch
-        mData.pitch.forEachSeq(
+        mData->pitch.forEachSeq(
             [&](Neon::SetIdx setIdx, Neon::size_4d& pitch) {
                 switch (mData->memoryOptions.getOrder()) {
                     case MemoryLayout::structOfArrays: {
@@ -87,10 +87,10 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
     }
 
     {  // Setting up partitions
-        Neon::domain::aGrid& aGrid = mData.grid.getMemoryGrid();
-        mData.memoryField = aGrid.newField(fieldUserName + "-storage", cardinality, T(), dataUse, memoryOptions);
-        const int setCardinality = mData.grid.devSet.setCardinality();
-        mData.partitionTable.forEachConfiguration(
+        Neon::domain::aGrid const& aGrid = mData->grid->helpFieldMemoryAllocator();
+        mData->memoryField = aGrid.newField(fieldUserName + "-storage", cardinality, T(), dataUse, memoryOptions);
+        //const int setCardinality = mData->grid->getBackend().getDeviceCount();
+        mData->partitionTable.forEachConfiguration(
             [&](Neon::Execution           execution,
                 Neon::SetIdx              setIdx,
                 Neon::DataView            dw,
@@ -112,12 +112,11 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
     }
 
     {  // Setting Reduction information
-        const int setCardinality = mData.grid.devSet.setCardinality();
-        mData.partitionTable.forEachConfigurationWithUserData(
+        mData->partitionTable.forEachConfigurationWithUserData(
             [&](Neon::Execution                      execution,
                 Neon::SetIdx                         setIdx,
                 Neon::DataView                       dw,
-                typename Self::Partition&            partition,
+                typename Self::Partition&            ,
                 typename Data::ReductionInformation& reductionInfo) {
                 auto memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, dw);
 
@@ -254,14 +253,14 @@ template <typename T, int C>
 auto dField<T, C>::updateDeviceData(int streamSetId)
     -> void
 {
-    mData.memoryField.updateCompute(streamSetId);
+    mData->memoryField.updateCompute(streamSetId);
 }
 
 template <typename T, int C>
 auto dField<T, C>::updateHostData(int streamSetId)
     -> void
 {
-    mData.memoryField.updateIO(streamSetId);
+    mData->memoryField.updateIO(streamSetId);
 }
 
 template <typename T, int C>
@@ -274,7 +273,7 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        mData.partitionTable.getPartition(execution, setIdx, dataView);
+        mData->partitionTable.getPartition(execution, setIdx, dataView);
     }
     std::stringstream message;
     message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
@@ -290,7 +289,7 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     const auto dataUse = this->getDataUse();
     bool       isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        mData.partitionTable.getPartition(execution, setIdx, dataView);
+        mData->partitionTable.getPartition(execution, setIdx, dataView);
     }
     std::stringstream message;
     message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
@@ -303,9 +302,9 @@ auto dField<T, C>::operator()(const Neon::index_3d& idxGlobal,
     -> Type
 {
     auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
-    auto& partition = mData.partitionTable.getPartition(Neon::Execution::host,
-                                                        partitionIdx,
-                                                        Neon::DataView::STANDARD);
+    auto& partition = mData->partitionTable.getPartition(Neon::Execution::host,
+                                                         partitionIdx,
+                                                         Neon::DataView::STANDARD);
     Idx   idx(localIDx);
     auto& result = partition(idx, cardinality);
     return result;
@@ -317,9 +316,9 @@ auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
     -> Type&
 {
     auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
-    auto&  partition = mData.partitionTable.getPartition(Neon::Execution::host,
-                                                         partitionIdx,
-                                                         Neon::DataView::STANDARD);
+    auto&  partition = mData->partitionTable.getPartition(Neon::Execution::host,
+                                                          partitionIdx,
+                                                          Neon::DataView::STANDARD);
     dIndex index(localIDx);
     auto&  result = partition(index, cardinality);
     return result;
@@ -353,7 +352,7 @@ auto dField<T, C>::helpHaloUpdate(SetIdx                     setIdx,
 
                     T* src = [&]() {
                         auto  southDevice = setId;
-                        auto& partition = mData.partitionTable.getPartition(execution,
+                        auto& partition = mData->partitionTable.getPartition(execution,
                                                                             southDevice,
                                                                             Neon::DataView::STANDARD);
                         dIndex firstBoundaryNorthCell(0, 0, partition.dim.z - mData->zHaloDim);
@@ -363,12 +362,12 @@ auto dField<T, C>::helpHaloUpdate(SetIdx                     setIdx,
 
                     T* dst = [&]() {
                         auto  northDevice = setId + 1;
-                        auto& partition = mData.partitionTable.getPartition(execution,
+                        auto& partition = mData->partitionTable.getPartition(execution,
                                                                             northDevice,
                                                                             Neon::DataView::STANDARD);
                         dIndex firstBoundarySouthCell(0, 0, 0);
                         T*    result = partition.mem(firstBoundarySouthCell, 0);
-                        result = result - mData.zHaloDim * partition.getPitchData().z;
+                        result = result - mData->zHaloDim * partition.getPitchData().z;
                         return result;
                     }();
                 }
@@ -386,7 +385,7 @@ auto dField<T, C>::helpHaloUpdate(SetIdx                     setIdx,
                 const size_t transferBytes = sizeof(T) * mData->zHaloDim * mData->pitch[setId].z;
 
                 if (setId != setCardinality - 1) {  // Addressing all partitions that needs to send data north
-                    auto& partition = mData.partitionTable.getPartition(Neon::Execution::device,
+                    auto& partition = mData->partitionTable.getPartition(Neon::Execution::device,
                                                                         setId,
                                                                         Neon::DataView::STANDARD);
 
@@ -577,7 +576,7 @@ template <typename T, int C>
 auto dField<T, C>::getData()
     -> Data&
 {
-    return std::ref(mData);
+    return *(mData.get());
 }
 
 template <typename T, int C>
@@ -592,7 +591,7 @@ auto dField<T, C>::helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
         return {result, 0};
     }
 
-    Neon::set::DataSet<int> firstZindex = this->grid->helpGetFirstZindex();
+    Neon::set::DataSet<int> firstZindex = mData->grid->helpGetFirstZindex();
 
     for (int i = 0; i < setCardinality - 1; i++) {
         if (index.z < firstZindex[i + 1]) {

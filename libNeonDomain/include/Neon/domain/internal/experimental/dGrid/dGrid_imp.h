@@ -7,7 +7,7 @@ namespace Neon::domain::internal::exp::dGrid {
 template <Neon::domain::SparsityPattern ActiveCellLambda>
 dGrid::dGrid(const Neon::Backend&         backend,
              const Neon::int32_3d&        dimension,
-             const ActiveCellLambda&      activeCellLambda,
+             const ActiveCellLambda&      /*activeCellLambda*/,
              const Neon::domain::Stencil& stencil,
              const Vec_3d<double>&        spacing,
              const Vec_3d<double>&        origin)
@@ -204,15 +204,10 @@ auto dGrid::newField(const std::string&  fieldUserName,
                        mData->partitionDims,
                        mData->halo.z,
                        haloStatus,
-                       cardinality);
+                       cardinality,
+                       mData->stencilIdTo3dOffset);
 
     return field;
-}
-
-auto dGrid::helpFieldMemoryAllocator()
-    const -> const Neon::domain::aGrid&
-{
-    return mData->memoryGrid;
 }
 
 template <typename LoadingLambda>

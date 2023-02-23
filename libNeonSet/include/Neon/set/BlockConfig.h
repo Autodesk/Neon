@@ -1,8 +1,7 @@
 #pragma once
 
 #include <functional>
-
-#include "Neon/set/Backend.h"
+#include "Neon/core/core.h"
 
 namespace Neon {
 namespace set {

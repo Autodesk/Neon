@@ -23,7 +23,7 @@ PartitionTable<Partition, UserData>::PartitionTable(Neon::Backend& bk)
                          bk.devSet().template newDataSet<UserData>();
         }
     }
-    mSetSize = bk.devSet().getCardianlity();
+    mSetSize = bk.getDeviceCount();
 }
 
 template <typename Partition,
@@ -85,12 +85,14 @@ auto PartitionTable<Partition, UserData>::
 template <typename Partition,
           typename UserData>
 template <class Lambda>
-auto PartitionTable<Partition, UserData>::forEachConfiguration(Lambda& lambda)
+auto PartitionTable<Partition, UserData>::
+    forEachConfiguration(Lambda const& lambda)
+        -> void
 {
     for (auto execution : Neon::ExecutionUtils::getAllOptions()) {
         for (auto setIdx = 0; setIdx < mSetSize; setIdx++) {
             for (auto dw : Neon::DataViewUtil::validOptions()) {
-                lambda(execution, dw, setIdx, getPartition(execution, setIdx, dw));
+                lambda(execution, setIdx, dw, getPartition(execution, setIdx, dw));
             }
         }
     }
@@ -99,12 +101,14 @@ auto PartitionTable<Partition, UserData>::forEachConfiguration(Lambda& lambda)
 template <typename Partition,
           typename UserData>
 template <class Lambda>
-auto PartitionTable<Partition, UserData>::forEachConfigurationWithUserData(Lambda& lambda)
+auto PartitionTable<Partition, UserData>::
+    forEachConfigurationWithUserData(Lambda const& lambda)
+        -> void
 {
     for (auto execution : Neon::ExecutionUtils::getAllOptions()) {
         for (auto setIdx = 0; setIdx < mSetSize; setIdx++) {
             for (auto dw : Neon::DataViewUtil::validOptions()) {
-                lambda(execution, dw, setIdx,
+                lambda(execution, setIdx, dw,
                        getPartition(execution, setIdx, dw),
                        getUserData(execution, setIdx, dw));
             }

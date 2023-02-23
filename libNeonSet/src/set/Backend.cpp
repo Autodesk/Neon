@@ -572,4 +572,9 @@ auto Backend::toReport(Neon::Report& report, Report::SubBlock* subdocAPI) const 
         report.addSubdoc("Backend", *targetSubDoc);
     }
 }
+
+auto Backend::getDeviceCount() const -> int
+{
+    return m_data->devSet->setCardinality();
+}
 }  // namespace Neon

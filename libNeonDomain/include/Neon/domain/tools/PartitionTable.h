@@ -34,10 +34,12 @@ struct PartitionTable
         const -> const UserData&;
 
     template <class Lambda>
-    auto forEachConfiguration(Lambda& lambda);
+    auto forEachConfiguration(Lambda const& lambda)
+        -> void;
 
     template <class Lambda>
-    auto forEachConfigurationWithUserData(Lambda& lambda);
+    auto forEachConfigurationWithUserData(Lambda const& lambda)
+        -> void;
 
    private:
     using PartitionsByDevice = Neon::set::DataSet<Partition>;
@@ -45,8 +47,8 @@ struct PartitionTable
     using PartitionByDeviceByDataViewByExecution = std::array<PartitionByDeviceByDataView, Neon::ExecutionUtils::numConfigurations>;
 
     using UserDataByDevice = Neon::set::DataSet<UserData>;
-    using UserDataByDeviceByDataView = std::array<PartitionsByDevice, Neon::DataViewUtil::nConfig>;
-    using UserDataByDeviceByDataViewByExecution = std::array<PartitionByDeviceByDataView, Neon::ExecutionUtils::numConfigurations>;
+    using UserDataByDeviceByDataView = std::array<UserDataByDevice, Neon::DataViewUtil::nConfig>;
+    using UserDataByDeviceByDataViewByExecution = std::array<UserDataByDeviceByDataView, Neon::ExecutionUtils::numConfigurations>;
 
     PartitionByDeviceByDataViewByExecution mPartitions;
     UserDataByDeviceByDataViewByExecution  mUserData;
@@ -55,3 +57,5 @@ struct PartitionTable
 };
 
 }  // namespace Neon::domain::tool
+
+#include "Neon/domain/tools/PartitionTable_imp.h"

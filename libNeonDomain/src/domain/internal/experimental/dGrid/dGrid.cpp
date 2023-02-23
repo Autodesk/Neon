@@ -18,6 +18,12 @@ dGrid::Data::Data(const Neon::Backend& backend)
     reduceEngine = Neon::sys::patterns::Engine::cuBlas;
 }
 
+auto dGrid::helpFieldMemoryAllocator()
+    const -> const Neon::domain::aGrid&
+{
+    return mData->memoryGrid;
+}
+
 auto dGrid::getSpan(SetIdx         setIdx,
                     Neon::DataView dataView)
     const -> const Span&
