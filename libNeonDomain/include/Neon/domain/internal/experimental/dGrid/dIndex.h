@@ -4,15 +4,19 @@
 
 namespace Neon::domain::internal::exp::dGrid {
 
+class dGrid;
+class dSpan;
+template <typename T, int C>
+class dPartition;
+
 struct dIndex
 {
     using OuterCell = dIndex;
 
-    template <typename T,
-              int Cardinality>
-    friend struct dPartition;
-    friend class dSpan;
-    friend class dGrid;
+    template <typename T, int C>
+    friend class dPartition;
+    friend dSpan;
+    friend dGrid;
 
     template <typename T,
               int Cardinality>
@@ -27,10 +31,9 @@ struct dIndex
     Location mLocation = 0;
 
    private:
-
-    NEON_CUDA_HOST_DEVICE inline explicit dIndex(const Location::Integer &x,
-                                                const Location::Integer &y,
-                                                const Location::Integer &z);
+    NEON_CUDA_HOST_DEVICE inline explicit dIndex(const Location::Integer& x,
+                                                 const Location::Integer& y,
+                                                 const Location::Integer& z);
 
     NEON_CUDA_HOST_DEVICE inline explicit dIndex(const Location& location);
 
@@ -41,6 +44,6 @@ struct dIndex
 
 // using dCell = dCell<void>;
 
-}  // namespace Neon::domain::dense
+}  // namespace Neon::domain::internal::exp::dGrid
 
 #include "Neon/domain/internal/experimental/dGrid/dIndex_imp.h"

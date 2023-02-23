@@ -18,7 +18,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                      int                                       zHaloDim,
                      Neon::domain::haloStatus_et::e            haloStatus,
                      int                                       cardinality,
-                     const Neon::set::MemSet<Neon::int8_3d>& stencilIdTo3dOffset)
+                     const Neon::set::MemSet<Neon::int8_3d>&   stencilIdTo3dOffset)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "dField",
@@ -164,9 +164,9 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                                 case MemoryLayout::structOfArrays: {
                                     for (int c = 0; c < mData->cardinality; ++c) {
 
-                                        auto const boundayRadius = mData->zHaloDim;
+                                        auto const boundaryRadius = mData->zHaloDim;
                                         int const  startPoint = c * dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + 2 * haloRadius) +
-                                                               dims[setIdx].x * dims[setIdx].y * (haloRadius + boundayRadius);
+                                                               dims[setIdx].x * dims[setIdx].y * (haloRadius + boundaryRadius);
 
                                         int const nElements = dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z - 2 * haloRadius);
 
@@ -176,8 +176,8 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                                     break;
                                 }
                                 case MemoryLayout::arrayOfStructs: {
-                                    auto const boundayRadius = mData->zHaloDim;
-                                    int const  startPoint = dims[setIdx].x * dims[setIdx].y * (haloRadius + boundayRadius) * mData->cardinality;
+                                    auto const boundaryRadius = mData->zHaloDim;
+                                    int const  startPoint = dims[setIdx].x * dims[setIdx].y * (haloRadius + boundaryRadius) * mData->cardinality;
                                     int const  nElements = dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z - 2 * haloRadius) * mData->cardinality;
 
                                     reductionInfo.startIDByView.push_back(startPoint);
@@ -193,22 +193,22 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                         if (grid.getBackend().devSet().setCardinality() > 1) {
                             switch (mData->memoryOptions.getOrder()) {
                                 case MemoryLayout::structOfArrays: {
-                                    for (int c = 0; c < m_data->cardinality; ++c) {
+                                    for (int c = 0; c < mData->cardinality; ++c) {
                                         {  // up
-                                            auto const boundayRadius = mData->zHaloDim;
+                                            auto const boundaryRadius = mData->zHaloDim;
                                             int const  startPoint = c * dims[setIdx].x * dims[i].y * (dims[setIdx].z + 2 * haloRadius) +
                                                                    dims[setIdx].x * dims[setIdx].y * haloRadius;
-                                            int const nElements = dims[setIdx].x * dims[setIdx].y * boundayRadius;
+                                            int const nElements = dims[setIdx].x * dims[setIdx].y * boundaryRadius;
 
                                             reductionInfo.startIDByView.push_back(startPoint);
                                             reductionInfo.nElementsByView.push_back(nElements);
                                         }
 
                                         {  // down
-                                            auto const boundayRadius = mData->zHaloDim;
+                                            auto const boundaryRadius = mData->zHaloDim;
                                             int const  startPoint = c * dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + 2 * haloRadius) +
-                                                                   dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + haloRadius - boundayRadius);
-                                            int const nElements = dims[setIdx].x * dims[setIdx].y * boundayRadius;
+                                                                   dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + haloRadius - boundaryRadius);
+                                            int const nElements = dims[setIdx].x * dims[setIdx].y * boundaryRadius;
 
                                             reductionInfo.startIDByView.push_back(startPoint);
                                             reductionInfo.nElementsByView.push_back(nElements);
@@ -218,18 +218,17 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                                 }
                                 case MemoryLayout::arrayOfStructs: {
                                     {  // up
-                                        auto const boundayRadius = mData->zHaloDim;
+                                        auto const boundaryRadius = mData->zHaloDim;
                                         int const  startPoint = dims[setIdx].x * dims[setIdx].y * haloRadius * mData->cardinality;
-                                        ;
-                                        int const nElements = dims[setIdx].x * dims[setIdx].y * boundayRadius * mData->cardinality;
+                                        int const  nElements = dims[setIdx].x * dims[setIdx].y * boundaryRadius * mData->cardinality;
 
                                         reductionInfo.startIDByView.push_back(startPoint);
                                         reductionInfo.nElementsByView.push_back(nElements);
                                     }
                                     {  // down
-                                        auto const boundayRadius = mData->zHaloDim;
-                                        int const  startPoint = dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + haloRadius - boundayRadius) * mData->cardinality;
-                                        int const  nElements = dims[setIdx].x * dims[setIdx].y * boundayRadius * mData->cardinality;
+                                        auto const boundaryRadius = mData->zHaloDim;
+                                        int const  startPoint = dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + haloRadius - boundaryRadius) * mData->cardinality;
+                                        int const  nElements = dims[setIdx].x * dims[setIdx].y * boundaryRadius * mData->cardinality;
 
                                         reductionInfo.startIDByView.push_back(startPoint);
                                         reductionInfo.nElementsByView.push_back(nElements);
@@ -252,43 +251,24 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
 
 
 template <typename T, int C>
-auto dField<T, C>::updateCompute(int streamSetId)
+auto dField<T, C>::updateDeviceData(int streamSetId)
     -> void
 {
     mData.memoryField.updateCompute(streamSetId);
 }
 
 template <typename T, int C>
-auto dField<T, C>::updateIO(int streamSetId)
+auto dField<T, C>::updateHostData(int streamSetId)
     -> void
 {
     mData.memoryField.updateIO(streamSetId);
 }
 
 template <typename T, int C>
-auto dField<T, C>::getLaunchInfo(const Neon::DataView dataView) const
+auto dField<T, C>::helpGetLaunchInfo(const Neon::DataView dataView) const
     -> Neon::set::LaunchParameters
 {
     return m_gpu.getLaunchInfo(dataView);
-}
-
-
-template <typename T, int C>
-auto dField<T, C>::getPartition(const Neon::DeviceType& devType,
-                                const Neon::SetIdx&     idx,
-                                const Neon::DataView&   dataView) const
-    -> const Partition&
-{
-    return mData.partitionTable.getPartition(Neon::Execution::device);
-}
-
-template <typename T, int C>
-auto dField<T, C>::getPartition(const Neon::DeviceType& devType,
-                                const Neon::SetIdx&     idx,
-                                const Neon::DataView&   dataView)
-    -> Partition&
-{
-    return mData.partitionTable.getPartition(Neon::Execution::device);
 }
 
 template <typename T, int C>
@@ -325,30 +305,30 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
 }
 
 template <typename T, int C>
-auto dField<T, C>::operator()(const Neon::index_3d& idx,
+auto dField<T, C>::operator()(const Neon::index_3d& idxGlobal,
                               const int&            cardinality) const
     -> Type
 {
-    auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idx);
+    auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
     auto& partition = mData.partitionTable.getPartition(Neon::Execution::host,
                                                         partitionIdx,
                                                         Neon::DataView::STANDARD);
-    dCell cell(localIDx);
-    auto& result = partition(localIDx, cardinality);
+    Idx   idx(localIDx);
+    auto& result = partition(idx, cardinality);
     return result;
 }
 
 template <typename T, int C>
-auto dField<T, C>::getReference(const Neon::index_3d& idx,
+auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
                                 const int&            cardinality)
     -> Type&
 {
-    auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idx);
-    auto& partition = mData.partitionTable.getPartition(Neon::Execution::host,
-                                                        partitionIdx,
-                                                        Neon::DataView::STANDARD);
-    dCell cell(localIDx);
-    auto& result = partition(localIDx, cardinality);
+    auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
+    auto&  partition = mData.partitionTable.getPartition(Neon::Execution::host,
+                                                         partitionIdx,
+                                                         Neon::DataView::STANDARD);
+    dIndex index(localIDx);
+    auto&  result = partition(index, cardinality);
     return result;
 }
 
@@ -408,8 +388,6 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
                         result = result - mData.zHaloDim * partition.getPitchData().z;
                         return result;
                     }();
-
-
                 }
             }
             break;
@@ -437,14 +415,14 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
                     dCell dst_idx(0, 0, 0);
                     T*    dst = field_compute[setId + 1].mem() + +field_compute[setId + 1].elPitch(dst_idx);
 
-                    if (m_data->devType == Neon::DeviceType::CPU) {
+                    if (mData->devType == Neon::DeviceType::CPU) {
                         std::memcpy(dst, src, transferBytes);
-                    } else if (m_data->devType == Neon::DeviceType::CUDA) {
+                    } else if (mData->devType == Neon::DeviceType::CUDA) {
                         bk.devSet().template peerTransfer<transferMode_ta>(
                             streamSet,
-                            m_data->grid->getDevSet().devId(setId + 1).idx(),  // dst
+                            mData->grid->getDevSet().devId(setId + 1).idx(),  // dst
                             (char*)(dst),
-                            m_data->grid->getDevSet().devId(setId).idx(),  // src
+                            mData->grid->getDevSet().devId(setId).idx(),  // src
                             (char*)(src),
                             transferBytes);
                     } else {
@@ -454,20 +432,20 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
 
                 // send to the previous partition (-z)
                 if (setId != 0) {
-                    dCell src_idx(0, 0, m_data->zHaloDim);
+                    dCell src_idx(0, 0, mData->zHaloDim);
                     T*    src = field_compute[setId].mem() + field_compute[setId].elPitch(src_idx);
 
-                    dCell dst_idx(0, 0, field_compute[setId - 1].dim().z + m_data->zHaloDim);
+                    dCell dst_idx(0, 0, field_compute[setId - 1].dim().z + mData->zHaloDim);
                     T*    dst = field_compute[setId - 1].mem() + +field_compute[setId - 1].elPitch(dst_idx);
 
-                    if (m_data->devType == Neon::DeviceType::CPU) {
+                    if (mData->devType == Neon::DeviceType::CPU) {
                         std::memcpy(dst, src, transferBytes);
-                    } else if (m_data->devType == Neon::DeviceType::CUDA) {
+                    } else if (mData->devType == Neon::DeviceType::CUDA) {
                         bk.devSet().template peerTransfer<transferMode_ta>(
                             streamSet,
-                            m_data->grid->getDevSet().devId(setId - 1).idx(),  // dst
+                            mData->grid->getDevSet().devId(setId - 1).idx(),  // dst
                             (char*)(dst),
-                            m_data->grid->getDevSet().devId(setId).idx(),  // src
+                            mData->grid->getDevSet().devId(setId).idx(),  // src
                             (char*)(src),
                             transferBytes);
                     } else {
@@ -479,31 +457,31 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
             case Neon::memLayout_et::order_e::structOfArrays: {
 
                 int card = 0;
-                for (card = 0; card < m_data->cardinality; card++) {
+                for (card = 0; card < mData->cardinality; card++) {
 
-                    size_t transferBytes = sizeof(T) * m_data->zHaloDim * m_data->pitch[setId].z;
+                    size_t transferBytes = sizeof(T) * mData->zHaloDim * mData->pitch[setId].z;
 
                     if (cardIdx != -1) {
                         card = cardIdx;
-                        transferBytes /= m_data->cardinality;
+                        transferBytes /= mData->cardinality;
                     }
 
                     // send to the next partition (+z)
                     if (setId != ndevs - 1) {
-                        dCell src_idx(0, 0, field_compute[setId].dim().z /*+m_data->zHaloDim - m_data->zHaloDim*/);
+                        dCell src_idx(0, 0, field_compute[setId].dim().z /*+mData->zHaloDim - mData->zHaloDim*/);
                         T*    src = field_compute[setId].mem() + field_compute[setId].elPitch(src_idx, card);
 
                         dCell dst_idx(0, 0, 0);
                         T*    dst = field_compute[setId + 1].mem() + +field_compute[setId + 1].elPitch(dst_idx, card);
 
-                        if (m_data->devType == Neon::DeviceType::CPU) {
+                        if (mData->devType == Neon::DeviceType::CPU) {
                             std::memcpy(dst, src, transferBytes);
-                        } else if (m_data->devType == Neon::DeviceType::CUDA) {
+                        } else if (mData->devType == Neon::DeviceType::CUDA) {
                             bk.devSet().template peerTransfer<transferMode_ta>(
                                 streamSet,
-                                m_data->grid->getDevSet().devId(setId + 1).idx(),  // dst
+                                mData->grid->getDevSet().devId(setId + 1).idx(),  // dst
                                 (char*)(dst),
-                                m_data->grid->getDevSet().devId(setId).idx(),  // src
+                                mData->grid->getDevSet().devId(setId).idx(),  // src
                                 (char*)(src),
                                 transferBytes);
                         } else {
@@ -513,20 +491,20 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
 
                     // send to the previous partition (-z)
                     if (setId != 0) {
-                        dCell src_idx(0, 0, m_data->zHaloDim);
+                        dCell src_idx(0, 0, mData->zHaloDim);
                         T*    src = field_compute[setId].mem() + field_compute[setId].elPitch(src_idx, card);
 
-                        dCell dst_idx(0, 0, field_compute[setId - 1].dim().z + m_data->zHaloDim);
+                        dCell dst_idx(0, 0, field_compute[setId - 1].dim().z + mData->zHaloDim);
                         T*    dst = field_compute[setId - 1].mem() + +field_compute[setId - 1].elPitch(dst_idx, card);
 
-                        if (m_data->devType == Neon::DeviceType::CPU) {
+                        if (mData->devType == Neon::DeviceType::CPU) {
                             std::memcpy(dst, src, transferBytes);
-                        } else if (m_data->devType == Neon::DeviceType::CUDA) {
+                        } else if (mData->devType == Neon::DeviceType::CUDA) {
                             bk.devSet().template peerTransfer<transferMode_ta>(
                                 streamSet,
-                                m_data->grid->getDevSet().devId(setId - 1).idx(),  // dst
+                                mData->grid->getDevSet().devId(setId - 1).idx(),  // dst
                                 (char*)(dst),
-                                m_data->grid->getDevSet().devId(setId).idx(),  // src
+                                mData->grid->getDevSet().devId(setId).idx(),  // src
                                 (char*)(src),
                                 transferBytes);
                         } else {
@@ -544,72 +522,6 @@ auto dField<T, C>::haloUpdate(Neon::Execution         execution,
     }
 }
 
-template <typename T, int C>
-auto dField<T, C>::haloUpdate(Neon::set::HuOptions& opt) const
-    -> void
-{
-    NEON_TRACE("haloUpdate stream {} transferMode {} ", opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
-    auto& bk = self().getBackend();
-    auto  fieldDev = field(bk.devType());
-    switch (opt.transferMode()) {
-        case Neon::set::TransferMode::put:
-            fieldDev.template haloUpdate<Neon::set::TransferMode::put>(bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
-            break;
-        case Neon::set::TransferMode::get:
-            fieldDev.template haloUpdate<Neon::set::TransferMode::get>(bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
-            break;
-        default:
-            NEON_THROW_UNSUPPORTED_OPTION();
-            break;
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
-                              Neon::set::HuOptions& opt) const
-    -> void
-{
-
-
-    auto& bk = self().getBackend();
-    auto  fieldDev = field(bk.devType());
-    switch (opt.transferMode()) {
-        case Neon::set::TransferMode::put:
-            NEON_TRACE("TRACE haloUpdate PUT setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
-
-            fieldDev.template haloUpdate<Neon::set::TransferMode::put>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
-            break;
-        case Neon::set::TransferMode::get:
-            NEON_TRACE("TRACE haloUpdate GET setIdx {} stream {} transferMode {} ", setIdx.idx(), opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
-
-            fieldDev.template haloUpdate<Neon::set::TransferMode::get>(setIdx, bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
-            break;
-        default:
-            NEON_THROW_UNSUPPORTED_OPTION();
-            break;
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::haloUpdate(Neon::set::HuOptions& opt)
-    -> void
-{
-    NEON_TRACE("haloUpdate stream {} transferMode {} ", opt.streamSetIdx(), Neon::set::TransferModeUtils::toString(opt.transferMode()));
-
-    auto& bk = self().getBackend();
-    auto  fieldDev = field(bk.devType());
-    switch (opt.transferMode()) {
-        case Neon::set::TransferMode::put:
-            fieldDev.template haloUpdate<Neon::set::TransferMode::put>(bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
-            break;
-        case Neon::set::TransferMode::get:
-            fieldDev.template haloUpdate<Neon::set::TransferMode::get>(bk, -1, opt.startWithBarrier(), opt.streamSetIdx());
-            break;
-        default:
-            NEON_THROW_UNSUPPORTED_OPTION();
-            break;
-    }
-}
 
 template <typename T, int C>
 auto dField<T, C>::haloUpdate(Neon::SetIdx          setIdx,
@@ -687,60 +599,6 @@ auto dField<T, C>::
 }
 
 template <typename T, int C>
-auto dField<T, C>::dot(Neon::set::patterns::BlasSet<T>& blasSet,
-                       const dField<T>&                 input,
-                       Neon::set::MemDevSet<T>&         output,
-                       const Neon::DataView&            dataView) -> T
-{
-    if (self().getBackend().devType() == Neon::DeviceType::CUDA) {
-        T val = m_gpu.dot(blasSet, input.field(Neon::DeviceType::CUDA), output, dataView);
-        return val;
-    } else {
-        T val = m_cpu.dot(blasSet, input.field(Neon::DeviceType::CPU), output, dataView);
-        return val;
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::dotCUB(Neon::set::patterns::BlasSet<T>& blasSet,
-                          const dField<T>&                 input,
-                          Neon::set::MemDevSet<T>&         output,
-                          const Neon::DataView&            dataView) -> void
-{
-    if (self().getBackend().devType() != Neon::DeviceType::CUDA) {
-        NeonException exc("dField_t");
-        exc << "dotCUB only works for CUDA backend";
-        NEON_THROW(exc);
-    }
-    m_gpu.dotCUB(blasSet, input.field(Neon::DeviceType::CUDA), output, dataView);
-}
-
-template <typename T, int C>
-auto dField<T, C>::norm2(Neon::set::patterns::BlasSet<T>& blasSet,
-                         Neon::set::MemDevSet<T>&         output,
-                         const Neon::DataView&            dataView) -> T
-{
-    if (self().getBackend().devType() == Neon::DeviceType::CUDA) {
-        return m_gpu.norm2(blasSet, output, dataView);
-    } else {
-        return m_cpu.norm2(blasSet, output, dataView);
-    }
-}
-
-template <typename T, int C>
-auto dField<T, C>::norm2CUB(Neon::set::patterns::BlasSet<T>& blasSet,
-                            Neon::set::MemDevSet<T>&         output,
-                            const Neon::DataView&            dataView) -> void
-{
-    if (self().getBackend().devType() != Neon::DeviceType::CUDA) {
-        NeonException exc("dField_t");
-        exc << "norm2CUB only works for CUDA backend";
-        NEON_THROW(exc);
-    }
-    m_gpu.norm2CUB(blasSet, output, dataView);
-}
-
-template <typename T, int C>
 auto dField<T, C>::self() -> dField::Self&
 {
     return *this;
@@ -759,7 +617,8 @@ auto dField<T, C>::swap(dField::Field& A, dField::Field& B) -> void
 }
 
 template <typename T, int C>
-auto dField<T, C>::getData() -> typename Self::Data&
+auto dField<T, C>::getData()
+    -> Data&
 {
     return std::ref(mData);
 }
