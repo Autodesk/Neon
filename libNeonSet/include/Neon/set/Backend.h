@@ -86,6 +86,21 @@ class Backend
     Backend(const Neon::set::DevSet&    devSet,
             const Neon::set::StreamSet& streamSet);
 
+    template <typename T>
+    auto newDataSet()
+        const -> Neon::set::DataSet<T>;
+
+    template <typename T>
+    auto newDataSet(T const& val)
+        const -> Neon::set::DataSet<T>;
+
+    template <typename T, typename Lambda>
+    auto newDataSet(Lambda lambda)
+        const -> Neon::set::DataSet<T>;
+
+    auto getDeviceCount()
+        const -> int;
+
     auto clone(Neon::Runtime runtime = Neon::Runtime::system) -> Backend;
 
     auto h_initFirstEvent() -> void;
@@ -247,3 +262,5 @@ class Backend
 };
 
 }  // namespace Neon
+
+#include "Neon/set/Backend_imp.h"
