@@ -84,7 +84,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     /**
      * Returns a LaunchParameters configured for the specified inputs
      */
-    auto helpGetLaunchParameters(Neon::DataView        dataView,
+    auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
                              const size_t&         shareMem) const
         -> Neon::set::LaunchParameters;

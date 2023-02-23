@@ -34,7 +34,7 @@ auto dGrid::setReduceEngine(Neon::sys::patterns::Engine eng)
     mData->reduceEngine = eng;
 }
 
-auto dGrid::helpGetLaunchParameters(Neon::DataView  dataView,
+auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
                                 const Neon::index_3d& blockSize,
                                 const size_t&         shareMem) const -> Neon::set::LaunchParameters
 {

@@ -106,7 +106,7 @@ auto VoxelGrid<BuildingBlockGridT>::
                         const size_t&   shareMem)
         const -> Neon::set::LaunchParameters
 {
-    return mStorage->buildingBlockGrid.helpGetLaunchParameters(dataView, blockSize, shareMem);
+    return mStorage->buildingBlockGrid.getLaunchParameters(dataView, blockSize, shareMem);
 }
 
 template <typename BuildingBlockGridT>

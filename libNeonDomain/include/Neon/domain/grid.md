@@ -303,7 +303,7 @@ class xGrid : public Neon::domain::interface::GridBase
     /**
      * Returns a LaunchParameters configured for the specified inputs
      */
-    auto helpGetLaunchParameters(Neon::DataView        dataView,
+    auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize = Neon::index_3d(256, 1, 1),
                              size_t                shareMem = 0) const
         -> Neon::set::LaunchParameters;

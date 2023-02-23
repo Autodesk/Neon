@@ -41,7 +41,7 @@ struct DeviceContainer : ContainerAPI
         for (auto dw : {DataView::STANDARD,
                         DataView::BOUNDARY,
                         DataView::INTERNAL}) {
-            this->setLaunchParameters(dw) = dataIteratorContainer.helpGetLaunchParameters(dw, blockSize, sharedMem);
+            this->setLaunchParameters(dw) = dataIteratorContainer.getLaunchParameters(dw, blockSize, sharedMem);
         }
     }
 
