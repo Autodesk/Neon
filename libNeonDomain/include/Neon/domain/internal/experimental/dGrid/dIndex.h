@@ -4,6 +4,7 @@
 
 namespace Neon::domain::internal::exp::dGrid {
 
+// Common forward declarations
 class dGrid;
 class dSpan;
 template <typename T, int C>
@@ -41,8 +42,6 @@ struct dIndex
 
     NEON_CUDA_HOST_DEVICE inline auto get() const -> const Location&;
 };
-
-// using dCell = dCell<void>;
 
 }  // namespace Neon::domain::internal::exp::dGrid
 

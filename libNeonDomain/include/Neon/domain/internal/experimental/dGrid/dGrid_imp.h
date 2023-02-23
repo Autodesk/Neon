@@ -86,11 +86,52 @@ dGrid::dGrid(const Neon::Backend&         backend,
 
     {  // Initialization of the span table
         const int setCardinality = getDevSet().setCardinality();
-        mData->spanTable.forEachConfiguration([&](Neon::SetIdx setIdx, Neon::DataView dw, dSpan& span) {
-            span.m_dataView = dw;
-            span.m_zHaloRadius = setCardinality == 1 ? 0 : mData->halo.z;
-            span.m_zBoundaryRadius = mData->halo.z;
-            span.m_dim = mData->partitionDims[setIdx.idx()];
+        mData->spanTable.forEachConfiguration([&](Neon::SetIdx   setIdx,
+                                                  Neon::DataView dw,
+                                                  dSpan&         span) {
+            span.mDataView = dw;
+            span.mZHaloRadius = setCardinality == 1 ? 0 : mData->halo.z;
+            span.mZBoundaryRadius = mData->halo.z;
+
+            switch (dw) {
+                case Neon::DataView::STANDARD: {
+                    // Only works z partitions.
+                    assert(mData->halo.x == 0 && mData->halo.y == 0);
+
+                    span.mDim = mData->partitionDims[setIdx];
+                    break;
+                }
+                case Neon::DataView::BOUNDARY: {
+                    auto dims = getDevSet().newDataSet<index_3d>();
+                    // Only works z partitions.
+                    assert(mData->halo.x == 0 && mData->halo.y == 0);
+
+                    span.mDim = mData->partitionDims[setIdx];
+                    span.mDim.z = span.mZBoundaryRadius * 2;
+
+                    break;
+                }
+                case Neon::DataView::INTERNAL: {
+                    auto dims = getDevSet().newDataSet<index_3d>();
+                    // Only works z partitions.
+                    assert(mData->halo.x == 0 && mData->halo.y == 0);
+
+                    span.mDim = mData->partitionDims[setIdx];
+                    span.mDim.z = span.mDim.z - span.mZBoundaryRadius * 2;
+                    if (span.mDim.z <= 0 && setCardinality > 1) {
+                        NeonException exp("dGrid");
+                        exp << "The grid size is too small to support the data view model correctly \n";
+                        exp << span.mDim << " for setIdx " << setIdx << " and device " << getDevSet().devId(i);
+                        NEON_THROW(exp);
+                    }
+
+                    break;
+                }
+                default: {
+                    NeonException exc("dFieldDev");
+                    NEON_THROW(exc);
+                }
+            }
         });
     }
 
@@ -178,7 +219,7 @@ auto dGrid::getMemoryGrid()
 }
 
 template <typename LoadingLambda>
-auto dGrid::getContainer(const std::string& name,
+auto dGrid::newContainer(const std::string& name,
                          LoadingLambda      lambda)
     const
     -> Neon::set::Container

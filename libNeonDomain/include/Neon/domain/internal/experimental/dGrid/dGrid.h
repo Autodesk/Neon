@@ -78,9 +78,8 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
                              const size_t&         shareMem) const
         -> Neon::set::LaunchParameters;
 
-    auto getSpan(Neon::DeviceType devE,
-                 SetIdx           setIdx,
-                 Neon::DataView   dataView)
+    auto getSpan(SetIdx         setIdx,
+                 Neon::DataView dataView)
         const -> const Span&;
 
     /**
@@ -134,18 +133,11 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
 
     auto convertToNghIdx(const Neon::index_3d stencilOffsets) -> NghIdx;
 
-    auto getKernelConfig(int            streamIdx,
-                         Neon::DataView dataView)
-        -> Neon::set::KernelConfig;
-
     auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool final;
 
     auto getProperties(const Neon::index_3d& idx) const
         -> GridBaseTemplate::CellProperties final;
-
-    auto getStencil() const
-        -> const Neon::domain::Stencil&;
 
    private:
     auto helpGetPartitionDim()
@@ -153,15 +145,6 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
 
     auto helpGetPartitionSize(Neon::DataView dataView = Neon::DataView::STANDARD)
         const -> const Neon::set::DataSet<size_t>;
-
-    auto getLaunchInfo(const Neon::DataView dataView)
-        const -> Neon::set::LaunchParameters;
-
-    auto newGpuLaunchParameters()
-        const -> Neon::set::LaunchParameters;
-
-    auto setKernelConfig(Neon::domain::KernelConfig& gridKernelConfig)
-        const -> void;
 
     auto helpGetMemoryGrid()
         const -> const Neon::domain::aGrid&;
@@ -183,7 +166,6 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
         Neon::domain::tool::SpanTable<dSpan> spanTable;
 
         Neon::index_3d                        halo;
-        std::vector<Neon::set::DataSet<Span>> partitionIndexSpaceVec;
         Neon::sys::patterns::Engine           reduceEngine;
         Neon::domain::aGrid                   memoryGrid;
 

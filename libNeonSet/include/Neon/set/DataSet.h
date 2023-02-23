@@ -220,9 +220,19 @@ struct DataSet
     }
 
     template <typename Lambda>
-    auto forEachSeq(Lambda const& fun)
+    auto forEach(Lambda const& fun)
     {
         for (SetIdx id = 0; id < self().cardinality(); id++) {
+            fun(id, self()[id]);
+        }
+    }
+
+    template <typename Lambda>
+    auto forEachPar(Lambda const& fun)
+    {
+        int cardCount = self().cardinality();
+#pragma omp parallel for num_threads(cardCount)
+        for (int id = 0; id < self().cardinality(); id++) {
             fun(id, self()[id]);
         }
     }

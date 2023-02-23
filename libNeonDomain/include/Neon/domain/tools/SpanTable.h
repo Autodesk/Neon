@@ -13,12 +13,12 @@ struct SpanTable
 
     explicit SpanTable(const Neon::Backend& bk);
 
-    auto getIndexSpace(Neon::SetIdx   setIdx,
-                       Neon::DataView dw)
+    auto getSpan(Neon::SetIdx   setIdx,
+                 Neon::DataView dw)
         -> IndexSpace&;
 
-    auto getIndexSpace(Neon::SetIdx   setIdx,
-                       Neon::DataView dw)
+    auto getSpan(Neon::SetIdx   setIdx,
+                 Neon::DataView dw)
         const -> const IndexSpace&;
 
     template <class Lambda>
@@ -28,8 +28,8 @@ struct SpanTable
     using SpanByDevice = Neon::set::DataSet<IndexSpace>;
     using SpanByDeviceByDataView = std::array<SpanByDevice, Neon::DataViewUtil::nConfig>;
 
-    SpanByDeviceByDataView mIndexSpaceTable;
-    int                    mSetSize = 0;
+    SpanByDeviceByDataView      mSpanTable;
+    int                         mSetSize = 0;
 };
 
 }  // namespace Neon::domain::tool

@@ -16,30 +16,34 @@ class dSpan
 
     static constexpr int SpaceDim = 3;
 
-    NEON_CUDA_HOST_DEVICE inline auto setAndValidate(Idx&            idx,
-                                                     const uint32_t& x,
-                                                     const uint32_t& y,
-                                                     const uint32_t& z) const
+    NEON_CUDA_HOST_DEVICE inline auto
+    setAndValidate(Idx&            idx,
+                   const uint32_t& x,
+                   const uint32_t& y,
+                   const uint32_t& z) const
         -> bool;
 
-    NEON_CUDA_HOST_DEVICE inline auto helpGetDataView()
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetDataView()
         const -> Neon::DataView const&;
 
-    NEON_CUDA_HOST_DEVICE inline auto helpGetZHaloRadius()
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetZHaloRadius()
         const -> int const&;
 
-    NEON_CUDA_HOST_DEVICE inline auto helpGetZBoundaryRadius()
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetZBoundaryRadius()
         const -> int const&;
 
-    NEON_CUDA_HOST_DEVICE inline auto helpGetDim()
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetDim()
         const -> Neon::index_3d const&;
-
 
    private:
     Neon::DataView mDataView;
     int            mZHaloRadius;
     int            mZBoundaryRadius;
-    Neon::index_3d mDim;
+    Neon::index_3d mDim /** Dimension of the span, its values depends on the mDataView*/;
 };
 
 }  // namespace Neon::domain::internal::exp::dGrid
