@@ -33,8 +33,8 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 include("${PROJECT_SOURCE_DIR}/cmake/LoadingExternalGitRepositories.cmake")
 
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -77,11 +77,11 @@ add_subdirectory("libNeonCore")
 add_subdirectory("libNeonSys")
 add_subdirectory("libNeonSet")
 add_subdirectory("libNeonDomain")
-add_subdirectory("libNeonSkeleton")
-add_subdirectory("libNeonSolver")
-add_subdirectory("tutorials")
-add_subdirectory("apps")
-add_subdirectory("benchmarks")
+#add_subdirectory("libNeonSkeleton")
+#add_subdirectory("libNeonSolver")
+#add_subdirectory("tutorials")
+#add_subdirectory("apps")
+#add_subdirectory("benchmarks")
 
 
 #-------------------------------------------------------------------#

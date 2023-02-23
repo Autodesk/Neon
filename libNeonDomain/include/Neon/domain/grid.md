@@ -292,10 +292,10 @@ class xGrid : public Neon::domain::interface::GridBase
     /**
      * Constructor compatible with the general grid API
      */
-    template <typename ActiveCellLambda>
+    template <typename SparsityPattern>
     xGrid(const Neon::set::Backend& backend,
           const Neon::int32_3d&       dimension /**< Dimension of the box containing the sparse domain */,
-          const ActiveCellLambda      activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */
+          const SparsityPattern      activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */
           const Neon::domain::Stencil&                     stencil,
           const Vec_3d<double>&       spacingData = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
           const Vec_3d<double>&       origin = Vec_3d<double>(0, 0, 0) /**<      Origin  */);

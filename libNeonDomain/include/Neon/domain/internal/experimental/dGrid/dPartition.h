@@ -7,7 +7,7 @@
 #include "Neon/sys/memory/CudaIntrinsics.h"
 #include "Neon/sys/memory/mem3d.h"
 #include "cuda_fp16.h"
-#include "dVoxel.h"
+#include "dIndex.h"
 namespace Neon::domain::internal::exp::dGrid {
 
 /**
@@ -24,24 +24,10 @@ struct dPartition
     using PartitionIndexSpace = dSpan;
     using Span = dSpan;
     using Self = dPartition<T_ta, cardinality_ta>;
-    using Voxel = dVoxel;
+    using Idx = dIndex;
     using NghIdx = int8_3d;
     using Type = T_ta;
     using Pitch = Neon::size_4d;
-
-   private:
-    Neon::DataView m_dataView;
-    T_ta*          m_mem;
-    Neon::index_3d m_dim;
-    int            m_zHaloRadius;
-    int            m_zBoundaryRadius;
-    Pitch          m_pitch;
-    int            m_prtID;
-    Neon::index_3d m_origin;
-    int            m_cardinality;
-    Neon::index_3d m_fullGridSize;
-    bool           mPeriodicZ;
-    NghIdx*        mStencil;
 
    public:
     dPartition() = default;
@@ -74,28 +60,38 @@ struct dPartition
     {
     }
 
-    inline NEON_CUDA_HOST_ONLY auto enablePeriodicAlongZ() -> void
+    inline NEON_CUDA_HOST_ONLY auto
+    enablePeriodicAlongZ()
+        -> void
     {
         mPeriodicZ = true;
     }
 
-    inline NEON_CUDA_HOST_DEVICE auto prtID() const -> int
+    inline NEON_CUDA_HOST_DEVICE auto
+    prtID()
+        const -> int
     {
         return m_prtID;
     }
 
-    inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int
+    inline NEON_CUDA_HOST_DEVICE auto
+    cardinality()
+        const -> int
     {
         return m_cardinality;
     }
 
-    inline NEON_CUDA_HOST_DEVICE auto getPitchData() const -> const Pitch&
+    inline NEON_CUDA_HOST_DEVICE auto
+    getPitchData()
+        const -> const Pitch&
     {
         return m_pitch;
     }
 
-    inline NEON_CUDA_HOST_DEVICE auto getPitch(const Voxel& idx,
-                                               int         cardinalityIdx = 0) const -> int64_t
+    inline NEON_CUDA_HOST_DEVICE auto
+    getPitch(const Idx& idx,
+             int        cardinalityIdx = 0)
+        const -> int64_t
     {
         return idx.get().x * int64_t(m_pitch.x) +
                idx.get().y * int64_t(m_pitch.y) +
@@ -103,28 +99,35 @@ struct dPartition
                cardinalityIdx * int64_t(m_pitch.w);
     }
 
-    inline NEON_CUDA_HOST_DEVICE auto dim() const -> const Neon::index_3d
+    inline NEON_CUDA_HOST_DEVICE auto
+    dim()
+        const -> const Neon::index_3d
     {
         return m_dim;
     }
 
-    inline NEON_CUDA_HOST_DEVICE auto halo() const -> const Neon::index_3d
+    inline NEON_CUDA_HOST_DEVICE auto
+    halo()
+        const -> const Neon::index_3d
     {
         return Neon::index_3d(0, 0, m_zHaloRadius);
     }
 
-    inline NEON_CUDA_HOST_DEVICE auto origin() const -> const Neon::index_3d
+    inline NEON_CUDA_HOST_DEVICE auto
+    origin()
+        const -> const Neon::index_3d
     {
         return m_origin;
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto nghVal(
-        const Voxel& eId,
-        NghIdx      nghOffset,
-        int         card,
-        const T_ta& alternativeVal) const -> NghInfo<T_ta>
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghVal(const Idx&  eId,
+           NghIdx      nghOffset,
+           int         card,
+           const T_ta& alternativeVal)
+        const -> NghInfo<T_ta>
     {
-        Voxel      cellNgh;
+        Idx        cellNgh;
         const bool isValidNeighbour = nghIdx(eId, nghOffset, cellNgh);
         T_ta       val = alternativeVal;
         if (isValidNeighbour) {
@@ -133,12 +136,13 @@ struct dPartition
         return NghInfo<T_ta>(val, isValidNeighbour);
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto nghVal(
-        const Voxel& eId,
-        NghIdx      nghOffset,
-        int         card) const -> NghInfo<T_ta>
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghVal(const Idx& eId,
+           NghIdx     nghOffset,
+           int        card)
+        const -> NghInfo<T_ta>
     {
-        Voxel      cellNgh;
+        Idx        cellNgh;
         const bool isValidNeighbour = nghIdx(eId, nghOffset, cellNgh);
         T_ta       val;
         if (isValidNeighbour) {
@@ -148,12 +152,13 @@ struct dPartition
     }
 
     template <int xOff, int yOff, int zOff>
-    NEON_CUDA_HOST_DEVICE inline auto nghVal(
-        const Voxel& eId,
-        int         card,
-        const T_ta& alternativeVal) const -> NghInfo<T_ta>
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghVal(const Idx&  eId,
+           int         card,
+           const T_ta& alternativeVal)
+        const -> NghInfo<T_ta>
     {
-        Voxel      cellNgh;
+        Idx        cellNgh;
         const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(eId, cellNgh);
         T_ta       val = alternativeVal;
         if (isValidNeighbour) {
@@ -162,11 +167,12 @@ struct dPartition
         return NghInfo<T_ta>(val, isValidNeighbour);
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto nghVal(
-        const Voxel& eId,
-        uint8_t     nghID,
-        int         card,
-        const T_ta& alternativeVal) const -> NghInfo<T_ta>
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghVal(const Idx&  eId,
+           uint8_t     nghID,
+           int         card,
+           const T_ta& alternativeVal)
+        const -> NghInfo<T_ta>
     {
         NghIdx nghOffset = mStencil[nghID];
         return nghVal(eId, nghOffset, card, alternativeVal);
@@ -179,16 +185,17 @@ struct dPartition
      * @param[in,out] neighbourIdx Index of the neighbor
      * @return Whether the neighbour is valid
      */
-    NEON_CUDA_HOST_DEVICE inline auto nghIdx(
-        const Voxel&   eId,
-        const NghIdx& nghOffset,
-        Voxel&         neighbourIdx) const -> bool
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghIdx(const Idx&    eId,
+           const NghIdx& nghOffset,
+           Idx&          neighbourIdx)
+        const -> bool
     {
-        Voxel cellNgh(eId.get().x + nghOffset.x,
-                      eId.get().y + nghOffset.y,
-                      eId.get().z + nghOffset.z);
+        Idx cellNgh(eId.get().x + nghOffset.x,
+                    eId.get().y + nghOffset.y,
+                    eId.get().z + nghOffset.z);
 
-        Voxel cellNgh_global(cellNgh.get() + m_origin);
+        Idx cellNgh_global(cellNgh.get() + m_origin);
 
         bool isValidNeighbour = true;
 
@@ -215,14 +222,15 @@ struct dPartition
     }
 
     template <int xOff, int yOff, int zOff>
-    NEON_CUDA_HOST_DEVICE inline auto nghIdx(
-        const Voxel& eId,
-        Voxel&       cellNgh) const -> bool
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghIdx(const Idx& eId,
+           Idx&       cellNgh)
+        const -> bool
     {
-        cellNgh = Cell(eId.get().x + xOff,
-                       eId.get().y + yOff,
-                       eId.get().z + zOff);
-        Voxel cellNgh_global(cellNgh.get() + m_origin);
+        cellNgh = Idx(eId.get().x + xOff,
+                      eId.get().y + yOff,
+                      eId.get().z + zOff);
+        Idx cellNgh_global(cellNgh.get() + m_origin);
         // const bool isValidNeighbour = (cellNgh_global >= 0 && cellNgh < (m_dim + m_halo) && cellNgh_global < m_fullGridSize);
         bool isValidNeighbour = true;
         if constexpr (xOff > 0) {
@@ -250,45 +258,50 @@ struct dPartition
     }
 
 
-    NEON_CUDA_HOST_DEVICE inline auto mem() -> T_ta*
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetMemory()
+        -> T_ta*
     {
         return m_mem;
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto mem() const -> const T_ta*
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetMemory()
+        const
+        -> const T_ta*
     {
         return m_mem;
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto cmem() const -> const T_ta*
-    {
-        return m_mem;
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto mem(const Voxel& cell,
-                                          int         cardinalityIdx) -> T_ta*
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetPointer(const Idx& cell,
+                   int        cardinalityIdx) -> T_ta*
     {
         int64_t p = getPitch(cell, cardinalityIdx);
         return m_mem[p];
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto operator()(const Voxel& cell,
-                                                 int         cardinalityIdx) -> T_ta&
+    NEON_CUDA_HOST_DEVICE inline auto
+    operator()(const Idx& cell,
+               int        cardinalityIdx) -> T_ta&
     {
         int64_t p = getPitch(cell, cardinalityIdx);
         return m_mem[p];
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto operator()(const Voxel& cell,
-                                                 int         cardinalityIdx) const -> const T_ta&
+    NEON_CUDA_HOST_DEVICE inline auto
+    operator()(const Idx& cell,
+               int        cardinalityIdx) const -> const T_ta&
     {
         int64_t p = getPitch(cell, cardinalityIdx);
         return m_mem[p];
     }
 
     template <typename ComputeType>
-    NEON_CUDA_HOST_DEVICE inline auto castRead(const Voxel& cell,
-                                               int         cardinalityIdx) const -> ComputeType
+    NEON_CUDA_HOST_DEVICE inline auto
+    castRead(const Idx& cell,
+             int        cardinalityIdx)
+        const -> ComputeType
     {
         Type value = this->operator()(cell, cardinalityIdx);
         if constexpr (std::is_same_v<__half, Type>) {
@@ -305,9 +318,11 @@ struct dPartition
     }
 
     template <typename ComputeType>
-    NEON_CUDA_HOST_DEVICE inline auto castWrite(const Voxel&        cell,
-                                                int                cardinalityIdx,
-                                                const ComputeType& value) -> void
+    NEON_CUDA_HOST_DEVICE inline auto
+    castWrite(const Idx&         cell,
+              int                cardinalityIdx,
+              const ComputeType& value)
+        -> void
     {
         if constexpr (std::is_same_v<__half, Type>) {
             if constexpr (std::is_same_v<float, ComputeType>) {
@@ -321,14 +336,7 @@ struct dPartition
         }
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto ePrt(const index_3d& cell,
-                                           int             cardinalityIdx) -> T_ta*
-    {
-        int64_t p = getPitch(cell, cardinalityIdx);
-        return m_mem + p;
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Voxel& local) const -> Neon::index_3d
+    NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Idx& local) const -> Neon::index_3d
     {
         assert(local.mLocation.x >= 0 &&
                local.mLocation.y >= 0 &&
@@ -342,10 +350,25 @@ struct dPartition
         return result;
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto getDomainSize() const -> Neon::index_3d
+    NEON_CUDA_HOST_DEVICE inline auto getDomainSize()
+        const -> Neon::index_3d
     {
         return m_fullGridSize;
     }
+
+   private:
+    Neon::DataView m_dataView;
+    T_ta*          m_mem;
+    Neon::index_3d m_dim;
+    int            m_zHaloRadius;
+    int            m_zBoundaryRadius;
+    Pitch          m_pitch;
+    int            m_prtID;
+    Neon::index_3d m_origin;
+    int            m_cardinality;
+    Neon::index_3d m_fullGridSize;
+    bool           mPeriodicZ;
+    NghIdx*        mStencil;
 };
 
 

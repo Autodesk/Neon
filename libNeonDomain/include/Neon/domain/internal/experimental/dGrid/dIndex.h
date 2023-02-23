@@ -4,9 +4,9 @@
 
 namespace Neon::domain::internal::exp::dGrid {
 
-struct dVoxel
+struct dIndex
 {
-    using OuterCell = dVoxel;
+    using OuterCell = dIndex;
 
     template <typename T,
               int Cardinality>
@@ -23,16 +23,16 @@ struct dVoxel
     using Location = index_3d;
     using Count = int32_t;
 
-    dVoxel() = default;
+    dIndex() = default;
     Location mLocation = 0;
 
    private:
 
-    NEON_CUDA_HOST_DEVICE inline explicit dVoxel(const Location::Integer &x,
+    NEON_CUDA_HOST_DEVICE inline explicit dIndex(const Location::Integer &x,
                                                 const Location::Integer &y,
                                                 const Location::Integer &z);
 
-    NEON_CUDA_HOST_DEVICE inline explicit dVoxel(const Location& location);
+    NEON_CUDA_HOST_DEVICE inline explicit dIndex(const Location& location);
 
     NEON_CUDA_HOST_DEVICE inline auto set() -> Location&;
 
@@ -43,4 +43,4 @@ struct dVoxel
 
 }  // namespace Neon::domain::dense
 
-#include "Neon/domain/internal/experimental/dGrid/dVoxel_imp.h"
+#include "Neon/domain/internal/experimental/dGrid/dIndex_imp.h"

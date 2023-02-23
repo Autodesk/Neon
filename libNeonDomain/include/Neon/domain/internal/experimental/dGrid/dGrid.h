@@ -39,11 +39,11 @@ namespace Neon::domain::internal::exp::dGrid {
  * be able to create field. dGrid also manages launching kernels and exporting
  * fields to VTI
  */
-class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dVoxel>
+class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
 {
    public:
     using Grid = dGrid;
-    using Cell = dVoxel;
+    using Idx = dIndex;
 
     template <typename T_ta, int cardinality_ta = 0>
     using Field = dField<T_ta, cardinality_ta>;
@@ -62,13 +62,13 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dVoxel>
     /**
      * Constructor compatible with the general grid API
      */
-    template <Neon::domain::ActiveCellLambda ActiveCellLambda>
-    dGrid(const Neon::Backend&         backend /** Backend to target for computation */,
-          const Neon::int32_3d&        dimension /**< Dimension of the box containing the domain */,
-          const ActiveCellLambda&      activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
-          const Neon::domain::Stencil& stencil /* Stencil used by any computation on the grid */,
+    template <Neon::domain::SparsityPattern SparsityPattern>
+    dGrid(const Neon::Backend&         backend /**< Target for computation */,
+          const Neon::int32_3d&        dimension /**< Dimension of the bounding box containing the domain */,
+          const SparsityPattern&       activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
+          const Neon::domain::Stencil& stencil /**< Stencil used by any computation on the grid */,
           const Vec_3d<double>&        spacing = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
-          const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**<      Origin  */);
+          const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */);
 
     /**
      * Returns a LaunchParameters configured for the specified inputs
@@ -109,11 +109,12 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dVoxel>
         const
         -> Neon::set::Container;
 
-    auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
+    auto setReduceEngine(Neon::sys::patterns::Engine eng)
+        -> void;
 
     template <typename T>
-    auto newPatternScalar() const
-        -> Neon::template PatternScalar<T>;
+    auto newPatternScalar()
+        const -> Neon::template PatternScalar<T>;
 
     template <typename T>
     auto dot(const std::string&               name,
@@ -128,10 +129,10 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dVoxel>
                Neon::template PatternScalar<T>& scalar) const
         -> Neon::set::Container;
 
-    auto convertToNgh(const std::vector<Neon::index_3d>& stencilOffsets)
+    auto convertToNghIdx(const std::vector<Neon::index_3d>& stencilOffsets)
         -> std::vector<NghIdx>;
 
-    auto convertToNgh(const Neon::index_3d stencilOffsets) -> NghIdx;
+    auto convertToNghIdx(const Neon::index_3d stencilOffsets) -> NghIdx;
 
     auto getKernelConfig(int            streamIdx,
                          Neon::DataView dataView)
@@ -143,6 +144,9 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dVoxel>
     auto getProperties(const Neon::index_3d& idx) const
         -> GridBaseTemplate::CellProperties final;
 
+    auto getStencil() const
+        -> const Neon::domain::Stencil&;
+
    private:
     auto helpGetPartitionDim()
         const -> const Neon::set::DataSet<index_3d>;
@@ -152,9 +156,6 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dVoxel>
 
     auto getLaunchInfo(const Neon::DataView dataView)
         const -> Neon::set::LaunchParameters;
-
-    auto getStencil() const
-        -> const Neon::domain::Stencil&;
 
     auto newGpuLaunchParameters()
         const -> Neon::set::LaunchParameters;

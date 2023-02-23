@@ -1,8 +1,5 @@
 #pragma once
 
-
-#include "dGrid.h"
-
 namespace Neon::domain::internal::exp::dGrid {
 
 dGrid::Data::Data(const Neon::Backend& backend)
@@ -16,7 +13,7 @@ dGrid::Data::Data(const Neon::Backend& backend)
 }
 
 
-template <Neon::domain::ActiveCellLambda ActiveCellLambda>
+template <Neon::domain::SparsityPattern ActiveCellLambda>
 dGrid::dGrid(const Neon::Backend&         backend,
              const Neon::int32_3d&        dimension,
              const ActiveCellLambda&      activeCellLambda,

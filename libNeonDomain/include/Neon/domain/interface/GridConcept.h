@@ -4,10 +4,10 @@
 
 namespace Neon::domain {
 
-template <typename A>
-concept ActiveCellLambda = requires(A activeCellLambda) {
+template <typename SP>
+concept SparsityPattern = requires(SP sparsityPattern) {
     {
-        activeCellLambda(Neon::index_3d(0,0,0))
+        sparsityPattern(Neon::index_3d(0,0,0))
     } -> std::same_as<bool>;
 };
 
