@@ -7,7 +7,7 @@ namespace Neon::domain::tool {
 
 template <typename Partition,
           typename UserData>
-PartitionTable<Partition, UserData>::PartitionTable(Neon::Backend& bk)
+PartitionTable<Partition, UserData>::PartitionTable(Neon::Backend const& bk)
 {  // Setting up the mask for supported executions (i.e host and device | host only | device only)
     for (Neon::Execution execution : Neon::ExecutionUtils::getAllOptions()) {
         for (auto dw : Neon::DataViewUtil::validOptions()) {

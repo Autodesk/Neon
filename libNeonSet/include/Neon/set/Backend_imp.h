@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Neon/set/DevSet.h"
-
 namespace Neon {
 
 template <typename T>

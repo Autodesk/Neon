@@ -208,7 +208,7 @@ auto TestData<G, T, C>::resetValuesToLinear(Type offset, Type offsetBetweenField
 
         mIODomains[i].resetValuesToLinear(offset + i * offsetBetweenFields);
         mFields[i].ioFromDense(mIODomains[i].getData());
-        mFields[i].updateCompute(0);
+        mFields[i].updateDeviceData(0);
     }
     mGrid.getBackend().sync(0);
 }
@@ -263,7 +263,7 @@ auto TestData<G, T, C>::compare(FieldNames    name,
     -> void
 {
     auto idx = FieldNamesUtils::toInt(name);
-    mFields[idx].updateIO(0);
+    mFields[idx].updateHostData(0);
     mGrid.getBackend().sync(0);
 
     auto                                     tmpDense = mFields[idx].template ioToDense<Type>();

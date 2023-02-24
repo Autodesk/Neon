@@ -140,8 +140,8 @@ dGrid::dGrid(const Neon::Backend&         backend,
         Neon::set::DataSet<size_t> elementPerPartition = backend.devSet().template newDataSet<size_t>(
             [&](Neon::SetIdx setIdx, size_t& count) {
                 size_3d dim = partitionMemoryDim[setIdx.idx()].newType<size_t>();
-                if (haloStatus) {
-                    dim.z = mData->halo.z * 2;
+                if (haloStatus == Neon::domain::haloStatus_et::ON) {
+                    dim.z += mData->halo.z * 2;
                 }
                 count = dim.rMul();
             });
@@ -161,7 +161,7 @@ dGrid::dGrid(const Neon::Backend&         backend,
                 mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
             }
         }
-        mData->stencilIdTo3dOffset.updateCompute(backend, Neon::Backend::mainStreamIdx);
+       // mData->stencilIdTo3dOffset.updateCompute(backend, Neon::Backend::mainStreamIdx);
     }
 
     {  // Init base class information

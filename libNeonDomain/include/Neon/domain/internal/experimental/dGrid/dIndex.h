@@ -31,7 +31,6 @@ struct dIndex
     dIndex() = default;
     Location mLocation = 0;
 
-   private:
     NEON_CUDA_HOST_DEVICE inline explicit dIndex(const Location::Integer& x,
                                                  const Location::Integer& y,
                                                  const Location::Integer& z);

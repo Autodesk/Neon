@@ -39,7 +39,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
         }
     }
 
-    mData = std::make_shared<Data>();
+    mData = std::make_shared<Data>(grid.getBackend());
     mData->dataUse = dataUse;
     mData->memoryOptions = memoryOptions;
     mData->cardinality = cardinality;
@@ -95,7 +95,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                 Neon::SetIdx              setIdx,
                 Neon::DataView            dw,
                 typename Self::Partition& partition) {
-                auto memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, dw);
+                auto memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, Neon::DataView::STANDARD);
 
                 partition = dPartition<T, C>(dw,
                                              memoryFieldPartition.mem(),
@@ -113,21 +113,19 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
 
     {  // Setting Reduction information
         mData->partitionTable.forEachConfigurationWithUserData(
-            [&](Neon::Execution                      execution,
+            [&](Neon::Execution                      ,
                 Neon::SetIdx                         setIdx,
                 Neon::DataView                       dw,
                 typename Self::Partition&            ,
                 typename Data::ReductionInformation& reductionInfo) {
-                auto memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, dw);
 
                 switch (dw) {
                     case Neon::DataView::STANDARD: {
                         // old structure [dv_id][c][i]
                         if (grid.getBackend().devSet().setCardinality() == 1) {
                             // As the number of devices is 1, we don't have halos.
-                            const int c = 0;
-                            reductionInfo.startIDByView[c] = 0;
-                            reductionInfo.nElementsByView[c] = int(dims[setIdx.idx()].rMul());
+                            reductionInfo.startIDByView.push_back(0);
+                            reductionInfo.nElementsByView.push_back(int(dims[setIdx.idx()].rMul()));
                         } else {
                             switch (mData->memoryOptions.getOrder()) {
                                 case MemoryLayout::structOfArrays: {
@@ -273,7 +271,8 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        mData->partitionTable.getPartition(execution, setIdx, dataView);
+        Partition const& result =  mData->partitionTable.getPartition(execution, setIdx, dataView);
+        return result;
     }
     std::stringstream message;
     message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
@@ -289,7 +288,8 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     const auto dataUse = this->getDataUse();
     bool       isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        mData->partitionTable.getPartition(execution, setIdx, dataView);
+        Partition& result =  mData->partitionTable.getPartition(execution, setIdx, dataView);
+        return result;
     }
     std::stringstream message;
     message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
@@ -306,7 +306,7 @@ auto dField<T, C>::operator()(const Neon::index_3d& idxGlobal,
                                                          partitionIdx,
                                                          Neon::DataView::STANDARD);
     Idx   idx(localIDx);
-    auto& result = partition(idx, cardinality);
+    auto& result = partition.operator()(idx, cardinality);
     return result;
 }
 
@@ -319,8 +319,13 @@ auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
     auto&  partition = mData->partitionTable.getPartition(Neon::Execution::host,
                                                           partitionIdx,
                                                           Neon::DataView::STANDARD);
-    dIndex index(localIDx);
-    auto&  result = partition(index, cardinality);
+    auto& span = mData->grid->getSpan(partitionIdx, Neon::DataView::STANDARD);
+    Idx idx;
+    bool isOk = span.setAndValidate(idx, localIDx.x, localIDx.y, localIDx.z);
+    if(!isOk){
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+    auto&  result = partition(idx, cardinality);
     return result;
 }
 

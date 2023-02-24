@@ -11,7 +11,7 @@ struct PartitionTable
 {
     PartitionTable() = default;
 
-    explicit PartitionTable(Neon::Backend& bk);
+    explicit PartitionTable(Neon::Backend const& bk);
 
     auto getPartition(Neon::Execution execution,
                       Neon::SetIdx    setIdx,

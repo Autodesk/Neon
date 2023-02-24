@@ -27,6 +27,7 @@
 #include "Neon/set/memory/memSet.h"
 #include "Neon/sys/global/GpuSysGlobal.h"
 #include "Neon/sys/memory/memConf.h"
+#include "Neon/set/KernelConfig.h"
 
 namespace Neon {
 namespace set {
@@ -245,7 +246,7 @@ class DevSet
                                                                                                      lambdaHolder);
                     return;
                 }
-                // No 'break' here
+                [[fallthrough]];
             };
             case Neon::Runtime::openmp: {
                 this->template h_kLambdaWithIterator_openmp<DataSetContainer_ta, Lambda_ta>(execution,
@@ -283,8 +284,8 @@ class DevSet
                                                                                                      dataSetContainer,
                                                                                                      lambdaHolder);
                     return;
-                    // No 'break' here
                 }
+                [[fallthrough]];
             };
             case Neon::Runtime::openmp: {
                 this->template h_kLambdaWithIterator_openmp<DataSetContainer_ta, Lambda_ta>(execution,
@@ -448,7 +449,7 @@ class DevSet
 
     template <typename DataSetContainer_ta, typename Lambda_ta>
     inline auto h_kLambdaWithIterator_openmp(
-        Neon::Execution                                           execution,
+        Neon::Execution                                           ,
         [[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
         [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
         [[maybe_unused]] std::function<Lambda_ta(SetIdx,
@@ -469,7 +470,7 @@ class DevSet
     }
 
     template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto h_kLambdaWithIterator_openmp(Neon::Execution                                           execution,
+    inline auto h_kLambdaWithIterator_openmp(Neon::Execution                                           ,
                                              Neon::SetIdx                                              setIdx,
                                              [[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
                                              [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
