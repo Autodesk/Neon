@@ -88,7 +88,7 @@ class Storage
     void loadField(const Neon::IODense<T>& dense, Field& field)
     {
         field.ioFromDense(dense);
-        field.updateCompute(0);
+        field.updateDeviceData(0);
         field.getGrid().getBackend().sync(0);
     }
 

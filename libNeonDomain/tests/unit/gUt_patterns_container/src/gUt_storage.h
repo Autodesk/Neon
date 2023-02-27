@@ -89,7 +89,7 @@ class Storage
     {
 
         field.ioFromDense(dense);
-        field.updateCompute(0);
+        field.updateDeviceData(0);
         field.getGrid().getBackend().sync(0);
     }
 

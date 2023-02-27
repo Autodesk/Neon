@@ -65,7 +65,7 @@ void SwapContainerRun(TestData<G, T, C>& data)
         map(X, Y, alpha).run(0);
 
         data.getBackend().sync(0);
-        Y.updateIO(0);
+        Y.updateHostData(0);
     }
 
     {  // Golden data

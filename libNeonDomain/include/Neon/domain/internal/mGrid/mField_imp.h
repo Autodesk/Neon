@@ -187,7 +187,7 @@ auto mField<T, C>::updateIO(int streamId) -> void
 {
 
     for (size_t l = 0; l < mData->fields.size(); ++l) {
-        mData->fields[l].mData->field.updateIO(streamId);
+        mData->fields[l].mData->field.updateHostData(streamId);
     }
 }
 
@@ -195,7 +195,7 @@ template <typename T, int C>
 auto mField<T, C>::updateCompute(int streamId) -> void
 {
     for (size_t l = 0; l < mData->fields.size(); ++l) {
-        mData->fields[l].mData->field.updateCompute(streamId);
+        mData->fields[l].mData->field.updateDeviceData(streamId);
     }
 }
 

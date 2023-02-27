@@ -29,4 +29,14 @@ auto Backend::newDataSet(Lambda lambda)
     result.forEachSeq(lambda);
     return result;
 }
+
+template <typename Lambda>
+auto Backend::forEachDeviceSeq(const Lambda& lambda)
+    const -> void
+{
+    int const nDevs = getDeviceCount();
+    for (int i = 0; i < nDevs; i++) {
+        lambda(Neon::SetIdx(i));
+    }
+}
 }  // namespace Neon

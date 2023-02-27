@@ -179,7 +179,7 @@ auto aField<T, C>::updateIO(int streamIdx)
     if (self().getDevSet().type() == Neon::DeviceType::CPU) {
         return;
     }
-    self().getStorage().rawMem.updateIO(this->getGrid().getBackend(), streamIdx);
+    self().getStorage().rawMem.updateHostData(this->getGrid().getBackend(), streamIdx);
 }
 
 template <typename T, int C>
@@ -189,7 +189,7 @@ auto aField<T, C>::updateCompute(int streamIdx)
     if (self().getDevSet().type() == Neon::DeviceType::CPU) {
         return;
     }
-    self().getStorage().rawMem.updateCompute(this->getGrid().getBackend(), streamIdx);
+    self().getStorage().rawMem.updateDeviceData(this->getGrid().getBackend(), streamIdx);
 }
 
 template <typename T, int C>

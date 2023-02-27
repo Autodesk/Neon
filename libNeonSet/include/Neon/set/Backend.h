@@ -98,6 +98,10 @@ class Backend
     auto newDataSet(Lambda lambda)
         const -> Neon::set::DataSet<T>;
 
+    template <typename Lambda>
+    auto forEachDeviceSeq(const Lambda& lambda)
+        const -> void ;
+
     auto getDeviceCount()
         const -> int;
 

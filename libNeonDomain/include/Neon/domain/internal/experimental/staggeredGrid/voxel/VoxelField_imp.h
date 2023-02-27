@@ -83,7 +83,7 @@ auto VoxelField<BuildingBlockGridT, T, C>::
     updateCompute(int streamSetId)
         -> void
 {
-    return this->getStorage().getBuildingBlockField().updateCompute(streamSetId);
+    return this->getStorage().getBuildingBlockField().updateDeviceData(streamSetId);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
@@ -91,7 +91,7 @@ auto VoxelField<BuildingBlockGridT, T, C>::
     updateIO(int streamSetId)
         -> void
 {
-    return this->getStorage().getBuildingBlockField().updateIO(streamSetId);
+    return this->getStorage().getBuildingBlockField().updateHostData(streamSetId);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>

@@ -433,14 +433,14 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
 
     if (backend.devType() == Neon::DeviceType::CUDA) {
         for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-            mData->mParentBlockID[l].updateCompute(backend, 0);
-            mData->mParentLocalID[l].updateCompute(backend, 0);
+            mData->mParentBlockID[l].updateDeviceData(backend, 0);
+            mData->mParentLocalID[l].updateDeviceData(backend, 0);
             if (l > 0) {
-                mData->mChildBlockID[l].updateCompute(backend, 0);
+                mData->mChildBlockID[l].updateDeviceData(backend, 0);
             }
         }
-        mData->mRefFactors.updateCompute(backend, 0);
-        mData->mSpacing.updateCompute(backend, 0);
+        mData->mRefFactors.updateDeviceData(backend, 0);
+        mData->mSpacing.updateDeviceData(backend, 0);
     }
 }
 

@@ -95,7 +95,7 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
         size_t voxPitch = idx.mPitch(nodeDim);
         maskValue = voxels[voxPitch];
     });
-    mask.updateCompute(Neon::Backend::mainStreamIdx);
+    mask.updateDeviceData(Neon::Backend::mainStreamIdx);
 
     using NodeToVoxelMask = Neon::domain::internal::experimental::staggeredGrid::details::NodeToVoxelMask;
     auto nodeToVoxelMask = mStorage->buildingBlockGrid.template newField<NodeToVoxelMask, 1>("NodeToVoxelMask", 1, NodeToVoxelMask(), Neon::DataUse::IO_COMPUTE);
@@ -115,7 +115,7 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
             }
         }
     });
-    nodeToVoxelMask.updateCompute(Neon::Backend::mainStreamIdx);
+    nodeToVoxelMask.updateDeviceData(Neon::Backend::mainStreamIdx);
 
     mStorage->nodeGrid = Self::NodeGrid(mStorage->buildingBlockGrid);
 

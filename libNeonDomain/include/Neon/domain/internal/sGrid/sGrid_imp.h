@@ -143,7 +143,7 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
         }
 
         if (this->getDevSet().type() != Neon::DeviceType::CPU && this->getDevSet().type() != Neon::DeviceType::OMP) {
-            this->mStorage->tableToOuterCell.updateCompute(this->getBackend(), 0);
+            this->mStorage->tableToOuterCell.updateDeviceData(this->getBackend(), 0);
         }
         this->getBackend().sync(0);
     };

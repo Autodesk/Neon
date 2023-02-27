@@ -33,6 +33,18 @@ class MultiXpuDataInterface
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
 
+    virtual auto updateHostData([[maybe_unused]] int streamId = 0)
+        -> void
+    {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+
+    virtual auto UpdateDeviceData([[maybe_unused]]  int streamId = 0)
+        -> void
+    {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+
     /**
      * Return a partition based on a set of parameters: execution type, target device, dataView
      */

@@ -213,7 +213,7 @@ auto bField<T, C>::updateIO(int streamId) -> void
 {
 
     if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {
-        mData->mem.updateIO(mData->grid->getBackend(), streamId);
+        mData->mem.updateHostData(mData->grid->getBackend(), streamId);
     }
 }
 
@@ -222,7 +222,7 @@ auto bField<T, C>::updateCompute(int streamId) -> void
 {
 
     if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {
-        mData->mem.updateCompute(mData->grid->getBackend(), streamId);
+        mData->mem.updateDeviceData(mData->grid->getBackend(), streamId);
     }
 }
 

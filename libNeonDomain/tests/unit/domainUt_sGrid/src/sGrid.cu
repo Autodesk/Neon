@@ -135,7 +135,7 @@ void sGridTestContainerRun(TestData<G, T, C>& data)
         copyToOuter(sY, Y).run(0);
 
         data.getBackend().sync(0);
-        Y.updateIO(0);
+        Y.updateHostData(0);
     }
 
 
@@ -257,7 +257,7 @@ void sGridTestSkeleton(TestData<G, T, C>& data)
         skl.run();
 
         data.getBackend().sync(0);
-        Y.updateIO(0);
+        Y.updateHostData(0);
     }
 
 

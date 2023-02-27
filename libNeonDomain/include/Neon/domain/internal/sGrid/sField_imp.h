@@ -153,7 +153,7 @@ auto sField<OuterGridT, T, C>::updateIO(int streamIdx)
     if (self().getDevSet().type() == Neon::DeviceType::CPU) {
         return;
     }
-    self().getStorage().rawMem.updateIO(this->getGrid().getBackend(), streamIdx);
+    self().getStorage().rawMem.updateHostData(this->getGrid().getBackend(), streamIdx);
 }
 
 template <typename OuterGridT, typename T, int C>
@@ -164,7 +164,7 @@ auto sField<OuterGridT, T, C>::updateCompute(int streamIdx)
     if (self().getDevSet().type() == Neon::DeviceType::CPU) {
         return;
     }
-    self().getStorage().rawMem.updateCompute(this->getGrid().getBackend(), streamIdx);
+    self().getStorage().rawMem.updateDeviceData(this->getGrid().getBackend(), streamIdx);
 }
 
 template <typename OuterGridT, typename T, int C>

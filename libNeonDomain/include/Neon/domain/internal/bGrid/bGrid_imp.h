@@ -231,10 +231,10 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
 
     if (backend.devType() == Neon::DeviceType::CUDA) {
-        mData->mActiveMask.updateCompute(backend, 0);
-        mData->mOrigin.updateCompute(backend, 0);
-        mData->mNeighbourBlocks.updateCompute(backend, 0);
-        mData->mStencilNghIndex.updateCompute(backend, 0);
+        mData->mActiveMask.updateDeviceData(backend, 0);
+        mData->mOrigin.updateDeviceData(backend, 0);
+        mData->mNeighbourBlocks.updateDeviceData(backend, 0);
+        mData->mStencilNghIndex.updateDeviceData(backend, 0);
     }
 
 

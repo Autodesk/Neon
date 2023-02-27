@@ -1,13 +1,13 @@
 #pragma once
+#include "dGrid.h"
 
 namespace Neon::domain::internal::exp::dGrid {
 
 
-
 template <Neon::domain::SparsityPattern ActiveCellLambda>
-dGrid::dGrid(const Neon::Backend&         backend,
-             const Neon::int32_3d&        dimension,
-             const ActiveCellLambda&      /*activeCellLambda*/,
+dGrid::dGrid(const Neon::Backend&  backend,
+             const Neon::int32_3d& dimension,
+             const ActiveCellLambda& /*activeCellLambda*/,
              const Neon::domain::Stencil& stencil,
              const Vec_3d<double>&        spacing,
              const Vec_3d<double>&        origin)
@@ -33,6 +33,7 @@ dGrid::dGrid(const Neon::Backend&         backend,
     if (numDevices == 1) {
         // Single device
         mData->partitionDims[0] = getDimension();
+        mData->firstZIndex[0] = 0;
     } else if (getDimension().z < numDevices) {
         NeonException exc("dGrid_t");
         exc << "The grid size in the z-direction (" << getDimension().z << ") is less the number of devices (" << numDevices
@@ -46,19 +47,19 @@ dGrid::dGrid(const Neon::Backend&         backend,
         int32_t reminder = getDimension().z % numDevices;
 
         mData->firstZIndex[0] = 0;
-        for (int32_t i = 0; i < numDevices; ++i) {
-            mData->partitionDims[i].x = getDimension().x;
-            mData->partitionDims[i].y = getDimension().y;
-            if (i < reminder) {
-                mData->partitionDims[i].z = uniform_z + 1;
+        backend.forEachDeviceSeq([&](const Neon::SetIdx& setIdx) {
+            mData->partitionDims[setIdx].x = getDimension().x;
+            mData->partitionDims[setIdx].y = getDimension().y;
+            if (setIdx < reminder) {
+                mData->partitionDims[setIdx].z = uniform_z + 1;
             } else {
-                mData->partitionDims[i].z = uniform_z;
+                mData->partitionDims[setIdx].z = uniform_z;
             }
-            if (i > 1) {
-                mData->firstZIndex[i] = mData->firstZIndex[i - 1] +
-                                        mData->partitionDims[i - 1].z;
+            if (setIdx.idx() > 0) {
+                mData->firstZIndex[setIdx] = mData->firstZIndex[setIdx - 1] +
+                                             mData->partitionDims[setIdx - 1].z;
             }
-        }
+        });
     }
 
     {  // Computing halo size
@@ -161,7 +162,7 @@ dGrid::dGrid(const Neon::Backend&         backend,
                 mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
             }
         }
-       // mData->stencilIdTo3dOffset.updateCompute(backend, Neon::Backend::mainStreamIdx);
+        // mData->stencilIdTo3dOffset.updateCompute(backend, Neon::Backend::mainStreamIdx);
     }
 
     {  // Init base class information
@@ -237,13 +238,13 @@ auto dGrid::newContainer(const std::string& name,
     const
     -> Neon::set::Container
 {
-    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                     execution,
-                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                     *this,
-                                                                     lambda,
-                                                                     blockSize,
-                                                                     [sharedMem](const Neon::index_3d&) { return sharedMem; });
+    Neon::set::Container kContainer = Neon::set::Container::factory(name,
+                                                                    execution,
+                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                    *this,
+                                                                    lambda,
+                                                                    blockSize,
+                                                                    [sharedMem](const Neon::index_3d&) { return sharedMem; });
     return kContainer;
 }
 

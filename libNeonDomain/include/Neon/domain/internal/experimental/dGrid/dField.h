@@ -71,6 +71,9 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                     const int&            cardinality) const
         -> Type final;
 
+    auto ioVtiAllocator(std::string name){
+        mData->memoryField.ioToVtk(name, name );
+    }
     /**
      * Creates a container that executes a halo update operation on host or device
      */

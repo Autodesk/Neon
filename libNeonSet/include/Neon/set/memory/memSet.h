@@ -283,8 +283,8 @@ class MemSet
     }
 
 
-    void updateCompute(Neon::Backend   bk,
-                       Neon::StreamIdx streamId)
+    void updateDeviceData(Neon::Backend   bk,
+                          Neon::StreamIdx streamId)
     {
         int32_t                     nDev = cardinality();
         const Neon::set::StreamSet& gpuStreamSet = bk.streamSet(streamId);
@@ -295,8 +295,8 @@ class MemSet
         }
     }
 
-    void updateIO(Neon::Backend   bk,
-                  Neon::StreamIdx streamId)
+    void updateHostData(Neon::Backend   bk,
+                        Neon::StreamIdx streamId)
     {
         int32_t                     nDev = cardinality();
         const Neon::set::StreamSet& gpuStreamSet = bk.streamSet(streamId);

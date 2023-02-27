@@ -258,14 +258,14 @@ class dPartition
 
 
     NEON_CUDA_HOST_DEVICE inline auto
-    helpGetMemory()
+    mem()
         -> T_ta*
     {
         return m_mem;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
-    helpGetMemory()
+    mem()
         const
         -> const T_ta*
     {
@@ -273,7 +273,7 @@ class dPartition
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
-    helpGetPointer(const Idx& cell,
+    mem(const Idx& cell,
                    int        cardinalityIdx) -> T_ta*
     {
         int64_t p = getPitch(cell, cardinalityIdx);
@@ -339,7 +339,7 @@ class dPartition
     {
         assert(local.mLocation.x >= 0 &&
                local.mLocation.y >= 0 &&
-               local.mLocation.z >= -m_zHaloRadius &&
+               local.mLocation.z >= m_zHaloRadius &&
                local.mLocation.x < m_dim.x &&
                local.mLocation.y < m_dim.y &&
                local.mLocation.z < m_dim.z + m_zHaloRadius);

@@ -51,9 +51,9 @@ class TestData
              const Neon::domain::Stencil& stencil = Neon::domain::Stencil::s7_Laplace_t(),
              Type                         outsideValue = Type(0));
 
-    auto updateIO() -> void;
+    auto updateHostData() -> void;
 
-    auto updateCompute() -> void;
+    auto updateDeviceData() -> void;
 
     auto getField(FieldNames name) -> Field&;
 
@@ -222,7 +222,7 @@ auto TestData<G, T, C>::resetValuesToRandom(int min, int max) -> void
 
         mIODomains[i].resetValuesToRandom(min, max);
         mFields[i].ioFromDense(mIODomains[i].getData());
-        mFields[i].updateCompute(0);
+        mFields[i].updateDeviceData(0);
     }
     mGrid.getBackend().sync(0);
 }
@@ -237,7 +237,7 @@ auto TestData<G, T, C>::resetValuesToMasked(Type offset, Type offsetBetweenField
 
         mIODomains[i].resetValuesToMasked(offset + i * offsetBetweenFields, digit);
         mFields[i].ioFromDense(mIODomains[i].getData());
-        mFields[i].updateCompute(0);
+        mFields[i].updateDeviceData(0);
     }
     mGrid.getBackend().sync(0);
 }
@@ -252,7 +252,7 @@ auto TestData<G, T, C>::resetValuesToConst(Type offset, Type offsetBetweenFields
 
         mIODomains[i].resetValuesToConst(offset + i * offsetBetweenFields);
         mFields[i].ioFromDense(mIODomains[i].getData());
-        mFields[i].updateCompute(0);
+        mFields[i].updateDeviceData(0);
     }
     mGrid.getBackend().sync(0);
 }
@@ -351,8 +351,8 @@ auto TestData<G, T, C>::compare(FieldNames         name,
     bool isTheSame = false;
     if constexpr (std::is_integral_v<T>) {
         bool foundAnIssue = false;
-        this->compare(name, [&](const Neon::index_3d& /*idx*/,
-                                int /*cardinality*/,
+        this->compare(name, [&]([[maybe_unused]] const Neon::index_3d& idx,
+                                [[maybe_unused]]  int cardinality,
                                 const T& golden,
                                 const T& computed) {
             if (golden != computed) {
@@ -360,9 +360,9 @@ auto TestData<G, T, C>::compare(FieldNames         name,
 #pragma omp critical
                     {
                         foundAnIssue = true;
-                        // std::stringstream s;
-                        // s << idx.to_string() << " " << golden << " " << computed << std::endl;
-                        // NEON_INFO(s.str());
+                         std::stringstream s;
+                         s << idx.to_string() << "Golden " << golden << " Computed " << computed << std::endl;
+                         NEON_INFO(s.str());
                     }
                 }
             }
@@ -424,22 +424,22 @@ auto TestData<G, T, C>::dot(IODomain& A, IODomain& B, Type* alpha)
     *alpha = sum;
 }
 template <typename G, typename T, int C>
-auto TestData<G, T, C>::updateIO() -> void
+auto TestData<G, T, C>::updateHostData() -> void
 {
     auto& X = getField(FieldNames::X);
     auto& Y = getField(FieldNames::Y);
     auto& Z = getField(FieldNames::Z);
     auto& W = getField(FieldNames::W);
 
-    X.updateIO(0);
-    Y.updateIO(0);
-    Z.updateIO(0);
-    W.updateIO(0);
+    X.updateHostData(0);
+    Y.updateHostData(0);
+    Z.updateHostData(0);
+    W.updateHostData(0);
 
     getBackend().syncAll();
 }
 template <typename G, typename T, int C>
-auto TestData<G, T, C>::updateCompute() -> void
+auto TestData<G, T, C>::updateDeviceData() -> void
 {
     using FieldNames = Neon::domain::tool::testing::FieldNames;
 
@@ -448,10 +448,10 @@ auto TestData<G, T, C>::updateCompute() -> void
     auto& Z = getField(FieldNames::Z);
     auto& W = getField(FieldNames::W);
 
-    X.updateCompute(0);
-    Y.updateCompute(0);
-    Z.updateCompute(0);
-    W.updateCompute(0);
+    X.updateDeviceData(0);
+    Y.updateDeviceData(0);
+    Z.updateDeviceData(0);
+    W.updateDeviceData(0);
 
     getBackend().syncAll();
 }

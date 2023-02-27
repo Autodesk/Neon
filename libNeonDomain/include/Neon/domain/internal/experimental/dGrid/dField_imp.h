@@ -48,7 +48,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
     mData->haloStatus = (mData->grid->getDevSet().setCardinality() == 1)
                             ? haloStatus_et::e::OFF
                             : haloStatus;
-    const int haloRadius = mData->haloStatus == Neon::domain::haloStatus_et::ON ? mData->zHaloDim : 0;
+    const int haloRadius = mData->haloStatus == Neon::domain::haloStatus_et::ON ? zHaloDim : 0;
     mData->zHaloDim = zHaloDim;
 
     Neon::set::DataSet<index_3d> origins = this->getGrid().getBackend().template newDataSet<index_3d>({0, 0, 0});
@@ -89,7 +89,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
     {  // Setting up partitions
         Neon::domain::aGrid const& aGrid = mData->grid->helpFieldMemoryAllocator();
         mData->memoryField = aGrid.newField(fieldUserName + "-storage", cardinality, T(), dataUse, memoryOptions);
-        //const int setCardinality = mData->grid->getBackend().getDeviceCount();
+        // const int setCardinality = mData->grid->getBackend().getDeviceCount();
         mData->partitionTable.forEachConfiguration(
             [&](Neon::Execution           execution,
                 Neon::SetIdx              setIdx,
@@ -113,12 +113,11 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
 
     {  // Setting Reduction information
         mData->partitionTable.forEachConfigurationWithUserData(
-            [&](Neon::Execution                      ,
-                Neon::SetIdx                         setIdx,
-                Neon::DataView                       dw,
-                typename Self::Partition&            ,
+            [&](Neon::Execution,
+                Neon::SetIdx   setIdx,
+                Neon::DataView dw,
+                typename Self::Partition&,
                 typename Data::ReductionInformation& reductionInfo) {
-
                 switch (dw) {
                     case Neon::DataView::STANDARD: {
                         // old structure [dv_id][c][i]
@@ -271,7 +270,7 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        Partition const& result =  mData->partitionTable.getPartition(execution, setIdx, dataView);
+        Partition const& result = mData->partitionTable.getPartition(execution, setIdx, dataView);
         return result;
     }
     std::stringstream message;
@@ -288,7 +287,7 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     const auto dataUse = this->getDataUse();
     bool       isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        Partition& result =  mData->partitionTable.getPartition(execution, setIdx, dataView);
+        Partition& result = mData->partitionTable.getPartition(execution, setIdx, dataView);
         return result;
     }
     std::stringstream message;
@@ -305,8 +304,14 @@ auto dField<T, C>::operator()(const Neon::index_3d& idxGlobal,
     auto& partition = mData->partitionTable.getPartition(Neon::Execution::host,
                                                          partitionIdx,
                                                          Neon::DataView::STANDARD);
-    Idx   idx(localIDx);
-    auto& result = partition.operator()(idx, cardinality);
+    auto& span = mData->grid->getSpan(partitionIdx, Neon::DataView::STANDARD);
+    Idx   idx;
+    bool  isOk = span.setAndValidate(idx, localIDx.x, localIDx.y, localIDx.z);
+    if (!isOk) {
+#pragma omp barrier
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
+    auto& result = partition(idx, cardinality);
     return result;
 }
 
@@ -316,16 +321,17 @@ auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
     -> Type&
 {
     auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
-    auto&  partition = mData->partitionTable.getPartition(Neon::Execution::host,
-                                                          partitionIdx,
-                                                          Neon::DataView::STANDARD);
+    auto& partition = mData->partitionTable.getPartition(Neon::Execution::host,
+                                                         partitionIdx,
+                                                         Neon::DataView::STANDARD);
     auto& span = mData->grid->getSpan(partitionIdx, Neon::DataView::STANDARD);
-    Idx idx;
-    bool isOk = span.setAndValidate(idx, localIDx.x, localIDx.y, localIDx.z);
-    if(!isOk){
+    Idx   idx;
+    bool  isOk = span.setAndValidate(idx, localIDx.x, localIDx.y, localIDx.z);
+    if (!isOk) {
+#pragma omp barrier
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
-    auto&  result = partition(idx, cardinality);
+    auto& result = partition(idx, cardinality);
     return result;
 }
 

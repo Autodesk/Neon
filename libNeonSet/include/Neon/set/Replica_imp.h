@@ -53,7 +53,7 @@ auto Replica<Obj>::updateIO(int streamId)
             return;
         }
         if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
-            storage.obj.updateIO(bk, streamId);
+            storage.obj.updateHostData(bk, streamId);
             return;
         }
         NEON_THROW_UNSUPPORTED_OPTION("");
@@ -71,7 +71,7 @@ auto Replica<Obj>::updateCompute(int streamId)
             return;
         }
         if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
-            storage.obj.updateCompute(bk, streamId);
+            storage.obj.updateDeviceData(bk, streamId);
             return;
         }
         NEON_THROW_UNSUPPORTED_OPTION("");
