@@ -9,7 +9,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
              const Neon::domain::Stencil& stencil,
              const double_3d&             spacingData,
              const double_3d&             origin)
-    : bGrid(backend, domainSize, activeCellLambda, stencil, 8, 1, spacingData, origin)
+    : bGrid(backend, domainSize, activeCellLambda, stencil, 2, 1, spacingData, origin)
 {
 }
 
@@ -39,76 +39,94 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
     mData->mNumBlocks = backend.devSet().template newDataSet<uint64_t>();
 
+    mData->mNumTrays = backend.devSet().template newDataSet<uint64_t>();
 
-    mData->mNumActiveVoxel = backend.devSet().template newDataSet<uint64_t>();
-    mData->mNumActiveVoxel[0] = 0;
+    Neon::set::DataSet<uint64_t> numActiveVoxel = backend.devSet().template newDataSet<uint64_t>();
+    numActiveVoxel[0] = 0;
 
 
+    //a block is why logical block the user desire
     Neon::int32_3d numBlockInDomain(NEON_DIVIDE_UP(domainSize.x, blockSize),
                                     NEON_DIVIDE_UP(domainSize.y, blockSize),
                                     NEON_DIVIDE_UP(domainSize.z, blockSize));
 
+    //tray is the block allocation granularity
+    Neon::int32_3d numTrayInDomain(NEON_DIVIDE_UP(domainSize.x, bCell::sBlockAllocGranularity),
+                                   NEON_DIVIDE_UP(domainSize.y, bCell::sBlockAllocGranularity),
+                                   NEON_DIVIDE_UP(domainSize.z, bCell::sBlockAllocGranularity));
 
-    for (int bz = 0; bz < numBlockInDomain.z; bz++) {
-        for (int by = 0; by < numBlockInDomain.y; by++) {
-            for (int bx = 0; bx < numBlockInDomain.x; bx++) {
+    //how many blocks a tray contains
+    const int blocksPerTray = NEON_DIVIDE_UP(blockSize, bCell::sBlockAllocGranularity);
 
-                int numVoxelsInBlock = 0;
+    //we loop over trays to make sure that blocks within a tray takes contiguous numbers
+    for (int gz = 0; gz < numTrayInDomain.x; gz++) {
+        for (int gy = 0; gy < numTrayInDomain.y; gy++) {
+            for (int gx = 0; gx < numTrayInDomain.z; gx++) {
 
-                Neon::int32_3d blockOrigin(bx * blockSize * voxelSpacing,
-                                           by * blockSize * voxelSpacing,
-                                           bz * blockSize * voxelSpacing);
+                Neon::int32_3d trayOrigin(gx * bCell::sBlockAllocGranularity * voxelSpacing,
+                                          gy * bCell::sBlockAllocGranularity * voxelSpacing,
+                                          gz * bCell::sBlockAllocGranularity * voxelSpacing);
 
-                for (int z = 0; z < blockSize; z++) {
-                    for (int y = 0; y < blockSize; y++) {
-                        for (int x = 0; x < blockSize; x++) {
+                int numBlocksInTray = 0;
 
-                            const Neon::int32_3d id(blockOrigin.x + x * voxelSpacing,
-                                                    blockOrigin.y + y * voxelSpacing,
-                                                    blockOrigin.z + z * voxelSpacing);
+                for (int bz = 0; bz < blocksPerTray; bz++) {
+                    for (int by = 0; by < blocksPerTray; by++) {
+                        for (int bx = 0; bx < blocksPerTray; bx++) {
 
-                            if (id < domainSize * voxelSpacing && activeCellLambda(id)) {
-                                numVoxelsInBlock++;
+                            int numVoxelsInBlock = 0;
+
+                            Neon::int32_3d blockOrigin(trayOrigin.x + bx * blockSize * voxelSpacing,
+                                                       trayOrigin.y + by * blockSize * voxelSpacing,
+                                                       trayOrigin.z + bz * blockSize * voxelSpacing);
+
+                            for (int z = 0; z < blockSize; z++) {
+                                for (int y = 0; y < blockSize; y++) {
+                                    for (int x = 0; x < blockSize; x++) {
+
+                                        const Neon::int32_3d id(blockOrigin.x + x * voxelSpacing,
+                                                                blockOrigin.y + y * voxelSpacing,
+                                                                blockOrigin.z + z * voxelSpacing);
+
+                                        if (id < domainSize * voxelSpacing && activeCellLambda(id)) {
+                                            numVoxelsInBlock++;
+                                        }
+                                    }
+                                }
+                            }
+
+                            numActiveVoxel[0] += numVoxelsInBlock;
+
+                            if (numVoxelsInBlock > 0) {
+                                mData->mNumBlocks[0]++;
+                                mData->mBlockOriginTo1D.addPoint(blockOrigin,
+                                                                 uint32_t(numBlocksInTray + mData->mNumTrays[0] * blocksPerTray));
+                                numBlocksInTray++;
                             }
                         }
                     }
                 }
-
-                mData->mNumActiveVoxel[0] += numVoxelsInBlock;
-
-                if (numVoxelsInBlock > 0) {
-                    mData->mNumBlocks[0]++;
-                    mData->mBlockOriginTo1D.addPoint(blockOrigin,
-                                                     uint32_t(mData->mBlockOriginTo1D.size()));
+                if (numBlocksInTray > 0) {
+                    mData->mNumTrays[0]++;
                 }
             }
         }
     }
-
 
     // Init the base grid
     bGrid::GridBase::init("bGrid",
                           backend,
                           domainSize,
                           Neon::domain::Stencil(),
-                          mData->mNumActiveVoxel,
+                          numActiveVoxel,
                           Neon::int32_3d(blockSize, blockSize, blockSize),
                           spacingData,
                           origin);
-
 
     Neon::MemoryOptions memOptionsAoS(Neon::DeviceType::CPU,
                                       Neon::Allocator::MALLOC,
                                       Neon::DeviceType::CUDA,
                                       ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                       Neon::MemoryLayout::arrayOfStructs);
-
-    //origin
-    mData->mOrigin = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
-                                                                         1,
-                                                                         memOptionsAoS,
-                                                                         mData->mNumBlocks);
-
 
     //Stencil linear/relative index
     auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>();
@@ -130,24 +148,41 @@ bGrid::bGrid(const Neon::Backend&         backend,
     }
 
 
+    //This is the number of blocks for allocation purposes i.e., the number of tray * number of blocks per tray
+    //we do this since the allocation granularity is the tray size (not the block size)
+    Neon::set::DataSet<uint64_t> numBlockAlocSize = backend.devSet().template newDataSet<uint64_t>();
+    for (int64_t i = 0; i < numBlockAlocSize.size(); ++i) {
+        numBlockAlocSize[i] = mData->mNumTrays[i] * blocksPerTray;
+    }
+
+    //origin
+    //TODO we should be able to allocate one origin per tray and then use the block local id
+    //to get the block origin
+    mData->mOrigin = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
+                                                                         1,
+                                                                         memOptionsAoS,
+                                                                         numBlockAlocSize);
+
+
     // block bitmask
-    mData->mActiveMaskSize = backend.devSet().template newDataSet<uint64_t>();
-    for (int64_t i = 0; i < mData->mActiveMaskSize.size(); ++i) {
-        mData->mActiveMaskSize[i] = mData->mNumBlocks[i] *
-                                    NEON_DIVIDE_UP(blockSize * blockSize * blockSize,
-                                                   Cell::sMaskSize);
+    Neon::set::DataSet<uint64_t> activeMaskSize = backend.devSet().template newDataSet<uint64_t>();
+    for (int64_t i = 0; i < activeMaskSize.size(); ++i) {
+        activeMaskSize[i] = numBlockAlocSize[i] *
+                            NEON_DIVIDE_UP(blockSize * blockSize * blockSize,
+                                           Cell::sMaskSize);
     }
 
     mData->mActiveMask = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                        1,
                                                                        memOptionsAoS,
-                                                                       mData->mActiveMaskSize);
+                                                                       activeMaskSize);
 
 
     // init bitmask to zero
     for (int32_t c = 0; c < mData->mActiveMask.cardinality(); ++c) {
+        //TODO need to figure out which device owns this block
         SetIdx devID(c);
-        for (size_t i = 0; i < mData->mActiveMaskSize[c]; ++i) {
+        for (size_t i = 0; i < activeMaskSize[c]; ++i) {
             mData->mActiveMask.eRef(devID, i) = 0;
         }
     }
@@ -157,10 +192,10 @@ bGrid::bGrid(const Neon::Backend&         backend,
     mData->mNeighbourBlocks = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                             26,
                                                                             memOptionsAoS,
-                                                                            mData->mNumBlocks);
+                                                                            numBlockAlocSize);
     // init neighbor blocks to invalid block id
     for (int32_t c = 0; c < mData->mNeighbourBlocks.cardinality(); ++c) {
-        //TODO
+        //TODO need to figure out which device owns this block
         SetIdx devID(c);
         for (uint64_t i = 0; i < mData->mNumBlocks[c]; ++i) {
             for (int n = 0; n < 26; ++n) {

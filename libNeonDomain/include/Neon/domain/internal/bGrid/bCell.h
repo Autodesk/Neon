@@ -23,7 +23,8 @@ class bCell
     using BlockSizeT = int8_t;
     using OuterCell = bCell;
 
-    static constexpr BlockSizeT sBlockSize = 8;
+    //how many voxels a tray of blocks should contain in every direction
+    static constexpr BlockSizeT sBlockAllocGranularity = 8;
     static constexpr bool       sUseSwirlIndex = false;
 
     //We use uint32_t data type to store the block mask and thus the mask size is 32
@@ -57,7 +58,7 @@ class bCell
 
     NEON_CUDA_HOST_DEVICE inline auto getMaskBitPosition() const -> int32_t;
 
-    NEON_CUDA_HOST_DEVICE inline auto getBlockMaskStride() const -> int32_t;    
+    NEON_CUDA_HOST_DEVICE inline auto getBlockMaskStride() const -> int32_t;
 
     NEON_CUDA_HOST_DEVICE inline auto computeIsActive(const uint32_t* activeMask) const -> bool;
 

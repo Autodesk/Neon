@@ -131,17 +131,13 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         int blockSize;
         int voxelSpacing;
 
-        //number of active voxels in each block
-        Neon::set::DataSet<uint64_t> mNumActiveVoxel;
-
         //block origin coordinates
         Neon::set::MemSet_t<Neon::int32_3d> mOrigin;
 
         //Stencil neighbor indices
         Neon::set::MemSet_t<nghIdx_t> mStencilNghIndex;
 
-
-        Neon::set::DataSet<uint64_t>  mActiveMaskSize;
+        //bitmask to indicate active voxels within a block
         Neon::set::MemSet_t<uint32_t> mActiveMask;
 
 
@@ -162,6 +158,11 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
         //number of blocks in each device
         Neon::set::DataSet<uint64_t> mNumBlocks;
+
+        //number of trays in each device
+        //a tray could contains one or more blocks
+        //blocks within a tray take contiguous numbers
+        Neon::set::DataSet<uint64_t> mNumTrays;
     };
     std::shared_ptr<Data> mData;
 };
