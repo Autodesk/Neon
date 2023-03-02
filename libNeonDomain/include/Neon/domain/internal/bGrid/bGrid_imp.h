@@ -9,7 +9,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
              const Neon::domain::Stencil& stencil,
              const double_3d&             spacingData,
              const double_3d&             origin)
-    : bGrid(backend, domainSize, activeCellLambda, stencil, 2, 1, spacingData, origin)
+    : bGrid(backend, domainSize, activeCellLambda, stencil, 8, 1, spacingData, origin)
 {
 }
 
@@ -56,12 +56,12 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                    NEON_DIVIDE_UP(domainSize.z, bCell::sBlockAllocGranularity));
 
     //how many blocks a tray contains
-    const int blocksPerTray = NEON_DIVIDE_UP(blockSize, bCell::sBlockAllocGranularity);
+    const int blocksPerTray = NEON_DIVIDE_UP(bCell::sBlockAllocGranularity, blockSize);
 
     //we loop over trays to make sure that blocks within a tray takes contiguous numbers
-    for (int gz = 0; gz < numTrayInDomain.x; gz++) {
+    for (int gz = 0; gz < numTrayInDomain.z; gz++) {
         for (int gy = 0; gy < numTrayInDomain.y; gy++) {
-            for (int gx = 0; gx < numTrayInDomain.z; gx++) {
+            for (int gx = 0; gx < numTrayInDomain.x; gx++) {
 
                 Neon::int32_3d trayOrigin(gx * bCell::sBlockAllocGranularity * voxelSpacing,
                                           gy * bCell::sBlockAllocGranularity * voxelSpacing,
