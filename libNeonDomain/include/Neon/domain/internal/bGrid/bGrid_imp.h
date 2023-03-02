@@ -99,7 +99,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                             if (numVoxelsInBlock > 0) {
                                 mData->mNumBlocks[0]++;
                                 mData->mBlockOriginTo1D.addPoint(blockOrigin,
-                                                                 uint32_t(numBlocksInTray + mData->mNumTrays[0] * blocksPerTray));
+                                                                 uint32_t(numBlocksInTray + mData->mNumTrays[0] * blocksPerTray * blocksPerTray * blocksPerTray));
                                 numBlocksInTray++;
                             }
                         }
@@ -152,7 +152,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
     //we do this since the allocation granularity is the tray size (not the block size)
     Neon::set::DataSet<uint64_t> numBlockAlocSize = backend.devSet().template newDataSet<uint64_t>();
     for (int64_t i = 0; i < numBlockAlocSize.size(); ++i) {
-        numBlockAlocSize[i] = mData->mNumTrays[i] * blocksPerTray;
+        numBlockAlocSize[i] = mData->mNumTrays[i] * blocksPerTray * blocksPerTray * blocksPerTray;
     }
 
     //origin
