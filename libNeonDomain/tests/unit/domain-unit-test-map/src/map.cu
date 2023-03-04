@@ -1,6 +1,6 @@
 #include <functional>
 #include "Neon/domain/dGrid.h"
-#include "Neon/domain/eGrid.h"
+#include "Neon/domain/internal/experimental/dGrid/dGrid.h"
 
 #include "Neon/domain/tools/TestData.h"
 #include "TestInformation.h"
@@ -17,18 +17,18 @@ auto mapContainer_axpy(int                   streamIdx,
     -> Neon::set::Container
 {
     const auto& grid = filedA.getGrid();
-    return grid.getContainer("mapContainer_axpy",
+    return grid.newContainer("mapContainer_axpy",
                              [&, val](Neon::set::Loader& loader) {
                                  const auto a = loader.load(filedA);
                                  auto       b = loader.load(fieldB);
 
-                                 return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+                                 return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                                      for (int i = 0; i < a.cardinality(); i++) {
                                          // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                                          b(e, i) += a(e, i) *val;
                                      }
                                  };
-                             });
+                             }, Neon::Execution::device);
 }
 
 using namespace Neon::domain::tool::testing;
@@ -71,7 +71,6 @@ auto run(TestData<G, T, C>& data) -> void
     ASSERT_TRUE(isOk);
 }
 
-template auto run<Neon::domain::eGrid, int64_t, 0>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
-template auto run<Neon::domain::dGrid, int64_t, 0>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
+template auto run<Neon::domain::internal::exp::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::internal::exp::dGrid::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace map

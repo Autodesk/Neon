@@ -4,11 +4,11 @@
 #include "map.h"
 #include "runHelper.h"
 
-TEST(domain, map)
+TEST(domain_unit_test_map, dGrid)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::domain::eGrid, Type, 0>),
+    runAllTestConfiguration(std::function(map::run<Neon::domain::internal::exp::dGrid::dGrid, Type, 0>),
                             nGpus,
                             1);
 }

@@ -270,177 +270,21 @@ auto dGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
 }
 
 template <typename T>
-auto dGrid::dot(const std::string&               name,
-                dField<T>&                       input1,
-                dField<T>&                       input2,
-                Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
+auto dGrid::dot([[maybe_unused]] const std::string&               name,
+                [[maybe_unused]] dField<T>&                       input1,
+                [[maybe_unused]] dField<T>&                       input2,
+                [[maybe_unused]] Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
 {
-    if (mData->reduceEngine == Neon::sys::patterns::Engine::cuBlas || getBackend().devType() == Neon::DeviceType::CPU) {
-        return Neon::set::Container::factoryOldManaged(
-            name,
-            Neon::set::internal::ContainerAPI::DataViewSupport::on,
-            Neon::set::ContainerPatternType::reduction,
-            *this, [&](Neon::set::Loader& loader) {
-                loader.load(input1);
-                if (input1.getUid() != input2.getUid()) {
-                    loader.load(input2);
-                }
-                loader.load(scalar);
-                return [&](int streamIdx, Neon::DataView dataView) mutable -> void {
-                    if (dataView != Neon::DataView::STANDARD && getBackend().devSet().setCardinality() == 1) {
-                        NeonException exc("dGrid_t");
-                        exc << "Reduction operation can only run on standard data view when the number of partitions/GPUs is 1";
-                        NEON_THROW(exc);
-                    }
-                    scalar.setStream(streamIdx, dataView);
-                    scalar(dataView) = input1.dot(scalar.getBlasSet(dataView),
-                                                  input2, scalar.getTempMemory(dataView), dataView);
-                    if (dataView == Neon::DataView::BOUNDARY) {
-                        scalar(Neon::DataView::STANDARD) =
-                            scalar(Neon::DataView::BOUNDARY) + scalar(Neon::DataView::INTERNAL);
-                    }
-                };
-            });
-    } else if (mData->reduceEngine == Neon::sys::patterns::Engine::CUB) {
-
-        return Neon::set::Container::factoryOldManaged(
-            name,
-            Neon::set::internal::ContainerAPI::DataViewSupport::on,
-            Neon::set::ContainerPatternType::reduction,
-            *this, [&](Neon::set::Loader& loader) {
-                loader.load(input1);
-                if (input1.getUid() != input2.getUid()) {
-                    loader.load(input2);
-                }
-                loader.load(scalar);
-
-                return [&](int streamIdx, Neon::DataView dataView) mutable -> void {
-                    if (dataView != Neon::DataView::STANDARD && getBackend().devSet().setCardinality() == 1) {
-                        NeonException exc("dGrid_t");
-                        exc << "Reduction operation can only run on standard data view when the number of partitions/GPUs is 1";
-                        NEON_THROW(exc);
-                    }
-                    scalar.setStream(streamIdx, dataView);
-
-                    // calc dot product and store results on device
-                    input1.dotCUB(scalar.getBlasSet(dataView),
-                                  input2,
-                                  scalar.getTempMemory(dataView, Neon::DeviceType::CUDA),
-                                  dataView);
-
-                    // move to results to host
-                    scalar.getTempMemory(dataView,
-                                         Neon::DeviceType::CPU)
-                        .template updateFrom<Neon::run_et::et::async>(
-                            scalar.getBlasSet(dataView).getStream(),
-                            scalar.getTempMemory(dataView, Neon::DeviceType::CUDA));
-
-                    // sync
-                    scalar.getBlasSet(dataView).getStream().sync();
-
-                    // read the results
-                    scalar(dataView) = 0;
-                    int nGpus = getBackend().devSet().setCardinality();
-                    for (int idx = 0; idx < nGpus; idx++) {
-                        scalar(dataView) += scalar.getTempMemory(dataView, Neon::DeviceType::CPU).elRef(idx, 0, 0);
-                    }
-
-                    if (dataView == Neon::DataView::BOUNDARY) {
-                        scalar(Neon::DataView::STANDARD) =
-                            scalar(Neon::DataView::BOUNDARY) + scalar(Neon::DataView::INTERNAL);
-                    }
-                };
-            });
-
-
-    } else {
-        NeonException exc("dGrid_t");
-        exc << "Unsupported reduction engine";
-        NEON_THROW(exc);
-    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 template <typename T>
-auto dGrid::norm2(const std::string&               name,
-                  dField<T>&                       input,
-                  Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
+auto dGrid::norm2([[maybe_unused]] const std::string&               name,
+                  [[maybe_unused]] dField<T>&                       input,
+                  [[maybe_unused]] Neon::template PatternScalar<T>& scalar,
+                  [[maybe_unused]] Neon::Execution                  execution) const -> Neon::set::Container
 {
-    if (mData->reduceEngine == Neon::sys::patterns::Engine::cuBlas || getBackend().devType() == Neon::DeviceType::CPU) {
-        return Neon::set::Container::factoryOldManaged(
-            name,
-            Neon::set::internal::ContainerAPI::DataViewSupport::on,
-            Neon::set::ContainerPatternType::reduction,
-            *this, [&](Neon::set::Loader& loader) {
-                loader.load(input);
-
-                return [&](int streamIdx, Neon::DataView dataView) mutable -> void {
-                    if (dataView != Neon::DataView::STANDARD && getBackend().devSet().setCardinality() == 1) {
-                        NeonException exc("dGrid_t");
-                        exc << "Reduction operation can only run on standard data view when the number of partitions/GPUs is 1";
-                        NEON_THROW(exc);
-                    }
-                    scalar.setStream(streamIdx, dataView);
-                    scalar(dataView) = input.norm2(scalar.getBlasSet(dataView),
-                                                   scalar.getTempMemory(dataView), dataView);
-                    if (dataView == Neon::DataView::BOUNDARY) {
-                        scalar(Neon::DataView::STANDARD) =
-                            std::sqrt(scalar(Neon::DataView::BOUNDARY) * scalar(Neon::DataView::BOUNDARY) +
-                                      scalar(Neon::DataView::INTERNAL) * scalar(Neon::DataView::INTERNAL));
-                    }
-                };
-            });
-    } else if (mData->reduceEngine == Neon::sys::patterns::Engine::CUB) {
-        return Neon::set::Container::factoryOldManaged(
-            name,
-            Neon::set::internal::ContainerAPI::DataViewSupport::on,
-            Neon::set::ContainerPatternType::reduction,
-            *this, [&](Neon::set::Loader& loader) {
-                loader.load(input);
-
-                return [&](int streamIdx, Neon::DataView dataView) mutable -> void {
-                    if (dataView != Neon::DataView::STANDARD && getBackend().devSet().setCardinality() == 1) {
-                        NeonException exc("dGrid_t");
-                        exc << "Reduction operation can only run on standard data view when the number of partitions/GPUs is 1";
-                        NEON_THROW(exc);
-                    }
-                    scalar.setStream(streamIdx, dataView);
-
-                    // calc dot product and store results on device
-                    input.norm2CUB(scalar.getBlasSet(dataView),
-                                   scalar.getTempMemory(dataView, Neon::DeviceType::CUDA),
-                                   dataView);
-
-                    // move to results to host
-                    scalar.getTempMemory(dataView,
-                                         Neon::DeviceType::CPU)
-                        .template updateFrom<Neon::run_et::et::async>(
-                            scalar.getBlasSet(dataView).getStream(),
-                            scalar.getTempMemory(dataView, Neon::DeviceType::CUDA));
-
-                    // sync
-                    scalar.getBlasSet(dataView).getStream().sync();
-
-                    // read the results
-                    scalar(dataView) = 0;
-                    int nGpus = getBackend().devSet().setCardinality();
-                    for (int idx = 0; idx < nGpus; idx++) {
-                        scalar(dataView) += scalar.getTempMemory(dataView, Neon::DeviceType::CPU).elRef(idx, 0, 0);
-                    }
-                    scalar(dataView) = std::sqrt(scalar());
-
-                    if (dataView == Neon::DataView::BOUNDARY) {
-                        scalar(Neon::DataView::STANDARD) =
-                            std::sqrt(scalar(Neon::DataView::BOUNDARY) * scalar(Neon::DataView::BOUNDARY) +
-                                      scalar(Neon::DataView::INTERNAL) * scalar(Neon::DataView::INTERNAL));
-                    }
-                };
-            });
-
-    } else {
-        NeonException exc("dGrid_t");
-        exc << "Unsupported reduction engine";
-        NEON_THROW(exc);
-    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 }  // namespace Neon::domain::internal::exp::dGrid

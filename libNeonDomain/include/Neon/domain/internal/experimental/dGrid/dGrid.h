@@ -161,7 +161,8 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     template <typename T>
     auto norm2(const std::string&               name,
                dField<T>&                       input,
-               Neon::template PatternScalar<T>& scalar) const
+               Neon::template PatternScalar<T>& scalar,
+               Neon::Execution execution) const
         -> Neon::set::Container;
 
     /**
