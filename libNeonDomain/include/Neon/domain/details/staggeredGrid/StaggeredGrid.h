@@ -22,11 +22,11 @@
 #include "Neon/domain/details/staggeredGrid/node/NodeGrid.h"
 #include "Neon/domain/details/staggeredGrid/voxel/VoxelGrid.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid {
+namespace Neon::domain::details::experimental::staggeredGrid {
 
 template <typename BuildingBlockGridT>
 struct StaggeredGrid : public Neon::domain::interface::GridBaseTemplate<StaggeredGrid<BuildingBlockGridT>,
-                                                                        Neon::domain::internal::experimental::staggeredGrid::details::NodeGeneric<BuildingBlockGridT>>
+                                                                        Neon::domain::details::experimental::staggeredGrid::details::NodeGeneric<BuildingBlockGridT>>
 {
    private:
     struct BuildingBlocks
@@ -46,20 +46,20 @@ struct StaggeredGrid : public Neon::domain::interface::GridBaseTemplate<Staggere
      */
     using PartitionIndexSpace = typename BuildingBlocks::PartitionIndexSpace;
 
-    using Node = Neon::domain::internal::experimental::staggeredGrid::details::NodeGeneric<typename BuildingBlocks::Grid>;
-    using Voxel = Neon::domain::internal::experimental::staggeredGrid::details::VoxelGeneric<typename BuildingBlocks::Grid>;
+    using Node = Neon::domain::details::experimental::staggeredGrid::details::NodeGeneric<typename BuildingBlocks::Grid>;
+    using Voxel = Neon::domain::details::experimental::staggeredGrid::details::VoxelGeneric<typename BuildingBlocks::Grid>;
 
-    using NodeGrid = typename Neon::domain::internal::experimental::staggeredGrid::details::NodeGrid<typename BuildingBlocks::Grid>;
-    using VoxelGrid = typename Neon::domain::internal::experimental::staggeredGrid::details::VoxelGrid<typename BuildingBlocks::Grid>;
-
-    template <typename TypeT, int CardinalityT = 0>
-    using VoxelField = typename Neon::domain::internal::experimental::staggeredGrid::details::VoxelField<typename BuildingBlocks::Grid, TypeT, CardinalityT>;
+    using NodeGrid = typename Neon::domain::details::experimental::staggeredGrid::details::NodeGrid<typename BuildingBlocks::Grid>;
+    using VoxelGrid = typename Neon::domain::details::experimental::staggeredGrid::details::VoxelGrid<typename BuildingBlocks::Grid>;
 
     template <typename TypeT, int CardinalityT = 0>
-    using NodeField = typename Neon::domain::internal::experimental::staggeredGrid::details::NodeField<typename BuildingBlocks::Grid, TypeT, CardinalityT>;
+    using VoxelField = typename Neon::domain::details::experimental::staggeredGrid::details::VoxelField<typename BuildingBlocks::Grid, TypeT, CardinalityT>;
+
+    template <typename TypeT, int CardinalityT = 0>
+    using NodeField = typename Neon::domain::details::experimental::staggeredGrid::details::NodeField<typename BuildingBlocks::Grid, TypeT, CardinalityT>;
 
     using GridBase = typename Neon::domain::interface::GridBaseTemplate<StaggeredGrid<BuildingBlockGridT>,
-                                                                        Neon::domain::internal::experimental::staggeredGrid::details::NodeGeneric<BuildingBlockGridT>>;
+                                                                        Neon::domain::details::experimental::staggeredGrid::details::NodeGeneric<BuildingBlockGridT>>;
 
    public:
     /**
@@ -158,7 +158,7 @@ struct StaggeredGrid : public Neon::domain::interface::GridBaseTemplate<Staggere
     std::shared_ptr<Storage> mStorage;
 };
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid
+}  // namespace Neon::domain::details::experimental::staggeredGrid
 
 
 #include "StaggeredGrid_imp.h"

@@ -2,7 +2,7 @@
 
 #include "Neon/domain/details/mGrid/mField.h"
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
 mField<T, C>::mField(const std::string&         name,
@@ -51,7 +51,7 @@ mField<T, C>::mField(const std::string&         name,
             for (int32_t gpuID = 0; gpuID < int32_t(mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID].size()); gpuID++) {
 
                 mData->fields[l].getPartition(Neon::DeviceType::CPU, Neon::SetIdx(gpuID), Neon::DataView(dvID)) =
-                    Neon::domain::internal::mGrid::mPartition<T, C>(
+                    Neon::domain::details::mGrid::mPartition<T, C>(
                         Neon::DataView(dvID),
                         l,
                         mem.rawMem(gpuID, Neon::DeviceType::CPU),
@@ -71,7 +71,7 @@ mField<T, C>::mField(const std::string&         name,
                         spacingSet.rawMem(gpuID, Neon::DeviceType::CPU));
 
                 mData->fields[l].getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID)) =
-                    Neon::domain::internal::mGrid::mPartition<T, C>(
+                    Neon::domain::details::mGrid::mPartition<T, C>(
                         Neon::DataView(dvID),
                         l,
                         mem.rawMem(gpuID, Neon::DeviceType::CUDA),
@@ -308,4 +308,4 @@ auto mField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius, int level) 
            (refFactor + 2 * stencilRadius);
 }
 
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain::details::mGrid

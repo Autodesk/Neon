@@ -8,7 +8,7 @@
 
 #include "VoxelGeneric.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT, typename T, int C>
 struct VoxelStorage;
@@ -94,6 +94,6 @@ struct VoxelPartition
     typename BuildingBlocks::PartitionNodeToVoxelMask mNodeToVoxelMaskPartition /**< Active voxel mast to support node to voxel transitions */;
 };
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details
 
 #include "VoxelPartition_imp.h"

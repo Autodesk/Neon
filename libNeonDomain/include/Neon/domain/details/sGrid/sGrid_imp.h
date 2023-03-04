@@ -17,7 +17,7 @@
 #include "Neon/domain/details/sGrid/sPartition.h"
 
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 template <typename OuterGridT>
 sGrid<OuterGridT>::sGrid()
@@ -284,4 +284,4 @@ auto sGrid<OuterGridT>::getPartitionIndexSpace(Neon::DeviceType devE,
 {
     return mStorage->getPartitionIndexSpace(dataView).local(devE, setIdx, dataView);
 }
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid

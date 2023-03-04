@@ -10,7 +10,7 @@
 #include "sPartitionIndexSpace.h"
 
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 
 template <typename OuterGridT, typename T, int C = 0>
@@ -179,4 +179,4 @@ struct sPartition
                         const Pitch&                               ePitch,
                         typename OuterGrid::Cell::OuterCell const* tableToOuterCell);
 };
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid

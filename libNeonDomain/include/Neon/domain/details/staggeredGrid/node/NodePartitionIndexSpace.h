@@ -3,7 +3,7 @@
 #include "Neon/core/core.h"
 #include "NodeGeneric.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT>
@@ -35,4 +35,4 @@ struct NodePartitionIndexSpace
     typename BuildingBlocks::PartitionIndexSpace mBuildingBlocksPIdxSpace;
 };
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

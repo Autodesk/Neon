@@ -3,7 +3,7 @@
 #include "Neon/domain/details/bGrid/bPartition.h"
 #include "Neon/set/patterns/BlasSet.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 class bGrid;
 
 
@@ -118,6 +118,6 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     };
     std::shared_ptr<Data> mData;
 };
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid
 
 #include "Neon/domain/details/bGrid/bField_imp.h"

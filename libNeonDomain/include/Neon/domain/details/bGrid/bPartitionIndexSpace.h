@@ -2,7 +2,7 @@
 
 #include "Neon/domain/details/bGrid/bCell.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 class bPartitionIndexSpace
 {
    public:
@@ -36,6 +36,6 @@ class bPartitionIndexSpace
     Neon::int32_3d* mHostBlockOrigin;
     Neon::int32_3d* mDeviceBlockOrigin;
 };
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid
 
 #include "Neon/domain/details/bGrid/bPartitionIndexSpace_imp.h"

@@ -112,6 +112,6 @@ auto Containers<StaggeredGrid, T>::sumVoxelsOnNodesAndDivideBy8(Self::NodeField&
         });
 }
 
-template struct Containers<Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, double>;
-template struct Containers<Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, float>;
+template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, double>;
+template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, float>;
 }  // namespace tools

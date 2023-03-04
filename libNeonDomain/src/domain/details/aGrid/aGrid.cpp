@@ -1,6 +1,6 @@
 #include "Neon/domain/details/aGrid/aGrid.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 aGrid::aGrid()
     : Neon::domain::interface::GridBaseTemplate<aGrid, aCell>()
@@ -202,4 +202,4 @@ template class aField<int, 0>;
 template class aField<double, 0>;
 
 
-}  // namespace Neon::domain::internal::aGrid
+}  // namespace Neon::domain::details::aGrid

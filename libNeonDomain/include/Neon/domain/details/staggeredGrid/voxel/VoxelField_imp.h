@@ -11,7 +11,7 @@
 
 #include "VoxelField.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT, typename T, int C>
@@ -228,4 +228,4 @@ auto VoxelField<BuildingBlockGridT, T, C>::ioToVtk(const std::string& fileName,
 }
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

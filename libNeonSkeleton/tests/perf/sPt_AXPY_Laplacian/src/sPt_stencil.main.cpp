@@ -18,11 +18,11 @@ TEST(Skeleton, DISABLED_AXPY_then_Laplacian)
     ASSERT_TRUE(testConfigurations.m_nGPUs > 0);
 
     if (testConfigurations.m_dataType == DataType::DOUBLE_TYPE) {
-        runAllConfig(filterAverage<Neon::domain::internal::eGrid::eGrid, double>, testConfigurations);
+        runAllConfig(filterAverage<Neon::domain::details::eGrid::eGrid, double>, testConfigurations);
     }
 
     if (testConfigurations.m_dataType == DataType::INT64_TYPE) {
-        runAllConfig(filterAverage<Neon::domain::internal::eGrid::eGrid, int64_t>, testConfigurations);
+        runAllConfig(filterAverage<Neon::domain::details::eGrid::eGrid, int64_t>, testConfigurations);
     }
 }
 

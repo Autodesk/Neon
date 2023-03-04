@@ -8,7 +8,7 @@
 
 #include "Neon/domain/details/aGrid/aCell.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 /**
  * Partition abstraction for the aGrid.
@@ -21,7 +21,7 @@ class aPartition
 {
    public:
     using Type = T;
-    using Cell = Neon::domain::internal::aGrid::aCell;
+    using Cell = Neon::domain::details::aGrid::aCell;
 
     using count_t = int32_t;
     using index_t = int32_t;

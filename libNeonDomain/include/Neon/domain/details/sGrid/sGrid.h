@@ -21,7 +21,7 @@
 #include "Neon/domain/details/sGrid/sPartition.h"
 #include "Neon/domain/details/sGrid/sPartitionIndexSpace.h"
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 template <typename OuterGridT, typename T, int C>
 class sField;
@@ -42,9 +42,9 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
     using Partition = sPartition<OuterGridT, T, C>; /** Type of a partition for sGrid */
 
     template <typename T, int C>
-    using Field = Neon::domain::internal::sGrid::sField<OuterGrid, T, C>; /**< Type of a field for sGrid */
+    using Field = Neon::domain::details::sGrid::sField<OuterGrid, T, C>; /**< Type of a field for sGrid */
 
-    using PartitionIndexSpace = Neon::domain::internal::sGrid::sPartitionIndexSpace; /**< Type of the space is indexes for a lambda executor */
+    using PartitionIndexSpace = Neon::domain::details::sGrid::sPartitionIndexSpace; /**< Type of the space is indexes for a lambda executor */
 
 
     /**
@@ -199,7 +199,7 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
     std::shared_ptr<sStorage> mStorage;
 };
 
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid
 
 #include "Neon/domain/details/sGrid/sFieldStorage_imp.h"
 #include "Neon/domain/details/sGrid/sField_imp.h"

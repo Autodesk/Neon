@@ -411,11 +411,11 @@ class storage_t
     }
 
     static void gridInit(Neon::index64_3d                                 dim,
-                         storage_t<Neon::domain::internal::eGrid::eGrid, T>& storage)
+                         storage_t<Neon::domain::details::eGrid::eGrid, T>& storage)
     {
         storage.m_size3d = dim;
 
-        storage.m_grid = Neon::domain::internal::eGrid::eGrid(
+        storage.m_grid = Neon::domain::details::eGrid::eGrid(
             storage.m_backend,
             dim.template newType<int32_t>(),
             [&](const Neon::index_3d&) -> bool {

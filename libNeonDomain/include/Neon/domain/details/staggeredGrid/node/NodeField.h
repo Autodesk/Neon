@@ -10,7 +10,7 @@
 #include "NodePartition.h"
 
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 template <typename BuildingBlockGridT>
 struct NodeGrid;
 
@@ -256,4 +256,4 @@ class NodeField : public Neon::domain::interface::FieldBaseTemplate<T,
 };
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

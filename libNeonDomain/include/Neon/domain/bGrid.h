@@ -2,5 +2,5 @@
 #include "Neon/domain/details/bGrid/bGrid.h"
 
 namespace Neon::domain {
-using bGrid = Neon::domain::internal::bGrid::bGrid;
+using bGrid = Neon::domain::details::bGrid::bGrid;
 }

@@ -3,7 +3,7 @@
 #include "Neon/domain/details/staggeredGrid/node/NodeToVoxelMask.h"
 #include "StaggeredGrid.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid {
+namespace Neon::domain::details::experimental::staggeredGrid {
 
 template <typename BuildingBlockGridT>
 template <typename ActiveNodesLambda>
@@ -97,7 +97,7 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
     });
     mask.updateDeviceData(Neon::Backend::mainStreamIdx);
 
-    using NodeToVoxelMask = Neon::domain::internal::experimental::staggeredGrid::details::NodeToVoxelMask;
+    using NodeToVoxelMask = Neon::domain::details::experimental::staggeredGrid::details::NodeToVoxelMask;
     auto nodeToVoxelMask = mStorage->buildingBlockGrid.template newField<NodeToVoxelMask, 1>("NodeToVoxelMask", 1, NodeToVoxelMask(), Neon::DataUse::IO_COMPUTE);
 
     nodeToVoxelMask.forEachActiveCell([&](const Neon::index_3d& queryPoint, int, NodeToVoxelMask& nodeToVoxelMaskValue) {
@@ -226,7 +226,7 @@ auto StaggeredGrid<BuildingBlockGridT>::getContainerOnNodes(const std::string& n
     return output;
 }
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid
+}  // namespace Neon::domain::details::experimental::staggeredGrid
 
 
 #include "Neon/domain/details/staggeredGrid/node/NodeField_imp.h"

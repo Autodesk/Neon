@@ -11,7 +11,7 @@
 #include "Neon/set/MemoryOptions.h"
 
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 class aGrid /** Forward declaration for aField */;
 
 

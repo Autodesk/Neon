@@ -6,16 +6,16 @@
 
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain::details::mGrid {
 
 class bPartitionIndexSpace;
 
 template <typename T, int C = 0>
-class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
+class mPartition : public Neon::domain::details::bGrid::bPartition<T, C>
 {
    public:
-    using PartitionIndexSpace = Neon::domain::internal::bGrid::bPartitionIndexSpace;
-    using Cell = Neon::domain::internal::bGrid::bCell;
+    using PartitionIndexSpace = Neon::domain::details::bGrid::bPartitionIndexSpace;
+    using Cell = Neon::domain::details::bGrid::bCell;
     using nghIdx_t = Cell::nghIdx_t;
     using Type = T;
 
@@ -130,6 +130,6 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
     int*            mRefFactors;
     int*            mSpacing;
 };
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain::details::mGrid
 
 #include "Neon/domain/details/mGrid/mPartition_imp.h"

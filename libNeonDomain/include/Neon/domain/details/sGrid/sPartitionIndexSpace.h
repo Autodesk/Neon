@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/set/DevSet.h"
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 /**
  * Abstraction that represents the Cell space of a partition
@@ -63,4 +63,4 @@ struct sPartitionIndexSpace
     Neon::DataView mDataView;
 };
 
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid

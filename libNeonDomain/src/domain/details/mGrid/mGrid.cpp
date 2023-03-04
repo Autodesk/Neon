@@ -1,7 +1,7 @@
 #include "Neon/domain/details/mGrid/mGrid.h"
 
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain::details::mGrid {
 
 mGrid::mGrid(const Neon::Backend&                                    backend,
              const Neon::int32_3d&                                   domainSize,
@@ -740,4 +740,4 @@ void mGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
 }
 
 
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain::details::mGrid

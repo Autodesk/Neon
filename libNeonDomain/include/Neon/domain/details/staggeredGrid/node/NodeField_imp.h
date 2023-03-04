@@ -11,7 +11,7 @@
 
 #include "NodeField.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT, typename T, int C>
@@ -224,4 +224,4 @@ auto NodeField<BuildingBlockGridT, T, C>::
     iovtk.flushAndClear();
 }
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

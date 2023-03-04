@@ -29,7 +29,7 @@
 #include "VoxelPartitionIndexSpace.h"
 
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
 struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<BuildingBlockGridT>,
@@ -52,10 +52,10 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
    public:
     using PartitionIndexSpace = VoxelPartitionIndexSpace<typename BuildingBlocks::Grid>;
     using Grid = VoxelGrid<typename BuildingBlocks::Grid>;
-    using Voxel = Neon::domain::internal::experimental::staggeredGrid::details::VoxelGeneric<typename BuildingBlocks::Grid>;
+    using Voxel = Neon::domain::details::experimental::staggeredGrid::details::VoxelGeneric<typename BuildingBlocks::Grid>;
     using Cell = Voxel;
     template <typename TypeT, int CardinalityT>
-    using VoxelField = typename Neon::domain::internal::experimental::staggeredGrid::details::VoxelField<typename BuildingBlocks::Grid, TypeT, CardinalityT>;
+    using VoxelField = typename Neon::domain::details::experimental::staggeredGrid::details::VoxelField<typename BuildingBlocks::Grid, TypeT, CardinalityT>;
 
    private:
     using Self = VoxelGrid;
@@ -73,7 +73,7 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
      */
     explicit VoxelGrid(typename BuildingBlocks::Grid&                                                                                                   buildingBlockGrid,
                        const typename BuildingBlocks::template Field<uint8_t, 1>&                                                                       mask,
-                       const typename BuildingBlocks::template Field<Neon::domain::internal::experimental::staggeredGrid::details::NodeToVoxelMask, 1>& nodeToVoxelMaskField);
+                       const typename BuildingBlocks::template Field<Neon::domain::details::experimental::staggeredGrid::details::NodeToVoxelMask, 1>& nodeToVoxelMaskField);
 
     auto getBuildingBlockGrid()
         -> typename BuildingBlocks::Grid&;
@@ -176,7 +176,7 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
 };
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details
 
 #include "VoxelField.h"
 #include "VoxelGeneric_imp.h"

@@ -4,5 +4,5 @@
 
 namespace Neon::domain::experimental {
 template <typename BuildingBlockGridT>
-using StaggeredGrid = Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<BuildingBlockGridT>;
+using StaggeredGrid = Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<BuildingBlockGridT>;
 }

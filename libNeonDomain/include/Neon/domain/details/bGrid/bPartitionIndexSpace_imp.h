@@ -1,6 +1,6 @@
 #include "Neon/domain/details/bGrid/bPartitionIndexSpace.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 
 NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
     bCell&                         cell,
@@ -59,4 +59,4 @@ bPartitionIndexSpace::setAndValidate(bCell&        cell,
     return cell.mIsActive;
 }
 
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid

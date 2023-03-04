@@ -3,7 +3,7 @@
 #include "Neon/domain/details/sGrid/sPartition.h"
 #include "cuda_fp16.h"
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 
 template <typename OuterGridT, typename T, int C>
@@ -132,4 +132,4 @@ sPartition<OuterGridT, T, C>::mapToOuterGrid(const sPartition::Cell& cell) const
     return mTableToOuterCell[cell.get()];
 }
 
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid

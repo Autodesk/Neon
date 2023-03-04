@@ -2,7 +2,7 @@
 
 #include "Neon/domain/details/mGrid/xField.h"
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
 xField<T, C>::xField(const std::string&         name,
@@ -133,4 +133,4 @@ auto xField<T, C>::updateCompute(int streamId) -> void
 }
 
 
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain::details::mGrid

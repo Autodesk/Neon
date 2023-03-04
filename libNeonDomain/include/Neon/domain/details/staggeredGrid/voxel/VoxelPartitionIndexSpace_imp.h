@@ -4,7 +4,7 @@
 #include "VoxelGeneric.h"
 #include "VoxelPartitionIndexSpace.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT>
@@ -31,4 +31,4 @@ VoxelPartitionIndexSpace<BuildingBlockGridT>::
     mBuildingBlocksPIdxSpace = pixs;
     mActiveFlag = flag;
 }
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

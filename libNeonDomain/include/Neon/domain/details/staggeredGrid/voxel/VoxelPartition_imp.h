@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT, typename TypeT, int CardinalityT>
 auto VoxelPartition<BuildingBlockGridT, TypeT, CardinalityT>::
@@ -88,4 +88,4 @@ VoxelPartition<BuildingBlockGridT, TypeT, CardinalityT>::VoxelPartition(const ty
     mBuildingBlockPartition = partition;
     mNodeToVoxelMaskPartition = partitionNodeToVoxelMask;
 }
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

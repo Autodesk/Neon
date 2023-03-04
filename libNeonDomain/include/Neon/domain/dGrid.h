@@ -3,5 +3,5 @@
 
 
 namespace Neon::domain {
-using dGrid = Neon::domain::internal::dGrid::dGrid;
+using dGrid = Neon::domain::details::dGrid::dGrid;
 }

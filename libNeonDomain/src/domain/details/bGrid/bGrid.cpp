@@ -2,7 +2,7 @@
 #include "Neon/domain/interface/KernelConfig.h"
 #include "Neon/domain/details/bGrid/bPartitionIndexSpace.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 
 auto bGrid::getProperties(const Neon::index_3d& idx) const -> GridBaseTemplate::CellProperties
 {
@@ -159,4 +159,4 @@ auto bGrid::getVoxelSpacing() const -> int
     return mData->voxelSpacing;
 }
 
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid

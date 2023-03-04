@@ -5,7 +5,7 @@
 
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 
 class bPartitionIndexSpace;
 
@@ -81,6 +81,6 @@ class bPartition
     mutable uint32_t*         mSharedNeighbourBlocks;
     mutable nghIdx_t::Integer mStencilRadius;
 };
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid
 
 #include "Neon/domain/details/bGrid/bPartition_imp.h"

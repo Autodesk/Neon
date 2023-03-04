@@ -1,6 +1,6 @@
 #include "Neon/domain/details/mGrid/mGrid.h"
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
 auto mGrid::newField(const std::string          name,
@@ -38,4 +38,4 @@ auto mGrid::getContainer(const std::string& name,
 
     return kContainer;
 }
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain::details::mGrid

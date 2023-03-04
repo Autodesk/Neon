@@ -10,9 +10,9 @@ TEST(skeleton, init)
 #if 0
 
     if constexpr (0){
-        Neon::domain::internal::eGrid::eGrid_t g;
-        Neon::domain::internal::eGrid::eGrid_t::field_t<double> A;
-        Neon::domain::internal::eGrid::eGrid_t::field_t<double> B;
+        Neon::domain::details::eGrid::eGrid_t g;
+        Neon::domain::details::eGrid::eGrid_t::field_t<double> A;
+        Neon::domain::details::eGrid::eGrid_t::field_t<double> B;
         auto kenel = ...
         s.userCode([]{
             s.forEach(IN g, kernel);

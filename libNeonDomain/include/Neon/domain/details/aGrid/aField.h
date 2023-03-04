@@ -14,7 +14,7 @@
 #include "Neon/domain/details/aGrid/aPartition.h"
 #include "Neon/set/MemoryOptions.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 class aGrid /** Forward declaration for aField */;
 
@@ -114,7 +114,7 @@ class aField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                     C,
                                                                     aGrid,
                                                                     aPartition<T, C>,
-                                                                    Neon::domain::internal::aGrid::Storage<T, C>>;
+                                                                    Neon::domain::details::aGrid::Storage<T, C>>;
     /**
      * Private constructor used by aGrid
      */
@@ -140,4 +140,4 @@ class aField : public Neon::domain::interface::FieldBaseTemplate<T,
 extern template class aField<int, 0>;
 extern template class aField<double, 0>;
 
-}  // namespace Neon::domain::internal::aGrid
+}  // namespace Neon::domain::details::aGrid

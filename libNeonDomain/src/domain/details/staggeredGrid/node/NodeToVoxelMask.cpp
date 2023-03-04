@@ -1,7 +1,7 @@
 #include "Neon/domain/details/staggeredGrid/node/NodeToVoxelMask.h"
 
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 
 auto NodeToVoxelMask::reset() -> void
@@ -38,4 +38,4 @@ NodeToVoxelMask::NodeToVoxelMask(uint8_t val)
 }
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

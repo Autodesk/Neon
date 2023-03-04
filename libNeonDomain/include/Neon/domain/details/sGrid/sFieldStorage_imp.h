@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/domain/details/sGrid/sFieldStorage.h"
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 template <typename OuterGridT, typename T, int C>
 sFieldStorage<OuterGridT, T, C>::sFieldStorage()
@@ -42,4 +42,4 @@ auto sFieldStorage<OuterGridT, T, C>::getPartitionSet(Neon::Execution execution,
     return partitions[Neon::ExecutionUtils::toInt(execution)][Neon::DataViewUtil::toInt(dataView)];
 }
 
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid

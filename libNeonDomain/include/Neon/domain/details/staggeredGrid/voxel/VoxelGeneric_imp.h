@@ -2,7 +2,7 @@
 
 #include "VoxelGeneric.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
 VoxelGeneric<BuildingBlockGridT>::
@@ -29,4 +29,4 @@ VoxelGeneric<BuildingBlockGridT>::
     return mBuildingBlockCell;
 }
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

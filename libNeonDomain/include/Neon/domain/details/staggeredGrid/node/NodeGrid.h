@@ -29,7 +29,7 @@
 #include "NodeToVoxelMask.h"
 
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
 struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<BuildingBlockGridT>,
@@ -52,10 +52,10 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
    public:
     using PartitionIndexSpace = NodePartitionIndexSpace<typename BuildingBlocks::Grid>;
     using Grid = NodeGrid<typename BuildingBlocks::Grid>;
-    using Node = Neon::domain::internal::experimental::staggeredGrid::details::NodeGeneric<typename BuildingBlocks::Grid>;
+    using Node = Neon::domain::details::experimental::staggeredGrid::details::NodeGeneric<typename BuildingBlocks::Grid>;
     using Cell = Node;
     template <typename T_ta, int cardinality_ta>
-    using NodeField = typename Neon::domain::internal::experimental::staggeredGrid::details::NodeField<typename BuildingBlocks::Grid, T_ta, cardinality_ta>;
+    using NodeField = typename Neon::domain::details::experimental::staggeredGrid::details::NodeField<typename BuildingBlocks::Grid, T_ta, cardinality_ta>;
 
    public:
     NodeGrid();
@@ -176,7 +176,7 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
 };
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details
 
 #include "NodeField_imp.h"
 #include "NodeGeneric_imp.h"

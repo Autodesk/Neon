@@ -9,7 +9,7 @@ template <typename G>
 auto TestDataTest(Neon::Backend&  backend,
                   Neon::index_3d& dimension) -> void
 {
-    using Grid = Neon::domain::internal::eGrid::eGrid;
+    using Grid = Neon::domain::details::eGrid::eGrid;
     using TestData = Neon::domain::tool::testing::TestData<Grid, int, 0>;
     using namespace Neon::domain::tool::testing;
 
@@ -53,5 +53,5 @@ TEST(gUt_tools_TestData, HollowSphere)
     Neon::index_3d   dimension(10, 20, 10);
     std::vector<int> devIds = {0};
     Neon::Backend    backend(devIds, Neon::Runtime::openmp);
-    TestDataTest<Neon::domain::internal::eGrid::eGrid>(backend, dimension);
+    TestDataTest<Neon::domain::details::eGrid::eGrid>(backend, dimension);
 }

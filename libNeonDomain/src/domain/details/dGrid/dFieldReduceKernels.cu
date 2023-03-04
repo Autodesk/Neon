@@ -10,7 +10,7 @@ auto dFieldDev<T, C>::dotCUB(
     Neon::set::MemDevSet<T>&         output,
     const Neon::DataView&            dataView) -> void
 {
-    Neon::domain::internal::dotCUB<T, 256, 1, 1>(blasSet,
+    Neon::domain::details::dotCUB<T, 256, 1, 1>(blasSet,
                                                  grid(),
                                                  *this,
                                                  input,
@@ -25,7 +25,7 @@ auto dFieldDev<T, C>::norm2CUB(
     Neon::set::MemDevSet<T>&         output,
     const Neon::DataView&            dataView) -> void
 {
-    Neon::domain::internal::norm2CUB<T, 256, 1, 1>(blasSet,
+    Neon::domain::details::norm2CUB<T, 256, 1, 1>(blasSet,
                                                    grid(),
                                                    *this,
                                                    output,
@@ -59,4 +59,4 @@ template void dFieldDev<int64_t, 0>::norm2CUB(Neon::set::patterns::BlasSet<int64
                                             Neon::set::MemDevSet<int64_t>&,
                                             const Neon::DataView&);
 #endif
-}  // namespace Neon::domain::internal::dGrid
+}  // namespace Neon::domain::details::dGrid

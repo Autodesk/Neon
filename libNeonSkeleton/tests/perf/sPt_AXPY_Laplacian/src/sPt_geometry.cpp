@@ -9,8 +9,8 @@
 using namespace Neon;
 using namespace Neon::domain;
 
-namespace eGrid = Neon::domain::internal::eGrid;
-using eGrid_t = Neon::domain::internal::eGrid::eGrid;
+namespace eGrid = Neon::domain::details::eGrid;
+using eGrid_t = Neon::domain::details::eGrid::eGrid;
 
 
 geometry_t::geometry_t(topologies_e topo, const Neon::index_3d& domain_size)

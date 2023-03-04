@@ -14,7 +14,7 @@
 #include "Neon/domain/details/sGrid/sPartition.h"
 #include "Neon/set/MemoryOptions.h"
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 template <typename OuterGridT>
 class sGrid /** Forward declaration for sField */;
@@ -143,4 +143,4 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
 };
 
 
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid

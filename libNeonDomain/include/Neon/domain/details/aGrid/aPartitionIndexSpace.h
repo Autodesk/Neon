@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/set/DevSet.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 /**
  * Abstraction that represents the Cell space of a partition

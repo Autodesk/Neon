@@ -59,8 +59,8 @@ class LaplacianMatVec : public MatVec<Grid_, Real>
 };
 
 // Extern template instantiations
-extern template class LaplacianMatVec<Neon::domain::internal::eGrid::eGrid, double>;
-extern template class LaplacianMatVec<Neon::domain::internal::eGrid::eGrid, float>;
+extern template class LaplacianMatVec<Neon::domain::details::eGrid::eGrid, double>;
+extern template class LaplacianMatVec<Neon::domain::details::eGrid::eGrid, float>;
 extern template class LaplacianMatVec<Neon::domain::dGrid, double>;
 extern template class LaplacianMatVec<Neon::domain::dGrid, float>;
 extern template class LaplacianMatVec<Neon::domain::bGrid, double>;

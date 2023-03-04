@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 inline aPartitionIndexSpace::aPartitionIndexSpace()
     : mNElements(0),
@@ -58,4 +58,4 @@ aPartitionIndexSpace::setAndValidate(Cell&                          cell,
 #endif
 }
 
-}  // namespace Neon::domain::internal::aGrid
+}  // namespace Neon::domain::details::aGrid

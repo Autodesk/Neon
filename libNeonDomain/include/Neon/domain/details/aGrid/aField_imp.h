@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/domain/details/aGrid/aField.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 template <typename T, int C>
 aField<T, C>::aField(const std::string              fieldUserName,
@@ -25,7 +25,7 @@ aField<T, C>::aField(const std::string              fieldUserName,
                                                                                  haloStatus)
 {
 
-    self().getStorage() = Neon::domain::internal::aGrid::Storage<T, C>();
+    self().getStorage() = Neon::domain::details::aGrid::Storage<T, C>();
 
     iniMemory();
     initPartitions();
@@ -274,4 +274,4 @@ auto aField<T, C>::swap(aField::Field& A, aField::Field& B) -> void
     std::swap(A, B);
 }
 
-}  // namespace Neon::domain::internal::aGrid
+}  // namespace Neon::domain::details::aGrid

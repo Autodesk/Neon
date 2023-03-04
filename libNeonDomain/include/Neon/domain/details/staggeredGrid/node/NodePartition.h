@@ -11,7 +11,7 @@
 #include "NodeGeneric.h"
 #include "NodeToVoxelMask.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT, typename TypeT, int CardinalityT>
 struct NodeStorage;
@@ -92,6 +92,6 @@ struct NodePartition
 
     typename BuildingBlocks::Partition mBuildingBlockPartition;
 };
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details
 
 #include "NodePartition_imp.h"

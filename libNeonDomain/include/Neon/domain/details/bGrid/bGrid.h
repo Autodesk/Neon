@@ -12,7 +12,7 @@
 #include "Neon/domain/tools/PointHashTable.h"
 #include "Neon/set/Containter.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 
 template <typename T, int C>
 class bField;
@@ -27,11 +27,11 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     using Partition = bPartition<T, C>;
 
     template <typename T, int C = 0>
-    using Field = Neon::domain::internal::bGrid::bField<T, C>;
+    using Field = Neon::domain::details::bGrid::bField<T, C>;
 
     using nghIdx_t = typename Partition<int>::nghIdx_t;
 
-    using PartitionIndexSpace = Neon::domain::internal::bGrid::bPartitionIndexSpace;
+    using PartitionIndexSpace = Neon::domain::details::bGrid::bPartitionIndexSpace;
 
     bGrid() = default;
     virtual ~bGrid(){};
@@ -166,6 +166,6 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     std::shared_ptr<Data> mData;
 };
 
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid
 
 #include "Neon/domain/details/bGrid/bGrid_imp.h"

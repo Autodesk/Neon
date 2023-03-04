@@ -104,7 +104,7 @@ void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
     }();
 
     std::vector<Neon::domain::Stencil> empty;
-    using FeaGrid = Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<G>;
+    using FeaGrid = Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<G>;
     FeaGrid FEA(
         data.getBackend(),
         voxDim,
@@ -163,7 +163,7 @@ void StaggeredGrid_NodeToVoxels(TestData<G, T, C>& data)
     //
     Neon::int32_3d                     dims{7, 10, 15};
     std::vector<Neon::domain::Stencil> empty;
-    using FeaGrid = Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<G>;
+    using FeaGrid = Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<G>;
     FeaGrid FEA(
         data.getBackend(),
         dims,

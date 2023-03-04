@@ -14,7 +14,7 @@
 #include "Neon/set/Containter.h"
 
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
 class mField;
@@ -27,15 +27,15 @@ class mGrid
 {
    public:
     using Grid = mGrid;
-    using InternalGrid = Neon::domain::internal::bGrid::bGrid;
+    using InternalGrid = Neon::domain::details::bGrid::bGrid;
     using Cell = typename InternalGrid::Cell;
 
 
     template <typename T, int C = 0>
-    using Partition = Neon::domain::internal::mGrid::mPartition<T, C>;
+    using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
 
     template <typename T, int C = 0>
-    using Field = Neon::domain::internal::mGrid::mField<T, C>;
+    using Field = Neon::domain::details::mGrid::mField<T, C>;
 
     using nghIdx_t = typename Partition<int>::nghIdx_t;
 
@@ -222,6 +222,6 @@ class mGrid
     std::shared_ptr<Data> mData;
 };
 
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain::details::mGrid
 
 #include "Neon/domain/details/mGrid/mGrid_imp.h"

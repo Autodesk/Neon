@@ -2,7 +2,7 @@
 
 #include "Neon/core/core.h"
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 /**
  * Cell abstraction for the sGrid
@@ -49,6 +49,6 @@ struct sCell
      */
     NEON_CUDA_HOST_DEVICE inline auto get() const -> const Location&;
 };
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid
 
 #include "Neon/domain/details/sGrid/sCell_imp.h"

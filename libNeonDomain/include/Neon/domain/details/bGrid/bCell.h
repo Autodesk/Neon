@@ -2,7 +2,7 @@
 
 #include "Neon/core/core.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 class bCell
 {
    public:
@@ -71,6 +71,6 @@ class bCell
 
     NEON_CUDA_HOST_DEVICE inline auto toSwirl() const -> bCell;
 };
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid
 
 #include "Neon/domain/details/bGrid/bCell_imp.h"

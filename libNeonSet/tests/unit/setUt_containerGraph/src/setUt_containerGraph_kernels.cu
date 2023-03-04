@@ -88,7 +88,7 @@ auto laplace(const Field& x,
                     };
 
                     // Laplacian stencil operates on 6 neighbors (assuming 3D)
-                    if constexpr (std::is_same<typename Field::Grid, Neon::domain::internal::eGrid::eGrid>::value) {
+                    if constexpr (std::is_same<typename Field::Grid, Neon::domain::details::eGrid::eGrid>::value) {
                         for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
                             auto neighbor = xLocal.getNghData(cell, nghIdx, card, Type(0));
                             checkNeighbor(neighbor);

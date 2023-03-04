@@ -11,7 +11,7 @@
 #include "NodeGeneric.h"
 #include "NodeToVoxelMask.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT,
           typename TypeT,
@@ -97,4 +97,4 @@ auto NodePartition<BuildingBlockGridT, TypeT, CardinalityT>::
         .value;
 }
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

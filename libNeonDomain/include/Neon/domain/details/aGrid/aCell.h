@@ -2,7 +2,7 @@
 
 #include "Neon/core/core.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 class aCell
 {

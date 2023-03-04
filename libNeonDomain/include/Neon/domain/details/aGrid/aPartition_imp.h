@@ -2,7 +2,7 @@
 
 #include "aPartition.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 template <typename T, int C>
 aPartition<T, C>::aPartition(const prt_idx& prtId,

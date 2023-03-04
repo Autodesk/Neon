@@ -27,7 +27,7 @@
 #include "VoxelGrid.h"
 
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
 VoxelGrid<BuildingBlockGridT>::
@@ -317,4 +317,4 @@ auto VoxelGrid<BuildingBlockGridT>::getBuildingBlockGrid()
 }
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

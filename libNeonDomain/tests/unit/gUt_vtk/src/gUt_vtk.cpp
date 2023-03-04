@@ -74,7 +74,7 @@ TEST(gUt_vtk, eGrid)
 
         NEON_INFO(bk.toString());
         Neon::index_3d dimension(10, 10, 20);
-        containersTest<Neon::domain::internal::eGrid::eGrid>(dimension, bk);
+        containersTest<Neon::domain::details::eGrid::eGrid>(dimension, bk);
     }
 }
 

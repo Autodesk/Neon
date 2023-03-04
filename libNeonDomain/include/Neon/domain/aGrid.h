@@ -2,5 +2,5 @@
 #include "Neon/domain/details/aGrid/aGrid.h"
 
 namespace Neon::domain {
-using aGrid = Neon::domain::internal::aGrid::aGrid;
+using aGrid = Neon::domain::details::aGrid::aGrid;
 }

@@ -1,6 +1,6 @@
 #include "Neon/domain/details/bGrid/bCell.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 
 NEON_CUDA_HOST_DEVICE inline bCell::bCell(const Location& location)
 {
@@ -412,4 +412,4 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::pitch(int card) const -> Location::Inte
         //offset to this cell's data
         getLocal1DID();
 }
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid

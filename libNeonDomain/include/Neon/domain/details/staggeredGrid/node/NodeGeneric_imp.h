@@ -2,7 +2,7 @@
 
 #include "NodeGeneric.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
 NodeGeneric<BuildingBlockGridT>::NodeGeneric(const typename BuildingBlocks::Cell::Location& location)
@@ -30,4 +30,4 @@ NodeGeneric<BuildingBlockGridT>::
     return mBuildingBlockCell;
 }
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

@@ -11,7 +11,7 @@
 #include "Neon/set/MemoryOptions.h"
 
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 template <typename OuterGridT>
 class sGrid /** Forward declaration for aField */;

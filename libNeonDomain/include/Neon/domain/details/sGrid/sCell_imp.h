@@ -2,7 +2,7 @@
 #include "Neon/core/core.h"
 #include "Neon/domain/details/sGrid/sCell.h"
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 NEON_CUDA_HOST_DEVICE inline sCell::sCell(Location location)
 {
@@ -18,4 +18,4 @@ NEON_CUDA_HOST_DEVICE inline auto sCell::get() const -> const Location&
 {
     return mLocation;
 }
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid

@@ -2,7 +2,7 @@
 
 #include "Neon/domain/details/bGrid/bField.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 
 template <typename T, int C>
 bField<T, C>::bField(const std::string&             name,
@@ -278,4 +278,4 @@ auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius) const -> si
            (blockSize + 2 * stencilRadius);
 }
 
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid

@@ -8,7 +8,7 @@
 #include "Neon/set/HuOptions.h"
 
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 struct NodeToVoxelMask
 {
@@ -59,4 +59,4 @@ struct NodeToVoxelMask
 };
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

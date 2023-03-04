@@ -19,11 +19,11 @@ enum struct MultiResCompute
 };
 }
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 class bGrid;
 }
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain::details::mGrid {
 class mGrid;
 
 
@@ -34,10 +34,10 @@ class mField
 
    public:
     using Type = T;
-    using Grid = Neon::domain::internal::mGrid::mGrid;
-    using Partition = Neon::domain::internal::mGrid::mPartition<T, C>;
-    using InternalGrid = Neon::domain::internal::bGrid::bGrid;
-    using Cell = Neon::domain::internal::bGrid::bCell;
+    using Grid = Neon::domain::details::mGrid::mGrid;
+    using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
+    using InternalGrid = Neon::domain::details::bGrid::bGrid;
+    using Cell = Neon::domain::details::bGrid::bCell;
     using ngh_idx = typename Partition::nghIdx_t;
 
     mField() = default;
@@ -119,6 +119,6 @@ class mField
     };
     std::shared_ptr<Data> mData;
 };
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain::details::mGrid
 
 #include "Neon/domain/details/mGrid/mField_imp.h"

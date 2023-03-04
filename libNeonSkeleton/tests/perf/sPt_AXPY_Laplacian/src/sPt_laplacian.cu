@@ -44,17 +44,17 @@ auto axpy(const Field&                    A_g,
     return Kontainer;
 }
 
-template auto laplacianFilter<Neon::domain::internal::eGrid::eField<int64_t>>(const Neon::domain::internal::eGrid::eField<int64_t>& A_g,
-                                                                             Neon::domain::internal::eGrid::eField<int64_t>&       C_g) -> Neon::set::Container;
+template auto laplacianFilter<Neon::domain::details::eGrid::eField<int64_t>>(const Neon::domain::details::eGrid::eField<int64_t>& A_g,
+                                                                             Neon::domain::details::eGrid::eField<int64_t>&       C_g) -> Neon::set::Container;
 
-template auto laplacianFilter<Neon::domain::internal::eGrid::eField<double>>(const Neon::domain::internal::eGrid::eField<double>& A_g,
-                                                                            Neon::domain::internal::eGrid::eField<double>&       C_g) -> Neon::set::Container;
+template auto laplacianFilter<Neon::domain::details::eGrid::eField<double>>(const Neon::domain::details::eGrid::eField<double>& A_g,
+                                                                            Neon::domain::details::eGrid::eField<double>&       C_g) -> Neon::set::Container;
 
-template auto axpy<Neon::domain::internal::eGrid::eField<int64_t>>(const Neon::domain::internal::eGrid::eField<int64_t>& A_g,
+template auto axpy<Neon::domain::details::eGrid::eField<int64_t>>(const Neon::domain::details::eGrid::eField<int64_t>& A_g,
                                                                   int64_t                                              alpha,
-                                                                  Neon::domain::internal::eGrid::eField<int64_t>&       C_g) -> Neon::set::Container;
+                                                                  Neon::domain::details::eGrid::eField<int64_t>&       C_g) -> Neon::set::Container;
 
-template auto axpy<Neon::domain::internal::eGrid::eField<double>>(const Neon::domain::internal::eGrid::eField<double>& A_g,
+template auto axpy<Neon::domain::details::eGrid::eField<double>>(const Neon::domain::details::eGrid::eField<double>& A_g,
                                                                  double                                              alpha,
-                                                                 Neon::domain::internal::eGrid::eField<double>&       C_g) -> Neon::set::Container;
+                                                                 Neon::domain::details::eGrid::eField<double>&       C_g) -> Neon::set::Container;
 }  // namespace sk

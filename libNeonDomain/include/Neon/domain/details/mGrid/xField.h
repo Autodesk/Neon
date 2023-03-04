@@ -3,23 +3,23 @@
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/details/mGrid/mPartition.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 class bGrid;
 }
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain::details::mGrid {
 template <typename T, int C = 0>
 class xField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 Neon::domain::internal::bGrid::bGrid,
+                                                                 Neon::domain::details::bGrid::bGrid,
                                                                  mPartition<T, C>,
                                                                  int>
 
 {
    public:
-    using Field = typename Neon::domain::internal::bGrid::bField<T, C>;
-    using Partition = typename Neon::domain::internal::mGrid::mPartition<T, C>;
-    using Grid = Neon::domain::internal::bGrid::bGrid;
+    using Field = typename Neon::domain::details::bGrid::bField<T, C>;
+    using Partition = typename Neon::domain::details::mGrid::mPartition<T, C>;
+    using Grid = Neon::domain::details::bGrid::bGrid;
 
 
     xField() = default;
@@ -90,6 +90,6 @@ class xField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     std::shared_ptr<Data> mData;
 };
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain::details::mGrid
 
 #include "Neon/domain/details/mGrid/xField_imp.h"

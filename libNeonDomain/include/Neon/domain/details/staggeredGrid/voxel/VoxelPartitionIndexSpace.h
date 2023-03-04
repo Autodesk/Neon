@@ -3,7 +3,7 @@
 #include "Neon/core/core.h"
 #include "VoxelGeneric.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT>
@@ -36,4 +36,4 @@ struct VoxelPartitionIndexSpace
     typename BuildingBlockGridT::template Field<uint8_t, 1>::Partition mActiveFlag;
 };
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

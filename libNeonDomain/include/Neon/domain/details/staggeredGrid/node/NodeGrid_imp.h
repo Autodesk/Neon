@@ -27,7 +27,7 @@
 #include "NodeGrid.h"
 
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
 NodeGrid<BuildingBlockGridT>::
@@ -283,4 +283,4 @@ auto NodeGrid<BuildingBlockGridT>::
 }
 
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

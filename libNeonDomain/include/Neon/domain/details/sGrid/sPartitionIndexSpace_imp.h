@@ -4,7 +4,7 @@
 #include "sPartitionIndexSpace.h"
 
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 
 NEON_CUDA_HOST_DEVICE
@@ -126,4 +126,4 @@ auto sPartitionIndexSpace::helpGetDataView() -> Neon::DataView&
     return mDataView;
 }
 
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid

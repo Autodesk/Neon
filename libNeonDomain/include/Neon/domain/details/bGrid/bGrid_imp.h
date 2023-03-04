@@ -1,6 +1,6 @@
 #include "Neon/domain/details/bGrid/bGrid.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 
 template <typename ActiveCellLambda>
 bGrid::bGrid(const Neon::Backend&         backend,
@@ -447,4 +447,4 @@ auto bGrid::norm2(const std::string&               name,
             };
         });
 }
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid

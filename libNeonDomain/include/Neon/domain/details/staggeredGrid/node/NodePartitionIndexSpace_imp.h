@@ -4,7 +4,7 @@
 #include "NodeGeneric.h"
 #include "NodePartitionIndexSpace.h"
 
-namespace Neon::domain::internal::experimental::staggeredGrid::details {
+namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT>
@@ -25,4 +25,4 @@ NodePartitionIndexSpace<BuildingBlockGridT>::
     mBuildingBlocksPIdxSpace = pixs;
 }
 
-}  // namespace Neon::domain::internal::experimental::staggeredGrid::details
+}  // namespace Neon::domain::details::experimental::staggeredGrid::details

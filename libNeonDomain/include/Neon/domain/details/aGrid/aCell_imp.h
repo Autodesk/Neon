@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/core/core.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 NEON_CUDA_HOST_DEVICE inline aCell::aCell(Location location)
 {

@@ -3,7 +3,7 @@
 #include "Neon/domain/details/bGrid/bGrid.h"
 #include "Neon/domain/details/bGrid/bPartitionIndexSpace.h"
 
-namespace Neon::domain::internal::bGrid {
+namespace Neon::domain::details::bGrid {
 
 template <typename T, int C>
 bPartition<T, C>::bPartition()
@@ -655,4 +655,4 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
 #endif
 };
 
-}  // namespace Neon::domain::internal::bGrid
+}  // namespace Neon::domain::details::bGrid

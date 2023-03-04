@@ -1,7 +1,7 @@
 #pragma once
 #include "aFieldStorage.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 template <typename T, int C>
 Storage<T, C>::Storage()

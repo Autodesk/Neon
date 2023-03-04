@@ -53,7 +53,7 @@
 #include "Neon/domain/details/aGrid/aPartition.h"
 #include "Neon/domain/details/aGrid/aPartitionIndexSpace.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 template <typename T, int C>
 class aField;
@@ -68,9 +68,9 @@ class aGrid : public Neon::domain::interface::GridBaseTemplate<aGrid, aCell>
     using Partition = aPartition<T, C>; /** Type of a partition for aGrid */
 
     template <typename T, int C>
-    using Field = Neon::domain::internal::aGrid::aField<T, C>; /**< Type of a field for aGrid */
+    using Field = Neon::domain::details::aGrid::aField<T, C>; /**< Type of a field for aGrid */
 
-    using PartitionIndexSpace = Neon::domain::internal::aGrid::aPartitionIndexSpace; /**< Type of the space is indexes for a lambda executor */
+    using PartitionIndexSpace = Neon::domain::details::aGrid::aPartitionIndexSpace; /**< Type of the space is indexes for a lambda executor */
 
     using Count = typename aPartition<char, 0>::count_t;
 
@@ -210,7 +210,7 @@ AGRID_NEW_FIELD_EXPLICIT_INSTANTIATION(int32_t)
 AGRID_NEW_FIELD_EXPLICIT_INSTANTIATION(int64_t)
 
 #undef AGRID_NEW_FIELD_EXPLICIT_INSTANTIATION
-}  // namespace Neon::domain::internal::aGrid
+}  // namespace Neon::domain::details::aGrid
 
 #include "Neon/domain/details/aGrid/aFieldStorage_imp.h"
 #include "Neon/domain/details/aGrid/aField_imp.h"

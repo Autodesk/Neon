@@ -1,11 +1,11 @@
 #pragma once
 #include "Neon/domain/details/mGrid/mPartition.h"
 
-namespace Neon::domain::internal::mGrid {
+namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
 mPartition<T, C>::mPartition()
-    : Neon::domain::internal::bGrid::bPartition<T, C>(),
+    : Neon::domain::details::bGrid::bPartition<T, C>(),
       mMemParent(nullptr),
       mMemChild(nullptr),
       mParentBlockID(nullptr),
@@ -35,7 +35,7 @@ mPartition<T, C>::mPartition(Neon::DataView  dataView,
                              nghIdx_t*       stencilNghIndex,
                              int*            refFactors,
                              int*            spacing)
-    : Neon::domain::internal::bGrid::bPartition<T, C>(dataView, mem, cardinality, neighbourBlocks, origin, mask, outsideValue, stencilNghIndex),
+    : Neon::domain::details::bGrid::bPartition<T, C>(dataView, mem, cardinality, neighbourBlocks, origin, mask, outsideValue, stencilNghIndex),
       mLevel(level),
       mMemParent(memParent),
       mMemChild(memChild),
@@ -189,4 +189,4 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parent(const Cell& eId,
 }
 
 
-}  // namespace Neon::domain::internal::mGrid
+}  // namespace Neon::domain::details::mGrid

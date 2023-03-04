@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/domain/details/sGrid/sField.h"
 
-namespace Neon::domain::internal::sGrid {
+namespace Neon::domain::details::sGrid {
 
 template <typename OuterGridT, typename T, int C>
 sField<OuterGridT, T, C>::sField(std::string const&                                               fieldUserName,
@@ -255,4 +255,4 @@ auto sField<OuterGridT, T, C>::haloUpdate(set::HuOptions&) -> void
     NEON_THROW_UNSUPPORTED_OPERATION("sField");
 }
 
-}  // namespace Neon::domain::internal::sGrid
+}  // namespace Neon::domain::details::sGrid

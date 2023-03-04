@@ -40,7 +40,7 @@ void setupPoissonProblem(const Grid&                               grid,
                          std::array<Real, Cardinality>             bdZmax)
 {
     using namespace Neon;
-    using namespace Neon::domain::internal::eGrid;
+    using namespace Neon::domain::details::eGrid;
 
     const Neon::index_3d dims = grid.getDimension();
     // u: Unknown to solve for
@@ -101,7 +101,7 @@ Grid createGrid(const Neon::Backend& /*backend*/, int /*domainSize*/)
 
 // Specialization for eGrid_t
 template <>
-inline Neon::domain::internal::eGrid::eGrid createGrid<Neon::domain::internal::eGrid::eGrid>(const Neon::Backend& backend, int domainSize);
+inline Neon::domain::details::eGrid::eGrid createGrid<Neon::domain::details::eGrid::eGrid>(const Neon::Backend& backend, int domainSize);
 
 // Specialization for dGrid_t
 template <>

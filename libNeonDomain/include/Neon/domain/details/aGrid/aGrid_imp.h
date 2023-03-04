@@ -15,7 +15,7 @@
 #include "Neon/domain/details/aGrid/aField.h"
 #include "Neon/domain/details/aGrid/aPartition.h"
 
-namespace Neon::domain::internal::aGrid {
+namespace Neon::domain::details::aGrid {
 
 template <typename T, int C>
 auto aGrid::newField(const std::string   fieldUserName,
@@ -75,4 +75,4 @@ auto aGrid::getContainer(const std::string& name,
 }
 
 
-}  // namespace Neon::domain::internal::aGrid
+}  // namespace Neon::domain::details::aGrid

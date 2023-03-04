@@ -117,7 +117,7 @@ int getNGpus()
 
 TEST(ThreePippedMaps, eGrid)
 {
-    using Grid = Neon::domain::internal::eGrid::eGrid;
+    using Grid = Neon::domain::details::eGrid::eGrid;
     using Type = int32_t;
     runOneTestConfiguration<Grid, Type, 0>("eGrid_t", ThreePippedMaps<Grid, Type, 0>, 1, 1);
 }
