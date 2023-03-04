@@ -187,10 +187,10 @@ auto runFilterStoreType(Config& config,
     -> void
 {
     if (config.storeType == "double") {
-        return runFilterComputeType<Neon::domain::dGrid, double>(config, report);
+        return runFilterComputeType<Neon::dGrid, double>(config, report);
     }
     if (config.storeType == "float") {
-        return runFilterComputeType<Neon::domain::dGrid, float>(config, report);
+        return runFilterComputeType<Neon::dGrid, float>(config, report);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
@@ -200,7 +200,7 @@ auto runTwoPop(Config& config,
                Report& report) -> void
 {
     if (config.gridType == "dGrid") {
-        return details::runFilterStoreType<Neon::domain::dGrid>(config, report);
+        return details::runFilterStoreType<Neon::dGrid>(config, report);
     }
     if (config.gridType == "eGrid") {
         NEON_DEV_UNDER_CONSTRUCTION("");

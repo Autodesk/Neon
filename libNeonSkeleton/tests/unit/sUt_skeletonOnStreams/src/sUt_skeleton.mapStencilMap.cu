@@ -149,7 +149,7 @@ TEST(MapStencilMap_NoOCC, eGrid)
 TEST(MapStencilMap_NoOCC, dGrid)
 {
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilNoOCC<Grid, Type, 0>, nGpus, 2);
 }
@@ -165,7 +165,7 @@ TEST(MapStencilMap_OCC, eGrid)
 TEST(MapStencilMap_OCC, dGrid)
 {
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilOCC<Grid, Type, 0>, nGpus, 2);
 }
@@ -183,7 +183,7 @@ TEST(MapStencilMap_ExtendedOCC, dGrid)
 {
     int nGpus = getNGpus();
     NEON_INFO("MapStencilMap_ExtendedOCC");
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilExtendedOCC<Grid, Type, 0>, nGpus, 1);
 }
@@ -199,7 +199,7 @@ TEST(MapStencilMap_TwoWayExtendedOCC, eGrid)
 TEST(MapStencilMap_TwoWayExtendedOCC, dGrid)
 {
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilTwoWayExtendedOCC<Grid, Type, 0>, nGpus, 2);
 }

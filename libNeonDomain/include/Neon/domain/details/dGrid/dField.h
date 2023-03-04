@@ -164,7 +164,7 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         };
 
         Neon::domain::tool::PartitionTable<Partition, ReductionInformation> partitionTable;
-        Neon::domain::aGrid::Field<T, C>                                    memoryField;
+        Neon::aGrid::Field<T, C>                                            memoryField;
 
         Neon::DataUse                     dataUse;
         Neon::MemoryOptions               memoryOptions;

@@ -105,7 +105,7 @@ inline Neon::domain::details::eGrid::eGrid createGrid<Neon::domain::details::eGr
 
 // Specialization for dGrid_t
 template <>
-inline Neon::domain::dGrid createGrid<Neon::domain::dGrid>(const Neon::Backend& backend, int domainSize);
+inline Neon::dGrid createGrid<Neon::dGrid>(const Neon::Backend& backend, int domainSize);
 
 // Specialization for bGrid_t
 template <>
@@ -197,15 +197,15 @@ auto testPoissonContainers(const Neon::Backend&           backend,
                                             size_t maxIterations, REAL tolerance,          \
                                             Neon::skeleton::Occ occE, Neon::set::TransferMode transferE);
 
-EXTERN_TEMPLATE_INST(Neon::domain::dGrid, double, 1)
-EXTERN_TEMPLATE_INST(Neon::domain::dGrid, double, 3)
+EXTERN_TEMPLATE_INST(Neon::dGrid, double, 1)
+EXTERN_TEMPLATE_INST(Neon::dGrid, double, 3)
 EXTERN_TEMPLATE_INST(Neon::domain::bGrid, double, 1)
 EXTERN_TEMPLATE_INST(Neon::domain::bGrid, double, 3)
 EXTERN_TEMPLATE_INST(Neon::domain::eGrid, double, 1)
 EXTERN_TEMPLATE_INST(Neon::domain::eGrid, double, 3)
 
-EXTERN_TEMPLATE_INST(Neon::domain::dGrid, float, 1)
-EXTERN_TEMPLATE_INST(Neon::domain::dGrid, float, 3)
+EXTERN_TEMPLATE_INST(Neon::dGrid, float, 1)
+EXTERN_TEMPLATE_INST(Neon::dGrid, float, 3)
 EXTERN_TEMPLATE_INST(Neon::domain::bGrid, float, 1)
 EXTERN_TEMPLATE_INST(Neon::domain::bGrid, float, 3)
 EXTERN_TEMPLATE_INST(Neon::domain::eGrid, float, 1)

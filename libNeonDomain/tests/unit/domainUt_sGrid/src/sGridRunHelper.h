@@ -42,7 +42,7 @@ void runAllTestConfiguration(const std::string&                      gname,
 
     std::vector<Geometry> geos;
 
-    if constexpr (std::is_same_v<G, Neon::domain::dGrid>) {
+    if constexpr (std::is_same_v<G, Neon::dGrid>) {
         geos = std::vector<Geometry>{
             Geometry::FullDomain,
         };

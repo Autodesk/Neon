@@ -2,6 +2,6 @@
 #include "Neon/domain/details/dGrid/dGrid.h"
 
 
-namespace Neon::domain {
+namespace Neon {
 using dGrid = Neon::domain::details::dGrid::dGrid;
 }

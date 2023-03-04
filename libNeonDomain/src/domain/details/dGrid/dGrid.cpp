@@ -19,7 +19,7 @@ dGrid::Data::Data(const Neon::Backend& backend)
 }
 
 auto dGrid::helpFieldMemoryAllocator()
-    const -> const Neon::domain::aGrid&
+    const -> const Neon::aGrid&
 {
     return mData->memoryGrid;
 }

@@ -87,7 +87,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
     }
 
     {  // Setting up partitions
-        Neon::domain::aGrid const& aGrid = mData->grid->helpFieldMemoryAllocator();
+        Neon::aGrid const& aGrid = mData->grid->helpFieldMemoryAllocator();
         mData->memoryField = aGrid.newField(fieldUserName + "-storage", cardinality, T(), dataUse, memoryOptions);
         // const int setCardinality = mData->grid->getBackend().getDeviceCount();
         mData->partitionTable.forEachConfiguration(
@@ -532,7 +532,8 @@ auto dField<T, C>::
         Neon::set::Container::factoryDataTransfer(
             *this,
             transferMode,
-            stencilSemantic);
+            stencilSemantic,
+            execution);
 
     Neon::set::Container SyncContainer =
         Neon::set::Container::factorySynchronization(

@@ -161,7 +161,7 @@ int main(int argc, char** agrv)
         size_t         max_iterations = 1000;
         double         tolerance = 1e-10;
 
-        testPoisson<Neon::domain::dGrid, double, 1>(backend, domain_size, bdZMin, bdZMax, max_iterations, tolerance);
+        testPoisson<Neon::dGrid, double, 1>(backend, domain_size, bdZMin, bdZMax, max_iterations, tolerance);
     }
 
     return 0;

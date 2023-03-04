@@ -2,7 +2,7 @@
 
 #include <cub/cub.cuh>
 
-namespace Neon::domain::internal {
+namespace Neon::domain::details {
 
 template <typename T, uint32_t blockDimX, uint32_t blockDimY, uint32_t blockDimZ>
 NEON_CUDA_DEVICE_ONLY __inline__ void cubBlockSum(const T threadValue,
@@ -186,4 +186,4 @@ auto norm2CUB(Neon::set::patterns::BlasSet<T>& blasSet,
         blasSet.getBlas(idx).reducePhase2(output.getMemDev(idx), cub::Sum(), 0);
     }
 }
-}  // namespace Neon::domain::internal
+}  // namespace Neon::domain::details

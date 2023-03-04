@@ -722,7 +722,7 @@ int main(int argc, char** argv)
         const Neon::index_3d grid_dim(dim_x, dim_y, dim_z);
         const size_t         num_frames = (DIM == 2) ? 60000 : 2000;
 
-        using Grid = Neon::domain::dGrid;
+        using Grid = Neon::dGrid;
         using dataT = float;
 
         Grid grid(

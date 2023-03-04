@@ -4,7 +4,7 @@
 #include "Neon/domain/dGrid.h"
 #include "gUt_storage.h"
 
-using dGrid_t = Neon::domain::dGrid;
+using dGrid_t = Neon::dGrid;
 
 
 void runAllTestConfiguration(

@@ -99,8 +99,8 @@ extern template class CG_t<Neon::domain::eGrid, double>;
 extern template class CG_t<Neon::domain::eGrid, float>;
 extern template class CG_t<Neon::domain::bGrid, double>;
 extern template class CG_t<Neon::domain::bGrid, float>;
-extern template class CG_t<Neon::domain::dGrid, double>;
-extern template class CG_t<Neon::domain::dGrid, float>;
+extern template class CG_t<Neon::dGrid, double>;
+extern template class CG_t<Neon::dGrid, float>;
 
 }  // namespace solver
 }  // namespace Neon

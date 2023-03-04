@@ -117,7 +117,7 @@ int main(int argc, char** argv)
         const size_t         num_frames = 500;
 
         using T = float;
-        using Grid = Neon::domain::dGrid;
+        using Grid = Neon::dGrid;
         Grid grid(
             backend, grid_dim,
             [](const Neon::index_3d& idx) -> bool { return true; },

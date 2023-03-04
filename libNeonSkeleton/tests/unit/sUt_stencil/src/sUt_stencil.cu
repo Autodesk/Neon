@@ -155,7 +155,7 @@ void SingleStencil(TestData<G, T, C>& data)
 TEST(Stencil_NoOCC, dGrid)
 {
     int nGpus = 1;
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("dGrid_t", SingleStencil<Grid, Type, 0>, nGpus, 1);
 }

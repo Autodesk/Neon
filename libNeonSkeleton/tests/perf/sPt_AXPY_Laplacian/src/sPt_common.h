@@ -209,13 +209,13 @@ class storage_t
 
     static void gridInit(Neon::index64_3d dim,
                          geometry_t /*geo*/,
-                         storage_t<Neon::domain::aGrid, T>& storage,
+                         storage_t<Neon::aGrid, T>& storage,
                          const Neon::Backend&               backendConfig)
     {
         storage.m_size3d = {1, 1, 1};
         storage.m_size3d.x = dim.template rMulTyped<int64_t>();
 
-        auto    lengths = storage.m_devSet.template newDataSet<Neon::domain::aGrid::Count>(storage.m_size3d.x / storage.m_devSet.setCardinality());
+        auto    lengths = storage.m_devSet.template newDataSet<Neon::aGrid::Count>(storage.m_size3d.x / storage.m_devSet.setCardinality());
         int64_t sumTmp = 0;
         for (int i = 0; i < storage.m_size3d.x % storage.m_devSet.setCardinality(); i++) {
             lengths[i]++;
@@ -224,7 +224,7 @@ class storage_t
             sumTmp += lengths[i];
         }
         assert(sumTmp == storage.m_size3d.x);
-        storage.m_grid = Neon::domain::aGrid(storage.m_devSet, lengths);
+        storage.m_grid = Neon::aGrid(storage.m_devSet, lengths);
 
         storage.Xf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
         storage.Yf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);

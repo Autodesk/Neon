@@ -70,7 +70,7 @@ int main(int argc, char** argv)
 
         Neon::Backend backend(gpu_ids, runtime);
 
-        using Grid = Neon::domain::dGrid;
+        using Grid = Neon::dGrid;
         Grid grid(
             backend, dim,
             [](const Neon::index_3d& idx) -> bool { return true; },

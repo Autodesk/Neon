@@ -89,6 +89,6 @@ auto run(TestData<G, T, C>& data) -> void
 }
 
 template auto run<Neon::domain::eGrid, int64_t, 0, double>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
-template auto run<Neon::domain::dGrid, int64_t, 0, double>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
+template auto run<Neon::dGrid, int64_t, 0, double>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace map

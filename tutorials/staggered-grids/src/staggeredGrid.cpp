@@ -24,7 +24,7 @@ int main()
     }();
 
     // Define an alias for our staggered grid
-    using UniformGrid = Neon::domain::dGrid;
+    using UniformGrid = Neon::dGrid;
     using StaggeredGrid = Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<UniformGrid>;
     using FP = double;
     using UserContainers = tools::Containers<StaggeredGrid, FP>;

@@ -9,7 +9,7 @@
 //{
 //    int nGpus = 3;
 //    using Type = int64_t;
-//    runAllTestConfiguration(std::function(host::runHost<Neon::domain::dGrid, Type, 0>),
+//    runAllTestConfiguration(std::function(host::runHost<Neon::dGrid, Type, 0>),
 //                            nGpus,
 //                            1);
 //}

@@ -1,6 +1,6 @@
 #pragma once
 #include "Neon/domain/details/bGrid/bGrid.h"
 
-namespace Neon::domain {
+namespace Neon {
 using bGrid = Neon::domain::details::bGrid::bGrid;
 }

@@ -165,5 +165,5 @@ auto Containers<StaggeredGrid, T>::sumVoxelsOnNodes(Self::NodeField_3           
             };
         });
 }
-template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, TEST_TYPE>;
+template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::dGrid>, TEST_TYPE>;
 //template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::domain::eGrid>, TEST_TYPE>;

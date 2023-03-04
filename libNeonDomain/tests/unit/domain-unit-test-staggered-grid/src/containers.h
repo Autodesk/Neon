@@ -39,5 +39,5 @@ struct Containers
 };
 
 
-extern template struct Containers<Neon::domain::experimental::StaggeredGrid<Neon::domain::dGrid>, TEST_TYPE>;
+extern template struct Containers<Neon::domain::experimental::StaggeredGrid<Neon::dGrid>, TEST_TYPE>;
 //extern template struct Containers<Neon::domain::experimental::StaggeredGrid<Neon::domain::eGrid>, TEST_TYPE>;

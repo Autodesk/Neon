@@ -77,6 +77,6 @@
 //}
 //
 //// template auto runHost<Neon::domain::eGrid, int64_t, 0>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
-//template auto runHost<Neon::domain::dGrid, int64_t, 0>(TestData<Neon::domain::dGrid, int64_t, 0>&) -> void;
+//template auto runHost<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 //
 //}  // namespace host

@@ -25,7 +25,7 @@ auto containersTest(Neon::index_3d& dimension, Neon::Backend& bk) -> void
     // Neon Grid section
     Grid grid;
 
-    if constexpr (std::is_same_v<Grid, Neon::domain::aGrid>) {
+    if constexpr (std::is_same_v<Grid, Neon::aGrid>) {
         grid = Grid(bk, dimension);
     } else {
         grid = Grid(
@@ -61,7 +61,7 @@ TEST(gUt_vtk, aGrid)
 
         NEON_INFO(bk.toString());
         Neon::index_3d dimension(10, 1, 1);
-        containersTest<Neon::domain::aGrid>(dimension, bk);
+        containersTest<Neon::aGrid>(dimension, bk);
     }
 }
 
@@ -86,5 +86,5 @@ TEST(gUt_vtk, iovtkCPU)
 
     NEON_INFO(bk.toString());
     Neon::index_3d dimension(10, 1, 1);
-    containersTest<Neon::domain::aGrid>(dimension, bk);
+    containersTest<Neon::aGrid>(dimension, bk);
 }

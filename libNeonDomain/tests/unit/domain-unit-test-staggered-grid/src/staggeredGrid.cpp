@@ -239,7 +239,7 @@ TEST(DISABLED_Map, dGrid)
 {
     Neon::init();
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = TEST_TYPE;
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_Map<Grid, Type, 0>, nGpus, 1);
 }
@@ -248,7 +248,7 @@ TEST(DISABLED_CodeVoxToNodes, dGrid)
 {
     Neon::init();
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = TEST_TYPE;
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_VoxToNodes<Grid, Type, 0>, nGpus, 1);
 }
@@ -257,7 +257,7 @@ TEST(DISABLED_NodeToVoxels, dGrid)
 {
     Neon::init();
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = TEST_TYPE;
     runAllTestConfiguration<Grid, Type, 0>("staggeredGrid", StaggeredGrid_NodeToVoxels<Grid, Type, 0>, nGpus, 1);
 }

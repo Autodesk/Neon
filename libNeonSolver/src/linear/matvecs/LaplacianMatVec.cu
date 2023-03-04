@@ -101,8 +101,8 @@ inline Neon::set::Container LaplacianMatVec<Grid, Real>::matVec(const Field&   i
 // Template instantiations
 template class LaplacianMatVec<Neon::domain::eGrid, double>;
 template class LaplacianMatVec<Neon::domain::eGrid, float>;
-template class LaplacianMatVec<Neon::domain::dGrid, double>;
-template class LaplacianMatVec<Neon::domain::dGrid, float>;
+template class LaplacianMatVec<Neon::dGrid, double>;
+template class LaplacianMatVec<Neon::dGrid, float>;
 template class LaplacianMatVec<Neon::domain::bGrid, double>;
 template class LaplacianMatVec<Neon::domain::bGrid, float>;
 

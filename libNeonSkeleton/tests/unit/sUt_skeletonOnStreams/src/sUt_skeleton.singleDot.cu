@@ -163,7 +163,7 @@ int getNGpus()
 TEST(SingleDot, dGrid)
 {
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = double;
     runAllTestConfiguration<Grid, Type, 0>("dGrid", runSingleDot<Grid, Type, 0>, nGpus, 1);
 }
@@ -171,7 +171,7 @@ TEST(SingleDot, dGrid)
 TEST(SingleStencilTestData, dGrid)
 {
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = double;
     runAllTestConfiguration<Grid, Type, 0>("dGrid", runSingleStencilTestData<Grid, Type, 0>, nGpus, 1);
 }

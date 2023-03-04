@@ -8,7 +8,7 @@ TEST(domain_unit_test_map, dGrid)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::domain::details::dGrid::dGrid, Type, 0>),
+    runAllTestConfiguration(std::function(map::run<Neon::dGrid, Type, 0>),
                             nGpus,
                             1);
 }

@@ -146,7 +146,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
                 }
                 count = dim.rMul();
             });
-        mData->memoryGrid = Neon::domain::aGrid(backend, elementPerPartition);
+        mData->memoryGrid = Neon::aGrid(backend, elementPerPartition);
     }
 
     {  // Stencil Idx to 3d offset

@@ -121,7 +121,7 @@ TEST(Swap, dGrid)
 {
     Neon::init();
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("sGrid", SwapContainerRun<Grid, Type, 0>, nGpus, 1);
 }

@@ -197,7 +197,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
         const -> const Neon::set::DataSet<int>;
 
     auto helpFieldMemoryAllocator()
-        const -> const Neon::domain::aGrid&;
+        const -> const Neon::aGrid&;
 
     auto helpGetFirstZindex()
         const -> const Neon::set::DataSet<int32_t>&;
@@ -218,7 +218,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
 
         Neon::index_3d              halo;
         Neon::sys::patterns::Engine reduceEngine;
-        Neon::domain::aGrid         memoryGrid /** memory allocator for fields */;
+        Neon::aGrid         memoryGrid /** memory allocator for fields */;
 
         Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
     };
