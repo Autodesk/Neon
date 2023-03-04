@@ -1,5 +1,4 @@
 #include <functional>
-#include "Neon/domain/eGrid.h"
 #include "Neon/domain/details/dGrid/dGrid.h"
 
 #include "Neon/domain/tools/TestData.h"

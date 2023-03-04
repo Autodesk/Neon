@@ -7,8 +7,7 @@
 #include "Neon/core/types/DataUse.h"
 #include "Neon/core/types/DeviceType.h"
 
-#include "Neon/domain/dGrid.h"
-#include "Neon/domain/eGrid.h"
+#include "Neon/domain/Grids.h"
 #include "Neon/domain/tools/Geometries.h"
 #include "Neon/domain/tools/TestData.h"
 
