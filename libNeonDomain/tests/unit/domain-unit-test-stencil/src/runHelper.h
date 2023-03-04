@@ -22,8 +22,8 @@ using namespace Neon::domain::tool;
 template <typename G, typename T, int C>
 void runAllTestConfiguration(
     std::function<void(TestData<G, T, C>&)> f,
-    int                                     nGpus,
-    int                                     minNumGpus)
+    [[maybe_unused]] int                    nGpus,
+    [[maybe_unused]] int                    minNumGpus)
 {
 
     std::vector<int> nGpuTest;
@@ -33,7 +33,7 @@ void runAllTestConfiguration(
     // std::vector<int> nGpuTest{2,4,6,8};
     std::vector<int> cardinalityTest{1};
 
-    std::vector<Neon::index_3d> dimTest{{60, 10, 250}};
+    std::vector<Neon::index_3d> dimTest{{60, 10, 250},{17, 13, 33}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
         runtimeE.push_back(Neon::Runtime::stream);

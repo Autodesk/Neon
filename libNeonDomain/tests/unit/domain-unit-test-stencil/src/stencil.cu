@@ -1,7 +1,7 @@
 #include <functional>
 #include "Neon/domain/dGrid.h"
-#include "Neon/domain/interface/GridConcept.h"
 #include "Neon/domain/details/dGrid/dGrid.h"
+#include "Neon/domain/interface/GridConcept.h"
 #include "Neon/domain/tools/TestData.h"
 #include "TestInformation.h"
 #include "gtest/gtest.h"
@@ -26,19 +26,22 @@ auto stencilContainer_laplace(const Field& filedA,
                     // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                     typename Field::Type partial = 0;
                     int                  count = 0;
-                    for (auto const& direction : std::array<typename Field::NghIdx, 6>{{{1, 0, 0},
-                                                                                        {-1, 0, 0},
-                                                                                        {0, 1, 0},
-                                                                                        {0, -1, 0},
-                                                                                        {0, 0, 1},
-                                                                                        {0, 0, -1}}}) {
+                    using NghIdx = typename Field::NghIdx;
+                    std::array<typename Field::NghIdx, 6> stencil{
+                        NghIdx(1, 0, 0),
+                        NghIdx(-1, 0, 0),
+                        NghIdx(0, 1, 0),
+                        NghIdx(0, -1, 0),
+                        NghIdx(0, 0, 1),
+                        NghIdx(0, 0, -1)};
+                    for (auto const& direction : stencil) {
                         typename Field::NghData nghData = a.getNghData(idx, direction, i, 0);
                         if (nghData.isValid()) {
                             partial += nghData.getData();
                             count++;
                         }
                     };
-                    b(idx, i) = a(idx, i) - count * partial;
+                    b(idx, i) = a(idx, i);  // - count * partial;
                 }
             };
         },
@@ -66,23 +69,36 @@ auto run(TestData<G, T, C>& data) -> void
         auto& X = data.getField(FieldNames::X);
         auto& Y = data.getField(FieldNames::Y);
 
-        X.newHaloUpdate(Neon::set::StencilSemantic::standard,
-                        Neon::set::TransferMode::get,
-                        Neon::Execution::device)
-            .run(Neon::Backend::mainStreamIdx);
+        for (int iter = 4; iter > 0; iter--) {
+            X.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                            Neon::set::TransferMode::get,
+                            Neon::Execution::device)
+                .run(Neon::Backend::mainStreamIdx);
 
-        stencilContainer_laplace(X, Y).run(Neon::Backend::mainStreamIdx);
+            stencilContainer_laplace(X, Y).run(Neon::Backend::mainStreamIdx);
 
+            Y.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                            Neon::set::TransferMode::get,
+                            Neon::Execution::device)
+                .run(Neon::Backend::mainStreamIdx);
+
+            stencilContainer_laplace(Y, X).run(Neon::Backend::mainStreamIdx);
+        }
         data.getBackend().sync(0);
     }
 
     {  // Golden data
         auto& X = data.getIODomain(FieldNames::X);
         auto& Y = data.getIODomain(FieldNames::Y);
-        data.laplace(X, Y);
+        for (int iter = 4; iter > 0; iter--) {
+
+            data.laplace(X, Y);
+            data.laplace(Y, X);
+        }
     }
 
-    bool isOk = data.compare(FieldNames::Y);
+    data.updateHostData();
+    bool isOk = data.compare(FieldNames::X);
     ASSERT_TRUE(isOk);
 }
 

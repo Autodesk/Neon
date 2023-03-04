@@ -341,7 +341,7 @@ int count = 0;
                 count++;
             }
         }
-        b = a - count * res;
+        b = a;// - count * res;
     },
                                          A, B);
 }

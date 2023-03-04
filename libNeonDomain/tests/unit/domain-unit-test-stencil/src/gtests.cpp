@@ -4,7 +4,7 @@
 #include "runHelper.h"
 #include "stencil.h"
 
-TEST(domain_unit_test_map, dGrid)
+TEST(domain_unit_test_stencil, dGrid)
 {
     int nGpus = 3;
     using Type = int64_t;
