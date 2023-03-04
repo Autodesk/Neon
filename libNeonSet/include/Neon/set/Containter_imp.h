@@ -117,12 +117,14 @@ template <typename MultiXpuDataT>
 auto Container::
     factoryDataTransfer(const MultiXpuDataT&       multiXpuData,
                         Neon::set::TransferMode    transferMode,
-                        Neon::set::StencilSemantic transferSemantic)
+                        Neon::set::StencilSemantic transferSemantic,
+                        Neon::Execution execution)
         -> Neon::set::Container
 {
     auto k = new Neon::set::internal::DataTransferContainer(multiXpuData,
                                                             transferMode,
-                                                            transferSemantic);
+                                                            transferSemantic,
+                                                            execution);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
     return {tmp};

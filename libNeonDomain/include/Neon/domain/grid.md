@@ -140,14 +140,14 @@ class xPartition
      * Returns the metadata associated with a neighbour cell.
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    nghVal(const Cell& eId, int stencilPointIdx, int cardinalityIdx, T& value) const
+    getNghData(const Cell& eId, int stencilPointIdx, int cardinalityIdx, T& value) const
         -> bool;
     
     /**
      * Returns the metadata associated with a neighbour cell.
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    nghVal(Cell eId, const Neon::int3d& direrection, int cardinalityIdx, T& value) const
+    getNghData(Cell eId, const Neon::int3d& direrection, int cardinalityIdx, T& value) const
         -> bool;
     
     /**

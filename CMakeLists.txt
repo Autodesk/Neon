@@ -41,7 +41,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Definition of the target interface NeonDeveloperLib
 add_library(NeonDeveloperLib INTERFACE)
-target_compile_features(NeonDeveloperLib INTERFACE cxx_std_17)
+target_compile_features(NeonDeveloperLib INTERFACE cxx_std_20)
 
 include("${PROJECT_SOURCE_DIR}/cmake/ManageCompilationFlags.cmake")
 

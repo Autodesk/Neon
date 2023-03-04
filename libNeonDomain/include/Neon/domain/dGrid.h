@@ -1,5 +1,5 @@
 #pragma once
-#include "Neon/domain/internal/dGrid/dGrid.h"
+#include "Neon/domain/details/dGrid/dGrid.h"
 
 
 namespace Neon::domain {

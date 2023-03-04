@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 add_subdirectory("domainUt_sGrid")
 add_subdirectory("domain-unit-test-containers")
 add_subdirectory("domain-unit-test-map")
+add_subdirectory("domain-unit-test-stencil")
 add_subdirectory("domain-unit-test-cast")
 add_subdirectory("domain-unit-test-patterns-containers")
 

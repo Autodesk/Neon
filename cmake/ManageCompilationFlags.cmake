@@ -31,7 +31,7 @@ set(NeonCXXFlags
         # Ignore "Conditional expression is constant" warning until NVCC support c++17. Once that happens we can change the code to use if constexpr
         # Ignore "OpenMP Collapse warning until VS supports full OpenMP functionality
         # Ignore "unreferenced local function has been removed" that shows up when we include cublas_v2 header
-        $<$<CXX_COMPILER_ID:MSVC>:-D_SCL_SECURE_NO_WARNINGS /openmp /std:c++17 /MP /W4 /WX /wd4849 /wd4127 /wd4996 /wd4505 /wd4702>
+        $<$<CXX_COMPILER_ID:MSVC>:-D_SCL_SECURE_NO_WARNINGS /openmp /std:c++20 /MP /W4 /WX /wd4849 /wd4127 /wd4996 /wd4505 /wd4702>
 
         #Add GCC specific compiler flags here
 		#-Wno-class-memaccess for "writing to an object of type XXX with no trivial copy-assignment; use copy-assignment or copy-initialization instead"
@@ -41,7 +41,7 @@ set(NeonCXXFlags
         $<$<CXX_COMPILER_ID:Clang>:-m64 -Wall -Wextra -Werror -Wno-unused-function -Wno-deprecated-declarations -Wno-deprecated-copy -Wno-unused-parameter -Wno-unused-private-field -Wno-braced-scalar-init -Wno-unused-variable -Wno-unused-but-set-variable -Wno-deprecated-declarations >
         )
 
-set(MSVC_XCOMPILER_FLAGS "/openmp /std:c++17")
+set(MSVC_XCOMPILER_FLAGS "/openmp /std:c++20")
 set(NeonCUDAFlags
         # Optimization flags for Release
         $<$<CXX_COMPILER_ID:GNU>: $<$<CONFIG:Release>:-O3> >
@@ -50,8 +50,8 @@ set(NeonCUDAFlags
         $<$<CXX_COMPILER_ID:GNU>: $<$<CONFIG:Debug>:-O0 -G> >
         $<$<CXX_COMPILER_ID:Clang>: $<$<CONFIG:Debug>:-O0 -G> >
         # Host compiler
-        $<$<CXX_COMPILER_ID:GNU>:-Xcompiler -fopenmp -std=c++17 $<$<CONFIG:Release>:-O3> $<$<CONFIG:Debug>:-O0> >
-        $<$<CXX_COMPILER_ID:Clang>:-Xcompiler -fopenmp -std=c++17 $<$<CONFIG:Release>:-O3> $<$<CONFIG:Debug>:-O0>>
+        $<$<CXX_COMPILER_ID:GNU>:-Xcompiler -fopenmp -std=c++20 $<$<CONFIG:Release>:-O3> $<$<CONFIG:Debug>:-O0> >
+        $<$<CXX_COMPILER_ID:Clang>:-Xcompiler -fopenmp -std=c++20 $<$<CONFIG:Release>:-O3> $<$<CONFIG:Debug>:-O0>>
         $<$<CXX_COMPILER_ID:MSVC>:-Xcompiler ${MSVC_XCOMPILER_FLAGS}>
         #Disables warning
         #177-D "function XXX was declared but never referenced"

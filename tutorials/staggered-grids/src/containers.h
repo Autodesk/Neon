@@ -1,5 +1,5 @@
 #include "Neon/domain/dGrid.h"
-#include "Neon/domain/internal/experimental/staggeredGrid/StaggeredGrid.h"
+#include "Neon/domain/details/staggeredGrid/StaggeredGrid.h"
 
 namespace tools {
 

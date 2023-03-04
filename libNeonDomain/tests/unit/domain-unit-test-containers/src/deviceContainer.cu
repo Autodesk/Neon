@@ -1,6 +1,6 @@
 #include <functional>
 #include "Neon/domain/eGrid.h"
-#include "Neon/domain/internal/experimental/dGrid/dGrid.h"
+#include "Neon/domain/details/dGrid/dGrid.h"
 
 #include "Neon/domain/tools/TestData.h"
 #include "TestInformation.h"
@@ -112,6 +112,6 @@ auto runDevice(TestData<G, T, C>& data) -> void
 }
 
 // template auto run<Neon::domain::eGrid, int64_t, 0>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
-template auto runDevice<Neon::domain::internal::exp::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::internal::exp::dGrid::dGrid, int64_t, 0>&) -> void;
+template auto runDevice<Neon::domain::details::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::dGrid::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace device

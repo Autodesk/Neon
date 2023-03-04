@@ -14,7 +14,8 @@ struct DataTransferContainer
 
     DataTransferContainer(const MxpuDataT&           multiXpuData,
                           Neon::set::TransferMode    transferMode,
-                          Neon::set::StencilSemantic transferSemantic)
+                          Neon::set::StencilSemantic transferSemantic,
+                          Neon::Execution            execution)
         : mMultiXpuData(multiXpuData),
           mTransferMode(transferMode),
           mTransferSemantic(transferSemantic)
@@ -31,7 +32,7 @@ struct DataTransferContainer
                                          false,
                                          streamIdx,
                                          mTransferSemantic);
-            this->mMultiXpuData.haloUpdate(setIdx, options);
+            this->mMultiXpuData.newHaloUpdate(mTransferSemantic, this->mTransferMode, execution);
         };
     }
 
@@ -47,8 +48,8 @@ struct DataTransferContainer
         }
     }
 
-    auto run(Neon::SetIdx   setIdx,
-             int            streamIdx,
+    auto run(Neon::SetIdx setIdx,
+             int          streamIdx,
              Neon::DataView /*dataView*/) -> void override
     {
         if (ContainerExecutionType::deviceManaged == this->getContainerExecutionType()) {

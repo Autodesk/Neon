@@ -4,7 +4,7 @@
 #include "runHelper.h"
 #include "testSignature.h"
 
-#include "Neon/domain/internal/experimental/dGrid/dGrid.h"
+#include "Neon/domain/details/dGrid/dGrid.h"
 //TEST(domain, hostContainer)
 //{
 //    int nGpus = 3;
@@ -18,7 +18,7 @@ TEST(domain, deviceContainer)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(device::runDevice<Neon::domain::internal::exp::dGrid::dGrid, Type, 0>),
+    runAllTestConfiguration(std::function(device::runDevice<Neon::domain::details::dGrid::dGrid, Type, 0>),
                             nGpus,
                             1);
 }

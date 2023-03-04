@@ -331,8 +331,8 @@ auto computeGrad(const Field& levelSetField /** input scalar field we want to co
                     auto upIdx = i;
                     auto dwIdx = i + 3;
 
-                    auto [valUp, isValidUp] = levelSet.nghVal(cell, upIdx, 0, 0);
-                    auto [valDw, isValidDw] = levelSet.nghVal(cell, dwIdx, 0, 0);
+                    auto [valUp, isValidUp] = levelSet.getNghData(cell, upIdx, 0, 0);
+                    auto [valDw, isValidDw] = levelSet.getNghData(cell, dwIdx, 0, 0);
 
                     if (!isValidUp || !isValidDw) {
                         grad(cell, 0) = 0;

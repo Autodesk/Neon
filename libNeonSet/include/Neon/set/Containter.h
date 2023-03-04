@@ -123,7 +123,8 @@ struct Container
     template <typename MultiXpuDataT>
     static auto factoryDataTransfer(const MultiXpuDataT&       multiXpuData,
                                     Neon::set::TransferMode    transferMode,
-                                    Neon::set::StencilSemantic transferSemantic)
+                                    Neon::set::StencilSemantic transferSemantic,
+                                    Neon::Execution            execution)
         -> Neon::set::Container;
 
     template <typename MxpuDataT>

@@ -82,7 +82,7 @@ auto laplace(const Field& x,
 
 
                     auto checkNeighbor = [&res](Neon::domain::NghInfo<Type>& neighbor) {
-                        if (neighbor.isValid) {
+                        if (neighbor.mIsValid) {
                             res += neighbor.value;
                         }
                     };
@@ -90,7 +90,7 @@ auto laplace(const Field& x,
                     // Laplacian stencil operates on 6 neighbors (assuming 3D)
                     if constexpr (std::is_same<typename Field::Grid, Neon::domain::internal::eGrid::eGrid>::value) {
                         for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
-                            auto neighbor = xLocal.nghVal(cell, nghIdx, card, Type(0));
+                            auto neighbor = xLocal.getNghData(cell, nghIdx, card, Type(0));
                             checkNeighbor(neighbor);
                         }
                     } else {
@@ -100,42 +100,42 @@ auto laplace(const Field& x,
                         ngh.x = 1;
                         ngh.y = 0;
                         ngh.z = 0;
-                        auto neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        auto neighbor = xLocal.getNghData(cell, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //-x
                         ngh.x = -1;
                         ngh.y = 0;
                         ngh.z = 0;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(cell, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //+y
                         ngh.x = 0;
                         ngh.y = 1;
                         ngh.z = 0;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(cell, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //-y
                         ngh.x = 0;
                         ngh.y = -1;
                         ngh.z = 0;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(cell, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //+z
                         ngh.x = 0;
                         ngh.y = 0;
                         ngh.z = 1;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(cell, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //-z
                         ngh.x = 0;
                         ngh.y = 0;
                         ngh.z = -1;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(cell, ngh, card, Type(0));
                         checkNeighbor(neighbor);
                     }
 

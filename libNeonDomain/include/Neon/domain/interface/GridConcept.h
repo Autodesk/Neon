@@ -1,13 +1,12 @@
 #pragma once
 #include "Neon/core/core.h"
-#include "Neon/set/MemoryOptions.h"
 
 namespace Neon::domain {
 
 template <typename SP>
 concept SparsityPattern = requires(SP sparsityPattern) {
     {
-        sparsityPattern(Neon::index_3d(0,0,0))
+        sparsityPattern(Neon::index_3d(0, 0, 0))
     } -> std::same_as<bool>;
 };
 
@@ -22,4 +21,17 @@ concept Grid = requires(G grid) {
     } -> std::same_as<typename G::template Field<int, 0>>;
 };
 
+
 }  // namespace Neon::domain
+
+namespace Neon {
+
+
+template <typename F>
+concept Field = requires(F grid) {
+    typename F::NghData;
+    typename F::NghIdx;
+    typename F::Idx;
+    typename F::Type;
+};
+}

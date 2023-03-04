@@ -1,7 +1,7 @@
 
 #pragma once
 #include <functional>
-#include "Neon/domain/internal/experimental/dGrid/dGrid.h"
+#include "Neon/domain/details/dGrid/dGrid.h"
 #include "Neon/domain/tools/TestData.h"
 
 
@@ -11,5 +11,5 @@ template <typename G, typename T, int C>
 auto runContainer(TestData<G, T, C>&                data,
                   const Neon::sys::patterns::Engine eng) -> void;
 
-extern template auto runContainer<Neon::domain::internal::exp::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::internal::exp::dGrid::dGrid, int64_t, 0>&,
+extern template auto runContainer<Neon::domain::details::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::dGrid::dGrid, int64_t, 0>&,
                                                                                          const Neon::sys::patterns::Engine eng) -> void;

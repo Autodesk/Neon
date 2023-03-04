@@ -321,8 +321,8 @@ auto TestData<G, T, C>::laplace(IODomain& A, NEON_IO IODomain& B)
     }
     this->template forEachActiveIODomain([&](const Neon::index_3d& idx,
                                              int                   cardinality,
-                                             Type& /*a*/,
-                                             Type& b) {
+                                             Type&                 a,
+                                             Type&                 b) {
         // Laplacian stencil operates on 6 neighbors (assuming 3D)
         T    res = 0;
         bool isValid = false;
@@ -333,13 +333,15 @@ auto TestData<G, T, C>::laplace(IODomain& A, NEON_IO IODomain& B)
                                                    Neon::int8_3d(0, -1, 0),
                                                    Neon::int8_3d(0, 0, 1),
                                                    Neon::int8_3d(0, 0, -1)};
+int count = 0;
         for (const auto& direction : stencil) {
             auto neighborVal = A.nghVal(idx, direction, cardinality, &isValid);
             if (isValid) {
                 res += neighborVal;
+                count++;
             }
         }
-        b = -6 * res;
+        b = a - count * res;
     },
                                          A, B);
 }
@@ -352,17 +354,17 @@ auto TestData<G, T, C>::compare(FieldNames         name,
     if constexpr (std::is_integral_v<T>) {
         bool foundAnIssue = false;
         this->compare(name, [&]([[maybe_unused]] const Neon::index_3d& idx,
-                                [[maybe_unused]]  int cardinality,
-                                const T& golden,
-                                const T& computed) {
+                                [[maybe_unused]] int                   cardinality,
+                                const T&                               golden,
+                                const T&                               computed) {
             if (golden != computed) {
                 {
 #pragma omp critical
                     {
                         foundAnIssue = true;
-                         std::stringstream s;
-                         s << idx.to_string() << "Golden " << golden << " Computed " << computed << std::endl;
-                         NEON_INFO(s.str());
+                        std::stringstream s;
+                        s << idx.to_string() << "Golden " << golden << " Computed " << computed << std::endl;
+                        NEON_INFO(s.str());
                     }
                 }
             }
