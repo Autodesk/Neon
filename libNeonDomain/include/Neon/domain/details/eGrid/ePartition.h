@@ -2,374 +2,289 @@
 #include <assert.h>
 #include "Neon/core/core.h"
 #include "Neon/core/types/Macros.h"
+#include "Neon/domain/details/eGrid/eIndex.h"
 #include "Neon/domain/interface/NghData.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
 #include "Neon/sys/memory/mem3d.h"
 #include "cuda_fp16.h"
-#include "eIndex.h"
-namespace Neon::domain::details::dGrid {
+
+namespace Neon::domain::details::eGrid {
 
 /**
- * Local representation for the dField for one device
- * works as a wrapper for the mem3d which represent the allocated memory on a
- * single device.
- **/
+ * Local representation for the sparse eGrid.
+ *
+ * @tparam T_ta: type of data stored by this field
+ * @tparam cardinality_ta: cardinality of this filed.
+ *                         If cardinality_ta is 0, the actual cardinality is manged dynamically
+ */
 
-template <typename T, int C = 0>
+
+template <typename T_ta, int cardinality_ta>
+class eField;
+
+template <typename T,
+          int cardinality_ta = 1>
 class ePartition
 {
    public:
-    using PartitionIndexSpace = eSpan;
-    using Span = eSpan;
-    using Self = ePartition<T, C>;
-    using Idx = eIndex;
-    using NghIdx = int8_3d;
-    using NghData = Neon::domain::NghData<T>;
-    using Type = T;
-    using Pitch = Neon::size_4d;
+    /**
+     * Internals:
+     * Local field memory layout:
+     *
+     * a. Fields data:
+     *  |
+     *  |   m_mem
+     *  |   |
+     *  |   V                      |-- DW --|-- UP ---|-- DW --|-- UP ---|
+     *  |   V                      V        V         V        V         V
+     *  |   |<--------------------><-----------------><----------------->|
+     *  |             INTERNAL             BOUNDARY            GHOST
+     *  |
+     *  |   GHOST is allocated only for HALO type fields.
+     *  |   SoA or AoS options are managed transparently by m_ePitch,
+     *  |   which has 2 components, one for the pitch on the element position (eIdx)
+     *  |   and the other on the element cardinality.
+     *  |--)
+     *
+     *  b. DataView:
+     *  |
+     *  |   The data view option if handled only by the validateThreadIdx method.
+     *  |   The eIdx if first computed according to the target runtime (opm or cuda)
+     *  |   The value is equivalent to a 1D thread indexing (if no cardinality is used) or 2D
+     *  |   The final value of eIdx is than shifted based on the data view parameter.
+     *  |   The shift is done by the helper function hApplyDataViewShift
+     *  |--)
+     *
+     *  c. Connectivity table
+     *  |
+     *  |   Connectivity table has the same layout of a field with cardinality equal to
+     *  |   the number of neighbours and an SoA layout. Let's call this field nghField.
+     *  |   nghField(e, nghIdx) is the eIdx_t of the neighbour element as in a STANDARD
+     *  |   view.
+     *  |--)
+     */
 
    public:
-    ePartition() = default;
+    //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
+    using Self = ePartition<T, cardinality_ta>;  //<- this type
+    using Idx = eIndex;                            //<- type of an index to an element
+    using OuterIdx = typename eIdx::OuterIdx;    //<- type of an index to an element
 
-    ~ePartition() = default;
+    static constexpr int Cardinality = cardinality_ta;
 
-    explicit ePartition(Neon::DataView dataView,
-                        T*          mem,
-                        Neon::index_3d dim,
-                        int            zHaloRadius,
-                        int            zBoundaryRadius,
-                        Pitch          pitch,
-                        int            prtID,
-                        Neon::index_3d origin,
-                        int            cardinality,
-                        Neon::index_3d fullGridSize,
-                        NghIdx*        stencil = nullptr)
-        : m_dataView(dataView),
-          m_mem(mem),
-          m_dim(dim),
-          m_zHaloRadius(zHaloRadius),
-          m_zBoundaryRadius(zBoundaryRadius),
-          m_pitch(pitch),
-          m_prtID(prtID),
-          m_origin(origin),
-          m_cardinality(cardinality),
-          m_fullGridSize(fullGridSize),
-          mPeriodicZ(false),
-          mStencil(stencil)
-    {
-    }
+    using NghIdx = uint8_t;                                         //<- type of an index to identify a neighbour
+    using Type = T;                                                 //<- type of the data stored by the field
+    using eJump_t = index_t;                                        //<- Type of a jump value
+    using ePitch = ::Neon::domain::details::eGrid::eIndex::ePitch;  //<- Type of the pitch representation
 
-    inline NEON_CUDA_HOST_ONLY auto
-    enablePeriodicAlongZ()
-        -> void
-    {
-        mPeriodicZ = true;
-    }
-
-    inline NEON_CUDA_HOST_DEVICE auto
-    prtID()
-        const -> int
-    {
-        return m_prtID;
-    }
-
-    inline NEON_CUDA_HOST_DEVICE auto
-    cardinality()
-        const -> int
-    {
-        return m_cardinality;
-    }
-
-    inline NEON_CUDA_HOST_DEVICE auto
-    getPitchData()
-        const -> const Pitch&
-    {
-        return m_pitch;
-    }
-
-    inline NEON_CUDA_HOST_DEVICE auto
-    getPitch(const Idx& idx,
-             int        cardinalityIdx = 0)
-        const -> int64_t
-    {
-        return idx.get().x * int64_t(m_pitch.x) +
-               idx.get().y * int64_t(m_pitch.y) +
-               idx.get().z * int64_t(m_pitch.z) +
-               cardinalityIdx * int64_t(m_pitch.w);
-    }
-
-    inline NEON_CUDA_HOST_DEVICE auto
-    dim()
-        const -> const Neon::index_3d
-    {
-        return m_dim;
-    }
-
-    inline NEON_CUDA_HOST_DEVICE auto
-    halo()
-        const -> const Neon::index_3d
-    {
-        return Neon::index_3d(0, 0, m_zHaloRadius);
-    }
-
-    inline NEON_CUDA_HOST_DEVICE auto
-    origin()
-        const -> const Neon::index_3d
-    {
-        return m_origin;
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Idx&  eId,
-               NghIdx      nghOffset,
-               int         card,
-               const T& alternativeVal)
-        const -> NghData
-    {
-        Idx        cellNgh;
-        const bool isValidNeighbour = nghIdx(eId, nghOffset, cellNgh);
-        T       val = alternativeVal;
-        if (isValidNeighbour) {
-            val = operator()(cellNgh, card);
-        }
-        return NghData(val, isValidNeighbour);
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Idx& eId,
-               NghIdx     nghOffset,
-               int        card)
-        const -> NghData
-    {
-        Idx        cellNgh;
-        const bool isValidNeighbour = nghIdx(eId, nghOffset, cellNgh);
-        T       val;
-        if (isValidNeighbour) {
-            val = operator()(cellNgh, card);
-        }
-        return NhgData(val, isValidNeighbour);
-    }
-
-    template <int xOff, int yOff, int zOff>
-    NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(const Idx&  eId,
-           int         card,
-           const T& alternativeVal)
-        const -> NghData
-    {
-        Idx        cellNgh;
-        const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(eId, cellNgh);
-        T       val = alternativeVal;
-        if (isValidNeighbour) {
-            val = operator()(cellNgh, card);
-        }
-        return NhgData(val, isValidNeighbour);
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(const Idx&  eId,
-           uint8_t     nghID,
-           int         card,
-           const T& alternativeVal)
-        const -> NghData
-    {
-        NghIdx nghOffset = mStencil[nghID];
-        return getNghData(eId, nghOffset, card, alternativeVal);
-    }
-    /**
-     * Get the index of the neighbor given the offset
-     * @tparam dataView_ta
-     * @param[in] eId Index of the current element
-     * @param[in] nghOffset Offset of the neighbor of interest from the current element
-     * @param[in,out] neighbourIdx Index of the neighbor
-     * @return Whether the neighbour is valid
-     */
-    NEON_CUDA_HOST_DEVICE inline auto
-    nghIdx(const Idx&    eId,
-           const NghIdx& nghOffset,
-           Idx&          neighbourIdx)
-        const -> bool
-    {
-        Idx cellNgh(eId.get().x + nghOffset.x,
-                    eId.get().y + nghOffset.y,
-                    eId.get().z + nghOffset.z);
-
-        Idx cellNgh_global(cellNgh.get() + m_origin);
-
-        bool isValidNeighbour = true;
-
-        isValidNeighbour = (cellNgh_global.get().x >= 0) &&
-                           (cellNgh_global.get().y >= 0) &&
-                           ((!mPeriodicZ && cellNgh_global.get().z >= m_zHaloRadius) ||
-                            (mPeriodicZ && cellNgh_global.get().z >= 0)) &&
-                           isValidNeighbour;
-
-        isValidNeighbour = (cellNgh.get().x < m_dim.x) &&
-                           (cellNgh.get().y < m_dim.y) &&
-                           (cellNgh.get().z < m_dim.z + 2 * m_zHaloRadius) && isValidNeighbour;
-
-        isValidNeighbour = (cellNgh_global.get().x <= m_fullGridSize.x) &&
-                           (cellNgh_global.get().y <= m_fullGridSize.y) &&
-                           ((!mPeriodicZ && cellNgh_global.get().z <= m_fullGridSize.z) ||
-                            (mPeriodicZ && cellNgh_global.get().z <= m_fullGridSize.z + 2 * m_zHaloRadius)) &&
-                           isValidNeighbour;
-
-        if (isValidNeighbour) {
-            neighbourIdx = cellNgh;
-        }
-        return isValidNeighbour;
-    }
-
-    template <int xOff, int yOff, int zOff>
-    NEON_CUDA_HOST_DEVICE inline auto
-    nghIdx(const Idx& eId,
-           Idx&       cellNgh)
-        const -> bool
-    {
-        cellNgh = Idx(eId.get().x + xOff,
-                      eId.get().y + yOff,
-                      eId.get().z + zOff);
-        Idx cellNgh_global(cellNgh.get() + m_origin);
-        // const bool isValidNeighbour = (cellNgh_global >= 0 && cellNgh < (m_dim + m_halo) && cellNgh_global < m_fullGridSize);
-        bool isValidNeighbour = true;
-        if constexpr (xOff > 0) {
-            isValidNeighbour = cellNgh.get().x < (m_dim.x) && isValidNeighbour;
-            isValidNeighbour = cellNgh_global.get().x <= m_fullGridSize.x && isValidNeighbour;
-        }
-        if constexpr (xOff < 0) {
-            isValidNeighbour = cellNgh_global.get().x >= 0 && isValidNeighbour;
-        }
-        if constexpr (yOff > 0) {
-            isValidNeighbour = cellNgh.get().y < (m_dim.y) && isValidNeighbour;
-            isValidNeighbour = cellNgh_global.get().y <= m_fullGridSize.y && isValidNeighbour;
-        }
-        if constexpr (yOff < 0) {
-            isValidNeighbour = cellNgh_global.get().y >= 0 && isValidNeighbour;
-        }
-        if constexpr (zOff > 0) {
-            isValidNeighbour = cellNgh.get().z < (m_dim.z + m_zHaloRadius * 2) && isValidNeighbour;
-            isValidNeighbour = cellNgh_global.get().z <= m_fullGridSize.z && isValidNeighbour;
-        }
-        if constexpr (zOff < 0) {
-            isValidNeighbour = cellNgh_global.get().z >= m_zHaloRadius && isValidNeighbour;
-        }
-        return isValidNeighbour;
-    }
-
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    mem()
-        -> T*
-    {
-        return m_mem;
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    mem()
-        const
-        -> const T*
-    {
-        return m_mem;
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    mem(const Idx& cell,
-        int        cardinalityIdx) -> T*
-    {
-        int64_t p = getPitch(cell, cardinalityIdx);
-        return m_mem[p];
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    operator()(const Idx& cell,
-               int        cardinalityIdx) -> T&
-    {
-        int64_t p = getPitch(cell, cardinalityIdx);
-        return m_mem[p];
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    operator()(const Idx& cell,
-               int        cardinalityIdx) const -> const T&
-    {
-        int64_t p = getPitch(cell, cardinalityIdx);
-        return m_mem[p];
-    }
-
-    template <typename ComputeType>
-    NEON_CUDA_HOST_DEVICE inline auto
-    castRead(const Idx& cell,
-             int        cardinalityIdx)
-        const -> ComputeType
-    {
-        Type value = this->operator()(cell, cardinalityIdx);
-        if constexpr (std::is_same_v<__half, Type>) {
-
-            if constexpr (std::is_same_v<float, ComputeType>) {
-                return __half2float(value);
-            }
-            if constexpr (std::is_same_v<double, ComputeType>) {
-                return static_cast<double>(__half2double(value));
-            }
-        } else {
-            return static_cast<ComputeType>(value);
-        }
-    }
-
-    template <typename ComputeType>
-    NEON_CUDA_HOST_DEVICE inline auto
-    castWrite(const Idx&         cell,
-              int                cardinalityIdx,
-              const ComputeType& value)
-        -> void
-    {
-        if constexpr (std::is_same_v<__half, Type>) {
-            if constexpr (std::is_same_v<float, ComputeType>) {
-                this->operator()(cell, cardinalityIdx) = __float2half(value);
-            }
-            if constexpr (std::is_same_v<double, ComputeType>) {
-                this->operator()(cell, cardinalityIdx) = __double2half(value);
-            }
-        } else {
-            this->operator()(cell, cardinalityIdx) = static_cast<Type>(value);
-        }
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Idx& local) const -> Neon::index_3d
-    {
-        assert(local.mLocation.x >= 0 &&
-               local.mLocation.y >= 0 &&
-               local.mLocation.z >= m_zHaloRadius &&
-               local.mLocation.x < m_dim.x &&
-               local.mLocation.y < m_dim.y &&
-               local.mLocation.z < m_dim.z + m_zHaloRadius);
-
-        Neon::index_3d result = local.mLocation + m_origin;
-        result.z -= m_zHaloRadius;
-        return result;
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto getDomainSize()
-        const -> Neon::index_3d
-    {
-        return m_fullGridSize;
-    }
+    template <typename T_,
+              int Cardinality_>
+    friend class eField;
 
    private:
+    //-- [INTERNAL DATA] ----------------------------------------------------------------------------
+    T*     m_mem;
+    int    m_cardinality;
+    ePitch m_ePitch;
+
     Neon::DataView m_dataView;
-    T*          m_mem;
-    Neon::index_3d m_dim;
-    int            m_zHaloRadius;
-    int            m_zBoundaryRadius;
-    Pitch          m_pitch;
+
+    //-- [INDEXING] ----------------------------------------------------------------------------
+    Idx::Offset m_bdrOff[ComDirection_e::COM_NUM] = {-1, -1};
+    Idx::Offset m_ghostOff[ComDirection_e::COM_NUM] = {-1, -1};
+    Idx::Offset m_bdrCount[ComDirection_e::COM_NUM] = {-1, -1};
+    Idx::Offset m_ghostCount[ComDirection_e::COM_NUM] = {-1, -1};
+
+    //-- [CONNECTIVITY] ----------------------------------------------------------------------------
+    Idx::Offset* m_connRaw;
+    ePitch_t     m_connPitch;
+
+    //-- [INVERSE MAPPING] ----------------------------------------------------------------------------
+    Neon::index_t* m_inverseMapping = {nullptr};
     int            m_prtID;
-    Neon::index_3d m_origin;
-    int            m_cardinality;
-    Neon::index_3d m_fullGridSize;
-    bool           mPeriodicZ;
-    NghIdx*        mStencil;
+
+   public:
+    //-- [CONSTRUCTORS] ----------------------------------------------------------------------------
+
+    /**
+     * Default constructor
+     */
+    ePartition() = default;
+
+    /**
+     * Default Destructor
+     */
+    ~ePartition() = default;
+
+    /**
+     * Partition id. This is an index inside a devSet
+     * @return
+     */
+    NEON_CUDA_HOST_DEVICE auto
+    prtID() const -> int;
+    /**
+     * Returns cardinality of the field.
+     * For example a density field has cardinality one, velocity has cardinality three
+     * @return
+     */
+    template <int dummy_ta = cardinality_ta>
+    inline NEON_CUDA_HOST_DEVICE auto
+    cardinality() const
+        -> std::enable_if_t<dummy_ta == 0, int>;
+
+    /**
+     * Returns cardinality of the field.
+     * For example a density field has cardinality one, velocity has cardinality three
+     * @return
+     */
+    template <int dummy_ta = cardinality_ta>
+    constexpr inline NEON_CUDA_HOST_DEVICE auto
+    cardinality() const -> std::enable_if_t<dummy_ta != 0, int>;
+
+    /**
+     * Returns the value associated to element eId and cardinality cardinalityIdx
+     * @param eId
+     * @param cardinalityIdx
+     * @return
+     */
+    NEON_CUDA_HOST_DEVICE inline auto
+    operator()(Idx eId, int cardinalityIdx) const
+        -> T;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    operator()(Idx eId, int cardinalityIdx)
+        -> T&;
+
+    template <typename ComputeType>
+    NEON_CUDA_HOST_DEVICE inline auto
+    castRead(Idx eId, int cardinalityIdx) const
+        -> ComputeType;
+
+    template <typename ComputeType>
+    NEON_CUDA_HOST_DEVICE inline auto
+    castWrite(Idx eId, int cardinalityIdx, const ComputeType& value)
+        -> void;
+    /**
+     * Retrieve value of a neighbour for a field with multiple cardinalities
+     * @tparam dataView_ta
+     * @param eId
+     * @param nghIdx
+     * @param alternativeVal
+     * @return
+     */
+    template <bool enableLDG = true, int shadowCardinality_ta = cardinality_ta>
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghVal(Idx         eId,
+           NghIdx      nghIdx,
+           int         card,
+           const Type& alternativeVal)
+        const -> std::enable_if_t<shadowCardinality_ta != 1, NghInfo<Type>>;
+
+
+    /**
+     * Check is the
+     * @tparam dataView_ta
+     * @param eId
+     * @param nghIdx
+     * @param neighbourIdx
+     * @return
+     */
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghIdx(Idx    eId,
+           NghIdx nghIdx,
+           Idx&   neighbourIdx) const
+        -> bool;
+
+
+    /**
+     * Returns the pitch structure used by the grid.
+     * @return
+     */
+    NEON_CUDA_HOST_DEVICE inline auto
+    ePitch() const -> const ePitch_t&;
+
+    /**
+     * Convert grid local id to globals.
+     * @return
+     */
+    NEON_CUDA_HOST_DEVICE inline auto
+    globalLocation(Idx Idx) const
+        -> Neon::index_3d;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    mem() const
+        -> const T*;
+
+   private:
+    /**
+     * Private constructor only used by the grid.
+     *
+     * @param bdrOff
+     * @param ghostOff
+     * @param remoteBdrOff
+     */
+    explicit ePartition(const Neon::DataView&                                   dataView,
+                        int                                                     prtId,
+                        T*                                                      mem,
+                        int                                                     cardinality,
+                        const ePitch_t&                                         ePitch,
+                        const std::array<Idx::Offset, ComDirection_e::COM_NUM>& bdrOff,
+                        const std::array<Idx::Offset, ComDirection_e::COM_NUM>& ghostOff,
+                        const std::array<Idx::Offset, ComDirection_e::COM_NUM>& bdrCount,
+                        const std::array<Idx::Offset, ComDirection_e::COM_NUM>& ghostCount,
+                        Idx::Offset*                                            connRaw,
+                        const ePitch_t&                                         connPitch,
+                        index_t*                                                inverseMapping);
+
+    /**
+     * Returns a pointer to element eId with target cardinality cardinalityIdx
+     * @tparam dataView_ta
+     * @param eId
+     * @param cardinalityIdx
+     * @return
+     */
+    NEON_CUDA_HOST_DEVICE auto
+    pointer(Idx eId, int cardinalityIdx) const
+        -> const Type*;
+    /**
+     * Computes the jump of a element.
+     * Jump is the offset between the head of the raw memory adders
+     * and the position of the element defined by eId.
+     *
+     * Because we handle the data view model when setting the
+     * iterator, this function is just an identity.
+     *
+     * @tparam dataView_ta
+     * @param eId
+     * @return
+     */
+    NEON_CUDA_HOST_DEVICE inline auto
+    eJump(Idx eId)
+        const
+        -> eJump_t;
+
+    /**
+     * Computes the jump for an element
+     *
+     * @tparam dataView_ta
+     * @param eId
+     * @param cardinalityIdx
+     * @return
+     */
+    NEON_CUDA_HOST_DEVICE inline auto
+    eJump(Idx eId, int cardinalityIdx) const
+        -> eJump_t;
+
+    /**
+     * Returns raw pointer of the field
+     * @tparam dataView_ta
+     * @return
+     */
+    NEON_CUDA_HOST_DEVICE inline auto
+    mem()
+        -> T*;
 };
+}  // namespace Neon::domain::details::eGrid
 
-
-}  // namespace Neon::domain::details::dGrid
+#include "Neon/domain/internal/eGrid/ePartition_imp.h"

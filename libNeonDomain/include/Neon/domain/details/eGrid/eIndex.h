@@ -2,7 +2,7 @@
 
 #include "Neon/core/core.h"
 
-namespace Neon::domain::details::dGrid {
+namespace Neon::domain::details::eGrid {
 
 // Common forward declarations
 class eGrid;
@@ -10,36 +10,38 @@ class eSpan;
 template <typename T, int C>
 class ePartition;
 
-struct eIndex
+class eIndex
 {
+   public:
     using OuterCell = eIndex;
-
-    template <typename T, int C>
+    
+    friend class eSpan;
+    friend class eGrid;
+    template <typename T,
+              int Cardinality>
     friend class ePartition;
-    friend eSpan;
-    friend eGrid;
 
     template <typename T,
               int Cardinality>
-    friend class eField;
+    friend class eFieldDevice_t;
 
-    // dGrid specific types
+    // eGrid specific types
     using Offset = int32_t;
-    using Location = index_3d;
+    using Idx = int32_t;
     using Count = int32_t;
+    using ePitch = Neon::index64_2d;
+
 
     eIndex() = default;
-    Location mLocation = 0;
 
-    NEON_CUDA_HOST_DEVICE inline explicit eIndex(const Location::Integer& x,
-                                                 const Location::Integer& y,
-                                                 const Location::Integer& z);
+   private:
+    Idx mIdx = 0;
 
-    NEON_CUDA_HOST_DEVICE inline explicit eIndex(const Location& location);
+    NEON_CUDA_HOST_DEVICE inline explicit eIndex(Idx Idx);
 
-    NEON_CUDA_HOST_DEVICE inline auto set() -> Location&;
+    NEON_CUDA_HOST_DEVICE inline auto set() -> Idx&;
 
-    NEON_CUDA_HOST_DEVICE inline auto get() const -> const Location&;
+    NEON_CUDA_HOST_DEVICE inline auto get() -> const Idx&;
 };
 
 }  // namespace Neon::domain::details::dGrid
