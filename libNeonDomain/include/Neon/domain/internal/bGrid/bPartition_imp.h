@@ -186,33 +186,38 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell&     c
 
     //if the block size is less the block allocation granularity, then this means we can implicitly get the neighbor cell implicitly
     if (nghCell.mBlockSize < Cell::sBlockAllocGranularity) {
-        const Neon::int32_3d cellOrigin = mOrigin[cell.mBlockID];
+        const Neon::int32_3d cellOrigin = mOrigin[cell.mBlockID] + cell.mLocation.newType<int32_t>();
         const Neon::int32_3d cellTray(cellOrigin.x / Cell::sBlockAllocGranularity,
                                       cellOrigin.y / Cell::sBlockAllocGranularity,
                                       cellOrigin.z / Cell::sBlockAllocGranularity);
 
         Neon::int32_3d nghOrigin(cellOrigin.x + offset.x, cellOrigin.y + offset.y, cellOrigin.z + offset.z);
-        Neon::int32_3d nghTray(nghOrigin.x / Cell::sBlockAllocGranularity,
-                               nghOrigin.y / Cell::sBlockAllocGranularity,
-                               nghOrigin.z / Cell::sBlockAllocGranularity);
-
-        //if the neighbor does not live in the same tray, then we do the usual nghCell
-        //where we try to find the neighbor using neighbor block ID
-        if (cellTray != nghTray) {
-            nghCell.mBlockID = neighbourBlocks[calcOffsetBlock()];
+        if (nghOrigin.x < 0 || nghOrigin.y < 0 || nghOrigin.z < 0) {
+            nghCell.mBlockID = std::numeric_limits<uint32_t>::max();
 
         } else {
-            //otherwise, nghCell may resides on a different block in the same tray
-            if (isNghInDifferentBlock()) {
-                nghCell.mBlockID = cell.mBlockID + offset.mPitch(Neon::index_3d(Cell::sBlockAllocGranularity,
-                                                                                Cell::sBlockAllocGranularity,
-                                                                                Cell::sBlockAllocGranularity));
+            Neon::int32_3d nghTray(nghOrigin.x / Cell::sBlockAllocGranularity,
+                                   nghOrigin.y / Cell::sBlockAllocGranularity,
+                                   nghOrigin.z / Cell::sBlockAllocGranularity);
+
+            //if the neighbor does not live in the same tray, then we do the usual nghCell
+            //where we try to find the neighbor using neighbor block ID
+            if (cellTray != nghTray) {
+                nghCell.mBlockID = neighbourBlocks[calcOffsetBlock()];
+
             } else {
-                //or nghCell may reside on the same block
-                nghCell.mBlockID = cell.mBlockID;
+                //otherwise, nghCell may resides on a different block in the same tray
+                if (isNghInDifferentBlock()) {
+                    nghCell.mBlockID = cell.mBlockID + offset.mPitch(Neon::index_3d(Cell::sBlockAllocGranularity,
+                                                                                    Cell::sBlockAllocGranularity,
+                                                                                    Cell::sBlockAllocGranularity));
+                } else {
+                    //or nghCell may reside on the same block
+                    nghCell.mBlockID = cell.mBlockID;
+                }
             }
+            updateNghCell();
         }
-        updateNghCell();
 
     } else {
         if (isNghInDifferentBlock()) {
