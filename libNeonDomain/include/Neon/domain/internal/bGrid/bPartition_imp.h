@@ -208,9 +208,11 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell&     c
             } else {
                 //otherwise, nghCell may resides on a different block in the same tray
                 if (isNghInDifferentBlock()) {
-                    nghCell.mBlockID = cell.mBlockID + offset.mPitch(Neon::index_3d(Cell::sBlockAllocGranularity,
-                                                                                    Cell::sBlockAllocGranularity,
-                                                                                    Cell::sBlockAllocGranularity));
+                    const int numBlockPerTray = Cell::sBlockAllocGranularity / cell.mBlockSize;
+
+                    nghCell.mBlockID = cell.mBlockID + offset.mPitch(Neon::index_3d(numBlockPerTray,
+                                                                                    numBlockPerTray,
+                                                                                    numBlockPerTray));
                 } else {
                     //or nghCell may reside on the same block
                     nghCell.mBlockID = cell.mBlockID;
