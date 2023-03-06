@@ -34,7 +34,7 @@ class ePartition
      *
      * a. Fields data:
      *  |
-     *  |   m_mem
+     *  |   mMem
      *  |   |
      *  |   V                      |-- DW --|-- UP ---|-- DW --|-- UP ---|
      *  |   V                      V        V         V        V         V
@@ -68,7 +68,7 @@ class ePartition
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
     using Self = ePartition<T, cardinality_ta>;  //<- this type
-    using Idx = eIndex;                            //<- type of an index to an element
+    using Idx = eIndex;                          //<- type of an index to an element
     using OuterIdx = typename eIdx::OuterIdx;    //<- type of an index to an element
 
     static constexpr int Cardinality = cardinality_ta;
@@ -84,25 +84,25 @@ class ePartition
 
    private:
     //-- [INTERNAL DATA] ----------------------------------------------------------------------------
-    T*     m_mem;
-    int    m_cardinality;
+    T*     mMem;
+    int    mCardinality;
     ePitch m_ePitch;
 
     Neon::DataView m_dataView;
 
     //-- [INDEXING] ----------------------------------------------------------------------------
-    Idx::Offset m_bdrOff[ComDirection_e::COM_NUM] = {-1, -1};
-    Idx::Offset m_ghostOff[ComDirection_e::COM_NUM] = {-1, -1};
-    Idx::Offset m_bdrCount[ComDirection_e::COM_NUM] = {-1, -1};
-    Idx::Offset m_ghostCount[ComDirection_e::COM_NUM] = {-1, -1};
+    eIndex::Offset mBdrOff[ComDirection::NUM] = {-1, -1};
+    eIndex::Offset mGhostOff[ComDirection::NUM] = {-1, -1};
+    eIndex::Offset mBdrCount[ComDirection::NUM] = {-1, -1};
+    eIndex::Offset mGhostCount[ComDirection::NUM] = {-1, -1};
 
     //-- [CONNECTIVITY] ----------------------------------------------------------------------------
-    Idx::Offset* m_connRaw;
-    ePitch_t     m_connPitch;
+    eIndex::Offset* m_connRaw /** connectivity table */;
+    ePitch          m_connPitch /** connectivity table pitch*/;
+    Neon::index_t*  mInverseMapping = {nullptr};
 
     //-- [INVERSE MAPPING] ----------------------------------------------------------------------------
-    Neon::index_t* m_inverseMapping = {nullptr};
-    int            m_prtID;
+    int mPrtID;
 
    public:
     //-- [CONSTRUCTORS] ----------------------------------------------------------------------------
@@ -173,6 +173,7 @@ class ePartition
      * @param alternativeVal
      * @return
      */
+
     template <bool enableLDG = true, int shadowCardinality_ta = cardinality_ta>
     NEON_CUDA_HOST_DEVICE inline auto
     nghVal(Idx         eId,
@@ -191,9 +192,9 @@ class ePartition
      * @return
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    nghIdx(Idx    eId,
-           NghIdx nghIdx,
-           Idx&   neighbourIdx) const
+    isValidNgh(Idx    eId,
+              NghIdx nghIdx,
+              Idx&   neighbourIdx) const
         -> bool;
 
 
@@ -202,14 +203,14 @@ class ePartition
      * @return
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    ePitch() const -> const ePitch_t&;
+    getPitch() const -> const ePitch_t&;
 
     /**
      * Convert grid local id to globals.
      * @return
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    globalLocation(Idx Idx) const
+    getGlobal(Idx Idx) const
         -> Neon::index_3d;
 
     NEON_CUDA_HOST_DEVICE inline auto

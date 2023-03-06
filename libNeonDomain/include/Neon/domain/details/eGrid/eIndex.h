@@ -14,7 +14,7 @@ class eIndex
 {
    public:
     using OuterCell = eIndex;
-    
+
     friend class eSpan;
     friend class eGrid;
     template <typename T,
@@ -44,6 +44,13 @@ class eIndex
     NEON_CUDA_HOST_DEVICE inline auto get() -> const Idx&;
 };
 
-}  // namespace Neon::domain::details::dGrid
+enum class ComDirection : uint8_t
+{
+    UP = 0,
+    DW = 1,
+    NUM = 2
+};
+
+}  // namespace Neon::domain::details::eGrid
 
 #include "eIndex_imp.h"
