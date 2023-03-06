@@ -131,50 +131,95 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell&     c
                                                                const nghIdx_t& offset,
                                                                const uint32_t* neighbourBlocks) const -> Cell
 {
-    Cell ngh_cell(cell.mLocation.x + offset.x,
-                  cell.mLocation.y + offset.y,
-                  cell.mLocation.z + offset.z);
-    ngh_cell.mBlockSize = cell.mBlockSize;
+    Cell nghCell(cell.mLocation.x + offset.x,
+                 cell.mLocation.y + offset.y,
+                 cell.mLocation.z + offset.z);
+    nghCell.mBlockSize = cell.mBlockSize;
 
-    if (ngh_cell.mLocation.x < 0 || ngh_cell.mLocation.y < 0 || ngh_cell.mLocation.z < 0 ||
-        ngh_cell.mLocation.x >= cell.mBlockSize || ngh_cell.mLocation.y >= cell.mBlockSize || ngh_cell.mLocation.z >= cell.mBlockSize) {
 
-        //The neighbor is not in this block
+    assert(nghCell.mBlockSize <= Cell::sBlockAllocGranularity);
 
-        //Calculate the neighbor block ID and the local index within the neighbor block
-        int16_3d block_offset(0, 0, 0);
+    auto isNghInDifferentBlock = [&]() {
+        //check if the neighbor cell is in a different block then cell
 
-        if (ngh_cell.mLocation.x < 0) {
-            block_offset.x = -1;
-            ngh_cell.mLocation.x += cell.mBlockSize;
-        } else if (ngh_cell.mLocation.x >= cell.mBlockSize) {
-            block_offset.x = 1;
-            ngh_cell.mLocation.x -= cell.mBlockSize;
+        return nghCell.mLocation.x < 0 || nghCell.mLocation.y < 0 || nghCell.mLocation.z < 0 ||
+               nghCell.mLocation.x >= cell.mBlockSize || nghCell.mLocation.y >= cell.mBlockSize || nghCell.mLocation.z >= cell.mBlockSize;
+    };
+
+    auto calcOffsetBlock = [&]() {
+        //calc the relative offset of the block in which nghCell resides
+        //this should only be called when nghCell's block is different than cell's block
+        int16_3d blockOffset(0, 0, 0);
+
+        if (nghCell.mLocation.x < 0) {
+            blockOffset.x = -1;
+        } else if (nghCell.mLocation.x >= cell.mBlockSize) {
+            blockOffset.x = 1;
         }
 
-        if (ngh_cell.mLocation.y < 0) {
-            block_offset.y = -1;
-            ngh_cell.mLocation.y += cell.mBlockSize;
-        } else if (ngh_cell.mLocation.y >= cell.mBlockSize) {
-            block_offset.y = 1;
-            ngh_cell.mLocation.y -= cell.mBlockSize;
+        if (nghCell.mLocation.y < 0) {
+            blockOffset.y = -1;
+        } else if (nghCell.mLocation.y >= cell.mBlockSize) {
+            blockOffset.y = 1;
         }
 
-        if (ngh_cell.mLocation.z < 0) {
-            block_offset.z = -1;
-            ngh_cell.mLocation.z += cell.mBlockSize;
-        } else if (ngh_cell.mLocation.z >= cell.mBlockSize) {
-            block_offset.z = 1;
-            ngh_cell.mLocation.z -= cell.mBlockSize;
+        if (nghCell.mLocation.z < 0) {
+            blockOffset.z = -1;
+        } else if (nghCell.mLocation.z >= cell.mBlockSize) {
+            blockOffset.z = 1;
         }
 
-        ngh_cell.mBlockID = neighbourBlocks[Cell::getNeighbourBlockID(block_offset)];
+        assert(!(blockOffset.x == 0 && blockOffset.y == 0 && blockOffset.z == 0));
+
+        return Cell::getNeighbourBlockID(blockOffset);
+    };
+
+
+    auto updateNghCell = [&]() {
+        //update the nghCell local index to be the local index in the neighbor block
+        nghCell.mLocation.x %= cell.mBlockSize;
+        nghCell.mLocation.y %= cell.mBlockSize;
+        nghCell.mLocation.z %= cell.mBlockSize;
+    };
+
+
+    //if the block size is less the block allocation granularity, then this means we can implicitly get the neighbor cell implicitly
+    if (nghCell.mBlockSize < Cell::sBlockAllocGranularity) {
+        const Neon::int32_3d cellOrigin = mOrigin[cell.mBlockID];
+        const Neon::int32_3d cellTray(cellOrigin.x / Cell::sBlockAllocGranularity,
+                                      cellOrigin.y / Cell::sBlockAllocGranularity,
+                                      cellOrigin.z / Cell::sBlockAllocGranularity);
+
+        Neon::int32_3d nghOrigin(cellOrigin.x + offset.x, cellOrigin.y + offset.y, cellOrigin.z + offset.z);
+        Neon::int32_3d nghTray(nghOrigin.x / Cell::sBlockAllocGranularity,
+                               nghOrigin.y / Cell::sBlockAllocGranularity,
+                               nghOrigin.z / Cell::sBlockAllocGranularity);
+
+        //if the neighbor does not live in the same tray, then we do the usual nghCell
+        //where we try to find the neighbor using neighbor block ID
+        if (cellTray != nghTray) {
+            nghCell.mBlockID = neighbourBlocks[calcOffsetBlock()];
+
+        } else {
+            //otherwise, nghCell may resides on a different block in the same tray
+            if (isNghInDifferentBlock()) {
+                nghCell.mBlockID = cell.mBlockID + offset.mPitch(Neon::index_3d(Cell::sBlockAllocGranularity,
+                                                                                Cell::sBlockAllocGranularity,
+                                                                                Cell::sBlockAllocGranularity));
+            } else {
+                //or  nghCell may reside on the same block
+                nghCell.mBlockID = cell.mBlockID;
+            }
+        }
+        updateNghCell();
 
     } else {
-        ngh_cell.mBlockID = cell.mBlockID;
+        nghCell.mBlockID = neighbourBlocks[calcOffsetBlock()];
+        updateNghCell();
     }
-    ngh_cell.mIsActive = (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max());
-    return ngh_cell;
+
+    nghCell.mIsActive = (nghCell.mBlockID != std::numeric_limits<uint32_t>::max());
+    return nghCell;
 }
 
 template <typename T, int C>

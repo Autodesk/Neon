@@ -31,6 +31,13 @@ bGrid::bGrid(const Neon::Backend&         backend,
         NEON_THROW(exp);
     }
 
+    if (blockSize > Cell::sBlockAllocGranularity) {
+        NeonException exp("bGrid");
+        exp << "Input block size (" << blockSize << ") is larger than block allocation granularity (" << Cell::sBlockAllocGranularity << ")";
+        exp << "We only support block sizes smaller than or equal to the block allocation granularity";
+        NEON_THROW(exp);
+    }
+
     mData = std::make_shared<Data>();
     mData->blockSize = blockSize;
     mData->voxelSpacing = voxelSpacing;
