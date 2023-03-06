@@ -177,9 +177,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell&     c
 
     auto updateNghCell = [&]() {
         //update the nghCell local index to be the local index in the neighbor block
-        nghCell.mLocation.x %= cell.mBlockSize;
-        nghCell.mLocation.y %= cell.mBlockSize;
-        nghCell.mLocation.z %= cell.mBlockSize;
+        //the addition is done to avoid module operations on negative numbers
+        nghCell.mLocation.x = (nghCell.mLocation.x + cell.mBlockSize) % cell.mBlockSize;
+        nghCell.mLocation.y = (nghCell.mLocation.y + cell.mBlockSize) % cell.mBlockSize;
+        nghCell.mLocation.z = (nghCell.mLocation.z + cell.mBlockSize) % cell.mBlockSize;
     };
 
 
@@ -207,14 +208,18 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell&     c
                                                                                 Cell::sBlockAllocGranularity,
                                                                                 Cell::sBlockAllocGranularity));
             } else {
-                //or  nghCell may reside on the same block
+                //or nghCell may reside on the same block
                 nghCell.mBlockID = cell.mBlockID;
             }
         }
         updateNghCell();
 
     } else {
-        nghCell.mBlockID = neighbourBlocks[calcOffsetBlock()];
+        if (isNghInDifferentBlock()) {
+            nghCell.mBlockID = neighbourBlocks[calcOffsetBlock()];
+        } else {
+            nghCell.mBlockID = cell.mBlockID;
+        }
         updateNghCell();
     }
 
