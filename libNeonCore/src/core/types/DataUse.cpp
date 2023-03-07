@@ -11,14 +11,14 @@ class DevSet;
 auto DataUseUtils::toString(Neon::DataUse option) -> const char*
 {
     switch (option) {
-        case Neon::DataUse::IO_COMPUTE: {
-            return "IO_COMPUTE";
+        case Neon::DataUse::HOST_DEVICE: {
+            return "HOST_DEVICE";
         }
-        case Neon::DataUse::COMPUTE: {
-            return "COMPUTE";
+        case Neon::DataUse::DEVICE: {
+            return "DEVICE";
         }
-        case Neon::DataUse::IO_POSTPROCESSING: {
-            return "IO_POSTPROCESSING";
+        case Neon::DataUse::HOST: {
+            return "HOST";
         }
         default: {
             NEON_THROW_UNSUPPORTED_OPERATION("DataUse_e: Option not recognized.")

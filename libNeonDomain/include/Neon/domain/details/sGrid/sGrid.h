@@ -89,7 +89,7 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
                                                      where each cell value has a number of components equal to cardinality. */
                   ,
                   T                   inactiveValue /**< default value for point outside the domain */,
-                  Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE /**< use of the field: computation or post processing */,
+                  Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE /**< use of the field: computation or post processing */,
                   Neon::MemoryOptions memoryOptions = Neon::MemoryOptions() /**< Memory options including layout */) const
         -> Field<T, C>;
 

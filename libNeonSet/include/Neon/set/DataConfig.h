@@ -13,7 +13,7 @@ namespace set {
 class DataConfig
 {
    private:
-    Neon::DataUse        m_dataUseE{Neon::DataUse::IO_COMPUTE};
+    Neon::DataUse        m_dataUseE{Neon::DataUse::HOST_DEVICE};
     Neon::Backend        m_backendConfig{};
     Neon::sys::memConf_t m_cpuMemConf{Neon::DeviceType::CPU};
     Neon::sys::memConf_t m_gpuMemConf{Neon::DeviceType::CUDA};

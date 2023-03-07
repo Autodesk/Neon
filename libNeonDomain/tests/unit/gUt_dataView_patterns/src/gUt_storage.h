@@ -182,11 +182,11 @@ class Storage
 
         auto memoryOption = m_backend.getMemoryOptions(layout);
 
-        Xf = m_grid.template newField<T>("Xf", m_cardinality, T(0), Neon::DataUse::IO_COMPUTE, memoryOption);
+        Xf = m_grid.template newField<T>("Xf", m_cardinality, T(0), Neon::DataUse::HOST_DEVICE, memoryOption);
 
-        Yf = m_grid.template newField<T>("Yf", m_cardinality, T(0), Neon::DataUse::IO_COMPUTE, memoryOption);
+        Yf = m_grid.template newField<T>("Yf", m_cardinality, T(0), Neon::DataUse::HOST_DEVICE, memoryOption);
 
-        Zf = m_grid.template newField<T>("Zf", m_cardinality, T(0), Neon::DataUse::IO_COMPUTE, memoryOption);
+        Zf = m_grid.template newField<T>("Zf", m_cardinality, T(0), Neon::DataUse::HOST_DEVICE, memoryOption);
 
 
         getNewDenseField(m_size3d, m_cardinality, Xd, Xnd);

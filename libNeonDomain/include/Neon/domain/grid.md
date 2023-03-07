@@ -323,7 +323,7 @@ class xGrid : public Neon::domain::interface::GridBase
     auto newField(const std::string               fieldUserName,
                   int                             cardinality,
                   T                               inactiveValue,
-                  Neon::DataUse                   dataUse = Neon::DataUse::IO_COMPUTE,
+                  Neon::DataUse                   dataUse = Neon::DataUse::HOST_DEVICE,
                   const Neon::MemoryOptions& memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 

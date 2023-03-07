@@ -29,7 +29,7 @@ auto Memory::MemSet(const Neon::Backend&                      bk,
     /**
      * if we are running in COMPUTE mode, than the host side is set to null memory
      */
-    if (dataUse == Neon::DataUse::COMPUTE && bk.runtime() == Neon::Runtime::stream) {
+    if (dataUse == Neon::DataUse::DEVICE && bk.runtime() == Neon::Runtime::stream) {
         cpuConfig.allocator(DeviceType::CPU) = Neon::Allocator::NULL_MEM;
         cpuConfig.allocator(DeviceType::OMP) = Neon::Allocator::NULL_MEM;
     }

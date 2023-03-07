@@ -85,7 +85,7 @@ void mirrorTest(int nElements)
     mirrorSetA.template update<Neon::run_et::sync>(stream, Neon::DeviceType::CUDA);
 
     Neon::Backend bk(devSet, Neon::Runtime::stream);
-    Neon::set::Memory::MemSet<int>(bk, 1, 4, Neon::DataUse::IO_COMPUTE);
+    Neon::set::Memory::MemSet<int>(bk, 1, 4, Neon::DataUse::HOST_DEVICE);
 }
 
 

@@ -51,7 +51,7 @@ Connectivity<ConnOffset, IntegerForGlobalIndexing>::Connectivity(
     mConnectivity = mGrid.newField<ConnOffset>("ConnectivityTable",
                                stencil.nPoints(),
                                0,
-                               Neon::DataUse::IO_COMPUTE,
+                               Neon::DataUse::HOST_DEVICE,
                                connMemOption);
 
 

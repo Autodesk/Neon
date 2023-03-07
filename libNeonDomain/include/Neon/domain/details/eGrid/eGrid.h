@@ -108,7 +108,7 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     auto newField(const std::string&  fieldUserName,
                   int                 cardinality,
                   T                   inactiveValue,
-                  Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE,
+                  Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE,
                   Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 

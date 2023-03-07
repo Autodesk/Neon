@@ -155,7 +155,7 @@ TestData<G, T, C>::TestData(const Neon::Backend&         backend,
         mFields[i] = mGrid.template newField<Type, Cardinality>(fieldStrig,
                                                                 cardinality,
                                                                 outsideValue,
-                                                                Neon::DataUse::IO_COMPUTE,
+                                                                Neon::DataUse::HOST_DEVICE,
                                                                 memoryOptions);
 
         mIODomains[i] = Neon::domain::tool::testing::IODomain<T>(dimension,

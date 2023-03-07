@@ -296,7 +296,7 @@ auto SpanLayout::allocateStencilRelativeIndexMap(
         stencil.neighbours().size());
 
     Neon::set::MemSet<int8_3d> stencilNghIndex = backend.devSet().template newMemSet<int8_3d>(
-        Neon::DataUse::IO_COMPUTE,
+        Neon::DataUse::HOST_DEVICE,
         1,
         mMemOptionsAoS,
         stencilNghSize);

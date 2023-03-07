@@ -276,7 +276,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
     //parent block ID
     mData->mParentBlockID.resize(mData->mDescriptor.getDepth());
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-        mData->mParentBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+        mData->mParentBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::HOST_DEVICE},
                                                                                  1,
                                                                                  memOptionsAoS,
                                                                                  mData->grids[l].getNumBlocks());
@@ -299,7 +299,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
 
     mData->mChildBlockID.resize(mData->mDescriptor.getDepth());
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-        mData->mChildBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+        mData->mChildBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::HOST_DEVICE},
                                                                                 1,
                                                                                 memOptionsSoA,
                                                                                 childAllocSize[l]);
@@ -309,7 +309,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
     //parent local index
     mData->mParentLocalID.resize(mData->mDescriptor.getDepth());
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-        mData->mParentLocalID[l] = backend.devSet().template newMemSet<Cell::Location>({Neon::DataUse::IO_COMPUTE},
+        mData->mParentLocalID[l] = backend.devSet().template newMemSet<Cell::Location>({Neon::DataUse::HOST_DEVICE},
                                                                                        1,
                                                                                        memOptionsAoS,
                                                                                        mData->grids[l].getNumBlocks());
@@ -321,7 +321,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
     for (int32_t c = 0; c < descriptorSize.cardinality(); ++c) {
         descriptorSize[c] = mData->mDescriptor.getDepth();
     }
-    mData->mRefFactors = backend.devSet().template newMemSet<int>({Neon::DataUse::IO_COMPUTE},
+    mData->mRefFactors = backend.devSet().template newMemSet<int>({Neon::DataUse::HOST_DEVICE},
                                                                   1,
                                                                   memOptionsAoS,
                                                                   descriptorSize);
@@ -332,7 +332,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
         }
     }
 
-    mData->mSpacing = backend.devSet().template newMemSet<int>({Neon::DataUse::IO_COMPUTE},
+    mData->mSpacing = backend.devSet().template newMemSet<int>({Neon::DataUse::HOST_DEVICE},
                                                                1,
                                                                memOptionsAoS,
                                                                descriptorSize);

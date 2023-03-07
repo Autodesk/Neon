@@ -68,7 +68,7 @@ auto MemoryOptions::getComputeAllocator(Neon::DataUse dataUse) const
 {
     helpThrowExceptionIfInitNotCompleted();
 
-    if (dataUse == Neon::DataUse::IO_POSTPROCESSING) {
+    if (dataUse == Neon::DataUse::HOST) {
         return Neon::Allocator::NULL_MEM;
     }
     if (getComputeType() == Neon::DeviceType::CPU) {
@@ -82,7 +82,7 @@ auto MemoryOptions::getIOAllocator(Neon::DataUse dataUse) const
 {
     helpThrowExceptionIfInitNotCompleted();
 
-    if (dataUse == Neon::DataUse::COMPUTE) {
+    if (dataUse == Neon::DataUse::DEVICE) {
         return Neon::Allocator::NULL_MEM;
     }
     return mIOAllocator;

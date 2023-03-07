@@ -151,7 +151,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
 
     {  // Stencil Idx to 3d offset
         auto nPoints = backend.devSet().newDataSet<uint64_t>(stencil.nNeighbours());
-        mData->stencilIdTo3dOffset = backend.devSet().template newMemSet<int8_3d>(Neon::DataUse::IO_COMPUTE,
+        mData->stencilIdTo3dOffset = backend.devSet().template newMemSet<int8_3d>(Neon::DataUse::HOST_DEVICE,
                                                                                   1,
                                                                                   backend.getMemoryOptions(),
                                                                                   nPoints);

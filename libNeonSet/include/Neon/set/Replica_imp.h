@@ -18,7 +18,7 @@ Replica<Obj>::Replica(Neon::Backend&      bk,
     storage.dataUse = dataUse;
     storage.bk = bk;
     auto nEntryPerGPU = bk.devSet().template newDataSet<size_t>(1);
-    storage.obj = bk.devSet().template newMemSet<Obj>(Neon::DataUse::IO_COMPUTE,
+    storage.obj = bk.devSet().template newMemSet<Obj>(Neon::DataUse::HOST_DEVICE,
                                                       1,
                                                       Neon::MemoryOptions(),
                                                       nEntryPerGPU);
@@ -48,7 +48,7 @@ auto Replica<Obj>::updateIO(int streamId)
 {
     auto&                storage = this->getStorage();
     const Neon::Backend& bk = storage.bk;
-    if (storage.dataUse == Neon::DataUse::IO_COMPUTE) {
+    if (storage.dataUse == Neon::DataUse::HOST_DEVICE) {
         if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CPU) {
             return;
         }
@@ -66,7 +66,7 @@ auto Replica<Obj>::updateCompute(int streamId)
 {
     auto&                storage = this->getStorage();
     const Neon::Backend& bk = storage.bk;
-    if (storage.dataUse == Neon::DataUse::IO_COMPUTE) {
+    if (storage.dataUse == Neon::DataUse::HOST_DEVICE) {
         if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CPU) {
             return;
         }

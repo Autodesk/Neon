@@ -45,7 +45,7 @@ bField<T, C>::bField(const std::string&             name,
                                    Neon::MemoryLayout::structOfArrays);
 
 
-    mData->mem = mData->grid->getBackend().devSet().template newMemSet<T>({Neon::DataUse::IO_COMPUTE},
+    mData->mem = mData->grid->getBackend().devSet().template newMemSet<T>({Neon::DataUse::HOST_DEVICE},
                                                                           1,
                                                                           memOptions,
                                                                           allocSize);

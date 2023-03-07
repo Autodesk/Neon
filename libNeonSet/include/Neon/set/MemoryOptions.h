@@ -47,13 +47,13 @@ struct MemoryOptions
      * Returns the allocator type for compute
      * @return
      */
-    auto getComputeAllocator(Neon::DataUse dataUse = Neon::DataUse::IO_COMPUTE) const
+    auto getComputeAllocator(Neon::DataUse dataUse = Neon::DataUse::HOST_DEVICE) const
         -> Neon::Allocator;
 
     /**
      * Returns the allocator type for io
      */
-    auto getIOAllocator(Neon::DataUse dataUse = Neon::DataUse::IO_COMPUTE) const
+    auto getIOAllocator(Neon::DataUse dataUse = Neon::DataUse::HOST_DEVICE) const
         -> Neon::Allocator;
 
     /**

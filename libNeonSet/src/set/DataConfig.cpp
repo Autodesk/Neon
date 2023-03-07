@@ -72,7 +72,7 @@ auto DataConfig::isEnabled(Neon::DeviceType devE) const -> bool
 {
     switch (devE) {
         case Neon::DeviceType::CPU: {
-            if (m_backendConfig.devType() == devE || this->dataUse() == Neon::DataUse::IO_COMPUTE) {
+            if (m_backendConfig.devType() == devE || this->dataUse() == Neon::DataUse::HOST_DEVICE) {
                 return true;
             }
             return false;

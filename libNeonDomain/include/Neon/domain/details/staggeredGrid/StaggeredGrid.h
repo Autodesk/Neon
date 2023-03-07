@@ -92,7 +92,7 @@ struct StaggeredGrid : public Neon::domain::interface::GridBaseTemplate<Staggere
     auto newNodeField(const std::string&  fieldUserName /**< User defined name for the field. */,
                       int                 cardinality /**< Number of components of the field */,
                       T                   inactiveValue /**< Default background value */,
-                      Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE /** Type of use for the field */,
+                      Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE /** Type of use for the field */,
                       Neon::MemoryOptions memoryOptions = Neon::MemoryOptions() /**< Memory options */)
         const -> NodeField<T, C>;
 
@@ -103,7 +103,7 @@ struct StaggeredGrid : public Neon::domain::interface::GridBaseTemplate<Staggere
     auto newVoxelField(const std::string&  fieldUserName /**< User defined name for the field. */,
                        int                 cardinality /**<   Number of components of the field */,
                        T                   inactiveValue /**< Default background value */,
-                       Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE /**<   Type of use for the field */,
+                       Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE /**<   Type of use for the field */,
                        Neon::MemoryOptions memoryOptions = Neon::MemoryOptions() /**< Memory options */)
         const -> VoxelField<T, C>;
 

@@ -16,7 +16,7 @@ concept Grid = requires(G grid) {
         grid.template newField<int>("fieldName",
                                     int(0),
                                     int(0),
-                                    Neon::DataUse::IO_COMPUTE,
+                                    Neon::DataUse::HOST_DEVICE,
                                     Neon::MemoryOptions())
     } -> std::same_as<typename G::template Field<int, 0>>;
 };

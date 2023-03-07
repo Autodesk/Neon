@@ -85,7 +85,7 @@ class Replica : public Neon::set::interface::MultiXpuDataInterface<Neon::set::in
     Replica() = default;
 
     explicit Replica(Neon::Backend&      bk,
-                     Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE,
+                     Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE,
                      Neon::MemoryOptions memoryOptions = Neon::MemoryOptions());
 
     virtual auto updateIO(int streamId = 0)

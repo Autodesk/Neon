@@ -90,7 +90,7 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
         origin);
     mStorage->buildingBlockGrid.setReduceEngine(Neon::sys::patterns::Engine::CUB);
 
-    auto mask = mStorage->buildingBlockGrid.template newField<uint8_t, 1>("Voxel-mask", 1, 0, Neon::DataUse::IO_COMPUTE);
+    auto mask = mStorage->buildingBlockGrid.template newField<uint8_t, 1>("Voxel-mask", 1, 0, Neon::DataUse::HOST_DEVICE);
     mask.forEachActiveCell([&](const Neon::index_3d& idx, int, uint8_t& maskValue) {
         size_t voxPitch = idx.mPitch(nodeDim);
         maskValue = voxels[voxPitch];
@@ -98,7 +98,7 @@ StaggeredGrid<BuildingBlockGridT>::StaggeredGrid(const Backend&                 
     mask.updateDeviceData(Neon::Backend::mainStreamIdx);
 
     using NodeToVoxelMask = Neon::domain::details::experimental::staggeredGrid::details::NodeToVoxelMask;
-    auto nodeToVoxelMask = mStorage->buildingBlockGrid.template newField<NodeToVoxelMask, 1>("NodeToVoxelMask", 1, NodeToVoxelMask(), Neon::DataUse::IO_COMPUTE);
+    auto nodeToVoxelMask = mStorage->buildingBlockGrid.template newField<NodeToVoxelMask, 1>("NodeToVoxelMask", 1, NodeToVoxelMask(), Neon::DataUse::HOST_DEVICE);
 
     nodeToVoxelMask.forEachActiveCell([&](const Neon::index_3d& queryPoint, int, NodeToVoxelMask& nodeToVoxelMaskValue) {
         nodeToVoxelMaskValue.reset();

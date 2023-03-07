@@ -104,7 +104,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                       Neon::MemoryLayout::arrayOfStructs);
 
     //origin
-    mData->mOrigin = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
+    mData->mOrigin = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::HOST_DEVICE},
                                                                          1,
                                                                          memOptionsAoS,
                                                                          mData->mNumBlocks);
@@ -115,7 +115,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
     for (int32_t c = 0; c < stencilNghSize.cardinality(); ++c) {
         stencilNghSize[c] = stencil.neighbours().size();
     }
-    mData->mStencilNghIndex = backend.devSet().template newMemSet<nghIdx_t>({Neon::DataUse::IO_COMPUTE},
+    mData->mStencilNghIndex = backend.devSet().template newMemSet<nghIdx_t>({Neon::DataUse::HOST_DEVICE},
                                                                             1,
                                                                             memOptionsAoS,
                                                                             stencilNghSize);
@@ -138,7 +138,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                    Cell::sMaskSize);
     }
 
-    mData->mActiveMask = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+    mData->mActiveMask = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::HOST_DEVICE},
                                                                        1,
                                                                        memOptionsAoS,
                                                                        mData->mActiveMaskSize);
@@ -154,7 +154,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
 
     // Neighbor blocks
-    mData->mNeighbourBlocks = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
+    mData->mNeighbourBlocks = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::HOST_DEVICE},
                                                                             26,
                                                                             memOptionsAoS,
                                                                             mData->mNumBlocks);

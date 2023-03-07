@@ -69,7 +69,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto newField(const std::string          name,
                   int                        cardinality,
                   T                          inactiveValue,
-                  Neon::DataUse              dataUse = Neon::DataUse::IO_COMPUTE,
+                  Neon::DataUse              dataUse = Neon::DataUse::HOST_DEVICE,
                   const Neon::MemoryOptions& memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 
