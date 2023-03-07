@@ -1,69 +1,96 @@
 #pragma once
+#include "eSpan.h"
 
-namespace Neon::domain::details::dGrid {
-
-NEON_CUDA_HOST_DEVICE inline auto
-eSpan::setAndValidate(Idx&            idx,
-                      const uint32_t& x,
-                      const uint32_t& y,
-                      const uint32_t& z)
-    const -> bool
+namespace Neon::domain::details::eGrid {
+NEON_CUDA_HOST_DEVICE
+auto eSpan::nElements() const -> int64_t
 {
-    bool res = false;
-    idx.set().x = int(x);
-    idx.set().y = int(y);
-    idx.set().z = int(z);
-
-    if (idx.get() < mDim) {
-        res = true;
-    }
-
-    switch (mDataView) {
+    switch (m_dataView) {
         case Neon::DataView::STANDARD: {
-            idx.set().z += mZHaloRadius;
-            return res;
+            return m_ghostOff[ComDirection_e::COM_DW];
         }
         case Neon::DataView::INTERNAL: {
-            idx.set().z += mZHaloRadius + mZBoundaryRadius;
-            return res;
+            return m_bdrOff[ComDirection_e::COM_DW];
         }
         case Neon::DataView::BOUNDARY: {
+            return m_ghostOff[ComDirection_e::COM_DW] - m_bdrOff[ComDirection_e::COM_DW];
+        }
+        default: {
+#if defined(NEON_PLACE_CUDA_DEVICE)
+            return -1;
+#else
+            NEON_THROW_UNSUPPORTED_OPTION("");
+#endif
+        }
+    }
+}
 
-            idx.set().z += idx.get().z < mZBoundaryRadius
-                               ? 0
-                               : (mDim.z - 1) + (-1 * mZBoundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
-            idx.set().z += mZHaloRadius;
 
-            return res;
+NEON_CUDA_HOST_DEVICE auto
+eSpan::helpApplyDataViewShift(Idx& Idx)
+    const
+    -> void
+{
+    switch (m_dataView) {
+        case Neon::DataView::STANDARD:
+        case Neon::DataView::INTERNAL: {
+            // Nothing to do
+            return;
+        }
+        case Neon::DataView::BOUNDARY: {
+            Idx.set() += m_bdrOff[ComDirectionUtils::toInt(ComDirection::DW)];
+            return;
         }
         default: {
         }
     }
-    return false;
+#if defined(NEON_PLACE_CUDA_HOST)
+    NEON_THROW_UNSUPPORTED_OPTION();
+#else
+    printf("Error!!!!\n");
+    // Just a way to force a segmentation fault when running on CUDA
+    int* error = nullptr;
+    error[0] = 0xBAD;
+#endif
 }
 
-NEON_CUDA_HOST_DEVICE inline auto eSpan::helpGetDataView()
-    const -> Neon::DataView const&
+
+NEON_CUDA_HOST_DEVICE
+auto eSpan::setAndValidate(Idx&          Idx,
+                           const uint32_t& x)
+    const
+    -> bool
 {
-    return mDataView;
+    Idx.set() = Idx::InternalIdx(x);
+
+
+    bool isValid = false;
+
+    if (Idx.get() < this->nElements()) {
+        isValid = true;
+    }
+
+    helpApplyDataViewShift(Idx);
+    return isValid;
 }
 
-NEON_CUDA_HOST_DEVICE inline auto eSpan::helpGetZHaloRadius()
-    const -> int const&
+
+NEON_CUDA_HOST_DEVICE
+auto eSpan::helpGetBoundaryOffset() -> Idx::Offset*
 {
-    return mZHaloRadius;
+    return m_bdrOff;
 }
 
-NEON_CUDA_HOST_DEVICE inline auto eSpan::helpGetZBoundaryRadius()
-    const -> int const&
+
+NEON_CUDA_HOST_DEVICE
+auto eSpan::helpGetGhostOffset() -> Idx::Offset*
 {
-    return mZBoundaryRadius;
+    return m_ghostOff;
 }
 
-NEON_CUDA_HOST_DEVICE inline auto eSpan::helpGetDim()
-    const -> Neon::index_3d const&
+NEON_CUDA_HOST_DEVICE
+auto eSpan::helpGetDataView() -> Neon::DataView&
 {
-    return mDim;
+    return m_dataView;
 }
-
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::details::eGrid

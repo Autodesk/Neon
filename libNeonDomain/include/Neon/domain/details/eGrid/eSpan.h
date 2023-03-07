@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/set/DevSet.h"
 #include "eIndex.h"
-namespace Neon::domain::details::dGrid {
+namespace Neon::domain::details::eGrid {
 
 /**
  * Abstraction that represents the Cell space of a partition
@@ -10,42 +10,42 @@ namespace Neon::domain::details::dGrid {
  */
 class eSpan
 {
-   public:
-    using Idx = eIndex;
     friend class eGrid;
 
-    static constexpr int SpaceDim = 3;
+   public:
+    using Idx = eIndex;
+    static constexpr int SpaceDim = 1;
 
-    NEON_CUDA_HOST_DEVICE inline auto
-    setAndValidate(Idx&            idx,
-                   const uint32_t& x,
-                   const uint32_t& y,
-                   const uint32_t& z) const
+    NEON_CUDA_HOST_DEVICE
+    inline auto setAndValidate(Idx&          idx,
+                               const size_t& x)
+        const
         -> bool;
 
-    NEON_CUDA_HOST_DEVICE inline auto
-    helpGetDataView()
-        const -> Neon::DataView const&;
+    NEON_CUDA_HOST_DEVICE
+    inline auto nElements() const -> int64_t;
 
-    NEON_CUDA_HOST_DEVICE inline auto
-    helpGetZHaloRadius()
-        const -> int const&;
+    NEON_CUDA_HOST_DEVICE
+    inline auto
+    helpApplyDataViewShift(Idx& cell) const -> void;
 
-    NEON_CUDA_HOST_DEVICE inline auto
-    helpGetZBoundaryRadius()
-        const -> int const&;
+    NEON_CUDA_HOST_DEVICE
+    inline auto helpGetBoundaryOffset() -> Idx::Offset*;
 
-    NEON_CUDA_HOST_DEVICE inline auto
-    helpGetDim()
-        const -> Neon::index_3d const&;
+
+    NEON_CUDA_HOST_DEVICE
+    inline auto helpGetGhostOffset() -> Idx::Offset*;
+
+    NEON_CUDA_HOST_DEVICE
+    inline auto helpGetDataView() -> Neon::DataView&;
+
 
    private:
-    Neon::DataView mDataView;
-    int            mZHaloRadius;
-    int            mZBoundaryRadius;
-    Neon::index_3d mDim /** Dimension of the span, its values depends on the mDataView*/;
+    Idx::Offset    m_ghostOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+    Idx::Offset    m_bdrOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+    Neon::DataView m_dataView;
 };
 
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::details::eGrid
 
 #include "eSpan_imp.h"

@@ -27,7 +27,7 @@ class eIndex
 
     // eGrid specific types
     using Offset = int32_t;
-    using Idx = int32_t;
+    using InternalIdx = int32_t;
     using Count = int32_t;
     using ePitch = Neon::index64_2d;
 
@@ -35,20 +35,31 @@ class eIndex
     eIndex() = default;
 
    private:
-    Idx mIdx = 0;
+    InternalIdx mIdx = 0;
 
-    NEON_CUDA_HOST_DEVICE inline explicit eIndex(Idx Idx);
+    NEON_CUDA_HOST_DEVICE inline explicit eIndex(InternalIdx Idx);
 
-    NEON_CUDA_HOST_DEVICE inline auto set() -> Idx&;
+    NEON_CUDA_HOST_DEVICE inline auto
+    set() -> InternalIdx&;
 
-    NEON_CUDA_HOST_DEVICE inline auto get() -> const Idx&;
+    NEON_CUDA_HOST_DEVICE inline auto
+    get() -> const InternalIdx&;
 };
 
-enum class ComDirection : uint8_t
+enum class ComDirection : uint32_t
 {
     UP = 0,
     DW = 1,
     NUM = 2
+};
+
+class ComDirectionUtils
+{
+   public:
+    static constexpr auto toInt(ComDirection direction) -> uint32_t
+    {
+        return static_cast<uint32_t>(direction);
+    }
 };
 
 }  // namespace Neon::domain::details::eGrid
