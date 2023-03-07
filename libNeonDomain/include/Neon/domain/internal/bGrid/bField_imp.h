@@ -26,14 +26,12 @@ bField<T, C>::bField(const std::string&             name,
     mData->grid = std::make_shared<bGrid>(grid);
     mData->mCardinality = cardinality;
 
-    int blockSize = mData->grid->getBlockSize();
-
     //the allocation size is the number of blocks x block size x cardinality
     Neon::set::DataSet<uint64_t> allocSize;
     allocSize = mData->grid->getBackend().devSet().template newDataSet<uint64_t>();
     for (int64_t i = 0; i < allocSize.size(); ++i) {
-        allocSize[i] = mData->grid->getNumBlocks()[i] *
-                       blockSize * blockSize * blockSize *
+        allocSize[i] = mData->grid->getNumTrays()[i] *
+                       Cell::sBlockAllocGranularity * Cell::sBlockAllocGranularity * Cell::sBlockAllocGranularity *
                        cardinality;
     }
 

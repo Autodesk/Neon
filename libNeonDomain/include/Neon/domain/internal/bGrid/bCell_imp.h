@@ -361,7 +361,8 @@ NEON_CUDA_HOST_DEVICE inline auto bCell::getMaskBitPosition() const -> int32_t
 
 NEON_CUDA_HOST_DEVICE inline auto bCell::getBlockMaskStride() const -> int32_t
 {
-    return mBlockID * NEON_DIVIDE_UP(mBlockSize * mBlockSize * mBlockSize, sMaskSize);
+    //return NEON_DIVIDE_UP(mBlockID * mBlockSize * mBlockSize * mBlockSize, sMaskSize);
+    return mBlockID* NEON_DIVIDE_UP(mBlockSize * mBlockSize * mBlockSize, sMaskSize);
 }
 
 

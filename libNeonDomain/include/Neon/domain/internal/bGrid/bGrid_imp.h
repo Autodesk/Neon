@@ -180,11 +180,14 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
 
     // block bitmask
+    const auto                   g = bCell::sBlockAllocGranularity;
     Neon::set::DataSet<uint64_t> activeMaskSize = backend.devSet().template newDataSet<uint64_t>();
     for (int64_t i = 0; i < activeMaskSize.size(); ++i) {
         activeMaskSize[i] = numBlockAlocSize[i] *
                             NEON_DIVIDE_UP(blockSize * blockSize * blockSize,
                                            Cell::sMaskSize);
+        //activeMaskSize[i] = NEON_DIVIDE_UP(mData->mNumTrays[i] * g * g * g,
+        //                                   Cell::sMaskSize);
     }
 
     mData->mActiveMask = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
@@ -306,7 +309,6 @@ bGrid::bGrid(const Neon::Backend&         backend,
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mDomainSize = domainSize * voxelSpacing;
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mBlockSize = blockSize;
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mSpacing = voxelSpacing;
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[gpuIdx]);
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask.rawMem(gpuIdx, Neon::DeviceType::CPU);
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask.rawMem(gpuIdx, Neon::DeviceType::CUDA);
             mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostBlockOrigin = mData->mOrigin.rawMem(gpuIdx, Neon::DeviceType::CPU);

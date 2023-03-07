@@ -59,10 +59,6 @@ bPartitionIndexSpace::setAndValidate(bCell&        cell,
     Neon::int32_3d* blockOrigin = mHostBlockOrigin;
 #endif
 
-    if (cell.mBlockID >= mNumBlocks) {
-        cell.mIsActive = false;
-    }
-
 
     if (blockOrigin[cell.mBlockID].x + cell.mLocation.x * mSpacing >= mDomainSize.x ||
         blockOrigin[cell.mBlockID].y + cell.mLocation.y * mSpacing >= mDomainSize.y ||
