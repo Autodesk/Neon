@@ -23,7 +23,7 @@ class SpanClassifier
                    const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
                    const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
                    const Neon::int32_3d&          block3DSpan,
-                   const int&                     blockSize,
+                   const int&                     dataBlockEdge,
                    const Neon::int32_3d&          domainSize,
                    const Neon::domain::Stencil    stencil,
                    const int&                     discreteVoxelSpacing,
@@ -185,7 +185,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&           backend,
                                const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
                                const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
                                const Neon::int32_3d&          block3DSpan,
-                               const int&                     blockSize,
+                               const int&                     dataBlockEdge,
                                const Neon::int32_3d&          domainSize,
                                const Neon::domain::Stencil    stencil,
                                const int&                     discreteVoxelSpacing,
@@ -193,7 +193,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&           backend,
 {
     mData = backend.devSet().newDataSet<Leve3_ByPartition>();
 
-    auto const zRadius = [&stencil]() -> int {
+    auto const zRadius = [&stencil, dataBlockEdge]() -> int {
         auto maxRadius = 0;
         for (auto const& point : stencil.neighbours()) {
             auto newRadius = point.z >= 0 ? point.z : -1 * point.z;
@@ -201,6 +201,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&           backend,
                 maxRadius = newRadius;
             }
         }
+        maxRadius = (maxRadius / dataBlockEdge) +1;
         return maxRadius;
     };
 

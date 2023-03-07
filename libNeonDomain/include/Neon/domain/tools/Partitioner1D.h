@@ -15,15 +15,17 @@ class Partitioner1D
 
     template <typename ActiveCellLambda,
               typename BcLambda>
-    Partitioner1D(const Neon::Backend&    backend,
-                  const ActiveCellLambda& activeCellLambda,
-                  const BcLambda&         bcLambda,
-                  const int&              blockSize,
-                  const Neon::int32_3d&   domainSize,
-                  const int&              discreteVoxelSpacing = 1)
+    Partitioner1D(const Neon::Backend&        backend,
+                  const ActiveCellLambda&     activeCellLambda,
+                  const BcLambda&             bcLambda,
+                  const int&                  blockSize,
+                  const Neon::int32_3d&       domainSize,
+                  const Neon::domain::Stencil stencil,
+                  const int&                  discreteVoxelSpacing = 1)
     {
         mBlockSize = blockSize;
         mDiscreteVoxelSpacing = discreteVoxelSpacing;
+        mStencil = stencil;
 
         Neon::int32_3d block3DSpan(NEON_DIVIDE_UP(domainSize.x, blockSize),
                                    NEON_DIVIDE_UP(domainSize.y, blockSize),
@@ -54,6 +56,7 @@ class Partitioner1D
             block3DSpan,
             blockSize,
             domainSize,
+            stencil,
             discreteVoxelSpacing);
 
         mSpanClassifier = partitioning::SpanClassifier(
@@ -74,13 +77,16 @@ class Partitioner1D
             mSpanClassifier);
     }
 
-    auto getSpanClassifier();
+    auto getSpanClassifier()
+        const -> partitioning::SpanClassifier const&;
 
-    auto getSpanLayout();
+    auto getSpanLayout()
+        const -> partitioning::SpanLayout const&;
 
    private:
-    int mBlockSize = 0;
-    int mDiscreteVoxelSpacing = 0;
+    int                   mBlockSize = 0;
+    int                   mDiscreteVoxelSpacing = 0;
+    Neon::domain::Stencil mStencil;
 
     partitioning::SpanDecomposition mSpanPartitioner;
     partitioning::SpanClassifier    mSpanClassifier;
@@ -89,4 +95,4 @@ class Partitioner1D
     Neon::aGrid mTopology;
 };
 
-}  // namespace Neon::domain::tools
+}  // namespace Neon::domain::tool

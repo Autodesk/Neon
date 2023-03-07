@@ -2,7 +2,7 @@
 #include "Neon/domain/tools/partitioning/SpanDecomposition.h"
 
 
-namespace Neon::domain::tools::partitioning {
+namespace Neon::domain::tool::partitioning {
 
 SpanLayout::SpanLayout(Neon::Backend const&     backend,
                        SpanDecomposition const& spanPartitioner,
@@ -24,7 +24,7 @@ SpanLayout::SpanLayout(Neon::Backend const&     backend,
     mCountXpu = backend.devSet().setCardinality();
     mDataByPartition = backend.devSet().newDataSet<InfoByPartition>();
     // Setting up internal and boudary indexes
-    mDataByPartition.forEachSetIdx([&](Neon::SetIdx const& setIdx,
+    mDataByPartition.forEachSeq([&](Neon::SetIdx const& setIdx,
                                        InfoByPartition&    data) {
         int counter = 0;
         for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {
@@ -46,7 +46,7 @@ SpanLayout::SpanLayout(Neon::Backend const&     backend,
     });
 
 
-    mDataByPartition.forEachSetIdx([&](Neon::SetIdx const& setIdx,
+    mDataByPartition.forEachSeq([&](Neon::SetIdx const& setIdx,
                                        InfoByPartition&    data) -> void {
         for (auto const& byDirection : {ByDirection::up, ByDirection::down}) {
             for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {

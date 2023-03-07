@@ -1,6 +1,6 @@
 #include "Neon/domain/tools/Partitioner1D.h"
 
-namespace Neon::domain::tools {
+namespace Neon::domain::tool {
 
 
 auto Partitioner1D::getSpanClassifier()

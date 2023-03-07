@@ -310,7 +310,8 @@ auto SpanLayout::allocateStencilRelativeIndexMap(
         }
     }
 
-    stencilNghIndex.updateCompute(backend, stream);
+    stencilNghIndex.updateDeviceData(backend, stream);
+    return stencilNghIndex;
 }
 
 template <typename Field>
@@ -408,6 +409,7 @@ auto SpanLayout::allocateActiveMaskMemSet(
     const int               discreteVoxelSpacing)
     const -> Neon::set::MemSet<uint32_t>
 {
+    NEON_THROW_UNSUPPORTED_OPERATION("");
     //    int const countVoxelPerBlock = blockSize * blockSize * blockSize;
     //    int const count32bitWordPerBlock = (countVoxelPerBlock + 31) / 32;
     //
