@@ -1,7 +1,7 @@
 #pragma once
 #include "eField.h"
 
-namespace Neon::domain::details::dGrid {
+namespace Neon::domain::details::eGrid {
 
 template <typename T, int C>
 eField<T, C>::eField()

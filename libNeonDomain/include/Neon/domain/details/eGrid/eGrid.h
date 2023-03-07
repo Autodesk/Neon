@@ -31,7 +31,7 @@
 #include "eSpan.h"
 
 
-namespace Neon::domain::details::dGrid {
+namespace Neon::domain::details::eGrid {
 
 /**
  * dGrid is the blueprint of creating dense field. It store the number of devices,

@@ -1,28 +1,22 @@
 #pragma once
 #include "Neon/core/core.h"
+#include "Neon/domain/details/eGrid/eIndex.h"
 
 namespace Neon::domain::details::eGrid {
 
-NEON_CUDA_HOST_DEVICE inline eIndex::dIndex(const Idx& location)
+NEON_CUDA_HOST_DEVICE  eIndex::eIndex(const eIndex::InternalIdx& idx)
 {
-    mLocation = location;
+    mIdx = idx;
 }
 
-NEON_CUDA_HOST_DEVICE inline eIndex::dIndex(const Idx::Integer &x,
-                                            const Idx::Integer &y,
-                                            const Idx::Integer &z){
-    mLocation.x = x;
-    mLocation.y = y;
-    mLocation.z = z;
+NEON_CUDA_HOST_DEVICE inline auto eIndex::set() -> InternalIdx&
+{
+    return mIdx;
+}
+NEON_CUDA_HOST_DEVICE inline auto eIndex::get() const -> const InternalIdx&
+{
+    return mIdx;
 }
 
-NEON_CUDA_HOST_DEVICE inline auto eIndex::set() -> Idx&
-{
-    return mLocation;
-}
-NEON_CUDA_HOST_DEVICE inline auto eIndex::get() const -> const Idx&
-{
-    return mLocation;
-}
 
 }  // namespace Neon::domain::dense

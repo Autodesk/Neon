@@ -77,32 +77,11 @@ class ePartition
     using Type = T;                 //<- type of the data stored by the field
     using Offset = eIndex::Offset;  //<- Type of a jump value
     using ePitch = eIndex::ePitch;  //<- Type of the pitch representation
+    using Count = eIndex::Count;
 
     template <typename T_,
               int Cardinality_>
     friend class eField;
-
-   private:
-    //-- [INTERNAL DATA] ----------------------------------------------------------------------------
-    T*     mMem;
-    int    mCardinality;
-    ePitch mPitch;
-
-    Neon::DataView m_dataView;
-
-    //-- [INDEXING] ----------------------------------------------------------------------------
-    Offset mBdrOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
-    Offset mGhostOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
-    Offset mBdrCount[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
-    Offset mGhostCount[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
-
-    //-- [CONNECTIVITY] ----------------------------------------------------------------------------
-    Offset*         m_connRaw /** connectivity table */;
-    ePitch          m_connPitch /** connectivity table pitch*/;
-    Neon::int32_3d* mToGlobal = {nullptr};
-
-    //-- [INVERSE MAPPING] ----------------------------------------------------------------------------
-    int mPrtID;
 
    public:
     //-- [CONSTRUCTORS] ----------------------------------------------------------------------------
@@ -209,7 +188,7 @@ class ePartition
      * @return
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    getGlobal(Idx Idx) const
+    getGlobalIndex(Idx Idx) const
         -> Neon::index_3d;
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -233,9 +212,9 @@ class ePartition
                         const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& ghostOff,
                         const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& bdrCount,
                         const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& ghostCount,
-                        Idx::Offset*                                                                connRaw,
-                        const ePitch&                                                               connPitch,
-                        index_t*                                                                    inverseMapping);
+                        Offset*                                                                     connRaw,
+                        const eIndex::ePitch&                                                       connPitch,
+                        Neon::index_3d*                                                             inverseMapping);
 
     /**
      * Returns a pointer to element eId with target cardinality cardinalityIdx
@@ -260,9 +239,9 @@ class ePartition
      * @return
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    eJump(Idx eId)
+    getOffset(Idx eId)
         const
-        -> eJump_t;
+        -> Offset;
 
     /**
      * Computes the jump for an element
@@ -273,8 +252,8 @@ class ePartition
      * @return
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    eJump(Idx eId, int cardinalityIdx) const
-        -> eJump_t;
+    getOffset(Idx eId, int cardinalityIdx) const
+        -> Offset;
 
     /**
      * Returns raw pointer of the field
@@ -284,7 +263,29 @@ class ePartition
     NEON_CUDA_HOST_DEVICE inline auto
     mem()
         -> T*;
+
+   private:
+    //-- [INTERNAL DATA] ----------------------------------------------------------------------------
+    T*     mMem;
+    int    mCardinality;
+    ePitch mPitch;
+
+    Neon::DataView m_dataView;
+
+    //-- [INDEXING] ----------------------------------------------------------------------------
+    Offset mBdrOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+    Offset mGhostOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+    Offset mBdrCount[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+    Offset mGhostCount[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+
+    //-- [CONNECTIVITY] ----------------------------------------------------------------------------
+    Offset*         mConnRaw /** connectivity table */;
+    ePitch          mConnPitch /** connectivity table pitch*/;
+    Neon::int32_3d* mToGlobal = {nullptr};
+
+    //-- [INVERSE MAPPING] ----------------------------------------------------------------------------
+    int mPrtID;
 };
 }  // namespace Neon::domain::details::eGrid
 
-#include "Neon/domain/internal/eGrid/ePartition_imp.h"
+#include "Neon/domain/details/eGrid/ePartition_imp.h"

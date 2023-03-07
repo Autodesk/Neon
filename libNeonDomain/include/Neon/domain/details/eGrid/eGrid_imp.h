@@ -1,7 +1,7 @@
 #pragma once
 #include "eGrid.h"
 
-namespace Neon::domain::details::dGrid {
+namespace Neon::domain::details::eGrid {
 
 
 template <Neon::domain::SparsityPattern ActiveCellLambda>
@@ -19,7 +19,7 @@ eGrid::eGrid(const Neon::Backend&  backend,
         auto nElementsPerPartition = backend.devSet().template newDataSet<size_t>(0);
         // We do an initialization with nElementsPerPartition to zero,
         // then we reset to the computed number.
-        eGrid::GridBase::init("dGrid",
+        eGrid::GridBase::init("eGrid",
                               backend,
                               dimension,
                               stencil,
@@ -76,7 +76,8 @@ eGrid::eGrid(const Neon::Backend&  backend,
         }
     }
 
-    {  // Initialization of the span table
+    {
+        // Initialization of the span table
         const int setCardinality = getDevSet().setCardinality();
         mData->spanTable.forEachConfiguration([&](Neon::SetIdx   setIdx,
                                                   Neon::DataView dw,

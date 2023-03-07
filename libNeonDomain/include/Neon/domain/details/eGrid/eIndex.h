@@ -35,15 +35,17 @@ class eIndex
     eIndex() = default;
 
    private:
-    InternalIdx mIdx = 0;
 
-    NEON_CUDA_HOST_DEVICE inline explicit eIndex(InternalIdx Idx);
+    NEON_CUDA_HOST_DEVICE inline explicit eIndex(const InternalIdx& Idx);
 
     NEON_CUDA_HOST_DEVICE inline auto
     set() -> InternalIdx&;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    get() -> const InternalIdx&;
+    get() const -> const InternalIdx&;
+
+    InternalIdx mIdx = 0;
+
 };
 
 enum class ComDirection : uint32_t

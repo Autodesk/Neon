@@ -14,7 +14,7 @@
 
 #include "ePartition.h"
 
-namespace Neon::domain::details::dGrid {
+namespace Neon::domain::details::eGrid {
 
 
 /**
@@ -41,7 +41,6 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
     using Partition = ePartition<T, C>;
     using Idx = typename Partition::Idx;
     using NghIdx = typename Partition::NghIdx;
-    using NghData = typename Partition::NghData;
 
     /**
      * Empty constructor
