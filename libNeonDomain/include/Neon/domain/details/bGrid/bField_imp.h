@@ -209,7 +209,7 @@ auto bField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) -> void
 }
 
 template <typename T, int C>
-auto bField<T, C>::updateIO(int streamId) -> void
+auto bField<T, C>::updateHostData(int streamId) -> void
 {
 
     if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {
@@ -218,7 +218,7 @@ auto bField<T, C>::updateIO(int streamId) -> void
 }
 
 template <typename T, int C>
-auto bField<T, C>::updateCompute(int streamId) -> void
+auto bField<T, C>::updateDeviceData(int streamId) -> void
 {
 
     if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {

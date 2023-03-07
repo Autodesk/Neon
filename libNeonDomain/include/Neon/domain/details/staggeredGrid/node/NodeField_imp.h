@@ -76,14 +76,14 @@ auto NodeField<BuildingBlockGridT, T, C>::
 
 template <typename BuildingBlockGridT, typename T, int C>
 auto NodeField<BuildingBlockGridT, T, C>::
-    updateCompute(int streamSetId) -> void
+    updateDeviceData(int streamSetId) -> void
 {
     return this->getStorage().getBuildingBlockField().updateDeviceData(streamSetId);
 }
 
 template <typename BuildingBlockGridT, typename T, int C>
 auto NodeField<BuildingBlockGridT, T, C>::
-    updateIO(int streamSetId) -> void
+    updateHostData(int streamSetId) -> void
 {
     return this->getStorage().getBuildingBlockField().updateHostData(streamSetId);
 }

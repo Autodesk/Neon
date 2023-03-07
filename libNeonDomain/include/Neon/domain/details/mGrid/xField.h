@@ -64,9 +64,9 @@ class xField : public Neon::domain::interface::FieldBaseTemplate<T,
                       Neon::SetIdx          idx,
                       const Neon::DataView& dataView) -> Partition& final;
 
-    auto updateIO(int streamId) -> void;
+    auto updateHostData(int streamId) -> void;
 
-    auto updateCompute(int streamId) -> void;
+    auto updateDeviceData(int streamId) -> void;
 
     virtual ~xField() = default;
 

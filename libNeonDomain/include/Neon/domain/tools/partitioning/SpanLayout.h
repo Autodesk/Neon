@@ -230,62 +230,6 @@ class SpanLayout
 };
 
 
-template <typename Field>
-auto SpanLayout::computeBlockOrigins(
-    NEON_OUT Field& fieldOrigins,
-    int             stream)
-    const -> void
-{
-    Neon::Backend backend = fieldOrigins.getBackend();
-    // Multi-XPU vector of Block origins (O.x,O.y,O.z)
-
-    backend.devSet().forEachSetIdxSeq(
-        [&](Neon::SetIdx const& setIdx) {
-            auto partition = fieldOrigins.getPartition(Execution::host, setIdx);
-
-            for (auto byPartition : {ByPartition::internal}) {
-                const auto byDirection = ByDirection::up;
-                for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
-                    auto const& mapperVec = mSpanClassifierPtr->getMapper1Dto3D(
-                        setIdx,
-                        byPartition,
-                        byDirection,
-                        byDomain);
-
-                    auto const start = this->getBoundsInternal(setIdx, byDomain).first;
-                    for (uint64_t j = 0; j < mapperVec.size(); j++) {
-                        auto const& point3d = mapperVec[j];
-                        partition(j, 0) = point3d;
-                    }
-                }
-            }
-
-            for (auto byPartition : {ByPartition::boundary}) {
-                for (auto byDirection : {ByDirection::up, ByDirection::down}) {
-
-                    for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
-                        auto const& mapperVec = mSpanClassifierPtr->getMapper1Dto3D(
-                            setIdx,
-                            byPartition,
-                            byDirection,
-                            byDomain);
-
-                        auto const start = this->getBoundsBoundary(setIdx, byDirection, byDomain).first;
-                        for (uint64_t j = 0; j < mapperVec.size(); j++) {
-                            auto const& point3d = mapperVec[j];
-                            partition(j, 0) = point3d;
-                        }
-                    }
-                }
-            }
-        });
-
-    fieldOrigins.updateCompute(backend, stream);
-
-    return;
-}
-
-
 auto SpanLayout::allocateStencilRelativeIndexMap(
     const Backend&               backend,
     int                          stream,
@@ -396,7 +340,7 @@ auto SpanLayout::computeBlockConnectivity(
             }
         });
 
-    fieldConnectivity.updateCompute(backend, stream);
+    fieldConnectivity.updateDeviceData(backend, stream);
 }
 
 template <typename ActiveCellLambda>
@@ -588,4 +532,4 @@ auto SpanLayout::allocateActiveMaskMemSet(
 }
 
 
-}  // namespace Neon::domain::tools::partitioning
+}  // namespace Neon::domain::tool::partitioning

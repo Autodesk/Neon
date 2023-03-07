@@ -173,7 +173,7 @@ auto aField<T, C>::operator()(const Neon::index_3d&      idx,
 
 
 template <typename T, int C>
-auto aField<T, C>::updateIO(int streamIdx)
+auto aField<T, C>::updateHostData(int streamIdx)
     -> void
 {
     if (self().getDevSet().type() == Neon::DeviceType::CPU) {
@@ -183,7 +183,7 @@ auto aField<T, C>::updateIO(int streamIdx)
 }
 
 template <typename T, int C>
-auto aField<T, C>::updateCompute(int streamIdx)
+auto aField<T, C>::updateDeviceData(int streamIdx)
     -> void
 {
     if (self().getDevSet().type() == Neon::DeviceType::CPU) {

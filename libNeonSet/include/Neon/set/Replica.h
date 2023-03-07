@@ -88,10 +88,10 @@ class Replica : public Neon::set::interface::MultiXpuDataInterface<Neon::set::in
                      Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE,
                      Neon::MemoryOptions memoryOptions = Neon::MemoryOptions());
 
-    virtual auto updateIO(int streamId = 0)
+    virtual auto updateHostData(int streamId = 0)
         -> void;
 
-    virtual auto updateCompute(int streamId = 0)
+    virtual auto updateDeviceData(int streamId = 0)
         -> void;
 
     virtual auto getPartition(Neon::Execution       execution,

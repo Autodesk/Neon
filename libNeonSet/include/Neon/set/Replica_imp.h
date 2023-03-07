@@ -43,7 +43,7 @@ Replica<Obj>::Replica(Neon::Backend&      bk,
 }
 
 template <typename Obj>
-auto Replica<Obj>::updateIO(int streamId)
+auto Replica<Obj>::updateHostData(int streamId)
     -> void
 {
     auto&                storage = this->getStorage();
@@ -61,7 +61,7 @@ auto Replica<Obj>::updateIO(int streamId)
 }
 
 template <typename Obj>
-auto Replica<Obj>::updateCompute(int streamId)
+auto Replica<Obj>::updateDeviceData(int streamId)
     -> void
 {
     auto&                storage = this->getStorage();

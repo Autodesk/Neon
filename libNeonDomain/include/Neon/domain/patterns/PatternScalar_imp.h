@@ -78,12 +78,12 @@ auto PatternScalar<T>::getPartition([[maybe_unused]] Neon::Execution execution,
 }
 
 template <typename T>
-auto PatternScalar<T>::updateIO([[maybe_unused]] int streamId) -> void
+auto PatternScalar<T>::updateHostData([[maybe_unused]] int streamId) -> void
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 template <typename T>
-auto PatternScalar<T>::updateCompute([[maybe_unused]] int streamId) -> void
+auto PatternScalar<T>::updateDeviceData([[maybe_unused]] int streamId) -> void
 {
     NEON_DEV_UNDER_CONSTRUCTION("");
 }

@@ -132,6 +132,16 @@ struct DataSet
         return h_vec().at(setIdx);
     }
 
+    template <typename NewType>
+    auto typedClone() const
+    {
+        Neon::set::DataSet<NewType> result (m_data->size());
+        result.forEachSeq([&](Neon::SetIdx const& setIdx,
+                              NewType& val ){
+            val = this->operator[](setIdx);
+        });
+        return result;
+    }
 
     /**
      *

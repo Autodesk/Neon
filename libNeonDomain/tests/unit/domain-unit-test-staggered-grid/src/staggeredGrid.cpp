@@ -47,8 +47,8 @@ void StaggeredGrid_Map(TestData<G, T, C>& data)
     });
 
 
-    temperature.updateCompute(Neon::Backend::mainStreamIdx);
-    density.updateCompute(Neon::Backend::mainStreamIdx);
+    temperature.updateDeviceData(Neon::Backend::mainStreamIdx);
+    density.updateDeviceData(Neon::Backend::mainStreamIdx);
 
     const std::string appName = TestInformation::fullName("_map_", data.getGrid().getImplementationName());
 
@@ -63,8 +63,8 @@ void StaggeredGrid_Map(TestData<G, T, C>& data)
     Containers<FeaGrid, TEST_TYPE>::addConstOnNodes(temperature, valueToAddOnNodes).run(Neon::Backend::mainStreamIdx);
     Containers<FeaGrid, TEST_TYPE>::addConstOnVoxels(density, valueToAddOnVoxels).run(Neon::Backend::mainStreamIdx);
 
-    temperature.updateIO(Neon::Backend::mainStreamIdx);
-    density.updateIO(Neon::Backend::mainStreamIdx);
+    temperature.updateHostData(Neon::Backend::mainStreamIdx);
+    density.updateHostData(Neon::Backend::mainStreamIdx);
     data.getBackend().sync(Neon::Backend::mainStreamIdx);
 
     if constexpr (EXECUTE_IO_TO_VTK == 1) {
@@ -129,15 +129,15 @@ void StaggeredGrid_VoxToNodes(TestData<G, T, C>& data)
     auto errorFlagField = FEA.template newVoxelField<TEST_TYPE, 1>("ErrorFlag", 1, 0);
 
 
-    nodeIDX.updateCompute(Neon::Backend::mainStreamIdx);
-    voxelIDX.updateCompute(Neon::Backend::mainStreamIdx);
+    nodeIDX.updateDeviceData(Neon::Backend::mainStreamIdx);
+    voxelIDX.updateDeviceData(Neon::Backend::mainStreamIdx);
 
 
     Containers<FeaGrid, TEST_TYPE>::sumNodesOnVoxels(voxelIDX,
                                                      nodeIDX,
                                                      errorFlagField)
         .run(Neon::Backend::mainStreamIdx);
-    errorFlagField.updateIO(Neon::Backend::mainStreamIdx);
+    errorFlagField.updateHostData(Neon::Backend::mainStreamIdx);
     data.getBackend().sync(Neon::Backend::mainStreamIdx);
 
     bool errorDetected = false;
@@ -188,8 +188,8 @@ void StaggeredGrid_NodeToVoxels(TestData<G, T, C>& data)
     auto errorFlagField = FEA.template newNodeField<TEST_TYPE, 1>("ErrorFlag", 1, 0);
 
 
-    nodeIDX.updateCompute(Neon::Backend::mainStreamIdx);
-    voxelIDX.updateCompute(Neon::Backend::mainStreamIdx);
+    nodeIDX.updateDeviceData(Neon::Backend::mainStreamIdx);
+    voxelIDX.updateDeviceData(Neon::Backend::mainStreamIdx);
 
     //    const std::string appName(testFilePrefix + "_VoxToNodes_" + grid.getImplementationName());
     //
@@ -202,7 +202,7 @@ void StaggeredGrid_NodeToVoxels(TestData<G, T, C>& data)
                                                      errorFlagField,
                                                      Neon::domain::tool::Geometry::FullDomain)
         .run(Neon::Backend::mainStreamIdx);
-    errorFlagField.updateIO(Neon::Backend::mainStreamIdx);
+    errorFlagField.updateHostData(Neon::Backend::mainStreamIdx);
     data.getBackend().sync(Neon::Backend::mainStreamIdx);
 
     bool errorDetected = false;

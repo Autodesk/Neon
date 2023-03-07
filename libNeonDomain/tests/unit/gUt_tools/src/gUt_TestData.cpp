@@ -27,7 +27,7 @@ auto TestDataTest(Neon::Backend&  backend,
 
     data.getField(FieldNames::X).getReference({0, 0, 0}, 0) += 1;
     data.getField(FieldNames::X).getReference(dimension - 1, 0) += 2;
-    data.getField(FieldNames::X).updateCompute(0);
+    data.getField(FieldNames::X).updateDeviceData(0);
 
     data.compare(FieldNames::X, [&](const Neon::index_3d& idx,
                                     int,

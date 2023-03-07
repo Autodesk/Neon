@@ -23,7 +23,7 @@ void run(Neon::Runtime runtime)
         multiDeviceObject(setIdx).a = 33;
     });
 
-    multiDeviceObject.updateCompute(0);
+    multiDeviceObject.updateDeviceData(0);
     backend.syncAll();
 
 
@@ -37,7 +37,7 @@ void run(Neon::Runtime runtime)
             };
         });
     c.run(0);
-    multiDeviceObject.updateIO(0);
+    multiDeviceObject.updateHostData(0);
     backend.syncAll();
 
     backend.devSet().forEachSetIdxSeq([&](const Neon::SetIdx& setIdx) {

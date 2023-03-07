@@ -147,7 +147,7 @@ auto sField<OuterGridT, T, C>::operator()(const Neon::index_3d& idx,
 
 
 template <typename OuterGridT, typename T, int C>
-auto sField<OuterGridT, T, C>::updateIO(int streamIdx)
+auto sField<OuterGridT, T, C>::updateHostData(int streamIdx)
     -> void
 {
     if (self().getDevSet().type() == Neon::DeviceType::CPU) {
@@ -158,7 +158,7 @@ auto sField<OuterGridT, T, C>::updateIO(int streamIdx)
 
 template <typename OuterGridT, typename T, int C>
 
-auto sField<OuterGridT, T, C>::updateCompute(int streamIdx)
+auto sField<OuterGridT, T, C>::updateDeviceData(int streamIdx)
     -> void
 {
     if (self().getDevSet().type() == Neon::DeviceType::CPU) {

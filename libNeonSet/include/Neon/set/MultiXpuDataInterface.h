@@ -21,13 +21,13 @@ class MultiXpuDataInterface
 
     MultiXpuDataInterface();
 
-    virtual auto updateIO([[maybe_unused]] int streamId = 0)
+    virtual auto updateHostData([[maybe_unused]] int streamId = 0)
         -> void
     {
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
 
-    virtual auto updateCompute([[maybe_unused]]  int streamId = 0)
+    virtual auto updateDeviceData([[maybe_unused]]  int streamId = 0)
         -> void
     {
         NEON_THROW_UNSUPPORTED_OPERATION("");

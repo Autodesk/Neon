@@ -12,7 +12,7 @@ auto Partitioner1D::getSpanClassifier()
 auto Partitioner1D::getSpanLayout()
     const -> partitioning::SpanLayout const&
 {
-    return mPartitionSpan;
+    return mSpanLayout;
 }
 
 }  // namespace Neon::domain::tools

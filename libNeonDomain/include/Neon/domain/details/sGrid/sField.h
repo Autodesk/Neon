@@ -76,14 +76,14 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
      * Move the field metadata from host to the accelerators.
      * The operation is asynchronous.
      */
-    auto updateCompute(int streamIdx = 0)
+    auto updateDeviceData(int streamIdx = 0)
         -> void;
 
     /**
      * Move the field metadata from the accelerators to the host space.
      * The operation is asynchronous.
      */
-    auto updateIO(int streamIdx = 0)
+    auto updateHostData(int streamIdx = 0)
         -> void;
 
     [[deprecated("Will be replace by the getPartition method")]] auto

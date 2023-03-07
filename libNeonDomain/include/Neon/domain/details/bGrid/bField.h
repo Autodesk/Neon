@@ -66,9 +66,9 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     auto haloUpdate(Neon::set::HuOptions& opt) -> void final;
 
-    auto updateIO(int streamId = 0) -> void final;
+    auto updateHostData(int streamId = 0) -> void final;
 
-    auto updateCompute(int streamId = 0) -> void final;
+    auto updateDeviceData(int streamId = 0) -> void final;
 
     auto getSharedMemoryBytes(const int32_t stencilRadius) const -> size_t;
 

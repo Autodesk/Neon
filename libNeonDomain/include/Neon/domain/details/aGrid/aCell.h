@@ -21,15 +21,16 @@ class aCell
 
     inline aCell() = default;
 
+    NEON_CUDA_HOST_DEVICE inline explicit aCell(Location location);
+
    private:
     Location mLocation = 0;
 
-    NEON_CUDA_HOST_DEVICE inline explicit aCell(Location location);
 
     NEON_CUDA_HOST_DEVICE inline auto set() -> Location&;
 
     NEON_CUDA_HOST_DEVICE inline auto get() const -> const Location&;
 };
-}  // namespace Neon::domain::array
+}  // namespace Neon::domain::details::aGrid
 
 #include "Neon/domain/details/aGrid/aCell_imp.h"

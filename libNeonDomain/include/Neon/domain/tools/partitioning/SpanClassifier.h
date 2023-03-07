@@ -57,13 +57,13 @@ class SpanClassifier
                                      ByDirection  byDirection,
                                      ByDomain     byDomain) const -> int;
 
-   private:
     auto getMapper1Dto3D(Neon::SetIdx const& setIdx,
                          ByPartition,
                          ByDirection,
                          ByDomain)
         -> std::vector<Neon::index_3d>&;
 
+   private:
     auto getMapper3Dto1D(Neon::SetIdx const& setIdx,
                          ByPartition,
                          ByDirection,

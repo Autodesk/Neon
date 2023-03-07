@@ -191,10 +191,10 @@ class NodeField : public Neon::domain::interface::FieldBaseTemplate<T,
                               const int&            cardinality)
         -> Type& final;
 
-    auto updateCompute(int streamSetId)
+    auto updateDeviceData(int streamSetId)
         -> void;
 
-    auto updateIO(int streamSetId)
+    auto updateHostData(int streamSetId)
         -> void;
 
     auto getPartition(const Neon::DeviceType& devType,

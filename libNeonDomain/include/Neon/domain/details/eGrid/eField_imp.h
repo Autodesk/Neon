@@ -250,14 +250,14 @@ template <typename T, int C>
 auto eField<T, C>::updateDeviceData(int streamSetId)
     -> void
 {
-    mData->memoryField.updateCompute(streamSetId);
+    mData->memoryField.updateDeviceData(streamSetId);
 }
 
 template <typename T, int C>
 auto eField<T, C>::updateHostData(int streamSetId)
     -> void
 {
-    mData->memoryField.updateIO(streamSetId);
+    mData->memoryField.updateHostData(streamSetId);
 }
 
 template <typename T, int C>
