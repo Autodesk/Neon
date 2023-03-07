@@ -6,7 +6,7 @@
 #include "Neon/domain/tools/partitioning/SpanDecomposition.h"
 #include "Neon/domain/tools/partitioning/SpanLayout.h"
 
-namespace Neon::domain::tools {
+namespace Neon::domain::tool {
 
 class Partitioner1D
 {

@@ -6,7 +6,7 @@
 #include "Neon/domain/tools/PointHashTable.h"
 #include "Neon/domain/tools/partitioning/SpanDecomposition.h"
 
-namespace Neon::domain::tools::partitioning {
+namespace Neon::domain::tool::partitioning {
 
 class SpanClassifier
 {

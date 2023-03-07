@@ -22,6 +22,7 @@
 #include "Neon/domain/interface/Stencil.h"
 #include "Neon/domain/interface/common.h"
 
+#include "Neon/domain/tools/Partitioner1D.h"
 #include "Neon/domain/tools/SpanTable.h"
 
 #include "Neon/domain/patterns/PatternScalar.h"
@@ -162,7 +163,7 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     auto norm2(const std::string&               name,
                eField<T>&                       input,
                Neon::template PatternScalar<T>& scalar,
-               Neon::Execution execution) const
+               Neon::Execution                  execution) const
         -> Neon::set::Container;
 
     /**
@@ -212,13 +213,13 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
         // given a gridDim of size 77 (in 1D for simplicity) distrusted over 5
         // device, it should be distributed as (16 16 15 15 15)
         Neon::set::DataSet<index_3d>         partitionDims /** Bounding box size of each partition */;
-        Neon::set::DataSet<index_t>          firstZIndex /** Lower z-index for each partition */;
         Neon::domain::tool::SpanTable<eSpan> spanTable /** Span for each data view configurations */;
         Neon::domain::tool::SpanTable<int>   elementsPerPartition /** Number of indexes for each partition */;
 
-        Neon::index_3d              halo;
-        Neon::sys::patterns::Engine reduceEngine;
-        Neon::aGrid         memoryGrid /** memory allocator for fields */;
+        Neon::domain::tool::Partitioner1D partitioner1D;
+        Neon::index_3d                    halo;
+        Neon::sys::patterns::Engine       reduceEngine;
+        Neon::aGrid                       memoryGrid /** memory allocator for fields */;
 
         Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
     };
@@ -226,6 +227,6 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     std::shared_ptr<Data> mData;
 };
 
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::details::eGrid
 #include "eField_imp.h"
 #include "eGrid_imp.h"

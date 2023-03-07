@@ -13,7 +13,7 @@
 #include "Neon/domain/tools/SpanTable.h"
 #include "Neon/domain/tools/PointHashTable.h"
 
-namespace Neon::domain::tools::partitioning {
+namespace Neon::domain::tool::partitioning {
 
 enum struct ByPartition
 {

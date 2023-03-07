@@ -2,7 +2,7 @@
 #include "Neon/core/core.h"
 #include "Neon/domain/tools/partitioning/SpanClassifier.h"
 
-namespace Neon::domain::tools::partitioning {
+namespace Neon::domain::tool::partitioning {
 
 class SpanLayout
 {
@@ -101,7 +101,7 @@ class SpanLayout
         const Backend&               backend,
         int                          stream,
         const Neon::domain::Stencil& stencil)
-        const -> Neon::set::MemSet_t<int8_3d>;
+        const -> Neon::set::MemSet<int8_3d>;
 
     template <typename Field>
     auto computeBlockConnectivity(
@@ -118,7 +118,7 @@ class SpanLayout
         const Neon::int32_3d&   domainSize,
         int                     blockSize,
         const int               discreteVoxelSpacing)
-        const -> Neon::set::MemSet_t<uint32_t>;
+        const -> Neon::set::MemSet<uint32_t>;
 
    private:
     /**
@@ -289,13 +289,13 @@ auto SpanLayout::computeBlockOrigins(
 auto SpanLayout::allocateStencilRelativeIndexMap(
     const Backend&               backend,
     int                          stream,
-    const Neon::domain::Stencil& stencil) const -> Neon::set::MemSet_t<int8_3d>
+    const Neon::domain::Stencil& stencil) const -> Neon::set::MemSet<int8_3d>
 {
 
     auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>(
         stencil.neighbours().size());
 
-    Neon::set::MemSet_t<int8_3d> stencilNghIndex = backend.devSet().template newMemSet<int8_3d>(
+    Neon::set::MemSet<int8_3d> stencilNghIndex = backend.devSet().template newMemSet<int8_3d>(
         Neon::DataUse::IO_COMPUTE,
         1,
         mMemOptionsAoS,
@@ -406,7 +406,7 @@ auto SpanLayout::allocateActiveMaskMemSet(
     const Neon::int32_3d&   domainSize,
     int                     blockSize,
     const int               discreteVoxelSpacing)
-    const -> Neon::set::MemSet_t<uint32_t>
+    const -> Neon::set::MemSet<uint32_t>
 {
     //    int const countVoxelPerBlock = blockSize * blockSize * blockSize;
     //    int const count32bitWordPerBlock = (countVoxelPerBlock + 31) / 32;
@@ -422,7 +422,7 @@ auto SpanLayout::allocateActiveMaskMemSet(
     //                               bCell::sMaskSize);
     //        });
     //
-    //    Neon::set::MemSet_t<uint32_t> bitMask =
+    //    Neon::set::MemSet<uint32_t> bitMask =
     //        backend.devSet().template newMemSet<uint32_t>(
     //            Neon::DataUse::IO_COMPUTE,
     //            1,

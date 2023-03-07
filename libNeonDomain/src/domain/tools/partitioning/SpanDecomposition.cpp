@@ -1,6 +1,6 @@
 #include "Neon/domain/tools/partitioning/SpanDecomposition.h"
 
-namespace Neon::domain::tools::partitioning {
+namespace Neon::domain::tool::partitioning {
 
 auto SpanDecomposition::getNumBlockPerPartition() const -> const Neon::set::DataSet<int64_t>&
 {

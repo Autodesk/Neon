@@ -5,9 +5,9 @@ namespace Neon::domain::details::eGrid {
 
 
 template <Neon::domain::SparsityPattern ActiveCellLambda>
-eGrid::eGrid(const Neon::Backend&  backend,
-             const Neon::int32_3d& dimension,
-             const ActiveCellLambda& /*activeCellLambda*/,
+eGrid::eGrid(const Neon::Backend&         backend,
+             const Neon::int32_3d&        dimension,
+             const ActiveCellLambda&      activeCellLambda,
              const Neon::domain::Stencil& stencil,
              const Vec_3d<double>&        spacing,
              const Vec_3d<double>&        origin)
@@ -28,6 +28,15 @@ eGrid::eGrid(const Neon::Backend&  backend,
                               spacing,
                               origin);
     }
+
+
+    mData->partitioner1D = Neon::domain::tool::Partitioner1D(
+        backend,
+        activeCellLambda,
+        [](Neon::index_3d idx) { return false; },
+        1,
+        dimension,
+        1);
 
     const int32_t numDevices = getBackend().devSet().setCardinality();
     if (numDevices == 1) {
@@ -288,4 +297,4 @@ auto eGrid::norm2([[maybe_unused]] const std::string&               name,
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::details::eGrid
