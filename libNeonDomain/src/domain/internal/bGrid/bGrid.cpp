@@ -81,22 +81,22 @@ auto bGrid::getLaunchParameters([[maybe_unused]] Neon::DataView        dataView,
     //                 Neon::DataViewUtil::toString(dataView));
     //}
 
-    const Neon::int32_3d cuda_block(mData->blockSize,
-                                    mData->blockSize,
-                                    mData->blockSize);
+    const Neon::int32_3d cuda_block(Cell::sBlockAllocGranularity,
+                                    Cell::sBlockAllocGranularity,
+                                    Cell::sBlockAllocGranularity);
 
     Neon::set::LaunchParameters ret = getBackend().devSet().newLaunchParameters();
     for (int i = 0; i < ret.cardinality(); ++i) {
         if (getBackend().devType() == Neon::DeviceType::CUDA) {
             ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::cudaGridMode,
-                       Neon::int32_3d(int32_t(mData->mNumBlocks[i]), 1, 1),
+                       Neon::int32_3d(int32_t(mData->mNumTrays[i]), 1, 1),
                        cuda_block, sharedMem);
         } else {
             ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::domainGridMode,
-                       Neon::int32_3d(int32_t(mData->mNumBlocks[i]) *
-                                          mData->blockSize *
-                                          mData->blockSize *
-                                          mData->blockSize,
+                       Neon::int32_3d(int32_t(mData->mNumTrays[i]) *
+                                          cuda_block.x *
+                                          cuda_block.y *
+                                          cuda_block.z,
                                       1, 1),
                        cuda_block, sharedMem);
         }

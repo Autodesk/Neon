@@ -9,13 +9,28 @@ NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
     [[maybe_unused]] const size_t& z) const -> void
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
-    assert(mBlockSize == blockDim.x);
-    assert(mBlockSize == blockDim.y);
-    assert(mBlockSize == blockDim.z);
-    cell.mBlockID = blockIdx.x;
-    cell.mLocation.x = threadIdx.x;
-    cell.mLocation.y = threadIdx.y;
-    cell.mLocation.z = threadIdx.z;
+    assert(bCell::sBlockAllocGranularity == blockDim.x);
+    assert(bCell::sBlockAllocGranularity == blockDim.y);
+    assert(bCell::sBlockAllocGranularity == blockDim.z);
+
+    const uint32_t trayID = blockIdx.x;
+
+    const uint32_t blocksPerTray = bCell::sBlockAllocGranularity / mBlockSize;
+
+    const Neon::index_3d blockIDWithinTray(threadIdx.x / mBlockSize,
+                                           threadIdx.y / mBlockSize,
+                                           threadIdx.z / mBlockSize);
+
+    //first term accounts for all blocks located in all trays before this one
+    //second term linearized the blockID within the tray into 1D index
+    cell.mBlockID = trayID * blocksPerTray * blocksPerTray * blocksPerTray +
+                    blockIDWithinTray.mPitch(Neon::index_3d(blocksPerTray, blocksPerTray, blocksPerTray));
+
+
+    cell.mLocation.x = threadIdx.x % mBlockSize;
+    cell.mLocation.y = threadIdx.y % mBlockSize;
+    cell.mLocation.z = threadIdx.z % mBlockSize;
+
 #else
     cell.mBlockID = static_cast<uint32_t>(x) / (mBlockSize * mBlockSize * mBlockSize);
     Cell::Location::Integer reminder = static_cast<Cell::Location::Integer>(x % (mBlockSize * mBlockSize * mBlockSize));
