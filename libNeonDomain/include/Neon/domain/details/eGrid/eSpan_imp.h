@@ -7,13 +7,13 @@ auto eSpan::nElements() const -> int64_t
 {
     switch (m_dataView) {
         case Neon::DataView::STANDARD: {
-            return m_ghostOff[ComDirection_e::COM_DW];
+            return m_ghostOff[ComDirectionUtils::toInt(ComDirection::DW)];
         }
         case Neon::DataView::INTERNAL: {
-            return m_bdrOff[ComDirection_e::COM_DW];
+            return m_bdrOff[ComDirectionUtils::toInt(ComDirection::DW)];
         }
         case Neon::DataView::BOUNDARY: {
-            return m_ghostOff[ComDirection_e::COM_DW] - m_bdrOff[ComDirection_e::COM_DW];
+            return m_ghostOff[ComDirectionUtils::toInt(ComDirection::DW)] - m_bdrOff[ComDirectionUtils::toInt(ComDirection::DW)];
         }
         default: {
 #if defined(NEON_PLACE_CUDA_DEVICE)

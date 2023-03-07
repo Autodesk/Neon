@@ -14,17 +14,17 @@ namespace Neon::domain::details::eGrid {
 /**
  * Local representation for the sparse eGrid.
  *
- * @tparam T_ta: type of data stored by this field
- * @tparam cardinality_ta: cardinality of this filed.
- *                         If cardinality_ta is 0, the actual cardinality is manged dynamically
+ * @tparam T: type of data stored by this field
+ * @tparam C: cardinality of this filed.
+ *                         If C is 0, the actual cardinality is manged dynamically
  */
 
 
-template <typename T_ta, int cardinality_ta>
+template <typename T, int C>
 class eField;
 
 template <typename T,
-          int cardinality_ta = 1>
+          int C = 1>
 class ePartition
 {
    public:
@@ -67,16 +67,16 @@ class ePartition
 
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
-    using Self = ePartition<T, cardinality_ta>;  //<- this type
-    using Idx = eIndex;                          //<- type of an index to an element
-    using OuterIdx = typename eIdx::OuterIdx;    //<- type of an index to an element
+    using Self = ePartition<T, C>;            //<- this type
+    using Idx = eIndex;                       //<- index type
+    using OuterIdx = typename Idx::OuterIdx;  //<- index type for the subGrid
 
-    static constexpr int Cardinality = cardinality_ta;
+    static constexpr int Cardinality = C;
 
-    using NghIdx = uint8_t;                                         //<- type of an index to identify a neighbour
-    using Type = T;                                                 //<- type of the data stored by the field
-    using eJump_t = index_t;                                        //<- Type of a jump value
-    using ePitch = ::Neon::domain::details::eGrid::eIndex::ePitch;  //<- Type of the pitch representation
+    using NghIdx = uint8_t;         //<- type of an index to identify a neighbour
+    using Type = T;                 //<- type of the data stored by the field
+    using Offset = eIndex::Offset;  //<- Type of a jump value
+    using ePitch = eIndex::ePitch;  //<- Type of the pitch representation
 
     template <typename T_,
               int Cardinality_>
@@ -86,20 +86,20 @@ class ePartition
     //-- [INTERNAL DATA] ----------------------------------------------------------------------------
     T*     mMem;
     int    mCardinality;
-    ePitch m_ePitch;
+    ePitch mPitch;
 
     Neon::DataView m_dataView;
 
     //-- [INDEXING] ----------------------------------------------------------------------------
-    eIndex::Offset mBdrOff[ComDirection::NUM] = {-1, -1};
-    eIndex::Offset mGhostOff[ComDirection::NUM] = {-1, -1};
-    eIndex::Offset mBdrCount[ComDirection::NUM] = {-1, -1};
-    eIndex::Offset mGhostCount[ComDirection::NUM] = {-1, -1};
+    Offset mBdrOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+    Offset mGhostOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+    Offset mBdrCount[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+    Offset mGhostCount[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
 
     //-- [CONNECTIVITY] ----------------------------------------------------------------------------
-    eIndex::Offset* m_connRaw /** connectivity table */;
+    Offset*         m_connRaw /** connectivity table */;
     ePitch          m_connPitch /** connectivity table pitch*/;
-    Neon::index_t*  mInverseMapping = {nullptr};
+    Neon::int32_3d* mToGlobal = {nullptr};
 
     //-- [INVERSE MAPPING] ----------------------------------------------------------------------------
     int mPrtID;
@@ -128,19 +128,19 @@ class ePartition
      * For example a density field has cardinality one, velocity has cardinality three
      * @return
      */
-    template <int dummy_ta = cardinality_ta>
+    template <int CardinalitySFINE = C>
     inline NEON_CUDA_HOST_DEVICE auto
     cardinality() const
-        -> std::enable_if_t<dummy_ta == 0, int>;
+        -> std::enable_if_t<CardinalitySFINE == 0, int>;
 
     /**
      * Returns cardinality of the field.
      * For example a density field has cardinality one, velocity has cardinality three
      * @return
      */
-    template <int dummy_ta = cardinality_ta>
+    template <int CardinalitySFINE = C>
     constexpr inline NEON_CUDA_HOST_DEVICE auto
-    cardinality() const -> std::enable_if_t<dummy_ta != 0, int>;
+    cardinality() const -> std::enable_if_t<CardinalitySFINE != 0, int>;
 
     /**
      * Returns the value associated to element eId and cardinality cardinalityIdx
@@ -173,14 +173,13 @@ class ePartition
      * @param alternativeVal
      * @return
      */
-
-    template <bool enableLDG = true, int shadowCardinality_ta = cardinality_ta>
+    template <int CardinalitySFINE = C>
     NEON_CUDA_HOST_DEVICE inline auto
     nghVal(Idx         eId,
            NghIdx      nghIdx,
            int         card,
            const Type& alternativeVal)
-        const -> std::enable_if_t<shadowCardinality_ta != 1, NghInfo<Type>>;
+        const -> std::enable_if_t<CardinalitySFINE != 1, NghData<Type>>;
 
 
     /**
@@ -193,8 +192,8 @@ class ePartition
      */
     NEON_CUDA_HOST_DEVICE inline auto
     isValidNgh(Idx    eId,
-              NghIdx nghIdx,
-              Idx&   neighbourIdx) const
+               NghIdx nghIdx,
+               Idx&   neighbourIdx) const
         -> bool;
 
 
@@ -203,7 +202,7 @@ class ePartition
      * @return
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    getPitch() const -> const ePitch_t&;
+    getPitch() const -> const ePitch&;
 
     /**
      * Convert grid local id to globals.
@@ -225,18 +224,18 @@ class ePartition
      * @param ghostOff
      * @param remoteBdrOff
      */
-    explicit ePartition(const Neon::DataView&                                   dataView,
-                        int                                                     prtId,
-                        T*                                                      mem,
-                        int                                                     cardinality,
-                        const ePitch_t&                                         ePitch,
-                        const std::array<Idx::Offset, ComDirection_e::COM_NUM>& bdrOff,
-                        const std::array<Idx::Offset, ComDirection_e::COM_NUM>& ghostOff,
-                        const std::array<Idx::Offset, ComDirection_e::COM_NUM>& bdrCount,
-                        const std::array<Idx::Offset, ComDirection_e::COM_NUM>& ghostCount,
-                        Idx::Offset*                                            connRaw,
-                        const ePitch_t&                                         connPitch,
-                        index_t*                                                inverseMapping);
+    explicit ePartition(const Neon::DataView&                                                       dataView,
+                        int                                                                         prtId,
+                        T*                                                                          mem,
+                        int                                                                         cardinality,
+                        const ePitch&                                                               ePitch,
+                        const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& bdrOff,
+                        const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& ghostOff,
+                        const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& bdrCount,
+                        const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& ghostCount,
+                        Idx::Offset*                                                                connRaw,
+                        const ePitch&                                                               connPitch,
+                        index_t*                                                                    inverseMapping);
 
     /**
      * Returns a pointer to element eId with target cardinality cardinalityIdx

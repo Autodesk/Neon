@@ -17,8 +17,8 @@ class eSpan
     static constexpr int SpaceDim = 1;
 
     NEON_CUDA_HOST_DEVICE
-    inline auto setAndValidate(Idx&          idx,
-                               const size_t& x)
+    inline auto setAndValidate(Idx&            idx,
+                               const uint32_t& x)
         const
         -> bool;
 
