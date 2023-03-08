@@ -38,6 +38,15 @@ eGrid::eGrid(const Neon::Backend&         backend,
         dimension,
         1);
 
+
+
+
+
+
+
+
+
+    
     const int32_t numDevices = getBackend().devSet().setCardinality();
     if (numDevices == 1) {
         // Single device

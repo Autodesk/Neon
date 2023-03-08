@@ -77,7 +77,7 @@ class Partitioner1D
             mSpanClassifier);
 
 
-        mTopology = aGrid(backend, mSpanPartitioner.getNumBlockPerPartition().template typedClone<size_t>(), {251, 1, 1});
+        mTopologyWithGhost = aGrid(backend, mSpanLayout.getStandardAndGhostCount().typedClone<size_t>(), {251, 1, 1});
     }
 
     auto getSpanClassifier()
@@ -89,10 +89,10 @@ class Partitioner1D
     template <class T = int32_t>
     auto getConectivity() -> Neon::aGrid::Field<T, 0>
     {
-        auto result = mTopology.template newField<T, 0>("Connectivity",
-                                                        mStencil.nPoints(),
-                                                        T(0),
-                                                        Neon::DataUse::HOST_DEVICE);
+        auto result = mTopologyWithGhost.template newField<T, 0>("Connectivity",
+                                                                 mStencil.nPoints(),
+                                                                 T(0),
+                                                                 Neon::DataUse::HOST_DEVICE);
 
         NEON_DEV_UNDER_CONSTRUCTION("");
         return result;
@@ -100,12 +100,12 @@ class Partitioner1D
 
     auto getGlobalMapping() -> Neon::aGrid::Field<Neon::int32_3d, 0>
     {
-        auto result = mTopology.template newField<Neon::int32_3d, 0>("GlobalMapping",
-                                                                     1,
-                                                                     Neon::int32_3d(0),
-                                                                     Neon::DataUse::HOST_DEVICE);
+        auto result = mTopologyWithGhost.template newField<Neon::int32_3d, 0>("GlobalMapping",
+                                                                              1,
+                                                                              Neon::int32_3d(0),
+                                                                              Neon::DataUse::HOST_DEVICE);
 
-        mTopology.getBackend().forEachDeviceSeq([&](Neon::SetIdx const& setIdx) {
+        mTopologyWithGhost.getBackend().forEachDeviceSeq([&](Neon::SetIdx const& setIdx) {
             int count = 0;
             using namespace partitioning;
 
@@ -140,16 +140,17 @@ class Partitioner1D
     }
     auto getConnectivity() -> Neon::aGrid::Field<int32_t, 0>
     {
-        auto connectivityField = mTopology.template newField<int32_t, 0>("GlobalMapping",
-                                                              mStencil.nPoints(),
-                                                              0,
-                                                              Neon::DataUse::HOST_DEVICE);
+        auto connectivityField = mTopologyWithGhost.template newField<int32_t, 0>("GlobalMapping",
+                                                                                  mStencil.nPoints(),
+                                                                                  0,
+                                                                                  Neon::DataUse::HOST_DEVICE);
 
-        mTopology.getBackend().forEachDeviceSeq(
+        mTopologyWithGhost.getBackend().forEachDeviceSeq(
             [&](Neon::SetIdx const& setIdx) {
                 auto& partition = connectivityField.getPartition(Neon::Execution::host, setIdx);
                 using namespace partitioning;
 
+                // Internal voxels will read only non ghost data
                 for (auto byPartition : {ByPartition::internal}) {
                     const auto byDirection = ByDirection::up;
                     for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
@@ -158,15 +159,14 @@ class Partitioner1D
                             byPartition,
                             byDirection,
                             byDomain);
-
-                        auto const start = mSpanL(setIdx, byDomain).first;
+                        auto const start = mSpanLayout.getBoundsInternal(setIdx, byDomain).first;
                         for (uint64_t blockIdx = 0; blockIdx < mapperVec.size(); blockIdx++) {
                             auto const& point3d = mapperVec[blockIdx];
-                            for (int s = 0; s < stencil.nPoints(); s++) {
+                            for (int s = 0; s < mStencil.nPoints(); s++) {
 
-                                auto const offset = stencil.neighbours()[s];
+                                auto const offset = mStencil.neighbours()[s];
 
-                                auto findings = findNeighbourOfInternalPoint(
+                                auto findings = mSpanLayout.findNeighbourOfInternalPoint(
                                     setIdx,
                                     point3d, offset);
 
@@ -175,7 +175,8 @@ class Partitioner1D
                                 if (findings.first) {
                                     targetNgh = findings.second;
                                 }
-                                partition(blockIdx, s) = targetNgh;
+                                aGrid::Cell aIdx(start + blockIdx);
+                                partition(aIdx, s) = targetNgh;
                             }
                         }
                     }
@@ -184,21 +185,21 @@ class Partitioner1D
                     for (auto byDirection : {ByDirection::up, ByDirection::down}) {
 
                         for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
-                            auto const& mapperVec = mSpanClassifierPtr->getMapper1Dto3D(
+                            auto const& mapperVec = mSpanClassifier.getMapper1Dto3D(
                                 setIdx,
                                 byPartition,
                                 byDirection,
                                 byDomain);
 
-                            auto const start = this->getBoundsBoundary(setIdx, byDirection, byDomain).first;
+                            auto const start = mSpanLayout.getBoundsBoundary(setIdx, byDirection, byDomain).first;
                             for (int64_t blockIdx = 0; blockIdx < int64_t(mapperVec.size()); blockIdx++) {
                                 auto const& point3d = mapperVec[blockIdx];
-                                for (int s = 0; s < stencil.nPoints(); s++) {
+                                for (int s = 0; s < mStencil.nPoints(); s++) {
 
 
-                                    auto const offset = stencil.neighbours()[s];
+                                    auto const offset = mStencil.neighbours()[s];
 
-                                    auto findings = findNeighbourOfBoundaryPoint(
+                                    auto findings = mSpanLayout.findNeighbourOfBoundaryPoint(
                                         setIdx,
                                         point3d,
                                         offset.newType<int32_t>());
@@ -208,13 +209,15 @@ class Partitioner1D
                                     if (findings.first) {
                                         targetNgh = findings.second;
                                     }
-                                    partition(blockIdx, s) = targetNgh;
+                                    aGrid::Cell aIdx(start + blockIdx);
+                                    partition(aIdx, s) = targetNgh;
                                 }
                             }
                         }
                     }
                 }
             });
+        return connectivityField;
     }
 
    private:
@@ -226,7 +229,7 @@ class Partitioner1D
     partitioning::SpanClassifier    mSpanClassifier;
     partitioning::SpanLayout        mSpanLayout;
 
-    Neon::aGrid mTopology;
+    Neon::aGrid mTopologyWithGhost;
 };
 
 }  // namespace Neon::domain::tool
