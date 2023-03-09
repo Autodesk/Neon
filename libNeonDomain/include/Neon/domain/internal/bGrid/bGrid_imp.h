@@ -82,7 +82,8 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                           gy * bCell::sBlockAllocGranularity * voxelSpacing,
                                           gz * bCell::sBlockAllocGranularity * voxelSpacing);
 
-                int numBlocksInTray = 0;
+                int      numBlocksInTray = 0;
+                uint32_t blockId = uint32_t( mData->mNumTrays[0] * blocksPerTray * blocksPerTray * blocksPerTray);
 
                 for (int bz = 0; bz < blocksPerTray; bz++) {
                     for (int by = 0; by < blocksPerTray; by++) {
@@ -112,11 +113,12 @@ bGrid::bGrid(const Neon::Backend&         backend,
                             numActiveVoxel[0] += numVoxelsInBlock;
 
                             if (numVoxelsInBlock > 0) {
-                                mData->mNumBlocks[0]++;
-                                mData->mBlockOriginTo1D.addPoint(blockOrigin,
-                                                                 uint32_t(numBlocksInTray + mData->mNumTrays[0] * blocksPerTray * blocksPerTray * blocksPerTray));
+                                mData->mNumBlocks[0]++;                                
+                                mData->mBlockOriginTo1D.addPoint(blockOrigin, blockId);
                                 numBlocksInTray++;
                             }
+
+                            blockId++;
                         }
                     }
                 }

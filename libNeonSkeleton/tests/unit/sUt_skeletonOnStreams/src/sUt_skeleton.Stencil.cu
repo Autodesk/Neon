@@ -124,8 +124,11 @@ void SingleStencil(TestData<G, T, C>&      data,
         X.updateCompute(0);
         X.ioToVtk("X", "X");*/
 
-        ops.push_back(laplace(X, Y, Y.getSharedMemoryBytes(1)));
-        ops.push_back(axpy(val, Y, X, Y.getSharedMemoryBytes(1)));
+        //ops.push_back(laplace(X, Y, Y.getSharedMemoryBytes(1)));
+        //ops.push_back(axpy(val, Y, X, Y.getSharedMemoryBytes(1)));
+
+        ops.push_back(laplace(X, Y));
+        ops.push_back(axpy(val, Y, X));
 
         skl.sequence(ops, appName, opt);
 
