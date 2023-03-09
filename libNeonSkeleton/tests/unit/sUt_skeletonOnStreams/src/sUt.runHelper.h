@@ -34,7 +34,7 @@ void runAllTestConfiguration(const std::string&                      gname,
 
         std::vector<int> cardinalityTest{1};
 
-        std::vector<Neon::index_3d> dimTest{{64, 16, 252}};
+        std::vector<Neon::index_3d> dimTest{{25, 33, 252}};
         std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp, Neon::Runtime::stream};
 
         std::vector<Geometry> geos;
