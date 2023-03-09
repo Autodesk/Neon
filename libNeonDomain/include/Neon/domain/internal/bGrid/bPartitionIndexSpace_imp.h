@@ -32,12 +32,31 @@ NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
     cell.mLocation.z = threadIdx.z % mBlockSize;
 
 #else
-    cell.mBlockID = static_cast<uint32_t>(x) / (mBlockSize * mBlockSize * mBlockSize);
-    Cell::Location::Integer reminder = static_cast<Cell::Location::Integer>(x % (mBlockSize * mBlockSize * mBlockSize));
-    cell.set().z = reminder / (static_cast<Cell::Location::Integer>(mBlockSize * mBlockSize));
-    reminder -= (cell.set().z * (static_cast<Cell::Location::Integer>(mBlockSize * mBlockSize)));
-    cell.set().y = reminder / static_cast<Cell::Location::Integer>(mBlockSize);
-    cell.set().x = reminder % static_cast<Cell::Location::Integer>(mBlockSize);
+    constexpr uint32_t g = bCell::sBlockAllocGranularity;
+    constexpr uint32_t g3 = g * g * g;
+
+    const Cell::Location::Integer b = static_cast<Cell::Location::Integer>(mBlockSize);
+    const Cell::Location::Integer b2 = b * b;
+    const Cell::Location::Integer b3 = b * b * b;
+
+    const uint32_t blocksPerTray = g / mBlockSize;
+
+    const uint32_t trayID = static_cast<uint32_t>(x) / g3;
+
+    const uint32_t voxelIDWithinTray = static_cast<uint32_t>(x) % g3;
+
+    const uint32_t blockIDWithinTray = voxelIDWithinTray / (b3);
+
+    cell.mBlockID = trayID * blocksPerTray * blocksPerTray * blocksPerTray +
+                    blockIDWithinTray;
+
+    const Cell::Location::Integer voxelIDWithinBlock = voxelIDWithinTray % b3;
+
+    cell.mLocation.x = voxelIDWithinBlock % b;
+    cell.mLocation.y = (voxelIDWithinBlock / b) % b;
+    cell.mLocation.z = voxelIDWithinBlock / b2;
+
+
 #endif
     cell.mBlockSize = mBlockSize;
     cell.mIsActive = true;

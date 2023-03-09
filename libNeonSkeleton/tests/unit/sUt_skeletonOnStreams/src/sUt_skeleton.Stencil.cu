@@ -141,6 +141,8 @@ void SingleStencil(TestData<G, T, C>&      data,
         cudaProfilerStop();
         NEON_CUDA_CHECK_LAST_ERROR
 
+        //X.updateIO(0);
+        //Y.updateIO(0);
         //X.ioToVtk("X", "X");
         //Y.ioToVtk("Y", "Y");
     }
@@ -157,6 +159,13 @@ void SingleStencil(TestData<G, T, C>&      data,
 
     bool isOk = data.compare(FieldNames::X);
     isOk = isOk && data.compare(FieldNames::Y);
+
+    //data.getField(FieldNames::X).ioFromDense(data.mIODomains[0].getData());
+    //data.getField(FieldNames::X).ioToVtk("Xd", "Xd");
+
+    //data.getField(FieldNames::Y).ioFromDense(data.mIODomains[1].getData());
+    //data.getField(FieldNames::Y).ioToVtk("Yd", "Xd");
+
 
     ASSERT_TRUE(isOk);
 }
