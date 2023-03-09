@@ -182,7 +182,6 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
 
     // block bitmask
-    const auto                   g = bCell::sBlockAllocGranularity;
     Neon::set::DataSet<uint64_t> activeMaskSize = backend.devSet().template newDataSet<uint64_t>();
     for (int64_t i = 0; i < activeMaskSize.size(); ++i) {
         activeMaskSize[i] = numBlockAlocSize[i] *
