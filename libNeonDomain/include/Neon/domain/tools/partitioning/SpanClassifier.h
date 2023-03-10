@@ -53,9 +53,14 @@ class SpanClassifier
     [[nodiscard]] auto countInternal(Neon::SetIdx setIdx,
                                      ByDomain     byDomain) const -> int;
 
+    [[nodiscard]] auto countInternal(Neon::SetIdx setIdx) const -> int;
+
     [[nodiscard]] auto countBoundary(Neon::SetIdx setIdx,
                                      ByDirection  byDirection,
                                      ByDomain     byDomain) const -> int;
+
+
+    [[nodiscard]] auto countBoundary(Neon::SetIdx setIdx) const -> int;
 
     auto getMapper1Dto3D(Neon::SetIdx const& setIdx,
                          ByPartition,
@@ -169,9 +174,29 @@ auto SpanClassifier::countInternal(Neon::SetIdx setIdx,
     return static_cast<int>(count);
 }
 
+auto SpanClassifier::countInternal(Neon::SetIdx setIdx) const -> int
+{
+    auto bulkCount = getMapper1Dto3D(setIdx, ByPartition::internal, ByDirection::up, ByDomain::bulk).size();
+    auto bcCount = getMapper1Dto3D(setIdx, ByPartition::internal, ByDirection::up, ByDomain::bc).size();
+
+    return static_cast<int>(bulkCount + bcCount);
+}
+
 auto SpanClassifier::countBoundary(Neon::SetIdx setIdx, ByDirection byDirection, ByDomain byDomain) const -> int
 {
     auto count = getMapper1Dto3D(setIdx, ByPartition::boundary, byDirection, byDomain).size();
+    return static_cast<int>(count);
+}
+
+auto SpanClassifier::countBoundary(Neon::SetIdx setIdx) const -> int
+{
+
+    int count = 0;
+    for (auto const& byDirection : {ByDirection::up, ByDirection::down}) {
+        for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {
+            count += getMapper1Dto3D(setIdx, ByPartition::boundary, byDirection, byDomain).size();
+        }
+    }
     return static_cast<int>(count);
 }
 
@@ -201,7 +226,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&           backend,
                 maxRadius = newRadius;
             }
         }
-        maxRadius = (maxRadius / dataBlockEdge) +1;
+        maxRadius = (maxRadius / dataBlockEdge) + 1;
         return maxRadius;
     };
 
@@ -266,4 +291,4 @@ SpanClassifier::SpanClassifier(const Neon::Backend&           backend,
                 }
             });
 }
-}  // namespace Neon::domain::tools::partitioning
+}  // namespace Neon::domain::tool::partitioning

@@ -44,7 +44,7 @@ Connectivity<ConnOffset, IntegerForGlobalIndexing>::Connectivity(
         [&](Neon::SetIdx setIdx,
             uint64_t&    val) {
             auto const& bounds = spanLayout.getGhostBoundary(setIdx, ByDirection::down);
-            val = bounds.first + bounds.count;
+            val = bounds.first + bounds.mCount;
         });
 
     mGrid = Neon::domain::aGrid(backend, partitionAndGhostCount);

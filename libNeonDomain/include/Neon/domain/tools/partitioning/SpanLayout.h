@@ -216,33 +216,7 @@ class SpanLayout
 };
 
 
-auto SpanLayout::allocateStencilRelativeIndexMap(
-    const Backend&               backend,
-    int                          stream,
-    const Neon::domain::Stencil& stencil) const -> Neon::set::MemSet<int8_3d>
-{
 
-    auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>(
-        stencil.neighbours().size());
-
-    Neon::set::MemSet<int8_3d> stencilNghIndex = backend.devSet().template newMemSet<int8_3d>(
-        Neon::DataUse::HOST_DEVICE,
-        1,
-        mMemOptionsAoS,
-        stencilNghSize);
-
-    for (int32_t c = 0; c < stencilNghIndex.cardinality(); ++c) {
-        SetIdx devID(c);
-        for (int64_t s = 0; s < int64_t(stencil.neighbours().size()); ++s) {
-            stencilNghIndex.eRef(c, s).x = static_cast<int8_3d::Integer>(stencil.neighbours()[s].x);
-            stencilNghIndex.eRef(c, s).y = static_cast<int8_3d::Integer>(stencil.neighbours()[s].y);
-            stencilNghIndex.eRef(c, s).z = static_cast<int8_3d::Integer>(stencil.neighbours()[s].z);
-        }
-    }
-
-    stencilNghIndex.updateDeviceData(backend, stream);
-    return stencilNghIndex;
-}
 
 
 

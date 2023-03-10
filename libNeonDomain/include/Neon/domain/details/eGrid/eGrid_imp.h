@@ -39,103 +39,57 @@ eGrid::eGrid(const Neon::Backend&         backend,
         1);
 
 
+    mData->mConnectivityAField = mData->partitioner1D.getConnectivity();
+    mData->mGlobalMappingAField = mData->partitioner1D.getGlobalMapping();
+    mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
+    mData->memoryGrid  = mData->partitioner1D.getMemoryGrid();
 
-
-
-
-
-
-
-    
     const int32_t numDevices = getBackend().devSet().setCardinality();
-    if (numDevices == 1) {
-        // Single device
-        mData->partitionDims[0] = getDimension();
-        mData->firstZIndex[0] = 0;
-    } else if (getDimension().z < numDevices) {
+
+    if (numDevices > 1 && getDimension().z < numDevices) {
         NeonException exc("dGrid_t");
         exc << "The grid size in the z-direction (" << getDimension().z << ") is less the number of devices (" << numDevices
             << "). It is ambiguous how to distribute the gird";
         NEON_THROW(exc);
-    } else {
-        // we only partition along the z-direction. Each partition has uniform_z
-        // along the z-direction. The rest is distribute to make the partitions
-        // as equal as possible
-        int32_t uniform_z = getDimension().z / numDevices;
-        int32_t reminder = getDimension().z % numDevices;
-
-        mData->firstZIndex[0] = 0;
-        backend.forEachDeviceSeq([&](const Neon::SetIdx& setIdx) {
-            mData->partitionDims[setIdx].x = getDimension().x;
-            mData->partitionDims[setIdx].y = getDimension().y;
-            if (setIdx < reminder) {
-                mData->partitionDims[setIdx].z = uniform_z + 1;
-            } else {
-                mData->partitionDims[setIdx].z = uniform_z;
-            }
-            if (setIdx.idx() > 0) {
-                mData->firstZIndex[setIdx] = mData->firstZIndex[setIdx - 1] +
-                                             mData->partitionDims[setIdx - 1].z;
-            }
-        });
     }
 
-    {  // Computing halo size
-        // we partition along z so we only need halo along z
-        mData->halo = Neon::index_3d(0, 0, 0);
-        for (const auto& ngh : stencil.neighbours()) {
-            mData->halo.z = std::max(mData->halo.z, std::abs(ngh.z));
-        }
-    }
-
-    {  // Computing halo size
-        for (const auto& dw : DataViewUtil::validOptions()) {
-            getDefaultLaunchParameters(dw) = getLaunchParameters(dw, defaultBlockSize, 0);
-        }
-    }
 
     {
-        // Initialization of the span table
+        // Initialization of the SPAN table
         const int setCardinality = getDevSet().setCardinality();
         mData->spanTable.forEachConfiguration([&](Neon::SetIdx   setIdx,
                                                   Neon::DataView dw,
                                                   eSpan&         span) {
             span.mDataView = dw;
-            span.mZHaloRadius = setCardinality == 1 ? 0 : mData->halo.z;
-            span.mZBoundaryRadius = mData->halo.z;
-
             switch (dw) {
                 case Neon::DataView::STANDARD: {
-                    // Only works z partitions.
-                    assert(mData->halo.x == 0 && mData->halo.y == 0);
+                    int countPerPartition = 0;
+                    countPerPartition += mData->partitioner1D.getSpanClassifier().countInternal(setIdx);
+                    countPerPartition += mData->partitioner1D.getSpanClassifier().countBoundary(setIdx);
 
-                    span.mDim = mData->partitionDims[setIdx];
+                    span.mCount = countPerPartition;
+                    span.mFirstIndexOffset = 0;
+                    span.mDataView = dw;
+
                     break;
                 }
                 case Neon::DataView::BOUNDARY: {
-                    auto dims = getDevSet().newDataSet<index_3d>();
-                    // Only works z partitions.
-                    assert(mData->halo.x == 0 && mData->halo.y == 0);
+                    int countPerPartition = 0;
+                    countPerPartition += mData->partitioner1D.getSpanClassifier().countBoundary(setIdx);
 
-                    span.mDim = mData->partitionDims[setIdx];
-                    span.mDim.z = span.mZBoundaryRadius * 2;
+                    span.mCount = countPerPartition;
+                    span.mFirstIndexOffset = mData->partitioner1D.getSpanClassifier().countInternal(setIdx);
+                    span.mDataView = dw;
 
                     break;
                 }
                 case Neon::DataView::INTERNAL: {
-                    auto dims = getDevSet().newDataSet<index_3d>();
-                    // Only works z partitions.
-                    assert(mData->halo.x == 0 && mData->halo.y == 0);
+                    int countPerPartition = 0;
+                    countPerPartition += mData->partitioner1D.getSpanClassifier().countInternal(setIdx);
 
-                    span.mDim = mData->partitionDims[setIdx];
-                    span.mDim.z = span.mDim.z - span.mZBoundaryRadius * 2;
-                    if (span.mDim.z <= 0 && setCardinality > 1) {
-                        NeonException exp("dGrid");
-                        exp << "The grid size is too small to support the data view model correctly \n";
-                        exp << span.mDim << " for setIdx " << setIdx << " and device " << getDevSet().devId(setIdx);
-                        NEON_THROW(exp);
-                    }
-
+                    span.mCount = countPerPartition;
+                    span.mFirstIndexOffset = 0;
+                    span.mDataView = dw;
                     break;
                 }
                 default: {
@@ -148,47 +102,33 @@ eGrid::eGrid(const Neon::Backend&         backend,
         mData->elementsPerPartition.forEachConfiguration([&](Neon::SetIdx   setIdx,
                                                              Neon::DataView dw,
                                                              int&           count) {
-            count = mData->spanTable.getSpan(setIdx, dw).mDim.rMul();
+            count = mData->spanTable.getSpan(setIdx, dw).mCount;
         });
     }
 
 
-    {  // a Grid allocation
-        auto haloStatus = Neon::domain::haloStatus_et::ON;
-        haloStatus = (backend.devSet().setCardinality() == 1) ? haloStatus_et::e::OFF : haloStatus;
-        auto                       partitionMemoryDim = mData->partitionDims;
-        Neon::set::DataSet<size_t> elementPerPartition = backend.devSet().template newDataSet<size_t>(
-            [&](Neon::SetIdx setIdx, size_t& count) {
-                size_3d dim = partitionMemoryDim[setIdx.idx()].newType<size_t>();
-                if (haloStatus == Neon::domain::haloStatus_et::ON) {
-                    dim.z += mData->halo.z * 2;
-                }
-                count = dim.rMul();
-            });
-        mData->memoryGrid = Neon::aGrid(backend, elementPerPartition);
-    }
-
-    {  // Stencil Idx to 3d offset
-        auto nPoints = backend.devSet().newDataSet<uint64_t>(stencil.nNeighbours());
-        mData->stencilIdTo3dOffset = backend.devSet().template newMemSet<int8_3d>(Neon::DataUse::HOST_DEVICE,
-                                                                                  1,
-                                                                                  backend.getMemoryOptions(),
-                                                                                  nPoints);
-        for (int i = 0; i < stencil.nNeighbours(); ++i) {
-            for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
-                index_3d      pLong = stencil.neighbours()[i];
-                Neon::int8_3d pShort(pLong.x, pLong.y, pLong.z);
-                mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
-            }
-        }
-        // mData->stencilIdTo3dOffset.updateCompute(backend, Neon::Backend::mainStreamIdx);
-    }
+    //
+    //    {  // Stencil Idx to 3d offset
+    //        auto nPoints = backend.devSet().newDataSet<uint64_t>(stencil.nNeighbours());
+    //        mData->stencilIdTo3dOffset = backend.devSet().template newMemSet<int8_3d>(Neon::DataUse::HOST_DEVICE,
+    //                                                                                  1,
+    //                                                                                  backend.getMemoryOptions(),
+    //                                                                                  nPoints);
+    //        for (int i = 0; i < stencil.nNeighbours(); ++i) {
+    //            for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
+    //                index_3d      pLong = stencil.neighbours()[i];
+    //                Neon::int8_3d pShort(pLong.x, pLong.y, pLong.z);
+    //                mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
+    //            }
+    //        }
+    //        // mData->stencilIdTo3dOffset.updateCompute(backend, Neon::Backend::mainStreamIdx);
+    //    }
 
     {  // Init base class information
         Neon::set::DataSet<size_t> nElementsPerPartition = backend.devSet().template newDataSet<size_t>([this](Neon::SetIdx idx, size_t& size) {
             size = mData->partitionDims[idx.idx()].template rMulTyped<size_t>();
         });
-        eGrid::GridBase::init("dGrid",
+        eGrid::GridBase::init("eGrid",
                               backend,
                               dimension,
                               stencil,

@@ -203,18 +203,12 @@ class ePartition
      * @param ghostOff
      * @param remoteBdrOff
      */
-    explicit ePartition(const Neon::DataView&                                                       dataView,
-                        int                                                                         prtId,
-                        T*                                                                          mem,
-                        int                                                                         cardinality,
-                        const ePitch&                                                               ePitch,
-                        const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& bdrOff,
-                        const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& ghostOff,
-                        const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& bdrCount,
-                        const std::array<Idx::Offset, ComDirectionUtils::toInt(ComDirection::NUM)>& ghostCount,
-                        Offset*                                                                     connRaw,
-                        const eIndex::ePitch&                                                       connPitch,
-                        Neon::index_3d*                                                             inverseMapping);
+    explicit ePartition(int                   prtId,
+                        T*                    mem,
+                        int32_t               cardinality,
+                        int32_t               countAllocated,
+                        Offset*               connRaw,
+                        Neon::index_3d*       toGlobal);
 
     /**
      * Returns a pointer to element eId with target cardinality cardinalityIdx
@@ -266,25 +260,16 @@ class ePartition
 
    private:
     //-- [INTERNAL DATA] ----------------------------------------------------------------------------
-    T*     mMem;
-    int    mCardinality;
-    ePitch mPitch;
-
-    Neon::DataView m_dataView;
-
-    //-- [INDEXING] ----------------------------------------------------------------------------
-    Offset mBdrOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
-    Offset mGhostOff[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
-    Offset mBdrCount[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
-    Offset mGhostCount[ComDirectionUtils::toInt(ComDirection::NUM)] = {-1, -1};
+    T*      mMem;
+    int     mCardinality;
+    int32_t mCountAllocated;
 
     //-- [CONNECTIVITY] ----------------------------------------------------------------------------
-    Offset*         mConnRaw /** connectivity table */;
-    ePitch          mConnPitch /** connectivity table pitch*/;
-    Neon::int32_3d* mToGlobal = {nullptr};
+    Offset* mConnectivity /** connectivity table */;
 
     //-- [INVERSE MAPPING] ----------------------------------------------------------------------------
-    int mPrtID;
+    Neon::int32_3d* mOrigins = {nullptr};
+    int             mPrtID;
 };
 }  // namespace Neon::domain::details::eGrid
 

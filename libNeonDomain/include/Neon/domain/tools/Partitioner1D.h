@@ -80,23 +80,15 @@ class Partitioner1D
         mTopologyWithGhost = aGrid(backend, mSpanLayout.getStandardAndGhostCount().typedClone<size_t>(), {251, 1, 1});
     }
 
+    auto getMemoryGrid() -> Neon::aGrid&{
+        return mTopologyWithGhost;
+    }
+
     auto getSpanClassifier()
         const -> partitioning::SpanClassifier const&;
 
     auto getSpanLayout()
         const -> partitioning::SpanLayout const&;
-
-    template <class T = int32_t>
-    auto getConectivity() -> Neon::aGrid::Field<T, 0>
-    {
-        auto result = mTopologyWithGhost.template newField<T, 0>("Connectivity",
-                                                                 mStencil.nPoints(),
-                                                                 T(0),
-                                                                 Neon::DataUse::HOST_DEVICE);
-
-        NEON_DEV_UNDER_CONSTRUCTION("");
-        return result;
-    }
 
     auto getGlobalMapping() -> Neon::aGrid::Field<Neon::int32_3d, 0>
     {
@@ -138,7 +130,69 @@ class Partitioner1D
 
         return result;
     }
-    auto getConnectivity() -> Neon::aGrid::Field<int32_t, 0>
+
+    auto getStencil3dTo1dOffset() const -> Neon::set::MemSet<int8_3d>
+    {
+        const Backend& backend = mTopologyWithGhost.getBackend();
+
+        auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>(
+            mStencil.neighbours().size());
+
+        Neon::set::MemSet<int8_3d> stencilNghIndex = backend.devSet().template newMemSet<int8_3d>(
+            Neon::DataUse::HOST_DEVICE,
+            1,
+            Neon::MemoryOptions(),
+            stencilNghSize);
+
+        backend.forEachDeviceSeq([&](SetIdx setIdx) {
+            for (int64_t s = 0; s < int64_t(mStencil.neighbours().size()); ++s) {
+                stencilNghIndex.eRef(setIdx, s, 0).x = static_cast<int8_3d::Integer>(mStencil.neighbours()[s].x);
+                stencilNghIndex.eRef(setIdx, s, 0).y = static_cast<int8_3d::Integer>(mStencil.neighbours()[s].y);
+                stencilNghIndex.eRef(setIdx, s, 0).z = static_cast<int8_3d::Integer>(mStencil.neighbours()[s].z);
+            }
+        });
+
+        stencilNghIndex.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
+        return stencilNghIndex;
+    }
+
+    auto getStencil1dTo3dOffset(
+        const Backend&               backend,
+        int                          stream,
+        const Neon::domain::Stencil& stencil) const -> Neon::set::MemSet<int32_t>
+    {
+
+        auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>(
+            stencil.neighbours().size());
+
+        int32_t radius = stencil.getRadius();
+        int     countElement = (2 * radius + 1);
+        countElement = countElement * countElement * countElement;
+
+        Neon::set::MemSet<int32_t> stencilNghIndex = backend.devSet().template newMemSet<int32_t>(
+            Neon::DataUse::HOST_DEVICE,
+            countElement,
+            Neon::MemoryOptions(),
+            stencilNghSize);
+
+        backend.forEachDeviceSeq([&](SetIdx setIdx) {
+            int stencilIdx = 0;
+            for (auto ngh : stencil.neighbours()) {
+                int yPitch = countElement;
+                int zPitch = countElement * countElement;
+
+                int32_t offset = ngh.x + ngh.y * yPitch + ngh.z * zPitch;
+                stencilNghIndex.eRef(setIdx, offset, 0) = stencilIdx;
+                stencilIdx++;
+            }
+        });
+
+        stencilNghIndex.updateDeviceData(backend, stream);
+        return stencilNghIndex;
+    }
+
+    auto getConnectivity()
+        -> Neon::aGrid::Field<int32_t, 0>
     {
         auto connectivityField = mTopologyWithGhost.template newField<int32_t, 0>("GlobalMapping",
                                                                                   mStencil.nPoints(),

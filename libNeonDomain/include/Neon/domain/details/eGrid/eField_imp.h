@@ -10,15 +10,11 @@ eField<T, C>::eField()
 }
 
 template <typename T, int C>
-eField<T, C>::eField(const std::string&                        fieldUserName,
-                     Neon::DataUse                             dataUse,
-                     const Neon::MemoryOptions&                memoryOptions,
-                     const Grid&                               grid,
-                     const Neon::set::DataSet<Neon::index_3d>& dims,
-                     int                                       zHaloDim,
-                     Neon::domain::haloStatus_et::e            haloStatus,
-                     int                                       cardinality,
-                     Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset)
+eField<T, C>::eField(const std::string&         fieldUserName,
+                     Neon::DataUse              dataUse,
+                     const Neon::MemoryOptions& memoryOptions,
+                     const Grid&                grid,
+                     int                        cardinality)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "dField",
@@ -26,18 +22,8 @@ eField<T, C>::eField(const std::string&                        fieldUserName,
                                                                              T(0),
                                                                              dataUse,
                                                                              memoryOptions,
-                                                                             haloStatus) {
+                                                                             Neon::domain::haloStatus_et::e::ON) {
 
-    // only works if dims in x and y direction for all partitions match
-    for (int i = 0; i < dims.size() - 1; ++i) {
-        for (int j = i + 1; j < dims.size(); ++j) {
-            if (dims[i].x != dims[j].x || dims[i].y != dims[j].y) {
-                NeonException exc("dField_t");
-                exc << "New dField only works on partitioning along z axis.";
-                NEON_THROW(exc);
-            }
-        }
-    }
 
     mData = std::make_shared<Data>(grid.getBackend());
     mData->dataUse = dataUse;
@@ -45,50 +31,15 @@ eField<T, C>::eField(const std::string&                        fieldUserName,
     mData->cardinality = cardinality;
     mData->memoryOptions = memoryOptions;
     mData->grid = std::make_shared<Grid>(grid);
-    mData->haloStatus = (mData->grid->getDevSet().setCardinality() == 1)
-                            ? haloStatus_et::e::OFF
-                            : haloStatus;
-    const int haloRadius = mData->haloStatus == Neon::domain::haloStatus_et::ON ? zHaloDim : 0;
-    mData->zHaloDim = zHaloDim;
 
-    Neon::set::DataSet<index_3d> origins = this->getGrid().getBackend().template newDataSet<index_3d>({0, 0, 0});
-    {  // Computing origins
-        origins.forEachSeq(
-            [&](Neon::SetIdx setIdx, Neon::index_3d& val) {
-                if (setIdx == 0) {
-                    val.z = 0;
-                    return;
-                }
-                const Neon::SetIdx proceedingIdx = setIdx - 1;
-                val.z = origins[proceedingIdx].z + dims[proceedingIdx].z;
-            });
-    }
+    mData->memoryField = mData->grid->getMemoryGrid().template newField<T, C>(fieldUserName + "-storage",
+                                                                              cardinality,
+                                                                              T(0),
+                                                                              dataUse);
 
-    {  // Computing Pitch
-        mData->pitch.forEachSeq(
-            [&](Neon::SetIdx setIdx, Neon::size_4d& pitch) {
-                switch (mData->memoryOptions.getOrder()) {
-                    case MemoryLayout::structOfArrays: {
-                        pitch.x = 1;
-                        pitch.y = pitch.x * dims[setIdx.idx()].x;
-                        pitch.z = pitch.y * dims[setIdx.idx()].y;
-                        pitch.w = pitch.z * (dims[setIdx.idx()].z + 2 * haloRadius);
-                        break;
-                    }
-                    case MemoryLayout::arrayOfStructs: {
-                        pitch.x = mData->cardinality;
-                        pitch.y = pitch.x * dims[setIdx.idx()].x;
-                        pitch.z = pitch.y * dims[setIdx.idx()].y;
-                        pitch.w = 1;
-                        break;
-                    }
-                }
-            });
-    }
 
-    {  // Setting up partitions
-        Neon::aGrid const& aGrid = mData->grid->helpFieldMemoryAllocator();
-        mData->memoryField = aGrid.newField(fieldUserName + "-storage", cardinality, T(), dataUse, memoryOptions);
+    {  // Setting up partitionTable
+
         // const int setCardinality = mData->grid->getBackend().getDeviceCount();
         mData->partitionTable.forEachConfiguration(
             [&](Neon::Execution           execution,
@@ -620,4 +571,4 @@ auto eField<T, C>::helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
     NEON_THROW(exc);
 }
 
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::details::eGrid

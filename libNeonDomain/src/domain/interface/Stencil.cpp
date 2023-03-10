@@ -142,6 +142,17 @@ void Stencil::p_updateNeighbourList(bool filterCenterOut)
     }
 }
 
+auto Stencil::getRadius() const  -> int32_t
+{
+    int32_t radius = 0;
+    for (const auto& p : this->neighbours()) {
+        radius = std::max(radius, std::abs(p.x));
+        radius = std::max(radius, std::abs(p.y));
+        radius = std::max(radius, std::abs(p.z));
+    }
+    return radius;
+}
+
 auto Stencil::points() const
     -> const std::vector<Neon::index_3d>&
 {
@@ -167,9 +178,9 @@ auto Stencil::getUnion(const std::vector<Stencil>& vec) -> Stencil
     Stencil output(vec[0].neighbours(), false);
 
     for (size_t i = 1; i < vec.size(); i++) {
-       for(const auto& point: vec[i].neighbours()){
+        for (const auto& point : vec[i].neighbours()) {
             output.addPoint(point);
-       }
+        }
     }
     return output;
 }

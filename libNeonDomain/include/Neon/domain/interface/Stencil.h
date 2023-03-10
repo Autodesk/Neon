@@ -51,6 +51,8 @@ struct Stencil
     auto addPoint(const Neon::index_3d& newPoint)
         -> void;
 
+    auto getRadius() const -> int32_t;
+
     /**
      * static method to create a 19 point stencil
      *

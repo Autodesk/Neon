@@ -203,6 +203,9 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     auto helpGetFirstZindex()
         const -> const Neon::set::DataSet<int32_t>&;
 
+    auto getMemoryGrid()
+        -> Neon::aGrid&;
+
    private:
     struct Data
     {
@@ -221,7 +224,9 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
         Neon::sys::patterns::Engine       reduceEngine;
         Neon::aGrid                       memoryGrid /** memory allocator for fields */;
 
-        Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
+        Neon::set::MemSet<Neon::int8_3d> mStencil3dTo1dOffset;
+        Neon::aGrid::Field<int32_t, 0>   mConnectivityAField;
+        Neon::aGrid::Field<index_3d, 0>  mGlobalMappingAField;
     };
 
     std::shared_ptr<Data> mData;

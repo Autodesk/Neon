@@ -137,15 +137,11 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
         const -> std::pair<Neon::index_3d, int>;
 
-    eField(const std::string&                        fieldUserName,
-           Neon::DataUse                             dataUse,
-           const Neon::MemoryOptions&                memoryOptions,
-           const Grid&                               grid,
-           const Neon::set::DataSet<Neon::index_3d>& dims,
-           int                                       zHaloDim,
-           Neon::domain::haloStatus_et::e            haloStatus,
-           int                                       cardinality,
-           Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset);
+    eField(const std::string&         fieldUserName,
+           Neon::DataUse              dataUse,
+           const Neon::MemoryOptions& memoryOptions,
+           const Grid&                grid,
+           int                        cardinality);
 
     struct Data
     {
@@ -153,7 +149,6 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
         Data(Neon::Backend const& bk)
         {
             partitionTable = Neon::domain::tool::PartitionTable<Partition, ReductionInformation>(bk);
-            pitch = bk.newDataSet<size_4d>();
         }
 
         struct ReductionInformation
@@ -165,17 +160,11 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
         Neon::domain::tool::PartitionTable<Partition, ReductionInformation> partitionTable;
         Neon::aGrid::Field<T, C>                                            memoryField;
 
-        Neon::DataUse                     dataUse;
-        Neon::MemoryOptions               memoryOptions;
-        int                               cardinality;
-        Neon::set::DataSet<Neon::size_4d> pitch;
-
-        std::shared_ptr<Grid>          grid;
-        int                            zHaloDim;
-        Neon::domain::haloStatus_et::e haloStatus;
-        bool                           periodic_z;
-
-        Neon::set::MemSet<NghIdx> stencilNghIndex;
+        Neon::DataUse         dataUse;
+        Neon::MemoryOptions   memoryOptions;
+        int                   cardinality;
+        std::shared_ptr<Grid> grid;
+        bool                  periodic_z;
     };
 
     std::shared_ptr<Data> mData;
@@ -183,4 +172,4 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
 };
 
 
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::details::eGrid
