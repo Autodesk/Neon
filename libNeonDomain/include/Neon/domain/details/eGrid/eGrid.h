@@ -169,13 +169,15 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     /**
      * Convert a list of 3d offsets for stencil operation in 1D local offsets
      */
-    auto convertToNghIdx(std::vector<Neon::index_3d> const& stencilOffsets)
+    auto convertToNghIdx(
+        std::vector<Neon::index_3d> const& stencilOffsets)
         const -> std::vector<NghIdx>;
 
     /**
      * Convert a list of 3d offsets for stencil operation in 1D local offsets
      */
-    auto convertToNghIdx(Neon::index_3d const& stencilOffsets)
+    auto convertToNghIdx(
+        Neon::index_3d const& stencilOffsets)
         const -> NghIdx;
 
     /**
@@ -191,20 +193,17 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
         -> GridBaseTemplate::CellProperties final;
 
    private:
-    auto helpGetPartitionDim()
-        const -> const Neon::set::DataSet<index_3d>;
-
-    auto helpIdexPerPartition(Neon::DataView dataView = Neon::DataView::STANDARD)
-        const -> const Neon::set::DataSet<int>;
-
-    auto helpFieldMemoryAllocator()
-        const -> const Neon::aGrid&;
-
-    auto helpGetFirstZindex()
-        const -> const Neon::set::DataSet<int32_t>&;
-
     auto getMemoryGrid()
         -> Neon::aGrid&;
+
+    auto getConnectivityField()
+        -> Neon::aGrid::Field<int32_t, 0>;
+
+    auto getGlobalMappingField()
+        -> Neon::aGrid::Field<index_3d, 0>;
+
+    auto getStencil3dTo1dOffset()
+        -> Neon::set::MemSet<int8_t>;
 
    private:
     struct Data
@@ -220,17 +219,20 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
         Neon::domain::tool::SpanTable<int>   elementsPerPartition /** Number of indexes for each partition */;
 
         Neon::domain::tool::Partitioner1D partitioner1D;
+        Stencil                           stencil;
         Neon::index_3d                    halo;
         Neon::sys::patterns::Engine       reduceEngine;
         Neon::aGrid                       memoryGrid /** memory allocator for fields */;
 
-        Neon::set::MemSet<Neon::int8_3d> mStencil3dTo1dOffset;
+        Neon::set::MemSet<int8_t> mStencil3dTo1dOffset;
         Neon::aGrid::Field<int32_t, 0>   mConnectivityAField;
         Neon::aGrid::Field<index_3d, 0>  mGlobalMappingAField;
     };
 
     std::shared_ptr<Data> mData;
+    const Neon::aGrid&    helpFieldMemoryAllocator() const;
 };
+
 
 }  // namespace Neon::domain::details::eGrid
 #include "eField_imp.h"

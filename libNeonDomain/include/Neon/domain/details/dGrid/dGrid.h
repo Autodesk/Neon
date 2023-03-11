@@ -39,10 +39,10 @@ namespace Neon::domain::details::dGrid {
  * be able to create field. dGrid also manages launching kernels and exporting
  * fields to VTI
  */
-class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
+class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, dIndex>
 {
    public:
-    using Grid = dGrid;
+    using Grid = eGrid;
     using Idx = dIndex;
 
     template <typename T, int CardinalityTa = 0>
@@ -61,23 +61,23 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     /**
      * Empty constructor
      */
-    dGrid();
+    eGrid();
 
     /**
      * Copy constructor with a shallow copy semantic
      */
-    dGrid(const dGrid& rhs) = default;
+    eGrid(const eGrid& rhs) = default;
 
     /**
      * Destructor
      */
-    virtual ~dGrid() = default;
+    virtual ~eGrid() = default;
 
     /**
      * Constructor compatible with the general grid API
      */
     template <Neon::domain::SparsityPattern SparsityPattern>
-    dGrid(const Neon::Backend&         backend /**< Target for computation */,
+    eGrid(const Neon::Backend&         backend /**< Target for computation */,
           const Neon::int32_3d&        dimension /**< Dimension of the bounding box containing the domain */,
           const SparsityPattern&       activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
           const Neon::domain::Stencil& stencil /**< Stencil used by any computation on the grid */,

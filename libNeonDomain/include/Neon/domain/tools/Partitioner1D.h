@@ -80,8 +80,15 @@ class Partitioner1D
         mTopologyWithGhost = aGrid(backend, mSpanLayout.getStandardAndGhostCount().typedClone<size_t>(), {251, 1, 1});
     }
 
-    auto getMemoryGrid() -> Neon::aGrid&{
+    auto getMemoryGrid() -> Neon::aGrid&
+    {
         return mTopologyWithGhost;
+    }
+
+    auto getStandardAndGhostCount()
+        const -> const Neon::set::DataSet<int32_t>&
+    {
+        mSpanLayout.getStandardAndGhostCount();
     }
 
     auto getSpanClassifier()
@@ -131,41 +138,14 @@ class Partitioner1D
         return result;
     }
 
-    auto getStencil3dTo1dOffset() const -> Neon::set::MemSet<int8_3d>
+
+    auto getStencil3dTo1dOffset() const -> Neon::set::MemSet<int8_t>
     {
         const Backend& backend = mTopologyWithGhost.getBackend();
-
         auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>(
             mStencil.neighbours().size());
 
-        Neon::set::MemSet<int8_3d> stencilNghIndex = backend.devSet().template newMemSet<int8_3d>(
-            Neon::DataUse::HOST_DEVICE,
-            1,
-            Neon::MemoryOptions(),
-            stencilNghSize);
-
-        backend.forEachDeviceSeq([&](SetIdx setIdx) {
-            for (int64_t s = 0; s < int64_t(mStencil.neighbours().size()); ++s) {
-                stencilNghIndex.eRef(setIdx, s, 0).x = static_cast<int8_3d::Integer>(mStencil.neighbours()[s].x);
-                stencilNghIndex.eRef(setIdx, s, 0).y = static_cast<int8_3d::Integer>(mStencil.neighbours()[s].y);
-                stencilNghIndex.eRef(setIdx, s, 0).z = static_cast<int8_3d::Integer>(mStencil.neighbours()[s].z);
-            }
-        });
-
-        stencilNghIndex.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
-        return stencilNghIndex;
-    }
-
-    auto getStencil1dTo3dOffset(
-        const Backend&               backend,
-        int                          stream,
-        const Neon::domain::Stencil& stencil) const -> Neon::set::MemSet<int32_t>
-    {
-
-        auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>(
-            stencil.neighbours().size());
-
-        int32_t radius = stencil.getRadius();
+        int32_t radius = mStencil.getRadius();
         int     countElement = (2 * radius + 1);
         countElement = countElement * countElement * countElement;
 
@@ -177,7 +157,7 @@ class Partitioner1D
 
         backend.forEachDeviceSeq([&](SetIdx setIdx) {
             int stencilIdx = 0;
-            for (auto ngh : stencil.neighbours()) {
+            for (auto ngh : mStencil.neighbours()) {
                 int yPitch = countElement;
                 int zPitch = countElement * countElement;
 
@@ -187,7 +167,7 @@ class Partitioner1D
             }
         });
 
-        stencilNghIndex.updateDeviceData(backend, stream);
+        stencilNghIndex.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
         return stencilNghIndex;
     }
 

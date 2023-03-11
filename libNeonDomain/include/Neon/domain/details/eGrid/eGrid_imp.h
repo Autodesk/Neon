@@ -13,6 +13,7 @@ eGrid::eGrid(const Neon::Backend&         backend,
              const Vec_3d<double>&        origin)
 {
     mData = std::make_shared<Data>(backend);
+    mData->stencil = stencil;
     const index_3d defaultBlockSize(256, 1, 1);
 
     {

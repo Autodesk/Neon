@@ -18,7 +18,7 @@ TEST(domain, deviceContainer)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(device::runDevice<Neon::domain::details::dGrid::dGrid, Type, 0>),
+    runAllTestConfiguration(std::function(device::runDevice<Neon::domain::details::dGrid::eGrid, Type, 0>),
                             nGpus,
                             1);
 }

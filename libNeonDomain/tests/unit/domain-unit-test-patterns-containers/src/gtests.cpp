@@ -13,7 +13,7 @@ TEST(domain_unit_test_patterns_containers, dGrid)
     using Type = int64_t;
 
     runAllTestConfiguration(
-        std::function(runContainer<Neon::domain::details::dGrid::dGrid, Type, 0>),
+        std::function(runContainer<Neon::domain::details::dGrid::eGrid, Type, 0>),
        {Neon::sys::patterns::Engine::CUB,
                                           Neon::sys::patterns::Engine::cuBlas} ,
                             nGpus,

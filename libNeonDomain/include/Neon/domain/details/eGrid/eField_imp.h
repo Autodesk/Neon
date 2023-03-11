@@ -48,17 +48,14 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                 typename Self::Partition& partition) {
                 auto memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, Neon::DataView::STANDARD);
 
-                partition = ePartition<T, C>(dw,
+                partition = ePartition<T, C>(setIdx.idx(),
                                              memoryFieldPartition.mem(),
-                                             dims[setIdx],
-                                             haloRadius,
-                                             mData->zHaloDim,
-                                             mData->pitch[setIdx],
-                                             setIdx.idx(),
-                                             origins[setIdx],
                                              mData->cardinality,
-                                             mData->grid->getDimension(),
-                                             stencilIdTo3dOffset.rawMem(execution, setIdx));
+                                             mData->grid->getStandardAndGhostCount()[setIdx],
+                                             mData->grid->getConnectivityField().getPartition(execution, setIdx, dw).mem(),
+                                             mData->grid->getGlobalMappingField().getPartition(execution, setIdx, dw).mem(),
+                                             mData->grid->getStencil3dTo1dOffset(),
+                                             mData->grid->getStencil().getRadius());
             });
     }
 

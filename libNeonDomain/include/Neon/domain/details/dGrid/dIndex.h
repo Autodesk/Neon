@@ -5,7 +5,7 @@
 namespace Neon::domain::details::dGrid {
 
 // Common forward declarations
-class dGrid;
+class eGrid;
 class dSpan;
 template <typename T, int C>
 class dPartition;
@@ -17,7 +17,7 @@ struct dIndex
     template <typename T, int C>
     friend class dPartition;
     friend dSpan;
-    friend dGrid;
+    friend eGrid;
 
     template <typename T,
               int Cardinality>

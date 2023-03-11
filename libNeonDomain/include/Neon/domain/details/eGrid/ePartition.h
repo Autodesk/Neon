@@ -152,13 +152,19 @@ class ePartition
      * @param alternativeVal
      * @return
      */
-    template <int CardinalitySFINE = C>
     NEON_CUDA_HOST_DEVICE inline auto
     nghVal(Idx         eId,
            NghIdx      nghIdx,
            int         card,
            const Type& alternativeVal)
-        const -> std::enable_if_t<CardinalitySFINE != 1, NghData<Type>>;
+        const -> NghData<Type>;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghVal(eIndex               eId,
+           const Neon::int8_3d& nghIdx,
+           int                  card,
+           const Type&          alternativeVal)
+        const -> NghData<Type>;
 
 
     /**
@@ -203,12 +209,14 @@ class ePartition
      * @param ghostOff
      * @param remoteBdrOff
      */
-    explicit ePartition(int                   prtId,
-                        T*                    mem,
-                        int32_t               cardinality,
-                        int32_t               countAllocated,
-                        Offset*               connRaw,
-                        Neon::index_3d*       toGlobal);
+    explicit ePartition(int             prtId,
+                        T*              mem,
+                        int32_t         cardinality,
+                        int32_t         countAllocated,
+                        Offset*         connRaw,
+                        Neon::index_3d* toGlobal,
+                        int32_t*        stencil3dTo1dOffset,
+                        int32_t         stencilRadius);
 
     /**
      * Returns a pointer to element eId with target cardinality cardinalityIdx
@@ -265,11 +273,13 @@ class ePartition
     int32_t mCountAllocated;
 
     //-- [CONNECTIVITY] ----------------------------------------------------------------------------
-    Offset* mConnectivity /** connectivity table */;
+    Offset* mConnectivity = {nullptr} /** connectivity table */;
 
     //-- [INVERSE MAPPING] ----------------------------------------------------------------------------
     Neon::int32_3d* mOrigins = {nullptr};
     int             mPrtID;
+    int32_t*        mStencil3dTo1dOffset = {nullptr};
+    int32_t         mStencilTableYPitch;
 };
 }  // namespace Neon::domain::details::eGrid
 

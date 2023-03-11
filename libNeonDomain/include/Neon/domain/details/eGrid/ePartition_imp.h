@@ -55,13 +55,12 @@ ePartition<T, C>::operator()(eIndex eId, int cardinalityIdx) -> T&
 
 template <typename T,
           int C>
-template <int CardinalitySFINE>
 NEON_CUDA_HOST_DEVICE inline auto
 ePartition<T, C>::nghVal(eIndex      eId,
                          NghIdx      nghIdx,
                          int         card,
                          const Type& alternativeVal)
-    const -> std::enable_if_t<CardinalitySFINE != 1, NghData<Type>>
+    const -> NghData<Type>
 {
     eIndex     eIdxNgh;
     const bool isValidNeighbour = isValidNgh(eId, nghIdx, eIdxNgh);
@@ -69,6 +68,23 @@ ePartition<T, C>::nghVal(eIndex      eId,
     return NghData<Type>(val, isValidNeighbour);
 }
 
+template <typename T,
+          int C>
+NEON_CUDA_HOST_DEVICE inline auto
+ePartition<T, C>::nghVal(eIndex               eId,
+                         const Neon::int8_3d& ngh3dIdx,
+                         int                  card,
+                         const Type&          alternativeVal)
+    const -> NghData<Type>
+{
+    int tablePithc = ngh3dIdx.x +
+                     ngh3dIdx.y * mStencilTableYPitch +
+                     ngh3dIdx.z * mStencilTableYPitch * mStencilTableYPitch;
+    NghIdx        nghIdx = mStencil3dTo1dOffset[tablePithc];
+    NghData<Type> res = nghVal(eId, nghIdx, card, alternativeVal);
+
+    return res;
+}
 
 template <typename T,
           int C>
@@ -98,12 +114,14 @@ ePartition<T, C>::getGlobalIndex(eIndex eIndex) const
 
 template <typename T,
           int C>
-ePartition<T, C>::ePartition(int                   prtId,
-                             T*                    mem,
-                             int32_t               cardinality,
-                             int32_t               countAllocated,
-                             Offset*               connRaw,
-                             Neon::index_3d*       toGlobal)
+ePartition<T, C>::ePartition(int             prtId,
+                             T*              mem,
+                             int32_t         cardinality,
+                             int32_t         countAllocated,
+                             Offset*         connRaw,
+                             Neon::index_3d* toGlobal,
+                             int32_t*        stencil3dTo1dOffset,
+                             int32_t         stencilRadius)
 {
     mPrtID = prtId;
     mMem = mem;
@@ -112,6 +130,9 @@ ePartition<T, C>::ePartition(int                   prtId,
 
     mConnectivity = connRaw;
     mOrigins = toGlobal;
+
+    mStencil3dTo1dOffset = stencil3dTo1dOffset;
+    mStencilTableYPitch = 2 * stencilRadius + 1;
 }
 
 template <typename T,

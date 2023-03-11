@@ -2,55 +2,42 @@
 
 namespace Neon::domain::details::eGrid {
 
-dGrid::dGrid()
+
+eGrid::eGrid()
 {
     mData = std::make_shared<Data>();
 }
 
-dGrid::Data::Data(const Neon::Backend& backend)
+eGrid::Data::Data(const Neon::Backend& backend)
 {
     partitionDims = backend.devSet().newDataSet<index_3d>({0, 0, 0});
-    firstZIndex = backend.devSet().newDataSet<index_t>(0);
-    spanTable = Neon::domain::tool::SpanTable<dSpan>(backend);
+    spanTable = Neon::domain::tool::SpanTable<eSpan>(backend);
     elementsPerPartition = Neon::domain::tool::SpanTable<int>(backend);
 
     halo = index_3d(0, 0, 0);
     reduceEngine = Neon::sys::patterns::Engine::cuBlas;
 }
 
-auto dGrid::helpFieldMemoryAllocator()
-    const -> const Neon::aGrid&
+
+auto eGrid::getMemoryGrid() -> Neon::aGrid&
 {
     return mData->memoryGrid;
 }
 
-auto dGrid::getSpan(SetIdx         setIdx,
+auto eGrid::getSpan(SetIdx         setIdx,
                     Neon::DataView dataView)
     const -> const Span&
 {
-   return mData->spanTable.getSpan(setIdx, dataView);
+    return mData->spanTable.getSpan(setIdx, dataView);
 }
 
-
-auto dGrid::helpGetPartitionDim()
-    const -> const Neon::set::DataSet<index_3d>
-{
-    return mData->partitionDims;
-}
-
-auto dGrid::helpIdexPerPartition(Neon::DataView dataView)
-    const -> const Neon::set::DataSet<int>
-{
-    return mData->elementsPerPartition.getSpan(dataView);
-}
-
-auto dGrid::setReduceEngine(Neon::sys::patterns::Engine eng)
+auto eGrid::setReduceEngine(Neon::sys::patterns::Engine eng)
     -> void
 {
     mData->reduceEngine = eng;
 }
 
-auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
+auto eGrid::getLaunchParameters(const Neon::DataView  dataView,
                                 const Neon::index_3d& blockSize,
                                 const size_t&         shareMem) const -> Neon::set::LaunchParameters
 {
@@ -58,7 +45,9 @@ auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
 
     auto dimsByDataView = getBackend().devSet().newDataSet<index_3d>([&](Neon::SetIdx const& setIdx,
                                                                          auto&               value) {
-        value = getSpan(setIdx, dataView).mDim;
+        value.x = getSpan(setIdx, dataView).mCount;
+        value.y = 1;
+        value.z = 1;
     });
 
     ret.set(Neon::sys::GpuLaunchInfo::domainGridMode,
@@ -68,30 +57,46 @@ auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
     return ret;
 }
 
-auto dGrid::convertToNghIdx(const std::vector<Neon::index_3d>& stencilOffsets)
+auto eGrid::convertToNghIdx(const std::vector<Neon::index_3d>& stencilOffsets)
     const -> std::vector<NghIdx>
 {
     std::vector<NghIdx> res;
     for (const auto& offset : stencilOffsets) {
-        res.push_back(offset.template newType<int8_t>());
+        NghIdx newItem = convertToNghIdx(offset);
+        res.push_back(newItem);
     }
     return res;
 }
 
-auto dGrid::convertToNghIdx(Neon::index_3d const& stencilOffsets)
+auto eGrid::convertToNghIdx(Neon::index_3d const& offset)
     const -> NghIdx
 {
-    return stencilOffsets.template newType<int8_t>();
+    int  i = 0;
+    bool found = false;
+    for (auto const& ngh : mData->stencil.neighbours()) {
+        if (ngh == offset) {
+            found = true;
+            break;
+        }
+        i++;
+    }
+    if (!found) {
+        NeonException exception("eGrid");
+        exception << "Requested stencil point was not included in the grid initialization";
+        NEON_THROW(exception);
+    }
+    NghIdx newItem = NghIdx(i);
+    return newItem;
 }
 
-auto dGrid::isInsideDomain(const index_3d& idx) const -> bool
+auto eGrid::isInsideDomain(const index_3d& idx) const -> bool
 {
     bool isPositive = idx >= 0;
     bool isLover = idx < this->getDimension();
     return isLover && isPositive;
 }
 
-auto dGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties
+auto eGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties
 {
     GridBaseTemplate::CellProperties cellProperties;
     cellProperties.setIsInside(isInsideDomain(idx));
@@ -121,8 +126,21 @@ auto dGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellPr
     }
     return cellProperties;
 }
-auto dGrid::helpGetFirstZindex() const -> const Neon::set::DataSet<int32_t>&
+
+auto eGrid::getConnectivityField() -> Neon::aGrid::Field<int32_t, 0>
 {
-    return mData->firstZIndex;
+    return mData->mConnectivityAField;
 }
-}  // namespace Neon::domain::details::dGrid
+
+auto eGrid::getGlobalMappingField() -> Neon::aGrid::Field<index_3d, 0>
+{
+    return mData->mGlobalMappingAField;
+}
+
+auto eGrid::getStencil3dTo1dOffset() -> Neon::set::MemSet<int8_t>
+{
+    return mData->mStencil3dTo1dOffset;
+}
+
+
+}  // namespace Neon::domain::details::eGrid

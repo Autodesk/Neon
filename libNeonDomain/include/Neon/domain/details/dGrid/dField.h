@@ -26,17 +26,17 @@ namespace Neon::domain::details::dGrid {
 template <typename T, int C = 0>
 class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 dGrid,
+                                                                 eGrid,
                                                                  dPartition<T, C>,
                                                                  int>
 {
-    friend dGrid;
+    friend eGrid;
 
    public:
     static constexpr int Cardinality = C;
     using Type = T;
     using Self = dField<Type, Cardinality>;
-    using Grid = dGrid;
+    using Grid = eGrid;
     using Field = dField;
     using Partition = dPartition<T, C>;
     using Idx = typename Partition::Idx;
