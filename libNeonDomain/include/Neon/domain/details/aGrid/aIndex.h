@@ -4,10 +4,10 @@
 
 namespace Neon::domain::details::aGrid {
 
-class aCell
+class aIndex
 {
    public:
-    using OuterCell = aCell;
+    using OuterIndex = aIndex;
 
     template <typename T,
               int Cardinality>
@@ -19,9 +19,9 @@ class aCell
     // aGrid specific types
     using Location = int32_t;
 
-    inline aCell() = default;
+    inline aIndex() = default;
 
-    NEON_CUDA_HOST_DEVICE inline explicit aCell(Location location);
+    NEON_CUDA_HOST_DEVICE inline explicit aIndex(Location location);
 
    private:
     Location mLocation = 0;
@@ -33,4 +33,4 @@ class aCell
 };
 }  // namespace Neon::domain::details::aGrid
 
-#include "Neon/domain/details/aGrid/aCell_imp.h"
+#include "Neon/domain/details/aGrid/aIndex_imp.h"

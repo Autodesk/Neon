@@ -286,6 +286,10 @@ class MemSet
     void updateDeviceData(Neon::Backend   bk,
                           Neon::StreamIdx streamId)
     {
+        if(bk.devType() == Neon::DeviceType::CPU
+            || bk.devType() == Neon::DeviceType::OMP ){
+            return ;
+        }
         int32_t                     nDev = cardinality();
         const Neon::set::StreamSet& gpuStreamSet = bk.streamSet(streamId);
         auto                        devEt = Neon::DeviceType::CUDA;

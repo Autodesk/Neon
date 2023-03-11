@@ -46,7 +46,7 @@ access cell metadata.
 ```c++
 struct xCell
 {
-    using OuterCell = xCell;
+    using OuterIndex = xCell;
 
     friend struct sPartitionIndexSpace;
 
@@ -64,8 +64,8 @@ private:
 
 ```
 
-The definition of `OuterCell` is required to be able to use the sGrid to define sub-grids. The most easy is to define
-the `OuterCell` with the same type of the xCell, however, depending on the type of grid this may not be the most
+The definition of `OuterIndex` is required to be able to use the sGrid to define sub-grids. The most easy is to define
+the `OuterIndex` with the same type of the xCell, however, depending on the type of grid this may not be the most
 efficient way.
 
 ### Step 1 - Design a xPartitionIndexSpace
@@ -98,10 +98,10 @@ from the position of the running thread w.r.t. the thread grid.
 
 ### Step 2 - Creating a xPartition class
 
-xPartition is the abstraction of a partition. It manages the field metadata on a specific device.
+xPartition is the abstraction of a setIdx. It manages the field metadata on a specific device.
 
 ```c++
-template <typename T /**< Type of the element of the partition */,
+template <typename T /**< Type of the element of the setIdx */,
           int C = 0 /** Cardinality of the field. If zero, the cardinality is determined at runtime */>
 class xPartition
 {
@@ -114,7 +114,7 @@ class xPartition
    public:
 
     /**
-     * Returns the partition index.
+     * Returns the setIdx index.
      */
     NEON_CUDA_HOST_DEVICE auto 
     partitionIdx() const
@@ -241,14 +241,14 @@ the `FieldBaseTemplate` class that requires information on both the xGrid and xP
                  const Neon::DataView& dataView = Neon::DataView::STANDARD) -> Partition&;
 
     /**
-     * Return a constant reference to a specific partition based on a set of parameters:
+     * Return a constant reference to a specific setIdx based on a set of parameters:
      * execution type, target device, dataView
      */
     auto getPartition(Neon::Execution       execution,
                       Neon::SetIdx          setIdx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD) const -> const Partition&;
     /**
-     * Return a reference to a specific partition based on a set of parameters:
+     * Return a reference to a specific setIdx based on a set of parameters:
      * execution type, target device, dataView
      */
     auto getPartition(Neon::Execution       execution,
@@ -309,7 +309,7 @@ class xGrid : public Neon::domain::interface::GridBase
         -> Neon::set::LaunchParameters;
 
     /**
-     * Returns the partition space that can be used by the lambda executor to run a Container
+     * Returns the setIdx space that can be used by the lambda executor to run a Container
      */
     auto getPartitionIndexSpace(Neon::DeviceType devE,
                            SetIdx          setIdx,

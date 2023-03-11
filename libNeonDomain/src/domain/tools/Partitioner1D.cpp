@@ -6,13 +6,13 @@ namespace Neon::domain::tool {
 auto Partitioner1D::getSpanClassifier()
     const -> partitioning::SpanClassifier const&
 {
-    return mSpanClassifier;
+    return *mSpanClassifier;
 }
 
 auto Partitioner1D::getSpanLayout()
     const -> partitioning::SpanLayout const&
 {
-    return mSpanLayout;
+    return *mSpanLayout;
 }
 
 }  // namespace Neon::domain::tools

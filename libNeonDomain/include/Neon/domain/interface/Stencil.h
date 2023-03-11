@@ -93,8 +93,8 @@ struct Stencil
         -> Stencil;
 
    private:
-    std::vector<Neon::index_3d> m_points{};                                         /** point in the stencil */
-    std::vector<Neon::index_3d> m_neighbour{};                                      /** point in the stencil excluding center position */
+    std::vector<Neon::index_3d> mPoints{};                                         /** point in the stencil */
+    std::vector<Neon::index_3d> mNeighbours{};                                      /** point in the stencil excluding center position */
     void                        p_updateNeighbourList(bool filterCenterOut = true); /** helper fun to update m_neighbour base on m_points */
 };
 }  // namespace Neon::domain

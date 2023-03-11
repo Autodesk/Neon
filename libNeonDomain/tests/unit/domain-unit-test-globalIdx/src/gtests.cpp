@@ -1,23 +1,23 @@
 
 #include "Neon/Neon.h"
 #include "gtest/gtest.h"
-#include "map.h"
+#include "globalIdx.h"
 #include "runHelper.h"
 
-TEST(domain_unit_test_map, dGrid)
+TEST(domain_unit_test_globalIdx, dGrid)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::dGrid, Type, 0>),
+    runAllTestConfiguration(std::function(globalIdx::run<Neon::dGrid, Type, 0>),
                             nGpus,
                             1);
 }
 
-TEST(domain_unit_test_map, eGrid)
+TEST(domain_unit_test_globalIdx, eGrid)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::eGrid, Type, 0>),
+    runAllTestConfiguration(std::function(globalIdx::run<Neon::eGrid, Type, 0>),
                             nGpus,
                             1);
 }

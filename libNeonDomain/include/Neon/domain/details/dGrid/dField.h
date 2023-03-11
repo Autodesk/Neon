@@ -153,7 +153,7 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         Data() = default;
         Data(Neon::Backend const& bk)
         {
-            partitionTable = Neon::domain::tool::PartitionTable<Partition, ReductionInformation>(bk);
+            partitionTable.init(bk);
             pitch = bk.newDataSet<size_4d>();
         }
 

@@ -15,17 +15,14 @@ NEON_CUDA_KERNEL auto execLambdaWithIterator_cuda(typename DataSetContainer::Spa
     typename DataSetContainer::Idx e;
     if constexpr (DataSetContainer::Span::SpaceDim == 1) {
         if (span.setAndValidate(e,
-                                threadIdx.x + blockIdx.x * blockDim.x,
-                                0,
-                                0)) {
+                                threadIdx.x + blockIdx.x * blockDim.x)) {
             userLambdaTa(e);
         }
     }
     if constexpr (DataSetContainer::Span::SpaceDim == 2) {
         if (span.setAndValidate(e,
                                 threadIdx.x + blockIdx.x * blockDim.x,
-                                threadIdx.y + blockIdx.y * blockDim.y,
-                                0)) {
+                                threadIdx.y + blockIdx.y * blockDim.y)) {
             userLambdaTa(e);
         }
     }
@@ -54,7 +51,7 @@ void execLambdaWithIterator_omp(const Neon::int64_3d&              gridDim,
 #endif
         for (int64_t x = 0; x < gridDim.x; x++) {
             typename DataSetContainer_ta::Idx e;
-            if (span.setAndValidate(e, x, 0, 0)) {
+            if (span.setAndValidate(e, x)) {
                 userLambdaTa(e);
             }
         }
@@ -70,7 +67,7 @@ void execLambdaWithIterator_omp(const Neon::int64_3d&              gridDim,
         for (int64_t y = 0; y < gridDim.y; y++) {
             for (int64_t x = 0; x < gridDim.x; x++) {
                 typename DataSetContainer_ta::Idx e;
-                if (span.setAndValidate(e, x, y, 0)) {
+                if (span.setAndValidate(e, x, y)) {
                     userLambdaTa(e);
                 }
             }

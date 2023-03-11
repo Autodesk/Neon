@@ -69,7 +69,7 @@ class ePartition
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
     using Self = ePartition<T, C>;            //<- this type
     using Idx = eIndex;                       //<- index type
-    using OuterIdx = typename Idx::OuterIdx;  //<- index type for the subGrid
+    using OuterIdx = typename Idx::OuterIndex;  //<- index type for the subGrid
 
     static constexpr int Cardinality = C;
 
@@ -183,13 +183,6 @@ class ePartition
 
 
     /**
-     * Returns the pitch structure used by the grid.
-     * @return
-     */
-    NEON_CUDA_HOST_DEVICE inline auto
-    getPitch() const -> const ePitch&;
-
-    /**
      * Convert grid local id to globals.
      * @return
      */
@@ -215,7 +208,7 @@ class ePartition
                         int32_t         countAllocated,
                         Offset*         connRaw,
                         Neon::index_3d* toGlobal,
-                        int32_t*        stencil3dTo1dOffset,
+                        int8_t*        stencil3dTo1dOffset,
                         int32_t         stencilRadius);
 
     /**
@@ -278,7 +271,7 @@ class ePartition
     //-- [INVERSE MAPPING] ----------------------------------------------------------------------------
     Neon::int32_3d* mOrigins = {nullptr};
     int             mPrtID;
-    int32_t*        mStencil3dTo1dOffset = {nullptr};
+    int8_t*        mStencil3dTo1dOffset = {nullptr};
     int32_t         mStencilTableYPitch;
 };
 }  // namespace Neon::domain::details::eGrid

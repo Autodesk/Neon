@@ -12,7 +12,7 @@ class aPartitionIndexSpace
 {
    public:
 
-    using Cell = aCell;
+    using Cell = aIndex;
     static constexpr int SpaceDim = 1;
 
     inline aPartitionIndexSpace();

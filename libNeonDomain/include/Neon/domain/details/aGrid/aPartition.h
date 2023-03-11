@@ -6,7 +6,7 @@
 #include "Neon/set/memory/memSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
 
-#include "Neon/domain/details/aGrid/aCell.h"
+#include "Neon/domain/details/aGrid/aIndex.h"
 
 namespace Neon::domain::details::aGrid {
 
@@ -21,7 +21,7 @@ class aPartition
 {
    public:
     using Type = T;
-    using Cell = Neon::domain::details::aGrid::aCell;
+    using Cell = Neon::domain::details::aGrid::aIndex;
 
     using count_t = int32_t;
     using index_t = int32_t;

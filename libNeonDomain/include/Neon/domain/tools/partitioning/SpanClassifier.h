@@ -17,17 +17,17 @@ class SpanClassifier
               typename BcLambda,
               typename Block3dIdxToBlockOrigin,
               typename GetVoxelAbsolute3DIdx>
-    SpanClassifier(const Neon::Backend&           backend,
-                   const ActiveCellLambda&        activeCellLambda,
-                   const BcLambda&                bcLambda,
-                   const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
-                   const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
-                   const Neon::int32_3d&          block3DSpan,
-                   const int&                     dataBlockEdge,
-                   const Neon::int32_3d&          domainSize,
-                   const Neon::domain::Stencil    stencil,
-                   const int&                     discreteVoxelSpacing,
-                   const SpanDecomposition&);
+    SpanClassifier(const Neon::Backend&                              backend,
+                   const ActiveCellLambda&                           activeCellLambda,
+                   const BcLambda&                                   bcLambda,
+                   const Block3dIdxToBlockOrigin&                    block3dIdxToBlockOrigin,
+                   const GetVoxelAbsolute3DIdx&                      getVoxelAbsolute3DIdx,
+                   const Neon::int32_3d&                             block3DSpan,
+                   const int&                                        dataBlockEdge,
+                   const Neon::int32_3d&                             domainSize,
+                   const Neon::domain::Stencil                       stencil,
+                   const int&                                        discreteVoxelSpacing,
+                   std::shared_ptr<partitioning::SpanDecomposition> sp);
 
 
     /**
@@ -68,13 +68,13 @@ class SpanClassifier
                          ByDomain)
         -> std::vector<Neon::index_3d>&;
 
-   private:
     auto getMapper3Dto1D(Neon::SetIdx const& setIdx,
                          ByPartition,
                          ByDirection,
                          ByDomain)
         -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
 
+   private:
     auto addPoint(Neon::SetIdx const&   setIdx,
                   Neon::int32_3d const& int323D,
                   ByPartition           byPartition,
@@ -94,148 +94,60 @@ class SpanClassifier
     using Leve3_ByPartition = std::array<Leve2_ByDirection, 2>;
     using Data = Neon::set::DataSet<Leve3_ByPartition>;
 
-    Data mData;
+    Data                               mData;
+    std::shared_ptr<SpanDecomposition> mSpanDecomposition;
 };
 
-auto SpanClassifier::addPoint(const SetIdx&   setIdx,
-                              const int32_3d& int323D,
-                              ByPartition     byPartition,
-                              ByDirection     byDirection,
-                              ByDomain        byDomain)
-    -> void
-{
-    auto& vec = getMapper1Dto3D(setIdx, byPartition, byDirection, byDomain);
-    auto& hash = getMapper3Dto1D(setIdx, byPartition, byDirection, byDomain);
-
-    vec.push_back(int323D);
-    uint32_t key_value = vec.size();
-    hash.addPoint(int323D, key_value);
-}
-
-
-auto SpanClassifier::getMapper1Dto3D(const SetIdx& setIdx,
-                                     ByPartition   byPartition,
-                                     ByDirection   byDirection,
-                                     ByDomain      byDomain) const -> const std::vector<Neon::index_3d>&
-{
-    if (byDirection == ByDirection::down && byPartition == ByPartition::internal) {
-        NEON_THROW_UNSUPPORTED_OPERATION("");
-    }
-    return mData[setIdx]
-                [static_cast<int>(byPartition)]
-                [static_cast<int>(byDirection)]
-                [static_cast<int>(byDomain)]
-                    .id1dTo3d;
-}
-
-auto SpanClassifier::getMapper3Dto1D(const SetIdx& setIdx,
-                                     ByPartition   byPartition,
-                                     ByDirection   byDirection,
-                                     ByDomain      byDomain) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
-{
-    return mData[setIdx]
-                [static_cast<int>(byPartition)]
-                [static_cast<int>(byDirection)]
-                [static_cast<int>(byDomain)]
-                    .id3dTo1d;
-}
-
-auto SpanClassifier::getMapper1Dto3D(const SetIdx& setIdx,
-                                     ByPartition   byPartition,
-                                     ByDirection   byDirection,
-                                     ByDomain      byDomain)
-    -> std::vector<Neon::index_3d>&
-{
-    return mData[setIdx]
-                [static_cast<int>(byPartition)]
-                [static_cast<int>(byDirection)]
-                [static_cast<int>(byDomain)]
-                    .id1dTo3d;
-}
-
-auto SpanClassifier::getMapper3Dto1D(const SetIdx& setIdx,
-                                     ByPartition   byPartition,
-                                     ByDirection   byDirection,
-                                     ByDomain      byDomain)
-    -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
-{
-    return mData[setIdx]
-                [static_cast<int>(byPartition)]
-                [static_cast<int>(byDirection)]
-                [static_cast<int>(byDomain)]
-                    .id3dTo1d;
-}
-
-
-auto SpanClassifier::countInternal(Neon::SetIdx setIdx,
-                                   ByDomain     byDomain) const -> int
-{
-    auto count = getMapper1Dto3D(setIdx, ByPartition::internal, ByDirection::up, byDomain).size();
-    return static_cast<int>(count);
-}
-
-auto SpanClassifier::countInternal(Neon::SetIdx setIdx) const -> int
-{
-    auto bulkCount = getMapper1Dto3D(setIdx, ByPartition::internal, ByDirection::up, ByDomain::bulk).size();
-    auto bcCount = getMapper1Dto3D(setIdx, ByPartition::internal, ByDirection::up, ByDomain::bc).size();
-
-    return static_cast<int>(bulkCount + bcCount);
-}
-
-auto SpanClassifier::countBoundary(Neon::SetIdx setIdx, ByDirection byDirection, ByDomain byDomain) const -> int
-{
-    auto count = getMapper1Dto3D(setIdx, ByPartition::boundary, byDirection, byDomain).size();
-    return static_cast<int>(count);
-}
-
-auto SpanClassifier::countBoundary(Neon::SetIdx setIdx) const -> int
-{
-
-    int count = 0;
-    for (auto const& byDirection : {ByDirection::up, ByDirection::down}) {
-        for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {
-            count += getMapper1Dto3D(setIdx, ByPartition::boundary, byDirection, byDomain).size();
-        }
-    }
-    return static_cast<int>(count);
-}
 
 template <typename ActiveCellLambda,
           typename BcLambda,
           typename Block3dIdxToBlockOrigin,
           typename GetVoxelAbsolute3DIdx>
-SpanClassifier::SpanClassifier(const Neon::Backend&           backend,
-                               const ActiveCellLambda&        activeCellLambda,
-                               const BcLambda&                bcLambda,
-                               const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
-                               const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
-                               const Neon::int32_3d&          block3DSpan,
-                               const int&                     dataBlockEdge,
-                               const Neon::int32_3d&          domainSize,
-                               const Neon::domain::Stencil    stencil,
-                               const int&                     discreteVoxelSpacing,
-                               const SpanDecomposition&       spanPartitioner)
+SpanClassifier::SpanClassifier(const Neon::Backend& backend,
+                               const ActiveCellLambda&,
+                               const BcLambda& bcLambda,
+                               const Block3dIdxToBlockOrigin&,
+                               const GetVoxelAbsolute3DIdx&,
+                               const Neon::int32_3d& block3DSpan,
+                               const int&            dataBlockEdge,
+                               const Neon::int32_3d&,
+                               const Neon::domain::Stencil stencil,
+                               const int&,
+                               std::shared_ptr<SpanDecomposition> spanDecompositionNoUse)
 {
     mData = backend.devSet().newDataSet<Leve3_ByPartition>();
+    mSpanDecomposition = spanDecompositionNoUse;
 
-    auto const zRadius = [&stencil, dataBlockEdge]() -> int {
-        auto maxRadius = 0;
-        for (auto const& point : stencil.neighbours()) {
-            auto newRadius = point.z >= 0 ? point.z : -1 * point.z;
-            if (newRadius > maxRadius) {
-                maxRadius = newRadius;
+    mData.forEachSeq([&](SetIdx, auto& leve3ByPartition) {
+        //        using Leve0_Info = Info;
+        //        using Leve1_ByDomain = std::array<Leve0_Info, 2>;
+        //        using Leve2_ByDirection = std::array<Leve1_ByDomain, 2>;
+        //        using Leve3_ByPartition = std::array<Leve2_ByDirection, 2>;
+        //        using Data = Neon::set::DataSet<Leve3_ByPartition>;
+        for (auto& level2 : leve3ByPartition) {
+            for (auto& level1 : level2) {
+                for (auto& level0 : level1) {
+                    level0.id3dTo1d = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(block3DSpan);
+                }
             }
         }
-        maxRadius = (maxRadius / dataBlockEdge) + 1;
+    });
+
+    // Computing the stencil radius at block granularity
+    // If the dataBlockEdge is equal to 1 (element sparse block) the radius is
+    // the same as the stencil radius.
+    auto const zRadius = [&stencil, dataBlockEdge]() -> int {
+        auto maxRadius = stencil.getRadius();
+        maxRadius = ((maxRadius - 1) / dataBlockEdge) + 1;
         return maxRadius;
-    };
+    }();
 
     // For each Partition
     backend.devSet()
         .forEachSetIdxSeq(
             [&](const Neon::SetIdx& setIdx) {
-                int beginZ = spanPartitioner.getFirstZSliceIdx()[setIdx];
-                int lastZ = spanPartitioner.getLastZSliceIdx()[setIdx];
+                int beginZ = mSpanDecomposition->getFirstZSliceIdx()[setIdx];
+                int lastZ = mSpanDecomposition->getLastZSliceIdx()[setIdx];
 
                 std::vector<int> const boundaryDwSlices = [&] {
                     std::vector<int> result;
@@ -248,13 +160,13 @@ SpanClassifier::SpanClassifier(const Neon::Backend&           backend,
                 std::vector<int> const boundaryUpSlices = [&] {
                     std::vector<int> result;
                     for (int i = zRadius - 1; i >= 0; i--) {
-                        result.push_back(lastZ - zRadius);
+                        result.push_back(lastZ - i);
                     }
                     return result;
                 }();
 
                 // We are running in the inner partition blocks
-                for (int z = beginZ + zRadius; z < lastZ - zRadius; z++) {
+                for (int z = beginZ + zRadius; z <= lastZ - zRadius; z++) {
                     for (int y = 0; y < block3DSpan.y; y++) {
                         for (int x = 0; x < block3DSpan.x; x++) {
                             Neon::int32_3d const point(x, y, z);

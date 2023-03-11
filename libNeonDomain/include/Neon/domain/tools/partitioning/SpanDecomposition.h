@@ -71,8 +71,6 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
         for (int by = 0; by < block3DSpan.y; by++) {
             for (int bx = 0; bx < block3DSpan.x; bx++) {
 
-                int numVoxelsInBlock = 0;
-
                 Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
                 bool           doBreak = false;
                 for (int z = 0; (z < blockSize && !doBreak); z++) {

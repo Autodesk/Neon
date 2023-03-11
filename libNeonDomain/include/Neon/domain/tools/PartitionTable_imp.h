@@ -7,20 +7,21 @@ namespace Neon::domain::tool {
 
 template <typename Partition,
           typename UserData>
-PartitionTable<Partition, UserData>::PartitionTable(Neon::Backend const& bk)
+auto PartitionTable<Partition, UserData>::init(Neon::Backend const& bk)
+-> void
 {  // Setting up the mask for supported executions (i.e host and device | host only | device only)
     for (Neon::Execution execution : Neon::ExecutionUtils::getAllOptions()) {
         for (auto dw : Neon::DataViewUtil::validOptions()) {
-            mPartitions[Neon::ExecutionUtils::toInt(execution)]
-                       [Neon::DataViewUtil::toInt(dw)] =
-                           bk.devSet().template newDataSet<Partition>();
+            mPartitions.at(Neon::ExecutionUtils::toInt(execution))
+                .at(Neon::DataViewUtil::toInt(dw)) =
+                bk.devSet().template newDataSet<Partition>();
         }
     }
     for (Neon::Execution execution : Neon::ExecutionUtils::getAllOptions()) {
         for (auto dw : Neon::DataViewUtil::validOptions()) {
-            mUserData[Neon::ExecutionUtils::toInt(execution)]
-                     [Neon::DataViewUtil::toInt(dw)] =
-                         bk.devSet().template newDataSet<UserData>();
+            mUserData.at(Neon::ExecutionUtils::toInt(execution))
+                .at(Neon::DataViewUtil::toInt(dw)) =
+                bk.devSet().template newDataSet<UserData>();
         }
     }
     mSetSize = bk.getDeviceCount();

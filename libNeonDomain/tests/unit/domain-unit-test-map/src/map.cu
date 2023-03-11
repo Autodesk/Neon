@@ -1,6 +1,5 @@
 #include <functional>
-#include "Neon/domain/dGrid.h"
-#include "Neon/domain/details/dGrid/dGrid.h"
+#include "Neon/domain/Grids.h"
 
 #include "Neon/domain/tools/TestData.h"
 #include "TestInformation.h"
@@ -71,6 +70,8 @@ auto run(TestData<G, T, C>& data) -> void
     ASSERT_TRUE(isOk);
 }
 
-template auto run<Neon::domain::details::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::dGrid::dGrid, int64_t, 0>&) -> void;
+template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
+template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
+
 
 }  // namespace map

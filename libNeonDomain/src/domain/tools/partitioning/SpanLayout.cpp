@@ -4,22 +4,22 @@
 
 namespace Neon::domain::tool::partitioning {
 
-SpanLayout::SpanLayout(Neon::Backend const&     backend,
-                       SpanDecomposition const& spanPartitioner,
-                       SpanClassifier const&    spanClassifier)
+SpanLayout::SpanLayout(Neon::Backend const&               backend,
+                       std::shared_ptr<SpanDecomposition> spanPartitionerPtr,
+                       std::shared_ptr<SpanClassifier>    spanClassifierPtr)
 {
 
-    mSpanPartitioner = &spanPartitioner;
-    mSpanClassifierPtr = &spanClassifier;
+    mSpanDecompositionPrt = spanPartitionerPtr;
+    mSpanClassifierPtr = spanClassifierPtr;
 
     mCountXpu = backend.devSet().setCardinality();
     mDataByPartition = backend.devSet().newDataSet<InfoByPartition>();
     // Setting up internal and boudary indexes
     mDataByPartition.forEachSeq([&](Neon::SetIdx const& setIdx,
-                                       InfoByPartition&    data) {
+                                    InfoByPartition&    data) {
         int counter = 0;
         for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {
-            int toAdd = spanClassifier.countInternal(setIdx, byDomain);
+            int toAdd = mSpanClassifierPtr->countInternal(setIdx, byDomain);
             data.getInternal()(byDomain).first = counter;
             data.getInternal()(byDomain).count = toAdd;
             counter += toAdd;
@@ -27,7 +27,7 @@ SpanLayout::SpanLayout(Neon::Backend const&     backend,
 
         for (auto const& byDirection : {ByDirection::up, ByDirection::down}) {
             for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {
-                int   toAdd = spanClassifier.countBoundary(setIdx, byDirection, byDomain);
+                int   toAdd = mSpanClassifierPtr->countBoundary(setIdx, byDirection, byDomain);
                 auto& info = data.getBoundary(byDirection)(byDomain);
                 info.first = counter;
                 info.count = toAdd;
@@ -38,7 +38,7 @@ SpanLayout::SpanLayout(Neon::Backend const&     backend,
 
 
     mDataByPartition.forEachSeq([&](Neon::SetIdx const& setIdx,
-                                       InfoByPartition&    data) -> void {
+                                    InfoByPartition&    data) -> void {
         for (auto const& byDirection : {ByDirection::up, ByDirection::down}) {
             for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {
 
@@ -56,25 +56,25 @@ SpanLayout::SpanLayout(Neon::Backend const&     backend,
         }
     });
 
-     mStandardAndGhostCount =backend.newDataSet<int32_t>();
-     mStandardAndGhostCount.forEachSeq([&](const Neon::SetIdx& setIdx,
-                                          int32_t& standardAndGhostCount){
-         standardAndGhostCount = 0;
-         {
-            const  auto internalBounds = getBoundsInternal(setIdx);
-             standardAndGhostCount += internalBounds.count;
-         }
-         {
-             const auto boundaryUp = getBoundsBoundary(setIdx, partitioning::ByDirection::up);
-             const auto boundaryDw = getBoundsBoundary(setIdx, partitioning::ByDirection::down);
-             standardAndGhostCount += boundaryUp.count + boundaryDw.count;
-         }
-         {
-             const auto ghostUp = getGhostBoundary(setIdx, partitioning::ByDirection::up);
-             const auto ghostDw = getGhostBoundary(setIdx, partitioning::ByDirection::down);
-             standardAndGhostCount += ghostUp.count + ghostUp.count;
-         }
-     });
+    mStandardAndGhostCount = backend.newDataSet<int32_t>();
+    mStandardAndGhostCount.forEachSeq([&](const Neon::SetIdx& setIdx,
+                                          int32_t&            standardAndGhostCount) {
+        standardAndGhostCount = 0;
+        {
+            const auto internalBounds = getBoundsInternal(setIdx);
+            standardAndGhostCount += internalBounds.count;
+        }
+        {
+            const auto boundaryUp = getBoundsBoundary(setIdx, partitioning::ByDirection::up);
+            const auto boundaryDw = getBoundsBoundary(setIdx, partitioning::ByDirection::down);
+            standardAndGhostCount += boundaryUp.count + boundaryDw.count;
+        }
+        {
+            const auto ghostUp = getGhostBoundary(setIdx, partitioning::ByDirection::up);
+            const auto ghostDw = getGhostBoundary(setIdx, partitioning::ByDirection::down);
+            standardAndGhostCount += ghostUp.count + ghostDw.count;
+        }
+    });
 }
 
 auto SpanLayout::getBoundsInternal(
@@ -196,6 +196,7 @@ auto SpanLayout::findPossiblyLocalPointOffset(
             }
         }
     }
+    NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
 auto SpanLayout::getClassificationOffset(
@@ -261,11 +262,10 @@ auto SpanLayout::findNeighbourOfBoundaryPoint(
 }
 
 
-
 auto SpanLayout::getStandardAndGhostCount() const -> const Neon::set::DataSet<int32_t>&
 {
     return mStandardAndGhostCount;
 }
 
 
-}  // namespace Neon::domain::internal::experimental::bGrid::details
+}  // namespace Neon::domain::tool::partitioning

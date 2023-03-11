@@ -120,7 +120,7 @@ ePartition<T, C>::ePartition(int             prtId,
                              int32_t         countAllocated,
                              Offset*         connRaw,
                              Neon::index_3d* toGlobal,
-                             int32_t*        stencil3dTo1dOffset,
+                             int8_t*         stencil3dTo1dOffset,
                              int32_t         stencilRadius)
 {
     mPrtID = prtId;

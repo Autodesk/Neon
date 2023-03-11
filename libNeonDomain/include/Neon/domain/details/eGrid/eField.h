@@ -141,14 +141,15 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
            Neon::DataUse              dataUse,
            const Neon::MemoryOptions& memoryOptions,
            const Grid&                grid,
-           int                        cardinality);
+           int                        cardinality,
+           T                          inactiveValue);
 
     struct Data
     {
         Data() = default;
         Data(Neon::Backend const& bk)
         {
-            partitionTable = Neon::domain::tool::PartitionTable<Partition, ReductionInformation>(bk);
+            partitionTable.init(bk);
         }
 
         struct ReductionInformation
@@ -165,6 +166,7 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
         int                   cardinality;
         std::shared_ptr<Grid> grid;
         bool                  periodic_z;
+        T                     inactiveValue;
     };
 
     std::shared_ptr<Data> mData;

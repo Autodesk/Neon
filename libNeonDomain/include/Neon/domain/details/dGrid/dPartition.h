@@ -336,7 +336,7 @@ class dPartition
         }
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto mapToGlobal(const Idx& local) const -> Neon::index_3d
+    NEON_CUDA_HOST_DEVICE inline auto getGlobalIndex(const Idx& local) const -> Neon::index_3d
     {
         assert(local.mLocation.x >= 0 &&
                local.mLocation.y >= 0 &&

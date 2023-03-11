@@ -13,7 +13,7 @@ class ePartition;
 class eIndex
 {
    public:
-    using OuterIdx = eIndex;
+    using OuterIndex = eIndex;
 
     friend class eSpan;
     friend class eGrid;

@@ -205,11 +205,14 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     auto getStencil3dTo1dOffset()
         -> Neon::set::MemSet<int8_t>;
 
+    auto getPartitioner()
+        -> const tool::Partitioner1D&;
+
    private:
     struct Data
     {
         Data() = default;
-        Data(const Neon::Backend& bk);
+        Data(Neon::Backend const& bk);
 
         //  partitionDims indicates the size of each partition. For example,
         // given a gridDim of size 77 (in 1D for simplicity) distrusted over 5
@@ -224,9 +227,11 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
         Neon::sys::patterns::Engine       reduceEngine;
         Neon::aGrid                       memoryGrid /** memory allocator for fields */;
 
-        Neon::set::MemSet<int8_t> mStencil3dTo1dOffset;
-        Neon::aGrid::Field<int32_t, 0>   mConnectivityAField;
-        Neon::aGrid::Field<index_3d, 0>  mGlobalMappingAField;
+        Neon::set::MemSet<int8_t>       mStencil3dTo1dOffset;
+        Neon::aGrid::Field<int32_t, 0>  mConnectivityAField;
+        Neon::aGrid::Field<index_3d, 0> mGlobalMappingAField;
+
+        tool::Partitioner1D::DenseMeta denseMeta;
     };
 
     std::shared_ptr<Data> mData;

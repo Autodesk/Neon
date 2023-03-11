@@ -111,7 +111,7 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
 
                 auto gridMode = Neon::sys::GpuLaunchInfo::mode_e::domainGridMode;
                 auto gridDim = mStorage->getCount(indexing)[i];
-                this->getDefaultLaunchParameters(indexing)[i].set(gridMode, gridDim, this->getDefaultBlock(), 0);
+                this->getDefaultLaunchParameters(indexing)[i].init(gridMode, gridDim, this->getDefaultBlock(), 0);
             }
         }
     };

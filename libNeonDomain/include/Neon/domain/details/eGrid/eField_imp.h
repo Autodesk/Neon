@@ -14,7 +14,8 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                      Neon::DataUse              dataUse,
                      const Neon::MemoryOptions& memoryOptions,
                      const Grid&                grid,
-                     int                        cardinality)
+                     int                        cardinality,
+                     T                          inactiveValue)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "dField",
@@ -31,6 +32,7 @@ eField<T, C>::eField(const std::string&         fieldUserName,
     mData->cardinality = cardinality;
     mData->memoryOptions = memoryOptions;
     mData->grid = std::make_shared<Grid>(grid);
+    mData->inactiveValue = inactiveValue;
 
     mData->memoryField = mData->grid->getMemoryGrid().template newField<T, C>(fieldUserName + "-storage",
                                                                               cardinality,
@@ -42,23 +44,23 @@ eField<T, C>::eField(const std::string&         fieldUserName,
 
         // const int setCardinality = mData->grid->getBackend().getDeviceCount();
         mData->partitionTable.forEachConfiguration(
-            [&](Neon::Execution           execution,
-                Neon::SetIdx              setIdx,
-                Neon::DataView            dw,
-                typename Self::Partition& partition) {
+            [&](Neon::Execution                 execution,
+                Neon::SetIdx                    setIdx,
+                [[maybe_unused]] Neon::DataView dw,
+                typename Self::Partition&       partition) {
                 auto memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, Neon::DataView::STANDARD);
 
                 partition = ePartition<T, C>(setIdx.idx(),
                                              memoryFieldPartition.mem(),
                                              mData->cardinality,
-                                             mData->grid->getStandardAndGhostCount()[setIdx],
-                                             mData->grid->getConnectivityField().getPartition(execution, setIdx, dw).mem(),
-                                             mData->grid->getGlobalMappingField().getPartition(execution, setIdx, dw).mem(),
-                                             mData->grid->getStencil3dTo1dOffset(),
+                                             mData->grid->getPartitioner().getStandardAndGhostCount()[setIdx],
+                                             mData->grid->getConnectivityField().getPartition(execution, setIdx, Neon::DataView::STANDARD).mem(),
+                                             mData->grid->getGlobalMappingField().getPartition(execution, setIdx, Neon::DataView::STANDARD).mem(),
+                                             mData->grid->getStencil3dTo1dOffset().rawMem(execution, setIdx),
                                              mData->grid->getStencil().getRadius());
             });
     }
-
+#if 0
     {  // Setting Reduction information
         mData->partitionTable.forEachConfigurationWithUserData(
             [&](Neon::Execution,
@@ -191,6 +193,7 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                 }
             });
     }
+#endif
 }
 
 
@@ -248,19 +251,15 @@ auto eField<T, C>::operator()(const Neon::index_3d& idxGlobal,
                               const int&            cardinality) const
     -> Type
 {
-    auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
-    auto& partition = mData->partitionTable.getPartition(Neon::Execution::host,
-                                                         partitionIdx,
-                                                         Neon::DataView::STANDARD);
-    auto& span = mData->grid->getSpan(partitionIdx, Neon::DataView::STANDARD);
-    Idx   idx;
-    bool  isOk = span.setAndValidate(idx, localIDx.x, localIDx.y, localIDx.z);
-    if (!isOk) {
-#pragma omp barrier
-        NEON_THROW_UNSUPPORTED_OPERATION("");
+    auto const& meta = mData->grid->mData->denseMeta.get(idxGlobal);
+    if (meta.isValid()) {
+        auto const& span = mData->grid->getSpan(meta.setIdx, Neon::DataView::STANDARD);
+        eIndex      eIndex;
+        span.setAndValidate(eIndex, meta.index);
+        auto const& res = getPartition(Execution::host, meta.setIdx, Neon::DataView::STANDARD).operator()(eIndex, cardinality);
+        return res;
     }
-    auto& result = partition(idx, cardinality);
-    return result;
+    return mData->inactiveValue;
 }
 
 template <typename T, int C>
@@ -268,19 +267,18 @@ auto eField<T, C>::getReference(const Neon::index_3d& idxGlobal,
                                 const int&            cardinality)
     -> Type&
 {
-    auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
-    auto& partition = mData->partitionTable.getPartition(Neon::Execution::host,
-                                                         partitionIdx,
-                                                         Neon::DataView::STANDARD);
-    auto& span = mData->grid->getSpan(partitionIdx, Neon::DataView::STANDARD);
-    Idx   idx;
-    bool  isOk = span.setAndValidate(idx, localIDx.x, localIDx.y, localIDx.z);
-    if (!isOk) {
-#pragma omp barrier
-        NEON_THROW_UNSUPPORTED_OPERATION("");
+    auto const& meta = mData->grid->mData->denseMeta.get(idxGlobal);
+    if (meta.isValid()) {
+        auto const& span = mData->grid->getSpan(meta.setIdx, Neon::DataView::STANDARD);
+        eIndex      eIndex;
+        span.setAndValidate(eIndex, meta.index);
+        auto& res = getPartition(Execution::host, meta.setIdx, Neon::DataView::STANDARD).operator()(eIndex, cardinality);
+        return res;
     }
-    auto& result = partition(idx, cardinality);
-    return result;
+    NeonException exc("eField");
+    exc << "Cannot return a metadata reference of an inactive index. Use eActive()"
+           "to check if the voxel is active before attempting to modify it";
+    NEON_THROW(exc);
 }
 
 template <typename T, int C>
@@ -536,36 +534,6 @@ auto eField<T, C>::getData()
     -> Data&
 {
     return *(mData.get());
-}
-
-template <typename T, int C>
-auto eField<T, C>::helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
-    const -> std::pair<Neon::index_3d, int>
-{
-    Neon::index_3d result = index;
-
-    // since we partition along the z-axis, only the z-component of index will change
-    const int32_t setCardinality = mData->grid->getBackend().devSet().setCardinality();
-    if (setCardinality == 1) {
-        return {result, 0};
-    }
-
-    Neon::set::DataSet<int> firstZindex = mData->grid->helpGetFirstZindex();
-
-    for (int i = 0; i < setCardinality - 1; i++) {
-        if (index.z < firstZindex[i + 1]) {
-            result.z -= firstZindex[i];
-            return {result, i};
-        }
-    }
-    if (index.z < this->getGrid().getDimension().z) {
-        result.z -= firstZindex[setCardinality - 1];
-        return {result, setCardinality - 1};
-    }
-
-    NeonException exc("dField");
-    exc << "Data inconsistency was detected";
-    NEON_THROW(exc);
 }
 
 }  // namespace Neon::domain::details::eGrid

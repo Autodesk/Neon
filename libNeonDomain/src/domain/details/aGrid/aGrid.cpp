@@ -3,7 +3,7 @@
 namespace Neon::domain::details::aGrid {
 
 aGrid::aGrid()
-    : Neon::domain::interface::GridBaseTemplate<aGrid, aCell>()
+    : Neon::domain::interface::GridBaseTemplate<aGrid, aIndex>()
 {
     mStorage = std::make_shared<Storage>();
 };

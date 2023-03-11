@@ -8,7 +8,7 @@ eGrid::eGrid()
     mData = std::make_shared<Data>();
 }
 
-eGrid::Data::Data(const Neon::Backend& backend)
+eGrid::Data::Data(Neon::Backend const& backend)
 {
     partitionDims = backend.devSet().newDataSet<index_3d>({0, 0, 0});
     spanTable = Neon::domain::tool::SpanTable<eSpan>(backend);
@@ -140,6 +140,10 @@ auto eGrid::getGlobalMappingField() -> Neon::aGrid::Field<index_3d, 0>
 auto eGrid::getStencil3dTo1dOffset() -> Neon::set::MemSet<int8_t>
 {
     return mData->mStencil3dTo1dOffset;
+}
+auto eGrid::getPartitioner() -> const tool::Partitioner1D&
+{
+    return mData->partitioner1D;
 }
 
 

@@ -6,7 +6,7 @@
 #include "Neon/domain/tools/TestData.h"
 
 
-namespace map {
+namespace globalIdx {
 using namespace Neon::domain::tool::testing;
 
 template <typename G, typename T, int C>

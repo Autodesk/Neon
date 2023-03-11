@@ -34,16 +34,18 @@ eGrid::eGrid(const Neon::Backend&         backend,
     mData->partitioner1D = Neon::domain::tool::Partitioner1D(
         backend,
         activeCellLambda,
-        [](Neon::index_3d idx) { return false; },
+        [](Neon::index_3d /*idx*/) { return false; },
         1,
         dimension,
+        stencil,
         1);
 
 
     mData->mConnectivityAField = mData->partitioner1D.getConnectivity();
     mData->mGlobalMappingAField = mData->partitioner1D.getGlobalMapping();
     mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
-    mData->memoryGrid  = mData->partitioner1D.getMemoryGrid();
+    mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
+    mData->partitioner1D.getDenseMeta(mData->denseMeta);
 
     const int32_t numDevices = getBackend().devSet().setCardinality();
 
@@ -57,7 +59,6 @@ eGrid::eGrid(const Neon::Backend&         backend,
 
     {
         // Initialization of the SPAN table
-        const int setCardinality = getDevSet().setCardinality();
         mData->spanTable.forEachConfiguration([&](Neon::SetIdx   setIdx,
                                                   Neon::DataView dw,
                                                   eSpan&         span) {
@@ -144,14 +145,12 @@ eGrid::eGrid(const Neon::Backend&         backend,
 template <typename T, int C>
 auto eGrid::newField(const std::string&  fieldUserName,
                      int                 cardinality,
-                     [[maybe_unused]] T  inactiveValue,
+                     T                   inactiveValue,
                      Neon::DataUse       dataUse,
                      Neon::MemoryOptions memoryOptions) const
     -> eField<T, C>
 {
     memoryOptions = getDevSet().sanitizeMemoryOption(memoryOptions);
-
-    const auto haloStatus = Neon::domain::haloStatus_et::ON;
 
     if (C != 0 && cardinality != C) {
         NeonException exception("dGrid::newField Dynamic and static cardinality do not match.");
@@ -162,11 +161,8 @@ auto eGrid::newField(const std::string&  fieldUserName,
                        dataUse,
                        memoryOptions,
                        *this,
-                       mData->partitionDims,
-                       mData->halo.z,
-                       haloStatus,
                        cardinality,
-                       mData->stencilIdTo3dOffset);
+                       inactiveValue);
 
     return field;
 }

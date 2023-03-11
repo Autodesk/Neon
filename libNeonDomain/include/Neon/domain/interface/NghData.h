@@ -10,17 +10,22 @@ struct NghData
 {
     Type mData;
     bool mIsValid;
-    NEON_CUDA_HOST_DEVICE NghData() = default;
+    NEON_CUDA_HOST_DEVICE NghData() {
+
+    }
+
     NEON_CUDA_HOST_DEVICE NghData(const Type& val, bool status)
     {
         this->mData = val;
         this->mIsValid = status;
     }
+
     NEON_CUDA_HOST_DEVICE void set(const Type& val_, bool status_)
     {
         this->mData = val_;
         this->mIsValid = status_;
     }
+
     NEON_CUDA_HOST_DEVICE auto isValid() const -> bool
     {
         return mIsValid;

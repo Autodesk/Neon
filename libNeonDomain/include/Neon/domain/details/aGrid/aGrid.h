@@ -58,11 +58,11 @@ namespace Neon::domain::details::aGrid {
 template <typename T, int C>
 class aField;
 
-class aGrid : public Neon::domain::interface::GridBaseTemplate<aGrid, aCell>
+class aGrid : public Neon::domain::interface::GridBaseTemplate<aGrid, aIndex>
 {
    public:
     using Grid = aGrid;
-    using Cell = aCell;
+    using Cell = aIndex;
 
     template <typename T, int C>
     using Partition = aPartition<T, C>; /** Type of a partition for aGrid */
@@ -161,7 +161,7 @@ class aGrid : public Neon::domain::interface::GridBaseTemplate<aGrid, aCell>
         -> CellProperties final;
 
    private:
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<aGrid, aCell>;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<aGrid, aIndex>;
 
     using Self = aGrid;
     using Index = typename aPartition<char, 0>::index_t;

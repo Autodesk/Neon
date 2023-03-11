@@ -26,9 +26,9 @@ class SpanLayout
     SpanLayout() = default;
 
     SpanLayout(
-        Neon::Backend const&     backend,
-        SpanDecomposition const& spanPartitioner,
-        SpanClassifier const&    spanClassifier);
+        Neon::Backend const&               backend,
+        std::shared_ptr<SpanDecomposition> spanPartitionerPtr,
+        std::shared_ptr<SpanClassifier>    spanClassifierPtr);
 
     auto getCount()
         -> Neon::set::DataSet<uint64_t>;
@@ -137,8 +137,8 @@ class SpanLayout
 
 
            private:
-            Bounds      mByDomain[2];
-            GhostTarget ghost;
+            std::array<Bounds, 2> mByDomain;
+            GhostTarget           ghost;
 
            public:
             auto operator()(ByDomain byDomain)
@@ -209,15 +209,11 @@ class SpanLayout
 
     Neon::set::DataSet<InfoByPartition> mDataByPartition;
     int                                 mCountXpu;
-    SpanClassifier const*               mSpanClassifierPtr;
-    SpanDecomposition const*            mSpanPartitioner;
+    std::shared_ptr<SpanClassifier>     mSpanClassifierPtr;
+    std::shared_ptr<SpanDecomposition>  mSpanDecompositionPrt;
     Neon::MemoryOptions                 mMemOptionsAoS;
-    Neon::set::DataSet<int32_t>        mStandardAndGhostCount;
+    Neon::set::DataSet<int32_t>         mStandardAndGhostCount;
 };
-
-
-
-
 
 
 }  // namespace Neon::domain::tool::partitioning
