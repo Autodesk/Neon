@@ -127,9 +127,7 @@ eGrid::eGrid(const Neon::Backend&         backend,
     //    }
 
     {  // Init base class information
-        Neon::set::DataSet<size_t> nElementsPerPartition = backend.devSet().template newDataSet<size_t>([this](Neon::SetIdx idx, size_t& size) {
-            size = mData->partitionDims[idx.idx()].template rMulTyped<size_t>();
-        });
+        Neon::set::DataSet<size_t> nElementsPerPartition  = mData->partitioner1D.getStandardCount().template newType<size_t>();
         eGrid::GridBase::init("eGrid",
                               backend,
                               dimension,

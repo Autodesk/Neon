@@ -217,7 +217,6 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
         //  partitionDims indicates the size of each partition. For example,
         // given a gridDim of size 77 (in 1D for simplicity) distrusted over 5
         // device, it should be distributed as (16 16 15 15 15)
-        Neon::set::DataSet<index_3d>         partitionDims /** Bounding box size of each partition */;
         Neon::domain::tool::SpanTable<eSpan> spanTable /** Span for each data view configurations */;
         Neon::domain::tool::SpanTable<int>   elementsPerPartition /** Number of indexes for each partition */;
 

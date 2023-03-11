@@ -57,17 +57,24 @@ SpanLayout::SpanLayout(Neon::Backend const&               backend,
     });
 
     mStandardAndGhostCount = backend.newDataSet<int32_t>();
+    mStandardCount = backend.newDataSet<int32_t>();
+
     mStandardAndGhostCount.forEachSeq([&](const Neon::SetIdx& setIdx,
                                           int32_t&            standardAndGhostCount) {
         standardAndGhostCount = 0;
+        auto& standardCount=mStandardCount[setIdx];
+        standardCount=0;
+
         {
             const auto internalBounds = getBoundsInternal(setIdx);
             standardAndGhostCount += internalBounds.count;
+            standardCount+=internalBounds.count;
         }
         {
             const auto boundaryUp = getBoundsBoundary(setIdx, partitioning::ByDirection::up);
             const auto boundaryDw = getBoundsBoundary(setIdx, partitioning::ByDirection::down);
             standardAndGhostCount += boundaryUp.count + boundaryDw.count;
+            standardCount += boundaryUp.count + boundaryDw.count;
         }
         {
             const auto ghostUp = getGhostBoundary(setIdx, partitioning::ByDirection::up);
@@ -265,6 +272,11 @@ auto SpanLayout::findNeighbourOfBoundaryPoint(
 auto SpanLayout::getStandardAndGhostCount() const -> const Neon::set::DataSet<int32_t>&
 {
     return mStandardAndGhostCount;
+}
+
+auto SpanLayout::getStandardCount() const -> const Neon::set::DataSet<int32_t>&
+{
+    return mStandardCount;
 }
 
 

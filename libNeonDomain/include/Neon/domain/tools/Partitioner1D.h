@@ -155,6 +155,12 @@ class Partitioner1D
         return mSpanLayout->getStandardAndGhostCount();
     }
 
+    auto getStandardCount()
+        const -> const Neon::set::DataSet<int32_t>&
+    {
+        return mSpanLayout->getStandardCount();
+    }
+
     auto getSpanClassifier()
         const -> partitioning::SpanClassifier const&;
 

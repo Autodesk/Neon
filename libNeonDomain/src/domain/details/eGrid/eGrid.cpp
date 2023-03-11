@@ -10,7 +10,6 @@ eGrid::eGrid()
 
 eGrid::Data::Data(Neon::Backend const& backend)
 {
-    partitionDims = backend.devSet().newDataSet<index_3d>({0, 0, 0});
     spanTable = Neon::domain::tool::SpanTable<eSpan>(backend);
     elementsPerPartition = Neon::domain::tool::SpanTable<int>(backend);
 
@@ -107,22 +106,8 @@ auto eGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellPr
     if (this->getDevSet().setCardinality() == 1) {
         cellProperties.init(0, DataView::INTERNAL);
     } else {
-        int            zCounter = 0;
-        int            zCounterPrevious = 0;
-        Neon::SetIdx   setIdx;
-        Neon::DataView dataView = DataView::BOUNDARY;
-        for (int i = 0; i < this->getDevSet().setCardinality(); i++) {
-            zCounter += mData->partitionDims[i].z;
-            if (idx.z < zCounter) {
-                setIdx = i;
-            }
-            if ((zCounterPrevious + mData->halo.z >= idx.z) &&
-                (zCounter - mData->halo.z < idx.z)) {
-                dataView = Neon::DataView::INTERNAL;
-            }
-            zCounterPrevious = zCounter;
-        }
-        cellProperties.init(setIdx, dataView);
+        auto const& metaInfo = mData->denseMeta.get(idx);
+        cellProperties.init(metaInfo.setIdx, metaInfo.dw);
     }
     return cellProperties;
 }

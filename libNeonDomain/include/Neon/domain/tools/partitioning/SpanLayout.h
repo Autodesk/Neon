@@ -106,6 +106,9 @@ class SpanLayout
     auto getStandardAndGhostCount() const
         -> const Neon::set::DataSet<int32_t>&;
 
+    auto getStandardCount() const
+        -> const Neon::set::DataSet<int32_t>&;
+
    private:
     /**
      * Returns the firs index of the selected partition of the partition logical span
@@ -213,6 +216,7 @@ class SpanLayout
     std::shared_ptr<SpanDecomposition>  mSpanDecompositionPrt;
     Neon::MemoryOptions                 mMemOptionsAoS;
     Neon::set::DataSet<int32_t>         mStandardAndGhostCount;
+    Neon::set::DataSet<int32_t>         mStandardCount;
 };
 
 
