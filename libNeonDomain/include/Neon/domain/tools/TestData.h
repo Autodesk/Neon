@@ -51,6 +51,8 @@ class TestData
              const Neon::domain::Stencil& stencil = Neon::domain::Stencil::s7_Laplace_t(),
              Type                         outsideValue = Type(0));
 
+    auto getDimention() const -> Neon::index_3d;
+
     auto updateHostData() -> void;
 
     auto updateDeviceData() -> void;
@@ -119,7 +121,13 @@ class TestData
     Field                                    mFields[nFields];
     Neon::domain::tool::testing::IODomain<T> mIODomains[nFields];
     Neon::domain::tool::Geometry             mGeometry;
+    Neon::index_3d                           mDimension;
 };
+template <typename G, typename T, int C>
+auto TestData<G, T, C>::getDimention() const -> Neon::index_3d
+{
+    return mDimension;
+}
 
 template <typename G, typename T, int C>
 TestData<G, T, C>::TestData(const Neon::Backend&         backend,
@@ -134,6 +142,7 @@ TestData<G, T, C>::TestData(const Neon::Backend&         backend,
 {
     Neon::init();
 
+    mDimension = dimension;
     mGeometry = geometry;
     Neon::domain::tool::GeometryMask geometryMask(geometry,
                                                   dimension,
@@ -333,7 +342,7 @@ auto TestData<G, T, C>::laplace(IODomain& A, NEON_IO IODomain& B)
                                                    Neon::int8_3d(0, -1, 0),
                                                    Neon::int8_3d(0, 0, 1),
                                                    Neon::int8_3d(0, 0, -1)};
-int count = 0;
+        int                                count = 0;
         for (const auto& direction : stencil) {
             auto neighborVal = A.nghVal(idx, direction, cardinality, &isValid);
             if (isValid) {
@@ -341,7 +350,7 @@ int count = 0;
                 count++;
             }
         }
-        b = a;// - count * res;
+        b = a;  // - count * res;
     },
                                          A, B);
 }

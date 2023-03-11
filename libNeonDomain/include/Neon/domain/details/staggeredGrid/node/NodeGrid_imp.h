@@ -177,7 +177,7 @@ auto NodeGrid<BuildingBlockGridT>::
     flattenedLengthSet(Neon::DataView dataView)
         const -> const Neon::set::DataSet<size_t>
 {
-    return mStorage->buildingBlockGrid.flattenedLengthSet(dataView);
+    return mStorage->buildingBlockGrid.getNumActiveCellsPerPartition(dataView);
 }
 
 template <typename BuildingBlockGridT>

@@ -60,16 +60,15 @@ class GridBase
     virtual auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool = 0;
 
-    [[deprecated("Will be replace by the getNumActiveCellsPerPartition method")]] auto
-    flattenedLengthSet() const
-        -> const Neon::set::DataSet<size_t>&;
-
-    /**
-     * Return the number of cells stored per partition
-     * @return
-     */
     auto getNumActiveCellsPerPartition() const
         -> const Neon::set::DataSet<size_t>&;
+
+    //    /**
+    //     * Return the number of cells stored per partition
+    //     * @return
+    //     */
+    //    auto getNumActiveCellsPerPartition() const
+    //        -> const Neon::set::DataSet<size_t>&;
 
     /**
      * Creates a DataSet object compatible with the number of GPU used by the grid.
