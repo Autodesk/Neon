@@ -55,5 +55,5 @@ auto runContainer(TestData<G, T, C>&                data,
     ASSERT_TRUE(goldenRes == neonRes) << "goldenRes " << goldenRes << " neonRes " << neonRes;
 }
 
-template auto runContainer<Neon::domain::details::dGrid::eGrid, int64_t, 0>(TestData<Neon::domain::details::dGrid::eGrid, int64_t, 0>&,
+template auto runContainer<Neon::domain::details::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::dGrid::dGrid, int64_t, 0>&,
                                                                                   const Neon::sys::patterns::Engine eng) -> void;

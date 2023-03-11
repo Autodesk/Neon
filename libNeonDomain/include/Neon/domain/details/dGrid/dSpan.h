@@ -12,7 +12,7 @@ class dSpan
 {
    public:
     using Idx = dIndex;
-    friend class eGrid;
+    friend class dGrid;
 
     static constexpr int SpaceDim = 3;
 

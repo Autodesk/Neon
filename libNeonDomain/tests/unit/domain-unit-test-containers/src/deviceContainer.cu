@@ -111,6 +111,6 @@ auto runDevice(TestData<G, T, C>& data) -> void
 }
 
 // template auto run<Neon::domain::eGrid, int64_t, 0>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
-template auto runDevice<Neon::domain::details::dGrid::eGrid, int64_t, 0>(TestData<Neon::domain::details::dGrid::eGrid, int64_t, 0>&) -> void;
+template auto runDevice<Neon::domain::details::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::dGrid::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace device

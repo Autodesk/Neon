@@ -5,7 +5,7 @@ namespace Neon::domain::details::dGrid {
 
 
 template <Neon::domain::SparsityPattern ActiveCellLambda>
-eGrid::eGrid(const Neon::Backend&  backend,
+dGrid::dGrid(const Neon::Backend&  backend,
              const Neon::int32_3d& dimension,
              const ActiveCellLambda& /*activeCellLambda*/,
              const Neon::domain::Stencil& stencil,
@@ -19,7 +19,7 @@ eGrid::eGrid(const Neon::Backend&  backend,
         auto nElementsPerPartition = backend.devSet().template newDataSet<size_t>(0);
         // We do an initialization with nElementsPerPartition to zero,
         // then we reset to the computed number.
-        eGrid::GridBase::init("dGrid",
+        dGrid::GridBase::init("dGrid",
                               backend,
                               dimension,
                               stencil,
@@ -169,7 +169,7 @@ eGrid::eGrid(const Neon::Backend&  backend,
         Neon::set::DataSet<size_t> nElementsPerPartition = backend.devSet().template newDataSet<size_t>([this](Neon::SetIdx idx, size_t& size) {
             size = mData->partitionDims[idx.idx()].template rMulTyped<size_t>();
         });
-        eGrid::GridBase::init("dGrid",
+        dGrid::GridBase::init("dGrid",
                               backend,
                               dimension,
                               stencil,
@@ -182,7 +182,7 @@ eGrid::eGrid(const Neon::Backend&  backend,
 
 
 template <typename T, int C>
-auto eGrid::newField(const std::string&  fieldUserName,
+auto dGrid::newField(const std::string&  fieldUserName,
                      int                 cardinality,
                      [[maybe_unused]] T  inactiveValue,
                      Neon::DataUse       dataUse,
@@ -212,7 +212,7 @@ auto eGrid::newField(const std::string&  fieldUserName,
 }
 
 template <typename LoadingLambda>
-auto eGrid::newContainer(const std::string& name,
+auto dGrid::newContainer(const std::string& name,
                          LoadingLambda      lambda,
                          Neon::Execution    execution)
     const
@@ -230,7 +230,7 @@ auto eGrid::newContainer(const std::string& name,
 }
 
 template <typename LoadingLambda>
-auto eGrid::newContainer(const std::string& name,
+auto dGrid::newContainer(const std::string& name,
                          index_3d           blockSize,
                          size_t             sharedMem,
                          LoadingLambda      lambda,
@@ -249,7 +249,7 @@ auto eGrid::newContainer(const std::string& name,
 }
 
 template <typename T>
-auto eGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
+auto dGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
 {
     auto pattern = Neon::PatternScalar<T>(getBackend(), mData->reduceEngine);
 
@@ -270,7 +270,7 @@ auto eGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
 }
 
 template <typename T>
-auto eGrid::dot([[maybe_unused]] const std::string&               name,
+auto dGrid::dot([[maybe_unused]] const std::string&               name,
                 [[maybe_unused]] dField<T>&                       input1,
                 [[maybe_unused]] dField<T>&                       input2,
                 [[maybe_unused]] Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
@@ -279,7 +279,7 @@ auto eGrid::dot([[maybe_unused]] const std::string&               name,
 }
 
 template <typename T>
-auto eGrid::norm2([[maybe_unused]] const std::string&               name,
+auto dGrid::norm2([[maybe_unused]] const std::string&               name,
                   [[maybe_unused]] dField<T>&                       input,
                   [[maybe_unused]] Neon::template PatternScalar<T>& scalar,
                   [[maybe_unused]] Neon::Execution                  execution) const -> Neon::set::Container
