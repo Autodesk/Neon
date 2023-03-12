@@ -278,6 +278,7 @@ class Partitioner1D
                 int32_t offset = nghShifted.x + nghShifted.y * yPitch + nghShifted.z * zPitch;
                 assert(offset < countElement);
                 assert(offset >= 0);
+                //std::cout << ngh << " -> " << stencilIdx << " -> Pitch "  << offset<< std::endl;
                 stencilNghIndex.eRef(setIdx, offset, 0) = stencilIdx;
                 stencilIdx++;
             }

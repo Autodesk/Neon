@@ -168,10 +168,6 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                 auto inspectBlock = [&](int bx, int by, int bz) {
                     Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
 
-                    if (bz == 4 && by == 4 && bx == 4) {
-                        std::cout << "Here" << std::endl;
-                    }
-
                     bool doBreak = false;
                     for (int z = 0; (z < dataBlockEdge && !doBreak); z++) {
                         for (int y = 0; (y < dataBlockEdge && !doBreak); y++) {

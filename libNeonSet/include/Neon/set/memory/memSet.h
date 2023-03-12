@@ -209,7 +209,9 @@ class MemSet
 
     auto rawMem(Neon::Execution execution, SetIdx id) -> T_ta*
     {
-        return entryRef(id).rawMem(execution);
+        auto& mirror =  entryRef(id);
+        T_ta* res = mirror.rawMem(execution);
+        return res;
     }
 
     auto rawMem(Neon::Execution execution, SetIdx id)

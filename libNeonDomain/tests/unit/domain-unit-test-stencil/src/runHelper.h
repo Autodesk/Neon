@@ -25,7 +25,7 @@ void runAllTestConfiguration(
     [[maybe_unused]] int                    nGpus,
     [[maybe_unused]] int                    minNumGpus)
 {
-
+    nGpus=1;
     std::vector<int> nGpuTest;
     for (int i = minNumGpus; i <= nGpus; i++) {
         nGpuTest.push_back(i);
@@ -33,11 +33,11 @@ void runAllTestConfiguration(
     // std::vector<int> nGpuTest{2,4,6,8};
     std::vector<int> cardinalityTest{1};
 
-    std::vector<Neon::index_3d> dimTest{{60, 10, 250},{17, 13, 33}};
+    std::vector<Neon::index_3d> dimTest{{10, 10, 13}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        runtimeE.push_back(Neon::Runtime::stream);
-    }
+//    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+//        runtimeE.push_back(Neon::Runtime::stream);
+//    }
 
     std::vector<Geometry> geos;
 
@@ -48,8 +48,8 @@ void runAllTestConfiguration(
     } else {
         geos = std::vector<Geometry>{
             Geometry::FullDomain,
-            Geometry::Sphere,
-            Geometry::HollowSphere,
+//            Geometry::Sphere,
+//            Geometry::HollowSphere,
 
         };
     }

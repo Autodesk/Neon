@@ -74,6 +74,11 @@ class ePartition
     static constexpr int Cardinality = C;
 
     using NghIdx = uint8_t;         //<- type of an index to identify a neighbour
+    using Ngh3DIdx = Neon::int8_3d;
+    using Ngh1DIdx = uint8_t;
+    using NghData = Neon::domain::NghData<T>;
+
+
     using Type = T;                 //<- type of the data stored by the field
     using Offset = eIndex::Offset;  //<- Type of a jump value
     using ePitch = eIndex::ePitch;  //<- Type of the pitch representation
@@ -153,18 +158,18 @@ class ePartition
      * @return
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(Idx         eId,
+    getNghData(Idx         eId,
            NghIdx      nghIdx,
            int         card,
            const Type& alternativeVal)
-        const -> NghData<Type>;
+        const -> NghData;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(eIndex               eId,
+    getNghData(eIndex               eId,
            const Neon::int8_3d& nghIdx,
            int                  card,
            const Type&          alternativeVal)
-        const -> NghData<Type>;
+        const -> NghData;
 
 
     /**
@@ -273,6 +278,7 @@ class ePartition
     int             mPrtID;
     int8_t*        mStencil3dTo1dOffset = {nullptr};
     int32_t         mStencilTableYPitch;
+    int32_t         mStencilRadius; // Shift to be applied to all 3d offset component to access mStencil3dTo1dOffset table
 };
 }  // namespace Neon::domain::details::eGrid
 

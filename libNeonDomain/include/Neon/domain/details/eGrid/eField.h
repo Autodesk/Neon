@@ -40,7 +40,12 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
     using Field = eField;
     using Partition = ePartition<T, C>;
     using Idx = typename Partition::Idx;
+
     using NghIdx = typename Partition::NghIdx;
+    using Ngh3DIdx =  typename Partition::Ngh3DIdx;
+    using Ngh1DIdx =  typename Partition::Ngh1DIdx;
+    using NghData = typename Partition::NghData;
+
 
     /**
      * Empty constructor

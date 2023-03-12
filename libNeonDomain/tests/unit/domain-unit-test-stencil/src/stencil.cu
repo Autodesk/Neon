@@ -1,6 +1,5 @@
 #include <functional>
-#include "Neon/domain/dGrid.h"
-#include "Neon/domain/details/dGrid/dGrid.h"
+#include "Neon/domain/Grids.h"
 #include "Neon/domain/interface/GridConcept.h"
 #include "Neon/domain/tools/TestData.h"
 #include "TestInformation.h"
@@ -9,7 +8,7 @@
 
 namespace map {
 
-template <Neon::Field Field>
+template <typename Field>
 auto stencilContainer_laplace(const Field& filedA,
                               Field&       fieldB)
     -> Neon::set::Container
@@ -26,14 +25,14 @@ auto stencilContainer_laplace(const Field& filedA,
                     // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                     typename Field::Type partial = 0;
                     int                  count = 0;
-                    using NghIdx = typename Field::NghIdx;
-                    std::array<typename Field::NghIdx, 6> stencil{
-                        NghIdx(1, 0, 0),
-                        NghIdx(-1, 0, 0),
-                        NghIdx(0, 1, 0),
-                        NghIdx(0, -1, 0),
-                        NghIdx(0, 0, 1),
-                        NghIdx(0, 0, -1)};
+                    using Ngh3DIdx = Neon::int8_3d;
+                    std::array< Ngh3DIdx, 6> stencil{
+                        Ngh3DIdx(1, 0, 0),
+                        Ngh3DIdx(-1, 0, 0),
+                        Ngh3DIdx(0, 1, 0),
+                        Ngh3DIdx(0, -1, 0),
+                        Ngh3DIdx(0, 0, 1),
+                        Ngh3DIdx(0, 0, -1)};
                     for (auto const& direction : stencil) {
                         typename Field::NghData nghData = a.getNghData(idx, direction, i, 0);
                         if (nghData.isValid()) {
@@ -102,6 +101,7 @@ auto run(TestData<G, T, C>& data) -> void
     ASSERT_TRUE(isOk);
 }
 
-template auto run<Neon::domain::details::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::dGrid::dGrid, int64_t, 0>&) -> void;
+template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
+template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
 
 }  // namespace map

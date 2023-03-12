@@ -56,32 +56,32 @@ ePartition<T, C>::operator()(eIndex eId, int cardinalityIdx) -> T&
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::nghVal(eIndex      eId,
-                         NghIdx      nghIdx,
-                         int         card,
-                         const Type& alternativeVal)
-    const -> NghData<Type>
+ePartition<T, C>::getNghData(eIndex      eId,
+                             NghIdx      nghIdx,
+                             int         card,
+                             const Type& alternativeVal)
+    const -> NghData
 {
     eIndex     eIdxNgh;
     const bool isValidNeighbour = isValidNgh(eId, nghIdx, eIdxNgh);
     T          val = (isValidNeighbour) ? this->operator()(eIdxNgh, card) : alternativeVal;
-    return NghData<Type>(val, isValidNeighbour);
+    return NghData(val, isValidNeighbour);
 }
 
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::nghVal(eIndex               eId,
-                         const Neon::int8_3d& ngh3dIdx,
-                         int                  card,
-                         const Type&          alternativeVal)
-    const -> NghData<Type>
+ePartition<T, C>::getNghData(eIndex               eId,
+                             const Neon::int8_3d& ngh3dIdx,
+                             int                  card,
+                             const Type&          alternativeVal)
+    const -> NghData
 {
-    int tablePithc = ngh3dIdx.x +
-                     ngh3dIdx.y * mStencilTableYPitch +
-                     ngh3dIdx.z * mStencilTableYPitch * mStencilTableYPitch;
-    NghIdx        nghIdx = mStencil3dTo1dOffset[tablePithc];
-    NghData<Type> res = nghVal(eId, nghIdx, card, alternativeVal);
+    int tablePithc = (ngh3dIdx.x + mStencilRadius) +
+                     (ngh3dIdx.y + mStencilRadius) * mStencilTableYPitch +
+                     (ngh3dIdx.z + mStencilRadius) * mStencilTableYPitch * mStencilTableYPitch;
+    NghIdx  nghIdx = mStencil3dTo1dOffset[tablePithc];
+    NghData res = getNghData(eId, nghIdx, card, alternativeVal);
 
     return res;
 }
@@ -133,6 +133,8 @@ ePartition<T, C>::ePartition(int             prtId,
 
     mStencil3dTo1dOffset = stencil3dTo1dOffset;
     mStencilTableYPitch = 2 * stencilRadius + 1;
+
+    mStencilRadius = stencilRadius;
 }
 
 template <typename T,
