@@ -26,7 +26,6 @@ void runAllTestConfiguration(
     int                                     nGpus,
     int                                     minNumGpus)
 {
-    nGpus=1;
     std::vector<int> nGpuTest;
     for (int i = minNumGpus; i <= nGpus; i++) {
         nGpuTest.push_back(i);

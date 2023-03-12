@@ -24,14 +24,14 @@ template <typename G, typename T, int C>
 void runAllTestConfiguration(
     std::function<void(TestData<G, T, C>&)> f,
     [[maybe_unused]] int                    nGpus,
-    [[maybe_unused]] int                                     minNumGpus)
+    [[maybe_unused]] int                    minNumGpus)
 {
     //   nGpus = 1;
-    //    std::vector<int> nGpuTest;
-    //    for (int i = minNumGpus; i <= nGpus; i++) {
-    //        nGpuTest.push_back(i);
-    //    }
-    std::vector<int> nGpuTest{2};
+    std::vector<int> nGpuTest;
+    for (int i = minNumGpus; i <= nGpus; i++) {
+        nGpuTest.push_back(i);
+    }
+    //    std::vector<int> nGpuTest{2};
     std::vector<int> cardinalityTest{1};
 
     std::vector<Neon::index_3d> dimTest{{20, 20, 20}};
@@ -49,8 +49,8 @@ void runAllTestConfiguration(
     } else {
         geos = std::vector<Geometry>{
             Geometry::HollowCube,
-//            Geometry::Sphere,
-//            Geometry::HollowCube,
+            Geometry::Sphere,
+            Geometry::HollowSphere,
         };
     }
 
