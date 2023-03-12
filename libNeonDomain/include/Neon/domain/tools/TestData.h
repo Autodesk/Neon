@@ -111,6 +111,9 @@ class TestData
     auto toString() const
         -> std::string;
 
+    auto name() const
+        -> std::string;
+
     auto getGeometry() const
         -> Neon::domain::tool::Geometry;
 
@@ -404,6 +407,17 @@ auto TestData<G, T, C>::toString() const -> std::string
     s << " [Grid]:{ " << getGrid().toString()
       << "} [Cardinality]:{ " << mIODomains[0].getCardinality()
       << "} [Geometry]:{ " << GeometryUtils::toString(getGeometry())
+      << "}";
+    return s.str();
+}
+
+template <typename G, typename T, int C>
+auto TestData<G, T, C>::name() const -> std::string
+{
+    std::stringstream s;
+    s << "Grid_" << getGrid().getImplementationName()
+      << "_Card_" << mIODomains[0].getCardinality()
+      << "_Geo_" << GeometryUtils::toString(getGeometry())
       << "}";
     return s.str();
 }

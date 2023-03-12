@@ -186,6 +186,9 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     auto isInsideDomain(const Neon::index_3d& idx)
         const -> bool final;
 
+    auto getSetIdx(const Neon::index_3d& idx)
+        const -> int32_t final;
+
     /**
      * Return the properties of a point
      */

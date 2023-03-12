@@ -3,8 +3,7 @@
 namespace Neon::domain::details::aGrid {
 
 aGrid::aGrid()
-    : Neon::domain::interface::GridBaseTemplate<aGrid, aIndex>()
-{
+    : Neon::domain::interface::GridBaseTemplate<aGrid, aIndex>() {
     mStorage = std::make_shared<Storage>();
 };
 
@@ -162,6 +161,16 @@ auto aGrid::isInsideDomain(const index_3d& idx) const -> bool
     }
     return false;
 }
+
+auto aGrid::getSetIdx(const index_3d& idx) const -> int32_t
+{
+    auto prop = getProperties(idx);
+    if (!prop.isInside()) {
+        return -1;
+    }
+    return prop.getSetIdx();
+}
+
 auto aGrid::getProperties(const index_3d& cell3dIdx) const -> GridBaseTemplate::CellProperties
 {
     GridBaseTemplate::CellProperties cellProperties;

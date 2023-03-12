@@ -157,6 +157,9 @@ class aGrid : public Neon::domain::interface::GridBaseTemplate<aGrid, aIndex>
     auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool final;
 
+    auto getSetIdx(const Neon::index_3d& idx) const
+        -> int32_t final;
+
     auto getProperties(const Neon::index_3d& idx) const
         -> CellProperties final;
 

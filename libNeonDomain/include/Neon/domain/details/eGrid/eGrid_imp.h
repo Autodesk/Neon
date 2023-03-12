@@ -17,6 +17,8 @@ eGrid::eGrid(const Neon::Backend&         backend,
     const index_3d defaultBlockSize(256, 1, 1);
 
     {
+
+
         auto nElementsPerPartition = backend.devSet().template newDataSet<size_t>(0);
         // We do an initialization with nElementsPerPartition to zero,
         // then we reset to the computed number.

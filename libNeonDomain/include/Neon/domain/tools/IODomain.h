@@ -156,6 +156,10 @@ struct IODomain
                       int                           card /**< Cardinality of the field */)
         -> Type&;
 
+    auto getReference(const Integer_3d<intType_ta>& xyz /**< Point in the grid        */,
+                      int                           card /**< Cardinality of the field */)
+      const  -> const Type&;
+
     Type                          mOutsideValue;
     Neon::IODense<Type, Index>    mField;
     Neon::IODense<uint8_t, Index> mMask;
@@ -297,6 +301,18 @@ auto IODomain<ExportType, intType_ta>::getValue(const Integer_3d<intType_ta>& xy
 template <typename ExportType, typename intType_ta>
 auto IODomain<ExportType, intType_ta>::getReference(const Integer_3d<intType_ta>& xyz,
                                                     int                           card) -> Type&
+{
+    const bool isValid = isActive(xyz);
+    if (!isValid) {
+        NEON_THROW_UNSUPPORTED_OPTION("");
+    }
+    auto& val = mField.getReference(xyz, card);
+    return val;
+}
+
+template <typename ExportType, typename intType_ta>
+auto IODomain<ExportType, intType_ta>::getReference(const Integer_3d<intType_ta>& xyz,
+                                                    int                           card) const -> const Type&
 {
     const bool isValid = isActive(xyz);
     if (!isValid) {

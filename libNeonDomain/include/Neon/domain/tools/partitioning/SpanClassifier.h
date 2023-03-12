@@ -17,16 +17,16 @@ class SpanClassifier
               typename BcLambda,
               typename Block3dIdxToBlockOrigin,
               typename GetVoxelAbsolute3DIdx>
-    SpanClassifier(const Neon::Backend&                              backend,
-                   const ActiveCellLambda&                           activeCellLambda,
-                   const BcLambda&                                   bcLambda,
-                   const Block3dIdxToBlockOrigin&                    block3dIdxToBlockOrigin,
-                   const GetVoxelAbsolute3DIdx&                      getVoxelAbsolute3DIdx,
-                   const Neon::int32_3d&                             block3DSpan,
-                   const int&                                        dataBlockEdge,
-                   const Neon::int32_3d&                             domainSize,
-                   const Neon::domain::Stencil                       stencil,
-                   const int&                                        discreteVoxelSpacing,
+    SpanClassifier(const Neon::Backend&                             backend,
+                   const ActiveCellLambda&                          activeCellLambda,
+                   const BcLambda&                                  bcLambda,
+                   const Block3dIdxToBlockOrigin&                   block3dIdxToBlockOrigin,
+                   const GetVoxelAbsolute3DIdx&                     getVoxelAbsolute3DIdx,
+                   const Neon::int32_3d&                            block3DSpan,
+                   const int&                                       dataBlockEdge,
+                   const Neon::int32_3d&                            domainSize,
+                   const Neon::domain::Stencil                      stencil,
+                   const int&                                       discreteVoxelSpacing,
                    std::shared_ptr<partitioning::SpanDecomposition> sp);
 
 
@@ -103,16 +103,16 @@ template <typename ActiveCellLambda,
           typename BcLambda,
           typename Block3dIdxToBlockOrigin,
           typename GetVoxelAbsolute3DIdx>
-SpanClassifier::SpanClassifier(const Neon::Backend& backend,
-                               const ActiveCellLambda&,
-                               const BcLambda& bcLambda,
-                               const Block3dIdxToBlockOrigin&,
-                               const GetVoxelAbsolute3DIdx&,
-                               const Neon::int32_3d& block3DSpan,
-                               const int&            dataBlockEdge,
-                               const Neon::int32_3d&,
-                               const Neon::domain::Stencil stencil,
-                               const int&,
+SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
+                               const ActiveCellLambda&            activeCellLambda,
+                               const BcLambda&                    bcLambda,
+                               const Block3dIdxToBlockOrigin&     block3dIdxToBlockOrigin,
+                               const GetVoxelAbsolute3DIdx&       getVoxelAbsolute3DIdx,
+                               const Neon::int32_3d&              block3DSpan,
+                               const int&                         dataBlockEdge,
+                               const Neon::int32_3d&              domainSize,
+                               const Neon::domain::Stencil        stencil,
+                               const int&                         discreteVoxelSpacing,
                                std::shared_ptr<SpanDecomposition> spanDecompositionNoUse)
 {
     mData = backend.devSet().newDataSet<Leve3_ByPartition>();
@@ -165,39 +165,56 @@ SpanClassifier::SpanClassifier(const Neon::Backend& backend,
                     return result;
                 }();
 
+                auto inspectBlock = [&](int bx, int by, int bz) {
+                    Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
+
+                    if (bz == 4 && by == 4 && bx == 4) {
+                        std::cout << "Here" << std::endl;
+                    }
+
+                    bool doBreak = false;
+                    for (int z = 0; (z < dataBlockEdge && !doBreak); z++) {
+                        for (int y = 0; (y < dataBlockEdge && !doBreak); y++) {
+                            for (int x = 0; (x < dataBlockEdge && !doBreak); x++) {
+
+                                const Neon::int32_3d globalId = getVoxelAbsolute3DIdx(blockOrigin, {x, y, z});
+                                if (globalId < domainSize * discreteVoxelSpacing) {
+                                    if (activeCellLambda(globalId)) {
+                                        doBreak = true;
+
+                                        Neon::int32_3d const point(bx, by, bz);
+                                        ByPartition const    byPartition = ByPartition::internal;
+                                        ByDomain const       byDomain = bcLambda(point) ? ByDomain::bc : ByDomain::bulk;
+                                        addPoint(setIdx, point, byPartition, ByDirection::up, byDomain);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+
                 // We are running in the inner partition blocks
-                for (int z = beginZ + zRadius; z <= lastZ - zRadius; z++) {
-                    for (int y = 0; y < block3DSpan.y; y++) {
-                        for (int x = 0; x < block3DSpan.x; x++) {
-                            Neon::int32_3d const point(x, y, z);
-                            ByPartition const    byPartition = ByPartition::internal;
-                            ByDomain const       byDomain = bcLambda(point) ? ByDomain::bc : ByDomain::bulk;
-                            addPoint(setIdx, point, byPartition, ByDirection::up, byDomain);
+                for (int bz = beginZ + zRadius; bz <= lastZ - zRadius; bz++) {
+                    for (int by = 0; by < block3DSpan.y; by++) {
+                        for (int bx = 0; bx < block3DSpan.x; bx++) {
+                            inspectBlock(bx, by, bz);
                         }
                     }
                 }
                 // We are running in the inner partition blocks
-                for (auto& z : boundaryDwSlices) {
-                    for (int y = 0; y < block3DSpan.y; y++) {
-                        for (int x = 0; x < block3DSpan.x; x++) {
-                            Neon::int32_3d const point(x, y, z);
-                            ByPartition const    byPartition = ByPartition::boundary;
-                            ByDirection const    byDirection = ByDirection::down;
-                            ByDomain const       byDomain = bcLambda(point) ? ByDomain::bc : ByDomain::bulk;
-                            addPoint(setIdx, point, byPartition, byDirection, byDomain);
+                for (auto& bz : boundaryDwSlices) {
+                    for (int by = 0; by < block3DSpan.y; by++) {
+                        for (int bx = 0; bx < block3DSpan.x; bx++) {
+                            inspectBlock(bx, by, bz);
                         }
                     }
                 }
 
                 // We are running in the inner partition blocks
-                for (auto& z : boundaryUpSlices) {
-                    for (int y = 0; y < block3DSpan.y; y++) {
-                        for (int x = 0; x < block3DSpan.x; x++) {
-                            Neon::int32_3d const point(x, y, z);
-                            ByPartition const    byPartition = ByPartition::boundary;
-                            ByDirection const    byDirection = ByDirection::up;
-                            ByDomain const       byDomain = bcLambda(point) ? ByDomain::bc : ByDomain::bulk;
-                            addPoint(setIdx, point, byPartition, byDirection, byDomain);
+                for (auto& bz : boundaryUpSlices) {
+                    for (int by = 0; by < block3DSpan.y; by++) {
+                        for (int bx = 0; bx < block3DSpan.x; bx++) {
+                            inspectBlock(bx, by, bz);
                         }
                     }
                 }

@@ -1,3 +1,5 @@
+#if 0
+
 #include "Neon/domain/details/mGrid/mGrid.h"
 
 
@@ -266,6 +268,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
                                       Neon::DeviceType::CUDA,
                                       ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                       Neon::MemoryLayout::arrayOfStructs);
+
     Neon::MemoryOptions memOptionsSoA(Neon::DeviceType::CPU,
                                       Neon::Allocator::MALLOC,
                                       Neon::DeviceType::CUDA,
@@ -741,3 +744,5 @@ void mGrid::topologyToVTK(std::string fileName, bool filterOverlaps) const
 
 
 }  // namespace Neon::domain::details::mGrid
+
+#endif

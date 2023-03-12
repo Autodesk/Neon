@@ -46,10 +46,13 @@ class IOGridVTK : private IoToVTK<intType_ta, real_tt>
     auto addField(const Field&       field,
                   const std::string& name /*! Name of the field */) -> void;
 
-    /**
-     * Write the VTK file
-     */
-    using IoToVTK<intType_ta, real_tt>::flush;
+    template <typename IODenseField>
+    auto addIODenseField(const IODenseField& field,
+                         const std::string&  name) -> void;
+        /**
+         * Write the VTK file
+         */
+        using IoToVTK<intType_ta, real_tt>::flush;
 
     /**
      * Clear all fields already added

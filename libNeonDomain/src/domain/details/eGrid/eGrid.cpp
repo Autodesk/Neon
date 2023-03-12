@@ -90,9 +90,17 @@ auto eGrid::convertToNghIdx(Neon::index_3d const& offset)
 
 auto eGrid::isInsideDomain(const index_3d& idx) const -> bool
 {
-    bool isPositive = idx >= 0;
-    bool isLover = idx < this->getDimension();
-    return isLover && isPositive;
+    auto const& metaInfo = mData->denseMeta.get(idx);
+    return metaInfo.isValid();
+}
+
+auto eGrid::getSetIdx(const Neon::index_3d& idx) const -> int32_t
+{
+    auto prop = getProperties(idx);
+    if (!prop.isInside()) {
+        return -1;
+    }
+    return prop.getSetIdx();
 }
 
 auto eGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties

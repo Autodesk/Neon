@@ -64,6 +64,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 
     auto isInsideDomain(const Neon::index_3d& idx) const -> bool final;
 
+    auto getSetIdx(const Neon::index_3d& idx) const -> int32_t final;
+
 
     template <typename T, int C = 0>
     auto newField(const std::string          name,

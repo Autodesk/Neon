@@ -104,16 +104,19 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
         mZFirstIdx[idx] = [&] {
             if (idx.idx() == 0)
                 return 0;
-            return mZLastIdx[idx];
+            return mZLastIdx[idx-1]+1;
         }();
+        if(idx != backend.devSet().setCardinality()-1) {
+            for (int i = mZFirstIdx[idx] ; i < block3DSpan.z; i++) {
+                mNumBlocks[idx] += nBlockProjectedToZ[i];
+                mZLastIdx[idx] = i;
 
-        for (int i = mZFirstIdx[idx] + 1; i < block3DSpan.z; i++) {
-            mNumBlocks[idx] += nBlockProjectedToZ[i];
-            mZLastIdx[idx] = i;
-
-            if (mNumBlocks[idx] >= avgBlocksPerPartition) {
-                break;
+                if (mNumBlocks[idx] >= avgBlocksPerPartition) {
+                    break;
+                }
             }
+        }else{
+            mZLastIdx[idx] =block3DSpan.z-1;
         }
     });
 }

@@ -28,7 +28,7 @@ auto dGrid::getSpan(SetIdx         setIdx,
                     Neon::DataView dataView)
     const -> const Span&
 {
-   return mData->spanTable.getSpan(setIdx, dataView);
+    return mData->spanTable.getSpan(setIdx, dataView);
 }
 
 
@@ -89,6 +89,15 @@ auto dGrid::isInsideDomain(const index_3d& idx) const -> bool
     bool isPositive = idx >= 0;
     bool isLover = idx < this->getDimension();
     return isLover && isPositive;
+}
+
+auto dGrid::getSetIdx(const Neon::index_3d& idx) const -> int32_t
+{
+    auto prop = getProperties(idx);
+    if (!prop.isInside()) {
+        return -1;
+    }
+    return prop.getSetIdx();
 }
 
 auto dGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties

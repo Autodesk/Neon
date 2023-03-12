@@ -60,6 +60,9 @@ class GridBase
     virtual auto isInsideDomain(const Neon::index_3d& idx) const
         -> bool = 0;
 
+    virtual auto getSetIdx(const Neon::index_3d& idx) const
+        -> int32_t = 0;
+
     auto getNumActiveCellsPerPartition() const
         -> const Neon::set::DataSet<size_t>&;
 

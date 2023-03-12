@@ -159,7 +159,7 @@ auto FieldBase<T, C>::forEachCell(const std::function<void(const Neon::index_3d&
                 for (int x = 0; x < dim.x; x++) {
                     for (int c = 0; c < getCardinality(); c++) {
                         Neon::index_3d index3D(x, y, z);
-                        auto val = this->operator()(index3D, c);
+                        auto           val = this->operator()(index3D, c);
                         fun(index3D, c, val);
                     }
                 }
@@ -171,7 +171,7 @@ auto FieldBase<T, C>::forEachCell(const std::function<void(const Neon::index_3d&
                 for (int x = 0; x < dim.x; x++) {
                     for (int c = 0; c < getCardinality(); c++) {
                         Neon::index_3d index3D(x, y, z);
-                        auto val = this->operator()(index3D, c);
+                        auto           val = this->operator()(index3D, c);
                         fun(index3D, c, val);
                     }
                 }
@@ -257,12 +257,12 @@ auto FieldBase<T, C>::ioToVtk(const std::string& fileName,
     iovtk.addField(*this, FieldName);
 
     Neon::IODense<VtiExportType, int32_t> domain(getDimension(), 1, [&](const Neon::index_3d& idx, int) {
-        VtiExportType isIn = VtiExportType(getBaseGridTool().isInsideDomain(idx));
-        return isIn;
+        VtiExportType setIdx = VtiExportType(getBaseGridTool().getSetIdx(idx));
+        return setIdx;
     });
 
     if (includeDomain) {
-        NEON_DEV_UNDER_CONSTRUCTION("");
+        iovtk.addIODenseField(domain, "Domain");
     }
     iovtk.flushAndClear();
     return;
@@ -307,7 +307,7 @@ FieldBase<T, C>::Storage::Storage(const std::string              FieldBaseUserNa
         name = "Anonymous";
     }
 }
-    
+
 #if defined(NEON_OS_WINDOWS)
 #pragma warning(push)
 #pragma warning(disable : 4244)
@@ -327,5 +327,5 @@ FieldBase<T, C>::Storage::Storage()
 #if defined(NEON_OS_WINDOWS)
 #pragma warning(pop)
 #endif
-    
+
 }  // namespace Neon::domain::interface

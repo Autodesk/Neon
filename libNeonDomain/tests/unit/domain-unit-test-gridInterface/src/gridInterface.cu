@@ -18,6 +18,9 @@ auto run(TestData<G, T, C>& data) -> void
 
     {  // NEON
         auto& X = data.getField(FieldNames::X);
+        data.resetValuesToConst(1, 1);
+        X.ioToVtk(data.name(), "f", true);
+
         auto& grid = X.getGrid();
         {
             auto dim = grid.getDimension();
@@ -46,14 +49,13 @@ auto run(TestData<G, T, C>& data) -> void
             },
                                                 X);
             ASSERT_EQ(numActiveCells, count);
-
         }
 
         {
-            auto  numActiveCells = grid.getNumActiveCells();
-            Neon::set::DataSet<size_t>  numActiveCellsPerPartition = grid.getNumActiveCellsPerPartition();
-            int count = 0;
-            numActiveCellsPerPartition.forEachSeq([&](Neon::SetIdx, auto val){
+            auto                       numActiveCells = grid.getNumActiveCells();
+            Neon::set::DataSet<size_t> numActiveCellsPerPartition = grid.getNumActiveCellsPerPartition();
+            int                        count = 0;
+            numActiveCellsPerPartition.forEachSeq([&](Neon::SetIdx, auto val) {
                 count += val;
             });
             ASSERT_EQ(numActiveCells, count);
