@@ -42,8 +42,8 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
     using Idx = typename Partition::Idx;
 
     using NghIdx = typename Partition::NghIdx;
-    using Ngh3DIdx =  typename Partition::Ngh3DIdx;
-    using Ngh1DIdx =  typename Partition::Ngh1DIdx;
+    using Ngh3DIdx = typename Partition::Ngh3DIdx;
+    using Ngh1DIdx = typename Partition::Ngh1DIdx;
     using NghData = typename Partition::NghData;
 
 
@@ -163,6 +163,39 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
             std::vector<int> nElementsByView /* one entry for each cardinality */;
         };
 
+        struct HaloTransfers
+        {
+            using SetType =
+                std::array<
+                    std::array<
+                        std::array<
+                            Neon::set::DataSet<std::vector<Neon::set::Transfer>>,
+                            partitioning::ByDirectionUtils::nConfigs>,
+                        ExecutionUtils::numConfigurations>,
+                    Neon::set::TransferModeUtils::nOptions>;
+            SetType table;
+
+            template <typename Lambda>
+            auto forEachConfiguration(Neon::Backend& bk, Lambda const& lambda) -> void
+            {
+                for (auto transfer : {Neon::set::TransferMode::get, Neon::set::TransferMode::put}) {
+                    for (auto execution : {Execution::device, Execution::host}) {
+                        for (auto byDirection : {partitioning::ByDirection::up, partitioning::ByDirection::down}) {
+                            //                                       upOut[setIdx][static_cast<unsigned long>(transfer)][static_cast<unsigned long>(execution)],
+                            auto& tableEntryRW = table[static_cast<unsigned long>(transfer)]
+                                                      [static_cast<unsigned long>(execution)]
+                                                      [static_cast<unsigned long>(byDirection)];
+                            tableEntryRW = bk.newDataSet<std::vector<Neon::set::Transfer>>();
+
+                            tableEntryRW.forEachSeq([&](SetIdx setIdx, auto& stdVecOfTRansfers) {
+                                lambda(setIdx, transfer, execution, byDirection, stdVecOfTRansfers);
+                            });
+                        }
+                    }
+                }
+            }
+        };
+
         Neon::domain::tool::PartitionTable<Partition, ReductionInformation> partitionTable;
         Neon::aGrid::Field<T, C>                                            memoryField;
 
@@ -172,6 +205,7 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
         std::shared_ptr<Grid> grid;
         bool                  periodic_z;
         T                     inactiveValue;
+        HaloTransfers         haloTransfers;
     };
 
     std::shared_ptr<Data> mData;

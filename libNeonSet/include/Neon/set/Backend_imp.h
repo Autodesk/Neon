@@ -39,4 +39,22 @@ auto Backend::forEachDeviceSeq(const Lambda& lambda)
         lambda(Neon::SetIdx(i));
     }
 }
+
+template <typename T>
+auto Backend::deviceToDeviceTransfer(int                     streamId,
+                                     size_t                  nItems,
+                                     Neon::set::TransferMode transferMode,
+                                     Neon::SetIdx            dstSet,
+                                     T*                      dstAddr,
+                                     Neon::SetIdx            srcSet,
+                                     T const*                srcAddr) -> void
+{
+    helpDeviceToDeviceTransferByte(streamId,
+                                   sizeof(T) * nItems,
+                                   transferMode,
+                                   dstSet,
+                                   dstAddr,
+                                   srcSet,
+                                   srcAddr);
+}
 }  // namespace Neon

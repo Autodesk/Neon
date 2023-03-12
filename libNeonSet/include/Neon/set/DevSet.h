@@ -27,7 +27,6 @@
 #include "Neon/set/memory/memSet.h"
 #include "Neon/sys/global/GpuSysGlobal.h"
 #include "Neon/sys/memory/memConf.h"
-#include "Neon/set/KernelConfig.h"
 
 namespace Neon {
 namespace set {
@@ -449,7 +448,7 @@ class DevSet
 
     template <typename DataSetContainer_ta, typename Lambda_ta>
     inline auto h_kLambdaWithIterator_openmp(
-        Neon::Execution                                           ,
+        Neon::Execution,
         [[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
         [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
         [[maybe_unused]] std::function<Lambda_ta(SetIdx,
@@ -470,7 +469,7 @@ class DevSet
     }
 
     template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto h_kLambdaWithIterator_openmp(Neon::Execution                                           ,
+    inline auto h_kLambdaWithIterator_openmp(Neon::Execution,
                                              Neon::SetIdx                                              setIdx,
                                              [[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
                                              [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
@@ -738,14 +737,13 @@ class DevSet
     // MEMORY TRANSFERS
     //--------------------------------------------------------------------------
 
-
-    template <TransferMode transferMode_ta>
-    [[deprecated]] auto peerTransfer(const StreamSet& streamSet,
-                                     SetIdx           dstSetId,
-                                     char*            dstBuf,
-                                     SetIdx           srcSetIdx,
-                                     const char*      srcBuf,
-                                     size_t           numBytes)
+    auto peerTransfer(TransferMode transferMode,
+                      const StreamSet& streamSet,
+                      SetIdx           dstSetId,
+                      char*            dstBuf,
+                      SetIdx           srcSetIdx,
+                      const char*      srcBuf,
+                      size_t           numBytes)
         const
         -> void;
 
@@ -804,23 +802,6 @@ class DevSet
 
 };  // namespace set
 
-extern template auto Neon::set::DevSet::peerTransfer<Neon::set::TransferMode::put>(const StreamSet& streamSet,
-                                                                                   SetIdx           dstSetId,
-                                                                                   char*            dstBuf,
-                                                                                   SetIdx           srcSetIdx,
-                                                                                   const char*      srcBuf,
-                                                                                   size_t           numBytes)
-    const
-    -> void;
-
-extern template auto Neon::set::DevSet::peerTransfer<Neon::set::TransferMode::get>(const StreamSet& streamSet,
-                                                                                   SetIdx           dstSetId,
-                                                                                   char*            dstBuf,
-                                                                                   SetIdx           srcSetIdx,
-                                                                                   const char*      srcBuf,
-                                                                                   size_t           numBytes)
-    const
-    -> void;
 
 
 }  // namespace set

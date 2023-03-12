@@ -33,4 +33,9 @@ enum struct ByDirection
     down = 1
 };
 
+ struct ByDirectionUtils
+{
+    static constexpr int nConfigs = 2;
+};
+
 }  // namespace Neon::domain::tools::partitioning

@@ -60,6 +60,55 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                                              mData->grid->getStencil().getRadius());
             });
     }
+
+    {
+
+        auto& bk = grid.getBackend();
+        auto  getNghSetIdx = [&](SetIdx setIdx, partitioning::ByDirection direction) {
+            int res;
+            if (direction == partitioning::ByDirection::up) {
+                res = (setIdx + 1) % bk.getDeviceCount();
+            } else {
+                res = (setIdx + bk.getDeviceCount() - 1) % bk.getDeviceCount();
+            }
+            return res;
+        };
+
+        // Setting up halo update table
+        mData->haloTransfers.forEachConfiguration(
+            bk, [&](Neon::SetIdx                      setIdxSrc,
+                    Neon::set::TransferMode           transferMode,
+                    Execution                         execution,
+                    partitioning::ByDirection         byDirection,
+                    std::vector<Neon::set::Transfer>& transfersVec) {
+                auto const& spanLayout = grid.mData->partitioner1D.getSpanLayout();
+                {  // up
+                    Neon::set::Transfer::Endpoint_t srcData;
+                    Neon::set::Transfer::Endpoint_t dstData;
+
+                    auto invertedDirection =
+                        byDirection == partitioning::ByDirection::up
+                            ? partitioning::ByDirection::down
+                            : partitioning::ByDirection::up;
+                    {
+                        auto const& boundaryBounds = spanLayout.getBoundsBoundary(setIdxSrc, byDirection);
+
+                        auto& srcPartition = this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+                        srcData.mem = srcPartition.mem() + boundaryBounds.first;
+                        srcData.devId = setIdxSrc.idx();
+                    }
+
+                    {
+                        Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc);
+                        auto const&  ghostBounds = spanLayout.getGhostBoundary(setIdxDst, invertedDirection);
+
+                        auto& dstPartition = this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
+                        dstData.mem = dstPartition.mem() + ghostBounds.first;
+                        dstData.devId = setIdxDst.idx();
+                    }
+                }
+            });
+    }
 #if 0
     {  // Setting Reduction information
         mData->partitionTable.forEachConfigurationWithUserData(

@@ -100,7 +100,7 @@ class Backend
 
     template <typename Lambda>
     auto forEachDeviceSeq(const Lambda& lambda)
-        const -> void ;
+        const -> void;
 
     auto getDeviceCount()
         const -> int;
@@ -127,6 +127,15 @@ class Backend
         const
         -> const Neon::Runtime&;
 
+    template <typename T>
+    auto deviceToDeviceTransfer(int          streamId,
+                                size_t          nItems,
+                                Neon::set::TransferMode transferMode,
+                                Neon::SetIdx dstSet,
+                                T*           dstAddr,
+                                Neon::SetIdx srcSet,
+                                T const*     srcAddr)
+        -> void;
     /**
      * Run mode: sync/async
      */
@@ -263,6 +272,16 @@ class Backend
 
     auto toReport(Neon::Report& report, Report::SubBlock* subdocAPI = nullptr) const -> void;
     void syncEvent(SetIdx setIdx, int eventIdx) const;
+
+   private:
+    auto helpDeviceToDeviceTransferByte(int                     streamId,
+                                        size_t                  bytes,
+                                        Neon::set::TransferMode transferMode,
+                                        Neon::SetIdx            dstSet,
+                                        char*                   dstAddr,
+                                        Neon::SetIdx            srcSet,
+                                        const char*             srcAddr)
+        -> void;
 };
 
 }  // namespace Neon

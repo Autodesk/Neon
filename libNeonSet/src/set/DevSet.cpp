@@ -12,13 +12,13 @@
 namespace Neon {
 namespace set {
 
-//namespace internal {
+// namespace internal {
 ///**
 // * thread local storage to call cpuRun
 // */
-//thread_local launchGridInfo_t g_launchGridInfo_t;
+// thread_local launchGridInfo_t g_launchGridInfo_t;
 //}
-//#pragma omp threadprivate(a)
+// #pragma omp threadprivate(a)
 
 DevSet::DevSet(const std::vector<Neon::sys::ComputeID>& set)
 {
@@ -27,7 +27,7 @@ DevSet::DevSet(const std::vector<Neon::sys::ComputeID>& set)
 }
 
 //
-//DevSet::DevSet(const Neon::dev_et::enum_e& devType, const std::vector<Neon::sys::gpu_id>& set)
+// DevSet::DevSet(const Neon::dev_et::enum_e& devType, const std::vector<Neon::sys::gpu_id>& set)
 //{
 //    this->set(devType, set);
 //}
@@ -398,13 +398,13 @@ const std::vector<int> DevSet::userIdVec() const
 }
 
 
-template <Neon::set::TransferMode transferMode_ta>
-[[deprecated("Use non template version")]] auto DevSet::peerTransfer(const StreamSet& streamSet,
-                                                                     SetIdx           dstSetId,
-                                                                     char*            dstBuf,
-                                                                     SetIdx           srcSetIdx,
-                                                                     const char*      srcBuf,
-                                                                     size_t           numBytes)
+auto DevSet::peerTransfer(TransferMode     transferMode,
+                          const StreamSet& streamSet,
+                          SetIdx           dstSetId,
+                          char*            dstBuf,
+                          SetIdx           srcSetIdx,
+                          const char*      srcBuf,
+                          size_t           numBytes)
     const
     -> void
 {
@@ -412,7 +412,7 @@ template <Neon::set::TransferMode transferMode_ta>
         Neon::sys::ComputeID dstGpuIdx = this->devId(dstSetId);
         Neon::sys::ComputeID srcGpuIdx = this->devId(srcSetIdx);
 
-        switch (transferMode_ta) {
+        switch (transferMode) {
             case Neon::set::TransferMode::put: {
                 const Neon::sys::GpuDevice& srcDev = Neon::sys::globalSpace::gpuSysObj().dev(srcGpuIdx);
                 srcDev.memory.peerTransfer(streamSet[srcSetIdx], dstGpuIdx, dstBuf, srcGpuIdx, srcBuf, numBytes);
@@ -430,7 +430,7 @@ template <Neon::set::TransferMode transferMode_ta>
     NEON_THROW(exp);
 }
 
-auto DevSet::peerTransfer(PeerTransferOption&          opt,
+auto DevSet::peerTransfer(PeerTransferOption&        opt,
                           const Neon::set::Transfer& transfer)
     const
     -> void
@@ -483,23 +483,6 @@ auto DevSet::peerTransfer(PeerTransferOption&          opt,
     }
 }  // namespace set
 
-template auto Neon::set::DevSet::peerTransfer<Neon::set::TransferMode::put>(const StreamSet& streamSet,
-                                                                        SetIdx           dstSetId,
-                                                                        char*            dstBuf,
-                                                                        SetIdx           srcSetIdx,
-                                                                        const char*      srcBuf,
-                                                                        size_t           numBytes)
-    const
-    -> void;
-
-template auto Neon::set::DevSet::peerTransfer<Neon::set::TransferMode::get>(const StreamSet& streamSet,
-                                                                        SetIdx           dstSetId,
-                                                                        char*            dstBuf,
-                                                                        SetIdx           srcSetIdx,
-                                                                        const char*      srcBuf,
-                                                                        size_t           numBytes)
-    const
-    -> void;
 
 }  // namespace set
 }  // namespace Neon
