@@ -12,6 +12,7 @@
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/tools/PartitionTable.h"
 
+#include "Neon/domain/tools/HaloUpdateTable1DPartitioning.h"
 #include "dPartition.h"
 
 namespace Neon::domain::details::dGrid {
@@ -125,12 +126,7 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         -> void;
 
    private:
-    auto helpHaloUpdate(SetIdx                     setIdx,
-                        int                        streamIdx,
-                        Neon::set::StencilSemantic semantic,
-                        int const&                 cardIdx,
-                        Neon::set::TransferMode    transferMode,
-                        Neon::Execution            execution) const
+    auto initHaloUpdateTable()
         -> void;
 
 
@@ -164,6 +160,9 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         };
 
         Neon::domain::tool::PartitionTable<Partition, ReductionInformation> partitionTable;
+        Neon::domain::tool::HaloTable1DPartitioning                         latticeHaloUpdateTable;
+        Neon::domain::tool::HaloTable1DPartitioning                         soaHaloUpdateTable;
+        Neon::domain::tool::HaloTable1DPartitioning                         aosHaloUpdateTable;
         Neon::aGrid::Field<T, C>                                            memoryField;
 
         Neon::DataUse                     dataUse;

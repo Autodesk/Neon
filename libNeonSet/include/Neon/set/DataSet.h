@@ -238,6 +238,14 @@ struct DataSet
     }
 
     template <typename Lambda>
+    auto forEachSeq(Lambda const& fun) const
+    {
+        for (SetIdx id = 0; id < self().cardinality(); id++) {
+            fun(id, self()[id]);
+        }
+    }
+
+    template <typename Lambda>
     auto forEachPar(Lambda const& fun)
     {
         int cardCount = self().cardinality();

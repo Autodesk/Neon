@@ -577,13 +577,14 @@ auto Backend::getDeviceCount() const -> int
 {
     return m_data->devSet->setCardinality();
 }
+
 auto Backend::helpDeviceToDeviceTransferByte(int                     streamId,
                                              size_t                  bytes,
                                              Neon::set::TransferMode transferMode,
                                              Neon::SetIdx            dstSet,
                                              char*                   dstAddr,
                                              Neon::SetIdx            srcSet,
-                                             const char*             srcAddr) -> void
+                                             const char*             srcAddr) const-> void
 {
     if(bytes==0){
         return ;

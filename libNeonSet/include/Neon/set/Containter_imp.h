@@ -12,10 +12,10 @@
 #include "Neon/set/container/DeviceManagedContainer.h"
 #include "Neon/set/container/DeviceThenHostManagedContainer.h"
 #include "Neon/set/container/GraphContainer.h"
+#include "Neon/set/container/HostContainer.h"
 #include "Neon/set/container/HostManagedContainer.h"
 #include "Neon/set/container/OldDeviceManagedContainer.h"
 #include "Neon/set/container/SynchronizationContainer.h"
-#include "Neon/set/container/HostContainer.h"
 
 
 namespace Neon::set {
@@ -23,7 +23,7 @@ namespace Neon::set {
 
 template <typename DataContainerT, typename UserLoadingLambdaT>
 auto Container::factory(const std::string&                                 name,
-                        Neon::Execution execution,
+                        Neon::Execution                                    execution,
                         Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
                         const DataContainerT&                              a,
                         const UserLoadingLambdaT&                          f,
@@ -42,16 +42,16 @@ auto Container::factory(const std::string&                                 name,
 
 template <typename DataContainerT, typename UserLoadingLambdaT>
 auto Container::hostFactory(const std::string&                                 name,
-                        Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
-                        const DataContainerT&                              a,
-                        const UserLoadingLambdaT&                          f,
-                        const index_3d&                                    blockSize,
-                        std::function<int(const index_3d& blockSize)>      shMemSizeFun) -> Container
+                            Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport,
+                            const DataContainerT&                              a,
+                            const UserLoadingLambdaT&                          f,
+                            const index_3d&                                    blockSize,
+                            std::function<int(const index_3d& blockSize)>      shMemSizeFun) -> Container
 {
     using LoadingLambda = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
     auto k = new Neon::set::internal::HostContainer<DataContainerT, LoadingLambda>(name, dataViewSupport,
-                                                                                     a, f,
-                                                                                     blockSize, shMemSizeFun);
+                                                                                   a, f,
+                                                                                   blockSize, shMemSizeFun);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
     return {tmp};
@@ -115,15 +115,17 @@ auto Container::factoryDeviceManaged(const std::string&                         
 
 template <typename MultiXpuDataT>
 auto Container::
-    factoryDataTransfer(const MultiXpuDataT&       multiXpuData,
-                        Neon::set::TransferMode    transferMode,
-                        Neon::set::StencilSemantic transferSemantic,
-                        Neon::Execution execution)
+    factoryDataTransfer(const MultiXpuDataT&                                              multiXpuData,
+                        Neon::set::TransferMode                                           transferMode,
+                        Neon::set::StencilSemantic                                        transferSemantic,
+                        Neon::set::DataSet<std::vector<Neon::set::MemoryTransfer>> const& memoryTransfers,
+                        Neon::Execution                                                   execution)
         -> Neon::set::Container
 {
     auto k = new Neon::set::internal::DataTransferContainer(multiXpuData,
                                                             transferMode,
                                                             transferSemantic,
+                                                            memoryTransfers,
                                                             execution);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);

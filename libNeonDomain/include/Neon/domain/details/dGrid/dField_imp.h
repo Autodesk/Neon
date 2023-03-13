@@ -242,6 +242,8 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                     }
                 }
             });
+
+        this->initHaloUpdateTable();
     }
 }
 
@@ -336,184 +338,155 @@ auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
 }
 
 template <typename T, int C>
-auto dField<T, C>::helpHaloUpdate(SetIdx                     setIdx,
-                                  int                        streamIdx,
-                                  Neon::set::StencilSemantic semantic,
-                                  int const&                 cardIdx,
-                                  Neon::set::TransferMode    transferMode,
-                                  Neon::Execution            execution) const
+auto dField<T, C>::initHaloUpdateTable()
     -> void
 {
-#if 0
-    const int setCardinality = mData->grid->getBackend().devSet().setCardinality();
-
-    switch (mData->memoryOptions.getOrder()) {
-        case MemoryLayout::arrayOfStructs: {
-            if (cardIdx != -1) {
-                NEON_THROW_UNSUPPORTED_OPERATION("dField::haloUpdate() can not execute operation on a specific cardinality in a AoS memory layout");
-            }
-#pragma omp parallel for num_threads(setCardinality)
-            for (int setId = 0; setId < setCardinality; setId++) {
-                // Because we are in a arrayOfStructs layout mData->pitch[setId].z already includes the jump over cardinalities.
-                const size_t transferBytes = sizeof(T) * mData->zHaloDim * mData->pitch[setId].z;
-
-                auto messagingNorthRequired = [setCardinality](Neon::SetIdx setIdx) { return setIdx != setCardinality - 1; };
-
-                if (messagingNorthRequired(setId)) {  // Addressing all partitions that needs to send data north
-
-                    T* src = [&]() {
-                        auto  southDevice = setId;
-                        auto& partition = mData->partitionTable.getPartition(execution,
-                                                                            southDevice,
-                                                                            Neon::DataView::STANDARD);
-                        dIndex firstBoundaryNorthCell(0, 0, partition.dim.z - mData->zHaloDim);
-                        T*    result = partition.mem(firstBoundaryNorthCell, 0);
-                        return result;
-                    }();
-
-                    T* dst = [&]() {
-                        auto  northDevice = setId + 1;
-                        auto& partition = mData->partitionTable.getPartition(execution,
-                                                                            northDevice,
-                                                                            Neon::DataView::STANDARD);
-                        dIndex firstBoundarySouthCell(0, 0, 0);
-                        T*    result = partition.mem(firstBoundarySouthCell, 0);
-                        result = result - mData->zHaloDim * partition.getPitchData().z;
-                        return result;
-                    }();
-                }
-            }
-            break;
+    auto& grid = this->getGrid();
+    auto  bk = grid.getBackend();
+    auto  getNghSetIdx = [&](SetIdx setIdx, Neon::domain::tool::partitioning::ByDirection direction) {
+        int res;
+        if (direction == Neon::domain::tool::partitioning::ByDirection::up) {
+            res = (setIdx + 1) % bk.getDeviceCount();
+        } else {
+            res = (setIdx + bk.getDeviceCount() - 1) % bk.getDeviceCount();
         }
-    }
+        return res;
+    };
+
+    mData->soaHaloUpdateTable.forEachPutConfiguration(
+        bk, [&](Neon::SetIdx                                  setIdxSrc,
+                Execution                                     execution,
+                Neon::domain::tool::partitioning::ByDirection byDirection,
+                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
+            {
+                using namespace Neon::domain::tool::partitioning;
+
+                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
+                auto&        srcPartition = this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+                auto&        dstPartition = this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
+
+                int r = grid.getStencil().getRadius();
+
+                int ghostZBeginIdx[2];
+                int boundaryZBeginIdx[2];
+
+                ghostZBeginIdx[static_cast<int>(ByDirection::down)] = 0;
+                ghostZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z + r;
+
+                boundaryZBeginIdx[static_cast<int>(ByDirection::down)] = r;
+                boundaryZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z;
+
+                Neon::size_4d memPitch(1,
+                                       grid.getDimension().x,
+                                       grid.getDimension().x * grid.getDimension().y,
+                                       grid.getDimension().x * grid.getDimension().y * (grid.getDimension().z + 2 * r));
+
+                for (int j = 0; j < this->getCardinality(); j++) {
+
+                    T* srcMem = srcPartition.mem();
+                    T* dstMem = dstPartition.mem();
+
+                    Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[static_cast<int>(byDirection)], j);
+                    Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[static_cast<int>(byDirection)], j);
+
+                    Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + dstGhostBuff.mPitch(memPitch)},
+                                                       {setIdxSrc, srcMem + srcBoundaryBuff.mPitch(memPitch)},
+                                                       grid.getDimension().x * grid.getDimension().y * sizeof(T));
 
 
-#pragma omp parallel for num_threads(setCardinality)
-    for (int setId = 0; setId < setCardinality; setId++) {
-        switch (mData->memoryOptions.getOrder()) {
-            case MemoryLayout::arrayOfStructs: {
-                // send to the next partition (+z)
-                const size_t transferBytes = sizeof(T) * mData->zHaloDim * mData->pitch[setId].z;
-
-                if (setId != setCardinality - 1) {  // Addressing all partitions that needs to send data north
-                    auto& partition = mData->partitionTable.getPartition(Neon::Execution::device,
-                                                                        setId,
-                                                                        Neon::DataView::STANDARD);
-
-                    dIndex srcIdx(0, 0, partition.dim().z - 1);
-
-                    T* src = partition(src_idx, 0);
-                    field_compute[setId].mem() + field_compute[setId].elPitch(src_idx);
-
-                    dCell dst_idx(0, 0, 0);
-                    T*    dst = field_compute[setId + 1].mem() + +field_compute[setId + 1].elPitch(dst_idx);
-
-                    if (mData->devType == Neon::DeviceType::CPU) {
-                        std::memcpy(dst, src, transferBytes);
-                    } else if (mData->devType == Neon::DeviceType::CUDA) {
-                        bk.devSet().template peerTransfer<transferMode_ta>(
-                            streamSet,
-                            mData->grid->getDevSet().devId(setId + 1).idx(),  // dst
-                            (char*)(dst),
-                            mData->grid->getDevSet().devId(setId).idx(),  // src
-                            (char*)(src),
-                            transferBytes);
-                    } else {
-                        NEON_THROW_UNSUPPORTED_OPERATION("dFieldDev_t::haloUpdate() unsupported device.");
-                    }
+                    transfersVec.push_back(transfer);
                 }
-
-                // send to the previous partition (-z)
-                if (setId != 0) {
-                    dCell src_idx(0, 0, mData->zHaloDim);
-                    T*    src = field_compute[setId].mem() + field_compute[setId].elPitch(src_idx);
-
-                    dCell dst_idx(0, 0, field_compute[setId - 1].dim().z + mData->zHaloDim);
-                    T*    dst = field_compute[setId - 1].mem() + +field_compute[setId - 1].elPitch(dst_idx);
-
-                    if (mData->devType == Neon::DeviceType::CPU) {
-                        std::memcpy(dst, src, transferBytes);
-                    } else if (mData->devType == Neon::DeviceType::CUDA) {
-                        bk.devSet().template peerTransfer<transferMode_ta>(
-                            streamSet,
-                            mData->grid->getDevSet().devId(setId - 1).idx(),  // dst
-                            (char*)(dst),
-                            mData->grid->getDevSet().devId(setId).idx(),  // src
-                            (char*)(src),
-                            transferBytes);
-                    } else {
-                        NEON_THROW_UNSUPPORTED_OPERATION("dFieldDev_t::haloUpdate() unsupported device.");
-                    }
-                }
-                break;
             }
-            case Neon::memLayout_et::order_e::structOfArrays: {
+        });
 
-                int card = 0;
-                for (card = 0; card < mData->cardinality; card++) {
+    mData->aosHaloUpdateTable.forEachPutConfiguration(
+        bk, [&](Neon::SetIdx                                  setIdxSrc,
+                Execution                                     execution,
+                Neon::domain::tool::partitioning::ByDirection byDirection,
+                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
+            {
+                using namespace Neon::domain::tool::partitioning;
 
-                    size_t transferBytes = sizeof(T) * mData->zHaloDim * mData->pitch[setId].z;
+                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
+                auto&        srcPartition = this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+                auto&        dstPartition = this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
 
-                    if (cardIdx != -1) {
-                        card = cardIdx;
-                        transferBytes /= mData->cardinality;
-                    }
+                int r = grid.getStencil().getRadius();
 
-                    // send to the next partition (+z)
-                    if (setId != ndevs - 1) {
-                        dCell src_idx(0, 0, field_compute[setId].dim().z /*+mData->zHaloDim - mData->zHaloDim*/);
-                        T*    src = field_compute[setId].mem() + field_compute[setId].elPitch(src_idx, card);
+                int ghostZBeginIdx[2];
+                int boundaryZBeginIdx[2];
 
-                        dCell dst_idx(0, 0, 0);
-                        T*    dst = field_compute[setId + 1].mem() + +field_compute[setId + 1].elPitch(dst_idx, card);
+                ghostZBeginIdx[static_cast<int>(ByDirection::down)] = 0;
+                ghostZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z + r;
 
-                        if (mData->devType == Neon::DeviceType::CPU) {
-                            std::memcpy(dst, src, transferBytes);
-                        } else if (mData->devType == Neon::DeviceType::CUDA) {
-                            bk.devSet().template peerTransfer<transferMode_ta>(
-                                streamSet,
-                                mData->grid->getDevSet().devId(setId + 1).idx(),  // dst
-                                (char*)(dst),
-                                mData->grid->getDevSet().devId(setId).idx(),  // src
-                                (char*)(src),
-                                transferBytes);
-                        } else {
-                            NEON_THROW_UNSUPPORTED_OPERATION("dFieldDev_t::haloUpdate() unsupported device.");
-                        }
-                    }
+                boundaryZBeginIdx[static_cast<int>(ByDirection::down)] = r;
+                boundaryZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z;
 
-                    // send to the previous partition (-z)
-                    if (setId != 0) {
-                        dCell src_idx(0, 0, mData->zHaloDim);
-                        T*    src = field_compute[setId].mem() + field_compute[setId].elPitch(src_idx, card);
+                Neon::size_4d memPitch(this->getCardinality(),
+                                       grid.getDimension().x * this->getCardinality(),
+                                       grid.getDimension().x * grid.getDimension().y * this->getCardinality(),
+                                       0);
 
-                        dCell dst_idx(0, 0, field_compute[setId - 1].dim().z + mData->zHaloDim);
-                        T*    dst = field_compute[setId - 1].mem() + +field_compute[setId - 1].elPitch(dst_idx, card);
 
-                        if (mData->devType == Neon::DeviceType::CPU) {
-                            std::memcpy(dst, src, transferBytes);
-                        } else if (mData->devType == Neon::DeviceType::CUDA) {
-                            bk.devSet().template peerTransfer<transferMode_ta>(
-                                streamSet,
-                                mData->grid->getDevSet().devId(setId - 1).idx(),  // dst
-                                (char*)(dst),
-                                mData->grid->getDevSet().devId(setId).idx(),  // src
-                                (char*)(src),
-                                transferBytes);
-                        } else {
-                            NEON_THROW_UNSUPPORTED_OPERATION("dFieldDev_t::haloUpdate() unsupported device.");
-                        }
-                    }
+                T* srcMem = srcPartition.mem();
+                T* dstMem = dstPartition.mem();
 
-                    if (cardIdx != -1) {
-                        break;
-                    }
-                }
-                break;
+                Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[static_cast<int>(byDirection)], 0);
+                Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[static_cast<int>(byDirection)], 0);
+
+                Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + dstGhostBuff.mPitch(memPitch)},
+                                                   {setIdxSrc, srcMem + srcBoundaryBuff.mPitch(memPitch)},
+                                                   grid.getDimension().x * grid.getDimension().y * sizeof(T));
+
+                transfersVec.push_back(transfer);
             }
-        }
-    }
-#endif
+        });
+
+    mData->latticeHaloUpdateTable.forEachPutConfiguration(
+        bk, [&](Neon::SetIdx                                  setIdxSrc,
+                Execution                                     execution,
+                Neon::domain::tool::partitioning::ByDirection byDirection,
+                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
+            {
+                using namespace Neon::domain::tool::partitioning;
+
+                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
+                auto&        srcPartition = this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+                auto&        dstPartition = this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
+
+                int r = grid.getStencil().getRadius();
+
+                int ghostZBeginIdx[2];
+                int boundaryZBeginIdx[2];
+
+                ghostZBeginIdx[static_cast<int>(ByDirection::down)] = 0;
+                ghostZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z + r;
+
+                boundaryZBeginIdx[static_cast<int>(ByDirection::down)] = r;
+                boundaryZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z;
+
+                Neon::size_4d memPitch(1,
+                                       grid.getDimension().x,
+                                       grid.getDimension().x * grid.getDimension().y,
+                                       grid.getDimension().x * grid.getDimension().y * (grid.getDimension().z + 2 * r));
+
+                for (int j = 0; j < this->getCardinality(); j++) {
+
+                    T* srcMem = srcPartition.mem();
+                    T* dstMem = dstPartition.mem();
+
+                    Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[static_cast<int>(byDirection)], j);
+                    Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[static_cast<int>(byDirection)], j);
+
+                    Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + dstGhostBuff.mPitch(memPitch)},
+                                                       {setIdxSrc, srcMem + srcBoundaryBuff.mPitch(memPitch)},
+                                                       grid.getDimension().x * grid.getDimension().y * sizeof(T));
+
+
+                    transfersVec.push_back(transfer);
+                }
+            }
+        });
 }
 
 
@@ -524,17 +497,47 @@ auto dField<T, C>::
                   Neon::Execution            execution)
         const -> Neon::set::Container
 {
+
+
     // We need to define a graph of Containers
     // One for the actual memory transfer
     // One for the synchronization
     // The order depends on the transfer mode: put or get
-    Neon::set::Container dataTransferContainer =
-        Neon::set::Container::factoryDataTransfer(
-            *this,
-            transferMode,
-            stencilSemantic,
-            execution);
+    Neon::set::Container dataTransferContainer;
+    auto const&          bk = this->getGrid().getBackend();
 
+    if (stencilSemantic == Neon::set::StencilSemantic::standard) {
+        auto transfers = bk.template newDataSet<std::vector<Neon::set::MemoryTransfer>>();
+
+        if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::structOfArrays) {
+            for (auto byDirection : {tool::partitioning::ByDirection::up,
+                                     tool::partitioning::ByDirection::down}) {
+
+                auto const& tableEntryByDir = mData->soaHaloUpdateTable.get(transferMode,
+                                                                            execution,
+                                                                            byDirection);
+
+                tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
+                    transfers[setIdx].insert(std::end(transfers[setIdx]),
+                                             std::begin(tableEntryByDirBySetIdx),
+                                             std::end(tableEntryByDirBySetIdx));
+                });
+            }
+            dataTransferContainer =
+                Neon::set::Container::factoryDataTransfer(
+                    *this,
+                    transferMode,
+                    stencilSemantic,
+                    transfers,
+                    execution);
+
+
+        } else {
+            NEON_DEV_UNDER_CONSTRUCTION("");
+        }
+    } else {
+        NEON_DEV_UNDER_CONSTRUCTION("");
+    }
     Neon::set::Container SyncContainer =
         Neon::set::Container::factorySynchronization(
             *this,

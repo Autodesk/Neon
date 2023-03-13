@@ -17,6 +17,10 @@ NEON_CUDA_HOST_DEVICE inline auto eIndex::get() const -> const InternalIdx&
 {
     return mIdx;
 }
+auto eIndex::manualSet(eIndex::InternalIdx idx) -> void
+{
+    mIdx = idx;
+}
 
 
 }  // namespace Neon::domain::dense

@@ -102,6 +102,10 @@ class Backend
     auto forEachDeviceSeq(const Lambda& lambda)
         const -> void;
 
+    template <typename Lambda>
+    auto forEachDevicePar(const Lambda& lambda)
+        const -> void;
+
     auto getDeviceCount()
         const -> int;
 
@@ -135,7 +139,7 @@ class Backend
                                 T*           dstAddr,
                                 Neon::SetIdx srcSet,
                                 T const*     srcAddr)
-        -> void;
+      const  -> void;
     /**
      * Run mode: sync/async
      */
@@ -281,7 +285,7 @@ class Backend
                                         char*                   dstAddr,
                                         Neon::SetIdx            srcSet,
                                         const char*             srcAddr)
-        -> void;
+    const    -> void;
 };
 
 }  // namespace Neon

@@ -40,6 +40,17 @@ auto Backend::forEachDeviceSeq(const Lambda& lambda)
     }
 }
 
+template <typename Lambda>
+auto Backend::forEachDevicePar(const Lambda& lambda)
+    const -> void
+{
+    int const nDevs = getDeviceCount();
+#pragma omp parallel for num_threads(nDevs) shared(lambda) default(none)
+    for (int i = 0; i < nDevs; i++) {
+        lambda(Neon::SetIdx(i));
+    }
+}
+
 template <typename T>
 auto Backend::deviceToDeviceTransfer(int                     streamId,
                                      size_t                  nItems,
@@ -47,7 +58,7 @@ auto Backend::deviceToDeviceTransfer(int                     streamId,
                                      Neon::SetIdx            dstSet,
                                      T*                      dstAddr,
                                      Neon::SetIdx            srcSet,
-                                     T const*                srcAddr) -> void
+                                     T const*                srcAddr) const -> void
 {
     helpDeviceToDeviceTransferByte(streamId,
                                    sizeof(T) * nItems,

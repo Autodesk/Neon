@@ -64,9 +64,9 @@ eField<T, C>::eField(const std::string&         fieldUserName,
     {
 
         auto& bk = grid.getBackend();
-        auto  getNghSetIdx = [&](SetIdx setIdx, partitioning::ByDirection direction) {
+        auto  getNghSetIdx = [&](SetIdx setIdx, Neon::domain::tool::partitioning::ByDirection direction) {
             int res;
-            if (direction == partitioning::ByDirection::up) {
+            if (direction == Neon::domain::tool::partitioning::ByDirection::up) {
                 res = (setIdx + 1) % bk.getDeviceCount();
             } else {
                 res = (setIdx + bk.getDeviceCount() - 1) % bk.getDeviceCount();
@@ -75,36 +75,38 @@ eField<T, C>::eField(const std::string&         fieldUserName,
         };
 
         // Setting up halo update table
-        mData->haloTransfers.forEachConfiguration(
-            bk, [&](Neon::SetIdx                      setIdxSrc,
-                    Neon::set::TransferMode           transferMode,
-                    Execution                         execution,
-                    partitioning::ByDirection         byDirection,
-                    std::vector<Neon::set::Transfer>& transfersVec) {
+        mData->haloTransfers.forEachPutConfiguration(
+            bk, [&](Neon::SetIdx                                  setIdxSrc,
+                    Execution                                     execution,
+                    Neon::domain::tool::partitioning::ByDirection byDirection,
+                    std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
                 auto const& spanLayout = grid.mData->partitioner1D.getSpanLayout();
                 {  // up
-                    Neon::set::Transfer::Endpoint_t srcData;
-                    Neon::set::Transfer::Endpoint_t dstData;
+                    Neon::set::MemoryTransfer::Endpoint srcData, dstData;
 
-                    auto invertedDirection =
-                        byDirection == partitioning::ByDirection::up
-                            ? partitioning::ByDirection::down
-                            : partitioning::ByDirection::up;
-                    {
-                        auto const& boundaryBounds = spanLayout.getBoundsBoundary(setIdxSrc, byDirection);
+                    auto const& boundaryBounds = spanLayout.getBoundsBoundary(setIdxSrc, byDirection);
 
-                        auto& srcPartition = this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
-                        srcData.mem = srcPartition.mem() + boundaryBounds.first;
-                        srcData.devId = setIdxSrc.idx();
-                    }
+                    auto const invertedDirection =
+                        byDirection == Neon::domain::tool::partitioning::ByDirection::up
+                            ? Neon::domain::tool::partitioning::ByDirection::down
+                            : Neon::domain::tool::partitioning::ByDirection::up;
+                    Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
+                    auto const&  ghostBounds = spanLayout.getGhostBoundary(setIdxDst, invertedDirection);
 
-                    {
-                        Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc);
-                        auto const&  ghostBounds = spanLayout.getGhostBoundary(setIdxDst, invertedDirection);
+                    auto& srcPartition = this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+                    auto& dstPartition = this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
 
-                        auto& dstPartition = this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
-                        dstData.mem = dstPartition.mem() + ghostBounds.first;
-                        dstData.devId = setIdxDst.idx();
+                    eIndex eIndexSrc, eIndexDst;
+                    eIndexSrc.manualSet(boundaryBounds.first);
+                    eIndexDst.manualSet(ghostBounds.first);
+
+                    for (int j = 0; j < this->getCardinality(); j++) {
+
+                        Neon::set::MemoryTransfer transfer({setIdxDst, &dstPartition.operator()(eIndexDst, j)},
+                                                           {setIdxSrc, &srcPartition.operator()(eIndexSrc, j)},
+                                                           ghostBounds.count * sizeof(T));
+
+                        transfersVec.push_back(transfer);
                     }
                 }
             });

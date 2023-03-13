@@ -6,12 +6,13 @@
 #include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/HuOptions.h"
+#include "Neon/set/MemoryTransfer.h"
 
 
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/tools/PartitionTable.h"
-
+#include "Neon/domain/tools/HaloUpdateTable1DPartitioning.h"
 #include "ePartition.h"
 
 namespace Neon::domain::details::eGrid {
@@ -163,49 +164,80 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
             std::vector<int> nElementsByView /* one entry for each cardinality */;
         };
 
-        struct HaloTransfers
-        {
-            using SetType =
-                std::array<
-                    std::array<
-                        std::array<
-                            Neon::set::DataSet<std::vector<Neon::set::Transfer>>,
-                            partitioning::ByDirectionUtils::nConfigs>,
-                        ExecutionUtils::numConfigurations>,
-                    Neon::set::TransferModeUtils::nOptions>;
-            SetType table;
-
-            template <typename Lambda>
-            auto forEachConfiguration(Neon::Backend& bk, Lambda const& lambda) -> void
-            {
-                for (auto transfer : {Neon::set::TransferMode::get, Neon::set::TransferMode::put}) {
-                    for (auto execution : {Execution::device, Execution::host}) {
-                        for (auto byDirection : {partitioning::ByDirection::up, partitioning::ByDirection::down}) {
-                            //                                       upOut[setIdx][static_cast<unsigned long>(transfer)][static_cast<unsigned long>(execution)],
-                            auto& tableEntryRW = table[static_cast<unsigned long>(transfer)]
-                                                      [static_cast<unsigned long>(execution)]
-                                                      [static_cast<unsigned long>(byDirection)];
-                            tableEntryRW = bk.newDataSet<std::vector<Neon::set::Transfer>>();
-
-                            tableEntryRW.forEachSeq([&](SetIdx setIdx, auto& stdVecOfTRansfers) {
-                                lambda(setIdx, transfer, execution, byDirection, stdVecOfTRansfers);
-                            });
-                        }
-                    }
-                }
-            }
-        };
+        //        struct HaloTransfers
+        //        {
+        //            using SetType =
+        //                std::array<
+        //                    std::array<
+        //                        std::array<
+        //                            Neon::set::DataSet<std::vector<Neon::set::MemoryTransfer>>,
+        //                            Neon::domain::tool::partitioning::ByDirectionUtils::nConfigs>,
+        //                        ExecutionUtils::numConfigurations>,
+        //                    Neon::set::TransferModeUtils::nOptions>;
+        //            SetType table;
+        //
+        //            template <typename Lambda>
+        //            auto forEachPutConfiguration(const Neon::Backend& bk, Lambda const& lambda) -> void
+        //            {
+        //                using namespace Neon::domain::tool;
+        //                for (auto execution : {Execution::device, Execution::host}) {
+        //                    for (auto byDirection : {partitioning::ByDirection::up, partitioning::ByDirection::down}) {
+        //                        //                                       upOut[setIdx][static_cast<unsigned long>(transfer)][static_cast<unsigned long>(execution)],
+        //                        auto& tableEntryRW = table[static_cast<unsigned long>(Neon::set::TransferMode::put)]
+        //                                                  [static_cast<unsigned long>(execution)]
+        //                                                  [static_cast<unsigned long>(byDirection)];
+        //                        tableEntryRW = bk.newDataSet<std::vector<Neon::set::MemoryTransfer>>();
+        //
+        //                        tableEntryRW.forEachSeq([&](SetIdx setIdx, auto& stdVecOfTRansfers) {
+        //                            lambda(setIdx, execution, byDirection, stdVecOfTRansfers);
+        //                        });
+        //                    }
+        //                }
+        //
+        //                auto  getNghSetIdx = [&](SetIdx setIdx, Neon::domain::tool::partitioning::ByDirection direction) {
+        //                    int res;
+        //                    if (direction == Neon::domain::tool::partitioning::ByDirection::up) {
+        //                        res = (setIdx + 1) % bk.getDeviceCount();
+        //                    } else {
+        //                        res = (setIdx + bk.getDeviceCount() - 1) % bk.getDeviceCount();
+        //                    }
+        //                    return res;
+        //                };
+        //
+        //                for (auto execution : {Execution::device, Execution::host}) {
+        //                    for (auto byDirection : {partitioning::ByDirection::up, partitioning::ByDirection::down}) {
+        //                        //                                       upOut[setIdx][static_cast<unsigned long>(transfer)][static_cast<unsigned long>(execution)],
+        //                        auto const& tableEntryRO = table[static_cast<unsigned long>(Neon::set::TransferMode::put)]
+        //                                                  [static_cast<unsigned long>(execution)]
+        //                                                  [static_cast<unsigned long>(byDirection)];
+        //                        auto& tableEntryRW = table[static_cast<unsigned long>(Neon::set::TransferMode::get)]
+        //                                                  [static_cast<unsigned long>(execution)]
+        //                                                  [static_cast<unsigned long>(byDirection)];
+        //                        tableEntryRW = bk.newDataSet<std::vector<Neon::set::MemoryTransfer>>();
+        //
+        //                        tableEntryRW.forEachSeq([&](SetIdx setIdx, auto& stdVecOfTRansfers) {
+        //                            Neon::SetIdx otherSetIdx = getNghSetIdx(setIdx, byDirection);
+        //                            for(auto putTransfer : tableEntryRO[otherSetIdx]){
+        //                                if(putTransfer.dst.setIdx == setIdx){
+        //                                    stdVecOfTRansfers.push_back(putTransfer);
+        //                                }
+        //                            }
+        //                        });
+        //                    }
+        //                }
+        //            }
+        //        };
 
         Neon::domain::tool::PartitionTable<Partition, ReductionInformation> partitionTable;
         Neon::aGrid::Field<T, C>                                            memoryField;
 
-        Neon::DataUse         dataUse;
-        Neon::MemoryOptions   memoryOptions;
-        int                   cardinality;
-        std::shared_ptr<Grid> grid;
-        bool                  periodic_z;
-        T                     inactiveValue;
-        HaloTransfers         haloTransfers;
+        Neon::DataUse                               dataUse;
+        Neon::MemoryOptions                         memoryOptions;
+        int                                         cardinality;
+        std::shared_ptr<Grid>                       grid;
+        bool                                        periodic_z;
+        T                                           inactiveValue;
+        Neon::domain::tool::HaloTable1DPartitioning haloTransfers;
     };
 
     std::shared_ptr<Data> mData;
