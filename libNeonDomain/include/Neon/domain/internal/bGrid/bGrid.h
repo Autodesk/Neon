@@ -119,6 +119,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getDimension() const -> const Neon::index_3d;
 
     auto getNumBlocks() const -> const Neon::set::DataSet<uint64_t>&;
+    auto getNumBlocksAlocSize() const -> const Neon::set::DataSet<uint64_t>&;
     auto getNumTrays() const -> const Neon::set::DataSet<uint64_t>&;
     auto getBlockSize() const -> int;
     auto getVoxelSpacing() const -> int;
@@ -164,6 +165,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         //a tray could contains one or more blocks
         //blocks within a tray take contiguous numbers
         Neon::set::DataSet<uint64_t> mNumTrays;
+        //number of blocks for allocation purposes
+        Neon::set::DataSet<uint64_t> mNumBlockAlocSize;
     };
     std::shared_ptr<Data> mData;
 };

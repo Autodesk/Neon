@@ -51,6 +51,8 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
 
     mData->mTotalNumBlocks.resize(mData->mDescriptor.getDepth());
 
+    //bitmask of the active cells at each level and works as if the grid is dense at each level
+    std::vector<std::vector<uint32_t>> denseLevelsBitmask;
 
     for (int i = 0; i < mData->mDescriptor.getDepth(); ++i) {
 
@@ -65,7 +67,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
         std::vector<uint32_t> msk(NEON_DIVIDE_UP(refFactor * refFactor * refFactor * mData->mTotalNumBlocks[i].rMul(),
                                                  Cell::sMaskSize),
                                   0);
-        mData->denseLevelsBitmask.push_back(msk);
+        denseLevelsBitmask.push_back(msk);
     }
 
     //check if the bitmask is set assuming a dense domain
@@ -77,13 +79,13 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
     };
     auto levelBitMaskIsSet = [&](int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) {
         auto id = levelBitMaskIndex(l, blockID, localChild);
-        return mData->denseLevelsBitmask[l][id.first] & (1 << id.second);
+        return denseLevelsBitmask[l][id.first] & (1 << id.second);
     };
 
     //set the bitmask assuming a dense domain
     auto setLevelBitMask = [&](int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) {
         auto id = levelBitMaskIndex(l, blockID, localChild);
-        mData->denseLevelsBitmask[l][id.first] |= (1 << id.second);
+        denseLevelsBitmask[l][id.first] |= (1 << id.second);
     };
 
     //Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
@@ -279,7 +281,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
         mData->mParentBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                                  1,
                                                                                  memOptionsAoS,
-                                                                                 mData->grids[l].getNumBlocks());
+                                                                                 mData->grids[l].getNumBlocksAlocSize());
     }
 
     //child block ID
@@ -288,8 +290,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
         childAllocSize[l] = backend.devSet().template newDataSet<uint64_t>();
         for (int64_t i = 0; i < childAllocSize[l].size(); ++i) {
             if (l > 0) {
-                childAllocSize[l][i] = mData->grids[l].getNumBlocks()[i] *
-                                       descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l);
+                childAllocSize[l][i] = mData->grids[l].getNumBlocksAlocSize()[i] * descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l);
             } else {
                 //we actually don't need to store anything at level 0
                 childAllocSize[l][i] = 1;
@@ -312,7 +313,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
         mData->mParentLocalID[l] = backend.devSet().template newMemSet<Cell::Location>({Neon::DataUse::IO_COMPUTE},
                                                                                        1,
                                                                                        memOptionsAoS,
-                                                                                       mData->grids[l].getNumBlocks());
+                                                                                       mData->grids[l].getNumBlocksAlocSize());
     }
 
 
@@ -357,7 +358,7 @@ mGrid::mGrid(const Neon::Backend&                                    backend,
             Neon::int32_3d block3DIndex = blockOrigin / spacing;
 
 
-            //set active mask and child ID
+            //set child ID
             for (Cell::Location::Integer z = 0; z < refFactor; z++) {
                 for (Cell::Location::Integer y = 0; y < refFactor; y++) {
                     for (Cell::Location::Integer x = 0; x < refFactor; x++) {
@@ -510,37 +511,7 @@ auto mGrid::getLaunchParameters(Neon::DataView                         dataView,
                                 const size_t&                          sharedMem,
                                 int                                    level) const -> Neon::set::LaunchParameters
 {
-    if (dataView != Neon::DataView::STANDARD) {
-        NEON_WARNING("Requesting LaunchParameters on {} data view but mGrid only supports Standard data view on a single GPU",
-                     Neon::DataViewUtil::toString(dataView));
-    }
-
-    const Neon::int32_3d cuda_block(mData->mDescriptor.getRefFactor(level),
-                                    mData->mDescriptor.getRefFactor(level),
-                                    mData->mDescriptor.getRefFactor(level));
-
-    Neon::set::LaunchParameters ret = mData->backend.devSet().newLaunchParameters();
-    for (int i = 0; i < ret.cardinality(); ++i) {
-        if (mData->backend.devType() == Neon::DeviceType::CUDA) {
-            ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::cudaGridMode,
-                       Neon::int32_3d(int32_t(mData->grids[level].getNumBlocks()[i]), 1, 1),
-                       cuda_block, sharedMem);
-        } else {
-            ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::domainGridMode,
-                       Neon::int32_3d(int32_t(mData->grids[level].getNumBlocks()[i]) *
-                                          mData->mDescriptor.getRefFactor(level) *
-                                          mData->mDescriptor.getRefFactor(level) *
-                                          mData->mDescriptor.getRefFactor(level),
-                                      1, 1),
-                       cuda_block, sharedMem);
-        }
-    }
-    return ret;
-}
-
-auto mGrid::getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&
-{
-    return mData->grids[level].getNumBlocks();
+    return mData->grids[level].getLaunchParameters(dataView, blockSize, sharedMem);
 }
 
 auto mGrid::getParentsBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&

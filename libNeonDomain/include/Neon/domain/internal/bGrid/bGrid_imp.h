@@ -83,7 +83,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                           gz * bCell::sBlockAllocGranularity * voxelSpacing);
 
                 int      numBlocksInTray = 0;
-                uint32_t blockId = uint32_t( mData->mNumTrays[0] * blocksPerTray * blocksPerTray * blocksPerTray);
+                uint32_t blockId = uint32_t(mData->mNumTrays[0] * blocksPerTray * blocksPerTray * blocksPerTray);
 
                 for (int bz = 0; bz < blocksPerTray; bz++) {
                     for (int by = 0; by < blocksPerTray; by++) {
@@ -113,7 +113,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                             numActiveVoxel[0] += numVoxelsInBlock;
 
                             if (numVoxelsInBlock > 0) {
-                                mData->mNumBlocks[0]++;                                
+                                mData->mNumBlocks[0]++;
                                 mData->mBlockOriginTo1D.addPoint(blockOrigin, blockId);
                                 numBlocksInTray++;
                             }
@@ -167,9 +167,9 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
     //This is the number of blocks for allocation purposes i.e., the number of tray * number of blocks per tray
     //we do this since the allocation granularity is the tray size (not the block size)
-    Neon::set::DataSet<uint64_t> numBlockAlocSize = backend.devSet().template newDataSet<uint64_t>();
-    for (int64_t i = 0; i < numBlockAlocSize.size(); ++i) {
-        numBlockAlocSize[i] = mData->mNumTrays[i] * blocksPerTray * blocksPerTray * blocksPerTray;
+    mData->mNumBlockAlocSize = backend.devSet().template newDataSet<uint64_t>();
+    for (int64_t i = 0; i < mData->mNumBlockAlocSize.size(); ++i) {
+        mData->mNumBlockAlocSize[i] = mData->mNumTrays[i] * blocksPerTray * blocksPerTray * blocksPerTray;
     }
 
     //origin
@@ -178,13 +178,13 @@ bGrid::bGrid(const Neon::Backend&         backend,
     mData->mOrigin = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::IO_COMPUTE},
                                                                          1,
                                                                          memOptionsAoS,
-                                                                         numBlockAlocSize);
+                                                                         mData->mNumBlockAlocSize);
 
 
     // block bitmask
     Neon::set::DataSet<uint64_t> activeMaskSize = backend.devSet().template newDataSet<uint64_t>();
     for (int64_t i = 0; i < activeMaskSize.size(); ++i) {
-        activeMaskSize[i] = numBlockAlocSize[i] *
+        activeMaskSize[i] = mData->mNumBlockAlocSize[i] *
                             NEON_DIVIDE_UP(blockSize * blockSize * blockSize,
                                            Cell::sMaskSize);
         //activeMaskSize[i] = NEON_DIVIDE_UP(mData->mNumTrays[i] * g * g * g,
@@ -211,7 +211,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
     mData->mNeighbourBlocks = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::IO_COMPUTE},
                                                                             26,
                                                                             memOptionsAoS,
-                                                                            numBlockAlocSize);
+                                                                            mData->mNumBlockAlocSize);
     // init neighbor blocks to invalid block id
     for (int32_t c = 0; c < mData->mNeighbourBlocks.cardinality(); ++c) {
         //TODO need to figure out which device owns this block

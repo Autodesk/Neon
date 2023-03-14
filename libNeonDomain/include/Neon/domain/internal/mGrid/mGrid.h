@@ -139,7 +139,6 @@ class mGrid
                              int                   level) const -> Neon::set::LaunchParameters;
 
 
-    auto getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&;
     auto getParentsBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
     auto getParentLocalID(int level) const -> const Neon::set::MemSet_t<Cell::Location>&;
     auto getChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
@@ -210,8 +209,6 @@ class mGrid
 
         bool mStrongBalanced;
 
-        //bitmask of the active cells at each level and works as if the grid is dense at each level
-        std::vector<std::vector<uint32_t>> denseLevelsBitmask;
 
         //collection of bGrids that make up the multi-resolution grid
         std::vector<InternalGrid> grids;

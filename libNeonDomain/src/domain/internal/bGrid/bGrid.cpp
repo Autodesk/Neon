@@ -149,6 +149,10 @@ auto bGrid::getNumBlocks() const -> const Neon::set::DataSet<uint64_t>&
     return mData->mNumBlocks;
 }
 
+auto bGrid::getNumBlocksAlocSize() const -> const Neon::set::DataSet<uint64_t>&
+{
+    return mData->mNumBlockAlocSize;
+}
 auto bGrid::getNumTrays() const -> const Neon::set::DataSet<uint64_t>&
 {
     return mData->mNumTrays;
