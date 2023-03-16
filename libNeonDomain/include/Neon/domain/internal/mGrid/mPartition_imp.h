@@ -62,7 +62,7 @@ NEON_CUDA_HOST_DEVICE inline Neon::index_3d mPartition<T, C>::mapToGlobal(const 
         ret.z += swirl.mLocation.z;
     } else {
 #endif
-        const int sp = (mLevel == 0) ? 1 : mSpacing[mLevel - 1];
+        const int sp = getSpacing();
         ret.x += cell.mLocation.x * sp;
         ret.y += cell.mLocation.y * sp;
         ret.z += cell.mLocation.z * sp;
@@ -80,9 +80,15 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getRefFactor(const int level
 }
 
 template <typename T, int C>
+inline NEON_CUDA_HOST_DEVICE auto mPartition<T, C>::getSpacing() const -> int
+{
+    return getSpacing(mLevel);
+}
+
+template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getSpacing(const int level) const -> int
 {
-    return mSpacing[level];
+    return (level == 0) ? 1 : mSpacing[mLevel - 1];
 }
 
 template <typename T, int C>
