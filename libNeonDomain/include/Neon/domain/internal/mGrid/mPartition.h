@@ -163,7 +163,7 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
 
    private:
     inline NEON_CUDA_HOST_DEVICE auto childID(const Cell& cell) const -> uint32_t;
-    inline NEON_CUDA_HOST_DEVICE auto getSpacing() const -> int override;
+    inline NEON_CUDA_HOST_DEVICE auto getSpacing() const -> int;
 
 
     int             mLevel;
