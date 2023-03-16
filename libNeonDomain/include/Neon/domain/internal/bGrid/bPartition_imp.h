@@ -135,7 +135,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell& cell,
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell&     cell,
                                                                const nghIdx_t& offset,
-                                                               const uint32_t* neighbourBlocks) const -> Cell
+                                                               const uint32_t* neighbourBlocks,
+                                                               const int       spacing) const -> Cell
 {
     Cell nghCell(cell.mLocation.x + offset.x,
                  cell.mLocation.y + offset.y,
@@ -184,19 +185,18 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell&     c
     auto updateNghCell = [&]() {
         //update the nghCell local index to be the local index in the neighbor block
         //the addition is done to avoid module operations on negative numbers
-        nghCell.mLocation.x = (nghCell.mLocation.x + cell.mBlockSize) % cell.mBlockSize;
-        nghCell.mLocation.y = (nghCell.mLocation.y + cell.mBlockSize) % cell.mBlockSize;
-        nghCell.mLocation.z = (nghCell.mLocation.z + cell.mBlockSize) % cell.mBlockSize;
+        Cell::Location::Integer bz = Cell::Location::Integer(cell.mBlockSize);
+        nghCell.mLocation.x = (nghCell.mLocation.x + bz) % bz;
+        nghCell.mLocation.y = (nghCell.mLocation.y + bz) % bz;
+        nghCell.mLocation.z = (nghCell.mLocation.z + bz) % bz;
     };
 
 
     //if the block size is less the block allocation granularity, then this means we can implicitly get the neighbor cell implicitly
     if (nghCell.mBlockSize < Cell::sBlockAllocGranularity) {
-        
-        const int spacing = getSpacing();
 
         const Neon::int32_3d cellOrigin = mOrigin[cell.mBlockID] / spacing + cell.mLocation.newType<int32_t>();
-                
+
         Neon::int32_3d nghOrigin(cellOrigin.x + offset.x, cellOrigin.y + offset.y, cellOrigin.z + offset.z);
         if (nghOrigin.x < 0 || nghOrigin.y < 0 || nghOrigin.z < 0) {
             nghCell.mBlockID = std::numeric_limits<uint32_t>::max();
@@ -219,9 +219,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::getNghCell(const Cell&     c
                 if (isNghInDifferentBlock()) {
                     const int numBlockPerTray = Cell::sBlockAllocGranularity / cell.mBlockSize;
 
-                    nghCell.mBlockID = cell.mBlockID + offset.mPitch(Neon::index_3d(numBlockPerTray,
-                                                                                    numBlockPerTray,
-                                                                                    numBlockPerTray));
+                    nghCell.mBlockID = cell.mBlockID + uint32_t(offset.mPitch(Neon::index_3d(numBlockPerTray,
+                                                                                             numBlockPerTray,
+                                                                                             numBlockPerTray)));
                 } else {
                     //or nghCell may reside on the same block
                     nghCell.mBlockID = cell.mBlockID;
@@ -266,40 +266,19 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
         return ret;
     }
 
-
-    if constexpr (Cell::sUseSwirlIndex) {
-        Cell swirl_cell = cell.toSwirl();
-        swirl_cell.mBlockSize = cell.mBlockSize;
-
-        Cell ngh_cell = getNghCell(swirl_cell, offset, getneighbourBlocksPtr(swirl_cell));
-        ngh_cell.mBlockSize = cell.mBlockSize;
-        if (ngh_cell.isActive()) {
-            //TODO maybe ngh_cell should be mapped to its memory layout
-            ret.isValid = ngh_cell.computeIsActive(mMask);
-            if (ret.isValid) {
-                if (mIsInSharedMem) {
-                    ngh_cell.mLocation.x = cell.mLocation.x + offset.x;
-                    ngh_cell.mLocation.y = cell.mLocation.y + offset.y;
-                    ngh_cell.mLocation.z = cell.mLocation.z + offset.z;
-                }
-                ret.value = this->operator()(ngh_cell, card);
+    Cell ngh_cell = getNghCell(cell, offset, getneighbourBlocksPtr(cell), 1);
+    if (ngh_cell.isActive()) {
+        ret.isValid = ngh_cell.computeIsActive(mMask);
+        if (ret.isValid) {
+            if (mIsInSharedMem) {
+                ngh_cell.mLocation.x = cell.mLocation.x + offset.x;
+                ngh_cell.mLocation.y = cell.mLocation.y + offset.y;
+                ngh_cell.mLocation.z = cell.mLocation.z + offset.z;
             }
-        }
-
-    } else {
-        Cell ngh_cell = getNghCell(cell, offset, getneighbourBlocksPtr(cell));
-        if (ngh_cell.isActive()) {
-            ret.isValid = ngh_cell.computeIsActive(mMask);
-            if (ret.isValid) {
-                if (mIsInSharedMem) {
-                    ngh_cell.mLocation.x = cell.mLocation.x + offset.x;
-                    ngh_cell.mLocation.y = cell.mLocation.y + offset.y;
-                    ngh_cell.mLocation.z = cell.mLocation.z + offset.z;
-                }
-                ret.value = this->operator()(ngh_cell, card);
-            }
+            ret.value = this->operator()(ngh_cell, card);
         }
     }
+
 
     return ret;
 }

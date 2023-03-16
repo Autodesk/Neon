@@ -72,6 +72,45 @@ NEON_CUDA_HOST_DEVICE inline Neon::index_3d mPartition<T, C>::mapToGlobal(const 
     return ret;
 }
 
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::nghVal(const Cell& eId,
+                                                           uint8_t     nghID,
+                                                           int         card,
+                                                           const T&    alternativeVal) const -> NghInfo<T>
+{
+    nghIdx_t nghOffset = mStencilNghIndex[nghID];
+    return mPartition<T, C>::nghVal(eId, nghOffset, card, alternativeVal);
+}
+
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::nghVal(const Cell&     cell,
+                                                           const nghIdx_t& offset,
+                                                           const int       card,
+                                                           const T         alternativeVal) const -> NghInfo<T>
+{
+    NghInfo<T> ret;
+    ret.value = alternativeVal;
+    ret.isValid = false;
+    if (!cell.mIsActive) {
+        return ret;
+    }
+
+    Cell ngh_cell = getNghCell(cell, offset, getneighbourBlocksPtr(cell), getSpacing());
+    if (ngh_cell.isActive()) {
+        ret.isValid = ngh_cell.computeIsActive(mMask);
+        if (ret.isValid) {
+            if (mIsInSharedMem) {
+                ngh_cell.mLocation.x = cell.mLocation.x + offset.x;
+                ngh_cell.mLocation.y = cell.mLocation.y + offset.y;
+                ngh_cell.mLocation.z = cell.mLocation.z + offset.z;
+            }
+            ret.value = this->operator()(ngh_cell, card);
+        }
+    }
+
+    return ret;
+}
+
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getRefFactor(const int level) const -> int

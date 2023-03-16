@@ -160,6 +160,16 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
     */
     NEON_CUDA_HOST_DEVICE inline Neon::index_3d mapToGlobal(const Cell& cell) const;
 
+    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Cell&     cell,
+                                             const nghIdx_t& offset,
+                                             const int       card,
+                                             const T         alternativeVal) const -> NghInfo<T>;
+
+    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Cell& eId,
+                                             uint8_t     nghID,
+                                             int         card,
+                                             const T&    alternativeVal) const -> NghInfo<T>;
+
 
    private:
     inline NEON_CUDA_HOST_DEVICE auto childID(const Cell& cell) const -> uint32_t;
