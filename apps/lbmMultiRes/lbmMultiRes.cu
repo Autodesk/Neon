@@ -2,6 +2,8 @@
 #include "Neon/domain/mGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
+#define STRINGIFY(x) TOSTRING(x)
+#define TOSTRING(x) #x
 
 enum CellType : int
 {
@@ -555,7 +557,8 @@ void postProcess(Neon::domain::mGrid&                        grid,
                  const Neon::domain::mGrid::Field<CellType>& cellType,
                  const int                                   iteration,
                  Neon::domain::mGrid::Field<T>&              vel,
-                 Neon::domain::mGrid::Field<T>&              rho)
+                 Neon::domain::mGrid::Field<T>&              rho,
+                 bool                                        generateValidateFile = false)
 {
     grid.getBackend().syncAll();
 
@@ -624,6 +627,25 @@ void postProcess(Neon::domain::mGrid&                        grid,
 
     vel.ioToVtk("Velocity_" + suffix.str());
     //rho.ioToVtk("Density_" + suffix.str());
+
+    if (generateValidateFile) {
+        const Neon::index_3d grid_dim = grid.getDimension();
+        std::ofstream        file;
+        file.open(STRINGIFY(MultiResLBMDir) "/NeonMultiResLBM_" + suffix.str() + ".dat");
+
+        for (int level = 0; level < numLevels; ++level) {
+            vel.forEachActiveCell(
+                level, [&](const Neon::index_3d& id, const int& card, T& val) {
+                    if (id.x == grid_dim.x / 2 && id.z == grid_dim.z / 2) {
+                        if (card == 0) {
+                            file << static_cast<double>(id.v[1]) / static_cast<double>(grid_dim.y) << " " << val << "\n";
+                        }
+                    }
+                },
+                Neon::computeMode_t::seq);
+        }
+        file.close();
+    }
 }
 
 int main(int argc, char** argv)
@@ -772,10 +794,10 @@ int main(int argc, char** argv)
             printf("\n Iteration = %d", t);
             skl.run();
             if (t % 200 == 0) {
-                postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho);
+                postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho, true);
             }
         }
 
-        postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, max_iter, vel, rho);
+        postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, max_iter, vel, rho, true);
     }
 }
