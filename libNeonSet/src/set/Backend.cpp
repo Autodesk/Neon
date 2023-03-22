@@ -584,20 +584,34 @@ auto Backend::helpDeviceToDeviceTransferByte(int                     streamId,
                                              Neon::SetIdx            dstSet,
                                              char*                   dstAddr,
                                              Neon::SetIdx            srcSet,
-                                             const char*             srcAddr) const-> void
+                                             const char*             srcAddr) const -> void
 {
-    if(bytes==0){
-        return ;
+    if (bytes == 0) {
+        return;
     }
     auto& devSet = this->devSet();
     auto& targetStreamSet = streamSet(streamId);
 
-    devSet.peerTransfer(transferMode,
-                        targetStreamSet,
-                        dstSet,
-                        dstAddr,
-                        srcSet,
-                        srcAddr,
-                        bytes);
+    devSet.transfer(transferMode,
+                    targetStreamSet,
+                    dstSet,
+                    dstAddr,
+                    srcSet,
+                    srcAddr,
+                    bytes);
+}
+
+auto Backend::deviceCount() const -> int
+{
+    return devSet().setCardinality();
+}
+
+auto Backend::isFirstDevice(Neon::SetIdx id) const -> bool
+{
+    return id.idx() == 0;
+}
+auto Backend::isLastDevice(Neon::SetIdx id) const -> bool
+{
+    return id.idx() == (deviceCount() - 1);
 }
 }  // namespace Neon

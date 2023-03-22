@@ -521,7 +521,8 @@ auto eField<T, C>::
                   Neon::Execution            execution)
         const -> Neon::set::Container
 {
-    // We need to define a graph of Containers
+    NEON_DEV_UNDER_CONSTRUCTION("");
+#if 0    // We need to define a graph of Containers
     // One for the actual memory transfer
     // One for the synchronization
     // The order depends on the transfer mode: put or get
@@ -560,6 +561,7 @@ auto eField<T, C>::
                                            graph,
                                            [](Neon::SetIdx, Neon::set::Loader&) {});
     return output;
+#endif
 }
 
 template <typename T, int C>

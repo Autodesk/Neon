@@ -24,7 +24,12 @@ class MemoryTransfer
         }
 
         auto set(Neon::SetIdx devId, void* mem) -> void;
-        auto toString(const std::string& prefix = "") const -> std::string;
+        auto toString(const std::string& prefix = "") const -> std::string{
+            std::stringstream s;
+            s<< prefix;
+            s << "SetId: "<< setIdx.idx() << " Mem: "<<mem;
+            return s.str();
+        }
     };
 
     Endpoint dst;
@@ -39,6 +44,12 @@ class MemoryTransfer
                    size_t          size)
         : dst(dst), src(src), size(size)
     {
+    }
+
+    auto toString() const ->std::string{
+       std::stringstream s;
+       s << "Dst: {"<< dst.toString() << "} Src: {"<<src.toString()<<"} Size: {"<<size<<"}";
+       return s.str();
     }
 };
 

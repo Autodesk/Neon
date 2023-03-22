@@ -398,13 +398,13 @@ const std::vector<int> DevSet::userIdVec() const
 }
 
 
-auto DevSet::peerTransfer(TransferMode     transferMode,
-                          const StreamSet& streamSet,
-                          SetIdx           dstSetId,
-                          char*            dstBuf,
-                          SetIdx           srcSetIdx,
-                          const char*      srcBuf,
-                          size_t           numBytes)
+auto DevSet::transfer(TransferMode     transferMode,
+                      const StreamSet& streamSet,
+                      SetIdx           dstSetId,
+                      char*            dstBuf,
+                      SetIdx           srcSetIdx,
+                      const char*      srcBuf,
+                      size_t           numBytes)
     const
     -> void
 {
@@ -424,6 +424,11 @@ auto DevSet::peerTransfer(TransferMode     transferMode,
                 return;
             }
         }
+    }
+
+    if (m_devType == Neon::DeviceType::CPU || m_devType == Neon::DeviceType::OMP) {
+        std::memcpy(dstBuf, srcBuf, numBytes);
+        return ;
     }
     Neon::NeonException exp("DevSet");
     exp << "Error, DevSet::invalid operation on a CPU type of device.\n";

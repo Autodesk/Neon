@@ -357,6 +357,7 @@ class dPartition
     }
 
    private:
+
     Neon::DataView m_dataView;
     T*          m_mem;
     Neon::index_3d m_dim;

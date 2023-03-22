@@ -40,7 +40,7 @@ auto stencilContainer_laplace(const Field& filedA,
                             count++;
                         }
                     };
-                    b(idx, i) = a(idx, i);  // - count * partial;
+                    b(idx, i) = a(idx, i) - count * partial;
                 }
             };
         },
@@ -70,7 +70,7 @@ auto run(TestData<G, T, C>& data) -> void
 
         for (int iter = 4; iter > 0; iter--) {
             X.newHaloUpdate(Neon::set::StencilSemantic::standard,
-                            Neon::set::TransferMode::get,
+                            Neon::set::TransferMode::put,
                             Neon::Execution::device)
                 .run(Neon::Backend::mainStreamIdx);
 
@@ -90,14 +90,24 @@ auto run(TestData<G, T, C>& data) -> void
         auto& X = data.getIODomain(FieldNames::X);
         auto& Y = data.getIODomain(FieldNames::Y);
         for (int iter = 4; iter > 0; iter--) {
-
             data.laplace(X, Y);
             data.laplace(Y, X);
         }
     }
 
     data.updateHostData();
+
+        data.getField(FieldNames::X).ioToVtk("X", "X", true);
+    //    data.getField(FieldNames::Y).ioToVtk("Y", "Y", false);
+    //    data.getField(FieldNames::Z).ioToVtk("Z", "Z", false);
+    //
+        data.getIODomain(FieldNames::X).ioToVti("X_", "X_");
+    //    data.getField(FieldNames::Y).ioVtiAllocator("Y_");
+    //    data.getField(FieldNames::Z).ioVtiAllocator("Z_");
+
     bool isOk = data.compare(FieldNames::X);
+     isOk = data.compare(FieldNames::Y);
+
     ASSERT_TRUE(isOk);
 }
 

@@ -45,7 +45,7 @@ auto Backend::forEachDevicePar(const Lambda& lambda)
     const -> void
 {
     int const nDevs = getDeviceCount();
-#pragma omp parallel for num_threads(nDevs) shared(lambda) default(none)
+#pragma omp parallel for num_threads(nDevs) shared(lambda, nDevs) default(none)
     for (int i = 0; i < nDevs; i++) {
         lambda(Neon::SetIdx(i));
     }

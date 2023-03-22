@@ -123,6 +123,19 @@ class Backend
     auto devSet()
         const
         -> const Neon::set::DevSet&;
+
+    auto deviceCount()
+        const
+        -> int;
+
+    auto isFirstDevice(Neon::SetIdx)
+        const
+        -> bool;
+
+    auto isLastDevice(Neon::SetIdx)
+        const
+        -> bool;
+
     /**
      * Returns the mode for the kernel lauch
      * @return

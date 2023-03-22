@@ -36,6 +36,21 @@ enum struct ByDirection
  struct ByDirectionUtils
 {
     static constexpr int nConfigs = 2;
+    static auto toString(ByDirection direction)
+        -> std::string
+    {
+        if(direction == ByDirection::up){
+            return "up";
+        }
+        return "down";
+    }
+
+    static auto invert(ByDirection direction){
+        if(direction == ByDirection::up){
+            return ByDirection::down;
+        }
+        return ByDirection::up;
+    }
 };
 
 }  // namespace Neon::domain::tools::partitioning

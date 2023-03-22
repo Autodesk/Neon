@@ -353,7 +353,7 @@ auto TestData<G, T, C>::laplace(IODomain& A, NEON_IO IODomain& B)
                 count++;
             }
         }
-        b = a;  // - count * res;
+        b = a - count * res;
     },
                                          A, B);
 }

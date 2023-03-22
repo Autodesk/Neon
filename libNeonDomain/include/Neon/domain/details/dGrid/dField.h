@@ -139,7 +139,7 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
            const Neon::MemoryOptions&                memoryOptions,
            const Grid&                               grid,
            const Neon::set::DataSet<Neon::index_3d>& dims,
-           int                                       zHaloDim,
+           int                                       zHaloRadius,
            Neon::domain::haloStatus_et::e            haloStatus,
            int                                       cardinality,
            Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset);
@@ -152,6 +152,15 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
             partitionTable.init(bk);
             pitch = bk.newDataSet<size_4d>();
         }
+
+        enum EndPoints {
+            src = 1,
+            dst = 0
+        };
+
+        struct EndPointsUtils {
+            static constexpr int  nConfigs = 2;
+        };
 
         struct ReductionInformation
         {

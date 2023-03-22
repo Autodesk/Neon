@@ -737,7 +737,7 @@ class DevSet
     // MEMORY TRANSFERS
     //--------------------------------------------------------------------------
 
-    auto peerTransfer(TransferMode transferMode,
+    auto transfer(TransferMode transferMode,
                       const StreamSet& streamSet,
                       SetIdx           dstSetId,
                       char*            dstBuf,
