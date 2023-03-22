@@ -698,7 +698,7 @@ int main(int argc, char** argv)
         //LBM problem
         const int             max_iter = 200000;
         const T               ulb = 0.04;
-        const T               Re = 1000;
+        const T               Re = 100;
         const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
         const T               visclb = ulb * clength / Re;
         const T               omega = 1.0 / (3. * visclb + 0.5);
@@ -793,7 +793,7 @@ int main(int argc, char** argv)
         for (int t = 0; t < max_iter; ++t) {
             printf("\n Iteration = %d", t);
             skl.run();
-            if (t % 200 == 0) {
+            if (t % 5000 == 0) {
                 postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho, true);
             }
         }
