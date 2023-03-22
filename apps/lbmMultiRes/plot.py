@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3), dpi=200)
 
 
-y_neon, u_neon = np.loadtxt('NeonMultiResLBM_135000.dat', unpack=True, usecols=(0, 1))
+y_neon, u_neon = np.loadtxt('NeonMultiResLBM_10000.dat', unpack=True, usecols=(0, 1))
 p = y_neon.argsort()
 u_neon = u_neon[p]
 y_neon = y_neon[p]
