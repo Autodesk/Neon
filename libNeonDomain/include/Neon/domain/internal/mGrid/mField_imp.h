@@ -99,14 +99,59 @@ mField<T, C>::mField(const std::string&         name,
 
 template <typename T, int C>
 auto mField<T, C>::forEachActiveCell(
-    const int                          level,
+    const int                                           level,
     const std::function<void(const Neon::index_3d&,
                              const int& cardinality,
-                             T&)>&     fun,
-    Neon::computeMode_t::computeMode_e mode)
+                             T&)>&                      fun,
+    [[maybe_unused]] Neon::computeMode_t::computeMode_e mode)
     -> void
 {
-    mData->fields[level].mData->field.forEachActiveCell(fun, mode);
+    //mData->fields[level].mData->field.forEachActiveCell(fun, mode);
+
+    auto      desc = mData->grid->getDescriptor();
+    auto      card = (*this)(0).getCardinality();
+    const int refFactor = desc.getRefFactor(level);
+    const int childSpacing = desc.getSpacing(level - 1);
+
+    (*(mData->grid))(level).getBlockOriginTo1D().forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
+        // TODO need to figure out which device owns this block
+        SetIdx devID(0);
+
+
+        for (int z = 0; z < refFactor; z++) {
+            for (int y = 0; y < refFactor; y++) {
+                for (int x = 0; x < refFactor; x++) {
+                    Cell cell(static_cast<Cell::Location::Integer>(x),
+                              static_cast<Cell::Location::Integer>(y),
+                              static_cast<Cell::Location::Integer>(z));
+                    cell.mBlockID = blockIdx;
+                    cell.mBlockSize = refFactor;
+
+                    if (cell.computeIsActive(
+                            (*(mData->grid))(level).getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
+
+                        Neon::int32_3d corner(blockOrigin.x + x * childSpacing,
+                                              blockOrigin.y + y * childSpacing,
+                                              blockOrigin.z + z * childSpacing);
+
+                        bool active = true;
+                        if (level != 0) {
+                            auto cornerIDIter = (*(mData->grid))(level - 1).getBlockOriginTo1D().getMetadata(corner);
+                            if (cornerIDIter) {
+                                active = false;
+                            }
+                        }
+
+                        if (active) {
+                            for (int c = 0; c < card; ++c) {
+                                fun(corner, c, (*this)(level).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(cell, c));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 
