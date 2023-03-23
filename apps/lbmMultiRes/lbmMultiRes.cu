@@ -2,108 +2,12 @@
 #include "Neon/domain/mGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
-#define STRINGIFY(x) TOSTRING(x)
-#define TOSTRING(x) #x
-
-enum CellType : int
-{
-    bounceBack = 0,
-    movingWall = 1,
-    bulk = 2,
-    undefined = 3,
-};
-
-/*NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity3D[27][3] = {
-    {0, 0, 0},    //0  -> 0   || 00000 -> 00000
-    {0, -1, 0},   //1  -> 2   || 00001 -> 00010
-    {0, 1, 0},    //2  -> 1   || 00010 -> 00001
-    {-1, 0, 0},   //3  -> 6   || 00100 -> 00110
-    {-1, -1, 0},  //4  -> 8   || 00100 -> 01000
-    {-1, 1, 0},   //5  -> 7   || 00101 -> 00111
-    {1, 0, 0},    //6  -> 3   || 00110 -> 00011
-    {1, -1, 0},   //7  -> 5   || 00111 -> 00101
-    {1, 1, 0},    //8  -> 4   || 01000 -> 00100
-
-    {0, 0, -1},    //9  -> 18 || 01000 -> 10010
-    {0, -1, -1},   //10 -> 20 || 01010 -> 10100
-    {0, 1, -1},    //11 -> 19 || 01011 -> 10011
-    {-1, 0, -1},   //12 -> 24 || 01100 -> 11000
-    {-1, -1, -1},  //13 -> 26 || 01101 -> 11010
-    {-1, 1, -1},   //14 -> 25 || 01110 -> 11001
-    {1, 0, -1},    //15 -> 21 || 01111 -> 10101
-    {1, -1, -1},   //16 -> 23 || 10000 -> 10111
-    {1, 1, -1},    //17 -> 22 || 10001 -> 10110
-
-    {0, 0, 1},    //18 -> 9   || 10010 -> 01001
-    {0, -1, 1},   //19 -> 11  || 10011 -> 01011
-    {0, 1, 1},    //20 -> 10  || 10100 -> 01010
-    {-1, 0, 1},   //21 -> 15  || 10101 -> 01111
-    {-1, -1, 1},  //22 -> 17  || 10110 -> 10001
-    {-1, 1, 1},   //23 -> 16  || 10111 -> 10000
-    {1, 0, 1},    //24 -> 12  || 11000 -> 01100
-    {1, -1, 1},   //25 -> 14  || 11001 -> 01110
-    {1, 1, 1}     //26 -> 13  || 11010 -> 01101
-
-};
-
-NEON_CUDA_DEVICE_ONLY static constexpr char latticeOppositeID[27] = {
-    //opposite q for 2d is a subset of what is in 3d so only use one
-    0, 2, 1, 6, 8, 7, 3, 5, 4, 18, 20, 19, 24, 26, 25, 21, 23, 22, 9, 11, 10, 15, 17, 16, 12, 14, 13};*/
-
-NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity3D[19][3] = {
-    {0, 0, 0},    //0  -> 0
-    {0, -1, 0},   //1  -> 2
-    {0, 1, 0},    //2  -> 1
-    {-1, 0, 0},   //3  -> 6
-    {-1, -1, 0},  //4  -> 8
-    {-1, 1, 0},   //5  -> 7
-    {1, 0, 0},    //6  -> 3
-    {1, -1, 0},   //7  -> 5
-    {1, 1, 0},    //8  -> 4
-
-    {0, 0, -1},   //9  -> 14
-    {0, -1, -1},  //10 -> 16
-    {0, 1, -1},   //11 -> 15
-    {-1, 0, -1},  //12 -> 18
-    {1, 0, -1},   //13 -> 17
-
-    {0, 0, 1},   //14 -> 9
-    {0, -1, 1},  //15 -> 11
-    {0, 1, 1},   //16 -> 10
-    {-1, 0, 1},  //17 -> 13
-    {1, 0, 1},   //18 -> 12
-
-};
-NEON_CUDA_DEVICE_ONLY static constexpr char latticeOppositeID[19] = {
-    //opposite q for 2d is a subset of what is in 3d so only use one
-    0, 2, 1, 6, 8, 7, 3, 5, 4, 14, 16, 15, 18, 17, 9, 11, 10, 13, 12};
-
+#include "lattice.h"
 
 NEON_CUDA_HOST_DEVICE Neon::int8_3d getDir(const int8_t q)
 {
-    return Neon::int8_3d(latticeVelocity3D[q][0], latticeVelocity3D[q][1], latticeVelocity3D[q][2]);
+    return Neon::int8_3d(latticeVelocity[q][0], latticeVelocity[q][1], latticeVelocity[q][2]);
 }
-
-template <int Q>
-struct latticeWeight
-{
-    NEON_CUDA_HOST_DEVICE __inline__ constexpr latticeWeight()
-        : t()
-    {
-        t[0] = 1.0f / 3.0f;
-        for (int i = 1; i < Q; ++i) {
-            if (latticeVelocity3D[i][0] * latticeVelocity3D[i][0] +
-                    latticeVelocity3D[i][1] * latticeVelocity3D[i][1] +
-                    latticeVelocity3D[i][2] * latticeVelocity3D[i][2] <
-                1.1f) {
-                t[i] = 2.0f / 36.0f;
-            } else {
-                t[i] = 1.0f / 36.0f;
-            }
-        }
-    }
-    float t[Q];
-};
 
 
 template <typename T>
@@ -145,7 +49,7 @@ NEON_CUDA_HOST_DEVICE Neon::Vec_3d<T> velocity(const T* fin,
     for (int i = 0; i < Q; ++i) {
         const T f = fin[i];
         for (int d = 0; d < 3; ++d) {
-            vel.v[d] += f * latticeVelocity3D[i][d];
+            vel.v[d] += f * latticeVelocity[i][d];
         }
     }
 
@@ -177,7 +81,7 @@ Neon::set::Container collide(Neon::domain::mGrid&                        grid,
 
                     if (!in.hasChildren(cell)) {
 
-                        constexpr auto t = latticeWeight<Q>();
+                        
 
                         //fin
                         T ins[Q];
@@ -199,12 +103,12 @@ Neon::set::Container collide(Neon::domain::mGrid&                        grid,
                         for (int i = 0; i < Q; ++i) {
                             T cu = 0;
                             for (int d = 0; d < 3; ++d) {
-                                cu += latticeVelocity3D[i][d] * vel.v[d];
+                                cu += latticeVelocity[i][d] * vel.v[d];
                             }
                             cu *= 3.0;
 
                             //equilibrium
-                            T feq = rho * t.t[i] * (1. + cu + 0.5 * cu * cu - usqr);
+                            T feq = rho * latticeWeights[i] * (1. + cu + 0.5 * cu * cu - usqr);
 
                             //collide
                             out(cell, i) = ins[i] - omega * (ins[i] - feq);
@@ -574,8 +478,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
 
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                        constexpr auto t = latticeWeight<Q>();
-
+                        
                         if (!pop.hasChildren(cell)) {
                             if (type(cell, 0) == CellType::bulk) {
 
@@ -631,7 +534,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
     if (generateValidateFile) {
         const Neon::index_3d grid_dim = grid.getDimension();
         std::ofstream        file;
-        file.open(STRINGIFY(MultiResLBMDir) "/NeonMultiResLBM_" + suffix.str() + ".dat");
+        file.open("NeonMultiResLBM_" + suffix.str() + ".dat");
 
         for (int level = 0; level < numLevels; ++level) {
             vel.forEachActiveCell(
@@ -665,19 +568,19 @@ int main(int argc, char** argv)
 
         const Neon::domain::mGridDescriptor descriptor(depth);
 
-        const Neon::index_3d grid_dim(160, 160, 160);
+        //const Neon::index_3d grid_dim(160, 160, 160);
+        //float                levelSDF[depth + 1];
+        //levelSDF[0] = 0;
+        //levelSDF[1] = -31.0 / 160.0;
+        //levelSDF[2] = -64 / 160.0;
+        //levelSDF[3] = -1.0;
+
+        const Neon::index_3d grid_dim(48, 48, 48);
         float                levelSDF[depth + 1];
         levelSDF[0] = 0;
-        levelSDF[1] = -31.0 / 160.0;
-        levelSDF[2] = -64 / 160.0;
+        levelSDF[1] = -8 / 24.0;
+        levelSDF[2] = -16 / 24.0;
         levelSDF[3] = -1.0;
-
-        //const Neon::index_3d grid_dim(48, 48, 48);
-        //float levelSDF[depth + 1];
-        //levelSDF[0] = 0;
-        //levelSDF[1] = -8 / 24.0;
-        //levelSDF[2] = -16 / 24.0;
-        //levelSDF[3] = -1.0;
 
         Neon::domain::mGrid grid(
             backend, grid_dim,
@@ -696,7 +599,7 @@ int main(int argc, char** argv)
             Neon::domain::Stencil::s19_t(false), descriptor);
 
         //LBM problem
-        const int             max_iter = 200000;
+        const int             max_iter = 2000;
         const T               ulb = 0.04;
         const T               Re = 100;
         const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
@@ -711,15 +614,14 @@ int main(int argc, char** argv)
 
         auto vel = grid.newField<T>("vel", 3, 0);
         auto rho = grid.newField<T>("rho", 1, 0);
-              
+
         //init fields
         for (int level = 0; level < descriptor.getDepth(); ++level) {
-            constexpr auto t = latticeWeight<Q>();
-
+            
             auto container =
                 grid.getContainer(
                     "Init_" + std::to_string(level), level,
-                    [&fin, &fout, &cellType, &vel, &rho, level, grid_dim, ulid, Q, t](Neon::set::Loader& loader) {
+                    [&fin, &fout, &cellType, &vel, &rho, level, grid_dim, ulid, Q](Neon::set::Loader& loader) {
                         auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                         auto& out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                         auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -739,7 +641,7 @@ int main(int argc, char** argv)
 
                                 //pop
                                 for (int q = 0; q < Q; ++q) {
-                                    T pop_init_val = t.t[q];
+                                    T pop_init_val = latticeWeights[q];
 
                                     if (level == 0) {
                                         if (idx.x == 0 || idx.x == grid_dim.x - 1 ||
@@ -751,9 +653,9 @@ int main(int argc, char** argv)
                                                 type(cell, 0) = CellType::movingWall;
                                                 pop_init_val = 0;
                                                 for (int d = 0; d < 3; ++d) {
-                                                    pop_init_val += latticeVelocity3D[q][d] * ulid.v[d];
+                                                    pop_init_val += latticeVelocity[q][d] * ulid.v[d];
                                                 }
-                                                pop_init_val *= -6. * t.t[q];
+                                                pop_init_val *= -6. * latticeWeights[q];
                                             } else {
                                                 pop_init_val = 0;
                                             }
@@ -793,7 +695,7 @@ int main(int argc, char** argv)
         for (int t = 0; t < max_iter; ++t) {
             printf("\n Iteration = %d", t);
             skl.run();
-            if (t % 5000 == 0) {
+            if (t % 100 == 0) {
                 postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho, true);
             }
         }
