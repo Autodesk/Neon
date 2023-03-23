@@ -5,7 +5,7 @@
 #include "Neon/skeleton/internal/MultiXpuGraph.h"
 // #include "Neon/skeleton/internal/StreamScheduler.h"
 #ifdef NEON_USE_NVTX
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 #endif
 namespace Neon::skeleton {
 

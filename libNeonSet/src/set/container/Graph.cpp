@@ -3,7 +3,7 @@
 #include "Neon/set/Containter.h"
 #include "Neon/set/container/graph/Bfs.h"
 #ifdef NEON_USE_NVTX
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 #endif
 namespace Neon::set::container {
 

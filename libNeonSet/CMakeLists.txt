@@ -27,10 +27,6 @@ target_include_directories(libNeonSet PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/includ
 
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "libNeonSet" FILES ${libNeonSetFiles})
 
-if(${NEON_USE_NVTX})
-	target_link_libraries(libNeonSet PUBLIC ${CUDA_nvToolsExt_LIBRARY})
-endif()
-
 if (${BUILD_NEON_TESTING})
 	add_subdirectory("tests")
 endif()
