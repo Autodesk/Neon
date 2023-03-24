@@ -332,7 +332,9 @@ auto IODomain<ExportType, intType_ta>::forEachActive(const Lambda_ta& userLambda
         if (!isA) {
             return;
         }
-        userLambda(idx, card, getReference(idx, card), otherDense.getReference(idx, card)...);
+        for(int cc=0; cc<this->getCardinality(); cc++) {
+            userLambda(idx, cc, getReference(idx, cc), otherDense.getReference(idx, cc)...);
+        }
     });
 }
 
@@ -410,6 +412,7 @@ auto IODomain<ExportType, intType_ta>::isNghActive(const Integer_3d<intType_ta>&
     -> bool
 {
     auto       nghIDX = xyz + offset.template newType<Neon::index_1d>();
+
     const bool inBox = isInBox(nghIDX);
     if (!inBox) {
         return false;

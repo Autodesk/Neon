@@ -15,19 +15,31 @@ class MemoryTransfer
        public:
         Neon::SetIdx setIdx{-1};
         void*        mem{nullptr};
-
+        Neon::size_4d logicalId;
+        bool hasLogicalId= false;
         Endpoint() = default;
 
         Endpoint(int devId, void* mem)
-            : setIdx(devId), mem(mem)
+            : setIdx(devId), mem(mem), hasLogicalId(true)
+        {
+        }
+
+        Endpoint(int devId, void* mem,   Neon::size_4d id)
+            : setIdx(devId), mem(mem), logicalId(id), hasLogicalId(true)
         {
         }
 
         auto set(Neon::SetIdx devId, void* mem) -> void;
         auto toString(const std::string& prefix = "") const -> std::string{
+            if(!hasLogicalId) {
+                std::stringstream s;
+                s << prefix;
+                s << "SetId: " << setIdx.idx() << " Mem: " << mem;
+                return s.str();
+            }
             std::stringstream s;
-            s<< prefix;
-            s << "SetId: "<< setIdx.idx() << " Mem: "<<mem;
+            s << prefix;
+            s << "SetId: " << setIdx.idx() << " Mem: " << mem << " Id " << logicalId;
             return s.str();
         }
     };

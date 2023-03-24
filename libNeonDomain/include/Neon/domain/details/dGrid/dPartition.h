@@ -35,7 +35,7 @@ class dPartition
     ~dPartition() = default;
 
     explicit dPartition(Neon::DataView dataView,
-                        T*          mem,
+                        T*             mem,
                         Neon::index_3d dim,
                         int            zHaloRadius,
                         int            zBoundaryRadius,
@@ -121,15 +121,15 @@ class dPartition
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Idx&  eId,
-               NghIdx      nghOffset,
-               int         card,
-               const T& alternativeVal)
+    getNghData(const Idx& eId,
+               NghIdx     nghOffset,
+               int        card,
+               const T&   alternativeVal)
         const -> NghData
     {
         Idx        cellNgh;
         const bool isValidNeighbour = nghIdx(eId, nghOffset, cellNgh);
-        T       val = alternativeVal;
+        T          val = alternativeVal;
         if (isValidNeighbour) {
             val = operator()(cellNgh, card);
         }
@@ -144,7 +144,7 @@ class dPartition
     {
         Idx        cellNgh;
         const bool isValidNeighbour = nghIdx(eId, nghOffset, cellNgh);
-        T       val;
+        T          val;
         if (isValidNeighbour) {
             val = operator()(cellNgh, card);
         }
@@ -153,14 +153,14 @@ class dPartition
 
     template <int xOff, int yOff, int zOff>
     NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(const Idx&  eId,
-           int         card,
-           const T& alternativeVal)
+    nghVal(const Idx& eId,
+           int        card,
+           const T&   alternativeVal)
         const -> NghData
     {
         Idx        cellNgh;
         const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(eId, cellNgh);
-        T       val = alternativeVal;
+        T          val = alternativeVal;
         if (isValidNeighbour) {
             val = operator()(cellNgh, card);
         }
@@ -168,10 +168,10 @@ class dPartition
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(const Idx&  eId,
-           uint8_t     nghID,
-           int         card,
-           const T& alternativeVal)
+    nghVal(const Idx& eId,
+           uint8_t    nghID,
+           int        card,
+           const T&   alternativeVal)
         const -> NghData
     {
         NghIdx nghOffset = mStencil[nghID];
@@ -195,24 +195,26 @@ class dPartition
                     eId.get().y + nghOffset.y,
                     eId.get().z + nghOffset.z);
 
-        Idx cellNgh_global(cellNgh.get() + m_origin);
+        const auto cellNghGlobal = getGlobalIndex(cellNgh);
 
         bool isValidNeighbour = true;
 
-        isValidNeighbour = (cellNgh_global.get().x >= 0) &&
-                           (cellNgh_global.get().y >= 0) &&
-                           ((!mPeriodicZ && cellNgh_global.get().z >= m_zHaloRadius) ||
-                            (mPeriodicZ && cellNgh_global.get().z >= 0)) &&
-                           isValidNeighbour;
+        if (mPeriodicZ) {
+            printf("Error, periodic not implemented yet");
+            assert(false);
+        }
 
-        isValidNeighbour = (cellNgh.get().x < m_dim.x) &&
-                           (cellNgh.get().y < m_dim.y) &&
-                           (cellNgh.get().z < m_dim.z + 2 * m_zHaloRadius) && isValidNeighbour;
+        isValidNeighbour = (cellNghGlobal.x >= 0) &&
+                           (cellNghGlobal.y >= 0) &&
+                           (cellNghGlobal.z >= 0);
 
-        isValidNeighbour = (cellNgh_global.get().x <= m_fullGridSize.x) &&
-                           (cellNgh_global.get().y <= m_fullGridSize.y) &&
-                           ((!mPeriodicZ && cellNgh_global.get().z <= m_fullGridSize.z) ||
-                            (mPeriodicZ && cellNgh_global.get().z <= m_fullGridSize.z + 2 * m_zHaloRadius)) &&
+        //        isValidNeighbour = (cellNgh.get().x < m_dim.x) &&
+        //                           (cellNgh.get().y < m_dim.y) &&
+        //                           (cellNgh.get().z < m_dim.z + 2 * m_zHaloRadius) && isValidNeighbour;
+
+        isValidNeighbour = (cellNghGlobal.x < m_fullGridSize.x) &&
+                           (cellNghGlobal.y < m_fullGridSize.y) &&
+                           (cellNghGlobal.z < m_fullGridSize.z) &&
                            isValidNeighbour;
 
         if (isValidNeighbour) {
@@ -338,12 +340,12 @@ class dPartition
 
     NEON_CUDA_HOST_DEVICE inline auto getGlobalIndex(const Idx& local) const -> Neon::index_3d
     {
-        assert(local.mLocation.x >= 0 &&
-               local.mLocation.y >= 0 &&
-               local.mLocation.z >= m_zHaloRadius &&
-               local.mLocation.x < m_dim.x &&
-               local.mLocation.y < m_dim.y &&
-               local.mLocation.z < m_dim.z + m_zHaloRadius);
+        //        assert(local.mLocation.x >= 0 &&
+        //               local.mLocation.y >= 0 &&
+        //               local.mLocation.z >= m_zHaloRadius &&
+        //               local.mLocation.x < m_dim.x &&
+        //               local.mLocation.y < m_dim.y &&
+        //               local.mLocation.z < m_dim.z + m_zHaloRadius);
 
         Neon::index_3d result = local.mLocation + m_origin;
         result.z -= m_zHaloRadius;
@@ -356,10 +358,31 @@ class dPartition
         return m_fullGridSize;
     }
 
-   private:
+    auto ioToVti(std::string const& fname, std::string const& fieldName)
+    {
+        auto fnameCommplete = fname + "_" + std::to_string(m_prtID);
+        auto haloOrigin = Vec_3d<double>(m_origin.x, m_origin.y, m_origin.z - m_zHaloRadius);
+        auto haloDim = m_dim + Neon::index_3d(0, 0, 2*m_zHaloRadius) +1;
 
+        IoToVTK<int, int64_t> io(fnameCommplete,
+                                 haloDim,
+                                 Vec_3d<double>(1, 1, 1),
+                                 haloOrigin,
+                                 Neon::IoFileType::ASCII);
+
+
+        io.addField([&](const Neon::index_3d& idx, int i) {
+            return operator()(dIndex(idx), i);
+        },
+                    m_cardinality, "Partition", ioToVTKns::VtiDataType_e::voxel);
+
+        io.flushAndClear();
+        return;
+    }
+
+   private:
     Neon::DataView m_dataView;
-    T*          m_mem;
+    T*             m_mem;
     Neon::index_3d m_dim;
     int            m_zHaloRadius;
     int            m_zBoundaryRadius;

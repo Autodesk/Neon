@@ -31,7 +31,7 @@ class eIndex
     using Count = int32_t;
     using ePitch = Neon::index64_2d;
 
-    auto manualSet(InternalIdx idx )->void;
+    NEON_CUDA_HOST_DEVICE inline  auto manualSet(InternalIdx idx )->void;
 
     eIndex() = default;
 

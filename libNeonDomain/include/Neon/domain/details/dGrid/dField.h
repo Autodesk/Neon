@@ -122,6 +122,8 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
                       const Neon::DataView& dataView)
         -> Partition& final;
 
+    auto ioToVtiPartitions(const std::string& fname) const -> void;
+
     static auto swap(Field& A, Field& B)
         -> void;
 
@@ -153,13 +155,15 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
             pitch = bk.newDataSet<size_4d>();
         }
 
-        enum EndPoints {
+        enum EndPoints
+        {
             src = 1,
             dst = 0
         };
 
-        struct EndPointsUtils {
-            static constexpr int  nConfigs = 2;
+        struct EndPointsUtils
+        {
+            static constexpr int nConfigs = 2;
         };
 
         struct ReductionInformation

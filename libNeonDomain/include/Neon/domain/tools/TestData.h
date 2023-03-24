@@ -41,14 +41,25 @@ class TestData
     static constexpr int Cardinality = C;
     using IODomain = Neon::domain::tool::testing::IODomain<Type, int>;
 
+    static constexpr double domainRatio = .8;
+    static constexpr double hollowRatio = .5;
+
+    inline static auto computeDefaultStencil() -> Neon::domain::Stencil
+    {
+        return Neon::domain::Stencil::s7_Laplace_t();
+    }
+
+
     TestData(const Neon::Backend&         backend,
              Neon::index_3d               dimension,
              int                          cardinality,
              Neon::MemoryOptions          memoryOptions = Neon::MemoryOptions(),
              Neon::domain::tool::Geometry geometry = Neon::domain::tool::Geometry::FullDomain,
-             double                       domainRatio = .8,
-             double                       hollowRatio = .5,
-             const Neon::domain::Stencil& stencil = Neon::domain::Stencil::s7_Laplace_t(),
+             double                       domainRatio = TestData::domainRatio,
+             double                       hollowRatio = TestData::hollowRatio,
+             const Neon::domain::Stencil& stencil = TestData::computeDefaultStencil(),
+             Neon::set::TransferMode      transferMode = Neon::set::TransferMode::put,
+             Neon::set::StencilSemantic   stencilSemantic = Neon::set::StencilSemantic::standard,
              Type                         outsideValue = Type(0));
 
     auto getDimention() const -> Neon::index_3d;
@@ -66,6 +77,8 @@ class TestData
     auto getGrid() const -> const Grid&;
 
     auto getGrid() -> Grid&;
+
+    auto getTransferMode() const -> Neon::set::TransferMode;
 
     template <typename LambdaCompare>
     auto compare(FieldNames name, LambdaCompare lambdaCompare)
@@ -125,7 +138,16 @@ class TestData
     Neon::domain::tool::testing::IODomain<T> mIODomains[nFields];
     Neon::domain::tool::Geometry             mGeometry;
     Neon::index_3d                           mDimension;
+    Neon::set::TransferMode                  mTransferMode = Neon::set::TransferMode::put;
+    Neon::set::StencilSemantic               mStencilSemantic = Neon::set::StencilSemantic::standard;
 };
+
+template <typename G, typename T, int C>
+auto TestData<G, T, C>::getTransferMode() const -> Neon::set::TransferMode
+{
+    return mTransferMode;
+}
+
 template <typename G, typename T, int C>
 auto TestData<G, T, C>::getDimention() const -> Neon::index_3d
 {
@@ -141,11 +163,13 @@ TestData<G, T, C>::TestData(const Neon::Backend&         backend,
                             double                       domainRatio,
                             double                       hollowRatio,
                             const domain::Stencil&       stencil,
+                            Neon::set::TransferMode      transferMode,
+                            Neon::set::StencilSemantic   stencilSemantic,
                             Type                         outsideValue)
 {
     Neon::init();
-
-    mDimension = dimension;
+    mTransferMode = transferMode;
+    mStencilSemantic = stencilSemantic;
     mGeometry = geometry;
     Neon::domain::tool::GeometryMask geometryMask(geometry,
                                                   dimension,
