@@ -116,6 +116,7 @@ auto run(TestData<G, T, C>& data) -> void
                         data.getTransferMode(),
                         Neon::Execution::device)
             .run(Neon::Backend::mainStreamIdx);
+        //X.ioToVtiPartitions("testX");
 
         Y.newHaloUpdate(Neon::set::StencilSemantic::standard,
                         data.getTransferMode(),
@@ -195,17 +196,6 @@ auto run(TestData<G, T, C>& data) -> void
     }
 
     data.updateHostData();
-
-    data.getField(FieldNames::X).ioToVtk("X", "X", true);
-    data.getField(FieldNames::Y).ioToVtk("Y", "Y", false);
-    data.getField(FieldNames::Z).ioToVtk("Z", "Z", false);
-    data.getField(FieldNames::W).ioToVtk("W", "W", false);
-
-
-    data.getIODomain(FieldNames::X).ioToVti("X_", "X_");
-    data.getIODomain(FieldNames::Y).ioToVti("Y_", "Y_");
-    data.getIODomain(FieldNames::Z).ioToVti("Z_", "Z_");
-    data.getIODomain(FieldNames::W).ioToVti("W_", "W_");
 
     bool doVti = false;
     bool isOk = data.compare(FieldNames::X);

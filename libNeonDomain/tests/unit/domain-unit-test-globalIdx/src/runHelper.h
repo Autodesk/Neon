@@ -35,11 +35,12 @@ void runAllTestConfiguration(
 
     std::vector<Neon::index_3d> dimTest{{10, 1, 50}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
-//    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-//        runtimeE.push_back(Neon::Runtime::stream);
-//    }
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        runtimeE.push_back(Neon::Runtime::stream);
+    }
 
-    std::vector<Geometry> geos;
+    std::vector<Geometry>           geos;
+    std::vector<Neon::MemoryLayout> memoryLayoutOptions{Neon::MemoryLayout::structOfArrays, Neon::MemoryLayout::arrayOfStructs};
 
     if constexpr (std::is_same_v<G, Neon::dGrid>) {
         geos = std::vector<Geometry>{
@@ -48,8 +49,8 @@ void runAllTestConfiguration(
     } else {
         geos = std::vector<Geometry>{
             Geometry::FullDomain,
-//            Geometry::Sphere,
-//            Geometry::HollowSphere,
+            //            Geometry::Sphere,
+            //            Geometry::HollowSphere,
 
         };
     }
@@ -59,30 +60,35 @@ void runAllTestConfiguration(
             for (auto& geo : geos) {
                 for (const auto& ngpu : nGpuTest) {
                     for (const auto& runtime : runtimeE) {
-                        int maxnGPUs = [] {
-                            if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-                                return Neon::set::DevSet::maxSet().setCardinality();
+                        for (const auto& memoryLayout : memoryLayoutOptions) {
+
+                            int maxnGPUs = [] {
+                                if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+                                    return Neon::set::DevSet::maxSet().setCardinality();
+                                }
+                                return 1;
+                            }();
+
+                            std::vector<int> ids;
+                            for (int i = 0; i < ngpu; i++) {
+                                ids.push_back(i % maxnGPUs);
                             }
-                            return 1;
-                        }();
 
-                        std::vector<int> ids;
-                        for (int i = 0; i < ngpu; i++) {
-                            ids.push_back(i % maxnGPUs);
+                            Neon::Backend       backend(ids, runtime);
+                            Neon::MemoryOptions memoryOptions = backend.getMemoryOptions();
+                            memoryOptions.setOrder(memoryLayout);
+
+                            assert(card == 1);
+                            TestData<G, T, C> testData(backend,
+                                                       dim,
+                                                       card,
+                                                       memoryOptions,
+                                                       geo);
+
+                            NEON_INFO(testData.toString());
+                            std::cout << testData.toString() << std::endl;
+                            f(testData);
                         }
-
-                        Neon::Backend       backend(ids, runtime);
-                        Neon::MemoryOptions memoryOptions = backend.getMemoryOptions();
-
-                        TestData<G, T, C> testData(backend,
-                                                   dim,
-                                                   card,
-                                                   memoryOptions,
-                                                   geo);
-
-                        NEON_INFO(testData.toString());
-                        std::cout << testData.toString() << std::endl;
-                        f(testData);
                     }
                 }
             }

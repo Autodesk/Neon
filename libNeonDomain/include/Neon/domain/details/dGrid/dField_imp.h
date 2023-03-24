@@ -589,7 +589,7 @@ auto dField<T, C>::
             for (auto byDirection : {tool::partitioning::ByDirection::up,
                                      tool::partitioning::ByDirection::down}) {
 
-                auto const& tableEntryByDir = mData->soaHaloUpdateTable.get(transferMode,
+                auto const& tableEntryByDir = mData->aosHaloUpdateTable.get(transferMode,
                                                                             execution,
                                                                             byDirection);
 

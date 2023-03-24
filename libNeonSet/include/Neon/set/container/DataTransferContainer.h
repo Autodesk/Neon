@@ -41,15 +41,15 @@ struct DataTransferContainer
         const Neon::Backend& bk = mMultiXpuData.getBackend();
 
         bk.forEachDeviceSeq([&](SetIdx setIdx) {
-            // std::cout <<"Sending Section ("<<setIdx<<") " <<std::endl;
+            //std::cout <<"Sending Section ("<<setIdx<<") " <<std::endl;
             for (auto& memoryTransfer : mMemoryTransfers[setIdx]) {
                 bk.template deviceToDeviceTransfer<char>(streamIdx,
                                                          memoryTransfer.size,
                                                          mTransferMode,
                                                          memoryTransfer.dst.setIdx, (char*)memoryTransfer.dst.mem,
                                                          memoryTransfer.src.setIdx, (char*)memoryTransfer.src.mem);
-                // std::cout <<"Sending ("<<setIdx<<") " << memoryTransfer.toString()<<std::endl;
-                /// std::cout<< " val " << ((int64_t*)memoryTransfer.src.mem)[0]<<std::endl;
+                 //std::cout <<"Sending ("<<setIdx<<") " << memoryTransfer.toString()<<std::endl;
+                 //std::cout<< " val " << ((int64_t*)memoryTransfer.src.mem)[0]<<std::endl;
             }
         });
     }

@@ -30,14 +30,14 @@ void runAllTestConfiguration(
     //    for (int i = minNumGpus; i <= nGpus; i++) {
     //        nGpuTest.push_back(i);
     //    }
-    std::vector<int> nGpuTest{2};
+    std::vector<int> nGpuTest{2, 3, 4};
     std::vector<int> cardinalityTest{3};  // We fix the cardinality to three for this test. As we'll use field to store global locations;
 
-    std::vector<Neon::index_3d> dimTest{{1, 3, 9}};
+    std::vector<Neon::index_3d> dimTest{{13, 11, 17}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
-//    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-//        runtimeE.push_back(Neon::Runtime::stream);
-//    }
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        runtimeE.push_back(Neon::Runtime::stream);
+    }
 
     std::vector<Neon::set::TransferMode> transferModeOptions{Neon::set::TransferMode::put/*, Neon::set::TransferMode::get*/};
     std::vector<Neon::MemoryLayout>      memoryLayoutOptions{/*Neon::MemoryLayout::structOfArrays,*/ Neon::MemoryLayout::arrayOfStructs};
