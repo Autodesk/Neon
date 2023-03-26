@@ -271,6 +271,9 @@ class Partitioner1D
 
         backend.forEachDeviceSeq([&]([[maybe_unused]] SetIdx setIdx) {
             int stencilIdx = 0;
+            for (int i = 0; i < 27; i++) {
+                stencilNghIndex.eRef(setIdx, i, 0) = -33;
+            }
             for (auto ngh : mStencil.neighbours()) {
                 int     yPitch = (2 * radius + 1);
                 int     zPitch = yPitch * yPitch;
@@ -278,7 +281,7 @@ class Partitioner1D
                 int32_t offset = nghShifted.x + nghShifted.y * yPitch + nghShifted.z * zPitch;
                 assert(offset < countElement);
                 assert(offset >= 0);
-                //std::cout << ngh << " -> " << stencilIdx << " -> Pitch "  << offset<< std::endl;
+                // std::cout << ngh << " -> " << stencilIdx << " -> Pitch "  << offset<< std::endl;
                 stencilNghIndex.eRef(setIdx, offset, 0) = stencilIdx;
                 stencilIdx++;
             }
@@ -368,6 +371,7 @@ class Partitioner1D
                     }
                 }
             });
+        connectivityField.updateDeviceData(Neon::Backend::mainStreamIdx);
         return connectivityField;
     }
 

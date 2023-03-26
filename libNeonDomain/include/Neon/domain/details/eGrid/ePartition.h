@@ -67,13 +67,13 @@ class ePartition
 
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
-    using Self = ePartition<T, C>;            //<- this type
-    using Idx = eIndex;                       //<- index type
+    using Self = ePartition<T, C>;              //<- this type
+    using Idx = eIndex;                         //<- index type
     using OuterIdx = typename Idx::OuterIndex;  //<- index type for the subGrid
 
     static constexpr int Cardinality = C;
 
-    using NghIdx = uint8_t;         //<- type of an index to identify a neighbour
+    using NghIdx = uint8_t;  //<- type of an index to identify a neighbour
     using Ngh3DIdx = Neon::int8_3d;
     using Ngh1DIdx = uint8_t;
     using NghData = Neon::domain::NghData<T>;
@@ -159,16 +159,16 @@ class ePartition
      */
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(Idx         eId,
-           NghIdx      nghIdx,
-           int         card,
-           const Type& alternativeVal)
+               NghIdx      nghIdx,
+               int         card,
+               const Type& alternativeVal)
         const -> NghData;
 
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(eIndex               eId,
-           const Neon::int8_3d& nghIdx,
-           int                  card,
-           const Type&          alternativeVal)
+               const Neon::int8_3d& nghIdx,
+               int                  card,
+               const Type&          alternativeVal)
         const -> NghData;
 
 
@@ -209,11 +209,12 @@ class ePartition
      */
     explicit ePartition(int             prtId,
                         T*              mem,
+                        ePitch          pitch,
                         int32_t         cardinality,
                         int32_t         countAllocated,
                         Offset*         connRaw,
                         Neon::index_3d* toGlobal,
-                        int8_t*        stencil3dTo1dOffset,
+                        int8_t*         stencil3dTo1dOffset,
                         int32_t         stencilRadius);
 
     /**
@@ -226,22 +227,6 @@ class ePartition
     NEON_CUDA_HOST_DEVICE auto
     pointer(Idx eId, int cardinalityIdx) const
         -> const Type*;
-    /**
-     * Computes the jump of a element.
-     * Jump is the offset between the head of the raw memory adders
-     * and the position of the element defined by eId.
-     *
-     * Because we handle the data view model when setting the
-     * iterator, this function is just an identity.
-     *
-     * @tparam dataView_ta
-     * @param eId
-     * @return
-     */
-    NEON_CUDA_HOST_DEVICE inline auto
-    getOffset(Idx eId)
-        const
-        -> Offset;
 
     /**
      * Computes the jump for an element
@@ -269,6 +254,7 @@ class ePartition
     T*      mMem;
     int     mCardinality;
     int32_t mCountAllocated;
+    ePitch mPitch;
 
     //-- [CONNECTIVITY] ----------------------------------------------------------------------------
     Offset* mConnectivity = {nullptr} /** connectivity table */;
@@ -276,9 +262,9 @@ class ePartition
     //-- [INVERSE MAPPING] ----------------------------------------------------------------------------
     Neon::int32_3d* mOrigins = {nullptr};
     int             mPrtID;
-    int8_t*        mStencil3dTo1dOffset = {nullptr};
+    int8_t*         mStencil3dTo1dOffset = {nullptr};
     int32_t         mStencilTableYPitch;
-    int32_t         mStencilRadius; // Shift to be applied to all 3d offset component to access mStencil3dTo1dOffset table
+    int32_t         mStencilRadius;  // Shift to be applied to all 3d offset component to access mStencil3dTo1dOffset table
 };
 }  // namespace Neon::domain::details::eGrid
 

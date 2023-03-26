@@ -15,6 +15,8 @@ SpanLayout::SpanLayout(Neon::Backend const&               backend,
     mCountXpu = backend.devSet().setCardinality();
     mDataByPartition = backend.devSet().newDataSet<InfoByPartition>();
     // Setting up internal and boudary indexes
+    auto lastFreeIndex = backend.devSet().newDataSet<int>();
+
     mDataByPartition.forEachSeq([&](Neon::SetIdx const& setIdx,
                                     InfoByPartition&    data) {
         int counter = 0;
@@ -34,25 +36,33 @@ SpanLayout::SpanLayout(Neon::Backend const&               backend,
                 counter += toAdd;
             }
         }
+        lastFreeIndex[setIdx] = counter;
     });
 
 
     mDataByPartition.forEachSeq([&](Neon::SetIdx const& setIdx,
                                     InfoByPartition&    data) -> void {
         for (auto const& byDirection : {ByDirection::up, ByDirection::down}) {
-            for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {
+            //            for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {
 
-                auto const& ghostTarget = getTargetGhost(setIdx, byDirection);
+            auto const& neighbourMirror = getTargetGhost(setIdx, byDirection);
+            data.getGhost(byDirection).getGhost() = neighbourMirror;
 
-                data.getGhost(byDirection).getGhost() = ghostTarget;
-                auto& info = data.getGhost(byDirection)(byDomain);
 
-                auto& ghostData = mDataByPartition[ghostTarget.setIdx];
-                auto& ghostInfo = ghostData.getBoundary(ghostTarget.byDirection)(byDomain);
+            auto& mirrorData = mDataByPartition[neighbourMirror.setIdx];
+            auto& mirrorInfoBulk = mirrorData.getBoundary(neighbourMirror.byDirection)(ByDomain::bulk);
+            auto& mirrorInfoBc = mirrorData.getBoundary(neighbourMirror.byDirection)(ByDomain::bc);
 
-                info.first = ghostInfo.first;
-                info.count = ghostInfo.count;
-            }
+            auto& infoBulk = data.getGhost(byDirection)(ByDomain::bulk);
+            auto& infoBc = data.getGhost(byDirection)(ByDomain::bc);
+
+            infoBulk.count = mirrorInfoBulk.count;
+            infoBc.count = mirrorInfoBc.count;
+
+            infoBulk.first = lastFreeIndex[setIdx];
+            infoBc.first = lastFreeIndex[setIdx] + infoBulk.count;
+
+            lastFreeIndex[setIdx] += (infoBulk.count + infoBc.count);
         }
     });
 
@@ -62,13 +72,13 @@ SpanLayout::SpanLayout(Neon::Backend const&               backend,
     mStandardAndGhostCount.forEachSeq([&](const Neon::SetIdx& setIdx,
                                           int32_t&            standardAndGhostCount) {
         standardAndGhostCount = 0;
-        auto& standardCount=mStandardCount[setIdx];
-        standardCount=0;
+        auto& standardCount = mStandardCount[setIdx];
+        standardCount = 0;
 
         {
             const auto internalBounds = getBoundsInternal(setIdx);
             standardAndGhostCount += internalBounds.count;
-            standardCount+=internalBounds.count;
+            standardCount += internalBounds.count;
         }
         {
             const auto boundaryUp = getBoundsBoundary(setIdx, partitioning::ByDirection::up);
@@ -196,14 +206,13 @@ auto SpanLayout::findPossiblyLocalPointOffset(
                                                                          byDirection,
                                                                          byDomain);
                 auto const  infoPtr = mapper.getMetadata(point);
-                if (infoPtr == nullptr) {
-                    return {false, -1, byPartition, byDirection, byDomain};
+                if (infoPtr != nullptr) {
+                    return {true, *infoPtr, byPartition, byDirection, byDomain};
                 }
-                return {true, *infoPtr, byPartition, byDirection, byDomain};
             }
         }
     }
-    NEON_THROW_UNSUPPORTED_OPERATION("");
+    return {false, -1, ByPartition::internal, ByDirection::up, ByDomain::bulk};
 }
 
 auto SpanLayout::getClassificationOffset(
@@ -255,8 +264,8 @@ auto SpanLayout::findNeighbourOfBoundaryPoint(
     if (std::get<0>(findings)) {
         // Ghost direction is the opposite w.r.t. the neighbour partition direction
         ByDirection ghostByDirection = nghOffset.z > 0
-                                           ? ByDirection::down
-                                           : ByDirection::up;
+                                           ? ByDirection::up
+                                           : ByDirection::down;
         ByDomain    ghostByDomain = std::get<4>(findings);
 
         Bounds ghostBounds = getGhostBoundary(setIdx,

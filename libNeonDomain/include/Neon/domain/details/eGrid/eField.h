@@ -11,8 +11,8 @@
 
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/interface/FieldBaseTemplate.h"
-#include "Neon/domain/tools/PartitionTable.h"
 #include "Neon/domain/tools/HaloUpdateTable1DPartitioning.h"
+#include "Neon/domain/tools/PartitionTable.h"
 #include "ePartition.h"
 
 namespace Neon::domain::details::eGrid {
@@ -158,75 +158,26 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
             partitionTable.init(bk);
         }
 
+        enum EndPoints
+        {
+            src = 1,
+            dst = 0
+        };
+
+        struct EndPointsUtils
+        {
+            static constexpr int nConfigs = 2;
+        };
+
         struct ReductionInformation
         {
             std::vector<int> startIDByView /* one entry for each cardinality */;
             std::vector<int> nElementsByView /* one entry for each cardinality */;
         };
 
-        //        struct HaloTransfers
-        //        {
-        //            using SetType =
-        //                std::array<
-        //                    std::array<
-        //                        std::array<
-        //                            Neon::set::DataSet<std::vector<Neon::set::MemoryTransfer>>,
-        //                            Neon::domain::tool::partitioning::ByDirectionUtils::nConfigs>,
-        //                        ExecutionUtils::numConfigurations>,
-        //                    Neon::set::TransferModeUtils::nOptions>;
-        //            SetType table;
-        //
-        //            template <typename Lambda>
-        //            auto forEachPutConfiguration(const Neon::Backend& bk, Lambda const& lambda) -> void
-        //            {
-        //                using namespace Neon::domain::tool;
-        //                for (auto execution : {Execution::device, Execution::host}) {
-        //                    for (auto byDirection : {partitioning::ByDirection::up, partitioning::ByDirection::down}) {
-        //                        //                                       upOut[setIdx][static_cast<unsigned long>(transfer)][static_cast<unsigned long>(execution)],
-        //                        auto& tableEntryRW = table[static_cast<unsigned long>(Neon::set::TransferMode::put)]
-        //                                                  [static_cast<unsigned long>(execution)]
-        //                                                  [static_cast<unsigned long>(byDirection)];
-        //                        tableEntryRW = bk.newDataSet<std::vector<Neon::set::MemoryTransfer>>();
-        //
-        //                        tableEntryRW.forEachSeq([&](SetIdx setIdx, auto& stdVecOfTRansfers) {
-        //                            lambda(setIdx, execution, byDirection, stdVecOfTRansfers);
-        //                        });
-        //                    }
-        //                }
-        //
-        //                auto  getNghSetIdx = [&](SetIdx setIdx, Neon::domain::tool::partitioning::ByDirection direction) {
-        //                    int res;
-        //                    if (direction == Neon::domain::tool::partitioning::ByDirection::up) {
-        //                        res = (setIdx + 1) % bk.getDeviceCount();
-        //                    } else {
-        //                        res = (setIdx + bk.getDeviceCount() - 1) % bk.getDeviceCount();
-        //                    }
-        //                    return res;
-        //                };
-        //
-        //                for (auto execution : {Execution::device, Execution::host}) {
-        //                    for (auto byDirection : {partitioning::ByDirection::up, partitioning::ByDirection::down}) {
-        //                        //                                       upOut[setIdx][static_cast<unsigned long>(transfer)][static_cast<unsigned long>(execution)],
-        //                        auto const& tableEntryRO = table[static_cast<unsigned long>(Neon::set::TransferMode::put)]
-        //                                                  [static_cast<unsigned long>(execution)]
-        //                                                  [static_cast<unsigned long>(byDirection)];
-        //                        auto& tableEntryRW = table[static_cast<unsigned long>(Neon::set::TransferMode::get)]
-        //                                                  [static_cast<unsigned long>(execution)]
-        //                                                  [static_cast<unsigned long>(byDirection)];
-        //                        tableEntryRW = bk.newDataSet<std::vector<Neon::set::MemoryTransfer>>();
-        //
-        //                        tableEntryRW.forEachSeq([&](SetIdx setIdx, auto& stdVecOfTRansfers) {
-        //                            Neon::SetIdx otherSetIdx = getNghSetIdx(setIdx, byDirection);
-        //                            for(auto putTransfer : tableEntryRO[otherSetIdx]){
-        //                                if(putTransfer.dst.setIdx == setIdx){
-        //                                    stdVecOfTRansfers.push_back(putTransfer);
-        //                                }
-        //                            }
-        //                        });
-        //                    }
-        //                }
-        //            }
-        //        };
+        Neon::domain::tool::HaloTable1DPartitioning latticeHaloUpdateTable;
+        Neon::domain::tool::HaloTable1DPartitioning soaHaloUpdateTable;
+        Neon::domain::tool::HaloTable1DPartitioning aosHaloUpdateTable;
 
         Neon::domain::tool::PartitionTable<Partition, ReductionInformation> partitionTable;
         Neon::aGrid::Field<T, C>                                            memoryField;
@@ -237,11 +188,11 @@ class eField : public Neon::domain::interface::FieldBaseTemplate<T,
         std::shared_ptr<Grid>                       grid;
         bool                                        periodic_z;
         T                                           inactiveValue;
-        Neon::domain::tool::HaloTable1DPartitioning haloTransfers;
     };
 
     std::shared_ptr<Data> mData;
     auto                  getData() -> Data&;
+    void                  initHaloUpdateTable();
 };
 
 

@@ -65,6 +65,8 @@ ePartition<T, C>::getNghData(eIndex      eId,
     eIndex     eIdxNgh;
     const bool isValidNeighbour = isValidNgh(eId, nghIdx, eIdxNgh);
     T          val = (isValidNeighbour) ? this->operator()(eIdxNgh, card) : alternativeVal;
+    //    printf("(prtId %d)getNghData id %d card %d eIdxNgh %d val %d\n",
+    //         mPrtID,  eId.mIdx, card, eIdxNgh.mIdx, int(val));
     return NghData(val, isValidNeighbour);
 }
 
@@ -97,6 +99,9 @@ ePartition<T, C>::isValidNgh(eIndex  eId,
     const eIndex::Offset connectivityJumo = mCountAllocated * nghIdx + eId.get();
     neighbourIdx.set() = NEON_CUDA_CONST_LOAD((mConnectivity + connectivityJumo));
     const bool isValidNeighbour = (neighbourIdx.mIdx > -1);
+//    printf("(prtId %d) getNghData id %d eIdxNgh %d connectivityJumo %d\n",
+//           mPrtID,
+//           eId.mIdx, neighbourIdx.mIdx, connectivityJumo);
     return isValidNeighbour;
 }
 
@@ -116,6 +121,7 @@ template <typename T,
           int C>
 ePartition<T, C>::ePartition(int             prtId,
                              T*              mem,
+                             ePitch          pitch,
                              int32_t         cardinality,
                              int32_t         countAllocated,
                              Offset*         connRaw,
@@ -125,6 +131,7 @@ ePartition<T, C>::ePartition(int             prtId,
 {
     mPrtID = prtId;
     mMem = mem;
+    mPitch = pitch;
     mCardinality = cardinality;
     mCountAllocated = countAllocated;
 
@@ -153,7 +160,7 @@ NEON_CUDA_HOST_DEVICE inline auto
 ePartition<T, C>::getOffset(eIndex eId, int cardinalityIdx) const
     -> Offset
 {
-    return Offset(eId.get() + cardinalityIdx * mCountAllocated);
+    return Offset(eId.get() * mPitch.x + cardinalityIdx * mPitch.y);
 }
 
 template <typename T,

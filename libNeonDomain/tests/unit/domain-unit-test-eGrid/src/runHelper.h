@@ -23,24 +23,23 @@ using namespace Neon::domain::tool;
 template <typename G, typename T, int C>
 void runAllTestConfiguration(
     std::function<void(TestData<G, T, C>&)> f,
-    int                                     nGpus,
-    int                                     minNumGpus)
+    int /*nGpus*/,
+    int /*minNumGpus*/)
 {
-    nGpus=1;
-    std::vector<int> nGpuTest;
-    for (int i = minNumGpus; i <= nGpus; i++) {
-        nGpuTest.push_back(i);
-    }
-    // std::vector<int> nGpuTest{2,4,6,8};
-    std::vector<int> cardinalityTest{1,3};
+    //    std::vector<int> nGpuTest;
+    //    for (int i = minNumGpus; i <= nGpus; i++) {
+    //        nGpuTest.push_back(i);
+    //    }
+    std::vector<int> nGpuTest{2, 3, 4};
+    std::vector<int> cardinalityTest{1};
 
-    std::vector<Neon::index_3d> dimTest{{10, 1, 50}};
-    std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
-//    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-//        runtimeE.push_back(Neon::Runtime::stream);
-//    }
+    std::vector<Neon::Runtime> runtimeE{Neon::Runtime::openmp};
+    //    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+    //        runtimeE.push_back(Neon::Runtime::stream);
+    //    }
 
-    std::vector<Geometry> geos;
+    std::vector<Geometry>           geos;
+    std::vector<Neon::MemoryLayout> memoryLayoutOptions{Neon::MemoryLayout::structOfArrays, Neon::MemoryLayout::arrayOfStructs};
 
     if constexpr (std::is_same_v<G, Neon::dGrid>) {
         geos = std::vector<Geometry>{
@@ -49,17 +48,19 @@ void runAllTestConfiguration(
     } else {
         geos = std::vector<Geometry>{
             Geometry::FullDomain,
-//            Geometry::Sphere,
-//            Geometry::HollowSphere,
+            //            Geometry::Sphere,
+            //            Geometry::HollowSphere,
 
         };
     }
 
-    for (const auto& dim : dimTest) {
-        for (const auto& card : cardinalityTest) {
-            for (auto& geo : geos) {
-                for (const auto& ngpu : nGpuTest) {
-                    for (const auto& runtime : runtimeE) {
+    for (const auto& card : cardinalityTest) {
+        for (auto& geo : geos) {
+            for (const auto& ngpu : nGpuTest) {
+                for (const auto& runtime : runtimeE) {
+                    for (const auto& memoryLayout : memoryLayoutOptions) {
+
+
                         int maxnGPUs = [] {
                             if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
                                 return Neon::set::DevSet::maxSet().setCardinality();
@@ -74,16 +75,23 @@ void runAllTestConfiguration(
 
                         Neon::Backend       backend(ids, runtime);
                         Neon::MemoryOptions memoryOptions = backend.getMemoryOptions();
+                        memoryOptions.setOrder(memoryLayout);
 
-                        TestData<G, T, C> testData(backend,
-                                                   dim,
-                                                   card,
-                                                   memoryOptions,
-                                                   geo);
+                        for (auto dim : std::vector{{Neon::index_3d(1, 1, 3 * ngpu),
+                                                     Neon::index_3d(1, 1, 6 * ngpu),
+                                                     Neon::index_3d(3, 5, 6 * ngpu)}}) {
 
-                        NEON_INFO(testData.toString());
-                        std::cout << testData.toString() << std::endl;
-                        f(testData);
+                            assert(card == 1);
+                            TestData<G, T, C> testData(backend,
+                                                       dim,
+                                                       card,
+                                                       memoryOptions,
+                                                       geo);
+
+                            NEON_INFO(testData.toString());
+                            std::cout << testData.toString() << std::endl;
+                            f(testData);
+                        }
                     }
                 }
             }

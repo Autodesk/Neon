@@ -38,13 +38,12 @@ auto haloCheckContainer(const Field&        filedA,
     return grid.newContainer(
         "haloCheckContainer",
         [&, offset](Neon::set::Loader& loader) {
-            const auto a = loader.load(filedA, Neon::Compute::STENCIL);
-            auto       b = loader.load(fieldB);
-
+            const auto     a = loader.load(filedA, Neon::Compute::STENCIL);
+            auto           b = loader.load(fieldB);
+            Neon::index_3d domainSize = filedA.getGrid().getDimension();
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& idx) mutable {
                 auto globalIdx = b.getGlobalIndex(idx);
                 auto nghGlobal = globalIdx + offset.newType<int32_t>();
-                auto domainSize = b.getDomainSize();
 
                 bool goldenActive = false;
                 if (nghGlobal >= 0 && nghGlobal < domainSize) {
@@ -55,7 +54,7 @@ auto haloCheckContainer(const Field&        filedA,
                 bool checkOnValue[3] = {false, false, false};
 
                 for (int i = 0; i < a.cardinality(); i++) {
-                    typename Field::NghData nghData = a.getNghData(idx, offset, i, 0);
+                    typename Field::NghData const nghData = a.getNghData(idx, offset, i, 33);
 
                     // Checking data
                     if (nghData.isValid()) {
@@ -68,9 +67,9 @@ auto haloCheckContainer(const Field&        filedA,
                         const auto golden = nghGlobal.v[i];
                         if (data != golden) {
                             checkOnValue[i] = false;
-                            continue;
+                        } else {
+                            checkOnValue[i] = true;
                         }
-                        checkOnValue[i] = true;
                     }
 
                     typename Field::Type resBycard = 0;
@@ -78,6 +77,14 @@ auto haloCheckContainer(const Field&        filedA,
                         resBycard = checkOnActivity[i] == false ? 1 : 0;
                     } else {
                         resBycard = checkOnActivity[i] == true && checkOnValue[i] == true ? 1 : 0;
+                    }
+                    if (resBycard == 0) {
+                        printf("here cell %d %d %d, ngh %d %d %d, card %d, val %d vs %d\n",
+                               globalIdx.x, globalIdx.y, globalIdx.z,
+                               nghGlobal.x, nghGlobal.y, nghGlobal.z,
+                               i,
+                               int(nghData.getData()),
+                               nghGlobal.v[i]);
                     }
                     b(idx, i) = resBycard;
                 }
@@ -112,11 +119,16 @@ auto run(TestData<G, T, C>& data) -> void
         haloSetGlobalPosition(X).run(Neon::Backend::mainStreamIdx);
         haloSetGlobalPosition(Y).run(Neon::Backend::mainStreamIdx);
 
+        //        data.updateHostData();
+        //        data.getField(FieldNames::X).ioToVtk("X_before", "X", true);
+
         X.newHaloUpdate(Neon::set::StencilSemantic::standard,
                         data.getTransferMode(),
                         Neon::Execution::device)
             .run(Neon::Backend::mainStreamIdx);
-        //X.ioToVtiPartitions("testX");
+
+//        data.updateHostData();
+//        data.getField(FieldNames::X).ioToVtk("X_after", "X", true);
 
         Y.newHaloUpdate(Neon::set::StencilSemantic::standard,
                         data.getTransferMode(),
@@ -124,9 +136,7 @@ auto run(TestData<G, T, C>& data) -> void
             .run(Neon::Backend::mainStreamIdx);
 
         haloCheckContainer(X, Neon::int8_3d(0, 0, 1), Z).run(Neon::Backend::mainStreamIdx);
-
         haloCheckContainer(Y, Neon::int8_3d(0, 0, -1), W).run(Neon::Backend::mainStreamIdx);
-
 
         data.getBackend().sync(0);
     }
@@ -226,9 +236,10 @@ auto run(TestData<G, T, C>& data) -> void
         data.getIODomain(FieldNames::Z).ioToVti("Z_", "Z_");
         data.getIODomain(FieldNames::W).ioToVti("W_", "W_");
     }
+    //    std::cout << "COMPLETED" << std::endl;
 }
 
 template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
-// template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
+template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
 
 }  // namespace map

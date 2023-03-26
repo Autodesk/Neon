@@ -29,7 +29,7 @@ class eIndex
     using Offset = int32_t;
     using InternalIdx = int32_t;
     using Count = int32_t;
-    using ePitch = Neon::index64_2d;
+    using ePitch = Neon::Integer_2d<Offset>;
 
     NEON_CUDA_HOST_DEVICE inline  auto manualSet(InternalIdx idx )->void;
 

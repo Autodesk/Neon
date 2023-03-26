@@ -139,5 +139,10 @@ auto eGrid::getPartitioner() -> const tool::Partitioner1D&
     return mData->partitioner1D;
 }
 
+auto eGrid::helpGetData() -> eGrid::Data&
+{
+    return *mData.get();
+}
+
 
 }  // namespace Neon::domain::details::eGrid

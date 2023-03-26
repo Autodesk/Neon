@@ -238,6 +238,9 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
 
     std::shared_ptr<Data> mData;
     const Neon::aGrid&    helpFieldMemoryAllocator() const;
+
+   public:
+    auto helpGetData()->Data&;
 };
 
 

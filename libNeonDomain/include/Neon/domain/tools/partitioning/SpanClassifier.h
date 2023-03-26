@@ -118,6 +118,8 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
     mData = backend.devSet().newDataSet<Leve3_ByPartition>();
     mSpanDecomposition = spanDecompositionNoUse;
 
+    ByDirection defaultForInternal = ByDirection::up;
+
     mData.forEachSeq([&](SetIdx, auto& leve3ByPartition) {
         //        using Leve0_Info = Info;
         //        using Leve1_ByDomain = std::array<Leve0_Info, 2>;
@@ -165,7 +167,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                     return result;
                 }();
 
-                auto inspectBlock = [&](int bx, int by, int bz) {
+                auto inspectBlock = [&](int bx, int by, int bz, ByPartition byPartition, ByDirection byDirection) {
                     Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
 
                     bool doBreak = false;
@@ -179,9 +181,8 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                                         doBreak = true;
 
                                         Neon::int32_3d const point(bx, by, bz);
-                                        ByPartition const    byPartition = ByPartition::internal;
                                         ByDomain const       byDomain = bcLambda(point) ? ByDomain::bc : ByDomain::bulk;
-                                        addPoint(setIdx, point, byPartition, ByDirection::up, byDomain);
+                                        addPoint(setIdx, point, byPartition, byDirection, byDomain);
                                     }
                                 }
                             }
@@ -193,7 +194,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                 for (int bz = beginZ + zRadius; bz <= lastZ - zRadius; bz++) {
                     for (int by = 0; by < block3DSpan.y; by++) {
                         for (int bx = 0; bx < block3DSpan.x; bx++) {
-                            inspectBlock(bx, by, bz);
+                            inspectBlock(bx, by, bz, ByPartition::internal, defaultForInternal);
                         }
                     }
                 }
@@ -201,7 +202,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                 for (auto& bz : boundaryDwSlices) {
                     for (int by = 0; by < block3DSpan.y; by++) {
                         for (int bx = 0; bx < block3DSpan.x; bx++) {
-                            inspectBlock(bx, by, bz);
+                            inspectBlock(bx, by, bz, ByPartition::boundary, ByDirection::down);
                         }
                     }
                 }
@@ -210,7 +211,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                 for (auto& bz : boundaryUpSlices) {
                     for (int by = 0; by < block3DSpan.y; by++) {
                         for (int bx = 0; bx < block3DSpan.x; bx++) {
-                            inspectBlock(bx, by, bz);
+                            inspectBlock(bx, by, bz, ByPartition::boundary, ByDirection::up);
                         }
                     }
                 }
