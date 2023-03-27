@@ -224,7 +224,6 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
 
         Neon::domain::tool::Partitioner1D partitioner1D;
         Stencil                           stencil;
-        Neon::index_3d                    halo;
         Neon::sys::patterns::Engine       reduceEngine;
         Neon::aGrid                       memoryGrid /** memory allocator for fields */;
 

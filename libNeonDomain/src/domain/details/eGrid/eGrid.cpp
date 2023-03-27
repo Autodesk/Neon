@@ -12,8 +12,6 @@ eGrid::Data::Data(Neon::Backend const& backend)
 {
     spanTable = Neon::domain::tool::SpanTable<eSpan>(backend);
     elementsPerPartition = Neon::domain::tool::SpanTable<int>(backend);
-
-    halo = index_3d(0, 0, 0);
     reduceEngine = Neon::sys::patterns::Engine::cuBlas;
 }
 
