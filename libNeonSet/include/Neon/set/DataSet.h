@@ -133,7 +133,7 @@ struct DataSet
     }
 
     template <typename NewType>
-    auto typedClone() const
+    auto typedClone() const -> Neon::set::DataSet<NewType>
     {
         Neon::set::DataSet<NewType> result (m_data->size());
         result.forEachSeq([&](Neon::SetIdx const& setIdx,
