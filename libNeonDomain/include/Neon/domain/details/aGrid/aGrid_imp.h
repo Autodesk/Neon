@@ -6,7 +6,6 @@
 #include "Neon/sys/memory/MemDevice.h"
 
 #include "Neon/set/BlockConfig.h"
-#include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 
 #include "Neon/domain/interface/GridBase.h"

@@ -6,7 +6,6 @@
 #include "Neon/domain/interface/NghData.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
-#include "Neon/sys/memory/mem3d.h"
 #include "cuda_fp16.h"
 
 namespace Neon::domain::details::eGrid {

@@ -1,8 +1,6 @@
 #pragma once
 #include "Neon/core/tools/metaprogramming.h"
 #include "Neon/core/tools/metaprogramming/applyTuple.h"
-
-#include "Neon/set/Capture.h"
 #include "Neon/set/MemoryOptions.h"
 
 #include <omp.h>
@@ -21,7 +19,6 @@
 #include "Neon/set/KernelConfig.h"
 #include "Neon/set/LambdaExecutor.h"
 #include "Neon/set/LaunchParameters.h"
-#include "Neon/set/SingletonSet.h"
 #include "Neon/set/Transfer.h"
 #include "Neon/set/memory/memDevSet.h"
 #include "Neon/set/memory/memSet.h"

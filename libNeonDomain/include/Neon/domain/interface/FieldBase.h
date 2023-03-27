@@ -5,7 +5,6 @@
 #include "Neon/core/types/Macros.h"
 
 #include "Neon/set/Containter.h"
-#include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/HuOptions.h"
 #include "Neon/set/memory/memSet.h"
