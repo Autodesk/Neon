@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Neon/domain/interface/NghData.h"
-#include "Neon/domain/details/bGrid/bCell.h"
+#include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/details/bGrid/bPartition.h"
+#include "Neon/domain/interface/NghData.h"
 
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
@@ -14,8 +14,8 @@ template <typename T, int C = 0>
 class mPartition : public Neon::domain::details::bGrid::bPartition<T, C>
 {
    public:
-    using PartitionIndexSpace = Neon::domain::details::bGrid::bPartitionIndexSpace;
-    using Cell = Neon::domain::details::bGrid::bCell;
+    using PartitionIndexSpace = Neon::domain::details::bGrid::bSpan;
+    using Cell = Neon::domain::details::bGrid::bIndex;
     using nghIdx_t = Cell::nghIdx_t;
     using Type = T;
 

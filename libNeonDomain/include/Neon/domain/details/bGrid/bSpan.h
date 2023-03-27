@@ -1,27 +1,30 @@
 #pragma once
 
-#include "Neon/domain/details/bGrid/bCell.h"
+#include "Neon/domain/details/bGrid/bIndex.h"
 
 namespace Neon::domain::details::bGrid {
-class bPartitionIndexSpace
+
+template <int BKSX, int BKSY, int BKSZ>
+class bSpan
 {
    public:
-    bPartitionIndexSpace() = default;
-    virtual ~bPartitionIndexSpace() = default;
+    bSpan() = default;
+    virtual ~bSpan() = default;
 
-    using Cell = bCell;
+    using Cell = bIndex;
 
+    template <int BBKSX, int BBKSY, int BBKSZ>
     friend class bGrid;
 
     static constexpr int SpaceDim = 1;
 
-    NEON_CUDA_HOST_DEVICE inline auto setAndValidate(bCell&        cell,
+    NEON_CUDA_HOST_DEVICE inline auto setAndValidate(bIndex&       cell,
                                                      const size_t& x,
                                                      const size_t& y,
                                                      const size_t& z) const -> bool;
 
    private:
-    NEON_CUDA_HOST_DEVICE inline auto setCell(bCell&                         cell,
+    NEON_CUDA_HOST_DEVICE inline auto setCell(bIndex&                        cell,
                                               [[maybe_unused]] const size_t& x,
                                               [[maybe_unused]] const size_t& y,
                                               [[maybe_unused]] const size_t& z) const -> void;
@@ -38,4 +41,4 @@ class bPartitionIndexSpace
 };
 }  // namespace Neon::domain::details::bGrid
 
-#include "Neon/domain/details/bGrid/bPartitionIndexSpace_imp.h"
+#include "Neon/domain/details/bGrid/bSpan_imp.h"

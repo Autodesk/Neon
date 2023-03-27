@@ -38,7 +38,7 @@ and templates to define the interface of a new grid. Abstract class mechanism ar
 Performance critical API are based on a template interface. In the future,  `concepts` will be used to describe such
 interface (we are waiting for `concepts` to be supported in CUDA).
 
-### Step 0 - Define a Cell type
+### Step 0 - Define a Idx type
 
 First goal is to define an abstraction for a cell handler. The cell handler is provided by the system to the user to
 access cell metadata.
@@ -77,11 +77,11 @@ class xPartitionIndexSpace {
  public:
     friend class xGrid;
 
-    using Cell = xCell;
+    using Idx = xCell;
     static constexpr int SpaceDim = 1;
 
     NEON_CUDA_HOST_DEVICE
-    inline auto setAndValidate(Cell&                          cell,
+    inline auto setAndValidate(Idx&                          cell,
                                const size_t&                  x,
                                [[maybe_unused]] const size_t& y,
                                [[maybe_unused]] const size_t& z)const
@@ -93,7 +93,7 @@ class xPartitionIndexSpace {
 ```
 
 The class must stratically specify the dimention of the index space (1D, 2D or 3D)  thorough the static
-integer `SpaceDim`. The only exposed methods is `setAndValidate`, which is used by the runtime to set a Cell handler
+integer `SpaceDim`. The only exposed methods is `setAndValidate`, which is used by the runtime to set a Idx handler
 from the position of the running thread w.r.t. the thread grid.
 
 ### Step 2 - Creating a xPartition class
@@ -109,7 +109,7 @@ class xPartition
     // These types must be declared. 
     // The actual type they represent depends on the grid
     using Type = T;
-    using Cell = int64_t;
+    using Idx = int64_t;
 
    public:
 
@@ -125,7 +125,7 @@ class xPartition
      * This method should be used only for fields of cardinality 1
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    operator()(const Cell& eId, int cardinalityIdx) const
+    operator()(const Idx& eId, int cardinalityIdx) const
         -> const T&;
 
     /**
@@ -133,21 +133,21 @@ class xPartition
      * This method should be used only for fields of cardinality 1
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    operator()(const Cell& eId, int cardinalityIdx) 
+    operator()(const Idx& eId, int cardinalityIdx) 
         ->  T&;
     
     /**
      * Returns the metadata associated with a neighbour cell.
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    getNghData(const Cell& eId, int stencilPointIdx, int cardinalityIdx, T& value) const
+    getNghData(const Idx& eId, int stencilPointIdx, int cardinalityIdx, T& value) const
         -> bool;
     
     /**
      * Returns the metadata associated with a neighbour cell.
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    getNghData(Cell eId, const Neon::int3d& direrection, int cardinalityIdx, T& value) const
+    getNghData(Idx eId, const Neon::int3d& direrection, int cardinalityIdx, T& value) const
         -> bool;
     
     /**
@@ -178,7 +178,7 @@ the `FieldBaseTemplate` class that requires information on both the xGrid and xP
     // New Naming:
     using Partition = sPartition<OuterGridT, T, C>; /**< Type of the associated fieldCompute */
     using Type = typename Partition::Type /**< Type of the information stored in one element */;
-    using Cell = typename Partition::Cell /**< Internal type that represent the location in memory of a element */;
+    using Idx = typename Partition::Idx /**< Internal type that represent the location in memory of a element */;
     using Grid = sGrid<OuterGridT>;
 
     static constexpr int Cardinality = C;
@@ -280,7 +280,7 @@ class xGrid : public Neon::domain::interface::GridBase
 
     template <typename T, int C = 0>
     using Field = xField<T, C>; 
-    using PartitionIndexSpace = xPartitionIndexSpace;
+    using Span = xPartitionIndexSpace;
     //...
 
 
@@ -314,7 +314,7 @@ class xGrid : public Neon::domain::interface::GridBase
     auto getPartitionIndexSpace(Neon::DeviceType devE,
                            SetIdx          setIdx,
                            Neon::DataView   dataView) const
-        -> const xGrid::PartitionIndexSpace&;
+        -> const xGrid::Span&;
 
     /**
      * Creates a new Field

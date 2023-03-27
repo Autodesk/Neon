@@ -1,9 +1,10 @@
-#include "Neon/domain/details/bGrid/bPartitionIndexSpace.h"
+#include "Neon/domain/details/bGrid/bSpan.h"
 
 namespace Neon::domain::details::bGrid {
 
-NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
-    bCell&                         cell,
+template<int BKSX, int BKSY,int BKSZ>
+NEON_CUDA_HOST_DEVICE inline auto bSpan<BKSX, BKSY, BKSZ>::setCell(
+    bIndex&                         cell,
     [[maybe_unused]] const size_t& x,
     [[maybe_unused]] const size_t& y,
     [[maybe_unused]] const size_t& z) const -> void
@@ -28,8 +29,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartitionIndexSpace::setCell(
     cell.mIsActive = true;
 }
 
+template<int BKSX, int BKSY,int BKSZ>
 NEON_CUDA_HOST_DEVICE inline auto
-bPartitionIndexSpace::setAndValidate(bCell&        cell,
+bSpan<BKSX, BKSY, BKSZ>::setAndValidate(bIndex&        cell,
                                      const size_t& x,
                                      const size_t& y,
                                      const size_t& z) const -> bool

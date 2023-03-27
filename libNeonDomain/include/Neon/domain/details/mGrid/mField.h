@@ -37,7 +37,7 @@ class mField
     using Grid = Neon::domain::details::mGrid::mGrid;
     using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
     using InternalGrid = Neon::domain::details::bGrid::bGrid;
-    using Cell = Neon::domain::details::bGrid::bCell;
+    using Cell = Neon::domain::details::bGrid::bIndex;
     using ngh_idx = typename Partition::nghIdx_t;
 
     mField() = default;

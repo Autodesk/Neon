@@ -1,31 +1,37 @@
 #pragma once
-#include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/details/bGrid/bPartition.h"
+#include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/set/patterns/BlasSet.h"
 
 namespace Neon::domain::details::bGrid {
+
+template <int BKSX, int BKSY, int BKSZ>
 class bGrid;
 
 
-template <typename T, int C = 0>
+template <typename T, int C, int BKSX, int BKSY, int BKSZ>
 class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 bGrid,
-                                                                 bPartition<T, C>,
+                                                                 bGrid<BKSX, BKSY, BKSZ>,
+                                                                 bPartition<T, C, BKSX, BKSY, BKSZ>,
                                                                  int>
 {
-    friend bGrid;
+    friend bGrid<BKSX, BKSY, BKSZ>;
 
    public:
     using Type = T;
-    using Grid = bGrid;
-    using Field = bField;
-    using Partition = bPartition<T, C>;
-    using Cell = bCell;
-    using ngh_idx = typename Partition::nghIdx_t;
+    using Grid = bGrid<BKSX, BKSY, BKSZ>;
+    using Field = bField<T, C, BKSX, BKSY, BKSZ>;
+    using Partition = bPartition<T, C, BKSX, BKSY, BKSZ>;
+    using Idx = bIndex;
+
+    using NghIdx = typename Partition::NghIdx;
+    using Ngh3DIdx = typename Partition::Ngh3DIdx;
+    using Ngh1DIdx = typename Partition::Ngh1DIdx;
+    using NghData = typename Partition::NghData;
 
     bField(const std::string&             name,
-           const bGrid&                   grid,
+           const bGrid<BKSX, BKSY, BKSZ>& grid,
            int                            cardinality,
            T                              outsideVal,
            Neon::DataUse                  dataUse,
@@ -35,14 +41,6 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     bField() = default;
 
     virtual ~bField() = default;
-
-    auto getPartition(const Neon::DeviceType& devType,
-                      const Neon::SetIdx&     idx,
-                      const Neon::DataView&   dataView) const -> const Partition&;
-
-    auto getPartition(const Neon::DeviceType& devType,
-                      const Neon::SetIdx&     idx,
-                      const Neon::DataView&   dataView) -> Partition&;
 
     auto getPartition(Neon::Execution,
                       Neon::SetIdx,
@@ -74,16 +72,6 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
     auto getMem() -> Neon::set::MemSet<T>&;
 
-    auto dot(Neon::set::patterns::BlasSet<T>& blasSet,
-             const bField<T>&                 input,
-             Neon::set::MemDevSet<T>&         output,
-             const Neon::DataView&            dataView) -> void;
-
-    auto norm2(Neon::set::patterns::BlasSet<T>& blasSet,
-               Neon::set::MemDevSet<T>&         output,
-               const Neon::DataView&            dataView) -> void;
-
-
     auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
                                                     const int& cardinality,
                                                     T&)>&     fun,
@@ -103,7 +91,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     struct Data
     {
 
-        std::shared_ptr<bGrid> grid;
+        std::shared_ptr<Grid> grid;
 
         Neon::set::MemSet<T> mem;
 
@@ -113,7 +101,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
             std::array<
                 Neon::set::DataSet<Partition>,
                 Neon::DataViewUtil::nConfig>,
-            2>  //2 for host and device
+            2>  // 2 for host and device
             partitions;
     };
     std::shared_ptr<Data> mData;

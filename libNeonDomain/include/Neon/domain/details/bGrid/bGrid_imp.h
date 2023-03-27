@@ -2,26 +2,28 @@
 
 namespace Neon::domain::details::bGrid {
 
+template <int BKSX, int BKSY, int BKSZ>
 template <typename ActiveCellLambda>
-bGrid::bGrid(const Neon::Backend&         backend,
-             const Neon::int32_3d&        domainSize,
-             const ActiveCellLambda       activeCellLambda,
-             const Neon::domain::Stencil& stencil,
-             const double_3d&             spacingData,
-             const double_3d&             origin)
+bGrid<BKSX, BKSY, BKSZ>::bGrid(const Neon::Backend&         backend,
+                               const Neon::int32_3d&        domainSize,
+                               const ActiveCellLambda       activeCellLambda,
+                               const Neon::domain::Stencil& stencil,
+                               const double_3d&             spacingData,
+                               const double_3d&             origin)
     : bGrid(backend, domainSize, activeCellLambda, stencil, 8, 1, spacingData, origin)
 {
 }
 
+template <int BKSX, int BKSY, int BKSZ>
 template <typename ActiveCellLambda>
-bGrid::bGrid(const Neon::Backend&         backend,
-             const Neon::int32_3d&        domainSize,
-             const ActiveCellLambda       activeCellLambda,
-             const Neon::domain::Stencil& stencil,
-             const int                    blockSize,
-             const int                    voxelSpacing,
-             const double_3d&             spacingData,
-             const double_3d&             origin)
+bGrid<BKSX, BKSY, BKSZ>::bGrid(const Neon::Backend&         backend,
+                              const Neon::int32_3d&        domainSize,
+                              const ActiveCellLambda       activeCellLambda,
+                              const Neon::domain::Stencil& stencil,
+                              const int                    blockSize,
+                              const int                    voxelSpacing,
+                              const double_3d&             spacingData,
+                              const double_3d&             origin)
 {
 
 
@@ -87,14 +89,14 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
 
     // Init the base grid
-    bGrid::GridBase::init("bGrid",
-                          backend,
-                          domainSize,
-                          Neon::domain::Stencil(),
-                          mData->mNumActiveVoxel,
-                          Neon::int32_3d(blockSize, blockSize, blockSize),
-                          spacingData,
-                          origin);
+    bGrid<BKSX, BKSY, BKSZ>::GridBase::init("bGrid",
+                                           backend,
+                                           domainSize,
+                                           Neon::domain::Stencil(),
+                                           mData->mNumActiveVoxel,
+                                           Neon::int32_3d(blockSize, blockSize, blockSize),
+                                           spacingData,
+                                           origin);
 
 
     Neon::MemoryOptions memOptionsAoS(Neon::DeviceType::CPU,
@@ -103,14 +105,14 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                       ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                       Neon::MemoryLayout::arrayOfStructs);
 
-    //origin
+    // origin
     mData->mOrigin = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::HOST_DEVICE},
                                                                          1,
                                                                          memOptionsAoS,
                                                                          mData->mNumBlocks);
 
 
-    //Stencil linear/relative index
+    // Stencil linear/relative index
     auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>();
     for (int32_t c = 0; c < stencilNghSize.cardinality(); ++c) {
         stencilNghSize[c] = stencil.neighbours().size();
@@ -160,7 +162,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                                             mData->mNumBlocks);
     // init neighbor blocks to invalid block id
     for (int32_t c = 0; c < mData->mNeighbourBlocks.cardinality(); ++c) {
-        //TODO
+        // TODO
         SetIdx devID(c);
         for (uint64_t i = 0; i < mData->mNumBlocks[c]; ++i) {
             for (int n = 0; n < 26; ++n) {
@@ -172,7 +174,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
     // loop over active blocks to populate the block origins, neighbors, and bitmask
     mData->mBlockOriginTo1D.forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-        //TODO need to figure out which device owns this block
+        // TODO need to figure out which device owns this block
         SetIdx devID(0);
 
         mData->mOrigin.eRef(devID, blockIdx) = blockOrigin;
@@ -186,7 +188,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
         };
 
 
-        //set active mask and child ID
+        // set active mask and child ID
         for (Cell::Location::Integer z = 0; z < blockSize; z++) {
             for (Cell::Location::Integer y = 0; y < blockSize; y++) {
                 for (Cell::Location::Integer x = 0; x < blockSize; x++) {
@@ -203,7 +205,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
         }
 
 
-        //set neighbor blocks
+        // set neighbor blocks
         for (int16_t k = -1; k < 2; k++) {
             for (int16_t j = -1; j < 2; j++) {
                 for (int16_t i = -1; i < 2; i++) {
@@ -265,24 +267,24 @@ bGrid::bGrid(const Neon::Backend&         backend,
     }
 }
 
+template <int BKSX, int BKSY, int BKSZ>
 template <typename T, int C>
-auto bGrid::newField(const std::string          name,
-                     int                        cardinality,
-                     T                          inactiveValue,
-                     Neon::DataUse              dataUse,
-                     const Neon::MemoryOptions& memoryOptions) const -> Field<T, C>
+auto bGrid<BKSX, BKSY, BKSZ>::newField(const std::string          name,
+                                      int                        cardinality,
+                                      T                          inactiveValue,
+                                      Neon::DataUse              dataUse,
+                                      const Neon::MemoryOptions& memoryOptions) const -> Field<T, C>
 {
-    bField<T, C> field(name, *this, cardinality, inactiveValue, dataUse, memoryOptions, Neon::domain::haloStatus_et::ON);
-
+    Field<T, C> field(name, *this, cardinality, inactiveValue, dataUse, memoryOptions, Neon::domain::haloStatus_et::ON);
     return field;
 }
 
-
+template <int BKSX, int BKSY, int BKSZ>
 template <typename LoadingLambda>
-auto bGrid::getContainer(const std::string& name,
-                         index_3d           blockSize,
-                         size_t             sharedMem,
-                         LoadingLambda      lambda) const -> Neon::set::Container
+auto bGrid<BKSX, BKSY, BKSZ>::getContainer(const std::string& name,
+                                          index_3d           blockSize,
+                                          size_t             sharedMem,
+                                          LoadingLambda      lambda) const -> Neon::set::Container
 {
     Neon::set::Container kContainer = Neon::set::Container::factory(name,
                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
@@ -293,37 +295,39 @@ auto bGrid::getContainer(const std::string& name,
     return kContainer;
 }
 
+template <int BKSX, int BKSY, int BKSZ>
 template <typename LoadingLambda>
-auto bGrid::getContainer(const std::string& name,
-                         LoadingLambda      lambda) const -> Neon::set::Container
+auto bGrid<BKSX, BKSY, BKSZ>::getContainer(const std::string& name,
+                                          LoadingLambda      lambda) const -> Neon::set::Container
 {
-    const Neon::index_3d& defaultBlockSize = getDefaultBlock();
+    const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    defaultBlockSize,
-                                                                    [](const Neon::index_3d&) { return size_t(0); });
+                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                     *this,
+                                                                     lambda,
+                                                                     defaultBlockSize,
+                                                                     [](const Neon::index_3d&) { return size_t(0); });
     return kContainer;
 }
 
+template <int BKSX, int BKSY, int BKSZ>
 template <typename T>
-auto bGrid::newPatternScalar() const -> Neon::template PatternScalar<T>
+auto bGrid<BKSX, BKSY, BKSZ>::newPatternScalar() const -> Neon::template PatternScalar<T>
 {
     // TODO this sets the numBlocks for only Standard dataView.
-    auto pattern = Neon::PatternScalar<T>(getBackend(), Neon::sys::patterns::Engine::CUB);
+    auto pattern = Neon::PatternScalar<T>(this->getBackend(), Neon::sys::patterns::Engine::CUB);
     for (SetIdx id = 0; id < mData->mNumBlocks.cardinality(); id++) {
         pattern.getBlasSet(Neon::DataView::STANDARD).getBlas(id.idx()).setNumBlocks(uint32_t(mData->mNumBlocks[id]));
     }
     return pattern;
 }
 
-
+template <int BKSX, int BKSY, int BKSZ>
 template <typename T>
-auto bGrid::dot(const std::string&               name,
-                Field<T>&                        input1,
-                Field<T>&                        input2,
-                Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
+auto bGrid<BKSX, BKSY, BKSZ>::dot(const std::string&               name,
+                                 Field<T>&                        input1,
+                                 Field<T>&                        input2,
+                                 Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
 {
     return Neon::set::Container::factoryOldManaged(
         name,
@@ -343,13 +347,13 @@ auto bGrid::dot(const std::string&               name,
                     NEON_THROW(exc);
                 }
 
-                if (dataView != Neon::DataView::STANDARD && getBackend().devSet().setCardinality() == 1) {
+                if (dataView != Neon::DataView::STANDARD && this->getBackend().devSet().setCardinality() == 1) {
                     NeonException exc("bGrid");
                     exc << "Reduction operation can only run on standard data view when the number of partitions/GPUs is 1";
                     NEON_THROW(exc);
                 }
 
-                if (getBackend().devType() == Neon::DeviceType::CUDA) {
+                if (this->getBackend().devType() == Neon::DeviceType::CUDA) {
                     scalar.setStream(streamIdx, dataView);
 
                     // calc dot product and store results on device
@@ -385,10 +389,11 @@ auto bGrid::dot(const std::string&               name,
         });
 }
 
+template <int BKSX, int BKSY, int BKSZ>
 template <typename T>
-auto bGrid::norm2(const std::string&               name,
-                  Field<T>&                        input,
-                  Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
+auto bGrid<BKSX, BKSY, BKSZ>::norm2(const std::string&               name,
+                                   Field<T>&                        input,
+                                   Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container
 {
     return Neon::set::Container::factoryOldManaged(
         name,
@@ -406,13 +411,13 @@ auto bGrid::norm2(const std::string&               name,
                     NEON_THROW(exc);
                 }
 
-                if (dataView != Neon::DataView::STANDARD && getBackend().devSet().setCardinality() == 1) {
+                if (dataView != Neon::DataView::STANDARD && this->getBackend().devSet().setCardinality() == 1) {
                     NeonException exc("bGrid");
                     exc << "Reduction operation can only run on standard data view when the number of partitions/GPUs is 1";
                     NEON_THROW(exc);
                 }
 
-                if (getBackend().devType() == Neon::DeviceType::CUDA) {
+                if (this->getBackend().devType() == Neon::DeviceType::CUDA) {
                     scalar.setStream(streamIdx, dataView);
 
                     // calc dot product and store results on device

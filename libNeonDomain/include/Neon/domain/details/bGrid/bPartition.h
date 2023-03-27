@@ -1,20 +1,21 @@
 #pragma once
 
+#include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/interface/NghData.h"
-#include "Neon/domain/details/bGrid/bCell.h"
 
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
 namespace Neon::domain::details::bGrid {
 
-class bPartitionIndexSpace;
+template <int BKSX, int BKSY, int BKSZ>
+class bSpan;
 
-template <typename T, int C = 0>
+template <typename T, int C, int BKSX, int BKSY, int BKSZ>
 class bPartition
 {
    public:
-    using PartitionIndexSpace = bPartitionIndexSpace;
-    using Cell = bCell;
+    using Span = bSpan<BKSX, BKSY, BKSZ>;
+    using Cell = bIndex;
     using nghIdx_t = Cell::nghIdx_t;
     using Type = T;
 
@@ -34,12 +35,12 @@ class bPartition
 
     inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int;
 
-    inline NEON_CUDA_HOST_DEVICE auto operator()(const bCell& cell,
-                                                 int          card)
+    inline NEON_CUDA_HOST_DEVICE auto operator()(const bIndex& cell,
+                                                 int           card)
         -> T&;
 
-    inline NEON_CUDA_HOST_DEVICE auto operator()(const bCell& cell,
-                                                 int          card) const -> const T&;
+    inline NEON_CUDA_HOST_DEVICE auto operator()(const bIndex& cell,
+                                                 int           card) const -> const T&;
 
     NEON_CUDA_HOST_DEVICE inline auto nghVal(const Cell&     cell,
                                              const nghIdx_t& offset,

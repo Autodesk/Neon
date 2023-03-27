@@ -3,11 +3,11 @@
 #include "Neon/domain/details/bGrid/bCell.h"
 
 namespace Neon::domain::details::bGrid {
-class bPartitionIndexSpace
+class bSpan
 {
    public:
-    bPartitionIndexSpace() = default;
-    virtual ~bPartitionIndexSpace() = default;
+    bSpan() = default;
+    virtual ~bSpan() = default;
 
     using Cell = bCell;
 
@@ -38,4 +38,4 @@ class bPartitionIndexSpace
 };
 }  // namespace Neon::domain::details::bGrid
 
-#include "Neon/domain/details/bGrid/bPartitionIndexSpace_imp.h"
+#include "Neon/domain/details/bGrid/bSpan_imp.h"

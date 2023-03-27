@@ -3,42 +3,44 @@
 
 #include "Neon/set/memory/memSet.h"
 
-#include "Neon/domain/interface/GridBaseTemplate.h"
-#include "Neon/domain/details/bGrid/bCell.h"
 #include "Neon/domain/details/bGrid/bField.h"
+#include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/details/bGrid/bPartition.h"
-#include "Neon/domain/details/bGrid/bPartitionIndexSpace.h"
+#include "Neon/domain/details/bGrid/bSpan.h"
+#include "Neon/domain/interface/GridBaseTemplate.h"
 #include "Neon/domain/patterns/PatternScalar.h"
 #include "Neon/domain/tools/PointHashTable.h"
 #include "Neon/set/Containter.h"
 
 namespace Neon::domain::details::bGrid {
 
-template <typename T, int C>
+template <typename T, int C, int BKSX, int BKSY, int BKSZ>
 class bField;
 
-class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
+template <int BKSX = 8, int BKSY = 8, int BKSZ = 8>
+class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<BKSX, BKSY, BKSZ>, bIndex>
 {
    public:
     using Grid = bGrid;
-    using Cell = bCell;
+    using Cell = bIndex;
 
     template <typename T, int C = 0>
-    using Partition = bPartition<T, C>;
+    using Partition = bPartition<T, C, BKSX, BKSY, BKSZ>;
 
     template <typename T, int C = 0>
-    using Field = Neon::domain::details::bGrid::bField<T, C>;
+    using Field = Neon::domain::details::bGrid::bField<T, C, BKSX, BKSY, BKSZ>;
 
     using nghIdx_t = typename Partition<int>::nghIdx_t;
 
-    using PartitionIndexSpace = Neon::domain::details::bGrid::bPartitionIndexSpace;
+    using PartitionIndexSpace = Neon::domain::details::bGrid::bSpan<BKSX, BKSY, BKSZ>;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<bGrid<BKSX, BKSY, BKSZ>, bIndex>;
 
     bGrid() = default;
     virtual ~bGrid(){};
 
     /**
-     * Constructor for the vanilla block data structure with depth of 1     
-    */
+     * Constructor for the vanilla block data structure with depth of 1
+     */
     template <typename ActiveCellLambda>
     bGrid(const Neon::Backend&         backend,
           const Neon::int32_3d&        domainSize,
@@ -59,8 +61,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
           const double_3d&             origin = double_3d(0, 0, 0));
 
 
-    auto getProperties(const Neon::index_3d& idx) const -> GridBaseTemplate::CellProperties final;
-
+    auto getProperties(const Neon::index_3d& idx) const -> typename GridBaseTemplate::CellProperties final;
 
     auto isInsideDomain(const Neon::index_3d& idx) const -> bool final;
 
@@ -100,7 +101,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
     auto getActiveMask() const -> Neon::set::MemSet<uint32_t>&;
     auto getBlockOriginTo1D() const -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
 
-    //for compatibility with other grids that can work on cub and cublas engine
+    // for compatibility with other grids that can work on cub and cublas engine
     auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
 
     template <typename T>
@@ -133,36 +134,38 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
         int blockSize;
         int voxelSpacing;
 
-        //number of active voxels in each block
+
+
+        // number of active voxels in each block
         Neon::set::DataSet<uint64_t> mNumActiveVoxel;
 
-        //block origin coordinates
+        // block origin coordinates
         Neon::set::MemSet<Neon::int32_3d> mOrigin;
 
-        //Stencil neighbor indices
+        // Stencil neighbor indices
         Neon::set::MemSet<nghIdx_t> mStencilNghIndex;
 
 
-        Neon::set::DataSet<uint64_t>  mActiveMaskSize;
-        Neon::set::MemSet<uint32_t> mActiveMask;
+        Neon::set::DataSet<uint64_t> mActiveMaskSize;
+        Neon::set::MemSet<uint32_t>  mActiveMask;
 
 
-        //1d index of 26 neighbor blocks
-        //every block is typically neighbor to 26 other blocks. Here we store the 1d index of these 26 neighbor blocks
-        //we could use this 1d index to (for example) index the origin of the neighbor block or its active mask
-        //as maybe needed by stencil operations
-        //If one of this neighbor blocks does not exist (e.g., not allocated or at the domain border), we store
-        //std::numeric_limits<uint32_t>::max() to indicate that there is no neighbor block at this location
+        // 1d index of 26 neighbor blocks
+        // every block is typically neighbor to 26 other blocks. Here we store the 1d index of these 26 neighbor blocks
+        // we could use this 1d index to (for example) index the origin of the neighbor block or its active mask
+        // as maybe needed by stencil operations
+        // If one of this neighbor blocks does not exist (e.g., not allocated or at the domain border), we store
+        // std::numeric_limits<uint32_t>::max() to indicate that there is no neighbor block at this location
         Neon::set::MemSet<uint32_t> mNeighbourBlocks;
 
-        //Partition index space
-        //It is an std vector for the three type of data views we have
+        // Partition index space
+        // It is an std vector for the three type of data views we have
         std::array<Neon::set::DataSet<PartitionIndexSpace>, 3> mPartitionIndexSpace;
 
-        //Store the block origin as a key and its 1d index as value
+        // Store the block origin as a key and its 1d index as value
         Neon::domain::tool::PointHashTable<int32_t, uint32_t> mBlockOriginTo1D;
 
-        //number of blocks in each device
+        // number of blocks in each device
         Neon::set::DataSet<uint64_t> mNumBlocks;
     };
     std::shared_ptr<Data> mData;
@@ -171,3 +174,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bCell>
 }  // namespace Neon::domain::details::bGrid
 
 #include "Neon/domain/details/bGrid/bGrid_imp.h"
+
+namespace Neon::domain::details::bGrid {
+extern template class bGrid<8, 8, 8>;
+}

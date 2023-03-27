@@ -142,7 +142,7 @@ $ ./tutorial-domainLevel
 [12:54:11] Neon: CpuSys_t: Loading info on CPU subsystem
 [12:54:11] Neon: GpuSys_t: Loading info on GPU subsystem 1 GPU was detected.
 [12:54:11] Neon: Backend_t (0x7ffc0e6fad20) - [runtime:stream] [nDev:1] [dev0:0 NVIDIARTXA4000] 
-[12:54:12] Neon: [Domain Grid]:{eGrid}, [Background Grid]:{(25, 25, 25)}, [Active Cells]:{15625}, [Cell Distribution]:{(15625)}, [Backend]:{Backend_t (0x55e6f57a2c70) - [runtime:stream] [nDev:1] [dev0:0 NVIDIARTXA4000] }
+[12:54:12] Neon: [Domain Grid]:{eGrid}, [Background Grid]:{(25, 25, 25)}, [Active Cells]:{15625}, [Idx Distribution]:{(15625)}, [Backend]:{Backend_t (0x55e6f57a2c70) - [runtime:stream] [nDev:1] [dev0:0 NVIDIARTXA4000] }
 ```
 
 By logging the grid information (`NEON_INFO(grid.toString());`), we can inspect some information about the grid.
@@ -253,7 +253,7 @@ auto expandedLevelSet(Field& sdf,
             auto& px = L.load(sdf);
 
             return [=] NEON_CUDA_HOST_DEVICE(
-                       const typename Field::Cell& cell) mutable {
+                       const typename Field::Idx& cell) mutable {
                 px(cell, 0) -= expantion;
             };
         });
@@ -325,7 +325,7 @@ auto computeGrad(const Field& levelSetField /** input scalar field we want to co
 
 
             return [=] NEON_CUDA_HOST_DEVICE(
-                       const typename Field::Cell& cell) mutable {
+                       const typename Field::Idx& cell) mutable {
                 // Central difference
                 for (int i = 0; i < 3; i++) {
                     auto upIdx = i;

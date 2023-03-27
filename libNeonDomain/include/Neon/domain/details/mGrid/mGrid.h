@@ -7,7 +7,7 @@
 
 #include "Neon/domain/details/mGrid/mGridDescriptor.h"
 
-#include "Neon/domain/details/bGrid/bCell.h"
+#include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/details/mGrid/mField.h"
 #include "Neon/domain/details/mGrid/mPartition.h"
 
