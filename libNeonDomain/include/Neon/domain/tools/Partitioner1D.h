@@ -80,26 +80,28 @@ class Partitioner1D
     Partitioner1D(const Neon::Backend&        backend,
                   const ActiveCellLambda&     activeCellLambda,
                   const BcLambda&             bcLambda,
-                  const int&                  blockSize,
+                  const int&                  dataBlockSize,
                   const Neon::int32_3d&       domainSize,
                   const Neon::domain::Stencil stencil,
                   const int&                  discreteVoxelSpacing = 1)
     {
-        mBlockSize = blockSize;
-        mDiscreteVoxelSpacing = discreteVoxelSpacing;
-        mStencil = stencil;
-        mDomainSize = domainSize;
+        mData = std::make_shared<Data>();
 
-        Neon::int32_3d block3DSpan(NEON_DIVIDE_UP(domainSize.x, blockSize),
-                                   NEON_DIVIDE_UP(domainSize.y, blockSize),
-                                   NEON_DIVIDE_UP(domainSize.z, blockSize));
+        mData->mDataBlockSize = dataBlockSize;
+        mData->mDiscreteVoxelSpacing = discreteVoxelSpacing;
+        mData->mStencil = stencil;
+        mData->mDomainSize = domainSize;
+
+        Neon::int32_3d block3DSpan(NEON_DIVIDE_UP(domainSize.x, dataBlockSize),
+                                   NEON_DIVIDE_UP(domainSize.y, dataBlockSize),
+                                   NEON_DIVIDE_UP(domainSize.z, dataBlockSize));
 
         std::vector<int> nBlockProjectedToZ(block3DSpan.z);
 
         auto block3dIdxToBlockOrigin = [&](Neon::int32_3d const& block3dIdx) {
-            Neon::int32_3d blockOrigin(block3dIdx.x * blockSize * discreteVoxelSpacing,
-                                       block3dIdx.y * blockSize * discreteVoxelSpacing,
-                                       block3dIdx.z * blockSize * discreteVoxelSpacing);
+            Neon::int32_3d blockOrigin(block3dIdx.x * dataBlockSize * discreteVoxelSpacing,
+                                       block3dIdx.y * dataBlockSize * discreteVoxelSpacing,
+                                       block3dIdx.z * dataBlockSize * discreteVoxelSpacing);
             return blockOrigin;
         };
 
@@ -111,54 +113,53 @@ class Partitioner1D
             return id;
         };
 
-        spanDecomposition = std::make_shared<partitioning::SpanDecomposition>(
+        mData->spanDecomposition = std::make_shared<partitioning::SpanDecomposition>(
             backend,
             activeCellLambda,
             block3dIdxToBlockOrigin,
             getVoxelAbsolute3DIdx,
             block3DSpan,
-            blockSize,
+            dataBlockSize,
             domainSize,
             discreteVoxelSpacing);
 
-        mSpanClassifier = std::make_shared<partitioning::SpanClassifier>(
+        mData->mSpanClassifier = std::make_shared<partitioning::SpanClassifier>(
             backend,
             activeCellLambda,
             bcLambda,
             block3dIdxToBlockOrigin,
             getVoxelAbsolute3DIdx,
             block3DSpan,
-            blockSize,
+            dataBlockSize,
             domainSize,
             stencil,
             discreteVoxelSpacing,
-            spanDecomposition);
+            mData->spanDecomposition);
 
-        mSpanLayout = std::make_shared<partitioning::SpanLayout>(
+        mData->mSpanLayout = std::make_shared<partitioning::SpanLayout>(
             backend,
-            spanDecomposition,
-            mSpanClassifier);
+            mData->spanDecomposition,
+            mData->mSpanClassifier);
 
-
-        mTopologyWithGhost = aGrid(backend,
-                                   mSpanLayout->getStandardAndGhostCount().typedClone<size_t>(), {251, 1, 1});
+        mData->mTopologyWithGhost = aGrid(backend,
+                                          mData->mSpanLayout->getStandardAndGhostCount().typedClone<size_t>(), {251, 1, 1});
     }
 
     auto getMemoryGrid() -> Neon::aGrid&
     {
-        return mTopologyWithGhost;
+        return mData->mTopologyWithGhost;
     }
 
     auto getStandardAndGhostCount()
         const -> const Neon::set::DataSet<int32_t>&
     {
-        return mSpanLayout->getStandardAndGhostCount();
+        return mData->mSpanLayout->getStandardAndGhostCount();
     }
 
     auto getStandardCount()
         const -> const Neon::set::DataSet<int32_t>&
     {
-        return mSpanLayout->getStandardCount();
+        return mData->mSpanLayout->getStandardCount();
     }
 
     auto getSpanClassifier()
@@ -167,46 +168,50 @@ class Partitioner1D
     auto getSpanLayout()
         const -> partitioning::SpanLayout const&;
 
-    auto getGlobalMapping() -> Neon::aGrid::Field<Neon::int32_3d, 0>
+    auto getGlobalMapping()
+        -> Neon::aGrid::Field<Neon::int32_3d, 0>&
     {
-        auto result = mTopologyWithGhost.template newField<Neon::int32_3d, 0>("GlobalMapping",
-                                                                              1,
-                                                                              Neon::int32_3d(0),
-                                                                              Neon::DataUse::HOST_DEVICE);
+        if (!mData->globalMappingInit) {
+            mData->globalMapping = mData->mTopologyWithGhost.template newField<Neon::int32_3d, 0>("GlobalMapping",
+                                                                                                  1,
+                                                                                                  Neon::int32_3d(0),
+                                                                                                  Neon::DataUse::HOST_DEVICE);
 
-        mTopologyWithGhost.getBackend().forEachDeviceSeq([&](Neon::SetIdx const& setIdx) {
-            int count = 0;
-            using namespace partitioning;
+            mData->mTopologyWithGhost.getBackend().forEachDeviceSeq([&](Neon::SetIdx const& setIdx) {
+                int count = 0;
+                using namespace partitioning;
 
-            auto partition = result.getPartition(Execution::host, setIdx);
+                auto partition = mData->globalMapping.getPartition(Execution::host, setIdx);
 
-            for (auto byPartition : {ByPartition::internal, ByPartition::boundary}) {
-                for (auto byDirection : {ByDirection::up, ByDirection::down}) {
-                    if (byPartition == ByPartition::internal && byDirection == ByDirection::down) {
-                        continue;
-                    }
-                    for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
-                        auto const& mapperVec = mSpanClassifier->getMapper1Dto3D(
-                            setIdx,
-                            byPartition,
-                            byDirection,
-                            byDomain);
-                        for (uint64_t j = 0; j < mapperVec.size(); j++) {
+                for (auto byPartition : {ByPartition::internal, ByPartition::boundary}) {
+                    for (auto byDirection : {ByDirection::up, ByDirection::down}) {
+                        if (byPartition == ByPartition::internal && byDirection == ByDirection::down) {
+                            continue;
+                        }
+                        for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
+                            auto const& mapperVec = mData->mSpanClassifier->getMapper1Dto3D(
+                                setIdx,
+                                byPartition,
+                                byDirection,
+                                byDomain);
+                            for (uint64_t j = 0; j < mapperVec.size(); j++) {
 
-                            aGrid::Cell idx(count);
-                            auto const& point3d = mapperVec[j];
-                            partition(idx, 0) = point3d;
-                            count++;
+                                aGrid::Cell idx(count);
+                                auto const& point3d = mapperVec[j];
+                                partition(idx, 0) = point3d;
+                                count++;
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
 
-        result.updateDeviceData(Neon::Backend::mainStreamIdx);
-
-        return result;
+            mData->globalMapping.updateDeviceData(Neon::Backend::mainStreamIdx);
+            mData->globalMappingInit = true;
+        }
+        return mData->globalMapping;
     }
+
     template <typename Lambda>
     auto forEachSeq(Neon::SetIdx setIdx, const Lambda& lambda)
         const -> void
@@ -220,7 +225,7 @@ class Partitioner1D
                     continue;
                 }
                 for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
-                    auto const& mapperVec = mSpanClassifier->getMapper1Dto3D(
+                    auto const& mapperVec = mData->mSpanClassifier->getMapper1Dto3D(
                         setIdx,
                         byPartition,
                         byDirection,
@@ -240,8 +245,8 @@ class Partitioner1D
 
     auto getDenseMeta(DenseMeta& denseMeta) const
     {
-        denseMeta = DenseMeta(mDomainSize);
-        auto const& backend = mTopologyWithGhost.getBackend();
+        denseMeta = DenseMeta(mData->mDomainSize);
+        auto const& backend = mData->mTopologyWithGhost.getBackend();
         backend.forEachDeviceSeq(
             [&](Neon::SetIdx setIdx) {
                 forEachSeq(
@@ -252,111 +257,82 @@ class Partitioner1D
             });
     }
 
-    auto getStencil3dTo1dOffset() const -> Neon::set::MemSet<int8_t>
+    auto getStencil3dTo1dOffset()
+        const -> Neon::set::MemSet<int8_t>&
     {
-        const Backend& backend = mTopologyWithGhost.getBackend();
-        ;
+        if (!mData->getStencil3dTo1dOffsetInit) {
+            const Backend& backend = mData->mTopologyWithGhost.getBackend();
+            ;
 
-        int32_t radius = mStencil.getRadius();
-        int     countElement = (2 * radius + 1);
-        countElement = countElement * countElement * countElement;
+            int32_t radius = mData->mStencil.getRadius();
+            int     countElement = (2 * radius + 1);
+            countElement = countElement * countElement * countElement;
 
-        auto memSize = backend.devSet().template newDataSet<uint64_t>(countElement);
+            auto memSize = backend.devSet().template newDataSet<uint64_t>(countElement);
 
-        Neon::set::MemSet<int8_t> stencilNghIndex = backend.devSet().template newMemSet<int8_t>(
-            Neon::DataUse::HOST_DEVICE,
-            1,
-            Neon::MemoryOptions(),
-            memSize);
+            mData->stencil3dTo1dOffset = backend.devSet().template newMemSet<int8_t>(
+                Neon::DataUse::HOST_DEVICE,
+                1,
+                Neon::MemoryOptions(),
+                memSize);
 
-        backend.forEachDeviceSeq([&]([[maybe_unused]] SetIdx setIdx) {
-            int stencilIdx = 0;
-            for (int i = 0; i < 27; i++) {
-                stencilNghIndex.eRef(setIdx, i, 0) = -33;
-            }
-            for (auto ngh : mStencil.neighbours()) {
-                int     yPitch = (2 * radius + 1);
-                int     zPitch = yPitch * yPitch;
-                auto    nghShifted = ngh + radius;
-                int32_t offset = nghShifted.x + nghShifted.y * yPitch + nghShifted.z * zPitch;
-                assert(offset < countElement);
-                assert(offset >= 0);
-                // std::cout << ngh << " -> " << stencilIdx << " -> Pitch "  << offset<< std::endl;
-                stencilNghIndex.eRef(setIdx, offset, 0) = stencilIdx;
-                stencilIdx++;
-            }
-        });
+            backend.forEachDeviceSeq([&]([[maybe_unused]] SetIdx setIdx) {
+                int stencilIdx = 0;
+                for (int i = 0; i < 27; i++) {
+                    mData->stencil3dTo1dOffset.eRef(setIdx, i, 0) = -33;
+                }
+                for (auto ngh : mData->mStencil.neighbours()) {
+                    int     yPitch = (2 * radius + 1);
+                    int     zPitch = yPitch * yPitch;
+                    auto    nghShifted = ngh + radius;
+                    int32_t offset = nghShifted.x + nghShifted.y * yPitch + nghShifted.z * zPitch;
+                    assert(offset < countElement);
+                    assert(offset >= 0);
+                    // std::cout << ngh << " -> " << stencilIdx << " -> Pitch "  << offset<< std::endl;
+                    mData->stencil3dTo1dOffset.eRef(setIdx, offset, 0) = stencilIdx;
+                    stencilIdx++;
+                }
+            });
 
-        stencilNghIndex.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
-        return stencilNghIndex;
+            mData->stencil3dTo1dOffset.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
+            mData->getStencil3dTo1dOffsetInit = true;
+        }
+        return mData->stencil3dTo1dOffset;
     }
 
     auto getConnectivity()
         -> Neon::aGrid::Field<int32_t, 0>
     {
-        auto connectivityField = mTopologyWithGhost.template newField<int32_t, 0>("GlobalMapping",
-                                                                                  mStencil.nPoints(),
-                                                                                  0,
-                                                                                  Neon::DataUse::HOST_DEVICE);
+        if (!mData->connectivityInit) {
+            mData->connectivity = mData->mTopologyWithGhost.template newField<int32_t, 0>("GlobalMapping",
+                                                                                          mData->mStencil.nPoints(),
+                                                                                          0,
+                                                                                          Neon::DataUse::HOST_DEVICE);
 
-        mTopologyWithGhost.getBackend().forEachDeviceSeq(
-            [&](Neon::SetIdx const& setIdx) {
-                auto& partition = connectivityField.getPartition(Neon::Execution::host, setIdx);
-                using namespace partitioning;
+            mData->mTopologyWithGhost.getBackend().forEachDeviceSeq(
+                [&](Neon::SetIdx const& setIdx) {
+                    auto& partition = mData->connectivity.getPartition(Neon::Execution::host, setIdx);
+                    using namespace partitioning;
 
-                // Internal voxels will read only non ghost data
-                for (auto byPartition : {ByPartition::internal}) {
-                    const auto byDirection = ByDirection::up;
-                    for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
-                        auto const& mapperVec = mSpanClassifier->getMapper1Dto3D(
-                            setIdx,
-                            byPartition,
-                            byDirection,
-                            byDomain);
-                        auto const start = mSpanLayout->getBoundsInternal(setIdx, byDomain).first;
-                        for (uint64_t blockIdx = 0; blockIdx < mapperVec.size(); blockIdx++) {
-                            auto const& point3d = mapperVec[blockIdx];
-                            for (int s = 0; s < mStencil.nPoints(); s++) {
-
-                                auto const offset = mStencil.neighbours()[s];
-
-                                auto findings = mSpanLayout->findNeighbourOfInternalPoint(
-                                    setIdx,
-                                    point3d, offset);
-
-                                uint32_t const noNeighbour = std::numeric_limits<uint32_t>::max();
-                                uint32_t       targetNgh = noNeighbour;
-                                if (findings.first) {
-                                    targetNgh = findings.second;
-                                }
-                                aGrid::Cell aIdx(start + blockIdx);
-                                partition(aIdx, s) = targetNgh;
-                            }
-                        }
-                    }
-                }
-                for (auto byPartition : {ByPartition::boundary}) {
-                    for (auto byDirection : {ByDirection::up, ByDirection::down}) {
-
+                    // Internal voxels will read only non ghost data
+                    for (auto byPartition : {ByPartition::internal}) {
+                        const auto byDirection = ByDirection::up;
                         for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
-                            auto const& mapperVec = mSpanClassifier->getMapper1Dto3D(
+                            auto const& mapperVec = mData->mSpanClassifier->getMapper1Dto3D(
                                 setIdx,
                                 byPartition,
                                 byDirection,
                                 byDomain);
-
-                            auto const start = mSpanLayout->getBoundsBoundary(setIdx, byDirection, byDomain).first;
-                            for (int64_t blockIdx = 0; blockIdx < int64_t(mapperVec.size()); blockIdx++) {
+                            auto const start = mData->mSpanLayout->getBoundsInternal(setIdx, byDomain).first;
+                            for (uint64_t blockIdx = 0; blockIdx < mapperVec.size(); blockIdx++) {
                                 auto const& point3d = mapperVec[blockIdx];
-                                for (int s = 0; s < mStencil.nPoints(); s++) {
+                                for (int s = 0; s < mData->mStencil.nPoints(); s++) {
 
+                                    auto const offset = mData->mStencil.neighbours()[s];
 
-                                    auto const offset = mStencil.neighbours()[s];
-
-                                    auto findings = mSpanLayout->findNeighbourOfBoundaryPoint(
+                                    auto findings = mData->mSpanLayout->findNeighbourOfInternalPoint(
                                         setIdx,
-                                        point3d,
-                                        offset.newType<int32_t>());
+                                        point3d, offset);
 
                                     uint32_t const noNeighbour = std::numeric_limits<uint32_t>::max();
                                     uint32_t       targetNgh = noNeighbour;
@@ -369,23 +345,73 @@ class Partitioner1D
                             }
                         }
                     }
-                }
-            });
-        connectivityField.updateDeviceData(Neon::Backend::mainStreamIdx);
-        return connectivityField;
+                    for (auto byPartition : {ByPartition::boundary}) {
+                        for (auto byDirection : {ByDirection::up, ByDirection::down}) {
+
+                            for (auto byDomain : {ByDomain::bulk, ByDomain::bc}) {
+                                auto const& mapperVec = mData->mSpanClassifier->getMapper1Dto3D(
+                                    setIdx,
+                                    byPartition,
+                                    byDirection,
+                                    byDomain);
+
+                                auto const start = mData->mSpanLayout->getBoundsBoundary(setIdx, byDirection, byDomain).first;
+                                for (int64_t blockIdx = 0; blockIdx < int64_t(mapperVec.size()); blockIdx++) {
+                                    auto const& point3d = mapperVec[blockIdx];
+                                    for (int s = 0; s < mData->mStencil.nPoints(); s++) {
+
+
+                                        auto const offset = mData->mStencil.neighbours()[s];
+
+                                        auto findings = mData->mSpanLayout->findNeighbourOfBoundaryPoint(
+                                            setIdx,
+                                            point3d,
+                                            offset.newType<int32_t>());
+
+                                        uint32_t const noNeighbour = std::numeric_limits<uint32_t>::max();
+                                        uint32_t       targetNgh = noNeighbour;
+                                        if (findings.first) {
+                                            targetNgh = findings.second;
+                                        }
+                                        aGrid::Cell aIdx(start + blockIdx);
+                                        partition(aIdx, s) = targetNgh;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            mData->connectivity.updateDeviceData(Neon::Backend::mainStreamIdx);
+            mData->connectivityInit = true;
+        }
+        return mData->connectivity;
     }
 
    private:
-    int                   mBlockSize = 0;
-    int                   mDiscreteVoxelSpacing = 0;
-    Neon::domain::Stencil mStencil;
-    Neon::index_3d        mDomainSize;
+    class Data
+    {
+       public:
+        int                   mDataBlockSize = 0;
+        int                   mDiscreteVoxelSpacing = 0;
+        Neon::domain::Stencil mStencil;
+        Neon::index_3d        mDomainSize;
 
-    std::shared_ptr<partitioning::SpanDecomposition> spanDecomposition;
-    std::shared_ptr<partitioning::SpanClassifier>    mSpanClassifier;
-    std::shared_ptr<partitioning::SpanLayout>        mSpanLayout;
+        bool                                  globalMappingInit = false;
+        Neon::aGrid::Field<Neon::int32_3d, 0> globalMapping;
 
-    Neon::aGrid mTopologyWithGhost;
+        bool                      getStencil3dTo1dOffsetInit = false;
+        Neon::set::MemSet<int8_t> stencil3dTo1dOffset;
+
+        bool                           connectivityInit = false;
+        Neon::aGrid::Field<int32_t, 0> connectivity;
+
+        std::shared_ptr<partitioning::SpanDecomposition> spanDecomposition;
+        std::shared_ptr<partitioning::SpanClassifier>    mSpanClassifier;
+        std::shared_ptr<partitioning::SpanLayout>        mSpanLayout;
+
+        Neon::aGrid mTopologyWithGhost;
+    };
+    std::shared_ptr<Data> mData;
 };
 
 }  // namespace Neon::domain::tool
