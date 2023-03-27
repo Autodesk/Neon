@@ -84,6 +84,12 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
           const Vec_3d<double>&        spacing = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
           const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */);
 
+    eGrid(const Neon::Backend&               backend /**< Target for computation */,
+          const Neon::int32_3d&              dimension /**< Dimension of the bounding box containing the domain */,
+          Neon::domain::tool::Partitioner1D& partitioner,
+          const Neon::domain::Stencil&       stencil /**< Stencil used by any computation on the grid */,
+          const Vec_3d<double>&              spacing ,
+          const Vec_3d<double>&              origin);
     /**
      * Returns a LaunchParameters configured for the specified inputs.
      * This methods used by the Container infrastructure.
@@ -238,7 +244,7 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     const Neon::aGrid&    helpFieldMemoryAllocator() const;
 
    public:
-    auto helpGetData()->Data&;
+    auto helpGetData() -> Data&;
 };
 
 

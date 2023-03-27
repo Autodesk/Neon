@@ -111,25 +111,8 @@ eGrid::eGrid(const Neon::Backend&         backend,
     }
 
 
-    //
-    //    {  // Stencil Idx to 3d offset
-    //        auto nPoints = backend.devSet().newDataSet<uint64_t>(stencil.nNeighbours());
-    //        mData->stencilIdTo3dOffset = backend.devSet().template newMemSet<int8_3d>(Neon::DataUse::HOST_DEVICE,
-    //                                                                                  1,
-    //                                                                                  backend.getMemoryOptions(),
-    //                                                                                  nPoints);
-    //        for (int i = 0; i < stencil.nNeighbours(); ++i) {
-    //            for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
-    //                index_3d      pLong = stencil.neighbours()[i];
-    //                Neon::int8_3d pShort(pLong.x, pLong.y, pLong.z);
-    //                mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
-    //            }
-    //        }
-    //        // mData->stencilIdTo3dOffset.updateCompute(backend, Neon::Backend::mainStreamIdx);
-    //    }
-
     {  // Init base class information
-        Neon::set::DataSet<size_t> nElementsPerPartition  = mData->partitioner1D.getStandardCount().template newType<size_t>();
+        Neon::set::DataSet<size_t> nElementsPerPartition = mData->partitioner1D.getStandardCount().template newType<size_t>();
         eGrid::GridBase::init("eGrid",
                               backend,
                               dimension,

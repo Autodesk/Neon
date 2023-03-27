@@ -3,6 +3,115 @@
 namespace Neon::domain::details::eGrid {
 
 
+eGrid::eGrid(const Backend&                    backend,
+             const int32_3d&                   dimension,
+             Neon::domain::tool::Partitioner1D& partitioner,
+             const Stencil&                    stencil,
+             const Vec_3d<double>&             spacing,
+             const Vec_3d<double>&             origin)
+{
+    mData = std::make_shared<Data>(backend);
+    mData->stencil = stencil;
+    const index_3d defaultBlockSize(256, 1, 1);
+
+    {
+        auto nElementsPerPartition = backend.devSet().template newDataSet<size_t>(0);
+        // We do an initialization with nElementsPerPartition to zero,
+        // then we reset to the computed number.
+        eGrid::GridBase::init("eGrid",
+                              backend,
+                              dimension,
+                              stencil,
+                              nElementsPerPartition,
+                              Neon::index_3d(256, 1, 1),
+                              spacing,
+                              origin);
+    }
+
+
+    mData->partitioner1D = partitioner;
+
+    mData->mConnectivityAField = mData->partitioner1D.getConnectivity();
+    mData->mGlobalMappingAField = mData->partitioner1D.getGlobalMapping();
+    mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
+    mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
+    mData->partitioner1D.getDenseMeta(mData->denseMeta);
+
+    const int32_t numDevices = getBackend().devSet().setCardinality();
+
+    if (numDevices > 1 && getDimension().z < numDevices) {
+        NeonException exc("dGrid_t");
+        exc << "The grid size in the z-direction (" << getDimension().z << ") is less the number of devices (" << numDevices
+            << "). It is ambiguous how to distribute the gird";
+        NEON_THROW(exc);
+    }
+
+
+    {
+        // Initialization of the SPAN table
+        mData->spanTable.forEachConfiguration([&](Neon::SetIdx   setIdx,
+                                                  Neon::DataView dw,
+                                                  eSpan&         span) {
+            span.mDataView = dw;
+            switch (dw) {
+                case Neon::DataView::STANDARD: {
+                    int countPerPartition = 0;
+                    countPerPartition += mData->partitioner1D.getSpanClassifier().countInternal(setIdx);
+                    countPerPartition += mData->partitioner1D.getSpanClassifier().countBoundary(setIdx);
+
+                    span.mCount = countPerPartition;
+                    span.mFirstIndexOffset = 0;
+                    span.mDataView = dw;
+
+                    break;
+                }
+                case Neon::DataView::BOUNDARY: {
+                    int countPerPartition = 0;
+                    countPerPartition += mData->partitioner1D.getSpanClassifier().countBoundary(setIdx);
+
+                    span.mCount = countPerPartition;
+                    span.mFirstIndexOffset = mData->partitioner1D.getSpanClassifier().countInternal(setIdx);
+                    span.mDataView = dw;
+
+                    break;
+                }
+                case Neon::DataView::INTERNAL: {
+                    int countPerPartition = 0;
+                    countPerPartition += mData->partitioner1D.getSpanClassifier().countInternal(setIdx);
+
+                    span.mCount = countPerPartition;
+                    span.mFirstIndexOffset = 0;
+                    span.mDataView = dw;
+                    break;
+                }
+                default: {
+                    NeonException exc("dFieldDev");
+                    NEON_THROW(exc);
+                }
+            }
+        });
+
+        mData->elementsPerPartition.forEachConfiguration([&](Neon::SetIdx   setIdx,
+                                                             Neon::DataView dw,
+                                                             int&           count) {
+            count = mData->spanTable.getSpan(setIdx, dw).mCount;
+        });
+    }
+
+    {  // Init base class information
+        Neon::set::DataSet<size_t> nElementsPerPartition = mData->partitioner1D.getStandardCount().template newType<size_t>();
+        eGrid::GridBase::init("eGrid",
+                              backend,
+                              dimension,
+                              stencil,
+                              nElementsPerPartition,
+                              defaultBlockSize,
+                              spacing,
+                              origin);
+    }
+}
+
+
 eGrid::eGrid()
 {
     mData = std::make_shared<Data>();
@@ -141,6 +250,7 @@ auto eGrid::helpGetData() -> eGrid::Data&
 {
     return *mData.get();
 }
+
 
 
 }  // namespace Neon::domain::details::eGrid
