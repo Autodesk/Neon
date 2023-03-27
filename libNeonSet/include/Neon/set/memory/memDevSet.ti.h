@@ -57,7 +57,7 @@ MemDevSet<T_ta>::MemDevSet(Neon::DeviceType                               devTyp
 
 template <typename T_ta>
 MemDevSet<T_ta>::MemDevSet(int                                            cardinality,
-                           Neon::memLayout_et::order_e                    order,
+                           Neon::MemoryLayout                    order,
                            Neon::memLayout_et::padding_e                  padding,
                            Neon::DeviceType                               devType,
                            const Neon::set::DataSet<Neon::sys::DeviceID>& devIds,

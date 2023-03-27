@@ -48,7 +48,7 @@ struct IODomain
              int                            c,
              const IODense<uint8_t, Index>& mask,
              Type                           outsideValue = Type(0),
-             Neon::memLayout_et::order_e    order = Neon::memLayout_et::order_e::structOfArrays);
+             Neon::MemoryLayout             order = Neon::MemoryLayout::structOfArrays);
 
     auto setMask(const IODense<uint8_t, Index>& mask)
         -> void;
@@ -158,7 +158,7 @@ struct IODomain
 
     auto getReference(const Integer_3d<intType_ta>& xyz /**< Point in the grid        */,
                       int                           card /**< Cardinality of the field */)
-      const  -> const Type&;
+        const -> const Type&;
 
     Type                          mOutsideValue;
     Neon::IODense<Type, Index>    mField;
@@ -184,7 +184,7 @@ IODomain<ExportType, intType_ta>::IODomain(const Integer_3d<intType_ta>&  d,
                                            int                            c,
                                            const IODense<uint8_t, Index>& mask,
                                            Type                           outsideValue,
-                                           Neon::memLayout_et::order_e    order)
+                                           Neon::MemoryLayout             order)
 {
     mOutsideValue = outsideValue;
     mField = Neon::IODense<Type, Index>(d, c, order);
@@ -332,7 +332,7 @@ auto IODomain<ExportType, intType_ta>::forEachActive(const Lambda_ta& userLambda
         if (!isA) {
             return;
         }
-        for(int cc=0; cc<this->getCardinality(); cc++) {
+        for (int cc = 0; cc < this->getCardinality(); cc++) {
             userLambda(idx, cc, getReference(idx, cc), otherDense.getReference(idx, cc)...);
         }
     });
@@ -411,7 +411,7 @@ auto IODomain<ExportType, intType_ta>::isNghActive(const Integer_3d<intType_ta>&
                                                    const int8_3d&                offset)
     -> bool
 {
-    auto       nghIDX = xyz + offset.template newType<Neon::index_1d>();
+    auto nghIDX = xyz + offset.template newType<Neon::index_1d>();
 
     const bool inBox = isInBox(nghIDX);
     if (!inBox) {

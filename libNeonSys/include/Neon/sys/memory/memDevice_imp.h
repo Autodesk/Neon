@@ -80,7 +80,7 @@ MemDevice<T_ta>::MemDevice(DeviceType      devType,
  */
 template <typename T_ta>
 MemDevice<T_ta>::MemDevice(int                           cardinality,
-                           Neon::memLayout_et::order_e   order,
+                           Neon::MemoryLayout   order,
                            Neon::memLayout_et::padding_e padding,
                            DeviceType                    devType,
                            DeviceID                      devId,
@@ -259,7 +259,8 @@ MemAlignment MemDevice<T_ta>::alignment() const
 }
 
 template <typename T_ta>
-Neon::memLayout_et::order_e MemDevice<T_ta>::order() const
+auto MemDevice<T_ta>::order() const
+-> Neon::MemoryLayout
 {
     return m_order;
 }
@@ -315,7 +316,7 @@ void MemDevice<T_ta>::helperAllocMem()
             return 0;
         } else {
             switch (m_order) {
-                case Neon::memLayout_et::order_e::structOfArrays: {
+                case Neon::MemoryLayout::structOfArrays: {
                     size_t tmpElPadding = 0;
                     if (align_byEl == 0) {
                         return 0;
@@ -324,7 +325,7 @@ void MemDevice<T_ta>::helperAllocMem()
                     tmpElPadding = tmpElPadding == 0 ? tmpElPadding : align_byEl - tmpElPadding;
                     return tmpElPadding;
                 }
-                case Neon::memLayout_et::order_e::arrayOfStructs: {
+                case Neon::MemoryLayout::arrayOfStructs: {
                     return 0;
                 }
                 default: {
@@ -379,13 +380,13 @@ void MemDevice<T_ta>::helperAllocMem()
     }
     Neon::index64_2d computePitch;
     switch (m_order) {
-        case Neon::memLayout_et::order_e::structOfArrays: {
+        case Neon::MemoryLayout::structOfArrays: {
             computePitch.pMain = 1;
             computePitch.pCardinality = m_nElements + elPadding;
 
             break;
         }
-        case Neon::memLayout_et::order_e::arrayOfStructs: {
+        case Neon::MemoryLayout::arrayOfStructs: {
             computePitch.pMain = cardinality();
             computePitch.pCardinality = 1;
 

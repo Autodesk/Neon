@@ -116,7 +116,7 @@ struct MemDevice
     Neon::Allocator               m_allocType; /**< Type of allocator used */
     const uint64_t                m_nElements = {0};
     int                           m_cardinality = {1};
-    Neon::memLayout_et::order_e   m_order = {Neon::memLayout_et::order_e::structOfArrays};
+    Neon::MemoryLayout            m_order = {Neon::MemoryLayout::structOfArrays};
     Neon::memLayout_et::padding_e m_padding = {Neon::memLayout_et::padding_e::OFF};
     MemAlignment                  m_alignment; /**< Alignment */
     size_t                        m_allocatedBytes = {0};
@@ -166,7 +166,7 @@ struct MemDevice
      * Constructor (Sys managed)
      */
     MemDevice(int                           cardinality,
-              Neon::memLayout_et::order_e   order,
+              Neon::MemoryLayout   order,
               Neon::memLayout_et::padding_e padding,
               DeviceType                    devType,
               DeviceID                      devId,
@@ -269,7 +269,7 @@ struct MemDevice
     /**
      * Copy the content of the this MemDev to mem. While copyFrom can be used to do the same operation,
      * copyTo launch all memory transfer async and let the user sync when they actually need.
-    */
+     */
     void copyTo(MemDevice& mem, Neon::sys::GpuStream& stream);
 
     template <Neon::run_et::et runMode_ta>
@@ -343,7 +343,7 @@ struct MemDevice
 
     int                           cardinality() const;
     const index64_2d&             pitch() const;
-    Neon::memLayout_et::order_e   order() const;
+    auto                          order() const -> MemoryLayout;
     Neon::memLayout_et::padding_e padding() const;
     MemAlignment                  alignment() const;
 
@@ -380,7 +380,7 @@ struct MemDevice
     template <Neon::Access access_ta = Neon::Access::read>
     std::enable_if_t<access_ta == Neon::Access::read, const T_ta&> elRef(const index64_t& idx, int cardIdx) const
     {
-        //static_assert(m_pitch.pMain>0);
+        // static_assert(m_pitch.pMain>0);
         size_t pitch = m_compute.m_pitch.pMain * size_t(idx) + m_compute.m_pitch.pCardinality * size_t(cardIdx);
         return this->mem()[pitch];
     }
@@ -394,7 +394,7 @@ struct MemDevice
     template <Neon::Access access_ta = Neon::Access::read>
     std::enable_if_t<access_ta == Neon::Access::readWrite, T_ta&> elRef(const index64_t& idx, int cardIdx)
     {
-        //static_assert(m_pitch.pMain>0);
+        // static_assert(m_pitch.pMain>0);
         size_t pitch = m_compute.m_pitch.pMain * size_t(idx) + m_compute.m_pitch.pCardinality * size_t(cardIdx);
         return this->mem()[pitch];
     }

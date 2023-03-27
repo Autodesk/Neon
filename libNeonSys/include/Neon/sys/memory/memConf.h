@@ -29,7 +29,7 @@ struct [[deprecated("This feature is going to be replaced by a new API for Neon 
     state_e                       m_state = {initToDo};
     Neon::DeviceType              m_devEt = {Neon::DeviceType::NONE};
     Neon::Allocator               m_allocEt = {Neon::Allocator::NULL_MEM};
-    Neon::memLayout_et::order_e   m_orderEt = {Neon::memLayout_et::order_e::structOfArrays};
+    Neon::MemoryLayout            m_orderEt = {Neon::MemoryLayout::structOfArrays};
     Neon::memLayout_et::padding_e m_paddingEt = {Neon::memLayout_et::padding_e::OFF};
     Neon::sys::MemAlignment       m_memAlignment;
 
@@ -83,8 +83,8 @@ struct [[deprecated("This feature is going to be replaced by a new API for Neon 
         m_state = initDone;
     }
 
-    memConf_t(Neon::DeviceType            devEt,
-              Neon::memLayout_et::order_e order)
+    memConf_t(Neon::DeviceType   devEt,
+              Neon::MemoryLayout order)
     {
         m_devEt = devEt;
         m_orderEt = order;
@@ -97,9 +97,9 @@ struct [[deprecated("This feature is going to be replaced by a new API for Neon 
      * @param allocEt
      * @param order
      */
-    memConf_t(Neon::DeviceType            devEt,
-              Neon::Allocator             allocEt,
-              Neon::memLayout_et::order_e order)
+    memConf_t(Neon::DeviceType   devEt,
+              Neon::Allocator    allocEt,
+              Neon::MemoryLayout order)
     {
         m_devEt = devEt;
         m_allocEt = allocEt;
@@ -114,10 +114,10 @@ struct [[deprecated("This feature is going to be replaced by a new API for Neon 
      * @param orderEt
      * @param alignment
      */
-    memConf_t(Neon::DeviceType            devEt,
-              Neon::Allocator             allocEt,
-              Neon::memLayout_et::order_e orderEt,
-              Neon::sys::MemAlignment     alignment)
+    memConf_t(Neon::DeviceType        devEt,
+              Neon::Allocator         allocEt,
+              Neon::MemoryLayout      orderEt,
+              Neon::sys::MemAlignment alignment)
     {
         m_devEt = devEt;
         m_allocEt = allocEt;
@@ -136,7 +136,7 @@ struct [[deprecated("This feature is going to be replaced by a new API for Neon 
      */
     memConf_t(Neon::DeviceType              devEt,
               Neon::Allocator               allocEt,
-              Neon::memLayout_et::order_e   orderEt,
+              Neon::MemoryLayout   orderEt,
               Neon::sys::MemAlignment       alignment,
               Neon::memLayout_et::padding_e paddingEt)
     {
@@ -188,7 +188,7 @@ struct [[deprecated("This feature is going to be replaced by a new API for Neon 
      *
      * @return
      */
-    Neon::memLayout_et::order_e order() const
+    auto order() const -> Neon::MemoryLayout
     {
         return m_orderEt;
     }

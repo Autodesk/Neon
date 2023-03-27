@@ -583,25 +583,10 @@ class DevSet
 
     template <typename T_ta>
     auto newMemDevSet(int                                 cardinality,
-                      Neon::sys::memConf_t                memConfig,
-                      const Neon::set::DataSet<uint64_t>& nElementVec) const
-    {
-
-        return newMemDevSet<T_ta>(cardinality,
-                                  memConfig.devEt(),
-                                  memConfig.allocEt(),
-                                  nElementVec,
-                                  memConfig.order(),
-                                  memConfig.alignment(),
-                                  memConfig.padding());
-    }
-
-    template <typename T_ta>
-    auto newMemDevSet(int                                 cardinality,
                       Neon::DeviceType                    devType,
                       const Neon::Allocator&              allocType,
                       const Neon::set::DataSet<uint64_t>& nElementVec,
-                      Neon::memLayout_et::order_e         order = Neon::memLayout_et::order_e::structOfArrays,
+                      Neon::MemoryLayout                  order = Neon::MemoryLayout::structOfArrays,
                       Neon::sys::MemAlignment             alignment = Neon::sys::MemAlignment(),
                       Neon::memLayout_et::padding_e       padding = Neon::memLayout_et::padding_e::OFF) const
         -> MemDevSet<T_ta>
@@ -645,29 +630,6 @@ class DevSet
     }
 
     template <typename T_ta>
-    auto newMemSet(int                                 cardinality,
-                   Neon::sys::memConf_t                cpuConfig,
-                   Neon::sys::memConf_t                gpuConfig,
-                   const Neon::set::DataSet<uint64_t>& nElementVec) const
-        -> Neon::set::MemSet<T_ta>
-    {
-        if (cpuConfig.devEt() != Neon::DeviceType::CPU || gpuConfig.devEt() != Neon::DeviceType::CUDA) {
-            Neon::NeonException exp("DevSet");
-            exp << "Error, DevSet::invalid configuration for memory.\n";
-            NEON_THROW(exp);
-        }
-        Neon::set::MemSet<T_ta> mirror(this->setCardinality());
-
-        MemDevSet<T_ta> memCpu = newMemDevSet<T_ta>(cardinality, cpuConfig, nElementVec);
-        MemDevSet<T_ta> memGpu = newMemDevSet<T_ta>(cardinality, gpuConfig, nElementVec);
-
-        mirror.link(memCpu);
-        mirror.link(memGpu);
-
-        return mirror;
-    }
-
-    template <typename T_ta>
     auto newMemSet(Neon::DataUse                       dataUse,
                    int                                 cardinality,
                    Neon::MemoryOptions                 memoryOptions,
@@ -675,15 +637,16 @@ class DevSet
         -> Neon::set::MemSet<T_ta>
     {
         memoryOptions = sanitizeMemoryOption(memoryOptions);
-        Neon::sys::memConf_t cpuConfig(Neon::DeviceType::CPU,
-                                       memoryOptions.getIOAllocator(dataUse),
-                                       memoryOptions.getOrder() == Neon::MemoryLayout::structOfArrays ? Neon::memLayout_et::order_e::structOfArrays : Neon::memLayout_et::order_e::arrayOfStructs);
 
-        Neon::sys::memConf_t gpuConfig(Neon::DeviceType::CUDA,
-                                       memoryOptions.getComputeAllocator(dataUse),
-                                       memoryOptions.getOrder() == Neon::MemoryLayout::structOfArrays ? Neon::memLayout_et::order_e::structOfArrays : Neon::memLayout_et::order_e::arrayOfStructs);
+        Neon::set::MemSet<T_ta> mirror(this->setCardinality());
 
-        return this->template newMemSet<T_ta>(cardinality, cpuConfig, gpuConfig, nElementVec);
+        MemDevSet<T_ta> memCpu = newMemDevSet<T_ta>(cardinality, Neon::DeviceType::CPU,  memoryOptions.getIOAllocator(dataUse), nElementVec, memoryOptions.getOrder());
+        MemDevSet<T_ta> memGpu = newMemDevSet<T_ta>(cardinality, Neon::DeviceType::CUDA,  memoryOptions.getComputeAllocator(dataUse), nElementVec, memoryOptions.getOrder());
+
+        mirror.link(memCpu);
+        mirror.link(memGpu);
+
+        return mirror;
     }
 
     template <typename T_ta>
@@ -734,13 +697,13 @@ class DevSet
     // MEMORY TRANSFERS
     //--------------------------------------------------------------------------
 
-    auto transfer(TransferMode transferMode,
-                      const StreamSet& streamSet,
-                      SetIdx           dstSetId,
-                      char*            dstBuf,
-                      SetIdx           srcSetIdx,
-                      const char*      srcBuf,
-                      size_t           numBytes)
+    auto transfer(TransferMode     transferMode,
+                  const StreamSet& streamSet,
+                  SetIdx           dstSetId,
+                  char*            dstBuf,
+                  SetIdx           srcSetIdx,
+                  const char*      srcBuf,
+                  size_t           numBytes)
         const
         -> void;
 
@@ -767,24 +730,6 @@ class DevSet
         const
         -> std::string;
 
-    void sanitize(Neon::sys::memConf_t& mem)
-    {
-        switch (mem.devEt()) {
-            case Neon::DeviceType::CPU: {
-                break;
-            }
-            case Neon::DeviceType::CUDA: {
-                if (m_devType != Neon::DeviceType::CUDA) {
-                    mem.m_allocEt = {Neon::Allocator::NULL_MEM};
-                }
-                break;
-            }
-            default: {
-                NEON_THROW_UNSUPPORTED_OPTION("");
-            }
-        }
-    }
-
    private:
     /**
      * Validates the set of gpu ids.
@@ -798,7 +743,6 @@ class DevSet
     auto h_init_defaultStreamSet() -> void;
 
 };  // namespace set
-
 
 
 }  // namespace set

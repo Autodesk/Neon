@@ -210,7 +210,7 @@ auto FieldBase<T, C>::ioToDense(Neon::MemoryLayout order) const
 {
     Neon::IODense<ExportType, ExportIndex> ioDense(getDimension(),
                                                    getCardinality(),
-                                                   Neon::memLayout_et::convert(order));
+                                                   order);
     this->ioToDense(ioDense);
     return ioDense;
 }
