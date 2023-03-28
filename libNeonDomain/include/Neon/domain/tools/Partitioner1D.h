@@ -96,6 +96,8 @@ class Partitioner1D
                                    NEON_DIVIDE_UP(domainSize.y, dataBlockSize),
                                    NEON_DIVIDE_UP(domainSize.z, dataBlockSize));
 
+        mData->block3DSpan = block3DSpan;
+
         std::vector<int> nBlockProjectedToZ(block3DSpan.z);
 
         auto block3dIdxToBlockOrigin = [&](Neon::int32_3d const& block3dIdx) {
@@ -145,6 +147,9 @@ class Partitioner1D
                                           mData->mSpanLayout->getStandardAndGhostCount().typedClone<size_t>(), {251, 1, 1});
     }
 
+    auto getBlockSpan ( )->Neon::int32_3d {
+        return mData->block3DSpan;
+    }
     auto getMemoryGrid() -> Neon::aGrid&
     {
         return mData->mTopologyWithGhost;
@@ -395,7 +400,7 @@ class Partitioner1D
         int                   mDiscreteVoxelSpacing = 0;
         Neon::domain::Stencil mStencil;
         Neon::index_3d        mDomainSize;
-
+        Neon::int32_3d block3DSpan;
         bool                                  globalMappingInit = false;
         Neon::aGrid::Field<Neon::int32_3d, 0> globalMapping;
 

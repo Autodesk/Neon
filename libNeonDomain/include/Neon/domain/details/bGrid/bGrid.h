@@ -148,7 +148,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         Neon::aGrid::Field<index_3d, 0> mDataBlockToGlobalMappingAField;
 
         tool::Partitioner1D::DenseMeta denseMeta;
-
+        BlockViewGrid blockViewGrid;
+        BlockViewGrid::Field<uint64_t,0> activeBitMask;
         int dataBlockSize;
         int voxelSpacing;
 

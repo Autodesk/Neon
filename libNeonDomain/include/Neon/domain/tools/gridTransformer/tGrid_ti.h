@@ -19,7 +19,7 @@ tGrid<GridTransformation>::tGrid(FoundationGrid& foundationGrid)
     mData = std::make_shared<Data>(bk);
     mData->foundationGrid = foundationGrid;
     GridTransformation::initSpan(mData->foundationGrid,
-                                                NEON_OUT mData->spanTable);
+                                 NEON_OUT mData->spanTable);
 }
 
 template <typename GridTransformation>
@@ -36,8 +36,17 @@ auto tGrid<GridTransformation>::
     -> Neon::set::LaunchParameters
 {
     auto output = GridTransformation::initLaunchParameters(mData->foundationGrid,
-                                                          dataView, blockSize, shareMem);
+                                                           dataView, blockSize, shareMem);
     return output;
+}
+
+template <typename GridTransformation>
+auto tGrid<GridTransformation>::
+    getSpan(SetIdx         setIdx,
+            Neon::DataView dataView)
+        -> const Span&
+{
+    return mData->spanTable.getSpan(setIdx, dataView);
 }
 
 template <typename GridTransformation>

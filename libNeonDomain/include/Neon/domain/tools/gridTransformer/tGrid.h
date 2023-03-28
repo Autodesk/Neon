@@ -64,9 +64,8 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
                              const size_t&         shareMem) const
         -> Neon::set::LaunchParameters;
 
-    auto getPartitionIndexSpace(Neon::DeviceType devE,
-                                SetIdx           setIdx,
-                                Neon::DataView   dataView)
+    auto getSpan(SetIdx         setIdx,
+                 Neon::DataView dataView)
         -> const Span&;
 
     template <typename T, int C = 0>
@@ -75,10 +74,6 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
                   T                   inactiveValue,
                   Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE,
                   Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
-        -> Field<T, C>;
-
-    template <typename T, int C = 0>
-    auto newField(typename FoundationGrid::template Field<T, C>& field) const
         -> Field<T, C>;
 
     template <typename LoadingLambda>
