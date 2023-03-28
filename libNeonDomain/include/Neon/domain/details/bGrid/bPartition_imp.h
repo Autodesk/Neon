@@ -5,8 +5,8 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-bPartition<T, C, BKSX, BKSY, BKSZ>::bPartition()
+template <typename T, int C>
+bPartition<T, C>::bPartition()
     : mDataView(Neon::DataView::STANDARD),
       mMem(nullptr),
       mCardinality(0),
@@ -22,8 +22,8 @@ bPartition<T, C, BKSX, BKSY, BKSZ>::bPartition()
 {
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-bPartition<T, C, BKSX, BKSY, BKSZ>::bPartition(Neon::DataView  dataView,
+template <typename T, int C>
+bPartition<T, C>::bPartition(Neon::DataView  dataView,
                                                T*              mem,
                                                int             cardinality,
                                                uint32_t*       neighbourBlocks,
@@ -46,8 +46,8 @@ bPartition<T, C, BKSX, BKSY, BKSZ>::bPartition(Neon::DataView  dataView,
 {
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::mapToGlobal(const Cell& cell) const -> Neon::index_3d
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Cell& cell) const -> Neon::index_3d
 {
     Neon::index_3d ret = mOrigin[cell.mBlockID];
 #ifdef NEON_PLACE_CUDA_DEVICE
@@ -67,14 +67,14 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::mapToGloba
     return ret;
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, BKSX, BKSY, BKSZ>::cardinality() const -> int
+template <typename T, int C>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::cardinality() const -> int
 {
     return mCardinality;
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, BKSX, BKSY, BKSZ>::operator()(const bIndex& cell,
+template <typename T, int C>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::operator()(const bIndex& cell,
                                                                                  int           card) -> T&
 {
 
@@ -85,8 +85,8 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, BKSX, BKSY, BKSZ>::operator()
     }
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, BKSX, BKSY, BKSZ>::operator()(const bIndex& cell,
+template <typename T, int C>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::operator()(const bIndex& cell,
                                                                                  int           card) const -> const T&
 {
     if (!cell.mIsActive) {
@@ -99,8 +99,8 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, BKSX, BKSY, BKSZ>::operator()
     }
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, BKSX, BKSY, BKSZ>::pitch(const Cell& cell, int card) const -> uint32_t
+template <typename T, int C>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int card) const -> uint32_t
 {
     // assumes SoA within the block i.e., AoSoA
     return
@@ -110,8 +110,8 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, BKSX, BKSY, BKSZ>::pitch(cons
         cell.pitch(card);
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::setNghCell(const Cell&     cell,
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     cell,
                                                                                  const nghIdx_t& offset) const -> Cell
 {
     Cell ngh_cell(cell.mLocation.x + offset.x,
@@ -163,8 +163,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::setNghCell
     return ngh_cell;
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::nghVal(const Cell& eId,
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell& eId,
                                                                              uint8_t     nghID,
                                                                              int         card,
                                                                              const T&    alternativeVal) const -> NghData<T>
@@ -173,8 +173,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::nghVal(con
     return nghVal(eId, nghOffset, card, alternativeVal);
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::nghVal(const Cell&     cell,
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
                                                                              const nghIdx_t& offset,
                                                                              const int       card,
                                                                              const T         alternativeVal) const -> NghData<T>
@@ -205,8 +205,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::nghVal(con
     return ret;
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, BKSX, BKSY, BKSZ>::shmemPitch(
+template <typename T, int C>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::shmemPitch(
     Cell      cell,
     const int card) const -> Cell::Location::Integer
 {
@@ -217,8 +217,8 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, BKSX, BKSY, BKSZ>::shmemPitch
 }
 
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::loadInSharedMemory(
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
     [[maybe_unused]] const Cell&                cell,
     [[maybe_unused]] const nghIdx_t::Integer    stencilRadius,
     [[maybe_unused]] Neon::sys::ShmemAllocator& shmemAlloc) const -> void
@@ -484,8 +484,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::loadInShar
 #endif
 };
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, BKSX, BKSY, BKSZ>::loadInSharedMemoryAsync(
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
     [[maybe_unused]] const Cell&                cell,
     [[maybe_unused]] const nghIdx_t::Integer    stencilRadius,
     [[maybe_unused]] Neon::sys::ShmemAllocator& shmemAlloc) const -> void

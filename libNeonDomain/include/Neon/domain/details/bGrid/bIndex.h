@@ -6,20 +6,16 @@ namespace Neon::domain::details::bGrid {
 class bIndex
 {
    public:
-    template <int BKSX, int BKSY, int BKSZ>
     friend class bSpan;
 
     using nghIdx_t = int8_3d;
-    template <typename T, int C, int BKSX, int BKSY, int BKSZ>
+    template <typename T, int C>
     friend class bPartition;
 
-    template <typename T, int C, int BKSX, int BKSY, int BKSZ>
+    template <typename T, int C>
     friend class bField;
 
-    template <int BKSX, int BKSY, int BKSZ>
     friend class bSpan;
-
-    template <int BKSX, int BKSY, int BKSZ>
     friend class bGrid;
 
     using Location = int16_3d;

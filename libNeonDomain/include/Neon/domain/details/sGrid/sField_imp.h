@@ -133,7 +133,7 @@ auto sField<OuterGridT, T, C>::operator()(const Neon::index_3d& idx,
     Grid const& grid = this->getGrid();
     SetIdx      setIdx;
     DataView    dw;
-    auto* const meta = grid.mStorage->map.getMetadata(idx, setIdx, dw);
+    auto* const meta = grid.mData->map.getMetadata(idx, setIdx, dw);
 
     if (meta != nullptr) {
         auto        cellOffset = meta->cellOffset;

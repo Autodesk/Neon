@@ -57,12 +57,7 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     tGrid& operator=(tGrid&& other) noexcept;  // move assignment
 
     template <typename ActiveCellLambda>
-    tGrid(const Neon::Backend&         backend,
-          const Neon::int32_3d&        dimension /**< Dimension of the box containing the sparse domain */,
-          const ActiveCellLambda&      activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
-          const Neon::domain::Stencil& stencil,
-          const Vec_3d<double>&        spacingData = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
-          const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**<      Origin  */);
+    tGrid(FoundationGrid& foundationGrid);
 
     auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
@@ -72,7 +67,7 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     auto getPartitionIndexSpace(Neon::DeviceType devE,
                                 SetIdx           setIdx,
                                 Neon::DataView   dataView)
-        -> const Span &;
+        -> const Span&;
 
     template <typename T, int C = 0>
     auto newField(const std::string&  fieldUserName,
@@ -87,14 +82,14 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
         -> Field<T, C>;
 
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       index_3d           blockSize,
                       size_t             sharedMem,
                       LoadingLambda      lambda) const
         -> Neon::set::Container;
 
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       LoadingLambda      lambda)
         const
         -> Neon::set::Container;
@@ -105,22 +100,26 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     auto getProperties(const Neon::index_3d& idx) const
         -> typename GridBaseTemplate::CellProperties final;
 
+    auto getSetIdx(const Neon::index_3d& idx) const
+        -> int32_t final;
+
+
    private:
-    struct Storage
+    struct Data
     {
-        Storage() = default;
-        explicit Storage(Neon::Backend& bk)
+        Data() = default;
+        explicit Data(Neon::Backend& bk)
         {
             spanTable = Neon::domain::tool::SpanTable<Span>(bk);
         }
-        //using IndexSpaceInformation = std::array<Neon::set::DataSet<PartitionIndexSpace>, Neon::DataViewUtil::nConfig>;
+        // using IndexSpaceInformation = std::array<Neon::set::DataSet<PartitionIndexSpace>, Neon::DataViewUtil::nConfig>;
 
-        FoundationGrid                                           foundationGrid;
+        FoundationGrid                      foundationGrid;
         Neon::domain::tool::SpanTable<Span> spanTable;
         // std::array<Neon::set::DataSet<PartitionIndexSpace>> partitionIndexSpaceVec;
     };
 
-    std::shared_ptr<Storage> mStorage;
+    std::shared_ptr<Data> mData;
 };
 
 

@@ -5,24 +5,22 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <int BKSX, int BKSY, int BKSZ>
 class bGrid;
 
-
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
+template <typename T, int C>
 class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 bGrid<BKSX, BKSY, BKSZ>,
-                                                                 bPartition<T, C, BKSX, BKSY, BKSZ>,
+                                                                 bGrid,
+                                                                 bPartition<T, C>,
                                                                  int>
 {
-    friend bGrid<BKSX, BKSY, BKSZ>;
+    friend bGrid;
 
    public:
     using Type = T;
-    using Grid = bGrid<BKSX, BKSY, BKSZ>;
-    using Field = bField<T, C, BKSX, BKSY, BKSZ>;
-    using Partition = bPartition<T, C, BKSX, BKSY, BKSZ>;
+    using Grid = bGrid;
+    using Field = bField<T, C>;
+    using Partition = bPartition<T, C>;
     using Idx = bIndex;
 
     using NghIdx = typename Partition::NghIdx;
@@ -31,7 +29,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     using NghData = typename Partition::NghData;
 
     bField(const std::string&             name,
-           const bGrid<BKSX, BKSY, BKSZ>& grid,
+           const bGrid&                   grid,
            int                            cardinality,
            T                              outsideVal,
            Neon::DataUse                  dataUse,

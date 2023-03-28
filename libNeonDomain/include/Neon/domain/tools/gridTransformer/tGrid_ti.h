@@ -16,38 +16,16 @@ template <typename GridTransformation>
 tGrid<GridTransformation>::tGrid(FoundationGrid& foundationGrid)
 {
     Neon::Backend& bk = foundationGrid.getBackend();
-    mStorage = std::make_shared<Storage>(bk);
-    mStorage.foundationGrid = foundationGrid;
-
-    GridTransformation::initPartitionIndexSpace(mStorage->foundationGrid,
-                                                NEON_OUT mStorage->indexSpace);
+    mData = std::make_shared<Data>(bk);
+    mData->foundationGrid = foundationGrid;
+    GridTransformation::initSpan(mData->foundationGrid,
+                                                NEON_OUT mData->spanTable);
 }
 
 template <typename GridTransformation>
 tGrid<GridTransformation>::tGrid()
 {
-    mStorage = std::make_shared<Storage>();
-}
-
-template <typename GridTransformation>
-template <typename ActiveCellLambda>
-tGrid<GridTransformation>::
-    tGrid(const Neon::Backend&         backend,
-          const Neon::int32_3d&        dimension,
-          const ActiveCellLambda&      activeCellLambda,
-          const Neon::domain::Stencil& stencil,
-          const Vec_3d<double>&        spacingData,
-          const Vec_3d<double>&        origin)
-{
-    mStorage = std::make_shared<Storage>(backend);
-    mStorage->foundationGrid = FoundationGrid(backend,
-                                              dimension,
-                                              activeCellLambda,
-                                              stencil,
-                                              spacingData,
-                                              origin);
-    GridTransformation::initPartitionIndexSpace(mStorage->foundationGrid,
-                                                NEON_OUT mStorage->indexSpace);
+    mData = std::make_shared<Data>();
 }
 
 template <typename GridTransformation>
@@ -57,19 +35,18 @@ auto tGrid<GridTransformation>::
                         const size_t&         shareMem) const
     -> Neon::set::LaunchParameters
 {
-    auto output = GridTransformation::getLaunchParameters(mStorage->foundationGrid,
+    auto output = GridTransformation::initLaunchParameters(mData->foundationGrid,
                                                           dataView, blockSize, shareMem);
     return output;
 }
 
 template <typename GridTransformation>
-auto tGrid<GridTransformation>::getPartitionIndexSpace(Neon::DeviceType devE,
-                                                       SetIdx           setIdx,
-                                                       Neon::DataView   dataView)
-    -> const PartitionIndexSpace&
+auto tGrid<GridTransformation>::getSetIdx(const Neon::index_3d& idx) const
+    -> int32_t
 {
-    return mStorage->indexSpace[DataViewUtil::toInt(dataView)].local(devE, setIdx);
+    return mData->foundationGrid.getSetIdx(idx);
 }
+
 
 template <typename GridTransformation>
 template <typename T, int C>
@@ -80,7 +57,7 @@ auto tGrid<GridTransformation>::newField(const std::string&  fieldUserName,
                                          Neon::MemoryOptions memoryOptions) const
     -> Field<T, C>
 {
-    Neon::Backend& bk = mStorage->foundationGrid.getBackend();
+    Neon::Backend& bk = mData->foundationGrid.getBackend();
     memoryOptions = bk.devSet().sanitizeMemoryOption(memoryOptions);
 
     const auto haloStatus = Neon::domain::haloStatus_et::ON;
@@ -90,36 +67,23 @@ auto tGrid<GridTransformation>::newField(const std::string&  fieldUserName,
         NEON_THROW(exception);
     }
 
-    Field<T, C> field(fieldUserName,
-                      dataUse,
-                      memoryOptions,
-                      *this,
-                      cardinality);
-
-    return field;
-}
-
-template <typename GridTransformation>
-template <typename T, int C>
-auto tGrid<GridTransformation>::newField(typename FoundationGrid::template Field<T, C>& foundationField)
-    const -> tGrid::Field<T, C>
-{
-    Neon::Backend& bk = mStorage->foundationGrid.getBackend();
-
-    Field<T, C> field(foundationField);
-
+    typename FoundationGrid::template Field<T, C> fieldFoundation(fieldUserName,
+                                                                  cardinality,
+                                                                  inactiveValue,
+                                                                  dataUse, memoryOptions);
+    Field<T, C>                                   field(fieldFoundation);
     return field;
 }
 
 template <typename GridTransformation>
 template <typename LoadingLambda>
-auto tGrid<GridTransformation>::getContainer(const std::string& name,
+auto tGrid<GridTransformation>::newContainer(const std::string& name,
                                              index_3d           blockSize,
                                              size_t             sharedMem,
                                              LoadingLambda      lambda) const
     -> Neon::set::Container
 {
-    const Neon::index_3d&                              defaultBlockSize = GridTransformation::getDefaultBlock(mStorage->foundationGrid);
+    const Neon::index_3d&                              defaultBlockSize = GridTransformation::getDefaultBlock(mData->foundationGrid);
     Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport =
         GridTransformation::dataViewSupport;
 
@@ -134,12 +98,12 @@ auto tGrid<GridTransformation>::getContainer(const std::string& name,
 
 template <typename GridTransformation>
 template <typename LoadingLambda>
-auto tGrid<GridTransformation>::getContainer(const std::string& name,
+auto tGrid<GridTransformation>::newContainer(const std::string& name,
                                              LoadingLambda      lambda)
     const
     -> Neon::set::Container
 {
-    const Neon::index_3d&                              defaultBlockSize = GridTransformation::getDefaultBlock(mStorage->foundationGrid);
+    const Neon::index_3d&                              defaultBlockSize = GridTransformation::getDefaultBlock(mData->foundationGrid);
     Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport =
         GridTransformation::dataViewSupport;
 
@@ -156,45 +120,45 @@ template <typename GridTransformation>
 auto tGrid<GridTransformation>::isInsideDomain(const Neon::index_3d& idx) const
     -> bool
 {
-    return mStorage->foundationGrid.isInsideDomain();
+    return mData->foundationGrid.isInsideDomain();
 }
 
 template <typename GridTransformation>
 auto tGrid<GridTransformation>::getProperties(const Neon::index_3d& idx) const
     -> typename GridBaseTemplate::CellProperties
 {
-    return mStorage->foundationGrid.getProperties();
+    return mData->foundationGrid.getProperties();
 }
 
 template <typename GridTransformation>
 tGrid<GridTransformation>::~tGrid()
 {
-    mStorage = std::make_shared<Storage>();
+    mData = std::make_shared<Data>();
 }
 
 template <typename GridTransformation>
 tGrid<GridTransformation>::tGrid(const tGrid& other)
 {
-    mStorage = other.mStorage;
+    mData = other.mData;
 }
 
 template <typename GridTransformation>
 tGrid<GridTransformation>::tGrid(tGrid&& other) noexcept
 {
-    mStorage = std::move(other.mStorage);
+    mData = std::move(other.mData);
 }
 
 template <typename GridTransformation>
 auto tGrid<GridTransformation>::operator=(const tGrid& other)
     -> tGrid&
 {
-    mStorage = other.mStorage;
+    mData = other.mData;
 }
 
 template <typename GridTransformation>
 auto tGrid<GridTransformation>::operator=(tGrid&& other) noexcept
     -> tGrid&
 {
-    mStorage = std::move(other.mStorage);
+    mData = std::move(other.mData);
 }
 }  // namespace Neon::domain::tool::details

@@ -4,7 +4,7 @@
 #include "Neon/domain/tools/gridTransformer/tGrid.h"
 #include "Neon/domain/tools/gridTransformer/tGrid_ti.h"
 #include "Neon/domain/tools/PartitionTable.h"
-#include "Neon/domain/tools/IndexSpaceTable.h"
+#include "Neon/domain/tools/SpanTable.h"
 
 namespace Neon::domain::tool {
 
@@ -26,7 +26,7 @@ class GridTransformer
    public:
     template <typename T, int C>
     using Partition = typename GridTransformation::template Partition<T, C>;
-    using PartitionIndexSpace = typename GridTransformation::Span;
+    using Span = typename GridTransformation::Span;
     using FoundationGrid = typename GridTransformation::FoundationGrid;
 
     using Grid = details::tGrid<GridTransformation>;

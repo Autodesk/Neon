@@ -4,14 +4,14 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-bField<T, C, BKSX, BKSY, BKSZ>::bField(const std::string&             name,
-                                       const Grid&                    grid,
-                                       int                            cardinality,
-                                       T                              outsideVal,
-                                       Neon::DataUse                  dataUse,
-                                       const Neon::MemoryOptions&     memoryOptions,
-                                       Neon::domain::haloStatus_et::e haloStatus)
+template <typename T, int C>
+bField<T, C>::bField(const std::string&             name,
+                     const Grid&                    grid,
+                     int                            cardinality,
+                     T                              outsideVal,
+                     Neon::DataUse                  dataUse,
+                     const Neon::MemoryOptions&     memoryOptions,
+                     Neon::domain::haloStatus_et::e haloStatus)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              name,
                                                                              "bField",
@@ -61,7 +61,7 @@ bField<T, C, BKSX, BKSY, BKSZ>::bField(const std::string&             name,
 
         for (int32_t gpuID = 0; gpuID < int32_t(mData->partitions[PartitionBackend::cpu][dvID].size()); gpuID++) {
 
-            getPartition(Neon::DeviceType::CPU, Neon::SetIdx(gpuID), Neon::DataView(dvID)) = bPartition<T, C, BKSX, BKSY, BKSZ>(
+            getPartition(Neon::DeviceType::CPU, Neon::SetIdx(gpuID), Neon::DataView(dvID)) = bPartition<T, C>(
                 Neon::DataView(dvID),
                 mData->mem.rawMem(gpuID, Neon::DeviceType::CPU),
                 mData->mCardinality,
@@ -71,7 +71,7 @@ bField<T, C, BKSX, BKSY, BKSZ>::bField(const std::string&             name,
                 outsideVal,
                 stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU));
 
-            getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID)) = bPartition<T, C, BKSX, BKSY, BKSZ>(
+            getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID)) = bPartition<T, C>(
                 Neon::DataView(dvID),
                 mData->mem.rawMem(gpuID, Neon::DeviceType::CUDA),
                 mData->mCardinality,
@@ -84,8 +84,8 @@ bField<T, C, BKSX, BKSY, BKSZ>::bField(const std::string&             name,
     }
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::forEachActiveCell(
+template <typename T, int C>
+auto bField<T, C>::forEachActiveCell(
     const std::function<void(const Neon::index_3d&,
                              const int& cardinality,
                              T&)>&                      fun,
@@ -121,15 +121,15 @@ auto bField<T, C, BKSX, BKSY, BKSZ>::forEachActiveCell(
         });
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::isInsideDomain(const Neon::index_3d& idx) const -> bool
+template <typename T, int C>
+auto bField<T, C>::isInsideDomain(const Neon::index_3d& idx) const -> bool
 {
     return mData->grid->isInsideDomain(idx);
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::getRef(const Neon::index_3d& idx,
-                                            const int&            cardinality) const -> T&
+template <typename T, int C>
+auto bField<T, C>::getRef(const Neon::index_3d& idx,
+                          const int&            cardinality) const -> T&
 {
     // TODO need to figure out which device owns this block
     SetIdx devID(0);
@@ -155,36 +155,36 @@ auto bField<T, C, BKSX, BKSY, BKSZ>::getRef(const Neon::index_3d& idx,
     return partition(cell, cardinality);
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::operator()(const Neon::index_3d& idx,
-                                                const int&            cardinality) const -> T
+template <typename T, int C>
+auto bField<T, C>::operator()(const Neon::index_3d& idx,
+                              const int&            cardinality) const -> T
 {
     return getRef(idx, cardinality);
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::getReference(const Neon::index_3d& idx,
-                                                  const int&            cardinality) -> T&
+template <typename T, int C>
+auto bField<T, C>::getReference(const Neon::index_3d& idx,
+                                const int&            cardinality) -> T&
 {
     return getRef(idx, cardinality);
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::haloUpdate(Neon::set::HuOptions& /*opt*/) const -> void
+template <typename T, int C>
+auto bField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) const -> void
 {
     // TODO
     NEON_DEV_UNDER_CONSTRUCTION("bField::haloUpdate");
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::haloUpdate(Neon::set::HuOptions& /*opt*/) -> void
+template <typename T, int C>
+auto bField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) -> void
 {
     // TODO
     NEON_DEV_UNDER_CONSTRUCTION("bField::haloUpdate");
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::updateHostData(int streamId) -> void
+template <typename T, int C>
+auto bField<T, C>::updateHostData(int streamId) -> void
 {
 
     if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {
@@ -192,8 +192,8 @@ auto bField<T, C, BKSX, BKSY, BKSZ>::updateHostData(int streamId) -> void
     }
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::updateDeviceData(int streamId) -> void
+template <typename T, int C>
+auto bField<T, C>::updateDeviceData(int streamId) -> void
 {
 
     if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {
@@ -202,10 +202,10 @@ auto bField<T, C, BKSX, BKSY, BKSZ>::updateDeviceData(int streamId) -> void
 }
 
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::getPartition(Neon::Execution       exec,
-                                                  Neon::SetIdx          idx,
-                                                  const Neon::DataView& dataView) const -> const Partition&
+template <typename T, int C>
+auto bField<T, C>::getPartition(Neon::Execution       exec,
+                                Neon::SetIdx          idx,
+                                const Neon::DataView& dataView) const -> const Partition&
 {
 
     if (exec == Neon::Execution::device) {
@@ -218,10 +218,10 @@ auto bField<T, C, BKSX, BKSY, BKSZ>::getPartition(Neon::Execution       exec,
     NEON_THROW_UNSUPPORTED_OPERATION("bField::getPartition() unsupported Execution");
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::getPartition(Neon::Execution       exec,
-                                                  Neon::SetIdx          idx,
-                                                  const Neon::DataView& dataView) -> Partition&
+template <typename T, int C>
+auto bField<T, C>::getPartition(Neon::Execution       exec,
+                                Neon::SetIdx          idx,
+                                const Neon::DataView& dataView) -> Partition&
 {
     if (exec == Neon::Execution::device) {
         return getPartition(Neon::DeviceType::CUDA, idx, dataView);
@@ -233,14 +233,14 @@ auto bField<T, C, BKSX, BKSY, BKSZ>::getPartition(Neon::Execution       exec,
     NEON_THROW_UNSUPPORTED_OPERATION("bField::getPartition() unsupported Execution");
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::getMem() -> Neon::set::MemSet<T>&
+template <typename T, int C>
+auto bField<T, C>::getMem() -> Neon::set::MemSet<T>&
 {
     return mData->mem;
 }
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
-auto bField<T, C, BKSX, BKSY, BKSZ>::getSharedMemoryBytes(const int32_t stencilRadius) const -> size_t
+template <typename T, int C>
+auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius) const -> size_t
 {
     // This return the optimal shared memory size give a stencil radius
     // i.e., only N layers is read from neighbor blocks into shared memory in addition

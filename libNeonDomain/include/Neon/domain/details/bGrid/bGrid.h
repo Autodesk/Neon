@@ -3,37 +3,40 @@
 
 #include "Neon/set/memory/memSet.h"
 
+#include "Neon/domain/aGrid.h"
 #include "Neon/domain/details/bGrid/bField.h"
 #include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/details/bGrid/bPartition.h"
 #include "Neon/domain/details/bGrid/bSpan.h"
 #include "Neon/domain/interface/GridBaseTemplate.h"
 #include "Neon/domain/patterns/PatternScalar.h"
+#include "Neon/domain/tools/Partitioner1D.h"
 #include "Neon/domain/tools/PointHashTable.h"
+#include "Neon/domain/tools/SpanTable.h"
 #include "Neon/set/Containter.h"
+#include "BlockViewGrid/BlockViewGrid.h"
 
 namespace Neon::domain::details::bGrid {
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
+template <typename T, int C>
 class bField;
 
-template <int BKSX = 8, int BKSY = 8, int BKSZ = 8>
-class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<BKSX, BKSY, BKSZ>, bIndex>
+class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
 {
    public:
     using Grid = bGrid;
     using Cell = bIndex;
 
     template <typename T, int C = 0>
-    using Partition = bPartition<T, C, BKSX, BKSY, BKSZ>;
+    using Partition = bPartition<T, C>;
 
     template <typename T, int C = 0>
-    using Field = Neon::domain::details::bGrid::bField<T, C, BKSX, BKSY, BKSZ>;
-
+    using Field = Neon::domain::details::bGrid::bField<T, C>;
+    using Span = bSpan;
     using nghIdx_t = typename Partition<int>::nghIdx_t;
 
-    using PartitionIndexSpace = Neon::domain::details::bGrid::bSpan<BKSX, BKSY, BKSZ>;
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<bGrid<BKSX, BKSY, BKSZ>, bIndex>;
+    using PartitionIndexSpace = Neon::domain::details::bGrid::bSpan;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>;
 
     bGrid() = default;
     virtual ~bGrid(){};
@@ -55,7 +58,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<BKSX, BKSY,
           const Neon::int32_3d&        domainSize,
           const ActiveCellLambda       activeCellLambda,
           const Neon::domain::Stencil& stencil,
-          const int                    blockSize,
+          const int                    dataBlockSize,
           const int                    voxelSpacing,
           const double_3d&             spacingData = double_3d(1, 1, 1),
           const double_3d&             origin = double_3d(0, 0, 0));
@@ -127,14 +130,27 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<BKSX, BKSY,
     auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
     auto getStencilNghIndex() const -> const Neon::set::MemSet<nghIdx_t>&;
 
+    auto getDataBlockSize() const -> int;
 
    private:
     struct Data
     {
-        int blockSize;
+        Neon::domain::tool::SpanTable<Span> spanTable /** Span for each data view configurations */;
+        Neon::domain::tool::SpanTable<int>  elementsPerPartition /** Number of indexes for each partition */;
+
+        Neon::domain::tool::Partitioner1D partitioner1D;
+        Stencil                           stencil;
+        Neon::sys::patterns::Engine       reduceEngine;
+        Neon::aGrid                       memoryGrid /** memory allocator for fields */;
+
+        Neon::set::MemSet<int8_t>       mStencil3dTo1dOffset;
+        Neon::aGrid::Field<int32_t, 0>  mConnectivityAField;
+        Neon::aGrid::Field<index_3d, 0> mDataBlockToGlobalMappingAField;
+
+        tool::Partitioner1D::DenseMeta denseMeta;
+
+        int dataBlockSize;
         int voxelSpacing;
-
-
 
         // number of active voxels in each block
         Neon::set::DataSet<uint64_t> mNumActiveVoxel;
@@ -162,19 +178,17 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<BKSX, BKSY,
         // It is an std vector for the three type of data views we have
         std::array<Neon::set::DataSet<PartitionIndexSpace>, 3> mPartitionIndexSpace;
 
-        // Store the block origin as a key and its 1d index as value
-        Neon::domain::tool::PointHashTable<int32_t, uint32_t> mBlockOriginTo1D;
-
         // number of blocks in each device
         Neon::set::DataSet<uint64_t> mNumBlocks;
     };
     std::shared_ptr<Data> mData;
 };
 
+auto bGrid::getDataBlockSize() const -> int
+{
+    return mData->dataBlockSize;
+}
+
 }  // namespace Neon::domain::details::bGrid
 
 #include "Neon/domain/details/bGrid/bGrid_imp.h"
-
-namespace Neon::domain::details::bGrid {
-extern template class bGrid<8, 8, 8>;
-}

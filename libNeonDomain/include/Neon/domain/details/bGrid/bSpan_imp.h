@@ -2,8 +2,8 @@
 
 namespace Neon::domain::details::bGrid {
 
-template<int BKSX, int BKSY,int BKSZ>
-NEON_CUDA_HOST_DEVICE inline auto bSpan<BKSX, BKSY, BKSZ>::setCell(
+
+NEON_CUDA_HOST_DEVICE inline auto bSpan::setCell(
     bIndex&                         cell,
     [[maybe_unused]] const size_t& x,
     [[maybe_unused]] const size_t& y,
@@ -29,9 +29,9 @@ NEON_CUDA_HOST_DEVICE inline auto bSpan<BKSX, BKSY, BKSZ>::setCell(
     cell.mIsActive = true;
 }
 
-template<int BKSX, int BKSY,int BKSZ>
+
 NEON_CUDA_HOST_DEVICE inline auto
-bSpan<BKSX, BKSY, BKSZ>::setAndValidate(bIndex&        cell,
+bSpan::setAndValidate(bIndex&        cell,
                                      const size_t& x,
                                      const size_t& y,
                                      const size_t& z) const -> bool

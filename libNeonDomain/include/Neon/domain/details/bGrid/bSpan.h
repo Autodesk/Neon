@@ -4,7 +4,6 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <int BKSX, int BKSY, int BKSZ>
 class bSpan
 {
    public:
@@ -12,8 +11,6 @@ class bSpan
     virtual ~bSpan() = default;
 
     using Cell = bIndex;
-
-    template <int BBKSX, int BBKSY, int BBKSZ>
     friend class bGrid;
 
     static constexpr int SpaceDim = 1;

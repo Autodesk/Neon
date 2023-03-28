@@ -39,31 +39,16 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
    public:
     tField()
     {
-        mStroage = std::make_shared<Storage>();
+        mData = std::make_shared<Data>();
     }
     ~tField() = default;
 
    private:
-    tField(const std::string&                        fieldUserName,
-           Neon::DataUse                             dataUse,
-           const Neon::MemoryOptions&                memoryOptions,
-           const Grid&                               grid,
-           const Neon::set::DataSet<Neon::index_3d>& dims,
-           int                                       cardinality)
-    {
-        Neon::Backend& bk = grid.getBackend();
-        mStroage = std::make_shared<Storage>(bk);
-        auto& foundationGrid = grid.getFoundationGrid();
-        mStroage->foundationField = foundationGrid.template newField<T, C>(fieldUserName, dataUse, memoryOptions, dims, cardinality);
-        GridTransformation::initFieldPartition(mStroage->foundationField, NEON_OUT mStroage->partitions);
-        NEON_DEV_UNDER_CONSTRUCTION("");
-    }
-
     explicit tField(FoundationField foundationField)
     {
         Neon::Backend& bk = foundationField.getGrid.getBackend();
-        mStroage->foundationField = foundationField;
-        GridTransformation::initFieldPartition(mStroage->foundationField, NEON_OUT mStroage->partitions);
+        mData->foundationField = foundationField;
+        GridTransformation::initFieldPartition(mData->foundationField, NEON_OUT mData->partitions);
         NEON_DEV_UNDER_CONSTRUCTION("");
     }
 
@@ -75,51 +60,37 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
      */
     auto operator()(const Neon::index_3d& idx,
                     const int&            cardinality) const
-        -> Type final;
-
-    auto haloUpdate(Neon::set::HuOptions& opt) const
-        -> void final
+        -> Type final
     {
-        mStroage->foundationField.haloUpdate(opt);
+        return mData->foundationField.operator()(idx, cardinality);
     }
 
-    auto haloUpdate(SetIdx setIdx, Neon::set::HuOptions& opt) const
-        -> void
+    auto newHaloUpdate(Neon::set::StencilSemantic semantic,
+                       Neon::set::TransferMode    transferMode,
+                       Neon::Execution            execution)
+        const -> Neon::set::Container
     {
-        mStroage->foundationField.haloUpdate(setIdx, opt);
-    }
-
-    auto haloUpdate(Neon::set::HuOptions& opt)
-        -> void final
-    {
-        mStroage->foundationField.haloUpdate(opt);
-    }
-
-    auto haloUpdate(SetIdx setIdx, Neon::set::HuOptions& opt)
-        -> void
-    {
-        mStroage->foundationField.haloUpdate(setIdx, opt);
+        return mData->foundationField.newHaloUpdate(semantic, transferMode, execution);
     }
 
     virtual auto getReference(const Neon::index_3d& idx,
                               const int&            cardinality)
         -> Type& final
     {
-        return mStroage->foundationField.getReference(idx, cardinality);
+        return mData->foundationField.getReference(idx, cardinality);
     }
 
-    auto updateCompute(int streamSetId)
+    auto updateDeviceData(int streamSetId)
         -> void
     {
-        mStroage->foundationField.updateCompute(streamSetId);
+        mData->foundationField.updateDeviceData(streamSetId);
     }
 
-    auto updateIO(int streamSetId)
+    auto updateHostData(int streamSetId)
         -> void
     {
-        mStroage->foundationField.updateIO(streamSetId);
+        mData->foundationField.updateHostData(streamSetId);
     }
-
 
     /**
      * Return a constant reference to a specific partition based on a set of parameters:
@@ -130,7 +101,7 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD) const
         -> const Partition& final
     {
-        const auto& partition = mStroage->partitions.getPartition(execution, dataView, setIdx);
+        const auto& partition = mData->partitions.getPartition(execution, dataView, setIdx);
         return partition;
     }
     /**
@@ -142,7 +113,7 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Partition& final
     {
-        auto& partition = mStroage->partitions.getPartition(execution, dataView, setIdx);
+        auto& partition = mData->partitions.getPartition(execution, dataView, setIdx);
         return partition;
     }
 
@@ -153,10 +124,10 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
     }
 
    private:
-    struct Storage
+    struct Data
     {
-        Storage() = default;
-        explicit Storage(Neon::Backend& bk)
+        Data() = default;
+        explicit Data(Neon::Backend& bk)
         {
             partitions = Neon::domain::tool::PartitionTable<Partition>(bk);
         }
@@ -164,7 +135,7 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
         Neon::domain::tool::PartitionTable<Partition> partitions;
     };
 
-    std::shared_ptr<Storage> mStroage;
+    std::shared_ptr<Data> mData;
 };
 
 }  // namespace Neon::domain::tool::details

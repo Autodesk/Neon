@@ -7,14 +7,13 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <int BKSX, int BKSY, int BKSZ>
 class bSpan;
 
-template <typename T, int C, int BKSX, int BKSY, int BKSZ>
+template <typename T, int C>
 class bPartition
 {
    public:
-    using Span = bSpan<BKSX, BKSY, BKSZ>;
+    using Span = bSpan;
     using Cell = bIndex;
     using nghIdx_t = Cell::nghIdx_t;
     using Type = T;
