@@ -141,6 +141,57 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
 
 
 template <typename T, int C>
+auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
+                                                                 const int& cardinality,
+                                                                 std::vector<T*>&)>& fun,
+                                        Neon::computeMode_t::computeMode_e           mode)
+    -> void
+{
+    const auto& dim = getDimension();
+    std::vector<T*> vec(getCardinality(), nullptr);
+
+    if (mode == Neon::computeMode_t::computeMode_e::par) {
+#ifdef _MSC_VER
+#pragma omp parallel for
+#else
+#pragma omp parallel for collapse(3) default(none) shared(this, fun) firstprivate(vec)
+#endif
+        for (int z = 0; z < dim.z; z++) {
+            for (int y = 0; y < dim.y; y++) {
+                for (int x = 0; x < dim.x; x++) {
+                    Neon::index_3d index3D(x, y, z);
+                    const bool     isInside = this->isInsideDomain(index3D);
+                    if (isInside) {
+                        for (int c = 0; c < getCardinality(); c++) {
+                            auto& ref = this->getReference(index3D, c);
+                            vec.push_back(&ref);
+                        }
+                        fun(index3D, vec);
+                    }
+                }
+            }
+        }
+    } else {
+        for (int z = 0; z < dim.z; z++) {
+            for (int y = 0; y < dim.y; y++) {
+                for (int x = 0; x < dim.x; x++) {
+                    Neon::index_3d index3D(x, y, z);
+                    const bool     isInside = this->isInsideDomain(index3D);
+                    if (isInside) {
+                        for (int c = 0; c < getCardinality(); c++) {
+                            auto& ref = this->getReference(index3D, c);
+                            vec.push_back(&ref);
+                        }
+                        fun(index3D, vec);
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+template <typename T, int C>
 template <Neon::computeMode_t::computeMode_e mode>
 auto FieldBase<T, C>::forEachCell(const std::function<void(const Neon::index_3d&,
                                                            const int& cardinality,

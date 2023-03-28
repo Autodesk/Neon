@@ -105,9 +105,30 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                                        0,
                                                                        Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(Neon::MemoryLayout::arrayOfStructs));
         NEON_DEV_UNDER_CONSTRUCTION("")
-       // mData->activeBitMask.forEachActiveCell([])..
-            mData->activeBitMask.updateDeviceData();
-            mData->activeBitMask.getHaloUpdate;
+        mData->activeBitMask.forEachActiveCell([&](Neon::index_3d const& idx3d,
+                                                   std::vector<int64_t*> values) {
+            auto blockOrigin = idx3d * dataBlockSize;
+            Neon::index_3d blockSize3d (dataBlockSize,dataBlockSize,dataBlockSize);
+            for (int k = 0; k < dataBlockSize; k++)
+                for (int j = 0; j < dataBlockSize; j++)
+                    for (int i = 0; i < dataBlockSize; i++) {
+                        for(auto valPrt : values){
+                            *valPrt = 0;
+                        }
+                        Neon::int32_3d  point (i,j,k);
+                        point = point + blockOrigin;
+                        auto pitch = point.mPitch(blockSize3d);
+                        auto card = pitch/64;
+                        auto targetBit = pitch%64;
+                        auto mask = uint64_t(1) << targetBit;
+                        bool isActive = activeCellLambda(blockSize3d);
+                    }
+        });
+
+        mData->activeBitMask.updateDeviceData(Neon::Backend::mainStreamIdx);
+        mData->activeBitMask.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                                           Neon::set::TransferMode::put,
+                                           Neon::Execution::device);
     }
     //---------------------------------------------
 

@@ -51,14 +51,16 @@ class FieldBase
         -> const Neon::domain::interface::GridBase& = 0;
 
     virtual auto haloUpdate([[maybe_unused]] Neon::set::HuOptions& opt) const
-        -> void {
+        -> void
+    {
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
 
     virtual auto haloUpdate([[maybe_unused]] Neon::set::HuOptions& opt)
-        -> void {
-            NEON_THROW_UNSUPPORTED_OPERATION("");
-}
+        -> void
+    {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
 
     virtual auto haloUpdateContainer(Neon::set::TransferMode    transferMode,
                                      Neon::set::StencilSemantic stencilSemantic) const
@@ -103,6 +105,9 @@ class FieldBase
                                                             T&)>&     fun,
                                    Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par) -> void;
 
+    virtual auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
+                                                            std::vector<T*>&)>& fun,
+                                   Neon::computeMode_t::computeMode_e           mode = Neon::computeMode_t::computeMode_e::par) -> void;
     /**
      * For each operator that target all cells in the cubic domain.
      * Cell values are provided in read only mode.
