@@ -9,7 +9,7 @@ enum CellType : int
 };
 
 
-/*NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity[27][3] = {
+NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity[27][3] = {
     {0, 0, 0},
     {0, 0, -1},
     {0, 0, 1},
@@ -70,9 +70,9 @@ NEON_CUDA_DEVICE_ONLY static constexpr float latticeWeights[27] = {
     1.0f / 216.0f,
     1.0f / 216.0f
 
-};*/
+};
 
-NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity[19][3] = {
+/*NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity[19][3] = {
     {0, 0, 0},
     {0, -1, 0},
     {0, 1, 0},
@@ -119,5 +119,4 @@ NEON_CUDA_DEVICE_ONLY static constexpr float latticeWeights[19] = {
     1.0f / 36.0f,
     1.0f / 36.0f,
     1.0f / 36.0f,
-    1.0f / 36.0f
-};
+    1.0f / 36.0f};*/

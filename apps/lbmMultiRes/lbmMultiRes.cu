@@ -59,6 +59,178 @@ NEON_CUDA_HOST_DEVICE Neon::Vec_3d<T> velocity(const T* fin,
     return vel;
 }
 
+
+NEON_CUDA_HOST_DEVICE __inline__ void latticeMomentCenter(int i, int& a, int& b)
+{
+    if (i == 0) {
+        a = 0;
+        b = 0;
+    }
+
+    if (i == 1) {
+        a = 0;
+        b = 1;
+    }
+
+    if (i == 2) {
+        a = 0;
+        b = 2;
+    }
+
+    if (i == 3) {
+        a = 1;
+        b = 1;
+    }
+
+    if (i == 4) {
+        a = 1;
+        b = 2;
+    }
+
+    if (i == 5) {
+        a = 2;
+        b = 2;
+    }
+}
+
+
+template <typename T, int Q>
+Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid,
+                                T                                           omega0,
+                                int                                         level,
+                                int                                         numLevels,
+                                const Neon::domain::mGrid::Field<CellType>& cellType,
+                                const Neon::domain::mGrid::Field<T>&        fin,
+                                Neon::domain::mGrid::Field<T>&              fout)
+{
+    return grid.getContainer(
+        "collide_" + std::to_string(level), level,
+        [&, level, omega0, numLevels](Neon::set::Loader& loader) {
+            const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
+            const auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
+            auto        out = fout.load(loader, level, Neon::MultiResCompute::MAP);
+            const T     omega = computeOmega(omega0, level, numLevels);
+            const T     beta = omega * 0.5;
+            const T     invBeta = 1.0 / beta;
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                if (type(cell, 0) == CellType::bulk) {
+
+                    constexpr T tiny = 1e-7;
+
+                    if (!in.hasChildren(cell)) {
+
+                        //fin
+                        T ins[Q];
+                        for (int i = 0; i < Q; ++i) {
+                            ins[i] = in(cell, i);
+                        }
+
+                        //density
+                        T rho = 0;
+                        for (int i = 0; i < Q; ++i) {
+                            rho += ins[i];
+                        }
+
+                        //velocity
+                        const Neon::Vec_3d<T> vel = velocity<T, Q>(ins, rho);
+
+                        T Pi[6] = {0, 0, 0, 0, 0, 0};
+                        T e0 = 0;
+                        T e1 = 0;
+                        T deltaS[27];
+                        T fneq[27];
+                        T feq[Q];
+
+                        //
+                        auto momentum_flux = [&](int q, int i) {
+                            int a, b;
+                            latticeMomentCenter(i, a, b);
+                            int cc = latticeVelocity[q][a] * latticeVelocity[q][b];
+                            return cc;
+                        };
+
+                        //
+                        auto fdecompose_shear_d3q27 = [&](const int q, const T Nxz, const T Nyz) {
+                            if (q == 9) {
+                                return (2.0 * Nxz - Nyz) / 6.0;
+                            } else if (q == 18) {
+                                return (2.0 * Nxz - Nyz) / 6.0;
+                            } else if (q == 3) {
+                                return (-Nxz + 2.0 * Nyz) / 6.0;
+                            } else if (q == 6) {
+                                return (-Nxz + 2.0 * Nyz) / 6.0;
+                            } else if (q == 1) {
+                                return (-Nxz - Nyz) / 6.0;
+                            } else if (q == 2) {
+                                return (-Nxz - Nyz) / 6.0;
+                            } else if (q == 12 || q == 24) {
+                                return Pi[1] / 4.0;
+                            } else if (q == 21 || q == 15) {
+                                return -Pi[1] / 4.0;
+                            } else if (q == 10 || q == 20) {
+                                return Pi[2] / 4.0;
+                            } else if (q == 19 || q == 11) {
+                                return -Pi[2] / 4.0;
+                            } else if (q == 8 || q == 4) {
+                                return Pi[4] / 4.0;
+                            } else if (q == 7 || q == 5) {
+                                return -Pi[4] / 4.0;
+                            } else {
+                                return T(0);
+                            }
+                        };
+
+                        const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+                        for (int q = 0; q < Q; ++q) {
+                            T cu = 0;
+                            for (int d = 0; d < 3; ++d) {
+                                cu += latticeVelocity[q][d] * vel.v[d];
+                            }
+                            cu *= 3.0;
+
+                            //equilibrium
+                            feq[q] = rho * latticeWeights[q] * (1. + cu + 0.5 * cu * cu - usqr);
+
+                            fneq[q] = ins[q] - feq[q];
+                        }
+
+                        //momentum_flux
+                        for (int q = 0; q < Q; ++q) {
+                            for (int i = 0; i < 6; ++i) {
+                                Pi[i] += fneq[q] * momentum_flux(q, i);
+                            }
+                        }
+
+                        T Nxz = Pi[0] - Pi[5];
+                        T Nyz = Pi[3] - Pi[5];
+
+                        for (int q = 0; q < Q; ++q) {
+
+
+                            //??
+                            deltaS[q] = rho * fdecompose_shear_d3q27(q, Nxz, Nyz);
+
+                            T deltaH = fneq[q] - deltaS[q];
+
+                            e0 += (deltaS[q] * deltaH / feq[q]);
+                            e1 += (deltaH * deltaH / feq[q]);
+                        }
+
+                        for (int q = 0; q < Q; ++q) {
+                            T gamma = invBeta - (2.0 - invBeta) * e0 / (tiny + e1);
+
+                            T deltaH = fneq[q] - deltaS[q];
+
+                            //collide
+                            out(cell, q) = ins[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
+                        }
+                    }
+                }
+            };
+        });
+}
+
 template <typename T, int Q>
 Neon::set::Container collide(Neon::domain::mGrid&                        grid,
                              T                                           omega0,
@@ -81,7 +253,6 @@ Neon::set::Container collide(Neon::domain::mGrid&                        grid,
 
                     if (!in.hasChildren(cell)) {
 
-                        
 
                         //fin
                         T ins[Q];
@@ -360,8 +531,8 @@ void stream(Neon::domain::mGrid&                        grid,
             int                                         level,
             const int                                   numLevels,
             const Neon::domain::mGrid::Field<CellType>& cellType,
-            const Neon::domain::mGrid::Field<T>&        postCollision,
-            Neon::domain::mGrid::Field<T>&              postStreaming,
+            const Neon::domain::mGrid::Field<T>&        postCollision,  //fout
+            Neon::domain::mGrid::Field<T>&              postStreaming,  //fin
             std::vector<Neon::set::Container>&          containers)
 {
     containers.push_back(stream<T, Q>(grid, level, cellType, postCollision, postStreaming));
@@ -397,7 +568,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  std::vector<Neon::set::Container>&          containers)
 {
     // 1) collision for all voxels at level L=level
-    containers.push_back(collide<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
     // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
     if (level != numLevels - 1) {
@@ -419,7 +590,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
     }
 
     // 6) collision for all voxels at level L = level
-    containers.push_back(collide<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
     // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
     if (level != numLevels - 1) {
@@ -478,7 +649,6 @@ void postProcess(Neon::domain::mGrid&                        grid,
 
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                        
                         if (!pop.hasChildren(cell)) {
                             if (type(cell, 0) == CellType::bulk) {
 
@@ -563,7 +733,7 @@ int main(int argc, char** argv)
         std::vector<int> gpu_ids{0};
         Neon::Backend    backend(gpu_ids, runtime);
 
-        constexpr int Q = 19;
+        constexpr int Q = 27;
         constexpr int depth = 3;
 
         const Neon::domain::mGridDescriptor descriptor(depth);
@@ -599,7 +769,7 @@ int main(int argc, char** argv)
             Neon::domain::Stencil::s19_t(false), descriptor);
 
         //LBM problem
-        const int             max_iter = 2000;
+        const int             max_iter = 1000;
         const T               ulb = 0.04;
         const T               Re = 100;
         const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
@@ -615,13 +785,17 @@ int main(int argc, char** argv)
         auto vel = grid.newField<T>("vel", 3, 0);
         auto rho = grid.newField<T>("rho", 1, 0);
 
+        int* d_num_elements = nullptr;
+        cudaMalloc((void**)&d_num_elements, sizeof(int));
+        cudaMemset(d_num_elements, 0, sizeof(int));
+
         //init fields
         for (int level = 0; level < descriptor.getDepth(); ++level) {
-            
+
             auto container =
                 grid.getContainer(
                     "Init_" + std::to_string(level), level,
-                    [&fin, &fout, &cellType, &vel, &rho, level, grid_dim, ulid, Q](Neon::set::Loader& loader) {
+                    [&fin, &fout, &cellType, &vel, &rho, level, grid_dim, ulid, Q, d_num_elements](Neon::set::Loader& loader) {
                         auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                         auto& out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                         auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -635,6 +809,12 @@ int main(int argc, char** argv)
                             u(cell, 2) = 0;
                             rh(cell, 0) = 0;
                             type(cell, 0) = CellType::bulk;
+
+#ifdef __CUDA_ARCH__
+                            atomicAdd(d_num_elements, 1);
+#else
+                            d_num_elements++;
+#endif
 
                             if (!in.hasChildren(cell)) {
                                 const Neon::index_3d idx = in.mapToGlobal(cell);
@@ -678,6 +858,10 @@ int main(int argc, char** argv)
         grid.getBackend().syncAll();
 
 
+        int h_num_elements = 0;
+        cudaMemcpy(&h_num_elements, d_num_elements, sizeof(int), cudaMemcpyDeviceToHost);
+        cudaFree(d_num_elements);
+
         //skeleton
         std::vector<Neon::set::Container> containers;
         nonUniformTimestepRecursive<T, Q>(grid,
@@ -692,14 +876,27 @@ int main(int argc, char** argv)
         // skl.ioToDot("MultiResLBM", "", true);
 
         //execution
+        auto start = std::chrono::high_resolution_clock::now();
         for (int t = 0; t < max_iter; ++t) {
-            printf("\n Iteration = %d", t);
+            //printf("\n Iteration = %d", t);
             skl.run();
             if (t % 100 == 0) {
                 postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho, true);
             }
         }
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
-        postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, max_iter, vel, rho, true);
+        double mlups = static_cast<double>(max_iter) / duration.count();
+        mlups *= static_cast<double>(h_num_elements);
+
+        //double mlups = static_cast<double>(h_num_elements * max_iter) / duration.count();
+        double eff_mlups = static_cast<double>(max_iter) / duration.count();
+        eff_mlups *= static_cast<double>(grid_dim.x * grid_dim.y * grid_dim.z);
+
+        std::cout << "MLUPS=     " << mlups << " num_elements= " << h_num_elements << std::endl;
+        std::cout << "Eff MLUPS= " << eff_mlups << " eff num_elements= " << grid_dim.x * grid_dim.y * grid_dim.z << std::endl;
+
+        //postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, max_iter, vel, rho, true);
     }
 }
