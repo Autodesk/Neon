@@ -75,6 +75,9 @@ class FieldBaseTemplate : public FieldBase<T, C>,
 
     auto toString() const -> std::string;
 
+    virtual auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
+                                                            std::vector<T*>&)>& fun,
+                                   Neon::computeMode_t::computeMode_e           mode = Neon::computeMode_t::computeMode_e::par) -> void;
    protected:
     /**
      * This function should be called before executing an std::swap

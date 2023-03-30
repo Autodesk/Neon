@@ -105,7 +105,7 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
 #ifdef _MSC_VER
 #pragma omp parallel for
 #else
-#pragma omp parallel for collapse(3)
+#pragma omp parallel for collapse(1) schedule(guided)
 #endif
         for (int z = 0; z < dim.z; z++) {
             for (int y = 0; y < dim.y; y++) {
@@ -142,7 +142,6 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
 
 template <typename T, int C>
 auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
-                                                                 const int& cardinality,
                                                                  std::vector<T*>&)>& fun,
                                         Neon::computeMode_t::computeMode_e           mode)
     -> void

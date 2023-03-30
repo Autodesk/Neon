@@ -104,9 +104,9 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                                        required64BitWords,
                                                                        0,
                                                                        Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(Neon::MemoryLayout::arrayOfStructs));
-        NEON_DEV_UNDER_CONSTRUCTION("")
+
         mData->activeBitMask.forEachActiveCell([&](Neon::index_3d const& idx3d,
-                                                   std::vector<int64_t*> values) {
+                                                   std::vector<uint64_t*> values) {
             auto blockOrigin = idx3d * dataBlockSize;
             Neon::index_3d blockSize3d (dataBlockSize,dataBlockSize,dataBlockSize);
             for (int k = 0; k < dataBlockSize; k++)
@@ -118,12 +118,15 @@ bGrid::bGrid(const Neon::Backend&         backend,
                         Neon::int32_3d  point (i,j,k);
                         point = point + blockOrigin;
                         auto pitch = point.mPitch(blockSize3d);
-                        auto card = pitch/64;
+                        auto targetCard = pitch/64;
                         auto targetBit = pitch%64;
-                        auto mask = uint64_t(1) << targetBit;
+                        uint64_t mask = uint64_t(1) << targetBit;
                         bool isActive = activeCellLambda(blockSize3d);
+                        if(isActive){
+                            *(values[targetCard]) |=  mask;
+                        }
                     }
-        });
+        }, Neon::computeMode_t::computeMode_e::par);
 
         mData->activeBitMask.updateDeviceData(Neon::Backend::mainStreamIdx);
         mData->activeBitMask.newHaloUpdate(Neon::set::StencilSemantic::standard,
