@@ -80,7 +80,6 @@ bGrid::bGrid(const Neon::Backend&         backend,
             origin);
 
         mData->blockViewGrid = BlockViewGrid(egrid);
-        NEON_DEV_UNDER_CONSTRUCTION("")
     }
 
     {  // Active bitmask
@@ -105,44 +104,54 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                                        0,
                                                                        Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(Neon::MemoryLayout::arrayOfStructs));
 
-        mData->activeBitMask.forEachActiveCell([&](Neon::index_3d const& idx3d,
-                                                   std::vector<uint64_t*> values) {
-            auto blockOrigin = idx3d * dataBlockSize;
-            Neon::index_3d blockSize3d (dataBlockSize,dataBlockSize,dataBlockSize);
-            for (int k = 0; k < dataBlockSize; k++)
-                for (int j = 0; j < dataBlockSize; j++)
-                    for (int i = 0; i < dataBlockSize; i++) {
-                        for(auto valPrt : values){
-                            *valPrt = 0;
+        mData->mNumActiveVoxel = backend.devSet().template newDataSet<uint64_t>();
+
+        mData->activeBitMask
+            .getGrid()
+            .newContainer(
+                "activeBitMaskInit",
+                [&](Neon::set::Loader& loader) {
+                    auto bitMask = loader.load(mData->activeBitMask);
+                    return [&](const auto& idx) {
+                        auto           prtIdx = bitMask.prtID();
+                        int            coutActive = 0;
+                        auto const     idx3d = bitMask.getGlobalIndex(idx);
+                        Neon::index_3d blockSize3d(dataBlockSize, dataBlockSize, dataBlockSize);
+                        auto const     blockOrigin = idx3d * dataBlockSize;
+                        for (int k = 0; k < dataBlockSize; k++) {
+                            for (int j = 0; j < dataBlockSize; j++) {
+                                for (int i = 0; i < dataBlockSize; i++) {
+                                    for (int c = 0; c < bitMask.cardinality(); c++) {
+                                        bitMask(idx3d, c) = 0;
+                                    }
+                                    Neon::int32_3d point(i, j, k);
+                                    point = point + blockOrigin;
+                                    auto const pitch = point.mPitch(blockSize3d);
+                                    auto const targetCard = pitch / 64;
+                                    auto const targetBit = pitch % 64;
+                                    uint64_t   mask = uint64_t(1) << targetBit;
+                                    bool       isActive = activeCellLambda(blockSize3d);
+                                    if (isActive) {
+                                        coutActive++;
+                                        bitMask(idx3d, targetCard) |= mask;
+                                    }
+                                }
+                            }
                         }
-                        Neon::int32_3d  point (i,j,k);
-                        point = point + blockOrigin;
-                        auto pitch = point.mPitch(blockSize3d);
-                        auto targetCard = pitch/64;
-                        auto targetBit = pitch%64;
-                        uint64_t mask = uint64_t(1) << targetBit;
-                        bool isActive = activeCellLambda(blockSize3d);
-                        if(isActive){
-                            *(values[targetCard]) |=  mask;
+#pragma omp critical
+                        {
+                            mData->mNumActiveVoxel[prtIdx] += coutActive;
                         }
-                    }
-        }, Neon::computeMode_t::computeMode_e::par);
+                    };
+                },
+                Neon::Execution::host)
+            .run();
 
         mData->activeBitMask.updateDeviceData(Neon::Backend::mainStreamIdx);
         mData->activeBitMask.newHaloUpdate(Neon::set::StencilSemantic::standard,
                                            Neon::set::TransferMode::put,
                                            Neon::Execution::device);
     }
-    //---------------------------------------------
-
-    mData->mBlockOriginTo1D = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(domainSize * voxelSpacing);
-
-    mData->mNumBlocks = backend.devSet().template newDataSet<uint64_t>();
-
-
-    mData->mNumActiveVoxel = backend.devSet().template newDataSet<uint64_t>();
-    mData->mNumActiveVoxel[0] = 0;
-
 
     // Init the base grid
     bGrid::GridBase::init("bGrid",
@@ -153,174 +162,33 @@ bGrid::bGrid(const Neon::Backend&         backend,
                           Neon::int32_3d(dataBlockSize, dataBlockSize, dataBlockSize),
                           spacingData,
                           origin);
-
-
-    Neon::MemoryOptions memOptionsAoS(Neon::DeviceType::CPU,
-                                      Neon::Allocator::MALLOC,
-                                      Neon::DeviceType::CUDA,
-                                      ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
-                                      Neon::MemoryLayout::arrayOfStructs);
-
-    // origin
-    mData->mOrigin = backend.devSet().template newMemSet<Neon::int32_3d>({Neon::DataUse::HOST_DEVICE},
-                                                                         1,
-                                                                         memOptionsAoS,
-                                                                         mData->mNumBlocks);
-
-
-    // Stencil linear/relative index
-    auto stencilNghSize = backend.devSet().template newDataSet<uint64_t>();
-    for (int32_t c = 0; c < stencilNghSize.cardinality(); ++c) {
-        stencilNghSize[c] = stencil.neighbours().size();
-    }
-    mData->mStencilNghIndex = backend.devSet().template newMemSet<nghIdx_t>({Neon::DataUse::HOST_DEVICE},
-                                                                            1,
-                                                                            memOptionsAoS,
-                                                                            stencilNghSize);
-
-    for (int32_t c = 0; c < mData->mStencilNghIndex.cardinality(); ++c) {
-        SetIdx devID(c);
-        for (uint64_t s = 0; s < stencil.neighbours().size(); ++s) {
-            mData->mStencilNghIndex.eRef(c, s).x = static_cast<nghIdx_t::Integer>(stencil.neighbours()[s].x);
-            mData->mStencilNghIndex.eRef(c, s).y = static_cast<nghIdx_t::Integer>(stencil.neighbours()[s].y);
-            mData->mStencilNghIndex.eRef(c, s).z = static_cast<nghIdx_t::Integer>(stencil.neighbours()[s].z);
-        }
-    }
-
-
-    // block bitmask
-    mData->mActiveMaskSize = backend.devSet().template newDataSet<uint64_t>();
-    for (int64_t i = 0; i < mData->mActiveMaskSize.size(); ++i) {
-        mData->mActiveMaskSize[i] = mData->mNumBlocks[i] *
-                                    NEON_DIVIDE_UP(dataBlockSize * dataBlockSize * dataBlockSize,
-                                                   Cell::sMaskSize);
-    }
-
-    mData->mActiveMask = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::HOST_DEVICE},
-                                                                       1,
-                                                                       memOptionsAoS,
-                                                                       mData->mActiveMaskSize);
-
-
-    // init bitmask to zero
-    for (int32_t c = 0; c < mData->mActiveMask.cardinality(); ++c) {
-        SetIdx devID(c);
-        for (size_t i = 0; i < mData->mActiveMaskSize[c]; ++i) {
-            mData->mActiveMask.eRef(devID, i) = 0;
-        }
-    }
-
+    
 
     // Neighbor blocks
-    mData->mNeighbourBlocks = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::HOST_DEVICE},
-                                                                            26,
-                                                                            memOptionsAoS,
-                                                                            mData->mNumBlocks);
-    // init neighbor blocks to invalid block id
-    for (int32_t c = 0; c < mData->mNeighbourBlocks.cardinality(); ++c) {
-        // TODO
-        SetIdx devID(c);
-        for (uint64_t i = 0; i < mData->mNumBlocks[c]; ++i) {
-            for (int n = 0; n < 26; ++n) {
-                mData->mNeighbourBlocks.eRef(devID, i, n) = std::numeric_limits<uint32_t>::max();
-            }
-        }
-    }
+    mData->blockConnectivity = mData->blockViewGrid.newField<BlockIdx, 27>("blockConnectivity",
+                                                                           27,
+                                                                           getInvalidBlockId(),
+                                                                           Neon::DataUse::HOST_DEVICE,
+                                                                           Neon::MemoryLayout::arrayOfStructs);
 
-
-    // loop over active blocks to populate the block origins, neighbors, and bitmask
-    mData->mBlockOriginTo1D.forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-        // TODO need to figure out which device owns this block
-        SetIdx devID(0);
-
-        mData->mOrigin.eRef(devID, blockIdx) = blockOrigin;
-
-
-        auto setCellActiveMask = [&](Cell::Location::Integer x, Cell::Location::Integer y, Cell::Location::Integer z) {
-            Cell cell(x, y, z);
-            cell.mBlockID = blockIdx;
-            cell.mBlockSize = dataBlockSize;
-            mData->mActiveMask.eRef(devID, cell.getBlockMaskStride() + cell.getMaskLocalID(), 0) |= 1 << cell.getMaskBitPosition();
-        };
-
-
-        // set active mask and child ID
-        for (Cell::Location::Integer z = 0; z < dataBlockSize; z++) {
-            for (Cell::Location::Integer y = 0; y < dataBlockSize; y++) {
-                for (Cell::Location::Integer x = 0; x < dataBlockSize; x++) {
-
-                    const Neon::int32_3d id(blockOrigin.x + x * voxelSpacing,
-                                            blockOrigin.y + y * voxelSpacing,
-                                            blockOrigin.z + z * voxelSpacing);
-
-                    if (id < domainSize * voxelSpacing && activeCellLambda(id)) {
-                        setCellActiveMask(x, y, z);
+    mData->blockViewGrid.newContainer(
+        "blockConnectivityInit",
+        [&](Neon::set::Loader& loader) {
+            auto blockConnectivity = loader.load(mData->blockConnectivity);
+            return [&](auto const& idx) {
+                for (int k = 0; k < 3; k++) {
+                    for (int j = 0; j < 3; j++) {
+                        for (int i = 0; i < 3; i++) {
+                            auto     targetDirection = i + 3 * j + 3 * 3 * k;
+                            BlockIdx nghIdx = getInvalidBlockId();
+                            blockConnectivity.getNghIndex(idx, {i, j, k}, nghIdx);
+                            blockConnectivity(idx, targetDirection) = nghIdx;
+                        }
                     }
                 }
-            }
-        }
-
-
-        // set neighbor blocks
-        for (int16_t k = -1; k < 2; k++) {
-            for (int16_t j = -1; j < 2; j++) {
-                for (int16_t i = -1; i < 2; i++) {
-                    if (i == 0 && j == 0 && k == 0) {
-                        continue;
-                    }
-
-                    Neon::int32_3d neighbourBlockOrigin;
-                    neighbourBlockOrigin.x = i * dataBlockSize * voxelSpacing + blockOrigin.x;
-                    neighbourBlockOrigin.y = j * dataBlockSize * voxelSpacing + blockOrigin.y;
-                    neighbourBlockOrigin.z = k * dataBlockSize * voxelSpacing + blockOrigin.z;
-
-                    auto neighbour_it = mData->mBlockOriginTo1D.getMetadata(neighbourBlockOrigin);
-
-                    if (neighbour_it) {
-                        int16_3d block_offset(i, j, k);
-                        mData->mNeighbourBlocks.eRef(devID,
-                                                     blockIdx,
-                                                     Cell::getNeighbourBlockID(block_offset)) = *neighbour_it;
-                    }
-                }
-            }
-        }
-    });
-
-
-    if (backend.devType() == Neon::DeviceType::CUDA) {
-        mData->mActiveMask.updateDeviceData(backend, 0);
-        mData->mOrigin.updateDeviceData(backend, 0);
-        mData->mNeighbourBlocks.updateDeviceData(backend, 0);
-        mData->mStencilNghIndex.updateDeviceData(backend, 0);
-    }
-
-
-    for (const auto& dv : {Neon::DataView::STANDARD,
-                           Neon::DataView::INTERNAL,
-                           Neon::DataView::BOUNDARY}) {
-
-        int dv_id = DataViewUtil::toInt(dv);
-        if (dv_id > 2) {
-            NeonException exp("bGrid");
-            exp << "Inconsistent enumeration for DataView_t";
-            NEON_THROW(exp);
-        }
-
-        mData->mPartitionIndexSpace[dv_id] = backend.devSet().template newDataSet<PartitionIndexSpace>();
-
-        for (int gpuIdx = 0; gpuIdx < backend.devSet().setCardinality(); gpuIdx++) {
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDataView = dv;
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDomainSize = domainSize * voxelSpacing;
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDataBlockSize = dataBlockSize;
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mSpacing = voxelSpacing;
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mNumBlocks = static_cast<uint32_t>(mData->mNumBlocks[gpuIdx]);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostActiveMask = mData->mActiveMask.rawMem(gpuIdx, Neon::DeviceType::CPU);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceActiveMask = mData->mActiveMask.rawMem(gpuIdx, Neon::DeviceType::CUDA);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mHostBlockOrigin = mData->mOrigin.rawMem(gpuIdx, Neon::DeviceType::CPU);
-            mData->mPartitionIndexSpace[dv_id][gpuIdx].mDeviceBlockOrigin = mData->mOrigin.rawMem(gpuIdx, Neon::DeviceType::CUDA);
-        }
-    }
+            };
+        },
+        Neon::Execution::host).run(Neon::Backend::mainStreamIdx);
 }
 
 

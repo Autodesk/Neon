@@ -3,6 +3,7 @@
 
 #include "Neon/set/memory/memSet.h"
 
+#include "BlockViewGrid/BlockViewGrid.h"
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/details/bGrid/bField.h"
 #include "Neon/domain/details/bGrid/bIndex.h"
@@ -14,7 +15,6 @@
 #include "Neon/domain/tools/PointHashTable.h"
 #include "Neon/domain/tools/SpanTable.h"
 #include "Neon/set/Containter.h"
-#include "BlockViewGrid/BlockViewGrid.h"
 
 namespace Neon::domain::details::bGrid {
 
@@ -33,10 +33,12 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
     template <typename T, int C = 0>
     using Field = Neon::domain::details::bGrid::bField<T, C>;
     using Span = bSpan;
-    using nghIdx_t = typename Partition<int>::nghIdx_t;
+    using NghIdx = typename Partition<int>::NghIdx;
 
     using PartitionIndexSpace = Neon::domain::details::bGrid::bSpan;
     using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>;
+
+    using BlockIdx = uint32_t;
 
     bGrid() = default;
     virtual ~bGrid(){};
@@ -128,9 +130,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
     auto getBlockSize() const -> int;
     auto getVoxelSpacing() const -> int;
     auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
-    auto getStencilNghIndex() const -> const Neon::set::MemSet<nghIdx_t>&;
+    auto getStencilNghIndex() const -> const Neon::set::MemSet<NghIdx>&;
 
     auto getDataBlockSize() const -> int;
+
+    NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId() -> BlockIdx
+    {
+        return std::numeric_limits<uint32_t>::max();
+    }
 
    private:
     struct Data
@@ -147,11 +154,12 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         Neon::aGrid::Field<int32_t, 0>  mConnectivityAField;
         Neon::aGrid::Field<index_3d, 0> mDataBlockToGlobalMappingAField;
 
-        tool::Partitioner1D::DenseMeta denseMeta;
-        BlockViewGrid blockViewGrid;
-        BlockViewGrid::Field<uint64_t,0> activeBitMask;
-        int dataBlockSize;
-        int voxelSpacing;
+        tool::Partitioner1D::DenseMeta     denseMeta;
+        BlockViewGrid                      blockViewGrid;
+        BlockViewGrid::Field<uint64_t, 0>  activeBitMask;
+        BlockViewGrid::Field<BlockIdx , 27> blockConnectivity;
+        int                                dataBlockSize;
+        int                                voxelSpacing;
 
         // number of active voxels in each block
         Neon::set::DataSet<uint64_t> mNumActiveVoxel;
@@ -160,7 +168,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         Neon::set::MemSet<Neon::int32_3d> mOrigin;
 
         // Stencil neighbor indices
-        Neon::set::MemSet<nghIdx_t> mStencilNghIndex;
+        Neon::set::MemSet<NghIdx> mStencilNghIndex;
 
 
         Neon::set::DataSet<uint64_t> mActiveMaskSize;
@@ -185,10 +193,6 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
     std::shared_ptr<Data> mData;
 };
 
-auto bGrid::getDataBlockSize() const -> int
-{
-    return mData->dataBlockSize;
-}
 
 }  // namespace Neon::domain::details::bGrid
 

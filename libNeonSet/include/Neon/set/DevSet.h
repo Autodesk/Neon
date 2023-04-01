@@ -520,7 +520,8 @@ class DevSet
         -> Neon::MemoryOptions
     {
         if (!memOpt.helpWasInitCompleted()) {
-            const Neon::MemoryOptions defaultMemOption = getMemoryOptions(Neon::MemoryLayout::structOfArrays);
+            Neon::MemoryOptions defaultMemOption = getMemoryOptions(Neon::MemoryLayout::structOfArrays);
+            defaultMemOption.setOrder(memOpt.getOrder());
             return defaultMemOption;
         }
         return memOpt;
@@ -640,8 +641,8 @@ class DevSet
 
         Neon::set::MemSet<T_ta> mirror(this->setCardinality());
 
-        MemDevSet<T_ta> memCpu = newMemDevSet<T_ta>(cardinality, Neon::DeviceType::CPU,  memoryOptions.getIOAllocator(dataUse), nElementVec, memoryOptions.getOrder());
-        MemDevSet<T_ta> memGpu = newMemDevSet<T_ta>(cardinality, Neon::DeviceType::CUDA,  memoryOptions.getComputeAllocator(dataUse), nElementVec, memoryOptions.getOrder());
+        MemDevSet<T_ta> memCpu = newMemDevSet<T_ta>(cardinality, Neon::DeviceType::CPU, memoryOptions.getIOAllocator(dataUse), nElementVec, memoryOptions.getOrder());
+        MemDevSet<T_ta> memGpu = newMemDevSet<T_ta>(cardinality, Neon::DeviceType::CUDA, memoryOptions.getDeviceAllocator(dataUse), nElementVec, memoryOptions.getOrder());
 
         mirror.link(memCpu);
         mirror.link(memGpu);

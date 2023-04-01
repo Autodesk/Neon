@@ -91,6 +91,25 @@ ePartition<T, C>::getNghData(eIndex               eId,
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE inline auto
+ePartition<T, C>::getNghIndex(eIndex               eId,
+                              const Neon::int8_3d& ngh3dIdx,
+                              eIndex&              eIdxNgh) const -> bool
+{
+    int tablePithc = (ngh3dIdx.x + mStencilRadius) +
+                     (ngh3dIdx.y + mStencilRadius) * mStencilTableYPitch +
+                     (ngh3dIdx.z + mStencilRadius) * mStencilTableYPitch * mStencilTableYPitch;
+    NghIdx     nghIdx = mStencil3dTo1dOffset[tablePithc];
+    eIndex     tmpEIdxNgh;
+    const bool isValidNeighbour = isValidNgh(eId, nghIdx, tmpEIdxNgh);
+    if (isValidNeighbour) {
+        eIdxNgh = tmpEIdxNgh;
+    }
+    return isValidNeighbour;
+}
+
+template <typename T,
+          int C>
+NEON_CUDA_HOST_DEVICE inline auto
 ePartition<T, C>::isValidNgh(eIndex  eId,
                              NghIdx  nghIdx,
                              eIndex& neighbourIdx) const
@@ -99,9 +118,9 @@ ePartition<T, C>::isValidNgh(eIndex  eId,
     const eIndex::Offset connectivityJumo = mCountAllocated * nghIdx + eId.get();
     neighbourIdx.set() = NEON_CUDA_CONST_LOAD((mConnectivity + connectivityJumo));
     const bool isValidNeighbour = (neighbourIdx.mIdx > -1);
-//    printf("(prtId %d) getNghData id %d eIdxNgh %d connectivityJumo %d\n",
-//           mPrtID,
-//           eId.mIdx, neighbourIdx.mIdx, connectivityJumo);
+    //    printf("(prtId %d) getNghData id %d eIdxNgh %d connectivityJumo %d\n",
+    //           mPrtID,
+    //           eId.mIdx, neighbourIdx.mIdx, connectivityJumo);
     return isValidNeighbour;
 }
 

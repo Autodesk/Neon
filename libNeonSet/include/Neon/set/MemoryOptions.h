@@ -21,33 +21,38 @@ struct MemoryOptions
      */
     MemoryOptions();
 
+    /**
+     * Creation of a non initialized MemoryOptions object.
+     * An initialized MemoryOption can be retrieved through the backend.
+     */
+     MemoryOptions(Neon::MemoryLayout order);
 
     /**
-     * Constructor that defines the type of devices, allocators, and memory order 
+     * Constructor that defines the type of devices, allocators, and memory order
      */
-    MemoryOptions(Neon::DeviceType   ioType,
-                  Neon::Allocator    ioAllocator,
-                  Neon::DeviceType   computeType,
-                  Neon::Allocator    computeAllocators,
+    MemoryOptions(Neon::DeviceType   hostType,
+                  Neon::Allocator    hostAllocator,
+                  Neon::DeviceType   deviceType,
+                  Neon::Allocator    deviceAllocators,
                   Neon::MemoryLayout order);
 
     /**
      * Returns the compute type.
      */
-    auto getComputeType() const
+    auto getDeviceType() const
         -> Neon::DeviceType;
 
     /**
      * Returns the io device type
      */
-    auto getIOType() const
+    auto getHostType() const
         -> Neon::DeviceType;
 
     /**
      * Returns the allocator type for compute
      * @return
      */
-    auto getComputeAllocator(Neon::DataUse dataUse = Neon::DataUse::HOST_DEVICE) const
+    auto getDeviceAllocator(Neon::DataUse dataUse = Neon::DataUse::HOST_DEVICE) const
         -> Neon::Allocator;
 
     /**
@@ -98,10 +103,10 @@ struct MemoryOptions
                   Neon::MemoryLayout order);
 
 
-    Neon::Allocator    mComputeAllocator = Neon::Allocator::NULL_MEM /** Compute allocator type */;
-    Neon::DeviceType   mComputeType = Neon::DeviceType::NONE /** Compute device type */;
-    Neon::DeviceType   mIOType = Neon::DeviceType::NONE /** IO device type */;
-    Neon::Allocator    mIOAllocator = Neon::Allocator::NULL_MEM /** IO allocator type */;
+    Neon::Allocator    mDeviceAllocator = Neon::Allocator::NULL_MEM /** Device allocator type */;
+    Neon::DeviceType   mDeviceType = Neon::DeviceType::NONE /** Device device type */;
+    Neon::DeviceType   mHostType = Neon::DeviceType::NONE /** Host device type */;
+    Neon::Allocator    mHostAllocator = Neon::Allocator::NULL_MEM /** Host allocator type */;
     Neon::MemoryLayout mMemOrder = Neon::MemoryLayout::structOfArrays /** Memory order */;
 };
 }  // namespace Neon

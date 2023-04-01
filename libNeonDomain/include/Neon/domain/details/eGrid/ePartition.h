@@ -64,6 +64,9 @@ class ePartition
      *  |--)
      */
 
+    auto getNghIndex(eIndex eId, const int8_3d& ngh3dIdx, eIndex& eIdxNgh)
+        const -> bool;
+
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
     using Self = ePartition<T, C>;              //<- this type
@@ -253,7 +256,7 @@ class ePartition
     T*      mMem;
     int     mCardinality;
     int32_t mCountAllocated;
-    ePitch mPitch;
+    ePitch  mPitch;
 
     //-- [CONNECTIVITY] ----------------------------------------------------------------------------
     Offset* mConnectivity = {nullptr} /** connectivity table */;

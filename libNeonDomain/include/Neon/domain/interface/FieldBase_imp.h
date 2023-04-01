@@ -153,7 +153,7 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
 #ifdef _MSC_VER
 #pragma omp parallel for
 #else
-#pragma omp parallel for collapse(3) default(none) shared(this, fun) firstprivate(vec)
+#pragma omp parallel for collapse(3) default(shared) firstprivate(vec)
 #endif
         for (int z = 0; z < dim.z; z++) {
             for (int y = 0; y < dim.y; y++) {

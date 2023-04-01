@@ -7,63 +7,63 @@ MemoryOptions::MemoryOptions()
 }
 
 MemoryOptions::MemoryOptions(Neon::DeviceType   ioType,
-                             Neon::DeviceType   computeType,
+                             Neon::DeviceType   deviceType,
                              Neon::MemoryLayout order)
 {
-    mComputeType = computeType;
-    mComputeAllocator = Neon::AllocatorUtils::getDefault(computeType);
+    mDeviceType = deviceType;
+    mDeviceAllocator = Neon::AllocatorUtils::getDefault(deviceType);
 
-    mIOType = ioType;
-    mIOAllocator = Neon::AllocatorUtils::getDefault(ioType);
+    mHostType = ioType;
+    mHostAllocator = Neon::AllocatorUtils::getDefault(ioType);
+
+    mMemOrder = order;
+}
+
+MemoryOptions::MemoryOptions(Neon::DeviceType   hostType,
+                             Neon::Allocator    hostAllocator,
+                             Neon::DeviceType   deviceType,
+                             Neon::Allocator    deviceAllocators,
+                             Neon::MemoryLayout order)
+{
+    mHostType = hostType;
+    mHostAllocator = hostAllocator;
+
+    mDeviceType = deviceType;
+    mDeviceAllocator = deviceAllocators;
 
     mMemOrder = order;
 }
 
 MemoryOptions::MemoryOptions(Neon::DeviceType   ioType,
                              Neon::Allocator    ioAllocator,
-                             Neon::DeviceType   computeType,
-                             Neon::Allocator    computeAllocators,
-                             Neon::MemoryLayout order)
-{
-    mIOType = ioType;
-    mIOAllocator = ioAllocator;
-
-    mComputeType = computeType;
-    mComputeAllocator = computeAllocators;
-
-    mMemOrder = order;
-}
-
-MemoryOptions::MemoryOptions(Neon::DeviceType   ioType,
-                             Neon::Allocator    ioAllocator,
-                             Neon::DeviceType   computeType,
+                             Neon::DeviceType   deviceType,
                              Neon::Allocator    computeAllocators[Neon::DeviceTypeUtil::nConfig],
                              Neon::MemoryLayout order)
 {
-    mIOType = ioType;
-    mIOAllocator = ioAllocator;
+    mHostType = ioType;
+    mHostAllocator = ioAllocator;
 
-    mComputeType = computeType;
-    mComputeAllocator = computeAllocators[Neon::DeviceTypeUtil::toInt(computeType)];
+    mDeviceType = deviceType;
+    mDeviceAllocator = computeAllocators[Neon::DeviceTypeUtil::toInt(deviceType)];
 
     mMemOrder = order;
 }
 
-auto MemoryOptions::getComputeType() const
+auto MemoryOptions::getDeviceType() const
     -> Neon::DeviceType
 {
     helpThrowExceptionIfInitNotCompleted();
-    return mComputeType;
+    return mDeviceType;
 }
 
-auto MemoryOptions::getIOType() const
+auto MemoryOptions::getHostType() const
     -> Neon::DeviceType
 {
     helpThrowExceptionIfInitNotCompleted();
-    return mIOType;
+    return mHostType;
 }
 
-auto MemoryOptions::getComputeAllocator(Neon::DataUse dataUse) const
+auto MemoryOptions::getDeviceAllocator(Neon::DataUse dataUse) const
     -> Neon::Allocator
 {
     helpThrowExceptionIfInitNotCompleted();
@@ -71,10 +71,10 @@ auto MemoryOptions::getComputeAllocator(Neon::DataUse dataUse) const
     if (dataUse == Neon::DataUse::HOST) {
         return Neon::Allocator::NULL_MEM;
     }
-    if (getComputeType() == Neon::DeviceType::CPU) {
+    if (getDeviceType() == Neon::DeviceType::CPU) {
         return Neon::Allocator::NULL_MEM;
     }
-    return mComputeAllocator;
+    return mDeviceAllocator;
 }
 
 auto MemoryOptions::getIOAllocator(Neon::DataUse dataUse) const
@@ -85,7 +85,7 @@ auto MemoryOptions::getIOAllocator(Neon::DataUse dataUse) const
     if (dataUse == Neon::DataUse::DEVICE) {
         return Neon::Allocator::NULL_MEM;
     }
-    return mIOAllocator;
+    return mHostAllocator;
 }
 
 auto MemoryOptions::getOrder() const
@@ -104,10 +104,10 @@ auto MemoryOptions::setOrder(Neon::MemoryLayout order)
 
 auto MemoryOptions::helpWasInitCompleted() const -> bool
 {
-    const bool check1 = mComputeAllocator == Neon::Allocator::NULL_MEM;
-    const bool check2 = mComputeType == Neon::DeviceType::NONE;
-    const bool check3 = mIOType == Neon::DeviceType::NONE;
-    const bool check4 = mIOAllocator == Neon::Allocator::NULL_MEM;
+    const bool check1 = mDeviceAllocator == Neon::Allocator::NULL_MEM;
+    const bool check2 = mDeviceType == Neon::DeviceType::NONE;
+    const bool check3 = mHostType == Neon::DeviceType::NONE;
+    const bool check4 = mHostAllocator == Neon::Allocator::NULL_MEM;
 
     if (check1 &&
         check2 &&
@@ -127,6 +127,11 @@ auto MemoryOptions::helpThrowExceptionIfInitNotCompleted() const
         exception << "A MemoryOptions object was used without initialization.";
         NEON_THROW(exception);
     }
+}
+
+MemoryOptions::MemoryOptions(Neon::MemoryLayout order)
+{
+    mMemOrder = order;
 }
 
 }  // namespace Neon

@@ -49,10 +49,10 @@ auto Replica<Obj>::updateHostData(int streamId)
     auto&                storage = this->getStorage();
     const Neon::Backend& bk = storage.bk;
     if (storage.dataUse == Neon::DataUse::HOST_DEVICE) {
-        if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CPU) {
+        if (storage.memoryOptions.getDeviceType() == Neon::DeviceType::CPU) {
             return;
         }
-        if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
+        if (storage.memoryOptions.getDeviceType() == Neon::DeviceType::CUDA) {
             storage.obj.updateHostData(bk, streamId);
             return;
         }
@@ -67,10 +67,10 @@ auto Replica<Obj>::updateDeviceData(int streamId)
     auto&                storage = this->getStorage();
     const Neon::Backend& bk = storage.bk;
     if (storage.dataUse == Neon::DataUse::HOST_DEVICE) {
-        if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CPU) {
+        if (storage.memoryOptions.getDeviceType() == Neon::DeviceType::CPU) {
             return;
         }
-        if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
+        if (storage.memoryOptions.getDeviceType() == Neon::DeviceType::CUDA) {
             storage.obj.updateDeviceData(bk, streamId);
             return;
         }
