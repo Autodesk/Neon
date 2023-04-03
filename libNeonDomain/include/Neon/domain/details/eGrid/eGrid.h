@@ -88,7 +88,7 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
           const Neon::int32_3d&              dimension /**< Dimension of the bounding box containing the domain */,
           Neon::domain::tool::Partitioner1D& partitioner,
           const Neon::domain::Stencil&       stencil /**< Stencil used by any computation on the grid */,
-          const Vec_3d<double>&              spacing ,
+          const Vec_3d<double>&              spacing,
           const Vec_3d<double>&              origin);
     /**
      * Returns a LaunchParameters configured for the specified inputs.
@@ -102,8 +102,9 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     /**
      * Method used by the Container infrastructure to retrieve the thread space
      */
-    auto getSpan(SetIdx         setIdx,
-                 Neon::DataView dataView)
+    auto getSpan(Neon::Execution execution,
+                 SetIdx          setIdx,
+                 Neon::DataView  dataView)
         const -> const Span&;
 
     /**

@@ -16,16 +16,6 @@ class KernelConfig
 {
    public:
     virtual ~KernelConfig() = default;
-
-   private:
-    Neon::DataView  m_dataView{Neon::DataView::STANDARD};
-    Neon::Backend   m_bk;
-    int             m_streamIdx = {-1};
-    LaunchParameters   m_launchInfoSet;
-    //--------------------------------------------------------------------------
-    // INITIALIZATION
-    //--------------------------------------------------------------------------
-   public:
     /**
      * Empty constructor
      */
@@ -37,9 +27,9 @@ class KernelConfig
      * @param streamIdx
      * @param launchInfoSet
      */
-    KernelConfig(const Neon::Backend& bk,
-                   int                       streamIdx,
-                   const LaunchParameters&    launchInfoSet);
+    KernelConfig(const Neon::Backend&    bk,
+                 int                     streamIdx,
+                 const LaunchParameters& launchInfoSet);
 
     /**
      *
@@ -48,10 +38,10 @@ class KernelConfig
      * @param streamIdx
      * @param launchInfoSet
      */
-    KernelConfig(Neon::DataView            dataView,
-                   const Neon::Backend& bk,
-                   int                       streamIdx,
-                   const LaunchParameters&    launchInfoSet);
+    KernelConfig(Neon::DataView          dataView,
+                 const Neon::Backend&    bk,
+                 int                     streamIdx,
+                 const LaunchParameters& launchInfoSet);
 
     /**
      * Return const reference to the dataView
@@ -105,6 +95,12 @@ class KernelConfig
     auto expertSetLaunchParameters(const LaunchParameters& l) -> void;
 
     auto expertSetLaunchParameters(std::function<void(LaunchParameters&)> f) -> void;
+
+   private:
+    Neon::DataView   mDataView{Neon::DataView::STANDARD};
+    Neon::Backend    mBackend;
+    int              mStreamIdx = {-1};
+    LaunchParameters mLaunchInfoSet;
 };
 
 

@@ -14,8 +14,8 @@ class bPartition
 {
    public:
     using Span = bSpan;
-    using Cell = bIndex;
-    using nghIdx_t = Cell::nghIdx_t;
+    using Index = bIndex;
+    using NghIdx = Index::NghIdx;
     using Type = T;
 
    public:
@@ -30,7 +30,7 @@ class bPartition
                         Neon::int32_3d* origin,
                         uint32_t*       mask,
                         T               outsideValue,
-                        nghIdx_t*       stencilNghIndex);
+                        NghIdx*       stencilNghIndex);
 
     inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int;
 
@@ -41,32 +41,32 @@ class bPartition
     inline NEON_CUDA_HOST_DEVICE auto operator()(const bIndex& cell,
                                                  int           card) const -> const T&;
 
-    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Cell&     cell,
-                                             const nghIdx_t& offset,
+    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Index&     cell,
+                                             const NghIdx& offset,
                                              const int       card,
                                              const T         alternativeVal) const -> NghData<T>;
 
-    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Cell& eId,
+    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Index& eId,
                                              uint8_t     nghID,
                                              int         card,
                                              const T&    alternativeVal) const -> NghData<T>;
 
 
-    NEON_CUDA_HOST_DEVICE inline void loadInSharedMemory(const Cell&                cell,
-                                                         const nghIdx_t::Integer    stencilRadius,
+    NEON_CUDA_HOST_DEVICE inline void loadInSharedMemory(const Index&                cell,
+                                                         const NghIdx::Integer    stencilRadius,
                                                          Neon::sys::ShmemAllocator& shmemAlloc) const;
 
-    NEON_CUDA_HOST_DEVICE inline void loadInSharedMemoryAsync(const Cell&                cell,
-                                                              const nghIdx_t::Integer    stencilRadius,
+    NEON_CUDA_HOST_DEVICE inline void loadInSharedMemoryAsync(const Index&                cell,
+                                                              const NghIdx::Integer    stencilRadius,
                                                               Neon::sys::ShmemAllocator& shmemAlloc) const;
 
-    NEON_CUDA_HOST_DEVICE inline Neon::index_3d mapToGlobal(const Cell& cell) const;
+    NEON_CUDA_HOST_DEVICE inline Neon::index_3d mapToGlobal(const Index& cell) const;
 
 
    protected:
-    inline NEON_CUDA_HOST_DEVICE auto pitch(const Cell& cell, int card) const -> uint32_t;
-    inline NEON_CUDA_HOST_DEVICE auto setNghCell(const Cell& cell, const nghIdx_t& offset) const -> Cell;
-    inline NEON_CUDA_HOST_DEVICE auto shmemPitch(Cell cell, const int card) const -> Cell::Location::Integer;
+    inline NEON_CUDA_HOST_DEVICE auto pitch(const Index& cell, int card) const -> uint32_t;
+    inline NEON_CUDA_HOST_DEVICE auto setNghCell(const Index& cell, const NghIdx& offset) const -> Index;
+    inline NEON_CUDA_HOST_DEVICE auto shmemPitch(Index cell, const int card) const -> Index::Location::Integer;
 
     Neon::DataView            mDataView;
     T*                        mMem;
@@ -75,11 +75,11 @@ class bPartition
     Neon::int32_3d*           mOrigin;
     uint32_t*                 mMask;
     T                         mOutsideValue;
-    nghIdx_t*                 mStencilNghIndex;
+    NghIdx*                 mStencilNghIndex;
     mutable bool              mIsInSharedMem;
     mutable T*                mMemSharedMem;
     mutable uint32_t*         mSharedNeighbourBlocks;
-    mutable nghIdx_t::Integer mStencilRadius;
+    mutable NghIdx::Integer mStencilRadius;
 };
 }  // namespace Neon::domain::details::bGrid
 

@@ -19,7 +19,7 @@
 //        [&](Neon::set::Loader& loader) {
 //            auto b = loader.load(fieldB);
 //
-//            return [=](const typename Field::Cell& e) mutable {
+//            return [=](const typename Field::Index& e) mutable {
 //                Neon::index_3d const global = b.mapToGlobal(e);
 //                for (int i = 0; i < b.cardinality(); i++) {
 //                    auto const           domainSize = b.getDomainSize();

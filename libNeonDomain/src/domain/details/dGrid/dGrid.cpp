@@ -24,11 +24,12 @@ auto dGrid::helpFieldMemoryAllocator()
     return mData->memoryGrid;
 }
 
-auto dGrid::getSpan(SetIdx         setIdx,
-                    Neon::DataView dataView)
+auto dGrid::getSpan(Neon::Execution execution,
+                    SetIdx          setIdx,
+                    Neon::DataView  dataView)
     const -> const Span&
 {
-    return mData->spanTable.getSpan(setIdx, dataView);
+    return mData->spanTable.getSpan(execution, setIdx, dataView);
 }
 
 
@@ -38,11 +39,11 @@ auto dGrid::helpGetPartitionDim()
     return mData->partitionDims;
 }
 
-auto dGrid::helpIdexPerPartition(Neon::DataView dataView)
-    const -> const Neon::set::DataSet<int>
-{
-    return mData->elementsPerPartition.getSpan(dataView);
-}
+// auto dGrid::helpIdexPerPartition(Neon::DataView dataView)
+//     const -> const Neon::set::DataSet<int>
+//{
+//     return mData->elementsPerPartition.getSpan(dataView);
+// }
 
 auto dGrid::setReduceEngine(Neon::sys::patterns::Engine eng)
     -> void
@@ -58,7 +59,7 @@ auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
 
     auto dimsByDataView = getBackend().devSet().newDataSet<index_3d>([&](Neon::SetIdx const& setIdx,
                                                                          auto&               value) {
-        value = getSpan(setIdx, dataView).mDim;
+        value = getSpan(Neon::Execution::host, setIdx, dataView).mDim;
     });
 
     ret.set(Neon::sys::GpuLaunchInfo::domainGridMode,

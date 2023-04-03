@@ -41,10 +41,11 @@ struct GridTransformation
 
     static auto initSpan(FoundationGrid& foundationGrid, Neon::domain::tool::SpanTable<Span>& spanTable) -> void
     {
-        spanTable.forEachConfiguration([&](Neon::SetIdx   setIdx,
+        spanTable.forEachConfiguration([&](Neon::Execution execution,
+                                           Neon::SetIdx   setIdx,
                                            Neon::DataView dw,
                                            Span&          span) {
-            span = foundationGrid.getSpan(setIdx, dw);
+            span = foundationGrid.getSpan(execution, setIdx, dw);
         });
     }
 

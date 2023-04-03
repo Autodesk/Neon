@@ -52,7 +52,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                               origin);
     }
 
-    {
+    {  // Initialization of the partitioner
 
         mData->partitioner1D = Neon::domain::tool::Partitioner1D(
             backend,
@@ -97,12 +97,12 @@ bGrid::bGrid(const Neon::Backend&         backend,
         {
             requiredBits++;
         }
-        int  required64BitWords = (requiredBits - 1) / 64 + 1;
+        int  required64BitWords = (requiredBits - 1) / bIndex::bitMaskStorageBitWidth + 1;
         auto memOption = backend.getMemoryOptions(Neon::MemoryLayout::arrayOfStructs);
-        mData->activeBitMask = mData->blockViewGrid.newField<uint64_t>("BitMask",
-                                                                       required64BitWords,
-                                                                       0,
-                                                                       Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(Neon::MemoryLayout::arrayOfStructs));
+        mData->activeBitMask = mData->blockViewGrid.newField<bIndex::bitMaskStorageType>("BitMask",
+                                                                                         required64BitWords,
+                                                                                         0,
+                                                                                         Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(Neon::MemoryLayout::arrayOfStructs));
 
         mData->mNumActiveVoxel = backend.devSet().template newDataSet<uint64_t>();
 
@@ -127,8 +127,8 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                     Neon::int32_3d point(i, j, k);
                                     point = point + blockOrigin;
                                     auto const pitch = point.mPitch(blockSize3d);
-                                    auto const targetCard = pitch / 64;
-                                    auto const targetBit = pitch % 64;
+                                    auto const targetCard = pitch / bIndex::bitMaskStorageBitWidth;
+                                    auto const targetBit = pitch % bIndex::bitMaskStorageBitWidth;
                                     uint64_t   mask = uint64_t(1) << targetBit;
                                     bool       isActive = activeCellLambda(blockSize3d);
                                     if (isActive) {
@@ -153,6 +153,36 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                            Neon::Execution::device);
     }
 
+
+    {  // Neighbor blocks
+        mData->blockConnectivity = mData->blockViewGrid.newField<BlockIdx, 27>("blockConnectivity",
+                                                                               27,
+                                                                               getInvalidBlockId(),
+                                                                               Neon::DataUse::HOST_DEVICE,
+                                                                               Neon::MemoryLayout::arrayOfStructs);
+
+        mData->blockViewGrid.newContainer(
+                                "blockConnectivityInit",
+                                [&](Neon::set::Loader& loader) {
+                                    auto blockConnectivity = loader.load(mData->blockConnectivity);
+                                    return [&](auto const& idx) {
+                                        for (int k = 0; k < 3; k++) {
+                                            for (int j = 0; j < 3; j++) {
+                                                for (int i = 0; i < 3; i++) {
+                                                    auto     targetDirection = i + 3 * j + 3 * 3 * k;
+                                                    BlockIdx nghIdx = getInvalidBlockId();
+                                                    blockConnectivity.getNghIndex(idx, {i, j, k}, nghIdx);
+                                                    blockConnectivity(idx, targetDirection) = nghIdx;
+                                                }
+                                            }
+                                        }
+                                    };
+                                },
+                                Neon::Execution::host)
+            .run(Neon::Backend::mainStreamIdx);
+        mData->blockConnectivity.updateDeviceData(Neon::Backend::mainStreamIdx);
+    }
+
     // Init the base grid
     bGrid::GridBase::init("bGrid",
                           backend,
@@ -162,33 +192,6 @@ bGrid::bGrid(const Neon::Backend&         backend,
                           Neon::int32_3d(dataBlockSize, dataBlockSize, dataBlockSize),
                           spacingData,
                           origin);
-    
-
-    // Neighbor blocks
-    mData->blockConnectivity = mData->blockViewGrid.newField<BlockIdx, 27>("blockConnectivity",
-                                                                           27,
-                                                                           getInvalidBlockId(),
-                                                                           Neon::DataUse::HOST_DEVICE,
-                                                                           Neon::MemoryLayout::arrayOfStructs);
-
-    mData->blockViewGrid.newContainer(
-        "blockConnectivityInit",
-        [&](Neon::set::Loader& loader) {
-            auto blockConnectivity = loader.load(mData->blockConnectivity);
-            return [&](auto const& idx) {
-                for (int k = 0; k < 3; k++) {
-                    for (int j = 0; j < 3; j++) {
-                        for (int i = 0; i < 3; i++) {
-                            auto     targetDirection = i + 3 * j + 3 * 3 * k;
-                            BlockIdx nghIdx = getInvalidBlockId();
-                            blockConnectivity.getNghIndex(idx, {i, j, k}, nghIdx);
-                            blockConnectivity(idx, targetDirection) = nghIdx;
-                        }
-                    }
-                }
-            };
-        },
-        Neon::Execution::host).run(Neon::Backend::mainStreamIdx);
 }
 
 

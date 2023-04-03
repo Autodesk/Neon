@@ -95,7 +95,7 @@ class FieldBase
 
     /**
      * For each operator that target active cells.
-     * Cell values are provided in RW mode.
+     * Index values are provided in RW mode.
      *
      * @tparam mode
      * @param fun
@@ -110,7 +110,7 @@ class FieldBase
                                    Neon::computeMode_t::computeMode_e           mode = Neon::computeMode_t::computeMode_e::par) -> void;
     /**
      * For each operator that target all cells in the cubic domain.
-     * Cell values are provided in read only mode.
+     * Index values are provided in read only mode.
      *
      * @tparam mode
      * @param fun

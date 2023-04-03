@@ -4,7 +4,7 @@
 namespace Neon::domain::details::aGrid {
 
 /**
- * Abstraction that represents the Cell space of a partition
+ * Abstraction that represents the Index space of a partition
  * This abstraction is used by the neon lambda executor to
  * run a containers on aGrid
  */

@@ -25,8 +25,7 @@
 #include "Neon/sys/global/GpuSysGlobal.h"
 #include "Neon/sys/memory/memConf.h"
 
-namespace Neon {
-namespace set {
+namespace Neon::set {
 
 /**
  * Abstraction for a set of devices.
@@ -223,13 +222,13 @@ class DevSet
     auto newLaunchParameters() const
         -> LaunchParameters;
 
-    template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto kernelLambdaWithIterator(
-        Neon::Execution                          execution,
-        const Neon::set::KernelConfig&           kernelConfig,
-        DataSetContainer_ta&                     dataSetContainer,
-        std::function<Lambda_ta(SetIdx,
-                                Neon::DataView)> lambdaHolder) const -> void
+    template <typename DataSetContainer, typename Lambda>
+    inline auto kernelDeviceWithIterator(
+        Neon::Execution                       execution,
+        const Neon::set::KernelConfig&        kernelConfig,
+        DataSetContainer&                     dataSetContainer,
+        std::function<Lambda(SetIdx,
+                             Neon::DataView)> lambdaHolder) const -> void
     {
         Neon::Runtime mode = kernelConfig.backend().runtime();
         // ORDER is IMPORTANT
@@ -237,18 +236,18 @@ class DevSet
         switch (mode) {
             case Neon::Runtime::stream: {
                 if (execution == Neon::Execution::device) {
-                    this->template h_kLambdaWithIterator_cudaStreams<DataSetContainer_ta, Lambda_ta>(kernelConfig,
-                                                                                                     dataSetContainer,
-                                                                                                     lambdaHolder);
+                    this->template helpExecLambdaIteratorCUDA<DataSetContainer, Lambda>(kernelConfig,
+                                                                                        dataSetContainer,
+                                                                                        lambdaHolder);
                     return;
                 }
                 [[fallthrough]];
             };
             case Neon::Runtime::openmp: {
-                this->template h_kLambdaWithIterator_openmp<DataSetContainer_ta, Lambda_ta>(execution,
-                                                                                            kernelConfig,
-                                                                                            dataSetContainer,
-                                                                                            lambdaHolder);
+                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(execution,
+                                                                                   kernelConfig,
+                                                                                   dataSetContainer,
+                                                                                   lambdaHolder);
                 return;
             };
             default: {
@@ -259,14 +258,14 @@ class DevSet
         }
     }
 
-    template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto kernelLambdaWithIterator(
-        Neon::Execution                          execution,
-        Neon::SetIdx                             setIdx,
-        const Neon::set::KernelConfig&           kernelConfig,
-        DataSetContainer_ta&                     dataSetContainer,
-        std::function<Lambda_ta(SetIdx,
-                                Neon::DataView)> lambdaHolder) const -> void
+    template <typename DataSetContainer, typename Lambda>
+    inline auto kernelDeviceLambdaWithIterator(
+        Neon::Execution                       execution,
+        Neon::SetIdx                          setIdx,
+        const Neon::set::KernelConfig&        kernelConfig,
+        DataSetContainer&                     dataSetContainer,
+        std::function<Lambda(SetIdx,
+                             Neon::DataView)> lambdaHolder) const -> void
     {
         Neon::Runtime mode = kernelConfig.backend().runtime();
         // ORDER is IMPORTANT
@@ -275,20 +274,20 @@ class DevSet
             case Neon::Runtime::stream: {
                 if (execution == Neon::Execution::device) {
 
-                    this->template h_kLambdaWithIterator_cudaStreams<DataSetContainer_ta, Lambda_ta>(setIdx,
-                                                                                                     kernelConfig,
-                                                                                                     dataSetContainer,
-                                                                                                     lambdaHolder);
+                    this->template helpExecLambdaIteratorCUDA<DataSetContainer, Lambda>(setIdx,
+                                                                                        kernelConfig,
+                                                                                        dataSetContainer,
+                                                                                        lambdaHolder);
                     return;
                 }
                 [[fallthrough]];
             };
             case Neon::Runtime::openmp: {
-                this->template h_kLambdaWithIterator_openmp<DataSetContainer_ta, Lambda_ta>(execution,
-                                                                                            setIdx,
-                                                                                            kernelConfig,
-                                                                                            dataSetContainer,
-                                                                                            lambdaHolder);
+                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(execution,
+                                                                                   setIdx,
+                                                                                   kernelConfig,
+                                                                                   dataSetContainer,
+                                                                                   lambdaHolder);
                 return;
             };
             default: {
@@ -299,22 +298,22 @@ class DevSet
         }
     }
 
-    template <typename DataSetContainer_ta, typename Lambda_ta>
+    template <typename DataSetContainer, typename Lambda>
     inline auto kernelHostLambdaWithIterator(
-        const Neon::set::KernelConfig&           kernelConfig,
-        DataSetContainer_ta&                     dataSetContainer,
-        std::function<Lambda_ta(Neon::Execution,
-                                SetIdx,
-                                Neon::DataView)> lambdaHolder) const -> void
+        const Neon::set::KernelConfig&        kernelConfig,
+        DataSetContainer&                     dataSetContainer,
+        std::function<Lambda(Neon::Execution,
+                             SetIdx,
+                             Neon::DataView)> lambdaHolder) const -> void
     {
         Neon::Runtime mode = Neon::Runtime::openmp;
         // ORDER is IMPORTANT
         // KEEP OPENMP for last
         switch (mode) {
             case Neon::Runtime::openmp: {
-                this->template h_kLambdaWithIterator_openmp<DataSetContainer_ta, Lambda_ta>(kernelConfig,
-                                                                                            dataSetContainer,
-                                                                                            lambdaHolder);
+                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(kernelConfig,
+                                                                                   dataSetContainer,
+                                                                                   lambdaHolder);
                 return;
             };
             default: {
@@ -325,21 +324,21 @@ class DevSet
         }
     }
 
-    template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto kernelHostLambdaWithIterator(Neon::SetIdx                             setIdx,
-                                             const Neon::set::KernelConfig&           kernelConfig,
-                                             DataSetContainer_ta&                     dataSetContainer,
-                                             std::function<Lambda_ta(Neon::Execution,
-                                                                     SetIdx,
-                                                                     Neon::DataView)> lambdaHolder) const -> void
+    template <typename DataSetContainer, typename Lambda>
+    inline auto kernelHostLambdaWithIterator(Neon::SetIdx                          setIdx,
+                                             const Neon::set::KernelConfig&        kernelConfig,
+                                             DataSetContainer&                     dataSetContainer,
+                                             std::function<Lambda(Neon::Execution,
+                                                                  SetIdx,
+                                                                  Neon::DataView)> lambdaHolder) const -> void
     {
         Neon::Runtime mode = Neon::Runtime::openmp;
         switch (mode) {
             case Neon::Runtime::openmp: {
-                this->template h_kLambdaWithIterator_openmp<DataSetContainer_ta, Lambda_ta>(setIdx,
-                                                                                            kernelConfig,
-                                                                                            dataSetContainer,
-                                                                                            lambdaHolder);
+                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(setIdx,
+                                                                                   kernelConfig,
+                                                                                   dataSetContainer,
+                                                                                   lambdaHolder);
                 return;
             };
             default: {
@@ -350,11 +349,11 @@ class DevSet
         }
     }
 
-    template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto h_kLambdaWithIterator_cudaStreams([[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
-                                                  [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
-                                                  [[maybe_unused]] std::function<Lambda_ta(SetIdx,
-                                                                                           Neon::DataView)> lambdaHolder)
+    template <typename DataSetContainer, typename Lambda>
+    inline auto helpExecLambdaIteratorCUDA([[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
+                                           [[maybe_unused]] DataSetContainer&                     dataSetContainer,
+                                           [[maybe_unused]] std::function<Lambda(SetIdx,
+                                                                                 Neon::DataView)> lambdaHolder)
         const -> void
     {
         if (m_devType != Neon::DeviceType::CUDA) {
@@ -367,26 +366,25 @@ class DevSet
         const StreamSet&        gpuStreamSet = kernelConfig.streamSet();
         const LaunchParameters& launchInfoSet = kernelConfig.launchInfoSet();
         const int               nGpus = int(m_devIds.size());
-        {
 #pragma omp parallel num_threads(nGpus) default(shared) firstprivate(lambdaHolder)
-            {
-                int                         idx = omp_get_thread_num();
-                const Neon::sys::GpuDevice& dev = Neon::sys::globalSpace::gpuSysObj().dev(m_devIds[idx]);
-                // std::tuple<funParametersType_ta& ...>argsForIthGpuFunction(parametersVec.at(i) ...);
+        {
+            Neon::SetIdx                setIdx(omp_get_thread_num());
+            const Neon::sys::GpuDevice& dev = Neon::sys::globalSpace::gpuSysObj().dev(m_devIds[setIdx.idx()]);
+            // std::tuple<funParametersType_ta& ...>argsForIthGpuFunction(parametersVec.at(i) ...);
 
-                auto      iterator = dataSetContainer.getSpan(idx, kernelConfig.dataView());
-                Lambda_ta lambda = lambdaHolder(idx, kernelConfig.dataView());
-                void*     untypedParams[2] = {&iterator, &lambda};
-                void*     executor = (void*)Neon::set::internal::execLambdaWithIterator_cuda<DataSetContainer_ta, Lambda_ta>;
-
-                dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[idx],
-                                                                          launchInfoSet[idx],
-                                                                          executor,
-                                                                          untypedParams);
+            auto   iterator = dataSetContainer.getSpan(setIdx.idx(), kernelConfig.dataView());
+            Lambda lambda = lambdaHolder(setIdx.idx(), kernelConfig.dataView());
+            void*  untypedParams[2] = {&iterator, &lambda};
+            void*  executor;
+            if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
+                executor = (void*)Neon::set::details::denseSpan::execLambdaIteratorCUDA<DataSetContainer, Lambda>;
+            } else {
+                executor = (void*)Neon::set::details::blockSpan::execLambdaIteratorCUDA<DataSetContainer, Lambda>;
             }
-            if (kernelConfig.runMode() == Neon::run_et::sync) {
-                gpuStreamSet.sync();
-            }
+            dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[setIdx.idx()],
+                                                                      launchInfoSet[setIdx.idx()],
+                                                                      executor,
+                                                                      untypedParams);
         }
 #else
         NeonException exp("DevSet");
@@ -397,12 +395,12 @@ class DevSet
         return;
     }
 
-    template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto h_kLambdaWithIterator_cudaStreams([[maybe_unused]] Neon::SetIdx                             setIdx,
-                                                  [[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
-                                                  [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
-                                                  [[maybe_unused]] std::function<Lambda_ta(SetIdx,
-                                                                                           Neon::DataView)> lambdaHolder)
+    template <typename DataSetContainer, typename Lambda>
+    inline auto helpExecLambdaIteratorCUDA([[maybe_unused]] Neon::SetIdx                          setIdx,
+                                           [[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
+                                           [[maybe_unused]] DataSetContainer&                     dataSetContainer,
+                                           [[maybe_unused]] std::function<Lambda(SetIdx,
+                                                                                 Neon::DataView)> lambdaHolder)
         const -> void
     {
         if (m_devType != Neon::DeviceType::CUDA) {
@@ -420,11 +418,15 @@ class DevSet
             const Neon::sys::GpuDevice& dev = Neon::sys::globalSpace::gpuSysObj().dev(m_devIds[setIdx.idx()]);
             // std::tuple<funParametersType_ta& ...>argsForIthGpuFunction(parametersVec.at(i) ...);
 
-            auto      iterator = dataSetContainer.getSpan(setIdx.idx(), kernelConfig.dataView());
-            Lambda_ta lambda = lambdaHolder(setIdx.idx(), kernelConfig.dataView());
-            void*     untypedParams[2] = {&iterator, &lambda};
-            void*     executor = (void*)Neon::set::internal::execLambdaWithIterator_cuda<DataSetContainer_ta, Lambda_ta>;
-
+            auto   iterator = dataSetContainer.getSpan(setIdx.idx(), kernelConfig.dataView());
+            Lambda lambda = lambdaHolder(setIdx.idx(), kernelConfig.dataView());
+            void*  untypedParams[2] = {&iterator, &lambda};
+            void*  executor;
+            if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
+                executor = (void*)Neon::set::details::denseSpan::execLambdaIteratorCUDA<DataSetContainer, Lambda>;
+            } else {
+                executor = (void*)Neon::set::details::blockSpan::execLambdaIteratorCUDA<DataSetContainer, Lambda>;
+            }
             dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[setIdx.idx()],
                                                                       launchInfoSet[setIdx.idx()],
                                                                       executor,
@@ -443,35 +445,52 @@ class DevSet
         return;
     }
 
-    template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto h_kLambdaWithIterator_openmp(
+    template <typename DataSetContainer, typename Lambda>
+    inline auto helpExecLambdaIteratorOMP(
         Neon::Execution,
-        [[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
-        [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
-        [[maybe_unused]] std::function<Lambda_ta(SetIdx,
-                                                 Neon::DataView)> lambdaHolder)
+        [[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
+        [[maybe_unused]] DataSetContainer&                     dataSetContainer,
+        [[maybe_unused]] std::function<Lambda(SetIdx,
+                                              Neon::DataView)> lambdaHolder)
         const -> void
     {
         const LaunchParameters& launchInfoSet = kernelConfig.launchInfoSet();
         const int               nGpus = static_cast<int>(m_devIds.size());
         {
-            for (int idx = 0; idx < nGpus; idx++) {
-                auto      iterator = dataSetContainer.getSpan(idx,
-                                                              kernelConfig.dataView());
-                Lambda_ta lambda = lambdaHolder(idx, kernelConfig.dataView());
-                Neon::set::internal::execLambdaWithIterator_omp<DataSetContainer_ta, Lambda_ta>(launchInfoSet[idx].domainGrid(), iterator, lambda);
+            if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
+                for (int idx = 0; idx < nGpus; idx++) {
+                    auto   iterator = dataSetContainer.getSpan(idx,
+                                                               kernelConfig.dataView());
+                    Lambda lambda = lambdaHolder(idx, kernelConfig.dataView());
+                    using IndexType = typename DataSetContainer::executionThreadSpanIndexType;
+                    Neon::set::details::denseSpan::execLambdaIteratorOMP<IndexType,
+                                                                         DataSetContainer,
+                                                                         Lambda>(launchInfoSet[idx].domainGrid(), iterator, lambda);
+                }
+            } else {
+                for (int idx = 0; idx < nGpus; idx++) {
+                    auto   iterator = dataSetContainer.getSpan(idx, kernelConfig.dataView());
+                    Lambda lambda = lambdaHolder(idx, kernelConfig.dataView());
+                    using IndexType = typename DataSetContainer::executionThreadSpanIndexType;
+                    const Neon::Integer_3d<IndexType> blockSize(launchInfoSet[idx].cudaBlock());
+                    const Neon::Integer_3d<IndexType> gridSize(launchInfoSet[idx].cudaGrid());
+
+                    Neon::set::details::blockSpan::execLambdaIteratorOMP<IndexType,
+                                                                         DataSetContainer,
+                                                                         Lambda>(blockSize, gridSize, iterator, lambda);
+                }
             }
         }
         return;
     }
 
-    template <typename DataSetContainer_ta, typename Lambda_ta>
-    inline auto h_kLambdaWithIterator_openmp(Neon::Execution,
-                                             Neon::SetIdx                                              setIdx,
-                                             [[maybe_unused]] const Neon::set::KernelConfig&           kernelConfig,
-                                             [[maybe_unused]] DataSetContainer_ta&                     dataSetContainer,
-                                             [[maybe_unused]] std::function<Lambda_ta(SetIdx,
-                                                                                      Neon::DataView)> lambdaHolder)
+    template <typename DataSetContainer, typename Lambda>
+    inline auto helpExecLambdaIteratorOMP(Neon::Execution,
+                                          Neon::SetIdx                                           setIdx,
+                                          [[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
+                                          [[maybe_unused]] DataSetContainer&                     dataSetContainer,
+                                          [[maybe_unused]] std::function<Lambda(SetIdx,
+                                                                                Neon::DataView)> lambdaHolder)
         const -> void
     {
         if (m_devType != Neon::DeviceType::CPU) {
@@ -480,11 +499,24 @@ class DevSet
             NEON_THROW(exp);
         }
         const LaunchParameters& launchInfoSet = kernelConfig.launchInfoSet();
-        {
-            auto      iterator = dataSetContainer.getSpan(setIdx,
-                                                          kernelConfig.dataView());
-            Lambda_ta lambda = lambdaHolder(setIdx, kernelConfig.dataView());
-            Neon::set::internal::execLambdaWithIterator_omp<DataSetContainer_ta, Lambda_ta>(launchInfoSet[setIdx.idx()].domainGrid(), iterator, lambda);
+        if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
+            auto   iterator = dataSetContainer.getSpan(setIdx,
+                                                       kernelConfig.dataView());
+            Lambda lambda = lambdaHolder(setIdx, kernelConfig.dataView());
+            using IndexType = typename DataSetContainer::executionThreadSpanIndexType;
+            Neon::set::details::denseSpan::execLambdaIteratorOMP<IndexType,
+                                                                 DataSetContainer,
+                                                                 Lambda>(launchInfoSet[setIdx].domainGrid(), iterator, lambda);
+        } else {
+            auto   iterator = dataSetContainer.getSpan(setIdx, kernelConfig.dataView());
+            Lambda lambda = lambdaHolder(setIdx, kernelConfig.dataView());
+            using IndexType = typename DataSetContainer::executionThreadSpanIndexType;
+            const Neon::Integer_3d<IndexType> blockSize(launchInfoSet[setIdx].cudaBlock());
+            const Neon::Integer_3d<IndexType> gridSize(launchInfoSet[setIdx].cudaGrid());
+
+            Neon::set::details::blockSpan::execLambdaIteratorOMP<IndexType,
+                                                                 DataSetContainer,
+                                                                 Lambda>(blockSize, gridSize, iterator, lambda);
         }
         return;
     }
@@ -747,4 +779,3 @@ class DevSet
 
 
 }  // namespace set
-}  // namespace Neon

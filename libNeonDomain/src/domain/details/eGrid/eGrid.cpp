@@ -3,12 +3,12 @@
 namespace Neon::domain::details::eGrid {
 
 
-eGrid::eGrid(const Backend&                    backend,
-             const int32_3d&                   dimension,
+eGrid::eGrid(const Backend&                     backend,
+             const int32_3d&                    dimension,
              Neon::domain::tool::Partitioner1D& partitioner,
-             const Stencil&                    stencil,
-             const Vec_3d<double>&             spacing,
-             const Vec_3d<double>&             origin)
+             const Stencil&                     stencil,
+             const Vec_3d<double>&              spacing,
+             const Vec_3d<double>&              origin)
 {
     mData = std::make_shared<Data>(backend);
     mData->stencil = stencil;
@@ -49,7 +49,8 @@ eGrid::eGrid(const Backend&                    backend,
 
     {
         // Initialization of the SPAN table
-        mData->spanTable.forEachConfiguration([&](Neon::SetIdx   setIdx,
+        mData->spanTable.forEachConfiguration([&](Neon::Execution /*execution*/,
+                                                  Neon::SetIdx   setIdx,
                                                   Neon::DataView dw,
                                                   eSpan&         span) {
             span.mDataView = dw;
@@ -91,10 +92,11 @@ eGrid::eGrid(const Backend&                    backend,
             }
         });
 
-        mData->elementsPerPartition.forEachConfiguration([&](Neon::SetIdx   setIdx,
+        mData->elementsPerPartition.forEachConfiguration([&](Neon::Execution execution,
+                                                             Neon::SetIdx setIdx,
                                                              Neon::DataView dw,
                                                              int&           count) {
-            count = mData->spanTable.getSpan(setIdx, dw).mCount;
+            count = mData->spanTable.getSpan(execution, setIdx, dw).mCount;
         });
     }
 
@@ -130,11 +132,12 @@ auto eGrid::getMemoryGrid() -> Neon::aGrid&
     return mData->memoryGrid;
 }
 
-auto eGrid::getSpan(SetIdx         setIdx,
-                    Neon::DataView dataView)
+auto eGrid::getSpan(Neon::Execution execution,
+                    SetIdx          setIdx,
+                    Neon::DataView  dataView)
     const -> const Span&
 {
-    return mData->spanTable.getSpan(setIdx, dataView);
+    return mData->spanTable.getSpan(execution, setIdx, dataView);
 }
 
 auto eGrid::setReduceEngine(Neon::sys::patterns::Engine eng)
@@ -151,7 +154,7 @@ auto eGrid::getLaunchParameters(const Neon::DataView  dataView,
 
     auto dimsByDataView = getBackend().devSet().newDataSet<index_3d>([&](Neon::SetIdx const& setIdx,
                                                                          auto&               value) {
-        value.x = getSpan(setIdx, dataView).mCount;
+        value.x = getSpan(Neon::Execution::host, setIdx, dataView).mCount;
         value.y = 1;
         value.z = 1;
     });
@@ -250,7 +253,6 @@ auto eGrid::helpGetData() -> eGrid::Data&
 {
     return *mData.get();
 }
-
 
 
 }  // namespace Neon::domain::details::eGrid

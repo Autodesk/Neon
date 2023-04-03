@@ -106,7 +106,7 @@ eGrid::eGrid(const Neon::Backend&         backend,
         mData->elementsPerPartition.forEachConfiguration([&](Neon::SetIdx   setIdx,
                                                              Neon::DataView dw,
                                                              int&           count) {
-            count = mData->spanTable.getSpan(setIdx, dw).mCount;
+            count = mData->spanTable.getSpan(Neon::Execution::host, setIdx, dw).mCount;
         });
     }
 

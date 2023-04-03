@@ -30,7 +30,7 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
                                                Neon::int32_3d* origin,
                                                uint32_t*       mask,
                                                T               outsideValue,
-                                               nghIdx_t*       stencilNghIndex)
+                             NghIdx*       stencilNghIndex)
     : mDataView(dataView),
       mMem(mem),
       mCardinality(cardinality),
@@ -47,11 +47,11 @@ bPartition<T, C>::bPartition(Neon::DataView  dataView,
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Cell& cell) const -> Neon::index_3d
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::mapToGlobal(const Index& cell) const -> Neon::index_3d
 {
     Neon::index_3d ret = mOrigin[cell.mBlockID];
 #ifdef NEON_PLACE_CUDA_DEVICE
-    if constexpr (Cell::sUseSwirlIndex) {
+    if constexpr (Index::sUseSwirlIndex) {
         auto swirl = cell.toSwirl();
         ret.x += swirl.mLocation.x;
         ret.y += swirl.mLocation.y;
@@ -100,7 +100,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::operator()(const bIndex& cel
 }
 
 template <typename T, int C>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int card) const -> uint32_t
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Index& cell, int card) const -> uint32_t
 {
     // assumes SoA within the block i.e., AoSoA
     return
@@ -111,10 +111,10 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::pitch(const Cell& cell, int 
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     cell,
-                                                                                 const nghIdx_t& offset) const -> Cell
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Index&     cell,
+                                                                                 const NghIdx& offset) const -> Index
 {
-    Cell ngh_cell(cell.mLocation.x + offset.x,
+    Index ngh_cell(cell.mLocation.x + offset.x,
                   cell.mLocation.y + offset.y,
                   cell.mLocation.z + offset.z);
     ngh_cell.mBlockSize = cell.mBlockSize;
@@ -152,9 +152,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     c
         }
 
         if (mSharedNeighbourBlocks != nullptr) {
-            ngh_cell.mBlockID = mSharedNeighbourBlocks[Cell::getNeighbourBlockID(block_offset)];
+            ngh_cell.mBlockID = mSharedNeighbourBlocks[Index::getNeighbourBlockID(block_offset)];
         } else {
-            ngh_cell.mBlockID = mNeighbourBlocks[26 * cell.mBlockID + Cell::getNeighbourBlockID(block_offset)];
+            ngh_cell.mBlockID = mNeighbourBlocks[26 * cell.mBlockID + Index::getNeighbourBlockID(block_offset)];
         }
 
     } else {
@@ -164,18 +164,18 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::setNghCell(const Cell&     c
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell& eId,
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Index& eId,
                                                                              uint8_t     nghID,
                                                                              int         card,
                                                                              const T&    alternativeVal) const -> NghData<T>
 {
-    nghIdx_t nghOffset = mStencilNghIndex[nghID];
+    NghIdx nghOffset = mStencilNghIndex[nghID];
     return nghVal(eId, nghOffset, card, alternativeVal);
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
-                                                                             const nghIdx_t& offset,
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Index&     cell,
+                                                                             const NghIdx& offset,
                                                                              const int       card,
                                                                              const T         alternativeVal) const -> NghData<T>
 {
@@ -187,7 +187,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
     }
 
 
-    Cell ngh_cell = setNghCell(cell, offset);
+    Index ngh_cell = setNghCell(cell, offset);
     ngh_cell.mBlockSize = cell.mBlockSize;
     if (ngh_cell.mBlockID != std::numeric_limits<uint32_t>::max()) {
         ret.mIsValid = ngh_cell.computeIsActive(mMask);
@@ -207,20 +207,20 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::nghVal(const Cell&     cell,
 
 template <typename T, int C>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::shmemPitch(
-    Cell      cell,
-    const int card) const -> Cell::Location::Integer
+    Index     cell,
+    const int card) const -> Index::Location::Integer
 {
 
-    return (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) * static_cast<Cell::Location::Integer>(card) +
+    return (2 * mStencilRadius + Index::Location::Integer(cell.mBlockSize)) * (2 * mStencilRadius + Index::Location::Integer(cell.mBlockSize)) * (2 * mStencilRadius + Index::Location::Integer(cell.mBlockSize)) * static_cast<Index::Location::Integer>(card) +
            // offset to this cell's data
-           (cell.mLocation.x + mStencilRadius) + (cell.mLocation.y + mStencilRadius) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) + (cell.mLocation.z + mStencilRadius) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize)) * (2 * mStencilRadius + Cell::Location::Integer(cell.mBlockSize));
+           (cell.mLocation.x + mStencilRadius) + (cell.mLocation.y + mStencilRadius) * (2 * mStencilRadius + Index::Location::Integer(cell.mBlockSize)) + (cell.mLocation.z + mStencilRadius) * (2 * mStencilRadius + Index::Location::Integer(cell.mBlockSize)) * (2 * mStencilRadius + Index::Location::Integer(cell.mBlockSize));
 }
 
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
-    [[maybe_unused]] const Cell&                cell,
-    [[maybe_unused]] const nghIdx_t::Integer    stencilRadius,
+    [[maybe_unused]] const Index&                cell,
+    [[maybe_unused]] const NghIdx::Integer    stencilRadius,
     [[maybe_unused]] Neon::sys::ShmemAllocator& shmemAlloc) const -> void
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
@@ -230,11 +230,11 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
                                         (cell.mBlockSize + 2 * mStencilRadius) *
                                         (cell.mBlockSize + 2 * mStencilRadius) * mCardinality);
     // load the block itself in shared memory
-    Cell shmemcell(cell.mLocation.x, cell.mLocation.y, cell.mLocation.z);
+    Index shmemcell(cell.mLocation.x, cell.mLocation.y, cell.mLocation.z);
 
 
     // load the 6 faces from neighbor blocks in shared memory
-    auto load_ngh = [&](const nghIdx_t& offset, int card) {
+    auto load_ngh = [&](const NghIdx& offset, int card) {
         NghInfo<T> ngh = nghVal(cell, offset, card, mOutsideValue);
         shmemcell.mLocation.x = cell.mLocation.x + offset.x;
         shmemcell.mLocation.y = cell.mLocation.y + offset.y;
@@ -246,18 +246,18 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
     /*__shared__ uint32_t sNeighbour[26];
     mSharedNeighbourBlocks = sNeighbour;
     {
-        Cell::Location::Integer tid = cell.getLocal1DID();
+        Index::Location::Integer tid = cell.getLocal1DID();
         for (int i = 0; i < 26; i += cell.mBlockSize * cell.mBlockSize * cell.mBlockSize) {
             mSharedNeighbourBlocks[i] = mNeighbourBlocks[26 * cell.mBlockID + i];
         }
     }*/
 
-    nghIdx_t offset;
+    NghIdx offset;
 #pragma unroll 2
     for (int card = 0; card < mCardinality; ++card) {
         mMemSharedMem[shmemPitch(shmemcell, card)] = this->operator()(cell, card);
 
-        for (nghIdx_t::Integer r = 1; r <= mStencilRadius; ++r) {
+        for (NghIdx::Integer r = 1; r <= mStencilRadius; ++r) {
             // face (x, y, -z)
             if (cell.mLocation.z == 0) {
                 offset.x = 0;
@@ -405,72 +405,72 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
         // load the 8 corner
 
         // 0,0,0
-        for (Cell::Location::Integer z = -mStencilRadius; z <= -1; ++z) {
-            for (Cell::Location::Integer y = -mStencilRadius; y <= -1; ++y) {
-                for (Cell::Location::Integer x = -mStencilRadius; x <= -1; ++x) {
+        for (Index::Location::Integer z = -mStencilRadius; z <= -1; ++z) {
+            for (Index::Location::Integer y = -mStencilRadius; y <= -1; ++y) {
+                for (Index::Location::Integer x = -mStencilRadius; x <= -1; ++x) {
 
                     // 0,0,0
                     if (cell.mLocation.x == 0 && cell.mLocation.y == 0 && cell.mLocation.z == 0) {
-                        offset.x = static_cast<nghIdx_t::Integer>(x);
-                        offset.y = static_cast<nghIdx_t::Integer>(y);
-                        offset.z = static_cast<nghIdx_t::Integer>(z);
+                        offset.x = static_cast<NghIdx::Integer>(x);
+                        offset.y = static_cast<NghIdx::Integer>(y);
+                        offset.z = static_cast<NghIdx::Integer>(z);
                         load_ngh(offset, card);
                     }
 
                     // 1,0,0
                     if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == 0 && cell.mLocation.z == 0) {
-                        offset.x = -1 * static_cast<nghIdx_t::Integer>(x);
-                        offset.y = static_cast<nghIdx_t::Integer>(y);
-                        offset.z = static_cast<nghIdx_t::Integer>(z);
+                        offset.x = -1 * static_cast<NghIdx::Integer>(x);
+                        offset.y = static_cast<NghIdx::Integer>(y);
+                        offset.z = static_cast<NghIdx::Integer>(z);
                         load_ngh(offset, card);
                     }
 
                     // 0,1,0
                     if (cell.mLocation.x == 0 && cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == 0) {
-                        offset.x = static_cast<nghIdx_t::Integer>(x);
-                        offset.y = -1 * static_cast<nghIdx_t::Integer>(y);
-                        offset.z = static_cast<nghIdx_t::Integer>(z);
+                        offset.x = static_cast<NghIdx::Integer>(x);
+                        offset.y = -1 * static_cast<NghIdx::Integer>(y);
+                        offset.z = static_cast<NghIdx::Integer>(z);
                         load_ngh(offset, card);
                     }
 
                     // 1,1,0
                     if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == 0) {
-                        offset.x = -1 * static_cast<nghIdx_t::Integer>(x);
-                        offset.y = -1 * static_cast<nghIdx_t::Integer>(y);
-                        offset.z = static_cast<nghIdx_t::Integer>(z);
+                        offset.x = -1 * static_cast<NghIdx::Integer>(x);
+                        offset.y = -1 * static_cast<NghIdx::Integer>(y);
+                        offset.z = static_cast<NghIdx::Integer>(z);
                         load_ngh(offset, card);
                     }
 
 
                     // 0,0,1
                     if (cell.mLocation.x == 0 && cell.mLocation.y == 0 && cell.mLocation.z == cell.mBlockSize - 1) {
-                        offset.x = static_cast<nghIdx_t::Integer>(x);
-                        offset.y = static_cast<nghIdx_t::Integer>(y);
-                        offset.z = -1 * static_cast<nghIdx_t::Integer>(z);
+                        offset.x = static_cast<NghIdx::Integer>(x);
+                        offset.y = static_cast<NghIdx::Integer>(y);
+                        offset.z = -1 * static_cast<NghIdx::Integer>(z);
                         load_ngh(offset, card);
                     }
 
                     // 1,0,1
                     if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == 0 && cell.mLocation.z == cell.mBlockSize - 1) {
-                        offset.x = -1 * static_cast<nghIdx_t::Integer>(x);
-                        offset.y = static_cast<nghIdx_t::Integer>(y);
-                        offset.z = -1 * static_cast<nghIdx_t::Integer>(z);
+                        offset.x = -1 * static_cast<NghIdx::Integer>(x);
+                        offset.y = static_cast<NghIdx::Integer>(y);
+                        offset.z = -1 * static_cast<NghIdx::Integer>(z);
                         load_ngh(offset, card);
                     }
 
                     // 0,1,1
                     if (cell.mLocation.x == 0 && cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == cell.mBlockSize - 1) {
-                        offset.x = static_cast<nghIdx_t::Integer>(x);
-                        offset.y = -1 * static_cast<nghIdx_t::Integer>(y);
-                        offset.z = -1 * static_cast<nghIdx_t::Integer>(z);
+                        offset.x = static_cast<NghIdx::Integer>(x);
+                        offset.y = -1 * static_cast<NghIdx::Integer>(y);
+                        offset.z = -1 * static_cast<NghIdx::Integer>(z);
                         load_ngh(offset, card);
                     }
 
                     // 1,1,1
                     if (cell.mLocation.x == cell.mBlockSize - 1 && cell.mLocation.y == cell.mBlockSize - 1 && cell.mLocation.z == cell.mBlockSize - 1) {
-                        offset.x = -1 * static_cast<nghIdx_t::Integer>(x);
-                        offset.y = -1 * static_cast<nghIdx_t::Integer>(y);
-                        offset.z = -1 * static_cast<nghIdx_t::Integer>(z);
+                        offset.x = -1 * static_cast<NghIdx::Integer>(x);
+                        offset.y = -1 * static_cast<NghIdx::Integer>(y);
+                        offset.z = -1 * static_cast<NghIdx::Integer>(z);
                         load_ngh(offset, card);
                     }
                 }
@@ -486,8 +486,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemory(
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
-    [[maybe_unused]] const Cell&                cell,
-    [[maybe_unused]] const nghIdx_t::Integer    stencilRadius,
+    [[maybe_unused]] const Index&                cell,
+    [[maybe_unused]] const NghIdx::Integer    stencilRadius,
     [[maybe_unused]] Neon::sys::ShmemAllocator& shmemAlloc) const -> void
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
@@ -516,12 +516,12 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::loadInSharedMemoryAsync(
                                         (cell.mBlockSize + 2 * mStencilRadius) * mCardinality);
 
 
-    Cell::Location::Integer shmem_offset = 0;
+    Index::Location::Integer shmem_offset = 0;
 
     auto load = [&](const int16_3d block_offset,
                     const uint32_t src_offset,
                     const uint32_t size) {
-        uint32_t ngh_block_id = mSharedNeighbourBlocks[Cell::getNeighbourBlockID(block_offset)];
+        uint32_t ngh_block_id = mSharedNeighbourBlocks[Index::getNeighbourBlockID(block_offset)];
         assert(ngh_block_id != cell.mBlockID);
         if (ngh_block_id != std::numeric_limits<uint32_t>::max()) {
             Neon::sys::loadSharedMemAsync(

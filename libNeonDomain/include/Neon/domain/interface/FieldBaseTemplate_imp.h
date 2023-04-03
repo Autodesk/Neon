@@ -160,11 +160,4 @@ auto FieldBaseTemplate<T, C, G, P, S>::swapUIDBeforeFullSwap(FieldBaseTemplate::
     Neon::set::interface::MultiXpuDataInterface<P, S>::swapUIDs(A, B);
 }
 
-template <typename T, int C, typename G, typename P, typename S>
-auto FieldBaseTemplate<T, C, G, P, S>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
-                                                                                  std::vector<T*>&)>& fun,
-                                                         Neon::computeMode_t::computeMode_e           mode) -> void
-{
-
-}
 }  // namespace Neon::domain::interface

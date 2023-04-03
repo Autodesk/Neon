@@ -10,9 +10,9 @@ NEON_CUDA_HOST_DEVICE inline auto bSpan::setCell(
     [[maybe_unused]] const size_t& z) const -> void
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
-    assert(mBlockSize == blockDim.x);
-    assert(mBlockSize == blockDim.y);
-    assert(mBlockSize == blockDim.z);
+    assert(mDataBlockSize == blockDim.x);
+    assert(mDataBlockSize == blockDim.y);
+    assert(mDataBlockSize == blockDim.z);
     cell.mBlockID = blockIdx.x;
     cell.mLocation.x = threadIdx.x;
     cell.mLocation.y = threadIdx.y;

@@ -1,38 +1,44 @@
 #pragma once
+
 #include "Neon/set/Backend.h"
 #include "Neon/set/DataSet.h"
+
 namespace Neon::domain::tool {
 
 /**
  * A helper class to storage and access IndexSpaces parametrically w.r.t Neon::DataView and Neon::Executions
  */
-template <typename IndexSpace>
+template <typename Span>
 struct SpanTable
 {
     SpanTable() = default;
 
     explicit SpanTable(const Neon::Backend& bk);
 
-    auto getSpan(Neon::SetIdx   setIdx,
+    auto getSpan(Neon::Execution execution,
+                 Neon::SetIdx   setIdx,
                  Neon::DataView dw)
-        -> IndexSpace&;
+        -> Span&;
 
-    auto getSpan(Neon::SetIdx   setIdx,
+    auto getSpan(Neon::Execution execution,
+                 Neon::SetIdx    setIdx,
+                 Neon::DataView  dw)
+        const -> const Span&;
+
+    auto getSpan(Neon::Execution execution,
                  Neon::DataView dw)
-        const -> const IndexSpace&;
-
-    auto getSpan(Neon::DataView dw)
-        const -> const Neon::set::DataSet<IndexSpace>&;
+        const -> const Neon::set::DataSet<Span>&;
 
     template <class Lambda>
     auto forEachConfiguration(const Lambda& lambda) -> void;
 
    private:
-    using SpanByDevice = Neon::set::DataSet<IndexSpace>;
+    using SpanByDevice = Neon::set::DataSet<Span>;
     using SpanByDeviceByDataView = std::array<SpanByDevice, Neon::DataViewUtil::nConfig>;
+    using SpanByDeviceByDataViewByExecution = std::array<SpanByDeviceByDataView, Neon::ExecutionUtils::numConfigurations>;
 
-    SpanByDeviceByDataView mSpanTable;
-    int                    mSetSize = 0;
+    SpanByDeviceByDataViewByExecution mSpanTable;
+    int                               mSetSize = 0;
 };
 
 

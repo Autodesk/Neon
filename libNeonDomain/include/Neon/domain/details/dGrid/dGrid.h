@@ -95,8 +95,9 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     /**
      * Method used by the Container infrastructure to retrieve the thread space
      */
-    auto getSpan(SetIdx         setIdx,
-                 Neon::DataView dataView)
+    auto getSpan(Neon::Execution execution,
+                 SetIdx          setIdx,
+                 Neon::DataView  dataView)
         const -> const Span&;
 
     /**
@@ -161,7 +162,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     auto norm2(const std::string&               name,
                dField<T>&                       input,
                Neon::template PatternScalar<T>& scalar,
-               Neon::Execution execution) const
+               Neon::Execution                  execution) const
         -> Neon::set::Container;
 
     /**
@@ -219,7 +220,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
 
         Neon::index_3d              halo;
         Neon::sys::patterns::Engine reduceEngine;
-        Neon::aGrid         memoryGrid /** memory allocator for fields */;
+        Neon::aGrid                 memoryGrid /** memory allocator for fields */;
 
         Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
     };

@@ -47,17 +47,13 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     using FoundationGrid = typename GridTransformation::FoundationGrid;
 
    public:
-    explicit tGrid(FoundationGrid& foundationGrid);
-
     tGrid();
     virtual ~tGrid();
+    explicit tGrid(FoundationGrid& foundationGrid);
     tGrid(const tGrid& other);                 // copy constructor
     tGrid(tGrid&& other) noexcept;             // move constructor
     tGrid& operator=(const tGrid& other);      // copy assignment
     tGrid& operator=(tGrid&& other) noexcept;  // move assignment
-
-    template <typename ActiveCellLambda>
-    tGrid(FoundationGrid& foundationGrid);
 
     auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,

@@ -2,6 +2,5 @@
 
 namespace Neon::domain::details::bGrid {
 
-template class bGrid<8, 8, 8>;
 
 }  // namespace Neon::domain::details::bGrid

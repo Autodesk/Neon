@@ -34,8 +34,6 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
     using Field = Neon::domain::details::bGrid::bField<T, C>;
     using Span = bSpan;
     using NghIdx = typename Partition<int>::NghIdx;
-
-    using PartitionIndexSpace = Neon::domain::details::bGrid::bSpan;
     using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>;
 
     using BlockIdx = uint32_t;
@@ -143,52 +141,30 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
     struct Data
     {
         Neon::domain::tool::SpanTable<Span> spanTable /** Span for each data view configurations */;
-        Neon::domain::tool::SpanTable<int>  elementsPerPartition /** Number of indexes for each partition */;
 
         Neon::domain::tool::Partitioner1D partitioner1D;
         Stencil                           stencil;
         Neon::sys::patterns::Engine       reduceEngine;
-        Neon::aGrid                       memoryGrid /** memory allocator for fields */;
 
-        Neon::set::MemSet<int8_t>       mStencil3dTo1dOffset;
-        Neon::aGrid::Field<int32_t, 0>  mConnectivityAField;
+        Neon::aGrid                     memoryGrid /** memory allocator for fields */;
         Neon::aGrid::Field<index_3d, 0> mDataBlockToGlobalMappingAField;
 
-        tool::Partitioner1D::DenseMeta     denseMeta;
         BlockViewGrid                      blockViewGrid;
         BlockViewGrid::Field<uint64_t, 0>  activeBitMask;
-        BlockViewGrid::Field<BlockIdx , 27> blockConnectivity;
-        int                                dataBlockSize;
-        int                                voxelSpacing;
+        BlockViewGrid::Field<BlockIdx, 27> blockConnectivity;
+
+
+        tool::Partitioner1D::DenseMeta denseMeta;
+
+        int dataBlockSize;
+        int voxelSpacing;
 
         // number of active voxels in each block
         Neon::set::DataSet<uint64_t> mNumActiveVoxel;
 
-        // block origin coordinates
-        Neon::set::MemSet<Neon::int32_3d> mOrigin;
 
         // Stencil neighbor indices
         Neon::set::MemSet<NghIdx> mStencilNghIndex;
-
-
-        Neon::set::DataSet<uint64_t> mActiveMaskSize;
-        Neon::set::MemSet<uint32_t>  mActiveMask;
-
-
-        // 1d index of 26 neighbor blocks
-        // every block is typically neighbor to 26 other blocks. Here we store the 1d index of these 26 neighbor blocks
-        // we could use this 1d index to (for example) index the origin of the neighbor block or its active mask
-        // as maybe needed by stencil operations
-        // If one of this neighbor blocks does not exist (e.g., not allocated or at the domain border), we store
-        // std::numeric_limits<uint32_t>::max() to indicate that there is no neighbor block at this location
-        Neon::set::MemSet<uint32_t> mNeighbourBlocks;
-
-        // Partition index space
-        // It is an std vector for the three type of data views we have
-        std::array<Neon::set::DataSet<PartitionIndexSpace>, 3> mPartitionIndexSpace;
-
-        // number of blocks in each device
-        Neon::set::DataSet<uint64_t> mNumBlocks;
     };
     std::shared_ptr<Data> mData;
 };
