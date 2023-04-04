@@ -7,30 +7,58 @@ namespace Neon::domain::details::bGrid {
 class bSpan
 {
    public:
-    bSpan() = default;
-    virtual ~bSpan() = default;
+    // bit mask information
+    using bitMaskWordType = uint64_t;
+
+    static constexpr uint32_t           bitMaskStorageBitWidth = 64;
+    static constexpr Neon::MemoryLayout activeMaskMemoryLayout = Neon::MemoryLayout::arrayOfStructs;
+    static constexpr uint32_t           log2OfbitMaskWordSize = 6;
 
     using Idx = bIndex;
     friend class bGrid;
 
     static constexpr int SpaceDim = 3;
 
-    NEON_CUDA_HOST_DEVICE inline auto setAndValidate(Idx&          cell,
-                                                     const size_t& x,
-                                                     const size_t& y,
-                                                     const size_t& z) const -> bool;
+    bSpan() = default;
+    virtual ~bSpan() = default;
 
-   private:
-    NEON_CUDA_HOST_DEVICE inline auto setCell(Idx&                           cell,
-                                              [[maybe_unused]] const size_t& x,
-                                              [[maybe_unused]] const size_t& y,
-                                              [[maybe_unused]] const size_t& z) const -> void;
+    NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId() -> bIndex::DataBlockIdx
+    {
+        return std::numeric_limits<uint32_t>::max();
+    }
 
-    Idx::DataBlockCount mDataBlocCount;
-    Idx::DataBlockCount mFirstDataBlockOffset;
-    Neon::DataView      mDataView;
-    uint32_t            mDataBlockSize;
-    uint32_t*           mActiveMask;
+    bSpan(Idx::DataBlockCount     mDataBlocCount,
+          Idx::DataBlockCount     mFirstDataBlockOffset,
+          uint32_t                mDataBlockSize,
+          bSpan::bitMaskWordType* mActiveMask,
+          Neon::DataView          mDataView);
+
+    NEON_CUDA_HOST_DEVICE inline auto setAndValidateCPUDevice(bIndex&         bidx,
+                                                              uint32_t const& threadIdx,
+                                                              uint32_t const& threadBlockSize,
+                                                              uint32_t const& x,
+                                                              uint32_t const& y,
+                                                              uint32_t const& z) const -> bool;
+
+    NEON_CUDA_HOST_DEVICE inline auto setAndValidateGPUDevice(
+        bIndex& bidx) const -> bool;
+
+    static NEON_CUDA_HOST_DEVICE inline auto getRequiredWords(
+        uint32_t const& blockSize) -> uint32_t;
+
+    static NEON_CUDA_HOST_DEVICE inline auto getActiveStatus(
+        const Idx::DataBlockIdx& dataBlockIdx,
+        int                      threadX,
+        int                      threadY,
+        int                      threadZ,
+        bSpan::bitMaskWordType*  mActiveMask,
+        uint32_t const&          blockSize) -> bool;
+
+    Idx::DataBlockCount     mDataBlocCount;
+    Idx::DataBlockCount     mFirstDataBlockOffset;
+    uint32_t                mDataBlockSize;
+    bSpan::bitMaskWordType* mActiveMask;
+    Neon::DataView          mDataView;
 };
 }  // namespace Neon::domain::details::bGrid
 

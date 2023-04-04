@@ -132,10 +132,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
 
     auto getDataBlockSize() const -> int;
 
-    NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId() -> BlockIdx
-    {
-        return std::numeric_limits<uint32_t>::max();
-    }
+
 
    private:
     struct Data

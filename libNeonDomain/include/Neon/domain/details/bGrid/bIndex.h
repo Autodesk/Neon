@@ -18,20 +18,14 @@ class bIndex
     friend class bSpan;
     friend class bGrid;
 
-    using DataBlockCount = int32_t;
-    using DataBlockIdx = int32_t;
+    using DataBlockCount = uint32_t;
+    using DataBlockIdx = uint32_t;
     using InDataBlockIdx = uint8_3d;
     using OuterCell = bIndex;
 
-    // bit mask information
-    using bitMaskStorageType = uint64_t;
-    static constexpr uint32_t bitMaskStorageBitWidth = 64;
 
     bIndex() = default;
     virtual ~bIndex() = default;
-
-    NEON_CUDA_HOST_DEVICE inline auto isActive() const -> bool;
-
 
     NEON_CUDA_HOST_DEVICE inline explicit bIndex(const DataBlockIdx&            blockIdx,
                                                  const InDataBlockIdx::Integer& x,
@@ -42,7 +36,6 @@ class bIndex
     // the local index within the block
     InDataBlockIdx mInDataBlockIdx;
     DataBlockIdx   mDataBlockIdx;
-    bool           mIsActive;
 
     //    NEON_CUDA_HOST_DEVICE inline auto getLocal1DID() const -> Location::Integer;
     //

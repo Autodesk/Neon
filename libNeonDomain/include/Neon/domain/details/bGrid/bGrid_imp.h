@@ -90,19 +90,11 @@ bGrid::bGrid(const Neon::Backend&         backend,
             stencil,
             spacingData * getBlockSize(),
             origin);
-        // http://graphics.stanford.edu/~seander/bithacks.html#IntegerLogObvious
-        int v = getBlockSize() * getBlockSize() * getBlockSize();
-        int requiredBits = 0;
-        while (v >>= 1)  // unroll for more speed...
-        {
-            requiredBits++;
-        }
-        int  required64BitWords = (requiredBits - 1) / bIndex::bitMaskStorageBitWidth + 1;
-        auto memOption = backend.getMemoryOptions(Neon::MemoryLayout::arrayOfStructs);
-        mData->activeBitMask = mData->blockViewGrid.newField<bIndex::bitMaskStorageType>("BitMask",
-                                                                                         required64BitWords,
-                                                                                         0,
-                                                                                         Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(Neon::MemoryLayout::arrayOfStructs));
+        int requiredWords = bSpan::getRequiredWords(getBlockSize());
+        mData->activeBitMask = mData->blockViewGrid.newField<bSpan::bitMaskWordType>("BitMask",
+                                                                                        requiredWords,
+                                                                                        0,
+                                                                                        Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(bSpan::activeMaskMemoryLayout));
 
         mData->mNumActiveVoxel = backend.devSet().template newDataSet<uint64_t>();
 
@@ -127,8 +119,8 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                     Neon::int32_3d point(i, j, k);
                                     point = point + blockOrigin;
                                     auto const pitch = point.mPitch(blockSize3d);
-                                    auto const targetCard = pitch / bIndex::bitMaskStorageBitWidth;
-                                    auto const targetBit = pitch % bIndex::bitMaskStorageBitWidth;
+                                    auto const targetCard = pitch / bSpan::bitMaskStorageBitWidth;
+                                    auto const targetBit = pitch % bSpan::bitMaskStorageBitWidth;
                                     uint64_t   mask = uint64_t(1) << targetBit;
                                     bool       isActive = activeCellLambda(blockSize3d);
                                     if (isActive) {
