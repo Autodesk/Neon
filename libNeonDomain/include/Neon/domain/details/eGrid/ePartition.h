@@ -64,8 +64,12 @@ class ePartition
      *  |--)
      */
 
-    auto getNghIndex(eIndex eId, const int8_3d& ngh3dIdx, eIndex& eIdxNgh)
+    NEON_CUDA_HOST_DEVICE auto getNghIndex(eIndex eId, const int8_3d& ngh3dIdx, eIndex& eIdxNgh)
         const -> bool;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    mem()
+        -> T*;
 
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
@@ -247,9 +251,6 @@ class ePartition
      * @tparam dataView_ta
      * @return
      */
-    NEON_CUDA_HOST_DEVICE inline auto
-    mem()
-        -> T*;
 
    private:
     //-- [INTERNAL DATA] ----------------------------------------------------------------------------

@@ -25,7 +25,8 @@ class bPartition
 
     ~bPartition() = default;
 
-    explicit bPartition(int                     mCardinality,
+    explicit bPartition(int                     setIdx,
+                        int                     mCardinality,
                         T*                      mMem,
                         uint32_3d               blockSize,
                         bIndex::DataBlockIdx*   mBlockConnectivity,
@@ -55,11 +56,10 @@ class bPartition
     NEON_CUDA_HOST_DEVICE inline Neon::index_3d mapToGlobal(const Index& cell) const;
 
    protected:
-    inline NEON_CUDA_HOST_DEVICE auto helpGetPitch(const Index& cell, int card) const -> uint32_t;
-
-    auto helpGetValidIdxPitchExplicit(const Index& idx, int card) const -> uint32_t;
-    auto helpNghPitch(const Index& nghIdx, int card) const -> std::tuple<bool, uint32_t>;
-    auto helpGetNghIdx(const Index& idx, const NghIdx& offset) const -> bIndex;
+    NEON_CUDA_HOST_DEVICE inline auto helpGetPitch(const Index& cell, int card) const -> uint32_t;
+    NEON_CUDA_HOST_DEVICE inline auto helpGetValidIdxPitchExplicit(const Index& idx, int card) const -> uint32_t;
+    NEON_CUDA_HOST_DEVICE inline auto helpNghPitch(const Index& nghIdx, int card) const -> std::tuple<bool, uint32_t>;
+    NEON_CUDA_HOST_DEVICE inline auto helpGetNghIdx(const Index& idx, const NghIdx& offset) const -> bIndex;
 
 
     int       mCardinality;
@@ -72,6 +72,7 @@ class bPartition
     bIndex::DataBlockIdx*   mBlockConnectivity;
     bSpan::bitMaskWordType* mMask;
     Neon::int32_3d*         mOrigin;
+    int                     mSetIdx;
 };
 }  // namespace Neon::domain::details::bGrid
 

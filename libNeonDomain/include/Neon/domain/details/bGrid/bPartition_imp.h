@@ -19,14 +19,9 @@ bPartition<T, C>::bPartition()
 
 template <typename T, int C>
 bPartition<T, C>::
-    bPartition(int                     cardinality,
-               T*                      mem,
-               uint32_3d               blockSize,
-               bIndex::DataBlockIdx*   blockConnectivity,
-               bSpan::bitMaskWordType* mask,
-               Neon::int32_3d*         origin,
-               NghIdx*                 stencilNghIndex)
-    : mCardinality(cardinality),
+    bPartition(int setIdx, int cardinality, T* mem, uint32_3d blockSize, bIndex::DataBlockIdx* blockConnectivity, bSpan::bitMaskWordType* mask, Neon::int32_3d* origin, NghIdx* stencilNghIndex)
+    : mSetIdx(setIdx),
+      mCardinality(cardinality),
       mMem(mem),
       mBlockSizeByPower(blockSize),
       mBlockConnectivity(blockConnectivity),
@@ -42,7 +37,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
         const -> Neon::index_3d
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
-    auto location = mOrigin[blockIdx.x];
+    auto location = mOrigin[cell.mDataBlockIdx];
     location.x += threadIdx.x;
     location.y += threadIdx.y;
     location.z += threadIdx.z;
@@ -69,7 +64,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::
 operator()(const bIndex& cell,
            int           card) -> T&
 {
-    return mMem[pitch(cell, card)];
+    return mMem[helpGetPitch(cell, card)];
 }
 
 template <typename T, int C>
@@ -77,7 +72,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::
 operator()(const bIndex& cell,
            int           card) const -> const T&
 {
-    return mMem[pitch(cell, card)];
+    return mMem[helpGetPitch(cell, card)];
 }
 
 template <typename T, int C>
@@ -90,7 +85,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::
     uint32_t const inBlockInCardPitch = threadIdx.x +
                                         mBlockSizeByPower.v[0] * threadIdx.y +
                                         mBlockSizeByPower.v[1] * threadIdx.z;
-    uint32_t const blockAdnCardPitch = (blockIdx.x * mCardinality + card) * blockPitchByCard;
+    uint32_t const blockAdnCardPitch = (cell.mDataBlockIdx * mCardinality + card) * blockPitchByCard;
     uint32_t const pitch = blockAdnCardPitch + inBlockInCardPitch;
     return pitch;
 #else
@@ -142,17 +137,29 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
         const -> bIndex
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
-    bIndex::InDataBlockIdx ngh(threadIdx.x + offset.x,
-                               threadIdx.y + offset.y,
-                               threadIdx.z + offset.z);
+#define NEON_BGRID_DATA_BLOCK_SIZE blockDim.x
+#define NEON_BGRID_DATA_BLOCK_SIZE_POW2 blockDim.x* blockDim.x
+#define NEON_BGRID_DATA_BLOCK_SIZE_POW3 blockDim.x* blockDim.x* blockDim.x
+#define NEON_BGRID_DATA_BLOCK_BLOCKIDX_X idx.mDataBlockIdx
+#define NEON_BGRID_DATA_BLOCK_THREADIDX_X threadIdx.x
+#define NEON_BGRID_DATA_BLOCK_THREADIDX_Y threadIdx.y
+#define NEON_BGRID_DATA_BLOCK_THREADIDX_Z threadIdx.z
 #else
-    bIndex::InDataBlockIdx ngh(idx.mInDataBlockIdx.x + offset.x,
-                               idx.mInDataBlockIdx.y + offset.y,
-                               idx.mInDataBlockIdx.z + offset.z);
+#define NEON_BGRID_DATA_BLOCK_SIZE mBlockSizeByPower.v[0]
+#define NEON_BGRID_DATA_BLOCK_SIZE_POW2 mBlockSizeByPower.v[1]
+#define NEON_BGRID_DATA_BLOCK_SIZE_POW3 mBlockSizeByPower.v[2]
+#define NEON_BGRID_DATA_BLOCK_BLOCKIDX_X idx.mDataBlockIdx
+#define NEON_BGRID_DATA_BLOCK_THREADIDX_X idx.mInDataBlockIdx.x
+#define NEON_BGRID_DATA_BLOCK_THREADIDX_Y idx.mInDataBlockIdx.y
+#define NEON_BGRID_DATA_BLOCK_THREADIDX_Z idx.mInDataBlockIdx.z
 #endif
-    const int xInfo = ngh.x < 0 ? -1 : (ngh.x >= blockDim.x ? +1 : 0);
-    const int yInfo = ngh.y < 0 ? -1 : (ngh.y >= blockDim.x ? +1 : 0);
-    const int zInfo = ngh.z < 0 ? -1 : (ngh.z >= blockDim.x ? +1 : 0);
+    bIndex::InDataBlockIdx ngh(NEON_BGRID_DATA_BLOCK_THREADIDX_X + offset.x,
+                               NEON_BGRID_DATA_BLOCK_THREADIDX_Y + offset.y,
+                               NEON_BGRID_DATA_BLOCK_THREADIDX_Z + offset.z);
+
+    const int xInfo = ngh.x < 0 ? -1 : (ngh.x >= NEON_BGRID_DATA_BLOCK_SIZE ? +1 : 0);
+    const int yInfo = ngh.y < 0 ? -1 : (ngh.y >= NEON_BGRID_DATA_BLOCK_SIZE ? +1 : 0);
+    const int zInfo = ngh.z < 0 ? -1 : (ngh.z >= NEON_BGRID_DATA_BLOCK_SIZE ? +1 : 0);
 
     const bool isLocal = (xInfo | yInfo | zInfo) == 0;
     if (!(isLocal)) {
@@ -181,9 +188,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
          *  ^                   ^
          *  -3 from 0          +3 from 3
          * */
-        remote.x = ngh.x - xInfo * blockDim.x;
-        remote.y = ngh.y - yInfo * blockDim.x;
-        remote.z = ngh.z - zInfo * blockDim.x;
+        remote.x = ngh.x - xInfo * NEON_BGRID_DATA_BLOCK_SIZE;
+        remote.y = ngh.y - yInfo * NEON_BGRID_DATA_BLOCK_SIZE;
+        remote.z = ngh.z - zInfo * NEON_BGRID_DATA_BLOCK_SIZE;
 
         remote.x = xInfo == 0 ? ngh.x : remote.x;
         remote.y = yInfo == 0 ? ngh.y : remote.y;
@@ -198,18 +205,18 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
         remoteNghIdx.mInDataBlockIdx = remote;
         return remoteNghIdx;
     } else {
-#ifdef NEON_PLACE_CUDA_DEVICE
-        bIndex localNghIdx;
-        localNghIdx.mDataBlockIdx = blockIdx.x;
-        remoteIdx.mInDataBlockIdx = remote;
-        return remoteIdx;
-#else
         bIndex localNghIdx;
         localNghIdx.mDataBlockIdx = idx.mDataBlockIdx;
         localNghIdx.mInDataBlockIdx = ngh;
         return localNghIdx;
-#endif
     }
+#undef NEON_BGRID_DATA_BLOCK_SIZE
+#undef NEON_BGRID_DATA_BLOCK_SIZE_POW2
+#undef NEON_BGRID_DATA_BLOCK_SIZE_POW3
+#undef NEON_BGRID_DATA_BLOCK_BLOCKIDX_X
+#undef NEON_BGRID_DATA_BLOCK_THREADIDX_X
+#undef NEON_BGRID_DATA_BLOCK_THREADIDX_Y
+#undef NEON_BGRID_DATA_BLOCK_THREADIDX_Z
 }
 
 template <typename T, int C>

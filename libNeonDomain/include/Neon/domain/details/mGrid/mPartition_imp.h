@@ -35,7 +35,7 @@ mPartition<T, C>::mPartition(Neon::DataView  dataView,
                              nghIdx_t*       stencilNghIndex,
                              int*            refFactors,
                              int*            spacing)
-    : Neon::domain::details::bGrid::bPartition<T, C>(dataView, mem, cardinality, neighbourBlocks, origin, mask, outsideValue, stencilNghIndex),
+    : Neon::domain::details::bGrid::bPartition<T, C>(0, dataView, mem, cardinality, neighbourBlocks, origin, mask, outsideValue),
       mLevel(level),
       mMemParent(memParent),
       mMemChild(memChild),

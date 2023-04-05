@@ -61,7 +61,8 @@ eGrid::eGrid(const Neon::Backend&         backend,
 
     {
         // Initialization of the SPAN table
-        mData->spanTable.forEachConfiguration([&](Neon::SetIdx   setIdx,
+        mData->spanTable.forEachConfiguration([&](Neon::Execution,
+                                                  Neon::SetIdx   setIdx,
                                                   Neon::DataView dw,
                                                   eSpan&         span) {
             span.mDataView = dw;
@@ -103,10 +104,13 @@ eGrid::eGrid(const Neon::Backend&         backend,
             }
         });
 
-        mData->elementsPerPartition.forEachConfiguration([&](Neon::SetIdx   setIdx,
-                                                             Neon::DataView dw,
-                                                             int&           count) {
-            count = mData->spanTable.getSpan(Neon::Execution::host, setIdx, dw).mCount;
+        mData->elementsPerPartition.forEachConfiguration([&](Neon::Execution execution,
+                                                             Neon::SetIdx    setIdx,
+                                                             Neon::DataView  dw,
+                                                             int&            count) {
+            if (Execution::host == execution) {
+                count = mData->spanTable.getSpan(Neon::Execution::host, setIdx, dw).mCount;
+            }
         });
     }
 

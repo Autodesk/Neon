@@ -20,7 +20,7 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                                                                              fieldUserName,
                                                                              "dField",
                                                                              cardinality,
-                                                                             T(0),
+                                                                             inactiveValue,
                                                                              dataUse,
                                                                              memoryOptions,
                                                                              Neon::domain::haloStatus_et::e::ON) {
@@ -30,7 +30,6 @@ eField<T, C>::eField(const std::string&         fieldUserName,
     mData->dataUse = dataUse;
     mData->memoryOptions = memoryOptions;
     mData->cardinality = cardinality;
-    mData->memoryOptions = memoryOptions;
     mData->grid = std::make_shared<Grid>(grid);
     mData->inactiveValue = inactiveValue;
 
@@ -265,7 +264,7 @@ auto eField<T, C>::operator()(const Neon::index_3d& idxGlobal,
 {
     auto const& meta = mData->grid->mData->denseMeta.get(idxGlobal);
     if (meta.isValid()) {
-        auto const& span = mData->grid->getSpan(meta.setIdx, Neon::DataView::STANDARD);
+        auto const& span = mData->grid->getSpan(Execution::host, meta.setIdx, Neon::DataView::STANDARD);
         eIndex      eIndex;
         span.setAndValidate(eIndex, meta.index);
         auto const& res = getPartition(Execution::host, meta.setIdx, Neon::DataView::STANDARD).operator()(eIndex, cardinality);
@@ -281,7 +280,7 @@ auto eField<T, C>::getReference(const Neon::index_3d& idxGlobal,
 {
     auto const& meta = mData->grid->mData->denseMeta.get(idxGlobal);
     if (meta.isValid()) {
-        auto const& span = mData->grid->getSpan(meta.setIdx, Neon::DataView::STANDARD);
+        auto const& span = mData->grid->getSpan(Execution::host, meta.setIdx, Neon::DataView::STANDARD);
         eIndex      eIndex;
         span.setAndValidate(eIndex, meta.index);
         auto& res = getPartition(Execution::host, meta.setIdx, Neon::DataView::STANDARD).operator()(eIndex, cardinality);

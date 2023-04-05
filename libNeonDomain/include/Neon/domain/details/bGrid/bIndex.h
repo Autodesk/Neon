@@ -2,7 +2,16 @@
 
 #include "Neon/core/core.h"
 
+
+
 namespace Neon::domain::details::bGrid {
+
+// Common forward declarations
+class bGrid;
+class bSpan;
+template <typename T, int C>
+class bPartition;
+
 class bIndex
 {
    public:
@@ -20,7 +29,7 @@ class bIndex
 
     using DataBlockCount = uint32_t;
     using DataBlockIdx = uint32_t;
-    using InDataBlockIdx = uint8_3d;
+    using InDataBlockIdx = int8_3d;
     using OuterCell = bIndex;
 
 

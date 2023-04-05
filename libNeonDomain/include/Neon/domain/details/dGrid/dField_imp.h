@@ -306,7 +306,7 @@ auto dField<T, C>::operator()(const Neon::index_3d& idxGlobal,
     auto& partition = mData->partitionTable.getPartition(Neon::Execution::host,
                                                          partitionIdx,
                                                          Neon::DataView::STANDARD);
-    auto& span = mData->grid->getSpan(partitionIdx, Neon::DataView::STANDARD);
+    auto& span = mData->grid->getSpan(Neon::Execution::host,partitionIdx, Neon::DataView::STANDARD);
     Idx   idx;
     bool  isOk = span.setAndValidate(idx, localIDx.x, localIDx.y, localIDx.z);
     if (!isOk) {
@@ -326,7 +326,7 @@ auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
     auto& partition = mData->partitionTable.getPartition(Neon::Execution::host,
                                                          partitionIdx,
                                                          Neon::DataView::STANDARD);
-    auto& span = mData->grid->getSpan(partitionIdx, Neon::DataView::STANDARD);
+    auto& span = mData->grid->getSpan(Neon::Execution::host,partitionIdx, Neon::DataView::STANDARD);
     Idx   idx;
     bool  isOk = span.setAndValidate(idx, localIDx.x, localIDx.y, localIDx.z);
     if (!isOk) {

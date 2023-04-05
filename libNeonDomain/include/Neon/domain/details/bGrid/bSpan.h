@@ -27,8 +27,7 @@ class bSpan
         return std::numeric_limits<uint32_t>::max();
     }
 
-    bSpan(Idx::DataBlockCount     mDataBlocCount,
-          Idx::DataBlockCount     mFirstDataBlockOffset,
+    bSpan(Idx::DataBlockCount     mFirstDataBlockOffset,
           uint32_t                mDataBlockSize,
           bSpan::bitMaskWordType* mActiveMask,
           Neon::DataView          mDataView);
@@ -54,7 +53,7 @@ class bSpan
         bSpan::bitMaskWordType*  mActiveMask,
         uint32_t const&          blockSize) -> bool;
 
-    Idx::DataBlockCount     mDataBlocCount;
+    // We don't need to have a count on active blocks
     Idx::DataBlockCount     mFirstDataBlockOffset;
     uint32_t                mDataBlockSize;
     bSpan::bitMaskWordType* mActiveMask;

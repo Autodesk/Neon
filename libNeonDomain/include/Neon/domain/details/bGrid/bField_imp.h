@@ -5,120 +5,76 @@
 namespace Neon::domain::details::bGrid {
 
 template <typename T, int C>
-bField<T, C>::bField(const std::string&             name,
-                     const Grid&                    grid,
-                     int                            cardinality,
-                     T                              outsideVal,
-                     Neon::DataUse                  dataUse,
-                     const Neon::MemoryOptions&     memoryOptions,
-                     Neon::domain::haloStatus_et::e haloStatus)
+bField<T, C>::bField()
+{
+    mData = std::make_shared<Data>();
+}
+
+template <typename T, int C>
+bField<T, C>::bField(const std::string&         fieldUserName,
+                     Neon::DataUse              dataUse,
+                     const Neon::MemoryOptions& memoryOptions,
+                     const Grid&                grid,
+                     int                        cardinality,
+                     T                          inactiveValue)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
-                                                                             name,
+                                                                             fieldUserName,
                                                                              "bField",
                                                                              cardinality,
-                                                                             outsideVal,
+                                                                             inactiveValue,
                                                                              dataUse,
                                                                              memoryOptions,
-                                                                             haloStatus) {
-    mData = std::make_shared<Data>();
+                                                                             Neon::domain::haloStatus_et::e::ON) {
+    mData = std::make_shared<Data>(grid.getBackend());
+    mData->dataUse = dataUse;
+    mData->memoryOptions = memoryOptions;
+    mData->cardinality = cardinality;
+    mData->memoryOptions = memoryOptions;
+    mData->grid = std::make_shared<Grid>(grid);
+    mData->inactiveValue = inactiveValue;
+
 
     mData->grid = std::make_shared<bGrid>(grid);
     mData->mCardinality = cardinality;
 
-    int blockSize = mData->grid->getBlockSize();
+    int const blockSize = mData->grid->helpGetDataBlockSize();
 
     // the allocation size is the number of blocks x block size x cardinality
-    Neon::set::DataSet<uint64_t> allocSize;
-    allocSize = mData->grid->getBackend().devSet().template newDataSet<uint64_t>();
-    for (int64_t i = 0; i < allocSize.size(); ++i) {
-        allocSize[i] = mData->grid->getNumBlocks()[i] *
-                       blockSize * blockSize * blockSize *
-                       cardinality;
+    mData->memoryField = mData->grid->helpGetBlockViewGrid().template newField<T, 0>(
+        "BitMask",
+        [&] {
+            int elPerBlock = blockSize * blockSize * blockSize;
+            elPerBlock = elPerBlock * cardinality;
+            return elPerBlock;
+        }(),
+        0,
+        dataUse,
+        mData->grid->getBackend().getMemoryOptions(bSpan::activeMaskMemoryLayout));
+
+
+    {  // Setting up partitionTable
+        // const int setCardinality = mData->grid->getBackend().getDeviceCount();
+        mData->partitionTable.forEachConfiguration(
+            [&](Neon::Execution execution,
+                Neon::SetIdx    setIdx,
+                Neon::DataView ,
+                Partition&      partition) {
+                auto& memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, Neon::DataView::STANDARD);
+                auto& blockConnectivity = mData->grid->helpGetBlockConnectivity().getPartition(execution, setIdx, Neon::DataView::STANDARD);
+                auto& bitmask = mData->grid->helpGetActiveBitMask().getPartition(execution, setIdx, Neon::DataView::STANDARD);
+                auto& dataBlockOrigins = mData->grid->helpGetDataBlockOriginField().getPartition(execution, setIdx, Neon::DataView::STANDARD);
+
+                partition = bPartition<T, C>(setIdx,
+                                             cardinality,
+                                             memoryFieldPartition.mem(),
+                                             grid.helpGetDataBlockSize(),
+                                             blockConnectivity.mem(),
+                                             bitmask.mem(),
+                                             dataBlockOrigins.mem());
+            });
     }
 
-
-    Neon::MemoryOptions memOptions(Neon::DeviceType::CPU,
-                                   Neon::Allocator::MALLOC,
-                                   Neon::DeviceType::CUDA,
-                                   ((mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
-                                   Neon::MemoryLayout::structOfArrays);
-
-
-    mData->mem = mData->grid->getBackend().devSet().template newMemSet<T>({Neon::DataUse::HOST_DEVICE},
-                                                                          1,
-                                                                          memOptions,
-                                                                          allocSize);
-
-
-    auto origins = mData->grid->getOrigins();
-    auto neighbours_blocks = mData->grid->getNeighbourBlocks();
-    auto stencil_ngh = mData->grid->getStencilNghIndex();
-    auto active_mask = mData->grid->getActiveMask();
-
-    for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
-        mData->partitions[PartitionBackend::cpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
-        mData->partitions[PartitionBackend::gpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
-
-        for (int32_t gpuID = 0; gpuID < int32_t(mData->partitions[PartitionBackend::cpu][dvID].size()); gpuID++) {
-
-            getPartition(Neon::DeviceType::CPU, Neon::SetIdx(gpuID), Neon::DataView(dvID)) = bPartition<T, C>(
-                Neon::DataView(dvID),
-                mData->mem.rawMem(gpuID, Neon::DeviceType::CPU),
-                mData->mCardinality,
-                neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CPU),
-                origins.rawMem(gpuID, Neon::DeviceType::CPU),
-                active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
-                outsideVal,
-                stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU));
-
-            getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID)) = bPartition<T, C>(
-                Neon::DataView(dvID),
-                mData->mem.rawMem(gpuID, Neon::DeviceType::CUDA),
-                mData->mCardinality,
-                neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CUDA),
-                origins.rawMem(gpuID, Neon::DeviceType::CUDA),
-                active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
-                outsideVal,
-                stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA));
-        }
-    }
-}
-
-template <typename T, int C>
-auto bField<T, C>::forEachActiveCell(
-    const std::function<void(const Neon::index_3d&,
-                             const int& cardinality,
-                             T&)>&                      fun,
-    [[maybe_unused]] Neon::computeMode_t::computeMode_e mode)
-    -> void
-{
-
-    // TODO need to figure out which device owns this block
-    SetIdx devID(0);
-
-    const int blockSize = mData->grid->getBlockSize();
-    const int voxelSpacing = mData->grid->getVoxelSpacing();
-
-    mData->grid->getBlockOriginTo1D().forEach(
-        [&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-            for (int16_t z = 0; z < blockSize; z++) {
-                for (int16_t y = 0; y < blockSize; y++) {
-                    for (int16_t x = 0; x < blockSize; x++) {
-
-                        Idx cell(x, y, z);
-                        cell.mBlockID = blockIdx;
-                        cell.mBlockSize = blockSize;
-                        if (cell.computeIsActive(mData->grid->getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
-                            for (int c = 0; c < this->getCardinality(); c++) {
-                                Neon::index_3d local(x * voxelSpacing, y * voxelSpacing, z * voxelSpacing);
-                                Neon::index_3d index3D = blockOrigin + local;
-                                fun(index3D, c, this->getReference(index3D, c));
-                            }
-                        }
-                    }
-                }
-            }
-        });
+    initHaloUpdateTable();
 }
 
 template <typename T, int C>
@@ -131,28 +87,29 @@ template <typename T, int C>
 auto bField<T, C>::getRef(const Neon::index_3d& idx,
                           const int&            cardinality) const -> T&
 {
-    // TODO need to figure out which device owns this block
-    SetIdx devID(0);
-
-    if (!isInsideDomain(idx)) {
-        return this->getOutsideValue();
-    }
-
-    auto partition = getPartition(Neon::DeviceType::CPU, devID, Neon::DataView::STANDARD);
-
-    Neon::int32_3d blockOrigin = mData->grid->getOriginBlock3DIndex(idx);
-
-    auto itr = mData->grid->getBlockOriginTo1D().getMetadata(blockOrigin);
-
-    auto blockSize = mData->grid->getBlockSize();
-
-    Idx cell(static_cast<Idx::Location::Integer>((idx.x / mData->grid->getVoxelSpacing()) % blockSize),
-             static_cast<Idx::Location::Integer>((idx.y / mData->grid->getVoxelSpacing()) % blockSize),
-             static_cast<Idx::Location::Integer>((idx.z / mData->grid->getVoxelSpacing()) % blockSize));
-
-    cell.mBlockID = *itr;
-    cell.mBlockSize = blockSize;
-    return partition(cell, cardinality);
+    //    // TODO need to figure out which device owns this block
+    //    SetIdx devID(0);
+    //
+    //    if (!isInsideDomain(idx)) {
+    //        return this->getOutsideValue();
+    //    }
+    //
+    //    auto partition = getPartition(Neon::DeviceType::CPU, devID, Neon::DataView::STANDARD);
+    //
+    //    Neon::int32_3d blockOrigin = mData->grid->getOriginBlock3DIndex(idx);
+    //
+    //    auto itr = mData->grid->getBlockOriginTo1D().getMetadata(blockOrigin);
+    //
+    //    auto blockSize = mData->grid->getBlockSize();
+    //
+    //    Idx cell(static_cast<Idx::Location::Integer>((idx.x / mData->grid->getVoxelSpacing()) % blockSize),
+    //             static_cast<Idx::Location::Integer>((idx.y / mData->grid->getVoxelSpacing()) % blockSize),
+    //             static_cast<Idx::Location::Integer>((idx.z / mData->grid->getVoxelSpacing()) % blockSize));
+    //
+    //    cell.mBlockID = *itr;
+    //    cell.mBlockSize = blockSize;
+    //    return partition(cell, cardinality);
+    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 template <typename T, int C>
@@ -167,20 +124,6 @@ auto bField<T, C>::getReference(const Neon::index_3d& idx,
                                 const int&            cardinality) -> T&
 {
     return getRef(idx, cardinality);
-}
-
-template <typename T, int C>
-auto bField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) const -> void
-{
-    // TODO
-    NEON_DEV_UNDER_CONSTRUCTION("bField::haloUpdate");
-}
-
-template <typename T, int C>
-auto bField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) -> void
-{
-    // TODO
-    NEON_DEV_UNDER_CONSTRUCTION("bField::haloUpdate");
 }
 
 template <typename T, int C>
@@ -203,54 +146,234 @@ auto bField<T, C>::updateDeviceData(int streamId) -> void
 
 
 template <typename T, int C>
-auto bField<T, C>::getPartition(Neon::Execution       exec,
-                                Neon::SetIdx          idx,
+auto bField<T, C>::getPartition(Neon::Execution       execution,
+                                Neon::SetIdx          setIdx,
                                 const Neon::DataView& dataView) const -> const Partition&
 {
-
-    if (exec == Neon::Execution::device) {
-        return getPartition(Neon::DeviceType::CUDA, idx, dataView);
+    const Neon::DataUse dataUse = this->getDataUse();
+    bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
+    if (isOk) {
+        Partition const& result = mData->partitionTable.getPartition(execution, setIdx, dataView);
+        return result;
     }
-    if (exec == Neon::Execution::host) {
-        return getPartition(Neon::DeviceType::CPU, idx, dataView);
-    }
-
-    NEON_THROW_UNSUPPORTED_OPERATION("bField::getPartition() unsupported Execution");
+    std::stringstream message;
+    message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
+    NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
 template <typename T, int C>
-auto bField<T, C>::getPartition(Neon::Execution       exec,
-                                Neon::SetIdx          idx,
+auto bField<T, C>::getPartition(Neon::Execution       execution,
+                                Neon::SetIdx          setIdx,
                                 const Neon::DataView& dataView) -> Partition&
 {
-    if (exec == Neon::Execution::device) {
-        return getPartition(Neon::DeviceType::CUDA, idx, dataView);
+    const Neon::DataUse dataUse = this->getDataUse();
+    bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
+    if (isOk) {
+        Partition const& result = mData->partitionTable.getPartition(execution, setIdx, dataView);
+        return result;
     }
-    if (exec == Neon::Execution::host) {
-        return getPartition(Neon::DeviceType::CPU, idx, dataView);
-    }
-
-    NEON_THROW_UNSUPPORTED_OPERATION("bField::getPartition() unsupported Execution");
+    std::stringstream message;
+    message << "The requested execution mode ( " << execution << " ) is not compatible with the field DataUse (" << dataUse << ")";
+    NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
-template <typename T, int C>
-auto bField<T, C>::getMem() -> Neon::set::MemSet<T>&
-{
-    return mData->mem;
-}
 
 template <typename T, int C>
-auto bField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius) const -> size_t
+auto bField<T, C>::initHaloUpdateTable() -> void
 {
-    // This return the optimal shared memory size give a stencil radius
-    // i.e., only N layers is read from neighbor blocks into shared memory in addition
-    //  to the block itself where N = stencilRadius
-    int blockSize = mData->grid->getBlockSize();
-    return sizeof(T) *
-           this->getCardinality() *
-           (blockSize + 2 * stencilRadius) *
-           (blockSize + 2 * stencilRadius) *
-           (blockSize + 2 * stencilRadius);
+    NEON_THROW_UNSUPPORTED_OPERATION("");
+    auto& grid = this->getGrid();
+    auto  bk = grid.getBackend();
+    auto  getNghSetIdx = [&](SetIdx setIdx, Neon::domain::tool::partitioning::ByDirection direction) {
+        int res;
+        if (direction == Neon::domain::tool::partitioning::ByDirection::up) {
+            res = (setIdx + 1) % bk.getDeviceCount();
+        } else {
+            res = (setIdx + bk.getDeviceCount() - 1) % bk.getDeviceCount();
+        }
+        return res;
+    };
+
+    mData->soaHaloUpdateTable.forEachPutConfiguration(
+        bk, [&](Neon::SetIdx                                  setIdxSrc,
+                Execution                                     execution,
+                Neon::domain::tool::partitioning::ByDirection byDirection,
+                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
+            {
+                using namespace Neon::domain::tool::partitioning;
+
+                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
+                Neon::SetIdx setIdxVec[2];
+                setIdxVec[Data::EndPoints::dst] = setIdxDst;
+                setIdxVec[Data::EndPoints::src] = setIdxSrc;
+
+                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                  partitions;
+                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> ghostZBeginIdx;
+                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> boundaryZBeginIdx;
+                std::array<Neon::size_4d, Data::EndPointsUtils::nConfigs>                               memPhyDim;
+
+                partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
+                partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+
+                for (auto endPoint : {Data::EndPoints::dst, Data::EndPoints::src}) {
+                    for (auto direction : {ByDirection::down, ByDirection::up}) {
+                        ghostZBeginIdx[endPoint][static_cast<int>(direction)] = mData->grid->mData->partitioner1D.getSpanLayout().getGhostBoundary(setIdxVec[endPoint], direction).first;
+                        boundaryZBeginIdx[endPoint][static_cast<int>(direction)] = mData->grid->mData->partitioner1D.getSpanLayout().getBoundsBoundary(setIdxVec[endPoint], direction).first;
+                    }
+
+                    memPhyDim[endPoint] = Neon::size_4d(
+                        1,
+                        1,
+                        1,
+                        size_t(partitions[endPoint]->mCountAllocated));
+                }
+
+                if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
+                    return;
+                }
+
+                if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
+                    return;
+                }
+
+                for (int j = 0; j < this->getCardinality(); j++) {
+
+                    T* srcMem = partitions[Data::EndPoints::src]->mem();
+                    T* dstMem = partitions[Data::EndPoints::dst]->mem();
+
+                    Neon::size_4d srcBoundaryBuff(boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], 0, 0, j);
+                    Neon::size_4d dstGhostBuff(ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], 0, 0, j);
+                    size_t        transferElementCount = mData->grid->mData->partitioner1D.getSpanLayout().getBoundsBoundary(setIdxVec[Data::EndPoints::src], byDirection).count;
+
+                    //                    std::cout << "To  " << dstGhostBuff << " prt " << partitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff  << std::endl;
+                    //                    std::cout << "dst mem " << partitions[Data::EndPoints::dst]->mem() << " " << std::endl;
+                    //                    std::cout << "dst transferElementCount " << transferElementCount << " " << std::endl;
+                    //                    std::cout << "dst pitch " << (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum() << " " << std::endl;
+                    //                    std::cout << "dst dstGhostBuff " << dstGhostBuff << " " << std::endl;
+                    //                    std::cout << "dst pitch all" << memPhyDim[Data::EndPoints::dst] << " " << std::endl;
+
+                    Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum(), dstGhostBuff},
+                                                       {setIdxSrc, srcMem + (srcBoundaryBuff * memPhyDim[Data::EndPoints::src]).rSum(), srcBoundaryBuff},
+                                                       sizeof(T) *
+                                                           transferElementCount);
+
+
+                    //                    std::cout << transfer.toString() << std::endl;
+                    transfersVec.push_back(transfer);
+                }
+            }
+        });
+
+    mData->aosHaloUpdateTable.forEachPutConfiguration(
+        bk, [&](Neon::SetIdx                                  setIdxSrc,
+                Execution                                     execution,
+                Neon::domain::tool::partitioning::ByDirection byDirection,
+                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
+            {
+                using namespace Neon::domain::tool::partitioning;
+
+                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
+                Neon::SetIdx setIdxVec[2];
+                setIdxVec[Data::EndPoints::dst] = setIdxDst;
+                setIdxVec[Data::EndPoints::src] = setIdxSrc;
+
+                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                  partitions;
+                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> ghostZBeginIdx;
+                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> boundaryZBeginIdx;
+                std::array<Neon::size_4d, Data::EndPointsUtils::nConfigs>                               memPhyDim;
+
+                partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
+                partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+
+                for (auto endPoint : {Data::EndPoints::dst, Data::EndPoints::src}) {
+                    for (auto direction : {ByDirection::down, ByDirection::up}) {
+                        ghostZBeginIdx[endPoint][static_cast<int>(direction)] = mData->grid->mData->partitioner1D.getSpanLayout().getGhostBoundary(setIdxVec[endPoint], direction).first;
+                        boundaryZBeginIdx[endPoint][static_cast<int>(direction)] = mData->grid->mData->partitioner1D.getSpanLayout().getBoundsBoundary(setIdxVec[endPoint], direction).first;
+                    }
+
+                    memPhyDim[endPoint] = Neon::size_4d(
+                        this->getCardinality(),
+                        1,
+                        1,
+                        1);
+                }
+
+
+                T* srcMem = partitions[Data::EndPoints::src]->mem();
+                T* dstMem = partitions[Data::EndPoints::dst]->mem();
+
+                Neon::size_4d srcBoundaryBuff(boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], 0, 0, 0);
+                Neon::size_4d dstGhostBuff(ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], 0, 0, 0);
+                size_t        transferElementCount = mData->grid->mData->partitioner1D.getSpanLayout().getBoundsBoundary(setIdxVec[Data::EndPoints::src], byDirection).count;
+
+                //                    std::cout << "To  " << dstGhostBuff << " prt " << partitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff << "(src dim" << partitions[Data::EndPoints::src]->dim() << ")" << std::endl;
+                //                    std::cout << "dst mem " << partitions[Data::EndPoints::dst]->mem() << " " << std::endl;
+                //                    std::cout << "dst pitch " << (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum() << " " << std::endl;
+                //                    std::cout << "dst dstGhostBuff " << dstGhostBuff << " " << std::endl;
+                //                    std::cout << "dst pitch all" << memPhyDim[Data::EndPoints::dst] << " " << std::endl;
+
+                Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum(), dstGhostBuff},
+                                                   {setIdxSrc, srcMem + (srcBoundaryBuff * memPhyDim[Data::EndPoints::src]).rSum(), srcBoundaryBuff},
+                                                   sizeof(T) *
+                                                       transferElementCount * this->getCardinality());
+                if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
+                    return;
+                }
+
+                if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
+                    return;
+                }
+
+                // std::cout << transfer.toString() << std::endl;
+                transfersVec.push_back(transfer);
+            }
+        });
+    //
+    //    mData->latticeHaloUpdateTable.forEachPutConfiguration(
+    //        bk, [&](Neon::SetIdx                                  setIdxSrc,
+    //                Execution                                     execution,
+    //                Neon::domain::tool::partitioning::ByDirection byDirection,
+    //                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
+    //            {
+    //                using namespace Neon::domain::tool::partitioning;
+    //
+    //                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
+    //                auto&        srcPartition = this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+    //                auto&        dstPartition = this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
+    //
+    //                int r = grid.getStencil().getRadius();
+    //
+    //                int ghostZBeginIdx[2];
+    //                int boundaryZBeginIdx[2];
+    //
+    //                ghostZBeginIdx[static_cast<int>(ByDirection::down)] = 0;
+    //                ghostZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z + r;
+    //
+    //                boundaryZBeginIdx[static_cast<int>(ByDirection::down)] = r;
+    //                boundaryZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z;
+    //
+    //                Neon::size_4d memPitch(1,
+    //                                       grid.getDimension().x,
+    //                                       grid.getDimension().x * grid.getDimension().y,
+    //                                       grid.getDimension().x * grid.getDimension().y * (grid.getDimension().z + 2 * r));
+    //
+    //                for (int j = 0; j < this->getCardinality(); j++) {
+    //
+    //                    T* srcMem = srcPartition.mem();
+    //                    T* dstMem = dstPartition.mem();
+    //
+    //                    Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[static_cast<int>(byDirection)], j);
+    //                    Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[static_cast<int>(byDirection)], j);
+    //
+    //                    Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + dstGhostBuff.mPitch(memPitch)},
+    //                                                       {setIdxSrc, srcMem + srcBoundaryBuff.mPitch(memPitch)},
+    //                                                       grid.getDimension().x * grid.getDimension().y * sizeof(T));
+    //
+    //
+    //                    transfersVec.push_back(transfer);
+    //                }
+    //            }
+    //        });
 }
 
 }  // namespace Neon::domain::details::bGrid

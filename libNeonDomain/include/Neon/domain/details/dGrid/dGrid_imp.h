@@ -78,7 +78,8 @@ dGrid::dGrid(const Neon::Backend&  backend,
 
     {  // Initialization of the span table
         const int setCardinality = getDevSet().setCardinality();
-        mData->spanTable.forEachConfiguration([&](Neon::SetIdx   setIdx,
+        mData->spanTable.forEachConfiguration([&](Neon::Execution,
+                                                  Neon::SetIdx   setIdx,
                                                   Neon::DataView dw,
                                                   dSpan&         span) {
             span.mDataView = dw;
@@ -126,11 +127,13 @@ dGrid::dGrid(const Neon::Backend&  backend,
             }
         });
 
-        mData->elementsPerPartition.forEachConfiguration([&](
-                                                             Neon::SetIdx   setIdx,
-                                                             Neon::DataView dw,
-                                                             int&           count) {
-            count = mData->spanTable.getSpan(Neon::Execution::host,setIdx, dw).mDim.rMul();
+        mData->elementsPerPartition.forEachConfiguration([&](Neon::Execution execution,
+                                                             Neon::SetIdx    setIdx,
+                                                             Neon::DataView  dw,
+                                                             int&            count) {
+            if (Execution::host == execution) {
+                count = mData->spanTable.getSpan(Neon::Execution::host, setIdx, dw).mDim.rMul();
+            }
         });
     }
 

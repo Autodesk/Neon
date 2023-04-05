@@ -9,11 +9,11 @@ NEON_CUDA_HOST_DEVICE  eIndex::eIndex(const eIndex::InternalIdx& idx)
     mIdx = idx;
 }
 
-NEON_CUDA_HOST_DEVICE inline auto eIndex::set() -> InternalIdx&
+NEON_CUDA_HOST_DEVICE inline auto eIndex::helpSet() -> InternalIdx&
 {
     return mIdx;
 }
-NEON_CUDA_HOST_DEVICE inline auto eIndex::get() const -> const InternalIdx&
+NEON_CUDA_HOST_DEVICE inline auto eIndex::helpGet() const -> const InternalIdx&
 {
     return mIdx;
 }

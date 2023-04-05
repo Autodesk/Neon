@@ -115,8 +115,8 @@ ePartition<T, C>::isValidNgh(eIndex  eId,
                              eIndex& neighbourIdx) const
     -> bool
 {
-    const eIndex::Offset connectivityJumo = mCountAllocated * nghIdx + eId.get();
-    neighbourIdx.set() = NEON_CUDA_CONST_LOAD((mConnectivity + connectivityJumo));
+    const eIndex::Offset connectivityJumo = mCountAllocated * nghIdx + eId.helpGet();
+    neighbourIdx.helpSet() = NEON_CUDA_CONST_LOAD((mConnectivity + connectivityJumo));
     const bool isValidNeighbour = (neighbourIdx.mIdx > -1);
     //    printf("(prtId %d) getNghData id %d eIdxNgh %d connectivityJumo %d\n",
     //           mPrtID,
@@ -131,8 +131,8 @@ ePartition<T, C>::getGlobalIndex(eIndex eIndex) const
     -> Neon::index_3d
 {
     Neon::index_3d loc;
-    const auto     baseAddr = mOrigins + eIndex.get();
-    loc = mOrigins[eIndex.get()];
+    const auto     baseAddr = mOrigins + eIndex.helpGet();
+    loc = mOrigins[eIndex.helpGet()];
     return loc;
 }
 
@@ -179,7 +179,7 @@ NEON_CUDA_HOST_DEVICE inline auto
 ePartition<T, C>::getOffset(eIndex eId, int cardinalityIdx) const
     -> Offset
 {
-    return Offset(eId.get() * mPitch.x + cardinalityIdx * mPitch.y);
+    return Offset(eId.helpGet() * mPitch.x + cardinalityIdx * mPitch.y);
 }
 
 template <typename T,

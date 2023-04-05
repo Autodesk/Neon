@@ -10,12 +10,12 @@ inline auto eSpan::setAndValidate(
     const
     -> bool
 {
-    Idx.set() = Idx::InternalIdx(x);
+    Idx.helpSet() = Idx::InternalIdx(x);
 
 
     bool isValid = false;
 
-    if (Idx.get() < mCount) {
+    if (Idx.helpGet() < mCount) {
         isValid = true;
         Idx.mIdx += mFirstIndexOffset;
     }

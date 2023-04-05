@@ -16,6 +16,11 @@
 #include "Neon/domain/tools/SpanTable.h"
 #include "Neon/set/Containter.h"
 
+
+#include "bField.h"
+#include "bPartition.h"
+#include "bSpan.h"
+
 namespace Neon::domain::details::bGrid {
 
 template <typename T, int C>
@@ -94,45 +99,15 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
                              const Neon::index_3d& blockSize,
                              const size_t&         sharedMem) const -> Neon::set::LaunchParameters;
 
-    auto getPartitionIndexSpace(Neon::DeviceType dev,
-                                SetIdx           setIdx,
-                                Neon::DataView   dataView) -> const PartitionIndexSpace&;
+    auto getSpan(Neon::Execution  execution,
+                 SetIdx           setIdx,
+                 Neon::DataView   dataView) -> const Span&;
 
-
-    auto getOrigins() const -> const Neon::set::MemSet<Neon::int32_3d>&;
-    auto getNeighbourBlocks() const -> const Neon::set::MemSet<uint32_t>&;
-    auto getActiveMask() const -> Neon::set::MemSet<uint32_t>&;
-    auto getBlockOriginTo1D() const -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
-
-    // for compatibility with other grids that can work on cub and cublas engine
-    auto setReduceEngine(Neon::sys::patterns::Engine eng) -> void;
-
-    template <typename T>
-    auto newPatternScalar() const -> Neon::template PatternScalar<T>;
-
-    template <typename T>
-    auto dot(const std::string&               name,
-             Field<T>&                        input1,
-             Field<T>&                        input2,
-             Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container;
-
-    template <typename T>
-    auto norm2(const std::string&               name,
-               Field<T>&                        input,
-               Neon::template PatternScalar<T>& scalar) const -> Neon::set::Container;
-
-
-    auto getDimension() const -> const Neon::index_3d;
-
-    auto getNumBlocks() const -> const Neon::set::DataSet<uint64_t>&;
-    auto getBlockSize() const -> int;
-    auto getVoxelSpacing() const -> int;
-    auto getOriginBlock3DIndex(const Neon::int32_3d idx) const -> Neon::int32_3d;
-    auto getStencilNghIndex() const -> const Neon::set::MemSet<NghIdx>&;
-
-    auto getDataBlockSize() const -> int;
-
-
+    auto helpGetDataBlockSize() const -> int;
+    auto helpGetBlockViewGrid() const -> BlockViewGrid&;
+    auto helpGetActiveBitMask() const -> BlockViewGrid::Field<uint64_t, 0>&;
+    auto helpGetBlockConnectivity() const -> BlockViewGrid::Field<BlockIdx, 27>&;
+    auto helpGetDataBlockOriginField() const -> Neon::aGrid::Field<index_3d, 0>&;
 
    private:
     struct Data
@@ -144,7 +119,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         Neon::sys::patterns::Engine       reduceEngine;
 
         Neon::aGrid                     memoryGrid /** memory allocator for fields */;
-        Neon::aGrid::Field<index_3d, 0> mDataBlockToGlobalMappingAField;
+        Neon::aGrid::Field<index_3d, 0> mDataBlockOriginField;
+        Neon::set::MemSet<int8_t>       mStencil3dTo1dOffset;
 
         BlockViewGrid                      blockViewGrid;
         BlockViewGrid::Field<uint64_t, 0>  activeBitMask;
@@ -169,4 +145,5 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
 
 }  // namespace Neon::domain::details::bGrid
 
-#include "Neon/domain/details/bGrid/bGrid_imp.h"
+#include "bField_imp.h"
+#include "bGrid_imp.h"

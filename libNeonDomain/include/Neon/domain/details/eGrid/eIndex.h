@@ -40,10 +40,10 @@ class eIndex
     NEON_CUDA_HOST_DEVICE inline explicit eIndex(const InternalIdx& Idx);
 
     NEON_CUDA_HOST_DEVICE inline auto
-    set() -> InternalIdx&;
+    helpSet() -> InternalIdx&;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    get() const -> const InternalIdx&;
+    helpGet() const -> const InternalIdx&;
 
     InternalIdx mIdx = 0;
 
