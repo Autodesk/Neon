@@ -26,16 +26,8 @@ bField<T, C>::bField(const std::string&         fieldUserName,
                                                                              memoryOptions,
                                                                              Neon::domain::haloStatus_et::e::ON) {
     mData = std::make_shared<Data>(grid.getBackend());
-    mData->dataUse = dataUse;
-    mData->memoryOptions = memoryOptions;
-    mData->cardinality = cardinality;
-    mData->memoryOptions = memoryOptions;
     mData->grid = std::make_shared<Grid>(grid);
-    mData->inactiveValue = inactiveValue;
 
-
-    mData->grid = std::make_shared<bGrid>(grid);
-    mData->mCardinality = cardinality;
 
     int const blockSize = mData->grid->helpGetDataBlockSize();
 
@@ -70,7 +62,8 @@ bField<T, C>::bField(const std::string&         fieldUserName,
                                              grid.helpGetDataBlockSize(),
                                              blockConnectivity.mem(),
                                              bitmask.mem(),
-                                             dataBlockOrigins.mem());
+                                             dataBlockOrigins.mem(),
+                                             mData->grid->helpGetStencilIdTo3dOffset().rawMem(execution, setIdx));
             });
     }
 
@@ -182,6 +175,7 @@ template <typename T, int C>
 auto bField<T, C>::initHaloUpdateTable() -> void
 {
     NEON_THROW_UNSUPPORTED_OPERATION("");
+#if 0
     auto& grid = this->getGrid();
     auto  bk = grid.getBackend();
     auto  getNghSetIdx = [&](SetIdx setIdx, Neon::domain::tool::partitioning::ByDirection direction) {
@@ -374,6 +368,7 @@ auto bField<T, C>::initHaloUpdateTable() -> void
     //                }
     //            }
     //        });
+#endif
 }
 
 }  // namespace Neon::domain::details::bGrid

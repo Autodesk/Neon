@@ -108,6 +108,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
     auto helpGetActiveBitMask() const -> BlockViewGrid::Field<uint64_t, 0>&;
     auto helpGetBlockConnectivity() const -> BlockViewGrid::Field<BlockIdx, 27>&;
     auto helpGetDataBlockOriginField() const -> Neon::aGrid::Field<index_3d, 0>&;
+    auto helpGetStencilIdTo3dOffset() const ->  Neon::set::MemSet<Neon::int8_3d>&;
 
    private:
     struct Data
@@ -126,6 +127,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         BlockViewGrid::Field<uint64_t, 0>  activeBitMask;
         BlockViewGrid::Field<BlockIdx, 27> blockConnectivity;
 
+        Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
 
         tool::Partitioner1D::DenseMeta denseMeta;
 

@@ -38,13 +38,18 @@ struct GridTransformation
     using Partition = BlockViewPartition<T, C>;
     using Span = Neon::domain::details::eGrid::eSpan;
     using FoundationGrid = Neon::domain::details::eGrid::eGrid;
+    static constexpr Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport = Neon::set::internal::ContainerAPI::DataViewSupport::on;
+    static auto getDefaultBlock(FoundationGrid& foundationGrid) -> Neon::index_3d const&
+    {
+        return foundationGrid.getDefaultBlock();
+    }
 
     static auto initSpan(FoundationGrid& foundationGrid, Neon::domain::tool::SpanTable<Span>& spanTable) -> void
     {
         spanTable.forEachConfiguration([&](Neon::Execution execution,
-                                           Neon::SetIdx   setIdx,
-                                           Neon::DataView dw,
-                                           Span&          span) {
+                                           Neon::SetIdx    setIdx,
+                                           Neon::DataView  dw,
+                                           Span&           span) {
             span = foundationGrid.getSpan(execution, setIdx, dw);
         });
     }

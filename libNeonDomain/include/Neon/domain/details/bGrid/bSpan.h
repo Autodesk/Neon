@@ -27,10 +27,10 @@ class bSpan
         return std::numeric_limits<uint32_t>::max();
     }
 
-    bSpan(Idx::DataBlockCount     mFirstDataBlockOffset,
-          uint32_t                mDataBlockSize,
-          bSpan::bitMaskWordType* mActiveMask,
-          Neon::DataView          mDataView);
+    inline bSpan(Idx::DataBlockCount     mFirstDataBlockOffset,
+                 uint32_t                mDataBlockSize,
+                 bSpan::bitMaskWordType* mActiveMask,
+                 Neon::DataView          mDataView);
 
     NEON_CUDA_HOST_DEVICE inline auto setAndValidateCPUDevice(bIndex&         bidx,
                                                               uint32_t const& threadIdx,

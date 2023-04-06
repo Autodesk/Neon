@@ -22,6 +22,15 @@ TEST(domain_unit_test_globalIdx, eGrid)
                             1);
 }
 
+TEST(domain_unit_test_globalIdx, bGrid)
+{
+    int nGpus = 3;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(globalIdx::run<Neon::bGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

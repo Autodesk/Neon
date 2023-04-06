@@ -19,6 +19,7 @@ class bPartition
     using Index = bIndex;
     using NghIdx = Index::NghIdx;
     using Type = T;
+    using NghData = Neon::domain::NghData<T>;
 
    public:
     bPartition();
@@ -46,12 +47,12 @@ class bPartition
     NEON_CUDA_HOST_DEVICE inline auto nghVal(const Index&  cell,
                                              const NghIdx& offset,
                                              const int     card,
-                                             const T       alternativeVal) const -> NghData<T>;
+                                             const T       alternativeVal) const -> NghData;
 
     NEON_CUDA_HOST_DEVICE inline auto nghVal(const Index& eId,
                                              uint8_t      nghID,
                                              int          card,
-                                             const T&     alternativeVal) const -> NghData<T>;
+                                             const T&     alternativeVal) const -> NghData;
 
     NEON_CUDA_HOST_DEVICE inline Neon::index_3d mapToGlobal(const Index& cell) const;
 

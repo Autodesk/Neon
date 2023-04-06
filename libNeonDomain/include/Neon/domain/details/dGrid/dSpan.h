@@ -14,7 +14,9 @@ class dSpan
     using Idx = dIndex;
     friend class dGrid;
 
-    static constexpr int SpaceDim = 3;
+    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d3;
+    using ExecutionThreadSpanIndexType = int32_t;
+
 
     NEON_CUDA_HOST_DEVICE inline auto
     setAndValidate(Idx&            idx,

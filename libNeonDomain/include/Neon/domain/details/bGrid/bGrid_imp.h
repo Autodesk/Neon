@@ -136,7 +136,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                     };
                 },
                 Neon::Execution::host)
-            .run();
+            .run(Neon::Backend::mainStreamIdx);
 
         mData->activeBitMask.updateDeviceData(Neon::Backend::mainStreamIdx);
         mData->activeBitMask.newHaloUpdate(Neon::set::StencilSemantic::standard,
@@ -214,6 +214,21 @@ bGrid::bGrid(const Neon::Backend&         backend,
         }
     });
 
+    {  // Stencil Idx to 3d offset
+        auto nPoints = backend.devSet().newDataSet<uint64_t>(stencil.nNeighbours());
+        mData->stencilIdTo3dOffset = backend.devSet().template newMemSet<int8_3d>(Neon::DataUse::HOST_DEVICE,
+                                                                                  1,
+                                                                                  backend.getMemoryOptions(),
+                                                                                  nPoints);
+        for (int i = 0; i < stencil.nNeighbours(); ++i) {
+            for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
+                index_3d      pLong = stencil.neighbours()[i];
+                Neon::int8_3d pShort(pLong.x, pLong.y, pLong.z);
+                mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
+            }
+        }
+        mData->stencilIdTo3dOffset.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
+    }
     // Init the base grid
     bGrid::GridBase::init("bGrid",
                           backend,
@@ -233,7 +248,7 @@ auto bGrid::newField(const std::string          name,
                      Neon::DataUse              dataUse,
                      const Neon::MemoryOptions& memoryOptions) const -> Field<T, C>
 {
-    Field<T, C> field(name, *this, cardinality, inactiveValue, dataUse, memoryOptions, Neon::domain::haloStatus_et::ON);
+    Field<T, C> field(name, dataUse, memoryOptions, *this, cardinality, inactiveValue);
     return field;
 }
 

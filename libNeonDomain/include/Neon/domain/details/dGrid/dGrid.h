@@ -53,6 +53,9 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     using Span = dSpan;
     using NghIdx = typename Partition<int>::NghIdx;
 
+    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Span::executionThreadSpan;
+    using ExecutionThreadSpanIndexType = dSpan::ExecutionThreadSpanIndexType;
+
     template <typename T, int CardinalityTa>
     friend class dField;
 

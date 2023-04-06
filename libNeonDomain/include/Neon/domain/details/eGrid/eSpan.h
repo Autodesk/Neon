@@ -13,7 +13,8 @@ class eSpan
 
    public:
     using Idx = eIndex;
-    static constexpr int SpaceDim = 1;
+    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1;
+    using ExecutionThreadSpanIndexType = int32_t;
 
     NEON_CUDA_HOST_DEVICE
     inline auto setAndValidate(Idx&            idx,

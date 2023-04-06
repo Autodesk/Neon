@@ -53,6 +53,8 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
 
     using Span = eSpan;
     using NghIdx = typename Partition<int>::NghIdx;
+    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Span::executionThreadSpan;
+    using ExecutionThreadSpanIndexType = Span::ExecutionThreadSpanIndexType;
 
     template <typename T, int CardinalityTa>
     friend class eField;

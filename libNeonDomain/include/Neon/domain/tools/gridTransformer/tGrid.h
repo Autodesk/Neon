@@ -76,12 +76,14 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     auto newContainer(const std::string& name,
                       index_3d           blockSize,
                       size_t             sharedMem,
-                      LoadingLambda      lambda) const
+                      LoadingLambda      lambda,
+                      Neon::Execution    execution) const
         -> Neon::set::Container;
 
     template <typename LoadingLambda>
     auto newContainer(const std::string& name,
-                      LoadingLambda      lambda)
+                      LoadingLambda      lambda,
+                      Neon::Execution execution)
         const
         -> Neon::set::Container;
 

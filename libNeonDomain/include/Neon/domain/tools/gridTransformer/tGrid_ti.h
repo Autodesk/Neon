@@ -69,17 +69,16 @@ auto tGrid<GridTransformation>::newField(const std::string&  fieldUserName,
     Neon::Backend& bk = mData->foundationGrid.getBackend();
     memoryOptions = bk.devSet().sanitizeMemoryOption(memoryOptions);
 
-    const auto haloStatus = Neon::domain::haloStatus_et::ON;
-
     if (C != 0 && cardinality != C) {
         NeonException exception("tGrid::newField Dynamic and static cardinality do not match.");
         NEON_THROW(exception);
     }
 
-    typename FoundationGrid::template Field<T, C> fieldFoundation(fieldUserName,
-                                                                  cardinality,
-                                                                  inactiveValue,
-                                                                  dataUse, memoryOptions);
+    typename FoundationGrid::template Field<T, C> fieldFoundation = mData->foundationGrid.template newField<T, C>(fieldUserName,
+                                                                                                                  cardinality,
+                                                                                                                  inactiveValue,
+                                                                                                                  dataUse,
+                                                                                                                  memoryOptions);
     Field<T, C>                                   field(fieldFoundation);
     return field;
 }
@@ -89,7 +88,8 @@ template <typename LoadingLambda>
 auto tGrid<GridTransformation>::newContainer(const std::string& name,
                                              index_3d           blockSize,
                                              size_t             sharedMem,
-                                             LoadingLambda      lambda) const
+                                             LoadingLambda      lambda,
+                                             Neon::Execution    execution) const
     -> Neon::set::Container
 {
     const Neon::index_3d&                              defaultBlockSize = GridTransformation::getDefaultBlock(mData->foundationGrid);
@@ -97,6 +97,7 @@ auto tGrid<GridTransformation>::newContainer(const std::string& name,
         GridTransformation::dataViewSupport;
 
     Neon::set::Container kContainer = Neon::set::Container::factory(name,
+                                                                    execution,
                                                                     dataViewSupport,
                                                                     *this,
                                                                     lambda,
@@ -108,15 +109,16 @@ auto tGrid<GridTransformation>::newContainer(const std::string& name,
 template <typename GridTransformation>
 template <typename LoadingLambda>
 auto tGrid<GridTransformation>::newContainer(const std::string& name,
-                                             LoadingLambda      lambda)
+                                             LoadingLambda      lambda,
+                                             Neon::Execution    execution)
     const
     -> Neon::set::Container
 {
     const Neon::index_3d&                              defaultBlockSize = GridTransformation::getDefaultBlock(mData->foundationGrid);
-    Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport =
-        GridTransformation::dataViewSupport;
+    Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport = GridTransformation::dataViewSupport;
 
     Neon::set::Container kContainer = Neon::set::Container::factory(name,
+                                                                    execution,
                                                                     dataViewSupport,
                                                                     *this,
                                                                     lambda,
@@ -162,6 +164,7 @@ auto tGrid<GridTransformation>::operator=(const tGrid& other)
     -> tGrid&
 {
     mData = other.mData;
+    return *this;
 }
 
 template <typename GridTransformation>
@@ -169,5 +172,6 @@ auto tGrid<GridTransformation>::operator=(tGrid&& other) noexcept
     -> tGrid&
 {
     mData = std::move(other.mData);
+    return *this;
 }
 }  // namespace Neon::domain::tool::details

@@ -10,7 +10,7 @@ namespace denseSpan {
 template <typename DataSetContainer,
           typename UserLambda>
 NEON_CUDA_KERNEL auto execLambdaIteratorCUDA(typename DataSetContainer::Span span,
-                                              UserLambda                      userLambdaTa)
+                                             UserLambda                      userLambdaTa)
     -> void
 {
     typename DataSetContainer::Idx e;
@@ -42,9 +42,9 @@ NEON_CUDA_KERNEL auto execLambdaIteratorCUDA(typename DataSetContainer::Span spa
 template <typename IndexType,
           typename DataSetContainer,
           typename UserLambda_ta>
-void execLambdaIteratorOMP(const Neon::Integer_3d<IndexType>& gridDim,
-                           typename DataSetContainer::Span    span,
-                           UserLambda_ta                      userLambdaTa)
+void execLambdaIteratorOMP(Neon::Integer_3d<IndexType> const&     gridDim,
+                           typename DataSetContainer::Span const& span,
+                           UserLambda_ta                          userLambdaTa)
 {
     if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1) {
 #ifdef NEON_OS_WINDOWS
@@ -120,14 +120,14 @@ NEON_CUDA_KERNEL auto execLambdaIteratorCUDA(typename DataSetContainer::Span spa
 
 template <typename IndexType, typename DataSetContainer, typename UserLambda_ta>
 void execLambdaIteratorOMP(const Neon::Integer_3d<IndexType>& blockSize,
-                           const Neon::Integer_3d<IndexType>& gridSize,
+                           const Neon::Integer_3d<IndexType>& blockGridSize,
                            typename DataSetContainer::Span    span,
                            UserLambda_ta                      userLambdaTa)
 {
 
     if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1b3) {
 #pragma omp parallel for schedule(guided)
-        for (IndexType bIdx = 0; bIdx < gridSize.x; bIdx++) {
+        for (IndexType bIdx = 0; bIdx < blockGridSize.x; bIdx++) {
             for (IndexType z = 0; z < blockSize.z; z++) {
                 for (IndexType y = 0; y < blockSize.y; y++) {
 #ifndef NEON_OS_WINDOWS

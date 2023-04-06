@@ -166,7 +166,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
                 mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
             }
         }
-        // mData->stencilIdTo3dOffset.updateCompute(backend, Neon::Backend::mainStreamIdx);
+        mData->stencilIdTo3dOffset.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
     }
 
     {  // Init base class information

@@ -19,15 +19,22 @@ bPartition<T, C>::bPartition()
 
 template <typename T, int C>
 bPartition<T, C>::
-    bPartition(int setIdx, int cardinality, T* mem, uint32_3d blockSize, bIndex::DataBlockIdx* blockConnectivity, bSpan::bitMaskWordType* mask, Neon::int32_3d* origin, NghIdx* stencilNghIndex)
-    : mSetIdx(setIdx),
-      mCardinality(cardinality),
+    bPartition(int                     setIdx,
+               int                     cardinality,
+               T*                      mem,
+               uint32_3d               blockSize,
+               bIndex::DataBlockIdx*   blockConnectivity,
+               bSpan::bitMaskWordType* mask,
+               Neon::int32_3d*         origin,
+               NghIdx*                 stencilNghIndex)
+    : mCardinality(cardinality),
       mMem(mem),
+      mStencilNghIndex(stencilNghIndex),
       mBlockSizeByPower(blockSize),
       mBlockConnectivity(blockConnectivity),
       mMask(mask),
       mOrigin(origin),
-      mStencilNghIndex(stencilNghIndex)
+      mSetIdx(setIdx)
 {
 }
 
@@ -225,7 +232,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
            uint8_t      nghID,
            int          card,
            const T&     alternativeVal)
-        const -> NghData<T>
+        const -> NghData
 {
     NghIdx nghOffset = mStencilNghIndex[nghID];
     return nghVal(eId, nghOffset, card, alternativeVal);
@@ -237,10 +244,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
            const NghIdx& offset,
            const int     card,
            const T       alternativeVal)
-        const -> NghData<T>
+        const -> NghData
 {
-    NghData<T> result;
-    bIndex     nghIdx = helpGetNghIdx(idx, offset);
+    NghData result;
+    bIndex  nghIdx = helpGetNghIdx(idx, offset);
     auto [isValid, pitch] = helpNghPitch(nghIdx, card);
     if (!isValid) {
         result.set(alternativeVal, false);

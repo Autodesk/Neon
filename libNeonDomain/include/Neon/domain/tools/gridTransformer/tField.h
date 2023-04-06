@@ -46,10 +46,9 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
    private:
     explicit tField(FoundationField foundationField)
     {
-        Neon::Backend& bk = foundationField.getGrid.getBackend();
+//        Neon::Backend const & bk = foundationField.getGrid().getBackend();
         mData->foundationField = foundationField;
         GridTransformation::initFieldPartition(mData->foundationField, NEON_OUT mData->partitions);
-        NEON_DEV_UNDER_CONSTRUCTION("");
     }
 
    public:
@@ -113,7 +112,7 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Partition& final
     {
-        auto& partition = mData->partitions.getPartition(execution, dataView, setIdx);
+        auto& partition = mData->partitions.getPartition(execution, setIdx, dataView);
         return partition;
     }
 
