@@ -173,6 +173,9 @@ class Partitioner1D
     auto getSpanLayout()
         const -> partitioning::SpanLayout const&;
 
+    auto getDecomposition()
+        const -> partitioning::SpanDecomposition const&;
+
     auto getGlobalMapping()
         -> Neon::aGrid::Field<Neon::int32_3d, 0>&
     {

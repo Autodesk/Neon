@@ -30,7 +30,6 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
 {
    public:
     using Grid = bGrid;
-    using Cell = bIndex;
 
     template <typename T, int C = 0>
     using Partition = bPartition<T, C>;
@@ -41,10 +40,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
     using NghIdx = typename Partition<int>::NghIdx;
     using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>;
 
+    using Idx = bIndex;
+    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1b3;
+    using ExecutionThreadSpanIndexType = uint32_t;
+
     using BlockIdx = uint32_t;
 
     bGrid() = default;
-    virtual ~bGrid(){};
+    virtual ~bGrid();
 
     /**
      * Constructor for the vanilla block data structure with depth of 1
@@ -85,14 +88,16 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         -> Field<T, C>;
 
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       index_3d           blockSize,
                       size_t             sharedMem,
-                      LoadingLambda      lambda) const -> Neon::set::Container;
+                      LoadingLambda      lambda,
+                      Neon::Execution    execution) const -> Neon::set::Container;
 
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
-                      LoadingLambda      lambda) const -> Neon::set::Container;
+    auto newContainer(const std::string& name,
+                      LoadingLambda      lambda,
+                      Neon::Execution    execution) const -> Neon::set::Container;
 
 
     auto getLaunchParameters(Neon::DataView        dataView,
@@ -128,6 +133,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         BlockViewGrid::Field<BlockIdx, 27> blockConnectivity;
 
         Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
+        std::array<Neon::set::LaunchParameters, Neon::DataViewUtil::nConfig> launchParameters;
 
         tool::Partitioner1D::DenseMeta denseMeta;
 

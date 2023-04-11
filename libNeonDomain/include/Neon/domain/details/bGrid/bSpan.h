@@ -32,12 +32,12 @@ class bSpan
                  bSpan::bitMaskWordType* mActiveMask,
                  Neon::DataView          mDataView);
 
-    NEON_CUDA_HOST_DEVICE inline auto setAndValidateCPUDevice(bIndex&         bidx,
-                                                              uint32_t const& threadIdx,
-                                                              uint32_t const& threadBlockSize,
-                                                              uint32_t const& x,
-                                                              uint32_t const& y,
-                                                              uint32_t const& z) const -> bool;
+    NEON_CUDA_HOST_DEVICE inline auto setAndValidateCPUDevice(bIndex&                bidx,
+                                                              uint32_t const&        threadIdx,
+                                                              Neon::uint32_3d const& threadBlockSize,
+                                                              uint32_t const&        x,
+                                                              uint32_t const&        y,
+                                                              uint32_t const&        z) const -> bool;
 
     NEON_CUDA_HOST_DEVICE inline auto setAndValidateGPUDevice(
         bIndex& bidx) const -> bool;

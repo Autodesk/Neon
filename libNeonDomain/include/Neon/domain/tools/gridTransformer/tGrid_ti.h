@@ -42,11 +42,12 @@ auto tGrid<GridTransformation>::
 
 template <typename GridTransformation>
 auto tGrid<GridTransformation>::
-    getSpan(SetIdx         setIdx,
-            Neon::DataView dataView)
+    getSpan(Neon::Execution execution,
+            SetIdx          setIdx,
+            Neon::DataView  dataView)
         -> const Span&
 {
-    return mData->spanTable.getSpan(setIdx, dataView);
+    return mData->spanTable.getSpan(execution, setIdx, dataView);
 }
 
 template <typename GridTransformation>
@@ -131,14 +132,14 @@ template <typename GridTransformation>
 auto tGrid<GridTransformation>::isInsideDomain(const Neon::index_3d& idx) const
     -> bool
 {
-    return mData->foundationGrid.isInsideDomain();
+    return mData->foundationGrid.isInsideDomain(idx);
 }
 
 template <typename GridTransformation>
 auto tGrid<GridTransformation>::getProperties(const Neon::index_3d& idx) const
     -> typename GridBaseTemplate::CellProperties
 {
-    return mData->foundationGrid.getProperties();
+    return mData->foundationGrid.getProperties(idx);
 }
 
 template <typename GridTransformation>

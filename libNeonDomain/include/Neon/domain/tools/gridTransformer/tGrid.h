@@ -40,6 +40,10 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     using Partition = typename GridTransformation::template Partition<T, card>;
     using Span = typename GridTransformation::Span;
 
+    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = GridTransformation::executionThreadSpan;
+    using ExecutionThreadSpanIndexType = GridTransformation::ExecutionThreadSpanIndexType;
+    using Idx = GridTransformation::Idx;
+
    private:
     using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<tGrid<GridTransformation>,
                                                                        typename GridTransformation::FoundationGrid::Idx>;
@@ -60,8 +64,9 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
                              const size_t&         shareMem) const
         -> Neon::set::LaunchParameters;
 
-    auto getSpan(SetIdx         setIdx,
-                 Neon::DataView dataView)
+    auto getSpan(Neon::Execution execution,
+                 SetIdx          setIdx,
+                 Neon::DataView  dataView)
         -> const Span&;
 
     template <typename T, int C = 0>
@@ -83,7 +88,7 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     template <typename LoadingLambda>
     auto newContainer(const std::string& name,
                       LoadingLambda      lambda,
-                      Neon::Execution execution)
+                      Neon::Execution    execution)
         const
         -> Neon::set::Container;
 

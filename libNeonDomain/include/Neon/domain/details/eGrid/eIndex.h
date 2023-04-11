@@ -31,22 +31,21 @@ class eIndex
     using Count = int32_t;
     using ePitch = Neon::Integer_2d<Offset>;
 
-    NEON_CUDA_HOST_DEVICE inline  auto manualSet(InternalIdx idx )->void;
+    NEON_CUDA_HOST_DEVICE inline auto
+    manualSet(InternalIdx idx) -> void;
 
     eIndex() = default;
 
-   private:
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGet() const -> const InternalIdx&;
 
+   private:
     NEON_CUDA_HOST_DEVICE inline explicit eIndex(const InternalIdx& Idx);
 
     NEON_CUDA_HOST_DEVICE inline auto
     helpSet() -> InternalIdx&;
 
-    NEON_CUDA_HOST_DEVICE inline auto
-    helpGet() const -> const InternalIdx&;
-
     InternalIdx mIdx = 0;
-
 };
 
 enum class ComDirection : uint32_t

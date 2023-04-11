@@ -15,4 +15,9 @@ auto Partitioner1D::getSpanLayout()
     return *(mData->mSpanLayout);
 }
 
+auto Partitioner1D::getDecomposition() const -> partitioning::SpanDecomposition const&
+{
+    return *(mData->spanDecomposition.get());
+}
+
 }  // namespace Neon::domain::tools

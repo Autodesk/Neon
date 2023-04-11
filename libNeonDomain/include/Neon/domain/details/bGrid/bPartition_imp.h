@@ -9,11 +9,12 @@ template <typename T, int C>
 bPartition<T, C>::bPartition()
     : mCardinality(0),
       mMem(nullptr),
-      mBlockSizeByPower(0, 0, 0),
+      mStencilNghIndex(),
+      mBlockSizeByPower(),
       mBlockConnectivity(nullptr),
       mMask(nullptr),
-      mOrigin(nullptr),
-      mStencilNghIndex(nullptr)
+      mOrigin(0),
+      mSetIdx(0)
 {
 }
 
@@ -40,7 +41,7 @@ bPartition<T, C>::
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
-    mapToGlobal(const Index& cell)
+    getGlobalIndex(const Index& cell)
         const -> Neon::index_3d
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
@@ -92,7 +93,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::
     uint32_t const inBlockInCardPitch = threadIdx.x +
                                         mBlockSizeByPower.v[0] * threadIdx.y +
                                         mBlockSizeByPower.v[1] * threadIdx.z;
-    uint32_t const blockAdnCardPitch = (cell.mDataBlockIdx * mCardinality + card) * blockPitchByCard;
+    uint32_t const blockAdnCardPitch = (idx.mDataBlockIdx * mCardinality + card) * blockPitchByCard;
     uint32_t const pitch = blockAdnCardPitch + inBlockInCardPitch;
     return pitch;
 #else

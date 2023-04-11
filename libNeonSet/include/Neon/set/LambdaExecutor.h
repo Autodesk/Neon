@@ -108,9 +108,7 @@ NEON_CUDA_KERNEL auto execLambdaIteratorCUDA(typename DataSetContainer::Span spa
 {
     typename DataSetContainer::Idx e;
     if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1b3) {
-        if (span.setAndValidate(e,
-                                blockIdx.x,
-                                threadIdx.x, threadIdx.y, threadIdx.z)) {
+        if (span.setAndValidateGPUDevice(e)) {
             userLambdaTa(e);
         }
     }
@@ -135,7 +133,7 @@ void execLambdaIteratorOMP(const Neon::Integer_3d<IndexType>& blockSize,
 #endif
                     for (IndexType x = 0; x < blockSize.x; x++) {
                         typename DataSetContainer::Idx e;
-                        if (span.setAndValidate(e, x, y, z)) {
+                        if (span.setAndValidateCPUDevice(e, bIdx, blockGridSize, x, y, z)) {
                             userLambdaTa(e);
                         }
                     }

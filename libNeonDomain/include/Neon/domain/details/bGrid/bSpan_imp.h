@@ -25,7 +25,7 @@ bSpan::setAndValidateGPUDevice([[maybe_unused]] bIndex& bidx) const -> bool
 NEON_CUDA_HOST_DEVICE inline auto
 bSpan::setAndValidateCPUDevice(bIndex&         bidx,
                                uint32_t const& threadIdx,
-                               uint32_t const& threadBlockSize,
+                               Neon::uint32_3d const& threadBlockSize,
                                uint32_t const& x,
                                uint32_t const& y,
                                uint32_t const& z) const -> bool
@@ -38,7 +38,7 @@ bSpan::setAndValidateCPUDevice(bIndex&         bidx,
 
     bool const isActive = getActiveStatus(bidx.mDataBlockIdx,
                                           bidx.mInDataBlockIdx.x, bidx.mInDataBlockIdx.y, bidx.mInDataBlockIdx.z,
-                                          mActiveMask, threadBlockSize);
+                                          mActiveMask, threadBlockSize.x);
     return isActive;
 }
 

@@ -473,11 +473,14 @@ class DevSet
                 }
             } else {
                 for (int idx = 0; idx < nGpus; idx++) {
-                    auto   iterator = dataSetContainer.getSpan(idx, kernelConfig.dataView());
+                    auto   iterator = dataSetContainer.getSpan(execution, idx, kernelConfig.dataView());
                     Lambda lambda = lambdaHolder(idx, kernelConfig.dataView());
                     using IndexType = typename DataSetContainer::ExecutionThreadSpanIndexType;
-                    const Neon::Integer_3d<IndexType> blockSize(launchInfoSet[idx].cudaBlock());
-                    const Neon::Integer_3d<IndexType> gridSize(launchInfoSet[idx].cudaGrid());
+
+                    auto const& cudaBlock = launchInfoSet[idx].cudaBlock();
+                    auto const& cudaGrid = launchInfoSet[idx].cudaGrid();
+                    const Neon::Integer_3d<IndexType> blockSize(cudaBlock.x, cudaBlock.y, cudaBlock.z);
+                    const Neon::Integer_3d<IndexType> gridSize(cudaGrid.x, cudaGrid.y, cudaGrid.z);
 
                     Neon::set::details::blockSpan::execLambdaIteratorOMP<IndexType,
                                                                          DataSetContainer,
@@ -503,24 +506,27 @@ class DevSet
             NEON_THROW(exp);
         }
         const LaunchParameters& launchInfoSet = kernelConfig.launchInfoSet();
+        auto   iterator = dataSetContainer.getSpan(execution,
+                                                                    setIdx,
+                                                                    kernelConfig.dataView());
+        Lambda lambda = lambdaHolder(setIdx, kernelConfig.dataView());
+
         if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
-            auto   iterator = dataSetContainer.getSpan(execution, setIdx,
-                                                       kernelConfig.dataView());
-            Lambda lambda = lambdaHolder(setIdx, kernelConfig.dataView());
             using IndexType = typename DataSetContainer::ExecutionThreadSpanIndexType;
             Neon::set::details::denseSpan::execLambdaIteratorOMP<IndexType,
                                                                  DataSetContainer,
                                                                  Lambda>(launchInfoSet[setIdx].domainGrid().newType<IndexType>(), iterator, lambda);
         } else {
-            auto   iterator = dataSetContainer.getSpan(setIdx, kernelConfig.dataView());
-            Lambda lambda = lambdaHolder(setIdx, kernelConfig.dataView());
             using IndexType = typename DataSetContainer::ExecutionThreadSpanIndexType;
-            const Neon::Integer_3d<IndexType> blockSize(launchInfoSet[setIdx].cudaBlock());
-            const Neon::Integer_3d<IndexType> blockGridSize(launchInfoSet[setIdx].cudaGrid());
+
+            auto const& cudaBlock = launchInfoSet[setIdx].cudaBlock();
+            auto const& cudaGrid = launchInfoSet[setIdx].cudaGrid();
+            const Neon::Integer_3d<IndexType> blockSize(cudaBlock.x, cudaBlock.y, cudaBlock.z);
+            const Neon::Integer_3d<IndexType> gridSize(cudaGrid.x, cudaGrid.y, cudaGrid.z);
 
             Neon::set::details::blockSpan::execLambdaIteratorOMP<IndexType,
                                                                  DataSetContainer,
-                                                                 Lambda>(blockSize, blockGridSize, iterator, lambda);
+                                                                 Lambda>(blockSize, gridSize, iterator, lambda);
         }
         return;
     }

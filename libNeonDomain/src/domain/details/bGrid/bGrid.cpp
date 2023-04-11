@@ -35,11 +35,30 @@ auto bGrid::
 {
     return mData->mDataBlockOriginField;
 }
-auto bGrid::getSpan(Neon::Execution  execution,
-                    SetIdx           setIdx,
-                    Neon::DataView   dataView) -> const bGrid::Span&
+auto bGrid::getSpan(Neon::Execution execution,
+                    SetIdx          setIdx,
+                    Neon::DataView  dataView) -> const bGrid::Span&
 {
     return mData->spanTable.getSpan(execution, setIdx, dataView);
+}
+
+bGrid::~bGrid()
+{
+}
+auto bGrid::getSetIdx(const index_3d& idx) const -> int32_t
+{
+    auto const& decomposition = mData->partitioner1D.getDecomposition();
+    decomposition.getSetIdx(const index_3d& idx);
+}
+auto bGrid::getLaunchParameters(Neon::DataView dataView,
+                                const index_3d&,
+                                const size_t& sharedMem) const -> Neon::set::LaunchParameters
+{
+    auto res = mData->launchParameters[Neon::DataViewUtil::toInt(dataView)];
+    res.forEachSeq([&](SetIdx const& setIdx, Neon::set::LaunchParameters::launchInfo_e& launchParams) -> void {
+        launchParams.setShm(sharedMem)
+    });
+    return mData->launchParameters[Neon::DataViewUtil::toInt(dataView)];
 }
 
 }  // namespace Neon::domain::details::bGrid

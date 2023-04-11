@@ -36,7 +36,7 @@ struct DataTransferContainer
     }
 
     auto run(int            streamIdx,
-             Neon::DataView dataView) -> void override
+             Neon::DataView /*dataView*/) -> void override
     {
         const Neon::Backend& bk = mMultiXpuData.getBackend();
 

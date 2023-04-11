@@ -49,8 +49,8 @@ bField<T, C>::bField(const std::string&         fieldUserName,
         mData->partitionTable.forEachConfiguration(
             [&](Neon::Execution execution,
                 Neon::SetIdx    setIdx,
-                Neon::DataView ,
-                Partition&      partition) {
+                Neon::DataView,
+                Partition& partition) {
                 auto& memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, Neon::DataView::STANDARD);
                 auto& blockConnectivity = mData->grid->helpGetBlockConnectivity().getPartition(execution, setIdx, Neon::DataView::STANDARD);
                 auto& bitmask = mData->grid->helpGetActiveBitMask().getPartition(execution, setIdx, Neon::DataView::STANDARD);
@@ -77,8 +77,8 @@ auto bField<T, C>::isInsideDomain(const Neon::index_3d& idx) const -> bool
 }
 
 template <typename T, int C>
-auto bField<T, C>::getRef(const Neon::index_3d& idx,
-                          const int&            cardinality) const -> T&
+auto bField<T, C>::getRef(const Neon::index_3d& /*idx*/,
+                          const int&            /*cardinality*/) const -> T&
 {
     //    // TODO need to figure out which device owns this block
     //    SetIdx devID(0);
@@ -122,21 +122,14 @@ auto bField<T, C>::getReference(const Neon::index_3d& idx,
 template <typename T, int C>
 auto bField<T, C>::updateHostData(int streamId) -> void
 {
-
-    if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {
-        mData->mem.updateHostData(mData->grid->getBackend(), streamId);
-    }
+    mData->memoryField.updateHostData(streamId);
 }
 
 template <typename T, int C>
 auto bField<T, C>::updateDeviceData(int streamId) -> void
 {
-
-    if (mData->grid->getBackend().devType() == Neon::DeviceType::CUDA) {
-        mData->mem.updateDeviceData(mData->grid->getBackend(), streamId);
-    }
+    mData->memoryField.updateDeviceData(streamId);
 }
-
 
 template <typename T, int C>
 auto bField<T, C>::getPartition(Neon::Execution       execution,
@@ -162,7 +155,7 @@ auto bField<T, C>::getPartition(Neon::Execution       execution,
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        Partition const& result = mData->partitionTable.getPartition(execution, setIdx, dataView);
+        Partition& result = mData->partitionTable.getPartition(execution, setIdx, dataView);
         return result;
     }
     std::stringstream message;

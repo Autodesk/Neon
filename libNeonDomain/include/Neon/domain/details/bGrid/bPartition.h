@@ -35,32 +35,54 @@ class bPartition
                         Neon::int32_3d*         mOrigin,
                         NghIdx*                 mStencilNghIndex);
 
-    inline NEON_CUDA_HOST_DEVICE auto cardinality() const -> int;
+    inline NEON_CUDA_HOST_DEVICE auto
+    cardinality()
+        const -> int;
 
-    inline NEON_CUDA_HOST_DEVICE auto operator()(const bIndex& cell,
-                                                 int           card)
+    inline NEON_CUDA_HOST_DEVICE auto
+    operator()(const bIndex& cell,
+               int           card)
         -> T&;
 
-    inline NEON_CUDA_HOST_DEVICE auto operator()(const bIndex& cell,
-                                                 int           card) const -> const T&;
+    inline NEON_CUDA_HOST_DEVICE auto
+    operator()(const bIndex& cell,
+               int           card)
+        const -> const T&;
 
-    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Index&  cell,
-                                             const NghIdx& offset,
-                                             const int     card,
-                                             const T       alternativeVal) const -> NghData;
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghVal(const Index&  cell,
+           const NghIdx& offset,
+           const int     card,
+           const T       alternativeVal)
+        const -> NghData;
 
-    NEON_CUDA_HOST_DEVICE inline auto nghVal(const Index& eId,
-                                             uint8_t      nghID,
-                                             int          card,
-                                             const T&     alternativeVal) const -> NghData;
+    NEON_CUDA_HOST_DEVICE inline auto
+    nghVal(const Index& eId,
+           uint8_t      nghID,
+           int          card,
+           const T&     alternativeVal)
+        const -> NghData;
 
-    NEON_CUDA_HOST_DEVICE inline Neon::index_3d mapToGlobal(const Index& cell) const;
+    NEON_CUDA_HOST_DEVICE inline auto
+    getGlobalIndex(const Index& cell)
+        const -> Neon::index_3d;
 
    protected:
-    NEON_CUDA_HOST_DEVICE inline auto helpGetPitch(const Index& cell, int card) const -> uint32_t;
-    NEON_CUDA_HOST_DEVICE inline auto helpGetValidIdxPitchExplicit(const Index& idx, int card) const -> uint32_t;
-    NEON_CUDA_HOST_DEVICE inline auto helpNghPitch(const Index& nghIdx, int card) const -> std::tuple<bool, uint32_t>;
-    NEON_CUDA_HOST_DEVICE inline auto helpGetNghIdx(const Index& idx, const NghIdx& offset) const -> bIndex;
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetPitch(const Index& cell, int card)
+        const -> uint32_t;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetValidIdxPitchExplicit(const Index& idx, int card)
+        const -> uint32_t;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpNghPitch(const Index& nghIdx, int card)
+        const -> std::tuple<bool, uint32_t>;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetNghIdx(const Index& idx, const NghIdx& offset)
+        const -> bIndex;
 
 
     int       mCardinality;

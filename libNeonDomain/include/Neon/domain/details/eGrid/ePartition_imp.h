@@ -131,7 +131,6 @@ ePartition<T, C>::getGlobalIndex(eIndex eIndex) const
     -> Neon::index_3d
 {
     Neon::index_3d loc;
-    const auto     baseAddr = mOrigins + eIndex.helpGet();
     loc = mOrigins[eIndex.helpGet()];
     return loc;
 }

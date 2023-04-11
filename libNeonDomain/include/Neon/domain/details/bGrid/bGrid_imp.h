@@ -167,7 +167,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                                   if (isValid) {
                                                                       blockNghIdx = nghIdx.helpGet();
                                                                   }
-                                                                  blockConnectivity(idx, targetDirection) = nghIdx;
+                                                                  blockConnectivity(idx, targetDirection) = blockNghIdx;
                                                               }
                                                           }
                                                       }
@@ -238,6 +238,12 @@ bGrid::bGrid(const Neon::Backend&         backend,
                           Neon::int32_3d(dataBlockSize, dataBlockSize, dataBlockSize),
                           spacingData,
                           origin);
+    {// setting launchParameters
+        auto        eGridParams = mData->blockViewGrid.getLaunchParameters(dataView, blockSize, sharedMem);
+        auto const& bk = getBackend();
+        auto        results = bk.devSet().newLaunchParameters();
+
+    }
 }
 
 
@@ -254,12 +260,14 @@ auto bGrid::newField(const std::string          name,
 
 
 template <typename LoadingLambda>
-auto bGrid::getContainer(const std::string& name,
+auto bGrid::newContainer(const std::string& name,
                          index_3d           blockSize,
                          size_t             sharedMem,
-                         LoadingLambda      lambda) const -> Neon::set::Container
+                         LoadingLambda      lambda,
+                         Neon::Execution    execution) const -> Neon::set::Container
 {
     Neon::set::Container kContainer = Neon::set::Container::factory(name,
+                                                                    execution,
                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
                                                                     *this,
                                                                     lambda,
@@ -270,11 +278,13 @@ auto bGrid::getContainer(const std::string& name,
 
 
 template <typename LoadingLambda>
-auto bGrid::getContainer(const std::string& name,
-                         LoadingLambda      lambda) const -> Neon::set::Container
+auto bGrid::newContainer(const std::string& name,
+                         LoadingLambda      lambda,
+                         Neon::Execution    execution) const -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory(name,
+                                                                     execution,
                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
                                                                      *this,
                                                                      lambda,

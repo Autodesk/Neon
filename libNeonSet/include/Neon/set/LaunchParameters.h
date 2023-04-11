@@ -33,7 +33,7 @@ class LaunchParameters
     LaunchParameters& operator=(const LaunchParameters&) = default;
     ~LaunchParameters() = default;
 
-    Neon::sys::GpuLaunchInfo&       operator[](int32_t);
+    Neon::sys::GpuLaunchInfo& operator[](int32_t);
     const Neon::sys::GpuLaunchInfo& operator[](int32_t) const;
 
     Neon::sys::GpuLaunchInfo&       get(int32_t id);
@@ -43,26 +43,34 @@ class LaunchParameters
 
     void set(Neon::sys::GpuLaunchInfo::mode_e    mode,
              const Neon::set::DataSet<index_3d>& gridDim,
-             const index_3d&                       blockDim,
-             size_t                                shareMemorySize);
+             const index_3d&                     blockDim,
+             size_t                              shareMemorySize);
 
     void set(Neon::sys::GpuLaunchInfo::mode_e mode,
-             const Neon::SetIdx                 setIdx,
-             const index_3d&                    gridDim,
-             const index_3d&                    blockDim,
-             size_t                             shareMemorySize);
+             const Neon::SetIdx               setIdx,
+             const index_3d&                  gridDim,
+             const index_3d&                  blockDim,
+             size_t                           shareMemorySize);
 
     auto set(Neon::sys::GpuLaunchInfo::mode_e mode,
-             const Neon::SetIdx                 setIdx,
-             const int64_t&                     gridDim,
-             const index_3d&                    blockDim,
-             size_t                             shareMemorySize) -> void;
+             const Neon::SetIdx               setIdx,
+             const int64_t&                   gridDim,
+             const index_3d&                  blockDim,
+             size_t                           shareMemorySize) -> void;
 
     auto set(Neon::sys::GpuLaunchInfo::mode_e mode,
-             Neon::SetIdx                       setIdx,
-             int64_t                            gridDim,
-             index_t                            blockDim,
-             size_t                             shareMemorySize) -> void;
+             Neon::SetIdx                     setIdx,
+             int64_t                          gridDim,
+             index_t                          blockDim,
+             size_t                           shareMemorySize) -> void;
+
+    template <typename LambdaFun>
+    auto forEachSeq(LambdaFun const& lambdaFun) -> void
+    {
+        for (int i = 0; i < m_infoVec.size(); i++) {
+            LambdaFun(Neon::SetIdx(i), this->get(i));
+        }
+    }
 };
 // New name after refactoring: https://git.autodesk.com/Research/gd-Neon/issues/374
 }  // namespace set

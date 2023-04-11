@@ -37,8 +37,13 @@ struct GridTransformation
     template <typename T, int C>
     using Partition = BlockViewPartition<T, C>;
     using Span = Neon::domain::details::eGrid::eSpan;
-    using FoundationGrid = Neon::domain::details::eGrid::eGrid;
     static constexpr Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport = Neon::set::internal::ContainerAPI::DataViewSupport::on;
+
+    using FoundationGrid = Neon::domain::details::eGrid::eGrid;
+    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = FoundationGrid::executionThreadSpan;
+    using ExecutionThreadSpanIndexType = int32_t;
+    using Idx = FoundationGrid::Idx;
+
     static auto getDefaultBlock(FoundationGrid& foundationGrid) -> Neon::index_3d const&
     {
         return foundationGrid.getDefaultBlock();
