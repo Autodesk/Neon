@@ -734,7 +734,7 @@ int main(int argc, char** argv)
         Neon::Backend    backend(gpu_ids, runtime);
 
         constexpr int Q = 27;
-        constexpr int depth = 3;
+        constexpr int depth = 1;
 
         const Neon::domain::mGridDescriptor descriptor(depth);
 
@@ -769,9 +769,9 @@ int main(int argc, char** argv)
             Neon::domain::Stencil::s19_t(false), descriptor);
 
         //LBM problem
-        const int             max_iter = 1000;
+        const int             max_iter = 5000000;
         const T               ulb = 0.04;
-        const T               Re = 100;
+        const T               Re = 1000;
         const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
         const T               visclb = ulb * clength / Re;
         const T               omega = 1.0 / (3. * visclb + 0.5);
@@ -786,8 +786,10 @@ int main(int argc, char** argv)
         auto rho = grid.newField<T>("rho", 1, 0);
 
         int* d_num_elements = nullptr;
-        cudaMalloc((void**)&d_num_elements, sizeof(int));
-        cudaMemset(d_num_elements, 0, sizeof(int));
+        if (runtime == Neon::Runtime::stream) {
+            cudaMalloc((void**)&d_num_elements, sizeof(int));
+            cudaMemset(d_num_elements, 0, sizeof(int));
+        }
 
         //init fields
         for (int level = 0; level < descriptor.getDepth(); ++level) {
@@ -813,7 +815,7 @@ int main(int argc, char** argv)
 #ifdef __CUDA_ARCH__
                             atomicAdd(d_num_elements, 1);
 #else
-                            d_num_elements++;
+                            (void*)d_num_elements;
 #endif
 
                             if (!in.hasChildren(cell)) {
@@ -859,8 +861,10 @@ int main(int argc, char** argv)
 
 
         int h_num_elements = 0;
-        cudaMemcpy(&h_num_elements, d_num_elements, sizeof(int), cudaMemcpyDeviceToHost);
-        cudaFree(d_num_elements);
+        if (runtime == Neon::Runtime::stream) {
+            cudaMemcpy(&h_num_elements, d_num_elements, sizeof(int), cudaMemcpyDeviceToHost);
+            cudaFree(d_num_elements);
+        }
 
         //skeleton
         std::vector<Neon::set::Container> containers;
@@ -880,7 +884,7 @@ int main(int argc, char** argv)
         for (int t = 0; t < max_iter; ++t) {
             //printf("\n Iteration = %d", t);
             skl.run();
-            if (t % 100 == 0) {
+            if (t % 500 == 0) {
                 postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho, true);
             }
         }
