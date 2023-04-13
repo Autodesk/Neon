@@ -104,8 +104,8 @@ Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid
                         T Pi[6] = {0, 0, 0, 0, 0, 0};
                         T e0 = 0;
                         T e1 = 0;
-                        T deltaS[27];
-                        T fneq[27];
+                        T deltaS[Q];
+                        T fneq[Q];
                         T feq[Q];
 
 
@@ -191,12 +191,12 @@ Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid
 
 template <typename T, int Q>
 Neon::set::Container collideKBG(Neon::domain::mGrid&                        grid,
-                               T                                           omega0,
-                               int                                         level,
-                               int                                         numLevels,
-                               const Neon::domain::mGrid::Field<CellType>& cellType,
-                               const Neon::domain::mGrid::Field<T>&        fin,
-                               Neon::domain::mGrid::Field<T>&              fout)
+                                T                                           omega0,
+                                int                                         level,
+                                int                                         numLevels,
+                                const Neon::domain::mGrid::Field<CellType>& cellType,
+                                const Neon::domain::mGrid::Field<T>&        fin,
+                                Neon::domain::mGrid::Field<T>&              fout)
 {
     return grid.getContainer(
         "collide_" + std::to_string(level), level,
@@ -691,7 +691,7 @@ int main(int argc, char** argv)
         std::vector<int> gpu_ids{0};
         Neon::Backend    backend(gpu_ids, runtime);
 
-        constexpr int Q = 27;
+        constexpr int Q = 19;
         constexpr int depth = 3;
 
         const Neon::domain::mGridDescriptor descriptor(depth);
