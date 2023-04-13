@@ -60,40 +60,6 @@ NEON_CUDA_HOST_DEVICE Neon::Vec_3d<T> velocity(const T* fin,
 }
 
 
-NEON_CUDA_HOST_DEVICE __inline__ void latticeMomentCenter(int i, int& a, int& b)
-{
-    if (i == 0) {
-        a = 0;
-        b = 0;
-    }
-
-    if (i == 1) {
-        a = 0;
-        b = 1;
-    }
-
-    if (i == 2) {
-        a = 0;
-        b = 2;
-    }
-
-    if (i == 3) {
-        a = 1;
-        b = 1;
-    }
-
-    if (i == 4) {
-        a = 1;
-        b = 2;
-    }
-
-    if (i == 5) {
-        a = 2;
-        b = 2;
-    }
-}
-
-
 template <typename T, int Q>
 Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid,
                                 T                                           omega0,
@@ -142,16 +108,10 @@ Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid
                         T fneq[27];
                         T feq[Q];
 
-                        //
-                        auto momentum_flux = [&](int q, int i) {
-                            int a, b;
-                            latticeMomentCenter(i, a, b);
-                            int cc = latticeVelocity[q][a] * latticeVelocity[q][b];
-                            return cc;
-                        };
 
-                        //
-                        auto fdecompose_shear_d3q27 = [&](const int q, const T Nxz, const T Nyz) {
+                        auto fdecompose_shear = [&](const int q) {
+                            const T Nxz = Pi[0] - Pi[5];
+                            const T Nyz = Pi[3] - Pi[5];
                             if (q == 9) {
                                 return (2.0 * Nxz - Nyz) / 6.0;
                             } else if (q == 18) {
@@ -181,6 +141,8 @@ Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid
                             }
                         };
 
+
+                        //equilibrium
                         const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
                         for (int q = 0; q < Q; ++q) {
                             T cu = 0;
@@ -189,7 +151,6 @@ Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid
                             }
                             cu *= 3.0;
 
-                            //equilibrium
                             feq[q] = rho * latticeWeights[q] * (1. + cu + 0.5 * cu * cu - usqr);
 
                             fneq[q] = ins[q] - feq[q];
@@ -198,18 +159,14 @@ Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid
                         //momentum_flux
                         for (int q = 0; q < Q; ++q) {
                             for (int i = 0; i < 6; ++i) {
-                                Pi[i] += fneq[q] * momentum_flux(q, i);
+                                Pi[i] += fneq[q] * latticeMoment[q][i];
                             }
                         }
 
-                        T Nxz = Pi[0] - Pi[5];
-                        T Nyz = Pi[3] - Pi[5];
 
+                        //fdecompose_shear
                         for (int q = 0; q < Q; ++q) {
-
-
-                            //??
-                            deltaS[q] = rho * fdecompose_shear_d3q27(q, Nxz, Nyz);
+                            deltaS[q] = rho * fdecompose_shear(q);
 
                             T deltaH = fneq[q] - deltaS[q];
 
@@ -217,12 +174,13 @@ Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid
                             e1 += (deltaH * deltaH / feq[q]);
                         }
 
+                        //gamma
+                        T gamma = invBeta - (2.0 - invBeta) * e0 / (tiny + e1);
+
+
+                        //fout
                         for (int q = 0; q < Q; ++q) {
-                            T gamma = invBeta - (2.0 - invBeta) * e0 / (tiny + e1);
-
                             T deltaH = fneq[q] - deltaS[q];
-
-                            //collide
                             out(cell, q) = ins[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
                         }
                     }
@@ -734,7 +692,7 @@ int main(int argc, char** argv)
         Neon::Backend    backend(gpu_ids, runtime);
 
         constexpr int Q = 27;
-        constexpr int depth = 1;
+        constexpr int depth = 3;
 
         const Neon::domain::mGridDescriptor descriptor(depth);
 
@@ -769,9 +727,9 @@ int main(int argc, char** argv)
             Neon::domain::Stencil::s19_t(false), descriptor);
 
         //LBM problem
-        const int             max_iter = 5000000;
+        const int             max_iter = 400000;
         const T               ulb = 0.04;
-        const T               Re = 1000;
+        const T               Re = 800;
         const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
         const T               visclb = ulb * clength / Re;
         const T               omega = 1.0 / (3. * visclb + 0.5);
@@ -882,10 +840,10 @@ int main(int argc, char** argv)
         //execution
         auto start = std::chrono::high_resolution_clock::now();
         for (int t = 0; t < max_iter; ++t) {
-            //printf("\n Iteration = %d", t);
+            printf("\n Iteration = %d", t);
             skl.run();
-            if (t % 500 == 0) {
-                postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho, true);
+            if (t % 100 == 0) {
+                postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho, false);
             }
         }
         auto stop = std::chrono::high_resolution_clock::now();
@@ -901,6 +859,6 @@ int main(int argc, char** argv)
         std::cout << "MLUPS=     " << mlups << " num_elements= " << h_num_elements << std::endl;
         std::cout << "Eff MLUPS= " << eff_mlups << " eff num_elements= " << grid_dim.x * grid_dim.y * grid_dim.z << std::endl;
 
-        //postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, max_iter, vel, rho, true);
+        postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, max_iter, vel, rho, true);
     }
 }
