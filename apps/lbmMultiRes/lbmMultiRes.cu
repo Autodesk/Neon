@@ -190,13 +190,13 @@ Neon::set::Container collideKBC(Neon::domain::mGrid&                        grid
 }
 
 template <typename T, int Q>
-Neon::set::Container collide(Neon::domain::mGrid&                        grid,
-                             T                                           omega0,
-                             int                                         level,
-                             int                                         numLevels,
-                             const Neon::domain::mGrid::Field<CellType>& cellType,
-                             const Neon::domain::mGrid::Field<T>&        fin,
-                             Neon::domain::mGrid::Field<T>&              fout)
+Neon::set::Container collideKBG(Neon::domain::mGrid&                        grid,
+                               T                                           omega0,
+                               int                                         level,
+                               int                                         numLevels,
+                               const Neon::domain::mGrid::Field<CellType>& cellType,
+                               const Neon::domain::mGrid::Field<T>&        fin,
+                               Neon::domain::mGrid::Field<T>&              fout)
 {
     return grid.getContainer(
         "collide_" + std::to_string(level), level,
@@ -526,7 +526,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  std::vector<Neon::set::Container>&          containers)
 {
     // 1) collision for all voxels at level L=level
-    containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideKBG<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
     // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
     if (level != numLevels - 1) {
@@ -548,7 +548,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
     }
 
     // 6) collision for all voxels at level L = level
-    containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideKBG<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
     // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
     if (level != numLevels - 1) {
@@ -696,19 +696,19 @@ int main(int argc, char** argv)
 
         const Neon::domain::mGridDescriptor descriptor(depth);
 
-        //const Neon::index_3d grid_dim(160, 160, 160);
-        //float                levelSDF[depth + 1];
-        //levelSDF[0] = 0;
-        //levelSDF[1] = -31.0 / 160.0;
-        //levelSDF[2] = -64 / 160.0;
-        //levelSDF[3] = -1.0;
-
-        const Neon::index_3d grid_dim(48, 48, 48);
+        const Neon::index_3d grid_dim(160, 160, 160);
         float                levelSDF[depth + 1];
         levelSDF[0] = 0;
-        levelSDF[1] = -8 / 24.0;
-        levelSDF[2] = -16 / 24.0;
+        levelSDF[1] = -31.0 / 160.0;
+        levelSDF[2] = -64 / 160.0;
         levelSDF[3] = -1.0;
+
+        // const Neon::index_3d grid_dim(48, 48, 48);
+        // float                levelSDF[depth + 1];
+        // levelSDF[0] = 0;
+        // levelSDF[1] = -8 / 24.0;
+        // levelSDF[2] = -16 / 24.0;
+        // levelSDF[3] = -1.0;
 
         Neon::domain::mGrid grid(
             backend, grid_dim,
@@ -729,7 +729,7 @@ int main(int argc, char** argv)
         //LBM problem
         const int             max_iter = 400000;
         const T               ulb = 0.04;
-        const T               Re = 800;
+        const T               Re = 100;
         const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
         const T               visclb = ulb * clength / Re;
         const T               omega = 1.0 / (3. * visclb + 0.5);
