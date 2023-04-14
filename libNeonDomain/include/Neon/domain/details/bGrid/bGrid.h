@@ -72,12 +72,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
           const double_3d&             origin = double_3d(0, 0, 0));
 
 
-    auto getProperties(const Neon::index_3d& idx) const -> typename GridBaseTemplate::CellProperties final;
+    auto getProperties(const Neon::index_3d& idx)
+        const -> typename GridBaseTemplate::CellProperties final;
 
-    auto isInsideDomain(const Neon::index_3d& idx) const -> bool final;
+    auto isInsideDomain(const Neon::index_3d& idx)
+        const -> bool final;
 
-    auto getSetIdx(const Neon::index_3d& idx) const -> int32_t final;
-
+    auto getSetIdx(const Neon::index_3d& idx)
+        const -> int32_t final;
 
     template <typename T, int C = 0>
     auto newField(const std::string          name,
@@ -104,16 +106,16 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
                              const Neon::index_3d& blockSize,
                              const size_t&         sharedMem) const -> Neon::set::LaunchParameters;
 
-    auto getSpan(Neon::Execution  execution,
-                 SetIdx           setIdx,
-                 Neon::DataView   dataView) -> const Span&;
+    auto getSpan(Neon::Execution execution,
+                 SetIdx          setIdx,
+                 Neon::DataView  dataView) -> const Span&;
 
     auto helpGetDataBlockSize() const -> int;
     auto helpGetBlockViewGrid() const -> BlockViewGrid&;
     auto helpGetActiveBitMask() const -> BlockViewGrid::Field<uint64_t, 0>&;
     auto helpGetBlockConnectivity() const -> BlockViewGrid::Field<BlockIdx, 27>&;
     auto helpGetDataBlockOriginField() const -> Neon::aGrid::Field<index_3d, 0>&;
-    auto helpGetStencilIdTo3dOffset() const ->  Neon::set::MemSet<Neon::int8_3d>&;
+    auto helpGetStencilIdTo3dOffset() const -> Neon::set::MemSet<Neon::int8_3d>&;
 
    private:
     struct Data
@@ -132,7 +134,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         BlockViewGrid::Field<uint64_t, 0>  activeBitMask;
         BlockViewGrid::Field<BlockIdx, 27> blockConnectivity;
 
-        Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
+        Neon::set::MemSet<Neon::int8_3d>                                     stencilIdTo3dOffset;
         std::array<Neon::set::LaunchParameters, Neon::DataViewUtil::nConfig> launchParameters;
 
         tool::Partitioner1D::DenseMeta denseMeta;

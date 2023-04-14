@@ -67,8 +67,9 @@ class LaunchParameters
     template <typename LambdaFun>
     auto forEachSeq(LambdaFun const& lambdaFun) -> void
     {
-        for (int i = 0; i < m_infoVec.size(); i++) {
-            LambdaFun(Neon::SetIdx(i), this->get(i));
+        for (int i = 0; i < static_cast<int>(m_infoVec.size()); i++) {
+            Neon::SetIdx setIdx(i);
+            lambdaFun(setIdx, this->get(i));
         }
     }
 };

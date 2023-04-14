@@ -82,14 +82,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
     }
 
     {  // Active bitmask
-        Neon::domain::details::eGrid::eGrid egrid(
-            backend,
-            mData->partitioner1D.getBlockSpan(),
-            mData->partitioner1D,
-            stencil,
-            spacingData * helpGetDataBlockSize(),
-            origin);
-        int requiredWords = bSpan::getRequiredWords(helpGetDataBlockSize());
+        int requiredWords = bSpan::getRequiredWordsForBlockBitMask(helpGetDataBlockSize());
         mData->activeBitMask = mData->blockViewGrid.newField<bSpan::bitMaskWordType>("BitMask",
                                                                                      requiredWords,
                                                                                      0,
@@ -115,16 +108,16 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                     for (int c = 0; c < bitMask.cardinality(); c++) {
                                         bitMask(bitMaskIdx, c) = 0;
                                     }
-                                    Neon::int32_3d point(i, j, k);
-                                    point = point + blockOrigin;
-                                    auto const pitch = point.mPitch(blockSize3d);
-                                    auto const targetCard = pitch / bSpan::bitMaskStorageBitWidth;
-                                    auto const targetBit = pitch % bSpan::bitMaskStorageBitWidth;
-                                    uint64_t   mask = uint64_t(1) << targetBit;
+                                    Neon::int32_3d         localPosition(i, j, k);
+                                    bSpan::bitMaskWordType mask;
+                                    uint32_t               wordIdx;
+
+                                    bSpan::getMaskAndWordIdforBlockBitMask(i, j, k, dataBlockSize, NEON_OUT mask, NEON_OUT wordIdx);
+                                    auto       globalPosition = localPosition + blockOrigin;
                                     bool       isActive = activeCellLambda(blockSize3d);
                                     if (isActive) {
                                         coutActive++;
-                                        bitMask(bitMaskIdx, targetCard) |= mask;
+                                        bitMask(bitMaskIdx, wordIdx) |= mask;
                                     }
                                 }
                             }
@@ -238,11 +231,10 @@ bGrid::bGrid(const Neon::Backend&         backend,
                           Neon::int32_3d(dataBlockSize, dataBlockSize, dataBlockSize),
                           spacingData,
                           origin);
-    {// setting launchParameters
-        auto        eGridParams = mData->blockViewGrid.getLaunchParameters(dataView, blockSize, sharedMem);
-        auto const& bk = getBackend();
-        auto        results = bk.devSet().newLaunchParameters();
-
+    {  // setting launchParameters
+       //        auto        eGridParams = mData->blockViewGrid.getLaunchParameters(dataView, blockSize, sharedMem);
+       //        auto const& bk = getBackend();
+       //        auto        results = bk.devSet().newLaunchParameters();
     }
 }
 

@@ -42,7 +42,7 @@ class bSpan
     NEON_CUDA_HOST_DEVICE inline auto setAndValidateGPUDevice(
         bIndex& bidx) const -> bool;
 
-    static NEON_CUDA_HOST_DEVICE inline auto getRequiredWords(
+    static NEON_CUDA_HOST_DEVICE inline auto getRequiredWordsForBlockBitMask(
         uint32_t const& blockSize) -> uint32_t;
 
     static NEON_CUDA_HOST_DEVICE inline auto getActiveStatus(
@@ -53,6 +53,12 @@ class bSpan
         bSpan::bitMaskWordType*  mActiveMask,
         uint32_t const&          blockSize) -> bool;
 
+    static inline auto getMaskAndWordIdforBlockBitMask(int              threadX,
+                                                       int              threadY,
+                                                       int              threadZ,
+                                                       const uint32_t&  blockSize,
+                                                       bitMaskWordType& mask,
+                                                       uint32_t&        wordIdx) -> void;
     // We don't need to have a count on active blocks
     Idx::DataBlockCount     mFirstDataBlockOffset;
     uint32_t                mDataBlockSize;
