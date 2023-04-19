@@ -25,7 +25,7 @@ bPartition<T, C>::
                T*                      mem,
                uint32_3d               blockSize,
                bIndex::DataBlockIdx*   blockConnectivity,
-               bSpan::bitMaskWordType* mask,
+               bSpan::BitMaskWordType* mask,
                Neon::int32_3d*         origin,
                NghIdx*                 stencilNghIndex)
     : mCardinality(cardinality),

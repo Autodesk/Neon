@@ -72,12 +72,45 @@ auto bGrid::
 
 auto bGrid::isInsideDomain(const index_3d& idx) const -> bool
 {
+    // 1. check if the block is active
     const index_3d blockIdx3d = idx / this->mData->dataBlockSize;
-    auto           blockProperties = mData->blockViewGrid.getProperties(idx);
+    auto           blockProperties = mData->blockViewGrid.getProperties(blockIdx3d);
+
     if (!blockProperties.isInside()) {
         return false;
     }
-    Neon::SetIdx setIdx = blockProperties.getSetIdx();
+    // 2. The block is active, check the element on the block
+    uint32_t              wordCardinality;
+    Span::BitMaskWordType mask;
+    Span::getMaskAndWordIdforBlockBitMask(blockIdx3d.x % this->mData->dataBlockSize,
+                                          blockIdx3d.y % this->mData->dataBlockSize,
+                                          blockIdx3d.z % this->mData->dataBlockSize,
+                                          this->mData->dataBlockSize,
+                                          NEON_OUT mask,
+                                          NEON_OUT wordCardinality);
+    auto activeBits = mData->activeBitMask.getReference(blockIdx3d, int(wordCardinality));
+    return (activeBits & mask) != 0;
+}
+
+auto bGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties
+{
+    GridBaseTemplate::CellProperties cellProperties;
+
+    cellProperties.setIsInside(this->isInsideDomain(idx));
+    if (!cellProperties.isInside()) {
+        return cellProperties;
+    }
+
+    if (this->getDevSet().setCardinality() == 1) {
+        cellProperties.init(0, DataView::INTERNAL);
+    } else {
+        const index_3d blockIdx3d = idx / this->mData->dataBlockSize;
+        auto           blockViewProperty = mData->blockViewGrid.getProperties(blockIdx3d);
+
+        cellProperties.init(blockViewProperty.getSetIdx(),
+                            blockViewProperty.getDataView());
+    }
+    return cellProperties;
 }
 
 }  // namespace Neon::domain::details::bGrid

@@ -58,7 +58,7 @@ auto PartitionTable<Partition, UserData>::
 template <typename Partition,
           typename UserData>
 auto PartitionTable<Partition, UserData>::
-    getUserData(Neon::Execution execution,
+        getUserData(Neon::Execution execution,
                 Neon::SetIdx    setIdx,
                 Neon::DataView  dw)
         const -> const UserData&

@@ -44,7 +44,7 @@ bSpan::setAndValidateCPUDevice(bIndex&                bidx,
 
 bSpan::bSpan(bIndex::DataBlockCount  firstDataBlockOffset,
              uint32_t                dataBlockSize,
-             bSpan::bitMaskWordType* activeMask,
+             bSpan::BitMaskWordType* activeMask,
              Neon::DataView          dataView)
     : mFirstDataBlockOffset(firstDataBlockOffset),
       mDataBlockSize(dataBlockSize),
@@ -64,7 +64,7 @@ inline auto bSpan::getMaskAndWordIdforBlockBitMask(int                       thr
                                                    int                       threadY,
                                                    int                       threadZ,
                                                    uint32_t const&           blockSize,
-                                                   NEON_OUT bitMaskWordType& mask,
+                                                   NEON_OUT BitMaskWordType& mask,
                                                    NEON_OUT uint32_t&        wordIdx) -> void
 {
     if constexpr (activeMaskMemoryLayout == Neon::MemoryLayout::arrayOfStructs) {
@@ -75,8 +75,8 @@ inline auto bSpan::getMaskAndWordIdforBlockBitMask(int                       thr
         wordIdx = threadPitch >> log2OfbitMaskWordSize;
         // threadPitch & ((bitMaskWordType(bitMaskStorageBitWidth)) - 1);
         // same as threadPitch % 2^{log2OfbitMaskWordSize}
-        const uint32_t offsetInWord = threadPitch & ((bitMaskWordType(bitMaskStorageBitWidth)) - 1);
-        mask = bitMaskWordType(1) << offsetInWord;
+        const uint32_t offsetInWord = threadPitch & ((BitMaskWordType(bitMaskStorageBitWidth)) - 1);
+        mask = BitMaskWordType(1) << offsetInWord;
     } else {
         assert(false);
     }
@@ -88,7 +88,7 @@ NEON_CUDA_HOST_DEVICE inline auto bSpan::getActiveStatus(
     int                      threadX,
     int                      threadY,
     int                      threadZ,
-    bSpan::bitMaskWordType*  mActiveMask,
+    bSpan::BitMaskWordType*  mActiveMask,
     uint32_t const&          blockSize) -> bool
 {
     if constexpr (activeMaskMemoryLayout == Neon::MemoryLayout::arrayOfStructs) {
@@ -99,12 +99,12 @@ NEON_CUDA_HOST_DEVICE inline auto bSpan::getActiveStatus(
         const uint32_t wordIdx = threadPitch >> log2OfbitMaskWordSize;
         // threadPitch & ((bitMaskWordType(bitMaskStorageBitWidth)) - 1);
         // same as threadPitch % 2^{log2OfbitMaskWordSize}
-        const uint32_t  offsetInWord = threadPitch & ((bitMaskWordType(bitMaskStorageBitWidth)) - 1);
-        bitMaskWordType mask = 1 << offsetInWord;
+        const uint32_t  offsetInWord = threadPitch & ((BitMaskWordType(bitMaskStorageBitWidth)) - 1);
+        BitMaskWordType mask = 1 << offsetInWord;
 
         uint32_t const  cardinality = getRequiredWordsForBlockBitMask(blockSize);
         uint32_t const  pitch = (cardinality * dataBlockIdx + wordIdx) * (blockSize * blockSize * blockSize);
-        bitMaskWordType targetWord = mActiveMask[pitch];
+        BitMaskWordType targetWord = mActiveMask[pitch];
         auto            masked = targetWord & mask;
         if (masked != 0) {
             return true;

@@ -299,11 +299,9 @@ class DevSet
     }
 
     template <typename DataSetContainer, typename Lambda>
-    inline auto kernelHostLambdaWithIterator(
-        const Neon::set::KernelConfig&        kernelConfig,
+    inline auto kernelHostLambdaWithIterator(const Neon::set::KernelConfig&        kernelConfig,
         DataSetContainer&                     dataSetContainer,
-        std::function<Lambda(Neon::Execution,
-                             SetIdx,
+        std::function<Lambda(SetIdx,
                              Neon::DataView)> lambdaHolder) const -> void
     {
         Neon::Runtime mode = Neon::Runtime::openmp;
@@ -311,7 +309,8 @@ class DevSet
         // KEEP OPENMP for last
         switch (mode) {
             case Neon::Runtime::openmp: {
-                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(kernelConfig,
+                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(Neon::Execution::host,
+                                                                                   kernelConfig,
                                                                                    dataSetContainer,
                                                                                    lambdaHolder);
                 return;
@@ -328,14 +327,14 @@ class DevSet
     inline auto kernelHostLambdaWithIterator(Neon::SetIdx                          setIdx,
                                              const Neon::set::KernelConfig&        kernelConfig,
                                              DataSetContainer&                     dataSetContainer,
-                                             std::function<Lambda(Neon::Execution,
-                                                                  SetIdx,
+                                             std::function<Lambda(SetIdx,
                                                                   Neon::DataView)> lambdaHolder) const -> void
     {
         Neon::Runtime mode = Neon::Runtime::openmp;
         switch (mode) {
             case Neon::Runtime::openmp: {
-                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(setIdx,
+                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(Neon::Execution::host,
+                                                                                   setIdx,
                                                                                    kernelConfig,
                                                                                    dataSetContainer,
                                                                                    lambdaHolder);
@@ -477,8 +476,8 @@ class DevSet
                     Lambda lambda = lambdaHolder(idx, kernelConfig.dataView());
                     using IndexType = typename DataSetContainer::ExecutionThreadSpanIndexType;
 
-                    auto const& cudaBlock = launchInfoSet[idx].cudaBlock();
-                    auto const& cudaGrid = launchInfoSet[idx].cudaGrid();
+                    auto const&                       cudaBlock = launchInfoSet[idx].cudaBlock();
+                    auto const&                       cudaGrid = launchInfoSet[idx].cudaGrid();
                     const Neon::Integer_3d<IndexType> blockSize(cudaBlock.x, cudaBlock.y, cudaBlock.z);
                     const Neon::Integer_3d<IndexType> gridSize(cudaGrid.x, cudaGrid.y, cudaGrid.z);
 
@@ -506,10 +505,10 @@ class DevSet
             NEON_THROW(exp);
         }
         const LaunchParameters& launchInfoSet = kernelConfig.launchInfoSet();
-        auto   iterator = dataSetContainer.getSpan(execution,
+        auto                    iterator = dataSetContainer.getSpan(execution,
                                                                     setIdx,
                                                                     kernelConfig.dataView());
-        Lambda lambda = lambdaHolder(setIdx, kernelConfig.dataView());
+        Lambda                  lambda = lambdaHolder(setIdx, kernelConfig.dataView());
 
         if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
             using IndexType = typename DataSetContainer::ExecutionThreadSpanIndexType;
@@ -519,8 +518,8 @@ class DevSet
         } else {
             using IndexType = typename DataSetContainer::ExecutionThreadSpanIndexType;
 
-            auto const& cudaBlock = launchInfoSet[setIdx].cudaBlock();
-            auto const& cudaGrid = launchInfoSet[setIdx].cudaGrid();
+            auto const&                       cudaBlock = launchInfoSet[setIdx].cudaBlock();
+            auto const&                       cudaGrid = launchInfoSet[setIdx].cudaGrid();
             const Neon::Integer_3d<IndexType> blockSize(cudaBlock.x, cudaBlock.y, cudaBlock.z);
             const Neon::Integer_3d<IndexType> gridSize(cudaGrid.x, cudaGrid.y, cudaGrid.z);
 

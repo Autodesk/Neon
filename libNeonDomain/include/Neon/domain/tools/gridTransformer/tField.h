@@ -44,21 +44,31 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
     ~tField() = default;
 
    private:
-    explicit tField(FoundationField foundationField)
-    {
-        //        Neon::Backend const & bk = foundationField.getGrid().getBackend();
+    explicit tField(FoundationField foundationField, const Grid& grid)
+        : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
+                                                                                 foundationField.getName(),
+                                                                                 "tField_" + foundationField.getClassName(),
+                                                                                 foundationField.getCardinality(),
+                                                                                 foundationField.getOutsideValue(),
+                                                                                 foundationField.getDataUse(),
+                                                                                 foundationField.getMemoryOptions(),
+                                                                                 Neon::domain::haloStatus_et::e::ON) {
+        mData = std::make_shared<Data>();
+        const Neon::Backend& bk = foundationField.getGrid().getBackend();
+        mData->init(bk);
         mData->foundationField = foundationField;
         GridTransformation::initFieldPartition(mData->foundationField, NEON_OUT mData->partitions);
     }
 
-   public:
-    /**
-     * Returns the metadata associated with the element in location idx.
-     * If the element is not active (it does not belong to the voxelized domain),
-     * then the default outside value is returned.
-     */
-    auto operator()(const Neon::index_3d& idx,
-                    const int&            cardinality) const
+    public :
+        /**
+         * Returns the metadata associated with the element in location idx.
+         * If the element is not active (it does not belong to the voxelized domain),
+         * then the default outside value is returned.
+         */
+        auto
+        operator()(const Neon::index_3d& idx,
+                   const int&            cardinality) const
         -> Type final
     {
         return mData->foundationField.operator()(idx, cardinality);
@@ -126,9 +136,9 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
     struct Data
     {
         Data() = default;
-        explicit Data(Neon::Backend& bk)
+        auto init(Neon::Backend const& bk) -> void
         {
-            partitions = Neon::domain::tool::PartitionTable<Partition>(bk);
+            partitions.init(bk);
         }
         FoundationField                               foundationField;
         Neon::domain::tool::PartitionTable<Partition> partitions;

@@ -16,6 +16,9 @@ template <typename T,
 class BlockViewPartition : public Neon::domain::details::eGrid::ePartition<T, C>
 {
    public:
+    BlockViewPartition(){
+
+    }
     BlockViewPartition(Neon::domain::details::eGrid::ePartition<T, C> ePartition)
         : Neon::domain::details::eGrid::ePartition<T, C>(ePartition)
     {

@@ -83,7 +83,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
     {  // Active bitmask
         int requiredWords = bSpan::getRequiredWordsForBlockBitMask(helpGetDataBlockSize());
-        mData->activeBitMask = mData->blockViewGrid.newField<bSpan::bitMaskWordType>("BitMask",
+        mData->activeBitMask = mData->blockViewGrid.newField<bSpan::BitMaskWordType>("BitMask",
                                                                                      requiredWords,
                                                                                      0,
                                                                                      Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(bSpan::activeMaskMemoryLayout));
@@ -109,7 +109,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                         bitMask(bitMaskIdx, c) = 0;
                                     }
                                     Neon::int32_3d         localPosition(i, j, k);
-                                    bSpan::bitMaskWordType mask;
+                                    bSpan::BitMaskWordType mask;
                                     uint32_t               wordIdx;
 
                                     bSpan::getMaskAndWordIdforBlockBitMask(i, j, k, dataBlockSize, NEON_OUT mask, NEON_OUT wordIdx);

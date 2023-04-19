@@ -31,13 +31,22 @@ auto Container::factory(const std::string&                                 name,
                         std::function<int(const index_3d& blockSize)>      shMemSizeFun) -> Container
 {
     using LoadingLambda = typename std::invoke_result<decltype(f), Neon::set::Loader&>::type;
-    auto k = new Neon::set::internal::DeviceContainer<DataContainerT, LoadingLambda>(name,
-                                                                                     execution, dataViewSupport,
-                                                                                     a, f,
-                                                                                     blockSize, shMemSizeFun);
+    if(Neon::Execution::device ==execution) {
+        auto k = new Neon::set::internal::DeviceContainer<DataContainerT, LoadingLambda>(name,
+                                                                                         execution, dataViewSupport,
+                                                                                         a, f,
+                                                                                         blockSize, shMemSizeFun);
 
-    std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
-    return {tmp};
+        std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
+        return {tmp};
+    }else{
+        auto k = new Neon::set::internal::HostContainer<DataContainerT, LoadingLambda>(name, dataViewSupport,
+                                                                                       a, f,
+                                                                                       blockSize, shMemSizeFun);
+
+        std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
+        return {tmp};
+    }
 }
 
 template <typename DataContainerT, typename UserLoadingLambdaT>

@@ -45,13 +45,12 @@ struct HostContainer : ContainerAPI
         }
     }
 
-    auto newLoader(Neon::Execution execution,
-                   Neon::SetIdx     setIdx,
+    auto newLoader(Neon::SetIdx     setIdx,
                    Neon::DataView   dataView,
                    LoadingMode_e::e loadingMode) -> Loader
     {
         auto loader = Loader(*this,
-                             execution,
+                             Neon::Execution::host,
                              setIdx,
                              dataView,
                              loadingMode);
@@ -96,8 +95,8 @@ struct HostContainer : ContainerAPI
             bk.devSet().template kernelHostLambdaWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::Execution execution, Neon::SetIdx setIdx, Neon::DataView dataView) -> UserComputeLambdaT {
-                    Loader             loader = this->newLoader(execution, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
+                [&](Neon::SetIdx setIdx, Neon::DataView dataView) -> UserComputeLambdaT {
+                    Loader             loader = this->newLoader(setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;
                 });
@@ -132,11 +131,11 @@ struct HostContainer : ContainerAPI
                 setIdx,
                 kernelConfig,
                 m_dataIteratorContainer,
-                [&](Neon::Execution,
+                [&](
                     Neon::SetIdx   setIdx,
                     Neon::DataView dataView)
                     -> UserComputeLambdaT {
-                    Loader             loader = this->newLoader(Execution::host, setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
+                    Loader             loader = this->newLoader(setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);
                     UserComputeLambdaT userLambda = this->m_loadingLambda(loader);
                     return userLambda;
                 });

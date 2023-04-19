@@ -80,7 +80,7 @@ auto tGrid<GridTransformation>::newField(const std::string&  fieldUserName,
                                                                                                                   inactiveValue,
                                                                                                                   dataUse,
                                                                                                                   memoryOptions);
-    Field<T, C>                                   field(fieldFoundation);
+    Field<T, C>                                   field(fieldFoundation, *this);
     return field;
 }
 
@@ -117,14 +117,13 @@ auto tGrid<GridTransformation>::newContainer(const std::string& name,
 {
     const Neon::index_3d&                              defaultBlockSize = GridTransformation::getDefaultBlock(mData->foundationGrid);
     Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport = GridTransformation::dataViewSupport;
-
-    Neon::set::Container kContainer = Neon::set::Container::factory(name,
-                                                                    execution,
-                                                                    dataViewSupport,
-                                                                    *this,
-                                                                    lambda,
-                                                                    defaultBlockSize,
-                                                                    [](const Neon::index_3d&) { return size_t(0); });
+    Neon::set::Container                               kContainer = Neon::set::Container::factory(name,
+                                                                                                  execution,
+                                                                                                  dataViewSupport,
+                                                                                                  *this,
+                                                                                                  lambda,
+                                                                                                  defaultBlockSize,
+                                                                                                  [](const Neon::index_3d&) { return size_t(0); });
     return kContainer;
 }
 

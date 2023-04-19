@@ -31,7 +31,7 @@ class bPartition
                         T*                      mMem,
                         uint32_3d               blockSize,
                         bIndex::DataBlockIdx*   mBlockConnectivity,
-                        bSpan::bitMaskWordType* mMask,
+                        bSpan::BitMaskWordType* mMask,
                         Neon::int32_3d*         mOrigin,
                         NghIdx*                 mStencilNghIndex);
 
@@ -93,7 +93,7 @@ class bPartition
                                  *   v[1] = blockDim.x * blockDim.y * blockDim.z*/
         ;
     bIndex::DataBlockIdx*   mBlockConnectivity;
-    bSpan::bitMaskWordType* mMask;
+    bSpan::BitMaskWordType* mMask;
     Neon::int32_3d*         mOrigin;
     int                     mSetIdx;
 };

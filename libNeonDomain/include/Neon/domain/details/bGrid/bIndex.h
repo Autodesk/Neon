@@ -16,6 +16,7 @@ class bIndex
 {
    public:
     friend class bSpan;
+    using OuterIndex = bIndex;
 
     using NghIdx = int8_3d;
     template <typename T, int C>

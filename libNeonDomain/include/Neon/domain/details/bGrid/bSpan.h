@@ -8,7 +8,7 @@ class bSpan
 {
    public:
     // bit mask information
-    using bitMaskWordType = uint64_t;
+    using BitMaskWordType = uint64_t;
 
     static constexpr uint32_t           bitMaskStorageBitWidth = 64;
     static constexpr Neon::MemoryLayout activeMaskMemoryLayout = Neon::MemoryLayout::arrayOfStructs;
@@ -29,7 +29,7 @@ class bSpan
 
     inline bSpan(Idx::DataBlockCount     mFirstDataBlockOffset,
                  uint32_t                mDataBlockSize,
-                 bSpan::bitMaskWordType* mActiveMask,
+                 bSpan::BitMaskWordType* mActiveMask,
                  Neon::DataView          mDataView);
 
     NEON_CUDA_HOST_DEVICE inline auto setAndValidateCPUDevice(bIndex&                bidx,
@@ -50,19 +50,19 @@ class bSpan
         int                      threadX,
         int                      threadY,
         int                      threadZ,
-        bSpan::bitMaskWordType*  mActiveMask,
+        bSpan::BitMaskWordType*  mActiveMask,
         uint32_t const&          blockSize) -> bool;
 
     static inline auto getMaskAndWordIdforBlockBitMask(int              threadX,
                                                        int              threadY,
                                                        int              threadZ,
                                                        const uint32_t&  blockSize,
-                                                       bitMaskWordType& mask,
+                                                       BitMaskWordType& mask,
                                                        uint32_t&        wordIdx) -> void;
     // We don't need to have a count on active blocks
     Idx::DataBlockCount     mFirstDataBlockOffset;
     uint32_t                mDataBlockSize;
-    bSpan::bitMaskWordType* mActiveMask;
+    bSpan::BitMaskWordType* mActiveMask;
     Neon::DataView          mDataView;
 };
 }  // namespace Neon::domain::details::bGrid
