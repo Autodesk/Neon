@@ -117,9 +117,15 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
     auto helpGetDataBlockOriginField() const -> Neon::aGrid::Field<index_3d, 0>&;
     auto helpGetStencilIdTo3dOffset() const -> Neon::set::MemSet<Neon::int8_3d>&;
 
+    auto helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon::SetIdx, Idx>;
+
    private:
     struct Data
     {
+        auto init(const Neon::Backend& bk)
+        {
+            spanTable.init(bk);
+        }
         Neon::domain::tool::SpanTable<Span> spanTable /** Span for each data view configurations */;
 
         Neon::domain::tool::Partitioner1D partitioner1D;

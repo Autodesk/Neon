@@ -7,6 +7,12 @@ namespace Neon::domain::tool {
 template <typename IndexSpace>
 SpanTable<IndexSpace>::SpanTable(const Neon::Backend& bk)
 {
+    init(bk);
+}
+
+template <typename IndexSpace>
+auto SpanTable<IndexSpace>::init(const Neon::Backend& bk) -> void
+{
     for (auto execution : Neon::ExecutionUtils::getAllOptions()) {
         for (auto dw : Neon::DataViewUtil::validOptions()) {
             int const dwInt = Neon::DataViewUtil::toInt(dw);

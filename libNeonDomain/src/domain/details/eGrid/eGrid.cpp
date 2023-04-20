@@ -93,9 +93,9 @@ eGrid::eGrid(const Backend&                     backend,
         });
 
         mData->elementsPerPartition.forEachConfiguration([&](Neon::Execution execution,
-                                                             Neon::SetIdx setIdx,
-                                                             Neon::DataView dw,
-                                                             int&           count) {
+                                                             Neon::SetIdx    setIdx,
+                                                             Neon::DataView  dw,
+                                                             int&            count) {
             count = mData->spanTable.getSpan(execution, setIdx, dw).mCount;
         });
     }
@@ -252,6 +252,22 @@ auto eGrid::getPartitioner() -> const tool::Partitioner1D&
 auto eGrid::helpGetData() -> eGrid::Data&
 {
     return *mData.get();
+}
+
+auto eGrid::helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon::SetIdx, eIndex>
+{
+    eIndex eIndex;
+    SetIdx setIdx;
+    setIdx.invalidate();
+    {
+        auto const& meta = mData->denseMeta.get(idx);
+        if (meta.isValid()) {
+            auto const& span = getSpan(Execution::host, meta.setIdx, Neon::DataView::STANDARD);
+            span.setAndValidate(eIndex, meta.index);
+            setIdx = meta.setIdx;
+        }
+    }
+    return {setIdx, eIndex};
 }
 
 

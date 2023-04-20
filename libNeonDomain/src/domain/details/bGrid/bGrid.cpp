@@ -113,4 +113,18 @@ auto bGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellPr
     return cellProperties;
 }
 
+auto bGrid::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
+    const -> std::tuple<Neon::SetIdx, Idx>
+{
+    const index_3d blockIdx3d = idx / this->mData->dataBlockSize;
+    auto [setIdx, bvGridIdx] = mData->blockViewGrid.helpGetSetIdxAndGridIdx(blockIdx3d);
+    Idx bIdx;
+    bIdx.mDataBlockIdx = bvGridIdx.helpGet();
+    bIdx.mInDataBlockIdx.x = idx.x % this->mData->dataBlockSize;
+    bIdx.mInDataBlockIdx.y = idx.y % this->mData->dataBlockSize;
+    bIdx.mInDataBlockIdx.z = idx.z % this->mData->dataBlockSize;
+
+    return {setIdx, bIdx};
+}
+
 }  // namespace Neon::domain::details::bGrid

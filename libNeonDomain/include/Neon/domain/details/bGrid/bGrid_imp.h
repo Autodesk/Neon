@@ -31,6 +31,8 @@ bGrid::bGrid(const Neon::Backend&         backend,
     }
 
     mData = std::make_shared<Data>();
+    mData->init(backend);
+
     mData->dataBlockSize = dataBlockSize;
     mData->voxelSpacing = voxelSpacing;
     mData->stencil = stencil;

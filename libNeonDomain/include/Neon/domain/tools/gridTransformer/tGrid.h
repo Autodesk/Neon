@@ -101,6 +101,9 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     auto getSetIdx(const Neon::index_3d& idx) const
         -> int32_t final;
 
+    auto getFoundationGrid() -> GridTransformation&;
+
+    auto helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon::SetIdx, Idx>;
 
    private:
     struct Data
@@ -119,6 +122,24 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
 
     std::shared_ptr<Data> mData;
 };
+
+template <typename GridTransformation>
+auto tGrid<GridTransformation>::helpGetSetIdxAndGridIdx(Neon::index_3d idx) const
+    -> std::tuple<Neon::SetIdx, Idx>
+{
+    auto [setIdx, gIdx] = mData->foundationGrid.helpGetSetIdxAndGridIdx(idx);
+    Idx tIdx;
+    if (setIdx.isValid()) {
+        tIdx = GridTransformation::helpGetGridIdx(mData->foundationGrid, setIdx, gIdx);
+    }
+    return {setIdx, tIdx};
+}
+
+template <typename GridTransformation>
+auto tGrid<GridTransformation>::getFoundationGrid() -> GridTransformation&
+{
+    return mData->foundationGrid;
+}
 
 
 }  // namespace Neon::domain::tool::details

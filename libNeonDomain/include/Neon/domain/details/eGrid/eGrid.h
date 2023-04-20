@@ -142,6 +142,14 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
         -> Neon::set::Container;
 
     /**
+     * Convert a 3d index into a SetId and eGrid::Index
+     * The returned SetIdx component is set to invalid if the user provided idx is not active
+     * @param idx
+     * @return
+     */
+    auto helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon::SetIdx, eIndex>;
+
+    /**
      * Switch for different reduction engines.
      */
     auto setReduceEngine(Neon::sys::patterns::Engine eng)

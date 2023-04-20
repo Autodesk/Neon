@@ -77,46 +77,25 @@ auto bField<T, C>::isInsideDomain(const Neon::index_3d& idx) const -> bool
 }
 
 template <typename T, int C>
-auto bField<T, C>::getRef(const Neon::index_3d& /*idx*/,
-                          const int&            /*cardinality*/) const -> T&
+auto bField<T, C>::getReference(const Neon::index_3d& cartesianIdx,
+                          const int&            cardinality)  -> T&
 {
-    //    // TODO need to figure out which device owns this block
-    //    SetIdx devID(0);
-    //
-    //    if (!isInsideDomain(idx)) {
-    //        return this->getOutsideValue();
-    //    }
-    //
-    //    auto partition = getPartition(Neon::DeviceType::CPU, devID, Neon::DataView::STANDARD);
-    //
-    //    Neon::int32_3d blockOrigin = mData->grid->getOriginBlock3DIndex(idx);
-    //
-    //    auto itr = mData->grid->getBlockOriginTo1D().getMetadata(blockOrigin);
-    //
-    //    auto blockSize = mData->grid->getBlockSize();
-    //
-    //    Idx cell(static_cast<Idx::Location::Integer>((idx.x / mData->grid->getVoxelSpacing()) % blockSize),
-    //             static_cast<Idx::Location::Integer>((idx.y / mData->grid->getVoxelSpacing()) % blockSize),
-    //             static_cast<Idx::Location::Integer>((idx.z / mData->grid->getVoxelSpacing()) % blockSize));
-    //
-    //    cell.mBlockID = *itr;
-    //    cell.mBlockSize = blockSize;
-    //    return partition(cell, cardinality);
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    auto& grid = this->getGrid();
+    auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
+    auto& partition = getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
+    auto&  result = partition(bIdx, cardinality);
+    return result;
 }
 
 template <typename T, int C>
-auto bField<T, C>::operator()(const Neon::index_3d& idx,
+auto bField<T, C>::operator()(const Neon::index_3d& cartesianIdx,
                               const int&            cardinality) const -> T
 {
-    return getRef(idx, cardinality);
-}
-
-template <typename T, int C>
-auto bField<T, C>::getReference(const Neon::index_3d& idx,
-                                const int&            cardinality) -> T&
-{
-    return getRef(idx, cardinality);
+    auto& grid = this->getGrid();
+    auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
+    auto& partition = getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
+    auto&  result = partition(bIdx, cardinality);
+    return result;
 }
 
 template <typename T, int C>
@@ -167,7 +146,7 @@ auto bField<T, C>::getPartition(Neon::Execution       execution,
 template <typename T, int C>
 auto bField<T, C>::initHaloUpdateTable() -> void
 {
-    NEON_THROW_UNSUPPORTED_OPERATION("");
+    // NEON_THROW_UNSUPPORTED_OPERATION("");
 #if 0
     auto& grid = this->getGrid();
     auto  bk = grid.getBackend();

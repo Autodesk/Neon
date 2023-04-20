@@ -15,6 +15,9 @@ struct SpanTable
 
     explicit SpanTable(const Neon::Backend& bk);
 
+    auto init(const Neon::Backend& bk)-> void;
+
+
     auto getSpan(Neon::Execution execution,
                  Neon::SetIdx   setIdx,
                  Neon::DataView dw)

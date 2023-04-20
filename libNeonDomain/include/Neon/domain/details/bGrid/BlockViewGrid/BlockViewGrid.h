@@ -67,6 +67,15 @@ struct GridTransformation
         return foundationGrid.getLaunchParameters(dataView, blockSize, shareMem);
     }
 
+    static auto helpGetGridIdx(FoundationGrid&,
+                               Neon::SetIdx const&,
+                               FoundationGrid::Idx const& fgIdx)
+        -> GridTransformation::Idx
+    {
+        GridTransformation::Idx tgIdx = fgIdx;
+        return tgIdx;
+    }
+
     template <typename T, int C>
     static auto initFieldPartition(FoundationGrid::Field<T, C>&                         foundationField,
                                    Neon::domain::tool::PartitionTable<Partition<T, C>>& partitionTable) -> void
@@ -81,6 +90,7 @@ struct GridTransformation
             });
     }
 };
+
 }  // namespace details
 using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
 
