@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Neon/core/types/Macros.h"
 
 enum CellType : int
