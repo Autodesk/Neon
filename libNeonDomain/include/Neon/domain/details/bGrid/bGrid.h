@@ -15,6 +15,7 @@
 #include "Neon/domain/tools/PointHashTable.h"
 #include "Neon/domain/tools/SpanTable.h"
 #include "Neon/set/Containter.h"
+#include "Neon/set/LaunchParametersTable.h"
 
 
 #include "bField.h"
@@ -125,8 +126,11 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         auto init(const Neon::Backend& bk)
         {
             spanTable.init(bk);
+            launchParametersTable.init(bk);
         }
+
         Neon::domain::tool::SpanTable<Span> spanTable /** Span for each data view configurations */;
+        Neon::set::LaunchParametersTable launchParametersTable;
 
         Neon::domain::tool::Partitioner1D partitioner1D;
         Stencil                           stencil;
@@ -140,8 +144,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
         BlockViewGrid::Field<uint64_t, 0>  activeBitMask;
         BlockViewGrid::Field<BlockIdx, 27> blockConnectivity;
 
-        Neon::set::MemSet<Neon::int8_3d>                                     stencilIdTo3dOffset;
-        std::array<Neon::set::LaunchParameters, Neon::DataViewUtil::nConfig> launchParameters;
+        Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
 
         tool::Partitioner1D::DenseMeta denseMeta;
 

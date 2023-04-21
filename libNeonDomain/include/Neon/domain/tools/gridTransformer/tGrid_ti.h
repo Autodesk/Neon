@@ -20,6 +20,14 @@ tGrid<GridTransformation>::tGrid(FoundationGrid& foundationGrid)
     mData->foundationGrid = foundationGrid;
     GridTransformation::initSpan(mData->foundationGrid,
                                  NEON_OUT mData->spanTable);
+    tGrid::GridBase::init("tGrid",
+                          bk,
+                          foundationGrid.getDimension(),
+                          foundationGrid.getStencil(),
+                          foundationGrid.getNumActiveCellsPerPartition(),
+                          foundationGrid.getDefaultBlock(),
+                          foundationGrid.getSpacing(),
+                          foundationGrid.getOrigin());
 }
 
 template <typename GridTransformation>
@@ -151,12 +159,14 @@ template <typename GridTransformation>
 tGrid<GridTransformation>::tGrid(const tGrid& other)
 {
     mData = other.mData;
+    tGrid::GridBase::operator=(other);
 }
 
 template <typename GridTransformation>
 tGrid<GridTransformation>::tGrid(tGrid&& other) noexcept
 {
     mData = std::move(other.mData);
+    tGrid::GridBase::operator=(other);
 }
 
 template <typename GridTransformation>
@@ -164,6 +174,7 @@ auto tGrid<GridTransformation>::operator=(const tGrid& other)
     -> tGrid&
 {
     mData = other.mData;
+    tGrid::GridBase::operator=(other);
     return *this;
 }
 
@@ -172,6 +183,7 @@ auto tGrid<GridTransformation>::operator=(tGrid&& other) noexcept
     -> tGrid&
 {
     mData = std::move(other.mData);
+    tGrid::GridBase::operator=(other);
     return *this;
 }
 }  // namespace Neon::domain::tool::details

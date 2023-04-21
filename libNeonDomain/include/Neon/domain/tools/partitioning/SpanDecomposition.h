@@ -117,6 +117,9 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
             }
         }else{
             mZLastIdx[idx] =block3DSpan.z-1;
+            for (int i = mZFirstIdx[idx] ; i <= mZLastIdx[idx]; i++) {
+                mNumBlocks[idx] += nBlockProjectedToZ[i];
+            }
         }
     });
 }

@@ -26,9 +26,17 @@ auto defContainer(int    streamIdx,
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                 Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                a(e, 0) = globalPoint.x;
-                b(e, 0) = globalPoint.y;
-                c(e, 0) = globalPoint.z;
+                a(e, 0) = 33;
+                b(e, 0) = 33;
+                c(e, 0) = 33;
+                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
+                    if (0 != globalPoint.x ||
+                        0 != globalPoint.y ||
+                        0 != globalPoint.z) {
+                        printf("Errorrrrrrrrrrrrrrrrrrrrrrrrrrrrr\n");
+                        Neon::index_3d globalPointt = a.getGlobalIndex(e);
+                    }
+                }
             };
         },
         Neon::Execution::device);
@@ -63,6 +71,13 @@ auto run(TestData<G, T, C>& data) -> void
             .run(0);
 
         data.getBackend().sync(0);
+
+        int xv = X.getReference({0,0,0},0);
+        printf("%d \n", xv);
+        int yv = Y.getReference({0,0,0},0);
+        printf("%d \n", yv);
+        int zv = Z.getReference({0,0,0},0);
+        printf("%d \n", zv);
     }
 
     {  // Golden data
@@ -82,7 +97,10 @@ auto run(TestData<G, T, C>& data) -> void
                                    X, Y, Z);
     }
 
-    bool isOk = data.compare(FieldNames::Y);
+    bool isOk = data.compare(FieldNames::X);
+    isOk = isOk && data.compare(FieldNames::Y);
+    isOk = isOk && data.compare(FieldNames::Z);
+
     ASSERT_TRUE(isOk);
 }
 

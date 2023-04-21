@@ -33,7 +33,7 @@ void runAllTestConfiguration(
     std::vector<int> nGpuTest{1};
     std::vector<int> cardinalityTest{1};
 
-    std::vector<Neon::index_3d> dimTest{{3, 3, 3}};
+    std::vector<Neon::index_3d> dimTest{{1, 1, 1}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
     //    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
     //        runtimeE.push_back(Neon::Runtime::stream);

@@ -104,22 +104,28 @@ bGrid::bGrid(const Neon::Backend&         backend,
                         auto const     idx3d = bitMask.getGlobalIndex(bitMaskIdx);
                         Neon::index_3d blockSize3d(dataBlockSize, dataBlockSize, dataBlockSize);
                         auto const     blockOrigin = idx3d * dataBlockSize;
+
+                        for (int c = 0; c < bitMask.cardinality(); c++) {
+                            bitMask(bitMaskIdx, c) = 0;
+                        }
+
                         for (int k = 0; k < dataBlockSize; k++) {
                             for (int j = 0; j < dataBlockSize; j++) {
                                 for (int i = 0; i < dataBlockSize; i++) {
-                                    for (int c = 0; c < bitMask.cardinality(); c++) {
-                                        bitMask(bitMaskIdx, c) = 0;
-                                    }
+
                                     Neon::int32_3d         localPosition(i, j, k);
                                     bSpan::BitMaskWordType mask;
                                     uint32_t               wordIdx;
 
                                     bSpan::getMaskAndWordIdforBlockBitMask(i, j, k, dataBlockSize, NEON_OUT mask, NEON_OUT wordIdx);
-                                    auto       globalPosition = localPosition + blockOrigin;
-                                    bool       isActive = activeCellLambda(blockSize3d);
-                                    if (isActive) {
+                                    auto globalPosition = localPosition + blockOrigin;
+                                    bool isInDomain = globalPosition < domainSize;
+                                    bool isActive = activeCellLambda(globalPosition);
+                                    if (isActive && isInDomain) {
                                         coutActive++;
-                                        bitMask(bitMaskIdx, wordIdx) |= mask;
+                                        auto value = bitMask(bitMaskIdx, wordIdx);
+                                        value = value | mask;
+                                        bitMask(bitMaskIdx, wordIdx) = value;
                                     }
                                 }
                             }
@@ -234,9 +240,20 @@ bGrid::bGrid(const Neon::Backend&         backend,
                           spacingData,
                           origin);
     {  // setting launchParameters
-       //        auto        eGridParams = mData->blockViewGrid.getLaunchParameters(dataView, blockSize, sharedMem);
-       //        auto const& bk = getBackend();
-       //        auto        results = bk.devSet().newLaunchParameters();
+        Neon::int32_3d blockSize(dataBlockSize, dataBlockSize, dataBlockSize);
+        mData->launchParametersTable.forEachSeq([&](Neon::DataView               dw,
+                                                    Neon::set::LaunchParameters& bLaunchParameters) {
+            auto defEGridBlock = mData->blockViewGrid.getDefaultBlock();
+            auto eGridParams = mData->blockViewGrid.getLaunchParameters(dw, defEGridBlock, 0);
+            eGridParams.forEachSeq([&](Neon::SetIdx setIdx, Neon::sys::GpuLaunchInfo const& launchSingleDev) {
+                auto eDomainGridSize = launchSingleDev.domainGrid();
+                assert(eDomainGridSize.y == 1);
+                assert(eDomainGridSize.z == 1);
+                int nBlocks = eDomainGridSize.x;
+                bLaunchParameters.get(setIdx).set(Neon::sys::GpuLaunchInfo::mode_e::cudaGridMode,
+                                                  nBlocks, blockSize, 0);
+            });
+        });
     }
 }
 

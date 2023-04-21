@@ -55,7 +55,7 @@ auto bGrid::getLaunchParameters(Neon::DataView dataView,
                                 const index_3d&,
                                 const size_t& sharedMem) const -> Neon::set::LaunchParameters
 {
-    auto res = mData->launchParameters[Neon::DataViewUtil::toInt(dataView)];
+    auto res = mData->launchParametersTable.get(dataView);
     res.forEachSeq([&](SetIdx const& /*setIdx*/,
                        Neon::set::LaunchParameters::launchInfo_e& launchParams) -> void {
         launchParams.setShm(sharedMem);

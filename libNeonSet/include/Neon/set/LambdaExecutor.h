@@ -50,7 +50,7 @@ void execLambdaIteratorOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 #ifdef NEON_OS_WINDOWS
 #pragma omp parallel for default(shared)
 #else
-#pragma omp parallel for simd default(shared)
+//#pragma omp parallel for simd default(shared)
 #endif
         for (IndexType x = 0; x < gridDim.x; x++) {
             typename DataSetContainer::Idx e;
@@ -65,7 +65,7 @@ void execLambdaIteratorOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 #ifdef NEON_OS_WINDOWS
 #pragma omp parallel for default(shared)
 #else
-#pragma omp parallel for simd collapse(2) default(shared)
+//#pragma omp parallel for simd collapse(2) default(shared)
 #endif
         for (IndexType y = 0; y < gridDim.y; y++) {
             for (IndexType x = 0; x < gridDim.x; x++) {
@@ -81,7 +81,7 @@ void execLambdaIteratorOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 #ifdef NEON_OS_WINDOWS
 #pragma omp parallel for default(shared)
 #else
-#pragma omp parallel for simd collapse(1) default(shared) schedule(guided)
+//#pragma omp parallel for simd collapse(1) default(shared) schedule(guided)
 #endif
         for (IndexType z = 0; z < gridDim.z; z++) {
             for (IndexType y = 0; y < gridDim.y; y++) {
@@ -124,16 +124,16 @@ void execLambdaIteratorOMP(const Neon::Integer_3d<IndexType>& blockSize,
 {
 
     if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1b3) {
-#pragma omp parallel for schedule(guided)
+//#pragma omp parallel for schedule(guided)
         for (IndexType bIdx = 0; bIdx < blockGridSize.x; bIdx++) {
             for (IndexType z = 0; z < blockSize.z; z++) {
                 for (IndexType y = 0; y < blockSize.y; y++) {
 #ifndef NEON_OS_WINDOWS
-#pragma omp simd
+//#pragma omp simd
 #endif
                     for (IndexType x = 0; x < blockSize.x; x++) {
                         typename DataSetContainer::Idx e;
-                        if (span.setAndValidateCPUDevice(e, bIdx, blockGridSize, x, y, z)) {
+                        if (span.setAndValidateCPUDevice(e, bIdx, blockSize, x, y, z)) {
                             userLambdaTa(e);
                         }
                     }
