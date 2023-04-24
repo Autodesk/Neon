@@ -4,9 +4,8 @@
 #include "Neon/domain/mGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
-#include "coalescence.h"
+
 #include "collide.h"
-#include "explosion.h"
 #include "init.h"
 #include "lattice.h"
 #include "postProcess.h"
