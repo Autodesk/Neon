@@ -25,7 +25,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  std::vector<Neon::set::Container>&          containers)
 {
     // 1) collision for all voxels at level L=level
-    containers.push_back(collideKBG<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideKBGHardwired<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
     // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
     if (level != numLevels - 1) {
@@ -47,7 +47,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
     }
 
     // 6) collision for all voxels at level L = level
-    containers.push_back(collideKBG<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideKBGHardwired<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
     // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
     if (level != numLevels - 1) {
