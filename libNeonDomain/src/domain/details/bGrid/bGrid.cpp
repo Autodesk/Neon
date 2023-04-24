@@ -82,9 +82,9 @@ auto bGrid::isInsideDomain(const index_3d& idx) const -> bool
     // 2. The block is active, check the element on the block
     uint32_t              wordCardinality;
     Span::BitMaskWordType mask;
-    Span::getMaskAndWordIdforBlockBitMask(blockIdx3d.x % this->mData->dataBlockSize,
-                                          blockIdx3d.y % this->mData->dataBlockSize,
-                                          blockIdx3d.z % this->mData->dataBlockSize,
+    Span::getMaskAndWordIdforBlockBitMask(idx.x % this->mData->dataBlockSize,
+                                          idx.y % this->mData->dataBlockSize,
+                                          idx.z % this->mData->dataBlockSize,
                                           this->mData->dataBlockSize,
                                           NEON_OUT mask,
                                           NEON_OUT wordCardinality);
