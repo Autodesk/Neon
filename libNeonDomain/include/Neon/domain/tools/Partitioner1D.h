@@ -147,7 +147,8 @@ class Partitioner1D
                                           mData->mSpanLayout->getStandardAndGhostCount().typedClone<size_t>(), {251, 1, 1});
     }
 
-    auto getBlockSpan ( )->Neon::int32_3d {
+    auto getBlockSpan() -> Neon::int32_3d
+    {
         return mData->block3DSpan;
     }
     auto getMemoryGrid() -> Neon::aGrid&
@@ -204,8 +205,9 @@ class Partitioner1D
                                 byDomain);
                             for (uint64_t j = 0; j < mapperVec.size(); j++) {
 
-                                aGrid::Cell idx(count);
-                                auto const& point3d = mapperVec[j];
+                                aGrid::Cell    idx(count);
+                                Neon::int32_3d point3d = mapperVec[j];
+                                point3d = point3d * mData->mDiscreteVoxelSpacing * mData->mDataBlockSize;
                                 partition(idx, 0) = point3d;
                                 count++;
                             }
@@ -399,11 +401,11 @@ class Partitioner1D
     class Data
     {
        public:
-        int                   mDataBlockSize = 0;
-        int                   mDiscreteVoxelSpacing = 0;
-        Neon::domain::Stencil mStencil;
-        Neon::index_3d        mDomainSize;
-        Neon::int32_3d block3DSpan;
+        int                                   mDataBlockSize = 0;
+        int                                   mDiscreteVoxelSpacing = 0;
+        Neon::domain::Stencil                 mStencil;
+        Neon::index_3d                        mDomainSize;
+        Neon::int32_3d                        block3DSpan;
         bool                                  globalMappingInit = false;
         Neon::aGrid::Field<Neon::int32_3d, 0> globalMapping;
 

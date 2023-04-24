@@ -7,6 +7,10 @@ NEON_CUDA_HOST_DEVICE inline auto
 bSpan::setAndValidateGPUDevice([[maybe_unused]] bIndex& bidx) const -> bool
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
+    bidx.mDataBlockIdx = blockIdx.x + mFirstDataBlockOffset;
+    bidx.mInDataBlockIdx.x =  threadIdx.x;
+    bidx.mInDataBlockIdx.y =  threadIdx.y;
+    bidx.mInDataBlockIdx.z =  threadIdx.z;
 
     assert(mDataBlockSize == blockDim.x);
     assert(mDataBlockSize == blockDim.y);
@@ -99,10 +103,10 @@ NEON_CUDA_HOST_DEVICE inline auto bSpan::getActiveStatus(
         // threadPitch & ((bitMaskWordType(bitMaskStorageBitWidth)) - 1);
         // same as threadPitch % 2^{log2OfbitMaskWordSize}
         const uint32_t  offsetInWord = threadPitch & ((BitMaskWordType(bitMaskStorageBitWidth)) - 1);
-        BitMaskWordType mask = 1 << offsetInWord;
+        BitMaskWordType mask = BitMaskWordType(1) << offsetInWord;
 
         uint32_t const  cardinality = getRequiredWordsForBlockBitMask(blockSize);
-        uint32_t const  pitch = (cardinality * dataBlockIdx + wordIdx) * (blockSize * blockSize * blockSize);
+        uint32_t const  pitch = (cardinality * dataBlockIdx) + wordIdx;
         BitMaskWordType targetWord = mActiveMask[pitch];
         auto            masked = targetWord & mask;
         if (masked != 0) {

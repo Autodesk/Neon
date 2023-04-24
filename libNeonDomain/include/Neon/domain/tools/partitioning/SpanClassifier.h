@@ -189,6 +189,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                         }
                     }
                 };
+                if(backend.deviceCount()>1) {
 
                 // We are running in the inner partition blocks
                 for (int bz = beginZ + zRadius; bz <= lastZ - zRadius; bz++) {
@@ -198,20 +199,30 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                         }
                     }
                 }
-                // We are running in the inner partition blocks
-                for (auto& bz : boundaryDwSlices) {
-                    for (int by = 0; by < block3DSpan.y; by++) {
-                        for (int bx = 0; bx < block3DSpan.x; bx++) {
-                            inspectBlock(bx, by, bz, ByPartition::boundary, ByDirection::down);
+                    // We are running in the inner partition blocks
+                    for (auto& bz : boundaryDwSlices) {
+                        for (int by = 0; by < block3DSpan.y; by++) {
+                            for (int bx = 0; bx < block3DSpan.x; bx++) {
+                                inspectBlock(bx, by, bz, ByPartition::boundary, ByDirection::down);
+                            }
                         }
                     }
-                }
 
-                // We are running in the inner partition blocks
-                for (auto& bz : boundaryUpSlices) {
-                    for (int by = 0; by < block3DSpan.y; by++) {
-                        for (int bx = 0; bx < block3DSpan.x; bx++) {
-                            inspectBlock(bx, by, bz, ByPartition::boundary, ByDirection::up);
+                    // We are running in the inner partition blocks
+                    for (auto& bz : boundaryUpSlices) {
+                        for (int by = 0; by < block3DSpan.y; by++) {
+                            for (int bx = 0; bx < block3DSpan.x; bx++) {
+                                inspectBlock(bx, by, bz, ByPartition::boundary, ByDirection::up);
+                            }
+                        }
+                    }
+                }else{
+                    // We are running in the inner partition blocks
+                    for (int bz = beginZ; bz <= lastZ; bz++) {
+                        for (int by = 0; by < block3DSpan.y; by++) {
+                            for (int bx = 0; bx < block3DSpan.x; bx++) {
+                                inspectBlock(bx, by, bz, ByPartition::internal, defaultForInternal);
+                            }
                         }
                     }
                 }

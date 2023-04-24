@@ -33,14 +33,15 @@ void runAllTestConfiguration(
     std::vector<int> nGpuTest{1};
     std::vector<int> cardinalityTest{1};
 
-    std::vector<Neon::index_3d> dimTest{{1, 1, 1}};
+    std::vector<Neon::index_3d> dimTest{{17, 33, 51}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
-    //    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-    //        runtimeE.push_back(Neon::Runtime::stream);
-    //    }
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        runtimeE.push_back(Neon::Runtime::stream);
+    }
 
     std::vector<Geometry>           geos;
-    std::vector<Neon::MemoryLayout> memoryLayoutOptions{Neon::MemoryLayout::structOfArrays, Neon::MemoryLayout::arrayOfStructs};
+    // std::vector<Neon::MemoryLayout> memoryLayoutOptions{Neon::MemoryLayout::structOfArrays, Neon::MemoryLayout::arrayOfStructs};
+    std::vector<Neon::MemoryLayout> memoryLayoutOptions{Neon::MemoryLayout::structOfArrays};
 
     if constexpr (std::is_same_v<G, Neon::dGrid>) {
         geos = std::vector<Geometry>{

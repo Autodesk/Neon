@@ -26,16 +26,17 @@ auto defContainer(int    streamIdx,
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                 Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                a(e, 0) = 33;
-                b(e, 0) = 33;
-                c(e, 0) = 33;
+                a(e, 0) = globalPoint.x ;
+                b(e, 0) = globalPoint.y;
+                c(e, 0) = globalPoint.z;
                 if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
-                    if (0 != globalPoint.x ||
-                        0 != globalPoint.y ||
-                        0 != globalPoint.z) {
-                        printf("Errorrrrrrrrrrrrrrrrrrrrrrrrrrrrr\n");
-                        Neon::index_3d globalPointt = a.getGlobalIndex(e);
-                    }
+                    printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
+                           e.mInDataBlockIdx.x,
+                           e.mInDataBlockIdx.y,
+                           e.mInDataBlockIdx.z,
+                           globalPoint.x,
+                           globalPoint.y,
+                           globalPoint.z);
                 }
             };
         },

@@ -62,7 +62,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
             [](Neon::index_3d /*idx*/) { return false; },
             helpGetDataBlockSize(),
             domainSize,
-            stencil,
+            Neon::domain::Stencil::s27_t(false),
             1);
 
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();
@@ -76,7 +76,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
             backend,
             mData->partitioner1D.getBlockSpan(),
             mData->partitioner1D,
-            stencil,
+            Neon::domain::Stencil::s27_t(false),
             spacingData * helpGetDataBlockSize(),
             origin);
 
@@ -99,11 +99,11 @@ bGrid::bGrid(const Neon::Backend&         backend,
                 [&](Neon::set::Loader& loader) {
                     auto bitMask = loader.load(mData->activeBitMask);
                     return [&](const auto& bitMaskIdx) {
-                        auto           prtIdx = bitMask.prtID();
-                        int            coutActive = 0;
-                        auto const     idx3d = bitMask.getGlobalIndex(bitMaskIdx);
-                        Neon::index_3d blockSize3d(dataBlockSize, dataBlockSize, dataBlockSize);
-                        auto const     blockOrigin = idx3d * dataBlockSize;
+                        auto       prtIdx = bitMask.prtID();
+                        int        coutActive = 0;
+                        auto const blockOrigin = bitMask.getGlobalIndex(bitMaskIdx);
+                        //                        Neon::index_3d blockSize3d(dataBlockSize, dataBlockSize, dataBlockSize);
+                        //                        auto const     blockOrigin = idx3d * dataBlockSize;
 
                         for (int c = 0; c < bitMask.cardinality(); c++) {
                             bitMask(bitMaskIdx, c) = 0;
@@ -164,7 +164,10 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                                   auto                                      targetDirection = i + 3 * j + 3 * 3 * k;
                                                                   BlockIdx                                  blockNghIdx = bSpan::getInvalidBlockId();
                                                                   typename decltype(blockConnectivity)::Idx nghIdx;
-                                                                  bool                                      isValid = blockConnectivity.getNghIndex(idx, {i, j, k}, nghIdx);
+                                                                  Neon::int8_3d                             stencilPoint(i - int8_t(1),
+                                                                                                                         j - int8_t(1),
+                                                                                                                         k - int8_t(1));
+                                                                  bool                                      isValid = blockConnectivity.getNghIndex(idx, stencilPoint, nghIdx);
                                                                   if (isValid) {
                                                                       blockNghIdx = nghIdx.helpGet();
                                                                   }

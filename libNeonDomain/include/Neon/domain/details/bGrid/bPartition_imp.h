@@ -31,7 +31,7 @@ bPartition<T, C>::
     : mCardinality(cardinality),
       mMem(mem),
       mStencilNghIndex(stencilNghIndex),
-      mBlockSizeByPower(blockSize),
+      mBlockSizeByPower(blockSize.x, blockSize.x*blockSize.x,blockSize.x*blockSize.x*blockSize.x),
       mBlockConnectivity(blockConnectivity),
       mMask(mask),
       mOrigin(origin),
