@@ -5,13 +5,13 @@
 
 
 template <typename T, int Q>
-inline Neon::set::Container collideKBGHardwired(Neon::domain::mGrid&                        grid,
-                                                T                                           omega0,
-                                                int                                         level,
-                                                int                                         numLevels,
-                                                const Neon::domain::mGrid::Field<CellType>& cellType,
-                                                const Neon::domain::mGrid::Field<T>&        fin,
-                                                Neon::domain::mGrid::Field<T>&              fout)
+inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&                        grid,
+                                               T                                           omega0,
+                                               int                                         level,
+                                               int                                         numLevels,
+                                               const Neon::domain::mGrid::Field<CellType>& cellType,
+                                               const Neon::domain::mGrid::Field<T>&        fin,
+                                               Neon::domain::mGrid::Field<T>&              fout)
 {
     return grid.getContainer(
         "collideKBC_" + std::to_string(level), level,
@@ -41,7 +41,7 @@ inline Neon::set::Container collideKBGHardwired(Neon::domain::mGrid&            
                         const T Z_P1 = ins[6] + ins[8] + ins[12] + ins[15] + ins[17];
 
                         //density
-                        T rho = X_M1 + X_P1 + X_0;
+                        const T rho = X_M1 + X_P1 + X_0;
 
                         //velocity
                         Neon::Vec_3d<T> vel;
@@ -122,6 +122,66 @@ inline Neon::set::Container collideKBGHardwired(Neon::domain::mGrid&            
                         const T eq_09 = rho * (1. / 3.) * (1. - usqr);
                         const T pop_out_09 = (1. - omega) * ins[9] + omega * eq_09;
                         out(cell, 9) = pop_out_09;
+
+
+                        /*{
+                            constexpr T tiny = 0.0000000000000001;
+
+                            //////
+                            T rho_gt = 0;
+                            for (int i = 0; i < Q; ++i) {
+                                rho_gt += ins[i];
+                            }
+                            if (std::abs(rho_gt - rho) > tiny) {
+                                printf("\n diff rho_gt= %.17g, rho= %.17g",
+                                       rho_gt, rho);
+#ifdef __CUDA_ARCH__
+                                __trap();
+#endif
+                            }
+
+                            //////
+                            const Neon::Vec_3d<T> vel_gt = velocity<T, Q>(ins, rho_gt);
+                            if (std::abs(vel_gt.x - vel.x) > tiny ||
+                                std::abs(vel_gt.y - vel.y) > tiny ||
+                                std::abs(vel_gt.z - vel.z) > tiny) {
+                                printf("\n diff vel_gt = %.17g, %.17g, %.17g, vel= %.17g, %.17g, %.17g",
+                                       vel_gt.x,
+                                       vel_gt.y,
+                                       vel_gt.z,
+                                       vel.x,
+                                       vel.y,
+                                       vel.z);
+#ifdef __CUDA_ARCH__
+                                __trap();
+#endif
+                            }
+
+                            /////
+
+                            const T usqr_gt = (3.0 / 2.0) * (vel_gt.x * vel_gt.x + vel_gt.y * vel_gt.y + vel_gt.z * vel_gt.z);
+                            for (int q = 0; q < Q; ++q) {
+                                T cu = 0;
+                                for (int d = 0; d < 3; ++d) {
+                                    cu += latticeVelocity[q][d] * vel_gt.v[d];
+                                }
+                                cu *= 3.0;
+
+                                //equilibrium
+                                T feq = rho_gt * latticeWeights[q] * (1. + cu + 0.5 * cu * cu - usqr);
+
+                                //collide
+                                T out_gt = (1 - omega) * ins[q] + omega * feq;
+                                if (std::abs(out_gt - out(cell, q)) > tiny) {
+                                    printf("\n diff q= %d gt= %.17g, pop= %.17g",
+                                           q, out_gt, out(cell, q));
+#ifdef __CUDA_ARCH__
+                                    __trap();
+#endif
+                                }
+                            }
+                            //////
+                        }*/
                     }
                 }
             };
@@ -258,7 +318,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
 }
 
 template <typename T, int Q>
-Neon::set::Container collideKBG(Neon::domain::mGrid&                        grid,
+Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid,
                                 T                                           omega0,
                                 int                                         level,
                                 int                                         numLevels,
@@ -308,7 +368,8 @@ Neon::set::Container collideKBG(Neon::domain::mGrid&                        grid
                             T feq = rho * latticeWeights[q] * (1. + cu + 0.5 * cu * cu - usqr);
 
                             //collide
-                            out(cell, q) = ins[q] - omega * (ins[q] - feq);
+                            //out(cell, q) = ins[q] - omega * (ins[q] - feq);
+                            out(cell, q) = (1 - omega) * ins[q] + omega * feq;
                         }
                     }
                 }

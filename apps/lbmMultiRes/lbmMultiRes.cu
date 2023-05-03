@@ -25,7 +25,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  std::vector<Neon::set::Container>&          containers)
 {
     // 1) collision for all voxels at level L=level
-    containers.push_back(collideKBGHardwired<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
     // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
     if (level != numLevels - 1) {
@@ -47,7 +47,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
     }
 
     // 6) collision for all voxels at level L = level
-    containers.push_back(collideKBGHardwired<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
     // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
     if (level != numLevels - 1) {
@@ -145,9 +145,9 @@ void runNonUniformLBM(const int           problemID,
     //execution
     auto start = std::chrono::high_resolution_clock::now();
     for (int t = 0; t < numIter; ++t) {
+        NEON_INFO("Non-uniform LBM Iteration: {}", t);
         skl.run();
         if (!benchmark && t % 100 == 0) {
-            NEON_INFO("Non-uniform LBM Iteration: {}", t);
             postProcess<T, Q>(grid, descriptor.getDepth(), fout, cellType, t, vel, rho, false);
         }
     }

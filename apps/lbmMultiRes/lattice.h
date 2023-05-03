@@ -43,34 +43,34 @@ enum CellType : int
 NEON_CUDA_DEVICE_ONLY static constexpr char latticeOppositeID[27] = {
     0, 2, 1, 6, 8, 7, 3, 5, 4, 18, 20, 19, 24, 26, 25, 21, 23, 22, 9, 11, 10, 15, 17, 16, 12, 14, 13};
 
-NEON_CUDA_DEVICE_ONLY static constexpr float latticeWeights[27] = {
+NEON_CUDA_DEVICE_ONLY static constexpr double latticeWeights[27] = {
     8.0 / 27.0,
-    2.0f / 27.0f,
-    2.0f / 27.0f,
-    2.0f / 27.0f,
-    1.0f / 54.0f,
-    1.0f / 54.0f,
-    2.0f / 27.0f,
-    1.0f / 54.0f,
-    1.0f / 54.0f,
-    2.0f / 27.0f,
-    1.0f / 54.0f,
-    1.0f / 54.0f,
-    1.0f / 54.0f,
-    1.0f / 216.0f,
-    1.0f / 216.0f,
-    1.0f / 54.0f,
-    1.0f / 216.0f,
-    1.0f / 216.0f,
-    2.0f / 27.0f,
-    1.0f / 54.0f,
-    1.0f / 54.0f,
-    1.0f / 54.0f,
-    1.0f / 216.0f,
-    1.0f / 216.0f,
-    1.0f / 54.0f,
-    1.0f / 216.0f,
-    1.0f / 216.0f
+    2.0 / 27.0,
+    2.0 / 27.0,
+    2.0 / 27.0,
+    1.0 / 54.0,
+    1.0 / 54.0,
+    2.0 / 27.0,
+    1.0 / 54.0,
+    1.0 / 54.0,
+    2.0 / 27.0,
+    1.0 / 54.0,
+    1.0 / 54.0,
+    1.0 / 54.0,
+    1.0 / 216.0,
+    1.0 / 216.0,
+    1.0 / 54.0,
+    1.0 / 216.0,
+    1.0 / 216.0,
+    2.0 / 27.0,
+    1.0 / 54.0,
+    1.0 / 54.0,
+    1.0 / 54.0,
+    1.0 / 216.0,
+    1.0 / 216.0,
+    1.0 / 54.0,
+    1.0 / 216.0,
+    1.0 / 216.0
 
 };*/
 
@@ -147,7 +147,7 @@ NEON_CUDA_DEVICE_ONLY static constexpr char latticeOppositeID[19] = {
     8 /*!  18 */
 };
 
-NEON_CUDA_DEVICE_ONLY static constexpr float latticeWeights[19] = {
+NEON_CUDA_DEVICE_ONLY static constexpr double latticeWeights[19] = {
     1. / 18. /*!  0   */,
     1. / 18. /*!  1   */,
     1. / 18. /*!  2   */,
