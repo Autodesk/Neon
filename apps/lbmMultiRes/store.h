@@ -1,9 +1,9 @@
 #pragma once
 
 template <typename T, int Q>
-inline Neon::set::Container store(Neon::domain::mGrid&           grid,
-                                  int                            level,
-                                  Neon::domain::mGrid::Field<T>& postCollision)
+inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
+                                        int                            level,
+                                        Neon::domain::mGrid::Field<T>& postCollision)
 {
     //Initiated by the coarse level (level), this function prepares and stores the fine (level - 1)
     // information for further pulling initiated by the coarse (this) level invoked by coalescence_pull
@@ -17,7 +17,7 @@ inline Neon::set::Container store(Neon::domain::mGrid&           grid,
     //its neighbor's children)
 
     return grid.getContainer(
-        "store_" + std::to_string(level), level,
+        "storeCoarse_" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
             auto& fpost_col = postCollision.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
@@ -26,12 +26,6 @@ inline Neon::set::Container store(Neon::domain::mGrid&           grid,
                 if (fpost_col.hasChildren(cell)) {
 
                     const int refFactor = fpost_col.getRefFactor(level);
-
-                    bool should_accumelate = ((int(fpost_col(cell, 0)) % refFactor) != 0);
-
-                    //fpost_col(cell, 0) += 1;
-                    fpost_col(cell, 0) = (int(fpost_col(cell, 0)) + 1) % refFactor;
-
 
                     //for each direction aka for each neighbor
                     //we skip the center here
@@ -82,12 +76,56 @@ inline Neon::set::Container store(Neon::domain::mGrid&           grid,
                                         }
                                     }
                                 }
+                                fpost_col(cell, q) += sum / static_cast<T>(num * refFactor);
+                            }
+                        }
+                    }
+                }
+            };
+        });
+}
 
-                                if (should_accumelate) {
-                                    fpost_col(cell, q) += sum / static_cast<T>(num * refFactor);
-                                } else {
-                                    fpost_col(cell, q) = sum / static_cast<T>(num * refFactor);
-                                }
+
+template <typename T, int Q>
+inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
+                                      int                            level,
+                                      Neon::domain::mGrid::Field<T>& postCollision)
+{
+    //Initiated by the fine level (level), this function prepares and stores the fine (level)
+    // information for further pulling initiated by the coarse (level+1) level invoked by coalescence
+    //
+    //This function only access a fine cell (Cf) that on the interface with a coarse cell.
+    // For such fine cell, we figure out where to add its pop along certain direction in level + 1
+    // such that another coarse cell (in level +1) will read this pop during coalescence
+    //
+
+
+    return grid.getContainer(
+        "storeFine_" + std::to_string(level), level,
+        [&, level](Neon::set::Loader& loader) {
+            auto& fpost_col = postCollision.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                if (fpost_col.hasParent(cell)) {
+                    const auto parent = fpost_col.getParent(cell);
+
+                    const Neon::int8_3d childLocalID(cell.mLocation.x, cell.mLocation.y, cell.mLocation.z);
+
+                    //we could skip q = 0
+                    for (int8_t q = 1; q < Q; ++q) {
+
+                        const Neon::int8_3d q_dir = getDir(q);
+
+                        const Neon::int8_3d cu = uncleOffset(cell, q_dir);
+
+                        const auto uncle = fpost_col.getUncle(cell, q_dir);
+                        if (uncle.isActive()) {
+                            if (!fpost_col.hasChildren(uncle)) {
+
+                                const auto cs = fpost_col.getUncle(cu, -q_dir);
+
+                                //fpost_col(cs,q) = 
+
                             }
                         }
                     }

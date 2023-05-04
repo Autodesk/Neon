@@ -1,6 +1,6 @@
 #pragma once
-#include "explosion.h"
 #include "coalescence.h"
+#include "explosion.h"
 
 template <typename T, int Q>
 inline Neon::set::Container stream(Neon::domain::mGrid&                        grid,

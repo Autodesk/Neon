@@ -14,7 +14,7 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                                                Neon::domain::mGrid::Field<T>&              fout)
 {
     return grid.getContainer(
-        "collideKBC_" + std::to_string(level), level,
+        "collideBGKUnrolled_" + std::to_string(level), level,
         [&, level, omega0, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
             const auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
@@ -182,6 +182,16 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                             }
                             //////
                         }*/
+                    } else {
+                        if (level != 0) {
+                            //zero out the center only if we are not of the finest level
+                            //this is because we use the refined voxels the interface to
+                            //accumulate the fine level information in Store operation
+                            //which should be reset after each collide
+                            for (int q = 0; q < Q; ++q) {
+                                out(cell, q) = 0;
+                            }
+                        }
                     }
                 }
             };
@@ -311,6 +321,16 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
                             T deltaH = fneq[q] - deltaS[q];
                             out(cell, q) = ins[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
                         }
+                    } else {
+                        if (level != 0) {
+                            //zero out the center only if we are not of the finest level
+                            //this is because we use the refined voxels the interface to
+                            //accumulate the fine level information in Store operation
+                            //which should be reset after each collide
+                            for (int q = 0; q < Q; ++q) {
+                                out(cell, q) = 0;
+                            }
+                        }
                     }
                 }
             };
@@ -327,7 +347,7 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
                                 Neon::domain::mGrid::Field<T>&              fout)
 {
     return grid.getContainer(
-        "collideKBG_" + std::to_string(level), level,
+        "collideBGK_" + std::to_string(level), level,
         [&, level, omega0, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
             const auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
@@ -370,6 +390,16 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
                             //collide
                             //out(cell, q) = ins[q] - omega * (ins[q] - feq);
                             out(cell, q) = (1 - omega) * ins[q] + omega * feq;
+                        }
+                    } else {
+                        if (level != 0) {
+                            //zero out the center only if we are not of the finest level
+                            //this is because we use the refined voxels the interface to
+                            //accumulate the fine level information in Store operation
+                            //which should be reset after each collide
+                            for (int q = 0; q < Q; ++q) {
+                                out(cell, q) = 0;
+                            }
                         }
                     }
                 }
