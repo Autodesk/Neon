@@ -11,6 +11,7 @@
 #include "Neon/domain/tools/Geometries.h"
 #include "Neon/domain/tools/TestData.h"
 
+#include "Neon/domain/bGrid.h"
 #include "gtest/gtest.h"
 
 using namespace Neon;
@@ -25,7 +26,6 @@ void runAllTestConfiguration(
     [[maybe_unused]] int                    nGpus,
     [[maybe_unused]] int                    minNumGpus)
 {
-    nGpus=1;
     std::vector<int> nGpuTest;
     for (int i = minNumGpus; i <= nGpus; i++) {
         nGpuTest.push_back(i);
@@ -48,13 +48,12 @@ void runAllTestConfiguration(
     } else {
         geos = std::vector<Geometry>{
             Geometry::FullDomain,
-//            Geometry::Sphere,
-//            Geometry::HollowSphere,
-
+            //            Geometry::Sphere,
+            //            Geometry::HollowSphere,
         };
     }
 
-    for (const auto& dim : dimTest) {
+    for (auto& dim : dimTest) {
         for (const auto& card : cardinalityTest) {
             for (auto& geo : geos) {
                 for (const auto& ngpu : nGpuTest) {
@@ -73,6 +72,12 @@ void runAllTestConfiguration(
 
                         Neon::Backend       backend(ids, runtime);
                         Neon::MemoryOptions memoryOptions = backend.getMemoryOptions();
+
+                        if constexpr (std::is_same_v<G, Neon::bGrid>) {
+                            if (dim.z < 8 * ngpu * 3) {
+                                dim.z = ngpu * 3 * 8;
+                            }
+                        }
 
                         TestData<G, T, C> testData(backend,
                                                    dim,

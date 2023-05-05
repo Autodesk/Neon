@@ -26,11 +26,10 @@ void runAllTestConfiguration(
     [[maybe_unused]] int                    nGpus,
     [[maybe_unused]] int                    minNumGpus)
 {
-    //    std::vector<int> nGpuTest;
-    //    for (int i = minNumGpus; i <= nGpus; i++) {
-    //        nGpuTest.push_back(i);
-    //    }
-    std::vector<int> nGpuTest{1};
+    std::vector<int> nGpuTest;
+    for (int i = minNumGpus; i <= nGpus; i++) {
+        nGpuTest.push_back(i);
+    }
     std::vector<int> cardinalityTest{1};
 
     std::vector<Neon::index_3d> dimTest{{17, 33, 51}};
@@ -40,8 +39,8 @@ void runAllTestConfiguration(
     }
 
     std::vector<Geometry>           geos;
-    // std::vector<Neon::MemoryLayout> memoryLayoutOptions{Neon::MemoryLayout::structOfArrays, Neon::MemoryLayout::arrayOfStructs};
-    std::vector<Neon::MemoryLayout> memoryLayoutOptions{Neon::MemoryLayout::structOfArrays};
+    std::vector<Neon::MemoryLayout> memoryLayoutOptions{Neon::MemoryLayout::structOfArrays, Neon::MemoryLayout::arrayOfStructs};
+    //std::vector<Neon::MemoryLayout> memoryLayoutOptions{Neon::MemoryLayout::structOfArrays};
 
     if constexpr (std::is_same_v<G, Neon::dGrid>) {
         geos = std::vector<Geometry>{

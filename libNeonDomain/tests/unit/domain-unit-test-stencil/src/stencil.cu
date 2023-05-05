@@ -21,12 +21,13 @@ auto stencilContainer_laplace(const Field& filedA,
             auto       b = loader.load(fieldB);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& idx) mutable {
-                for (int i = 0; i < a.cardinality(); i++) {
+                int maxCard = a.cardinality();
+                for (int i = 0; i < maxCard; i++) {
                     // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                     typename Field::Type partial = 0;
                     int                  count = 0;
                     using Ngh3DIdx = Neon::int8_3d;
-                    std::array< Ngh3DIdx, 6> stencil{
+                   constexpr std::array< Ngh3DIdx, 6> stencil{
                         Ngh3DIdx(1, 0, 0),
                         Ngh3DIdx(-1, 0, 0),
                         Ngh3DIdx(0, 1, 0),
@@ -35,7 +36,37 @@ auto stencilContainer_laplace(const Field& filedA,
                         Ngh3DIdx(0, 0, -1)};
                     for (auto const& direction : stencil) {
                         typename Field::NghData nghData = a.getNghData(idx, direction, i, 0);
+#if 0
+                        Neon::index_3d globalPoint = a.getGlobalIndex(idx);
+//                        if(globalPoint ==  Neon::index_3d(4,4,3)){
+//                            printf("");
+//                            nghData = a.getNghData(idx, direction, i, 0);
+//                            auto local = a(idx, 0);
+//                            if(local)
+//                            printf("");
+//                        }
+//                        if(globalPoint ==  Neon::index_3d(5,4,3)){
+//                            printf("");
+//                            nghData = a.getNghData(idx, direction, i, 0);
+//                            auto local = a(idx, 0);
+//                            if(local)
+//                            printf("");
+//                        }
+#endif
                         if (nghData.isValid()) {
+#if 0
+//                            if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
+//
+//                                printf("VALID %d %d %d direction %d %d %d data %ld\n",
+//                                       idx.mInDataBlockIdx.x,
+//                                       idx.mInDataBlockIdx.y,
+//                                       idx.mInDataBlockIdx.z,
+//                                       int(direction.x),
+//                                       int(direction.y),
+//                                       int(direction.z),
+//                                       nghData.getData());
+//                            }
+#endif
                             partial += nghData.getData();
                             count++;
                         }
@@ -56,10 +87,12 @@ auto run(TestData<G, T, C>& data) -> void
     using Type = typename TestData<G, T, C>::Type;
     auto&             grid = data.getGrid();
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
+    const int         maxIters = 4;
 
     NEON_INFO(grid.toString());
 
-    data.resetValuesToLinear(1, 100);
+   // data.resetValuesToLinear(1, 100);
+    data.resetValuesToMasked(1);
 
     {  // NEON
         const Neon::index_3d        dim = grid.getDimension();
@@ -67,8 +100,7 @@ auto run(TestData<G, T, C>& data) -> void
 
         auto& X = data.getField(FieldNames::X);
         auto& Y = data.getField(FieldNames::Y);
-
-        for (int iter = 4; iter > 0; iter--) {
+        for (int iter = maxIters; iter > 0; iter--) {
             X.newHaloUpdate(Neon::set::StencilSemantic::standard,
                             Neon::set::TransferMode::put,
                             Neon::Execution::device)
@@ -97,21 +129,23 @@ auto run(TestData<G, T, C>& data) -> void
 
     data.updateHostData();
 
-        data.getField(FieldNames::X).ioToVtk("X", "X", true);
+    data.getField(FieldNames::X).ioToVtk("X", "X", true);
     //    data.getField(FieldNames::Y).ioToVtk("Y", "Y", false);
     //    data.getField(FieldNames::Z).ioToVtk("Z", "Z", false);
     //
-        data.getIODomain(FieldNames::X).ioToVti("X_", "X_");
+    data.getIODomain(FieldNames::X).ioToVti("X_", "X_");
     //    data.getField(FieldNames::Y).ioVtiAllocator("Y_");
     //    data.getField(FieldNames::Z).ioVtiAllocator("Z_");
 
     bool isOk = data.compare(FieldNames::X);
-     isOk = data.compare(FieldNames::Y);
+    isOk = data.compare(FieldNames::Y);
 
     ASSERT_TRUE(isOk);
 }
 
 template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
+template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
+
 
 }  // namespace map

@@ -16,18 +16,38 @@ auto mapContainer_axpy(int                   streamIdx,
     -> Neon::set::Container
 {
     const auto& grid = filedA.getGrid();
-    return grid.newContainer("mapContainer_axpy",
-                             [&, val](Neon::set::Loader& loader) {
-                                 const auto a = loader.load(filedA);
-                                 auto       b = loader.load(fieldB);
+    return grid.newContainer(
+        "mapContainer_axpy",
+        [&, val](Neon::set::Loader& loader) {
+            const auto a = loader.load(filedA);
+            auto       b = loader.load(fieldB);
 
-                                 return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
-                                     for (int i = 0; i < a.cardinality(); i++) {
-                                         // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
-                                         b(e, i) += a(e, i) *val;
-                                     }
-                                 };
-                             }, Neon::Execution::device);
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
+                for (int i = 0; i < a.cardinality(); i++) {
+                    // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
+                    b(e, i) += a(e, i) * val;
+                }
+#if 0
+                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
+                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
+                    if (globalPoint.x == 7 && globalPoint.y == 0 && globalPoint.z == 0) {
+                        printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
+                               e.mInDataBlockIdx.x,
+                               e.mInDataBlockIdx.y,
+                               e.mInDataBlockIdx.z,
+                               globalPoint.x,
+                               globalPoint.y,
+                               globalPoint.z);
+                        for (int i = 0; i < a.cardinality(); i++) {
+                            auto val =  a(e, i);
+                            printf("VALUE %ld \n", a(e, i));
+                        }
+                    }
+                }
+#endif
+            };
+        },
+        Neon::Execution::device);
 }
 
 using namespace Neon::domain::tool::testing;

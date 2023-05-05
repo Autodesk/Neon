@@ -189,21 +189,25 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                         }
                     }
                 };
-                if(backend.deviceCount()>1) {
+                if (backend.deviceCount() > 1) {
 
-                // We are running in the inner partition blocks
-                if(beginZ + zRadius >  lastZ - zRadius){
-                    NeonException exception("1D Partitioner");
-                    exception << "Domain too small for the number of devices that was providded.";
-                    NEON_THROW(exception);
-                }
-                for (int bz = beginZ + zRadius; bz <= lastZ - zRadius; bz++) {
-                    for (int by = 0; by < block3DSpan.y; by++) {
-                        for (int bx = 0; bx < block3DSpan.x; bx++) {
-                            inspectBlock(bx, by, bz, ByPartition::internal, defaultForInternal);
+                    // We are running in the inner partition blocks
+                    if (beginZ + zRadius > lastZ - zRadius) {
+                        std::cout << spanDecompositionNoUse->toString(backend);
+
+                        NeonException exception("1D Partitioner");
+                        exception << "Domain too small for the number of devices that was providded.\n";
+                        exception << "Block Span "<<block3DSpan<<"\n";
+                        exception << spanDecompositionNoUse->toString(backend);
+                        NEON_THROW(exception);
+                    }
+                    for (int bz = beginZ + zRadius; bz <= lastZ - zRadius; bz++) {
+                        for (int by = 0; by < block3DSpan.y; by++) {
+                            for (int bx = 0; bx < block3DSpan.x; bx++) {
+                                inspectBlock(bx, by, bz, ByPartition::internal, defaultForInternal);
+                            }
                         }
                     }
-                }
                     // We are running in the inner partition blocks
                     for (auto& bz : boundaryDwSlices) {
                         for (int by = 0; by < block3DSpan.y; by++) {
@@ -221,7 +225,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                             }
                         }
                     }
-                }else{
+                } else {
                     // We are running in the inner partition blocks
                     for (int bz = beginZ; bz <= lastZ; bz++) {
                         for (int by = 0; by < block3DSpan.y; by++) {

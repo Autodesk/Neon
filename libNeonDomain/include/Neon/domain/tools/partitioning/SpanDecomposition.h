@@ -6,8 +6,8 @@
 
 #include "Neon/domain/interface/GridBaseTemplate.h"
 
-#include "Neon/domain/tools/SpanTable.h"
 #include "Neon/domain/tools/PointHashTable.h"
+#include "Neon/domain/tools/SpanTable.h"
 
 namespace Neon::domain::tool::partitioning {
 
@@ -24,13 +24,13 @@ class SpanDecomposition
               typename Block3dIdxToBlockOrigin,
               typename GetVoxelAbsolute3DIdx>
     SpanDecomposition(const Neon::Backend&           backend,
-                    const ActiveCellLambda&        activeCellLambda,
-                    const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
-                    const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
-                    const Neon::int32_3d&          block3DSpan,
-                    const int&                     blockSize,
-                    const Neon::int32_3d&          domainSize,
-                    const int&                     discreteVoxelSpacing);
+                      const ActiveCellLambda&        activeCellLambda,
+                      const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
+                      const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
+                      const Neon::int32_3d&          block3DSpan,
+                      const int&                     blockSize,
+                      const Neon::int32_3d&          domainSize,
+                      const int&                     discreteVoxelSpacing);
 
     auto getNumBlockPerPartition() const
         -> const Neon::set::DataSet<int64_t>&;
@@ -40,6 +40,9 @@ class SpanDecomposition
 
     auto getLastZSliceIdx() const
         -> const Neon::set::DataSet<int32_t>&;
+
+    auto toString(Neon::Backend const&) const
+        -> std::string;
 
    private:
     Neon::set::DataSet<int32_t> mZFirstIdx;
@@ -53,13 +56,13 @@ template <typename ActiveCellLambda,
           typename Block3dIdxToBlockOrigin,
           typename GetVoxelAbsolute3DIdx>
 SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
-                                 const ActiveCellLambda&        activeCellLambda,
-                                 const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
-                                 const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
-                                 const Neon::int32_3d&          block3DSpan,
-                                 const int&                     blockSize,
-                                 const Neon::int32_3d&          domainSize,
-                                 const int&                     discreteVoxelSpacing)
+                                     const ActiveCellLambda&        activeCellLambda,
+                                     const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
+                                     const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
+                                     const Neon::int32_3d&          block3DSpan,
+                                     const int&                     blockSize,
+                                     const Neon::int32_3d&          domainSize,
+                                     const int&                     discreteVoxelSpacing)
 {
     // Computing nBlockProjectedToZ and totalBlocks
     mDomainBlocksCount = 0;
@@ -99,15 +102,16 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
     mZLastIdx = backend.devSet().newDataSet<int32_t>(0);
     mNumBlocks = backend.devSet().newDataSet<int64_t>(0);
 
+
     // Slicing
     backend.devSet().forEachSetIdxSeq([&](Neon::SetIdx const& idx) {
         mZFirstIdx[idx] = [&] {
             if (idx.idx() == 0)
                 return 0;
-            return mZLastIdx[idx-1]+1;
+            return mZLastIdx[idx - 1] + 1;
         }();
-        if(idx != backend.devSet().setCardinality()-1) {
-            for (int i = mZFirstIdx[idx] ; i < block3DSpan.z; i++) {
+        if (idx != backend.devSet().setCardinality() - 1) {
+            for (int i = mZFirstIdx[idx]; i < block3DSpan.z; i++) {
                 mNumBlocks[idx] += nBlockProjectedToZ[i];
                 mZLastIdx[idx] = i;
 
@@ -115,12 +119,40 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
                     break;
                 }
             }
-        }else{
-            mZLastIdx[idx] =block3DSpan.z-1;
-            for (int i = mZFirstIdx[idx] ; i <= mZLastIdx[idx]; i++) {
+        } else {
+            mZLastIdx[idx] = block3DSpan.z - 1;
+            for (int i = mZFirstIdx[idx]; i <= mZLastIdx[idx]; i++) {
                 mNumBlocks[idx] += nBlockProjectedToZ[i];
             }
         }
     });
+
+    {
+        int ndevs = backend.getDeviceCount();
+        int minSlice = 3;
+        for (int i = ndevs - 1; i > -1; i--) {
+            int diff = minSlice - (mZLastIdx[i] - mZFirstIdx[i]+1);
+            if (diff > 0) {
+                if (i == 0) {
+                    NeonException exc("SpanDecomposition");
+                    exc << "Distribution error\n";
+                    exc << toString(backend);
+                    NEON_THROW(exc);
+                }
+                mZFirstIdx[i] -= diff;
+                mZLastIdx[i - 1] -= diff;
+
+                mNumBlocks[i] = 0;
+                mNumBlocks[i - 1] = 0;
+
+                for (int j = mZFirstIdx[i]; j <= mZLastIdx[i]; j++) {
+                    mNumBlocks[i] += nBlockProjectedToZ[j];
+                }
+                for (int j = mZFirstIdx[i - 1]; j <= mZLastIdx[i - 1]; j++) {
+                    mNumBlocks[i - 1] += nBlockProjectedToZ[j];
+                }
+            }
+        }
+    }
 }
-}  // namespace Neon::domain::internal::experimental::bGrid
+}  // namespace Neon::domain::tool::partitioning
