@@ -120,7 +120,6 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
 
     auto helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon::SetIdx, Idx>;
 
-   private:
     struct Data
     {
         auto init(const Neon::Backend& bk)

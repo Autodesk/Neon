@@ -97,7 +97,7 @@ class TestData
 
     auto resetValuesToMasked(Type offset,
                              Type offsetBetweenFieds = 1,
-                             int  digit = 2)
+                             int  digit = 3)
         -> void;
 
     auto resetValuesToConst(Type offset,

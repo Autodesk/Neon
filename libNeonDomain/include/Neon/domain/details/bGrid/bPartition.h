@@ -50,14 +50,14 @@ class bPartition
         const -> const T&;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(const Index&  cell,
+    getNghData(const Index&  cell,
            const NghIdx& offset,
            const int     card,
            const T       alternativeVal)
         const -> NghData;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(const Index& eId,
+    getNghData(const Index& eId,
            uint8_t      nghID,
            int          card,
            const T&     alternativeVal)

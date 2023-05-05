@@ -8,18 +8,18 @@ bSpan::setAndValidateGPUDevice([[maybe_unused]] bIndex& bidx) const -> bool
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
     bidx.mDataBlockIdx = blockIdx.x + mFirstDataBlockOffset;
-    bidx.mInDataBlockIdx.x =  threadIdx.x;
-    bidx.mInDataBlockIdx.y =  threadIdx.y;
-    bidx.mInDataBlockIdx.z =  threadIdx.z;
+    bidx.mInDataBlockIdx.x = threadIdx.x;
+    bidx.mInDataBlockIdx.y = threadIdx.y;
+    bidx.mInDataBlockIdx.z = threadIdx.z;
 
     assert(mDataBlockSize == blockDim.x);
     assert(mDataBlockSize == blockDim.y);
     assert(mDataBlockSize == blockDim.z);
 
-    bidx.mInDataBlockIdx = blockIdx.x + mFirstDataBlockOffset;
-    bool const isActive = getActiveStatus(blockIdx.x,
-                                          threadIdx.x, threadIdx.y, threadIdx.z,
-                                          mActiveMask, blockDim.x);
+    bool const isActive = getActiveStatus(bidx.mDataBlockIdx,
+                                          bidx.mInDataBlockIdx.x, bidx.mInDataBlockIdx.y, bidx.mInDataBlockIdx.z,
+                                          mActiveMask, mDataBlockSize);
+    //  printf("%d %d %d is active %d\n",bidx.mInDataBlockIdx.x, bidx.mInDataBlockIdx.y, bidx.mInDataBlockIdx.z, (isActive?1:-1));
     return isActive;
 #else
     NEON_THROW_UNSUPPORTED_OPERATION("Operation supported only on GPU");

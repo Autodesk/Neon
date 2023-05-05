@@ -85,7 +85,7 @@ class Vec_3d<IntegerType_ta, true, false>
     /**
      * Empty constructor.
      */
-    NEON_CUDA_HOST_DEVICE Vec_3d();
+    NEON_CUDA_HOST_DEVICE constexpr Vec_3d();
     /**
      * Empty destructor.
      */
@@ -95,34 +95,34 @@ class Vec_3d<IntegerType_ta, true, false>
      * All component of the 3d tuple are set to the same scalar value.
      *   @param[in] other the vector
      */
-    NEON_CUDA_HOST_DEVICE inline Vec_3d(const self_t& other);
+    NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d(const self_t& other);
 
     /**
      * All component of the 3d tuple are set to the same scalar value.
      *   @param[in] xyz: selected value.
      */
-    NEON_CUDA_HOST_DEVICE inline Vec_3d(const Integer& xyz);
+    NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d(const Integer& xyz);
 
-    NEON_CUDA_HOST_DEVICE inline Vec_3d(const Integer other[self_t::num_axis]);
+    NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d(const Integer other[self_t::num_axis]);
 
-    NEON_CUDA_HOST_ONLY inline Vec_3d(std::initializer_list<Integer> other);
+    NEON_CUDA_HOST_ONLY inline constexpr Vec_3d(std::initializer_list<Integer> other);
     /**
      * Creates a 3d tuple with specific values for each component.
      *   @param[in] px: value for the x component.
      *   @param[in] py: value for the y component.
      *   @param[in] pz: value for the z component.
      */
-    NEON_CUDA_HOST_DEVICE inline Vec_3d(Integer px, Integer py, Integer pz);
+    NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d(Integer px, Integer py, Integer pz);
 
-    NEON_CUDA_HOST_DEVICE inline Vec_3d& operator=(const self_t& other);
+    NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d& operator=(const self_t& other);
 
-    NEON_CUDA_HOST_DEVICE inline void set(Integer px, Integer py, Integer pz);
+    NEON_CUDA_HOST_DEVICE inline void constexpr set(Integer px, Integer py, Integer pz);
 
-    NEON_CUDA_HOST_DEVICE inline void set(Integer p[self_t::num_axis]);
+    NEON_CUDA_HOST_DEVICE inline void constexpr set(Integer p[self_t::num_axis]);
 
-    NEON_CUDA_HOST_DEVICE inline void set(const self_t& other);
+    NEON_CUDA_HOST_DEVICE inline void  constexpr set(const self_t& other);
 
-    NEON_CUDA_HOST_DEVICE inline void set(const Integer& xyz);
+    NEON_CUDA_HOST_DEVICE inline void constexpr set(const Integer& xyz);
 
 
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
@@ -132,12 +132,12 @@ class Vec_3d<IntegerType_ta, true, false>
      *   Extracts the max value stored by the 3d tuple.
      *   @return max value
      */
-    NEON_CUDA_HOST_DEVICE inline Integer rMax() const;
+    NEON_CUDA_HOST_DEVICE inline constexpr Integer rMax() const;
     /**
      *   Extracts the min value stored by the 3d tuple.
      *   @return min value.
      */
-    NEON_CUDA_HOST_DEVICE inline Integer rMin() const;
+    NEON_CUDA_HOST_DEVICE inline constexpr Integer rMin() const;
 
     /**
      *   Extracts the max absolute value stored by the 3d tuple.

@@ -131,9 +131,6 @@ void execLambdaIteratorOMP(const Neon::Integer_3d<IndexType>& blockSize,
 #ifndef NEON_OS_WINDOWS
 // #pragma omp simd
 #endif
-                    if (bIdx == 1) {
-                        printf("DEBUG - second block\n");
-                    }
                     for (IndexType x = 0; x < blockSize.x; x++) {
                         typename DataSetContainer::Idx e;
                         if (span.setAndValidateCPUDevice(e, bIdx, blockSize, x, y, z)) {

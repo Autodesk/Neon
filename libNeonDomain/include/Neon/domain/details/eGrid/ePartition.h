@@ -253,7 +253,7 @@ class ePartition
      * @return
      */
 
-   private:
+   protected:
     //-- [INTERNAL DATA] ----------------------------------------------------------------------------
     T*      mMem;
     int     mCardinality;

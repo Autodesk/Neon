@@ -24,11 +24,6 @@ bGrid::bGrid(const Neon::Backend&         backend,
              const double_3d&             spacingData,
              const double_3d&             origin)
 {
-    if (backend.devSet().setCardinality() > 1) {
-        NeonException exp("bGrid");
-        exp << "bGrid only supported on a single GPU";
-        NEON_THROW(exp);
-    }
 
     mData = std::make_shared<Data>();
     mData->init(backend);
@@ -142,7 +137,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
         mData->activeBitMask.updateDeviceData(Neon::Backend::mainStreamIdx);
         mData->activeBitMask.newHaloUpdate(Neon::set::StencilSemantic::standard,
                                            Neon::set::TransferMode::put,
-                                           Neon::Execution::device);
+                                           Neon::Execution::device).run(Neon::Backend::mainStreamIdx);
     }
 
 

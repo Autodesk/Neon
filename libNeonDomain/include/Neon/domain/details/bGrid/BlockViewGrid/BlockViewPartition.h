@@ -24,5 +24,11 @@ class BlockViewPartition : public Neon::domain::details::eGrid::ePartition<T, C>
     {
     }
 
+    auto getCountAllocated() const ->int32_t;
 };
+template <typename T, int C>
+auto BlockViewPartition<T, C>::getCountAllocated() const -> int32_t
+{
+    return this->mCountAllocated;
+}
 }  // namespace Neon::domain::details::bGrid

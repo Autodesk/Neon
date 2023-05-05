@@ -45,11 +45,16 @@ auto bGrid::getSpan(Neon::Execution execution,
 bGrid::~bGrid()
 {
 }
-auto bGrid::getSetIdx(const index_3d& /*idx*/) const -> int32_t
+auto bGrid::getSetIdx(const index_3d& idx) const -> int32_t
 {
-    //    auto const& decomposition = mData->partitioner1D.getDecomposition();
-    //    decomposition.getSetIdx(const index_3d& idx);
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    GridBaseTemplate::CellProperties cellProperties;
+
+    cellProperties.setIsInside(this->isInsideDomain(idx));
+    if (!cellProperties.isInside()) {
+        return -1;
+    }
+    Neon::SetIdx setIdx = cellProperties.getSetIdx();
+    return setIdx;
 }
 auto bGrid::getLaunchParameters(Neon::DataView dataView,
                                 const index_3d&,

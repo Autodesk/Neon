@@ -31,7 +31,7 @@ bPartition<T, C>::
     : mCardinality(cardinality),
       mMem(mem),
       mStencilNghIndex(stencilNghIndex),
-      mBlockSizeByPower(blockSize.x, blockSize.x*blockSize.x,blockSize.x*blockSize.x*blockSize.x),
+      mBlockSizeByPower(blockSize.x, blockSize.x * blockSize.x, blockSize.x * blockSize.x * blockSize.x),
       mBlockConnectivity(blockConnectivity),
       mMask(mask),
       mOrigin(origin),
@@ -122,7 +122,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::
     helpNghPitch(const Index& nghIdx, int card)
         const -> std::tuple<bool, uint32_t>
 {
-    if (nghIdx.mInDataBlockIdx == bSpan::getInvalidBlockId()) {
+    if (nghIdx.mDataBlockIdx == bSpan::getInvalidBlockId()) {
         return {false, 0};
     }
 
@@ -134,8 +134,8 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C>::
     if (!isActive) {
         return {false, 0};
     }
-
-    helpGetValidIdxPitchExplicit(nghIdx, card);
+    auto const offset = helpGetValidIdxPitchExplicit(nghIdx, card);
+    return {true, offset};
 }
 
 template <typename T, int C>
@@ -144,15 +144,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
                   const NghIdx& offset)
         const -> bIndex
 {
-#ifdef NEON_PLACE_CUDA_DEVICE
-#define NEON_BGRID_DATA_BLOCK_SIZE blockDim.x
-#define NEON_BGRID_DATA_BLOCK_SIZE_POW2 blockDim.x* blockDim.x
-#define NEON_BGRID_DATA_BLOCK_SIZE_POW3 blockDim.x* blockDim.x* blockDim.x
-#define NEON_BGRID_DATA_BLOCK_BLOCKIDX_X idx.mDataBlockIdx
-#define NEON_BGRID_DATA_BLOCK_THREADIDX_X threadIdx.x
-#define NEON_BGRID_DATA_BLOCK_THREADIDX_Y threadIdx.y
-#define NEON_BGRID_DATA_BLOCK_THREADIDX_Z threadIdx.z
-#else
+
 #define NEON_BGRID_DATA_BLOCK_SIZE mBlockSizeByPower.v[0]
 #define NEON_BGRID_DATA_BLOCK_SIZE_POW2 mBlockSizeByPower.v[1]
 #define NEON_BGRID_DATA_BLOCK_SIZE_POW3 mBlockSizeByPower.v[2]
@@ -160,29 +152,33 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
 #define NEON_BGRID_DATA_BLOCK_THREADIDX_X idx.mInDataBlockIdx.x
 #define NEON_BGRID_DATA_BLOCK_THREADIDX_Y idx.mInDataBlockIdx.y
 #define NEON_BGRID_DATA_BLOCK_THREADIDX_Z idx.mInDataBlockIdx.z
-#endif
     bIndex::InDataBlockIdx ngh(NEON_BGRID_DATA_BLOCK_THREADIDX_X + offset.x,
                                NEON_BGRID_DATA_BLOCK_THREADIDX_Y + offset.y,
                                NEON_BGRID_DATA_BLOCK_THREADIDX_Z + offset.z);
 
-    const int xInfo = ngh.x < 0 ? -1 : (ngh.x >= NEON_BGRID_DATA_BLOCK_SIZE ? +1 : 0);
-    const int yInfo = ngh.y < 0 ? -1 : (ngh.y >= NEON_BGRID_DATA_BLOCK_SIZE ? +1 : 0);
-    const int zInfo = ngh.z < 0 ? -1 : (ngh.z >= NEON_BGRID_DATA_BLOCK_SIZE ? +1 : 0);
+    /**
+     * 0 if no offset on the direction
+     * 1 positive offset
+     * -1 negative offset
+     */
+    const int xFlag = ngh.x < 0 ? -1 : (ngh.x >= NEON_BGRID_DATA_BLOCK_SIZE ? +1 : 0);
+    const int yFlag = ngh.y < 0 ? -1 : (ngh.y >= NEON_BGRID_DATA_BLOCK_SIZE ? +1 : 0);
+    const int zFlag = ngh.z < 0 ? -1 : (ngh.z >= NEON_BGRID_DATA_BLOCK_SIZE ? +1 : 0);
 
-    const bool isLocal = (xInfo | yInfo | zInfo) == 0;
+    const bool isLocal = (xFlag | yFlag | zFlag) == 0;
     if (!(isLocal)) {
-        bIndex::InDataBlockIdx remote;
+        bIndex::InDataBlockIdx remoteInBlockOffset;
         /**
          * Example
          * - 8 block (1D case)
          * Case 1:
          * |0,1,2,3|0,1,2,3|0,1,2,3|
-         *  ^         ^
-         *  -3        starting point
+         *        ^     ^
+         *       -3     starting point
          *
-         * - idx.inBlock = 0
+         * - idx.inBlock = 2
          * - offset = -1
-         * - remote.x = (0-3) - ((-1) * 4) = -3 + 4 = 1
+         * - remote.x = (2-3) - ((-1) * 4) = -1 + 4 = 3
          * Case 2:
          * |0,1,2,3|0,1,2,3|0,1,2,3|
          *                ^     ^
@@ -195,22 +191,21 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
          * |0,1,2,3|0,1,2,3|0,1,2,3|
          *  ^                   ^
          *  -3 from 0          +3 from 3
+         *
+         * NOTE: if in one direction the neighbour offet is zero, xFalg is 0;
          * */
-        remote.x = ngh.x - xInfo * NEON_BGRID_DATA_BLOCK_SIZE;
-        remote.y = ngh.y - yInfo * NEON_BGRID_DATA_BLOCK_SIZE;
-        remote.z = ngh.z - zInfo * NEON_BGRID_DATA_BLOCK_SIZE;
-
-        remote.x = xInfo == 0 ? ngh.x : remote.x;
-        remote.y = yInfo == 0 ? ngh.y : remote.y;
-        remote.z = zInfo == 0 ? ngh.z : remote.z;
-
-        bIndex::DataBlockIdx remoteBlockIdx = mBlockConnectivity[(xInfo + 1) +
-                                                                 (yInfo + 1) * 3 +
-                                                                 (zInfo + 1) * 9];
 
         bIndex remoteNghIdx;
-        remoteNghIdx.mDataBlockIdx = remoteBlockIdx;
-        remoteNghIdx.mInDataBlockIdx = remote;
+        remoteNghIdx.mInDataBlockIdx.x = ngh.x - xFlag * NEON_BGRID_DATA_BLOCK_SIZE;
+        remoteNghIdx.mInDataBlockIdx.y = ngh.y - yFlag * NEON_BGRID_DATA_BLOCK_SIZE;
+        remoteNghIdx.mInDataBlockIdx.z = ngh.z - zFlag * NEON_BGRID_DATA_BLOCK_SIZE;
+
+        int connectivityJump = idx.mDataBlockIdx * 27 +
+                               (xFlag + 1) +
+                               (yFlag + 1) * 3 +
+                               (zFlag + 1) * 9;
+        remoteNghIdx.mDataBlockIdx = mBlockConnectivity[connectivityJump];
+
         return remoteNghIdx;
     } else {
         bIndex localNghIdx;
@@ -229,10 +224,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
-    nghVal(const Index& eId,
-           uint8_t      nghID,
-           int          card,
-           const T&     alternativeVal)
+    getNghData(const Index& eId,
+               uint8_t      nghID,
+               int          card,
+               const T&     alternativeVal)
         const -> NghData
 {
     NghIdx nghOffset = mStencilNghIndex[nghID];
@@ -241,10 +236,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
-    nghVal(const Index&  idx,
-           const NghIdx& offset,
-           const int     card,
-           const T       alternativeVal)
+    getNghData(const Index&  idx,
+               const NghIdx& offset,
+               const int     card,
+               const T       alternativeVal)
         const -> NghData
 {
     NghData result;

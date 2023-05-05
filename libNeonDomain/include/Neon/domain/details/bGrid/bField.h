@@ -39,6 +39,9 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 //    using Ngh1DIdx = typename Partition::Ngh1DIdx;
     using NghData = typename Partition::NghData;
 
+    template <typename TT, int CC>
+    friend class bField;
+
     bField(const std::string&         fieldUserName,
            Neon::DataUse              dataUse,
            const Neon::MemoryOptions& memoryOptions,
@@ -76,6 +79,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                        Neon::Execution            execution)
         const -> Neon::set::Container;
 
+
    private:
     auto getRef(const Neon::index_3d& idx, const int& cardinality) const -> T&;
 
@@ -97,17 +101,29 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
             partitionTable.init(bk);
         }
 
+        enum EndPoints
+        {
+            src = 1,
+            dst = 0
+        };
+
+        struct EndPointsUtils
+        {
+            static constexpr int nConfigs = 2;
+        };
+
         std::shared_ptr<Grid>      grid;
         BlockViewGrid::Field<T, C> memoryField;
 
         int mCardinality;
 
-        Neon::domain::tool::HaloTable1DPartitioning   latticeHaloUpdateTable;
+        //        Neon::domain::tool::HaloTable1DPartitioning   latticeHaloUpdateTable;
         Neon::domain::tool::HaloTable1DPartitioning   soaHaloUpdateTable;
-        Neon::domain::tool::HaloTable1DPartitioning   aosHaloUpdateTable;
+//        Neon::domain::tool::HaloTable1DPartitioning   aosHaloUpdateTable;
         Neon::domain::tool::PartitionTable<Partition> partitionTable;
     };
     std::shared_ptr<Data> mData;
 };
+
 
 }  // namespace Neon::domain::details::bGrid
