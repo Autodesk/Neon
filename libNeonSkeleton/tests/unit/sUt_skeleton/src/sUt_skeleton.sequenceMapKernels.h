@@ -13,46 +13,47 @@
 namespace UserTools {
 /**
  *
- * @tparam Field_ta
+ * @tparam Field
  * @param x
  * @param y
  * @return
  */
-template <typename Field_ta>
-auto xpy(const Field_ta& x,
-         Field_ta&       y) -> Neon::set::Container
+template <typename Field>
+auto xpy(const Field& x,
+         Field&       y) -> Neon::set::Container
 {
-    auto Kontainer = x.getGrid().getContainer(
-        "xpy", [&](Neon::set::Loader & L) -> auto {
+    auto c = x.getGrid().newContainer(
+        "xpy", [&](Neon::set::Loader& L) -> auto {
             auto& xLocal = L.load(x);
             auto& yLocal = L.load(y);
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field_ta::Cell& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < yLocal.cardinality(); i++) {
                     yLocal(e, i) += xLocal(e, i);
                 }
             };
-        });
-    return Kontainer;
+        },
+        Neon::Execution::device);
+    return c;
 }
 
 /**
  *
- * @tparam Field_ta
+ * @tparam Field
  * @param x
  * @param y
  * @param z
  * @return
  */
-template <typename Field_ta>
-auto xpypz(const Field_ta& x,
-           const Field_ta& y,
-           Field_ta&       z) -> Neon::set::Container
+template <typename Field>
+auto xpypz(const Field& x,
+           const Field& y,
+           Field&       z) -> Neon::set::Container
 {
-    auto Kontainer = x.grid().container([&](Neon::set::Loader & L) -> auto {
+    auto Kontainer = x.grid().container([&](Neon::set::Loader& L) -> auto {
         auto& xLocal = L.load(x);
         auto& yLocal = L.load(y);
         auto& zLocal = L.load(z);
-        return [=] NEON_CUDA_HOST_DEVICE(const typename Field_ta::e_idx& e) mutable {
+        return [=] NEON_CUDA_HOST_DEVICE(const typename Field::e_idx& e) mutable {
             for (int i = 0; i < yLocal.cardinality(); i++) {
                 zLocal(e, i) += xLocal(e, i) + yLocal(e, i);
             }
@@ -63,17 +64,17 @@ auto xpypz(const Field_ta& x,
 
 /**
  *
- * @tparam Field_ta
+ * @tparam Field
  */
-template <typename Field_ta>
+template <typename Field>
 struct blas_t
 {
-    Field_ta x;
-    Field_ta y;
-    Field_ta z;
-    blas_t(Field_ta x_,
-           Field_ta y_,
-           Field_ta z_)
+    Field x;
+    Field y;
+    Field z;
+    blas_t(Field x_,
+           Field y_,
+           Field z_)
         : x(x_),
           y(y_),
           z(z_)
@@ -82,10 +83,10 @@ struct blas_t
 
     auto xpy() -> Neon::set::Container
     {
-        auto Kontainer = x.grid().container([&](Neon::set::Loader & L) -> auto {
+        auto Kontainer = x.grid().container([&](Neon::set::Loader& L) -> auto {
             auto& xLocal = L.load(x.cself());
             auto& yLocal = L.load(y);
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field_ta::eIdx_t& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::eIdx_t& e) mutable {
                 for (int i = 0; i < yLocal.cardinality(); i++) {
                     yLocal(e, i) += xLocal(e, i);
                 }
@@ -96,11 +97,11 @@ struct blas_t
 
     auto xpypz() -> Neon::set::Container
     {
-        auto Kontainer = x.grid().container([&](Neon::set::Loader & L) -> auto {
+        auto Kontainer = x.grid().container([&](Neon::set::Loader& L) -> auto {
             auto& xLocal = L.load(std::add_const(x));
             auto& yLocal = L.load(std::add_const(y));
             auto& zLocal = L.load(std::add_const(z));
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field_ta::e_idx& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::e_idx& e) mutable {
                 for (int i = 0; i < yLocal.cardinality(); i++) {
                     zLocal(e, i) += (xLocal(e, i) + yLocal(e, i));
                 }

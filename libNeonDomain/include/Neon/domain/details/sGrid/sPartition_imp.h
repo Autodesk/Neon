@@ -12,14 +12,14 @@ sPartition<OuterGridT, T, C>::sPartition(const Neon::DataView&                  
                                          T*                                         mem,
                                          int                                        cardinality,
                                          const Pitch&                               ePitch,
-                                         typename OuterGrid::Cell::OuterCell const* tableToOuterCell)
+                                         typename OuterGrid::Cell::OuterIdx const* tableToOuterIdx)
 {
     mDataView = dataView;
     mPartitionId = prtId;
     mMemory = mem;
     mCardinality = cardinality;
     mPitch = ePitch;
-    mTableToOuterCell = tableToOuterCell;
+    mTableToOuterIdx = tableToOuterIdx;
 }
 
 template <typename OuterGridT, typename T, int C>
@@ -49,7 +49,7 @@ sPartition<OuterGridT, T, C>::cardinality() const
 
 template <typename OuterGridT, typename T, int C>
 NEON_CUDA_HOST_DEVICE auto
-sPartition<OuterGridT, T, C>::helpGetJump(Cell const& eId) const
+sPartition<OuterGridT, T, C>::helpGetJump(Idx const& eId) const
     -> Jump
 {
     return eId.get();
@@ -57,7 +57,7 @@ sPartition<OuterGridT, T, C>::helpGetJump(Cell const& eId) const
 
 template <typename OuterGridT, typename T, int C>
 NEON_CUDA_HOST_DEVICE auto
-sPartition<OuterGridT, T, C>::helpGetJump(Cell const& eId,
+sPartition<OuterGridT, T, C>::helpGetJump(Idx const& eId,
                                           int         cardinalityIdx) const
     -> Jump
 {
@@ -67,7 +67,7 @@ sPartition<OuterGridT, T, C>::helpGetJump(Cell const& eId,
 
 template <typename OuterGridT, typename T, int C>
 NEON_CUDA_HOST_DEVICE auto
-sPartition<OuterGridT, T, C>::operator()(Cell const& eId,
+sPartition<OuterGridT, T, C>::operator()(Idx const& eId,
                                          int         cardinalityIdx) const
     -> T
 {
@@ -77,7 +77,7 @@ sPartition<OuterGridT, T, C>::operator()(Cell const& eId,
 
 template <typename OuterGridT, typename T, int C>
 NEON_CUDA_HOST_DEVICE auto
-sPartition<OuterGridT, T, C>::operator()(Cell const& eId,
+sPartition<OuterGridT, T, C>::operator()(Idx const& eId,
                                          int         cardinalityIdx) -> T&
 {
     Jump jump = helpGetJump(eId, cardinalityIdx);
@@ -87,7 +87,7 @@ sPartition<OuterGridT, T, C>::operator()(Cell const& eId,
 template <typename OuterGridT, typename T, int C>
 template <typename ComputeType>
 NEON_CUDA_HOST_DEVICE inline auto
-sPartition<OuterGridT, T, C>::castRead(Cell eId,
+sPartition<OuterGridT, T, C>::castRead(Idx eId,
                                        int  cardinalityIdx) const -> ComputeType
 {
     Type value = this->operator()(eId, cardinalityIdx);
@@ -107,7 +107,7 @@ sPartition<OuterGridT, T, C>::castRead(Cell eId,
 template <typename OuterGridT, typename T, int C>
 template <typename ComputeType>
 NEON_CUDA_HOST_DEVICE inline auto
-sPartition<OuterGridT, T, C>::castWrite(Cell               eId,
+sPartition<OuterGridT, T, C>::castWrite(Idx                eId,
                                         int                cardinalityIdx,
                                         const ComputeType& value) -> void
 {
@@ -126,10 +126,10 @@ sPartition<OuterGridT, T, C>::castWrite(Cell               eId,
 
 template <typename OuterGridT, typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto
-sPartition<OuterGridT, T, C>::mapToOuterGrid(const sPartition::Cell& cell) const
-    -> typename OuterGrid::Cell::OuterCell const&
+sPartition<OuterGridT, T, C>::mapToOuterGrid(const sPartition::Idx& cell) const
+    -> typename OuterGrid::Cell::OuterIdx const&
 {
-    return mTableToOuterCell[cell.get()];
+    return mTableToOuterIdx[cell.get()];
 }
 
 }  // namespace Neon::domain::details::sGrid

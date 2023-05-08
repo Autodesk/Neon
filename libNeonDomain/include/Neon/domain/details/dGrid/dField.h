@@ -63,6 +63,8 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
      */
     auto self() const -> const Self&;
 
+    auto constSelf() const -> const Self&;
+
     /**
      * Returns the metadata associated with the element in location idx.
      * If the element is not active (it does not belong to the voxelized domain),

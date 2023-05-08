@@ -52,7 +52,7 @@
 //
 //        setToPitch(Y)
 //            .run(Neon::Backend::mainStreamIdx);
-//        Y.updateCompute(Neon::Backend::mainStreamIdx);
+//        Y.updateDeviceData(Neon::Backend::mainStreamIdx);
 //
 //        // The TestData compare capabilities assumes that all data is on the device
 //        // We need therefore to update the compute part with the data from the host.

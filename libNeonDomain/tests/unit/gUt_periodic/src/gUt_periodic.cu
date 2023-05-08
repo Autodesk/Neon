@@ -59,7 +59,7 @@ TEST(Periodic, dGrid)
                     storage.Xf.enablePeriodicAlongZ();
                     storage.Yf.enablePeriodicAlongZ();
 
-                    storage.Xf.updateCompute(0);
+                    storage.Xf.updateDeviceData(0);
 
                     storage.Xf.template haloUpdate<Neon::set::Transfer_t::get>(
                         storage.m_backend);
@@ -68,7 +68,7 @@ TEST(Periodic, dGrid)
 
                     container.run(0);
 
-                    storage.Yf.updateIO(0);
+                    storage.Yf.updateHostData(0);
 
                     storage.Yf.forEachActive([&](const Neon::index_3d& e,
                                                  const int32_t&        card,

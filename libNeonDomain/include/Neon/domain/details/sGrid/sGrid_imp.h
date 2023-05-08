@@ -21,8 +21,7 @@ namespace Neon::domain::details::sGrid {
 
 template <typename OuterGridT>
 sGrid<OuterGridT>::sGrid()
-    : Neon::domain::interface::GridBaseTemplate<Self, Cell>()
-{
+    : Neon::domain::interface::GridBaseTemplate<Self, Idx>() {
     mStorage = std::make_shared<sStorage>();
 };
 
@@ -61,7 +60,7 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
             }
 
             // B
-            Meta meta(-1, cellProperties.getOuterCell());
+            Meta meta(-1, cellProperties.getOuterIdx());
             mStorage->map.addPoint(point,
                                    meta,
                                    cellProperties.getSetIdx(),
@@ -111,7 +110,7 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
 
                 auto gridMode = Neon::sys::GpuLaunchInfo::mode_e::domainGridMode;
                 auto gridDim = mStorage->getCount(indexing)[i];
-                this->getDefaultLaunchParameters(indexing)[i].init(gridMode, gridDim, this->getDefaultBlock(), 0);
+                this->getDefaultLaunchParameters(indexing)[i].set(gridMode, gridDim, this->getDefaultBlock(), 0);
             }
         }
     };
@@ -121,36 +120,36 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
         std::string mappingFieldName = "sGrid->" + outerGrid.getImplementationName();
 
         using OGCell = typename OuterGrid::Cell;
-        using OGCellOGCell = typename OGCell::OuterCell;
+        using OGCellOGCell = typename OGCell::OuterIdx;
         OGCellOGCell oc;
 
         Neon::MemoryOptions memoryOptions;
-        this->mStorage->tableToOuterCell = this->getDevSet().template newMemSet<OGCellOGCell>(Neon::DataUse::HOST_DEVICE,
-                                                                                              1,
-                                                                                              Neon::MemoryOptions(),
-                                                                                              mStorage->getCount(Neon::DataView::STANDARD));
+        this->mStorage->tableToOuterIdx = this->getDevSet().template newMemSet<OGCellOGCell>(Neon::DataUse::HOST_DEVICE,
+                                                                                             1,
+                                                                                             Neon::MemoryOptions(),
+                                                                                             mStorage->getCount(Neon::DataView::STANDARD));
         for (const auto& setIdx : this->getDevSet().getRange()) {
             mStorage->map.forEach(setIdx,
                                   Neon::DataView::INTERNAL,
                                   [&](const Neon::index_3d&, Meta& m) {
-                                      this->mStorage->tableToOuterCell.eRef(setIdx, m.cellOffset) = m.outerCell;
+                                      this->mStorage->tableToOuterIdx.eRef(setIdx, m.cellOffset) = m.outerCell;
                                   });
             mStorage->map.forEach(setIdx,
                                   Neon::DataView::BOUNDARY,
                                   [&](const Neon::index_3d&, Meta& m) {
-                                      this->mStorage->tableToOuterCell.eRef(setIdx, m.cellOffset) = m.outerCell;
+                                      this->mStorage->tableToOuterIdx.eRef(setIdx, m.cellOffset) = m.outerCell;
                                   });
         }
 
         if (this->getDevSet().type() != Neon::DeviceType::CPU && this->getDevSet().type() != Neon::DeviceType::OMP) {
-            this->mStorage->tableToOuterCell.updateDeviceData(this->getBackend(), 0);
+            this->mStorage->tableToOuterIdx.updateDeviceData(this->getBackend(), 0);
         }
         this->getBackend().sync(0);
     };
 
     auto initPartitionIndexSpace = [this]() {
         for (auto& dw : Neon::DataViewUtil::validOptions()) {
-            mStorage->getPartitionIndexSpace(dw) = this->getDevSet().template newDataSet<sPartitionIndexSpace>();
+            mStorage->getPartitionIndexSpace(dw) = this->getDevSet().template newDataSet<sSpan>();
 
             for (int gpuIdx = 0; gpuIdx < this->getDevSet().setCardinality(); gpuIdx++) {
 
@@ -194,13 +193,14 @@ auto sGrid<OuterGridT>::newField(const std::string   fieldUserName,
         NEON_THROW(exception);
     }
     sField<OuterGridT, T, C> field(fieldUserName, *this, cardinality, inactiveValue,
-                                   haloStatus, dataUse, memoryOptions, mStorage->tableToOuterCell);
+                                   haloStatus, dataUse, memoryOptions, mStorage->tableToOuterIdx);
     return field;
 }
 template <typename OuterGridT>
 template <typename LoadingLambda>
-auto sGrid<OuterGridT>::getContainer(const std::string& name,
-                                     LoadingLambda      lambda)
+auto sGrid<OuterGridT>::newContainer(const std::string& name,
+                                     LoadingLambda      lambda,
+                                     Neon::Execution    execution)
     const
     -> Neon::set::Container
 {
@@ -208,16 +208,17 @@ auto sGrid<OuterGridT>::getContainer(const std::string& name,
 
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    defaultBlockSize,
-                                                                    [](const Neon::index_3d&) { return size_t(0); });
+                                                                     execution,
+                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                     *this,
+                                                                     lambda,
+                                                                     defaultBlockSize,
+                                                                     [](const Neon::index_3d&) { return size_t(0); });
     return kContainer;
 }
 template <typename OuterGridT>
 template <typename LoadingLambda>
-auto sGrid<OuterGridT>::getContainer(const std::string& name,
+auto sGrid<OuterGridT>::newContainer(const std::string& name,
                                      index_3d           blockSize,
                                      size_t             sharedMem,
                                      LoadingLambda      lambda)
@@ -228,16 +229,16 @@ auto sGrid<OuterGridT>::getContainer(const std::string& name,
 
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    blockSize,
-                                                                    [sharedMem](const Neon::index_3d&) { return sharedMem; });
+                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                     *this,
+                                                                     lambda,
+                                                                     blockSize,
+                                                                     [sharedMem](const Neon::index_3d&) { return sharedMem; });
     return kContainer;
 }
 
 template <typename OuterGridT>
-auto sGrid<OuterGridT>::isInsideDomain(const index_3d&            idx) const -> bool
+auto sGrid<OuterGridT>::isInsideDomain(const index_3d& idx) const -> bool
 {
     SetIdx   sId;
     DataView dw;
@@ -278,10 +279,10 @@ auto sGrid<OuterGridT>::getLaunchParameters(Neon::DataView  dataView,
 }
 
 template <typename OuterGridT>
-auto sGrid<OuterGridT>::getPartitionIndexSpace(Neon::DeviceType devE,
-                                               SetIdx           setIdx,
-                                               Neon::DataView   dataView) const -> const sGrid::PartitionIndexSpace&
+auto sGrid<OuterGridT>::getSpan(Neon::Execution execution,
+                                Neon::SetIdx          setIdx,
+                                Neon::DataView  dataView) const -> const sGrid::Span&
 {
-    return mStorage->getPartitionIndexSpace(dataView).local(devE, setIdx, dataView);
+    return mStorage->getPartitionIndexSpace(dataView).getPartition(execution, setIdx, dataView);
 }
 }  // namespace Neon::domain::details::sGrid

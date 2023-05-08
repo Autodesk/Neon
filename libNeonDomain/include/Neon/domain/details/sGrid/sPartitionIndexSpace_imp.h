@@ -1,14 +1,14 @@
 #pragma once
 
 #include "Neon/domain/details/sGrid/sGrid.h"
-#include "sPartitionIndexSpace.h"
+#include "sSpan.h"
 
 
 namespace Neon::domain::details::sGrid {
 
 
 NEON_CUDA_HOST_DEVICE
-auto sPartitionIndexSpace::nElements() const
+auto sSpan::nElements() const
     -> int64_t
 {
     switch (mDataView) {
@@ -33,7 +33,7 @@ auto sPartitionIndexSpace::nElements() const
 
 
 NEON_CUDA_HOST_DEVICE auto
-sPartitionIndexSpace::helpApplyDataViewShift(Cell& cell) const
+sSpan::helpApplyDataViewShift(Cell& cell) const
     -> void
 {
     switch (mDataView) {
@@ -61,10 +61,8 @@ sPartitionIndexSpace::helpApplyDataViewShift(Cell& cell) const
 
 
 NEON_CUDA_HOST_DEVICE
-auto sPartitionIndexSpace::setAndValidate(Cell&                          cell,
-                                          const size_t&                  x,
-                                          [[maybe_unused]] const size_t& y,
-                                          [[maybe_unused]] const size_t& z) const
+auto sSpan::setAndValidate(Cell&         cell,
+                           const size_t& x) const
     -> bool
 {
     cell.get() = Cell::Location(x);
@@ -88,7 +86,7 @@ auto sPartitionIndexSpace::setAndValidate(Cell&                          cell,
 
 
 NEON_CUDA_HOST_DEVICE
-auto sPartitionIndexSpace::helpGetBoundaryOffset() const
+auto sSpan::helpGetBoundaryOffset() const
     -> Cell::Offset
 {
     return mBdrOff;
@@ -96,7 +94,7 @@ auto sPartitionIndexSpace::helpGetBoundaryOffset() const
 
 
 NEON_CUDA_HOST_DEVICE
-auto sPartitionIndexSpace::helpGetGhostOffset() const
+auto sSpan::helpGetGhostOffset() const
     -> Cell::Offset
 {
     return mGhostOff;
@@ -104,24 +102,24 @@ auto sPartitionIndexSpace::helpGetGhostOffset() const
 
 
 NEON_CUDA_HOST_DEVICE
-auto sPartitionIndexSpace::helpGetDataView() const
+auto sSpan::helpGetDataView() const
     -> Neon::DataView
 {
     return mDataView;
 }
 
-auto sPartitionIndexSpace::helpGetBoundaryOffset()
-    -> sCell::Offset&
+auto sSpan::helpGetBoundaryOffset()
+    -> sIndex::Offset&
 {
     return mBdrOff;
 }
 
-auto sPartitionIndexSpace::helpGetGhostOffset() -> sCell::Offset&
+auto sSpan::helpGetGhostOffset() -> sIndex::Offset&
 {
     return mGhostOff;
 }
 
-auto sPartitionIndexSpace::helpGetDataView() -> Neon::DataView&
+auto sSpan::helpGetDataView() -> Neon::DataView&
 {
     return mDataView;
 }

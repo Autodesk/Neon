@@ -651,6 +651,13 @@ auto dField<T, C>::self() const -> const dField::Self&
 {
     return *this;
 }
+
+template <typename T, int C>
+auto dField<T, C>::constSelf() const -> const dField::Self&
+{
+    return *this;
+}
+
 template <typename T, int C>
 auto dField<T, C>::swap(dField::Field& A, dField::Field& B) -> void
 {

@@ -23,83 +23,84 @@ int main(int argc, char** argv)
 }
 
 
-template <typename FieldT>
-auto laplace(const FieldT& x, FieldT& y, bool use_relative_ids) -> Neon::set::Container
+template <typename Field>
+auto laplace(const Field& x, Field& y, bool use_relative_ids) -> Neon::set::Container
 {
-    return x.getGrid().getContainer(
+    return x.getGrid().newContainer(
         "Laplace",
-        [&, use_relative_ids ](Neon::set::Loader & L) -> auto {
+        [&, use_relative_ids](Neon::set::Loader& L) -> auto {
             auto& xLocal = L.load(x, Neon::Compute::STENCIL);
             auto& yLocal = L.load(y);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename FieldT::Cell& cell) mutable {
-                using Type = typename FieldT::Type;
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& gidx) mutable {
+                using Type = typename Field::Type;
                 for (int card = 0; card < xLocal.cardinality(); card++) {
-                    typename FieldT::Type res = 0;
+                    typename Field::Type res = 0;
 
 
                     auto checkNeighbor = [&res](Neon::domain::NghData<Type>& neighbor) {
-                        if (neighbor.isValid) {
-                            res += neighbor.value;
+                        if (neighbor.isValid()) {
+                            res += neighbor.getData();
                         }
                     };
 
                     if (use_relative_ids) {
                         for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
-                            auto neighbor = xLocal.nghVal(cell, nghIdx, card, Type(0));
+                            auto neighbor = xLocal.getNghData(gidx, nghIdx, card, Type(0));
                             checkNeighbor(neighbor);
                         }
                     } else {
 
-                        typename FieldT::Partition::nghIdx_t ngh(0, 0, 0);
+                        typename Field::NghIdx ngh(0, 0, 0);
 
                         //+x
                         ngh.x = 1;
                         ngh.y = 0;
                         ngh.z = 0;
-                        auto neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        auto neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //-x
                         ngh.x = -1;
                         ngh.y = 0;
                         ngh.z = 0;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //+y
                         ngh.x = 0;
                         ngh.y = 1;
                         ngh.z = 0;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //-y
                         ngh.x = 0;
                         ngh.y = -1;
                         ngh.z = 0;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //+z
                         ngh.x = 0;
                         ngh.y = 0;
                         ngh.z = 1;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //-z
                         ngh.x = 0;
                         ngh.y = 0;
                         ngh.z = -1;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
                     }
 
-                    yLocal(cell, card) = -6 * res;
+                    yLocal(gidx, card) = -6 * res;
                 }
             };
-        });
+        },
+        Neon::Execution::device);
 }
 
 
@@ -125,7 +126,7 @@ void SingleStencil(TestData<G, T, C>& data)
         }
     }
 
-    //run the test twice; one with relative stencil index and another with direct stencil index
+    // run the test twice; one with relative stencil index and another with direct stencil index
     for (int i = 0; i < 2; ++i) {
 
         auto& X = data.getField(FieldNames::X);

@@ -582,6 +582,13 @@ auto eField<T, C>::self() const -> const eField::Self&
 {
     return *this;
 }
+
+template <typename T, int C>
+auto eField<T, C>::constSelf() const -> const eField::Self&
+{
+    return *this;
+}
+
 template <typename T, int C>
 auto eField<T, C>::swap(eField::Field& A, eField::Field& B) -> void
 {

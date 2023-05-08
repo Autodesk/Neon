@@ -282,9 +282,9 @@ auto problemSetup(Config&                              config,
     std::cout << "... [DONE]\n";
 
     std::cout << "Update Device ..." << std::flush;
-    popInField.updateCompute(Neon::Backend::mainStreamIdx);
-    popOutField.updateCompute(Neon::Backend::mainStreamIdx);
-    flagField.updateCompute(Neon::Backend::mainStreamIdx);
+    popInField.updateDeviceData(Neon::Backend::mainStreamIdx);
+    popOutField.updateDeviceData(Neon::Backend::mainStreamIdx);
+    flagField.updateDeviceData(Neon::Backend::mainStreamIdx);
 
     flagField.getBackend().syncAll();
     Neon::set::HuOptions hu(Neon::set::TransferMode::get,

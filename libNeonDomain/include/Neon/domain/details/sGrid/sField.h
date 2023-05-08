@@ -36,7 +36,7 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
     // New Naming:
     using Partition = sPartition<OuterGridT, T, C>; /**< Type of the associated fieldCompute */
     using Type = typename Partition::Type /**< Type of the information stored in one element */;
-    using Cell = typename Partition::Cell /**< Internal type that represent the location in memory of a element */;
+    using Cell = typename Partition::Idx /**< Internal type that represent the location in memory of a element */;
     using Grid = sGrid<OuterGridT>;
     using Field = sField<OuterGridT, T, C>;
     static constexpr int Cardinality = C;
@@ -86,16 +86,6 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto updateHostData(int streamIdx = 0)
         -> void;
 
-    [[deprecated("Will be replace by the getPartition method")]] auto
-    getPartition(Neon::DeviceType      devEt,
-                 Neon::SetIdx          setIdx,
-                 const Neon::DataView& dataView = Neon::DataView::STANDARD) const -> const Partition&;
-
-    [[deprecated("Will be replace by the getPartition method")]] auto
-    getPartition(Neon::DeviceType      devEt,
-                 Neon::SetIdx          setIdx,
-                 const Neon::DataView& dataView = Neon::DataView::STANDARD) -> Partition&;
-
     /**
      * Return a constant reference to a specific partition based on a set of parameters:
      * execution type, target device, dataView
@@ -129,7 +119,7 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
            Neon::domain::haloStatus_et::e                                   haloStatus,
            Neon::DataUse                                                    dataUse,
            Neon::MemoryOptions const&                                       memoryOptions,
-           Neon::set::MemSet<typename OuterGridT::Cell::OuterCell> const& tabelSCellToOuterCell);
+           Neon::set::MemSet<typename OuterGridT::Cell::OuterIdx> const& tabelSCellToOuterIdx);
 
     /**
      * Internal helper function to allocate and initialized memory
@@ -139,7 +129,7 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
     /**
      * Internal helper function to initialize the partition structures
      */
-    auto initPartitions(Neon::set::MemSet<typename OuterGridT::Cell::OuterCell> const&) -> void;
+    auto initPartitions(Neon::set::MemSet<typename OuterGridT::Cell::OuterIdx> const&) -> void;
 };
 
 

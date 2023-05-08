@@ -18,7 +18,7 @@ auto mapContainer_axpy(int                   streamIdx,
 {
     const auto& grid = filedA.getGrid();
 
-    return grid.getContainer("mapContainer_axpy",
+    return grid.newContainer("mapContainer_axpy",
                              [&, val](Neon::set::Loader& loader) {
                                  const auto a = loader.load(filedA);
                                  auto       b = loader.load(fieldB);
@@ -33,7 +33,8 @@ auto mapContainer_axpy(int                   streamIdx,
                                          b.castWrite(e, i, output);
                                      }
                                  };
-                             });
+                             },
+        Neon::Execution::device);
 }
 
 using namespace Neon::domain::tool::testing;

@@ -145,7 +145,7 @@ void MultiResDemo()
             });
     }
 
-    field.updateCompute();
+    field.updateDeviceData();
 
     for (int level = 1; level < descriptor.getDepth(); ++level) {
 
@@ -182,7 +182,7 @@ void MultiResDemo()
     }
 
 
-    field.updateIO();
+    field.updateHostData();
 
     field.ioToVtk(s.str(), "f");
 }

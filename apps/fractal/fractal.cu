@@ -89,7 +89,7 @@ int main(int argc, char** argv)
         for (time = 0; time < 1000; ++time) {
             skeleton.run();
 
-            pixels.updateIO(0);
+            pixels.updateHostData(0);
             //draw_pixels(time, pixels);
         }
     }

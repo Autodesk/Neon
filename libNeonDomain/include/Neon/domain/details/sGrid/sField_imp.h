@@ -11,7 +11,7 @@ sField<OuterGridT, T, C>::sField(std::string const&                             
                                  Neon::domain::haloStatus_et::e                                   haloStatus,
                                  Neon::DataUse                                                    dataUse,
                                  Neon::MemoryOptions const&                                       memoryOptions,
-                                 Neon::set::MemSet<typename OuterGridT::Cell::OuterCell> const& tabelSCellToOuterCell)
+                                 Neon::set::MemSet<typename OuterGridT::Cell::OuterIdx> const& tabelSCellToOuterIdx)
     : Neon::domain::interface::FieldBaseTemplate<Type,
                                                  Cardinality,
                                                  typename Self::Grid,
@@ -28,7 +28,7 @@ sField<OuterGridT, T, C>::sField(std::string const&                             
     self().getStorage() = sFieldStorage<OuterGridT, T, C>(grid);
 
     initMemory();
-    initPartitions(tabelSCellToOuterCell);
+    initPartitions(tabelSCellToOuterIdx);
 }
 
 template <typename OuterGridT, typename T, int C>
@@ -58,7 +58,7 @@ auto sField<OuterGridT, T, C>::initMemory() -> void
 }
 
 template <typename OuterGridT, typename T, int C>
-auto sField<OuterGridT, T, C>::initPartitions(Neon::set::MemSet<typename OuterGridT::Cell::OuterCell> const& mapToOuterCell) -> void
+auto sField<OuterGridT, T, C>::initPartitions(Neon::set::MemSet<typename OuterGridT::Cell::OuterIdx> const& mapToOuterIdx) -> void
 {
 
     auto computePitch = [&](int setIdx) {
@@ -97,7 +97,7 @@ auto sField<OuterGridT, T, C>::initPartitions(Neon::set::MemSet<typename OuterGr
                                       mem,
                                       self().getCardinality(),
                                       computePitch(setIdx),
-                                      mapToOuterCell.get(setIdx).rawMem(execution));
+                                      mapToOuterIdx.get(setIdx).rawMem(execution));
             }
         }
     }
@@ -133,7 +133,7 @@ auto sField<OuterGridT, T, C>::operator()(const Neon::index_3d& idx,
     Grid const& grid = this->getGrid();
     SetIdx      setIdx;
     DataView    dw;
-    auto* const meta = grid.mData->map.getMetadata(idx, setIdx, dw);
+    auto* const meta = grid.mStorage->map.getMetadata(idx, setIdx, dw);
 
     if (meta != nullptr) {
         auto        cellOffset = meta->cellOffset;
@@ -166,47 +166,6 @@ auto sField<OuterGridT, T, C>::updateDeviceData(int streamIdx)
     }
     self().getStorage().rawMem.updateDeviceData(this->getGrid().getBackend(), streamIdx);
 }
-
-template <typename OuterGridT, typename T, int C>
-
-auto sField<OuterGridT, T, C>::getPartition(Neon::DeviceType      devEt,
-                                            Neon::SetIdx          setIdx,
-                                            const Neon::DataView& dataView)
-    const -> const Partition&
-{
-    switch (devEt) {
-        case Neon::DeviceType::CPU: {
-            return self().getStorage().getPartition(Neon::Execution::host, dataView, setIdx);
-        }
-        case Neon::DeviceType::CUDA: {
-            return self().getStorage().getPartition(Neon::Execution::device, dataView, setIdx);
-        }
-        default: {
-            NEON_THROW_UNSUPPORTED_OPTION();
-        }
-    }
-}
-
-template <typename OuterGridT, typename T, int C>
-
-auto sField<OuterGridT, T, C>::getPartition(Neon::DeviceType      devEt,
-                                            Neon::SetIdx          setIdx,
-                                            const Neon::DataView& dataView)
-    -> Partition&
-{
-    switch (devEt) {
-        case Neon::DeviceType::CPU: {
-            return self().getStorage().getPartition(Neon::Execution::host, dataView, setIdx);
-        }
-        case Neon::DeviceType::CUDA: {
-            return self().getStorage().getPartition(Neon::Execution::device, dataView, setIdx);
-        }
-        default: {
-            NEON_THROW_UNSUPPORTED_OPTION();
-        }
-    }
-}
-
 
 template <typename OuterGridT, typename T, int C>
 

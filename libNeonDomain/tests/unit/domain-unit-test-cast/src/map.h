@@ -14,7 +14,7 @@ using namespace Neon::domain::tool::testing;
 template <typename G, typename T, int C, typename ComputeType>
 auto run(TestData<G, T, C>& data) -> void;
 
-extern template auto run<Neon::domain::eGrid, int64_t, 0, double>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
+extern template auto run<Neon::eGrid, int64_t, 0, double>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
 extern template auto run<Neon::dGrid, int64_t, 0, double>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace map

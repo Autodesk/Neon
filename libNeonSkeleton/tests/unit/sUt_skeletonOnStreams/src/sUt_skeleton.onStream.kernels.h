@@ -16,7 +16,7 @@ template <typename Field>
 auto xpy(const Field& x,
          Field&       y) -> Neon::set::Container
 {
-    auto Kontainer = x.getGrid().getContainer(
+    auto Kontainer = x.getGrid().newContainer(
         "xpy", [&](Neon::set::Loader& L) -> auto {
             auto& xLocal = L.load(x);
             auto& yLocal = L.load(y);
@@ -34,7 +34,7 @@ auto aInvXpY(const Neon::template PatternScalar<T>& fR,
              const Field&                           x,
              Field&                                 y) -> Neon::set::Container
 {
-    auto Kontainer = x.getGrid().getContainer(
+    auto Kontainer = x.getGrid().newContainer(
         "AXPY", [&](Neon::set::Loader& L) -> auto {
             auto&      xLocal = L.load(x);
             auto&      yLocal = L.load(y);
@@ -57,13 +57,13 @@ auto axpy(const Neon::template PatternScalar<T>& fR,
           const Field&                           x,
           Field&                                 y) -> Neon::set::Container
 {
-    auto Kontainer = x.getGrid().getContainer(
+    auto c = x.getGrid().newContainer(
         "AXPY", [&](Neon::set::Loader& L) -> auto {
             auto&      xLocal = L.load(x);
             auto&      yLocal = L.load(y);
             auto       fRLocal = L.load(fR);
             const auto fRVal = fRLocal();
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 // #ifdef NEON_PLACE_CUDA_DEVICE
                 //                 if(yLocal.prtID()==0) {
                 //                     __nanosleep(2000000U);
@@ -74,35 +74,36 @@ auto axpy(const Neon::template PatternScalar<T>& fR,
                     yLocal(e, i) += fRVal * xLocal(e, i);
                 }
             };
-        });
-    return Kontainer;
+        },
+        Neon::Execution::device);
+    return c;
 }
 
 template <typename Field>
 auto laplace(const Field& x,
              Field&       y) -> Neon::set::Container
 {
-    Neon::set::Container container = x.getGrid().getContainer(
+    Neon::set::Container container = x.getGrid().newContainer(
         "Laplace", [&](Neon::set::Loader& L) -> auto {
             auto& xLocal = L.load(x, Neon::Compute::STENCIL);
             auto& yLocal = L.load(y);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& gidx) mutable {
                 using Type = typename Field::Type;
                 for (int card = 0; card < xLocal.cardinality(); card++) {
                     typename Field::Type res = 0;
 
 
                     auto checkNeighbor = [&res](Neon::domain::NghData<Type>& neighbor) {
-                        if (neighbor.isValid) {
-                            res += neighbor.value;
+                        if (neighbor.isValid()) {
+                            res += neighbor.getData();
                         }
                     };
 
                     // Laplacian stencil operates on 6 neighbors (assuming 3D)
                     if constexpr (std::is_same<typename Field::Grid, Neon::domain::details::eGrid::eGrid>::value) {
                         for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
-                            auto neighbor = xLocal.nghVal(cell, nghIdx, card, Type(0));
+                            auto neighbor = xLocal.getNghData(gidx, nghIdx, card, Type(0));
                             checkNeighbor(neighbor);
                         }
                     } else {
@@ -112,47 +113,47 @@ auto laplace(const Field& x,
                         ngh.x = 1;
                         ngh.y = 0;
                         ngh.z = 0;
-                        auto neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        auto neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //-x
                         ngh.x = -1;
                         ngh.y = 0;
                         ngh.z = 0;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //+y
                         ngh.x = 0;
                         ngh.y = 1;
                         ngh.z = 0;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //-y
                         ngh.x = 0;
                         ngh.y = -1;
                         ngh.z = 0;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //+z
                         ngh.x = 0;
                         ngh.y = 0;
                         ngh.z = 1;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
 
                         //-z
                         ngh.x = 0;
                         ngh.y = 0;
                         ngh.z = -1;
-                        neighbor = xLocal.nghVal(cell, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
                         checkNeighbor(neighbor);
                     }
 
 
-                    yLocal(cell, card) = -6 * res;
+                    yLocal(gidx, card) = -6 * res;
                 }
             };
         });

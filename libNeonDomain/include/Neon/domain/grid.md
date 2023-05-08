@@ -46,9 +46,9 @@ access cell metadata.
 ```c++
 struct xCell
 {
-    using OuterIndex = xCell;
+    using OuterIdx = xCell;
 
-    friend struct sPartitionIndexSpace;
+    friend struct sSpan;
 
     template <typename T,
               int Cardinality>
@@ -64,8 +64,8 @@ private:
 
 ```
 
-The definition of `OuterIndex` is required to be able to use the sGrid to define sub-grids. The most easy is to define
-the `OuterIndex` with the same type of the xCell, however, depending on the type of grid this may not be the most
+The definition of `OuterIdx` is required to be able to use the sGrid to define sub-grids. The most easy is to define
+the `OuterIdx` with the same type of the xCell, however, depending on the type of grid this may not be the most
 efficient way.
 
 ### Step 1 - Design a xPartitionIndexSpace
@@ -331,7 +331,7 @@ class xGrid : public Neon::domain::interface::GridBase
      * Creates a container
      */
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       LoadingLambda      lambda)
         const
         -> Neon::set::Container;
@@ -340,7 +340,7 @@ class xGrid : public Neon::domain::interface::GridBase
      * Creates a container with the ability of specifying the block and shared memory size
      */
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       LoadingLambda      lambda
                       index_3d           blockSize,
                       size_t             sharedMem)

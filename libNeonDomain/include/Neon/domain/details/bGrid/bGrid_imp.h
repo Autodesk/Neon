@@ -137,7 +137,8 @@ bGrid::bGrid(const Neon::Backend&         backend,
         mData->activeBitMask.updateDeviceData(Neon::Backend::mainStreamIdx);
         mData->activeBitMask.newHaloUpdate(Neon::set::StencilSemantic::standard,
                                            Neon::set::TransferMode::put,
-                                           Neon::Execution::device).run(Neon::Backend::mainStreamIdx);
+                                           Neon::Execution::device)
+            .run(Neon::Backend::mainStreamIdx);
     }
 
 

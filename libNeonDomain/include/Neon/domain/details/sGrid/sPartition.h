@@ -6,8 +6,8 @@
 #include "Neon/set/memory/memSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
 
-#include "Neon/domain/details/sGrid/sCell.h"
-#include "sPartitionIndexSpace.h"
+#include "Neon/domain/details/sGrid/sIndex.h"
+#include "sSpan.h"
 
 
 namespace Neon::domain::details::sGrid {
@@ -59,7 +59,7 @@ struct sPartition
     using OuterGrid = OuterGridT;
     static constexpr int Cardinality = C;
     using Self = sPartition<OuterGridT, T, Cardinality>;  //<- this type
-    using Cell = sCell;                                   //<- type of an index to an element
+    using Idx = sIndex;                                   //<- type of an index to an element
 
     using Type = T;        //<- type of the data stored by the field
     using Jump = index_t;  //<- Type of a Jump value
@@ -77,7 +77,7 @@ struct sPartition
     Neon::DataView mDataView;
 
     //-- [CONNECTIVITY] ----------------------------------------------------------------------------
-    typename OuterGrid::Cell::OuterCell const* mTableToOuterCell;
+    typename OuterGrid::Idx::OuterIdx const* mTableToOuterIdx;
 
     int mPartitionId;
 
@@ -123,7 +123,7 @@ struct sPartition
      * Access method for cell metadata
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    operator()(Cell const& eId,
+    operator()(Idx const& eId,
                int         cardinalityIdx) const
         -> T;
 
@@ -131,40 +131,40 @@ struct sPartition
      * Access method for cell metadata
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    operator()(Cell const& eId,
+    operator()(Idx const& eId,
                int         cardinalityIdx) -> T&;
 
 
     template <typename ComputeType>
     NEON_CUDA_HOST_DEVICE inline auto
-    castRead(Cell eId, int cardinalityIdx) const
+    castRead(Idx eId, int cardinalityIdx) const
         -> ComputeType;
 
     template <typename ComputeType>
     NEON_CUDA_HOST_DEVICE inline auto
-    castWrite(Cell eId, int cardinalityIdx, const ComputeType& value)
+    castWrite(Idx eId, int cardinalityIdx, const ComputeType& value)
         -> void;
 
     /**
      * Translate a sGrid cell to a outer grid cell
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    mapToOuterGrid(const Cell&) const
-        -> typename OuterGrid::Cell::OuterCell const&;
+    mapToOuterGrid(const Idx&) const
+        -> typename OuterGrid::Cell::OuterIdx const&;
 
    private:
     /**
      * Helper function to compute the offset associated to a cell
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    helpGetJump(Cell const& eId) const
+    helpGetJump(Idx const& eId) const
         -> Jump;
 
     /**
      * Helper function to compute the offset associated to a cell
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    helpGetJump(Cell const& eId,
+    helpGetJump(Idx const& eId,
                 int         cardinalityIdx) const
         -> Jump;
 
@@ -177,6 +177,6 @@ struct sPartition
                         T*                                         mem,
                         int                                        cardinality,
                         const Pitch&                               ePitch,
-                        typename OuterGrid::Cell::OuterCell const* tableToOuterCell);
+                        typename OuterGrid::Cell::OuterIdx const* tableToOuterIdx);
 };
 }  // namespace Neon::domain::details::sGrid

@@ -37,7 +37,7 @@ class mGrid
     template <typename T, int C = 0>
     using Field = Neon::domain::details::mGrid::mField<T, C>;
 
-    using nghIdx_t = typename Partition<int>::nghIdx_t;
+    using nghIdx_t = typename Partition<int>::NghIdx;
 
     using PartitionIndexSpace = typename InternalGrid::PartitionIndexSpace;
 

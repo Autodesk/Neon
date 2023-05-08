@@ -8,7 +8,7 @@
 TEST(domain, map)
 {
     int nGpus = 3;
-    runAllTestConfiguration(std::function(map::run<Neon::domain::eGrid, int64_t, 0, double>),
+    runAllTestConfiguration(std::function(map::run<Neon::eGrid, int64_t, 0, double>),
                             nGpus,
                             1);
 }

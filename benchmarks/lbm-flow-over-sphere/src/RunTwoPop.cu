@@ -106,9 +106,9 @@ auto runSpecialized(Config& config,
             container.run(Neon::Backend::mainStreamIdx);
             bk.syncAll();
 
-            u.updateIO(Neon::Backend::mainStreamIdx);
-            rho.updateIO(Neon::Backend::mainStreamIdx);
-            // iteration.getInput().updateIO(Neon::Backend::mainStreamIdx);
+            u.updateHostData(Neon::Backend::mainStreamIdx);
+            rho.updateHostData(Neon::Backend::mainStreamIdx);
+            // iteration.getInput().updateHostData(Neon::Backend::mainStreamIdx);
 
             bk.syncAll();
             size_t      numDigits = 5;

@@ -248,7 +248,7 @@ auto expandedLevelSet(Field& sdf,
                  double expantion)
     ->Neon::set::Container
 {
-    return sdf.getGrid().getContainer(
+    return sdf.getGrid().newContainer(
         "ExpandedLevelSet", [&, expantion](Neon::set::Loader& L) {
             auto& px = L.load(sdf);
 
@@ -313,7 +313,7 @@ auto computeGrad(const Field& levelSetField /** input scalar field we want to co
     //      {-1, 0, 0},
     //      {0, -1, 0},
     //      {0, 0, -1}
-    return levelSetField.getGrid().getContainer(
+    return levelSetField.getGrid().newContainer(
         "computeGrad", [&, h](Neon::set::Loader& L) {
             // Loading the sdf field for a stencil type of computation
             // as we will be using a 6 point stencil to compute the gradient

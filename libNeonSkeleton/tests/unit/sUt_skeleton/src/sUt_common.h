@@ -106,16 +106,16 @@ class storage_t
     {
 
         field.ioFromDense(dense);
-        field.updateCompute(0);
+        field.updateDeviceData(0);
         field.getGrid().getBackend().sync(0);
     }
 
    public:
     void ioToVti(const std::string fname)
     {
-        Xf.updateIO(Xf.grid().devSet().defaultStreamSet());
-        Yf.updateIO(Xf.grid().devSet().defaultStreamSet());
-        Zf.updateIO(Xf.grid().devSet().defaultStreamSet());
+        Xf.updateHostData(Xf.grid().devSet().defaultStreamSet());
+        Yf.updateHostData(Xf.grid().devSet().defaultStreamSet());
+        Zf.updateHostData(Xf.grid().devSet().defaultStreamSet());
         Xf.grid().devSet().defaultStreamSet().sync();
 
         auto Xd_val = [&](const Neon::int64_3d& index3d, int card) {
@@ -174,7 +174,7 @@ class storage_t
         int same = 0;
 
         m_backend.sync();
-        bField.updateIO(0);
+        bField.updateHostData(0);
         m_backend.sync();
 
         std::shared_ptr<T[]> b;

@@ -624,14 +624,14 @@ inline void setup(const FlowType                  flow_type,
     velocity_1.forEachActiveCell([](const Neon::index_3d&, const int& c, T& val) { val = 0; });
     velocity_2.forEachActiveCell([](const Neon::index_3d&, const int& c, T& val) { val = 0; });
 
-    lattice_1.updateCompute(0);
-    lattice_2.updateCompute(0);
-    rho_1.updateCompute(0);
-    rho_2.updateCompute(0);
-    boundary_mask.updateCompute(0);
-    center_mask.updateCompute(0);
-    velocity_1.updateCompute(0);
-    velocity_2.updateCompute(0);
+    lattice_1.updateDeviceData(0);
+    lattice_2.updateDeviceData(0);
+    rho_1.updateDeviceData(0);
+    rho_2.updateDeviceData(0);
+    boundary_mask.updateDeviceData(0);
+    center_mask.updateDeviceData(0);
+    velocity_1.updateDeviceData(0);
+    velocity_2.updateDeviceData(0);
 }
 
 
@@ -680,7 +680,7 @@ inline void run(const int                       num_frames,
 
         if (f % t == 0) {
             backend.syncAll();
-            velocity_1.updateIO(0);
+            velocity_1.updateHostData(0);
             exportVTI(save_id, velocity_1);
             printf("\n frame  %d exported", f);
             save_id++;

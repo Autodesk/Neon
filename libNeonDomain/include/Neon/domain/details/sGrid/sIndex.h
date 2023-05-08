@@ -7,11 +7,11 @@ namespace Neon::domain::details::sGrid {
 /**
  * Cell abstraction for the sGrid
  */
-struct sCell
+struct sIndex
 {
-    using OuterCell = sCell;
+    using OuterIdx = sIndex;
 
-    friend struct sPartitionIndexSpace;
+    friend struct sSpan;
 
     template <typename OuterGridT,
               typename T,
@@ -25,7 +25,7 @@ struct sCell
     using Offset = int32_t;
     using Location = int32_t;
 
-    sCell() = default;
+    sIndex() = default;
 
    private:
     Location mLocation = 0;
@@ -34,7 +34,7 @@ struct sCell
      * Private constructor
      * @param location
      */
-    NEON_CUDA_HOST_DEVICE inline explicit sCell(Location location);
+    NEON_CUDA_HOST_DEVICE inline explicit sIndex(Location location);
 
     /**
      * Method to access the information used to track a cell in the data structure.

@@ -72,7 +72,6 @@ auto IOGridVTK<RealType, IntType>::addIODenseField(const IODenseField& field,
                                                    const std::string&  name) -> void
 {
     ioToVTKns::VtiDataType_e vtiDataTypeE = mVtiDataTypeE;
-    bool                     isValidConfiguration = false;
     vtiDataTypeE = ioToVTKns::VtiDataType_e::voxel;
 
 

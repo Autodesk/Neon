@@ -11,8 +11,8 @@ auto sum(const Field& A_g,
          const Field& B_g,
          Field&       C_g) -> Neon::set::Container
 {
-    auto container = A_g.getGrid().getContainer(
-        "sum", [&A_g, &C_g, &B_g ](Neon::set::Loader & L) -> auto{
+    auto container = A_g.getGrid().newContainer(
+        "sum", [&A_g, &C_g, &B_g](Neon::set::Loader& L) -> auto {
             auto& A = L.load(A_g);
             auto& B = L.load(B_g);
             auto& C = L.load(C_g);

@@ -23,7 +23,7 @@ struct IndexProperties
     auto init(Neon::SetIdx, Neon::DataView)
         -> void;
 
-    auto init(Neon::SetIdx, Neon::DataView, typename Index::OuterIndex const&)
+    auto init(Neon::SetIdx, Neon::DataView, typename Index::OuterIdx const&)
         -> void;
 
     auto setIsInside(bool isInside)
@@ -49,25 +49,25 @@ struct IndexProperties
         -> Neon::DataView;
 
     /**
-     * Returns the OuterIndex abstraction for the Index.
-     * OuterIndex abstractions are used by sGrid to convert sGrid local indexing to
-     * a OuterGrid Index handle. The handle may be of the same type as the OuterIndex Index type
+     * Returns the OuterIdx abstraction for the Index.
+     * OuterIdx abstractions are used by sGrid to convert sGrid local indexing to
+     * a OuterGrid Index handle. The handle may be of the same type as the OuterIdx Index type
      * or different.
      *
      * For example, eIndex define a handle for eGrid that is just an int32_t.
-     * eGrid defines its OuterIndex as alias it eIndex.
+     * eGrid defines its OuterIdx as alias it eIndex.
      *
      * On the other hand, dIndex is wrapper for index_3d type. For a more efficient storage use of sGrid,
      * dGrid could define its OuterGrid as simple int32_t.
      */
-    auto getOuterIndex() const
-        -> typename Index::OuterIndex const&;
+    auto getOuterIdx() const
+        -> typename Index::OuterIdx const&;
 
    private:
     bool                       mIsInsise;
     Neon::SetIdx               mSetIdx;
     DataView                   mDataView;
-    typename Index::OuterIndex mOuterIndex;
+    typename Index::OuterIdx mOuterIdx;
 };
 
 template <typename IndexT>
@@ -81,11 +81,11 @@ auto IndexProperties<IndexT>::init(Neon::SetIdx   setIdx,
 template <typename IndexT>
 auto IndexProperties<IndexT>::init(Neon::SetIdx                       setIdx,
                                    Neon::DataView                     dataView,
-                                   typename IndexT::OuterIndex const& outerIndex) -> void
+                                   typename IndexT::OuterIdx const& outerIndex) -> void
 {
     mSetIdx = setIdx;
     mDataView = dataView;
-    mOuterIndex = outerIndex;
+    mOuterIdx = outerIndex;
 }
 
 template <typename IndexT>
@@ -112,9 +112,9 @@ auto IndexProperties<IndexT>::getDataView() const -> Neon::DataView
     return mDataView;
 }
 template <typename IndexT>
-auto IndexProperties<IndexT>::getOuterIndex() const -> typename Index::OuterIndex const&
+auto IndexProperties<IndexT>::getOuterIdx() const -> typename Index::OuterIdx const&
 {
-    return mOuterIndex;
+    return mOuterIdx;
 }
 
 

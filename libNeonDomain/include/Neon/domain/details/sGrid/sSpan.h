@@ -8,21 +8,19 @@ namespace Neon::domain::details::sGrid {
  * This abstraction is used by the neon lambda executor to
  * run a containers on aGrid
  */
-struct sPartitionIndexSpace
+struct sSpan
 {
    public:
 
     template <typename OuterGrid>
     friend class sGrid;
 
-    using Cell = sCell;
+    using Cell = sIndex;
     static constexpr int SpaceDim = 1;
 
     NEON_CUDA_HOST_DEVICE
     inline auto setAndValidate(Cell&                          cell,
-                               const size_t&                  x,
-                               [[maybe_unused]] const size_t& y,
-                               [[maybe_unused]] const size_t& z)const
+                               const size_t&                  x)const
         -> bool;
 
    private:

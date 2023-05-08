@@ -32,8 +32,7 @@ auto getTestData(Cli::UserData& userData)
         userData.targetGeometry.getOption(),
         .8,
         .5,
-        Neon::domain::Stencil::s7_Laplace_t(),
-        Type(0));
+        Neon::domain::Stencil::s7_Laplace_t());
 
     testData.resetValuesToLinear(1);
 
@@ -78,7 +77,7 @@ auto runGolden(Cli::UserData& userData,
 {
     using FieldNames = Neon::domain::tool::testing::FieldNames;
 
-    testData.updateIO();
+    testData.updateHostData();
     for (int i = 0; i < userData.nIterations + userData.warmupIterations; i++) {
         help::runGoldenFilter<Grid, Type, Cardinality>(userData, testData);
     }

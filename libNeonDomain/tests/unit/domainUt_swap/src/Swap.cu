@@ -13,18 +13,18 @@ auto map(Field&                      input_field,
          Field&                      output_field,
          const typename Field::Type& alpha) -> Neon::set::Container
 {
-    return input_field.getGrid().getContainer(
+    return input_field.getGrid().newContainer(
         "MAP",
         [&](Neon::set::Loader& loader) {
             const auto& inp = loader.load(input_field);
             auto&       out = loader.load(output_field);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < inp.cardinality(); i++) {
                     out(e, i) = inp(e, i) + alpha;
                 }
             };
-        });
+        }, Neon::Execution::device);
 }
 
 template <typename G, typename T, int C>

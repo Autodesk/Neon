@@ -23,7 +23,7 @@ auto setToPitch(Field& fieldA,
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < b.cardinality(); i++) {
-                    Neon::index_3d const global = b.mapToGlobal(e);
+                    Neon::index_3d const global = b.getGlobalIndex(e);
 
                     a(e, i) = global.x;
                     //printf("E (%d, %d, %d) Val (%d, %d %d)\n", e.mLocation.x, e.mLocation.y, e.mLocation.z, global.x, global.y, global.z);

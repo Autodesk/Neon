@@ -7,7 +7,7 @@ namespace Neon::domain::details::aGrid {
 class aIndex
 {
    public:
-    using OuterIndex = aIndex;
+    using OuterIdx = aIndex;
 
     template <typename T,
               int Cardinality>

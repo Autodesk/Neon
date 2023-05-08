@@ -76,7 +76,7 @@ class ePartition
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
     using Self = ePartition<T, C>;              //<- this type
     using Idx = eIndex;                         //<- index type
-    using OuterIdx = typename Idx::OuterIndex;  //<- index type for the subGrid
+    using OuterIdx = typename Idx::OuterIdx;  //<- index type for the subGrid
 
     static constexpr int Cardinality = C;
 

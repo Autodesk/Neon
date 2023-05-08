@@ -221,7 +221,7 @@ auto NodeGrid<BuildingBlockGridT>::
     typename GridBaseTemplate::CellProperties output;
     output.init(boudlingBlockProperties.getSetIdx(),
                 boudlingBlockProperties.getDataView(),
-                boudlingBlockProperties.getOuterCell());
+                boudlingBlockProperties.getOuterIdx());
     return output;
 }
 

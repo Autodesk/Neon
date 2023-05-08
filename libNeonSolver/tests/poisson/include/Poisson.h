@@ -65,9 +65,9 @@ void setupPoissonProblem(const Grid&                               grid,
 
     // Move data to GPU if using CUDA backend
     if (grid.getBackend().devType() == DeviceType::CUDA) {
-        u.updateCompute(0);
-        rhs.updateCompute(0);
-        bd.updateCompute(0);
+        u.updateDeviceData(0);
+        rhs.updateDeviceData(0);
+        bd.updateDeviceData(0);
     }
 }
 

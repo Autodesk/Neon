@@ -28,18 +28,19 @@ auto copyFromOuter(const F& Fouter,
                    FS&      FSGrid)
     -> Neon::set::Container
 {
-    return FSGrid.getGrid().getContainer(
+    return FSGrid.getGrid().newContainer(
         "SET_FROM_OUTER_CONTAINER",
         [&](Neon::set::Loader& loader) {
             const auto fouter = loader.load(Fouter);
             auto       fsGrid = loader.load(FSGrid);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename decltype(fsGrid)::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename decltype(fsGrid)::Idx& cell) mutable {
                 auto outerCell = fsGrid.mapToOuterGrid(cell);
                 auto outerVal = fouter(outerCell, 0);
                 fsGrid(cell, 0) = outerVal;
             };
-        });
+        },
+        Neon::Execution::device);
 };
 
 template <typename FS>
@@ -48,16 +49,17 @@ auto scale(typename FS::Type const& scaleVal,
            FS&                      Fout)
     -> Neon::set::Container
 {
-    return Fin.getGrid().getContainer(
+    return Fin.getGrid().newContainer(
         "SET_FROM_OUTER_CONTAINER",
         [&](Neon::set::Loader& loader) {
             const auto fin = loader.load(Fin);
             auto       fout = loader.load(Fout);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename decltype(fin)::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename decltype(fin)::Idx& cell) mutable {
                 fout(cell, 0) = scaleVal * fin(cell, 0);
             };
-        });
+        },
+        Neon::Execution::device);
 };
 
 template <typename F, typename FS>
@@ -65,18 +67,19 @@ auto copyToOuter(FS const& FSGrid,
                  F&        Fouter)
     -> Neon::set::Container
 {
-    return FSGrid.getGrid().getContainer(
+    return FSGrid.getGrid().newContainer(
         "SET_FROM_OUTER_CONTAINER",
         [&](Neon::set::Loader& loader) {
             auto       fouter = loader.load(Fouter);
             const auto fsGrid = loader.load(FSGrid);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename decltype(fsGrid)::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename decltype(fsGrid)::Idx& cell) mutable {
                 auto outerCell = fsGrid.mapToOuterGrid(cell);
                 auto outerVal = fsGrid(cell, 0);
                 fouter(outerCell, 0) = outerVal;
             };
-        });
+        },
+        Neon::Execution::device);
 };
 /**
  * Map-Stencil-Map test

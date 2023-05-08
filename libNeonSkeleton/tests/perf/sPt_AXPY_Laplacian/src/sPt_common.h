@@ -21,7 +21,7 @@ class storage_t
     Grid             m_grid;
     Neon::index64_3d m_size3d;
     int              m_cardinality;
-    geometry_t       m_geo;
+    Geometry         m_geo;
     Neon::Backend    m_backend;
 
    public:
@@ -69,7 +69,7 @@ class storage_t
     void loadField(const Neon::IODense<T>& dense, Field& field)
     {
         field.ioFromDense(dense);
-        field.updateCompute(0);
+        field.updateDeviceData(0);
         field.getGrid().getBackend().sync(0);
     }
 
@@ -133,8 +133,8 @@ class storage_t
 
     void ioToVti(const std::string fname)
     {
-        Xf.updateIO(Xf.grid().devSet().defaultStreamSet());
-        Yf.updateIO(Yf.grid().devSet().defaultStreamSet());
+        Xf.updateHostData(Xf.grid().devSet().defaultStreamSet());
+        Yf.updateHostData(Yf.grid().devSet().defaultStreamSet());
 
         Xf.grid().devSet().defaultStreamSet().sync();
 
@@ -185,7 +185,7 @@ class storage_t
 
         int same = 0;
         m_backend.sync();
-        bField.updateIO(0);
+        bField.updateHostData(0);
         m_backend.sync();
 
         std::shared_ptr<T[]> b;
@@ -208,7 +208,7 @@ class storage_t
     }
 
     static void gridInit(Neon::index64_3d dim,
-                         geometry_t /*geo*/,
+                         Geometry /*geo*/,
                          storage_t<Neon::aGrid, T>& storage,
                          const Neon::Backend&               backendConfig)
     {
@@ -232,7 +232,7 @@ class storage_t
     }
 
     void gridInit(Neon::index64_3d     dim,
-                  geometry_t           geo,
+                  Geometry             geo,
                   const Neon::Backend& backendConfig)
     {
         m_size3d = dim;
@@ -249,7 +249,7 @@ class storage_t
 
 
     storage_t(Neon::index64_3d dim,
-              geometry_t       geo,
+              Geometry         geo,
               int /*nGPUs*/,
               int                  cardinality,
               const Neon::Backend& backendConfig)
@@ -304,7 +304,7 @@ enum DataType
 struct TestConfigurations
 {
     Neon::index64_3d        m_dim{0};
-    geometry_t              m_geo{topologies_e::FullDomain, Neon::index64_3d{0, 0, 0}};
+    Geometry                m_geo{topologies_e::FullDomain, Neon::index64_3d{0, 0, 0}};
     int                     m_nIterations{0};
     int                     m_nRepetitions{0};
     int                     m_nGPUs{0};

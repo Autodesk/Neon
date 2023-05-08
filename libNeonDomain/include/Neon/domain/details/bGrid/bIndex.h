@@ -16,7 +16,7 @@ class bIndex
 {
    public:
     friend class bSpan;
-    using OuterIndex = bIndex;
+    using OuterIdx = bIndex;
 
     using NghIdx = int8_3d;
     template <typename T, int C>
@@ -31,7 +31,6 @@ class bIndex
     using DataBlockCount = uint32_t;
     using DataBlockIdx = uint32_t;
     using InDataBlockIdx = int8_3d;
-    using OuterCell = bIndex;
 
 
     bIndex() = default;

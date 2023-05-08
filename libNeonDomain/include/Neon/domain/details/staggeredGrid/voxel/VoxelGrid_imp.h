@@ -251,7 +251,7 @@ auto VoxelGrid<BuildingBlockGridT>::
     typename GridBaseTemplate::CellProperties output;
     output.init(boudlingBlockProperties.getSetIdx(),
                 boudlingBlockProperties.getDataView(),
-                boudlingBlockProperties.getOuterCell());
+                boudlingBlockProperties.getOuterIdx());
 
     if (boudlingBlockProperties.isInside() && mStorage->mask(idx, 0) == 1) {
         output.setIsInside(true);

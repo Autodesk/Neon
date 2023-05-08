@@ -17,7 +17,7 @@ inline void exportVTI(FieldT& voxel_1, FieldT& voxel_2, int frame_id)
     auto io = [&](int f, FieldT& voxel) {
         printf("\n Exporting Frame =%d", f);
         int precision = 4;
-        voxel.updateIO(0);
+        voxel.updateHostData(0);
         std::ostringstream oss;
         oss << std::setw(precision) << std::setfill('0') << f;
         std::string fname = "gameOfLife_" + oss.str();
@@ -139,8 +139,8 @@ int main(int argc, char** argv)
             [](const Neon::index_3d&, const int&, T& val) { val = 0; });
 
 
-        voxel_1.updateCompute(0);
-        voxel_2.updateCompute(0);
+        voxel_1.updateDeviceData(0);
+        voxel_2.updateDeviceData(0);
 
 
         std::vector<Neon::set::Container> containers;

@@ -44,7 +44,7 @@ void MultiResSkeleton()
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
-            field.updateCompute();
+            field.updateDeviceData();
         }
         //field.ioToVtk("f", "f");
 
@@ -92,7 +92,7 @@ void MultiResSkeleton()
 
         grid.getBackend().syncAll();
         if (bk.runtime() == Neon::Runtime::stream) {
-            field.updateIO();
+            field.updateHostData();
             grid.getBackend().syncAll();
         }
 

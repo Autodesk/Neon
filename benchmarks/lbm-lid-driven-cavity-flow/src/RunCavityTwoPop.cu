@@ -91,9 +91,9 @@ auto run(Config& config,
             auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
 
             container.run(Neon::Backend::mainStreamIdx);
-            u.updateIO(Neon::Backend::mainStreamIdx);
-            rho.updateIO(Neon::Backend::mainStreamIdx);
-            // iteration.getInput().updateIO(Neon::Backend::mainStreamIdx);
+            u.updateHostData(Neon::Backend::mainStreamIdx);
+            rho.updateHostData(Neon::Backend::mainStreamIdx);
+            // iteration.getInput().updateHostData(Neon::Backend::mainStreamIdx);
 
             bk.syncAll();
             size_t      numDigits = 5;
@@ -180,10 +180,10 @@ auto run(Config& config,
             }
         });
 
-        inPop.updateCompute(Neon::Backend::mainStreamIdx);
-        outPop.updateCompute(Neon::Backend::mainStreamIdx);
+        inPop.updateDeviceData(Neon::Backend::mainStreamIdx);
+        outPop.updateDeviceData(Neon::Backend::mainStreamIdx);
 
-        flag.updateCompute(Neon::Backend::mainStreamIdx);
+        flag.updateDeviceData(Neon::Backend::mainStreamIdx);
         bk.syncAll();
         Neon::set::HuOptions hu(Neon::set::TransferMode::get,
                                 false,

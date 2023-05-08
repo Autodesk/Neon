@@ -106,9 +106,9 @@ void testPoisson(const Neon::Backend&             backend,
 
 
     // Move data to GPU
-    u.updateCompute(0);
-    rhs.updateCompute(0);
-    bd.updateCompute(0);
+    u.updateDeviceData(0);
+    rhs.updateDeviceData(0);
+    bd.updateDeviceData(0);
 
 
     // Laplacian matvec operation
@@ -139,7 +139,7 @@ void testPoisson(const Neon::Backend&             backend,
 
     // Plotting
     printf("Updating and exporting to VTI...\n");
-    u.updateIO(0);
+    u.updateHostData(0);
     u.ioToVtk("poisson", "u");
 }
 

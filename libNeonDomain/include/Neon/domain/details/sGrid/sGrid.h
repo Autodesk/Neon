@@ -15,11 +15,11 @@
 #include "Neon/domain/interface/common.h"
 #include "Neon/domain/tools/PointHashTableSet.h"
 
-#include "Neon/domain/details/sGrid/sCell.h"
 #include "Neon/domain/details/sGrid/sField.h"
 #include "Neon/domain/details/sGrid/sFieldStorage.h"
+#include "Neon/domain/details/sGrid/sIndex.h"
 #include "Neon/domain/details/sGrid/sPartition.h"
-#include "Neon/domain/details/sGrid/sPartitionIndexSpace.h"
+#include "Neon/domain/details/sGrid/sSpan.h"
 
 namespace Neon::domain::details::sGrid {
 
@@ -28,12 +28,12 @@ class sField;
 
 template <typename OuterGridT>
 class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>,
-                                                               sCell>
+                                                               sIndex>
 {
    public:
     using OuterGrid = OuterGridT;
     using Grid = sGrid;
-    using Cell = sCell;
+    using Idx = sIndex;
 
     template <typename OuterGridTK, typename T, int C>
     friend class sField;
@@ -44,8 +44,10 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
     template <typename T, int C>
     using Field = Neon::domain::details::sGrid::sField<OuterGrid, T, C>; /**< Type of a field for sGrid */
 
-    using PartitionIndexSpace = Neon::domain::details::sGrid::sPartitionIndexSpace; /**< Type of the space is indexes for a lambda executor */
+    using Span = Neon::domain::details::sGrid::sSpan; /**< Type of the space is indexes for a lambda executor */
 
+    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1;
+    using ExecutionThreadSpanIndexType = uint32_t;
 
     /**
      * Empty constructor
@@ -69,10 +71,10 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
     /**
      * Returns the Partition Index Space for this grid
      */
-    auto getPartitionIndexSpace(Neon::DeviceType devE,
-                                SetIdx           setIdx,
-                                Neon::DataView   dataView) const
-        -> const PartitionIndexSpace&;
+    auto getSpan(Neon::Execution execution,
+                 Neon::SetIdx    setIdx,
+                 Neon::DataView  dataView) const
+        -> const Span&;
 
     /**
      * Returns a KernelConfig set up for this grid
@@ -97,8 +99,9 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
      * Creates a container that will run on this grid
      */
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
-                      LoadingLambda      lambda)
+    auto newContainer(const std::string& name,
+                      LoadingLambda      lambda,
+                      Neon::Execution    execution)
         const
         -> Neon::set::Container;
 
@@ -106,7 +109,7 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
      * Creates a container that will run on this grid
      */
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       index_3d           blockSize,
                       size_t             sharedMem,
                       LoadingLambda      lambda)
@@ -123,11 +126,13 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
      * Returns some properties for specified point
      */
     auto getProperties(const Neon::index_3d& idx) const
-        -> typename Neon::domain::interface::GridBaseTemplate<sGrid<OuterGrid>, sCell>::CellProperties final;
+        -> typename Neon::domain::interface::GridBaseTemplate<sGrid<OuterGrid>, sIndex>::CellProperties final;
+
+    auto getSetIdx(Neon::index_3d const&) const -> int final;
 
    private:
     using Self = sGrid<OuterGrid>;
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Self, sCell>;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Self, sIndex>;
     using Count = typename Partition<char, 0>::Count;
     using Index = typename Partition<char, 0>::Index;
 
@@ -144,13 +149,13 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
     struct Meta
     {
         Meta() = default;
-        Meta(int64_t                                     offset,
-             typename OuterGridT::Cell::OuterCell const& outerCell_)
+        Meta(int64_t                                    offset,
+             typename OuterGridT::Cell::OuterIdx const& outerCell_)
             : cellOffset(offset), outerCell(outerCell_)
         {
         }
-        int32_t                              cellOffset;
-        typename OuterGridT::Cell::OuterCell outerCell;
+        int32_t                             cellOffset;
+        typename OuterGridT::Cell::OuterIdx outerCell;
     };
 
     struct sStorage
@@ -162,7 +167,7 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
 
             for (auto& dw : DataViewUtil::validOptions()) {
                 getCount(dw) = outerGrid.getDevSet().template newDataSet<size_t>();
-                getPartitionIndexSpace(dw) = outerGrid.getDevSet().template newDataSet<sPartitionIndexSpace>();
+                getPartitionIndexSpace(dw) = outerGrid.getDevSet().template newDataSet<sSpan>();
                 map = Neon::domain::tool::PointHashTableSet<int, Meta>(outerGrid);
             }
         }
@@ -182,22 +187,28 @@ class sGrid : public Neon::domain::interface::GridBaseTemplate<sGrid<OuterGridT>
          * @param dw
          * @return
          */
-        auto getPartitionIndexSpace(DataView dw) -> Neon::set::DataSet<sPartitionIndexSpace>&
+        auto getPartitionIndexSpace(DataView dw) -> Neon::set::DataSet<sSpan>&
         {
             return partitionIndexSpace[DataViewUtil::toInt(dw)];
         }
 
-        Neon::domain::tool::PointHashTableSet<int, Meta>         map;
-        OuterGrid                                                outerGrid;
-        Neon::set::MemSet<typename OuterGrid::Cell::OuterCell> tableToOuterCell;
+        Neon::domain::tool::PointHashTableSet<int, Meta>      map;
+        OuterGrid                                             outerGrid;
+        Neon::set::MemSet<typename OuterGrid::Cell::OuterIdx> tableToOuterIdx;
 
        private:
-        std::array<Neon::set::DataSet<size_t>, Neon::DataViewUtil::nConfig>               count;
-        std::array<Neon::set::DataSet<sPartitionIndexSpace>, Neon::DataViewUtil::nConfig> partitionIndexSpace;
+        std::array<Neon::set::DataSet<size_t>, Neon::DataViewUtil::nConfig> count;
+        std::array<Neon::set::DataSet<sSpan>, Neon::DataViewUtil::nConfig>  partitionIndexSpace;
     };
 
     std::shared_ptr<sStorage> mStorage;
 };
+template <typename OuterGridT>
+auto sGrid<OuterGridT>::getSetIdx(const index_3d&) const -> int
+{
+    NEON_DEV_UNDER_CONSTRUCTION("");
+    return Neon::SetIdx();
+}
 
 }  // namespace Neon::domain::details::sGrid
 

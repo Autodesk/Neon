@@ -27,15 +27,16 @@ void run(Neon::Runtime runtime)
     backend.syncAll();
 
 
-    Neon::set::Container c = multiDeviceObject.getContainer(
+    Neon::set::Container c = multiDeviceObject.newContainer(
         "Test",
         [&](Neon::set::Loader& loader) {
-             auto m = loader.load(multiDeviceObject);
+            auto m = loader.load(multiDeviceObject);
             // Neon::meta::debug::printType(m);
-            return [=] NEON_CUDA_HOST_DEVICE(const Neon::set::Replica<TestObj>::Cell&) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const Neon::set::Replica<TestObj>::Idx&) mutable {
                 m().a += 17;
             };
-        });
+        },
+        Neon::Execution::device);
     c.run(0);
     multiDeviceObject.updateHostData(0);
     backend.syncAll();

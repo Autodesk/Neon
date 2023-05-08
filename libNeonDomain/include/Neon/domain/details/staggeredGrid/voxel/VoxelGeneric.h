@@ -28,7 +28,7 @@ struct VoxelGeneric
     };
 
    public:
-    using OuterCell = typename BuildingBlockGridT::Cell::OuterCell;
+    using OuterIdx = typename BuildingBlockGridT::Cell::OuterIdx;
     using Location = typename BuildingBlocks::Cell::Location;
 
     friend struct VoxelSpan<BuildingBlockGridT>;

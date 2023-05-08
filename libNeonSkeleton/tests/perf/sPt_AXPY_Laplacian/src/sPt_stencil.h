@@ -42,8 +42,8 @@ double filterAverage(TestConfigurations& config)
     // storage.ioToVti("Before_" + std::to_string(0));
 
     Neon::skeleton::Skeleton skl(storage.m_backend);
-    skl.sequence({sk::axpy(inF.cSelf(), T_ta(1.0), outF),
-                  sk::laplacianFilter(outF.cSelf(), inF)},
+    skl.sequence({sk::axpy(inF.constSelf(), T_ta(1.0), outF),
+                  sk::laplacianFilter(outF.constSelf(), inF)},
                  "axpy_laplacian", config.getSklOpt());
 
     {  // WARMING UP
@@ -132,7 +132,7 @@ double filterAverage(TestConfigurations& config)
                 << std::endl;
 
 
-            geometry_t geometry(geo, config.m_dim);
+            Geometry geometry(geo, config.m_dim);
             report.addMember("gridType", "eGrid");
             report.addMember("Backend", backend.toString());
             report.addMember("devSet", backend.devSet().toString());

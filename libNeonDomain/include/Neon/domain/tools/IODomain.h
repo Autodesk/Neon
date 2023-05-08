@@ -327,7 +327,7 @@ template <typename Lambda_ta, typename... ExportTypeVariadic_ta>
 auto IODomain<ExportType, intType_ta>::forEachActive(const Lambda_ta& userLambda,
                                                      IODomain<ExportTypeVariadic_ta>&... otherDense) -> void
 {
-    mMask.forEach([&, this](const Neon::index_3d& idx, int card, typename decltype(mMask)::Type& val) -> void {
+    mMask.forEach([&, this](const Neon::index_3d& idx, int /*card*/, typename decltype(mMask)::Type& val) -> void {
         const bool isA = val == InsideFlag;
         if (!isA) {
             return;

@@ -26,62 +26,64 @@ auto axpy(const T&     val,
           Field&       x,
           size_t       sharedMem = 0) -> Neon::set::Container
 {
-    return y.getGrid().getContainer(
+    return y.getGrid().newContainer(
         "AXPY",
         y.getGrid().getDefaultBlock(),
         sharedMem,
-        [&](Neon::set::Loader & L) -> auto {
+        [&](Neon::set::Loader& L) -> auto {
             auto& yLocal = L.load(y);
             auto& xLocal = L.load(x);
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
-                //Neon::sys::ShmemAllocator shmemAlloc;
-                //yLocal.loadInSharedMemory(e, 1, shmemAlloc);
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& gidx) mutable {
+                // Neon::sys::ShmemAllocator shmemAlloc;
+                // yLocal.loadInSharedMemory(e, 1, shmemAlloc);
 
-                //Neon::index_3d global = xLocal.mapToGlobal(e);
+                // Neon::index_3d global = xLocal.mapToGlobal(e);
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
-                    xLocal(e, i) += val * yLocal(e, i);
+                    xLocal(gidx, i) += val * yLocal(gidx, i);
                 }
             };
-        });
+        },
+        Neon::Execution::device);
 }
 
-template <typename FieldT>
-auto laplace(const FieldT& x, FieldT& y, size_t sharedMem = 0) -> Neon::set::Container
+template <typename Field>
+auto laplace(const Field& x, Field& y, size_t sharedMem = 0) -> Neon::set::Container
 {
-    return x.getGrid().getContainer(
+    return x.getGrid().newContainer(
         "Laplace",
         x.getGrid().getDefaultBlock(),
         sharedMem,
-        [&](Neon::set::Loader & L) -> auto {
+        [&](Neon::set::Loader& L) -> auto {
             auto& xLocal = L.load(x, Neon::Compute::STENCIL);
             auto& yLocal = L.load(y);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename FieldT::Cell& cell) mutable {
-                //Neon::sys::ShmemAllocator shmemAlloc;
-                //xLocal.loadInSharedMemory(cell, 1, shmemAlloc);
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& gidx) mutable {
+                // Neon::sys::ShmemAllocator shmemAlloc;
+                // xLocal.loadInSharedMemory(cell, 1, shmemAlloc);
 
 
-                using Type = typename FieldT::Type;
+                using Type = typename Field::Type;
                 for (int card = 0; card < xLocal.cardinality(); card++) {
-                    typename FieldT::Type res = 0;
+                    typename Field::Type res = 0;
 
 
                     auto checkNeighbor = [&res](Neon::domain::NghData<Type>& neighbor) {
-                        if (neighbor.isValid) {
-                            res += neighbor.value;
+                        if (neighbor.isValid()) {
+                            res += neighbor. getData();
                         }
                     };
 
                     for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
-                        auto neighbor = xLocal.nghVal(cell, nghIdx, card, Type(0));
+                        auto neighbor = xLocal.getNghData(gidx, nghIdx, card, Type(0));
                         checkNeighbor(neighbor);
                     }
 
-                    yLocal(cell, card) = -6 * res;
+                    yLocal(gidx, card) = -6 * res;
                 }
             };
-        });
+        },
+        Neon::Execution::device);
 }
 
 
@@ -121,11 +123,11 @@ void SingleStencil(TestData<G, T, C>&      data,
 
 
         });
-        X.updateCompute(0);
+        X.updateDeviceData(0);
         X.ioToVtk("X", "X");*/
 
-        ops.push_back(laplace(X, Y, Y.getSharedMemoryBytes(1)));
-        ops.push_back(axpy(val, Y, X, Y.getSharedMemoryBytes(1)));
+        ops.push_back(laplace(X, Y, 0));
+        ops.push_back(axpy(val, Y, X, 0));
 
         skl.sequence(ops, appName, opt);
 

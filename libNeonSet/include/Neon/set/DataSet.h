@@ -115,7 +115,7 @@ struct DataSet
      *
      * @return
      */
-    auto local(Neon::DeviceType, SetIdx setIdx, const Neon::DataView& dataView = Neon::DataView::STANDARD)
+    auto getPartition(Neon::Execution, SetIdx setIdx, const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> T_ta&
     {
         (void)dataView;
@@ -126,7 +126,7 @@ struct DataSet
      *
      * @return
      */
-    auto local(Neon::DeviceType, SetIdx setIdx, const Neon::DataView& dataView = Neon::DataView::STANDARD) const -> const T_ta&
+    auto getPartition(Neon::Execution, SetIdx setIdx, const Neon::DataView& dataView = Neon::DataView::STANDARD) const -> const T_ta&
     {
         (void)dataView;
         return h_vec().at(setIdx);

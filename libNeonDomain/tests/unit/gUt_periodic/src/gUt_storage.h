@@ -83,7 +83,7 @@ class Storage
     {
 
         field.ioFromDense(m_layout, dense.get(), T(0));
-        field.updateCompute(field.grid().backend().devSet().defaultStreamSet());
+        field.updateDeviceData(field.grid().backend().devSet().defaultStreamSet());
         field.grid().backend().devSet().defaultStreamSet().sync();
     }
 

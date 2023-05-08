@@ -53,8 +53,8 @@ void MultiResChild()
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
-            XField.updateCompute();
-            isRefinedField.updateCompute();
+            XField.updateDeviceData();
+            isRefinedField.updateDeviceData();
         }
         //XField.ioToVtk("f", "f");
 
@@ -98,8 +98,8 @@ void MultiResChild()
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
-            XField.updateIO();
-            isRefinedField.updateIO();
+            XField.updateHostData();
+            isRefinedField.updateHostData();
         }
 
         //verify

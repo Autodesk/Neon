@@ -231,7 +231,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C>::
         const -> NghData
 {
     NghIdx nghOffset = mStencilNghIndex[nghID];
-    return nghVal(eId, nghOffset, card, alternativeVal);
+    return getNghData(eId, nghOffset, card, alternativeVal);
 }
 
 template <typename T, int C>

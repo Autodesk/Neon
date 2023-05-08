@@ -27,12 +27,12 @@ mPartition<T, C>::mPartition(Neon::DataView  dataView,
                              uint32_t*       neighbourBlocks,
                              Neon::int32_3d* origin,
                              uint32_t*       parentBlockID,
-                             Cell::Location* parentLocalID,
+                             Idx::Location* parentLocalID,
                              uint32_t*       mask,
                              uint32_t*       maskLowerLevel,
                              uint32_t*       childBlockID,
                              T               outsideValue,
-                             nghIdx_t*       stencilNghIndex,
+                             NghIdx*       stencilNghIndex,
                              int*            refFactors,
                              int*            spacing)
     : Neon::domain::details::bGrid::bPartition<T, C>(0, dataView, mem, cardinality, neighbourBlocks, origin, mask, outsideValue),
@@ -49,7 +49,7 @@ mPartition<T, C>::mPartition(Neon::DataView  dataView,
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline Neon::index_3d mPartition<T, C>::mapToGlobal(const Cell& cell) const
+NEON_CUDA_HOST_DEVICE inline Neon::index_3d mPartition<T, C>::mapToGlobal(const Idx& cell) const
 {
     Neon::index_3d ret = this->mOrigin[cell.mBlockID];
 #ifdef NEON_PLACE_CUDA_DEVICE
@@ -84,7 +84,7 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getSpacing(const int level) 
 }
 
 template <typename T, int C>
-inline NEON_CUDA_HOST_DEVICE auto mPartition<T, C>::childID(const Cell& cell) const -> uint32_t
+inline NEON_CUDA_HOST_DEVICE auto mPartition<T, C>::childID(const Idx& cell) const -> uint32_t
 {
     //return the child block id corresponding to this cell
     //the child block id lives at level mLevel-1
@@ -102,7 +102,7 @@ inline NEON_CUDA_HOST_DEVICE auto mPartition<T, C>::childID(const Cell& cell) co
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasParent(const Cell& cell) const -> bool
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasParent(const Idx& cell) const -> bool
 {
     if (mMemParent) {
         return true;
@@ -111,10 +111,10 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasParent(const Cell& cell) 
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getChild(const Cell&   parent_cell,
-                                                             Neon::int8_3d child) const -> Cell
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getChild(const Idx&   parent_cell,
+                                                             Neon::int8_3d child) const -> Idx
 {
-    Cell childCell;
+    Idx childCell;
     childCell.mBlockID = childID(parent_cell);
     childCell.mBlockSize = mRefFactors[mLevel - 1];
     childCell.mLocation.x = child.x;
@@ -125,21 +125,21 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getChild(const Cell&   paren
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Cell& childCell,
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Idx& childCell,
                                                              int         card) -> T&
 {
     return mMemChild[this->pitch(childCell, card)];
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Cell& childCell,
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Idx& childCell,
                                                              int         card) const -> const T&
 {
     return mMemChild[this->pitch(childCell, card)];
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Cell&   parent_cell,
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Idx&   parent_cell,
                                                              Neon::int8_3d child,
                                                              int           card,
                                                              const T&      alternativeVal) const -> NghData<T>
@@ -151,7 +151,7 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Cell&   paren
         return ret;
     }
 
-    Cell child_cell = getChild(parent_cell, child);
+    Idx child_cell = getChild(parent_cell, child);
 
     if (!child_cell.mIsActive) {
         return ret;
@@ -164,7 +164,7 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Cell&   paren
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Cell& cell) const -> bool
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Idx& cell) const -> bool
 {
     if (mMemChild == nullptr || mMaskLowerLevel == nullptr || mLevel == 0) {
         return false;
@@ -176,11 +176,11 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Cell& cell
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parent(const Cell& eId,
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parent(const Idx& eId,
                                                            int         card) -> T&
 {
     if (mMemParent != nullptr) {
-        Cell parentCell;
+        Idx parentCell;
         parentCell.mBlockID = mParentBlockID[eId.mBlockID];
         parentCell.mLocation = mParentLocalID[eId.mBlockID];
         parentCell.mBlockSize = mRefFactors[mLevel + 1];

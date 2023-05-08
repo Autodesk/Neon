@@ -167,16 +167,19 @@ auto Replica<Obj>::operator()(Neon::SetIdx setIdx) const -> const Obj&
 
 template <typename Obj>
 template <typename LoadingLambda>
-auto Replica<Obj>::getContainer(const std::string& name, LoadingLambda lambda) const -> Neon::set::Container
+auto Replica<Obj>::newContainer(const std::string& name,
+                                LoadingLambda      lambda,
+                                Neon::Execution    execution) const -> Neon::set::Container
 {
     const Neon::index_3d defaultBlockSize(32, 1, 1);
-    Neon::set::Container kContainer = Neon::set::Container::factory(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::off,
-                                                                    *this,
-                                                                    lambda,
-                                                                    defaultBlockSize,
-                                                                    [](const Neon::index_3d&) { return size_t(0); });
-    return kContainer;
+    Neon::set::Container container = Neon::set::Container::factory(name,
+                                                                   execution,
+                                                                   Neon::set::internal::ContainerAPI::DataViewSupport::off,
+                                                                   *this,
+                                                                   lambda,
+                                                                   defaultBlockSize,
+                                                                   [](const Neon::index_3d&) { return size_t(0); });
+    return container;
 }
 template <typename Obj>
 auto Replica<Obj>::getBackend() -> Neon::Backend&
@@ -207,12 +210,12 @@ auto Replica<Obj>::getLaunchParameters(Neon::DataView,
     return newLaunchParameters;
 }
 template <typename Obj>
-auto Replica<Obj>::getPartitionIndexSpace(Neon::DeviceType, Neon::SetIdx, const DataView&) const -> const Replica::PartitionIndexSpace&
+auto Replica<Obj>::getSpan(Neon::Execution, Neon::SetIdx, const DataView&) const -> const Replica::Span&
 {
     return this->getStorage().indexSpace;
 }
 template <typename Obj>
-auto Replica<Obj>::getPartitionIndexSpace(Neon::DeviceType, Neon::SetIdx, const DataView&) -> Replica::PartitionIndexSpace&
+auto Replica<Obj>::getSpan(Neon::Execution, Neon::SetIdx, const DataView&) -> Replica::Span&
 {
     return this->getStorage().indexSpace;
 }

@@ -54,8 +54,8 @@ void MultiResParent()
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
-            XField.updateCompute();
-            hasParentField.updateCompute();
+            XField.updateDeviceData();
+            hasParentField.updateDeviceData();
         }
         //XField.ioToVtk("f", "f");
 
@@ -82,8 +82,8 @@ void MultiResParent()
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
-            XField.updateIO();
-            hasParentField.updateIO();
+            XField.updateHostData();
+            hasParentField.updateHostData();
         }
 
 
@@ -169,7 +169,7 @@ void MultiResAtomicAddParent()
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
-            XField.updateCompute();
+            XField.updateDeviceData();
         }
         //XField.ioToVtk("f", "f");
 
@@ -199,7 +199,7 @@ void MultiResAtomicAddParent()
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
-            XField.updateIO();
+            XField.updateHostData();
         }
 
 

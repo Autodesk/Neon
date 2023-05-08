@@ -12,7 +12,7 @@ class dPartition;
 
 struct dIndex
 {
-    using OuterIndex = dIndex;
+    using OuterIdx = dIndex;
 
     template <typename T, int C>
     friend class dPartition;

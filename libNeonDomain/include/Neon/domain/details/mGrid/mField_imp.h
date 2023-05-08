@@ -183,7 +183,7 @@ auto mField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) -> void
 }
 
 template <typename T, int C>
-auto mField<T, C>::updateIO(int streamId) -> void
+auto mField<T, C>::updateHostData(int streamId) -> void
 {
 
     for (size_t l = 0; l < mData->fields.size(); ++l) {
@@ -192,7 +192,7 @@ auto mField<T, C>::updateIO(int streamId) -> void
 }
 
 template <typename T, int C>
-auto mField<T, C>::updateCompute(int streamId) -> void
+auto mField<T, C>::updateDeviceData(int streamId) -> void
 {
     for (size_t l = 0; l < mData->fields.size(); ++l) {
         mData->fields[l].mData->field.updateDeviceData(streamId);
