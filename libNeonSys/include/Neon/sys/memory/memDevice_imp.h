@@ -14,7 +14,7 @@ namespace sys {
  */
 template <typename T_ta>
 MemDevice<T_ta>::MemDevice()
-    : m_devType(), m_devIdx(), m_alignment()
+    : m_devType(), m_devIdx()
 {
 }
 
@@ -43,13 +43,11 @@ template <typename T_ta>
 MemDevice<T_ta>::MemDevice(DeviceType      devType,
                            DeviceID        devIdx,
                            Neon::Allocator allocType,
-                           uint64_t        nElements,
-                           MemAlignment    alignment)
+                           uint64_t        nElements)
     : m_devType(devType),
       m_devIdx(devIdx),
       m_allocType(allocType),
-      m_nElements(nElements),
-      m_alignment(alignment)
+      m_nElements(nElements)
 {
     if (m_allocType == Neon::Allocator::NULL_MEM) {
         m_compute = Partition(nullptr, {0, 0});
@@ -60,66 +58,24 @@ MemDevice<T_ta>::MemDevice(DeviceType      devType,
     }
     m_refCounter = new std::atomic_uint64_t(0);
     helperAllocMem();
-}
-
-template <typename T_ta>
-MemDevice<T_ta>::MemDevice(DeviceType      devType,
-                           DeviceID        devId,
-                           Neon::Allocator allocType,
-                           uint64_t        nElements,
-                           memAlignment_et alignment)
-    : MemDevice(devType, devId, allocType, nElements, MemAlignment(alignment))
-{
-    /**
-     * Nothing to do
-     * */
 }
 
 /**
  * Constructor (Sys managed)
  */
 template <typename T_ta>
-MemDevice<T_ta>::MemDevice(int                           cardinality,
-                           Neon::MemoryLayout   order,
-                           Neon::memLayout_et::padding_e padding,
-                           DeviceType                    devType,
-                           DeviceID                      devId,
-                           Neon::Allocator               allocType,
-                           uint64_t                      nElements,
-                           MemAlignment                  alignment)
+MemDevice<T_ta>::MemDevice(int                cardinality,
+                           Neon::MemoryLayout order,
+                           DeviceType         devType,
+                           DeviceID           devId,
+                           Neon::Allocator    allocType,
+                           uint64_t           nElements)
     : m_devType(devType),
       m_devIdx(devId),
       m_allocType(allocType),
       m_nElements(nElements),
       m_cardinality(cardinality),
-      m_order(order),
-      m_padding(padding),
-      m_alignment(alignment)
-{
-    if (m_allocType == Neon::Allocator::NULL_MEM) {
-        m_compute = Partition(nullptr, {0, 0});
-        m_notAlignedBuffer = nullptr;
-        // Setting m_counter to nullptr defines the Mem_t object as managed.
-        m_refCounter = nullptr;
-        return;
-    }
-    m_refCounter = new std::atomic_uint64_t(0);
-    helperAllocMem();
-}
-
-template <typename T_ta>
-MemDevice<T_ta>::MemDevice(int                  cardinality,
-                           Neon::sys::memConf_t memConf,
-                           DeviceID             devId,
-                           uint64_t             nElements)
-    : m_devType(memConf.devEt()),
-      m_devIdx(devId),
-      m_allocType(memConf.allocEt()),
-      m_nElements(nElements),
-      m_cardinality(cardinality),
-      m_order(memConf.order()),
-      m_padding(memConf.padding()),
-      m_alignment(memConf.alignment())
+      m_order(order)
 {
     if (m_allocType == Neon::Allocator::NULL_MEM) {
         m_compute = Partition(nullptr, {0, 0});
@@ -144,8 +100,6 @@ MemDevice<T_ta>::MemDevice(const MemDevice& other)
       m_nElements(other.m_nElements),
       m_cardinality(other.m_cardinality),
       m_order(other.m_order),
-      m_padding(other.m_padding),
-      m_alignment(other.m_alignment),
       m_allocatedBytes(other.m_allocatedBytes),
       m_requiredBytes(other.m_requiredBytes),
       m_notAlignedBuffer(other.m_notAlignedBuffer),
@@ -171,8 +125,6 @@ MemDevice<T_ta>::MemDevice(MemDevice&& other)
       m_nElements(other.m_nElements),
       m_cardinality(other.m_cardinality),
       m_order(other.m_order),
-      m_padding(other.m_padding),
-      m_alignment(other.m_alignment),
       m_allocatedBytes(other.m_allocatedBytes),
       m_requiredBytes(other.m_requiredBytes),
       m_notAlignedBuffer(other.m_notAlignedBuffer),
@@ -253,21 +205,10 @@ void MemDevice<T_ta>::release()
 }
 
 template <typename T_ta>
-MemAlignment MemDevice<T_ta>::alignment() const
-{
-    return m_alignment;
-}
-
-template <typename T_ta>
 auto MemDevice<T_ta>::order() const
--> Neon::MemoryLayout
+    -> Neon::MemoryLayout
 {
     return m_order;
-}
-template <typename T_ta>
-Neon::memLayout_et::padding_e MemDevice<T_ta>::padding() const
-{
-    return m_padding;
 }
 
 template <typename T_ta>
@@ -286,71 +227,21 @@ const index64_2d& MemDevice<T_ta>::pitch() const
 template <typename T_ta>
 void MemDevice<T_ta>::helperAllocMem()
 {
-    auto getAlignedAddress = [](void* addr, size_t alignment, size_t availableMem, size_t requiredSize) -> T_ta* {
-        T_ta* alignedAddr = (T_ta*)std::align(alignment,
-                                              requiredSize,
-                                              addr,
-                                              availableMem);
 
-
-        if (alignedAddr == nullptr) {
-            NeonException exp;
-            exp << "Unable to satisfy required alignment"
-                << "\n alignment = " << alignment
-                << "\n requiredSize= " << requiredSize
-                << "\n addr= " << addr
-                << "\n availableMem= " << availableMem;
-            NEON_THROW(exp);
-        }
-        return alignedAddr;
-    };
-
-    const uint32_t align_exp = m_alignment.expAlign(m_devType, m_devIdx);
-    const uint32_t align_byte = m_alignment.exp2byte(align_exp);
-    const uint32_t align_byEl = align_byte / sizeof(T_ta);
-    // const uint32_t align_reminder = align_byte % sizeof(T_ta);
-    const uint64_t offset_byte = align_byte - 1;
-
-    auto getElementPadding = [&]() -> size_t {
+    auto getAllocatedMemorySizeTotal = [&](size_t elPadding ) {
         if (cardinality() == 1) {
-            return 0;
-        } else {
-            switch (m_order) {
-                case Neon::MemoryLayout::structOfArrays: {
-                    size_t tmpElPadding = 0;
-                    if (align_byEl == 0) {
-                        return 0;
-                    }
-                    tmpElPadding = (m_nElements) % align_byEl;
-                    tmpElPadding = tmpElPadding == 0 ? tmpElPadding : align_byEl - tmpElPadding;
-                    return tmpElPadding;
-                }
-                case Neon::MemoryLayout::arrayOfStructs: {
-                    return 0;
-                }
-                default: {
-                    Neon::NeonException exp("getElementPadding");
-                    NEON_THROW(exp);
-                }
-            }
-        }
-    };
-    auto getAllocatedMemorySizeTotal = [&](size_t elPadding) {
-        if (cardinality() == 1) {
-            size_t byteSize = m_nElements * sizeof(T_ta) + offset_byte;
+            size_t byteSize = m_nElements * sizeof(T_ta);
             return byteSize;
         } else {
             size_t allocatedElementsForOneCardinality = m_nElements + elPadding;
             size_t byteSize = m_cardinality *
-                                  allocatedElementsForOneCardinality *
-                                  sizeof(T_ta) +
-                              offset_byte;
+                              allocatedElementsForOneCardinality *
+                              sizeof(T_ta);
             return byteSize;
         }
     };
-    const size_t elPadding = getElementPadding();
-    const size_t allocatedMemorySizeTotal = getAllocatedMemorySizeTotal(elPadding);
-    const size_t requiredMemorySizeTotal = allocatedMemorySizeTotal - offset_byte;
+    const size_t allocatedMemorySizeTotal = getAllocatedMemorySizeTotal(0);
+    const size_t requiredMemorySizeTotal = allocatedMemorySizeTotal ;
     m_allocatedBytes = allocatedMemorySizeTotal;
     m_requiredBytes = requiredMemorySizeTotal;
 
@@ -359,7 +250,7 @@ void MemDevice<T_ta>::helperAllocMem()
         case Neon::DeviceType::CUDA: {
             Neon::sys::GpuMem& mem = Neon::sys::globalSpace::gpuSysObj().allocator(m_devIdx.idx());
             m_notAlignedBuffer = mem.allocateMem(m_allocType, allocatedMemorySizeTotal);
-            computeBuffer = getAlignedAddress((void*)m_notAlignedBuffer, align_byte, allocatedMemorySizeTotal, requiredMemorySizeTotal);
+            computeBuffer = (T_ta*)m_notAlignedBuffer;
             m_refCounter->fetch_add(1);
             break;
         }
@@ -367,7 +258,7 @@ void MemDevice<T_ta>::helperAllocMem()
         case Neon::DeviceType::CPU: {
             Neon::sys::CpuMem& mem = Neon::sys::globalSpace::cpuSysObj().allocator();
             m_notAlignedBuffer = mem.allocateMem(m_allocType, allocatedMemorySizeTotal);
-            computeBuffer = getAlignedAddress((void*)m_notAlignedBuffer, align_byte, allocatedMemorySizeTotal, requiredMemorySizeTotal);
+            computeBuffer = (T_ta*)m_notAlignedBuffer;
             m_refCounter->fetch_add(1);
             break;
         }
@@ -382,7 +273,7 @@ void MemDevice<T_ta>::helperAllocMem()
     switch (m_order) {
         case Neon::MemoryLayout::structOfArrays: {
             computePitch.pMain = 1;
-            computePitch.pCardinality = m_nElements + elPadding;
+            computePitch.pCardinality = m_nElements ;
 
             break;
         }

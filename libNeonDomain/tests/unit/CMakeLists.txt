@@ -8,7 +8,7 @@ add_subdirectory("domain-unit-test-eGrid")
 add_subdirectory("domain-unit-test-gridInterface")
 add_subdirectory("domain-unit-test-halos")
 add_subdirectory("domain-unit-test-stencil")
-add_subdirectory("domain-unit-test-cast")
+# add_subdirectory("domain-unit-test-cast")
 add_subdirectory("domain-unit-test-patterns-containers")
 
 # add_subdirectory("gUt_dataView_patterns")

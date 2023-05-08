@@ -13,10 +13,8 @@
 #include "Neon/sys/devices/DevInterface.h"
 #include "Neon/sys/devices/cpu/CpuDevice.h"
 #include "Neon/sys/devices/gpu/GpuDevice.h"
-#include "Neon/sys/memory/MemAlignment.h"
 #include "Neon/sys/memory/MemDevice.h"
-namespace Neon {
-namespace sys {
+namespace Neon::sys {
 
 template <typename T_ta>
 struct MemMirror
@@ -53,21 +51,21 @@ struct MemMirror
      * @param gpuAllocType: type of GPU allocation
      * @param nElements: number of element to be allocated.
      */
-    MemMirror(int                         cardinality,
-              Neon::memLayout_et::order_e order,
-              DeviceID                    cpuDevId,
-              Neon::Allocator             cpuAllocType,
-              DeviceID                    gpuDevId,
-              Neon::Allocator             gpuAllocType,
-              int64_t                     nElements,
-              bool                        noThrowForAZeroSize = false)
+    MemMirror(int                cardinality,
+              Neon::MemoryLayout order,
+              DeviceID           cpuDevId,
+              Neon::Allocator    cpuAllocType,
+              DeviceID           gpuDevId,
+              Neon::Allocator    gpuAllocType,
+              int64_t            nElements,
+              bool               noThrowForAZeroSize = false)
     {
         m_noThrowForAZeroSize = noThrowForAZeroSize;
         if (m_noThrowForAZeroSize && nElements == 0) {
             return;
         }
-        m_cpu = MemDevice<T_ta>(cardinality, order, Neon::memLayout_et::padding_e::OFF, Neon::DeviceType::CPU, cpuDevId, cpuAllocType, nElements);
-        m_gpu = MemDevice<T_ta>(cardinality, order, Neon::memLayout_et::padding_e::OFF, Neon::DeviceType::CUDA, gpuDevId, gpuAllocType, nElements);
+        m_cpu = MemDevice<T_ta>(cardinality, order,  Neon::DeviceType::CPU, cpuDevId, cpuAllocType, nElements);
+        m_gpu = MemDevice<T_ta>(cardinality, order,  Neon::DeviceType::CUDA, gpuDevId, gpuAllocType, nElements);
         if (gpuAllocType == Neon::Allocator::NULL_MEM) {
             isACPUdevice = true;
         }
@@ -111,7 +109,7 @@ struct MemMirror
             cpu_configured = true;
             m_cpu = mem;
 
-            if(m_gpu.allocType() ==  Neon::Allocator::NULL_MEM) {
+            if (m_gpu.allocType() == Neon::Allocator::NULL_MEM) {
                 isACPUdevice = true;
             }
             return;
@@ -127,7 +125,7 @@ struct MemMirror
             m_gpu = mem;
             gpu_configured = true;
 
-            if(m_gpu.allocType() ==  Neon::Allocator::NULL_MEM) {
+            if (m_gpu.allocType() == Neon::Allocator::NULL_MEM) {
                 isACPUdevice = true;
             }
             return;
@@ -344,5 +342,4 @@ struct MemMirror
     }
 };
 
-}  // namespace sys
 }  // namespace Neon

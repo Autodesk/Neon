@@ -578,12 +578,11 @@ class DevSet
     template <typename T_ta>
     auto newMemDevSet(Neon::DeviceType        devType,
                       const Neon::Allocator&  allocType,
-                      uint64_t                nElement,
-                      Neon::sys::MemAlignment alignment = Neon::sys::MemAlignment()) const
+                      uint64_t                nElement) const
         -> MemDevSet<T_ta>
     {
         const auto nElementDataSet = this->newDataSet(nElement);
-        auto       out = newMemDevSet<T_ta>(devType, allocType, nElementDataSet, alignment);
+        auto       out = newMemDevSet<T_ta>(devType, allocType, nElementDataSet);
         return out;
     }
 
@@ -599,8 +598,7 @@ class DevSet
     template <typename T_ta>
     auto newMemDevSet(Neon::DeviceType                    devType,
                       const Neon::Allocator&              allocType,
-                      const Neon::set::DataSet<uint64_t>& nElementVec,
-                      Neon::sys::MemAlignment             alignment = Neon::sys::MemAlignment()) const
+                      const Neon::set::DataSet<uint64_t>& nElementVec) const
         -> MemDevSet<T_ta>
     {
         switch (devType) {
@@ -608,12 +606,11 @@ class DevSet
                 return MemDevSet<T_ta>(devType,
                                        m_devIds,
                                        std::forward<const Neon::Allocator>(allocType),
-                                       nElementVec,
-                                       alignment);
+                                       nElementVec);
             }
             case Neon::DeviceType::CPU: {
                 std::vector<Neon::sys::DeviceID> idVec(this->setCardinality(), 0);
-                return MemDevSet<T_ta>(devType, idVec, allocType, nElementVec, alignment);
+                return MemDevSet<T_ta>(devType, idVec, allocType, nElementVec);
             }
             default: {
                 Neon::NeonException exp("GpuSet");
@@ -628,9 +625,7 @@ class DevSet
                       Neon::DeviceType                    devType,
                       const Neon::Allocator&              allocType,
                       const Neon::set::DataSet<uint64_t>& nElementVec,
-                      Neon::MemoryLayout                  order = Neon::MemoryLayout::structOfArrays,
-                      Neon::sys::MemAlignment             alignment = Neon::sys::MemAlignment(),
-                      Neon::memLayout_et::padding_e       padding = Neon::memLayout_et::padding_e::OFF) const
+                      Neon::MemoryLayout                  order = Neon::MemoryLayout::structOfArrays) const
         -> MemDevSet<T_ta>
     {
         if (m_devType != Neon::DeviceType::CUDA &&
@@ -645,23 +640,19 @@ class DevSet
             case Neon::DeviceType::CUDA: {
                 return MemDevSet<T_ta>(cardinality,
                                        order,
-                                       padding,
                                        devType,
                                        m_devIds,
                                        std::forward<const Neon::Allocator>(allocType),
-                                       nElementVec,
-                                       alignment);
+                                       nElementVec);
             }
             case Neon::DeviceType::CPU: {
                 std::vector<Neon::sys::DeviceID> idVec(this->setCardinality(), 0);
                 return MemDevSet<T_ta>(cardinality,
                                        order,
-                                       padding,
                                        devType,
                                        idVec,
                                        std::forward<const Neon::Allocator>(allocType),
-                                       nElementVec,
-                                       alignment);
+                                       nElementVec);
             }
             default: {
                 Neon::NeonException exp("GpuSet");

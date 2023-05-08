@@ -147,15 +147,15 @@ class ePartition
     operator()(Idx eId, int cardinalityIdx)
         -> T&;
 
-    template <typename ComputeType>
-    NEON_CUDA_HOST_DEVICE inline auto
-    castRead(Idx eId, int cardinalityIdx) const
-        -> ComputeType;
-
-    template <typename ComputeType>
-    NEON_CUDA_HOST_DEVICE inline auto
-    castWrite(Idx eId, int cardinalityIdx, const ComputeType& value)
-        -> void;
+//    template <typename ComputeType>
+//    NEON_CUDA_HOST_DEVICE inline auto
+//    castRead(Idx eId, int cardinalityIdx) const
+//        -> ComputeType;
+//
+//    template <typename ComputeType>
+//    NEON_CUDA_HOST_DEVICE inline auto
+//    castWrite(Idx eId, int cardinalityIdx, const ComputeType& value)
+//        -> void;
     /**
      * Retrieve value of a neighbour for a field with multiple cardinalities
      * @tparam dataView_ta

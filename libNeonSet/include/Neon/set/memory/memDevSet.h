@@ -45,25 +45,21 @@ class MemDevSet
     MemDevSet(Neon::DeviceType                               devType,
               const Neon::set::DataSet<Neon::sys::DeviceID>& devId,
               const Neon::Allocator&&                        allocType,
-              uint64_t                                       nElements,
-              Neon::sys::MemAlignment                        byteAlignment = Neon::sys::MemAlignment());
+              uint64_t                                       nElements);
     /**
      * This private constructor should be used by a DevSet
      * */
     MemDevSet(Neon::DeviceType                               devType,
               const Neon::set::DataSet<Neon::sys::DeviceID>& devId,
               const Neon::Allocator&                         allocType,
-              const Neon::set::DataSet<uint64_t>&            nElementVec,
-              Neon::sys::MemAlignment                        byteAlignment = Neon::sys::MemAlignment());
+              const Neon::set::DataSet<uint64_t>&            nElementVec);
 
     MemDevSet(int                                            cardinality,
               Neon::MemoryLayout                             order,
-              Neon::memLayout_et::padding_e                  padding,
               Neon::DeviceType                               devType,
               const Neon::set::DataSet<Neon::sys::DeviceID>& devId,
               Neon::Allocator                                allocType,
-              const Neon::set::DataSet<uint64_t>&            nElementVec,
-              Neon::sys::MemAlignment                        alignment = Neon::sys::MemAlignment());
+              const Neon::set::DataSet<uint64_t>&            nElementVec);
 
    public:
     /**

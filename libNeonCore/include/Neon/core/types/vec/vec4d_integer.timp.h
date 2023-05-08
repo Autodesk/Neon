@@ -205,17 +205,17 @@ NEON_CUDA_HOST_DEVICE inline OtherBaseType_ta Vec_4d<IntegerType_ta, true, false
 //---- [MEMORY SECTION] --------------------------------------------------------------------------------------------
 
 template <typename IntegerType_ta>
-template <Neon::memLayout_et::order_e order_ta, typename OtherIndexType_ta>
+template <Neon::MemoryLayout order_ta, typename OtherIndexType_ta>
 NEON_CUDA_HOST_DEVICE inline size_t Vec_4d<IntegerType_ta, true, false>::mCardDenseJump(const Integer_4d<OtherIndexType_ta>& dimGrid) const
 {
     switch (order_ta) {
-        case Neon::memLayout_et::order_e::structOfArrays: {
+        case Neon::MemoryLayout::structOfArrays: {
             return size_t(c) +
                    size_t(x) * size_t(dimGrid.c) +
                    size_t(y) * size_t(dimGrid.c) * size_t(dimGrid.x) +
                    size_t(z) * size_t(dimGrid.c) * size_t(dimGrid.x) * size_t(dimGrid.y);
         }
-        case Neon::memLayout_et::order_e::arrayOfStructs: {
+        case Neon::MemoryLayout::arrayOfStructs: {
             return size_t(x) +
                    size_t(y) * size_t(dimGrid.x) +
                    size_t(z) * size_t(dimGrid.x) * size_t(dimGrid.y) +
@@ -227,14 +227,14 @@ NEON_CUDA_HOST_DEVICE inline size_t Vec_4d<IntegerType_ta, true, false>::mCardDe
 
 template <typename IntegerType_ta>
 template <typename OtherIndexType_ta>
-NEON_CUDA_HOST_DEVICE inline size_t Vec_4d<IntegerType_ta, true, false>::mCardDenseJump(Neon::memLayout_et::order_e orderE, const Integer_4d<OtherIndexType_ta>& dimGrid) const
+NEON_CUDA_HOST_DEVICE inline size_t Vec_4d<IntegerType_ta, true, false>::mCardDenseJump(Neon::MemoryLayout orderE, const Integer_4d<OtherIndexType_ta>& dimGrid) const
 {
     switch (orderE) {
-        case Neon::memLayout_et::order_e::structOfArrays: {
-            return mCardDenseJump<Neon::memLayout_et::order_e::structOfArrays>(dimGrid);
+        case Neon::MemoryLayout::structOfArrays: {
+            return mCardDenseJump<MemoryLayout::structOfArrays>(dimGrid);
         }
-        case Neon::memLayout_et::order_e::arrayOfStructs: {
-            return mCardDenseJump<Neon::memLayout_et::order_e::arrayOfStructs>(dimGrid);
+        case Neon::MemoryLayout::arrayOfStructs: {
+            return mCardDenseJump<MemoryLayout::arrayOfStructs>(dimGrid);
         }
     }
 }
