@@ -258,5 +258,15 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::uncleVal(const Cell&   cell,
     return ret;
 }
 
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::uncleVal(const Cell&   cell,
+                                                             Neon::int8_3d direction,
+                                                             int           card) const -> T&
+{
+    Cell uncle = getUncle(cell, direction);
+    assert(uncle.isActive());
+    return mMemParent[this->pitch(uncle, card)];
+}
+
 
 }  // namespace Neon::domain::internal::mGrid

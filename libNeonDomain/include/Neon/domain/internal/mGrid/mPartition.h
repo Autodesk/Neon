@@ -146,6 +146,17 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
                                                const T&      alternativeVal) const -> NghInfo<T>;
 
     /**
+     * @brief similar to the above uncleVal but returns a reference. Additionally, it is now
+     * the user responsibility to check if the uncle is active (we only assert it)
+     * @param cell the main cell at level L 
+     * @param direction the direction w.r.t the parent of cell      
+     * @param card the cardinality      
+    */
+    NEON_CUDA_HOST_DEVICE inline auto uncleVal(const Cell&   cell,
+                                               Neon::int8_3d direction,
+                                               int           card) const -> T&;
+
+    /**
      * Get the refinement factor i.e., number of children at each dimension
      * @param level at which the refinement factor is queried      
     */

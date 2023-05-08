@@ -30,8 +30,8 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
     if (level != numLevels - 1) {
-        containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
-        //containers.push_back(storeFine<T, Q>(grid, level, fout));
+        //containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+        containers.push_back(storeFine<T, Q>(grid, level, fout));
     }
 
 
@@ -55,8 +55,8 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
     if (level != numLevels - 1) {
-        containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
-        //containers.push_back(storeFine<T, Q>(grid, level, fout));
+        //containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+        containers.push_back(storeFine<T, Q>(grid, level, fout));
     }
 
     // 8) recurse down
@@ -75,6 +75,13 @@ void runNonUniformLBM(const int           problemID,
                       const int           numIter,
                       const bool          benchmark)
 {
+
+    //constexpr int depth = 2;
+    //gridDim = Neon::index_3d(6, 6, 6);
+    //levelSDF[0] = 0;
+    //levelSDF[1] = -2.0 / 3.0;
+    //levelSDF[2] = -1.0;
+
     constexpr int depth = 3;
 
     float levelSDF[depth + 1];
