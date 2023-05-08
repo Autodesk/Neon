@@ -74,8 +74,7 @@ auto axpy(const Neon::template PatternScalar<T>& fR,
                     yLocal(e, i) += fRVal * xLocal(e, i);
                 }
             };
-        },
-        Neon::Execution::device);
+        });
     return c;
 }
 
@@ -107,7 +106,7 @@ auto laplace(const Field& x,
                             checkNeighbor(neighbor);
                         }
                     } else {
-                        typename Field::Partition::nghIdx_t ngh(0, 0, 0);
+                        typename Field::Partition::NghIdx ngh(0, 0, 0);
 
                         //+x
                         ngh.x = 1;

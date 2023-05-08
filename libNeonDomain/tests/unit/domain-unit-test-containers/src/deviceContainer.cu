@@ -14,7 +14,7 @@ auto setToPitch(Field& fieldA,
     -> Neon::set::Container
 {
     const auto& grid = fieldB.getGrid();
-    return grid.newContainer(
+    return grid.template newContainer<Neon::Execution::device>(
         "DeviceSetToPitch",
         [&](Neon::set::Loader& loader) {
             auto a = loader.load(fieldA);
@@ -26,13 +26,12 @@ auto setToPitch(Field& fieldA,
                     Neon::index_3d const global = b.getGlobalIndex(e);
 
                     a(e, i) = global.x;
-                    //printf("E (%d, %d, %d) Val (%d, %d %d)\n", e.mLocation.x, e.mLocation.y, e.mLocation.z, global.x, global.y, global.z);
+                    // printf("E (%d, %d, %d) Val (%d, %d %d)\n", e.mLocation.x, e.mLocation.y, e.mLocation.z, global.x, global.y, global.z);
                     b(e, i) = global.y;
                     c(e, i) = global.z;
                 }
             };
-        },
-        Neon::Execution::device);
+        });
 }
 
 using namespace Neon::domain::tool::testing;

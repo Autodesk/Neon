@@ -90,17 +90,17 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid, bIndex>
                   const Neon::MemoryOptions& memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device,
+              typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
                       index_3d           blockSize,
                       size_t             sharedMem,
-                      LoadingLambda      lambda,
-                      Neon::Execution    execution) const -> Neon::set::Container;
+                      LoadingLambda      lambda) const -> Neon::set::Container;
 
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device,
+              typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
-                      LoadingLambda      lambda,
-                      Neon::Execution    execution) const -> Neon::set::Container;
+                      LoadingLambda      lambda) const -> Neon::set::Container;
 
 
     auto getLaunchParameters(Neon::DataView        dataView,

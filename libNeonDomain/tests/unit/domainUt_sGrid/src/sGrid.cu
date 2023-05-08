@@ -39,8 +39,7 @@ auto copyFromOuter(const F& Fouter,
                 auto outerVal = fouter(outerCell, 0);
                 fsGrid(cell, 0) = outerVal;
             };
-        },
-        Neon::Execution::device);
+        });
 };
 
 template <typename FS>
@@ -58,8 +57,7 @@ auto scale(typename FS::Type const& scaleVal,
             return [=] NEON_CUDA_HOST_DEVICE(const typename decltype(fin)::Idx& cell) mutable {
                 fout(cell, 0) = scaleVal * fin(cell, 0);
             };
-        },
-        Neon::Execution::device);
+        });
 };
 
 template <typename F, typename FS>
@@ -78,8 +76,7 @@ auto copyToOuter(FS const& FSGrid,
                 auto outerVal = fsGrid(cell, 0);
                 fouter(outerCell, 0) = outerVal;
             };
-        },
-        Neon::Execution::device);
+        });
 };
 /**
  * Map-Stencil-Map test

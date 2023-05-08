@@ -14,8 +14,7 @@ auto xpy(const Field& x,
                     yLocal(e, i) += xLocal(e, i);
                 }
             };
-        },
-        Neon::Execution::device);
+        });
     return container;
 }
 
@@ -63,8 +62,7 @@ auto axpy(const Neon::template PatternScalar<T>& fR,
                     yLocal(e, i) += fRVal * xLocal(e, i);
                 }
             };
-        },
-        Neon::Execution::device);
+        });
     return container;
 }
 

@@ -197,27 +197,28 @@ auto sGrid<OuterGridT>::newField(const std::string   fieldUserName,
     return field;
 }
 template <typename OuterGridT>
-template <typename LoadingLambda>
+template <Neon::Execution execution,
+          typename LoadingLambda>
 auto sGrid<OuterGridT>::newContainer(const std::string& name,
-                                     LoadingLambda      lambda,
-                                     Neon::Execution    execution)
+                                     LoadingLambda      lambda)
     const
     -> Neon::set::Container
 {
     Neon::domain::KernelConfig kernelConfig(0);
 
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
-    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                     execution,
-                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                     *this,
-                                                                     lambda,
-                                                                     defaultBlockSize,
-                                                                     [](const Neon::index_3d&) { return size_t(0); });
+    Neon::set::Container  kContainer = Neon::set::Container::factory<execution>(name,
+
+                                                                               Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                               *this,
+                                                                               lambda,
+                                                                               defaultBlockSize,
+                                                                               [](const Neon::index_3d&) { return size_t(0); });
     return kContainer;
 }
 template <typename OuterGridT>
-template <typename LoadingLambda>
+template <Neon::Execution execution,
+          typename LoadingLambda>
 auto sGrid<OuterGridT>::newContainer(const std::string& name,
                                      index_3d           blockSize,
                                      size_t             sharedMem,
@@ -228,12 +229,12 @@ auto sGrid<OuterGridT>::newContainer(const std::string& name,
     Neon::domain::KernelConfig kernelConfig(0);
 
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
-    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                     *this,
-                                                                     lambda,
-                                                                     blockSize,
-                                                                     [sharedMem](const Neon::index_3d&) { return sharedMem; });
+    Neon::set::Container  kContainer = Neon::set::Container::factory<execution>(name,
+                                                                               Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                               *this,
+                                                                               lambda,
+                                                                               blockSize,
+                                                                               [sharedMem](const Neon::index_3d&) { return sharedMem; });
     return kContainer;
 }
 
@@ -280,7 +281,7 @@ auto sGrid<OuterGridT>::getLaunchParameters(Neon::DataView  dataView,
 
 template <typename OuterGridT>
 auto sGrid<OuterGridT>::getSpan(Neon::Execution execution,
-                                Neon::SetIdx          setIdx,
+                                Neon::SetIdx    setIdx,
                                 Neon::DataView  dataView) const -> const sGrid::Span&
 {
     return mStorage->getPartitionIndexSpace(dataView).getPartition(execution, setIdx, dataView);

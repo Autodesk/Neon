@@ -43,8 +43,7 @@ auto axpy(const T&     val,
                     xLocal(gidx, i) += val * yLocal(gidx, i);
                 }
             };
-        },
-        Neon::Execution::device);
+        });
 }
 
 template <typename Field>
@@ -82,8 +81,7 @@ auto laplace(const Field& x, Field& y, size_t sharedMem = 0) -> Neon::set::Conta
                     yLocal(gidx, card) = -6 * res;
                 }
             };
-        },
-        Neon::Execution::device);
+        });
 }
 
 

@@ -39,8 +39,7 @@ auto defContainer(int    streamIdx,
                            globalPoint.z);
                 }
             };
-        },
-        Neon::Execution::device);
+        });
 }
 
 using namespace Neon::domain::tool::testing;

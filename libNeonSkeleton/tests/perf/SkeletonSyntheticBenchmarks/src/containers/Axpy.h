@@ -24,7 +24,7 @@ auto axpy(const Field&               A_g,
                     }
                 }
             };
-        }, Neon::Execution::device);
+        });
     return c;
 }
 

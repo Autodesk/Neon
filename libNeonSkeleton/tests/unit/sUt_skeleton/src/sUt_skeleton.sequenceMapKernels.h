@@ -31,8 +31,7 @@ auto xpy(const Field& x,
                     yLocal(e, i) += xLocal(e, i);
                 }
             };
-        },
-        Neon::Execution::device);
+        });
     return c;
 }
 

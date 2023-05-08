@@ -123,21 +123,21 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     /**
      * Creates a new container running on this grid
      */
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device,
+              typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
                       index_3d           blockSize,
                       size_t             sharedMem,
-                      LoadingLambda      lambda,
-                      Neon::Execution    execution) const
+                      LoadingLambda      lambda) const
         -> Neon::set::Container;
 
     /**
      * Creates a new container running on this grid
      */
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device,
+              typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
-                      LoadingLambda      lambda,
-                      Neon::Execution    execution)
+                      LoadingLambda      lambda)
         const
         -> Neon::set::Container;
 

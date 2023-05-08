@@ -24,8 +24,7 @@ auto haloSetGlobalPosition(Field& fieldB)
                 b(idx, 1) = globalIdx.y;
                 b(idx, 2) = globalIdx.z;
             };
-        },
-        Neon::Execution::device);
+        });
 }
 
 template <typename Field>
@@ -89,8 +88,7 @@ auto haloCheckContainer(const Field&        filedA,
                     b(idx, i) = resBycard;
                 }
             };
-        },
-        Neon::Execution::device);
+        });
 }
 
 using namespace Neon::domain::tool::testing;

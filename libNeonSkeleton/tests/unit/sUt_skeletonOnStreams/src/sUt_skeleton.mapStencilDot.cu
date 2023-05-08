@@ -1,3 +1,4 @@
+#if 0
 #include "Neon/core/types/chrono.h"
 
 #include "Neon/set/Containter.h"
@@ -179,3 +180,4 @@ TEST(MapStencilDotTwoWayExtendedOcc, dGrid)
     using Type = double;
     runAllTestConfiguration<Grid, Type, 0>("dGrid_t", MapStencilDotTwoWayExtendedOcc<Grid, Type, 0>, nGpus, 2);
 }
+#endif

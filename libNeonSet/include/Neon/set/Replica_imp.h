@@ -166,19 +166,18 @@ auto Replica<Obj>::operator()(Neon::SetIdx setIdx) const -> const Obj&
 }
 
 template <typename Obj>
-template <typename LoadingLambda>
+template <Neon::Execution execution,
+          typename LoadingLambda>
 auto Replica<Obj>::newContainer(const std::string& name,
-                                LoadingLambda      lambda,
-                                Neon::Execution    execution) const -> Neon::set::Container
+                                LoadingLambda      lambda) const -> Neon::set::Container
 {
     const Neon::index_3d defaultBlockSize(32, 1, 1);
-    Neon::set::Container container = Neon::set::Container::factory(name,
-                                                                   execution,
-                                                                   Neon::set::internal::ContainerAPI::DataViewSupport::off,
-                                                                   *this,
-                                                                   lambda,
-                                                                   defaultBlockSize,
-                                                                   [](const Neon::index_3d&) { return size_t(0); });
+    Neon::set::Container container = Neon::set::Container::factory<execution>(name,
+                                                                              Neon::set::internal::ContainerAPI::DataViewSupport::off,
+                                                                              *this,
+                                                                              lambda,
+                                                                              defaultBlockSize,
+                                                                              [](const Neon::index_3d&) { return size_t(0); });
     return container;
 }
 template <typename Obj>

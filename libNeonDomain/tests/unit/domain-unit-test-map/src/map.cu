@@ -46,8 +46,7 @@ auto mapContainer_axpy(int                   streamIdx,
                 }
 #endif
             };
-        },
-        Neon::Execution::device);
+        });
 }
 
 using namespace Neon::domain::tool::testing;

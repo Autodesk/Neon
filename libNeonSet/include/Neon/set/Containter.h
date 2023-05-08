@@ -55,9 +55,10 @@ struct Container
     /**
      * Factory function to create a Neon Container
      */
-    template <typename DataContainerT, typename UserLoadingLambdaT>
+    template <Neon::Execution execution,
+              typename DataContainerT,
+              typename UserLoadingLambdaT>
     static auto factory(const std::string&                                 name /**< A user's string to identify the computation done by the Container. */,
-                        Neon::Execution                                    execution,
                         Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport /**< Defines the data view support for the new Container */,
                         const DataContainerT&                              a /**< Multi device object that will be used for the creating of the Container */,
                         const UserLoadingLambdaT&                          f /**< User's loading lambda for the new Container */,

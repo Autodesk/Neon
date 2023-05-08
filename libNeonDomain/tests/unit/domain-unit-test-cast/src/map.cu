@@ -33,8 +33,7 @@ auto mapContainer_axpy(int                   streamIdx,
                                          b.castWrite(e, i, output);
                                      }
                                  };
-                             },
-        Neon::Execution::device);
+                             });
 }
 
 using namespace Neon::domain::tool::testing;
@@ -61,7 +60,7 @@ auto run(TestData<G, T, C>& data) -> void
 
 
         mapContainer_axpy<ComputeType>(Neon::Backend::mainStreamIdx,
-                                                  val, X, Y)
+                                       val, X, Y)
             .run(0);
 
         data.getBackend().sync(0);

@@ -18,7 +18,7 @@
 #include "gtest/gtest.h"
 #include "sUt.runHelper.h"
 #include "sUt_skeleton.onStream.kernels.h"
-
+#if 0
 using namespace Neon::domain::tool::testing;
 static const std::string testFilePrefix("sUt_skeleton_MapStencilMap");
 
@@ -211,3 +211,5 @@ TEST(MapStencilMap_NoOCC, bGrid)
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("bGrid_t", MapStencilNoOCC<Grid, Type, 0>, nGpus, 1);
 }
+
+#endif

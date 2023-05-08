@@ -27,7 +27,7 @@ void run(Neon::Runtime runtime)
     backend.syncAll();
 
 
-    Neon::set::Container c = multiDeviceObject.newContainer(
+    Neon::set::Container c = multiDeviceObject.newContainer<Neon::Execution::device>(
         "Test",
         [&](Neon::set::Loader& loader) {
             auto m = loader.load(multiDeviceObject);
@@ -35,8 +35,7 @@ void run(Neon::Runtime runtime)
             return [=] NEON_CUDA_HOST_DEVICE(const Neon::set::Replica<TestObj>::Idx&) mutable {
                 m().a += 17;
             };
-        },
-        Neon::Execution::device);
+        });
     c.run(0);
     multiDeviceObject.updateHostData(0);
     backend.syncAll();

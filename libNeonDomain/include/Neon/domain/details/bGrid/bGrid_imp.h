@@ -89,7 +89,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
 
         mData->activeBitMask
             .getGrid()
-            .newContainer(
+            .newContainer<Neon::Execution::host>(
                 "activeBitMaskInit",
                 [&](Neon::set::Loader& loader) {
                     auto bitMask = loader.load(mData->activeBitMask);
@@ -130,8 +130,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                             mData->mNumActiveVoxel[prtIdx] += coutActive;
                         }
                     };
-                },
-                Neon::Execution::host)
+                })
             .run(Neon::Backend::mainStreamIdx);
 
         mData->activeBitMask.updateDeviceData(Neon::Backend::mainStreamIdx);
@@ -149,7 +148,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                                                Neon::DataUse::HOST_DEVICE,
                                                                                Neon::MemoryLayout::arrayOfStructs);
 
-        mData->blockConnectivity.getGrid().newContainer(
+        mData->blockConnectivity.getGrid().newContainer<Neon::Execution::host>(
                                               "blockConnectivityInit",
                                               [&](Neon::set::Loader& loader) {
                                                   auto blockConnectivity = loader.load(mData->blockConnectivity);
@@ -172,8 +171,7 @@ bGrid::bGrid(const Neon::Backend&         backend,
                                                           }
                                                       }
                                                   };
-                                              },
-                                              Neon::Execution::host)
+                                              })
             .run(Neon::Backend::mainStreamIdx);
         mData->blockConnectivity.updateDeviceData(Neon::Backend::mainStreamIdx);
     }
@@ -269,37 +267,35 @@ auto bGrid::newField(const std::string          name,
 }
 
 
-template <typename LoadingLambda>
+template <Neon::Execution execution,
+          typename LoadingLambda>
 auto bGrid::newContainer(const std::string& name,
                          index_3d           blockSize,
                          size_t             sharedMem,
-                         LoadingLambda      lambda,
-                         Neon::Execution    execution) const -> Neon::set::Container
+                         LoadingLambda      lambda) const -> Neon::set::Container
 {
-    Neon::set::Container kContainer = Neon::set::Container::factory(name,
-                                                                    execution,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    blockSize,
-                                                                    [sharedMem](const Neon::index_3d&) { return sharedMem; });
+    Neon::set::Container kContainer = Neon::set::Container::factory<execution>(name,
+                                                                               Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                               *this,
+                                                                               lambda,
+                                                                               blockSize,
+                                                                               [sharedMem](const Neon::index_3d&) { return sharedMem; });
     return kContainer;
 }
 
 
-template <typename LoadingLambda>
+template <Neon::Execution execution,
+          typename LoadingLambda>
 auto bGrid::newContainer(const std::string& name,
-                         LoadingLambda      lambda,
-                         Neon::Execution    execution) const -> Neon::set::Container
+                         LoadingLambda      lambda) const -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
-    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                     execution,
-                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                     *this,
-                                                                     lambda,
-                                                                     defaultBlockSize,
-                                                                     [](const Neon::index_3d&) { return size_t(0); });
+    Neon::set::Container  kContainer = Neon::set::Container::factory<execution>(name,
+                                                                               Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                               *this,
+                                                                               lambda,
+                                                                               defaultBlockSize,
+                                                                               [](const Neon::index_3d&) { return size_t(0); });
     return kContainer;
 }
 

@@ -23,8 +23,7 @@ auto laplacianFilter(const Field& A_g,
                 }
                 C(cell, 0) = -sum + 6 * A(cell, 0);
             };
-        },
-        Neon::Execution::device);
+        });
     return container;
 }
 
@@ -41,8 +40,7 @@ auto axpy(const Field&               A_g,
             return [A, C, alpha] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& cell) mutable {
                 C(cell, 0) += alpha * A(cell, 0);
             };
-        },
-        Neon::Execution::device);
+        });
     return container;
 }
 

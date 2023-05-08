@@ -74,8 +74,7 @@ auto stencilContainer_laplace(const Field& filedA,
                     b(idx, i) = a(idx, i) - count * partial;
                 }
             };
-        },
-        Neon::Execution::device);
+        });
 }
 
 using namespace Neon::domain::tool::testing;

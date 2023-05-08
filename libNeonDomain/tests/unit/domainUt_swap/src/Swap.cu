@@ -24,7 +24,7 @@ auto map(Field&                      input_field,
                     out(e, i) = inp(e, i) + alpha;
                 }
             };
-        }, Neon::Execution::device);
+        });
 }
 
 template <typename G, typename T, int C>

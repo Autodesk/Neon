@@ -99,8 +99,7 @@ auto laplace(const Field& x, Field& y, bool use_relative_ids) -> Neon::set::Cont
                     yLocal(gidx, card) = -6 * res;
                 }
             };
-        },
-        Neon::Execution::device);
+        });
 }
 
 

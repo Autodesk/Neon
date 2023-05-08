@@ -25,8 +25,7 @@ auto add(const Field& X,
                     z(gidx, i) = x(gidx, i) + y(gidx, i);
                 }
             };
-        },
-        Neon::Execution::device);
+        });
     return c;
 }
 

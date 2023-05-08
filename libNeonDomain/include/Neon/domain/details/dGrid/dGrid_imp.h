@@ -215,41 +215,39 @@ auto dGrid::newField(const std::string&  fieldUserName,
     return field;
 }
 
-template <typename LoadingLambda>
+template <Neon::Execution execution,
+          typename LoadingLambda>
 auto dGrid::newContainer(const std::string& name,
-                         LoadingLambda      lambda,
-                         Neon::Execution    execution)
+                         LoadingLambda      lambda)
     const
     -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = getDefaultBlock();
-    Neon::set::Container  kContainer = Neon::set::Container::factory(name,
-                                                                     execution,
+    Neon::set::Container  c = Neon::set::Container::factory<execution>(name,
                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
                                                                      *this,
                                                                      lambda,
                                                                      defaultBlockSize,
                                                                      [](const Neon::index_3d&) { return size_t(0); });
-    return kContainer;
+    return c;
 }
 
-template <typename LoadingLambda>
+template <Neon::Execution execution,
+          typename LoadingLambda>
 auto dGrid::newContainer(const std::string& name,
                          index_3d           blockSize,
                          size_t             sharedMem,
-                         LoadingLambda      lambda,
-                         Neon::Execution    execution)
+                         LoadingLambda      lambda)
     const
     -> Neon::set::Container
 {
-    Neon::set::Container kContainer = Neon::set::Container::factory(name,
-                                                                    execution,
+    Neon::set::Container c = Neon::set::Container::factory<execution>(name,
                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
                                                                     *this,
                                                                     lambda,
                                                                     blockSize,
                                                                     [sharedMem](const Neon::index_3d&) { return sharedMem; });
-    return kContainer;
+    return c;
 }
 
 template <typename T>
