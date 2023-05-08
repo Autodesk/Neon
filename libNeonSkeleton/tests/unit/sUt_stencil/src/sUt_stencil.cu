@@ -38,7 +38,7 @@ auto laplace(const FieldT& x, FieldT& y, bool use_relative_ids) -> Neon::set::Co
                     typename FieldT::Type res = 0;
 
 
-                    auto checkNeighbor = [&res](Neon::domain::NghInfo<Type>& neighbor) {
+                    auto checkNeighbor = [&res](Neon::domain::NghData<Type>& neighbor) {
                         if (neighbor.isValid) {
                             res += neighbor.value;
                         }
@@ -163,7 +163,7 @@ TEST(Stencil_NoOCC, dGrid)
 TEST(DISABLED_Stencil_NoOCC, DISABLED_bGrid)
 {
     int nGpus = 1;
-    using Grid = Neon::domain::bGrid;
+    using Grid = Neon::bGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("bGrid_t", SingleStencil<Grid, Type, 0>, nGpus, 1);
 }

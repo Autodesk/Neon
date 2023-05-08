@@ -311,7 +311,7 @@ class xGrid : public Neon::domain::interface::GridBase
     /**
      * Returns the setIdx space that can be used by the lambda executor to run a Container
      */
-    auto getPartitionIndexSpace(Neon::DeviceType devE,
+    auto getSpan(Neon::DeviceType devE,
                            SetIdx          setIdx,
                            Neon::DataView   dataView) const
         -> const xGrid::Span&;

@@ -7,7 +7,7 @@
 
 #include "Neon/set/BlockConfig.h"
 #include "Neon/set/Containter.h"
-#include "Neon/set/DataConfig.h"
+
 #include "Neon/set/DevSet.h"
 #include "Neon/set/MemoryOptions.h"
 
@@ -43,7 +43,7 @@ NodeGrid<BuildingBlockGridT>::
         mStorage->partitionIndexSpace[dwIdx] = dev.newDataSet<PartitionIndexSpace>();
         for (auto setId : dev.getRange()) {
             mStorage->partitionIndexSpace[dwIdx][setId.idx()] =
-                PartitionIndexSpace(buildingBlockGrid.getPartitionIndexSpace(Neon::DeviceType::NONE, setId, dw));
+                PartitionIndexSpace(buildingBlockGrid.getSpan(Neon::DeviceType::NONE, setId, dw));
         }
     }
 

@@ -23,7 +23,7 @@ auto mapContainer_axpy(int                   streamIdx,
                                  const auto a = loader.load(filedA);
                                  auto       b = loader.load(fieldB);
 
-                                 return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+                                 return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                                      for (int i = 0; i < a.cardinality(); i++) {
                                          // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                                          ComputeType x = a.template castRead<ComputeType>(e, i);
@@ -88,7 +88,7 @@ auto run(TestData<G, T, C>& data) -> void
     ASSERT_TRUE(isOk);
 }
 
-template auto run<Neon::domain::eGrid, int64_t, 0, double>(TestData<Neon::domain::eGrid, int64_t, 0>&) -> void;
+template auto run<Neon::eGrid, int64_t, 0, double>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
 template auto run<Neon::dGrid, int64_t, 0, double>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace map

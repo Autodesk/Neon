@@ -149,7 +149,7 @@ class cudaLaunchKernel_test
             for (int i = 0; i < m_devSet.setCardinality(); i++) {
                 eachGpuMemSize[i] = m_domainGridVec[i].rMulTyped<size_t>();
             }
-            m_mirror = m_devSet.newMemSet<int>(int(1), {}, {}, eachGpuMemSize);
+            m_mirror = m_devSet.newMemSet<int>(Neon::DataUse::HOST_DEVICE, int(1), {}, eachGpuMemSize);
         }
 
         // Set

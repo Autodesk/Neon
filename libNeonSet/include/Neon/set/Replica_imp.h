@@ -202,7 +202,7 @@ auto Replica<Obj>::getLaunchParameters(Neon::DataView,
 
         auto           gridMode = Neon::sys::GpuLaunchInfo::mode_e::domainGridMode;
         Neon::index_3d gridDim(1, 1, 1);
-        newLaunchParameters[i].init(gridMode, gridDim, blockDim, shareMem);
+        newLaunchParameters[i].set(gridMode, gridDim, blockDim, shareMem);
     }
     return newLaunchParameters;
 }

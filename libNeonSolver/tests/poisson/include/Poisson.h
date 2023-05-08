@@ -145,9 +145,9 @@ auto testPoissonContainers(const Neon::Backend&           backend,
     // Setup problem
     Grid grid = createGrid<Grid>(backend, domainSize);
 
-    auto u = grid.template newField<Real>("u", Cardinality, Real(0), DataUse::IO_COMPUTE);
-    auto rhs = grid.template newField<Real>("rhs", Cardinality, Real(0), DataUse::IO_COMPUTE);
-    auto bd = grid.template newField<int8_t>("bd", Cardinality, int8_t(0), DataUse::IO_COMPUTE);
+    auto u = grid.template newField<Real>("u", Cardinality, Real(0), DataUse::HOST_DEVICE);
+    auto rhs = grid.template newField<Real>("rhs", Cardinality, Real(0), DataUse::HOST_DEVICE);
+    auto bd = grid.template newField<int8_t>("bd", Cardinality, int8_t(0), DataUse::HOST_DEVICE);
 
     setupPoissonProblem<Grid, Real, Cardinality>(grid, u, rhs, bd, bdZmin, bdZmax);
 

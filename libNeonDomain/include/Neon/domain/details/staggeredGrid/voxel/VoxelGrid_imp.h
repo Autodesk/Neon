@@ -7,7 +7,6 @@
 
 #include "Neon/set/BlockConfig.h"
 #include "Neon/set/Containter.h"
-#include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/MemoryOptions.h"
 
@@ -49,7 +48,7 @@ VoxelGrid<BuildingBlockGridT>::
             const auto dwIdx = Neon::DataViewUtil::toInt(dw);
             const auto devTypeIdx = Neon::DeviceTypeUtil::toInt(devType);
 
-            mStorage->partitionIndexSpace[devTypeIdx][dwIdx] = dev.newDataSet<PartitionIndexSpace>();
+            mStorage->partitionIndexSpace[devTypeIdx][dwIdx] = dev.newDataSet<Span>();
         }
     }
 
@@ -65,7 +64,7 @@ VoxelGrid<BuildingBlockGridT>::
             const auto dwIdx = Neon::DataViewUtil::toInt(dw);
             for (auto setId : dev.getRange()) {
                 mStorage->partitionIndexSpace[devTypeIdx][dwIdx][setId.idx()] =
-                    PartitionIndexSpace(buildingBlockGrid.getPartitionIndexSpace(devType, setId, dw),
+                    PartitionIndexSpace(buildingBlockGrid.getSpan(devType, setId, dw),
                                         mStorage->mask.getPartition(devType, setId, dw));
             }
         }
@@ -88,10 +87,10 @@ VoxelGrid<BuildingBlockGridT>::
 
 template <typename BuildingBlockGridT>
 auto VoxelGrid<BuildingBlockGridT>::
-    getPartitionIndexSpace(Neon::DeviceType deviceType,
+    getSpan(Neon::DeviceType deviceType,
                            SetIdx           setIdx,
                            Neon::DataView   dataView)
-        -> const PartitionIndexSpace&
+        -> const Span&
 {
     const auto dwIdx = Neon::DataViewUtil::toInt(dataView);
     const auto devTypeIdx = Neon::DeviceTypeUtil::toInt(deviceType);

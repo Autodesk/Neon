@@ -8,7 +8,6 @@
 
 #include "Neon/set/BlockConfig.h"
 #include "Neon/set/Containter.h"
-#include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/MemoryOptions.h"
 
@@ -36,15 +35,15 @@ struct StaggeredGrid : public Neon::domain::interface::GridBaseTemplate<Staggere
         using Field = typename BuildingBlockGridT::template Field<TypeT, CardinalityT>;
         template <typename TypeT, int CardinalityT = 0>
         using Partition = typename Field<TypeT, CardinalityT>::Partition;
-        using Ngh_idx = typename Partition<int, 0>::nghIdx_t;
-        using PartitionIndexSpace = typename BuildingBlocks::Grid::PartitionIndexSpace;
+        using NghIdx = typename Partition<int, 0>::NghIdx;
+        using Span = typename BuildingBlocks::Grid::Span;
     };
 
    public:
     /**
      * Some public alias that hides uses from some low level aspects of the system
      */
-    using PartitionIndexSpace = typename BuildingBlocks::PartitionIndexSpace;
+    using Span = typename BuildingBlocks::Span;
 
     using Node = Neon::domain::details::experimental::staggeredGrid::details::NodeGeneric<typename BuildingBlocks::Grid>;
     using Voxel = Neon::domain::details::experimental::staggeredGrid::details::VoxelGeneric<typename BuildingBlocks::Grid>;

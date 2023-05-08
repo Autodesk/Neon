@@ -2,13 +2,13 @@
 
 #include "Neon/core/core.h"
 #include "VoxelGeneric.h"
-#include "VoxelPartitionIndexSpace.h"
+#include "VoxelSpan.h"
 
 namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT>
-inline auto VoxelPartitionIndexSpace<BuildingBlockGridT>::
+inline auto VoxelSpan<BuildingBlockGridT>::
     setAndValidate(Cell&                          cell,
                    const size_t&                  x,
                    [[maybe_unused]] const size_t& y,
@@ -24,8 +24,8 @@ inline auto VoxelPartitionIndexSpace<BuildingBlockGridT>::
 }
 
 template <typename BuildingBlockGridT>
-VoxelPartitionIndexSpace<BuildingBlockGridT>::
-    VoxelPartitionIndexSpace(const typename BuildingBlocks::PartitionIndexSpace&                       pixs,
+VoxelSpan<BuildingBlockGridT>::
+    VoxelSpan(const typename BuildingBlocks::PartitionIndexSpace&                       pixs,
                              const typename BuildingBlockGridT::template Field<uint8_t, 1>::Partition& flag)
 {
     mBuildingBlocksPIdxSpace = pixs;

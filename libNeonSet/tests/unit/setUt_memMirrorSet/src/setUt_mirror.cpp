@@ -8,8 +8,6 @@
 #include "Neon/set/DevSet.h"
 #include "gtest/gtest.h"
 
-#include "Neon/set/memory/memory.h"
-
 namespace tools {
 using namespace Neon::sys;
 using namespace Neon;
@@ -72,8 +70,8 @@ void mirrorTest(int nElements)
     }
 
     Neon::set::DataSet<size_t> mirrorSize(devSet.setCardinality(), nElements);
-    auto                       mirrorSetA = devSet.template newMemSet<T_ta>(1, Neon::DeviceType::CPU, Neon::DeviceType::CUDA, mirrorSize);
-    auto                       mirrorSetB = devSet.template newMemSet<T_ta>(1, Neon::DeviceType::CPU, {Neon::DeviceType::CUDA, Neon::Allocator::NULL_MEM}, mirrorSize);
+    auto                       mirrorSetA = devSet.template newMemSet<T_ta>(Neon::DataUse::HOST_DEVICE, 1, {}, mirrorSize);
+    auto                       mirrorSetB = devSet.template newMemSet<T_ta>(Neon::DataUse::HOST, 1, {}, mirrorSize);
 
     for (int i = 0; i < devSet.setCardinality(); i++) {
         Neon::sys::MemMirror cpuMem = mirrorSetA.get(i);
@@ -85,7 +83,7 @@ void mirrorTest(int nElements)
     mirrorSetA.template update<Neon::run_et::sync>(stream, Neon::DeviceType::CUDA);
 
     Neon::Backend bk(devSet, Neon::Runtime::stream);
-    Neon::set::Memory::MemSet<int>(bk, 1, 4, Neon::DataUse::HOST_DEVICE);
+    bk.devSet().newMemSet<int>(Neon::DataUse::HOST_DEVICE, 1,  {}, bk.devSet().newDataSet<uint64_t>(4));
 }
 
 

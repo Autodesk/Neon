@@ -5,7 +5,7 @@
 namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 template <typename BuildingBlockGridT>
-struct VoxelPartitionIndexSpace;
+struct VoxelSpan;
 
 template <typename BuildingBlockGridT,
           typename T_ta,
@@ -31,7 +31,7 @@ struct VoxelGeneric
     using OuterCell = typename BuildingBlockGridT::Cell::OuterCell;
     using Location = typename BuildingBlocks::Cell::Location;
 
-    friend struct VoxelPartitionIndexSpace<BuildingBlockGridT>;
+    friend struct VoxelSpan<BuildingBlockGridT>;
 
     template <typename BuildingBlockGridTT,
               typename T_ta,

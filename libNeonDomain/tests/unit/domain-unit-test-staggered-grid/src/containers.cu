@@ -58,9 +58,9 @@ auto Containers<StaggeredGrid, T>::sumNodesOnVoxels(Self::VoxelField_3 fieldVox,
 
 #define CHECK_DIRECTION(X, Y, Z)                                                          \
     {                                                                                     \
-        TEST_TYPE nIx[3] = {nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 0),  \
-                            nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 1),  \
-                            nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 2)}; \
+        TEST_TYPE nIx[3] = {nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 0),        \
+                            nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 1),        \
+                            nodes.template getNghNodeValue<X, Y, Z>(voxHandle, 2)};       \
                                                                                           \
         TEST_TYPE reference[3] = {X == -1 ? voxId[0] : voxId[0] + X,                      \
                                   Y == -1 ? voxId[1] : voxId[1] + Y,                      \
@@ -113,45 +113,45 @@ auto Containers<StaggeredGrid, T>::sumVoxelsOnNodes(Self::NodeField_3           
                                        nodes(nodeHandle, 2)};
                 errorFlag(nodeHandle, 0) = 1;
                 vox.template getNghVoxelValue<1, 1, 1>(nodeHandle, 0, 1000);
-#define CHECK_DIRECTION(X, Y, Z)                                                                     \
-    {                                                                                                \
-        TEST_TYPE nghVoxIx[3] = {vox.template getNghVoxelValue<X, Y, Z>(nodeHandle, 0, 1000).value,  \
-                                 vox.template getNghVoxelValue<X, Y, Z>(nodeHandle, 1, 1000).value,  \
-                                 vox.template getNghVoxelValue<X, Y, Z>(nodeHandle, 2, 1000).value}; \
-                                                                                                     \
-        TEST_TYPE reference[3] = {X == +1 ? nodeId[0] : nodeId[0] - X,                               \
-                                  Y == +1 ? nodeId[1] : nodeId[1] - Y,                               \
-                                  Z == +1 ? nodeId[2] : nodeId[2] - Z};                              \
-                                                                                                     \
-        if (nghVoxIx[0] != reference[0] ||                                                           \
-            nghVoxIx[1] != reference[1] ||                                                           \
-            nghVoxIx[2] != reference[2]) {                                                           \
-            bool isNotAnErro = true;                                                                 \
-                                                                                                     \
-            if (nodeId[0] != 0 && X != -1)                                                           \
-                isNotAnErro = false;                                                                 \
-            if (nodeId[0] != nodeSpaceDim.v[0] && X != +1)                                           \
-                isNotAnErro = false;                                                                 \
-                                                                                                     \
-            if (nodeId[1] != 0 && Y != -1)                                                           \
-                isNotAnErro = false;                                                                 \
-            if (nodeId[1] != nodeSpaceDim.v[1] && Y != +1)                                           \
-                isNotAnErro = false;                                                                 \
-                                                                                                     \
-            if (nodeId[2] != 0 && Z != -1)                                                           \
-                isNotAnErro = false;                                                                 \
-            if (nodeId[2] != nodeSpaceDim.v[2] && Z != +1)                                           \
-                isNotAnErro = false;                                                                 \
-                                                                                                     \
-                                                                                                     \
-            if (isNotAnErro) {                                                                       \
-                errorFlag(nodeHandle, 0) = noErrorCode;                                              \
-            } else {                                                                                 \
-                errorFlag(nodeHandle, 0) = errorCode;                                                \
-            }                                                                                        \
-        } else {                                                                                     \
-            errorFlag(nodeHandle, 0) = noErrorCode;                                                  \
-        }                                                                                            \
+#define CHECK_DIRECTION(X, Y, Z)                                                                         \
+    {                                                                                                    \
+        TEST_TYPE nghVoxIx[3] = {vox.template getNghVoxelValue<X, Y, Z>(nodeHandle, 0, 1000).getData(),  \
+                                 vox.template getNghVoxelValue<X, Y, Z>(nodeHandle, 1, 1000).getData(),  \
+                                 vox.template getNghVoxelValue<X, Y, Z>(nodeHandle, 2, 1000).getData()}; \
+                                                                                                         \
+        TEST_TYPE reference[3] = {X == +1 ? nodeId[0] : nodeId[0] - X,                                   \
+                                  Y == +1 ? nodeId[1] : nodeId[1] - Y,                                   \
+                                  Z == +1 ? nodeId[2] : nodeId[2] - Z};                                  \
+                                                                                                         \
+        if (nghVoxIx[0] != reference[0] ||                                                               \
+            nghVoxIx[1] != reference[1] ||                                                               \
+            nghVoxIx[2] != reference[2]) {                                                               \
+            bool isNotAnErro = true;                                                                     \
+                                                                                                         \
+            if (nodeId[0] != 0 && X != -1)                                                               \
+                isNotAnErro = false;                                                                     \
+            if (nodeId[0] != nodeSpaceDim.v[0] && X != +1)                                               \
+                isNotAnErro = false;                                                                     \
+                                                                                                         \
+            if (nodeId[1] != 0 && Y != -1)                                                               \
+                isNotAnErro = false;                                                                     \
+            if (nodeId[1] != nodeSpaceDim.v[1] && Y != +1)                                               \
+                isNotAnErro = false;                                                                     \
+                                                                                                         \
+            if (nodeId[2] != 0 && Z != -1)                                                               \
+                isNotAnErro = false;                                                                     \
+            if (nodeId[2] != nodeSpaceDim.v[2] && Z != +1)                                               \
+                isNotAnErro = false;                                                                     \
+                                                                                                         \
+                                                                                                         \
+            if (isNotAnErro) {                                                                           \
+                errorFlag(nodeHandle, 0) = noErrorCode;                                                  \
+            } else {                                                                                     \
+                errorFlag(nodeHandle, 0) = errorCode;                                                    \
+            }                                                                                            \
+        } else {                                                                                         \
+            errorFlag(nodeHandle, 0) = noErrorCode;                                                      \
+        }                                                                                                \
     }
 
                 CHECK_DIRECTION(1, 1, 1);
@@ -166,4 +166,4 @@ auto Containers<StaggeredGrid, T>::sumVoxelsOnNodes(Self::NodeField_3           
         });
 }
 template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::dGrid>, TEST_TYPE>;
-//template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::domain::eGrid>, TEST_TYPE>;
+// template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::domain::eGrid>, TEST_TYPE>;

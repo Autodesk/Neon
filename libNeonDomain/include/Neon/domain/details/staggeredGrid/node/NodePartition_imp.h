@@ -7,7 +7,6 @@
 #include "Neon/domain/details/staggeredGrid/voxel/VoxelGeneric.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
-#include "Neon/sys/memory/mem3d.h"
 #include "NodeGeneric.h"
 #include "NodeToVoxelMask.h"
 

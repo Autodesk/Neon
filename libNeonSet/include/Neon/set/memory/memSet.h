@@ -12,8 +12,7 @@
 #include "Neon/sys/memory/MemDevice.h"
 #include "Neon/sys/memory/MemMirror.h"
 
-namespace Neon {
-namespace set {
+namespace Neon::set {
 
 /**
  * Class to store a set of MemMirror objects.
@@ -362,5 +361,4 @@ class MemSet
     }
 };
 
-}  // namespace set
 }  // namespace Neon

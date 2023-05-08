@@ -3,7 +3,6 @@
 #include "Neon/core/core.h"
 #include "Neon/core/types/Macros.h"
 #include "Neon/domain/interface/FieldBaseTemplate.h"
-#include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/HuOptions.h"
 

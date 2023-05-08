@@ -3,7 +3,7 @@
 #include "Neon/core/core.h"
 #include "Neon/core/types/Macros.h"
 
-#include "Neon/set/DataConfig.h"
+
 #include "Neon/set/DevSet.h"
 #include "Neon/set/memory/memSet.h"
 

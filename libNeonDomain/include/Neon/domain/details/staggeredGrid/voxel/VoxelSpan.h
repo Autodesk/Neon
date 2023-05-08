@@ -7,7 +7,7 @@ namespace Neon::domain::details::experimental::staggeredGrid::details {
 
 
 template <typename BuildingBlockGridT>
-struct VoxelPartitionIndexSpace
+struct VoxelSpan
 {
    public:
     struct BuildingBlocks
@@ -20,8 +20,8 @@ struct VoxelPartitionIndexSpace
     using Cell = VoxelGeneric<BuildingBlockGridT>;
     static constexpr int SpaceDim = BuildingBlockGridT::PartitionIndexSpace::SpaceDim;
 
-    VoxelPartitionIndexSpace() = default;
-    explicit VoxelPartitionIndexSpace(const typename BuildingBlocks::PartitionIndexSpace&,
+    VoxelSpan() = default;
+    explicit VoxelSpan(const typename BuildingBlocks::PartitionIndexSpace&,
                                       const typename BuildingBlockGridT::template Field<uint8_t, 1>::Partition& mask);
 
     NEON_CUDA_HOST_DEVICE

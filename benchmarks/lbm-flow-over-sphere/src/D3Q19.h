@@ -45,7 +45,7 @@ struct D3Q19Template
             });
 
         auto c_neon = Neon::set::Memory::MemSet<Neon::index_3d>(backend, 1, c_vect.size(),
-                                                                Neon::DataUse::IO_COMPUTE);
+                                                                Neon::DataUse::HOST_DEVICE);
 
 
         for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
@@ -91,7 +91,7 @@ struct D3Q19Template
         }
 
         this->opp = Neon::set::Memory::MemSet<int>(backend, 1, opp_vect.size(),
-                                                   Neon::DataUse::IO_COMPUTE);
+                                                   Neon::DataUse::HOST_DEVICE);
 
         for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
             for (size_t j = 0; j < opp_vect.size(); j++) {
@@ -123,7 +123,7 @@ struct D3Q19Template
         };
 
         this->t = Neon::set::Memory::MemSet<StorageFP>(backend, 1, opp_vect.size(),
-                                                    Neon::DataUse::IO_COMPUTE);
+                                                    Neon::DataUse::HOST_DEVICE);
 
         for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
             for (size_t j = 0; j < t_vect.size(); j++) {

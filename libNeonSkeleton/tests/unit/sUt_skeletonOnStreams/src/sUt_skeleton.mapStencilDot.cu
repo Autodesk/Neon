@@ -143,7 +143,7 @@ int getNGpus()
 TEST(MapStencilDotNoOcc, bGrid)
 {
     int nGpus = 1;
-    using Grid = Neon::domain::bGrid;
+    using Grid = Neon::bGrid;
     using Type = double;
     runAllTestConfiguration<Grid, Type, 0>("bGrid_t", MapStencilDotNoOcc<Grid, Type, 0>, nGpus, 1);
 }

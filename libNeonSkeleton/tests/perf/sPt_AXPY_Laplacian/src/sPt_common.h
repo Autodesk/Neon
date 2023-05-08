@@ -226,9 +226,9 @@ class storage_t
         assert(sumTmp == storage.m_size3d.x);
         storage.m_grid = Neon::aGrid(storage.m_devSet, lengths);
 
-        storage.Xf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
-        storage.Yf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
-        storage.Zf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
+        storage.Xf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::HOST_DEVICE}, storage.m_cardinality);
+        storage.Yf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::HOST_DEVICE}, storage.m_cardinality);
+        storage.Zf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::HOST_DEVICE}, storage.m_cardinality);
     }
 
     void gridInit(Neon::index64_3d     dim,
@@ -242,9 +242,9 @@ class storage_t
                       m_stencil);
         T outsideDomainVal = 0;
 
-        Xf = m_grid.template newField<T>("Xf", m_cardinality, outsideDomainVal, Neon::DataUse::IO_COMPUTE);
-        Yf = m_grid.template newField<T>("Yf", m_cardinality, outsideDomainVal, Neon::DataUse::IO_COMPUTE);
-        Zf = m_grid.template newField<T>("Zf", m_cardinality, outsideDomainVal, Neon::DataUse::IO_COMPUTE);
+        Xf = m_grid.template newField<T>("Xf", m_cardinality, outsideDomainVal, Neon::DataUse::HOST_DEVICE);
+        Yf = m_grid.template newField<T>("Yf", m_cardinality, outsideDomainVal, Neon::DataUse::HOST_DEVICE);
+        Zf = m_grid.template newField<T>("Zf", m_cardinality, outsideDomainVal, Neon::DataUse::HOST_DEVICE);
     }
 
 

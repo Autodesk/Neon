@@ -33,7 +33,7 @@ inline Neon::set::Container LaplacianMatVec<Grid, Real>::matVec(const Field&   i
                     int           numNeighb = 0;
                     const Real defaultVal{0};
 
-                    auto checkNeighbor = [&sum, &numNeighb](Neon::domain::NghInfo<Real>& neighbor) {
+                    auto checkNeighbor = [&sum, &numNeighb](Neon::domain::NghData<Real>& neighbor) {
                         if (neighbor.isValid) {
                             ++numNeighb;
                             sum += neighbor.value;

@@ -67,7 +67,7 @@ auto laplace(const FieldT& x, FieldT& y, size_t sharedMem = 0) -> Neon::set::Con
                     typename FieldT::Type res = 0;
 
 
-                    auto checkNeighbor = [&res](Neon::domain::NghInfo<Type>& neighbor) {
+                    auto checkNeighbor = [&res](Neon::domain::NghData<Type>& neighbor) {
                         if (neighbor.isValid) {
                             res += neighbor.value;
                         }
@@ -202,7 +202,7 @@ int getNGpus()
 TEST(SingleStencil_NoOCC, bGrid)
 {
     int nGpus = 1;
-    using Grid = Neon::domain::bGrid;
+    using Grid = Neon::bGrid;
     //using Grid = Neon::domain::eGrid;
     //using Grid = Neon::dGrid;
     using Type = int32_t;

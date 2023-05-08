@@ -7,7 +7,6 @@
 
 #include "Neon/set/BlockConfig.h"
 #include "Neon/set/Containter.h"
-#include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/MemoryOptions.h"
 
@@ -45,8 +44,8 @@ struct NodeGrid : public Neon::domain::interface::GridBaseTemplate<NodeGrid<Buil
         template <typename T_ta, int cardinality_ta = 0>
         using Partition = typename Field<T_ta, cardinality_ta>::Partition;
 
-        using Ngh_idx = typename Partition<int, 0>::nghIdx_t;
-        using PartitionIndexSpace = typename BuildingBlocks::Grid::PartitionIndexSpace;
+        using NghIdx = typename Partition<int, 0>::NghIdx;
+        using Span = typename BuildingBlocks::Grid::Span;
     };
 
    public:

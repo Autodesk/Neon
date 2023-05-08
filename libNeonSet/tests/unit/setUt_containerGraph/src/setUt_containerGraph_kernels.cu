@@ -5,17 +5,18 @@ template <typename Field>
 auto xpy(const Field& x,
          Field&       y) -> Neon::set::Container
 {
-    auto Kontainer = x.getGrid().getContainer(
+    auto container = x.getGrid().newContainer(
         "xpy", [&](Neon::set::Loader & L) -> auto{
             auto& xLocal = L.load(x);
             auto& yLocal = L.load(y);
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < yLocal.cardinality(); i++) {
                     yLocal(e, i) += xLocal(e, i);
                 }
             };
-        });
-    return Kontainer;
+        },
+        Neon::Execution::device);
+    return container;
 }
 
 template <typename Field, typename T>
@@ -23,13 +24,13 @@ auto aInvXpY(const Neon::template PatternScalar<T>& fR,
              const Field&                           x,
              Field&                                 y) -> Neon::set::Container
 {
-    auto Kontainer = x.getGrid().getContainer(
+    auto container = x.getGrid().newContainer(
         "AXPY", [&](Neon::set::Loader & L) -> auto{
             auto&      xLocal = L.load(x);
             auto&      yLocal = L.load(y);
             auto       fRLocal = L.load(fR);
             const auto fRVal = fRLocal();
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 // printf("%d yLocal.cardinality()\n", yLocal.cardinality());
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
@@ -37,8 +38,9 @@ auto aInvXpY(const Neon::template PatternScalar<T>& fR,
                     yLocal(e, i) += (1.0 / fRVal) * xLocal(e, i);
                 }
             };
-        });
-    return Kontainer;
+        },
+        Neon::Execution::device);
+    return container;
 }
 
 template <typename Field, typename T>
@@ -47,13 +49,13 @@ auto axpy(const Neon::template PatternScalar<T>& fR,
           Field&                                 y,
           const std::string&                     name) -> Neon::set::Container
 {
-    auto Kontainer = x.getGrid().getContainer(
+    auto container = x.getGrid().newContainer(
         name + "-AXPY", [&](Neon::set::Loader & L) -> auto{
             auto&      xLocal = L.load(x);
             auto&      yLocal = L.load(y);
             auto       fRLocal = L.load(fR);
             const auto fRVal = fRLocal();
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 // printf("%d yLocal.cardinality()\n", yLocal.cardinality());
 
                 for (int i = 0; i < yLocal.cardinality(); i++) {
@@ -61,8 +63,9 @@ auto axpy(const Neon::template PatternScalar<T>& fR,
                     yLocal(e, i) += fRVal * xLocal(e, i);
                 }
             };
-        });
-    return Kontainer;
+        },
+        Neon::Execution::device);
+    return container;
 }
 
 template <typename Field>
@@ -70,19 +73,19 @@ auto laplace(const Field& x,
              Field&       y,
              size_t       sharedMem ) -> Neon::set::Container
 {
-    auto Kontainer = x.getGrid().getContainer(
+    auto container = x.getGrid().newContainer(
         "Laplace", [&](Neon::set::Loader & L) -> auto{
             auto& xLocal = L.load(x, Neon::Compute::STENCIL);
             auto& yLocal = L.load(y);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& cell) mutable {
                 using Type = typename Field::Type;
                 for (int card = 0; card < xLocal.cardinality(); card++) {
                     typename Field::Type res = 0;
 
 
-                    auto checkNeighbor = [&res](Neon::domain::NghInfo<Type>& neighbor) {
-                        if (neighbor.mIsValid) {
+                    auto checkNeighbor = [&res](Neon::domain::NghData<Type>& neighbor) {
+                        if (neighbor.isValid()) {
                             res += neighbor.value;
                         }
                     };
@@ -144,7 +147,7 @@ auto laplace(const Field& x,
                 }
             };
         });
-    return Kontainer;
+    return container;
 }
 
 

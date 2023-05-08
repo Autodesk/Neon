@@ -12,7 +12,7 @@ TEST(bGrid, activeCell)
         std::vector<int> gpusIds(nGPUs, 0);
         auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
 
-        Neon::domain::bGrid b_grid(
+        Neon::bGrid b_grid(
             bk,
             dim,
             [&](const Neon::index_3d& id) -> bool {

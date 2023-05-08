@@ -144,7 +144,7 @@ class Storage
             Neon::domain::stencil_t::s7_Laplace_t());
 
         Neon::set::DataConfig_t dataConfig(m_backend,
-                                           Neon::DataUse::IO_COMPUTE,
+                                           Neon::DataUse::HOST_DEVICE,
                                            {Neon::DeviceType::CPU, Neon::Allocator::MALLOC, layout},
                                            {Neon::DeviceType::CUDA, Neon::Allocator::CUDA_MEM_DEVICE, layout});
 

@@ -1,9 +1,12 @@
 #pragma once
 
 #include "Neon/set/Backend.h"
-#include "Neon/set/memory/memory.h"
-namespace Neon {
-namespace set {
+#include "Neon/set/memory/memSet.h"
+
+namespace Neon::set {
+
+template <typename T_ta>
+class MemSet;
 
 /**
  * API to allocate any type of memory
@@ -27,7 +30,6 @@ struct Memory
                        Neon::MemSetOptions_t gpuConfig = Neon::MemSetOptions_t()) -> MemSet<T_ta>;
 };
 
-}  // namespace set
-}  // namespace Neon
+}  // namespace Neon::set
 
 #include "Neon/set/memory/memory.ti.h"

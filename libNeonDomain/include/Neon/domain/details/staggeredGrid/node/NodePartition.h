@@ -31,7 +31,7 @@ struct NodePartition
     };
 
     using Self = NodePartition<BuildingBlockGridT, TypeT, CardinalityT>;
-    using PartitionIndexSpace = typename BuildingBlockGridT::PartitionIndexSpace;
+    using Span = typename BuildingBlockGridT::Span;
     using Node = NodeGeneric<BuildingBlockGridT>;
     using Voxel = VoxelGeneric<BuildingBlockGridT>;
     using Type = TypeT;

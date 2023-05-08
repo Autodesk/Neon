@@ -93,7 +93,7 @@ auto laplace(const Field& x,
                     typename Field::Type res = 0;
 
 
-                    auto checkNeighbor = [&res](Neon::domain::NghInfo<Type>& neighbor) {
+                    auto checkNeighbor = [&res](Neon::domain::NghData<Type>& neighbor) {
                         if (neighbor.isValid) {
                             res += neighbor.value;
                         }

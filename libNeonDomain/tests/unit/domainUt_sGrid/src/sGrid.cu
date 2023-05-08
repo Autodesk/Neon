@@ -335,7 +335,7 @@ TEST(domainUnitTests, sGrid_eGrid)
     Neon::init();
     int nGpus = getNGpus();
     NEON_INFO("sGrid_eGrid");
-    using Grid = Neon::domain::eGrid;
+    using Grid = Neon::eGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("sGrid", help::sGridTestContainerRun<Grid, Type, 0>, nGpus, 1);
 }
@@ -345,7 +345,7 @@ TEST(domainUnitTests, sGrid_eGrid_skeleton)
     Neon::init();
     int nGpus = getNGpus();
     NEON_INFO("sGrid_eGrid");
-    using Grid = Neon::domain::eGrid;
+    using Grid = Neon::eGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("sGrid", help::sGridTestSkeleton<Grid, Type, 0>, nGpus, 1);
 }

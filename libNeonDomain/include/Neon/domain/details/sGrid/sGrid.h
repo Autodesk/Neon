@@ -7,7 +7,7 @@
 
 #include "Neon/set/BlockConfig.h"
 #include "Neon/set/Containter.h"
-#include "Neon/set/DataConfig.h"
+
 #include "Neon/set/DevSet.h"
 
 #include "Neon/domain/interface/GridBaseTemplate.h"

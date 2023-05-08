@@ -286,11 +286,11 @@ auto Run(Cli::UserData& userData,
             switch (userData.runtimeType.getOption()) {
                 case Cli::Type::INT64: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, int64_t, 1>(userData, report);
+                        return help::testTemplate<Neon::eGrid, int64_t, 1>(userData, report);
                 }
                 case Cli::Type::DOUBLE: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, double, 1>(userData, report);
+                        return help::testTemplate<Neon::eGrid, double, 1>(userData, report);
                 }
             }
         }
@@ -299,11 +299,11 @@ auto Run(Cli::UserData& userData,
             switch (userData.runtimeType.getOption()) {
                 case Cli::Type::INT64: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, int64_t, 3>(userData, report);
+                        return help::testTemplate<Neon::eGrid, int64_t, 3>(userData, report);
                 }
                 case Cli::Type::DOUBLE: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, double, 3>(userData, report);
+                        return help::testTemplate<Neon::eGrid, double, 3>(userData, report);
                 }
             }
         }
@@ -312,11 +312,11 @@ auto Run(Cli::UserData& userData,
             switch (userData.runtimeType.getOption()) {
                 case Cli::Type::INT64: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, int64_t, 19>(userData, report);
+                        return help::testTemplate<Neon::eGrid, int64_t, 19>(userData, report);
                 }
                 case Cli::Type::DOUBLE: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, double, 19>(userData, report);
+                        return help::testTemplate<Neon::eGrid, double, 19>(userData, report);
                 }
             }
         }

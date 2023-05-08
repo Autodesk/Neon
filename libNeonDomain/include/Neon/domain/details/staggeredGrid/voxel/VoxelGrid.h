@@ -7,7 +7,6 @@
 
 #include "Neon/set/BlockConfig.h"
 #include "Neon/set/Containter.h"
-#include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/MemoryOptions.h"
 
@@ -26,7 +25,7 @@
 #include "VoxelField.h"
 #include "VoxelGeneric.h"
 #include "VoxelPartition.h"
-#include "VoxelPartitionIndexSpace.h"
+#include "VoxelSpan.h"
 
 
 namespace Neon::domain::details::experimental::staggeredGrid::details {
@@ -45,12 +44,12 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
         template <typename T_ta, int cardinality_ta = 0>
         using Partition = typename Field<T_ta, cardinality_ta>::Partition;
 
-        using Ngh_idx = typename Partition<int, 0>::nghIdx_t;
-        using PartitionIndexSpace = typename BuildingBlocks::Grid::PartitionIndexSpace;
+        using NghIdx = typename Partition<int, 0>::NghIdx;
+        using Span = typename BuildingBlocks::Grid::Span;
     };
 
    public:
-    using PartitionIndexSpace = VoxelPartitionIndexSpace<typename BuildingBlocks::Grid>;
+    using Span = VoxelSpan<typename BuildingBlocks::Grid>;
     using Grid = VoxelGrid<typename BuildingBlocks::Grid>;
     using Voxel = Neon::domain::details::experimental::staggeredGrid::details::VoxelGeneric<typename BuildingBlocks::Grid>;
     using Cell = Voxel;
@@ -86,10 +85,10 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
                              const size_t&         shareMem)
         const -> Neon::set::LaunchParameters;
 
-    auto getPartitionIndexSpace(Neon::DeviceType devE,
+    auto getSpan(Neon::DeviceType devE,
                                 SetIdx           setIdx,
                                 Neon::DataView   dataView)
-        -> const PartitionIndexSpace&;
+        -> const Span&;
 
     template <typename T, int C = 0>
     auto newVoxelField(const std::string   fieldUserName,
@@ -165,7 +164,7 @@ struct VoxelGrid : public Neon::domain::interface::GridBaseTemplate<VoxelGrid<Bu
 
     struct Storage
     {
-        std::array<std::array<Neon::set::DataSet<PartitionIndexSpace>, Neon::DataViewUtil::nConfig>, Neon::DeviceTypeUtil::nConfig> partitionIndexSpace;
+        std::array<std::array<Neon::set::DataSet<Span>, Neon::DataViewUtil::nConfig>, Neon::DeviceTypeUtil::nConfig> partitionIndexSpace;
 
         typename BuildingBlocks::Grid                               buildingBlockGrid;
         typename BuildingBlocks::template Field<uint8_t, 1>         mask;

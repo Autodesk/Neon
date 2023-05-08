@@ -405,9 +405,9 @@ class storage_t
         assert(sumTmp == storage.m_size3d.x);
         storage.m_grid = Neon::aGrid(storage.m_backend, lengths);
 
-        storage.Xf = storage.m_grid.template newField<T>({storage.m_backend, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
-        storage.Yf = storage.m_grid.template newField<T>({storage.m_backend, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
-        storage.Zf = storage.m_grid.template newField<T>({storage.m_backend, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
+        storage.Xf = storage.m_grid.template newField<T>({storage.m_backend, Neon::DataUse::HOST_DEVICE}, storage.m_cardinality);
+        storage.Yf = storage.m_grid.template newField<T>({storage.m_backend, Neon::DataUse::HOST_DEVICE}, storage.m_cardinality);
+        storage.Zf = storage.m_grid.template newField<T>({storage.m_backend, Neon::DataUse::HOST_DEVICE}, storage.m_cardinality);
     }
 
     static void gridInit(Neon::index64_3d                                 dim,
@@ -426,9 +426,9 @@ class storage_t
         T    outsideVal = 0;
         auto memoryOption = storage.m_backend.getMemoryOptions(Neon::MemoryLayout::structOfArrays);
 
-        storage.Xf = storage.m_grid.template newField<T>("Xf", storage.m_cardinality, T(0), Neon::DataUse::IO_COMPUTE, memoryOption);
-        storage.Yf = storage.m_grid.template newField<T>("Yf", storage.m_cardinality, T(0), Neon::DataUse::IO_COMPUTE, memoryOption);
-        storage.Zf = storage.m_grid.template newField<T>("Zf", storage.m_cardinality, T(0), Neon::DataUse::IO_COMPUTE, memoryOption);
+        storage.Xf = storage.m_grid.template newField<T>("Xf", storage.m_cardinality, T(0), Neon::DataUse::HOST_DEVICE, memoryOption);
+        storage.Yf = storage.m_grid.template newField<T>("Yf", storage.m_cardinality, T(0), Neon::DataUse::HOST_DEVICE, memoryOption);
+        storage.Zf = storage.m_grid.template newField<T>("Zf", storage.m_cardinality, T(0), Neon::DataUse::HOST_DEVICE, memoryOption);
     }
 
     static void gridInit(Neon::index64_3d                         dim,
@@ -447,9 +447,9 @@ class storage_t
         T    outsideVal = 0;
         auto memoryOption = storage.m_backend.getMemoryOptions(Neon::MemoryLayout::structOfArrays);
 
-        storage.Xf = storage.m_grid.template newField<T>("Xf", storage.m_cardinality, T(0), Neon::DataUse::IO_COMPUTE, memoryOption);
-        storage.Yf = storage.m_grid.template newField<T>("Yf", storage.m_cardinality, T(0), Neon::DataUse::IO_COMPUTE, memoryOption);
-        storage.Zf = storage.m_grid.template newField<T>("Zf", storage.m_cardinality, T(0), Neon::DataUse::IO_COMPUTE, memoryOption);
+        storage.Xf = storage.m_grid.template newField<T>("Xf", storage.m_cardinality, T(0), Neon::DataUse::HOST_DEVICE, memoryOption);
+        storage.Yf = storage.m_grid.template newField<T>("Yf", storage.m_cardinality, T(0), Neon::DataUse::HOST_DEVICE, memoryOption);
+        storage.Zf = storage.m_grid.template newField<T>("Zf", storage.m_cardinality, T(0), Neon::DataUse::HOST_DEVICE, memoryOption);
     }
 
     storage_t(Neon::index64_3d dim, int nGPUs, int cardinality, const Neon::Runtime& backendType)
