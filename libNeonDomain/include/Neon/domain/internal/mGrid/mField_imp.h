@@ -63,7 +63,8 @@ mField<T, C>::mField(const std::string&         name,
                         parent.rawMem(gpuID, Neon::DeviceType::CPU),
                         parentLocalID.rawMem(gpuID, Neon::DeviceType::CPU),
                         active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
-                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),  //lower-level mask
+                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),                               //lower-level mask
+                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),  //upper-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
                         (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getNeighbourBlocks().rawMem(gpuID, Neon::DeviceType::CPU),  //parent neighbor
                         outsideVal,
@@ -84,7 +85,8 @@ mField<T, C>::mField(const std::string&         name,
                         parent.rawMem(gpuID, Neon::DeviceType::CUDA),
                         parentLocalID.rawMem(gpuID, Neon::DeviceType::CUDA),
                         active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),  //lower-level mask
+                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),                               //lower-level mask
+                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),  //upper-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
                         (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getNeighbourBlocks().rawMem(gpuID, Neon::DeviceType::CUDA),  //parent neighbor
                         outsideVal,

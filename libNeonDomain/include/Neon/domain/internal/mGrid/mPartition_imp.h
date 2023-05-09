@@ -11,6 +11,7 @@ mPartition<T, C>::mPartition()
       mParentBlockID(nullptr),
       mParentLocalID(nullptr),
       mMaskLowerLevel(nullptr),
+      mMaskUpperLevel(nullptr),
       mChildBlockID(nullptr),
       mRefFactors(nullptr),
       mSpacing(nullptr)
@@ -30,6 +31,7 @@ mPartition<T, C>::mPartition(Neon::DataView  dataView,
                              Cell::Location* parentLocalID,
                              uint32_t*       mask,
                              uint32_t*       maskLowerLevel,
+                             uint32_t*       maskUpperLevel,
                              uint32_t*       childBlockID,
                              uint32_t*       parentNeighbourBlocks,
                              T               outsideValue,
@@ -43,6 +45,7 @@ mPartition<T, C>::mPartition(Neon::DataView  dataView,
       mParentBlockID(parentBlockID),
       mParentLocalID(parentLocalID),
       mMaskLowerLevel(maskLowerLevel),
+      mMaskUpperLevel(maskUpperLevel),
       mChildBlockID(childBlockID),
       mParentNeighbourBlocks(parentNeighbourBlocks),
       mRefFactors(refFactors),
@@ -236,6 +239,9 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getUncle(const Cell&   cell,
         uncle = this->getNghCell(uncle, direction, (mParentNeighbourBlocks + (26 * uncle.mBlockID)));
         uncle.mBlockSize = mRefFactors[mLevel + 1];
         uncle.mIsActive = uncle.mBlockID != std::numeric_limits<uint32_t>::max();
+        if (uncle.mIsActive) {
+            uncle.mIsActive = uncle.computeIsActive(mMaskUpperLevel);
+        }
     }
     return uncle;
 }

@@ -36,6 +36,7 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
                         Cell::Location* parentLocalID,
                         uint32_t*       mask,
                         uint32_t*       maskLowerLevel,
+                        uint32_t*       maskUpperLevel,
                         uint32_t*       childBlockID,
                         uint32_t*       parentNeighbourBlocks,
                         T               defaultValue,
@@ -182,6 +183,7 @@ class mPartition : public Neon::domain::internal::bGrid::bPartition<T, C>
     uint32_t*       mParentBlockID;
     Cell::Location* mParentLocalID;
     uint32_t*       mMaskLowerLevel;
+    uint32_t*       mMaskUpperLevel;
     uint32_t*       mChildBlockID;
     uint32_t*       mParentNeighbourBlocks;
     int*            mRefFactors;

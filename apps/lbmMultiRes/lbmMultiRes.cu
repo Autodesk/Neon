@@ -77,16 +77,16 @@ void runNonUniformLBM(const int           problemID,
 {
 
     //constexpr int depth = 2;
-    //gridDim = Neon::index_3d(6, 6, 6);
-    //levelSDF[0] = 0;
-    //levelSDF[1] = -2.0 / 3.0;
-    //levelSDF[2] = -1.0;
-
     constexpr int depth = 3;
 
     float levelSDF[depth + 1];
 
     Neon::index_3d gridDim;
+
+    //gridDim = Neon::index_3d(6, 6, 6);
+    //levelSDF[0] = 0;
+    //levelSDF[1] = -2.0 / 3.0;
+    //levelSDF[2] = -1.0;
 
     if (problemID == 0) {
         gridDim = Neon::index_3d(48, 48, 48);

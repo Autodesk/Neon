@@ -105,44 +105,42 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
             auto& fpost_col = postCollision.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                if (cell.mBlockID == 1 && cell.mLocation.x == 1 && cell.mLocation.y == 1 && cell.mLocation.z == 1) {
+                if (fpost_col.hasParent(cell)) {
 
+                    //we could skip q = 0
+                    for (int8_t q = 1; q < Q; ++q) {
 
-                    if (fpost_col.hasParent(cell)) {
+                        const Neon::int8_3d qDir = getDir(q);
 
-                        //we could skip q = 0
-                        for (int8_t q = 1; q < Q; ++q) {
+                        const Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, qDir);
 
-                            const Neon::int8_3d qDir = getDir(q);
+                        const auto cn = fpost_col.getNghCell(cell, uncleDir);
 
-                            const Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, qDir);
+                        if (!cn.isActive()) {
 
                             const auto uncle = fpost_col.getUncle(cell, uncleDir);
-
                             if (uncle.isActive()) {
-                                if (!fpost_col.hasChildren(uncle)) {
 
-                                    //locate the coarse cell where we should store this cell info
-                                    const Neon::int8_3d CsDir = uncleDir - qDir;
+                                //locate the coarse cell where we should store this cell info
+                                const Neon::int8_3d CsDir = uncleDir - qDir;
 
-                                    const auto cs = fpost_col.getUncle(cell, CsDir);
+                                const auto cs = fpost_col.getUncle(cell, CsDir);
 
-                                    if (cs.isActive()) {
+                                if (cs.isActive()) {
 
-                                        const T cellVal = fpost_col(cell, q);
+                                    const T cellVal = fpost_col(cell, q);
+
 #ifdef NEON_PLACE_CUDA_DEVICE
-                                        atomicAdd(&fpost_col.uncleVal(cell, CsDir, q), cellVal);
+                                    atomicAdd(&fpost_col.uncleVal(cell, CsDir, q), cellVal);
 #else
 #pragma omp atomic
-                                        fpost_col.uncleVal(cell, CsDir, q) += cellVal;
+                                    fpost_col.uncleVal(cell, CsDir, q) += cellVal;
 #endif
-                                    }
                                 }
                             }
                         }
                     }
                 }
-
             };
         });
 }
