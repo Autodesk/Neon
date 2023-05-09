@@ -30,8 +30,8 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
     if (level != numLevels - 1) {
-        //containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
-        containers.push_back(storeFine<T, Q>(grid, level, fout));
+        containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+        //containers.push_back(storeFine<T, Q>(grid, level, fout));
     }
 
 
@@ -55,8 +55,8 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
     if (level != numLevels - 1) {
-        //containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
-        containers.push_back(storeFine<T, Q>(grid, level, fout));
+        containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+        //containers.push_back(storeFine<T, Q>(grid, level, fout));
     }
 
     // 8) recurse down

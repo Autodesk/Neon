@@ -19,6 +19,7 @@ inline Neon::set::Container coalescencePull(Neon::domain::mGrid&                
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 //If this cell has children i.e., it is been refined, than we should not work on it
                 //because this cell is only there to allow query and not to operate on
+                const int refFactor = fpost_col.getRefFactor(level);
                 if (!fpost_stm.hasChildren(cell)) {
 
                     for (int q = 1; q < Q; ++q) {
@@ -28,7 +29,7 @@ inline Neon::set::Container coalescencePull(Neon::domain::mGrid&                
                         if (fpost_stm.hasChildren(cell, dir)) {
                             auto neighbor = fpost_col.nghVal(cell, dir, q, T(0));
                             if (neighbor.isValid) {
-                                fpost_stm(cell, q) = neighbor.value;
+                                fpost_stm(cell, q) = neighbor.value / static_cast<T>(refFactor);
                             }
                         }
                     }

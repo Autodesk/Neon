@@ -76,7 +76,7 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                                         }
                                     }
                                 }
-                                fpost_col(cell, q) += sum / static_cast<T>(num * refFactor);
+                                fpost_col(cell, q) += sum / static_cast<T>(num);
                             }
                         }
                     }
