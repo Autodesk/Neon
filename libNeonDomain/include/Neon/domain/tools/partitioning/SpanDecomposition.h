@@ -127,11 +127,11 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
         }
     });
 
-    {
-        int ndevs = backend.getDeviceCount();
-        int minSlice = 3;
+   if(backend.getDeviceCount()>1) {
+        const int ndevs = backend.getDeviceCount();
+        const int minSlice = 3;
         for (int i = ndevs - 1; i > -1; i--) {
-            int diff = minSlice - (mZLastIdx[i] - mZFirstIdx[i]+1);
+            int diff = minSlice - (mZLastIdx[i] - mZFirstIdx[i] + 1);
             if (diff > 0) {
                 if (i == 0) {
                     NeonException exc("SpanDecomposition");

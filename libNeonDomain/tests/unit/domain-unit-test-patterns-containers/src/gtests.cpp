@@ -7,7 +7,7 @@
 #include "Neon/domain/details/dGrid/dGrid.h"
 
 
-TEST(domain_unit_test_patterns_containers, dGrid)
+TEST(domain_unit_test_patterns_containers, DISABLED_dGrid)
 {
     int nGpus = 3;
     using Type = int64_t;

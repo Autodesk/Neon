@@ -29,15 +29,15 @@ auto defContainer(int    streamIdx,
                 a(e, 0) = globalPoint.x ;
                 b(e, 0) = globalPoint.y;
                 c(e, 0) = globalPoint.z;
-                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
-                    printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
-                           e.mInDataBlockIdx.x,
-                           e.mInDataBlockIdx.y,
-                           e.mInDataBlockIdx.z,
-                           globalPoint.x,
-                           globalPoint.y,
-                           globalPoint.z);
-                }
+//                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
+//                    printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
+//                           e.mInDataBlockIdx.x,
+//                           e.mInDataBlockIdx.y,
+//                           e.mInDataBlockIdx.z,
+//                           globalPoint.x,
+//                           globalPoint.y,
+//                           globalPoint.z);
+//                }
             };
         });
 }

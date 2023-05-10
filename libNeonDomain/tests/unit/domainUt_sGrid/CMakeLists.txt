@@ -16,4 +16,4 @@ set_target_properties(domainUt_sGrid PROPERTIES
 set_target_properties(domainUt_sGrid PROPERTIES FOLDER "libNeonDomain")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "gUt_containers" FILES ${SrcFiles})
 
-add_test(NAME gUt_containers COMMAND gUt_containers)
+add_test(NAME domainUt_sGrid COMMAND domainUt_sGrid)

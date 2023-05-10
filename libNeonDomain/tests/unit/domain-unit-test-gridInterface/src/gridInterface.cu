@@ -24,7 +24,7 @@ auto run(TestData<G, T, C>& data) -> void
         auto& grid = X.getGrid();
         {
             auto dim = grid.getDimension();
-            ASSERT_EQ(dim.x, data.getDimention().x);
+            ASSERT_EQ(dim.x, data.getDimention().x) << "Computed "<<dim.x << " golden reference " << data.getDimention().x;
             ASSERT_EQ(dim.y, data.getDimention().y);
             ASSERT_EQ(dim.z, data.getDimention().z);
         }

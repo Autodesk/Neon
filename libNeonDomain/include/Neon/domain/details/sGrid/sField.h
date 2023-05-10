@@ -36,7 +36,7 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
     // New Naming:
     using Partition = sPartition<OuterGridT, T, C>; /**< Type of the associated fieldCompute */
     using Type = typename Partition::Type /**< Type of the information stored in one element */;
-    using Cell = typename Partition::Idx /**< Internal type that represent the location in memory of a element */;
+    using Idx = typename Partition::Idx /**< Internal type that represent the location in memory of a element */;
     using Grid = sGrid<OuterGridT>;
     using Field = sField<OuterGridT, T, C>;
     static constexpr int Cardinality = C;

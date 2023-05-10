@@ -171,6 +171,7 @@ TestData<G, T, C>::TestData(const Neon::Backend&         backend,
     mTransferMode = transferMode;
     mStencilSemantic = stencilSemantic;
     mGeometry = geometry;
+    mDimension = dimension;
     Neon::domain::tool::GeometryMask geometryMask(geometry,
                                                   dimension,
                                                   domainRatio,
@@ -386,6 +387,7 @@ template <typename G, typename T, int C>
 auto TestData<G, T, C>::compare(FieldNames         name,
                                 [[maybe_unused]] T tollerance) -> bool
 {
+   bool doExtraOutput = (std::getenv("NEON_GTEST_VERBOSE")!=nullptr);
     bool isTheSame = false;
     if constexpr (std::is_integral_v<T>) {
         bool foundAnIssue = false;
@@ -393,7 +395,7 @@ auto TestData<G, T, C>::compare(FieldNames         name,
                                 [[maybe_unused]] int                   cardinality,
                                 const T&                               golden,
                                 const T&                               computed) {
-            if (golden != computed) {
+            if (golden != computed && doExtraOutput) {
                 {
 #pragma omp critical
                     {

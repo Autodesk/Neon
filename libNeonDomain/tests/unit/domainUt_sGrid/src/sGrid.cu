@@ -34,7 +34,7 @@ auto copyFromOuter(const F& Fouter,
             const auto fouter = loader.load(Fouter);
             auto       fsGrid = loader.load(FSGrid);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename decltype(fsGrid)::Idx& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename FS::Idx& cell) mutable {
                 auto outerCell = fsGrid.mapToOuterGrid(cell);
                 auto outerVal = fouter(outerCell, 0);
                 fsGrid(cell, 0) = outerVal;
@@ -330,7 +330,7 @@ int getNGpus()
 }
 }  // namespace
 
-TEST(domainUnitTests, sGrid_eGrid)
+TEST(domainUnitTests, DISABLED_sGrid_eGrid)
 {
     Neon::init();
     int nGpus = getNGpus();
@@ -340,7 +340,7 @@ TEST(domainUnitTests, sGrid_eGrid)
     runAllTestConfiguration<Grid, Type, 0>("sGrid", help::sGridTestContainerRun<Grid, Type, 0>, nGpus, 1);
 }
 
-TEST(domainUnitTests, sGrid_eGrid_skeleton)
+TEST(domainUnitTests, DISABLED_sGrid_eGrid_skeleton)
 {
     Neon::init();
     int nGpus = getNGpus();

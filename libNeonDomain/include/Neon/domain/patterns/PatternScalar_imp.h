@@ -74,7 +74,7 @@ auto PatternScalar<T>::getPartition([[maybe_unused]] Neon::Execution execution,
                                     [[maybe_unused]] Neon::SetIdx    setIdx,
                                     [[maybe_unused]] const DataView& dataView) const -> const PatternScalar::Partition&
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    return *this;
 }
 
 template <typename T>
@@ -94,7 +94,7 @@ auto PatternScalar<T>::getPartition([[maybe_unused]] Neon::Execution execution,
                                     [[maybe_unused]] const DataView& dataView)
     -> PatternScalar::Partition&
 {
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    return *this;
 }
 
 template <typename T>
