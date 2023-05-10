@@ -374,6 +374,8 @@ class Vec_3d<IntegerType_ta, true, false>
 
     NEON_CUDA_HOST_DEVICE inline bool operator!=(const Integer other[self_t::num_axis]) const;
 
+    NEON_CUDA_HOST_DEVICE inline self_t operator-() const;
+
     /** Returns the most north-est-hi point buildable with A and B coordinates"
      * C = A >> B  is: C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
      *   @param[in] B: second point for the operation.

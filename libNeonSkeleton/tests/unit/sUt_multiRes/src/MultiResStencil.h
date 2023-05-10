@@ -29,8 +29,7 @@ void MultiResSameLevelStencil()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //grid.topologyToVTK("grid111.vtk", false);
-
+        
         auto XField = grid.newField<Type>("XField", 1, -1);
         auto YField = grid.newField<Type>("YField", 1, -1);
 
@@ -53,7 +52,7 @@ void MultiResSameLevelStencil()
             XField.updateDeviceData();
             YField.updateDeviceData();
         }
-        //XField.ioToVtk("f", "f");
+        //XField.ioToVtk("f");
 
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {

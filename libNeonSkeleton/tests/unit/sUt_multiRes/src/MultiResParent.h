@@ -70,7 +70,7 @@ void MultiResParent()
                     return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
                         if (xLocal.hasParent(cell)) {
                             hasParentLocal(cell, 0) = 1;
-                            xLocal(cell, 0) = xLocal.parent(cell, 0);
+                            xLocal(cell, 0) = xLocal.parentVal(cell, 0);
                         } else {
                             hasParentLocal(cell, 0) = -1;
                         }
@@ -154,8 +154,7 @@ void MultiResAtomicAddParent()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //grid.topologyToVTK("grid111.vtk", false);
-
+        
         auto XField = grid.newField<Type>("XField", 1, -1);
 
 
@@ -171,7 +170,7 @@ void MultiResAtomicAddParent()
         if (bk.runtime() == Neon::Runtime::stream) {
             XField.updateDeviceData();
         }
-        //XField.ioToVtk("f", "f");
+        //XField.ioToVtk("f");
 
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
@@ -184,11 +183,11 @@ void MultiResAtomicAddParent()
                         if (xLocal.hasParent(cell)) {
 
 #ifdef NEON_PLACE_CUDA_DEVICE
-                            atomicAdd(&xLocal.parent(cell, 0), xLocal(cell, 0));
+                            atomicAdd(&xLocal.parentVal(cell, 0), xLocal(cell, 0));
 #else
 
 #pragma omp atomic
-                            xLocal.parent(cell, 0) += xLocal(cell, 0);
+                            xLocal.parentVal(cell, 0) += xLocal(cell, 0);
 #endif
                         }
                     };

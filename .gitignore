@@ -49,3 +49,7 @@ script/*
 libNeonCore/src/core/git_sha1.cpp
 
 temp
+
+docs/doxygen/html/
+
+docs/doxygen/latex/

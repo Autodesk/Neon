@@ -65,6 +65,7 @@ mField<T, C>::mField(const std::string&         name,
                         active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
                         (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),  //lower-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
+                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getNeighbourBlocks().rawMem(gpuID, Neon::DeviceType::CPU),  //parent neighbor
                         outsideVal,
                         stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
                         refFactorSet.rawMem(gpuID, Neon::DeviceType::CPU),
@@ -85,6 +86,7 @@ mField<T, C>::mField(const std::string&         name,
                         active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
                         (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),  //lower-level mask
                         (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
+                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getNeighbourBlocks().rawMem(gpuID, Neon::DeviceType::CUDA),  //parent neighbor
                         outsideVal,
                         stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),
                         refFactorSet.rawMem(gpuID, Neon::DeviceType::CUDA),
@@ -214,12 +216,14 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
-            loader.load(operator()(level + 1), Neon::Compute::MAP);
+            const auto& parent = operator()(level + 1);
+            loader.load(parent, Neon::Compute::STENCIL);
             return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
-            loader.load(operator()(level - 1), Neon::Compute::MAP);
+            const auto& child = operator()(level - 1);
+            loader.load(child, Neon::Compute::STENCIL);
             return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
@@ -244,12 +248,14 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
-            loader.load(operator()(level + 1), Neon::Compute::MAP);
+            const auto& parent = operator()(level + 1);
+            loader.load(parent, Neon::Compute::STENCIL);
             return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
-            loader.load(operator()(level - 1), Neon::Compute::MAP);
+            const auto& child = operator()(level - 1);
+            loader.load(child, Neon::Compute::STENCIL);
             return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
@@ -260,39 +266,172 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
 
 
 template <typename T, int C>
-auto mField<T, C>::ioToVtk(const std::string& fileName,
-                           const std::string& fieldName,
-                           Neon::IoFileType   ioFileType) const -> void
+auto mField<T, C>::ioToVtk(std::string fileName,
+                           bool        outputLevels,
+                           bool        outputBlockID,
+                           bool        outputVoxelID,
+                           bool        filterOverlaps) const -> void
 {
-    const auto& descriptor = mData->grid->getDescriptor();
+    auto l0Dim = mData->grid->getDimension(0);
 
-    for (int l = 0; l < descriptor.getDepth(); ++l) {
-
-        double spacing = double(descriptor.getSpacing(l - 1));
-
-        auto iovtk = IoToVTK<int, T>(fileName + "_level" + std::to_string(l),
-                                     mData->grid->getDimension(l) + 1,
-                                     {spacing, spacing, spacing},
-                                     {0, 0, 0},
-                                     ioFileType);
-
-
-        iovtk.addField(
-            [&](Neon::index_3d idx, int card) -> T {
-                idx = descriptor.toBaseIndexSpace(idx, l);
-
-                if (mData->grid->isInsideDomain(idx, l)) {
-                    return getReference(idx, card, l);
-                } else {
-                    return mData->fields[l].getOutsideValue();
-                }
-            },
-            mData->fields[l].getCardinality(), fieldName, ioToVTKns::VtiDataType_e::voxel);
-
-        iovtk.flushAndClear();
+    std::ofstream file(fileName + ".vtk");
+    file << "# vtk DataFile Version 2.0\n";
+    file << "mGrid\n";
+    file << "ASCII\n";
+    file << "DATASET UNSTRUCTURED_GRID\n";
+    file << "POINTS " << (l0Dim.rMax() + 1) * (l0Dim.rMax() + 1) * (l0Dim.rMax() + 1) << " float \n";
+    for (int z = 0; z < l0Dim.rMax() + 1; ++z) {
+        for (int y = 0; y < l0Dim.rMax() + 1; ++y) {
+            for (int x = 0; x < l0Dim.rMax() + 1; ++x) {
+                file << x << " " << y << " " << z << "\n";
+            }
+        }
     }
-}
 
+    uint64_t num_cells = 0;
+
+    auto mapTo1D = [&](int x, int y, int z) {
+        return x +
+               y * (l0Dim.rMax() + 1) +
+               z * (l0Dim.rMax() + 1) * (l0Dim.rMax() + 1);
+    };
+
+    enum class Op : int
+    {
+        Count = 0,
+        OutputTopology = 1,
+        OutputLevels = 2,
+        OutputBlockID = 3,
+        OutputVoxelID = 4,
+        OutputData = 5,
+    };
+
+    auto desc = mData->grid->getDescriptor();
+    auto card = (*this)(0).getCardinality();
+
+    auto loopOverActiveBlocks = [&](const Op op) {
+        for (int l = 0; l < desc.getDepth(); ++l) {
+            const int refFactor = desc.getRefFactor(l);
+            const int childSpacing = desc.getSpacing(l - 1);
+
+            (*(mData->grid))(l).getBlockOriginTo1D().forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
+                // TODO need to figure out which device owns this block
+                SetIdx devID(0);
+
+
+                for (int z = 0; z < refFactor; z++) {
+                    for (int y = 0; y < refFactor; y++) {
+                        for (int x = 0; x < refFactor; x++) {
+                            Cell cell(static_cast<Cell::Location::Integer>(x),
+                                      static_cast<Cell::Location::Integer>(y),
+                                      static_cast<Cell::Location::Integer>(z));
+                            cell.mBlockID = blockIdx;
+                            cell.mBlockSize = refFactor;
+
+                            if (cell.computeIsActive(
+                                    (*(mData->grid))(l).getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
+
+                                Neon::int32_3d corner(blockOrigin.x + x * childSpacing,
+                                                      blockOrigin.y + y * childSpacing,
+                                                      blockOrigin.z + z * childSpacing);
+
+                                bool draw = true;
+                                if (filterOverlaps && l != 0) {
+                                    auto cornerIDIter = (*(mData->grid))(l - 1).getBlockOriginTo1D().getMetadata(corner);
+                                    if (cornerIDIter) {
+                                        draw = false;
+                                    }
+                                }
+
+                                if (draw) {
+                                    if (op == Op::Count) {
+                                        num_cells++;
+                                    } else if (op == Op::OutputTopology) {
+
+                                        file << "8 ";
+                                        //x,y,z
+                                        file << mapTo1D(corner.x, corner.y, corner.z) << " ";
+                                        //+x,y,z
+                                        file << mapTo1D(corner.x + childSpacing, corner.y, corner.z) << " ";
+
+                                        //x,+y,z
+                                        file << mapTo1D(corner.x, corner.y + childSpacing, corner.z) << " ";
+
+                                        //+x,+y,z
+                                        file << mapTo1D(corner.x + childSpacing, corner.y + childSpacing, corner.z) << " ";
+
+                                        //x,y,+z
+                                        file << mapTo1D(corner.x, corner.y, corner.z + childSpacing) << " ";
+
+                                        //+x,y,+z
+                                        file << mapTo1D(corner.x + childSpacing, corner.y, corner.z + childSpacing) << " ";
+
+                                        //x,+y,+z
+                                        file << mapTo1D(corner.x, corner.y + childSpacing, corner.z + childSpacing) << " ";
+
+                                        //+x,+y,+z
+                                        file << mapTo1D(corner.x + childSpacing, corner.y + childSpacing, corner.z + childSpacing) << " ";
+                                        file << "\n";
+                                    } else if (op == Op::OutputLevels) {
+                                        file << l << "\n";
+                                    } else if (op == Op::OutputBlockID) {
+                                        file << blockIdx << "\n";
+                                    } else if (op == Op::OutputVoxelID) {
+                                        file << x + y * refFactor + z * refFactor * refFactor
+                                             << "\n";
+                                    } else if (op == Op::OutputData) {
+                                        for (int c = 0; c < card; ++c) {
+                                            file << (*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(cell, c) << "\n";
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    };
+
+    loopOverActiveBlocks(Op::Count);
+
+    file << "CELLS " << num_cells << " " << num_cells * 9 << " \n";
+
+    loopOverActiveBlocks(Op::OutputTopology);
+
+    file << "CELL_TYPES " << num_cells << " \n";
+    for (uint64_t i = 0; i < num_cells; ++i) {
+        file << 11 << "\n";
+    }
+
+    file << "CELL_DATA " << num_cells << " \n";
+
+    //data
+    file << "SCALARS " << (*this)(0).getName() << " float " << card << "\n";
+    file << "LOOKUP_TABLE default \n";
+    loopOverActiveBlocks(Op::OutputData);
+
+    if (outputLevels) {
+        file << "SCALARS Level int 1 \n";
+        file << "LOOKUP_TABLE default \n";
+        loopOverActiveBlocks(Op::OutputLevels);
+    }
+
+    if (outputBlockID) {
+        file << "SCALARS BlockID int 1 \n";
+        file << "LOOKUP_TABLE default \n";
+        loopOverActiveBlocks(Op::OutputBlockID);
+    }
+
+    if (outputVoxelID) {
+        file << "SCALARS VoxelID int 1 \n";
+        file << "LOOKUP_TABLE default \n";
+        loopOverActiveBlocks(Op::OutputVoxelID);
+    }
+
+
+    file.close();
+}
 
 template <typename T, int C>
 auto mField<T, C>::getSharedMemoryBytes(const int32_t stencilRadius, int level) const -> size_t
