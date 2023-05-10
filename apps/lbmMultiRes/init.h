@@ -100,7 +100,7 @@ uint32_t init(Neon::domain::mGrid&                  grid,
 
 
     //init sumStore
-    for (int level = 0; level < grid.getDescriptor().getDepth(); ++level) {
+    for (int level = 0; level < grid.getDescriptor().getDepth() - 1; ++level) {
 
         auto container =
             grid.getContainer(
