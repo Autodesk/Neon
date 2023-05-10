@@ -16,10 +16,12 @@
 
 template <typename T, int Q>
 void nonUniformTimestepRecursive(Neon::domain::mGrid&                        grid,
+                                 const bool                                  fineInitStore,
                                  const T                                     omega0,
                                  const int                                   level,
                                  const int                                   numLevels,
                                  const Neon::domain::mGrid::Field<CellType>& cellType,
+                                 const Neon::domain::mGrid::Field<int>&      sumStore,
                                  Neon::domain::mGrid::Field<T>&              fin,
                                  Neon::domain::mGrid::Field<T>&              fout,
                                  std::vector<Neon::set::Container>&          containers)
@@ -30,18 +32,21 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
     if (level != numLevels - 1) {
-        containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
-        //containers.push_back(storeFine<T, Q>(grid, level, fout));
+        if (fineInitStore) {
+            containers.push_back(storeFine<T, Q>(grid, level, fout));
+        } else {
+            containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+        }
     }
 
 
     // 3) recurse down
     if (level != 0) {
-        nonUniformTimestepRecursive<T, Q>(grid, omega0, level - 1, numLevels, cellType, fin, fout, containers);
+        nonUniformTimestepRecursive<T, Q>(grid, fineInitStore, omega0, level - 1, numLevels, cellType, sumStore, fin, fout, containers);
     }
 
     // 4) Streaming step that also performs the necessary "explosion" and "coalescence" steps.
-    stream<T, Q>(grid, level, numLevels, cellType, fout, fin, containers);
+    stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
 
     // 5) stop
     if (level == numLevels - 1) {
@@ -55,17 +60,20 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
     if (level != numLevels - 1) {
-        containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
-        //containers.push_back(storeFine<T, Q>(grid, level, fout));
+        if (fineInitStore) {
+            containers.push_back(storeFine<T, Q>(grid, level, fout));
+        } else {
+            containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+        }
     }
 
     // 8) recurse down
     if (level != 0) {
-        nonUniformTimestepRecursive<T, Q>(grid, omega0, level - 1, numLevels, cellType, fin, fout, containers);
+        nonUniformTimestepRecursive<T, Q>(grid, fineInitStore, omega0, level - 1, numLevels, cellType, sumStore, fin, fout, containers);
     }
 
     // 9) Streaming step
-    stream<T, Q>(grid, level, numLevels, cellType, fout, fin, containers);
+    stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
 }
 
 
@@ -73,6 +81,7 @@ template <typename T, int Q>
 void runNonUniformLBM(const int           problemID,
                       const Neon::Backend backend,
                       const int           numIter,
+                      const bool          fineInitStore,
                       const bool          benchmark)
 {
 
@@ -132,22 +141,25 @@ void runNonUniformLBM(const int           problemID,
     //allocate fields
     auto fin = grid.newField<T>("fin", Q, 0);
     auto fout = grid.newField<T>("fout", Q, 0);
+    auto storeSum = grid.newField<int>("storeSum", Q, 0);
     auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
     auto vel = grid.newField<T>("vel", 3, 0);
     auto rho = grid.newField<T>("rho", 1, 0);
 
     //init fields
-    uint32_t numActiveVoxels = init<T, Q>(grid, fin, fout, cellType, vel, rho, ulid);
+    uint32_t numActiveVoxels = init<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, ulid);
 
 
     //skeleton
     std::vector<Neon::set::Container> containers;
     nonUniformTimestepRecursive<T, Q>(grid,
+                                      fineInitStore,
                                       omega,
                                       descriptor.getDepth() - 1,
                                       descriptor.getDepth(),
                                       cellType,
+                                      storeSum,
                                       fin, fout, containers);
 
     Neon::skeleton::Skeleton skl(grid.getBackend());
@@ -184,6 +196,7 @@ int main(int argc, char** argv)
         int         deviceId = 0;
         int         numIter = 2;
         bool        benchmark = true;
+        bool        fineInitStore = true;
         int         problemId = 0;
 
         auto cli =
@@ -193,7 +206,10 @@ int main(int argc, char** argv)
              clipp::option("--problemId") & clipp::integer("problemId", problemId) % "Problem ID (0 or 1)",
 
              ((clipp::option("--benchmark").set(benchmark, true) % "Run benchmark mode") |
-              (clipp::option("--visual").set(benchmark, false) % "Run export partial data")));
+              (clipp::option("--visual").set(benchmark, false) % "Run export partial data")),
+
+             ((clipp::option("--storeFine").set(fineInitStore, true) % "Initiate the store operation from the fine level") |
+              (clipp::option("--storeCoarse").set(fineInitStore, false) % "Initiate the store operation from the coarse level")));
 
 
         if (!clipp::parse(argc, argv, cli)) {
@@ -215,7 +231,7 @@ int main(int argc, char** argv)
         using T = double;
         constexpr int Q = 19;
 
-        runNonUniformLBM<T, Q>(problemId, backend, numIter, benchmark);
+        runNonUniformLBM<T, Q>(problemId, backend, numIter, fineInitStore, benchmark);
     }
     return 0;
 }

@@ -7,6 +7,7 @@
 
 template <typename T, int Q>
 uint32_t init(Neon::domain::mGrid&                  grid,
+              Neon::domain::mGrid::Field<int>&      sumStore,
               Neon::domain::mGrid::Field<T>&        fin,
               Neon::domain::mGrid::Field<T>&        fout,
               Neon::domain::mGrid::Field<CellType>& cellType,
@@ -31,12 +32,13 @@ uint32_t init(Neon::domain::mGrid&                  grid,
         auto container =
             grid.getContainer(
                 "Init_" + std::to_string(level), level,
-                [&fin, &fout, &cellType, &vel, &rho, level, gridDim, ulid, dNumActiveVoxels](Neon::set::Loader& loader) {
+                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, ulid, dNumActiveVoxels](Neon::set::Loader& loader) {
                     auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& u = vel.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& rh = rho.load(loader, level, Neon::MultiResCompute::MAP);
+                    auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::MAP);
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         //velocity and density
@@ -45,6 +47,10 @@ uint32_t init(Neon::domain::mGrid&                  grid,
                         u(cell, 2) = 0;
                         rh(cell, 0) = 0;
                         type(cell, 0) = CellType::bulk;
+
+                        for (int q = 0; q < Q; ++q) {
+                            ss(cell, q) = 0;
+                        }
 
 #ifdef NEON_PLACE_CUDA_DEVICE
                         atomicAdd(dNumActiveVoxels, 1);
@@ -91,6 +97,57 @@ uint32_t init(Neon::domain::mGrid&                  grid,
 
         container.run(0);
     }
+
+
+    //init sumStore
+    for (int level = 0; level < grid.getDescriptor().getDepth(); ++level) {
+
+        auto container =
+            grid.getContainer(
+                "InitSumStore_" + std::to_string(level), level,
+                [&sumStore, level, gridDim](Neon::set::Loader& loader) {
+                    auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
+
+                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                        if (ss.hasParent(cell)) {
+
+                            for (int8_t q = 1; q < Q; ++q) {
+
+                                const Neon::int8_3d qDir = getDir(q);
+
+                                const Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, qDir);
+
+                                const auto cn = ss.getNghCell(cell, uncleDir);
+
+                                if (!cn.isActive()) {
+
+                                    const auto uncle = ss.getUncle(cell, uncleDir);
+                                    if (uncle.isActive()) {
+
+                                        //locate the coarse cell where we should store this cell info
+                                        const Neon::int8_3d CsDir = uncleDir - qDir;
+
+                                        const auto cs = ss.getUncle(cell, CsDir);
+
+                                        if (cs.isActive()) {
+
+#ifdef NEON_PLACE_CUDA_DEVICE
+                                            atomicAdd(&ss.uncleVal(cell, CsDir, q), int(1));
+#else
+#pragma omp atomic
+                                            ss.uncleVal(cell, CsDir, q) += 1;
+#endif
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+                });
+
+        container.run(0);
+    }
+
 
     grid.getBackend().syncAll();
 

@@ -4,7 +4,7 @@
 
 template <typename T, int Q>
 inline Neon::set::Container stream(Neon::domain::mGrid&                        grid,
-                                   int                                         level,
+                                   const int                                   level,
                                    const Neon::domain::mGrid::Field<CellType>& cellType,
                                    const Neon::domain::mGrid::Field<T>&        postCollision,
                                    Neon::domain::mGrid::Field<T>&              postStreaming)
@@ -50,9 +50,11 @@ inline Neon::set::Container stream(Neon::domain::mGrid&                        g
 
 template <typename T, int Q>
 inline void stream(Neon::domain::mGrid&                        grid,
-                   int                                         level,
+                   const bool                                  fineInitStore,
+                   const int                                   level,
                    const int                                   numLevels,
                    const Neon::domain::mGrid::Field<CellType>& cellType,
+                   const Neon::domain::mGrid::Field<int>&      sumStore,
                    const Neon::domain::mGrid::Field<T>&        postCollision,  //fout
                    Neon::domain::mGrid::Field<T>&              postStreaming,  //fin
                    std::vector<Neon::set::Container>&          containers)
@@ -75,6 +77,6 @@ inline void stream(Neon::domain::mGrid&                        grid,
         /* Coalescence: pull missing populations from finer neighbors by "smart" averaging fine (level-1) 
         * to coarse (level) communication, initiated by the coarse level ("Pull").
         */
-        containers.push_back(coalescencePull<T, Q>(grid, level, postCollision, postStreaming));
+        containers.push_back(coalescencePull<T, Q>(grid, fineInitStore, level, sumStore, postCollision, postStreaming));
     }
 }
