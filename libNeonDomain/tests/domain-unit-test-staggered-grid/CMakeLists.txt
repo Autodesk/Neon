@@ -14,6 +14,6 @@ set_target_properties(domain-unit-test-staggered-grid PROPERTIES
 		CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 set_target_properties(domain-unit-test-staggered-grid PROPERTIES FOLDER "libNeonDomain")
-source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "gUt_containers" FILES ${SrcFiles})
+source_group(TREE . PREFIX "gUt_containers" FILES ${SrcFiles})
 
 add_test(NAME domain-unit-test-staggered-grid COMMAND domain-unit-test-staggered-grid)

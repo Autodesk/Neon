@@ -12,6 +12,6 @@ set_target_properties(domain-unit-test-cast PROPERTIES
 	CUDA_SEPARABLE_COMPILATION ON
 	CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(domain-unit-test-cast PROPERTIES FOLDER "libNeonDomain")
-source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "domain-unit-test-cast" FILES ${SrcFiles})
+source_group(TREE . PREFIX "domain-unit-test-cast" FILES ${SrcFiles})
 
 add_test(NAME domain-unit-test-cast COMMAND domain-unit-test-cast)

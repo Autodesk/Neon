@@ -9,6 +9,6 @@ target_link_libraries(gUt_dataView_patterns
 	PUBLIC gtest_main)
 
 set_target_properties(gUt_dataView_patterns PROPERTIES FOLDER "libNeonDomain")
-source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "gUt_dataView_patterns" FILES ${SrcFiles})
+source_group(TREE . PREFIX "gUt_dataView_patterns" FILES ${SrcFiles})
 
 add_test(NAME gUt_dataView_patterns COMMAND gUt_dataView_patterns)

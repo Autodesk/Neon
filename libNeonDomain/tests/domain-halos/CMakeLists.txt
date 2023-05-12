@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
-set(APP_NAME domain-unit-test-halos)
+set(APP_NAME domain-halos)
 
 file(GLOB_RECURSE SrcFiles src/*.*)
 add_executable(${APP_NAME} ${SrcFiles})

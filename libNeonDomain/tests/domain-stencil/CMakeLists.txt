@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
-set(APP_NAME domain-unit-test-stencil)
+set(APP_NAME domain-stencil)
 
 file(GLOB_RECURSE SrcFiles src/*.*)
 add_executable(${APP_NAME} ${SrcFiles})

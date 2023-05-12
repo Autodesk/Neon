@@ -81,7 +81,6 @@ void runAllTestConfiguration(
                                                    geo);
 
                         NEON_INFO(testData.toString());
-                        std::cout << testData.toString() << std::endl;
                         f(testData);
                     }
                 }
