@@ -59,6 +59,10 @@ struct Loader
     {
     }
 
+    auto getExecution() const -> Neon::Execution;
+    auto getSetIdx() const -> Neon::SetIdx;
+    auto getDataView() const -> Neon::DataView;
+
    public:
     template <typename Field_ta>
     auto load(Field_ta&       field,

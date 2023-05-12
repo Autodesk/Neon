@@ -6,38 +6,37 @@
 #include "gtest/gtest.h"
 
 
-namespace globalIdx {
+namespace hostContainer {
 
 template <typename Field>
-auto defContainer(int    streamIdx,
-                  Field& filedA,
+auto defContainer(Field& filedA,
                   Field& filedB,
                   Field& filedC)
     -> Neon::set::Container
 {
     const auto& grid = filedA.getGrid();
-    return grid.newContainer(
+    return grid.template newContainer<Neon::Execution::host>(
         "defContainer",
         [&](Neon::set::Loader& loader) {
             auto a = loader.load(filedA);
             auto b = loader.load(filedB);
             auto c = loader.load(filedC);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
+            return [=](const typename Field::Idx& e) mutable {
                 // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                 Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                a(e, 0) = globalPoint.x ;
+                a(e, 0) = globalPoint.x;
                 b(e, 0) = globalPoint.y;
                 c(e, 0) = globalPoint.z;
-//                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
-//                    printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
-//                           e.mInDataBlockIdx.x,
-//                           e.mInDataBlockIdx.y,
-//                           e.mInDataBlockIdx.z,
-//                           globalPoint.x,
-//                           globalPoint.y,
-//                           globalPoint.z);
-//                }
+                //                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
+                //                    printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
+                //                           e.mInDataBlockIdx.x,
+                //                           e.mInDataBlockIdx.y,
+                //                           e.mInDataBlockIdx.z,
+                //                           globalPoint.x,
+                //                           globalPoint.y,
+                //                           globalPoint.z);
+                //                }
             };
         });
 }
@@ -62,10 +61,12 @@ auto run(TestData<G, T, C>& data) -> void
         auto& Y = data.getField(FieldNames::Y);
         auto& Z = data.getField(FieldNames::Z);
 
+        defContainer(X, Y, Z)
+            .run(Neon::Backend::mainStreamIdx);
 
-        defContainer(Neon::Backend::mainStreamIdx,
-                     X, Y, Z)
-            .run(0);
+        X.updateDeviceData(0);
+        Y.updateDeviceData(0);
+        Z.updateDeviceData(0);
 
         data.getBackend().sync(0);
     }
@@ -76,10 +77,10 @@ auto run(TestData<G, T, C>& data) -> void
         auto& Z = data.getIODomain(FieldNames::Z);
 
         data.forEachActiveIODomain([&](const Neon::index_3d& idx,
-                                       int                   cardinality,
-                                       Type&                 a,
-                                       Type&                 b,
-                                       Type&                 c) {
+                                       int,
+                                       Type& a,
+                                       Type& b,
+                                       Type& c) {
             a = idx.x;
             b = idx.y;
             c = idx.z;
@@ -98,4 +99,4 @@ template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -
 template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
 template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
 
-}  // namespace globalIdx
+}  // namespace hostContainer

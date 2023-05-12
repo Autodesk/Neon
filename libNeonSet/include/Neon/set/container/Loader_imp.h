@@ -94,41 +94,6 @@ struct DataTransferExtractor
     }
 };
 
-// template <typename Field_ta>
-// struct HaloUpdatePerDeviceExtractor_t
-//{
-//     // field.haloUpdate(bk, opt);
-//     // const Neon::set::Backend& /*bk*/,
-//     // Neon::set::HuOptions_t& /*opt*/
-//    private:
-//     template <typename T>
-//     using HaloUpdatePerDevice = decltype(std::declval<T>().haloUpdate(std::declval<Neon::SetIdx&>(),
-//                                                                       std::declval<Neon::set::HuOptions&>()));
-//
-//     template <typename T>
-//     static constexpr bool HasHaloUpdatePerDevice = tmp::is_detected_v<HaloUpdatePerDevice, T>;
-//
-//    public:
-//     static auto get([[maybe_unused]] const Field_ta& field) -> auto
-//     {
-//         if constexpr (HasHaloUpdatePerDevice<Field_ta>) {
-//             auto huFun = [field](Neon::SetIdx          setIdx,
-//                                  Neon::set::HuOptions& opt) {
-//                 field.haloUpdate(setIdx, opt);
-//             };
-//             return huFun;
-//         } else {
-//             auto huFun = [field](Neon::SetIdx          setIdx,
-//                                  Neon::set::HuOptions& opt) {
-//                 (void)opt;
-//                 (void)setIdx;
-//             };
-//
-//             return huFun;
-//         }
-//         NEON_THROW_UNSUPPORTED_OPTION("");
-//     }
-// };
 
 }  // namespace internal
 
@@ -139,7 +104,6 @@ auto Loader::
          StencilSemantic stencilSemantic)
         -> std::enable_if_t<!std::is_const_v<Field_ta>, typename Field_ta::Partition&>
 {
-
     switch (m_loadingMode) {
         case Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA: {
             using namespace Neon::set::dataDependency;
