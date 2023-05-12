@@ -52,7 +52,7 @@ auto run(TestData<G, T, C>& data) -> void
     auto&             grid = data.getGrid();
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
 
-    NEON_INFO(grid.toString());
+    //NEON_INFO(grid.toString());
 
     data.resetValuesToLinear(1, 100);
     T val = T(33);
