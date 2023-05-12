@@ -12,11 +12,11 @@ bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bField()
 
 template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
 bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bField(const std::string&         fieldUserName,
-                     Neon::DataUse              dataUse,
-                     const Neon::MemoryOptions& memoryOptions,
-                     const Grid&                grid,
-                     int                        cardinality,
-                     T                          inactiveValue)
+                                                                     Neon::DataUse              dataUse,
+                                                                     const Neon::MemoryOptions& memoryOptions,
+                                                                     const Grid&                grid,
+                                                                     int                        cardinality,
+                                                                     T                          inactiveValue)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "bField",
@@ -32,7 +32,7 @@ bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bField(const std::
     mData->memoryField = mData->grid->helpGetBlockViewGrid().template newField<T, 0>(
         "BitMask",
         [&] {
-            int elPerBlock = dataBlockSize3D.rMul() ;
+            int elPerBlock = dataBlockSize3D.rMul();
             elPerBlock = elPerBlock * cardinality;
             return elPerBlock;
         }(),
@@ -54,12 +54,12 @@ bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bField(const std::
                 auto& dataBlockOrigins = mData->grid->helpGetDataBlockOriginField().getPartition(execution, setIdx, Neon::DataView::STANDARD);
 
                 partition = bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>(setIdx,
-                                             cardinality,
-                                             memoryFieldPartition.mem(),
-                                             blockConnectivity.mem(),
-                                             bitmask.mem(),
-                                             dataBlockOrigins.mem(),
-                                             mData->grid->helpGetStencilIdTo3dOffset().rawMem(execution, setIdx));
+                                                                                             cardinality,
+                                                                                             memoryFieldPartition.mem(),
+                                                                                             blockConnectivity.mem(),
+                                                                                             bitmask.mem(),
+                                                                                             dataBlockOrigins.mem(),
+                                                                                             mData->grid->helpGetStencilIdTo3dOffset().rawMem(execution, setIdx));
             });
     }
 
@@ -74,7 +74,7 @@ auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::isInsideDomai
 
 template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
 auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getReference(const Neon::index_3d& cartesianIdx,
-                                const int&            cardinality) -> T&
+                                                                                const int&            cardinality) -> T&
 {
     auto& grid = this->getGrid();
     auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
@@ -85,10 +85,13 @@ auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getReference(
 
 template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
 auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::operator()(const Neon::index_3d& cartesianIdx,
-                              const int&            cardinality) const -> T
+                                                                              const int&            cardinality) const -> T
 {
     auto& grid = this->getGrid();
     auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
+    if (setIdx.idx() == -1) {
+        return this->getOutsideValue();
+    }
     auto& partition = getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
     auto& result = partition(bIdx, cardinality);
     return result;
@@ -108,8 +111,8 @@ auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::updateDeviceD
 
 template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
 auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getPartition(Neon::Execution       execution,
-                                Neon::SetIdx          setIdx,
-                                const Neon::DataView& dataView) const -> const Partition&
+                                                                                Neon::SetIdx          setIdx,
+                                                                                const Neon::DataView& dataView) const -> const Partition&
 {
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
@@ -124,8 +127,8 @@ auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getPartition(
 
 template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
 auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getPartition(Neon::Execution       execution,
-                                Neon::SetIdx          setIdx,
-                                const Neon::DataView& dataView) -> Partition&
+                                                                                Neon::SetIdx          setIdx,
+                                                                                const Neon::DataView& dataView) -> Partition&
 {
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
@@ -140,8 +143,8 @@ auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getPartition(
 
 template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
 auto bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::newHaloUpdate(Neon::set::StencilSemantic stencilSemantic,
-                                 Neon::set::TransferMode    transferMode,
-                                 Neon::Execution            execution) const -> Neon::set::Container
+                                                                                 Neon::set::TransferMode    transferMode,
+                                                                                 Neon::Execution            execution) const -> Neon::set::Container
 {
 
 

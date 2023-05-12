@@ -17,9 +17,11 @@ auto laplacianFilter(const Field& A_g,
             return [A, C] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& cell) mutable {
                 typename Field::Type sum = 0;
                 for (int nIdx = 0; nIdx < 6; nIdx++) {
-                    const auto nInfo = A.getNghData(cell, nIdx, 0, typename Field::Type(0));
-                    const auto nVal = nInfo.getData();
-                    sum += nVal;
+                    const auto nInfo = A.getNghData(cell, nIdx, 0);
+                    if (nInfo.isValid()) {
+                        const auto nVal = nInfo.getData();
+                        sum += nVal;
+                    }
                 }
                 C(cell, 0) = -sum + 6 * A(cell, 0);
             };

@@ -15,7 +15,7 @@ auto stencilContainer_laplace(const Field& filedA,
 {
     const auto& grid = filedA.getGrid();
     return grid.newContainer(
-        "mapContainer_axpy",
+        "stencilFun",
         [&](Neon::set::Loader& loader) {
             const auto a = loader.load(filedA, Neon::Compute::STENCIL);
             auto       b = loader.load(fieldB);
@@ -27,50 +27,76 @@ auto stencilContainer_laplace(const Field& filedA,
                     typename Field::Type partial = 0;
                     int                  count = 0;
                     using Ngh3DIdx = Neon::int8_3d;
-                   constexpr std::array< Ngh3DIdx, 6> stencil{
+
+                    constexpr std::array<const Ngh3DIdx, 6> stencil{
                         Ngh3DIdx(1, 0, 0),
                         Ngh3DIdx(-1, 0, 0),
                         Ngh3DIdx(0, 1, 0),
                         Ngh3DIdx(0, -1, 0),
                         Ngh3DIdx(0, 0, 1),
                         Ngh3DIdx(0, 0, -1)};
+
                     for (auto const& direction : stencil) {
-                        typename Field::NghData nghData = a.getNghData(idx, direction, i, 0);
-#if 0
-                        Neon::index_3d globalPoint = a.getGlobalIndex(idx);
-//                        if(globalPoint ==  Neon::index_3d(4,4,3)){
-//                            printf("");
-//                            nghData = a.getNghData(idx, direction, i, 0);
-//                            auto local = a(idx, 0);
-//                            if(local)
-//                            printf("");
-//                        }
-//                        if(globalPoint ==  Neon::index_3d(5,4,3)){
-//                            printf("");
-//                            nghData = a.getNghData(idx, direction, i, 0);
-//                            auto local = a(idx, 0);
-//                            if(local)
-//                            printf("");
-//                        }
-#endif
+                        typename Field::NghData nghData = a.getNghData(idx, direction, i);
                         if (nghData.isValid()) {
-#if 0
-//                            if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
-//
-//                                printf("VALID %d %d %d direction %d %d %d data %ld\n",
-//                                       idx.mInDataBlockIdx.x,
-//                                       idx.mInDataBlockIdx.y,
-//                                       idx.mInDataBlockIdx.z,
-//                                       int(direction.x),
-//                                       int(direction.y),
-//                                       int(direction.z),
-//                                       nghData.getData());
-//                            }
-#endif
                             partial += nghData.getData();
                             count++;
                         }
+                    }
+
+                    b(idx, i) = a(idx, i) - count * partial;
+                }
+            };
+        });
+}
+
+template <typename Field>
+auto stencilContainerLaplaceTemplate(const Field& filedA,
+                                     Field&       fieldB)
+    -> Neon::set::Container
+{
+    const auto& grid = filedA.getGrid();
+    return grid.newContainer(
+        "stencilFun",
+        [&](Neon::set::Loader& loader) {
+            const auto a = loader.load(filedA, Neon::Compute::STENCIL);
+            auto       b = loader.load(fieldB);
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& idx) mutable {
+                int maxCard = a.cardinality();
+                for (int i = 0; i < maxCard; i++) {
+                    // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
+                    typename Field::Type partial = 0;
+                    int                  count = 0;
+                    using Ngh3DIdx = Neon::int8_3d;
+
+                    constexpr std::array<const Ngh3DIdx, 6> stencil{
+                        Ngh3DIdx(1, 0, 0),
+                        Ngh3DIdx(-1, 0, 0),
+                        Ngh3DIdx(0, 1, 0),
+                        Ngh3DIdx(0, -1, 0),
+                        Ngh3DIdx(0, 0, 1),
+                        Ngh3DIdx(0, 0, -1)};
+
+                    auto viaTemplate = [&]<int stencilIdx>() {
+                        if constexpr (std::is_same_v<typename Field::Grid, Neon::dGrid>) {
+                            a.template getNghData<stencil[stencilIdx].x,
+                                                  stencil[stencilIdx].y,
+                                                  stencil[stencilIdx].z>(idx, i,
+                                                                          [&](Field::Type const& val) {
+                                                                              partial += val;
+                                                                              count++;
+                                                                          });
+                        }
                     };
+
+                    viaTemplate.template operator()<0>();
+                    viaTemplate.template operator()<1>();
+                    viaTemplate.template operator()<2>();
+                    viaTemplate.template operator()<3>();
+                    viaTemplate.template operator()<4>();
+                    viaTemplate.template operator()<5>();
+
                     b(idx, i) = a(idx, i) - count * partial;
                 }
             };
@@ -90,7 +116,7 @@ auto run(TestData<G, T, C>& data) -> void
 
     NEON_INFO(grid.toString());
 
-   // data.resetValuesToLinear(1, 100);
+    // data.resetValuesToLinear(1, 100);
     data.resetValuesToMasked(1);
 
     {  // NEON

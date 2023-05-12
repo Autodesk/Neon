@@ -147,23 +147,28 @@ class dPartition
         if (isValidNeighbour) {
             val = operator()(cellNgh, card);
         }
-        return NhgData(val, isValidNeighbour);
+        return NghData(val, isValidNeighbour);
     }
 
-    template <int xOff, int yOff, int zOff>
+    template <int xOff, int yOff, int zOff, typename LambdaVALID, typename LambdaNOTValid = void*>
     NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(const Idx& eId,
-           int        card,
-           const T&   alternativeVal)
-        const -> NghData
+    getNghData(const Idx&     eId,
+               int            card,
+               LambdaVALID    funIfValid,
+               LambdaNOTValid funIfNOTValid = nullptr)
+        const -> void
     {
         Idx        cellNgh;
         const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(eId, cellNgh);
-        T          val = alternativeVal;
         if (isValidNeighbour) {
-            val = operator()(cellNgh, card);
+            T val = operator()(cellNgh, card);
+            funIfValid(val);
         }
-        return NhgData(val, isValidNeighbour);
+        if constexpr (!std::same_as<LambdaNOTValid, void*>) {
+            if (!isValidNeighbour) {
+                funIfNOTValid();
+            }
+        }
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -361,7 +366,7 @@ class dPartition
     {
         auto fnameCommplete = fname + "_" + std::to_string(m_prtID);
         auto haloOrigin = Vec_3d<double>(m_origin.x, m_origin.y, m_origin.z - m_zHaloRadius);
-        auto haloDim = m_dim + Neon::index_3d(0, 0, 2*m_zHaloRadius) +1;
+        auto haloDim = m_dim + Neon::index_3d(0, 0, 2 * m_zHaloRadius) + 1;
 
         IoToVTK<int, int64_t> io(fnameCommplete,
                                  haloDim,

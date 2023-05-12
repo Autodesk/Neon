@@ -90,12 +90,10 @@ bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bGrid(const Neon::Backend
                 "activeBitMaskInit",
                 [&](Neon::set::Loader& loader) {
                     auto bitMask = loader.load(mData->activeBitMask);
-                    return [&](const auto& bitMaskIdx) {
+                    return [&, bitMask](const auto& bitMaskIdx) mutable {
                         auto       prtIdx = bitMask.prtID();
                         int        coutActive = 0;
                         auto const blockOrigin = bitMask.getGlobalIndex(bitMaskIdx);
-                        //                        Neon::index_3d blockSize3d(dataBlockSize, dataBlockSize, dataBlockSize);
-                        //                        auto const     blockOrigin = idx3d * dataBlockSize;
 
                         for (int c = 0; c < bitMask.cardinality(); c++) {
                             bitMask(bitMaskIdx, c) = 0;
@@ -149,7 +147,7 @@ bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bGrid(const Neon::Backend
                                               "blockConnectivityInit",
                                               [&](Neon::set::Loader& loader) {
                                                   auto blockConnectivity = loader.load(mData->blockConnectivity);
-                                                  return [&](auto const& idx) {
+                                                  return [&, blockConnectivity](auto const& idx) mutable {
                                                       for (int8_t k = 0; k < 3; k++) {
                                                           for (int8_t j = 0; j < 3; j++) {
                                                               for (int8_t i = 0; i < 3; i++) {

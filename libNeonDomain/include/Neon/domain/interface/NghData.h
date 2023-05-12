@@ -8,10 +8,11 @@ namespace domain {
 template <typename Type>
 struct NghData
 {
-    Type mData;
-    bool mIsValid;
-    NEON_CUDA_HOST_DEVICE NghData() {
-
+    Type                  mData;
+    bool                  mIsValid;
+    NEON_CUDA_HOST_DEVICE NghData(bool status = false)
+    {
+        this->mIsValid = false;
     }
 
     NEON_CUDA_HOST_DEVICE NghData(const Type& val, bool status)
@@ -24,6 +25,11 @@ struct NghData
     {
         this->mData = val_;
         this->mIsValid = status_;
+    }
+
+    NEON_CUDA_HOST_DEVICE void invalidate()
+    {
+        this->mIsValid = false;
     }
 
     NEON_CUDA_HOST_DEVICE auto isValid() const -> bool

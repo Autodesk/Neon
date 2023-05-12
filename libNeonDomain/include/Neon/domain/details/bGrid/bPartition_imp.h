@@ -190,27 +190,25 @@ template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::
     getNghData(const Idx& eId,
                uint8_t    nghID,
-               int        card,
-               const T&   alternativeVal)
+               int        card)
         const -> NghData
 {
     NghIdx nghOffset = mStencilNghIndex[nghID];
-    return getNghData(eId, nghOffset, card, alternativeVal);
+    return getNghData(eId, nghOffset, card);
 }
 
 template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::
     getNghData(const Idx&    idx,
                const NghIdx& offset,
-               const int     card,
-               const T       alternativeVal)
+               const int     card)
         const -> NghData
 {
     NghData result;
     bIndex  nghIdx = helpGetNghIdx(idx, offset);
     auto [isValid, pitch] = helpNghPitch(nghIdx, card);
     if (!isValid) {
-        result.set(alternativeVal, false);
+        result.invalidate();
         return result;
     }
     auto const value = mMem[pitch];

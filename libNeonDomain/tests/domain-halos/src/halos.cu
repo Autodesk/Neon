@@ -53,7 +53,7 @@ auto haloCheckContainer(const Field&        filedA,
                 bool checkOnValue[3] = {false, false, false};
 
                 for (int i = 0; i < a.cardinality(); i++) {
-                    typename Field::NghData const nghData = a.getNghData(idx, offset, i, 33);
+                    typename Field::NghData const nghData = a.getNghData(idx, offset, i);
 
                     // Checking data
                     if (nghData.isValid()) {

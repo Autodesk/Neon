@@ -74,7 +74,7 @@ auto laplace(const Field& x, Field& y, size_t sharedMem = 0) -> Neon::set::Conta
                     };
 
                     for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
-                        auto neighbor = xLocal.getNghData(gidx, nghIdx, card, Type(0));
+                        auto neighbor = xLocal.getNghData(gidx, nghIdx, card);
                         checkNeighbor(neighbor);
                     }
 

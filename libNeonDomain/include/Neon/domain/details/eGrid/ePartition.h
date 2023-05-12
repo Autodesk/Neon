@@ -167,15 +167,13 @@ class ePartition
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(Idx         eId,
                NghIdx      nghIdx,
-               int         card,
-               const Type& alternativeVal)
+               int         card)
         const -> NghData;
 
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(eIndex               eId,
                const Neon::int8_3d& nghIdx,
-               int                  card,
-               const Type&          alternativeVal)
+               int                  card)
         const -> NghData;
 
 

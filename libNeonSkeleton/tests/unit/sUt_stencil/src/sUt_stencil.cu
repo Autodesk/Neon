@@ -46,7 +46,7 @@ auto laplace(const Field& x, Field& y, bool use_relative_ids) -> Neon::set::Cont
 
                     if (use_relative_ids) {
                         for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
-                            auto neighbor = xLocal.getNghData(gidx, nghIdx, card, Type(0));
+                            auto neighbor = xLocal.getNghData(gidx, nghIdx, card);
                             checkNeighbor(neighbor);
                         }
                     } else {
@@ -57,42 +57,42 @@ auto laplace(const Field& x, Field& y, bool use_relative_ids) -> Neon::set::Cont
                         ngh.x = 1;
                         ngh.y = 0;
                         ngh.z = 0;
-                        auto neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
+                        auto neighbor = xLocal.getNghData(gidx, ngh, card);
                         checkNeighbor(neighbor);
 
                         //-x
                         ngh.x = -1;
                         ngh.y = 0;
                         ngh.z = 0;
-                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card);
                         checkNeighbor(neighbor);
 
                         //+y
                         ngh.x = 0;
                         ngh.y = 1;
                         ngh.z = 0;
-                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card);
                         checkNeighbor(neighbor);
 
                         //-y
                         ngh.x = 0;
                         ngh.y = -1;
                         ngh.z = 0;
-                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card);
                         checkNeighbor(neighbor);
 
                         //+z
                         ngh.x = 0;
                         ngh.y = 0;
                         ngh.z = 1;
-                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card);
                         checkNeighbor(neighbor);
 
                         //-z
                         ngh.x = 0;
                         ngh.y = 0;
                         ngh.z = -1;
-                        neighbor = xLocal.getNghData(gidx, ngh, card, Type(0));
+                        neighbor = xLocal.getNghData(gidx, ngh, card);
                         checkNeighbor(neighbor);
                     }
 
