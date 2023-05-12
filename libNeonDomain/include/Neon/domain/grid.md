@@ -187,7 +187,7 @@ the `FieldBaseTemplate` class that requires information on both the xGrid and xP
     using Self = sField<OuterGridT, Type, Cardinality>;
 
     using Count = typename Partition::Count;
-    using Index = typename Partition::Index;
+    using Idx = typename Partition::Idx;
 
 
    public:

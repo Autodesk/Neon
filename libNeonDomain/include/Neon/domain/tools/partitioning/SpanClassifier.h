@@ -23,7 +23,7 @@ class SpanClassifier
                    const Block3dIdxToBlockOrigin&                   block3dIdxToBlockOrigin,
                    const GetVoxelAbsolute3DIdx&                     getVoxelAbsolute3DIdx,
                    const Neon::int32_3d&                            block3DSpan,
-                   const int&                                       dataBlockEdge,
+                   const Neon::int32_3d&                            dataBlockSize3D,
                    const Neon::int32_3d&                            domainSize,
                    const Neon::domain::Stencil                      stencil,
                    const int&                                       discreteVoxelSpacing,
@@ -109,7 +109,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                                const Block3dIdxToBlockOrigin&     block3dIdxToBlockOrigin,
                                const GetVoxelAbsolute3DIdx&       getVoxelAbsolute3DIdx,
                                const Neon::int32_3d&              block3DSpan,
-                               const int&                         dataBlockEdge,
+                               const Neon::int32_3d&              dataBlockSize3D,
                                const Neon::int32_3d&              domainSize,
                                const Neon::domain::Stencil        stencil,
                                const int&                         discreteVoxelSpacing,
@@ -138,9 +138,9 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
     // Computing the stencil radius at block granularity
     // If the dataBlockEdge is equal to 1 (element sparse block) the radius is
     // the same as the stencil radius.
-    auto const zRadius = [&stencil, dataBlockEdge]() -> int {
+    auto const zRadius = [&stencil, dataBlockSize3D]() -> int {
         auto maxRadius = stencil.getRadius();
-        maxRadius = ((maxRadius - 1) / dataBlockEdge) + 1;
+        maxRadius = ((maxRadius - 1) / dataBlockSize3D.z) + 1;
         return maxRadius;
     }();
 
@@ -171,9 +171,9 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                     Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
 
                     bool doBreak = false;
-                    for (int z = 0; (z < dataBlockEdge && !doBreak); z++) {
-                        for (int y = 0; (y < dataBlockEdge && !doBreak); y++) {
-                            for (int x = 0; (x < dataBlockEdge && !doBreak); x++) {
+                    for (int z = 0; (z < dataBlockSize3D.z && !doBreak); z++) {
+                        for (int y = 0; (y < dataBlockSize3D.y && !doBreak); y++) {
+                            for (int x = 0; (x < dataBlockSize3D.x && !doBreak); x++) {
 
                                 const Neon::int32_3d globalId = getVoxelAbsolute3DIdx(blockOrigin, {x, y, z});
                                 if (globalId < domainSize * discreteVoxelSpacing) {
@@ -197,7 +197,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
 
                         NeonException exception("1D Partitioner");
                         exception << "Domain too small for the number of devices that was providded.\n";
-                        exception << "Block Span "<<block3DSpan<<"\n";
+                        exception << "Block Span " << block3DSpan << "\n";
                         exception << spanDecompositionNoUse->toString(backend);
                         NEON_THROW(exception);
                     }

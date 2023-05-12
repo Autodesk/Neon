@@ -71,13 +71,6 @@ auto run(TestData<G, T, C>& data) -> void
             .run(0);
 
         data.getBackend().sync(0);
-
-        int xv = X.getReference({0,0,0},0);
-        printf("%d \n", xv);
-        int yv = Y.getReference({0,0,0},0);
-        printf("%d \n", yv);
-        int zv = Z.getReference({0,0,0},0);
-        printf("%d \n", zv);
     }
 
     {  // Golden data

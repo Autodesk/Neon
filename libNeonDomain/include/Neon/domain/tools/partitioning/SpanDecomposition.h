@@ -28,7 +28,7 @@ class SpanDecomposition
                       const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
                       const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
                       const Neon::int32_3d&          block3DSpan,
-                      const int&                     blockSize,
+                      const Neon::int32_3d&          blockSize,
                       const Neon::int32_3d&          domainSize,
                       const int&                     discreteVoxelSpacing);
 
@@ -60,7 +60,7 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
                                      const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
                                      const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
                                      const Neon::int32_3d&          block3DSpan,
-                                     const int&                     blockSize,
+                                     const Neon::int32_3d&                 blockSize,
                                      const Neon::int32_3d&          domainSize,
                                      const int&                     discreteVoxelSpacing)
 {
@@ -76,9 +76,9 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
 
                 Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
                 bool           doBreak = false;
-                for (int z = 0; (z < blockSize && !doBreak); z++) {
-                    for (int y = 0; (y < blockSize && !doBreak); y++) {
-                        for (int x = 0; (x < blockSize && !doBreak); x++) {
+                for (int z = 0; (z < blockSize.z && !doBreak); z++) {
+                    for (int y = 0; (y < blockSize.y && !doBreak); y++) {
+                        for (int x = 0; (x < blockSize.x && !doBreak); x++) {
 
                             const Neon::int32_3d id = getVoxelAbsolute3DIdx(blockOrigin, {x, y, z});
                             if (id < domainSize * discreteVoxelSpacing) {
@@ -127,7 +127,7 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
         }
     });
 
-   if(backend.getDeviceCount()>1) {
+    if (backend.getDeviceCount() > 1) {
         const int ndevs = backend.getDeviceCount();
         const int minSlice = 3;
         for (int i = ndevs - 1; i > -1; i--) {

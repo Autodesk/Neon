@@ -9,15 +9,16 @@
 
 namespace Neon::domain::details::bGrid {
 
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
 class bSpan;
 
-template <typename T, int C>
+template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
 class bPartition
 {
    public:
-    using Span = bSpan;
-    using Index = bIndex;
-    using NghIdx = Index::NghIdx;
+    using Span = bSpan<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>;
+    using Idx = bIndex<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>;
+    using NghIdx = Idx::NghIdx;
     using Type = T;
     using NghData = Neon::domain::NghData<T>;
 
@@ -26,76 +27,71 @@ class bPartition
 
     ~bPartition() = default;
 
-    explicit bPartition(int                     setIdx,
-                        int                     mCardinality,
-                        T*                      mMem,
-                        uint32_3d               blockSize,
-                        bIndex::DataBlockIdx*   mBlockConnectivity,
-                        bSpan::BitMaskWordType* mMask,
-                        Neon::int32_3d*         mOrigin,
-                        NghIdx*                 mStencilNghIndex);
+    explicit bPartition(int                    setIdx,
+                        int                    mCardinality,
+                        T*                     mMem,
+                        Idx::DataBlockIdx*     mBlockConnectivity,
+                        Span::BitMaskWordType* mMask,
+                        Neon::int32_3d*        mOrigin,
+                        NghIdx*                mStencilNghIndex);
 
     inline NEON_CUDA_HOST_DEVICE auto
     cardinality()
         const -> int;
 
     inline NEON_CUDA_HOST_DEVICE auto
-    operator()(const bIndex& cell,
-               int           card)
+    operator()(const Idx& cell,
+               int        card)
         -> T&;
 
     inline NEON_CUDA_HOST_DEVICE auto
-    operator()(const bIndex& cell,
-               int           card)
+    operator()(const Idx& cell,
+               int        card)
         const -> const T&;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Index&  cell,
-           const NghIdx& offset,
-           const int     card,
-           const T       alternativeVal)
+    getNghData(const Idx&    cell,
+               const NghIdx& offset,
+               const int     card,
+               const T       alternativeVal)
         const -> NghData;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Index& eId,
-           uint8_t      nghID,
-           int          card,
-           const T&     alternativeVal)
+    getNghData(const Idx& eId,
+               uint8_t    nghID,
+               int        card,
+               const T&   alternativeVal)
         const -> NghData;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    getGlobalIndex(const Index& cell)
+    getGlobalIndex(const Idx& cell)
         const -> Neon::index_3d;
 
    protected:
     NEON_CUDA_HOST_DEVICE inline auto
-    helpGetPitch(const Index& cell, int card)
+    helpGetPitch(const Idx& cell, int card)
         const -> uint32_t;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    helpGetValidIdxPitchExplicit(const Index& idx, int card)
+    helpGetValidIdxPitchExplicit(const Idx& idx, int card)
         const -> uint32_t;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    helpNghPitch(const Index& nghIdx, int card)
+    helpNghPitch(const Idx& nghIdx, int card)
         const -> std::tuple<bool, uint32_t>;
 
     NEON_CUDA_HOST_DEVICE inline auto
-    helpGetNghIdx(const Index& idx, const NghIdx& offset)
-        const -> bIndex;
+    helpGetNghIdx(const Idx& idx, const NghIdx& offset)
+        const -> Idx;
 
 
     int       mCardinality;
     T*        mMem;
     NghIdx*   mStencilNghIndex;
-    uint32_3d mBlockSizeByPower /**<< v[0] = blockDim.x,
-                                 *   v[1] = blockDim.x * blockDim.y ,
-                                 *   v[1] = blockDim.x * blockDim.y * blockDim.z*/
-        ;
-    bIndex::DataBlockIdx*   mBlockConnectivity;
-    bSpan::BitMaskWordType* mMask;
-    Neon::int32_3d*         mOrigin;
-    int                     mSetIdx;
+    Idx::DataBlockIdx*     mBlockConnectivity;
+    Span::BitMaskWordType* mMask;
+    Neon::int32_3d*        mOrigin;
+    int                    mSetIdx;
 };
 }  // namespace Neon::domain::details::bGrid
 

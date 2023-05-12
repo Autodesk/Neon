@@ -27,12 +27,12 @@ void runAllTestConfiguration(
     [[maybe_unused]] int                    minNumGpus)
 {
     std::vector<int> nGpuTest;
-    for (int i = minNumGpus; i <= 1; i++) {
+    for (int i = minNumGpus; i <= nGpus; i++) {
         nGpuTest.push_back(i);
     }
     std::vector<int> cardinalityTest{1};
 
-    std::vector<Neon::index_3d> dimTest{{17, 33, 51}};
+    std::vector<Neon::index_3d> dimTest{{17, 33, 71}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
       runtimeE.push_back(Neon::Runtime::stream);

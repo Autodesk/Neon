@@ -133,7 +133,7 @@ void execLambdaIteratorOMP(const Neon::Integer_3d<IndexType>& blockSize,
 #endif
                     for (IndexType x = 0; x < blockSize.x; x++) {
                         typename DataSetContainer::Idx e;
-                        if (span.setAndValidateCPUDevice(e, bIdx, blockSize, x, y, z)) {
+                        if (span.setAndValidateCPUDevice(e, bIdx, x, y, z)) {
                             userLambdaTa(e);
                         }
                     }

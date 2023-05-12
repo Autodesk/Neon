@@ -80,7 +80,7 @@ class Partitioner1D
     Partitioner1D(const Neon::Backend&        backend,
                   const ActiveCellLambda&     activeCellLambda,
                   const BcLambda&             bcLambda,
-                  const int&                  dataBlockSize,
+                  const Neon::index_3d&       dataBlockSize,
                   const Neon::int32_3d&       domainSize,
                   const Neon::domain::Stencil stencil,
                   const int&                  discreteVoxelSpacing = 1)
@@ -92,18 +92,18 @@ class Partitioner1D
         mData->mStencil = stencil;
         mData->mDomainSize = domainSize;
 
-        Neon::int32_3d block3DSpan(NEON_DIVIDE_UP(domainSize.x, dataBlockSize),
-                                   NEON_DIVIDE_UP(domainSize.y, dataBlockSize),
-                                   NEON_DIVIDE_UP(domainSize.z, dataBlockSize));
+        Neon::int32_3d block3DSpan(NEON_DIVIDE_UP(domainSize.x, dataBlockSize.x),
+                                   NEON_DIVIDE_UP(domainSize.y, dataBlockSize.y),
+                                   NEON_DIVIDE_UP(domainSize.z, dataBlockSize.z));
 
         mData->block3DSpan = block3DSpan;
 
         std::vector<int> nBlockProjectedToZ(block3DSpan.z);
 
         auto block3dIdxToBlockOrigin = [&](Neon::int32_3d const& block3dIdx) {
-            Neon::int32_3d blockOrigin(block3dIdx.x * dataBlockSize * discreteVoxelSpacing,
-                                       block3dIdx.y * dataBlockSize * discreteVoxelSpacing,
-                                       block3dIdx.z * dataBlockSize * discreteVoxelSpacing);
+            Neon::int32_3d blockOrigin(block3dIdx.x * dataBlockSize.x * discreteVoxelSpacing,
+                                       block3dIdx.y * dataBlockSize.y * discreteVoxelSpacing,
+                                       block3dIdx.z * dataBlockSize.z * discreteVoxelSpacing);
             return blockOrigin;
         };
 
@@ -401,7 +401,7 @@ class Partitioner1D
     class Data
     {
        public:
-        int                                   mDataBlockSize = 0;
+        Neon::index_3d                        mDataBlockSize = 0;
         int                                   mDiscreteVoxelSpacing = 0;
         Neon::domain::Stencil                 mStencil;
         Neon::index_3d                        mDomainSize;

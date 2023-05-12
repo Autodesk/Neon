@@ -3,10 +3,12 @@
 
 namespace Neon::domain::details::bGrid {
 
-NEON_CUDA_HOST_DEVICE inline bIndex::bIndex(const DataBlockIdx&            blockIdx,
-                                            const InDataBlockIdx::Integer& x,
-                                            const InDataBlockIdx::Integer& y,
-                                            const InDataBlockIdx::Integer& z)
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
+NEON_CUDA_HOST_DEVICE inline bIndex<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::
+    bIndex(const DataBlockIdx&            blockIdx,
+           const InDataBlockIdx::Integer& x,
+           const InDataBlockIdx::Integer& y,
+           const InDataBlockIdx::Integer& z)
 {
     mDataBlockIdx = blockIdx;
     mInDataBlockIdx.x = x;
