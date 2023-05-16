@@ -84,8 +84,15 @@ class TestData
     auto compare(FieldNames name, LambdaCompare lambdaCompare)
         -> void;
 
+    template <typename LambdaCompare>
+    auto compareAndGetField(FieldNames name, LambdaCompare lambdaCompare)
+        -> Neon::domain::tool::testing::IODomain<T>;
+
     auto compare(FieldNames name, T tollerance = T(0.0000001))
         -> bool;
+
+    auto compareAndGetField(FieldNames name, T tollerance = T(0.0000001))
+        -> Neon::domain::tool::testing::IODomain<T>;
 
     auto resetValuesToLinear(Type offset,
                              Type offsetBetweenFields = 1)
@@ -116,6 +123,9 @@ class TestData
         -> void;
 
     auto axpy(const Type* alpha, IODomain& A, IODomain& B)
+        -> void;
+
+    auto sum(IODomain& A, IODomain& B)
         -> void;
 
     auto laplace(IODomain& A, IODomain& B)
@@ -314,6 +324,31 @@ auto TestData<G, T, C>::compare(FieldNames    name,
     },
                                   tmpIODomain);
 }
+
+template <typename G, typename T, int C>
+template <typename LambdaCompare>
+auto TestData<G, T, C>::compareAndGetField(FieldNames    name,
+                                           LambdaCompare lambdaCompare)
+    -> Neon::domain::tool::testing::IODomain<T>
+{
+    auto idx = FieldNamesUtils::toInt(name);
+    mFields[idx].updateHostData(0);
+    mGrid.getBackend().sync(0);
+
+    auto                                     tmpDense = mFields[idx].template ioToDense<Type>();
+    Neon::domain::tool::testing::IODomain<T> tmpIODomain(tmpDense, mIODomains[idx].getMask(), mIODomains[idx].getOutsideValue());
+
+    mIODomains[idx].forEachActive([&](const Neon::index_3d&                                          idx,
+                                      int                                                            cardinality,
+                                      const typename Neon::domain::tool::testing::IODomain<T>::Type& goldenVal,
+                                      typename Neon::domain::tool::testing::IODomain<T>::Type&       testVal) {
+        bool isOk = lambdaCompare(idx, cardinality, goldenVal, testVal);
+        testVal = isOk ? 1 : -1;
+    },
+                                  tmpIODomain);
+    return tmpIODomain;
+}
+
 template <typename G, typename T, int C>
 template <typename Lambda, typename FirstType, typename... ExportTypeVariadic_ta>
 auto TestData<G, T, C>::forEachActiveIODomain(Lambda                                                 userCode,
@@ -345,6 +380,19 @@ auto TestData<G, T, C>::axpy(const Type* alpha, IODomain& A, IODomain& B)
                                     Type& a,
                                     Type& b) {
         b += (*alpha) * a;
+    },
+                                A, B);
+}
+
+template <typename G, typename T, int C>
+auto TestData<G, T, C>::sum(IODomain& A, IODomain& B)
+    -> void
+{
+    this->forEachActiveIODomain([&](const Neon::index_3d& /*idx*/,
+                                    int /*cardinality*/,
+                                    Type& a,
+                                    Type& b) {
+        b += a;
     },
                                 A, B);
 }
@@ -387,7 +435,7 @@ template <typename G, typename T, int C>
 auto TestData<G, T, C>::compare(FieldNames         name,
                                 [[maybe_unused]] T tollerance) -> bool
 {
-   bool doExtraOutput = (std::getenv("NEON_GTEST_VERBOSE")!=nullptr);
+    bool doExtraOutput = (std::getenv("NEON_GTEST_VERBOSE") != nullptr);
     bool isTheSame = false;
     if constexpr (std::is_integral_v<T>) {
         bool foundAnIssue = false;
@@ -403,6 +451,14 @@ auto TestData<G, T, C>::compare(FieldNames         name,
                         std::stringstream s;
                         s << idx.to_string() << "Golden " << golden << " Computed " << computed << std::endl;
                         NEON_INFO(s.str());
+                    }
+                }
+            }
+            if (golden != computed && !doExtraOutput) {
+                {
+#pragma omp critical
+                    {
+                        foundAnIssue = true;
                     }
                 }
             }
@@ -424,6 +480,44 @@ auto TestData<G, T, C>::compare(FieldNames         name,
         isTheSame = !foundAnIssue;
     }
     return isTheSame;
+}
+
+
+template <typename G, typename T, int C>
+auto TestData<G, T, C>::compareAndGetField(FieldNames         name,
+                                           [[maybe_unused]] T tollerance) -> Neon::domain::tool::testing::IODomain<T>
+{
+    bool doExtraOutput = (std::getenv("NEON_GTEST_VERBOSE") != nullptr);
+    bool isTheSame = false;
+    if constexpr (std::is_integral_v<T>) {
+        bool foundAnIssue = false;
+        auto retField = this->compareAndGetField(name, [&]([[maybe_unused]] const Neon::index_3d& idx,
+                                                [[maybe_unused]] int                   cardinality,
+                                                const T&                               golden,
+                                                const T&                               computed) {
+            if(golden == computed){
+                return true;
+            }else {
+                return false;
+            }
+        });
+        return retField;
+    } else {
+        bool foundAnIssue = false;
+        auto retField = this->compare(name, [&](const Neon::index_3d& idx,
+                                                int                   cardinality,
+                                                const T&              golden,
+                                                const T&              computed) {
+            T goldenABS = std::abs(golden);
+            T computedABS = std::abs(computed);
+            T maxAbs = std::max(goldenABS, computedABS);
+
+            auto relativeDiff = (maxAbs == 0.0 ? 0.0 : std::abs(golden - computed) / maxAbs);
+            foundAnIssue = relativeDiff >= tollerance;
+            return !foundAnIssue;
+        });
+        return retField;
+    }
 }
 
 template <typename G, typename T, int C>
