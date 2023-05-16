@@ -7,14 +7,14 @@ namespace Neon {
 /**
  * Enumeration for the supported type of computation by the skeleton
  * */
-enum struct Compute
+enum struct Pattern
 {
     MAP /**< Map operation */,
     STENCIL /**< Stencil operation */,
     REDUCE /**< Reduction operation */
 };
 
-struct ComputeUtils
+struct PatternUtils
 {
     /**
      * Returns a string for the selected allocator
@@ -22,7 +22,7 @@ struct ComputeUtils
      * @param allocator
      * @return
      */
-    static auto toString(Compute val) -> std::string;
+    static auto toString(Pattern val) -> std::string;
 };
 
 }  // namespace Neon

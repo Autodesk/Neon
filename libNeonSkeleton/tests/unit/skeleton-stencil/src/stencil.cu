@@ -24,7 +24,7 @@ auto laplaceOnIntegers(const Field& filedA,
     return grid.newContainer(
         "laplaceOnIntegers",
         [&](Neon::set::Loader& loader) {
-            const auto a = loader.load(filedA, Neon::Compute::STENCIL);
+            const auto a = loader.load(filedA, Neon::Pattern::STENCIL);
             auto       b = loader.load(fieldB);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& idx) mutable {

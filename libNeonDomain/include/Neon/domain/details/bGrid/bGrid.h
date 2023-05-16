@@ -86,11 +86,11 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<dataBlockSi
         const -> int32_t final;
 
     template <typename T, int C = 0>
-    auto newField(const std::string          name,
-                  int                        cardinality,
-                  T                          inactiveValue,
-                  Neon::DataUse              dataUse = Neon::DataUse::HOST_DEVICE,
-                  const Neon::MemoryOptions& memoryOptions = Neon::MemoryOptions()) const
+    auto newField(const std::string   name,
+                  int                 cardinality,
+                  T                   inactiveValue,
+                  Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE,
+                  Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 
     template <Neon::Execution execution = Neon::Execution::device,

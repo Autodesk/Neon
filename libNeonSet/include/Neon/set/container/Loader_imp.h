@@ -100,7 +100,7 @@ struct DataTransferExtractor
 template <typename Field_ta>
 auto Loader::
     load(Field_ta&       field,
-         Neon::Compute   computeE,
+         Neon::Pattern   computeE,
          StencilSemantic stencilSemantic)
         -> std::enable_if_t<!std::is_const_v<Field_ta>, typename Field_ta::Partition&>
 {
@@ -109,10 +109,10 @@ auto Loader::
             using namespace Neon::set::dataDependency;
             Neon::set::dataDependency::MultiXpuDataUid uid = field.getUid();
             constexpr auto                             access = Neon::set::dataDependency::AccessType::WRITE;
-            Compute                                    compute = computeE;
+            Pattern                                    compute = computeE;
             Token                                      token(uid, access, compute);
 
-            if (compute == Neon::Compute::STENCIL &&
+            if (compute == Neon::Pattern::STENCIL &&
                 (stencilSemantic == StencilSemantic::standard ||
                  stencilSemantic == StencilSemantic::streaming)) {
                 Neon::NeonException exp("Loader");
@@ -137,7 +137,7 @@ auto Loader::
 template <typename Field_ta>
 auto Loader::
     load(Field_ta&       field,
-         Neon::Compute   computeE,
+         Neon::Pattern   computeE,
          StencilSemantic stencilSemantic)
         -> std::enable_if_t<std::is_const_v<Field_ta>, const typename Field_ta::Partition&>
 {
@@ -146,10 +146,10 @@ auto Loader::
             using namespace Neon::set::dataDependency;
             Neon::set::dataDependency::MultiXpuDataUid uid = field.getUid();
             constexpr auto                             access = Neon::set::dataDependency::AccessType::READ;
-            Neon::Compute                              compute = computeE;
+            Neon::Pattern                              compute = computeE;
             Token                                      token(uid, access, compute);
 
-            if (compute == Neon::Compute::STENCIL) {
+            if (compute == Neon::Pattern::STENCIL) {
                 token.setDataTransferContainer(
                     [&](Neon::set::TransferMode transferMode)
                         -> Neon::set::Container {

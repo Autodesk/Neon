@@ -333,7 +333,7 @@ auto MultiXpuGraph::communications(const Neon::skeleton::Options& skeletonOption
         int                                                  numNewNodes = 0;
 
         for (const auto& token : tokens) {
-            if (token.compute() == Neon::Compute::STENCIL) {
+            if (token.compute() == Neon::Pattern::STENCIL) {
                 auto container = token.getDataTransferContainer(skeletonOptions.transferMode());
                 numNewNodes += getGraph().expandAndMerge(nodeA, container, nodeB, true);
             }
@@ -360,7 +360,7 @@ auto MultiXpuGraph::fixingDependenciesWithBeginNode() -> void
         const auto& tokens = nodePtr->getContainer().getContainerInterface().getTokens();
         for (const auto& token : tokens) {
             const auto computeType = token.compute();
-            if (Neon::Compute::STENCIL == computeType) {
+            if (Neon::Pattern::STENCIL == computeType) {
                 // 1. remove current dependency between begin and target node
                 auto& dep = getGraph().getMutableDependency(beginNode, *nodePtr);
                 dep.addToken(token);

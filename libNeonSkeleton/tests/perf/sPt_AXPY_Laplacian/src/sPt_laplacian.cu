@@ -11,7 +11,7 @@ auto laplacianFilter(const Field& A_g,
 {
     auto container = A_g.getGrid().newContainer(
         "laplacianFilter", [&A_g, &C_g](Neon::set::Loader& L) -> auto {
-            auto& A = L.load(A_g, Neon::Compute::STENCIL);
+            auto& A = L.load(A_g, Neon::Pattern::STENCIL);
             auto& C = L.load(C_g);
 
             return [A, C] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& cell) mutable {

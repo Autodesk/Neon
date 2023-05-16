@@ -54,7 +54,7 @@ auto laplace(const Field& x, Field& y, size_t sharedMem = 0) -> Neon::set::Conta
         x.getGrid().getDefaultBlock(),
         sharedMem,
         [&](Neon::set::Loader& L) -> auto {
-            auto& xLocal = L.load(x, Neon::Compute::STENCIL);
+            auto& xLocal = L.load(x, Neon::Pattern::STENCIL);
             auto& yLocal = L.load(y);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& gidx) mutable {

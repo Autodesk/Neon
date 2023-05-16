@@ -7,7 +7,7 @@
 #include "Neon/set/StencilSemantic.h"
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/dependency/AccessType.h"
-#include "Neon/set/dependency/ComputeType.h"
+#include "Neon/set/dependency/Pattern.h"
 #include "Neon/set/dependency/Token.h"
 
 namespace Neon::set {
@@ -66,7 +66,7 @@ struct Loader
    public:
     template <typename Field_ta>
     auto load(Field_ta&       field,
-              Neon::Compute   computeE = Neon::Compute::MAP,
+              Neon::Pattern   computeE = Neon::Pattern::MAP,
               StencilSemantic stencilSemantic = StencilSemantic::standard)
         -> std::enable_if_t<!std::is_const_v<Field_ta>, typename Field_ta::Partition&>;
 
@@ -77,7 +77,7 @@ struct Loader
      */
     template <typename Field_ta>
     auto load(Field_ta&       field /**< the const field to be loaded            */,
-              Neon::Compute   computeE = Neon::Compute::MAP /**< computation patter applied to the field */,
+              Neon::Pattern   computeE = Neon::Pattern::MAP /**< computation patter applied to the field */,
               StencilSemantic stencilSemantic = StencilSemantic::standard)
         -> std::enable_if_t<std::is_const_v<Field_ta>, const typename Field_ta::Partition&>;
 };

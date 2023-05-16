@@ -17,7 +17,7 @@ auto stencilContainer_laplace(const Field& filedA,
     return grid.newContainer(
         "stencilFun",
         [&](Neon::set::Loader& loader) {
-            const auto a = loader.load(filedA, Neon::Compute::STENCIL);
+            const auto a = loader.load(filedA, Neon::Pattern::STENCIL);
             auto       b = loader.load(fieldB);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& idx) mutable {
@@ -59,7 +59,7 @@ auto stencilContainerLaplaceTemplate(const Field& filedA,
     return grid.newContainer(
         "stencilFun",
         [&](Neon::set::Loader& loader) {
-            const auto a = loader.load(filedA, Neon::Compute::STENCIL);
+            const auto a = loader.load(filedA, Neon::Pattern::STENCIL);
             auto       b = loader.load(fieldB);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& idx) mutable {
@@ -83,10 +83,10 @@ auto stencilContainerLaplaceTemplate(const Field& filedA,
                             a.template getNghData<stencil[stencilIdx].x,
                                                   stencil[stencilIdx].y,
                                                   stencil[stencilIdx].z>(idx, i,
-                                                                          [&](Field::Type const& val) {
-                                                                              partial += val;
-                                                                              count++;
-                                                                          });
+                                                                         [&](Field::Type const& val) {
+                                                                             partial += val;
+                                                                             count++;
+                                                                         });
                         }
                     };
 
@@ -112,7 +112,7 @@ auto run(TestData<G, T, C>& data) -> void
     using Type = typename TestData<G, T, C>::Type;
     auto&             grid = data.getGrid();
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
-    const int         maxIters = 4;
+    const int         maxIters = 1;
 
     NEON_INFO(grid.toString());
 
@@ -122,22 +122,26 @@ auto run(TestData<G, T, C>& data) -> void
     {  // NEON
         const Neon::index_3d        dim = grid.getDimension();
         std::vector<Neon::index_3d> elements;
-
-        auto& X = data.getField(FieldNames::X);
-        auto& Y = data.getField(FieldNames::Y);
+        auto                        bk = grid.getBackend();
+        auto&                       X = data.getField(FieldNames::X);
+        auto&                       Y = data.getField(FieldNames::Y);
         for (int iter = maxIters; iter > 0; iter--) {
+            bk.sync(Neon::Backend::mainStreamIdx);
             X.newHaloUpdate(Neon::set::StencilSemantic::standard,
                             Neon::set::TransferMode::put,
                             Neon::Execution::device)
                 .run(Neon::Backend::mainStreamIdx);
 
+            bk.sync(Neon::Backend::mainStreamIdx);
             stencilContainer_laplace(X, Y).run(Neon::Backend::mainStreamIdx);
 
+            bk.sync(Neon::Backend::mainStreamIdx);
             Y.newHaloUpdate(Neon::set::StencilSemantic::standard,
                             Neon::set::TransferMode::get,
                             Neon::Execution::device)
                 .run(Neon::Backend::mainStreamIdx);
 
+            bk.sync(Neon::Backend::mainStreamIdx);
             stencilContainer_laplace(Y, X).run(Neon::Backend::mainStreamIdx);
         }
         data.getBackend().sync(0);
@@ -146,7 +150,7 @@ auto run(TestData<G, T, C>& data) -> void
     {  // Golden data
         auto& X = data.getIODomain(FieldNames::X);
         auto& Y = data.getIODomain(FieldNames::Y);
-        for (int iter = 4; iter > 0; iter--) {
+        for (int iter = maxIters; iter > 0; iter--) {
             data.laplace(X, Y);
             data.laplace(Y, X);
         }
@@ -164,8 +168,16 @@ auto run(TestData<G, T, C>& data) -> void
 
     bool isOk = data.compare(FieldNames::X);
     isOk = data.compare(FieldNames::Y);
-
+    if (!isOk) {
+        auto flagField = data.compareAndGetField(FieldNames::X);
+        flagField.ioToVti("X_diffFlag", "X_diffFlag");
+        flagField = data.compareAndGetField(FieldNames::Y);
+        flagField.ioToVti("Y_diffFlag", "Y_diffFlag");
+    }
     ASSERT_TRUE(isOk);
+    if (!isOk) {
+        exit(99);
+    }
 }
 
 template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;

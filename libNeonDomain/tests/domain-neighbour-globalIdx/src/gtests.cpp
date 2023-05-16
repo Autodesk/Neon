@@ -1,32 +1,32 @@
 
 #include "Neon/Neon.h"
 #include "gtest/gtest.h"
+#include "./testsAndContainers.h"
 #include "runHelper.h"
-#include "stencil.h"
 
-TEST(domain_stencil, dGrid)
+TEST(domain_unit_test_globalIdx, dGrid)
 {
-    int nGpus = 3;
+    int nGpus = 5;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::dGrid, Type, 0>),
+    runAllTestConfiguration(std::function(globalIdx::run<Neon::dGrid, Type, 0>),
                             nGpus,
                             1);
 }
 
-TEST(domain_stencil, eGrid)
+TEST(domain_unit_test_globalIdx, eGrid)
 {
-    int nGpus = 3;
+    int nGpus = 5;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::eGrid, Type, 0>),
+    runAllTestConfiguration(std::function(globalIdx::run<Neon::eGrid, Type, 0>),
                             nGpus,
                             1);
 }
 
-TEST(domain_stencil, bGrid)
+TEST(domain_unit_test_globalIdx, bGrid)
 {
-    int nGpus = 3;
+    int nGpus = 5;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::bGrid, Type, 0>),
+    runAllTestConfiguration(std::function(globalIdx::run<Neon::bGrid, Type, 0>),
                             nGpus,
                             1);
 }

@@ -257,9 +257,9 @@ auto Containers<StaggeredGrid, T>::sumNodesOnVoxels(Self::VoxelField&      densi
         // Neon Loading Lambda
         [&](Neon::set::Loader& loader) {
             auto&       density = loader.load(densityField);
-            const auto& temperature = loader.load(temperatureField, Neon::Compute::STENCIL);
+            const auto& temperature = loader.load(temperatureField, Neon::Pattern::STENCIL);
 
-            // Neon Compute Lambda
+            // Neon Pattern Lambda
             return [=] NEON_CUDA_HOST_DEVICE(const typename Self::VoxelField::Voxel& voxHandle) mutable {
                 Type          sum = 0;
                 constexpr int componentId = 0;
@@ -333,12 +333,12 @@ auto Containers<StaggeredGrid, T>::sumVoxelsOnNodesAndDivideBy8(Self::NodeField&
         "sumVoxelsOnNodesAndDivideBy8",
         // Neon Loading Lambda
         [&](Neon::set::Loader& loader) {
-            const auto& density = loader.load(densityField, Neon::Compute::STENCIL);
+            const auto& density = loader.load(densityField, Neon::Pattern::STENCIL);
             auto&       temperature = loader.load(temperatureField);
 
             auto nodeSpaceDim = temperatureField.getGrid().getDimension();
 
-            // Neon Compute Lambda
+            // Neon Pattern Lambda
             return [=] NEON_CUDA_HOST_DEVICE(const typename Self::NodeField::Node& nodeHandle) mutable {
                 Type sum = 0;
 

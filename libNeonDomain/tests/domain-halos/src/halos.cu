@@ -37,7 +37,7 @@ auto haloCheckContainer(const Field&        filedA,
     return grid.newContainer(
         "haloCheckContainer",
         [&, offset](Neon::set::Loader& loader) {
-            const auto     a = loader.load(filedA, Neon::Compute::STENCIL);
+            const auto     a = loader.load(filedA, Neon::Pattern::STENCIL);
             auto           b = loader.load(fieldB);
             Neon::index_3d domainSize = filedA.getGrid().getDimension();
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& idx) mutable {

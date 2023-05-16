@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 add_subdirectory("domain-globalIdx")
 add_subdirectory("domain-host-containers")
 add_subdirectory("domain-map")
+add_subdirectory("domain-neighbour-globalIdx")
 add_subdirectory("domain-halos")
 add_subdirectory("domain-stencil")
 

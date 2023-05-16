@@ -251,8 +251,9 @@ auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::newField(const std::
                                                                      int                        cardinality,
                                                                      T                          inactiveValue,
                                                                      Neon::DataUse              dataUse,
-                                                                     const Neon::MemoryOptions& memoryOptions) const -> Field<T, C>
+                                                                      Neon::MemoryOptions memoryOptions) const -> Field<T, C>
 {
+    memoryOptions = this->getDevSet().sanitizeMemoryOption(memoryOptions);
     Field<T, C> field(name, dataUse, memoryOptions, *this, cardinality, inactiveValue);
     return field;
 }

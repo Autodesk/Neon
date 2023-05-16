@@ -73,7 +73,7 @@ auto laplace(const Field& x,
 {
     auto container = x.getGrid().newContainer(
         "Laplace", [&](Neon::set::Loader & L) -> auto{
-            auto& xLocal = L.load(x, Neon::Compute::STENCIL);
+            auto& xLocal = L.load(x, Neon::Pattern::STENCIL);
             auto& yLocal = L.load(y);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& cell) mutable {
