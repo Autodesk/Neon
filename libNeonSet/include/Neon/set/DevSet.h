@@ -223,7 +223,7 @@ class DevSet
         -> LaunchParameters;
 
     template <typename DataSetContainer, typename Lambda>
-    inline auto kernelDeviceWithIterator(
+    inline auto launchLambdaOnSpan(
         Neon::Execution                       execution,
         const Neon::set::KernelConfig&        kernelConfig,
         DataSetContainer&                     dataSetContainer,
@@ -236,7 +236,7 @@ class DevSet
         switch (mode) {
             case Neon::Runtime::stream: {
                 if (execution == Neon::Execution::device) {
-                    this->template helpExecLambdaIteratorCUDA<DataSetContainer, Lambda>(kernelConfig,
+                    this->template helpLaunchLambdaOnSpanCUDA<DataSetContainer, Lambda>(kernelConfig,
                                                                                         dataSetContainer,
                                                                                         lambdaHolder);
                     return;
@@ -244,7 +244,7 @@ class DevSet
                 [[fallthrough]];
             };
             case Neon::Runtime::openmp: {
-                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(execution,
+                this->template helpLaunchLambdaOnSpanOMP<DataSetContainer, Lambda>(execution,
                                                                                    kernelConfig,
                                                                                    dataSetContainer,
                                                                                    lambdaHolder);
@@ -274,7 +274,7 @@ class DevSet
             case Neon::Runtime::stream: {
                 if (execution == Neon::Execution::device) {
 
-                    this->template helpExecLambdaIteratorCUDA<DataSetContainer, Lambda>(setIdx,
+                    this->template helpLaunchLambdaOnSpanCUDA<DataSetContainer, Lambda>(setIdx,
                                                                                         kernelConfig,
                                                                                         dataSetContainer,
                                                                                         lambdaHolder);
@@ -283,7 +283,7 @@ class DevSet
                 [[fallthrough]];
             };
             case Neon::Runtime::openmp: {
-                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(execution,
+                this->template helpLaunchLambdaOnSpanOMP<DataSetContainer, Lambda>(execution,
                                                                                    setIdx,
                                                                                    kernelConfig,
                                                                                    dataSetContainer,
@@ -309,7 +309,7 @@ class DevSet
         // KEEP OPENMP for last
         switch (mode) {
             case Neon::Runtime::openmp: {
-                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(Neon::Execution::host,
+                this->template helpLaunchLambdaOnSpanOMP<DataSetContainer, Lambda>(Neon::Execution::host,
                                                                                    kernelConfig,
                                                                                    dataSetContainer,
                                                                                    lambdaHolder);
@@ -333,7 +333,7 @@ class DevSet
         Neon::Runtime mode = Neon::Runtime::openmp;
         switch (mode) {
             case Neon::Runtime::openmp: {
-                this->template helpExecLambdaIteratorOMP<DataSetContainer, Lambda>(Neon::Execution::host,
+                this->template helpLaunchLambdaOnSpanOMP<DataSetContainer, Lambda>(Neon::Execution::host,
                                                                                    setIdx,
                                                                                    kernelConfig,
                                                                                    dataSetContainer,
@@ -349,7 +349,7 @@ class DevSet
     }
 
     template <typename DataSetContainer, typename Lambda>
-    inline auto helpExecLambdaIteratorCUDA([[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
+    inline auto helpLaunchLambdaOnSpanCUDA([[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
                                            [[maybe_unused]] DataSetContainer&                     dataSetContainer,
                                            [[maybe_unused]] std::function<Lambda(SetIdx,
                                                                                  Neon::DataView)> lambdaHolder)
@@ -376,9 +376,9 @@ class DevSet
             void*  untypedParams[2] = {&iterator, &lambda};
             void*  executor;
             if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
-                executor = (void*)Neon::set::details::denseSpan::execLambdaIteratorCUDA<DataSetContainer, Lambda>;
+                executor = (void*)Neon::set::details::denseSpan::launchLambdaOnSpanCUDA<DataSetContainer, Lambda>;
             } else {
-                executor = (void*)Neon::set::details::blockSpan::execLambdaIteratorCUDA<DataSetContainer, Lambda>;
+                executor = (void*)Neon::set::details::blockSpan::launchLambdaOnSpanCUDA<DataSetContainer, Lambda>;
             }
             dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[setIdx.idx()],
                                                                       launchInfoSet[setIdx.idx()],
@@ -395,7 +395,7 @@ class DevSet
     }
 
     template <typename DataSetContainer, typename Lambda>
-    inline auto helpExecLambdaIteratorCUDA([[maybe_unused]] Neon::SetIdx                          setIdx,
+    inline auto helpLaunchLambdaOnSpanCUDA([[maybe_unused]] Neon::SetIdx                          setIdx,
                                            [[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
                                            [[maybe_unused]] DataSetContainer&                     dataSetContainer,
                                            [[maybe_unused]] std::function<Lambda(SetIdx,
@@ -422,9 +422,9 @@ class DevSet
             void*  untypedParams[2] = {&iterator, &lambda};
             void*  executor;
             if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
-                executor = (void*)Neon::set::details::denseSpan::execLambdaIteratorCUDA<DataSetContainer, Lambda>;
+                executor = (void*)Neon::set::details::denseSpan::launchLambdaOnSpanCUDA<DataSetContainer, Lambda>;
             } else {
-                executor = (void*)Neon::set::details::blockSpan::execLambdaIteratorCUDA<DataSetContainer, Lambda>;
+                executor = (void*)Neon::set::details::blockSpan::launchLambdaOnSpanCUDA<DataSetContainer, Lambda>;
             }
             dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[setIdx.idx()],
                                                                       launchInfoSet[setIdx.idx()],
@@ -445,7 +445,7 @@ class DevSet
     }
 
     template <typename DataSetContainer, typename Lambda>
-    inline auto helpExecLambdaIteratorOMP(
+    inline auto helpLaunchLambdaOnSpanOMP(
         Neon::Execution                                        execution,
         [[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
         [[maybe_unused]] DataSetContainer&                     dataSetContainer,
@@ -464,7 +464,7 @@ class DevSet
                     Lambda lambda = lambdaHolder(idx, kernelConfig.dataView());
                     using IndexType = typename DataSetContainer::ExecutionThreadSpanIndexType;
                     Neon::set::details::denseSpan::
-                        execLambdaIteratorOMP<IndexType,
+                        launchLambdaOnSpanOMP<IndexType,
                                               DataSetContainer,
                                               Lambda>(launchInfoSet[idx].domainGrid().newType<IndexType>(),
                                                       iterator,
@@ -481,7 +481,7 @@ class DevSet
                     const Neon::Integer_3d<IndexType> blockSize(cudaBlock.x, cudaBlock.y, cudaBlock.z);
                     const Neon::Integer_3d<IndexType> gridSize(cudaGrid.x, cudaGrid.y, cudaGrid.z);
 
-                    Neon::set::details::blockSpan::execLambdaIteratorOMP<IndexType,
+                    Neon::set::details::blockSpan::launchLambdaOnSpanOMP<IndexType,
                                                                          DataSetContainer,
                                                                          Lambda>(blockSize, gridSize, iterator, lambda);
                 }
@@ -491,7 +491,7 @@ class DevSet
     }
 
     template <typename DataSetContainer, typename Lambda>
-    inline auto helpExecLambdaIteratorOMP(Neon::Execution                                        execution,
+    inline auto helpLaunchLambdaOnSpanOMP(Neon::Execution                                        execution,
                                           Neon::SetIdx                                           setIdx,
                                           [[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
                                           [[maybe_unused]] DataSetContainer&                     dataSetContainer,
@@ -512,7 +512,7 @@ class DevSet
 
         if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
             using IndexType = typename DataSetContainer::ExecutionThreadSpanIndexType;
-            Neon::set::details::denseSpan::execLambdaIteratorOMP<IndexType,
+            Neon::set::details::denseSpan::launchLambdaOnSpanOMP<IndexType,
                                                                  DataSetContainer,
                                                                  Lambda>(launchInfoSet[setIdx].domainGrid().newType<IndexType>(), iterator, lambda);
         } else {
@@ -523,7 +523,7 @@ class DevSet
             const Neon::Integer_3d<IndexType> blockSize(cudaBlock.x, cudaBlock.y, cudaBlock.z);
             const Neon::Integer_3d<IndexType> gridSize(cudaGrid.x, cudaGrid.y, cudaGrid.z);
 
-            Neon::set::details::blockSpan::execLambdaIteratorOMP<IndexType,
+            Neon::set::details::blockSpan::launchLambdaOnSpanOMP<IndexType,
                                                                  DataSetContainer,
                                                                  Lambda>(blockSize, gridSize, iterator, lambda);
         }

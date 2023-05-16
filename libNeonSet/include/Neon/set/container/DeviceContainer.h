@@ -93,7 +93,7 @@ struct DeviceContainer : ContainerAPI
         Neon::set::KernelConfig kernelConfig(dataView, bk, streamIdx, this->getLaunchParameters(dataView));
 
         if (ContainerExecutionType::device == this->getContainerExecutionType()) {
-            bk.devSet().template kernelDeviceWithIterator<DataIteratorContainerT, UserComputeLambdaT>(
+            bk.devSet().template launchLambdaOnSpan<DataIteratorContainerT, UserComputeLambdaT>(
                 mExecution,
                 kernelConfig,
                 m_dataIteratorContainer,

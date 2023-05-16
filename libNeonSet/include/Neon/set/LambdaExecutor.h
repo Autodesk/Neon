@@ -9,7 +9,7 @@ namespace denseSpan {
 #ifdef NEON_COMPILER_CUDA
 template <typename DataSetContainer,
           typename UserLambda>
-NEON_CUDA_KERNEL auto execLambdaIteratorCUDA(typename DataSetContainer::Span span,
+NEON_CUDA_KERNEL auto launchLambdaOnSpanCUDA(typename DataSetContainer::Span span,
                                              UserLambda                      userLambdaTa)
     -> void
 {
@@ -42,7 +42,7 @@ NEON_CUDA_KERNEL auto execLambdaIteratorCUDA(typename DataSetContainer::Span spa
 template <typename IndexType,
           typename DataSetContainer,
           typename UserLambda_ta>
-void execLambdaIteratorOMP(Neon::Integer_3d<IndexType> const&     gridDim,
+void launchLambdaOnSpanOMP(Neon::Integer_3d<IndexType> const&     gridDim,
                            typename DataSetContainer::Span const& span,
                            UserLambda_ta                          userLambdaTa)
 {
@@ -102,7 +102,7 @@ namespace blockSpan {
 #ifdef NEON_COMPILER_CUDA
 template <typename DataSetContainer,
           typename UserLambda>
-NEON_CUDA_KERNEL auto execLambdaIteratorCUDA(typename DataSetContainer::Span span,
+NEON_CUDA_KERNEL auto launchLambdaOnSpanCUDA(typename DataSetContainer::Span span,
                                              UserLambda                      userLambdaTa)
     -> void
 {
@@ -117,7 +117,7 @@ NEON_CUDA_KERNEL auto execLambdaIteratorCUDA(typename DataSetContainer::Span spa
 
 
 template <typename IndexType, typename DataSetContainer, typename UserLambda_ta>
-void execLambdaIteratorOMP(const Neon::Integer_3d<IndexType>& blockSize,
+void launchLambdaOnSpanOMP(const Neon::Integer_3d<IndexType>& blockSize,
                            const Neon::Integer_3d<IndexType>& blockGridSize,
                            typename DataSetContainer::Span    span,
                            UserLambda_ta                      userLambdaTa)
