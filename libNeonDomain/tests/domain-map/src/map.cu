@@ -27,24 +27,6 @@ auto mapContainer_axpy(int                   streamIdx,
                     // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                     b(e, i) += a(e, i) * val;
                 }
-#if 0
-                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
-                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                    if (globalPoint.x == 7 && globalPoint.y == 0 && globalPoint.z == 0) {
-                        printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
-                               e.mInDataBlockIdx.x,
-                               e.mInDataBlockIdx.y,
-                               e.mInDataBlockIdx.z,
-                               globalPoint.x,
-                               globalPoint.y,
-                               globalPoint.z);
-                        for (int i = 0; i < a.cardinality(); i++) {
-                            auto val =  a(e, i);
-                            printf("VALUE %ld \n", a(e, i));
-                        }
-                    }
-                }
-#endif
             };
         });
 }
@@ -73,6 +55,9 @@ auto run(TestData<G, T, C>& data) -> void
         mapContainer_axpy(Neon::Backend::mainStreamIdx,
                           val, X, Y)
             .run(0);
+
+        X.updateHostData(0);
+        Y.updateHostData(0);
 
         data.getBackend().sync(0);
     }

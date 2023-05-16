@@ -4,7 +4,7 @@
 #include "map.h"
 #include "runHelper.h"
 
-TEST(domain_unit_test_map, dGrid)
+TEST(domain_map, dGrid)
 {
     int nGpus = 3;
     using Type = int64_t;
@@ -13,7 +13,7 @@ TEST(domain_unit_test_map, dGrid)
                             1);
 }
 
-TEST(domain_unit_test_map, eGrid)
+TEST(domain_map, eGrid)
 {
     int nGpus = 3;
     using Type = int64_t;
@@ -22,7 +22,7 @@ TEST(domain_unit_test_map, eGrid)
                             1);
 }
 
-TEST(domain_unit_test_map, bGrid)
+TEST(domain_map, bGrid)
 {
     int nGpus = 1;
     using Type = int64_t;
