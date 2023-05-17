@@ -65,11 +65,12 @@ auto laplace(const Field& x, Field& y, size_t sharedMem = 0) -> Neon::set::Conta
                 using Type = typename Field::Type;
                 for (int card = 0; card < xLocal.cardinality(); card++) {
                     typename Field::Type res = 0;
+                    int                  count = 0;
 
-
-                    auto checkNeighbor = [&res](Neon::domain::NghData<Type>& neighbor) {
+                    auto checkNeighbor = [&](Neon::domain::NghData<Type>& neighbor) {
                         if (neighbor.isValid()) {
-                            res += neighbor. getData();
+                            res += neighbor.getData();
+                            count++;
                         }
                     };
 
@@ -78,7 +79,7 @@ auto laplace(const Field& x, Field& y, size_t sharedMem = 0) -> Neon::set::Conta
                         checkNeighbor(neighbor);
                     }
 
-                    yLocal(gidx, card) = -6 * res;
+                    yLocal(gidx, card) = xLocal(gidx, card) - count * res;
                 }
             };
         });
@@ -138,8 +139,8 @@ void SingleStencil(TestData<G, T, C>&      data,
         cudaProfilerStop();
         NEON_CUDA_CHECK_LAST_ERROR
 
-        //X.ioToVtk("X", "X");
-        //Y.ioToVtk("Y", "Y");
+        // X.ioToVtk("X", "X");
+        // Y.ioToVtk("Y", "Y");
     }
 
     {  // Golden data
@@ -203,8 +204,8 @@ TEST(SingleStencil_NoOCC, bGrid)
 {
     int nGpus = 1;
     using Grid = Neon::bGrid;
-    //using Grid = Neon::domain::eGrid;
-    //using Grid = Neon::dGrid;
+    // using Grid = Neon::domain::eGrid;
+    // using Grid = Neon::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("bGrid_t", SingleStencilNoOCC<Grid, Type, 0>, nGpus, 1);
 }
