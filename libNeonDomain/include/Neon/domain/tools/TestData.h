@@ -150,6 +150,8 @@ class TestData
     Neon::index_3d                           mDimension;
     Neon::set::TransferMode                  mTransferMode = Neon::set::TransferMode::put;
     Neon::set::StencilSemantic               mStencilSemantic = Neon::set::StencilSemantic::standard;
+    Neon::MemoryOptions          mMemoryOptions;
+    MemoryOptions                            getMemoryOptions() const;
 };
 
 template <typename G, typename T, int C>
@@ -182,6 +184,7 @@ TestData<G, T, C>::TestData(const Neon::Backend&         backend,
     mStencilSemantic = stencilSemantic;
     mGeometry = geometry;
     mDimension = dimension;
+    mMemoryOptions=memoryOptions;
     Neon::domain::tool::GeometryMask geometryMask(geometry,
                                                   dimension,
                                                   domainRatio,
@@ -219,6 +222,14 @@ auto TestData<G, T, C>::getField(FieldNames name)
     auto fieldIdx = FieldNamesUtils::toInt(name);
     return mFields[fieldIdx];
 }
+
+template <typename G, typename T, int C>
+auto TestData<G, T, C>::getMemoryOptions()const
+    -> Neon::MemoryOptions
+{
+    return mMemoryOptions;
+}
+
 template <typename G, typename T, int C>
 auto TestData<G, T, C>::getIODomain(FieldNames name)
     -> TestData::IODomain&
@@ -525,8 +536,9 @@ auto TestData<G, T, C>::toString() const -> std::string
 {
     std::stringstream s;
     s << " [Grid]:{ " << getGrid().toString()
-      << "} [Cardinality]:{ " << mIODomains[0].getCardinality()
-      << "} [Geometry]:{ " << GeometryUtils::toString(getGeometry())
+      << "} [Cardinality]:{" << mIODomains[0].getCardinality()
+      << "} [Geometry]:{" << GeometryUtils::toString(getGeometry())
+      << "} [Memory]:{" << MemoryLayoutUtils::toString(getMemoryOptions().getOrder())
       << "}";
     return s.str();
 }

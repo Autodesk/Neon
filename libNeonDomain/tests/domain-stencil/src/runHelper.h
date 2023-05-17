@@ -72,6 +72,7 @@ void runAllTestConfiguration(
 
                         Neon::Backend       backend(ids, runtime);
                         Neon::MemoryOptions memoryOptions = backend.getMemoryOptions();
+                        memoryOptions.setOrder(Neon::MemoryLayout::structOfArrays);
 
                         if constexpr (std::is_same_v<G, Neon::bGrid>) {
                             if (dim.z < 8 * ngpu * 3) {

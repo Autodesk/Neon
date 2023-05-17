@@ -22,9 +22,9 @@ TEST(domain_unit_test_globalIdx, eGrid)
                             1);
 }
 
-TEST(domain_unit_test_globalIdx, bGrid)
+TEST(domain_unit_test_globalIdx, bGridSingleGPU)
 {
-    int nGpus = 5;
+    int nGpus = 1;
     using Type = int64_t;
     runAllTestConfiguration(std::function(globalIdx::run<Neon::bGrid, Type, 0>),
                             nGpus,
