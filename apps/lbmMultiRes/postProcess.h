@@ -3,15 +3,19 @@
 #include "Neon/domain/mGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
+#include "verify.h"
+
 template <typename T, int Q>
 void postProcess(Neon::domain::mGrid&                        grid,
+                 const int                                   Re,
                  const int                                   numLevels,
                  const Neon::domain::mGrid::Field<T>&        fpop,
                  const Neon::domain::mGrid::Field<CellType>& cellType,
                  const int                                   iteration,
                  Neon::domain::mGrid::Field<T>&              vel,
                  Neon::domain::mGrid::Field<T>&              rho,
-                 bool                                        generateValidateFile = false)
+                 bool                                        verify,
+                 bool                                        generateValidateFile)
 {
     grid.getBackend().syncAll();
 
@@ -79,21 +83,37 @@ void postProcess(Neon::domain::mGrid&                        grid,
     vel.ioToVtk("Velocity_" + suffix.str());
     //rho.ioToVtk("Density_" + suffix.str());
 
-    if (generateValidateFile) {
+    std::vector<std::pair<T, T>> xPosVal;
+    std::vector<std::pair<T, T>> yPosVal;
+    if (verify || generateValidateFile) {
         const Neon::index_3d grid_dim = grid.getDimension();
-        std::ofstream        file;
-        file.open("NeonMultiResLBM_" + suffix.str() + ".dat");
-
         for (int level = 0; level < numLevels; ++level) {
             vel.forEachActiveCell(
                 level, [&](const Neon::index_3d& id, const int& card, T& val) {
                     if (id.x == grid_dim.x / 2 && id.z == grid_dim.z / 2) {
                         if (card == 0) {
-                            file << static_cast<double>(id.v[1]) / static_cast<double>(grid_dim.y) << " " << val << "\n";
+                            yPosVal.push_back({static_cast<double>(id.v[1]) / static_cast<double>(grid_dim.y), val});
+                        }
+                    }
+
+                    if (id.y == grid_dim.y / 2 && id.z == grid_dim.z / 2) {
+                        if (card == 0) {
+                            xPosVal.push_back({static_cast<double>(id.v[0]) / static_cast<double>(grid_dim.x), val});
                         }
                     }
                 },
                 Neon::computeMode_t::seq);
+        }
+    }
+
+    if (verify) {
+        NEON_INFO("Max difference = {}", verifyGhia1982(Re, xPosVal, yPosVal));
+    }
+    if (generateValidateFile) {
+        std::ofstream file;
+        file.open("NeonMultiResLBM_" + suffix.str() + ".dat");
+        for (auto v : yPosVal) {
+            file << v.first << " " << v.second << "\n";
         }
         file.close();
     }
