@@ -2,9 +2,9 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
 template <typename ActiveCellLambda>
-bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bGrid(const Neon::Backend&         backend,
+bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bGrid(const Neon::Backend&         backend,
                                                              const Neon::int32_3d&        domainSize,
                                                              const ActiveCellLambda       activeCellLambda,
                                                              const Neon::domain::Stencil& stencil,
@@ -14,9 +14,9 @@ bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bGrid(const Neon::Backend
 {
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
 template <typename ActiveCellLambda>
-bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bGrid(const Neon::Backend&         backend,
+bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bGrid(const Neon::Backend&         backend,
                                                              const Neon::int32_3d&        domainSize,
                                                              const ActiveCellLambda       activeCellLambda,
                                                              const Neon::domain::Stencil& stencil,
@@ -245,9 +245,9 @@ bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::bGrid(const Neon::Backend
     }
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
 template <typename T, int C>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::newField(const std::string          name,
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newField(const std::string          name,
                                                                      int                        cardinality,
                                                                      T                          inactiveValue,
                                                                      Neon::DataUse              dataUse,
@@ -258,10 +258,10 @@ auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::newField(const std::
     return field;
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::newContainer(const std::string& name,
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newContainer(const std::string& name,
                                                                          index_3d           blockSize,
                                                                          size_t             sharedMem,
                                                                          LoadingLambda      lambda) const -> Neon::set::Container
@@ -275,10 +275,10 @@ auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::newContainer(const s
     return kContainer;
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::newContainer(const std::string& name,
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newContainer(const std::string& name,
                                                                          LoadingLambda      lambda) const -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
@@ -291,50 +291,50 @@ auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::newContainer(const s
     return kContainer;
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     helpGetBlockViewGrid()
         const -> BlockViewGrid&
 {
     return mData->blockViewGrid;
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     helpGetActiveBitMask()
         const -> BlockViewGrid::Field<uint64_t, 0>&
 {
     return mData->activeBitMask;
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     helpGetBlockConnectivity()
         const -> BlockViewGrid::Field<BlockIdx, 27>&
 {
     return mData->blockConnectivity;
 }
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     helpGetDataBlockOriginField()
         const -> Neon::aGrid::Field<index_3d, 0>&
 {
     return mData->mDataBlockOriginField;
 }
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getSpan(Neon::Execution execution,
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getSpan(Neon::Execution execution,
                                                                     SetIdx          setIdx,
                                                                     Neon::DataView  dataView) -> const bGrid::Span&
 {
     return mData->spanTable.getSpan(execution, setIdx, dataView);
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::~bGrid()
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::~bGrid()
 {
 }
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getSetIdx(const index_3d& idx) const -> int32_t
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getSetIdx(const index_3d& idx) const -> int32_t
 {
     typename GridBaseTemplate::CellProperties cellProperties;
 
@@ -345,8 +345,8 @@ auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getSetIdx(const inde
     Neon::SetIdx setIdx = cellProperties.getSetIdx();
     return setIdx;
 }
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getLaunchParameters(Neon::DataView dataView,
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getLaunchParameters(Neon::DataView dataView,
                                                                                 const index_3d&,
                                                                                 const size_t& sharedMem) const -> Neon::set::LaunchParameters
 {
@@ -358,16 +358,16 @@ auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getLaunchParameters(
     return res;
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     helpGetStencilIdTo3dOffset()
         const -> Neon::set::MemSet<Neon::int8_3d>&
 {
     return mData->stencilIdTo3dOffset;
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::isInsideDomain(const index_3d& idx) const -> bool
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::isInsideDomain(const index_3d& idx) const -> bool
 {
     // 1. check if the block is active
     const index_3d blockIdx3d = idx / dataBlockSize3D;
@@ -388,8 +388,8 @@ auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::isInsideDomain(const
     return (activeBits & mask) != 0;
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties
 {
     typename GridBaseTemplate::CellProperties cellProperties;
 
@@ -410,8 +410,8 @@ auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::getProperties(const 
     return cellProperties;
 }
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
-auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
+template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+auto bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
     const -> std::tuple<Neon::SetIdx, Idx>
 {
     const index_3d blockIdx3d = idx / dataBlockSize3D;

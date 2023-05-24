@@ -18,21 +18,21 @@
 namespace Neon::domain::details::bGrid {
 
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ>
+template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
 class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>,
-                                                                 bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>,
+                                                                 bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>,
+                                                                 bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>,
                                                                  int>
 {
-    friend bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>;
+    friend bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
 
    public:
     using Type = T;
-    using Grid = bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>;
-    using Field = bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>;
-    using Partition = bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>;
-    using Idx = bIndex<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ>;
+    using Grid = bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Field = bField<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Partition = bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Idx = bIndex<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
 
     using NghIdx = typename Partition::NghIdx;
     using NghData = typename Partition::NghData;
