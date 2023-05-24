@@ -47,10 +47,11 @@ auto laplaceOnIntegers(const Field& filedA,
                         typename Field::NghData nghData = a.getNghData(idx, direction, i);
                         if (nghData.isValid()) {
                             partial += nghData.getData();
+                            count++;
                         }
                     }
-
-                    b(idx, i) = -60 * partial;
+                    //        b = a - count * res;
+                    b(idx, i) = a(idx, i) - count * partial;
                 }
             };
         });
@@ -116,7 +117,7 @@ TEST(singleStencil, dGrid)
     runAllTestConfiguration<Grid, Type, 0>("dGrid", singleStencil<Grid, Type, C>, nGpus, 1);
 }
 
-TEST(singleStencil, bGrid)
+TEST(singleStencil, bGridSingleGpu)
 {
     int nGpus = 1;
     using Grid = Neon::bGrid;
