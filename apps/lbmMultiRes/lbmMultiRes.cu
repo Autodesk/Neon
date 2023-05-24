@@ -172,7 +172,7 @@ void runNonUniformLBM(const int           problemID,
         NEON_INFO("Non-uniform LBM Iteration: {}", t);
         skl.run();
         if (!benchmark && t % 100 == 0) {
-            postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, t, vel, rho, true, false);
+            postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, t, vel, rho, ulb, true, false);
         }
     }
     auto stop = std::chrono::high_resolution_clock::now();
@@ -184,7 +184,7 @@ void runNonUniformLBM(const int           problemID,
     NEON_INFO("MLUPS = {}, numActiveVoxels = {}", mlups, numActiveVoxels);
     NEON_INFO("Effective MLUPS = {}, Effective numActiveVoxels = {}", eff_mlups, gridDim.rMul());
 
-    postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, numIter, vel, rho, true, true);
+    postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, numIter, vel, rho, ulb, true, true);
 }
 
 int main(int argc, char** argv)

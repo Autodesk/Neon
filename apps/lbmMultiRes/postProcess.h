@@ -14,6 +14,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
                  const int                                   iteration,
                  Neon::domain::mGrid::Field<T>&              vel,
                  Neon::domain::mGrid::Field<T>&              rho,
+                 T                                           ulb,
                  bool                                        verify,
                  bool                                        generateValidateFile)
 {
@@ -107,7 +108,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
     }
 
     if (verify) {
-        NEON_INFO("Max difference = {}", verifyGhia1982(Re, xPosVal, yPosVal));
+        NEON_INFO("Max difference = {}", verifyGhia1982(Re, xPosVal, yPosVal, 1.0 / ulb));
     }
     if (generateValidateFile) {
         std::ofstream file;

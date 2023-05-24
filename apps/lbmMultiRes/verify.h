@@ -43,7 +43,8 @@ std::map<int, std::array<float, ghiaNumPoints>> ghiaXVals{
 template <typename T>
 inline T verifyGhia1982(const int                    Re,
                         std::vector<std::pair<T, T>> xPosVal,
-                        std::vector<std::pair<T, T>> yPosVal)
+                        std::vector<std::pair<T, T>> yPosVal,
+                        T                            scale)
 {
     //we assume the ghia points are far less than the input points. so, for every ghia point, we try to find the interval in which it lies in the input points
     //then linearly interpolate the values between the ends of this interval, compute the different between the interpolated value and ghia value. Finally, we
@@ -69,16 +70,21 @@ inline T verifyGhia1982(const int                    Re,
 
             const auto itr = std::lower_bound(posVal.begin(), posVal.end(), pos, [=](const std::pair<T, T>& a, const T& b) { return a.first < b; });
 
-            const size_t low = itr - posVal.begin();
-            const size_t high = (low == posVal.size()) ? low : low + 1;
+            const size_t low = (itr == posVal.end()) ? posVal.size() - 1 : itr - posVal.begin();
+            const size_t high = (low == posVal.size() || itr == posVal.end()) ? low : low + 1;
 
             const T lowPos = posVal[low].first;
             const T highPos = posVal[high].first;
 
-            const T lowVal = posVal[low].second;
-            const T highVal = posVal[high].second;
+            const T lowVal = posVal[low].second * scale;
+            const T highVal = posVal[high].second * scale;
 
-            const T interp = lowVal + ((pos - lowPos) / (highPos - lowPos)) * (highVal - lowVal);
+            T interp;
+            if (low == high) {
+                interp = lowVal;
+            } else {
+                interp = lowVal + ((pos - lowPos) / (highPos - lowPos)) * (highVal - lowVal);
+            }
 
             diff[i] = std::abs(interp - val);
         }
