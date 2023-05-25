@@ -71,7 +71,7 @@ inline T verifyGhia1982(const int                    Re,
             const auto itr = std::lower_bound(posVal.begin(), posVal.end(), pos, [=](const std::pair<T, T>& a, const T& b) { return a.first < b; });
 
             const size_t low = (itr == posVal.end()) ? posVal.size() - 1 : itr - posVal.begin();
-            const size_t high = (low == posVal.size() || itr == posVal.end()) ? low : low + 1;
+            const size_t high = (low >= posVal.size() - 1 || itr == posVal.end()) ? low : low + 1;
 
             const T lowPos = posVal[low].first;
             const T highPos = posVal[high].first;
