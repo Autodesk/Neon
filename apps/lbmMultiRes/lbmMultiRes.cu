@@ -111,6 +111,14 @@ void runNonUniformLBM(const int           problemID,
         levelSDF[3] = -1.0;
     }
 
+
+    generatepalabosDATFile(std::string("lid_" + std::to_string(gridDim.x) + "_" +
+                                       std::to_string(gridDim.y) + "_" +
+                                       std::to_string(gridDim.x) + ".dat"),
+                           gridDim,
+                           depth,
+                           levelSDF);
+
     //define the grid
     const Neon::domain::mGridDescriptor descriptor(depth);
 

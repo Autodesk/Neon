@@ -119,3 +119,45 @@ void postProcess(Neon::domain::mGrid&                        grid,
         file.close();
     }
 }
+
+
+inline void generatepalabosDATFile(const std::string    filename,
+                                   const Neon::index_3d gridDim,
+                                   const int            depth,
+                                   const float*         levelSDF)
+{
+    std::ofstream file;
+    file.open(filename);
+
+    //a cuboid coordinates specified by it cartesian extents x0, x1, y0, y1, z0, z1
+    file << 0 << " " << gridDim.x << " "
+         << 0 << " " << gridDim.y << " "
+         << 0 << " " << gridDim.z << "\n";
+
+    //dx: the finest voxel size
+    file << "1\n";
+
+    //nx, ny and nz representing the number of finest voxels along each dimension of the cuboid.
+    file << gridDim.x << " "
+         << gridDim.y << " "
+         << gridDim.z << "\n";
+
+    for (int32_t k = 0; k < gridDim.z; ++k) {
+        for (int32_t j = 0; j < gridDim.y; ++j) {
+            for (int32_t i = 0; i < gridDim.x; ++i) {
+                float sdf = sdfCube({i, j, k}, gridDim - 1);
+
+                for (int d = 0; d < depth; ++d) {
+                    if (sdf <= levelSDF[d] && sdf > levelSDF[d + 1]) {
+                        file << float(depth - d - 1) / float(depth - 1) << " ";
+                        break;
+                    }
+                }
+            }
+        }
+        file << "\n";
+    }
+
+
+    file.close();
+}
