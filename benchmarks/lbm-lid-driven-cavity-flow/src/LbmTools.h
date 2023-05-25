@@ -20,13 +20,13 @@ struct LbmContainers
 template <typename PopulationField,
           typename LbmComputeType>
 struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeType>,
-                        PopulationField,
-                        LbmComputeType>
+                     PopulationField,
+                     LbmComputeType>
 {
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
     using Lattice = D3Q19Template<LbmStoreType, LbmComputeType>;
-    using Cell = typename PopulationField::Cell;
+    using Idx = typename PopulationField::Idx;
     using Grid = typename PopulationField::Grid;
     using Rho = typename Grid::template Field<LbmStoreType, 1>;
     using U = typename Grid::template Field<LbmStoreType, 3>;
@@ -50,7 +50,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         }                                                                                                               \
     }
     static inline NEON_CUDA_HOST_DEVICE auto
-    loadPopulation(Cell const&                                i,
+    loadPopulation(Idx const&                                 i,
                    const uint32_t&                            wallBitFlag,
                    typename PopulationField::Partition const& fin,
                    NEON_OUT LbmStoreType                      popIn[19])
@@ -80,23 +80,23 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         { /*GO*/                                                                                                        \
             if (wallBitFlag & (uint32_t(1) << GOid)) {                                                                  \
                 /*std::cout << "cell " << i.mLocation << " direction " << GOid << " opposite " << BKid << std::endl; */ \
-                popIn[GOid] = fin(i, BKid) +                                                                            \
-                              fin.template nghVal<BKx, BKy, BKz>(i, BKid, 0.0).value;                                   \
+                popIn[GOid] = fin(gidx, BKid) +                                                                         \
+                              fin.template getNghData<BKx, BKy, BKz>(gidx, BKid)();                                     \
             } else {                                                                                                    \
-                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;                                   \
+                popIn[GOid] = fin.template getNghData<BKx, BKy, BKz>(gidx, GOid)();                                     \
             }                                                                                                           \
         }                                                                                                               \
         { /*BK*/                                                                                                        \
             if (wallBitFlag & (uint32_t(1) << BKid)) {                                                                  \
-                popIn[BKid] = fin(i, GOid) + fin.template nghVal<GOx, GOy, GOz>(i, GOid, 0.0).value;                    \
+                popIn[BKid] = fin(gidx, GOid) + fin.template getNghData<GOx, GOy, GOz>(gidx, GOid)();                   \
             } else {                                                                                                    \
-                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value;                                   \
+                popIn[BKid] = fin.template getNghData<GOx, GOy, GOz>(gidx, BKid)();                                     \
             }                                                                                                           \
         }                                                                                                               \
     }
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    pullStream(Cell const&                                i,
+    pullStream(Idx const&                                 gidx,
                const uint32_t&                            wallBitFlag,
                typename PopulationField::Partition const& fin,
                NEON_OUT LbmStoreType                      popIn[19])
@@ -116,7 +116,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         //  }
         // Treat the case of the center (c[k] = {0, 0, 0,}).
         {
-            popIn[Lattice::centerDirection] = fin(i, Lattice::centerDirection);
+            popIn[Lattice::centerDirection] = fin(gidx, Lattice::centerDirection);
         }
     }
 #undef PULL_STREAM
@@ -149,7 +149,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    collideBgkUnrolled(Cell const&                          i /*!     LbmComputeType iterator   */,
+    collideBgkUnrolled(Idx const&                           i /*!     LbmComputeType iterator   */,
                        const LbmStoreType                   pop[Lattice::Q],
                        LbmComputeType const&                rho /*!   Density            */,
                        std::array<LbmComputeType, 3> const& u /*!     Velocity           */,
@@ -243,20 +243,20 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         -> Neon::set::Container
     {
 
-        Neon::set::Container container = fInField.getGrid().getContainer(
+        Neon::set::Container container = fInField.getGrid().newContainer(
             "LBM_iteration",
             [&, omega](Neon::set::Loader& L) -> auto {
                 auto&       fIn = L.load(fInField,
-                                         Neon::Compute::STENCIL, stencilSemantic);
+                                         Neon::Pattern::STENCIL, stencilSemantic);
                 auto&       fOut = L.load(fOutField);
                 const auto& cellInfoPartition = L.load(cellTypeField);
 
-                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
-                    CellType cellInfo = cellInfoPartition(cell, 0);
+                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Idx& gidx) mutable {
+                    CellType cellInfo = cellInfoPartition(gidx, 0);
                     if (cellInfo.classification == CellType::bulk) {
 
                         LbmStoreType popIn[Lattice::Q];
-                        pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
+                        pullStream(gidx, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
 
                         LbmComputeType                rho;
                         std::array<LbmComputeType, 3> u{.0, .0, .0};
@@ -266,7 +266,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                                                      u[1] * u[1] +
                                                      u[2] * u[2]);
 
-                        collideBgkUnrolled(cell,
+                        collideBgkUnrolled(gidx,
                                            popIn,
                                            rho, u,
                                            usqr, omega,
@@ -280,13 +280,13 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 #define COMPUTE_MASK_WALL(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                           \
     {                                                                                                         \
         { /*GO*/                                                                                              \
-            CellType nghCellType = infoIn.template nghVal<BKx, BKy, BKz>(cell, 0, CellType::undefined).value; \
+            CellType nghCellType = infoIn.template getNghData<BKx, BKy, BKz>(gidx, 0, CellType::undefined)(); \
             if (nghCellType.classification != CellType::bulk) {                                               \
                 cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << GOid));                  \
             }                                                                                                 \
         }                                                                                                     \
         { /*BK*/                                                                                              \
-            CellType nghCellType = infoIn.template nghVal<GOx, GOy, GOz>(cell, 0, CellType::undefined).value; \
+            CellType nghCellType = infoIn.template getNghData<GOx, GOy, GOz>(gidx, 0, CellType::undefined)(); \
             if (nghCellType.classification != CellType::bulk) {                                               \
                 cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << BKid));                  \
             }                                                                                                 \
@@ -299,15 +299,15 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
         -> Neon::set::Container
     {
-        Neon::set::Container container = infoInField.getGrid().getContainer(
+        Neon::set::Container container = infoInField.getGrid().newContainer(
             "LBM_iteration",
             [&](Neon::set::Loader& L) -> auto {
                 auto& infoIn = L.load(infoInField,
-                                      Neon::Compute::STENCIL);
+                                      Neon::Pattern::STENCIL);
                 auto& infoOut = L.load(infoOutpeField);
 
-                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
-                    CellType cellType = infoIn(cell, 0);
+                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Idx& gidx) mutable {
+                    CellType cellType = infoIn(gidx, 0);
                     cellType.wallNghBitflag = 0;
 
                     if (cellType.classification == CellType::bulk) {
@@ -321,7 +321,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                         COMPUTE_MASK_WALL(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17)
                         COMPUTE_MASK_WALL(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18)
 
-                        infoOut(cell, 0) = cellType;
+                        infoOut(gidx, 0) = cellType;
                     }
                 };
             });
@@ -330,8 +330,8 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 #undef COMPUTE_MASK_WALL
 
 #define BC_LOAD(GOID, DKID)        \
-    popIn[GOID] = fIn(cell, GOID); \
-    popIn[DKID] = fIn(cell, DKID);
+    popIn[GOID] = fIn(gidx, GOID); \
+    popIn[DKID] = fIn(gidx, DKID);
 
     static auto
     computeRhoAndU([[maybe_unused]] const PopulationField& fInField /*!   inpout population field */,
@@ -341,24 +341,24 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 
         -> Neon::set::Container
     {
-        Neon::set::Container container = fInField.getGrid().getContainer(
+        Neon::set::Container container = fInField.getGrid().newContainer(
             "LBM_iteration",
             [&](Neon::set::Loader& L) -> auto {
                 auto& fIn = L.load(fInField,
-                                   Neon::Compute::STENCIL);
+                                   Neon::Pattern::STENCIL);
                 auto& rhoXpu = L.load(rhoField);
                 auto& uXpu = L.load(uField);
 
                 const auto& cellInfoPartition = L.load(cellTypeField);
 
-                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Cell& cell) mutable {
-                    CellType                      cellInfo = cellInfoPartition(cell, 0);
+                return [=] NEON_CUDA_HOST_DEVICE(const typename PopulationField::Idx& gidx) mutable {
+                    CellType                      cellInfo = cellInfoPartition(gidx, 0);
                     LbmComputeType                rho = 0;
                     std::array<LbmComputeType, 3> u{.0, .0, .0};
                     LbmStoreType                  popIn[Lattice::Q];
 
                     if (cellInfo.classification == CellType::bulk) {
-                        pullStream(cell, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
+                        pullStream(gidx, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
                         macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
                     } else {
                         if (cellInfo.classification == CellType::movingWall) {
@@ -371,7 +371,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                             BC_LOAD(6, 16)
                             BC_LOAD(7, 17)
                             BC_LOAD(8, 18)
-                            popIn[9] = fIn(cell, 9);
+                            popIn[9] = fIn(gidx, 9);
 
                             rho = 1.0;
                             u = std::array<LbmComputeType, 3>{COMPUTE_CAST(popIn[0]) / COMPUTE_CAST(6. * 1. / 18.),
@@ -380,10 +380,10 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                         }
                     }
 
-                    rhoXpu(cell, 0) = static_cast<LbmStoreType>(rho);
-                    uXpu(cell, 0) = static_cast<LbmStoreType>(u[0]);
-                    uXpu(cell, 1) = static_cast<LbmStoreType>(u[1]);
-                    uXpu(cell, 2) = static_cast<LbmStoreType>(u[2]);
+                    rhoXpu(gidx, 0) = static_cast<LbmStoreType>(rho);
+                    uXpu(gidx, 0) = static_cast<LbmStoreType>(u[0]);
+                    uXpu(gidx, 1) = static_cast<LbmStoreType>(u[1]);
+                    uXpu(gidx, 2) = static_cast<LbmStoreType>(u[2]);
                 };
             });
         return container;

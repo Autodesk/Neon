@@ -549,7 +549,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
 #define COMPUTE_MASK_WALL(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                           \
     {                                                                                                         \
         { /*GO*/                                                                                              \
-            CellType nghCellType = infoIn.template nghVal<BKx, BKy, BKz>(cell, 0, CellType::undefined).value; \
+            CellType nghCellType = infoIn.template nghVal<BKx, BKy, BKz>(gidx, 0, CellType::undefined).value; \
             if (nghCellType.classification != CellType::bulk &&                                               \
                 nghCellType.classification != CellType::pressure &&                                           \
                 nghCellType.classification != CellType::velocity) {                                           \
@@ -557,7 +557,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
             }                                                                                                 \
         }                                                                                                     \
         { /*BK*/                                                                                              \
-            CellType nghCellType = infoIn.template nghVal<GOx, GOy, GOz>(cell, 0, CellType::undefined).value; \
+            CellType nghCellType = infoIn.template nghVal<GOx, GOy, GOz>(gidx, 0, CellType::undefined).value; \
             if (nghCellType.classification != CellType::bulk &&                                               \
                 nghCellType.classification != CellType::pressure &&                                           \
                 nghCellType.classification != CellType::velocity) {                                           \

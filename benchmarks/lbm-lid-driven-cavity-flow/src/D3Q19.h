@@ -3,7 +3,6 @@
 #include "Neon/Neon.h"
 #include "Neon/set/Backend.h"
 #include "Neon/set/memory/memSet.h"
-#include "Neon/set/memory/memory.h"
 
 template <typename StorageFP, typename ComputeFP>
 struct D3Q19Template
@@ -44,9 +43,13 @@ struct D3Q19Template
                 {0, 1, -1} /*!  18 */,
             });
 
-        auto c_neon = Neon::set::Memory::MemSet<Neon::index_3d>(backend, 1, c_vect.size(),
-                                                                Neon::DataUse::HOST_DEVICE);
-
+        auto c_neon = backend.devSet().newMemSet<Neon::index_3d>(
+            Neon::DataUse::HOST_DEVICE,
+            1,
+            Neon::MemoryOptions(),
+            backend.devSet().newDataSet<size_t>([&](Neon::SetIdx const&, auto& val) {
+                val = c_vect.size();
+            }));
 
         for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
             for (int j = 0; j < int(c_vect.size()); j++) {
@@ -90,8 +93,14 @@ struct D3Q19Template
             }
         }
 
-        this->opp = Neon::set::Memory::MemSet<int>(backend, 1, opp_vect.size(),
-                                                   Neon::DataUse::HOST_DEVICE);
+        this->opp = backend.devSet().newMemSet<int>(
+            Neon::DataUse::HOST_DEVICE,
+            1,
+            Neon::MemoryOptions(),
+            backend.devSet().newDataSet<size_t>([&](Neon::SetIdx const&, auto& val) {
+                val = opp_vect.size();
+            }));
+
 
         for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
             for (size_t j = 0; j < opp_vect.size(); j++) {
@@ -122,8 +131,14 @@ struct D3Q19Template
             1. / 36. /*!  18  */,
         };
 
-        this->t = Neon::set::Memory::MemSet<StorageFP>(backend, 1, opp_vect.size(),
-                                                    Neon::DataUse::HOST_DEVICE);
+        this->t = backend.devSet().newMemSet<StorageFP>(
+            Neon::DataUse::HOST_DEVICE,
+            1,
+            Neon::MemoryOptions(),
+            backend.devSet().newDataSet<size_t>([&](Neon::SetIdx const&, auto&val) {
+                val= opp_vect.size();
+            }));
+
 
         for (Neon::SetIdx i = 0; i < backend.devSet().setCardinality(); i++) {
             for (size_t j = 0; j < t_vect.size(); j++) {
@@ -155,6 +170,6 @@ struct D3Q19Template
     Neon::set::MemSet<Neon::int8_3d> c;
     Neon::set::MemSet<int>           opp;
     Neon::set::MemSet<StorageFP>     t;
-    std::vector<double>                t_vect;
-    std::vector<Neon::index_3d>        c_vect;
+    std::vector<double>              t_vect;
+    std::vector<Neon::index_3d>      c_vect;
 };

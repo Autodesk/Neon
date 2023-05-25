@@ -184,7 +184,7 @@ define a Neon Container on a staggered grid. The structure should result quite f
 There are two minor changes that are highlighter in the code below.
 Firstly, the method for creating a container is now specific for node and voxel grids (`getContainerOnNodes`
 and `getContainerOnVoxel`). And finally, the parameter of the Neon Compute Lambda has changed
-from `Cell`, to`Node` and `Voxel`.
+from `Idx`, to`Node` and `Voxel`.
 
 ```cpp linenums="40" title="Neon/staggered-grid/tutorials/staggered-grids/src/containers.cu" hl_lines="5 13"
 template <typename StaggeredGrid, typename T>
@@ -223,7 +223,7 @@ As we can see from the following screenshot, temperature nodes are al set to 1 a
 Let's now focus on how to do some stencil computation, we for each temperature node we want to access the value of
 neighbouring density voxels.
 
-We know that the in Neon the identification of a neighbour Cell of a uniform grid is done through 3D offsets.
+We know that the in Neon the identification of a neighbour Idx of a uniform grid is done through 3D offsets.
 For example if I want to identify the cell on the left (in the positive X direction), we use the 3D offset {1,0,0}.
 The same abstraction is valid for stencil operation between nodes or between voxels.
 

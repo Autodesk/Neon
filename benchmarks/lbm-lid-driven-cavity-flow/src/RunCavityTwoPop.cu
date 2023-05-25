@@ -36,7 +36,7 @@ auto run(Config& config,
         NEON_THROW(exce);
     }();
 
-    if(!backendWasReported) {
+    if (!backendWasReported) {
         metrics::recordBackend(bk, report);
         backendWasReported = true;
     }
@@ -80,16 +80,16 @@ auto run(Config& config,
     auto exportRhoAndU = [&bk, &rho, &u, &iteration, &flag](int iterationId) {
         if ((iterationId) % 100 == 0) {
             auto& f = iteration.getInput();
-            bk.syncAll();
-            Neon::set::HuOptions hu(Neon::set::TransferMode::get,
-                                    false,
-                                    Neon::Backend::mainStreamIdx,
-                                    Neon::set::StencilSemantic::standard);
+            {
+                bk.syncAll();
+                f.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                                Neon::set::TransferMode::get,
+                                Neon::Execution::device)
+                    .run(Neon::Backend::mainStreamIdx);
+                bk.syncAll();
+            }
 
-            f.haloUpdate(hu);
-            bk.syncAll();
             auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
-
             container.run(Neon::Backend::mainStreamIdx);
             u.updateHostData(Neon::Backend::mainStreamIdx);
             rho.updateHostData(Neon::Backend::mainStreamIdx);
@@ -184,15 +184,16 @@ auto run(Config& config,
         outPop.updateDeviceData(Neon::Backend::mainStreamIdx);
 
         flag.updateDeviceData(Neon::Backend::mainStreamIdx);
-        bk.syncAll();
-        Neon::set::HuOptions hu(Neon::set::TransferMode::get,
-                                false,
-                                Neon::Backend::mainStreamIdx,
-                                Neon::set::StencilSemantic::standard);
+        {
+            bk.syncAll();
+            flag.newHaloUpdate(Neon::set::StencilSemantic::standard /*semantic*/,
+                               Neon::set::TransferMode::get /*transferMode*/,
+                               Neon::Execution::device /*execution*/)
+                .run(Neon::Backend::mainStreamIdx);
+            bk.syncAll();
+        }
 
-        flag.haloUpdate(hu);
-        bk.syncAll();
-        auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
+         auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
         container.run(Neon::Backend::mainStreamIdx);
         bk.syncAll();
     }

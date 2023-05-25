@@ -252,16 +252,6 @@ auto aField<T, C>::getPartition(Neon::Execution       execution,
     }
     return self().getStorage().getPartition(execution, dataView, setIdx);
 }
-template <typename T, int C>
-auto aField<T, C>::haloUpdate(set::HuOptions&) const -> void
-{
-    // Nothing to do
-}
-template <typename T, int C>
-auto aField<T, C>::haloUpdate(set::HuOptions&) -> void
-{
-    // Nothing to do
-}
 
 template <typename T, int C>
 auto aField<T, C>::swap(aField::Field& A, aField::Field& B) -> void

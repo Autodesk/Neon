@@ -50,21 +50,13 @@ class FieldBase
     virtual auto getBaseGridTool() const
         -> const Neon::domain::interface::GridBase& = 0;
 
-    virtual auto haloUpdate([[maybe_unused]] Neon::set::HuOptions& opt) const
-        -> void
+    virtual auto newHaloUpdate(Neon::set::StencilSemantic /*semantic*/,
+                               Neon::set::TransferMode    /*transferMode*/,
+                               Neon::Execution            /*execution*/)
+        const -> Neon::set::Container
     {
         NEON_THROW_UNSUPPORTED_OPERATION("");
     }
-
-    virtual auto haloUpdate([[maybe_unused]] Neon::set::HuOptions& opt)
-        -> void
-    {
-        NEON_THROW_UNSUPPORTED_OPERATION("");
-    }
-
-    virtual auto haloUpdateContainer(Neon::set::TransferMode    transferMode,
-                                     Neon::set::StencilSemantic stencilSemantic) const
-        -> Neon::set::Container;
 
     auto getDimension() const
         -> const Neon::index_3d&;

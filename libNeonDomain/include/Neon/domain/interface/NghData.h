@@ -37,12 +37,12 @@ struct NghData
         return mIsValid;
     }
 
-    NEON_CUDA_HOST_DEVICE auto getData() -> Type&
+    NEON_CUDA_HOST_DEVICE auto getData() const -> const Type&
     {
         return mData;
     }
 
-    NEON_CUDA_HOST_DEVICE auto getData() const -> const Type&
+    NEON_CUDA_HOST_DEVICE auto operator()() const -> const Type&
     {
         return mData;
     }

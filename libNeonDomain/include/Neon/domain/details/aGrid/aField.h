@@ -61,11 +61,6 @@ class aField : public Neon::domain::interface::FieldBaseTemplate<T,
                               const int&            cardinality)
         -> Type& final;
 
-    auto haloUpdate(Neon::set::HuOptions& opt) const
-        -> void final;
-
-    auto haloUpdate(Neon::set::HuOptions& opt)
-        -> void final;
 
     /**
      * Move the field metadata from host to the accelerators.
