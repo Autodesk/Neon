@@ -6,6 +6,7 @@ add_subdirectory("domain-map")
 add_subdirectory("domain-neighbour-globalIdx")
 add_subdirectory("domain-halos")
 add_subdirectory("domain-stencil")
+add_subdirectory("domain-bGrid-tray")
 
 add_subdirectory("domainUt_sGrid")
 add_subdirectory("domain-unit-test-eGrid")
