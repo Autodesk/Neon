@@ -5,8 +5,8 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bPartition()
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bPartition()
     : mCardinality(0),
       mMem(nullptr),
       mStencilNghIndex(),
@@ -17,8 +17,8 @@ bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX,
 {
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     bPartition(int                    setIdx,
                int                    cardinality,
                T*                     mem,
@@ -36,8 +36,8 @@ bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX,
 {
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     getGlobalIndex(const Idx& gidx)
         const -> Neon::index_3d
 {
@@ -48,32 +48,32 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSize
     return location;
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     cardinality()
         const -> int
 {
     return mCardinality;
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
 operator()(const Idx& cell,
            int        card) -> T&
 {
     return mMem[helpGetPitch(cell, card)];
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
 operator()(const Idx& cell,
            int        card) const -> const T&
 {
     return mMem[helpGetPitch(cell, card)];
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     helpGetPitch(const Idx& idx, int card)
         const -> uint32_t
 {
@@ -82,22 +82,22 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, dataBlockSizeX, dataBlockSize
 }
 
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     helpGetValidIdxPitchExplicit(const Idx& idx, int card)
         const -> uint32_t
 {
-    uint32_t const blockPitchByCard = dataBlockSizeX * dataBlockSizeY * dataBlockSizeZ;
+    uint32_t const blockPitchByCard = memBlockSizeX * memBlockSizeY * memBlockSizeZ;
     uint32_t const inBlockInCardPitch = idx.mInDataBlockIdx.x +
-                                        dataBlockSizeX * idx.mInDataBlockIdx.y +
-                                        (dataBlockSizeX * dataBlockSizeY) * idx.mInDataBlockIdx.z;
+                                        memBlockSizeX * idx.mInDataBlockIdx.y +
+                                        (memBlockSizeX * memBlockSizeY) * idx.mInDataBlockIdx.z;
     uint32_t const blockAdnCardPitch = (idx.mDataBlockIdx * mCardinality + card) * blockPitchByCard;
     uint32_t const pitch = blockAdnCardPitch + inBlockInCardPitch;
     return pitch;
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     helpNghPitch(const Idx& nghIdx, int card)
         const -> std::tuple<bool, uint32_t>
 {
@@ -116,8 +116,8 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, dataBlockSizeX, dataBlockSize
     return {true, offset};
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     helpGetNghIdx(const Idx&    idx,
                   const NghIdx& offset)
         const -> Idx
@@ -132,9 +132,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSize
      * 1 positive offset
      * -1 negative offset
      */
-    const int xFlag = ngh.x < 0 ? -1 : (ngh.x >= dataBlockSizeX ? +1 : 0);
-    const int yFlag = ngh.y < 0 ? -1 : (ngh.y >= dataBlockSizeX ? +1 : 0);
-    const int zFlag = ngh.z < 0 ? -1 : (ngh.z >= dataBlockSizeX ? +1 : 0);
+    const int xFlag = ngh.x < 0 ? -1 : (ngh.x >= memBlockSizeX ? +1 : 0);
+    const int yFlag = ngh.y < 0 ? -1 : (ngh.y >= memBlockSizeX ? +1 : 0);
+    const int zFlag = ngh.z < 0 ? -1 : (ngh.z >= memBlockSizeX ? +1 : 0);
 
     const bool isLocal = (xFlag | yFlag | zFlag) == 0;
     if (!(isLocal)) {
@@ -167,9 +167,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSize
          * */
 
         Idx remoteNghIdx;
-        remoteNghIdx.mInDataBlockIdx.x = ngh.x - xFlag * dataBlockSizeX;
-        remoteNghIdx.mInDataBlockIdx.y = ngh.y - yFlag * dataBlockSizeX;
-        remoteNghIdx.mInDataBlockIdx.z = ngh.z - zFlag * dataBlockSizeX;
+        remoteNghIdx.mInDataBlockIdx.x = ngh.x - xFlag * memBlockSizeX;
+        remoteNghIdx.mInDataBlockIdx.y = ngh.y - yFlag * memBlockSizeX;
+        remoteNghIdx.mInDataBlockIdx.z = ngh.z - zFlag * memBlockSizeX;
 
         int connectivityJump = idx.mDataBlockIdx * 27 +
                                (xFlag + 1) +
@@ -186,8 +186,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSize
     }
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     getNghData(const Idx& eId,
                uint8_t    nghID,
                int        card)
@@ -197,8 +197,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSize
     return getNghData(eId, nghOffset, card);
 }
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     getNghData(const Idx&    idx,
                const NghIdx& offset,
                const int     card)

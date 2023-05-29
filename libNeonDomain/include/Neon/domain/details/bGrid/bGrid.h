@@ -24,31 +24,31 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <typename T, int C, int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
 class bField;
 
-template <int8_t dataBlockSizeX, int8_t dataBlockSizeY, int8_t dataBlockSizeZ, int8_t userBlockSizeX = dataBlockSizeX, int8_t userBlockSizeY = dataBlockSizeY, int8_t userBlockSizeZ = dataBlockSizeZ>
-class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>,
-                                                               bIndex<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ> >
+template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX = memBlockSizeX, int8_t userBlockSizeY = memBlockSizeY, int8_t userBlockSizeZ = memBlockSizeZ>
+class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>,
+                                                               bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ> >
 {
    public:
-    using Grid = bGrid<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Grid = bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
 
-    template <typename T, int C = 0, int8_t ddataBlockSizeX = dataBlockSizeX, int8_t ddataBlockSizeY = dataBlockSizeY, int8_t ddataBlockSizeZ = dataBlockSizeZ, int8_t uuserBlockSizeX = userBlockSizeX, int8_t uuserBlockSizeY = userBlockSizeY, int8_t uuserBlockSizeZ = userBlockSizeZ>
-    using Partition = bPartition<T, C, ddataBlockSizeX, ddataBlockSizeY, ddataBlockSizeZ, uuserBlockSizeX, uuserBlockSizeY, uuserBlockSizeZ>;
+    template <typename T, int C = 0, int8_t dmemBlockSizeX = memBlockSizeX, int8_t dmemBlockSizeY = memBlockSizeY, int8_t dmemBlockSizeZ = memBlockSizeZ, int8_t uuserBlockSizeX = userBlockSizeX, int8_t uuserBlockSizeY = userBlockSizeY, int8_t uuserBlockSizeZ = userBlockSizeZ>
+    using Partition = bPartition<T, C, dmemBlockSizeX, dmemBlockSizeY, dmemBlockSizeZ, uuserBlockSizeX, uuserBlockSizeY, uuserBlockSizeZ>;
 
-    template <typename T, int C = 0, int8_t ddataBlockSizeX = dataBlockSizeX, int8_t ddataBlockSizeY = dataBlockSizeY, int8_t ddataBlockSizeZ = dataBlockSizeZ, int8_t uuserBlockSizeX = userBlockSizeX, int8_t uuserBlockSizeY = userBlockSizeY, int8_t uuserBlockSizeZ = userBlockSizeZ>
-    using Field = Neon::domain::details::bGrid::bField<T, C, ddataBlockSizeX, ddataBlockSizeY, ddataBlockSizeZ, uuserBlockSizeX, uuserBlockSizeY, uuserBlockSizeZ>;
+    template <typename T, int C = 0, int8_t dmemBlockSizeX = memBlockSizeX, int8_t dmemBlockSizeY = memBlockSizeY, int8_t dmemBlockSizeZ = memBlockSizeZ, int8_t uuserBlockSizeX = userBlockSizeX, int8_t uuserBlockSizeY = userBlockSizeY, int8_t uuserBlockSizeZ = userBlockSizeZ>
+    using Field = Neon::domain::details::bGrid::bField<T, C, dmemBlockSizeX, dmemBlockSizeY, dmemBlockSizeZ, uuserBlockSizeX, uuserBlockSizeY, uuserBlockSizeZ>;
 
-    using Span = bSpan<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Span = bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
     using NghIdx = typename Partition<int>::NghIdx;
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bIndex<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ> >;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ> >;
 
-    using Idx = bIndex<dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Idx = bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1b3;
     using ExecutionThreadSpanIndexType = uint32_t;
 
-    static constexpr Neon::index_3d dataBlockSize3D = Neon::index_3d(dataBlockSizeX, dataBlockSizeY, dataBlockSizeZ);
+    static constexpr Neon::index_3d dataBlockSize3D = Neon::index_3d(memBlockSizeX, memBlockSizeY, memBlockSizeZ);
     using BlockIdx = uint32_t;
 
     bGrid() = default;
