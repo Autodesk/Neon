@@ -4,13 +4,13 @@
 namespace Neon::domain::details::sGrid {
 
 template <typename OuterGridT, typename T, int C>
-sField<OuterGridT, T, C>::sField(std::string const&                                               fieldUserName,
-                                 sGrid<OuterGridT> const&                                         grid,
-                                 int                                                              cardinality,
-                                 T                                                                outsideVal,
-                                 Neon::domain::haloStatus_et::e                                   haloStatus,
-                                 Neon::DataUse                                                    dataUse,
-                                 Neon::MemoryOptions const&                                       memoryOptions,
+sField<OuterGridT, T, C>::sField(std::string const&                                            fieldUserName,
+                                 sGrid<OuterGridT> const&                                      grid,
+                                 int                                                           cardinality,
+                                 T                                                             outsideVal,
+                                 Neon::domain::haloStatus_et::e                                haloStatus,
+                                 Neon::DataUse                                                 dataUse,
+                                 Neon::MemoryOptions const&                                    memoryOptions,
                                  Neon::set::MemSet<typename OuterGridT::Cell::OuterIdx> const& tabelSCellToOuterIdx)
     : Neon::domain::interface::FieldBaseTemplate<Type,
                                                  Cardinality,
@@ -23,7 +23,8 @@ sField<OuterGridT, T, C>::sField(std::string const&                             
                                                                                  outsideVal,
                                                                                  dataUse,
                                                                                  memoryOptions,
-                                                                                 haloStatus) {
+                                                                                 haloStatus)
+{
 
     self().getStorage() = sFieldStorage<OuterGridT, T, C>(grid);
 
@@ -198,20 +199,25 @@ auto sField<OuterGridT, T, C>::swap(Field& A, Field& B) -> void
                                                Cardinality,
                                                typename Self::Grid,
                                                typename Self::Partition,
-                                               typename BaseTemplate::Storage>::swapUIDBeforeFullSwap(A,B);
+                                               typename BaseTemplate::Storage>::swapUIDBeforeFullSwap(A, B);
     std::swap(A, B);
 }
 
 template <typename OuterGridT, typename T, int C>
-auto sField<OuterGridT, T, C>::haloUpdate(set::HuOptions&) const -> void
+auto sField<OuterGridT, T, C>::newHaloUpdate(Neon::set::StencilSemantic semantic,
+                                             Neon::set::TransferMode    transferMode,
+                                             Neon::Execution            execution)
+    -> Neon::set::Container
 {
     NEON_THROW_UNSUPPORTED_OPERATION("sField");
 }
+
 template <typename OuterGridT, typename T, int C>
-
-auto sField<OuterGridT, T, C>::haloUpdate(set::HuOptions&) -> void
+auto sField<OuterGridT, T, C>::newHaloUpdate(Neon::set::StencilSemantic semantic,
+                                             Neon::set::TransferMode    transferMode,
+                                             Neon::Execution            execution)
+    const -> Neon::set::Container
 {
     NEON_THROW_UNSUPPORTED_OPERATION("sField");
 }
-
 }  // namespace Neon::domain::details::sGrid

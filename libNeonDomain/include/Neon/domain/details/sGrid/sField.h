@@ -66,24 +66,28 @@ class sField : public Neon::domain::interface::FieldBaseTemplate<T,
                               const int&            cardinality)
         -> Type& final;
 
-    auto haloUpdate(Neon::set::HuOptions& opt) const
-        -> void final;
+    auto newHaloUpdate(Neon::set::StencilSemantic semantic,
+                       Neon::set::TransferMode    transferMode,
+                       Neon::Execution            execution)
+         -> Neon::set::Container;
 
-    auto haloUpdate(Neon::set::HuOptions& opt)
-        -> void final;
+    auto newHaloUpdate(Neon::set::StencilSemantic semantic,
+                       Neon::set::TransferMode    transferMode,
+                       Neon::Execution            execution)
+        const -> Neon::set::Container;
 
     /**
      * Move the field metadata from host to the accelerators.
      * The operation is asynchronous.
      */
-    auto updateDeviceData(int streamIdx = 0)
+    auto updateDeviceData(int streamIdx)
         -> void;
 
     /**
      * Move the field metadata from the accelerators to the host space.
      * The operation is asynchronous.
      */
-    auto updateHostData(int streamIdx = 0)
+    auto updateHostData(int streamIdx )
         -> void;
 
     /**
