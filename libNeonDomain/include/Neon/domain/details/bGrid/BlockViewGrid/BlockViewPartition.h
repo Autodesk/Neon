@@ -16,15 +16,23 @@ template <typename T,
 class BlockViewPartition : public Neon::domain::details::eGrid::ePartition<T, C>
 {
    public:
-    BlockViewPartition(){
-
+    BlockViewPartition()
+    {
     }
     BlockViewPartition(Neon::domain::details::eGrid::ePartition<T, C> ePartition)
         : Neon::domain::details::eGrid::ePartition<T, C>(ePartition)
     {
     }
 
-    auto getCountAllocated() const ->int32_t;
+    template <class BlockIdexType>
+    static auto getInBlockIdx(Neon::domain::details::eGrid::ePartition<T, C>::Idx const& idx,
+                                  uint8_3d const&                                            inBlockLocation) -> BlockIdexType
+    {
+        BlockIdexType blockIdx(idx.helpGet(), inBlockLocation);
+        return inBlockLocation;
+    }
+
+    auto getCountAllocated() const -> int32_t;
 };
 template <typename T, int C>
 auto BlockViewPartition<T, C>::getCountAllocated() const -> int32_t

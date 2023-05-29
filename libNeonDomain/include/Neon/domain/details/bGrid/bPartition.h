@@ -21,6 +21,7 @@ class bPartition
     using NghIdx = Idx::NghIdx;
     using Type = T;
     using NghData = Neon::domain::NghData<T>;
+    using BlockViewGridIdx = BlockViewGrid::Idx;
 
    public:
     bPartition();
@@ -65,6 +66,12 @@ class bPartition
     getGlobalIndex(const Idx& cell)
         const -> Neon::index_3d;
 
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    getBlockViewGridIdx(const Idx& cell)
+        const -> BlockViewGridIdx;
+
+
    protected:
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetPitch(const Idx& cell, int card)
@@ -83,14 +90,15 @@ class bPartition
         const -> Idx;
 
 
-    int       mCardinality;
-    T*        mMem;
-    NghIdx*   mStencilNghIndex;
+    int                    mCardinality;
+    T*                     mMem;
+    NghIdx*                mStencilNghIndex;
     Idx::DataBlockIdx*     mBlockConnectivity;
     Span::BitMaskWordType* mMask;
     Neon::int32_3d*        mOrigin;
     int                    mSetIdx;
 };
+
 }  // namespace Neon::domain::details::bGrid
 
 #include "Neon/domain/details/bGrid/bPartition_imp.h"

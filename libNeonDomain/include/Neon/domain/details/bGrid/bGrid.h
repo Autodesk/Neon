@@ -93,6 +93,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<memBlockSiz
                   Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 
+    template <typename T, int C = 0>
+    auto newBlockViewField(const std::string   name,
+                           int                 cardinality,
+                           T                   inactiveValue,
+                           Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE,
+                           Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
+        -> BlockViewGrid::Field<T, C>;
+
     template <Neon::Execution execution = Neon::Execution::device,
               typename LoadingLambda = void*>
     auto newContainer(const std::string& name,

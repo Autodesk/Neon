@@ -49,6 +49,16 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, memBlockSizeX, memBlockSizeY,
 }
 
 template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+    getBlockViewGridIdx(const Idx& gidx)
+        const -> BlockViewGridIdx
+{
+    BlockViewGridIdx res;
+    res.manualSet(gidx.getDataBlockIdx());
+    return res;
+}
+
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     cardinality()
         const -> int
