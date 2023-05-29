@@ -2,7 +2,7 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline auto
 bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::setAndValidateGPUDevice([[maybe_unused]] Idx& bidx) const -> bool
 {
@@ -22,7 +22,7 @@ bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
 #endif
 }
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline auto
 bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::setAndValidateCPUDevice(Idx&                   bidx,
                                               uint32_t const&        dataBlockIdx,
@@ -41,7 +41,7 @@ bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
     return isActive;
 }
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bSpan(Idx::DataBlockCount firstDataBlockOffset,
                             BitMaskWordType*    activeMask,
                             Neon::DataView      dataView)
@@ -51,7 +51,7 @@ bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
 {
 }
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline auto bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getRequiredWordsForBlockBitMask() -> uint32_t
 {
     uint32_t requiredBits = memBlockSizeX * memBlockSizeY * memBlockSizeZ;
@@ -59,7 +59,7 @@ NEON_CUDA_HOST_DEVICE inline auto bSpan<memBlockSizeX, memBlockSizeY, memBlockSi
     return requiredWords;
 }
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 inline auto bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getMaskAndWordIdforBlockBitMask(int                       threadX,
                                                                   int                       threadY,
                                                                   int                       threadZ,
@@ -82,7 +82,7 @@ inline auto bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
 }
 
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline auto bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getActiveStatus(
     const Idx::DataBlockIdx& dataBlockIdx,
     int                      threadX,

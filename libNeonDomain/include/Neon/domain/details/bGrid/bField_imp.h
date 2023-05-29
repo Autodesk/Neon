@@ -4,13 +4,13 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bField()
 {
     mData = std::make_shared<Data>();
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bField(const std::string&         fieldUserName,
                                                                      Neon::DataUse              dataUse,
                                                                      const Neon::MemoryOptions& memoryOptions,
@@ -66,13 +66,13 @@ bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBl
     initHaloUpdateTable();
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::isInsideDomain(const Neon::index_3d& idx) const -> bool
 {
     return mData->grid->isInsideDomain(idx);
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getReference(const Neon::index_3d& cartesianIdx,
                                                                                 const int&            cardinality) -> T&
 {
@@ -83,7 +83,7 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
     return result;
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::operator()(const Neon::index_3d& cartesianIdx,
                                                                               const int&            cardinality) const -> T
 {
@@ -97,19 +97,19 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
     return result;
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::updateHostData(int streamId) -> void
 {
     mData->memoryField.updateHostData(streamId);
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::updateDeviceData(int streamId) -> void
 {
     mData->memoryField.updateDeviceData(streamId);
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getPartition(Neon::Execution       execution,
                                                                                 Neon::SetIdx          setIdx,
                                                                                 const Neon::DataView& dataView) const -> const Partition&
@@ -125,7 +125,7 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
     NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getPartition(Neon::Execution       execution,
                                                                                 Neon::SetIdx          setIdx,
                                                                                 const Neon::DataView& dataView) -> Partition&
@@ -141,7 +141,7 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
     NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newHaloUpdate(Neon::set::StencilSemantic stencilSemantic,
                                                                                  Neon::set::TransferMode    transferMode,
                                                                                  Neon::Execution            execution) const -> Neon::set::Container
@@ -217,7 +217,7 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
     return output;
 }
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::initHaloUpdateTable() -> void
 {
     // NEON_THROW_UNSUPPORTED_OPERATION("");

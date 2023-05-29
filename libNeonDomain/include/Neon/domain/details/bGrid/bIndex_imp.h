@@ -3,7 +3,7 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
     bIndex(const DataBlockIdx&            blockIdx,
            const InDataBlockIdx::Integer& x,
@@ -17,28 +17,18 @@ NEON_CUDA_HOST_DEVICE inline bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ,
 }
 
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getTrayIdx() -> TrayIdx
 {
-    static_assert(memBlockSizeX % userBlockSizeX == 0);
-    static_assert(memBlockSizeY % userBlockSizeY == 0);
-    static_assert(memBlockSizeZ % userBlockSizeZ == 0);
 
-    constexpr uint32_t userBSX = static_cast<uint32_t>(userBlockSizeX);
-    constexpr uint32_t userBSY = static_cast<uint32_t>(userBlockSizeY);
-    constexpr uint32_t userBSZ = static_cast<uint32_t>(userBlockSizeZ);
-
-    using Ops = Operations<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
-
-    TrayIdx const exBlockOffset = mDataBlockIdx * (userBSX * userBSY * userBSZ);
+    TrayIdx const exBlockOffset = mDataBlockIdx * (userBlockSizeX * userBlockSizeY * userBlockSizeZ);
     TrayIdx const exTrayOffset = [&]() {
-        int const trayBlockIdxX = Ops::divisionOp<userBSX>(mInDataBlockIdx.x);
-        int const trayBlockIdxY = Ops::divisionOp<userBSY>(mInDataBlockIdx.y);
-        int const trayBlockIdxZ = Ops::divisionOp<userBSZ>(mInDataBlockIdx.z);
+        int const trayBlockIdxX = mInDataBlockIdx.x / userBlockSizeX;
+        int const trayBlockIdxY = mInDataBlockIdx.y / userBlockSizeY;
+        int const trayBlockIdxZ = mInDataBlockIdx.z / userBlockSizeZ;
 
         constexpr int countMicroBlocksInTrayX = (memBlockSizeX / userBlockSizeX);
         constexpr int countMicroBlocksInTrayY = (memBlockSizeY / userBlockSizeY);
-        constexpr int countMicroBlocksInTrayZ = (memBlockSizeZ / userBlockSizeZ);
 
         int const res = trayBlockIdxX + trayBlockIdxY * countMicroBlocksInTrayX +
                         trayBlockIdxZ * (countMicroBlocksInTrayX * countMicroBlocksInTrayY);
@@ -48,45 +38,25 @@ NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockS
 }
 
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getInTrayIdx() -> InTrayIdx
 {
-    static_assert(memBlockSizeX % userBlockSizeX == 0);
-    static_assert(memBlockSizeY % userBlockSizeY == 0);
-    static_assert(memBlockSizeZ % userBlockSizeZ == 0);
-
-    constexpr uint32_t userBSX = static_cast<uint32_t>(userBlockSizeX);
-    constexpr uint32_t userBSY = static_cast<uint32_t>(userBlockSizeY);
-    constexpr uint32_t userBSZ = static_cast<uint32_t>(userBlockSizeZ);
-
-    using Ops = Operations<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
-
     InTrayIdx inTrayIdx;
-    inTrayIdx.x = Ops::template moduleOp<userBSX>(mInDataBlockIdx.x);
-    inTrayIdx.y = Ops::template moduleOp<userBSY>(mInDataBlockIdx.y);
-    inTrayIdx.z = Ops::template moduleOp<userBSZ>(mInDataBlockIdx.z);
+    inTrayIdx.x = mInDataBlockIdx.x % userBlockSizeX;
+    inTrayIdx.y = mInDataBlockIdx.y % userBlockSizeY;
+    inTrayIdx.z = mInDataBlockIdx.z % userBlockSizeZ;
 
     return inTrayIdx;
 }
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getMicroIndex() -> MicroIndex
 {
-    static_assert(memBlockSizeX % userBlockSizeX == 0);
-    static_assert(memBlockSizeY % userBlockSizeY == 0);
-    static_assert(memBlockSizeZ % userBlockSizeZ == 0);
-
-    constexpr uint32_t userBSX = static_cast<uint32_t>(userBlockSizeX);
-    constexpr uint32_t userBSY = static_cast<uint32_t>(userBlockSizeY);
-    constexpr uint32_t userBSZ = static_cast<uint32_t>(userBlockSizeZ);
-
-    using Ops = Operations<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
-
-    TrayIdx const exBlockOffset = mDataBlockIdx * (userBSX * userBSY * userBSZ);
+    TrayIdx const exBlockOffset = mDataBlockIdx * (userBlockSizeX * userBlockSizeY * userBlockSizeZ);
     TrayIdx const exTrayOffset = [&]() {
-        int const trayBlockIdxX = Ops::divisionOp<userBSX>(mInDataBlockIdx.x);
-        int const trayBlockIdxY = Ops::divisionOp<userBSY>(mInDataBlockIdx.y);
-        int const trayBlockIdxZ = Ops::divisionOp<userBSZ>(mInDataBlockIdx.z);
+        int const trayBlockIdxX = mInDataBlockIdx.x / userBlockSizeX;
+        int const trayBlockIdxY = mInDataBlockIdx.y / userBlockSizeY;
+        int const trayBlockIdxZ = mInDataBlockIdx.z / userBlockSizeZ;
 
         constexpr int countMicroBlocksInTrayX = (memBlockSizeX / userBlockSizeX);
         constexpr int countMicroBlocksInTrayY = (memBlockSizeY / userBlockSizeY);
@@ -99,37 +69,26 @@ NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockS
     MicroIndex res;
     res.mDataBlockIdx = exBlockOffset + exTrayOffset;
     InTrayIdx inTrayIdx;
-    res.mInDataBlockIdx.x = Ops::template moduleOp<userBSX>(mInDataBlockIdx.x);
-    res.mInDataBlockIdx.y = Ops::template moduleOp<userBSY>(mInDataBlockIdx.y);
-    res.mInDataBlockIdx.z = Ops::template moduleOp<userBSZ>(mInDataBlockIdx.z);
+    res.mInDataBlockIdx.x = mInDataBlockIdx.x % userBlockSizeX;
+    res.mInDataBlockIdx.y = mInDataBlockIdx.y % userBlockSizeY;
+    res.mInDataBlockIdx.z = mInDataBlockIdx.z % userBlockSizeZ;
 
     return res;
 }
 
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::init(MicroIndex const& microIndex) -> void
 {
-    static_assert(memBlockSizeX % userBlockSizeX == 0);
-    static_assert(memBlockSizeY % userBlockSizeY == 0);
-    static_assert(memBlockSizeZ % userBlockSizeZ == 0);
-
-    constexpr uint32_t userBSX = static_cast<uint32_t>(userBlockSizeX);
-    constexpr uint32_t userBSY = static_cast<uint32_t>(userBlockSizeY);
-    constexpr uint32_t userBSZ = static_cast<uint32_t>(userBlockSizeZ);
-
-    using Ops = Operations<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
-
     uint32_t dataBlockSize = memBlockSizeX * memBlockSizeY * memBlockSizeZ;
-    mDataBlockIdx = Ops::template divisionOp<dataBlockSize>(microIndex.mDataBlockIdx);
+    mDataBlockIdx = microIndex.mDataBlockIdx / dataBlockSize;
 
-    uint32_t reminder = Ops::template moduleOp<dataBlockSize>(microIndex.mDataBlockIdx);
-    mInDataBlockIdx.z = microIndex.mInDataBlockIdx.z + Ops::template divisionOp<userBSX * userBSY>(reminder);
-    reminder = Ops::template moduleOp<userBSX * userBSY>(reminder);
-    mInDataBlockIdx.y = microIndex.mInDataBlockIdx.y + Ops::template divisionOp<userBSX>(reminder);
-    reminder = Ops::template moduleOp<userBSX>(reminder);
-    mInDataBlockIdx.x = microIndex.mInDataBlockIdx.x + reminder;
-    return;
+    uint32_t reminder = microIndex.mDataBlockIdx % dataBlockSize;
+    mInDataBlockIdx.z = microIndex.mInDataBlockIdx.z + reminder / (userBlockSizeX * userBlockSizeY);
+    reminder = reminder % (userBlockSizeX * userBlockSizeY);
+    mInDataBlockIdx.y = microIndex.mInDataBlockIdx.y + reminder / userBlockSizeX;
+    reminder = reminder % userBlockSizeX;
+    mInDataBlockIdx.x = static_cast<uint8_t>(microIndex.mInDataBlockIdx.x + reminder);
 }
 
 }  // namespace Neon::domain::details::bGrid

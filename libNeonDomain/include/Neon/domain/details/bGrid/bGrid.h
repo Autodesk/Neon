@@ -24,10 +24,10 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <typename T, int C, int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX, int8_t userBlockSizeY, int8_t userBlockSizeZ>
+template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 class bField;
 
-template <int8_t memBlockSizeX, int8_t memBlockSizeY, int8_t memBlockSizeZ, int8_t userBlockSizeX = memBlockSizeX, int8_t userBlockSizeY = memBlockSizeY, int8_t userBlockSizeZ = memBlockSizeZ>
+template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX = memBlockSizeX, uint32_t userBlockSizeY = memBlockSizeY, uint32_t userBlockSizeZ = memBlockSizeZ>
 class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>,
                                                                bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ> >
 {
