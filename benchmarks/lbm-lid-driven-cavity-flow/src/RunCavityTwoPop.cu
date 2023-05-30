@@ -1,6 +1,8 @@
 #include "Config.h"
 #include "D3Q19.h"
 #include "Neon/domain/dGrid.h"
+#include "Neon/domain/eGrid.h"
+#include "Neon/domain/bGrid.h"
 
 #include "CellType.h"
 #include "LbmIteration.h"
@@ -250,10 +252,10 @@ auto runFilterStoreType(Config& config,
     -> void
 {
     if (config.storeType == "double") {
-        return runFilterComputeType<Neon::dGrid, double>(config, report);
+        return runFilterComputeType<Grid, double>(config, report);
     }
     if (config.storeType == "float") {
-        return runFilterComputeType<Neon::dGrid, float>(config, report);
+        return runFilterComputeType<Grid, float>(config, report);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
@@ -266,10 +268,10 @@ auto run(Config& config,
         return details::runFilterStoreType<Neon::dGrid>(config, report);
     }
     if (config.gridType == "eGrid") {
-        NEON_DEV_UNDER_CONSTRUCTION("");
+        return details::runFilterStoreType<Neon::eGrid>(config, report);
     }
     if (config.gridType == "bGrid") {
-        NEON_DEV_UNDER_CONSTRUCTION("");
+        return details::runFilterStoreType<Neon::bGrid>(config, report);
     }
 }
 }  // namespace CavityTwoPop

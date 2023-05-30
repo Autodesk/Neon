@@ -63,7 +63,7 @@ auto Config::parseArgs(const int argc, char* argv[])
         (
             clipp::required("--deviceType") & clipp::value("deviceType", config.deviceType) % "Device ids to use",
             clipp::required("--deviceIds") & clipp::integers("gpus", config.devices) % "Device ids to use",
-            clipp::option("--grid") & clipp::value("grid", config.gridType) % "Could be eGrid or dGrid",
+            clipp::option("--grid") & clipp::value("grid", config.gridType) % "Could be dGrid, eGrid, bGrid",
             clipp::option("--domain-size") & clipp::integer("domain_size", config.N) % "Voxels along each dimension of the cube domain",
             clipp::option("--warmup-iter") & clipp::integer("warmup_iter", config.benchIniIter) % "Number of iteration for warm up. max_iter = warmup_iter + timed_iters",
             clipp::option("--max-iter") & clipp::integer("max_iter", config.benchMaxIter) % "Maximum solver iterations",
