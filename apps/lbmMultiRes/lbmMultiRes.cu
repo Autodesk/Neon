@@ -179,8 +179,8 @@ void runNonUniformLBM(const int           problemID,
     for (int t = 0; t < numIter; ++t) {
         NEON_INFO("Non-uniform LBM Iteration: {}", t);
         skl.run();
-        if (!benchmark && t % 100 == 0) {
-            postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, t, vel, rho, ulb, true, false);
+        if (!benchmark && t % 500 == 0) {
+            postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, t, vel, rho, ulb, true, true);
         }
     }
     auto stop = std::chrono::high_resolution_clock::now();
@@ -204,7 +204,7 @@ int main(int argc, char** argv)
         int         deviceId = 0;
         int         numIter = 2;
         bool        benchmark = true;
-        bool        fineInitStore = true;
+        bool        fineInitStore = false;
         int         problemId = 0;
 
         auto cli =

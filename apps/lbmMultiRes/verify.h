@@ -41,10 +41,9 @@ std::map<int, std::array<float, ghiaNumPoints>> ghiaXVals{
 }  // namespace detail
 
 template <typename T>
-inline T verifyGhia1982(const int                    Re,
-                        std::vector<std::pair<T, T>> xPosVal,
-                        std::vector<std::pair<T, T>> yPosVal,
-                        T                            scale)
+inline T verifyGhia1982(const int                     Re,
+                        std::vector<std::pair<T, T>>& xPosVal,
+                        std::vector<std::pair<T, T>>& yPosVal)
 {
     //we assume the ghia points are far less than the input points. so, for every ghia point, we try to find the interval in which it lies in the input points
     //then linearly interpolate the values between the ends of this interval, compute the different between the interpolated value and ghia value. Finally, we
@@ -76,8 +75,8 @@ inline T verifyGhia1982(const int                    Re,
             const T lowPos = posVal[low].first;
             const T highPos = posVal[high].first;
 
-            const T lowVal = posVal[low].second * scale;
-            const T highVal = posVal[high].second * scale;
+            const T lowVal = posVal[low].second;
+            const T highVal = posVal[high].second;
 
             T interp;
             if (low == high) {

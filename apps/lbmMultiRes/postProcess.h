@@ -58,10 +58,9 @@ void postProcess(Neon::domain::mGrid&                        grid,
                             if (type(cell, 0) == CellType::movingWall) {
                                 rh(cell, 0) = 1.0;
 
-                                for (int d = 0; d < 3; ++d) {
-                                    int i = (d == 0) ? 3 : ((d == 1) ? 1 : 9);
-                                    u(cell, d) = pop(cell, i) / (6.0 * 1.0 / 18.0);
-                                }
+                                u(cell, 0) = pop(cell, 0) / (6. * 1. / 18.);
+                                u(cell, 1) = pop(cell, 1) / (6. * 1. / 18.);
+                                u(cell, 2) = pop(cell, 2) / (6. * 1. / 18.);
                             }
                         }
                     };
@@ -81,25 +80,28 @@ void postProcess(Neon::domain::mGrid&                        grid,
     std::ostringstream suffix;
     suffix << std::setw(precision) << std::setfill('0') << iteration;
 
-    vel.ioToVtk("Velocity_" + suffix.str());
+    //vel.ioToVtk("Velocity_" + suffix.str());
     //rho.ioToVtk("Density_" + suffix.str());
 
     std::vector<std::pair<T, T>> xPosVal;
     std::vector<std::pair<T, T>> yPosVal;
     if (verify || generateValidateFile) {
         const Neon::index_3d grid_dim = grid.getDimension();
+
+        const T scale = 1.0 / ulb;
+
         for (int level = 0; level < numLevels; ++level) {
             vel.forEachActiveCell(
                 level, [&](const Neon::index_3d& id, const int& card, T& val) {
                     if (id.x == grid_dim.x / 2 && id.z == grid_dim.z / 2) {
                         if (card == 0) {
-                            yPosVal.push_back({static_cast<double>(id.v[1]) / static_cast<double>(grid_dim.y), val});
+                            yPosVal.push_back({static_cast<double>(id.v[1]) / static_cast<double>(grid_dim.y), val * scale});
                         }
                     }
 
                     if (id.y == grid_dim.y / 2 && id.z == grid_dim.z / 2) {
                         if (card == 0) {
-                            xPosVal.push_back({static_cast<double>(id.v[0]) / static_cast<double>(grid_dim.x), val});
+                            xPosVal.push_back({static_cast<double>(id.v[0]) / static_cast<double>(grid_dim.x), val * scale});
                         }
                     }
                 },
@@ -108,7 +110,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
     }
 
     if (verify) {
-        NEON_INFO("Max difference = {}", verifyGhia1982(Re, xPosVal, yPosVal, 1.0 / ulb));
+        NEON_INFO("Max difference = {0:.8f}", verifyGhia1982(Re, xPosVal, yPosVal));
     }
     if (generateValidateFile) {
         std::ofstream file;
