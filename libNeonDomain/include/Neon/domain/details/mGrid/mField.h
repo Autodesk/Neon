@@ -37,8 +37,8 @@ class mField
     using Grid = Neon::domain::details::mGrid::mGrid;
     using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
     using InternalGrid = Neon::domain::details::bGrid::bGrid;
-    using Cell = Neon::domain::details::bGrid::bIndex;
-    using ngh_idx = typename Partition::NghIdx;
+    using Cell = Neon::domain::details::bGrid::bCell;
+    using ngh_idx = typename Partition::nghIdx_t;
 
     mField() = default;
 
@@ -76,9 +76,9 @@ class mField
 
     auto haloUpdate(Neon::set::HuOptions& opt) -> void;
 
-    auto updateHostData(int streamId = 0) -> void;
+    auto updateIO(int streamId = 0) -> void;
 
-    auto updateDeviceData(int streamId = 0) -> void;
+    auto updateCompute(int streamId = 0) -> void;
 
     auto getSharedMemoryBytes(const int32_t stencilRadius, int level = 0) const -> size_t;
 

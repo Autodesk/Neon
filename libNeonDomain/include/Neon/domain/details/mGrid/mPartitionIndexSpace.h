@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Neon/domain/details/bGrid/bCell.h"
+#include "Neon/domain/internal/bGrid/bCell.h"
 
 namespace Neon::domain::details::bGrid {
-class bSpan
+class bPartitionIndexSpace
 {
    public:
-    bSpan() = default;
-    virtual ~bSpan() = default;
+    bPartitionIndexSpace() = default;
+    virtual ~bPartitionIndexSpace() = default;
 
     using Cell = bCell;
 
@@ -38,4 +38,4 @@ class bSpan
 };
 }  // namespace Neon::domain::details::bGrid
 
-#include "Neon/domain/details/bGrid/bSpan_imp.h"
+#include "Neon/domain/internal/bGrid/bPartitionIndexSpace_imp.h"

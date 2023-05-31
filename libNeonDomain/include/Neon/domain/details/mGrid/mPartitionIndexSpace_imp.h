@@ -1,4 +1,4 @@
-#include "Neon/domain/details/bGrid/bPartitionIndexSpace.h"
+#include "Neon/domain/internal/bGrid/bPartitionIndexSpace.h"
 
 namespace Neon::domain::details::bGrid {
 

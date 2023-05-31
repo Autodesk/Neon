@@ -66,6 +66,8 @@ class bIndex
     friend class bSpan;
     using OuterIdx = bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
 
+    static constexpr Neon::uint32_3d memBlock3DSize{memBlockSizeX,memBlockSizeY,memBlockSizeZ};
+
     using NghIdx = int8_3d;
     template <typename T, int C, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>
     friend class bPartition;

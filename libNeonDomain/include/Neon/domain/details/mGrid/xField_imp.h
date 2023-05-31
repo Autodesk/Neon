@@ -121,15 +121,15 @@ auto xField<T, C>::getPartition(Neon::Execution       exec,
 }
 
 template <typename T, int C>
-auto xField<T, C>::updateHostData(int streamId) -> void
+auto xField<T, C>::updateIO(int streamId) -> void
 {
-    mData->field.updateHostData(streamId);
+    mData->field.updateIO(streamId);
 }
 
 template <typename T, int C>
-auto xField<T, C>::updateDeviceData(int streamId) -> void
+auto xField<T, C>::updateCompute(int streamId) -> void
 {
-    mData->field.updateDeviceData(streamId);
+    mData->field.updateCompute(streamId);
 }
 
 

@@ -185,19 +185,19 @@ auto mField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) -> void
 }
 
 template <typename T, int C>
-auto mField<T, C>::updateHostData(int streamId) -> void
+auto mField<T, C>::updateIO(int streamId) -> void
 {
 
     for (size_t l = 0; l < mData->fields.size(); ++l) {
-        mData->fields[l].mData->field.updateHostData(streamId);
+        mData->fields[l].mData->field.updateIO(streamId);
     }
 }
 
 template <typename T, int C>
-auto mField<T, C>::updateDeviceData(int streamId) -> void
+auto mField<T, C>::updateCompute(int streamId) -> void
 {
     for (size_t l = 0; l < mData->fields.size(); ++l) {
-        mData->fields[l].mData->field.updateDeviceData(streamId);
+        mData->fields[l].mData->field.updateCompute(streamId);
     }
 }
 
@@ -208,23 +208,23 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
 {
     switch (compute) {
         case Neon::MultiResCompute::MAP: {
-            return loader.load(operator()(level), Neon::Pattern::MAP);
+            return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL: {
-            return loader.load(operator()(level), Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Compute::STENCIL);
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
             const auto& parent = operator()(level + 1);
-            loader.load(parent, Neon::Pattern::STENCIL);
-            return loader.load(operator()(level), Neon::Pattern::MAP);
+            loader.load(parent, Neon::Compute::STENCIL);
+            return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
             const auto& child = operator()(level - 1);
-            loader.load(child, Neon::Pattern::STENCIL);
-            return loader.load(operator()(level), Neon::Pattern::MAP);
+            loader.load(child, Neon::Compute::STENCIL);
+            return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         default:
@@ -240,23 +240,23 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
 {
     switch (compute) {
         case Neon::MultiResCompute::MAP: {
-            return loader.load(operator()(level), Neon::Pattern::MAP);
+            return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL: {
-            return loader.load(operator()(level), Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Compute::STENCIL);
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
             const auto& parent = operator()(level + 1);
-            loader.load(parent, Neon::Pattern::STENCIL);
-            return loader.load(operator()(level), Neon::Pattern::MAP);
+            loader.load(parent, Neon::Compute::STENCIL);
+            return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
             const auto& child = operator()(level - 1);
-            loader.load(child, Neon::Pattern::STENCIL);
-            return loader.load(operator()(level), Neon::Pattern::MAP);
+            loader.load(child, Neon::Compute::STENCIL);
+            return loader.load(operator()(level), Neon::Compute::MAP);
             break;
         }
         default:
