@@ -300,14 +300,14 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
 
                         //fin
                         T ins[Q];
-                        for (int i = 0; i < Q; ++i) {
-                            ins[i] = in(cell, i);
+                        for (int q = 0; q < Q; ++q) {
+                            ins[q] = in(cell, q);
                         }
 
                         //density
                         T rho = 0;
-                        for (int i = 0; i < Q; ++i) {
-                            rho += ins[i];
+                        for (int q = 0; q < Q; ++q) {
+                            rho += ins[q];
                         }
 
                         //velocity
@@ -315,15 +315,15 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
 
 
                         const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
-                        for (int i = 0; i < Q; ++i) {
+                        for (int q = 0; q < Q; ++q) {
                             T cu = 0;
                             for (int d = 0; d < 3; ++d) {
-                                cu += latticeVelocity[i][d] * vel.v[d];
+                                cu += latticeVelocity[q][d] * vel.v[d];
                             }
                             cu *= 3.0;
 
                             //equilibrium
-                            T feq = rho * latticeWeights[i] * (1. + cu + 0.5 * cu * cu - usqr);
+                            T feq = rho * latticeWeights[q] * (1. + cu + 0.5 * cu * cu - usqr);
 
                             //collide
                             //out(cell, q) = ins[q] - omega * (ins[q] - feq);

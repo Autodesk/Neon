@@ -108,8 +108,7 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 if (fpost_col.hasParent(cell)) {
-
-                    //we could skip q = 0
+                                        
                     for (int8_t q = 0; q < Q; ++q) {
 
                         const Neon::int8_3d qDir = getDir(q);
