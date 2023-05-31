@@ -222,8 +222,8 @@ void runNonUniformLBM(const int           problemID,
     const double mlups = static_cast<double>(numIter * numActiveVoxels) / duration.count();
     const double eff_mlups = static_cast<double>(numIter * gridDim.rMul()) / duration.count();
 
-    NEON_INFO("MLUPS = {0:.8f}, numActiveVoxels = {}", mlups, numActiveVoxels);
-    NEON_INFO("Effective MLUPS = {0:.8f}, Effective numActiveVoxels = {}", eff_mlups, gridDim.rMul());
+    NEON_INFO("MLUPS = {0:8.8f}, numActiveVoxels = {}", mlups, numActiveVoxels);
+    NEON_INFO("Effective MLUPS = {0:8.8f}, Effective numActiveVoxels = {}", eff_mlups, gridDim.rMul());
 
     postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, numIter, vel, rho, ulb, true, true);
 }
