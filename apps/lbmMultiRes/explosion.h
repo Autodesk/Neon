@@ -1,9 +1,9 @@
 #pragma once
 template <typename T, int Q>
-inline Neon::set::Container explosionPull(Neon::domain::mGrid&                 grid,
-                                          int                                  level,
-                                          const Neon::domain::mGrid::Field<T>& postCollision,
-                                          Neon::domain::mGrid::Field<T>&       postStreaming)
+inline Neon::set::Container explosion(Neon::domain::mGrid&                 grid,
+                                      int                                  level,
+                                      const Neon::domain::mGrid::Field<T>& postCollision,
+                                      Neon::domain::mGrid::Field<T>&       postStreaming)
 {
     // Initiated by the fine level (hence "pull"), this function performs a coarse (level+1) to
     // fine (level) communication or "explosion" by simply distributing copies of coarse grid onto the fine grid.

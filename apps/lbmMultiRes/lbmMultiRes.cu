@@ -17,6 +17,7 @@
 template <typename T, int Q>
 void nonUniformTimestepRecursive(Neon::domain::mGrid&                        grid,
                                  const bool                                  fineInitStore,
+                                 const bool                                  streamFusedExpl,
                                  const T                                     omega0,
                                  const int                                   level,
                                  const int                                   numLevels,
@@ -42,11 +43,25 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 3) recurse down
     if (level != 0) {
-        nonUniformTimestepRecursive<T, Q>(grid, fineInitStore, omega0, level - 1, numLevels, cellType, sumStore, fin, fout, containers);
+        nonUniformTimestepRecursive<T, Q>(grid,
+                                          fineInitStore,
+                                          streamFusedExpl,
+                                          omega0,
+                                          level - 1,
+                                          numLevels,
+                                          cellType,
+                                          sumStore,
+                                          fin,
+                                          fout,
+                                          containers);
     }
 
     // 4) Streaming step that also performs the necessary "explosion" and "coalescence" steps.
-    stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    if (streamFusedExpl) {
+        streamFusedExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    } else {
+        stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    }
 
     // 5) stop
     if (level == numLevels - 1) {
@@ -69,11 +84,25 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 8) recurse down
     if (level != 0) {
-        nonUniformTimestepRecursive<T, Q>(grid, fineInitStore, omega0, level - 1, numLevels, cellType, sumStore, fin, fout, containers);
+        nonUniformTimestepRecursive<T, Q>(grid,
+                                          fineInitStore,
+                                          streamFusedExpl,
+                                          omega0,
+                                          level - 1,
+                                          numLevels,
+                                          cellType,
+                                          sumStore,
+                                          fin,
+                                          fout,
+                                          containers);
     }
 
     // 9) Streaming step
-    stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    if (streamFusedExpl) {
+        streamFusedExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    } else {
+        stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    }
 }
 
 
@@ -82,6 +111,7 @@ void runNonUniformLBM(const int           problemID,
                       const Neon::Backend backend,
                       const int           numIter,
                       const bool          fineInitStore,
+                      const bool          streamFusedExpl,
                       const bool          benchmark)
 {
 
@@ -163,6 +193,7 @@ void runNonUniformLBM(const int           problemID,
     std::vector<Neon::set::Container> containers;
     nonUniformTimestepRecursive<T, Q>(grid,
                                       fineInitStore,
+                                      streamFusedExpl,
                                       omega,
                                       descriptor.getDepth() - 1,
                                       descriptor.getDepth(),
@@ -189,8 +220,8 @@ void runNonUniformLBM(const int           problemID,
     const double mlups = static_cast<double>(numIter * numActiveVoxels) / duration.count();
     const double eff_mlups = static_cast<double>(numIter * gridDim.rMul()) / duration.count();
 
-    NEON_INFO("MLUPS = {}, numActiveVoxels = {}", mlups, numActiveVoxels);
-    NEON_INFO("Effective MLUPS = {}, Effective numActiveVoxels = {}", eff_mlups, gridDim.rMul());
+    NEON_INFO("MLUPS = {0:.8f}, numActiveVoxels = {}", mlups, numActiveVoxels);
+    NEON_INFO("Effective MLUPS = {0:.8f}, Effective numActiveVoxels = {}", eff_mlups, gridDim.rMul());
 
     postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, numIter, vel, rho, ulb, true, true);
 }
@@ -205,6 +236,7 @@ int main(int argc, char** argv)
         int         numIter = 2;
         bool        benchmark = true;
         bool        fineInitStore = false;
+        bool        streamFusedExpl = false;
         int         problemId = 0;
 
         auto cli =
@@ -217,7 +249,9 @@ int main(int argc, char** argv)
               (clipp::option("--visual").set(benchmark, false) % "Run export partial data")),
 
              ((clipp::option("--storeFine").set(fineInitStore, true) % "Initiate the store operation from the fine level") |
-              (clipp::option("--storeCoarse").set(fineInitStore, false) % "Initiate the store operation from the coarse level")));
+              (clipp::option("--storeCoarse").set(fineInitStore, false) % "Initiate the store operation from the coarse level")),
+
+             (clipp::option("--streamFusedExpl").set(streamFusedExpl, true) % "Fuse Stream with Explosion"));
 
 
         if (!clipp::parse(argc, argv, cli)) {
@@ -239,7 +273,7 @@ int main(int argc, char** argv)
         using T = double;
         constexpr int Q = 19;
 
-        runNonUniformLBM<T, Q>(problemId, backend, numIter, fineInitStore, benchmark);
+        runNonUniformLBM<T, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, benchmark);
     }
     return 0;
 }

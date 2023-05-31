@@ -2,12 +2,12 @@
 #include "lattice.h"
 
 template <typename T, int Q>
-inline Neon::set::Container coalescencePull(Neon::domain::mGrid&                   grid,
-                                            const bool                             fineInitStore,
-                                            const int                              level,
-                                            const Neon::domain::mGrid::Field<int>& sumStore,
-                                            const Neon::domain::mGrid::Field<T>&   postCollision,
-                                            Neon::domain::mGrid::Field<T>&         postStreaming)
+inline Neon::set::Container coalescence(Neon::domain::mGrid&                   grid,
+                                        const bool                             fineInitStore,
+                                        const int                              level,
+                                        const Neon::domain::mGrid::Field<int>& sumStore,
+                                        const Neon::domain::mGrid::Field<T>&   postCollision,
+                                        Neon::domain::mGrid::Field<T>&         postStreaming)
 {
     // Initiated by the coarse level (hence "pull"), this function simply read the missing population
     // across the interface between coarse<->fine boundary by reading the population prepare during the store()
