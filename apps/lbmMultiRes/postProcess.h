@@ -100,7 +100,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
                     }
 
                     if (id.y == grid_dim.y / 2 && id.z == grid_dim.z / 2) {
-                        if (card == 0) {
+                        if (card == 1) {
                             xPosVal.push_back({static_cast<double>(id.v[0]) / static_cast<double>(grid_dim.x), val * scale});
                         }
                     }
@@ -113,12 +113,16 @@ void postProcess(Neon::domain::mGrid&                        grid,
         NEON_INFO("Max difference = {0:.8f}", verifyGhia1982(Re, xPosVal, yPosVal));
     }
     if (generateValidateFile) {
-        std::ofstream file;
-        file.open("NeonMultiResLBM_" + suffix.str() + ".dat");
-        for (auto v : yPosVal) {
-            file << v.first << " " << v.second << "\n";
-        }
-        file.close();
+        auto writeToFile = [](const std::vector<std::pair<T, T>>& posVal, std::string filename) {
+            std::ofstream file;
+            file.open(filename);
+            for (auto v : posVal) {
+                file << v.first << " " << v.second << "\n";
+            }
+            file.close();
+        };
+        writeToFile(yPosVal, "NeonMultiResLBM_" + suffix.str() + "_Y.dat");
+        writeToFile(xPosVal, "NeonMultiResLBM_" + suffix.str() + "_X.dat");
     }
 }
 
