@@ -1,8 +1,8 @@
 #include "Config.h"
 #include "D3Q19.h"
+#include "Neon/domain/bGrid.h"
 #include "Neon/domain/dGrid.h"
 #include "Neon/domain/eGrid.h"
-#include "Neon/domain/bGrid.h"
 
 #include "CellType.h"
 #include "LbmIteration.h"
@@ -195,7 +195,7 @@ auto run(Config& config,
             bk.syncAll();
         }
 
-         auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
+        auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
         container.run(Neon::Backend::mainStreamIdx);
         bk.syncAll();
     }
@@ -257,7 +257,6 @@ auto runFilterStoreType(Config& config,
     if (config.storeType == "float") {
         return runFilterComputeType<Grid, float>(config, report);
     }
-    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 }  // namespace details
 
@@ -268,10 +267,12 @@ auto run(Config& config,
         return details::runFilterStoreType<Neon::dGrid>(config, report);
     }
     if (config.gridType == "eGrid") {
-        return details::runFilterStoreType<Neon::eGrid>(config, report);
+        NEON_DEV_UNDER_CONSTRUCTION("");
+        // return details::runFilterStoreType<Neon::eGrid>(config, report);
     }
     if (config.gridType == "bGrid") {
-        return details::runFilterStoreType<Neon::bGrid>(config, report);
+        NEON_DEV_UNDER_CONSTRUCTION("");
+        //        return details::runFilterStoreType<Neon::bGrid>(config, report);
     }
 }
 }  // namespace CavityTwoPop

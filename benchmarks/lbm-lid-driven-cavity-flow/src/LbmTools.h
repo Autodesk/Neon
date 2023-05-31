@@ -103,7 +103,52 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     {
         // #pragma omp critical
         //        {
+        using TopologyByDirection = std::tuple<Neon::int32_3d, int, Neon::int32_3d, int>;
+        constexpr std::array<TopologyByDirection, 9> stencil{
+            std::make_tuple(Neon::int32_3d(-1, 0, 0), /*  GOid */ 0, /* --- */ Neon::int32_3d(1, 0, 0), /*  BKid */ 10),
+            std::make_tuple(Neon::int32_3d(0, -1, 0), /*  GOid */ 1, /* --- */ Neon::int32_3d(0, 1, 0), /*  BKid */ 11),
+            std::make_tuple(Neon::int32_3d(0, 0, -1), /*  GOid */ 2, /* --- */ Neon::int32_3d(0, 0, 1), /*  BKid */ 12),
+            std::make_tuple(Neon::int32_3d(-1, -1, 0), /* GOid */ 3, /* --- */ Neon::int32_3d(1, 1, 0), /*  BKid */ 13),
+            std::make_tuple(Neon::int32_3d(-1, 1, 0), /*  GOid */ 4, /* --- */ Neon::int32_3d(1, -1, 0), /* BKid */ 14),
+            std::make_tuple(Neon::int32_3d(-1, 0, -1), /* GOid */ 5, /* --- */ Neon::int32_3d(1, 0, 1), /*  BKid */ 15),
+            std::make_tuple(Neon::int32_3d(-1, 0, 1), /*  GOid */ 6, /* --- */ Neon::int32_3d(1, 0, -1), /* BKid */ 16),
+            std::make_tuple(Neon::int32_3d(0, -1, -1), /* GOid */ 7, /* --- */ Neon::int32_3d(0, 1, 1), /*  BKid */ 17),
+            std::make_tuple(Neon::int32_3d(0, -1, 1), /*  GOid */ 8, /* --- */ Neon::int32_3d(0, 1, -1), /* BKid */ 18)};
 
+
+        auto pullStream = [&]<int stencilIdx>() {
+            static_assert(stencilIdx < 9);
+            constexpr int            GOid = std::get<1>(stencil[stencilIdx]);
+            constexpr int            BKid = std::get<3>(stencil[stencilIdx]);
+            constexpr Neon::int32_3d GoOffset = std::get<0>(stencil[stencilIdx]);
+            constexpr Neon::int32_3d BkOffset = std::get<2>(stencil[stencilIdx]);
+            {
+                if (wallBitFlag & (uint32_t(1) << GOid)) {
+                    popIn[GOid] = fin(gidx, BKid) +
+                                  fin.template getNghData<BkOffset.x, BkOffset.y, BkOffset.z>(gidx, BKid)();
+                } else {
+                    popIn[GOid] = fin.template getNghData<BkOffset.x, BkOffset.y, BkOffset.z>(gidx, GOid)();
+                }
+            }
+            { /*BK*/
+                if (wallBitFlag & (uint32_t(1) << BKid)) {
+                    popIn[BKid] = fin(gidx, GOid) +
+                                  fin.template getNghData<GoOffset.x, GoOffset.y, GoOffset.z>(gidx, GOid)();
+                } else {
+                    popIn[BKid] = fin.template getNghData<GoOffset.x, GoOffset.y, GoOffset.z>(gidx, BKid)();
+                }
+            }
+        };
+        pullStream.template operator()<0>();
+        pullStream.template operator()<1>();
+        pullStream.template operator()<2>();
+        pullStream.template operator()<3>();
+        pullStream.template operator()<4>();
+        pullStream.template operator()<5>();
+        pullStream.template operator()<6>();
+        pullStream.template operator()<7>();
+        pullStream.template operator()<8>();
+#if 0
         PULL_STREAM(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10);
         PULL_STREAM(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11);
         PULL_STREAM(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12);
@@ -113,6 +158,8 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         PULL_STREAM(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16);
         PULL_STREAM(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17);
         PULL_STREAM(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18);
+#endif
+
         //  }
         // Treat the case of the center (c[k] = {0, 0, 0,}).
         {
