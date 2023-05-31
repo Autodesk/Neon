@@ -9,7 +9,7 @@ def plotme(dat_filename, label, png_filename, scale):
     p = y_neon.argsort()
     u_neon = u_neon[p]
     y_neon = y_neon[p]
-    axes.plot(y_neon, scale*u_neon, 'b-', label=label)
+    axes.plot(y_neon, scale*u_neon, 'b.', label=label)
 
     y_ref, u_ref = np.loadtxt('ghia1982.dat', unpack=True, skiprows=2, usecols=(0, 1))
     axes.plot(y_ref, u_ref, 'ms', label='Ghia et al. 1982')

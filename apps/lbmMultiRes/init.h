@@ -111,9 +111,11 @@ uint32_t init(Neon::domain::mGrid&                  grid,
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                         if (ss.hasParent(cell)) {
 
-                            for (int8_t q = 1; q < Q; ++q) {
-
+                            for (int8_t q = 0; q < Q; ++q) {
                                 const Neon::int8_3d qDir = getDir(q);
+                                if (qDir.x == 0 && qDir.y == 0 && qDir.z == 0) {
+                                    continue;
+                                }
 
                                 const Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, qDir);
 

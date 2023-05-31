@@ -117,71 +117,9 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                         COMPUTE_GO_AND_BACK(8, 18)
 
 #undef COMPUTE_GO_AND_BACK
-
-
                         const T eq_09 = rho * (1. / 3.) * (1. - usqr);
                         const T pop_out_09 = (1. - omega) * ins[9] + omega * eq_09;
                         out(cell, 9) = pop_out_09;
-
-
-                        /*{
-                            constexpr T tiny = 0.0000000000000001;
-
-                            //////
-                            T rho_gt = 0;
-                            for (int i = 0; i < Q; ++i) {
-                                rho_gt += ins[i];
-                            }
-                            if (std::abs(rho_gt - rho) > tiny) {
-                                printf("\n diff rho_gt= %.17g, rho= %.17g",
-                                       rho_gt, rho);
-#ifdef __CUDA_ARCH__
-                                __trap();
-#endif
-                            }
-
-                            //////
-                            const Neon::Vec_3d<T> vel_gt = velocity<T, Q>(ins, rho_gt);
-                            if (std::abs(vel_gt.x - vel.x) > tiny ||
-                                std::abs(vel_gt.y - vel.y) > tiny ||
-                                std::abs(vel_gt.z - vel.z) > tiny) {
-                                printf("\n diff vel_gt = %.17g, %.17g, %.17g, vel= %.17g, %.17g, %.17g",
-                                       vel_gt.x,
-                                       vel_gt.y,
-                                       vel_gt.z,
-                                       vel.x,
-                                       vel.y,
-                                       vel.z);
-#ifdef __CUDA_ARCH__
-                                __trap();
-#endif
-                            }
-
-                            /////
-
-                            const T usqr_gt = (3.0 / 2.0) * (vel_gt.x * vel_gt.x + vel_gt.y * vel_gt.y + vel_gt.z * vel_gt.z);
-                            for (int q = 0; q < Q; ++q) {
-                                T cu = 0;
-                                for (int d = 0; d < 3; ++d) {
-                                    cu += latticeVelocity[q][d] * vel_gt.v[d];
-                                }
-                                cu *= 3.0;
-
-                                //equilibrium
-                                T feq = rho_gt * latticeWeights[q] * (1. + cu + 0.5 * cu * cu - usqr);
-
-                                //collide
-                                T out_gt = (1 - omega) * ins[q] + omega * feq;
-                                if (std::abs(out_gt - out(cell, q)) > tiny) {
-                                    printf("\n diff q= %d gt= %.17g, pop= %.17g",
-                                           q, out_gt, out(cell, q));
-#ifdef __CUDA_ARCH__
-                                    __trap();
-#endif
-                                }
-                            }
-                            //////
-                        }*/
                     } else {
                         if (level != 0) {
                             //zero out the center only if we are not of the finest level
@@ -377,15 +315,15 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
 
 
                         const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
-                        for (int q = 0; q < Q; ++q) {
+                        for (int i = 0; i < Q; ++i) {
                             T cu = 0;
                             for (int d = 0; d < 3; ++d) {
-                                cu += latticeVelocity[q][d] * vel.v[d];
+                                cu += latticeVelocity[i][d] * vel.v[d];
                             }
                             cu *= 3.0;
 
                             //equilibrium
-                            T feq = rho * latticeWeights[q] * (1. + cu + 0.5 * cu * cu - usqr);
+                            T feq = rho * latticeWeights[i] * (1. + cu + 0.5 * cu * cu - usqr);
 
                             //collide
                             //out(cell, q) = ins[q] - omega * (ins[q] - feq);

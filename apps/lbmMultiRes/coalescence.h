@@ -25,8 +25,11 @@ inline Neon::set::Container coalescencePull(Neon::domain::mGrid&                
                 const int refFactor = fpost_col.getRefFactor(level);
                 if (!fpost_stm.hasChildren(cell)) {
 
-                    for (int q = 1; q < Q; ++q) {
+                    for (int q = 0; q < Q; ++q) {
                         const Neon::int8_3d dir = -getDir(q);
+                        if (dir.x == 0 && dir.y == 0 && dir.z == 0) {
+                            continue;
+                        }
                         //if we have a neighbor at the same level that has been refined, then cell is on
                         //the interface and this is where we should do the coalescence
                         if (fpost_stm.hasChildren(cell, dir)) {

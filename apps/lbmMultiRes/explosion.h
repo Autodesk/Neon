@@ -18,12 +18,14 @@ inline Neon::set::Container explosionPull(Neon::domain::mGrid&                 g
             auto        fpost_stm = postStreaming.load(loader, level, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                //If this cell has children i.e., it is been refined, that we should not work on it
+                //If this cell has children i.e., it is been refined, then we should not work on it
                 //because this cell is only there to allow query and not to operate on
                 if (!fpost_stm.hasChildren(cell)) {
-                    for (int8_t q = 1; q < Q; ++q) {
-
+                    for (int8_t q = 0; q < Q; ++q) {
                         const Neon::int8_3d dir = -getDir(q);
+                        if (dir.x == 0 && dir.y == 0 && dir.z == 0) {
+                            continue;
+                        }
 
                         //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                         //we want to only work on cells that interface with L+1 (coarse) cell along q

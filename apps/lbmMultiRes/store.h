@@ -29,31 +29,33 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
 
                     //for each direction aka for each neighbor
                     //we skip the center here
-                    for (int8_t q = 1; q < Q; ++q) {
-                        const Neon::int8_3d q_dir = getDir(q);
-
+                    for (int8_t q = 0; q < Q; ++q) {
+                        const Neon::int8_3d qDir = getDir(q);
+                        if (qDir.x == 0 && qDir.y == 0 && qDir.z == 0) {
+                            continue;
+                        }
                         //check if the neighbor in this direction has children
-                        auto neighborCell = fpost_col.getNghCell(cell, q_dir);
+                        auto neighborCell = fpost_col.getNghCell(cell, qDir);
                         if (neighborCell.isActive()) {
 
                             if (!fpost_col.hasChildren(neighborCell)) {
                                 //now, we know that there is actually something we need to store for this neighbor
-                                //in cell along q (q_dir) direction
+                                //in cell along q (qDir) direction
                                 int num = 0;
                                 T   sum = 0;
 
 
                                 //for every neighbor cell including the center cell (i.e., cell)
                                 for (int8_t p = 0; p < Q; ++p) {
-                                    const Neon::int8_3d p_dir = getDir(p);
+                                    const Neon::int8_3d pDir = getDir(p);
 
-                                    const auto p_cell = fpost_col.getNghCell(cell, p_dir);
+                                    const auto p_cell = fpost_col.getNghCell(cell, pDir);
                                     //relative direction of q w.r.t p
                                     //i.e., in which direction we should move starting from p to land on q
-                                    const Neon::int8_3d r_dir = q_dir - p_dir;
+                                    const Neon::int8_3d r_dir = qDir - pDir;
 
                                     //if this neighbor is refined
-                                    if (fpost_col.hasChildren(cell, p_dir)) {
+                                    if (fpost_col.hasChildren(cell, pDir)) {
 
                                         //for each children of p
                                         for (int8_t i = 0; i < refFactor; ++i) {
@@ -63,7 +65,7 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
 
                                                     //cq is coarse neighbor (i.e., uncle) that we need to go in order to read q
                                                     //for c (this is what we do for explosion but here we do this just for the check)
-                                                    const Neon::int8_3d cq = uncleOffset(c, q_dir);
+                                                    const Neon::int8_3d cq = uncleOffset(c, qDir);
                                                     if (cq == r_dir) {
                                                         auto childVal = fpost_col.childVal(p_cell, c, q, 0);
                                                         if (childVal.isValid) {
@@ -108,9 +110,12 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
                 if (fpost_col.hasParent(cell)) {
 
                     //we could skip q = 0
-                    for (int8_t q = 1; q < Q; ++q) {
+                    for (int8_t q = 0; q < Q; ++q) {
 
                         const Neon::int8_3d qDir = getDir(q);
+                        if (qDir.x == 0 && qDir.y == 0 && qDir.z == 0) {
+                            continue;
+                        }
 
                         const Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, qDir);
 
