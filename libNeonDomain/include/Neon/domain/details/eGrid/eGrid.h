@@ -78,7 +78,7 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
     /**
      * Constructor compatible with the general grid API
      */
-    template <Neon::domain::SparsityPattern SparsityPattern>
+    template <typename SparsityPattern>
     eGrid(const Neon::Backend&         backend /**< Target for computation */,
           const Neon::int32_3d&        dimension /**< Dimension of the bounding box containing the domain */,
           const SparsityPattern&       activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,

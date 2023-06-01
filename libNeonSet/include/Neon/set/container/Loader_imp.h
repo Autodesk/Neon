@@ -56,8 +56,9 @@ struct DataTransferExtractor
     // Neon::set::HuOptions_t& /*opt*/
    private:
     template <typename T>
-    using HaloUpdate = decltype(std::declval<T>().haloUpdateContainer(std::declval<Neon::set::TransferMode>(),
-                                                                      std::declval<Neon::set::StencilSemantic>()));
+    using HaloUpdate = decltype(std::declval<T>().newHaloUpdate(std::declval<Neon::set::StencilSemantic>(),
+                                                                std::declval<Neon::set::TransferMode>(),
+                                                                std::declval<Neon::Execution>()));
 
     template <typename T>
     static constexpr bool HasHaloUpdateMethod = tmp::is_detected_v<HaloUpdate, T>;
@@ -74,7 +75,7 @@ struct DataTransferExtractor
             auto huFun = [field, &status](Neon::set::TransferMode    transferMode,
                                           Neon::set::StencilSemantic stencilSemantic)
                 -> Neon::set::Container {
-                Neon::set::Container container = field.haloUpdateContainer(transferMode, stencilSemantic);
+                Neon::set::Container container = field.newHaloUpdate(stencilSemantic, transferMode, Neon::Execution::device);
                 return container;
             };
             status = true;
@@ -151,13 +152,13 @@ auto Loader::
 
             if (compute == Neon::Pattern::STENCIL) {
                 token.setDataTransferContainer(
-                    [&](Neon::set::TransferMode transferMode)
+                    [&, stencilSemantic](Neon::set::TransferMode transferMode)
                         -> Neon::set::Container {
                         // TODO: add back following line with template metaprogramming
                         // field.haloUpdate(bk, opt);
                         // https://gist.github.com/fenbf/d2cd670704b82e2ce7fd
-                        bool                 status;
-                        auto                 huFun = internal::DataTransferExtractor<Field_ta>::get(field, status);
+                        bool status;
+                        auto huFun = internal::DataTransferExtractor<Field_ta>::get(field, status);
 
                         if (!status) {
                             Neon::NeonException e("Neon::Loader");

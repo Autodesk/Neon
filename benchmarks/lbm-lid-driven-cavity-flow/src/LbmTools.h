@@ -103,6 +103,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     {
         // #pragma omp critical
         //        {
+#if 0
         using TopologyByDirection = std::tuple<Neon::int32_3d, int, Neon::int32_3d, int>;
         constexpr std::array<TopologyByDirection, 9> stencil{
             std::make_tuple(Neon::int32_3d(-1, 0, 0), /*  GOid */ 0, /* --- */ Neon::int32_3d(1, 0, 0), /*  BKid */ 10),
@@ -148,7 +149,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         pullStream.template operator()<6>();
         pullStream.template operator()<7>();
         pullStream.template operator()<8>();
-#if 0
+#endif
         PULL_STREAM(-1, 0, 0, /*  GOid */ 0, /* --- */ 1, 0, 0, /*  BKid */ 10);
         PULL_STREAM(0, -1, 0, /*  GOid */ 1, /* --- */ 0, 1, 0, /*  BKid */ 11);
         PULL_STREAM(0, 0, -1, /*  GOid */ 2, /* --- */ 0, 0, 1, /*  BKid */ 12);
@@ -158,7 +159,6 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         PULL_STREAM(-1, 0, 1, /*  GOid */ 6, /* --- */ 1, 0, -1, /* BKid */ 16);
         PULL_STREAM(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17);
         PULL_STREAM(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18);
-#endif
 
         //  }
         // Treat the case of the center (c[k] = {0, 0, 0,}).

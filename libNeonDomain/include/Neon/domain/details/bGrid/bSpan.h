@@ -23,12 +23,12 @@ class bSpan
     bSpan() = default;
     virtual ~bSpan() = default;
 
-    NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId() -> Idx::DataBlockIdx
+    NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId() -> typename Idx::DataBlockIdx
     {
         return std::numeric_limits<uint32_t>::max();
     }
 
-    inline bSpan(Idx::DataBlockCount     mFirstDataBlockOffset,
+    inline bSpan(typename Idx::DataBlockCount     mFirstDataBlockOffset,
                  bSpan::BitMaskWordType* mActiveMask,
                  Neon::DataView          mDataView);
 
@@ -44,7 +44,7 @@ class bSpan
     static NEON_CUDA_HOST_DEVICE inline auto getRequiredWordsForBlockBitMask() -> uint32_t;
 
     static NEON_CUDA_HOST_DEVICE inline auto getActiveStatus(
-        const Idx::DataBlockIdx& dataBlockIdx,
+        const typename Idx::DataBlockIdx& dataBlockIdx,
         int                      threadX,
         int                      threadY,
         int                      threadZ,
@@ -56,7 +56,7 @@ class bSpan
                                                        BitMaskWordType& mask,
                                                        uint32_t&        wordIdx) -> void;
     // We don't need to have a count on active blocks
-    Idx::DataBlockCount     mFirstDataBlockOffset;
+    typename Idx::DataBlockCount     mFirstDataBlockOffset;
     bSpan::BitMaskWordType* mActiveMask;
     Neon::DataView          mDataView;
 };

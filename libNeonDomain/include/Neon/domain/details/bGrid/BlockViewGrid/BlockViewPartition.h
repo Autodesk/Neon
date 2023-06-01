@@ -25,7 +25,7 @@ class BlockViewPartition : public Neon::domain::details::eGrid::ePartition<T, C>
     }
 
     template <class BlockIdexType>
-    static auto getInBlockIdx(Neon::domain::details::eGrid::ePartition<T, C>::Idx const& idx,
+    static auto getInBlockIdx(typename Neon::domain::details::eGrid::ePartition<T, C>::Idx const& idx,
                                   uint8_3d const&                                            inBlockLocation) -> BlockIdexType
     {
         BlockIdexType blockIdx(idx.helpGet(), inBlockLocation);

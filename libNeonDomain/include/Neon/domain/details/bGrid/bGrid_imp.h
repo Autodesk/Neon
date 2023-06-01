@@ -268,13 +268,13 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
 template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 template <typename T, int C>
 auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newBlockViewField(const std::string   name,
-                                                                                                                  int                 cardinality,
-                                                                                                                  T                   inactiveValue,
-                                                                                                                  Neon::DataUse       dataUse,
-                                                                                                                  Neon::MemoryOptions memoryOptions) const -> BlockViewGrid::Field<T, C>
+                                                                                                                           int                 cardinality,
+                                                                                                                           T                   inactiveValue,
+                                                                                                                           Neon::DataUse       dataUse,
+                                                                                                                           Neon::MemoryOptions memoryOptions) const -> BlockViewGrid::Field<T, C>
 {
     memoryOptions = this->getDevSet().sanitizeMemoryOption(memoryOptions);
-    BlockViewGrid::Field<T, C> blockViewField = mData->blockViewGrid.template newField<T,C>(name, cardinality, inactiveValue, dataUse, memoryOptions);
+    BlockViewGrid::Field<T, C> blockViewField = mData->blockViewGrid.template newField<T, C>(name, cardinality, inactiveValue, dataUse, memoryOptions);
     return blockViewField;
 }
 
@@ -409,7 +409,8 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
 }
 
 template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellProperties
+auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getProperties(const index_3d& idx)
+    const -> typename GridBaseTemplate::CellProperties
 {
     typename GridBaseTemplate::CellProperties cellProperties;
 

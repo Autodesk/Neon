@@ -1,4 +1,7 @@
+#if 0
+
 #pragma once
+
 #include "Neon/core/core.h"
 
 namespace Neon::domain {
@@ -35,3 +38,5 @@ concept Field = requires(F grid) {
     typename F::Type;
 };
 }
+
+#endif

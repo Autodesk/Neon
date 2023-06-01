@@ -4,7 +4,7 @@
 namespace Neon::domain::details::eGrid {
 
 
-template <Neon::domain::SparsityPattern ActiveCellLambda>
+template <typename ActiveCellLambda>
 eGrid::eGrid(const Neon::Backend&         backend,
              const Neon::int32_3d&        dimension,
              const ActiveCellLambda&      activeCellLambda,

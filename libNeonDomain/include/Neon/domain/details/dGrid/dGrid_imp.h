@@ -4,7 +4,7 @@
 namespace Neon::domain::details::dGrid {
 
 
-template <Neon::domain::SparsityPattern ActiveCellLambda>
+template <typename ActiveCellLambda>
 dGrid::dGrid(const Neon::Backend&  backend,
              const Neon::int32_3d& dimension,
              const ActiveCellLambda& /*activeCellLambda*/,

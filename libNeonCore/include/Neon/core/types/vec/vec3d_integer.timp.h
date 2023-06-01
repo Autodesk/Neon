@@ -68,8 +68,8 @@ NEON_CUDA_HOST_ONLY inline constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d
 
 template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d(IntegerType_ta px, IntegerType_ta py, IntegerType_ta pz)
+    : x(px), y(py), z(pz)
 {
-    set(px, py, pz);
 }
 
 template <typename IntegerType_ta>
@@ -83,9 +83,9 @@ NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>& Vec_
 template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline constexpr void Vec_3d<IntegerType_ta, true, false>::set(Integer px, Integer py, Integer pz)
 {
-    x = px;
-    y = py;
-    z = pz;
+    v[0] = px;
+    v[1] = py;
+    v[2] = pz;
 }
 
 template <typename IntegerType_ta>
@@ -714,8 +714,9 @@ void Vec_3d<IntegerType_ta, true, false>::forEach(const self_t&                 
 template <typename IntegerType_ta>
 template <Neon::computeMode_t::computeMode_e computeMode_ta, class Lambda>
 auto Vec_3d<IntegerType_ta, true, false>::forEach(const Lambda& lambda) const
--> std::enable_if_t<std::is_invocable_v<Lambda, Vec_3d<IntegerType_ta, true, false>> ||
-                        std::is_invocable_v<Lambda, Integer, Integer, Integer>, void>
+    -> std::enable_if_t<std::is_invocable_v<Lambda, Vec_3d<IntegerType_ta, true, false>> ||
+                            std::is_invocable_v<Lambda, Integer, Integer, Integer>,
+                        void>
 {
     if constexpr (std::is_invocable_v<Lambda, Integer, Integer, Integer>) {
         if constexpr (computeMode_ta == Neon::computeMode_t::par) {

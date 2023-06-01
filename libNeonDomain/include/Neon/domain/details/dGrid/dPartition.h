@@ -164,7 +164,7 @@ class dPartition
             T val = this->operator()(cellNgh, card);
             funIfValid(val);
         }
-        if constexpr (!std::same_as<LambdaNOTValid, void*>) {
+        if constexpr (!std::is_same_v<LambdaNOTValid, void*>) {
             if (!isValidNeighbour) {
                 funIfNOTValid();
             }

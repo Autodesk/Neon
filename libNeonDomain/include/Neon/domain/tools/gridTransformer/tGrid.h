@@ -41,8 +41,8 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     using Span = typename GridTransformation::Span;
 
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = GridTransformation::executionThreadSpan;
-    using ExecutionThreadSpanIndexType = GridTransformation::ExecutionThreadSpanIndexType;
-    using Idx = GridTransformation::Idx;
+    using ExecutionThreadSpanIndexType = typename GridTransformation::ExecutionThreadSpanIndexType;
+    using Idx = typename GridTransformation::Idx;
 
    private:
     using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<tGrid<GridTransformation>,

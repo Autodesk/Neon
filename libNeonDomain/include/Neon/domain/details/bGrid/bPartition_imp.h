@@ -22,8 +22,8 @@ bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, us
     bPartition(int                    setIdx,
                int                    cardinality,
                T*                     mem,
-               Idx::DataBlockIdx*     blockConnectivity,
-               Span::BitMaskWordType* mask,
+               typename Idx::DataBlockIdx*     blockConnectivity,
+               typename Span::BitMaskWordType* mask,
                Neon::int32_3d*        origin,
                NghIdx*                stencilNghIndex)
     : mCardinality(cardinality),

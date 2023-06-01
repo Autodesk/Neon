@@ -18,7 +18,6 @@
 #include "gtest/gtest.h"
 #include "sUt.runHelper.h"
 #include "sUt_skeleton.onStream.kernels.h"
-#if 0
 using namespace Neon::domain::tool::testing;
 static const std::string testFilePrefix("sUt_skeleton_MapStencilMap");
 
@@ -138,13 +137,6 @@ int getNGpus()
 }
 }  // namespace
 
-TEST(MapStencilMap_NoOCC, eGrid)
-{
-    int nGpus = getNGpus();
-    using Grid = Neon::domain::details::eGrid::eGrid;
-    using Type = int32_t;
-    runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilNoOCC<Grid, Type, 0>, nGpus, 1);
-}
 
 TEST(MapStencilMap_NoOCC, dGrid)
 {
@@ -153,6 +145,17 @@ TEST(MapStencilMap_NoOCC, dGrid)
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("dGrid", MapStencilNoOCC<Grid, Type, 0>, nGpus, 2);
 }
+
+TEST(MapStencilMap_NoOCC, eGrid)
+{
+    int nGpus = getNGpus();
+    using Grid = Neon::domain::details::eGrid::eGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("eGrid_t", MapStencilNoOCC<Grid, Type, 0>, nGpus, 1);
+}
+#if 0
+
+
 
 TEST(MapStencilMap_OCC, eGrid)
 {

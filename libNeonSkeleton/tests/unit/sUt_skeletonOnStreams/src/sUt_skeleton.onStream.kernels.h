@@ -91,18 +91,19 @@ auto laplace(const Field& x,
                 using Type = typename Field::Type;
                 for (int card = 0; card < xLocal.cardinality(); card++) {
                     typename Field::Type res = 0;
+                    int                  count = 0;
 
-
-                    auto checkNeighbor = [&res](Neon::domain::NghData<Type>& neighbor) {
+                    auto checkNeighbor = [&res, &count](Neon::domain::NghData<Type>& neighbor) {
                         if (neighbor.isValid()) {
                             res += neighbor.getData();
+                            count++;
                         }
                     };
 
                     // Laplacian stencil operates on 6 neighbors (assuming 3D)
                     if constexpr (std::is_same<typename Field::Grid, Neon::domain::details::eGrid::eGrid>::value) {
                         for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
-                            auto neighbor = xLocal.getNghData(gidx, nghIdx, card, Type(0));
+                            auto neighbor = xLocal.getNghData(gidx, nghIdx, card);
                             checkNeighbor(neighbor);
                         }
                     } else {
@@ -152,7 +153,7 @@ auto laplace(const Field& x,
                     }
 
 
-                    yLocal(gidx, card) = -6 * res;
+                    yLocal(gidx, card) = xLocal(gidx, card) - count * res;
                 }
             };
         });

@@ -162,13 +162,18 @@ auto run(TestData<G, T, C>& data) -> void
     };
 
     constexpr std::array<const Ngh3DIdx, 6>
-        stencil{Ngh3DIdx(1, 0, 0), Ngh3DIdx(-1, 0, 0), Ngh3DIdx(0, 1, 0), Ngh3DIdx(0, -1, 0), Ngh3DIdx(0, 0, 1), Ngh3DIdx(0, 0, -1)};
+        stencil{Ngh3DIdx(1, 0, 0),
+                Ngh3DIdx(-1, 0, 0),
+                Ngh3DIdx(0, 1, 0),
+                Ngh3DIdx(0, -1, 0),
+                Ngh3DIdx(0, 0, 1),
+                Ngh3DIdx(0, 0, -1)};
 
 
     for (auto const& direction : stencil) {
         reset(aField, bField, cField).run(Neon::Backend::mainStreamIdx);
         reset(X, Y, Z).run(Neon::Backend::mainStreamIdx);
-        {// Updating halo with wrong data
+        {  // Updating halo with wrong data
             bk.sync(Neon::Backend::mainStreamIdx);
             aField.newHaloUpdate(Neon::set::StencilSemantic::standard, Neon::set::TransferMode::put, Neon::Execution::device).run(Neon::Backend::mainStreamIdx);
             bField.newHaloUpdate(Neon::set::StencilSemantic::standard, Neon::set::TransferMode::put, Neon::Execution::device).run(Neon::Backend::mainStreamIdx);

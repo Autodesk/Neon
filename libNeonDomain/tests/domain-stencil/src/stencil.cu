@@ -50,6 +50,26 @@ auto stencilContainer_laplace(const Field& filedA,
         });
 }
 
+using Ngh3DIdx = Neon::int8_3d;
+static constexpr std::array<const Ngh3DIdx, 6> stencil{
+    Ngh3DIdx(1, 0, 0),
+    Ngh3DIdx(-1, 0, 0),
+    Ngh3DIdx(0, 1, 0),
+    Ngh3DIdx(0, -1, 0),
+    Ngh3DIdx(0, 0, 1),
+    Ngh3DIdx(0, 0, -1)};
+
+template<int stencilIdx, typename IDX, typename Field>
+inline auto viaTemplate (const IDX& idx, int i, const Field& a, int& partial, int& count){
+        a.template getNghData<stencil[stencilIdx].x,
+                              stencil[stencilIdx].y,
+                              stencil[stencilIdx].z>(idx, i,
+                                                     [&](typename Field::Type const& val) {
+                                                         partial += val;
+                                                         count++;
+                                                     });
+};
+
 template <typename Field>
 auto stencilContainerLaplaceTemplate(const Field& filedA,
                                      Field&       fieldB)
@@ -68,7 +88,6 @@ auto stencilContainerLaplaceTemplate(const Field& filedA,
                     // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                     typename Field::Type partial = 0;
                     int                  count = 0;
-                    using Ngh3DIdx = Neon::int8_3d;
 
                     constexpr std::array<const Ngh3DIdx, 6> stencil{
                         Ngh3DIdx(1, 0, 0),
@@ -78,6 +97,7 @@ auto stencilContainerLaplaceTemplate(const Field& filedA,
                         Ngh3DIdx(0, 0, 1),
                         Ngh3DIdx(0, 0, -1)};
 
+#if 0
                     auto viaTemplate = [&]<int stencilIdx>() {
                         if constexpr (std::is_same_v<typename Field::Grid, Neon::dGrid>) {
                             a.template getNghData<stencil[stencilIdx].x,
@@ -89,13 +109,13 @@ auto stencilContainerLaplaceTemplate(const Field& filedA,
                                                                          });
                         }
                     };
-
-                    viaTemplate.template operator()<0>();
-                    viaTemplate.template operator()<1>();
-                    viaTemplate.template operator()<2>();
-                    viaTemplate.template operator()<3>();
-                    viaTemplate.template operator()<4>();
-                    viaTemplate.template operator()<5>();
+#endif
+                    viaTemplate<0>(idx, i, a, partial, count);
+                    viaTemplate<1>(idx, i, a, partial, count);
+                    viaTemplate<2>(idx, i, a, partial, count);
+                    viaTemplate<3>(idx, i, a, partial, count);
+                    viaTemplate<4>(idx, i, a, partial, count);
+                    viaTemplate<5>(idx, i, a, partial, count);
 
                     b(idx, i) = a(idx, i) - count * partial;
                 }

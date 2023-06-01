@@ -18,7 +18,7 @@ class bPartition
    public:
     using Span = bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
     using Idx = bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
-    using NghIdx = Idx::NghIdx;
+    using NghIdx = typename Idx::NghIdx;
     using Type = T;
     using NghData = Neon::domain::NghData<T>;
     using BlockViewGridIdx = BlockViewGrid::Idx;
@@ -28,13 +28,13 @@ class bPartition
 
     ~bPartition() = default;
 
-    explicit bPartition(int                    setIdx,
-                        int                    mCardinality,
-                        T*                     mMem,
-                        Idx::DataBlockIdx*     mBlockConnectivity,
-                        Span::BitMaskWordType* mMask,
-                        Neon::int32_3d*        mOrigin,
-                        NghIdx*                mStencilNghIndex);
+    explicit bPartition(int                             setIdx,
+                        int                             mCardinality,
+                        T*                              mMem,
+                        typename Idx::DataBlockIdx*     mBlockConnectivity,
+                        typename Span::BitMaskWordType* mMask,
+                        Neon::int32_3d*                 mOrigin,
+                        NghIdx*                         mStencilNghIndex);
 
     inline NEON_CUDA_HOST_DEVICE auto
     cardinality()
@@ -93,8 +93,8 @@ class bPartition
     int                    mCardinality;
     T*                     mMem;
     NghIdx*                mStencilNghIndex;
-    Idx::DataBlockIdx*     mBlockConnectivity;
-    Span::BitMaskWordType* mMask;
+    typename Idx::DataBlockIdx*     mBlockConnectivity;
+    typename Span::BitMaskWordType* mMask;
     Neon::int32_3d*        mOrigin;
     int                    mSetIdx;
 };
