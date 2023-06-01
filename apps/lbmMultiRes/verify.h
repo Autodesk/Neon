@@ -85,7 +85,7 @@ inline T verifyGhia1982(const int                     Re,
                 interp = lowVal + ((pos - lowPos) / (highPos - lowPos)) * (highVal - lowVal);
             }
 
-            diff[i] = std::abs(interp - val);
+            diff[i] = std::abs(interp - val) / (val == 0.0 ? 1 : val);
         }
         return diff;
     };
