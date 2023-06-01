@@ -3,7 +3,7 @@
 template <typename T, int Q>
 inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                                         int                            level,
-                                        Neon::domain::mGrid::Field<T>& postCollision)
+                                        Neon::domain::mGrid::Field<T>& fout)
 {
     //Initiated by the coarse level (level), this function prepares and stores the fine (level - 1)
     // information for further pulling initiated by the coarse (this) level invoked by coalescence_pull
@@ -19,13 +19,13 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
     return grid.getContainer(
         "storeCoarse_" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
-            auto& fpost_col = postCollision.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
+            auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 //if the cell is refined, we might need to store something in it for its neighbor
-                if (fpost_col.hasChildren(cell)) {
+                if (pout.hasChildren(cell)) {
 
-                    const int refFactor = fpost_col.getRefFactor(level);
+                    const int refFactor = pout.getRefFactor(level);
 
                     //for each direction aka for each neighbor
                     //we skip the center here
@@ -35,10 +35,10 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                             continue;
                         }
                         //check if the neighbor in this direction has children
-                        auto neighborCell = fpost_col.getNghCell(cell, qDir);
+                        auto neighborCell = pout.getNghCell(cell, qDir);
                         if (neighborCell.isActive()) {
 
-                            if (!fpost_col.hasChildren(neighborCell)) {
+                            if (!pout.hasChildren(neighborCell)) {
                                 //now, we know that there is actually something we need to store for this neighbor
                                 //in cell along q (qDir) direction
                                 int num = 0;
@@ -49,13 +49,13 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                                 for (int8_t p = 0; p < Q; ++p) {
                                     const Neon::int8_3d pDir = getDir(p);
 
-                                    const auto p_cell = fpost_col.getNghCell(cell, pDir);
+                                    const auto p_cell = pout.getNghCell(cell, pDir);
                                     //relative direction of q w.r.t p
                                     //i.e., in which direction we should move starting from p to land on q
                                     const Neon::int8_3d r_dir = qDir - pDir;
 
                                     //if this neighbor is refined
-                                    if (fpost_col.hasChildren(cell, pDir)) {
+                                    if (pout.hasChildren(cell, pDir)) {
 
                                         //for each children of p
                                         for (int8_t i = 0; i < refFactor; ++i) {
@@ -67,10 +67,17 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                                                     //for c (this is what we do for explosion but here we do this just for the check)
                                                     const Neon::int8_3d cq = uncleOffset(c, qDir);
                                                     if (cq == r_dir) {
-                                                        auto childVal = fpost_col.childVal(p_cell, c, q, 0);
+                                                        auto childVal = pout.childVal(p_cell, c, q, 0);
+                                                        auto childCell = pout.getChild(p_cell, c);
                                                         if (childVal.isValid) {
                                                             num++;
                                                             sum += childVal.value;
+                                                            /*printf("\n S Parent Cell %d (%d,%d, %d) added Child %d (%d, %d, %d) along q= %d",
+                                                                   cell.mBlockID,
+                                                                   cell.mLocation.x, cell.mLocation.y, cell.mLocation.z,
+                                                                   childCell.mBlockID,
+                                                                   childCell.mLocation.x, childCell.mLocation.y, childCell.mLocation.z,
+                                                                   q);*/
                                                         }
                                                     }
                                                 }
@@ -78,7 +85,7 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                                         }
                                     }
                                 }
-                                fpost_col(cell, q) += sum / static_cast<T>(num);
+                                pout(cell, q) += sum / static_cast<T>(num);
                             }
                         }
                     }
@@ -91,7 +98,7 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
 template <typename T, int Q>
 inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
                                       int                            level,
-                                      Neon::domain::mGrid::Field<T>& postCollision)
+                                      Neon::domain::mGrid::Field<T>& fout)
 {
     //Initiated by the fine level (level), this function prepares and stores the fine (level)
     // information for further pulling initiated by the coarse (level+1) level invoked by coalescence
@@ -104,43 +111,54 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
     return grid.getContainer(
         "storeFine_" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
-            auto& fpost_col = postCollision.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
+            auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                if (fpost_col.hasParent(cell)) {
-                                        
-                    for (int8_t q = 0; q < Q; ++q) {
+                assert(pout.hasParent(cell));
 
-                        const Neon::int8_3d qDir = getDir(q);
-                        if (qDir.x == 0 && qDir.y == 0 && qDir.z == 0) {
-                            continue;
-                        }
+                for (int8_t q = 0; q < Q; ++q) {
 
-                        const Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, qDir);
+                    const Neon::int8_3d qDir = getDir(q);
+                    if (qDir.x == 0 && qDir.y == 0 && qDir.z == 0) {
+                        continue;
+                    }
 
-                        const auto cn = fpost_col.getNghCell(cell, uncleDir);
+                    const Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, qDir);
 
-                        if (!cn.isActive()) {
+                    //we try to access a cell on the same level (i.e., the refined level) along the same
+                    //direction as the uncle and we use this a proxy to check if there is an unrefined uncle
+                    const auto cn = pout.getNghCell(cell, uncleDir);
 
-                            const auto uncle = fpost_col.getUncle(cell, uncleDir);
-                            if (uncle.isActive()) {
+                    //cn may not be active because 1. it is outside the domain, or 2. this location is occupied by a coarse cell
+                    //we are interested in 2.
+                    if (!cn.isActive()) {
 
-                                //locate the coarse cell where we should store this cell info
-                                const Neon::int8_3d CsDir = uncleDir - qDir;
+                        //now, we can get the uncle but we need to make sure it is active i.e.,
+                        //it is not out side the domain boundary
+                        const auto uncle = pout.getUncle(cell, uncleDir);
+                        if (uncle.isActive()) {
 
-                                const auto cs = fpost_col.getUncle(cell, CsDir);
+                            //locate the coarse cell where we should store this cell info
+                            const Neon::int8_3d CsDir = uncleDir - qDir;
 
-                                if (cs.isActive()) {
+                            const auto cs = pout.getUncle(cell, CsDir);
 
-                                    const T cellVal = fpost_col(cell, q);
+                            if (cs.isActive()) {
 
+                                const T cellVal = pout(cell, q);
+
+                            /*printf("\n F Parent Cell %d (%d,%d, %d) added Child %d (%d, %d, %d) along q= %d",
+                                       cs.mBlockID,
+                                       cs.mLocation.x, cs.mLocation.y, cs.mLocation.z,
+                                       cell.mBlockID,
+                                       cell.mLocation.x, cell.mLocation.y, cell.mLocation.z,
+                                       q);*/
 #ifdef NEON_PLACE_CUDA_DEVICE
-                                    atomicAdd(&fpost_col.uncleVal(cell, CsDir, q), cellVal);
+                                atomicAdd(&pout.uncleVal(cell, CsDir, q), cellVal);
 #else
 #pragma omp atomic
-                                    fpost_col.uncleVal(cell, CsDir, q) += cellVal;
+                                pout.uncleVal(cell, CsDir, q) += cellVal;
 #endif
-                                }
                             }
                         }
                     }

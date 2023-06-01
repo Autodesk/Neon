@@ -122,10 +122,10 @@ void runNonUniformLBM(const int           problemID,
 
     Neon::index_3d gridDim;
 
-    //gridDim = Neon::index_3d(6, 6, 6);
-    //levelSDF[0] = 0;
-    //levelSDF[1] = -2.0 / 3.0;
-    //levelSDF[2] = -1.0;
+    gridDim = Neon::index_3d(6, 6, 6);
+    levelSDF[0] = 0;
+    levelSDF[1] = -2.0 / 3.0;
+    levelSDF[2] = -1.0;
 
     if (problemID == 0) {
         gridDim = Neon::index_3d(48, 48, 48);
@@ -212,7 +212,7 @@ void runNonUniformLBM(const int           problemID,
             NEON_INFO("Non-uniform LBM Iteration: {}", t);
         }
         skl.run();
-        if (!benchmark && t % 1000 == 0) {
+        if (!benchmark && t % 500 == 0) {
             postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, t, vel, rho, ulb, true, true);
         }
     }
