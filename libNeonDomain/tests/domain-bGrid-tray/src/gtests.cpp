@@ -21,9 +21,9 @@ void test_backToBackConversion()
         for (uint32_t rZ = 0; rZ < ratioOnZ; rZ++) {
             for (uint32_t rY = 0; rY < ratioOnY; rY++) {
                 for (uint32_t rX = 0; rX < ratioOnX; rX++) {
-                    for (uint8_t k = 0; k < userBlockSizeX; k++) {
-                        for (uint8_t j = 0; j < userBlockSizeY; j++) {
-                            for (uint8_t i = 0; i < userBlockSizeZ; i++) {  // Set the micro idx to the first voxel
+                    for (int8_t k = 0; k < int8_t(userBlockSizeX); k++) {
+                        for (int8_t j = 0; j < int8_t(userBlockSizeY); j++) {
+                            for (int8_t i = 0; i < int8_t(userBlockSizeZ); i++) {  // Set the micro idx to the first voxel
                                 // Check that bIdx point to the first voxels too
                                 microIdx.setTrayBlockIdx(memBlockJump + rX + rY * ratioOnX + rZ * ratioOnY * ratioOnX);
                                 microIdx.setInTrayBlockIdx({i, j, k});
@@ -32,10 +32,10 @@ void test_backToBackConversion()
                                 auto res = bIdx.getMicroIndex();
 
                                 ASSERT_EQ(bIdx.getDataBlockIdx(), memBlockIdx);
-                                ASSERT_EQ(bIdx.getInDataBlockIdx(), Neon::uint8_3d(i + rX * userBlockSizeX,
+                                ASSERT_EQ(bIdx.getInDataBlockIdx(), Neon::int8_3d(i + rX * userBlockSizeX,
                                                                                    j + rY * userBlockSizeY,
                                                                                    k + rZ * userBlockSizeZ))
-                                    << bIdx.getInDataBlockIdx() << " instead of " << Neon::uint8_3d(i + rX * userBlockSizeX, j + rY * userBlockSizeY, k + rZ * userBlockSizeZ) << " with rX,Ry,rZ " << rX << "," << rY << "," << rZ << " and i,j,k = " << i << "," << j << "," << k;
+                                    << bIdx.getInDataBlockIdx() << " instead of " << Neon::int8_3d(i + rX * userBlockSizeX, j + rY * userBlockSizeY, k + rZ * userBlockSizeZ) << " with rX,Ry,rZ " << rX << "," << rY << "," << rZ << " and i,j,k = " << i << "," << j << "," << k;
 
 
                                 ASSERT_EQ(res.getTrayBlockIdx(), microIdx.getTrayBlockIdx());

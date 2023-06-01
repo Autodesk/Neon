@@ -12,11 +12,11 @@ bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBl
 
 template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bField(const std::string&         fieldUserName,
-                                                                     Neon::DataUse              dataUse,
-                                                                     const Neon::MemoryOptions& memoryOptions,
-                                                                     const Grid&                grid,
-                                                                     int                        cardinality,
-                                                                     T                          inactiveValue)
+                                                                                                                  Neon::DataUse              dataUse,
+                                                                                                                  const Neon::MemoryOptions& memoryOptions,
+                                                                                                                  const Grid&                grid,
+                                                                                                                  int                        cardinality,
+                                                                                                                  T                          inactiveValue)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "bField",
@@ -74,7 +74,7 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
 
 template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getReference(const Neon::index_3d& cartesianIdx,
-                                                                                const int&            cardinality) -> T&
+                                                                                                                             const int&            cardinality) -> T&
 {
     auto& grid = this->getGrid();
     auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
@@ -85,7 +85,7 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
 
 template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::operator()(const Neon::index_3d& cartesianIdx,
-                                                                              const int&            cardinality) const -> T
+                                                                                                                           const int&            cardinality) const -> T
 {
     auto& grid = this->getGrid();
     auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
@@ -111,8 +111,8 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
 
 template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getPartition(Neon::Execution       execution,
-                                                                                Neon::SetIdx          setIdx,
-                                                                                const Neon::DataView& dataView) const -> const Partition&
+                                                                                                                             Neon::SetIdx          setIdx,
+                                                                                                                             const Neon::DataView& dataView) const -> const Partition&
 {
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
@@ -127,8 +127,8 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
 
 template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getPartition(Neon::Execution       execution,
-                                                                                Neon::SetIdx          setIdx,
-                                                                                const Neon::DataView& dataView) -> Partition&
+                                                                                                                             Neon::SetIdx          setIdx,
+                                                                                                                             const Neon::DataView& dataView) -> Partition&
 {
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
@@ -143,8 +143,8 @@ auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, u
 
 template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newHaloUpdate(Neon::set::StencilSemantic stencilSemantic,
-                                                                                 Neon::set::TransferMode    transferMode,
-                                                                                 Neon::Execution            execution) const -> Neon::set::Container
+                                                                                                                              Neon::set::TransferMode    transferMode,
+                                                                                                                              Neon::Execution            execution) const -> Neon::set::Container
 {
 
 

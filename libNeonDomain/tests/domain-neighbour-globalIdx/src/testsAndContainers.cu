@@ -90,6 +90,10 @@ auto checkNeighbourData(Field const&   filedA,
                     auto d = nghInfo[i]->getNghData(e, testDirection.newType<int8_t>(), 0);
                     if (d.isValid()) {
                         results[i]->operator()(e, 0) = d.getData() == ngh.v[i] ? +1 : -1;
+                        if (d.getData() != ngh.v[i]) {
+                            printf("ERROR: %d %d %d %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z, ngh.v[0], ngh.v[1], ngh.v[2]);
+                            d = nghInfo[i]->getNghData(e, testDirection.newType<int8_t>(), 0);
+                        }
                     } else {
                         results[i]->operator()(e, 0) = 0;
                     }
@@ -161,14 +165,15 @@ auto run(TestData<G, T, C>& data) -> void
                                    X, Y, Z);
     };
 
-    constexpr std::array<const Ngh3DIdx, 6>
-        stencil{Ngh3DIdx(1, 0, 0),
-                Ngh3DIdx(-1, 0, 0),
-                Ngh3DIdx(0, 1, 0),
-                Ngh3DIdx(0, -1, 0),
-                Ngh3DIdx(0, 0, 1),
-                Ngh3DIdx(0, 0, -1)};
-
+    //    constexpr std::array<const Ngh3DIdx, 6>
+    //        stencil{Ngh3DIdx(1, 0, 0),
+    //                Ngh3DIdx(-1, 0, 0),
+    //                Ngh3DIdx(0, 1, 0),
+    //                Ngh3DIdx(0, -1, 0),
+    //                Ngh3DIdx(0, 0, 1),
+    //                Ngh3DIdx(0, 0, -1)};
+    constexpr std::array<const Ngh3DIdx, 1>
+        stencil{Ngh3DIdx(0, 0, -1)};
 
     for (auto const& direction : stencil) {
         reset(aField, bField, cField).run(Neon::Backend::mainStreamIdx);

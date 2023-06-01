@@ -83,9 +83,9 @@ NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>& Vec_
 template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline constexpr void Vec_3d<IntegerType_ta, true, false>::set(Integer px, Integer py, Integer pz)
 {
-    v[0] = px;
-    v[1] = py;
-    v[2] = pz;
+    x = px;
+    y = py;
+    z = pz;
 }
 
 template <typename IntegerType_ta>

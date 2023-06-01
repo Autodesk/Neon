@@ -16,10 +16,11 @@ class bPartition;
 class MicroIndex
 {
    public:
-    using TrayIdx = uint32_t;
-    using InTrayIdx = uint8_3d;
+    using TrayIdx = int32_t;
+    using InTrayIdx = int8_3d;
 
-    NEON_CUDA_HOST_DEVICE inline explicit MicroIndex():MicroIndex(0,0,0,0)
+    NEON_CUDA_HOST_DEVICE inline explicit MicroIndex()
+        : MicroIndex(0, 0, 0, 0)
     {
     }
 
@@ -66,7 +67,7 @@ class bIndex
     friend class bSpan;
     using OuterIdx = bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
 
-    static constexpr Neon::uint32_3d memBlock3DSize{memBlockSizeX,memBlockSizeY,memBlockSizeZ};
+    static constexpr Neon::uint32_3d memBlock3DSize{memBlockSizeX, memBlockSizeY, memBlockSizeZ};
 
     using NghIdx = int8_3d;
     template <typename T, int C, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>
@@ -84,12 +85,12 @@ class bIndex
     using TrayIdx = MicroIndex::TrayIdx;
     using InTrayIdx = MicroIndex::InTrayIdx;
 
-    using DataBlockCount = TrayIdx;
-    using DataBlockIdx = TrayIdx;
+    using DataBlockCount = std::make_unsigned_t<TrayIdx>;
+    using DataBlockIdx = std::make_unsigned_t<TrayIdx>;
     using InDataBlockIdx = InTrayIdx;
 
     bIndex() = default;
-    virtual ~bIndex() = default;
+    ~bIndex() = default;
 
     NEON_CUDA_HOST_DEVICE inline explicit bIndex(const DataBlockIdx&            blockIdx,
                                                  const InDataBlockIdx::Integer& x,

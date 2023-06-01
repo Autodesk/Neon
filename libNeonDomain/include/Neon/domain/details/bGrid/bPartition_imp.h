@@ -19,13 +19,13 @@ bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, us
 
 template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
-    bPartition(int                    setIdx,
-               int                    cardinality,
-               T*                     mem,
+    bPartition(int                             setIdx,
+               int                             cardinality,
+               T*                              mem,
                typename Idx::DataBlockIdx*     blockConnectivity,
                typename Span::BitMaskWordType* mask,
-               Neon::int32_3d*        origin,
-               NghIdx*                stencilNghIndex)
+               Neon::int32_3d*                 origin,
+               NghIdx*                         stencilNghIndex)
     : mCardinality(cardinality),
       mMem(mem),
       mStencilNghIndex(stencilNghIndex),
