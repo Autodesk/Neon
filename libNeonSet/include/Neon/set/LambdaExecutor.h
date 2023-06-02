@@ -48,7 +48,7 @@ void launchLambdaOnSpanOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 {
     if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1) {
 #ifdef NEON_OS_WINDOWS
-#pragma omp parallel for default(shared)
+//#pragma omp parallel for default(shared)
 #else
  #pragma omp parallel for simd default(shared)
 #endif
