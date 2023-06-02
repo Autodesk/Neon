@@ -25,9 +25,9 @@ auto defContainer(Field& filedA,
             return [=](const typename Field::Idx& e ) mutable {
                 // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                 Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                a(e, 0) = static_cast<Field::Type>(globalPoint.x);
-                b(e, 0) = static_cast<Field::Type>(globalPoint.y);
-                c(e, 0) = static_cast<Field::Type>(globalPoint.z);
+                a(e, 0) = static_cast<typename Field::Type>(globalPoint.x);
+                b(e, 0) = static_cast<typename Field::Type>(globalPoint.y);
+                c(e, 0) = static_cast<typename Field::Type>(globalPoint.z);
                 //                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
                 //                    printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
                 //                           e.mInDataBlockIdx.x,
