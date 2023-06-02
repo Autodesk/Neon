@@ -177,7 +177,7 @@ auto Replica<Obj>::newContainer(const std::string& name,
                                                                               *this,
                                                                               lambda,
                                                                               defaultBlockSize,
-                                                                              [](const Neon::index_3d&) { return size_t(0); });
+                                                                              [](const Neon::index_3d&) { return 0; });
     return container;
 }
 template <typename Obj>
