@@ -167,7 +167,7 @@ auto eGrid::newContainer(const std::string& name,
                                                                                *this,
                                                                                lambda,
                                                                                defaultBlockSize,
-                                                                               [](const Neon::index_3d&) { return size_t(0); });
+                                                                               [](const Neon::index_3d&) {0; });
     return kContainer;
 }
 
