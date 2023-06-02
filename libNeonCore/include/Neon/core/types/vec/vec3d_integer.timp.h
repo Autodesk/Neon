@@ -28,8 +28,8 @@ NEON_CUDA_HOST_DEVICE constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d()
 
 template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d(const self_t& other)
+    : x(other.x), y(other.y), z(other.z)
 {
-    set(other);
 }
 
 
