@@ -166,7 +166,7 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
                                                                                                                          k - int8_t(1));
                                                                   bool                                      isValid = blockConnectivity.getNghIndex(idx, stencilPoint, nghIdx);
                                                                   if (isValid) {
-                                                                      blockNghIdx = nghIdx.helpGet();
+                                                                      blockNghIdx = static_cast < BlockIdx>(nghIdx.helpGet());
                                                                   }
                                                                   blockConnectivity(idx, targetDirection) = blockNghIdx;
                                                               }
@@ -220,7 +220,7 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
         for (int i = 0; i < stencil.nNeighbours(); ++i) {
             for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
                 index_3d      pLong = stencil.neighbours()[i];
-                Neon::int8_3d pShort(pLong.x, pLong.y, pLong.z);
+                Neon::int8_3d pShort=pLong.newType<int8_t>();
                 mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
             }
         }
@@ -244,7 +244,7 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
                 auto eDomainGridSize = launchSingleDev.domainGrid();
                 assert(eDomainGridSize.y == 1);
                 assert(eDomainGridSize.z == 1);
-                int nBlocks = eDomainGridSize.x;
+                int nBlocks = static_cast<int>( eDomainGridSize.x);
                 bLaunchParameters.get(setIdx).set(Neon::sys::GpuLaunchInfo::mode_e::cudaGridMode,
                                                   nBlocks, dataBlockSize3D, 0);
             });
@@ -307,7 +307,7 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
                                                                                *this,
                                                                                lambda,
                                                                                defaultBlockSize,
-                                                                               [](const Neon::index_3d&) { return size_t(0); });
+                                                                               [](const Neon::index_3d&) { return 0; });
     return kContainer;
 }
 
@@ -439,9 +439,9 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
     auto [setIdx, bvGridIdx] = mData->blockViewGrid.helpGetSetIdxAndGridIdx(blockIdx3d);
     Idx bIdx;
     bIdx.mDataBlockIdx = bvGridIdx.helpGet();
-    bIdx.mInDataBlockIdx.x = idx.x % dataBlockSize3D.x;
-    bIdx.mInDataBlockIdx.y = idx.y % dataBlockSize3D.y;
-    bIdx.mInDataBlockIdx.z = idx.z % dataBlockSize3D.z;
+    bIdx.mInDataBlockIdx.x = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.x % dataBlockSize3D.x);
+    bIdx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.y % dataBlockSize3D.y);
+    bIdx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.z % dataBlockSize3D.z);
 
     return {setIdx, bIdx};
 }

@@ -299,7 +299,7 @@ class Partitioner1D
                     assert(offset < countElement);
                     assert(offset >= 0);
                     // std::cout << ngh << " -> " << stencilIdx << " -> Pitch "  << offset<< std::endl;
-                    mData->stencil3dTo1dOffset.eRef(setIdx, offset, 0) = stencilIdx;
+                    mData->stencil3dTo1dOffset.eRef(setIdx, offset, 0) = static_cast<int8_t>(stencilIdx);
                     stencilIdx++;
                 }
             });
@@ -349,7 +349,7 @@ class Partitioner1D
                                     if (findings.first) {
                                         targetNgh = findings.second;
                                     }
-                                    aGrid::Cell aIdx(start + blockIdx);
+                                    aGrid::Cell aIdx(static_cast <aGrid::Cell::Location>(start + blockIdx));
                                     partition(aIdx, s) = targetNgh;
                                 }
                             }
@@ -383,7 +383,7 @@ class Partitioner1D
                                         if (findings.first) {
                                             targetNgh = findings.second;
                                         }
-                                        aGrid::Cell aIdx(start + blockIdx);
+                                        aGrid::Cell aIdx(static_cast<aGrid::Cell::Location>(start + blockIdx));
                                         partition(aIdx, s) = targetNgh;
                                     }
                                 }

@@ -32,10 +32,10 @@ void test_backToBackConversion()
                                 auto res = bIdx.getMicroIndex();
 
                                 ASSERT_EQ(bIdx.getDataBlockIdx(), memBlockIdx);
-                                ASSERT_EQ(bIdx.getInDataBlockIdx(), Neon::int8_3d(i + rX * userBlockSizeX,
-                                                                                   j + rY * userBlockSizeY,
-                                                                                   k + rZ * userBlockSizeZ))
-                                    << bIdx.getInDataBlockIdx() << " instead of " << Neon::int8_3d(i + rX * userBlockSizeX, j + rY * userBlockSizeY, k + rZ * userBlockSizeZ) << " with rX,Ry,rZ " << rX << "," << rY << "," << rZ << " and i,j,k = " << i << "," << j << "," << k;
+                                ASSERT_EQ(bIdx.getInDataBlockIdx(), Neon::int8_3d(static_cast<int8_t>(i + rX * userBlockSizeX),
+                                                                                   static_cast<int8_t>(j + rY * userBlockSizeY),
+                                                                                  static_cast<int8_t>( k + rZ * userBlockSizeZ)))
+                                    << bIdx.getInDataBlockIdx() << " instead of " << Neon::int8_3d(static_cast<int8_t>(i + rX * userBlockSizeX), static_cast<int8_t>(j + rY * userBlockSizeY),static_cast<int8_t>( k + rZ * userBlockSizeZ)) << " with rX,Ry,rZ " << rX << "," << rY << "," << rZ << " and i,j,k = " << i << "," << j << "," << k;
 
 
                                 ASSERT_EQ(res.getTrayBlockIdx(), microIdx.getTrayBlockIdx());

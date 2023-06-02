@@ -31,7 +31,7 @@ aPartition<T, C>::eJump(const Cell& cell,
                         const int&  cardinalityIdx) const
     -> eJump_t
 {
-    return cell.get() * m_pitch.pMain + cardinalityIdx * m_pitch.pCardinality;
+    return static_cast<eJump_t>(cell.get() * m_pitch.pMain + cardinalityIdx * m_pitch.pCardinality);
 }
 
 template <typename T, int C>

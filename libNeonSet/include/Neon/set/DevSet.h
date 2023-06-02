@@ -241,7 +241,9 @@ class DevSet
                                                                                         lambdaHolder);
                     return;
                 }
+#if defined(NEON_OS_LINUX) || defined(NEON_OS_MAC)
                 [[fallthrough]];
+#endif
             };
             case Neon::Runtime::openmp: {
                 this->template helpLaunchLambdaOnSpanOMP<DataSetContainer, Lambda>(execution,
@@ -280,7 +282,9 @@ class DevSet
                                                                                         lambdaHolder);
                     return;
                 }
+#if defined(NEON_OS_LINUX) || defined(NEON_OS_MAC)
                 [[fallthrough]];
+#endif
             };
             case Neon::Runtime::openmp: {
                 this->template helpLaunchLambdaOnSpanOMP<DataSetContainer, Lambda>(execution,
@@ -300,9 +304,9 @@ class DevSet
 
     template <typename DataSetContainer, typename Lambda>
     inline auto kernelHostLambdaWithIterator(const Neon::set::KernelConfig&        kernelConfig,
-        DataSetContainer&                     dataSetContainer,
-        std::function<Lambda(SetIdx,
-                             Neon::DataView)> lambdaHolder) const -> void
+                                             DataSetContainer&                     dataSetContainer,
+                                             std::function<Lambda(SetIdx,
+                                                                  Neon::DataView)> lambdaHolder) const -> void
     {
         Neon::Runtime mode = Neon::Runtime::openmp;
         // ORDER is IMPORTANT
@@ -576,9 +580,9 @@ class DevSet
      * @return
      */
     template <typename T_ta>
-    auto newMemDevSet(Neon::DeviceType        devType,
-                      const Neon::Allocator&  allocType,
-                      uint64_t                nElement) const
+    auto newMemDevSet(Neon::DeviceType       devType,
+                      const Neon::Allocator& allocType,
+                      uint64_t               nElement) const
         -> MemDevSet<T_ta>
     {
         const auto nElementDataSet = this->newDataSet(nElement);

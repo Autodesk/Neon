@@ -39,7 +39,7 @@ auto run(TestData<G, T, C>& data) -> void
             auto  numActiveCells = grid.getNumActiveCells();
             auto& X = data.getIODomain(FieldNames::X);
             int   count = 0;
-            data.template forEachActiveIODomain([&](const Neon::index_3d&  idx,
+            data.forEachActiveIODomain([&](const Neon::index_3d&  idx,
                                                     [[maybe_unused]] int   cardinality,
                                                     [[maybe_unused]] Type& a) {
 #pragma omp critical

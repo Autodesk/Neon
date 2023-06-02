@@ -29,7 +29,7 @@ class MicroIndex
                                                      const InTrayIdx::Integer& y,
                                                      const InTrayIdx::Integer& z)
     {
-        mInTrayBlockIdx = blockIdx;
+        mTrayBlockIdx = blockIdx;
         mInTrayBlockIdx.x = x;
         mInTrayBlockIdx.y = y;
         mInTrayBlockIdx.z = z;
@@ -67,7 +67,7 @@ class bIndex
     friend class bSpan;
     using OuterIdx = bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
 
-    static constexpr Neon::uint32_3d memBlock3DSize{memBlockSizeX, memBlockSizeY, memBlockSizeZ};
+    static constexpr Neon::uint32_3d memBlock3DSize = Neon::uint32_3d(memBlockSizeX, memBlockSizeY, memBlockSizeZ);
 
     using NghIdx = int8_3d;
     template <typename T, int C, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>
