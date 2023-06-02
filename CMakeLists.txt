@@ -111,3 +111,9 @@ message("||  CUDA ARCHS             : ${CMAKE_CUDA_ARCHITECTURES}")
 #message("||  NeonCXXFlags           : ${NeonCXXFlags}")
 #message("||  NeonCUDAFlags          : ${NeonCUDAFlags}")
 message("\\===================================================")
+# Usefull to debug cmake
+# https://jeremimucha.com/2021/01/cmake-fundamentals-part3/
+# get_target_property(interfaceLibs NeonDeveloperLib INTERFACE_COMPILE_OPTIONS)
+# set(info ${interfaceLibs}[CXX_COMPILER_ID])
+# message(STATUS "NeonDeveloperLib INTERFACE_LINK_LIBRARIES: ${info}")
+
