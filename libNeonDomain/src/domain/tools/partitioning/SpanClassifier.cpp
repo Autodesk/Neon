@@ -15,7 +15,7 @@ auto SpanClassifier::addPoint(const SetIdx&   setIdx,
     auto& hash = getMapper3Dto1D(setIdx, byPartition, byDirection, byDomain);
 
     vec.push_back(int323D);
-    uint32_t key_value = vec.size();
+    uint32_t key_value = static_cast<uint32_t>(vec.size());
     hash.addPoint(int323D, key_value-1);
 }
 
@@ -100,7 +100,7 @@ auto SpanClassifier::countBoundary(Neon::SetIdx setIdx) const -> int
     int count = 0;
     for (auto const& byDirection : {ByDirection::up, ByDirection::down}) {
         for (auto const& byDomain : {ByDomain::bulk, ByDomain::bc}) {
-            count += getMapper1Dto3D(setIdx, ByPartition::boundary, byDirection, byDomain).size();
+            count += static_cast<int>(getMapper1Dto3D(setIdx, ByPartition::boundary, byDirection, byDomain).size());
         }
     }
     return static_cast<int>(count);

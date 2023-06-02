@@ -90,12 +90,12 @@ NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockS
     uint32_t reminder = microIndex.getTrayBlockIdx() % (blockRatioSize);
 
     const uint32_t reminderInZ = reminder / (blockRatioX * blockRatioY);
-    mInDataBlockIdx.z = microIndex.getInTrayBlockIdx().z + reminderInZ * userBlockSizeZ;
+    mInDataBlockIdx.z = static_cast < InDataBlockIdx::Integer>( microIndex.getInTrayBlockIdx().z + reminderInZ * userBlockSizeZ);
     reminder = reminder % (blockRatioX * blockRatioY);
     const uint32_t reminderInY = reminder / (blockRatioX);
-    mInDataBlockIdx.y = microIndex.getInTrayBlockIdx().y + reminderInY * userBlockSizeY;
+    mInDataBlockIdx.y = static_cast<InDataBlockIdx::Integer>(microIndex.getInTrayBlockIdx().y + reminderInY * userBlockSizeY);
     const uint32_t reminderInX = reminder % blockRatioX;
-    mInDataBlockIdx.x = static_cast<uint8_t>(microIndex.getInTrayBlockIdx().x + reminderInX * userBlockSizeX);
+    mInDataBlockIdx.x = static_cast<InDataBlockIdx::Integer>(microIndex.getInTrayBlockIdx().x + reminderInX * userBlockSizeX);
 }
 
 }  // namespace Neon::domain::details::bGrid

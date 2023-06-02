@@ -32,9 +32,9 @@ bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
 {
 
     bidx.mDataBlockIdx = dataBlockIdx;
-    bidx.mInDataBlockIdx.x = x;
-    bidx.mInDataBlockIdx.y = y;
-    bidx.mInDataBlockIdx.z = z;
+    bidx.mInDataBlockIdx.x = static_cast < typename Idx::InDataBlockIdx::Integer>(x);
+    bidx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>(y);
+    bidx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>(z);
     bool const isActive = getActiveStatus(bidx.mDataBlockIdx,
                                           bidx.mInDataBlockIdx.x, bidx.mInDataBlockIdx.y, bidx.mInDataBlockIdx.z,
                                           mActiveMask);

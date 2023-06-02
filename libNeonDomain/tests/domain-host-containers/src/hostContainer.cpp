@@ -10,24 +10,24 @@ namespace hostContainer {
 
 template <typename Field>
 auto defContainer(Field& filedA,
-                  Field& filedB,
-                  Field& filedC)
+                  Field& ,
+                  Field& )
     -> Neon::set::Container
 {
     const auto& grid = filedA.getGrid();
-    return grid.template newContainer<Neon::Execution::host>(
+    return grid.template newContainer<Neon::Execution::device>(
         "defContainer",
-        [&](Neon::set::Loader& loader) {
-            auto a = loader.load(filedA);
-            auto b = loader.load(filedB);
-            auto c = loader.load(filedC);
+        [&](Neon::set::Loader& ) {
+           // auto a = loader.load(filedA);
+            //auto b = loader.load(filedB);
+            //auto c = loader.load(filedC);
 
-            return [=](const typename Field::Idx& e) mutable {
+            return [=](const typename Field::Idx& ) mutable {
                 // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
-                Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                a(e, 0) = globalPoint.x;
-                b(e, 0) = globalPoint.y;
-                c(e, 0) = globalPoint.z;
+                //Neon::index_3d globalPoint = a.getGlobalIndex(e);
+                //a(e, 0) = static_cast<Field::Type>(globalPoint.x);
+                //b(e, 0) = static_cast<Field::Type>(globalPoint.y);
+                //c(e, 0) = static_cast<Field::Type>(globalPoint.z);
                 //                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
                 //                    printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
                 //                           e.mInDataBlockIdx.x,

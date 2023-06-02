@@ -162,7 +162,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
         for (int i = 0; i < stencil.nNeighbours(); ++i) {
             for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
                 index_3d      pLong = stencil.neighbours()[i];
-                Neon::int8_3d pShort(pLong.x, pLong.y, pLong.z);
+                Neon::int8_3d pShort = pLong.newType<int8_t>();
                 mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
             }
         }

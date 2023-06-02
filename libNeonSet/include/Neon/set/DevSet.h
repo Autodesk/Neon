@@ -241,7 +241,7 @@ class DevSet
                                                                                         lambdaHolder);
                     return;
                 }
-                [[fallthrough]];
+          //      [[fallthrough]];
             };
             case Neon::Runtime::openmp: {
                 this->template helpLaunchLambdaOnSpanOMP<DataSetContainer, Lambda>(execution,
@@ -280,7 +280,7 @@ class DevSet
                                                                                         lambdaHolder);
                     return;
                 }
-                [[fallthrough]];
+               // [[fallthrough]];
             };
             case Neon::Runtime::openmp: {
                 this->template helpLaunchLambdaOnSpanOMP<DataSetContainer, Lambda>(execution,
