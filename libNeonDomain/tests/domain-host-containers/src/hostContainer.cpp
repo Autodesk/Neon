@@ -15,7 +15,7 @@ auto defContainer(Field& filedA,
     -> Neon::set::Container
 {
     const auto& grid = filedA.getGrid();
-    return grid.template newContainer<Neon::Execution::device>(
+    return grid.template newContainer<Neon::Execution::host>(
         "defContainer",
         [&](Neon::set::Loader& loader) {
            auto a = loader.load(filedA);
