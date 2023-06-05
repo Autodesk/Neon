@@ -4,6 +4,7 @@
 #include "functional"
 #include "type_traits"
 
+#include "Neon/set/MemoryTransfer.h"
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/container/types/HostManagedSyncType.h"
 #include "Neon/set/container/types/SynchronizationContainerType.h"
@@ -54,13 +55,27 @@ struct Container
     /**
      * Factory function to create a Neon Container
      */
-    template <typename DataContainerT, typename UserLoadingLambdaT>
+    template <Neon::Execution execution,
+              typename DataContainerT,
+              typename UserLoadingLambdaT>
     static auto factory(const std::string&                                 name /**< A user's string to identify the computation done by the Container. */,
                         Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport /**< Defines the data view support for the new Container */,
                         const DataContainerT&                              a /**< Multi device object that will be used for the creating of the Container */,
                         const UserLoadingLambdaT&                          f /**< User's loading lambda for the new Container */,
                         const index_3d&                                    blockSize /**< Block size for the thread grid */,
                         std::function<int(const index_3d& blockSize)>      shMemSizeFun /**< User's function to implicitly compute the required shared memory */)
+        -> Container;
+
+    /**
+     * Factory function to create a Neon Host Container
+     */
+    template <typename DataContainerT, typename UserLoadingLambdaT>
+    static auto hostFactory(const std::string&                                 name /**< A user's string to identify the computation done by the Container. */,
+                            Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport /**< Defines the data view support for the new Container */,
+                            const DataContainerT&                              a /**< Multi device object that will be used for the creating of the Container */,
+                            const UserLoadingLambdaT&                          f /**< User's loading lambda for the new Container */,
+                            const index_3d&                                    blockSize /**< Block size for the thread grid */,
+                            std::function<int(const index_3d& blockSize)>      shMemSizeFun /**< User's function to implicitly compute the required shared memory */)
         -> Container;
 
     /**
@@ -108,9 +123,11 @@ struct Container
         -> Container;
 
     template <typename MultiXpuDataT>
-    static auto factoryDataTransfer(const MultiXpuDataT&        multiXpuData,
-                                    Neon::set::TransferMode     transferMode,
-                                    Neon::set::StencilSemantic transferSemantic)
+    static auto factoryDataTransfer(const MultiXpuDataT&                                              multiXpuData,
+                                    Neon::set::TransferMode                                           transferMode,
+                                    Neon::set::StencilSemantic                                        transferSemantic,
+                                    Neon::set::DataSet<std::vector<Neon::set::MemoryTransfer>> const& memoryTransfers,
+                                    Neon::Execution                                                   execution)
         -> Neon::set::Container;
 
     template <typename MxpuDataT>

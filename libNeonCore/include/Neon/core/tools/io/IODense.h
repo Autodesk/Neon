@@ -44,19 +44,19 @@ struct IODense
     IODense(const Integer_3d<IntType>&     d,
             int                            c,
             std::shared_ptr<ExportType[]>& m,
-            Neon::memLayout_et::order_e    order = Neon::memLayout_et::order_e::structOfArrays);
+            Neon::MemoryLayout         order = Neon::MemoryLayout::structOfArrays);
+
+    IODense(const Integer_3d<IntType>& d,
+            int                        c,
+            ExportType*                m,
+            Neon::MemoryLayout         order = Neon::MemoryLayout::structOfArrays);
 
     IODense(const Integer_3d<IntType>&  d,
             int                         c,
-            ExportType*                 m,
-            Neon::memLayout_et::order_e order = Neon::memLayout_et::order_e::structOfArrays);
+            Neon::MemoryLayout         order = Neon::MemoryLayout::structOfArrays);
 
-    IODense(const Integer_3d<IntType>&  d,
-            int                         c,
-            Neon::memLayout_et::order_e order = Neon::memLayout_et::order_e::structOfArrays);
-
-    IODense(const Integer_3d<IntType>&                                              d,
-            int                                                                     c,
+    IODense(const Integer_3d<IntType>&                                                    d,
+            int                                                                           c,
             const std::function<ExportType(const Integer_3d<IntType>&, int cardinality)>& fun);
     /**
      * Generate a dense field using an implicit representation.
@@ -188,14 +188,13 @@ struct IODense
         -> void;
 
    private:
-
     auto initPitch() -> void;
 
     std::shared_ptr<ExportType[]>                                          mMemSharedPtr;
     ExportType*                                                            mMem;
     Integer_3d<IntType>                                                    mSpace /*! IoDense dimension */;
     int                                                                    mCardinality;
-    Neon::memLayout_et::order_e                                            mOrder;
+    Neon::MemoryLayout                                                     mOrder;
     Neon::size_4d                                                          mPitch;
     Representation                                                         mRepresentation;
     std::function<ExportType(const Integer_3d<IntType>&, int cardinality)> mImplicitFun;

@@ -6,30 +6,30 @@ namespace Neon::domain {
 
 Stencil::Stencil(std::vector<Neon::index_3d> const& points,
                  bool                               filterCenterOut)
-    : m_points(points)
+    : mPoints(points)
 {
     p_updateNeighbourList(filterCenterOut);
 }
 
 int Stencil::nPoints() const
 {
-    return int(m_points.size());
+    return int(mPoints.size());
 }
 
 auto Stencil::find(const Neon::index_3d& direction) const -> int
 {
-    auto it = std::find(m_neighbour.begin(), m_neighbour.end(), direction);
-    if (it == m_neighbour.end()) {
+    auto it = std::find(mNeighbours.begin(), mNeighbours.end(), direction);
+    if (it == mNeighbours.end()) {
         return -1;
     }
-    int index = static_cast<int>(std::distance(m_neighbour.begin(), it));
+    int index = static_cast<int>(std::distance(mNeighbours.begin(), it));
     return index;
 }
 
 Stencil Stencil::s19_t(bool filterCenterOut)
 {
     Stencil res;
-    res.m_points = std::vector<Neon::index_3d>({{0, 0, 0},
+    res.mPoints = std::vector<Neon::index_3d>({{0, 0, 0},
                                                 {0, 0, -1},
                                                 {0, 0, 1},
                                                 {0, -1, 0},
@@ -55,7 +55,7 @@ Stencil Stencil::s19_t(bool filterCenterOut)
 Stencil Stencil::s7_Laplace_t(bool filterCenterOut)
 {
     Stencil res;
-    res.m_points = std::vector<Neon::index_3d>({{0, 0, 0},
+    res.mPoints = std::vector<Neon::index_3d>({{0, 0, 0},
                                                 {0, 0, -1},
                                                 {0, 0, 1},
                                                 {0, -1, 0},
@@ -69,7 +69,7 @@ Stencil Stencil::s7_Laplace_t(bool filterCenterOut)
 Stencil Stencil::s27_t(bool filterCenterOut)
 {
     Stencil res;
-    res.m_points = std::vector<Neon::index_3d>({
+    res.mPoints = std::vector<Neon::index_3d>({
         {-1, -1, -1},
         {-1, -1, 0},
         {-1, -1, 1},
@@ -117,7 +117,7 @@ Stencil Stencil::s27_t(bool filterCenterOut)
 Stencil Stencil::s6_Jacobi_t()
 {
     Stencil res;
-    res.m_points = std::vector<Neon::index_3d>({{0, 0, -1},
+    res.mPoints = std::vector<Neon::index_3d>({{0, 0, -1},
                                                 {0, 0, 1},
                                                 {0, -1, 0},
                                                 {0, 1, 0},
@@ -131,33 +131,44 @@ Stencil Stencil::s6_Jacobi_t()
 void Stencil::p_updateNeighbourList(bool filterCenterOut)
 {
     if (!filterCenterOut) {
-        m_neighbour = m_points;
+        mNeighbours = mPoints;
     } else {
-        m_neighbour = std::vector<Neon::index_3d>();
-        for (const auto& p : m_points) {
+        mNeighbours = std::vector<Neon::index_3d>();
+        for (const auto& p : mPoints) {
             if (p.x != 0 || p.y != 0 || p.z != 0) {
-                m_neighbour.push_back(p);
+                mNeighbours.push_back(p);
             }
         }
     }
 }
 
+auto Stencil::getRadius() const  -> int32_t
+{
+    int32_t radius = 0;
+    for (const auto& p : this->neighbours()) {
+        radius = std::max(radius, std::abs(p.x));
+        radius = std::max(radius, std::abs(p.y));
+        radius = std::max(radius, std::abs(p.z));
+    }
+    return radius;
+}
+
 auto Stencil::points() const
     -> const std::vector<Neon::index_3d>&
 {
-    return m_points;
+    return mPoints;
 }
 
 auto Stencil::neighbours() const
     -> const std::vector<Neon::index_3d>&
 {
-    return m_neighbour;
+    return mNeighbours;
 }
 
 auto Stencil::nNeighbours() const
     -> int32_t
 {
-    return int(m_neighbour.size());
+    return int(mNeighbours.size());
 }
 auto Stencil::getUnion(const std::vector<Stencil>& vec) -> Stencil
 {
@@ -167,9 +178,9 @@ auto Stencil::getUnion(const std::vector<Stencil>& vec) -> Stencil
     Stencil output(vec[0].neighbours(), false);
 
     for (size_t i = 1; i < vec.size(); i++) {
-       for(const auto& point: vec[i].neighbours()){
+        for (const auto& point : vec[i].neighbours()) {
             output.addPoint(point);
-       }
+        }
     }
     return output;
 }
@@ -178,8 +189,8 @@ auto Stencil::addPoint(const index_3d& newPoint) -> void
 {
     int position = this->find(newPoint);
     if (position == -1) {
-        m_neighbour.push_back(newPoint);
-        m_points.push_back(newPoint);
+        mNeighbours.push_back(newPoint);
+        mPoints.push_back(newPoint);
     }
 }
 

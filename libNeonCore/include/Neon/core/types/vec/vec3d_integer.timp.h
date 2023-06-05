@@ -20,32 +20,32 @@
 namespace Neon {
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE Vec_3d<IntegerType_ta, true, false>::Vec_3d()
+NEON_CUDA_HOST_DEVICE constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d()
 {
     static_assert(sizeof(self_t) == sizeof(Integer) * axis_e::num_axis, "");
 };
 
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false>::Vec_3d(const self_t& other)
+NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d(const self_t& other)
+    : x(other.x), y(other.y), z(other.z)
 {
-    set(other);
 }
 
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false>::Vec_3d(const IntegerType_ta& xyz)
+NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d(const IntegerType_ta& xyz)
 {
     set(xyz);
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false>::Vec_3d(const IntegerType_ta other[Vec_3d<IntegerType_ta, true, false>::num_axis])
+NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d(const IntegerType_ta other[Vec_3d<IntegerType_ta, true, false>::num_axis])
 {
     set(other);
 }
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_ONLY inline Vec_3d<IntegerType_ta, true, false>::Vec_3d(std::initializer_list<IntegerType_ta> other)
+NEON_CUDA_HOST_ONLY inline constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d(std::initializer_list<IntegerType_ta> other)
 {
     if (other.size() != self_t::num_axis && other.size() != 1) {
         NeonException exp("Vec_3d");
@@ -67,13 +67,13 @@ NEON_CUDA_HOST_ONLY inline Vec_3d<IntegerType_ta, true, false>::Vec_3d(std::init
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false>::Vec_3d(IntegerType_ta px, IntegerType_ta py, IntegerType_ta pz)
+NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>::Vec_3d(IntegerType_ta px, IntegerType_ta py, IntegerType_ta pz)
+    : x(px), y(py), z(pz)
 {
-    set(px, py, pz);
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false>& Vec_3d<IntegerType_ta, true, false>::operator=(const self_t& other)
+NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>& Vec_3d<IntegerType_ta, true, false>::operator=(const self_t& other)
 {
     this->set(other);
     return *this;
@@ -81,7 +81,7 @@ NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false>& Vec_3d<Integer
 
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline void Vec_3d<IntegerType_ta, true, false>::set(Integer px, Integer py, Integer pz)
+NEON_CUDA_HOST_DEVICE inline constexpr void Vec_3d<IntegerType_ta, true, false>::set(Integer px, Integer py, Integer pz)
 {
     x = px;
     y = py;
@@ -89,7 +89,7 @@ NEON_CUDA_HOST_DEVICE inline void Vec_3d<IntegerType_ta, true, false>::set(Integ
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline void Vec_3d<IntegerType_ta, true, false>::set(IntegerType_ta p[Vec_3d<IntegerType_ta, true, false>::num_axis])
+NEON_CUDA_HOST_DEVICE inline constexpr void Vec_3d<IntegerType_ta, true, false>::set(IntegerType_ta p[Vec_3d<IntegerType_ta, true, false>::num_axis])
 {
     x = p[0];
     y = p[1];
@@ -97,7 +97,7 @@ NEON_CUDA_HOST_DEVICE inline void Vec_3d<IntegerType_ta, true, false>::set(Integ
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline void Vec_3d<IntegerType_ta, true, false>::set(const self_t& other)
+NEON_CUDA_HOST_DEVICE inline constexpr void Vec_3d<IntegerType_ta, true, false>::set(const self_t& other)
 {
     x = other.x;
     y = other.y;
@@ -105,7 +105,7 @@ NEON_CUDA_HOST_DEVICE inline void Vec_3d<IntegerType_ta, true, false>::set(const
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline void Vec_3d<IntegerType_ta, true, false>::set(const Integer& xyz)
+NEON_CUDA_HOST_DEVICE inline constexpr void Vec_3d<IntegerType_ta, true, false>::set(const Integer& xyz)
 {
     x = xyz;
     y = xyz;
@@ -118,7 +118,7 @@ NEON_CUDA_HOST_DEVICE inline void Vec_3d<IntegerType_ta, true, false>::set(const
 //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline IntegerType_ta Vec_3d<IntegerType_ta, true, false>::rMax() const
+NEON_CUDA_HOST_DEVICE inline constexpr IntegerType_ta Vec_3d<IntegerType_ta, true, false>::rMax() const
 {
     Integer themax = x;
     themax = (y > themax ? y : themax);
@@ -128,7 +128,7 @@ NEON_CUDA_HOST_DEVICE inline IntegerType_ta Vec_3d<IntegerType_ta, true, false>:
 
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline IntegerType_ta Vec_3d<IntegerType_ta, true, false>::rMin() const
+NEON_CUDA_HOST_DEVICE inline constexpr IntegerType_ta Vec_3d<IntegerType_ta, true, false>::rMin() const
 {
     Integer themin = x;
     themin = (y < themin ? y : themin);
@@ -714,8 +714,9 @@ void Vec_3d<IntegerType_ta, true, false>::forEach(const self_t&                 
 template <typename IntegerType_ta>
 template <Neon::computeMode_t::computeMode_e computeMode_ta, class Lambda>
 auto Vec_3d<IntegerType_ta, true, false>::forEach(const Lambda& lambda) const
--> std::enable_if_t<std::is_invocable_v<Lambda, Vec_3d<IntegerType_ta, true, false>> ||
-                        std::is_invocable_v<Lambda, Integer, Integer, Integer>, void>
+    -> std::enable_if_t<std::is_invocable_v<Lambda, Vec_3d<IntegerType_ta, true, false>> ||
+                            std::is_invocable_v<Lambda, Integer, Integer, Integer>,
+                        void>
 {
     if constexpr (std::is_invocable_v<Lambda, Integer, Integer, Integer>) {
         if constexpr (computeMode_ta == Neon::computeMode_t::par) {

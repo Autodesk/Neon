@@ -80,13 +80,13 @@ auto ContainerAPI::
     Neon::set::ContainerPatternType patternType = Neon::set::ContainerPatternType::map;
 
     for (const auto& token : tokens) {
-        if (token.compute() == Neon::Compute::STENCIL) {
+        if (token.compute() == Neon::Pattern::STENCIL) {
             if (patternType == Neon::set::ContainerPatternType::reduction) {
                 NEON_THROW_UNSUPPORTED_OPTION("Mixing reduction and stencil patterns is currently not supported");
             }
             patternType = Neon::set::ContainerPatternType::stencil;
         }
-        if (token.compute() == Neon::Compute::REDUCE) {
+        if (token.compute() == Neon::Pattern::REDUCE) {
             if (patternType == Neon::set::ContainerPatternType::stencil) {
                 NEON_THROW_UNSUPPORTED_OPTION("Mixing reduction and stencil patterns is currently not supported");
             }

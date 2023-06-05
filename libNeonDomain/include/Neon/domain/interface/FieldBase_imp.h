@@ -105,7 +105,7 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
 #ifdef _MSC_VER
 #pragma omp parallel for
 #else
-#pragma omp parallel for collapse(3)
+#pragma omp parallel for collapse(1) schedule(guided)
 #endif
         for (int z = 0; z < dim.z; z++) {
             for (int y = 0; y < dim.y; y++) {
@@ -141,6 +141,56 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
 
 
 template <typename T, int C>
+auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::index_3d&,
+                                                                 std::vector<T*>&)>& fun,
+                                        Neon::computeMode_t::computeMode_e           mode)
+    -> void
+{
+    const auto& dim = getDimension();
+    std::vector<T*> vec(getCardinality(), nullptr);
+
+    if (mode == Neon::computeMode_t::computeMode_e::par) {
+#ifdef _MSC_VER
+#pragma omp parallel for
+#else
+#pragma omp parallel for collapse(3) default(shared) firstprivate(vec)
+#endif
+        for (int z = 0; z < dim.z; z++) {
+            for (int y = 0; y < dim.y; y++) {
+                for (int x = 0; x < dim.x; x++) {
+                    Neon::index_3d index3D(x, y, z);
+                    const bool     isInside = this->isInsideDomain(index3D);
+                    if (isInside) {
+                        for (int c = 0; c < getCardinality(); c++) {
+                            auto& ref = this->getReference(index3D, c);
+                            vec.push_back(&ref);
+                        }
+                        fun(index3D, vec);
+                    }
+                }
+            }
+        }
+    } else {
+        for (int z = 0; z < dim.z; z++) {
+            for (int y = 0; y < dim.y; y++) {
+                for (int x = 0; x < dim.x; x++) {
+                    Neon::index_3d index3D(x, y, z);
+                    const bool     isInside = this->isInsideDomain(index3D);
+                    if (isInside) {
+                        for (int c = 0; c < getCardinality(); c++) {
+                            auto& ref = this->getReference(index3D, c);
+                            vec.push_back(&ref);
+                        }
+                        fun(index3D, vec);
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+template <typename T, int C>
 template <Neon::computeMode_t::computeMode_e mode>
 auto FieldBase<T, C>::forEachCell(const std::function<void(const Neon::index_3d&,
                                                            const int& cardinality,
@@ -159,7 +209,7 @@ auto FieldBase<T, C>::forEachCell(const std::function<void(const Neon::index_3d&
                 for (int x = 0; x < dim.x; x++) {
                     for (int c = 0; c < getCardinality(); c++) {
                         Neon::index_3d index3D(x, y, z);
-                        auto val = this->operator()(index3D, c);
+                        auto           val = this->operator()(index3D, c);
                         fun(index3D, c, val);
                     }
                 }
@@ -171,7 +221,7 @@ auto FieldBase<T, C>::forEachCell(const std::function<void(const Neon::index_3d&
                 for (int x = 0; x < dim.x; x++) {
                     for (int c = 0; c < getCardinality(); c++) {
                         Neon::index_3d index3D(x, y, z);
-                        auto val = this->operator()(index3D, c);
+                        auto           val = this->operator()(index3D, c);
                         fun(index3D, c, val);
                     }
                 }
@@ -210,7 +260,7 @@ auto FieldBase<T, C>::ioToDense(Neon::MemoryLayout order) const
 {
     Neon::IODense<ExportType, ExportIndex> ioDense(getDimension(),
                                                    getCardinality(),
-                                                   Neon::memLayout_et::convert(order));
+                                                   order);
     this->ioToDense(ioDense);
     return ioDense;
 }
@@ -257,12 +307,12 @@ auto FieldBase<T, C>::ioToVtk(const std::string& fileName,
     iovtk.addField(*this, FieldName);
 
     Neon::IODense<VtiExportType, int32_t> domain(getDimension(), 1, [&](const Neon::index_3d& idx, int) {
-        VtiExportType isIn = VtiExportType(getBaseGridTool().isInsideDomain(idx));
-        return isIn;
+        VtiExportType setIdx = VtiExportType(getBaseGridTool().getSetIdx(idx));
+        return setIdx;
     });
 
     if (includeDomain) {
-        NEON_DEV_UNDER_CONSTRUCTION("");
+        iovtk.addIODenseField(domain, "Domain");
     }
     iovtk.flushAndClear();
     return;
@@ -272,13 +322,6 @@ template <typename T, int C>
 auto FieldBase<T, C>::getClassName() const -> const std::string&
 {
     return mStorage->className;
-}
-
-template <typename T, int C>
-auto FieldBase<T, C>::haloUpdateContainer(Neon::set::TransferMode,
-                                          Neon::set::StencilSemantic) const -> Neon::set::Container
-{
-    NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
 template <typename T, int C>
@@ -307,7 +350,7 @@ FieldBase<T, C>::Storage::Storage(const std::string              FieldBaseUserNa
         name = "Anonymous";
     }
 }
-    
+
 #if defined(NEON_OS_WINDOWS)
 #pragma warning(push)
 #pragma warning(disable : 4244)
@@ -327,5 +370,5 @@ FieldBase<T, C>::Storage::Storage()
 #if defined(NEON_OS_WINDOWS)
 #pragma warning(pop)
 #endif
-    
+
 }  // namespace Neon::domain::interface

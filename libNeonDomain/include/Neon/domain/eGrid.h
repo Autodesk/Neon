@@ -1,6 +1,7 @@
 #pragma once
-#include "Neon/domain/internal/eGrid/eGrid.h"
+#include "Neon/domain/details/eGrid/eGrid.h"
 
-namespace Neon::domain {
-using eGrid = Neon::domain::internal::eGrid::eGrid;
+
+namespace Neon {
+using eGrid = Neon::domain::details::eGrid::eGrid;
 }

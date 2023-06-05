@@ -48,7 +48,7 @@ struct IODomain
              int                            c,
              const IODense<uint8_t, Index>& mask,
              Type                           outsideValue = Type(0),
-             Neon::memLayout_et::order_e    order = Neon::memLayout_et::order_e::structOfArrays);
+             Neon::MemoryLayout             order = Neon::MemoryLayout::structOfArrays);
 
     auto setMask(const IODense<uint8_t, Index>& mask)
         -> void;
@@ -156,6 +156,10 @@ struct IODomain
                       int                           card /**< Cardinality of the field */)
         -> Type&;
 
+    auto getReference(const Integer_3d<intType_ta>& xyz /**< Point in the grid        */,
+                      int                           card /**< Cardinality of the field */)
+        const -> const Type&;
+
     Type                          mOutsideValue;
     Neon::IODense<Type, Index>    mField;
     Neon::IODense<uint8_t, Index> mMask;
@@ -180,7 +184,7 @@ IODomain<ExportType, intType_ta>::IODomain(const Integer_3d<intType_ta>&  d,
                                            int                            c,
                                            const IODense<uint8_t, Index>& mask,
                                            Type                           outsideValue,
-                                           Neon::memLayout_et::order_e    order)
+                                           Neon::MemoryLayout             order)
 {
     mOutsideValue = outsideValue;
     mField = Neon::IODense<Type, Index>(d, c, order);
@@ -307,16 +311,30 @@ auto IODomain<ExportType, intType_ta>::getReference(const Integer_3d<intType_ta>
 }
 
 template <typename ExportType, typename intType_ta>
+auto IODomain<ExportType, intType_ta>::getReference(const Integer_3d<intType_ta>& xyz,
+                                                    int                           card) const -> const Type&
+{
+    const bool isValid = isActive(xyz);
+    if (!isValid) {
+        NEON_THROW_UNSUPPORTED_OPTION("");
+    }
+    auto& val = mField.getReference(xyz, card);
+    return val;
+}
+
+template <typename ExportType, typename intType_ta>
 template <typename Lambda_ta, typename... ExportTypeVariadic_ta>
 auto IODomain<ExportType, intType_ta>::forEachActive(const Lambda_ta& userLambda,
                                                      IODomain<ExportTypeVariadic_ta>&... otherDense) -> void
 {
-    mMask.forEach([&, this](const Neon::index_3d& idx, int card, typename decltype(mMask)::Type& val) -> void {
+    mMask.forEach([&, this](const Neon::index_3d& idx, int /*card*/, typename decltype(mMask)::Type& val) -> void {
         const bool isA = val == InsideFlag;
         if (!isA) {
             return;
         }
-        userLambda(idx, card, getReference(idx, card), otherDense.getReference(idx, card)...);
+        for (int cc = 0; cc < this->getCardinality(); cc++) {
+            userLambda(idx, cc, getReference(idx, cc), otherDense.getReference(idx, cc)...);
+        }
     });
 }
 
@@ -393,7 +411,8 @@ auto IODomain<ExportType, intType_ta>::isNghActive(const Integer_3d<intType_ta>&
                                                    const int8_3d&                offset)
     -> bool
 {
-    auto       nghIDX = xyz + offset.template newType<Neon::index_1d>();
+    auto nghIDX = xyz + offset.template newType<Neon::index_1d>();
+
     const bool inBox = isInBox(nghIDX);
     if (!inBox) {
         return false;

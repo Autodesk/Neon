@@ -22,16 +22,7 @@ struct GpuLaunchInfo
                         * the actual cuda grid needs to be computed by the constructor. */
     };
 
-   private:
-    dim3   m_cudaGrid /**< */;
-    dim3   m_cudaBlock /**< */;
-    size_t m_shareMemorySize{0} /**< */;
 
-    mode_e   m_originalMode{mode_e::cudaGridMode};
-    int64_3d m_originalGridDim{0, 0, 0};
-    int64_3d m_originalBlockDim{0, 0, 0};
-
-    bool m_InitDone{false} /**< */;
 
     template <typename T>
     void m_init(mode_e mode, const T& gridDim, const T& blockDim, size_t shareMemorySize);
@@ -99,7 +90,18 @@ struct GpuLaunchInfo
     const size_t&   shrMemSize() const;
     const int64_3d& domainGrid() const;
 
-    index64_3d waste() const;
+    index64_3d getWaste() const;
+
+   private:
+    dim3   mThreadGrid /**< */;
+    dim3   mThreadBlock /**< */;
+    size_t mShareMemorySize{0} /**< */;
+
+    mode_e   mOriginalMode{mode_e::cudaGridMode};
+    int64_3d mOriginalGridDim{0, 0, 0};
+    int64_3d mOriginalBlockDim{0, 0, 0};
+
+    bool mInitDone{false} /**< */;
 };
 
 

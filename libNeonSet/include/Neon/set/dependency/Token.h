@@ -1,10 +1,10 @@
 #pragma once
 
-#include "ComputeType.h"
 #include "Neon/set/Backend.h"
 #include "Neon/set/HuOptions.h"
 #include "Neon/set/MultiXpuDataUid.h"
 #include "Neon/set/dependency/AccessType.h"
+#include "Pattern.h"
 
 namespace Neon::set {
 struct Container;
@@ -26,14 +26,14 @@ struct Token
      */
     Token(Neon::set::dataDependency::MultiXpuDataUid m_uid,
           Neon::set::dataDependency::AccessType      m_access,
-          Neon::Compute                              m_compute);
+          Neon::Pattern                              m_compute);
 
     /**
      * Method to update a token
      */
     auto update(Neon::set::dataDependency::MultiXpuDataUid m_uid,
                 Neon::set::dataDependency::AccessType      m_access,
-                Neon::Compute                              m_compute)
+                Neon::Pattern                              m_compute)
         -> void;
 
     /**
@@ -52,7 +52,7 @@ struct Token
      * Returns the compute pattern
      */
     auto compute()
-        const -> Neon::Compute;
+        const -> Neon::Pattern;
 
     /**
      * Converts the token into a string
@@ -76,7 +76,7 @@ struct Token
    private:
     Neon::set::dataDependency::MultiXpuDataUid mUid;
     Neon::set::dataDependency::AccessType      mAccess;
-    Neon::Compute                              mCompute;
+    Neon::Pattern                              mCompute;
 
     std::function<Neon::set::Container(Neon::set::TransferMode transferMode)> mHaloUpdateExtractor;
 };

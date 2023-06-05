@@ -9,7 +9,7 @@
 template <typename DKQW,
           typename PopulationField,
           typename LbmComputeType>
-struct LbmIteration
+struct LbmSkeleton
 {
 };
 
@@ -21,7 +21,7 @@ struct LbmIterationD3Q19
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
     using D3Q19 = D3Q19Template<LbmStoreType, LbmComputeType>;
-    using LbmTools = LbmToolsTemplate<D3Q19, PopulationField, LbmComputeType>;
+    using LbmTools = LbmContainers<D3Q19, PopulationField, LbmComputeType>;
 
 
     LbmIterationD3Q19(Neon::set::StencilSemantic stencilSemantic,

@@ -168,7 +168,7 @@ $ ./tutorial-domainLevel
 [20:33:16] Neon: CpuSys_t: Loading info on CPU subsystem
 [20:33:16] Neon: GpuSys_t: Loading info on GPU subsystem 2 GPUs were detected.
 [20:33:16] Neon: Backend_t (0x7ffd171aad40) - [runtime:stream] [nDev:3] [dev0:0 NVIDIARTXA6000] [dev1:0 NVIDIARTXA6000] [dev2:0 NVIDIARTXA6000] 
-[20:33:18] Neon: [Domain Grid]:{eGrid}, [Background Grid]:{(100, 100, 100)}, [Active Cells]:{1000000}, [Cell Distribution]:{(333334,333333,333333)}, [Backend]:{Backend_t (0x55ce949fd450) - [runtime:stream] [nDev:3] [dev0:0 NVIDIARTXA6000] [dev1:0 NVIDIARTXA6000] [dev2:0 NVIDIARTXA6000] }
+[20:33:18] Neon: [Domain Grid]:{eGrid}, [Background Grid]:{(100, 100, 100)}, [Active Cells]:{1000000}, [Idx Distribution]:{(333334,333333,333333)}, [Backend]:{Backend_t (0x55ce949fd450) - [runtime:stream] [nDev:3] [dev0:0 NVIDIARTXA6000] [dev1:0 NVIDIARTXA6000] [dev2:0 NVIDIARTXA6000] }
 ```
 
 By logging the grid information (`NEON_INFO(grid.toString());` on line 71), we can check some information about the
@@ -277,7 +277,7 @@ The following is the structure of the Container used to expand our sphere.
 A Container can be generated from a Neon grid and is composed by two parts: a Loading Lambda where user declare what
 files are going to be used for the computation and a Compute Lambda, which contains the actual XPU code.
 
-Once a field is loaded we can read and write its values by using a reference to a `Cell` (which is passed to the Compute
+Once a field is loaded we can read and write its values by using a reference to a `Idx` (which is passed to the Compute
 Lambda by the Neon runtime) and specifying what component of the field we are interested in.
 Once a Container is created, it can be executed by calling the `run` method (see the above code).
 
@@ -295,7 +295,7 @@ auto expandLevelSet(Field& sdf,
 
             // Neon Compute Lambda
             return [=] NEON_CUDA_HOST_DEVICE(
-                       const typename Field::Cell& cell) mutable {
+                       const typename Field::Idx& cell) mutable {
                 px(cell, 0) -= expansion;
             };
         });
@@ -372,7 +372,7 @@ auto computeGrad(const Field& levelSetField /** input scalar field we want to co
 
             // Neon Compute Lambda
             return [=] NEON_CUDA_HOST_DEVICE(
-                       const typename Field::Cell& cell) mutable {
+                       const typename Field::Idx& cell) mutable {
                 // Central difference
                 for (int i = 0; i < 3; i++) {
                     auto upIdx = i;

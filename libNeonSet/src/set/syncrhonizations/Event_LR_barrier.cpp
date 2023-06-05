@@ -26,7 +26,7 @@ auto Event_LR_barrier::h_end(const Neon::set::DevSet& devSet,
         ;
     }
     if (card == 2) {
-        devSet.forEachSetIdx([&](const Neon::SetIdx& selfIdx) {
+        devSet.forEachSetIdxPar([&](const Neon::SetIdx& selfIdx) {
             Neon::SetIdx  nextIdx((selfIdx.idx() + card + 1) % card);
             const auto&   targetStream = s.get(selfIdx.idx());
             const auto&   targetEvent = e.event(nextIdx.idx());
@@ -34,7 +34,7 @@ auto Event_LR_barrier::h_end(const Neon::set::DevSet& devSet,
         });
         return;
     }
-    devSet.forEachSetIdx([&](const Neon::SetIdx& selfIdx) {
+    devSet.forEachSetIdxPar([&](const Neon::SetIdx& selfIdx) {
         Neon::SetIdx  leftIdx((selfIdx.idx() + (card - 1)) % card);
         Neon::SetIdx  rightIdx((selfIdx.idx() + (card + 1)) % card);
         const auto&   targetStream = s.get(selfIdx.idx());

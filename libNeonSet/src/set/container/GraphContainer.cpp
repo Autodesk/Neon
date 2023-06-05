@@ -23,7 +23,7 @@ auto GraphContainer::
         -> Loader
 {
     auto parser = Loader(*this,
-                         Neon::DeviceType::CPU,
+                         Execution::host,
                          Neon::SetIdx(0),
                          Neon::DataView::STANDARD,
                          Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA);

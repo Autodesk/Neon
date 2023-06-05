@@ -174,8 +174,8 @@ void CG_t<Grid_ta, Real_ta>::reset()
 
 template class CG_t<Neon::domain::eGrid, double>;
 template class CG_t<Neon::domain::eGrid, float>;
-template class CG_t<Neon::domain::dGrid, double>;
-template class CG_t<Neon::domain::dGrid, float>;
+template class CG_t<Neon::dGrid, double>;
+template class CG_t<Neon::dGrid, float>;
 template class CG_t<Neon::domain::bGrid, double>;
 template class CG_t<Neon::domain::bGrid, float>;
 

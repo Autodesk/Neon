@@ -4,7 +4,6 @@
 #include "Neon/core/tools/io/IODense.h"
 #include "Neon/core/types/Macros.h"
 
-#include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/MultiXpuDataInterface.h"
 #include "Neon/set/memory/memSet.h"

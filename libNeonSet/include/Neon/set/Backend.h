@@ -11,8 +11,9 @@
 #include "Neon/core/core.h"
 #include "Neon/set/MemoryOptions.h"
 #include "Neon/set/Runtime.h"
-//#include "Neon/core/types/mode.h"
-//#include "Neon/core/types/devType.h"
+// #include "Neon/core/types/mode.h"
+// #include "Neon/core/types/devType.h"
+#include "Neon/set/DataSet.h"
 
 namespace Neon {
 using StreamIdx = int;
@@ -57,7 +58,7 @@ class Backend
     /**
      * Creating a Backend object with the first nGpus devices.
      */
-    Backend(int                    nGpus /*!   Number of devices. The devices are selected in the order specifies by CUDA */,
+    Backend(int           nGpus /*!   Number of devices. The devices are selected in the order specifies by CUDA */,
             Neon::Runtime runtime /*! Type of runtime to use */);
 
     /**
@@ -85,6 +86,29 @@ class Backend
     Backend(const Neon::set::DevSet&    devSet,
             const Neon::set::StreamSet& streamSet);
 
+    template <typename T>
+    auto newDataSet()
+        const -> Neon::set::DataSet<T>;
+
+    template <typename T>
+    auto newDataSet(T const& val)
+        const -> Neon::set::DataSet<T>;
+
+    template <typename T, typename Lambda>
+    auto newDataSet(Lambda lambda)
+        const -> Neon::set::DataSet<T>;
+
+    template <typename Lambda>
+    auto forEachDeviceSeq(const Lambda& lambda)
+        const -> void;
+
+    template <typename Lambda>
+    auto forEachDevicePar(const Lambda& lambda)
+        const -> void;
+
+    auto getDeviceCount()
+        const -> int;
+
     auto clone(Neon::Runtime runtime = Neon::Runtime::system) -> Backend;
 
     auto h_initFirstEvent() -> void;
@@ -99,6 +123,19 @@ class Backend
     auto devSet()
         const
         -> const Neon::set::DevSet&;
+
+    auto deviceCount()
+        const
+        -> int;
+
+    auto isFirstDevice(Neon::SetIdx)
+        const
+        -> bool;
+
+    auto isLastDevice(Neon::SetIdx)
+        const
+        -> bool;
+
     /**
      * Returns the mode for the kernel lauch
      * @return
@@ -107,6 +144,15 @@ class Backend
         const
         -> const Neon::Runtime&;
 
+    template <typename T>
+    auto deviceToDeviceTransfer(int          streamId,
+                                size_t          nItems,
+                                Neon::set::TransferMode transferMode,
+                                Neon::SetIdx dstSet,
+                                T*           dstAddr,
+                                Neon::SetIdx srcSet,
+                                T const*     srcAddr)
+      const  -> void;
     /**
      * Run mode: sync/async
      */
@@ -139,34 +185,34 @@ class Backend
 
     auto eventSet(Neon::EventIdx eventdx)
         -> Neon::set::GpuEventSet&;
-//    /**
-//     * Extract a stream base in the provided streamIds.
-//     * The method uses a circular policy to select the stream.
-//     * The parameter rotateIdx is the index used to store the
-//     * state of the circular polity in between calls.
-//     *
-//     * @param rotateIdx
-//     * @param streamIdxVec
-//     * @return
-//     */
-//    auto streamSetRotate(int&                    rotateIdx,
-//                         const std::vector<int>& streamIdxVec)
-//        const
-//        -> const Neon::set::StreamSet&;
-//
-//    /**
-//     * Extract a stream base in the provided streamIds.
-//     * The method uses a circular policy to select the stream.
-//     * The parameter rotateIdx is the index used to store the
-//     * state of the circular polity in between calls.
-//     *
-//     * @param rotateIdx
-//     * @param streamIdxVec
-//     * @return
-//     */
-//    static auto streamSetIdxRotate(int&                    rotateIdx,
-//                                   const std::vector<int>& streamIdxVec)
-//        -> int;
+    //    /**
+    //     * Extract a stream base in the provided streamIds.
+    //     * The method uses a circular policy to select the stream.
+    //     * The parameter rotateIdx is the index used to store the
+    //     * state of the circular polity in between calls.
+    //     *
+    //     * @param rotateIdx
+    //     * @param streamIdxVec
+    //     * @return
+    //     */
+    //    auto streamSetRotate(int&                    rotateIdx,
+    //                         const std::vector<int>& streamIdxVec)
+    //        const
+    //        -> const Neon::set::StreamSet&;
+    //
+    //    /**
+    //     * Extract a stream base in the provided streamIds.
+    //     * The method uses a circular policy to select the stream.
+    //     * The parameter rotateIdx is the index used to store the
+    //     * state of the circular polity in between calls.
+    //     *
+    //     * @param rotateIdx
+    //     * @param streamIdxVec
+    //     * @return
+    //     */
+    //    static auto streamSetIdxRotate(int&                    rotateIdx,
+    //                                   const std::vector<int>& streamIdxVec)
+    //        -> int;
 
     /**
      *
@@ -213,14 +259,14 @@ class Backend
 
     auto waitEventOnStream(Neon::SetIdx setIdx, int eventId, int streamId)
         -> void;
-//    /**
-//     * Create a set of cuda events to create an exit barrier.
-//     * I.e. one streams sync with all the others
-//     * The stream holding the barrier is the first in the streamIdxVec vector.
-//     *
-//     * @param streamIdxVec
-//     */
-//    auto streamEventBarrier(const std::vector<int>& streamIdxVec) -> void;
+    //    /**
+    //     * Create a set of cuda events to create an exit barrier.
+    //     * I.e. one streams sync with all the others
+    //     * The stream holding the barrier is the first in the streamIdxVec vector.
+    //     *
+    //     * @param streamIdxVec
+    //     */
+    //    auto streamEventBarrier(const std::vector<int>& streamIdxVec) -> void;
 
     auto getMemoryOptions(Neon::MemoryLayout order) const
         -> Neon::MemoryOptions;
@@ -243,6 +289,18 @@ class Backend
 
     auto toReport(Neon::Report& report, Report::SubBlock* subdocAPI = nullptr) const -> void;
     void syncEvent(SetIdx setIdx, int eventIdx) const;
+
+   private:
+    auto helpDeviceToDeviceTransferByte(int                     streamId,
+                                        size_t                  bytes,
+                                        Neon::set::TransferMode transferMode,
+                                        Neon::SetIdx            dstSet,
+                                        char*                   dstAddr,
+                                        Neon::SetIdx            srcSet,
+                                        const char*             srcAddr)
+    const    -> void;
 };
 
 }  // namespace Neon
+
+#include "Neon/set/Backend_imp.h"

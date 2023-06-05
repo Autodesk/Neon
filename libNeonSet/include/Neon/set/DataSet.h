@@ -115,8 +115,7 @@ struct DataSet
      *
      * @return
      */
-    auto local(Neon::DeviceType, SetIdx setIdx,
-               const Neon::DataView& dataView = Neon::DataView::STANDARD)
+    auto getPartition(Neon::Execution, SetIdx setIdx, const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> T_ta&
     {
         (void)dataView;
@@ -127,12 +126,22 @@ struct DataSet
      *
      * @return
      */
-    auto local(Neon::DeviceType, SetIdx setIdx, const Neon::DataView& dataView = Neon::DataView::STANDARD) const -> const T_ta&
+    auto getPartition(Neon::Execution, SetIdx setIdx, const Neon::DataView& dataView = Neon::DataView::STANDARD) const -> const T_ta&
     {
         (void)dataView;
         return h_vec().at(setIdx);
     }
 
+    template <typename NewType>
+    auto typedClone() const -> Neon::set::DataSet<NewType>
+    {
+        Neon::set::DataSet<NewType> result (static_cast<int>(m_data->size()));
+        result.forEachSeq([&](Neon::SetIdx const& setIdx,
+                              NewType& val ){
+            val = this->operator[](setIdx);
+        });
+        return result;
+    }
 
     /**
      *
@@ -218,6 +227,32 @@ struct DataSet
             newDataSet[id] = newType_ta(self()[id]);
         }
         return newDataSet;
+    }
+
+    template <typename Lambda>
+    auto forEachSeq(Lambda const& fun)
+    {
+        for (SetIdx id = 0; id < self().cardinality(); id++) {
+            fun(id, self()[id]);
+        }
+    }
+
+    template <typename Lambda>
+    auto forEachSeq(Lambda const& fun) const
+    {
+        for (SetIdx id = 0; id < self().cardinality(); id++) {
+            fun(id, self()[id]);
+        }
+    }
+
+    template <typename Lambda>
+    auto forEachPar(Lambda const& fun)
+    {
+        int cardCount = self().cardinality();
+#pragma omp parallel for num_threads(cardCount)
+        for (int id = 0; id < self().cardinality(); id++) {
+            fun(id, self()[id]);
+        }
     }
 };
 

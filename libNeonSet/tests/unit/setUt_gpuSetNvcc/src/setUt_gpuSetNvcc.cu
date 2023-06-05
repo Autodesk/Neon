@@ -103,7 +103,7 @@ class cudaLaunchKernel_test
     Neon::set::StreamSet       m_gpuStreamSet;
     std::vector<int32_3d>      m_domainGridVec;
     Neon::set::LaunchParameters   m_kernelInfoSet;
-    Neon::set::MemSet_t<int>   m_mirror;
+    Neon::set::MemSet<int>   m_mirror;
 
     Neon::set::DataSet<testDataRedundancy_t<int>> m_testDataRedundancyVec;
 
@@ -149,7 +149,7 @@ class cudaLaunchKernel_test
             for (int i = 0; i < m_devSet.setCardinality(); i++) {
                 eachGpuMemSize[i] = m_domainGridVec[i].rMulTyped<size_t>();
             }
-            m_mirror = m_devSet.newMemSet<int>(int(1), {}, {}, eachGpuMemSize);
+            m_mirror = m_devSet.newMemSet<int>(Neon::DataUse::HOST_DEVICE, int(1), {}, eachGpuMemSize);
         }
 
         // Set

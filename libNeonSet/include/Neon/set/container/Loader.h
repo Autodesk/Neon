@@ -7,7 +7,7 @@
 #include "Neon/set/StencilSemantic.h"
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/dependency/AccessType.h"
-#include "Neon/set/dependency/ComputeType.h"
+#include "Neon/set/dependency/Pattern.h"
 #include "Neon/set/dependency/Token.h"
 
 namespace Neon::set {
@@ -40,29 +40,33 @@ struct Loader
    private:
     Neon::set::internal::ContainerAPI& m_container;
 
-    Neon::DeviceType                      m_devE;
+    Neon::Execution                       mExecution;
     Neon::SetIdx                          m_setIdx;
     Neon::DataView                        m_dataView;
     Neon::set::internal::LoadingMode_e::e m_loadingMode;
 
    public:
     Loader(Neon::set::internal::ContainerAPI&    container,
-           Neon::DeviceType                      devE,
+           Neon::Execution                       execution,
            Neon::SetIdx                          setIdx,
            Neon::DataView                        dataView,
            Neon::set::internal::LoadingMode_e::e loadingMode)
         : m_container(container),
-          m_devE(devE),
+          mExecution(execution),
           m_setIdx(setIdx),
           m_dataView(dataView),
           m_loadingMode(loadingMode)
     {
     }
 
+    auto getExecution() const -> Neon::Execution;
+    auto getSetIdx() const -> Neon::SetIdx;
+    auto getDataView() const -> Neon::DataView;
+
    public:
     template <typename Field_ta>
     auto load(Field_ta&       field,
-              Neon::Compute   computeE = Neon::Compute::MAP,
+              Neon::Pattern   computeE = Neon::Pattern::MAP,
               StencilSemantic stencilSemantic = StencilSemantic::standard)
         -> std::enable_if_t<!std::is_const_v<Field_ta>, typename Field_ta::Partition&>;
 
@@ -73,7 +77,7 @@ struct Loader
      */
     template <typename Field_ta>
     auto load(Field_ta&       field /**< the const field to be loaded            */,
-              Neon::Compute   computeE = Neon::Compute::MAP /**< computation patter applied to the field */,
+              Neon::Pattern   computeE = Neon::Pattern::MAP /**< computation patter applied to the field */,
               StencilSemantic stencilSemantic = StencilSemantic::standard)
         -> std::enable_if_t<std::is_const_v<Field_ta>, const typename Field_ta::Partition&>;
 };

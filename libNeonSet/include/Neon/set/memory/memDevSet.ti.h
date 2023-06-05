@@ -9,15 +9,13 @@
         NEON_THROW(exp);                                                                            \
     }
 
-namespace Neon {
-namespace set {
+namespace Neon::set {
 
 template <typename T_ta>
 MemDevSet<T_ta>::MemDevSet(Neon::DeviceType                               devType,
                            const Neon::set::DataSet<Neon::sys::DeviceID>& devIdx,
                            const Neon::Allocator&&                        allocType,
-                           uint64_t                                       nElements,
-                           Neon::sys::MemAlignment                        alignment)
+                           uint64_t                                       nElements)
 {
     m_storage = std::make_shared<Neon::set::DataSet<MemDevSet<T_ta>>>(devIdx.size());
 
@@ -34,7 +32,7 @@ MemDevSet<T_ta>::MemDevSet(Neon::DeviceType                               devTyp
     // and all memory released.
     int setIdx = 0;
     for (auto&& id : devIdx) {
-        vecRef()[setIdx] = Neon::sys::MemDevice<T_ta>(devType, id, allocType, nElements, alignment);
+        vecRef()[setIdx] = Neon::sys::MemDevice<T_ta>(devType, id, allocType, nElements);
         setIdx++;
     }
 }
@@ -43,33 +41,30 @@ template <typename T_ta>
 MemDevSet<T_ta>::MemDevSet(Neon::DeviceType                               devType,
                            const Neon::set::DataSet<Neon::sys::DeviceID>& devIdx,
                            const Neon::Allocator&                         allocType,
-                           const Neon::set::DataSet<uint64_t>&            nElementVec,
-                           Neon::sys::MemAlignment                        alignment)
+                           const Neon::set::DataSet<uint64_t>&            nElementVec)
 {
     m_storage = std::make_shared<Neon::set::DataSet<Neon::sys::MemDevice<T_ta>>>(static_cast<int>(devIdx.size()));
 
     int setIdx = 0;
     for (auto&& id : devIdx) {
-        vecRef()[setIdx] = Neon::sys::MemDevice<T_ta>(devType, id, allocType, nElementVec[setIdx], alignment);
+        vecRef()[setIdx] = Neon::sys::MemDevice<T_ta>(devType, id, allocType, nElementVec[setIdx]);
         setIdx++;
     }
 }
 
 template <typename T_ta>
 MemDevSet<T_ta>::MemDevSet(int                                            cardinality,
-                           Neon::memLayout_et::order_e                    order,
-                           Neon::memLayout_et::padding_e                  padding,
+                           Neon::MemoryLayout                             order,
                            Neon::DeviceType                               devType,
                            const Neon::set::DataSet<Neon::sys::DeviceID>& devIds,
                            Neon::Allocator                                allocType,
-                           const Neon::set::DataSet<uint64_t>&            nElementVec,
-                           Neon::sys::MemAlignment                        alignment)
+                           const Neon::set::DataSet<uint64_t>&            nElementVec)
 {
     m_storage = std::make_shared<Neon::set::DataSet<Neon::sys::MemDevice<T_ta>>>(static_cast<int>(devIds.size()));
     int setIdx = 0;
 
     for (auto&& id : devIds) {
-        vecRef()[setIdx] = Neon::sys::MemDevice<T_ta>(cardinality, order, padding, devType, id, allocType, nElementVec[setIdx], alignment);
+        vecRef()[setIdx] = Neon::sys::MemDevice<T_ta>(cardinality, order, devType, id, allocType, nElementVec[setIdx]);
         setIdx++;
     }
 }
@@ -185,5 +180,4 @@ auto MemDevSet<T_ta>::size(SetIdx idx) const -> size_t
 }
 
 
-}  // namespace set
 }  // End of namespace Neon

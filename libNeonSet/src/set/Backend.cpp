@@ -139,6 +139,7 @@ auto Backend::devSet()
 {
     return *selfData().devSet.get();
 }
+
 auto Backend::runtime()
     const
     -> const Neon::Runtime&
@@ -166,24 +167,24 @@ auto Backend::eventSet(Neon::EventIdx eventdx) -> Neon::set::GpuEventSet&
     return selfData().userEventSetVec.at(eventdx);
 }
 
-//auto Backend::streamSetRotate(int&                    rotateIdx,
-//                              const std::vector<int>& streamIdxVec)
-//    const
-//    -> const Neon::set::StreamSet&
+// auto Backend::streamSetRotate(int&                    rotateIdx,
+//                               const std::vector<int>& streamIdxVec)
+//     const
+//     -> const Neon::set::StreamSet&
 //{
-//    int streamIdx = Backend::streamSetIdxRotate(rotateIdx, streamIdxVec);
-//    return selfData().streamSetVec.at(streamIdx);
-//}
+//     int streamIdx = Backend::streamSetIdxRotate(rotateIdx, streamIdxVec);
+//     return selfData().streamSetVec.at(streamIdx);
+// }
 //
-//auto Backend::streamSetIdxRotate(int&                    rotateIdx,
-//                                 const std::vector<int>& streamIdxVec)
-//    -> int
+// auto Backend::streamSetIdxRotate(int&                    rotateIdx,
+//                                  const std::vector<int>& streamIdxVec)
+//     -> int
 //{
-//    int streamIdx = streamIdxVec.at(rotateIdx);
-//    rotateIdx++;
-//    rotateIdx = rotateIdx % streamIdxVec.size();
-//    return streamIdx;
-//}
+//     int streamIdx = streamIdxVec.at(rotateIdx);
+//     rotateIdx++;
+//     rotateIdx = rotateIdx % streamIdxVec.size();
+//     return streamIdx;
+// }
 
 auto Backend::pushEventOnStream(int eventId, int streamId)
     -> void
@@ -299,63 +300,63 @@ auto Backend::waitEventOnStream(Neon::SetIdx setIdx, int eventId, int streamId)
     }
 }
 
-//auto Backend::streamEventBarrier(const std::vector<int>& streamIdxVec) -> void
+// auto Backend::streamEventBarrier(const std::vector<int>& streamIdxVec) -> void
 //{
-//    switch (selfData().runtime) {
-//        case Neon::Runtime::openmp: {
-//            return;
-//        }
-//        case Neon::Runtime::stream: {
-//            break;
-//            ;
-//        }
-//        default: {
-//            NEON_THROW_UNSUPPORTED_OPTION("");
-//        }
-//    }
+//     switch (selfData().runtime) {
+//         case Neon::Runtime::openmp: {
+//             return;
+//         }
+//         case Neon::Runtime::stream: {
+//             break;
+//             ;
+//         }
+//         default: {
+//             NEON_THROW_UNSUPPORTED_OPTION("");
+//         }
+//     }
 //
-//    for (int i = 0; i < int(streamIdxVec.size()); i++) {
-//        selfData().streamSetVec.at(i).enqueueEvent(selfData().eventSetVec.at(i));
-//    }
+//     for (int i = 0; i < int(streamIdxVec.size()); i++) {
+//         selfData().streamSetVec.at(i).enqueueEvent(selfData().eventSetVec.at(i));
+//     }
 //
 //
-//    auto nextPowerOfTwo = [](unsigned int n) -> unsigned int {
-//        // if n=4 v=4
-//        // if n=5 v=8
-//        int v = n;
+//     auto nextPowerOfTwo = [](unsigned int n) -> unsigned int {
+//         // if n=4 v=4
+//         // if n=5 v=8
+//         int v = n;
 //
-//        v--;
-//        v |= v >> 1;
-//        v |= v >> 2;
-//        v |= v >> 4;
-//        v |= v >> 8;
-//        v |= v >> 16;
-//        v++;  // next power of 2
+//         v--;
+//         v |= v >> 1;
+//         v |= v >> 2;
+//         v |= v >> 4;
+//         v |= v >> 8;
+//         v |= v >> 16;
+//         v++;  // next power of 2
 //
-//        return v;
-//    };
-//    const unsigned int nstreams = (unsigned int)(streamIdxVec.size());
-//    const unsigned int nstreamsPow2 = nextPowerOfTwo(nstreams);
+//         return v;
+//     };
+//     const unsigned int nstreams = (unsigned int)(streamIdxVec.size());
+//     const unsigned int nstreamsPow2 = nextPowerOfTwo(nstreams);
 //
-//    for (int rLevel = 1; rLevel < int(nstreamsPow2); rLevel *= 2) {
-//        const int waiterJump = rLevel * 2;
-//        const int neighbourToWaitJump = rLevel;
-//        for (int waiterId = 0; waiterId < int(nstreams); waiterId += waiterJump) {
-//            const int neighbourId = waiterId + neighbourToWaitJump;
-//            if (neighbourId < int(nstreams)) {
-//                int waiterStreamId = streamIdxVec[waiterId];
-//                int neighbourEventId = streamIdxVec[neighbourId];
+//     for (int rLevel = 1; rLevel < int(nstreamsPow2); rLevel *= 2) {
+//         const int waiterJump = rLevel * 2;
+//         const int neighbourToWaitJump = rLevel;
+//         for (int waiterId = 0; waiterId < int(nstreams); waiterId += waiterJump) {
+//             const int neighbourId = waiterId + neighbourToWaitJump;
+//             if (neighbourId < int(nstreams)) {
+//                 int waiterStreamId = streamIdxVec[waiterId];
+//                 int neighbourEventId = streamIdxVec[neighbourId];
 //
-//                auto waiterStream = selfData().streamSetVec.at(waiterStreamId);
-//                auto neighborEvent = selfData().eventSetVec.at(neighbourEventId);
-//                waiterStream.waitForEvent(neighborEvent);
-//                // std::cout << " waiterStreamId " << waiterStreamId <<" neighbourEventId " <<neighbourEventId<<std::endl;
-//            }
-//        }
-//    }
+//                 auto waiterStream = selfData().streamSetVec.at(waiterStreamId);
+//                 auto neighborEvent = selfData().eventSetVec.at(neighbourEventId);
+//                 waiterStream.waitForEvent(neighborEvent);
+//                 // std::cout << " waiterStreamId " << waiterStreamId <<" neighbourEventId " <<neighbourEventId<<std::endl;
+//             }
+//         }
+//     }
 //
-//    return;
-//}
+//     return;
+// }
 
 auto Backend::setAvailableStreamSet(int nStreamSets) -> void
 {
@@ -570,5 +571,47 @@ auto Backend::toReport(Neon::Report& report, Report::SubBlock* subdocAPI) const 
     if (nullptr == subdocAPI) {
         report.addSubdoc("Backend", *targetSubDoc);
     }
+}
+
+auto Backend::getDeviceCount() const -> int
+{
+    return m_data->devSet->setCardinality();
+}
+
+auto Backend::helpDeviceToDeviceTransferByte(int                     streamId,
+                                             size_t                  bytes,
+                                             Neon::set::TransferMode transferMode,
+                                             Neon::SetIdx            dstSet,
+                                             char*                   dstAddr,
+                                             Neon::SetIdx            srcSet,
+                                             const char*             srcAddr) const -> void
+{
+    if (bytes == 0) {
+        return;
+    }
+    auto& devSet = this->devSet();
+    auto& targetStreamSet = streamSet(streamId);
+
+    devSet.transfer(transferMode,
+                    targetStreamSet,
+                    dstSet,
+                    dstAddr,
+                    srcSet,
+                    srcAddr,
+                    bytes);
+}
+
+auto Backend::deviceCount() const -> int
+{
+    return devSet().setCardinality();
+}
+
+auto Backend::isFirstDevice(Neon::SetIdx id) const -> bool
+{
+    return id.idx() == 0;
+}
+auto Backend::isLastDevice(Neon::SetIdx id) const -> bool
+{
+    return id.idx() == (deviceCount() - 1);
 }
 }  // namespace Neon

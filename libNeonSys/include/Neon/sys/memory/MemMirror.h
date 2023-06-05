@@ -10,13 +10,11 @@
 #include "Neon/core/tools/io/exportVTI.h"
 #include "Neon/core/types/Allocator.h"
 #include "Neon/core/types/memOptions.h"
-#include "Neon/sys/devices/cpu/CpuDevice.h"
 #include "Neon/sys/devices/DevInterface.h"
+#include "Neon/sys/devices/cpu/CpuDevice.h"
 #include "Neon/sys/devices/gpu/GpuDevice.h"
 #include "Neon/sys/memory/MemDevice.h"
-#include "Neon/sys/memory/MemAlignment.h"
-namespace Neon {
-namespace sys {
+namespace Neon::sys {
 
 template <typename T_ta>
 struct MemMirror
@@ -28,6 +26,7 @@ struct MemMirror
     bool m_noThrowForAZeroSize = {false};
     bool cpu_configured = {false};
     bool gpu_configured = {false};
+    bool isACPUdevice = {false};
 
    public:
     using Self = MemMirror<T_ta>;
@@ -52,21 +51,24 @@ struct MemMirror
      * @param gpuAllocType: type of GPU allocation
      * @param nElements: number of element to be allocated.
      */
-    MemMirror(int                         cardinality,
-                Neon::memLayout_et::order_e order,
-                DeviceID                    cpuDevId,
-                Neon::Allocator             cpuAllocType,
-                DeviceID                    gpuDevId,
-                Neon::Allocator             gpuAllocType,
-                int64_t                     nElements,
-                bool                        noThrowForAZeroSize = false)
+    MemMirror(int                cardinality,
+              Neon::MemoryLayout order,
+              DeviceID           cpuDevId,
+              Neon::Allocator    cpuAllocType,
+              DeviceID           gpuDevId,
+              Neon::Allocator    gpuAllocType,
+              int64_t            nElements,
+              bool               noThrowForAZeroSize = false)
     {
         m_noThrowForAZeroSize = noThrowForAZeroSize;
         if (m_noThrowForAZeroSize && nElements == 0) {
             return;
         }
-        m_cpu = MemDevice<T_ta>(cardinality, order, Neon::memLayout_et::padding_e::OFF, Neon::DeviceType::CPU, cpuDevId, cpuAllocType, nElements);
-        m_gpu = MemDevice<T_ta>(cardinality, order, Neon::memLayout_et::padding_e::OFF, Neon::DeviceType::CUDA, gpuDevId, gpuAllocType, nElements);
+        m_cpu = MemDevice<T_ta>(cardinality, order,  Neon::DeviceType::CPU, cpuDevId, cpuAllocType, nElements);
+        m_gpu = MemDevice<T_ta>(cardinality, order,  Neon::DeviceType::CUDA, gpuDevId, gpuAllocType, nElements);
+        if (gpuAllocType == Neon::Allocator::NULL_MEM) {
+            isACPUdevice = true;
+        }
     }
 
     /**
@@ -106,6 +108,10 @@ struct MemMirror
             }
             cpu_configured = true;
             m_cpu = mem;
+
+            if (m_gpu.allocType() == Neon::Allocator::NULL_MEM) {
+                isACPUdevice = true;
+            }
             return;
         }
         if (Neon::DeviceType::CUDA == mem.devType()) {
@@ -118,6 +124,10 @@ struct MemMirror
             }
             m_gpu = mem;
             gpu_configured = true;
+
+            if (m_gpu.allocType() == Neon::Allocator::NULL_MEM) {
+                isACPUdevice = true;
+            }
             return;
         }
         NeonException exc("");
@@ -191,11 +201,11 @@ struct MemMirror
     }
 
     template <Neon::run_et::et run_ta = Neon::run_et::et::async>
-    void updateWindow(Neon::DeviceType              devEt,
+    void updateWindow(Neon::DeviceType            devEt,
                       const Neon::sys::GpuStream& gpuStream,
-                      eIdx_t                        start,
-                      int64_t                       nEl,
-                      int                           cardinality = 0)
+                      eIdx_t                      start,
+                      int64_t                     nEl,
+                      int                         cardinality = 0)
     {
         if (m_noThrowForAZeroSize) {
             return;
@@ -249,7 +259,7 @@ struct MemMirror
     auto rawMem(Neon::Execution execution) -> T_ta*
     {
         MemDevice<T_ta>* target;
-        if (Neon::Execution::host == execution) {
+        if (Neon::Execution::host == execution || isACPUdevice) {
             target = &m_cpu;
         } else {
             target = &m_gpu;
@@ -332,5 +342,4 @@ struct MemMirror
     }
 };
 
-}  // namespace sys
 }  // namespace Neon

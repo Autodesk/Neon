@@ -65,4 +65,19 @@ auto IOGridVTK<RealType, IntType>::addField(const Field&       field,
                                          field.getCardinality(), name, vtiDataTypeE);
 }
 
+
+template <class RealType, typename IntType>
+template <typename IODenseField>
+auto IOGridVTK<RealType, IntType>::addIODenseField(const IODenseField& field,
+                                                   const std::string&  name) -> void
+{
+    ioToVTKns::VtiDataType_e vtiDataTypeE = mVtiDataTypeE;
+    vtiDataTypeE = ioToVTKns::VtiDataType_e::voxel;
+
+
+    IoToVTK<IntType, RealType>::addField([&](Neon::Integer_3d<IntType> idx, int card) -> RealType {
+        return field(idx, card);
+    },
+                                         1, name, vtiDataTypeE);
+}
 }  // namespace Neon::domain

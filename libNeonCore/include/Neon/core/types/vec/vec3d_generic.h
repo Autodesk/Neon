@@ -12,7 +12,9 @@ namespace Neon {
  * This is only a generic template class that is never going to be instantiated (see static asserts).
  * Indeed, there is a specialization for all the template values of this class.
  */
-template <typename GenericBaseType_ta, bool IsBaseTypeInteger = std::is_integral<GenericBaseType_ta>::value, bool IsBaseTypeReal = std::is_floating_point<GenericBaseType_ta>::value>
+template <typename GenericBaseType_ta,
+          bool IsBaseTypeInteger = std::is_integral<GenericBaseType_ta>::value,
+          bool IsBaseTypeReal = std::is_floating_point<GenericBaseType_ta>::value>
 class Vec_3d
 {
     using Integer = GenericBaseType_ta;
@@ -32,8 +34,8 @@ class Vec_3d
 
 
 /**
-* Generic partial specialization of the Vec_3d, where the userValue is not a number 
-*/
+ * Generic partial specialization of the Vec_3d, where the userValue is not a number
+ */
 template <typename notAnumber_eValue_ta>
 class Vec_3d<notAnumber_eValue_ta, false, false>
 {
@@ -95,11 +97,11 @@ class Vec_3d<notAnumber_eValue_ta, false, false>
     {
     }
     /**
-    * Creates a 3d tuple with specific values for each component.
-    *   @param[in] px: value for the x component.
-    *   @param[in] py: value for the y component.
-    *   @param[in] pz: value for the z component.
-    */
+     * Creates a 3d tuple with specific values for each component.
+     *   @param[in] px: value for the x component.
+     *   @param[in] py: value for the y component.
+     *   @param[in] pz: value for the z component.
+     */
     NEON_CUDA_HOST_DEVICE inline Vec_3d(const Integer& px, const Integer& py, const Integer& pz)
     {
         set(px, py, pz);
@@ -107,7 +109,7 @@ class Vec_3d<notAnumber_eValue_ta, false, false>
 
     /**
      * copy operator.
-     * @param xyz: element to be copied. 
+     * @param xyz: element to be copied.
      */
     NEON_CUDA_HOST_DEVICE inline self_t& operator=(const self_t& xyz)
     {

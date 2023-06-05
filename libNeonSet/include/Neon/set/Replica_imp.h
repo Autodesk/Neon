@@ -18,7 +18,7 @@ Replica<Obj>::Replica(Neon::Backend&      bk,
     storage.dataUse = dataUse;
     storage.bk = bk;
     auto nEntryPerGPU = bk.devSet().template newDataSet<size_t>(1);
-    storage.obj = bk.devSet().template newMemSet<Obj>(Neon::DataUse::IO_COMPUTE,
+    storage.obj = bk.devSet().template newMemSet<Obj>(Neon::DataUse::HOST_DEVICE,
                                                       1,
                                                       Neon::MemoryOptions(),
                                                       nEntryPerGPU);
@@ -43,17 +43,17 @@ Replica<Obj>::Replica(Neon::Backend&      bk,
 }
 
 template <typename Obj>
-auto Replica<Obj>::updateIO(int streamId)
+auto Replica<Obj>::updateHostData(int streamId)
     -> void
 {
     auto&                storage = this->getStorage();
     const Neon::Backend& bk = storage.bk;
-    if (storage.dataUse == Neon::DataUse::IO_COMPUTE) {
-        if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CPU) {
+    if (storage.dataUse == Neon::DataUse::HOST_DEVICE) {
+        if (storage.memoryOptions.getDeviceType() == Neon::DeviceType::CPU) {
             return;
         }
-        if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
-            storage.obj.updateIO(bk, streamId);
+        if (storage.memoryOptions.getDeviceType() == Neon::DeviceType::CUDA) {
+            storage.obj.updateHostData(bk, streamId);
             return;
         }
         NEON_THROW_UNSUPPORTED_OPTION("");
@@ -61,17 +61,17 @@ auto Replica<Obj>::updateIO(int streamId)
 }
 
 template <typename Obj>
-auto Replica<Obj>::updateCompute(int streamId)
+auto Replica<Obj>::updateDeviceData(int streamId)
     -> void
 {
     auto&                storage = this->getStorage();
     const Neon::Backend& bk = storage.bk;
-    if (storage.dataUse == Neon::DataUse::IO_COMPUTE) {
-        if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CPU) {
+    if (storage.dataUse == Neon::DataUse::HOST_DEVICE) {
+        if (storage.memoryOptions.getDeviceType() == Neon::DeviceType::CPU) {
             return;
         }
-        if (storage.memoryOptions.getComputeType() == Neon::DeviceType::CUDA) {
-            storage.obj.updateCompute(bk, streamId);
+        if (storage.memoryOptions.getDeviceType() == Neon::DeviceType::CUDA) {
+            storage.obj.updateDeviceData(bk, streamId);
             return;
         }
         NEON_THROW_UNSUPPORTED_OPTION("");
@@ -166,17 +166,19 @@ auto Replica<Obj>::operator()(Neon::SetIdx setIdx) const -> const Obj&
 }
 
 template <typename Obj>
-template <typename LoadingLambda>
-auto Replica<Obj>::getContainer(const std::string& name, LoadingLambda lambda) const -> Neon::set::Container
+template <Neon::Execution execution,
+          typename LoadingLambda>
+auto Replica<Obj>::newContainer(const std::string& name,
+                                LoadingLambda      lambda) const -> Neon::set::Container
 {
     const Neon::index_3d defaultBlockSize(32, 1, 1);
-    Neon::set::Container kContainer = Neon::set::Container::factory(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::off,
-                                                                    *this,
-                                                                    lambda,
-                                                                    defaultBlockSize,
-                                                                    [](const Neon::index_3d&) { return size_t(0); });
-    return kContainer;
+    Neon::set::Container container = Neon::set::Container::factory<execution>(name,
+                                                                              Neon::set::internal::ContainerAPI::DataViewSupport::off,
+                                                                              *this,
+                                                                              lambda,
+                                                                              defaultBlockSize,
+                                                                              [](const Neon::index_3d&) { return 0; });
+    return container;
 }
 template <typename Obj>
 auto Replica<Obj>::getBackend() -> Neon::Backend&
@@ -207,12 +209,12 @@ auto Replica<Obj>::getLaunchParameters(Neon::DataView,
     return newLaunchParameters;
 }
 template <typename Obj>
-auto Replica<Obj>::getPartitionIndexSpace(Neon::DeviceType, Neon::SetIdx, const DataView&) const -> const Replica::PartitionIndexSpace&
+auto Replica<Obj>::getSpan(Neon::Execution, Neon::SetIdx, const DataView&) const -> const Replica::Span&
 {
     return this->getStorage().indexSpace;
 }
 template <typename Obj>
-auto Replica<Obj>::getPartitionIndexSpace(Neon::DeviceType, Neon::SetIdx, const DataView&) -> Replica::PartitionIndexSpace&
+auto Replica<Obj>::getSpan(Neon::Execution, Neon::SetIdx, const DataView&) -> Replica::Span&
 {
     return this->getStorage().indexSpace;
 }

@@ -6,10 +6,10 @@
 #include "gtest/gtest.h"
 #include "sUt_common.h"
 
-using aGrid_t = Neon::domain::aGrid;
-using eGrid_t = Neon::domain::eGrid;
-using dGrid_t = Neon::domain::dGrid;
-using bGrid_t = Neon::domain::bGrid;
+using aGrid_t = Neon::aGrid;
+using eGrid_t = Neon::eGrid;
+using dGrid_t = Neon::dGrid;
+using bGrid_t = Neon::bGrid;
 
 void runAllTestConfiguration(std::function<void(Neon::int64_3d, int, int, const Neon::Runtime&)> f, int maxNumGpu = 3)
 {

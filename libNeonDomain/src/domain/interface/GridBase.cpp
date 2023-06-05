@@ -117,12 +117,6 @@ auto GridBase::setDefaultBlock(const Neon::index_3d& blockDim)
     mStorage->defaults.blockDim = blockDim;
 }
 
-auto GridBase::flattenedLengthSet() const
-    -> const Neon::set::DataSet<size_t>&
-{
-    return getNumActiveCellsPerPartition();
-}
-
 auto GridBase::getNumActiveCellsPerPartition() const
     -> const Neon::set::DataSet<size_t>&
 {

@@ -2,7 +2,7 @@
 
 #include <cub/cub.cuh>
 
-namespace Neon::domain::internal {
+namespace Neon::domain::details {
 
 template <typename T, uint32_t blockDimX, uint32_t blockDimY, uint32_t blockDimZ>
 NEON_CUDA_DEVICE_ONLY __inline__ void cubBlockSum(const T threadValue,
@@ -106,7 +106,7 @@ auto dotCUB(Neon::set::patterns::BlasSet<T>& blasSet,
             NEON_THROW(exc);
         }
 
-        auto indexSpace = grid.getPartitionIndexSpace(Neon::DeviceType::CUDA, idx, dataView);
+        auto indexSpace = grid.getSpan(Neon::DeviceType::CUDA, idx, dataView);
         auto inputPartition1 = input1.getPartition(Neon::DeviceType::CUDA, idx, dataView);
         auto inputPartition2 = input2.getPartition(Neon::DeviceType::CUDA, idx, dataView);
 
@@ -162,7 +162,7 @@ auto norm2CUB(Neon::set::patterns::BlasSet<T>& blasSet,
             NEON_THROW(exc);
         }
 
-        auto indexSpace = grid.getPartitionIndexSpace(Neon::DeviceType::CUDA, idx, dataView);
+        auto indexSpace = grid.getSpan(Neon::DeviceType::CUDA, idx, dataView);
         auto inputPartition = input.getPartition(Neon::DeviceType::CUDA, idx, dataView);
 
         const Neon::sys::GpuStream     gpuStream = blasSet.getBlas(size_t(idx)).getStream();
@@ -186,4 +186,4 @@ auto norm2CUB(Neon::set::patterns::BlasSet<T>& blasSet,
         blasSet.getBlas(idx).reducePhase2(output.getMemDev(idx), cub::Sum(), 0);
     }
 }
-}  // namespace Neon::domain::internal
+}  // namespace Neon::domain::details

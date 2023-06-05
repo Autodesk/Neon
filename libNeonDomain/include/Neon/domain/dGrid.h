@@ -1,7 +1,7 @@
 #pragma once
-#include "Neon/domain/internal/dGrid/dGrid.h"
+#include "Neon/domain/details/dGrid/dGrid.h"
 
 
-namespace Neon::domain {
-using dGrid = Neon::domain::internal::dGrid::dGrid;
+namespace Neon {
+using dGrid = Neon::domain::details::dGrid::dGrid;
 }

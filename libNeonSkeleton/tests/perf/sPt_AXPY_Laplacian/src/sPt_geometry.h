@@ -40,38 +40,38 @@ inline std::string topologiesToString(topologies_e e)
         case topologies_e::HollowSphere: {
             return "HollowSphere";
         }
-        default:{
+        default: {
             return "Error";
         }
     }
 }
-}
-struct geometry_t
+}  // namespace
+struct Geometry
 {
    private:
     // INPUT
-    topologies_e     m_topo;
-    Neon::index64_3d m_domainSize;
+    topologies_e     mTopo;
+    Neon::index64_3d mDomainSize;
 
     // COMPUTED
-    Neon::double_3d m_center;
+    Neon::double_3d mCenter;
 
    public:
-    geometry_t() = default;
-    geometry_t(topologies_e topo, const Neon::index64_3d& domain_size);
-    geometry_t(topologies_e topo, const Neon::index_3d& domain_size);
+    Geometry() = default;
+    Geometry(topologies_e topo, const Neon::index64_3d& domain_size);
+    Geometry(topologies_e topo, const Neon::index_3d& domain_size);
 
    private:
     auto setImplicit(topologies_e topo) -> void;
 
    public:
-    auto operator()(const Neon::index_3d& target) -> bool;
+    auto operator()(const Neon::index_3d& target) const -> bool;
 
    private:
-    auto full(const Neon::index_3d& target) -> bool;
-    auto lowerLeft(const Neon::index_3d& target) -> bool;
-    auto cube(const Neon::index_3d& target) -> bool;
-    auto hollowCube(const Neon::index_3d& target) -> bool;
-    auto sphere(const Neon::index_3d& target) -> bool;
-    auto hollowShere(const Neon::index_3d& target) -> bool;
+    auto full(const Neon::index_3d& target) const -> bool;
+    auto lowerLeft(const Neon::index_3d& target) const -> bool;
+    auto cube(const Neon::index_3d& target) const -> bool;
+    auto hollowCube(const Neon::index_3d& target) const -> bool;
+    auto sphere(const Neon::index_3d& target) const -> bool;
+    auto hollowShere(const Neon::index_3d& target) const -> bool;
 };

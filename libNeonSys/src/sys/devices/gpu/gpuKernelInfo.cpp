@@ -1,14 +1,13 @@
 #include "Neon/sys/devices/gpu/GpuKernelInfo.h"
 
-namespace Neon {
-namespace sys {
+namespace Neon::sys {
 
 template <typename T>
 void GpuLaunchInfo::m_init(mode_e mode, const T& gridDim, const T& blockDim, size_t shareMemorySize)
 {
-    m_originalMode = mode;
-    m_originalGridDim = int64_3d(gridDim.x, gridDim.y, gridDim.z);
-    m_originalBlockDim = int64_3d(blockDim.x, blockDim.y, blockDim.z);
+    mOriginalMode = mode;
+    mOriginalGridDim = int64_3d(gridDim.x, gridDim.y, gridDim.z);
+    mOriginalBlockDim = int64_3d(blockDim.x, blockDim.y, blockDim.z);
 
     index64_3d cudaGrid{0, 0, 0};
     index64_3d cudaBlock(int64_t(blockDim.x), int64_t(blockDim.y), int64_t(blockDim.z));
@@ -19,7 +18,7 @@ void GpuLaunchInfo::m_init(mode_e mode, const T& gridDim, const T& blockDim, siz
             break;
         }
         case domainGridMode: { /* compute the actual grid value*/
-            cudaGrid = m_originalGridDim.cudaGridDim(cudaBlock);
+            cudaGrid = mOriginalGridDim.cudaGridDim(cudaBlock);
             break;
         }
     }
@@ -37,11 +36,11 @@ void GpuLaunchInfo::m_init(mode_e mode, const T& gridDim, const T& blockDim, siz
         }
     }
 
-    this->m_cudaGrid = dim3(int(cudaGrid.x), int(cudaGrid.y), int(cudaGrid.z));
-    this->m_cudaBlock = dim3(int(cudaBlock.x), int(cudaBlock.y), int(cudaBlock.z));
-    this->m_shareMemorySize = shareMemorySize;
+    this->mThreadGrid = dim3(int(cudaGrid.x), int(cudaGrid.y), int(cudaGrid.z));
+    this->mThreadBlock = dim3(int(cudaBlock.x), int(cudaBlock.y), int(cudaBlock.z));
+    this->mShareMemorySize = shareMemorySize;
 
-    this->m_InitDone = true;
+    this->mInitDone = true;
 }
 
 template void GpuLaunchInfo::m_init<dim3>(mode_e mode, const dim3& gridDim, const dim3& blockDim, size_t shareMemorySize);
@@ -74,9 +73,9 @@ void GpuLaunchInfo::set(mode_e mode, const int64_t& gridDim, const int32_t& bloc
 }
 
 auto GpuLaunchInfo::set(mode_e          mode,
-                          const int64_3d& gridDim,
-                          const int32_3d& blockDim,
-                          size_t          shareMemorySize)
+                        const int64_3d& gridDim,
+                        const int32_3d& blockDim,
+                        size_t          shareMemorySize)
     -> void
 {
     m_init(mode, gridDim, blockDim.template newType<int64_t>(), shareMemorySize);
@@ -84,48 +83,48 @@ auto GpuLaunchInfo::set(mode_e          mode,
 
 auto GpuLaunchInfo::setShm(size_t shareMemorySize) -> void
 {
-    m_shareMemorySize = shareMemorySize;
+    mShareMemorySize = shareMemorySize;
 }
 
 
 void GpuLaunchInfo::reset()
 {
-    m_InitDone = (false);
+    mInitDone = (false);
 
-    m_cudaGrid.x = 0;
-    m_cudaGrid.y = 0;
-    m_cudaGrid.z = 0;
+    mThreadGrid.x = 0;
+    mThreadGrid.y = 0;
+    mThreadGrid.z = 0;
 
-    m_cudaBlock.x = 0;
-    m_cudaBlock.y = 0;
-    m_cudaBlock.z = 0;
+    mThreadBlock.x = 0;
+    mThreadBlock.y = 0;
+    mThreadBlock.z = 0;
 
-    m_shareMemorySize = 0;
+    mShareMemorySize = 0;
 }
 
 bool GpuLaunchInfo::isValid() const
 {
-    return m_InitDone;
+    return mInitDone;
 }
 
 const dim3& GpuLaunchInfo::cudaGrid() const
 {
-    return m_cudaGrid;
+    return mThreadGrid;
 }
 
 const dim3& GpuLaunchInfo::cudaBlock() const
 {
-    return m_cudaBlock;
+    return mThreadBlock;
 }
 
 const size_t& GpuLaunchInfo::shrMemSize() const
 {
-    return m_shareMemorySize;
+    return mShareMemorySize;
 }
 
 const int64_3d& GpuLaunchInfo::domainGrid() const
 {
-    return m_originalGridDim;
+    return mOriginalGridDim;
 }
 
 GpuLaunchInfo::GpuLaunchInfo(GpuLaunchInfo::mode_e mode, const index64_3d& gridDim, const index_3d& blockDim, size_t shareMemorySize)
@@ -141,20 +140,23 @@ GpuLaunchInfo::GpuLaunchInfo(GpuLaunchInfo::mode_e mode, const int64_t& gridDim,
 
     m_init(mode, gridDim64, blockDim64, shareMemorySize);
 }
+
 GpuLaunchInfo::GpuLaunchInfo(const index64_3d& gridDim, const index_3d& blockDim, size_t shareMemorySize)
     : GpuLaunchInfo(GpuLaunchInfo::mode_e::domainGridMode, gridDim, blockDim, shareMemorySize)
 {
 }
+
 GpuLaunchInfo::GpuLaunchInfo(const int64_t& gridDim, const index_t& blockDim, size_t shareMemorySize)
     : GpuLaunchInfo(GpuLaunchInfo::mode_e::domainGridMode, gridDim, blockDim, shareMemorySize)
 {
 }
+
 GpuLaunchInfo::GpuLaunchInfo(const index_3d& gridDim, const index_3d& blockDim, size_t shareMemorySize)
     : GpuLaunchInfo(GpuLaunchInfo::mode_e::domainGridMode, gridDim, blockDim, shareMemorySize)
 {
 }
 
-index64_3d GpuLaunchInfo::waste() const
+index64_3d GpuLaunchInfo::getWaste() const
 {
     auto       cudaG = cudaGrid();
     auto       cudaB = cudaBlock();
@@ -164,6 +166,4 @@ index64_3d GpuLaunchInfo::waste() const
     return waste;
 }
 
-
-}  // namespace sys
-}  // End of namespace Neon
+}  // namespace Neon::sys

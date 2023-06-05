@@ -33,7 +33,7 @@ auto laplace(const Field& x,
              size_t       sharedMem = 0) -> Neon::set::Container;
 
 
-using eField32_t = Neon::domain::internal::eGrid::eGrid::Field<int32_t>;
+using eField32_t = Neon::domain::details::eGrid::eGrid::Field<int32_t>;
 
 extern template auto xpy<eField32_t>(const eField32_t& x, eField32_t& y) -> Neon::set::Container;
 

@@ -41,13 +41,13 @@ struct DeviceThenHostManagedContainer : ContainerAPI
         setName(name);
     }
 
-    auto newLoader(Neon::DeviceType devE,
+    auto newLoader(Neon::Execution execution,
                    Neon::SetIdx     setIdx,
                    Neon::DataView   dataView,
                    LoadingMode_e::e loadingMode) -> Loader
     {
         auto loader = Loader(*this,
-                             devE,
+                             execution,
                              setIdx,
                              dataView,
                              loadingMode);
@@ -57,7 +57,7 @@ struct DeviceThenHostManagedContainer : ContainerAPI
     auto newParser() -> Loader
     {
         auto parser = Loader(*this,
-                             Neon::DeviceType::CPU,
+                             Neon::Execution::host,
                              Neon::SetIdx(0),
                              Neon::DataView::STANDARD,
                              Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA);

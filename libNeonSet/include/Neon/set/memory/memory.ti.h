@@ -10,7 +10,7 @@ auto Memory::MemSet(const Neon::Backend&                      bk,
                     const Neon::set::DataSet<uint64_t>& nElementVec,
                     Neon::DataUse                       dataUse,
                     Neon::MemSetOptions_t               cpuConfig,
-                    Neon::MemSetOptions_t               gpuConfig) -> MemSet_t<T_ta>
+                    Neon::MemSetOptions_t               gpuConfig) -> MemSet<T_ta>
 {
     auto& devSet = bk.devSet();
 
@@ -29,7 +29,7 @@ auto Memory::MemSet(const Neon::Backend&                      bk,
     /**
      * if we are running in COMPUTE mode, than the host side is set to null memory
      */
-    if (dataUse == Neon::DataUse::COMPUTE && bk.runtime() == Neon::Runtime::stream) {
+    if (dataUse == Neon::DataUse::DEVICE && bk.runtime() == Neon::Runtime::stream) {
         cpuConfig.allocator(DeviceType::CPU) = Neon::Allocator::NULL_MEM;
         cpuConfig.allocator(DeviceType::OMP) = Neon::Allocator::NULL_MEM;
     }
@@ -57,7 +57,7 @@ auto Memory::MemSet(const Neon::Backend&        bk,
                     Neon::DataUse         dataUse,
                     Neon::MemSetOptions_t cpuConfig,
                     Neon::MemSetOptions_t gpuConfig)
-    -> MemSet_t<T_ta>
+    -> MemSet<T_ta>
 {
     auto dataSetSize = bk.devSet().template newDataSet<uint64_t>(nElementInEachPartition);
     return Neon::set::Memory::MemSet<T_ta>(bk, cardinality, dataSetSize, dataUse, cpuConfig, gpuConfig);

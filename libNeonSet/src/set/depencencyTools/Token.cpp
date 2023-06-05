@@ -7,14 +7,14 @@ namespace Neon::set::dataDependency {
 
 Token::Token(MultiXpuDataUid uid,
              AccessType      access,
-             Compute         compute)
+             Pattern         compute)
 {
     update(uid, access, compute);
 }
 
 auto Token::update(MultiXpuDataUid uid,
                    AccessType      access,
-                   Compute         compute) -> void
+                   Pattern         compute) -> void
 {
     mUid = uid;
     mAccess = access;
@@ -33,7 +33,7 @@ auto Token::access() const -> AccessType
     return mAccess;
 }
 
-auto Token::compute() const -> Compute
+auto Token::compute() const -> Pattern
 {
     return mCompute;
 }
@@ -48,7 +48,7 @@ auto Token::
 {
     return " uid " + std::to_string(mUid) +
            " [Op " + AccessTypeUtils::toString(mAccess) +
-           " Model " + Neon::ComputeUtils::toString(mCompute) + "]";
+           " Model " + Neon::PatternUtils::toString(mCompute) + "]";
 }
 
 auto Token::

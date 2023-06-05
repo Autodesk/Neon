@@ -9,19 +9,19 @@ KernelConfig::KernelConfig(Neon::DataView         dataView,
                                int                    streamIdx,
                                const LaunchParameters& launchInfoSet)
 {
-    m_dataView = dataView;
-    m_bk = bk;
-    m_streamIdx = streamIdx;
-    m_launchInfoSet = launchInfoSet;
+    mDataView = dataView;
+    mBackend = bk;
+    mStreamIdx = streamIdx;
+    mLaunchInfoSet = launchInfoSet;
 }
 
 KernelConfig::KernelConfig(const Neon::Backend&   bk,
                                int                    streamIdx,
                                const LaunchParameters& launchInfoSet)
 {
-    m_bk = bk;
-    m_streamIdx = streamIdx;
-    m_launchInfoSet = launchInfoSet;
+    mBackend = bk;
+    mStreamIdx = streamIdx;
+    mLaunchInfoSet = launchInfoSet;
 }
 
 
@@ -29,62 +29,62 @@ auto KernelConfig::dataView()
     const
     -> const Neon::DataView&
 {
-    return m_dataView;
+    return mDataView;
 }
 
 auto KernelConfig::backend()
     const
     -> const Neon::Backend&
 {
-    return m_bk;
+    return mBackend;
 }
 
 auto KernelConfig::stream()
     const
     -> const int&
 {
-    return m_streamIdx;
+    return mStreamIdx;
 }
 
 auto KernelConfig::launchInfoSet()
     const
     -> const LaunchParameters&
 {
-    return m_launchInfoSet;
+    return mLaunchInfoSet;
 }
 
 auto KernelConfig::expertSetDataView(const Neon::DataView& dataview)
     -> void
 {
-    m_dataView = dataview;
+    mDataView = dataview;
 }
 
 auto KernelConfig::expertSetBackend(const Neon::Backend& bk) -> void
 {
-    m_bk = bk;
+    mBackend = bk;
 }
 
 auto KernelConfig::expertSetStream(const int& s) -> void
 {
-    m_streamIdx = s;
+    mStreamIdx = s;
 }
 
 auto KernelConfig::expertSetLaunchParameters(const LaunchParameters& l) -> void
 {
-    m_launchInfoSet = l;
+    mLaunchInfoSet = l;
 }
 auto KernelConfig::expertSetLaunchParameters(std::function<void(LaunchParameters&)> f) -> void
 {
-    f(m_launchInfoSet);
+    f(mLaunchInfoSet);
 }
 
 auto KernelConfig::streamSet() const -> const StreamSet&
 {
-    return m_bk.streamSet(this->stream());
+    return mBackend.streamSet(this->stream());
 }
 auto KernelConfig::runMode() const -> Neon::run_et::et
 {
-    return m_bk.runMode();
+    return mBackend.runMode();
 }
 
 }  // namespace set

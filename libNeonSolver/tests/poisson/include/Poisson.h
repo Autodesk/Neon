@@ -40,7 +40,7 @@ void setupPoissonProblem(const Grid&                               grid,
                          std::array<Real, Cardinality>             bdZmax)
 {
     using namespace Neon;
-    using namespace Neon::domain::internal::eGrid;
+    using namespace Neon::domain::details::eGrid;
 
     const Neon::index_3d dims = grid.getDimension();
     // u: Unknown to solve for
@@ -65,9 +65,9 @@ void setupPoissonProblem(const Grid&                               grid,
 
     // Move data to GPU if using CUDA backend
     if (grid.getBackend().devType() == DeviceType::CUDA) {
-        u.updateCompute(0);
-        rhs.updateCompute(0);
-        bd.updateCompute(0);
+        u.updateDeviceData(0);
+        rhs.updateDeviceData(0);
+        bd.updateDeviceData(0);
     }
 }
 
@@ -101,11 +101,11 @@ Grid createGrid(const Neon::Backend& /*backend*/, int /*domainSize*/)
 
 // Specialization for eGrid_t
 template <>
-inline Neon::domain::internal::eGrid::eGrid createGrid<Neon::domain::internal::eGrid::eGrid>(const Neon::Backend& backend, int domainSize);
+inline Neon::domain::details::eGrid::eGrid createGrid<Neon::domain::details::eGrid::eGrid>(const Neon::Backend& backend, int domainSize);
 
 // Specialization for dGrid_t
 template <>
-inline Neon::domain::dGrid createGrid<Neon::domain::dGrid>(const Neon::Backend& backend, int domainSize);
+inline Neon::dGrid createGrid<Neon::dGrid>(const Neon::Backend& backend, int domainSize);
 
 // Specialization for bGrid_t
 template <>
@@ -145,9 +145,9 @@ auto testPoissonContainers(const Neon::Backend&           backend,
     // Setup problem
     Grid grid = createGrid<Grid>(backend, domainSize);
 
-    auto u = grid.template newField<Real>("u", Cardinality, Real(0), DataUse::IO_COMPUTE);
-    auto rhs = grid.template newField<Real>("rhs", Cardinality, Real(0), DataUse::IO_COMPUTE);
-    auto bd = grid.template newField<int8_t>("bd", Cardinality, int8_t(0), DataUse::IO_COMPUTE);
+    auto u = grid.template newField<Real>("u", Cardinality, Real(0), DataUse::HOST_DEVICE);
+    auto rhs = grid.template newField<Real>("rhs", Cardinality, Real(0), DataUse::HOST_DEVICE);
+    auto bd = grid.template newField<int8_t>("bd", Cardinality, int8_t(0), DataUse::HOST_DEVICE);
 
     setupPoissonProblem<Grid, Real, Cardinality>(grid, u, rhs, bd, bdZmin, bdZmax);
 
@@ -197,15 +197,15 @@ auto testPoissonContainers(const Neon::Backend&           backend,
                                             size_t maxIterations, REAL tolerance,          \
                                             Neon::skeleton::Occ occE, Neon::set::TransferMode transferE);
 
-EXTERN_TEMPLATE_INST(Neon::domain::dGrid, double, 1)
-EXTERN_TEMPLATE_INST(Neon::domain::dGrid, double, 3)
+EXTERN_TEMPLATE_INST(Neon::dGrid, double, 1)
+EXTERN_TEMPLATE_INST(Neon::dGrid, double, 3)
 EXTERN_TEMPLATE_INST(Neon::domain::bGrid, double, 1)
 EXTERN_TEMPLATE_INST(Neon::domain::bGrid, double, 3)
 EXTERN_TEMPLATE_INST(Neon::domain::eGrid, double, 1)
 EXTERN_TEMPLATE_INST(Neon::domain::eGrid, double, 3)
 
-EXTERN_TEMPLATE_INST(Neon::domain::dGrid, float, 1)
-EXTERN_TEMPLATE_INST(Neon::domain::dGrid, float, 3)
+EXTERN_TEMPLATE_INST(Neon::dGrid, float, 1)
+EXTERN_TEMPLATE_INST(Neon::dGrid, float, 3)
 EXTERN_TEMPLATE_INST(Neon::domain::bGrid, float, 1)
 EXTERN_TEMPLATE_INST(Neon::domain::bGrid, float, 3)
 EXTERN_TEMPLATE_INST(Neon::domain::eGrid, float, 1)

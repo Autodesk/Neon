@@ -38,14 +38,14 @@ auto ExecutionUtils::getCompatibleOptions(Neon::DataUse dataUse)
     -> std::vector<Execution>
 {
     switch (dataUse) {
-        case DataUse::IO_COMPUTE: {
+        case DataUse::HOST_DEVICE: {
             return {Execution::device,
                     Execution::host};
         }
-        case DataUse::COMPUTE: {
+        case DataUse::DEVICE: {
             return {Execution::device};
         }
-        case DataUse::IO_POSTPROCESSING: {
+        case DataUse::HOST: {
             return {Execution::host};
         }
     }
@@ -57,13 +57,13 @@ auto ExecutionUtils::checkCompatibility(Neon::DataUse   dataUse,
     -> bool
 {
     switch (dataUse) {
-        case DataUse::IO_COMPUTE: {
+        case DataUse::HOST_DEVICE: {
             return true;
         }
-        case DataUse::COMPUTE: {
+        case DataUse::DEVICE: {
             return execution == Execution::device;
         }
-        case DataUse::IO_POSTPROCESSING: {
+        case DataUse::HOST: {
             return execution == Execution::host;
         }
     }

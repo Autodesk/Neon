@@ -19,7 +19,7 @@ void SetIdx::idx(int32_t idx)
     m_idx = idx;
 }
 
-std::ostream& operator<<(std::ostream&  os,
+std::ostream& operator<<(std::ostream& os,
                          SetIdx const& m)
 {
     return os << "SetIdx_" << m.idx();
@@ -40,7 +40,7 @@ SetIdx SetIdx::getPrevious() const
     return SetIdx(m_idx - 1);
 }
 
-bool SetIdx::validate() const
+bool SetIdx::isValid() const
 {
     return m_idx >= 0;
 }
@@ -90,6 +90,10 @@ SetIdx SetIdx::operator++(int)
 SetIdx::operator int32_t() const
 {
     return m_idx;
+}
+auto SetIdx::invalidate() -> void
+{
+    m_idx = SetIdx::invalidIdx;
 }
 
 

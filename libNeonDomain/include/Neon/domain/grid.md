@@ -38,7 +38,7 @@ and templates to define the interface of a new grid. Abstract class mechanism ar
 Performance critical API are based on a template interface. In the future,  `concepts` will be used to describe such
 interface (we are waiting for `concepts` to be supported in CUDA).
 
-### Step 0 - Define a Cell type
+### Step 0 - Define a Idx type
 
 First goal is to define an abstraction for a cell handler. The cell handler is provided by the system to the user to
 access cell metadata.
@@ -46,9 +46,9 @@ access cell metadata.
 ```c++
 struct xCell
 {
-    using OuterCell = xCell;
+    using OuterIdx = xCell;
 
-    friend struct sPartitionIndexSpace;
+    friend struct sSpan;
 
     template <typename T,
               int Cardinality>
@@ -64,8 +64,8 @@ private:
 
 ```
 
-The definition of `OuterCell` is required to be able to use the sGrid to define sub-grids. The most easy is to define
-the `OuterCell` with the same type of the xCell, however, depending on the type of grid this may not be the most
+The definition of `OuterIdx` is required to be able to use the sGrid to define sub-grids. The most easy is to define
+the `OuterIdx` with the same type of the xCell, however, depending on the type of grid this may not be the most
 efficient way.
 
 ### Step 1 - Design a xPartitionIndexSpace
@@ -77,11 +77,11 @@ class xPartitionIndexSpace {
  public:
     friend class xGrid;
 
-    using Cell = xCell;
+    using Idx = xCell;
     static constexpr int SpaceDim = 1;
 
     NEON_CUDA_HOST_DEVICE
-    inline auto setAndValidate(Cell&                          cell,
+    inline auto setAndValidate(Idx&                          cell,
                                const size_t&                  x,
                                [[maybe_unused]] const size_t& y,
                                [[maybe_unused]] const size_t& z)const
@@ -93,15 +93,15 @@ class xPartitionIndexSpace {
 ```
 
 The class must stratically specify the dimention of the index space (1D, 2D or 3D)  thorough the static
-integer `SpaceDim`. The only exposed methods is `setAndValidate`, which is used by the runtime to set a Cell handler
+integer `SpaceDim`. The only exposed methods is `setAndValidate`, which is used by the runtime to set a Idx handler
 from the position of the running thread w.r.t. the thread grid.
 
 ### Step 2 - Creating a xPartition class
 
-xPartition is the abstraction of a partition. It manages the field metadata on a specific device.
+xPartition is the abstraction of a setIdx. It manages the field metadata on a specific device.
 
 ```c++
-template <typename T /**< Type of the element of the partition */,
+template <typename T /**< Type of the element of the setIdx */,
           int C = 0 /** Cardinality of the field. If zero, the cardinality is determined at runtime */>
 class xPartition
 {
@@ -109,12 +109,12 @@ class xPartition
     // These types must be declared. 
     // The actual type they represent depends on the grid
     using Type = T;
-    using Cell = int64_t;
+    using Idx = int64_t;
 
    public:
 
     /**
-     * Returns the partition index.
+     * Returns the setIdx index.
      */
     NEON_CUDA_HOST_DEVICE auto 
     partitionIdx() const
@@ -125,7 +125,7 @@ class xPartition
      * This method should be used only for fields of cardinality 1
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    operator()(const Cell& eId, int cardinalityIdx) const
+    operator()(const Idx& eId, int cardinalityIdx) const
         -> const T&;
 
     /**
@@ -133,21 +133,21 @@ class xPartition
      * This method should be used only for fields of cardinality 1
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    operator()(const Cell& eId, int cardinalityIdx) 
+    operator()(const Idx& eId, int cardinalityIdx) 
         ->  T&;
     
     /**
      * Returns the metadata associated with a neighbour cell.
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    nghVal(const Cell& eId, int stencilPointIdx, int cardinalityIdx, T& value) const
+    getNghData(const Idx& eId, int stencilPointIdx, int cardinalityIdx, T& value) const
         -> bool;
     
     /**
      * Returns the metadata associated with a neighbour cell.
      */
     NEON_CUDA_HOST_DEVICE inline auto 
-    nghVal(Cell eId, const Neon::int3d& direrection, int cardinalityIdx, T& value) const
+    getNghData(Idx eId, const Neon::int3d& direrection, int cardinalityIdx, T& value) const
         -> bool;
     
     /**
@@ -178,7 +178,7 @@ the `FieldBaseTemplate` class that requires information on both the xGrid and xP
     // New Naming:
     using Partition = sPartition<OuterGridT, T, C>; /**< Type of the associated fieldCompute */
     using Type = typename Partition::Type /**< Type of the information stored in one element */;
-    using Cell = typename Partition::Cell /**< Internal type that represent the location in memory of a element */;
+    using Idx = typename Partition::Idx /**< Internal type that represent the location in memory of a element */;
     using Grid = sGrid<OuterGridT>;
 
     static constexpr int Cardinality = C;
@@ -187,7 +187,7 @@ the `FieldBaseTemplate` class that requires information on both the xGrid and xP
     using Self = sField<OuterGridT, Type, Cardinality>;
 
     using Count = typename Partition::Count;
-    using Index = typename Partition::Index;
+    using Idx = typename Partition::Idx;
 
 
    public:
@@ -220,14 +220,14 @@ the `FieldBaseTemplate` class that requires information on both the xGrid and xP
      * Move the field metadata from host to the accelerators.
      * The operation is asynchronous.
      */
-    auto updateCompute(int streamIdx = 0)
+    auto updateDeviceData(int streamIdx = 0)
         -> void;
 
     /**
      * Move the field metadata from the accelerators to the host space.
      * The operation is asynchronous.
      */
-    auto updateIO(int streamIdx = 0)
+    auto updateHostData(int streamIdx = 0)
         -> void;
 
     [[deprecated("Will be replace by the getPartition method")]] auto
@@ -241,14 +241,14 @@ the `FieldBaseTemplate` class that requires information on both the xGrid and xP
                  const Neon::DataView& dataView = Neon::DataView::STANDARD) -> Partition&;
 
     /**
-     * Return a constant reference to a specific partition based on a set of parameters:
+     * Return a constant reference to a specific setIdx based on a set of parameters:
      * execution type, target device, dataView
      */
     auto getPartition(Neon::Execution       execution,
                       Neon::SetIdx          setIdx,
                       const Neon::DataView& dataView = Neon::DataView::STANDARD) const -> const Partition&;
     /**
-     * Return a reference to a specific partition based on a set of parameters:
+     * Return a reference to a specific setIdx based on a set of parameters:
      * execution type, target device, dataView
      */
     auto getPartition(Neon::Execution       execution,
@@ -280,7 +280,7 @@ class xGrid : public Neon::domain::interface::GridBase
 
     template <typename T, int C = 0>
     using Field = xField<T, C>; 
-    using PartitionIndexSpace = xPartitionIndexSpace;
+    using Span = xPartitionIndexSpace;
     //...
 
 
@@ -292,10 +292,10 @@ class xGrid : public Neon::domain::interface::GridBase
     /**
      * Constructor compatible with the general grid API
      */
-    template <typename ActiveCellLambda>
+    template <typename SparsityPattern>
     xGrid(const Neon::set::Backend& backend,
           const Neon::int32_3d&       dimension /**< Dimension of the box containing the sparse domain */,
-          const ActiveCellLambda      activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */
+          const SparsityPattern      activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */
           const Neon::domain::Stencil&                     stencil,
           const Vec_3d<double>&       spacingData = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
           const Vec_3d<double>&       origin = Vec_3d<double>(0, 0, 0) /**<      Origin  */);
@@ -309,12 +309,12 @@ class xGrid : public Neon::domain::interface::GridBase
         -> Neon::set::LaunchParameters;
 
     /**
-     * Returns the partition space that can be used by the lambda executor to run a Container
+     * Returns the setIdx space that can be used by the lambda executor to run a Container
      */
-    auto getPartitionIndexSpace(Neon::DeviceType devE,
+    auto getSpan(Neon::DeviceType devE,
                            SetIdx          setIdx,
                            Neon::DataView   dataView) const
-        -> const xGrid::PartitionIndexSpace&;
+        -> const xGrid::Span&;
 
     /**
      * Creates a new Field
@@ -323,7 +323,7 @@ class xGrid : public Neon::domain::interface::GridBase
     auto newField(const std::string               fieldUserName,
                   int                             cardinality,
                   T                               inactiveValue,
-                  Neon::DataUse                   dataUse = Neon::DataUse::IO_COMPUTE,
+                  Neon::DataUse                   dataUse = Neon::DataUse::HOST_DEVICE,
                   const Neon::MemoryOptions& memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 
@@ -331,7 +331,7 @@ class xGrid : public Neon::domain::interface::GridBase
      * Creates a container
      */
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       LoadingLambda      lambda)
         const
         -> Neon::set::Container;
@@ -340,7 +340,7 @@ class xGrid : public Neon::domain::interface::GridBase
      * Creates a container with the ability of specifying the block and shared memory size
      */
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       LoadingLambda      lambda
                       index_3d           blockSize,
                       size_t             sharedMem)
