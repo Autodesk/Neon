@@ -111,7 +111,13 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
     return grid.getContainer(
         "storeFine_" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
-            auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
+            //auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
+
+            //load this level as a map but not const since we will use pout to modify the next level
+            auto& pout = fout.load(loader, level, Neon::MultiResCompute::MAP);
+
+            //reload the next level as a map to indicate that we will (remote) write to it
+            fout.load(loader, level + 1, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
                 assert(pout.hasParent(cell));

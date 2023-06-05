@@ -34,9 +34,11 @@ inline Neon::set::Container coalescence(Neon::domain::mGrid&                   g
                         //the interface and this is where we should do the coalescence
                         if (pin.hasChildren(cell, dir)) {
                             auto neighbor = pout.nghVal(cell, dir, q, T(0));
+                            auto ssVal = ss.nghVal(cell, dir, q, T(0));
                             if (neighbor.isValid) {
                                 if (fineInitStore) {
-                                    pin(cell, q) = neighbor.value / static_cast<T>(ss(cell, q) * refFactor);
+                                    assert(ssVal.value != 0);
+                                    pin(cell, q) = neighbor.value / static_cast<T>(ssVal.value * refFactor);
                                 } else {
                                     pin(cell, q) = neighbor.value / static_cast<T>(refFactor);
                                 }

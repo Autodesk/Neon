@@ -50,6 +50,8 @@ uint32_t init(Neon::domain::mGrid&                  grid,
 
                         for (int q = 0; q < Q; ++q) {
                             ss(cell, q) = 0;
+                            in(cell, q) = 0;
+                            out(cell, q) = 0;
                         }
 
 #ifdef NEON_PLACE_CUDA_DEVICE
