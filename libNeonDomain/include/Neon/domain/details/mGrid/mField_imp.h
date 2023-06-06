@@ -109,7 +109,6 @@ auto mField<T, C>::forEachActiveCell(
     -> void
 {
     //mData->fields[level].mData->field.forEachActiveCell(fun, mode);
-
     auto      desc = mData->grid->getDescriptor();
     auto      card = (*this)(0).getCardinality();
     const int refFactor = desc.getRefFactor(level);

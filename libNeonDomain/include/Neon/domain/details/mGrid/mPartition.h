@@ -36,6 +36,7 @@ class mPartition : public Neon::bGrid::bGrid::Partition<T, C>
                         Idx::DataBlockIdx* parentLocalID,
                         uint32_t*          mask,
                         uint32_t*          maskLowerLevel,
+                        uint32_t*          maskUpperLevel,
                         uint32_t*          childBlockID,
                         uint32_t*          parentNeighbourBlocks,
                         T                  defaultValue,
@@ -146,6 +147,17 @@ class mPartition : public Neon::bGrid::bGrid::Partition<T, C>
                                                const T&      alternativeVal) const -> NghData<T>;
 
     /**
+     * @brief similar to the above uncleVal but returns a reference. Additionally, it is now
+     * the user responsibility to check if the uncle is active (we only assert it)
+     * @param cell the main cell at level L 
+     * @param direction the direction w.r.t the parent of cell      
+     * @param card the cardinality      
+    */
+    NEON_CUDA_HOST_DEVICE inline auto uncleVal(const Idx&    cell,
+                                               Neon::int8_3d direction,
+                                               int           card) const -> T&;
+
+    /**
      * Get the refinement factor i.e., number of children at each dimension
      * @param level at which the refinement factor is queried
      */
@@ -165,16 +177,17 @@ class mPartition : public Neon::bGrid::bGrid::Partition<T, C>
     inline NEON_CUDA_HOST_DEVICE auto childID(const Idx& gidx) const -> uint32_t;
 
 
-    int               mLevel;
-    T*                mMemParent;
-    T*                mMemChild;
-    uint32_t*         mParentBlockID;
+    int                mLevel;
+    T*                 mMemParent;
+    T*                 mMemChild;
+    uint32_t*          mParentBlockID;
     Idx::DataBlockIdx* mParentLocalID;
-    uint32_t*         mMaskLowerLevel;
-    uint32_t*         mChildBlockID;
-    uint32_t*         mParentNeighbourBlocks;
-    int*              mRefFactors;
-    int*              mSpacing;
+    uint32_t*          mMaskLowerLevel;
+    uint32_t*          mMaskUpperLevel;
+    uint32_t*          mChildBlockID;
+    uint32_t*          mParentNeighbourBlocks;
+    int*               mRefFactors;
+    int*               mSpacing;
 };
 }  // namespace Neon::domain::details::mGrid
 
