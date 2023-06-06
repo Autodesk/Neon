@@ -19,6 +19,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  const bool                                  fineInitStore,
                                  const bool                                  streamFusedExpl,
                                  const bool                                  streamFusedCoal,
+                                 const bool                                  streamFuseAll,
                                  const T                                     omega0,
                                  const int                                   level,
                                  const int                                   numLevels,
@@ -48,6 +49,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                           fineInitStore,
                                           streamFusedExpl,
                                           streamFusedCoal,
+                                          streamFuseAll,
                                           omega0,
                                           level - 1,
                                           numLevels,
@@ -63,6 +65,8 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
         streamFusedExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else if (streamFusedCoal) {
         streamFusedCoalescence<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    } else if (streamFuseAll) {
+        streamFusedCoalescenceExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else {
         stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     }
@@ -92,6 +96,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                           fineInitStore,
                                           streamFusedExpl,
                                           streamFusedCoal,
+                                          streamFuseAll,
                                           omega0,
                                           level - 1,
                                           numLevels,
@@ -107,6 +112,8 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
         streamFusedExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else if (streamFusedCoal) {
         streamFusedCoalescence<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    } else if (streamFuseAll) {
+        streamFusedCoalescenceExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else {
         stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     }
@@ -120,6 +127,7 @@ void runNonUniformLBM(const int           problemID,
                       const bool          fineInitStore,
                       const bool          streamFusedExpl,
                       const bool          streamFusedCoal,
+                      const bool          streamFuseAll,
                       const bool          benchmark)
 {
 
@@ -203,6 +211,7 @@ void runNonUniformLBM(const int           problemID,
                                       fineInitStore,
                                       streamFusedExpl,
                                       streamFusedCoal,
+                                      streamFuseAll,
                                       omega,
                                       descriptor.getDepth() - 1,
                                       descriptor.getDepth(),
@@ -249,6 +258,7 @@ int main(int argc, char** argv)
         bool        fineInitStore = false;
         bool        streamFusedExpl = false;
         bool        streamFusedCoal = false;
+        bool        streamFuseAll = false;
         int         problemId = 0;
 
         auto cli =
@@ -264,7 +274,8 @@ int main(int argc, char** argv)
               (clipp::option("--storeCoarse").set(fineInitStore, false) % "Initiate the store operation from the coarse level")),
 
              ((clipp::option("--streamFusedExpl").set(streamFusedExpl, true) % "Fuse Stream with Explosion") |
-              (clipp::option("--streamFusedCoal").set(streamFusedCoal, true) % "Fuse Stream with Coalescence")));
+              (clipp::option("--streamFusedCoal").set(streamFusedCoal, true) % "Fuse Stream with Coalescence") |
+              (clipp::option("--streamFuseAll").set(streamFuseAll, true) % "Fuse Stream with Coalescence and Explosion")));
 
 
         if (!clipp::parse(argc, argv, cli)) {
@@ -286,7 +297,7 @@ int main(int argc, char** argv)
         using T = double;
         constexpr int Q = 19;
 
-        runNonUniformLBM<T, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, benchmark);
+        runNonUniformLBM<T, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, benchmark);
     }
     return 0;
 }
