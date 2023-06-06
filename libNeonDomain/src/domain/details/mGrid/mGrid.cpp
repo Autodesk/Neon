@@ -1,5 +1,3 @@
-#if 0
-
 #include "Neon/domain/details//mGrid/mGrid.h"
 
 
@@ -599,5 +597,3 @@ auto mGrid::getBackend() -> Backend&
 }
 
 }  // namespace Neon::domain::details::mGrid
-
-#endif
