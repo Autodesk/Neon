@@ -56,8 +56,9 @@ struct DataTransferExtractor
     // Neon::set::HuOptions_t& /*opt*/
    private:
     template <typename T>
-    using HaloUpdate = decltype(std::declval<T>().haloUpdateContainer(std::declval<Neon::set::TransferMode>(),
-                                                                      std::declval<Neon::set::StencilSemantic>()));
+    using HaloUpdate = decltype(std::declval<T>().newHaloUpdate(std::declval<Neon::set::StencilSemantic>(),
+                                                                std::declval<Neon::set::TransferMode>(),
+                                                                std::declval<Neon::Execution>()));
 
     template <typename T>
     static constexpr bool HasHaloUpdateMethod = tmp::is_detected_v<HaloUpdate, T>;
@@ -74,7 +75,7 @@ struct DataTransferExtractor
             auto huFun = [field, &status](Neon::set::TransferMode    transferMode,
                                           Neon::set::StencilSemantic stencilSemantic)
                 -> Neon::set::Container {
-                Neon::set::Container container = field.haloUpdateContainer(transferMode, stencilSemantic);
+                Neon::set::Container container = field.newHaloUpdate(stencilSemantic, transferMode, Neon::Execution::device);
                 return container;
             };
             status = true;
@@ -94,61 +95,25 @@ struct DataTransferExtractor
     }
 };
 
-// template <typename Field_ta>
-// struct HaloUpdatePerDeviceExtractor_t
-//{
-//     // field.haloUpdate(bk, opt);
-//     // const Neon::set::Backend& /*bk*/,
-//     // Neon::set::HuOptions_t& /*opt*/
-//    private:
-//     template <typename T>
-//     using HaloUpdatePerDevice = decltype(std::declval<T>().haloUpdate(std::declval<Neon::SetIdx&>(),
-//                                                                       std::declval<Neon::set::HuOptions&>()));
-//
-//     template <typename T>
-//     static constexpr bool HasHaloUpdatePerDevice = tmp::is_detected_v<HaloUpdatePerDevice, T>;
-//
-//    public:
-//     static auto get([[maybe_unused]] const Field_ta& field) -> auto
-//     {
-//         if constexpr (HasHaloUpdatePerDevice<Field_ta>) {
-//             auto huFun = [field](Neon::SetIdx          setIdx,
-//                                  Neon::set::HuOptions& opt) {
-//                 field.haloUpdate(setIdx, opt);
-//             };
-//             return huFun;
-//         } else {
-//             auto huFun = [field](Neon::SetIdx          setIdx,
-//                                  Neon::set::HuOptions& opt) {
-//                 (void)opt;
-//                 (void)setIdx;
-//             };
-//
-//             return huFun;
-//         }
-//         NEON_THROW_UNSUPPORTED_OPTION("");
-//     }
-// };
 
 }  // namespace internal
 
 template <typename Field_ta>
 auto Loader::
     load(Field_ta&       field,
-         Neon::Compute   computeE,
+         Neon::Pattern   computeE,
          StencilSemantic stencilSemantic)
         -> std::enable_if_t<!std::is_const_v<Field_ta>, typename Field_ta::Partition&>
 {
-
     switch (m_loadingMode) {
         case Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA: {
             using namespace Neon::set::dataDependency;
             Neon::set::dataDependency::MultiXpuDataUid uid = field.getUid();
             constexpr auto                             access = Neon::set::dataDependency::AccessType::WRITE;
-            Compute                                    compute = computeE;
+            Pattern                                    compute = computeE;
             Token                                      token(uid, access, compute);
 
-            if (compute == Neon::Compute::STENCIL &&
+            if (compute == Neon::Pattern::STENCIL &&
                 (stencilSemantic == StencilSemantic::standard ||
                  stencilSemantic == StencilSemantic::streaming)) {
                 Neon::NeonException exp("Loader");
@@ -158,10 +123,10 @@ auto Loader::
 
             m_container.addToken(token);
 
-            return field.getPartition(m_devE, m_setIdx, m_dataView);
+            return field.getPartition(mExecution, m_setIdx, m_dataView);
         }
         case Neon::set::internal::LoadingMode_e::EXTRACT_LAMBDA: {
-            return field.getPartition(m_devE, m_setIdx, m_dataView);
+            return field.getPartition(mExecution, m_setIdx, m_dataView);
         }
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
@@ -173,7 +138,7 @@ auto Loader::
 template <typename Field_ta>
 auto Loader::
     load(Field_ta&       field,
-         Neon::Compute   computeE,
+         Neon::Pattern   computeE,
          StencilSemantic stencilSemantic)
         -> std::enable_if_t<std::is_const_v<Field_ta>, const typename Field_ta::Partition&>
 {
@@ -182,18 +147,18 @@ auto Loader::
             using namespace Neon::set::dataDependency;
             Neon::set::dataDependency::MultiXpuDataUid uid = field.getUid();
             constexpr auto                             access = Neon::set::dataDependency::AccessType::READ;
-            Neon::Compute                              compute = computeE;
+            Neon::Pattern                              compute = computeE;
             Token                                      token(uid, access, compute);
 
-            if (compute == Neon::Compute::STENCIL) {
+            if (compute == Neon::Pattern::STENCIL) {
                 token.setDataTransferContainer(
-                    [&](Neon::set::TransferMode transferMode)
+                    [&, stencilSemantic](Neon::set::TransferMode transferMode)
                         -> Neon::set::Container {
                         // TODO: add back following line with template metaprogramming
                         // field.haloUpdate(bk, opt);
                         // https://gist.github.com/fenbf/d2cd670704b82e2ce7fd
-                        bool                 status;
-                        auto                 huFun = internal::DataTransferExtractor<Field_ta>::get(field, status);
+                        bool status;
+                        auto huFun = internal::DataTransferExtractor<Field_ta>::get(field, status);
 
                         if (!status) {
                             Neon::NeonException e("Neon::Loader");
@@ -212,10 +177,10 @@ auto Loader::
             }
             m_container.addToken(token);
 
-            return field.getPartition(m_devE, m_setIdx, m_dataView);
+            return field.getPartition(mExecution, m_setIdx, m_dataView);
         }
         case Neon::set::internal::LoadingMode_e::EXTRACT_LAMBDA: {
-            return field.getPartition(m_devE, m_setIdx, m_dataView);
+            return field.getPartition(mExecution, m_setIdx, m_dataView);
         }
     }
     NEON_DEV_UNDER_CONSTRUCTION("");

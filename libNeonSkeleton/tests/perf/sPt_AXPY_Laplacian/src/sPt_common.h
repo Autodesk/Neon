@@ -21,7 +21,7 @@ class storage_t
     Grid             m_grid;
     Neon::index64_3d m_size3d;
     int              m_cardinality;
-    geometry_t       m_geo;
+    Geometry         m_geo;
     Neon::Backend    m_backend;
 
    public:
@@ -69,7 +69,7 @@ class storage_t
     void loadField(const Neon::IODense<T>& dense, Field& field)
     {
         field.ioFromDense(dense);
-        field.updateCompute(0);
+        field.updateDeviceData(0);
         field.getGrid().getBackend().sync(0);
     }
 
@@ -133,8 +133,8 @@ class storage_t
 
     void ioToVti(const std::string fname)
     {
-        Xf.updateIO(Xf.grid().devSet().defaultStreamSet());
-        Yf.updateIO(Yf.grid().devSet().defaultStreamSet());
+        Xf.updateHostData(Xf.grid().devSet().defaultStreamSet());
+        Yf.updateHostData(Yf.grid().devSet().defaultStreamSet());
 
         Xf.grid().devSet().defaultStreamSet().sync();
 
@@ -185,7 +185,7 @@ class storage_t
 
         int same = 0;
         m_backend.sync();
-        bField.updateIO(0);
+        bField.updateHostData(0);
         m_backend.sync();
 
         std::shared_ptr<T[]> b;
@@ -208,14 +208,14 @@ class storage_t
     }
 
     static void gridInit(Neon::index64_3d dim,
-                         geometry_t /*geo*/,
-                         storage_t<Neon::domain::aGrid, T>& storage,
+                         Geometry /*geo*/,
+                         storage_t<Neon::aGrid, T>& storage,
                          const Neon::Backend&               backendConfig)
     {
         storage.m_size3d = {1, 1, 1};
         storage.m_size3d.x = dim.template rMulTyped<int64_t>();
 
-        auto    lengths = storage.m_devSet.template newDataSet<Neon::domain::aGrid::Count>(storage.m_size3d.x / storage.m_devSet.setCardinality());
+        auto    lengths = storage.m_devSet.template newDataSet<Neon::aGrid::Count>(storage.m_size3d.x / storage.m_devSet.setCardinality());
         int64_t sumTmp = 0;
         for (int i = 0; i < storage.m_size3d.x % storage.m_devSet.setCardinality(); i++) {
             lengths[i]++;
@@ -224,15 +224,15 @@ class storage_t
             sumTmp += lengths[i];
         }
         assert(sumTmp == storage.m_size3d.x);
-        storage.m_grid = Neon::domain::aGrid(storage.m_devSet, lengths);
+        storage.m_grid = Neon::aGrid(storage.m_devSet, lengths);
 
-        storage.Xf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
-        storage.Yf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
-        storage.Zf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::IO_COMPUTE}, storage.m_cardinality);
+        storage.Xf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::HOST_DEVICE}, storage.m_cardinality);
+        storage.Yf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::HOST_DEVICE}, storage.m_cardinality);
+        storage.Zf = storage.m_grid.template newField<T>({backendConfig, Neon::DataUse::HOST_DEVICE}, storage.m_cardinality);
     }
 
     void gridInit(Neon::index64_3d     dim,
-                  geometry_t           geo,
+                  Geometry             geo,
                   const Neon::Backend& backendConfig)
     {
         m_size3d = dim;
@@ -242,14 +242,14 @@ class storage_t
                       m_stencil);
         T outsideDomainVal = 0;
 
-        Xf = m_grid.template newField<T>("Xf", m_cardinality, outsideDomainVal, Neon::DataUse::IO_COMPUTE);
-        Yf = m_grid.template newField<T>("Yf", m_cardinality, outsideDomainVal, Neon::DataUse::IO_COMPUTE);
-        Zf = m_grid.template newField<T>("Zf", m_cardinality, outsideDomainVal, Neon::DataUse::IO_COMPUTE);
+        Xf = m_grid.template newField<T>("Xf", m_cardinality, outsideDomainVal, Neon::DataUse::HOST_DEVICE);
+        Yf = m_grid.template newField<T>("Yf", m_cardinality, outsideDomainVal, Neon::DataUse::HOST_DEVICE);
+        Zf = m_grid.template newField<T>("Zf", m_cardinality, outsideDomainVal, Neon::DataUse::HOST_DEVICE);
     }
 
 
     storage_t(Neon::index64_3d dim,
-              geometry_t       geo,
+              Geometry         geo,
               int /*nGPUs*/,
               int                  cardinality,
               const Neon::Backend& backendConfig)
@@ -304,7 +304,7 @@ enum DataType
 struct TestConfigurations
 {
     Neon::index64_3d        m_dim{0};
-    geometry_t              m_geo{topologies_e::FullDomain, Neon::index64_3d{0, 0, 0}};
+    Geometry                m_geo{topologies_e::FullDomain, Neon::index64_3d{0, 0, 0}};
     int                     m_nIterations{0};
     int                     m_nRepetitions{0};
     int                     m_nGPUs{0};

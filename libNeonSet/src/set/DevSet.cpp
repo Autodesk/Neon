@@ -12,13 +12,13 @@
 namespace Neon {
 namespace set {
 
-//namespace internal {
+// namespace internal {
 ///**
 // * thread local storage to call cpuRun
 // */
-//thread_local launchGridInfo_t g_launchGridInfo_t;
+// thread_local launchGridInfo_t g_launchGridInfo_t;
 //}
-//#pragma omp threadprivate(a)
+// #pragma omp threadprivate(a)
 
 DevSet::DevSet(const std::vector<Neon::sys::ComputeID>& set)
 {
@@ -27,7 +27,7 @@ DevSet::DevSet(const std::vector<Neon::sys::ComputeID>& set)
 }
 
 //
-//DevSet::DevSet(const Neon::dev_et::enum_e& devType, const std::vector<Neon::sys::gpu_id>& set)
+// DevSet::DevSet(const Neon::dev_et::enum_e& devType, const std::vector<Neon::sys::gpu_id>& set)
 //{
 //    this->set(devType, set);
 //}
@@ -78,7 +78,7 @@ auto DevSet::set(const Neon::DeviceType&                  devType,
     if (set.size() > 1 && m_devType == Neon::DeviceType::CUDA) {
         std::vector<std::vector<Neon::sys::ComputeID>> errors(m_devIds.size());
 
-        this->forEachSetIdx(
+        this->forEachSetIdxPar(
             [&](const Neon::SetIdx& setIdx) {
                 const Neon::sys::ComputeID gpuIdx = this->devId(setIdx.idx());
                 for (auto&& peerId : this->m_devIds) {
@@ -268,7 +268,7 @@ auto DevSet::newStreamSet()
     if (m_devType == Neon::DeviceType::CUDA) {
         StreamSet streamSet(this->setCardinality());
 
-        this->forEachSetIdx(
+        this->forEachSetIdxPar(
             [&](const Neon::SetIdx& setIdx) {
                 const Neon::sys::ComputeID  gpuId = this->devId(setIdx.idx());
                 const Neon::sys::GpuDevice& dev = Neon::sys::globalSpace::gpuSysObj().dev(gpuId);
@@ -301,7 +301,7 @@ auto DevSet::newEventSet(bool disableTiming)
 
         GpuEventSet eventSet(this->setCardinality());
 
-        this->forEachSetIdx([&](const Neon::SetIdx& setIdx) {
+        this->forEachSetIdxPar([&](const Neon::SetIdx& setIdx) {
             const Neon::sys::ComputeID  gpuId = this->devId(setIdx.idx());
             const Neon::sys::GpuDevice& dev = Neon::sys::globalSpace::gpuSysObj().dev(gpuId);
             eventSet.event<Neon::Access::readWrite>(setIdx.idx()) = dev.tools.event(disableTiming);
@@ -398,13 +398,13 @@ const std::vector<int> DevSet::userIdVec() const
 }
 
 
-template <Neon::set::TransferMode transferMode_ta>
-[[deprecated("Use non template version")]] auto DevSet::peerTransfer(const StreamSet& streamSet,
-                                                                     SetIdx           dstSetId,
-                                                                     char*            dstBuf,
-                                                                     SetIdx           srcSetIdx,
-                                                                     const char*      srcBuf,
-                                                                     size_t           numBytes)
+auto DevSet::transfer(TransferMode     transferMode,
+                      const StreamSet& streamSet,
+                      SetIdx           dstSetId,
+                      char*            dstBuf,
+                      SetIdx           srcSetIdx,
+                      const char*      srcBuf,
+                      size_t           numBytes)
     const
     -> void
 {
@@ -412,7 +412,7 @@ template <Neon::set::TransferMode transferMode_ta>
         Neon::sys::ComputeID dstGpuIdx = this->devId(dstSetId);
         Neon::sys::ComputeID srcGpuIdx = this->devId(srcSetIdx);
 
-        switch (transferMode_ta) {
+        switch (transferMode) {
             case Neon::set::TransferMode::put: {
                 const Neon::sys::GpuDevice& srcDev = Neon::sys::globalSpace::gpuSysObj().dev(srcGpuIdx);
                 srcDev.memory.peerTransfer(streamSet[srcSetIdx], dstGpuIdx, dstBuf, srcGpuIdx, srcBuf, numBytes);
@@ -425,12 +425,17 @@ template <Neon::set::TransferMode transferMode_ta>
             }
         }
     }
+
+    if (m_devType == Neon::DeviceType::CPU || m_devType == Neon::DeviceType::OMP) {
+        std::memcpy(dstBuf, srcBuf, numBytes);
+        return ;
+    }
     Neon::NeonException exp("DevSet");
     exp << "Error, DevSet::invalid operation on a CPU type of device.\n";
     NEON_THROW(exp);
 }
 
-auto DevSet::peerTransfer(PeerTransferOption&          opt,
+auto DevSet::peerTransfer(PeerTransferOption&        opt,
                           const Neon::set::Transfer& transfer)
     const
     -> void
@@ -483,23 +488,6 @@ auto DevSet::peerTransfer(PeerTransferOption&          opt,
     }
 }  // namespace set
 
-template auto Neon::set::DevSet::peerTransfer<Neon::set::TransferMode::put>(const StreamSet& streamSet,
-                                                                        SetIdx           dstSetId,
-                                                                        char*            dstBuf,
-                                                                        SetIdx           srcSetIdx,
-                                                                        const char*      srcBuf,
-                                                                        size_t           numBytes)
-    const
-    -> void;
-
-template auto Neon::set::DevSet::peerTransfer<Neon::set::TransferMode::get>(const StreamSet& streamSet,
-                                                                        SetIdx           dstSetId,
-                                                                        char*            dstBuf,
-                                                                        SetIdx           srcSetIdx,
-                                                                        const char*      srcBuf,
-                                                                        size_t           numBytes)
-    const
-    -> void;
 
 }  // namespace set
 }  // namespace Neon

@@ -32,7 +32,6 @@
 #include "Neon/core/types/SetIdx.h"
 #include "Neon/core/types/vec.h"
 #include "Neon/core/types/DataUse.h"
-#include "Neon/core/types/memSetOptions.h"
 #include "Neon/core/types/memOptions.h"
 #include "Neon/core/types/DeviceType.h"
 #include "Neon/core/types/Allocator.h"

@@ -32,8 +32,7 @@ auto getTestData(Cli::UserData& userData)
         userData.targetGeometry.getOption(),
         .8,
         .5,
-        Neon::domain::Stencil::s7_Laplace_t(),
-        Type(0));
+        Neon::domain::Stencil::s7_Laplace_t());
 
     testData.resetValuesToLinear(1);
 
@@ -78,7 +77,7 @@ auto runGolden(Cli::UserData& userData,
 {
     using FieldNames = Neon::domain::tool::testing::FieldNames;
 
-    testData.updateIO();
+    testData.updateHostData();
     for (int i = 0; i < userData.nIterations + userData.warmupIterations; i++) {
         help::runGoldenFilter<Grid, Type, Cardinality>(userData, testData);
     }
@@ -125,7 +124,7 @@ struct PerformanceMetrics
     }
 
     auto log(Neon::Report& report) -> void
-    {  // Adding performance metrics
+    {  // Adding benchmarks metrics
         NEON_INFO(
             "Performance Repetition ID {} => [MCPSPD {}], [MCPS {}], [Iteration Time {} us], [Elapsed Time {} us]",
             repetitionId, MCPSPD, MCPS, iterationTimeUs, elapsedUs);
@@ -286,11 +285,11 @@ auto Run(Cli::UserData& userData,
             switch (userData.runtimeType.getOption()) {
                 case Cli::Type::INT64: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, int64_t, 1>(userData, report);
+                        return help::testTemplate<Neon::eGrid, int64_t, 1>(userData, report);
                 }
                 case Cli::Type::DOUBLE: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, double, 1>(userData, report);
+                        return help::testTemplate<Neon::eGrid, double, 1>(userData, report);
                 }
             }
         }
@@ -299,11 +298,11 @@ auto Run(Cli::UserData& userData,
             switch (userData.runtimeType.getOption()) {
                 case Cli::Type::INT64: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, int64_t, 3>(userData, report);
+                        return help::testTemplate<Neon::eGrid, int64_t, 3>(userData, report);
                 }
                 case Cli::Type::DOUBLE: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, double, 3>(userData, report);
+                        return help::testTemplate<Neon::eGrid, double, 3>(userData, report);
                 }
             }
         }
@@ -312,11 +311,11 @@ auto Run(Cli::UserData& userData,
             switch (userData.runtimeType.getOption()) {
                 case Cli::Type::INT64: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, int64_t, 19>(userData, report);
+                        return help::testTemplate<Neon::eGrid, int64_t, 19>(userData, report);
                 }
                 case Cli::Type::DOUBLE: {
                     if (userData.gridType.getOption() == Cli::GridType::eGrid)
-                        return help::testTemplate<Neon::domain::eGrid, double, 19>(userData, report);
+                        return help::testTemplate<Neon::eGrid, double, 19>(userData, report);
                 }
             }
         }

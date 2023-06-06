@@ -23,21 +23,21 @@ void run(Neon::Runtime runtime)
         multiDeviceObject(setIdx).a = 33;
     });
 
-    multiDeviceObject.updateCompute(0);
+    multiDeviceObject.updateDeviceData(0);
     backend.syncAll();
 
 
-    Neon::set::Container c = multiDeviceObject.getContainer(
+    Neon::set::Container c = multiDeviceObject.newContainer<Neon::Execution::device>(
         "Test",
         [&](Neon::set::Loader& loader) {
-             auto m = loader.load(multiDeviceObject);
+            auto m = loader.load(multiDeviceObject);
             // Neon::meta::debug::printType(m);
-            return [=] NEON_CUDA_HOST_DEVICE(const Neon::set::Replica<TestObj>::Cell&) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const Neon::set::Replica<TestObj>::Idx&) mutable {
                 m().a += 17;
             };
         });
     c.run(0);
-    multiDeviceObject.updateIO(0);
+    multiDeviceObject.updateHostData(0);
     backend.syncAll();
 
     backend.devSet().forEachSetIdxSeq([&](const Neon::SetIdx& setIdx) {

@@ -33,14 +33,14 @@ inline Neon::set::Container LaplacianMatVec<Grid, Real>::matVec(const Field&   i
                     int           numNeighb = 0;
                     const Real defaultVal{0};
 
-                    auto checkNeighbor = [&sum, &numNeighb](Neon::domain::NghInfo<Real>& neighbor) {
+                    auto checkNeighbor = [&sum, &numNeighb](Neon::domain::NghData<Real>& neighbor) {
                         if (neighbor.isValid) {
                             ++numNeighb;
                             sum += neighbor.value;
                         }
                     };
                     // Laplacian stencil operates on 6 neighbors (assuming 3D)
-                    if constexpr (std::is_same<Grid, Neon::domain::internal::eGrid::eGrid>::value) {
+                    if constexpr (std::is_same<Grid, Neon::domain::details::eGrid::eGrid>::value) {
                         for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
                             auto neighbor = inp.nghVal(cell, nghIdx, c, defaultVal);
                             checkNeighbor(neighbor);
@@ -101,8 +101,8 @@ inline Neon::set::Container LaplacianMatVec<Grid, Real>::matVec(const Field&   i
 // Template instantiations
 template class LaplacianMatVec<Neon::domain::eGrid, double>;
 template class LaplacianMatVec<Neon::domain::eGrid, float>;
-template class LaplacianMatVec<Neon::domain::dGrid, double>;
-template class LaplacianMatVec<Neon::domain::dGrid, float>;
+template class LaplacianMatVec<Neon::dGrid, double>;
+template class LaplacianMatVec<Neon::dGrid, float>;
 template class LaplacianMatVec<Neon::domain::bGrid, double>;
 template class LaplacianMatVec<Neon::domain::bGrid, float>;
 

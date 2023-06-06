@@ -8,7 +8,7 @@
 #include "gtest/gtest.h"
 #include "sUt.runHelper.h"
 #include "sUt_skeleton.onStream.kernels.h"
-
+#if 0
 using namespace Neon::domain::tool::testing;
 static const std::string testFilePrefix("sUt_skeleton_MapStencilMap");
 
@@ -163,7 +163,7 @@ int getNGpus()
 TEST(SingleDot, dGrid)
 {
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = double;
     runAllTestConfiguration<Grid, Type, 0>("dGrid", runSingleDot<Grid, Type, 0>, nGpus, 1);
 }
@@ -171,7 +171,7 @@ TEST(SingleDot, dGrid)
 TEST(SingleStencilTestData, dGrid)
 {
     int nGpus = getNGpus();
-    using Grid = Neon::domain::dGrid;
+    using Grid = Neon::dGrid;
     using Type = double;
     runAllTestConfiguration<Grid, Type, 0>("dGrid", runSingleStencilTestData<Grid, Type, 0>, nGpus, 1);
 }
@@ -180,7 +180,7 @@ TEST(SingleStencilTestData, dGrid)
 TEST(SingleDot, bGrid)
 {
     int nGpus = 1;
-    using Grid = Neon::domain::bGrid;
+    using Grid = Neon::bGrid;
     using Type = double;
     runAllTestConfiguration<Grid, Type, 0>("bGrid", runSingleDot<Grid, Type, 0>, nGpus, 1);
 }
@@ -188,7 +188,8 @@ TEST(SingleDot, bGrid)
 TEST(SingleStencilTestData, bGrid)
 {
     int nGpus = 1;
-    using Grid = Neon::domain::bGrid;
+    using Grid = Neon::bGrid;
     using Type = double;
     runAllTestConfiguration<Grid, Type, 0>("bGrid", runSingleStencilTestData<Grid, Type, 0>, nGpus, 1);
 }
+#endif

@@ -24,8 +24,8 @@ int main()
     }();
 
     // Define an alias for our staggered grid
-    using UniformGrid = Neon::domain::dGrid;
-    using StaggeredGrid = Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<UniformGrid>;
+    using UniformGrid = Neon::dGrid;
+    using StaggeredGrid = Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<UniformGrid>;
     using FP = double;
     using UserContainers = tools::Containers<StaggeredGrid, FP>;
 
@@ -60,7 +60,7 @@ int main()
                                      FP& value) {
             value = 0;
         });
-        density.updateCompute(Neon::Backend::mainStreamIdx);
+        density.updateDeviceData(Neon::Backend::mainStreamIdx);
         return density;
     }();
 
@@ -83,8 +83,8 @@ int main()
     // temperature and density field during each step of the tutorial.
     auto exportingToVti = [&](const std::string& tutorialStepId) {
         {  // Moving memory from XPUs to CPU
-            temperature.updateIO(Neon::Backend::mainStreamIdx);
-            density.updateIO(Neon::Backend::mainStreamIdx);
+            temperature.updateHostData(Neon::Backend::mainStreamIdx);
+            density.updateHostData(Neon::Backend::mainStreamIdx);
             backend.sync(Neon::Backend::mainStreamIdx);
         }
         {  // Exporting the results

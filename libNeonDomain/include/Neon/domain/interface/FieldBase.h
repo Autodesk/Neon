@@ -5,7 +5,6 @@
 #include "Neon/core/types/Macros.h"
 
 #include "Neon/set/Containter.h"
-#include "Neon/set/DataConfig.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/set/HuOptions.h"
 #include "Neon/set/memory/memSet.h"
@@ -51,15 +50,13 @@ class FieldBase
     virtual auto getBaseGridTool() const
         -> const Neon::domain::interface::GridBase& = 0;
 
-    virtual auto haloUpdate(Neon::set::HuOptions& opt) const
-        -> void = 0;
-
-    virtual auto haloUpdate(Neon::set::HuOptions& opt)
-        -> void = 0;
-
-    virtual auto haloUpdateContainer(Neon::set::TransferMode    transferMode,
-                                     Neon::set::StencilSemantic stencilSemantic) const
-        -> Neon::set::Container;
+    virtual auto newHaloUpdate(Neon::set::StencilSemantic /*semantic*/,
+                               Neon::set::TransferMode    /*transferMode*/,
+                               Neon::Execution            /*execution*/)
+        const -> Neon::set::Container
+    {
+        NEON_THROW_UNSUPPORTED_OPERATION("");
+    }
 
     auto getDimension() const
         -> const Neon::index_3d&;
@@ -90,7 +87,7 @@ class FieldBase
 
     /**
      * For each operator that target active cells.
-     * Cell values are provided in RW mode.
+     * Index values are provided in RW mode.
      *
      * @tparam mode
      * @param fun
@@ -100,9 +97,12 @@ class FieldBase
                                                             T&)>&     fun,
                                    Neon::computeMode_t::computeMode_e mode = Neon::computeMode_t::computeMode_e::par) -> void;
 
+    virtual auto forEachActiveCell(const std::function<void(const Neon::index_3d&,
+                                                            std::vector<T*>&)>& fun,
+                                   Neon::computeMode_t::computeMode_e           mode = Neon::computeMode_t::computeMode_e::par) -> void;
     /**
      * For each operator that target all cells in the cubic domain.
-     * Cell values are provided in read only mode.
+     * Index values are provided in read only mode.
      *
      * @tparam mode
      * @param fun

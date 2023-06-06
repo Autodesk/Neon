@@ -84,10 +84,10 @@ class PatternScalar
     auto getName() const -> std::string;
 
    private:
-    auto updateIO(int streamId = 0)
+    auto updateHostData(int streamId = 0)
         -> void final;
 
-    auto updateCompute(int streamId = 0)
+    auto updateDeviceData(int streamId = 0)
         -> void final;
 
     struct Data

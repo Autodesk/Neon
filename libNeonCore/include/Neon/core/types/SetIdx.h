@@ -12,8 +12,10 @@ namespace Neon {
  */
 struct SetIdx
 {
+    static constexpr int invalidIdx = -1;
+
    private:
-    int32_t m_idx{-1} /**< Relative index w.r.t an ordered set */;
+    int32_t m_idx{invalidIdx} /**< Relative index w.r.t an ordered set */;
 
    public:
     /**
@@ -58,22 +60,22 @@ struct SetIdx
      *
      * @return
      */
-    [[nodiscard]] bool validate() const;
+    [[nodiscard]] auto isValid() const -> bool;
 
+    auto invalidate() -> void;
 
-    bool     operator<=(int32_t idx) const;
-    bool     operator==(int32_t idx) const;
-    bool     operator>=(int32_t idx) const;
-    bool     operator<(int32_t idx) const;
-    bool     operator!=(int32_t idx) const;
-    bool     operator>(int32_t idx) const;
+    bool    operator<=(int32_t idx) const;
+    bool    operator==(int32_t idx) const;
+    bool    operator>=(int32_t idx) const;
+    bool    operator<(int32_t idx) const;
+    bool    operator!=(int32_t idx) const;
+    bool    operator>(int32_t idx) const;
     SetIdx& operator++();
-    SetIdx   operator++(int);
-    operator int32_t () const;
-
+    SetIdx  operator++(int);
+    operator int32_t() const;
 };
 
-std::ostream& operator<<(std::ostream&  os,
+std::ostream& operator<<(std::ostream& os,
                          SetIdx const& m);
 
 

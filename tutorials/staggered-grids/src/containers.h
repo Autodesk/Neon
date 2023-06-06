@@ -1,5 +1,5 @@
 #include "Neon/domain/dGrid.h"
-#include "Neon/domain/internal/experimental/staggeredGrid/StaggeredGrid.h"
+#include "Neon/domain/details/staggeredGrid/StaggeredGrid.h"
 
 namespace tools {
 
@@ -33,7 +33,7 @@ struct Containers
 };
 
 
-extern template struct Containers<Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, double>;
-extern template struct Containers<Neon::domain::internal::experimental::staggeredGrid::StaggeredGrid<Neon::domain::dGrid>, float>;
+extern template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::dGrid>, double>;
+extern template struct Containers<Neon::domain::details::experimental::staggeredGrid::StaggeredGrid<Neon::dGrid>, float>;
 
 }  // namespace tools

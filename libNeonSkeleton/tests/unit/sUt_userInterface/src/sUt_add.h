@@ -10,23 +10,23 @@
 #include "gtest/gtest.h"
 #include "sUt.runHelper.h"
 #include "sUt_common.h"
-template <typename Field_ta>
-auto add(const Field_ta& X,
-         const Field_ta& Y,
-         Field_ta&       Z) -> Neon::set::Container
+template <typename Field>
+auto add(const Field& X,
+         const Field& Y,
+         Field&       Z) -> Neon::set::Container
 {
-    auto Kontainer = X.getGrid().getContainer(
-        "add", [&](Neon::set::Loader & L) -> auto {
+    auto c = X.getGrid().newContainer(
+        "add", [&](Neon::set::Loader& L) -> auto {
             auto& x = L.load(X);
             auto& y = L.load(Y);
             auto& z = L.load(Z);
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field_ta::Cell& e) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& gidx) mutable {
                 for (int i = 0; i < z.cardinality(); i++) {
-                    z(e, i) = x(e, i) + y(e, i);
+                    z(gidx, i) = x(gidx, i) + y(gidx, i);
                 }
             };
         });
-    return Kontainer;
+    return c;
 }
 
 template <typename Grid_ta, typename T_ta>
@@ -38,8 +38,8 @@ void dataViewAddTest(Neon::index64_3d     dim,
     storage_t<Grid_ta, T_ta> storage(dim, nGPU, cardinality, backendType);
     storage.initLinearly();
 
-    auto Kontainer = add(storage.Xf, storage.Yf, storage.Zf);
-    Kontainer.run(0);
+    auto container = add(storage.Xf, storage.Yf, storage.Zf);
+    container.run(0);
 
     storage.sum(storage.Xd, storage.Yd, storage.Zd);
 

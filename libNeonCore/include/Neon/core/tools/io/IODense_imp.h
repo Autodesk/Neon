@@ -21,7 +21,7 @@ template <typename ExportType,
 IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&     d,
                                       int                            c,
                                       std::shared_ptr<ExportType[]>& m,
-                                      Neon::memLayout_et::order_e    order)
+                                      Neon::MemoryLayout         order )
     : mMemSharedPtr(m), mMem(m.get()), mSpace(d), mCardinality(c), mOrder(order)
 {
     initPitch();
@@ -32,7 +32,7 @@ template <typename ExportType,
 IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&  d,
                                       int                         c,
                                       ExportType*                 m,
-                                      Neon::memLayout_et::order_e order)
+                                      Neon::MemoryLayout             order)
     : mMemSharedPtr(), mMem(m), mSpace(d), mCardinality(c), mOrder(order), mRepresentation(Representation::EXPLICIT)
 
 {
@@ -43,7 +43,7 @@ template <typename ExportType,
           typename IntType>
 IODense<ExportType, IntType>::IODense(const Integer_3d<IntType>&  d,
                                       int                         c,
-                                      Neon::memLayout_et::order_e order)
+                                      Neon::MemoryLayout         order )
     : mSpace(d), mCardinality(c), mOrder(order), mRepresentation(Representation::EXPLICIT)
 
 {
@@ -327,7 +327,7 @@ template <typename ExportType,
           typename IntType>
 auto IODense<ExportType, IntType>::initPitch() -> void
 {
-    if (mOrder == Neon::memLayout_et::order_e::structOfArrays) {
+    if (mOrder == Neon::MemoryLayout::structOfArrays) {
         mPitch.mXpitch = 1;
         mPitch.mYpitch = static_cast<size_t>(mSpace.x);
 

@@ -8,8 +8,8 @@
 #include "Neon/set/DataSet.h"
 #include "Neon/set/DevSet.h"
 
-#include "Neon/domain/interface/CellProperties.h"
 #include "Neon/domain/interface/GridBase.h"
+#include "Neon/domain/interface/IndexProperties.h"
 
 namespace Neon::domain::interface {
 
@@ -21,7 +21,7 @@ class GridBaseTemplate : public GridBase
    public:
     using Grid = GridT;
     using Cell = CellT;
-    using CellProperties = Neon::domain::interface::CellProperties<Cell>;
+    using CellProperties = Neon::domain::interface::IndexProperties<Cell>;
 
     virtual auto getProperties(const Neon::index_3d& idx) const
         -> CellProperties = 0;

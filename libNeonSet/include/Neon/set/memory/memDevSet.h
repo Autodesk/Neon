@@ -45,25 +45,21 @@ class MemDevSet
     MemDevSet(Neon::DeviceType                               devType,
               const Neon::set::DataSet<Neon::sys::DeviceID>& devId,
               const Neon::Allocator&&                        allocType,
-              uint64_t                                       nElements,
-              Neon::sys::MemAlignment                        byteAlignment = Neon::sys::MemAlignment());
+              uint64_t                                       nElements);
     /**
      * This private constructor should be used by a DevSet
      * */
     MemDevSet(Neon::DeviceType                               devType,
               const Neon::set::DataSet<Neon::sys::DeviceID>& devId,
               const Neon::Allocator&                         allocType,
-              const Neon::set::DataSet<uint64_t>&            nElementVec,
-              Neon::sys::MemAlignment                        byteAlignment = Neon::sys::MemAlignment());
+              const Neon::set::DataSet<uint64_t>&            nElementVec);
 
     MemDevSet(int                                            cardinality,
-              Neon::memLayout_et::order_e                    order,
-              Neon::memLayout_et::padding_e                  padding,
+              Neon::MemoryLayout                             order,
               Neon::DeviceType                               devType,
               const Neon::set::DataSet<Neon::sys::DeviceID>& devId,
               Neon::Allocator                                allocType,
-              const Neon::set::DataSet<uint64_t>&            nElementVec,
-              Neon::sys::MemAlignment                        alignment = Neon::sys::MemAlignment());
+              const Neon::set::DataSet<uint64_t>&            nElementVec);
 
    public:
     /**
@@ -136,16 +132,16 @@ class MemDevSet
     }
 
     /**
-     * Return a reference to the i-th MemDev     
-    */
+     * Return a reference to the i-th MemDev
+     */
     auto getMemDev(int64_t idx) -> Neon::sys::MemDevice<T_ta>&
     {
         return vecRef()[idx];
     }
 
     /**
-     * Return a const reference to the i-th MemDev     
-    */
+     * Return a const reference to the i-th MemDev
+     */
     auto getMemDev(int64_t idx) const -> const Neon::sys::MemDevice<T_ta>&
     {
         return vecRef()[idx];
@@ -159,7 +155,7 @@ class MemDevSet
      */
     T_ta* mem(SetIdx id)
     {
-        //return (T_ta*)(m_memVec[id.idx()].template mem<T_ta>());
+        // return (T_ta*)(m_memVec[id.idx()].template mem<T_ta>());
         return vecRef()[id.idx()].mem();
     }
 
@@ -245,14 +241,14 @@ class MemDevSet
                 << memSet.setCardinality();
             NEON_THROW(exp);
         }
-#pragma omp parallel for num_threads(static_cast <int>(this->setCardinality()))
+#pragma omp parallel for num_threads(static_cast<int>(this->setCardinality()))
         for (int i = 0; i < this->setCardinality(); ++i) {
             vecRef()[i].copyFrom(memSet.get(i));
         }
     }
 
     /**
-     * 
+     *
      * @tparam runMode_ta
      * @param gpuStream
      * @param memSet

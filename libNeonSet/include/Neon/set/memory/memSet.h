@@ -12,8 +12,7 @@
 #include "Neon/sys/memory/MemDevice.h"
 #include "Neon/sys/memory/MemMirror.h"
 
-namespace Neon {
-namespace set {
+namespace Neon::set {
 
 /**
  * Class to store a set of MemMirror objects.
@@ -27,7 +26,7 @@ namespace set {
  * @tparam T_ta
  */
 template <typename T_ta>
-class MemSet_t
+class MemSet
 {
     /**
      * Design Note:
@@ -43,7 +42,7 @@ class MemSet_t
     friend class DevSet;
 
     // using MemComputeSet_t = Neon::set::DataSet<Neon::sys::Memlocal_t<T_ta>>;
-    using self_t = MemSet_t<T_ta>;
+    using self_t = MemSet<T_ta>;
     using local_t = Neon::sys::Memlocal_t<T_ta>;
     using element_t = T_ta;
 
@@ -91,7 +90,7 @@ class MemSet_t
     inline auto checkId(SetIdx id) const
     {
         if (size_t(id.idx()) >= size_t(this->cardinality())) {
-            Neon::NeonException exception("MemSet_t");
+            Neon::NeonException exception("MemSet");
             exception << "Incompatible set index was detected. Requested " << id.idx() << " but max is " << this->cardinality();
             NEON_THROW(exception);
         }
@@ -102,7 +101,7 @@ class MemSet_t
     /**
      * Empty constructor. No resource allocation is done
      * */
-    MemSet_t()
+    MemSet()
     {
         m_memSet_shp = std::make_shared<Mem_vec>();
     }
@@ -110,7 +109,7 @@ class MemSet_t
     /**
      * Initialize the object to hold numEntries object of type Neon::sys::Mem_t. No resource allocation is done
      * */
-    MemSet_t(int numEntries)
+    MemSet(int numEntries)
     {
         m_memSet_shp = std::make_shared<Mem_vec>(numEntries);
     }
@@ -209,9 +208,16 @@ class MemSet_t
 
     auto rawMem(Neon::Execution execution, SetIdx id) -> T_ta*
     {
-        return entryRef(id).rawMem(execution);
+        auto& mirror =  entryRef(id);
+        T_ta* res = mirror.rawMem(execution);
+        return res;
     }
 
+    auto rawMem(Neon::Execution execution, SetIdx id)
+        const -> T_ta const*
+    {
+        return entryRef(id).rawMem(execution);
+    }
     /**
      * Returns a dataSet with the raw pointers, one entry for each mirror.
      */
@@ -278,9 +284,13 @@ class MemSet_t
     }
 
 
-    void updateCompute(Neon::Backend   bk,
-                       Neon::StreamIdx streamId)
+    void updateDeviceData(Neon::Backend   bk,
+                          Neon::StreamIdx streamId)
     {
+        if(bk.devType() == Neon::DeviceType::CPU
+            || bk.devType() == Neon::DeviceType::OMP ){
+            return ;
+        }
         int32_t                     nDev = cardinality();
         const Neon::set::StreamSet& gpuStreamSet = bk.streamSet(streamId);
         auto                        devEt = Neon::DeviceType::CUDA;
@@ -290,8 +300,8 @@ class MemSet_t
         }
     }
 
-    void updateIO(Neon::Backend   bk,
-                  Neon::StreamIdx streamId)
+    void updateHostData(Neon::Backend   bk,
+                        Neon::StreamIdx streamId)
     {
         int32_t                     nDev = cardinality();
         const Neon::set::StreamSet& gpuStreamSet = bk.streamSet(streamId);
@@ -351,5 +361,4 @@ class MemSet_t
     }
 };
 
-}  // namespace set
 }  // namespace Neon

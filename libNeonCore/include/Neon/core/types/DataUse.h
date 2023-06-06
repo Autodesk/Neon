@@ -7,21 +7,21 @@ namespace Neon {
 
 /**
  * Type of use for a Neon data container.
- * IO_POSTPROCESSING: used for pre and post processing.
+ * HOST: used for pre and post processing.
  *                    For example to load data into a field or to do some computation on a field before
  *                    IO_POSTPROCESSING operations are always computed on the CPU
  *
- * COMPUTE: used both for pre-processing (IO) and actual computation (COMPUTE).
+ * DEVICE: used for computation on the device..
  *          When deploying on an accelerator, compute is always run on the accelerator.
  *
- * IO_COMPUTE: both for IO_POSTPROCESSING and COMPUTE
+ * HOST_DEVICE: both for IO_POSTPROCESSING and COMPUTE
  *
  */
 enum struct DataUse
 {
-    IO_COMPUTE = 0,
-    COMPUTE = 1,
-    IO_POSTPROCESSING = 2,
+    HOST_DEVICE = 0,
+    DEVICE = 1,
+    HOST = 2,
 };
 
 struct DataUseUtils

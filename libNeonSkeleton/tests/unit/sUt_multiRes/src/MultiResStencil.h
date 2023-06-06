@@ -49,8 +49,8 @@ void MultiResSameLevelStencil()
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
-            XField.updateCompute();
-            YField.updateCompute();
+            XField.updateDeviceData();
+            YField.updateDeviceData();
         }
         //XField.ioToVtk("f");
 
@@ -81,7 +81,7 @@ void MultiResSameLevelStencil()
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
-            YField.updateIO();
+            YField.updateHostData();
         }
 
 

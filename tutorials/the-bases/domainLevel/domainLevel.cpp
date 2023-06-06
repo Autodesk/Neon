@@ -95,7 +95,7 @@ int main(int, char**)
     // Step 4 -> Neon map containers: expanding the sphere via a level set
 
     // loading the sphereSdf to device
-    sphereSdf.updateCompute(Neon::Backend::mainStreamIdx);
+    sphereSdf.updateDeviceData(Neon::Backend::mainStreamIdx);
 
     // Run a container that ads a value to the sphere sdf
     // The result is a level set of an expanded sphere (not more a sdf)
@@ -104,7 +104,7 @@ int main(int, char**)
 
     // Moving asynchronously the values of the newly computed level set back
     // to export the result to vtk.
-    sphereSdf.updateIO(Neon::Backend::mainStreamIdx);
+    sphereSdf.updateHostData(Neon::Backend::mainStreamIdx);
 
     // Waiting for the transfer to complete.
     backend.sync(Neon::Backend::mainStreamIdx);
@@ -123,7 +123,7 @@ int main(int, char**)
     sphereSdf.haloUpdate(huOptions);
 
     computeGrad(sphereSdf, grad, voxelEdge).run(Neon::Backend::mainStreamIdx);
-    grad.updateIO(Neon::Backend::mainStreamIdx);
+    grad.updateHostData(Neon::Backend::mainStreamIdx);
     backend.sync(Neon::Backend::mainStreamIdx);
 
     grad.ioToVtk("grad", "grad");

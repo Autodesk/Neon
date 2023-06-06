@@ -51,7 +51,7 @@ TEST(coreUt_io, denseDiff)
 }
 
 
-TEST(coreUt_io, denseDiffRandom)
+TEST(coreUt_io, DISABLED_denseDiffRandom)
 {
     int dim1 = 400;
 

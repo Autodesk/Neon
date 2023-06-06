@@ -1,17 +1,17 @@
-#include "Neon/set/dependency/ComputeType.h"
+#include "Neon/set/dependency/Pattern.h"
 
 namespace Neon {
 
-auto ComputeUtils::toString(Compute val) -> std::string
+auto PatternUtils::toString(Pattern val) -> std::string
 {
     switch (val) {
-        case Compute::MAP: {
+        case Pattern::MAP: {
             return "MAP";
         }
-        case Compute::STENCIL: {
+        case Pattern::STENCIL: {
             return "STENCIL";
         }
-        case Compute::REDUCE: {
+        case Pattern::REDUCE: {
             return "REDUCE";
         }
     }

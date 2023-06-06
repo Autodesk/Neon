@@ -173,10 +173,10 @@ auto printField(typename Grid::template Field<Real, 0>& p) -> Neon::set::Contain
     template auto updateP<GRID, DATA>(typename GRID::template Field<DATA, 0>&, const GRID::template Field<DATA, 0>&, const DATA&, const DATA&)->Neon::set::Container;                                                                             \
     template auto printField<GRID, DATA>(typename GRID::template Field<DATA, 0>&)->Neon::set::Container;
 
-CG_EXTERN_TEMPLATE(Neon::domain::dGrid, double);
+CG_EXTERN_TEMPLATE(Neon::dGrid, double);
 CG_EXTERN_TEMPLATE(Neon::domain::bGrid, double);
 CG_EXTERN_TEMPLATE(Neon::domain::eGrid, double);
-CG_EXTERN_TEMPLATE(Neon::domain::dGrid, float);
+CG_EXTERN_TEMPLATE(Neon::dGrid, float);
 CG_EXTERN_TEMPLATE(Neon::domain::bGrid, float);
 CG_EXTERN_TEMPLATE(Neon::domain::eGrid, float);
 #undef CG_EXTERN_TEMPLATE

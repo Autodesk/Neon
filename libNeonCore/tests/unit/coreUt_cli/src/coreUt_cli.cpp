@@ -17,6 +17,12 @@ struct setting_t
     int              nIterations;
     int              cudeEdge;
 
+    setting_t()
+    {
+        maxGpuSet = false;
+        nIterations = 0;
+        cudeEdge = 0;
+    }
     std::string toString()
     {
         std::ostringstream msg;
@@ -65,12 +71,12 @@ TEST(meta, typedField)
     std::string programName("coreUt_cli");
     std::string nOpt("-n10");
     std::string boxOpt("-b22");
-    char* argv[3];    
+    char*       argv[3];
     argv[0] = &programName[0];
     argv[1] = &nOpt[0];
     argv[2] = &boxOpt[0];
 
-    setting_t set;
+    [[maybe_unused]] setting_t set;
     ASSERT_NO_THROW(set = cmdline_settings(3, argv));
     ASSERT_TRUE(set.nIterations == iterations);
     ASSERT_TRUE(set.cudeEdge == boxSize);

@@ -24,21 +24,19 @@ class Partition
 };
 
 template <typename Obj>
-class PartitionIndexSpace
+class Span
 {
    public:
-    using Cell = void*;
+    using Idx = void*;
     static constexpr int SpaceDim = 1;
 
     NEON_CUDA_HOST_DEVICE
-    inline auto setAndValidate(Cell&,
-                               const size_t& x,
-                               const size_t& y,
-                               const size_t& z)
+    inline auto setAndValidate(Idx&,
+                               const size_t& x)
         const
         -> bool
     {
-        if (x == 0 && y == 0 && z == 0) {
+        if (x == 0) {
             bool const isValid = true;
             return isValid;
         }
@@ -50,15 +48,15 @@ class PartitionIndexSpace
 template <typename Obj>
 struct Storage
 {
-    PartitionIndexSpace<Obj> indexSpace;
+    Span<Obj> indexSpace;
     std::array<Neon::set::DataSet<Partition<Obj>>,
                Neon::ExecutionUtils::numConfigurations>
         partitionByView;
 
-    Neon::set::MemSet_t<Obj> obj;
-    Neon::Backend            bk;
-    Neon::MemoryOptions      memoryOptions;
-    Neon::DataUse            dataUse;
+    Neon::set::MemSet<Obj> obj;
+    Neon::Backend          bk;
+    Neon::MemoryOptions    memoryOptions;
+    Neon::DataUse          dataUse;
 };
 }  // namespace Neon::set::internal::datum
 
@@ -70,13 +68,16 @@ namespace Neon::set {
  */
 template <typename Obj>
 class Replica : public Neon::set::interface::MultiXpuDataInterface<Neon::set::internal::datum::Partition<Obj>,
-                                                                        Neon::set::internal::datum::Storage<Obj>>
+                                                                   Neon::set::internal::datum::Storage<Obj>>
 {
    public:
     using Partition = Neon::set::internal::datum::Partition<Obj>;
-    using PartitionIndexSpace = Neon::set::internal::datum::PartitionIndexSpace<Obj>;
+    using Span = Neon::set::internal::datum::Span<Obj>;
     using Storage = Neon::set::internal::datum::Storage<Obj>;
-    using Cell = typename PartitionIndexSpace::Cell;
+    using Idx = typename Span::Idx;
+
+    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1;
+    using ExecutionThreadSpanIndexType = uint32_t;
 
     using Self = Replica<Obj>;
 
@@ -85,13 +86,13 @@ class Replica : public Neon::set::interface::MultiXpuDataInterface<Neon::set::in
     Replica() = default;
 
     explicit Replica(Neon::Backend&      bk,
-                     Neon::DataUse       dataUse = Neon::DataUse::IO_COMPUTE,
+                     Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE,
                      Neon::MemoryOptions memoryOptions = Neon::MemoryOptions());
 
-    virtual auto updateIO(int streamId = 0)
+    virtual auto updateHostData(int streamId = 0)
         -> void;
 
-    virtual auto updateCompute(int streamId = 0)
+    virtual auto updateDeviceData(int streamId = 0)
         -> void;
 
     virtual auto getPartition(Neon::Execution       execution,
@@ -114,15 +115,15 @@ class Replica : public Neon::set::interface::MultiXpuDataInterface<Neon::set::in
                               const Neon::DataView& dataView = Neon::DataView::STANDARD)
         -> Self::Partition&;
 
-    virtual auto getPartitionIndexSpace(Neon::DeviceType      execution,
-                                        Neon::SetIdx          setIdx,
-                                        const Neon::DataView& dataView = Neon::DataView::STANDARD) const
-        -> const Self::PartitionIndexSpace&;
+    virtual auto getSpan(Neon::Execution       execution,
+                         Neon::SetIdx          setIdx,
+                         const Neon::DataView& dataView = Neon::DataView::STANDARD) const
+        -> const Self::Span&;
 
-    virtual auto getPartitionIndexSpace(Neon::DeviceType      execution,
-                                        Neon::SetIdx          setIdx,
-                                        const Neon::DataView& dataView = Neon::DataView::STANDARD)
-        -> Self::PartitionIndexSpace&;
+    virtual auto getSpan(Neon::Execution       execution,
+                         Neon::SetIdx          setIdx,
+                         const Neon::DataView& dataView = Neon::DataView::STANDARD)
+        -> Self::Span&;
 
     auto getBackend() -> Neon::Backend&;
 
@@ -132,8 +133,9 @@ class Replica : public Neon::set::interface::MultiXpuDataInterface<Neon::set::in
 
     auto operator()(Neon::SetIdx setIdx) const -> const Obj&;
 
-    template <typename LoadingLambda>
-    auto getContainer(const std::string& name, LoadingLambda lambda)
+    template <Neon::Execution execution = Neon::Execution::device,
+              typename LoadingLambda = void*>
+    auto newContainer(const std::string& name, LoadingLambda lambda)
         const
         -> Neon::set::Container;
 

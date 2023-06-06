@@ -9,10 +9,8 @@
 #include "Neon/sys/devices/DevInterface.h"
 #include "Neon/sys/devices/cpu/CpuDevice.h"
 #include "Neon/sys/devices/gpu/GpuDevice.h"
-#include "Neon/sys/memory/MemAlignment.h"
 #include "Neon/sys/memory/memConf.h"
-namespace Neon {
-namespace sys {
+namespace Neon::sys {
 
 /**
  * Mem_t is used to abstract memory buffers. A Mem_t can be user of system initialized.
@@ -111,19 +109,17 @@ struct MemDevice
 
 
    private:
-    const DeviceType              m_devType;   /**< Type of the device holding the memory buffer */
-    const DeviceID                m_devIdx;    /**< ID of the device holding the memory buffer */
-    Neon::Allocator               m_allocType; /**< Type of allocator used */
-    const uint64_t                m_nElements = {0};
-    int                           m_cardinality = {1};
-    Neon::memLayout_et::order_e   m_order = {Neon::memLayout_et::order_e::structOfArrays};
-    Neon::memLayout_et::padding_e m_padding = {Neon::memLayout_et::padding_e::OFF};
-    MemAlignment                  m_alignment; /**< Alignment */
-    size_t                        m_allocatedBytes = {0};
-    size_t                        m_requiredBytes = {0};          /** required memory to support padding */
-    void*                         m_notAlignedBuffer = {nullptr}; /**< Not Aligned buffer */
-    std::atomic_uint64_t*         m_refCounter = {nullptr};       /**< Reference counter used for garbage collection */
-    Partition                     m_compute;
+    const DeviceType      m_devType;   /**< Type of the device holding the memory buffer */
+    const DeviceID        m_devIdx;    /**< ID of the device holding the memory buffer */
+    Neon::Allocator       m_allocType; /**< Type of allocator used */
+    const uint64_t        m_nElements = {0};
+    int                   m_cardinality = {1};
+    Neon::MemoryLayout    m_order = {Neon::MemoryLayout::structOfArrays};
+    size_t                m_allocatedBytes = {0};
+    size_t                m_requiredBytes = {0};          /** required memory to support padding */
+    void*                 m_notAlignedBuffer = {nullptr}; /**< Not Aligned buffer */
+    std::atomic_uint64_t* m_refCounter = {nullptr};       /**< Reference counter used for garbage collection */
+    Partition             m_compute;
 
    public:
     /**
@@ -150,34 +146,18 @@ struct MemDevice
     MemDevice(DeviceType      devType,
               DeviceID        devId,
               Neon::Allocator allocType,
-              uint64_t        nElements,
-              MemAlignment    alignment = MemAlignment());
+              uint64_t        nElements);
 
     /**
      * Constructor (Sys managed)
      */
-    MemDevice(DeviceType      devType,
-              DeviceID        devId,
-              Neon::Allocator allocType,
-              uint64_t        nElements,
-              memAlignment_et alignment);
+    MemDevice(int                cardinality,
+              Neon::MemoryLayout order,
+              DeviceType         devType,
+              DeviceID           devId,
+              Neon::Allocator    allocType,
+              uint64_t           nElements);
 
-    /**
-     * Constructor (Sys managed)
-     */
-    MemDevice(int                           cardinality,
-              Neon::memLayout_et::order_e   order,
-              Neon::memLayout_et::padding_e padding,
-              DeviceType                    devType,
-              DeviceID                      devId,
-              Neon::Allocator               allocType,
-              uint64_t                      nElements,
-              MemAlignment                  alignment = MemAlignment());
-
-    MemDevice(int                  cardinality,
-              Neon::sys::memConf_t memConf,
-              DeviceID             devId,
-              uint64_t             nElements);
 
     /**
      * Copy constructor
@@ -269,7 +249,7 @@ struct MemDevice
     /**
      * Copy the content of the this MemDev to mem. While copyFrom can be used to do the same operation,
      * copyTo launch all memory transfer async and let the user sync when they actually need.
-    */
+     */
     void copyTo(MemDevice& mem, Neon::sys::GpuStream& stream);
 
     template <Neon::run_et::et runMode_ta>
@@ -341,11 +321,9 @@ struct MemDevice
         return m_nElements;
     }
 
-    int                           cardinality() const;
-    const index64_2d&             pitch() const;
-    Neon::memLayout_et::order_e   order() const;
-    Neon::memLayout_et::padding_e padding() const;
-    MemAlignment                  alignment() const;
+    int               cardinality() const;
+    const index64_2d& pitch() const;
+    auto              order() const -> MemoryLayout;
 
     /**
      * Returns a read only reference to i-th element stored in the Mem_t buffer
@@ -380,7 +358,7 @@ struct MemDevice
     template <Neon::Access access_ta = Neon::Access::read>
     std::enable_if_t<access_ta == Neon::Access::read, const T_ta&> elRef(const index64_t& idx, int cardIdx) const
     {
-        //static_assert(m_pitch.pMain>0);
+        // static_assert(m_pitch.pMain>0);
         size_t pitch = m_compute.m_pitch.pMain * size_t(idx) + m_compute.m_pitch.pCardinality * size_t(cardIdx);
         return this->mem()[pitch];
     }
@@ -394,7 +372,7 @@ struct MemDevice
     template <Neon::Access access_ta = Neon::Access::read>
     std::enable_if_t<access_ta == Neon::Access::readWrite, T_ta&> elRef(const index64_t& idx, int cardIdx)
     {
-        //static_assert(m_pitch.pMain>0);
+        // static_assert(m_pitch.pMain>0);
         size_t pitch = m_compute.m_pitch.pMain * size_t(idx) + m_compute.m_pitch.pCardinality * size_t(cardIdx);
         return this->mem()[pitch];
     }
@@ -465,7 +443,6 @@ struct MemDevice
 template <typename T_ta>
 using Memlocal_t = typename MemDevice<T_ta>::Partition;
 
-}  // namespace sys
-}  // namespace Neon
+}  // namespace Neon::sys
 
 #include "Neon/sys/memory/memDevice_imp.h"

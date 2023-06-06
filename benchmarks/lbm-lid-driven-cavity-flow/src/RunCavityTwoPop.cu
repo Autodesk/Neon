@@ -1,6 +1,8 @@
 #include "Config.h"
 #include "D3Q19.h"
+#include "Neon/domain/bGrid.h"
 #include "Neon/domain/dGrid.h"
+#include "Neon/domain/eGrid.h"
 
 #include "CellType.h"
 #include "LbmIteration.h"
@@ -36,7 +38,7 @@ auto run(Config& config,
         NEON_THROW(exce);
     }();
 
-    if(!backendWasReported) {
+    if (!backendWasReported) {
         metrics::recordBackend(bk, report);
         backendWasReported = true;
     }
@@ -80,20 +82,20 @@ auto run(Config& config,
     auto exportRhoAndU = [&bk, &rho, &u, &iteration, &flag](int iterationId) {
         if ((iterationId) % 100 == 0) {
             auto& f = iteration.getInput();
-            bk.syncAll();
-            Neon::set::HuOptions hu(Neon::set::TransferMode::get,
-                                    false,
-                                    Neon::Backend::mainStreamIdx,
-                                    Neon::set::StencilSemantic::standard);
+            {
+                bk.syncAll();
+                f.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                                Neon::set::TransferMode::get,
+                                Neon::Execution::device)
+                    .run(Neon::Backend::mainStreamIdx);
+                bk.syncAll();
+            }
 
-            f.haloUpdate(hu);
-            bk.syncAll();
-            auto container = LbmToolsTemplate<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
-
+            auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
             container.run(Neon::Backend::mainStreamIdx);
-            u.updateIO(Neon::Backend::mainStreamIdx);
-            rho.updateIO(Neon::Backend::mainStreamIdx);
-            // iteration.getInput().updateIO(Neon::Backend::mainStreamIdx);
+            u.updateHostData(Neon::Backend::mainStreamIdx);
+            rho.updateHostData(Neon::Backend::mainStreamIdx);
+            // iteration.getInput().updateHostData(Neon::Backend::mainStreamIdx);
 
             bk.syncAll();
             size_t      numDigits = 5;
@@ -180,19 +182,20 @@ auto run(Config& config,
             }
         });
 
-        inPop.updateCompute(Neon::Backend::mainStreamIdx);
-        outPop.updateCompute(Neon::Backend::mainStreamIdx);
+        inPop.updateDeviceData(Neon::Backend::mainStreamIdx);
+        outPop.updateDeviceData(Neon::Backend::mainStreamIdx);
 
-        flag.updateCompute(Neon::Backend::mainStreamIdx);
-        bk.syncAll();
-        Neon::set::HuOptions hu(Neon::set::TransferMode::get,
-                                false,
-                                Neon::Backend::mainStreamIdx,
-                                Neon::set::StencilSemantic::standard);
+        flag.updateDeviceData(Neon::Backend::mainStreamIdx);
+        {
+            bk.syncAll();
+            flag.newHaloUpdate(Neon::set::StencilSemantic::standard /*semantic*/,
+                               Neon::set::TransferMode::get /*transferMode*/,
+                               Neon::Execution::device /*execution*/)
+                .run(Neon::Backend::mainStreamIdx);
+            bk.syncAll();
+        }
 
-        flag.haloUpdate(hu);
-        bk.syncAll();
-        auto container = LbmToolsTemplate<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
+        auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
         container.run(Neon::Backend::mainStreamIdx);
         bk.syncAll();
     }
@@ -249,12 +252,11 @@ auto runFilterStoreType(Config& config,
     -> void
 {
     if (config.storeType == "double") {
-        return runFilterComputeType<Neon::domain::dGrid, double>(config, report);
+        return runFilterComputeType<Grid, double>(config, report);
     }
     if (config.storeType == "float") {
-        return runFilterComputeType<Neon::domain::dGrid, float>(config, report);
+        return runFilterComputeType<Grid, float>(config, report);
     }
-    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 }  // namespace details
 
@@ -262,13 +264,15 @@ auto run(Config& config,
          Report& report) -> void
 {
     if (config.gridType == "dGrid") {
-        return details::runFilterStoreType<Neon::domain::dGrid>(config, report);
+        return details::runFilterStoreType<Neon::dGrid>(config, report);
     }
     if (config.gridType == "eGrid") {
         NEON_DEV_UNDER_CONSTRUCTION("");
+        // return details::runFilterStoreType<Neon::eGrid>(config, report);
     }
     if (config.gridType == "bGrid") {
         NEON_DEV_UNDER_CONSTRUCTION("");
+        //        return details::runFilterStoreType<Neon::bGrid>(config, report);
     }
 }
 }  // namespace CavityTwoPop

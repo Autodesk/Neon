@@ -75,7 +75,7 @@ auto GraphDependency::hasStencilDependency()
     bool isStencil = std::any_of(mTokens.begin(),
                                  mTokens.end(),
                                  [](const auto& token) {
-                                     return token.compute() == Neon::Compute::STENCIL;
+                                     return token.compute() == Neon::Pattern::STENCIL;
                                  });
     return isStencil;
 }

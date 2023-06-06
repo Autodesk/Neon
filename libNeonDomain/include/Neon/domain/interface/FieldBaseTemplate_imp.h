@@ -33,8 +33,7 @@ FieldBaseTemplate<T, C, G, P, S>::FieldBaseTemplate(const Grid*                 
                                                haloStatus,
                                                gridPtr->getSpacing(),
                                                gridPtr->getOrigin()),
-      mGridPrt(gridPtr)
-{
+      mGridPrt(gridPtr) {
 }
 
 template <typename T, int C, typename G, typename P, typename S>
@@ -144,6 +143,7 @@ auto FieldBaseTemplate<T, C, G, P, S>::isInsideDomain(const index_3d& idx) const
 {
     return getGrid().isInsideDomain(idx);
 }
+
 template <typename T, int C, typename G, typename P, typename S>
 auto FieldBaseTemplate<T, C, G, P, S>::swapUIDBeforeFullSwap(FieldBaseTemplate::Self& A, FieldBaseTemplate::Self& B) -> void
 {
@@ -157,8 +157,7 @@ auto FieldBaseTemplate<T, C, G, P, S>::swapUIDBeforeFullSwap(FieldBaseTemplate::
             << " are incompatible for a swap operation.";
         NEON_THROW(exp);
     }
-    Neon::set::interface::MultiXpuDataInterface<P, S>::swapUIDs(A,B);
+    Neon::set::interface::MultiXpuDataInterface<P, S>::swapUIDs(A, B);
 }
-
 
 }  // namespace Neon::domain::interface

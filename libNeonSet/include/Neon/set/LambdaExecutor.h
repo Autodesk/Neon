@@ -1,39 +1,37 @@
 #pragma once
 #include <functional>
+#include "Neon/set/ExecutionThreadSpan.h"
 
-namespace Neon {
-namespace set {
-namespace internal {
+namespace Neon::set::details {
+
+namespace denseSpan {
 
 #ifdef NEON_COMPILER_CUDA
-template <typename DataSetContainer_ta,
-          typename UserLambda_ta>
-NEON_CUDA_KERNEL auto execLambdaWithIterator_cuda(typename DataSetContainer_ta::PartitionIndexSpace i,
-                                                  UserLambda_ta                                     userLambdaTa)
+template <typename DataSetContainer,
+          typename UserLambda>
+NEON_CUDA_KERNEL auto launchLambdaOnSpanCUDA(typename DataSetContainer::Span span,
+                                             UserLambda                      userLambdaTa)
     -> void
 {
-    typename DataSetContainer_ta::PartitionIndexSpace::Cell e;
-    if constexpr (DataSetContainer_ta::PartitionIndexSpace::SpaceDim == 1) {
-        if (i.setAndValidate(e,
-                             threadIdx.x + blockIdx.x * blockDim.x,
-                             0,
-                             0)) {
+    typename DataSetContainer::Idx e;
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1) {
+        if (span.setAndValidate(e,
+                                threadIdx.x + blockIdx.x * blockDim.x)) {
             userLambdaTa(e);
         }
     }
-    if constexpr (DataSetContainer_ta::PartitionIndexSpace::SpaceDim == 2) {
-        if (i.setAndValidate(e,
-                             threadIdx.x + blockIdx.x * blockDim.x,
-                             threadIdx.y + blockIdx.y * blockDim.y,
-                             0)) {
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d2) {
+        if (span.setAndValidate(e,
+                                threadIdx.x + blockIdx.x * blockDim.x,
+                                threadIdx.y + blockIdx.y * blockDim.y)) {
             userLambdaTa(e);
         }
     }
-    if constexpr (DataSetContainer_ta::PartitionIndexSpace::SpaceDim == 3) {
-        if (i.setAndValidate(e,
-                             threadIdx.x + blockIdx.x * blockDim.x,
-                             threadIdx.y + blockIdx.y * blockDim.y,
-                             threadIdx.z + blockIdx.z * blockDim.z)) {
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d3) {
+        if (span.setAndValidate(e,
+                                threadIdx.x + blockIdx.x * blockDim.x,
+                                threadIdx.y + blockIdx.y * blockDim.y,
+                                threadIdx.z + blockIdx.z * blockDim.z)) {
             userLambdaTa(e);
         }
     }
@@ -41,53 +39,55 @@ NEON_CUDA_KERNEL auto execLambdaWithIterator_cuda(typename DataSetContainer_ta::
 #endif
 
 
-template <typename DataSetContainer_ta, typename UserLambda_ta>
-void execLambdaWithIterator_omp(const Neon::int64_3d&                             gridDim,
-                                typename DataSetContainer_ta::PartitionIndexSpace partitionIndexSpace,
-                                UserLambda_ta                                     userLambdaTa)
+template <typename IndexType,
+          typename DataSetContainer,
+          typename UserLambda_ta>
+void launchLambdaOnSpanOMP(Neon::Integer_3d<IndexType> const&     gridDim,
+                           typename DataSetContainer::Span const& span,
+                           UserLambda_ta                          userLambdaTa)
 {
-    if constexpr (DataSetContainer_ta::PartitionIndexSpace::SpaceDim == 1) {
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1) {
 #ifdef NEON_OS_WINDOWS
-#pragma omp parallel for default(shared)
+//#pragma omp parallel for default(shared)
 #else
-#pragma omp parallel for simd default(shared)
+ #pragma omp parallel for simd default(shared)
 #endif
-        for (int64_t x = 0; x < gridDim.x; x++) {
-            typename DataSetContainer_ta::PartitionIndexSpace::Cell e;
-            if (partitionIndexSpace.setAndValidate(e, x, 0, 0)) {
+        for (IndexType x = 0; x < gridDim.x; x++) {
+            typename DataSetContainer::Idx e;
+            if (span.setAndValidate(e, x)) {
                 userLambdaTa(e);
             }
         }
     }
 
 
-    if constexpr (DataSetContainer_ta::PartitionIndexSpace::SpaceDim == 2) {
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d2) {
 #ifdef NEON_OS_WINDOWS
 #pragma omp parallel for default(shared)
 #else
-#pragma omp parallel for simd collapse(2) default(shared)
+// #pragma omp parallel for simd collapse(2) default(shared)
 #endif
-        for (int64_t y = 0; y < gridDim.y; y++) {
-            for (int64_t x = 0; x < gridDim.x; x++) {
-                typename DataSetContainer_ta::PartitionIndexSpace::Cell e;
-                if (partitionIndexSpace.setAndValidate(e, x, y, 0)) {
+        for (IndexType y = 0; y < gridDim.y; y++) {
+            for (IndexType x = 0; x < gridDim.x; x++) {
+                typename DataSetContainer::Idx e;
+                if (span.setAndValidate(e, x, y)) {
                     userLambdaTa(e);
                 }
             }
         }
     }
 
-    if constexpr (DataSetContainer_ta::PartitionIndexSpace::SpaceDim == 3) {
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d3) {
 #ifdef NEON_OS_WINDOWS
 #pragma omp parallel for default(shared)
 #else
-#pragma omp parallel for simd collapse(3) default(shared)
+// #pragma omp parallel for simd collapse(1) default(shared) schedule(guided)
 #endif
-        for (int64_t z = 0; z < gridDim.z; z++) {
-            for (int64_t y = 0; y < gridDim.y; y++) {
-                for (int64_t x = 0; x < gridDim.x; x++) {
-                    typename DataSetContainer_ta::PartitionIndexSpace::Cell e;
-                    if (partitionIndexSpace.setAndValidate(e, x, y, z)) {
+        for (IndexType z = 0; z < gridDim.z; z++) {
+            for (IndexType y = 0; y < gridDim.y; y++) {
+                for (IndexType x = 0; x < gridDim.x; x++) {
+                    typename DataSetContainer::Idx e;
+                    if (span.setAndValidate(e, x, y, z)) {
                         userLambdaTa(e);
                     }
                 }
@@ -95,8 +95,53 @@ void execLambdaWithIterator_omp(const Neon::int64_3d&                           
         }
     }
 }
+}  // namespace denseSpan
+
+namespace blockSpan {
+
+#ifdef NEON_COMPILER_CUDA
+template <typename DataSetContainer,
+          typename UserLambda>
+NEON_CUDA_KERNEL auto launchLambdaOnSpanCUDA(typename DataSetContainer::Span span,
+                                             UserLambda                      userLambdaTa)
+    -> void
+{
+    typename DataSetContainer::Idx e;
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1b3) {
+        if (span.setAndValidateGPUDevice(e)) {
+            userLambdaTa(e);
+        }
+    }
+}
+#endif
 
 
-}  // namespace internal
-}  // namespace set
-}  // namespace Neon
+template <typename IndexType, typename DataSetContainer, typename UserLambda_ta>
+void launchLambdaOnSpanOMP(const Neon::Integer_3d<IndexType>& blockSize,
+                           const Neon::Integer_3d<IndexType>& blockGridSize,
+                           typename DataSetContainer::Span    span,
+                           UserLambda_ta                      userLambdaTa)
+{
+
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1b3) {
+        // #pragma omp parallel for schedule(guided)
+        for (IndexType bIdx = 0; bIdx < blockGridSize.x; bIdx++) {
+            for (IndexType z = 0; z < blockSize.z; z++) {
+                for (IndexType y = 0; y < blockSize.y; y++) {
+#ifndef NEON_OS_WINDOWS
+// #pragma omp simd
+#endif
+                    for (IndexType x = 0; x < blockSize.x; x++) {
+                        typename DataSetContainer::Idx e;
+                        if (span.setAndValidateCPUDevice(e, bIdx, x, y, z)) {
+                            userLambdaTa(e);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+}  // namespace blockSpan
+
+}  // namespace Neon::set::details

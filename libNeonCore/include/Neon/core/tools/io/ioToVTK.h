@@ -241,7 +241,10 @@ void writeData(std::ofstream&                                                   
         out << "double ";
     } else if constexpr (std::is_same<real_tt, float>::value) {
         out << "float ";
-    } else if constexpr (std::is_same<real_tt, int>::value || std::is_same<real_tt, uint32_t>::value) {
+    } else if constexpr (std::is_same<real_tt, int>::value ||
+                         std::is_same<real_tt, uint32_t>::value ||
+                         std::is_same<real_tt, uint64_t>::value ||
+                         std::is_same<real_tt, int64_t>::value) {
         out << "int ";
     } else if constexpr (std::is_same<real_tt, char>::value) {
         out << "short ";

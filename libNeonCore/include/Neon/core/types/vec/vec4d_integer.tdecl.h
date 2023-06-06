@@ -211,11 +211,11 @@ class Vec_4d<IntegerType_ta, true, false>
     template <typename OtherIndexType_ta>
     NEON_CUDA_HOST_DEVICE inline size_t mPitch(const Integer_4d<OtherIndexType_ta>& dimGrid /**< dimension of the volume */) const;
 
-    template <Neon::memLayout_et::order_e order_ta, typename OtherIndexType_ta>
+    template <Neon::MemoryLayout order_ta, typename OtherIndexType_ta>
     NEON_CUDA_HOST_DEVICE inline size_t mCardDenseJump(const Integer_4d<OtherIndexType_ta>& dimGrid) const;
 
     template <typename OtherIndexType_ta>
-    NEON_CUDA_HOST_DEVICE inline size_t mCardDenseJump(Neon::memLayout_et::order_e orderE, const Integer_4d<OtherIndexType_ta>& dimGrid) const;
+    NEON_CUDA_HOST_DEVICE inline size_t mCardDenseJump(Neon::MemoryLayout orderE, const Integer_4d<OtherIndexType_ta>& dimGrid) const;
 
     /**
      * Returns the size required to allocate a buffer for a grid that has the dimension defined by this object.
