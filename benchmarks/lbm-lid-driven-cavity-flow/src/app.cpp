@@ -13,8 +13,8 @@ int main(int argc, char** argv)
     Neon::init();
 
     config.Re = 100.;         // Reynolds number
-    config.ulb = 0.02;        // Velocity in lattice units
-    config.N = 60;            // Number of nodes in x-direction
+    config.ulb = 0.04;        // Velocity in lattice units
+    config.N = 160;           // Number of nodes in x-direction
     config.benchmark = true;  // Run in benchmark mode ?
     config.max_t = 10.0;      // Non-benchmark mode: Total time in dim.less units
                               //    config.out_freq = 20000000;     // Non-benchmark mode: Frequency in LU for output of terminal message and profiles (use 0 for no messages)
