@@ -82,6 +82,9 @@ void runAllTestConfiguration(
                                 if (dim.z < 8 * ngpu * 3) {
                                     dim.z = ngpu * 3 * 8;
                                 }
+                                if(memoryLayout == Neon::MemoryLayout::arrayOfStructs){
+                                    continue ;
+                                }
                             }
 
                             assert(card == 1);

@@ -28,6 +28,9 @@ bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBl
     mData = std::make_shared<Data>(grid.getBackend());
     mData->grid = std::make_shared<Grid>(grid);
 
+    if(memoryOptions.getOrder() == Neon::MemoryLayout::arrayOfStructs){
+        NEON_THROW_UNSUPPORTED_OPERATION("bField does not support MemoryLayout::arrayOfStructs");
+    }
     // the allocation size is the number of blocks x block size x cardinality
     mData->memoryField = mData->grid->helpGetBlockViewGrid().template newField<T, 0>(
         "BitMask",
