@@ -2,42 +2,38 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 template <typename ActiveCellLambda>
-bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bGrid(const Neon::Backend&         backend,
-                                                                                                          const Neon::int32_3d&        domainSize,
-                                                                                                          const ActiveCellLambda       activeCellLambda,
-                                                                                                          const Neon::domain::Stencil& stencil,
-                                                                                                          const double_3d&             spacingData,
-                                                                                                          const double_3d&             origin)
+bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
+                     const Neon::int32_3d&        domainSize,
+                     const ActiveCellLambda       activeCellLambda,
+                     const Neon::domain::Stencil& stencil,
+                     const double_3d&             spacingData,
+                     const double_3d&             origin)
     : bGrid(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin)
 {
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 template <typename ActiveCellLambda>
-bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::bGrid(const Neon::Backend&         backend,
-                                                                                                          const Neon::int32_3d&        domainSize,
-                                                                                                          const ActiveCellLambda       activeCellLambda,
-                                                                                                          const Neon::domain::Stencil& stencil,
-                                                                                                          const int                    voxelSpacing,
-                                                                                                          const double_3d&             spacingData,
-                                                                                                          const double_3d&             origin)
+bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
+                     const Neon::int32_3d&        domainSize,
+                     const ActiveCellLambda       activeCellLambda,
+                     const Neon::domain::Stencil& stencil,
+                     const int                    voxelSpacing,
+                     const double_3d&             spacingData,
+                     const double_3d&             origin)
 {
-    static_assert(memBlockSizeX >= userBlockSizeX);
-    static_assert(memBlockSizeY >= userBlockSizeY);
-    static_assert(memBlockSizeZ >= userBlockSizeZ);
 
-    static_assert(memBlockSizeX % userBlockSizeX == 0);
-    static_assert(memBlockSizeY % userBlockSizeY == 0);
-    static_assert(memBlockSizeZ % userBlockSizeZ == 0);
 
     mData = std::make_shared<Data>();
     mData->init(backend);
 
     mData->voxelSpacing = voxelSpacing;
     mData->stencil = stencil;
-    const index_3d defaultKernelBlockSize(memBlockSizeX, memBlockSizeY, memBlockSizeZ);
+    const index_3d defaultKernelBlockSize(SBlock::memBlockSizeX,
+                                          SBlock::memBlockSizeY,
+                                          SBlock::memBlockSizeZ);
 
     {
         auto nElementsPerPartition = backend.devSet().template newDataSet<size_t>(0);
@@ -59,7 +55,7 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
             backend,
             activeCellLambda,
             [](Neon::index_3d /*idx*/) { return false; },
-            dataBlockSize3D,
+            SBlock::memBlockSize3D.template newType<int32_t>(),
             domainSize,
             Neon::domain::Stencil::s27_t(false),
             1);
@@ -76,7 +72,7 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
             mData->partitioner1D.getBlockSpan(),
             mData->partitioner1D,
             Neon::domain::Stencil::s27_t(false),
-            spacingData * dataBlockSize3D,
+            spacingData * SBlock::memBlockSize3D,
             origin);
 
         mData->blockViewGrid = BlockViewGrid(egrid);
@@ -106,9 +102,9 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
                             bitMask(bitMaskIdx, c) = 0;
                         }
 
-                        for (int k = 0; k < dataBlockSize3D.z; k++) {
-                            for (int j = 0; j < dataBlockSize3D.y; j++) {
-                                for (int i = 0; i < dataBlockSize3D.x; i++) {
+                        for (int k = 0; k < SBlock::memBlockSize3D.template newType<int32_t>().z; k++) {
+                            for (int j = 0; j < SBlock::memBlockSize3D.template newType<int32_t>().y; j++) {
+                                for (int i = 0; i < SBlock::memBlockSize3D.template newType<int32_t>().x; i++) {
 
                                     Neon::int32_3d                 localPosition(i, j, k);
                                     typename Span::BitMaskWordType mask;
@@ -166,7 +162,7 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
                                                                                                                          k - int8_t(1));
                                                                   bool                                      isValid = blockConnectivity.getNghIndex(idx, stencilPoint, nghIdx);
                                                                   if (isValid) {
-                                                                      blockNghIdx = static_cast < BlockIdx>(nghIdx.helpGet());
+                                                                      blockNghIdx = static_cast<BlockIdx>(nghIdx.helpGet());
                                                                   }
                                                                   blockConnectivity(idx, targetDirection) = blockNghIdx;
                                                               }
@@ -220,7 +216,7 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
         for (int i = 0; i < stencil.nNeighbours(); ++i) {
             for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
                 index_3d      pLong = stencil.neighbours()[i];
-                Neon::int8_3d pShort=pLong.newType<int8_t>();
+                Neon::int8_3d pShort = pLong.newType<int8_t>();
                 mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
             }
         }
@@ -232,7 +228,7 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
                           domainSize,
                           Neon::domain::Stencil(),
                           mData->mNumActiveVoxel,
-                          dataBlockSize3D,
+                          SBlock::memBlockSize3D.template newType<int32_t>(),
                           spacingData,
                           origin);
     {  // setting launchParameters
@@ -244,47 +240,47 @@ bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSize
                 auto eDomainGridSize = launchSingleDev.domainGrid();
                 assert(eDomainGridSize.y == 1);
                 assert(eDomainGridSize.z == 1);
-                int nBlocks = static_cast<int>( eDomainGridSize.x);
+                int nBlocks = static_cast<int>(eDomainGridSize.x);
                 bLaunchParameters.get(setIdx).set(Neon::sys::GpuLaunchInfo::mode_e::cudaGridMode,
-                                                  nBlocks, dataBlockSize3D, 0);
+                                                  nBlocks, SBlock::memBlockSize3D.template newType<int32_t>(), 0);
             });
         });
     }
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 template <typename T, int C>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newField(const std::string   name,
-                                                                                                                  int                 cardinality,
-                                                                                                                  T                   inactiveValue,
-                                                                                                                  Neon::DataUse       dataUse,
-                                                                                                                  Neon::MemoryOptions memoryOptions) const -> Field<T, C>
+auto bGrid<SBlock>::newField(const std::string   name,
+                             int                 cardinality,
+                             T                   inactiveValue,
+                             Neon::DataUse       dataUse,
+                             Neon::MemoryOptions memoryOptions) const -> Field<T, C>
 {
     memoryOptions = this->getDevSet().sanitizeMemoryOption(memoryOptions);
     Field<T, C> field(name, dataUse, memoryOptions, *this, cardinality, inactiveValue);
     return field;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 template <typename T, int C>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newBlockViewField(const std::string   name,
-                                                                                                                           int                 cardinality,
-                                                                                                                           T                   inactiveValue,
-                                                                                                                           Neon::DataUse       dataUse,
-                                                                                                                           Neon::MemoryOptions memoryOptions) const -> BlockViewGrid::Field<T, C>
+auto bGrid<SBlock>::newBlockViewField(const std::string   name,
+                                      int                 cardinality,
+                                      T                   inactiveValue,
+                                      Neon::DataUse       dataUse,
+                                      Neon::MemoryOptions memoryOptions) const -> BlockViewGrid::Field<T, C>
 {
     memoryOptions = this->getDevSet().sanitizeMemoryOption(memoryOptions);
     BlockViewGrid::Field<T, C> blockViewField = mData->blockViewGrid.template newField<T, C>(name, cardinality, inactiveValue, dataUse, memoryOptions);
     return blockViewField;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newContainer(const std::string& name,
-                                                                                                                      index_3d           blockSize,
-                                                                                                                      size_t             sharedMem,
-                                                                                                                      LoadingLambda      lambda) const -> Neon::set::Container
+auto bGrid<SBlock>::newContainer(const std::string& name,
+                                 index_3d           blockSize,
+                                 size_t             sharedMem,
+                                 LoadingLambda      lambda) const -> Neon::set::Container
 {
     Neon::set::Container kContainer = Neon::set::Container::factory<execution>(name,
                                                                                Neon::set::internal::ContainerAPI::DataViewSupport::on,
@@ -295,11 +291,11 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
     return kContainer;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::newContainer(const std::string& name,
-                                                                                                                      LoadingLambda      lambda) const -> Neon::set::Container
+auto bGrid<SBlock>::newContainer(const std::string& name,
+                                 LoadingLambda      lambda) const -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory<execution>(name,
@@ -311,50 +307,50 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
     return kContainer;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename SBlock>
+auto bGrid<SBlock>::
     getBlockViewGrid()
         const -> BlockViewGrid&
 {
     return mData->blockViewGrid;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename SBlock>
+auto bGrid<SBlock>::
     getActiveBitMask()
         const -> BlockViewGrid::Field<uint64_t, 0>&
 {
     return mData->activeBitMask;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename SBlock>
+auto bGrid<SBlock>::
     helpGetBlockConnectivity()
         const -> BlockViewGrid::Field<BlockIdx, 27>&
 {
     return mData->blockConnectivity;
 }
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename SBlock>
+auto bGrid<SBlock>::
     helpGetDataBlockOriginField()
         const -> Neon::aGrid::Field<index_3d, 0>&
 {
     return mData->mDataBlockOriginField;
 }
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getSpan(Neon::Execution execution,
-                                                                                                                 SetIdx          setIdx,
-                                                                                                                 Neon::DataView  dataView) -> const bGrid::Span&
+template <typename SBlock>
+auto bGrid<SBlock>::getSpan(Neon::Execution execution,
+                            SetIdx          setIdx,
+                            Neon::DataView  dataView) -> const bGrid::Span&
 {
     return mData->spanTable.getSpan(execution, setIdx, dataView);
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::~bGrid()
+template <typename SBlock>
+bGrid<SBlock>::~bGrid()
 {
 }
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getSetIdx(const index_3d& idx) const -> int32_t
+template <typename SBlock>
+auto bGrid<SBlock>::getSetIdx(const index_3d& idx) const -> int32_t
 {
     typename GridBaseTemplate::CellProperties cellProperties;
 
@@ -365,10 +361,10 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
     Neon::SetIdx setIdx = cellProperties.getSetIdx();
     return setIdx;
 }
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getLaunchParameters(Neon::DataView dataView,
-                                                                                                                             const index_3d&,
-                                                                                                                             const size_t& sharedMem) const -> Neon::set::LaunchParameters
+template <typename SBlock>
+auto bGrid<SBlock>::getLaunchParameters(Neon::DataView dataView,
+                                        const index_3d&,
+                                        const size_t& sharedMem) const -> Neon::set::LaunchParameters
 {
     auto res = mData->launchParametersTable.get(dataView);
     res.forEachSeq([&](SetIdx const& /*setIdx*/,
@@ -378,19 +374,19 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
     return res;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename SBlock>
+auto bGrid<SBlock>::
     helpGetStencilIdTo3dOffset()
         const -> Neon::set::MemSet<Neon::int8_3d>&
 {
     return mData->stencilIdTo3dOffset;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::isInsideDomain(const index_3d& idx) const -> bool
+template <typename SBlock>
+auto bGrid<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
 {
     // 1. check if the block is active
-    const index_3d blockIdx3d = idx / dataBlockSize3D;
+    const index_3d blockIdx3d = idx / SBlock::memBlockSize3D.template newType<int32_t>();
     auto           blockProperties = mData->blockViewGrid.getProperties(blockIdx3d);
 
     if (!blockProperties.isInside()) {
@@ -399,17 +395,17 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
     // 2. The block is active, check the element on the block
     uint32_t                       wordCardinality;
     typename Span::BitMaskWordType mask;
-    Span::getMaskAndWordIdforBlockBitMask(idx.x % dataBlockSize3D.x,
-                                          idx.y % dataBlockSize3D.y,
-                                          idx.z % dataBlockSize3D.z,
+    Span::getMaskAndWordIdforBlockBitMask(idx.x % SBlock::memBlockSize3D.x,
+                                          idx.y % SBlock::memBlockSize3D.y,
+                                          idx.z % SBlock::memBlockSize3D.z,
                                           NEON_OUT mask,
                                           NEON_OUT wordCardinality);
     auto activeBits = mData->activeBitMask.getReference(blockIdx3d, int(wordCardinality));
     return (activeBits & mask) != 0;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getProperties(const index_3d& idx)
+template <typename SBlock>
+auto bGrid<SBlock>::getProperties(const index_3d& idx)
     const -> typename GridBaseTemplate::CellProperties
 {
     typename GridBaseTemplate::CellProperties cellProperties;
@@ -422,7 +418,7 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
     if (this->getDevSet().setCardinality() == 1) {
         cellProperties.init(0, DataView::INTERNAL);
     } else {
-        const index_3d blockIdx3d = idx / dataBlockSize3D;
+        const index_3d blockIdx3d = idx / SBlock::memBlockSize3D.template newType<int32_t>();
         auto           blockViewProperty = mData->blockViewGrid.getProperties(blockIdx3d);
 
         cellProperties.init(blockViewProperty.getSetIdx(),
@@ -431,17 +427,17 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
     return cellProperties;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
+template <typename SBlock>
+auto bGrid<SBlock>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
     const -> std::tuple<Neon::SetIdx, Idx>
 {
-    const index_3d blockIdx3d = idx / dataBlockSize3D;
+    const index_3d blockIdx3d = idx / SBlock::memBlockSize3D.template newType<int32_t>();
     auto [setIdx, bvGridIdx] = mData->blockViewGrid.helpGetSetIdxAndGridIdx(blockIdx3d);
     Idx bIdx;
     bIdx.mDataBlockIdx = bvGridIdx.helpGet();
-    bIdx.mInDataBlockIdx.x = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.x % dataBlockSize3D.x);
-    bIdx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.y % dataBlockSize3D.y);
-    bIdx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.z % dataBlockSize3D.z);
+    bIdx.mInDataBlockIdx.x = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.x % SBlock::memBlockSize3D.x);
+    bIdx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.y % SBlock::memBlockSize3D.y);
+    bIdx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.z % SBlock::memBlockSize3D.z);
 
     return {setIdx, bIdx};
 }

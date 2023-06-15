@@ -4,7 +4,7 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 class bSpan
 {
    public:
@@ -15,8 +15,8 @@ class bSpan
     static constexpr Neon::MemoryLayout activeMaskMemoryLayout = Neon::MemoryLayout::arrayOfStructs;
     static constexpr uint32_t           log2OfbitMaskWordSize = 6;
 
-    using Idx = bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
-    friend class bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Idx = bIndex<SBlock>;
+    friend class bGrid<SBlock>;
 
     static constexpr int SpaceDim = 3;
 

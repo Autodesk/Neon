@@ -6,11 +6,11 @@
 namespace Neon::domain::details::bGrid {
 
 // Common forward declarations
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 class bGrid;
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 class bSpan;
-template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename T, int C, typename SBlock>
 class bPartition;
 
 class MicroIndex
@@ -59,26 +59,24 @@ class MicroIndex
     TrayIdx   mTrayBlockIdx{};
 };
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 class bIndex
 {
    public:
-    template <uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>
+    template <typename SBlock_>
     friend class bSpan;
-    using OuterIdx = bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
-
-    static constexpr Neon::uint32_3d memBlock3DSize = Neon::uint32_3d(memBlockSizeX, memBlockSizeY, memBlockSizeZ);
+    using OuterIdx = bIndex<SBlock>;
 
     using NghIdx = int8_3d;
-    template <typename T, int C, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>
+    template <typename T, int C, typename SBlock_>
     friend class bPartition;
 
-    template <typename T, int C, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>
+    template <typename T, int C, typename SBlock_>
     friend class bField;
 
-    template <uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>
+    template <typename SBlock_>
     friend class bSpan;
-    template <uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>
+    template <typename SBlock_>
     friend class bGrid;
 
 
@@ -109,25 +107,25 @@ class bIndex
     DataBlockIdx   mDataBlockIdx{};
 };
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::setDataBlockIdx(const bIndex::DataBlockIdx& dataBlockIdx) -> void
+template <typename SBlock>
+NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::setDataBlockIdx(const bIndex::DataBlockIdx& dataBlockIdx) -> void
 {
     mDataBlockIdx = dataBlockIdx;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::setInDataBlockIdx(const bIndex::InDataBlockIdx& inDataBlockIdx) -> void
+template <typename SBlock>
+NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::setInDataBlockIdx(const bIndex::InDataBlockIdx& inDataBlockIdx) -> void
 {
     mInDataBlockIdx = inDataBlockIdx;
 }
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getDataBlockIdx() const -> const bIndex::DataBlockIdx&
+template <typename SBlock>
+NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::getDataBlockIdx() const -> const bIndex::DataBlockIdx&
 {
     return mDataBlockIdx;
 }
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getInDataBlockIdx() const -> const bIndex::InDataBlockIdx&
+template <typename SBlock>
+NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::getInDataBlockIdx() const -> const bIndex::InDataBlockIdx&
 {
     return mInDataBlockIdx;
 }

@@ -16,6 +16,7 @@
 #include "Neon/domain/tools/SpanTable.h"
 #include "Neon/set/Containter.h"
 #include "Neon/set/LaunchParametersTable.h"
+#include "Neon/domain/details/bGrid/StaticBlock.h"
 
 
 #include "bField.h"
@@ -24,31 +25,31 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+
+template <typename T, int C, typename SBlock>
 class bField;
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX = memBlockSizeX, uint32_t userBlockSizeY = memBlockSizeY, uint32_t userBlockSizeZ = memBlockSizeZ>
-class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>,
-                                                               bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ> >
+template <typename SBlock>
+class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
+                                                               bIndex<SBlock> >
 {
    public:
-    using Grid = bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Grid = bGrid<SBlock>;
 
-    template <typename T, int C = 0, int8_t dmemBlockSizeX = memBlockSizeX, int8_t dmemBlockSizeY = memBlockSizeY, int8_t dmemBlockSizeZ = memBlockSizeZ, int8_t uuserBlockSizeX = userBlockSizeX, int8_t uuserBlockSizeY = userBlockSizeY, int8_t uuserBlockSizeZ = userBlockSizeZ>
-    using Partition = bPartition<T, C, dmemBlockSizeX, dmemBlockSizeY, dmemBlockSizeZ, uuserBlockSizeX, uuserBlockSizeY, uuserBlockSizeZ>;
+    template <typename T, int C = 0>
+    using Partition = bPartition<T, C, SBlock>;
 
-    template <typename T, int C = 0, int8_t dmemBlockSizeX = memBlockSizeX, int8_t dmemBlockSizeY = memBlockSizeY, int8_t dmemBlockSizeZ = memBlockSizeZ, int8_t uuserBlockSizeX = userBlockSizeX, int8_t uuserBlockSizeY = userBlockSizeY, int8_t uuserBlockSizeZ = userBlockSizeZ>
-    using Field = Neon::domain::details::bGrid::bField<T, C, dmemBlockSizeX, dmemBlockSizeY, dmemBlockSizeZ, uuserBlockSizeX, uuserBlockSizeY, uuserBlockSizeZ>;
+    template <typename T, int C = 0>
+    using Field = Neon::domain::details::bGrid::bField<T, C, SBlock>;
 
-    using Span = bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Span = bSpan<SBlock>;
     using NghIdx = typename Partition<int>::NghIdx;
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ> >;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bIndex<SBlock> >;
 
-    using Idx = bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Idx = bIndex<SBlock>;
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1b3;
     using ExecutionThreadSpanIndexType = uint32_t;
 
-    static constexpr Neon::index_3d dataBlockSize3D = Neon::index_3d(memBlockSizeX, memBlockSizeY, memBlockSizeZ);
     using BlockIdx = uint32_t;
 
     bGrid() = default;
@@ -227,7 +228,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<memBlockSiz
     };
     std::shared_ptr<Data> mData;
 };
-extern template class bGrid<8, 8, 8>;
+extern template class bGrid<StaticBlock<8,8,8>>;
 }  // namespace Neon::domain::details::bGrid
 
 #include "bField_imp.h"

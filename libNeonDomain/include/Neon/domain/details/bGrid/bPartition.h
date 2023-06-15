@@ -9,15 +9,15 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename SBlock>
 class bSpan;
 
-template <typename T, int C, uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
+template <typename T, int C, typename SBlock>
 class bPartition
 {
    public:
-    using Span = bSpan<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
-    using Idx = bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>;
+    using Span = bSpan<SBlock>;
+    using Idx = bIndex<SBlock>;
     using NghIdx = typename Idx::NghIdx;
     using Type = T;
     using NghData = Neon::domain::NghData<T>;
