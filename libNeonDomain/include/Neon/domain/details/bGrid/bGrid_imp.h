@@ -75,66 +75,60 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
             spacingData * SBlock::memBlockSize3D,
             origin);
 
-        mData->blockViewGrid = BlockViewGrid(egrid);
+        mData->blockViewGrid = BlockView::Grid(egrid);
     }
 
     {  // Active bitmask
-        int requiredWords = Span::getRequiredWordsForBlockBitMask();
-        mData->activeBitMask = mData->blockViewGrid.template newField<typename Span::BitMaskWordType>("BitMask",
-                                                                                                      requiredWords,
-                                                                                                      0,
-                                                                                                      Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(Span::activeMaskMemoryLayout));
+        mData->activeBitField = mData->blockViewGrid.template newField<typename SBlock::BitMask, 1>(
+            "BlockViewBitMask",
+            1,
+            [] {
+                typename SBlock::BitMask outsideBitMask;
+                outsideBitMask.reset();
+                return outsideBitMask;
+            }(),
+            Neon::DataUse::HOST_DEVICE, backend.getMemoryOptions(BlockView::layout));
 
         mData->mNumActiveVoxel = backend.devSet().template newDataSet<uint64_t>();
 
-        mData->activeBitMask
+        mData->activeBitField
             .getGrid()
             .template newContainer<Neon::Execution::host>(
                 "activeBitMaskInit",
                 [&](Neon::set::Loader& loader) {
-                    auto bitMask = loader.load(mData->activeBitMask);
-                    return [&, bitMask](const auto& bitMaskIdx) mutable {
-                        auto       prtIdx = bitMask.prtID();
-                        int        coutActive = 0;
-                        auto const blockOrigin = bitMask.getGlobalIndex(bitMaskIdx);
-
-                        for (int c = 0; c < bitMask.cardinality(); c++) {
-                            bitMask(bitMaskIdx, c) = 0;
-                        }
+                    auto bitMaskPartition = loader.load(mData->activeBitField);
+                    return [&, bitMaskPartition](const auto& bitMaskIdx) mutable {
+                        auto                      prtIdx = bitMaskPartition.prtID();
+                        int                       countActive = 0;
+                        auto const                blockOrigin = bitMaskPartition.getGlobalIndex(bitMaskIdx);
+                        typename SBlock::BitMask& bitMask = bitMaskPartition(bitMaskIdx, 0);
+                        bitMask.reset();
 
                         for (int k = 0; k < SBlock::memBlockSize3D.template newType<int32_t>().z; k++) {
                             for (int j = 0; j < SBlock::memBlockSize3D.template newType<int32_t>().y; j++) {
                                 for (int i = 0; i < SBlock::memBlockSize3D.template newType<int32_t>().x; i++) {
-
-                                    Neon::int32_3d                 localPosition(i, j, k);
-                                    typename Span::BitMaskWordType mask;
-                                    uint32_t                       wordIdx;
-
-                                    Span::getMaskAndWordIdforBlockBitMask(i, j, k, NEON_OUT mask, NEON_OUT wordIdx);
-                                    auto globalPosition = localPosition + blockOrigin;
-                                    bool isInDomain = globalPosition < domainSize;
-                                    bool isActive = activeCellLambda(globalPosition);
+                                    auto globalPosition = blockOrigin + Neon::int32_3d(i, j, k);
+                                    bool const isInDomain = globalPosition < domainSize;
+                                    bool const isActive = activeCellLambda(globalPosition);
                                     if (isActive && isInDomain) {
-                                        coutActive++;
-                                        auto value = bitMask(bitMaskIdx, wordIdx);
-                                        value = value | mask;
-                                        bitMask(bitMaskIdx, wordIdx) = value;
+                                        countActive++;
+                                        bitMask.setActive(i, j, k);
                                     }
                                 }
                             }
                         }
 #pragma omp critical
                         {
-                            mData->mNumActiveVoxel[prtIdx] += coutActive;
+                            mData->mNumActiveVoxel[prtIdx] += countActive;
                         }
                     };
                 })
             .run(Neon::Backend::mainStreamIdx);
 
-        mData->activeBitMask.updateDeviceData(Neon::Backend::mainStreamIdx);
-        mData->activeBitMask.newHaloUpdate(Neon::set::StencilSemantic::standard,
-                                           Neon::set::TransferMode::put,
-                                           Neon::Execution::device)
+        mData->activeBitField.updateDeviceData(Neon::Backend::mainStreamIdx);
+        mData->activeBitField.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                                            Neon::set::TransferMode::put,
+                                            Neon::Execution::device)
             .run(Neon::Backend::mainStreamIdx);
     }
 
@@ -184,20 +178,20 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
             case Neon::DataView::STANDARD: {
                 span.mFirstDataBlockOffset = 0;
                 span.mDataView = dw;
-                span.mActiveMask = mData->activeBitMask.getPartition(execution, setIdx, dw).mem();
+                span.mActiveMask = mData->activeBitField.getPartition(execution, setIdx, dw).mem();
                 break;
             }
             case Neon::DataView::BOUNDARY: {
                 span.mFirstDataBlockOffset = mData->partitioner1D.getSpanClassifier().countInternal(setIdx);
                 span.mDataView = dw;
-                span.mActiveMask = mData->activeBitMask.getPartition(execution, setIdx, dw).mem();
+                span.mActiveMask = mData->activeBitField.getPartition(execution, setIdx, dw).mem();
 
                 break;
             }
             case Neon::DataView::INTERNAL: {
                 span.mFirstDataBlockOffset = 0;
                 span.mDataView = dw;
-                span.mActiveMask = mData->activeBitMask.getPartition(execution, setIdx, dw).mem();
+                span.mActiveMask = mData->activeBitField.getPartition(execution, setIdx, dw).mem();
                 break;
             }
             default: {
@@ -267,10 +261,10 @@ auto bGrid<SBlock>::newBlockViewField(const std::string   name,
                                       int                 cardinality,
                                       T                   inactiveValue,
                                       Neon::DataUse       dataUse,
-                                      Neon::MemoryOptions memoryOptions) const -> BlockViewGrid::Field<T, C>
+                                      Neon::MemoryOptions memoryOptions) const -> BlockView::Field<T, C>
 {
     memoryOptions = this->getDevSet().sanitizeMemoryOption(memoryOptions);
-    BlockViewGrid::Field<T, C> blockViewField = mData->blockViewGrid.template newField<T, C>(name, cardinality, inactiveValue, dataUse, memoryOptions);
+    BlockView::Field<T, C> blockViewField = mData->blockViewGrid.template newField<T, C>(name, cardinality, inactiveValue, dataUse, memoryOptions);
     return blockViewField;
 }
 
@@ -310,7 +304,7 @@ auto bGrid<SBlock>::newContainer(const std::string& name,
 template <typename SBlock>
 auto bGrid<SBlock>::
     getBlockViewGrid()
-        const -> BlockViewGrid&
+        const -> BlockView::Grid&
 {
     return mData->blockViewGrid;
 }
@@ -318,15 +312,15 @@ auto bGrid<SBlock>::
 template <typename SBlock>
 auto bGrid<SBlock>::
     getActiveBitMask()
-        const -> BlockViewGrid::Field<uint64_t, 0>&
+        const -> BlockView::Field<typename SBlock::BitMask, 1>&
 {
-    return mData->activeBitMask;
+    return mData->activeBitField;
 }
 
 template <typename SBlock>
 auto bGrid<SBlock>::
     helpGetBlockConnectivity()
-        const -> BlockViewGrid::Field<BlockIdx, 27>&
+        const -> BlockView::Field<BlockIdx, 27>&
 {
     return mData->blockConnectivity;
 }
@@ -386,22 +380,18 @@ template <typename SBlock>
 auto bGrid<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
 {
     // 1. check if the block is active
-    const index_3d blockIdx3d = idx / SBlock::memBlockSize3D.template newType<int32_t>();
-    auto           blockProperties = mData->blockViewGrid.getProperties(blockIdx3d);
+    const BlockView::index_3d blockIdx3d = idx / SBlock::memBlockSize3D.template newType<int32_t>();
+    auto                      blockProperties = mData->blockViewGrid.getProperties(blockIdx3d);
 
     if (!blockProperties.isInside()) {
         return false;
     }
-    // 2. The block is active, check the element on the block
-    uint32_t                       wordCardinality;
-    typename Span::BitMaskWordType mask;
-    Span::getMaskAndWordIdforBlockBitMask(idx.x % SBlock::memBlockSize3D.x,
-                                          idx.y % SBlock::memBlockSize3D.y,
-                                          idx.z % SBlock::memBlockSize3D.z,
-                                          NEON_OUT mask,
-                                          NEON_OUT wordCardinality);
-    auto activeBits = mData->activeBitMask.getReference(blockIdx3d, int(wordCardinality));
-    return (activeBits & mask) != 0;
+    // 2. The block is active, check the element in the block
+    typename SBlock::BitMask const& bitMask = mData->activeBitField.getReference(blockIdx3d, 0);
+    bool                            isActive = bitMask.isActive(idx.x % SBlock::memBlockSize3D.x,
+                                                                idx.y % SBlock::memBlockSize3D.y,
+                                                                idx.z % SBlock::memBlockSize3D.z);
+    return isActive;
 }
 
 template <typename SBlock>

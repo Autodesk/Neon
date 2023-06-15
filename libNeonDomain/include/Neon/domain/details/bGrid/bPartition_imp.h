@@ -19,13 +19,13 @@ bPartition<T, C, SBlock>::bPartition()
 
 template <typename T, int C, typename SBlock>
 bPartition<T, C, SBlock>::
-    bPartition(int                             setIdx,
-               int                             cardinality,
-               T*                              mem,
-               typename Idx::DataBlockIdx*     blockConnectivity,
-               typename Span::BitMaskWordType* mask,
-               Neon::int32_3d*                 origin,
-               NghIdx*                         stencilNghIndex)
+    bPartition(int                                           setIdx,
+               int                                           cardinality,
+               T*                                            mem,
+               typename Idx::DataBlockIdx*                   blockConnectivity,
+               typename SBlock::BitMask const* NEON_RESTRICT mask,
+               Neon::int32_3d*                               origin,
+               NghIdx*                                       stencilNghIndex)
     : mCardinality(cardinality),
       mMem(mem),
       mStencilNghIndex(stencilNghIndex),
@@ -115,10 +115,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
         return {false, 0};
     }
 
-    bool isActive = Span::getActiveStatus(nghIdx.mDataBlockIdx,
-                                          nghIdx.mInDataBlockIdx.x, nghIdx.mInDataBlockIdx.y, nghIdx.mInDataBlockIdx.z,
-                                          mMask);
-
+    const bool isActive = mMask[nghIdx.mDataBlockIdx].isActive(nghIdx.mInDataBlockIdx.x, nghIdx.mInDataBlockIdx.y, nghIdx.mInDataBlockIdx.z);
     if (!isActive) {
         return {false, 0};
     }

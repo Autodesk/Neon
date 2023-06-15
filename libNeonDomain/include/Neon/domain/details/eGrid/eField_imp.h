@@ -35,7 +35,7 @@ eField<T, C>::eField(const std::string&         fieldUserName,
 
     mData->memoryField = mData->grid->getMemoryGrid().template newField<T, C>(fieldUserName + "-storage",
                                                                               cardinality,
-                                                                              T(0),
+                                                                              inactiveValue,
                                                                               dataUse);
 
 

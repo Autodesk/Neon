@@ -1,10 +1,8 @@
 #pragma once
 #include "Neon/core/core.h"
 
-#include "Neon/set/memory/memSet.h"
-
-#include "BlockViewGrid/BlockViewGrid.h"
 #include "Neon/domain/aGrid.h"
+#include "Neon/domain/details/bGrid/BlockView.h"
 #include "Neon/domain/details/bGrid/StaticBlock.h"
 #include "Neon/domain/details/bGrid/bField.h"
 #include "Neon/domain/details/bGrid/bIndex.h"
@@ -17,6 +15,7 @@
 #include "Neon/domain/tools/SpanTable.h"
 #include "Neon/set/Containter.h"
 #include "Neon/set/LaunchParametersTable.h"
+#include "Neon/set/memory/memSet.h"
 
 #include "bField.h"
 #include "bPartition.h"
@@ -34,16 +33,10 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
 {
    public:
     using Grid = bGrid<SBlock>;
-
     template <typename T, int C = 0>
     using Partition = bPartition<T, C, SBlock>;
-
     template <typename T, int C = 0>
     using Field = Neon::domain::details::bGrid::bField<T, C, SBlock>;
-
-    using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
-    template <typename T, int C = 0>
-    using BlockViewField = BlockViewGrid::template Field<T, C>;
 
     using Span = bSpan<SBlock>;
     using NghIdx = typename Partition<int>::NghIdx;
@@ -127,7 +120,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
                            T                   inactiveValue,
                            Neon::DataUse       dataUse = Neon::DataUse::HOST_DEVICE,
                            Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
-        -> BlockViewField<T, C>;
+        -> BlockView::Field<T, C>;
 
     /**
      * Allocates a new container to execute some computation in the grid
@@ -165,30 +158,30 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
      * Retrieve the block vew grid internally used.
      * This grid can be leverage to allocate data at the block level.
      */
-    auto getBlockViewGrid() const -> BlockViewGrid&;
+    auto getBlockViewGrid() const -> BlockView::Grid&;
 
     /**
      * Retrieve the block vew grid internally used.
      * This grid can be leverage to allocate data at the block level.
      */
-    auto getActiveBitMask() const -> BlockViewField<uint64_t, 0>&;
+    auto getActiveBitMask() const -> BlockView::Field<typename SBlock::BitMask, 1>&;
 
     /**
      * Help function to retrieve the block connectivity as a BlockViewGrid field
      */
-    auto helpGetBlockConnectivity() const -> BlockViewField<BlockIdx, 27>&;
+    auto helpGetBlockConnectivity() const -> BlockView::Field<BlockIdx, 27>&;
 
     /**
      * Help function to retrieve the block origin as a BlockViewGrid field
      */
     auto helpGetDataBlockOriginField() const -> Neon::aGrid::Field<index_3d, 0>&;
 
-    /*
+    /**
      * Help function to retrieve the map that converts a stencil point id to 3d offset
      */
     auto helpGetStencilIdTo3dOffset() const -> Neon::set::MemSet<Neon::int8_3d>&;
 
-    /*
+    /**
      * Help function retriev the device and the block index associated to a point in the BlockViewGrid grid
      */
     auto helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon::SetIdx, Idx>;
@@ -212,11 +205,10 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
         Neon::aGrid::Field<index_3d, 0> mDataBlockOriginField;
         Neon::set::MemSet<int8_t>       mStencil3dTo1dOffset;
 
-        BlockViewGrid                      blockViewGrid;
-        BlockViewGrid::Field<uint64_t, 0>  activeBitMask;
-        BlockViewGrid::Field<BlockIdx, 27> blockConnectivity;
-
-        Neon::set::MemSet<Neon::int8_3d> stencilIdTo3dOffset;
+        BlockView::Grid                               blockViewGrid;
+        BlockView::Field<typename SBlock::BitMask, 1> activeBitField;
+        BlockView::Field<BlockIdx, 27>                blockConnectivity;
+        Neon::set::MemSet<Neon::int8_3d>              stencilIdTo3dOffset;
 
         tool::Partitioner1D::DenseMeta denseMeta;
 
