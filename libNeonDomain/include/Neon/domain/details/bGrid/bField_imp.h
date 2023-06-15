@@ -32,7 +32,7 @@ bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBl
         NEON_THROW_UNSUPPORTED_OPERATION("bField does not support MemoryLayout::arrayOfStructs");
     }
     // the allocation size is the number of blocks x block size x cardinality
-    mData->memoryField = mData->grid->helpGetBlockViewGrid().template newField<T, 0>(
+    mData->memoryField = mData->grid->getBlockViewGrid().template newField<T, 0>(
         "BitMask",
         [&] {
             int elPerBlock = dataBlockSize3D.rMul();
@@ -53,7 +53,7 @@ bField<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBl
                 Partition& partition) {
                 auto& memoryFieldPartition = mData->memoryField.getPartition(execution, setIdx, Neon::DataView::STANDARD);
                 auto& blockConnectivity = mData->grid->helpGetBlockConnectivity().getPartition(execution, setIdx, Neon::DataView::STANDARD);
-                auto& bitmask = mData->grid->helpGetActiveBitMask().getPartition(execution, setIdx, Neon::DataView::STANDARD);
+                auto& bitmask = mData->grid->getActiveBitMask().getPartition(execution, setIdx, Neon::DataView::STANDARD);
                 auto& dataBlockOrigins = mData->grid->helpGetDataBlockOriginField().getPartition(execution, setIdx, Neon::DataView::STANDARD);
 
                 partition = bPartition<T, C, memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>(setIdx,

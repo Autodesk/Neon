@@ -313,7 +313,7 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
 
 template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
-    helpGetBlockViewGrid()
+    getBlockViewGrid()
         const -> BlockViewGrid&
 {
     return mData->blockViewGrid;
@@ -321,7 +321,7 @@ auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBloc
 
 template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
 auto bGrid<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
-    helpGetActiveBitMask()
+    getActiveBitMask()
         const -> BlockViewGrid::Field<uint64_t, 0>&
 {
     return mData->activeBitMask;

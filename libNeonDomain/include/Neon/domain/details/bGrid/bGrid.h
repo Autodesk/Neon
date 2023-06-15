@@ -66,25 +66,46 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<memBlockSiz
           const double_3d&             origin = double_3d(0, 0, 0));
 
 
+    /**
+     * Constructor for bGrid. This constructor should be directly used only by mGrid
+     */
     template <typename ActiveCellLambda>
-    bGrid(const Neon::Backend&         backend,
-          const Neon::int32_3d&        domainSize,
-          const ActiveCellLambda       activeCellLambda,
-          const Neon::domain::Stencil& stencil,
-          const int                    voxelSpacing,
-          const double_3d&             spacingData = double_3d(1, 1, 1),
-          const double_3d&             origin = double_3d(0, 0, 0));
+    bGrid(const Neon::Backend&         backend /**< Neon backend for the computation */,
+          const Neon::int32_3d&        domainSize /**< Size of the bounded Cartesian */,
+          const ActiveCellLambda       activeCellLambda /**< Function that identify the user domain inside the boxed Cartesian discretization  */,
+          const Neon::domain::Stencil& stencil /**< union of tall the stencil that will be used in the computation */,
+          const int                    voxelSpacing /**< Parameter for the multi-resolution. Index i and index (i+1) may be remapped as i*voxelSpacing  and (i+1)* voxelSpacing.
+                                                     * For a uniform bGrid, i.e outside the context of multi-resolution this parameter is always 1*/
+          ,
+          const double_3d& spacingData = double_3d(1, 1, 1) /** Physical spacing between two consecutive data points in the Cartesian domain */,
+          const double_3d& origin = double_3d(0, 0, 0) /** Physical location in space of the origin of the Cartesian discretization */);
 
-
+    /**
+     * Returns some properties for a given cartesian in the Cartesian domain.
+     * The provide index my be inside or outside the user defined bounded Cartesian domain
+     */
     auto getProperties(const Neon::index_3d& idx)
         const -> typename GridBaseTemplate::CellProperties final;
 
+    /**
+     * Returns true if the query 3D point is inside the user domain
+     * @param idx
+     * @return
+     */
     auto isInsideDomain(const Neon::index_3d& idx)
         const -> bool final;
 
+    /**
+     * Retrieves the device index that contains the query point
+     * @param idx
+     * @return
+     */
     auto getSetIdx(const Neon::index_3d& idx)
         const -> int32_t final;
 
+    /**
+     * Allocates a new field on the grid
+     */
     template <typename T, int C = 0>
     auto newField(const std::string   name,
                   int                 cardinality,
@@ -93,6 +114,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<memBlockSiz
                   Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 
+    /**
+     * Allocates a new field on the block view grid
+     */
     template <typename T, int C = 0>
     auto newBlockViewField(const std::string   name,
                            int                 cardinality,
@@ -101,6 +125,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<memBlockSiz
                            Neon::MemoryOptions memoryOptions = Neon::MemoryOptions()) const
         -> BlockViewGrid::Field<T, C>;
 
+    /*
+     * Allocates a new container to execute some computation in the grid
+     */
     template <Neon::Execution execution = Neon::Execution::device,
               typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
@@ -108,26 +135,58 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<memBlockSiz
                       size_t             sharedMem,
                       LoadingLambda      lambda) const -> Neon::set::Container;
 
+    /*
+     * Allocates a new container to execute some computation in the grid
+     */
     template <Neon::Execution execution = Neon::Execution::device,
               typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
                       LoadingLambda      lambda) const -> Neon::set::Container;
 
-
+    /**
+     * Defines a new set of parameter to launch a Container
+     */
     auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
                              const size_t&         sharedMem) const -> Neon::set::LaunchParameters;
 
+    /**
+     * Retrieve the span associated to the grid w.r.t. some user defined parameters.
+     */
     auto getSpan(Neon::Execution execution,
                  SetIdx          setIdx,
                  Neon::DataView  dataView) -> const Span&;
 
-    auto helpGetBlockViewGrid() const -> BlockViewGrid&;
-    auto helpGetActiveBitMask() const -> BlockViewGrid::Field<uint64_t, 0>&;
+    /**
+     * Retrieve the block vew grid internally used.
+     * This grid can be leverage to allocate data at the block level.
+     */
+    auto getBlockViewGrid() const -> BlockViewGrid&;
+
+    /**
+     * Retrieve the block vew grid internally used.
+     * This grid can be leverage to allocate data at the block level.
+     */
+    auto getActiveBitMask() const -> BlockViewGrid::Field<uint64_t, 0>&;
+
+    /**
+     * Help function to retrieve the block connectivity as a BlockViewGrid field
+     */
     auto helpGetBlockConnectivity() const -> BlockViewGrid::Field<BlockIdx, 27>&;
+
+    /**
+     * Help function to retrieve the block origin as a BlockViewGrid field
+     */
     auto helpGetDataBlockOriginField() const -> Neon::aGrid::Field<index_3d, 0>&;
+
+    /*
+     * Help function to retrieve the map that converts a stencil point id to 3d offset
+     */
     auto helpGetStencilIdTo3dOffset() const -> Neon::set::MemSet<Neon::int8_3d>&;
 
+    /*
+     * Help function retriev the device and the block index associated to a point in the BlockViewGrid grid
+     */
     auto helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon::SetIdx, Idx>;
 
     struct Data
