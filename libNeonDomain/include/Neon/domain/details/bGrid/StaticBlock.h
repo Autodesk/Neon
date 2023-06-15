@@ -41,6 +41,19 @@ struct StaticBlock
     static_assert(memBlockSizeX % userBlockSizeX == 0);
     static_assert(memBlockSizeY % userBlockSizeY == 0);
     static_assert(memBlockSizeZ % userBlockSizeZ == 0);
+
+    struct BitMask
+    {
+        auto reset()
+        {
+            for (uint32_t i = 0; i < nWords; ++i) {
+                bits[i] = 0;
+            }
+        }
+
+        constexpr static uint32_t nWords = (memBlockCountElements + 31) / 32;
+        uint32_t                  bits[nWords];
+    };
 };
 
 }  // namespace Neon::domain::details::bGrid

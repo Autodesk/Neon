@@ -21,6 +21,8 @@ class bPartition
     using NghIdx = typename Idx::NghIdx;
     using Type = T;
     using NghData = Neon::domain::NghData<T>;
+
+    using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
     using BlockViewGridIdx = BlockViewGrid::Idx;
 
    public:
@@ -90,13 +92,13 @@ class bPartition
         const -> Idx;
 
 
-    int                    mCardinality;
-    T*                     mMem;
-    NghIdx*                mStencilNghIndex;
+    int                             mCardinality;
+    T*                              mMem;
+    NghIdx*                         mStencilNghIndex;
     typename Idx::DataBlockIdx*     mBlockConnectivity;
     typename Span::BitMaskWordType* mMask;
-    Neon::int32_3d*        mOrigin;
-    int                    mSetIdx;
+    Neon::int32_3d*                 mOrigin;
+    int                             mSetIdx;
 };
 
 }  // namespace Neon::domain::details::bGrid

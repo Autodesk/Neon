@@ -33,10 +33,12 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     using Field = bField<T, C, SBlock>;
     using Partition = bPartition<T, C, SBlock>;
     using Idx = bIndex<SBlock>;
+    using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
+    template<typename TT, int CC = 0>
+    using BlockViewField = BlockViewGrid::template Field<TT, CC>;
 
     using NghIdx = typename Partition::NghIdx;
     using NghData = typename Partition::NghData;
-
 
     bField(const std::string&         fieldUserName,
            Neon::DataUse              dataUse,
@@ -109,7 +111,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
         };
 
         std::shared_ptr<Grid>      grid;
-        BlockViewGrid::Field<T, C> memoryField;
+        BlockViewField<T, C> memoryField;
 
         int mCardinality;
 
