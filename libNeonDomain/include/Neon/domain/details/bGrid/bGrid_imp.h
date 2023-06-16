@@ -125,7 +125,9 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                 })
             .run(Neon::Backend::mainStreamIdx);
 
+
         mData->activeBitField.updateDeviceData(Neon::Backend::mainStreamIdx);
+        this->getBackend().sync(Neon::Backend::mainStreamIdx);
         mData->activeBitField.newHaloUpdate(Neon::set::StencilSemantic::standard,
                                             Neon::set::TransferMode::put,
                                             Neon::Execution::device)

@@ -11,12 +11,12 @@ bField<T, C, SBlock>::bField()
 }
 
 template <typename T, int C, typename SBlock>
-bField<T, C, SBlock>::bField(const std::string&         fieldUserName,
-                             Neon::DataUse              dataUse,
-                             const Neon::MemoryOptions& memoryOptions,
-                             const Grid&                grid,
-                             int                        cardinality,
-                             T                          inactiveValue)
+bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
+                             Neon::DataUse       dataUse,
+                             Neon::MemoryOptions memoryOptions,
+                             const Grid&         grid,
+                             int                 cardinality,
+                             T                   inactiveValue)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "bField",
@@ -29,7 +29,8 @@ bField<T, C, SBlock>::bField(const std::string&         fieldUserName,
     mData->grid = std::make_shared<Grid>(grid);
 
     if (memoryOptions.getOrder() == Neon::MemoryLayout::arrayOfStructs) {
-        NEON_THROW_UNSUPPORTED_OPERATION("bField does not support MemoryLayout::arrayOfStructs");
+        NEON_WARNING("bField does not support MemoryLayout::arrayOfStructs, enforcing MemoryLayout::structOfArrays");
+        memoryOptions.setOrder(Neon::MemoryLayout::structOfArrays);
     }
     // the allocation size is the number of blocks x block size x cardinality
     mData->memoryField = mData->grid->getBlockViewGrid().template newField<T, 0>(
