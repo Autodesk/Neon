@@ -359,7 +359,7 @@ template <typename T, int C>
 FieldBase<T, C>::Storage::Storage()
     : dimension(0),
       cardinality(0),
-      outsideVal(static_cast<T>(0.0)),
+      outsideVal(T()),
       dataUse(),
       memoryOptions(),
       haloStatus(),

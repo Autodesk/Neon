@@ -21,6 +21,8 @@ class bPartition
     using NghIdx = typename Idx::NghIdx;
     using Type = T;
     using NghData = Neon::domain::NghData<T>;
+
+    using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
     using BlockViewGridIdx = BlockViewGrid::Idx;
 
    public:
@@ -28,13 +30,13 @@ class bPartition
 
     ~bPartition() = default;
 
-    explicit bPartition(int                             setIdx,
-                        int                             mCardinality,
-                        T*                              mMem,
-                        typename Idx::DataBlockIdx*     mBlockConnectivity,
-                        typename Span::BitMaskWordType* mMask,
-                        Neon::int32_3d*                 mOrigin,
-                        NghIdx*                         mStencilNghIndex);
+    explicit bPartition(int                                           setIdx,
+                        int                                           mCardinality,
+                        T*                                            mMem,
+                        typename Idx::DataBlockIdx*                   mBlockConnectivity,
+                        typename SBlock::BitMask const* NEON_RESTRICT mMask,
+                        Neon::int32_3d*                               mOrigin,
+                        NghIdx*                                       mStencilNghIndex);
 
     inline NEON_CUDA_HOST_DEVICE auto
     cardinality()
@@ -90,13 +92,13 @@ class bPartition
         const -> Idx;
 
 
-    int                    mCardinality;
-    T*                     mMem;
-    NghIdx*                mStencilNghIndex;
-    typename Idx::DataBlockIdx*     mBlockConnectivity;
-    typename Span::BitMaskWordType* mMask;
-    Neon::int32_3d*        mOrigin;
-    int                    mSetIdx;
+    int                                             mCardinality;
+    T*                                              mMem;
+    NghIdx const* NEON_RESTRICT                     mStencilNghIndex;
+    typename Idx::DataBlockIdx const* NEON_RESTRICT mBlockConnectivity;
+    typename SBlock::BitMask const* NEON_RESTRICT   mMask;
+    Neon::int32_3d const* NEON_RESTRICT             mOrigin;
+    int                                             mSetIdx;
 };
 
 }  // namespace Neon::domain::details::bGrid
