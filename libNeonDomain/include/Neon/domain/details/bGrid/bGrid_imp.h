@@ -20,7 +20,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                      const Neon::int32_3d&        domainSize,
                      const ActiveCellLambda       activeCellLambda,
                      const Neon::domain::Stencil& stencil,
-                     const int                    voxelSpacing,
+                     const int                    multiResDiscreteIdxSpacing,
                      const double_3d&             spacingData,
                      const double_3d&             origin)
 {
@@ -29,7 +29,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
     mData = std::make_shared<Data>();
     mData->init(backend);
 
-    mData->voxelSpacing = voxelSpacing;
+    mData->mMultiResDiscreteIdxSpacing = multiResDiscreteIdxSpacing;
     mData->stencil = stencil;
     const index_3d defaultKernelBlockSize(SBlock::memBlockSizeX,
                                           SBlock::memBlockSizeY,
@@ -45,7 +45,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                               stencil,
                               nElementsPerPartition,
                               defaultKernelBlockSize,
-                              voxelSpacing,
+                              multiResDiscreteIdxSpacing,
                               origin);
     }
 
