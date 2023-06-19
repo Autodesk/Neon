@@ -126,7 +126,7 @@ class Partitioner1D
                                             NEON_DIVIDE_UP(domainSize.y, dataBlockSize.y),
                                             NEON_DIVIDE_UP(domainSize.z, dataBlockSize.z));
 
-        std::vector<int> nBlockProjectedToZ(block3DSpan.z);
+        std::vector<int> nBlockProjectedToZ(mData->block3DSpan.z);
 
         auto block3dIdxToBlockOrigin = [&](Neon::int32_3d const& block3dIdx) {
             Neon::int32_3d blockOrigin(block3dIdx.x * dataBlockSize.x * multiResDiscreteIdxSpacing,
@@ -148,7 +148,7 @@ class Partitioner1D
             activeIndexLambda,
             block3dIdxToBlockOrigin,
             getVoxelAbsolute3DIdx,
-            block3DSpan,
+            mData->block3DSpan,
             dataBlockSize,
             domainSize,
             multiResDiscreteIdxSpacing);
@@ -159,7 +159,7 @@ class Partitioner1D
             bcLambda,
             block3dIdxToBlockOrigin,
             getVoxelAbsolute3DIdx,
-            block3DSpan,
+            mData->block3DSpan,
             dataBlockSize,
             domainSize,
             stencil,

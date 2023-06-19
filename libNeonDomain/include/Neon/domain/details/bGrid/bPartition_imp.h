@@ -45,7 +45,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     location.x += gidx.mInDataBlockIdx.x;
     location.y += gidx.mInDataBlockIdx.y;
     location.z += gidx.mInDataBlockIdx.z;
-    return location;
+    if constexpr (SBlock::isMultiResMode){
+        return location * mMultiResDiscreteIdxSpacing;
+    }
+    return location ;
 }
 
 template <typename T, int C, typename SBlock>

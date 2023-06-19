@@ -84,13 +84,6 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto initHaloUpdateTable() -> void;
 
 
-    //
-    //    enum PartitionBackend
-    //    {
-    //        cpu = 0,
-    //        gpu = 1,
-    //    };
-
     struct Data
     {
         Data() = default;
@@ -112,8 +105,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
 
         std::shared_ptr<Grid> grid;
         BlockViewField<T, 0>  memoryField;
-
-        int mCardinality;
+        int                   cardinality;
 
         //        Neon::domain::tool::HaloTable1DPartitioning   latticeHaloUpdateTable;
         Neon::domain::tool::HaloTable1DPartitioning soaHaloUpdateTable;

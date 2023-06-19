@@ -58,7 +58,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
             SBlock::memBlockSize3D.template newType<int32_t>(),
             domainSize,
             Neon::domain::Stencil::s27_t(false),
-            1);
+            multiResDiscreteIdxSpacing);
 
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();
         mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
@@ -95,7 +95,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
             .getGrid()
             .template newContainer<Neon::Execution::host>(
                 "activeBitMaskInit",
-                [&](Neon::set::Loader& loader) {
+                [&, this](Neon::set::Loader& loader) {
                     auto bitMaskPartition = loader.load(mData->activeBitField);
                     return [&, bitMaskPartition](const auto& bitMaskIdx) mutable {
                         auto                      prtIdx = bitMaskPartition.prtID();
@@ -107,9 +107,9 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                         for (int k = 0; k < SBlock::memBlockSize3D.template newType<int32_t>().z; k++) {
                             for (int j = 0; j < SBlock::memBlockSize3D.template newType<int32_t>().y; j++) {
                                 for (int i = 0; i < SBlock::memBlockSize3D.template newType<int32_t>().x; i++) {
-                                    auto globalPosition = blockOrigin + Neon::int32_3d(i, j, k);
+                                    auto       globalPosition = blockOrigin + Neon::int32_3d(i, j, k);
                                     bool const isInDomain = globalPosition < domainSize;
-                                    bool const isActive = activeCellLambda(globalPosition);
+                                    bool const isActive = activeCellLambda(globalPosition * mData->mMultiResDiscreteIdxSpacing);
                                     if (isActive && isInDomain) {
                                         countActive++;
                                         bitMask.setActive(i, j, k);
@@ -317,6 +317,17 @@ auto bGrid<SBlock>::
         const -> BlockView::Field<typename SBlock::BitMask, 1>&
 {
     return mData->activeBitField;
+}
+
+/**
+ * Helper function to retrieve the discrete index spacing used for the multi-resolution
+ */
+template <typename SBlock>
+template <int dummy>
+auto bGrid<SBlock>::helGetMultiResDiscreteIdxSpacing() const
+    -> std::enable_if_t<dummy == 1, int>
+{
+    return mData->mMultiResDiscreteIdxSpacing;
 }
 
 template <typename SBlock>

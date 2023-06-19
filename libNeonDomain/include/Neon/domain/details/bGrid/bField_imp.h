@@ -79,11 +79,22 @@ template <typename T, int C, typename SBlock>
 auto bField<T, C, SBlock>::getReference(const Neon::index_3d& cartesianIdx,
                                         const int&            cardinality) -> T&
 {
-    auto& grid = this->getGrid();
-    auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
-    auto& partition = getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
-    auto& result = partition(bIdx, cardinality);
-    return result;
+    if constexpr (SBlock::isMultiResMode) {
+        auto& grid = this->getGrid();
+        auto  uniformCartesianIdx = cartesianIdx / grid.helpGetMultiResFactor();
+        auto  uniformCartesianIdxTruncation = cartesianIdx % grid.helpGetMultiResFactor();
+        static_assert(uniformCartesianIdxTruncation == 0);
+        auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(uniformCartesianIdx);
+        auto& partition = getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
+        auto& result = partition(bIdx, cardinality);
+        return result;
+    } else {
+        auto& grid = this->getGrid();
+        auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
+        auto& partition = getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
+        auto& result = partition(bIdx, cardinality);
+        return result;
+    }
 }
 
 template <typename T, int C, typename SBlock>

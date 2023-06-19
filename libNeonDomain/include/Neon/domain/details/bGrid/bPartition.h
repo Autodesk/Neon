@@ -141,6 +141,7 @@ class bPartition
     typename SBlock::BitMask const* NEON_RESTRICT   mMask;
     Neon::int32_3d const* NEON_RESTRICT             mOrigin;
     int                                             mSetIdx;
+    int                                             mMultiResDiscreteIdxSpacing = 1;
 };
 
 }  // namespace Neon::domain::details::bGrid
