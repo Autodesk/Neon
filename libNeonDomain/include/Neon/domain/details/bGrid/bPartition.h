@@ -38,41 +38,79 @@ class bPartition
                         Neon::int32_3d*                               mOrigin,
                         NghIdx*                                       mStencilNghIndex);
 
+    /**
+     * Retrieve the cardinality of the field.
+     */
     inline NEON_CUDA_HOST_DEVICE auto
     cardinality()
         const -> int;
 
+    /**
+     * Gets the field metadata at a cartesian point.
+     */
     inline NEON_CUDA_HOST_DEVICE auto
     operator()(const Idx& cell,
                int        card)
         -> T&;
 
+    /**
+     * Gets the field metadata at a cartesian point.
+     */
     inline NEON_CUDA_HOST_DEVICE auto
     operator()(const Idx& cell,
                int        card)
         const -> const T&;
 
+    /**
+     * Gets the field metadata at a neighbour cartesian point.
+     */
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(const Idx&    cell,
                const NghIdx& offset,
                const int     card)
         const -> NghData;
 
+    /**
+     * Gets the field metadata at a neighbour cartesian point.
+     */
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(const Idx& eId,
                uint8_t    nghID,
                int        card)
         const -> NghData;
 
+    /**
+     * Gets the field metadata at a neighbour cartesian point.
+     */
+    template <int xOff, int yOff, int zOff>
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghData(const Idx& eId,
+               int        card)
+        const -> NghData;
+
+    /**
+     * Gets the field metadata at a neighbour cartesian point.
+     */
+    template <int xOff, int yOff, int zOff>
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghData(const Idx& eId,
+               int        card,
+               T          defaultValue)
+        const -> NghData;
+
+    /**
+     * Gets the global coordinates of the cartesian point.
+     */
     NEON_CUDA_HOST_DEVICE inline auto
     getGlobalIndex(const Idx& cell)
         const -> Neon::index_3d;
 
-
+    /**
+     * Gets the Idx for in the block view space.
+     */
     NEON_CUDA_HOST_DEVICE inline auto
-    getBlockViewGridIdx(const Idx& cell)
+    getBlockViewIdx(const Idx& cell)
         const -> BlockViewGridIdx;
-
 
    protected:
     NEON_CUDA_HOST_DEVICE inline auto
@@ -91,6 +129,10 @@ class bPartition
     helpGetNghIdx(const Idx& idx, const NghIdx& offset)
         const -> Idx;
 
+    template <int xOff, int yOff, int zOff>
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetNghIdx(const Idx& idx)
+        const -> Idx;
 
     int                                             mCardinality;
     T*                                              mMem;

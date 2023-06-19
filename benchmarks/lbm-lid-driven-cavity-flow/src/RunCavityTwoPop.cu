@@ -128,7 +128,7 @@ auto run(Config& config,
             },
                                 Neon::computeMode_t::seq);
 
-            //sort the position so the linear interpolation works
+            // sort the position so the linear interpolation works
             std::sort(xPosVal.begin(), xPosVal.end(), [=](std::pair<double, double>& a, std::pair<double, double>& b) {
                 return a.first < b.first;
             });
@@ -308,12 +308,10 @@ auto run(Config& config,
         return details::runFilterStoreType<Neon::dGrid>(config, report);
     }
     if (config.gridType == "eGrid") {
-        NEON_DEV_UNDER_CONSTRUCTION("");
-        // return details::runFilterStoreType<Neon::eGrid>(config, report);
+        return details::runFilterStoreType<Neon::eGrid>(config, report);
     }
     if (config.gridType == "bGrid") {
-        NEON_DEV_UNDER_CONSTRUCTION("");
-        //        return details::runFilterStoreType<Neon::bGrid>(config, report);
+        return details::runFilterStoreType<Neon::bGrid>(config, report);
     }
 }
 }  // namespace CavityTwoPop

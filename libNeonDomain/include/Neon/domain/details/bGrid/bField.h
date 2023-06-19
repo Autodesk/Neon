@@ -111,7 +111,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
         };
 
         std::shared_ptr<Grid> grid;
-        BlockViewField<T, C>  memoryField;
+        BlockViewField<T, 0>  memoryField;
 
         int mCardinality;
 

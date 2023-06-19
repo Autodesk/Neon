@@ -89,6 +89,43 @@ ePartition<T, C>::getNghData(eIndex               eId,
 
 template <typename T,
           int C>
+template <int xOff, int yOff, int zOff>
+NEON_CUDA_HOST_DEVICE inline auto
+ePartition<T, C>::getNghData(eIndex               eId,
+                             int                  card)
+    const -> NghData
+{
+    int tablePithc = (xOff + mStencilRadius) +
+                     (yOff + mStencilRadius) * mStencilTableYPitch +
+                     (zOff + mStencilRadius) * mStencilTableYPitch * mStencilTableYPitch;
+    NghIdx  nghIdx = mStencil3dTo1dOffset[tablePithc];
+    NghData res = getNghData(eId, nghIdx, card);
+
+    return res;
+}
+
+template <typename T,
+          int C>
+template <int xOff, int yOff, int zOff>
+NEON_CUDA_HOST_DEVICE inline auto
+ePartition<T, C>::getNghData(eIndex               eId,
+                             int                  card,
+                             T defaultVal)
+    const -> NghData
+{
+    int tablePithc = (xOff + mStencilRadius) +
+                     (yOff + mStencilRadius) * mStencilTableYPitch +
+                     (zOff + mStencilRadius) * mStencilTableYPitch * mStencilTableYPitch;
+    NghIdx  nghIdx = mStencil3dTo1dOffset[tablePithc];
+    NghData res = getNghData(eId, nghIdx, card);
+    if (!res.isValid()) {
+        res.set(defaultVal, false);
+    }
+    return res;
+}
+
+template <typename T,
+          int C>
 NEON_CUDA_HOST_DEVICE inline auto
 ePartition<T, C>::getNghIndex(eIndex               eId,
                               const Neon::int8_3d& ngh3dIdx,

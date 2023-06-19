@@ -50,7 +50,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
-    getBlockViewGridIdx(const Idx& gidx)
+    getBlockViewIdx(const Idx& gidx)
         const -> BlockViewGridIdx
 {
     BlockViewGridIdx res;
@@ -194,6 +194,96 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
+template <int xOff, int yOff, int zOff>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    helpGetNghIdx(const Idx& idx)
+        const -> Idx
+{
+
+    typename Idx::InDataBlockIdx ngh(idx.mInDataBlockIdx.x + xOff,
+                                     idx.mInDataBlockIdx.y + yOff,
+                                     idx.mInDataBlockIdx.z + zOff);
+
+    /**
+     * 0 if no offset on the direction
+     * 1 positive offset
+     * -1 negative offset
+     */
+    const int xFlag = [&] {
+        if constexpr (xOff == 0) {
+            return 0;
+        } else {
+            return ngh.x < 0 ? -1 : (ngh.x >= SBlock::memBlockSizeX ? +1 : 0);
+        }
+    }();
+
+
+    const int yFlag = [&] {
+        if constexpr (yOff == 0) {
+            return 0;
+        } else {
+            return ngh.y < 0 ? -1 : (ngh.y >= SBlock::memBlockSizeX ? +1 : 0);
+        }
+    }();
+    const int zFlag = [&] {
+        if constexpr (zOff == 0) {
+            return 0;
+        } else {
+            return ngh.z < 0 ? -1 : (ngh.z >= SBlock::memBlockSizeX ? +1 : 0);
+        }
+    }();
+
+    const bool isLocal = (xFlag | yFlag | zFlag) == 0;
+    if (!(isLocal)) {
+        typename Idx::InDataBlockIdx remoteInBlockOffset;
+        /**
+         * Example
+         * - 8 block (1D case)
+         * Case 1:
+         * |0,1,2,3|0,1,2,3|0,1,2,3|
+         *        ^     ^
+         *       -3     starting point
+         *
+         * - idx.inBlock = 2
+         * - offset = -1
+         * - remote.x = (2-3) - ((-1) * 4) = -1 + 4 = 3
+         * Case 2:
+         * |0,1,2,3|0,1,2,3|0,1,2,3|
+         *                ^     ^
+         *  starting point      +3 from 3
+         *
+         * - idx.inBlock = 3
+         * - offset = (+3,0)
+         * - remote.x = (7+3) - ((+1) * 8) = 10 - 8 = 2
+         *
+         * |0,1,2,3|0,1,2,3|0,1,2,3|
+         *  ^                   ^
+         *  -3 from 0          +3 from 3
+         *
+         * NOTE: if in one direction the neighbour offet is zero, xFalg is 0;
+         * */
+
+        Idx remoteNghIdx;
+        remoteNghIdx.mInDataBlockIdx.x = ngh.x - xFlag * SBlock::memBlockSizeX;
+        remoteNghIdx.mInDataBlockIdx.y = ngh.y - yFlag * SBlock::memBlockSizeX;
+        remoteNghIdx.mInDataBlockIdx.z = ngh.z - zFlag * SBlock::memBlockSizeX;
+
+        int connectivityJump = idx.mDataBlockIdx * 27 +
+                               (xFlag + 1) +
+                               (yFlag + 1) * 3 +
+                               (zFlag + 1) * 9;
+        remoteNghIdx.mDataBlockIdx = mBlockConnectivity[connectivityJump];
+
+        return remoteNghIdx;
+    } else {
+        Idx localNghIdx;
+        localNghIdx.mDataBlockIdx = idx.mDataBlockIdx;
+        localNghIdx.mInDataBlockIdx = ngh;
+        return localNghIdx;
+    }
+}
+
+template <typename T, int C, typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     getNghData(const Idx& eId,
                uint8_t    nghID,
@@ -223,4 +313,42 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     return result;
 }
 
+template <typename T, int C, typename SBlock>
+template <int xOff, int yOff, int zOff>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    getNghData(const Idx& idx,
+               int        card)
+        const -> NghData
+{
+    NghData result;
+    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(idx);
+    auto [isValid, pitch] = helpNghPitch(nghIdx, card);
+    if (!isValid) {
+        result.invalidate();
+        return result;
+    }
+    auto const value = mMem[pitch];
+    result.set(value, true);
+    return result;
+}
+
+template <typename T, int C, typename SBlock>
+template <int xOff, int yOff, int zOff>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    getNghData(const Idx& idx,
+               int        card,
+               T          defaultValue)
+        const -> NghData
+{
+    NghData result;
+    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(idx);
+    auto [isValid, pitch] = helpNghPitch(nghIdx, card);
+    if (!isValid) {
+        result.set(defaultValue, false);
+        return result;
+    }
+    auto const value = mMem[pitch];
+    result.set(value, true);
+    return result;
+}
 }  // namespace Neon::domain::details::bGrid

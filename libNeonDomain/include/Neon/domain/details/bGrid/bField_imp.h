@@ -250,7 +250,7 @@ auto bField<T, C, SBlock>::initHaloUpdateTable() -> void
                 setIdxVec[Data::EndPoints::src] = setIdxSrc;
 
                 std::array<Partition*, Data::EndPointsUtils::nConfigs>                                  partitions;
-                std::array<BlockViewPartition<T, C>*, Data::EndPointsUtils::nConfigs>                   blockViewPartitions;
+                std::array<BlockViewPartition<T, 0>*, Data::EndPointsUtils::nConfigs>                   blockViewPartitions;
                 std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> ghostZBeginIdx;
                 std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> boundaryZBeginIdx;
                 std::array<Neon::size_4d, Data::EndPointsUtils::nConfigs>                               memPhyDim;
