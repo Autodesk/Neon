@@ -27,9 +27,9 @@ class mGrid
 {
    public:
     using Grid = mGrid;
-    using InternalGrid = Neon::domain::details::bGrid::bGrid;
-    using Cell = typename InternalGrid::Cell;
-
+    using InternalGrid = Neon::domain::details::bGrid::bGrid<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ>;
+    using Idx = typename InternalGrid::Idx;
+    using Descriptor = mGridDescriptor<1, 1, 1>;
 
     template <typename T, int C = 0>
     using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
@@ -37,9 +37,12 @@ class mGrid
     template <typename T, int C = 0>
     using Field = Neon::domain::details::mGrid::mField<T, C>;
 
-    using nghIdx_t = typename Partition<int>::nghIdx_t;
+    using NghIdx = typename Partition<int>::NghIdx;
 
-    using PartitionIndexSpace = typename InternalGrid::PartitionIndexSpace;
+    using Span = typename InternalGrid::Span;
+
+    template <typename T, int C>
+    friend class Neon::domain::details::mGrid::mField;
 
     mGrid() = default;
     virtual ~mGrid(){};
@@ -61,7 +64,7 @@ class mGrid
           const Neon::int32_3d&                                   domainSize,
           std::vector<std::function<bool(const Neon::index_3d&)>> activeCellLambda,
           const Neon::domain::Stencil&                            stencil,
-          const mGridDescriptor                                   descriptor,
+          const Descriptor                                        descriptor,
           bool                                                    isStrongBalanced = true,
           const double_3d&                                        spacingData = double_3d(1, 1, 1),
           const double_3d&                                        origin = double_3d(0, 0, 0));
@@ -100,7 +103,7 @@ class mGrid
     auto newField(const std::string          name,
                   int                        cardinality,
                   T                          inactiveValue,
-                  Neon::DataUse              dataUse = Neon::DataUse::IO_COMPUTE,
+                  Neon::DataUse              dataUse = Neon::DataUse::HOST_DEVICE,
                   const Neon::MemoryOptions& memoryOptions = Neon::MemoryOptions()) const
         -> Field<T, C>;
 
@@ -133,16 +136,15 @@ class mGrid
                       LoadingLambda      lambda) const -> Neon::set::Container;
 
 
-    auto getLaunchParameters(Neon::DataView        dataView,
+    /*auto getLaunchParameters(Neon::DataView        dataView,
                              const Neon::index_3d& blockSize,
                              const size_t&         sharedMem,
-                             int                   level) const -> Neon::set::LaunchParameters;
+                             int                   level) const -> Neon::set::LaunchParameters;*/
 
 
-    auto getNumBlocksPerPartition(int level) const -> const Neon::set::DataSet<uint64_t>&;
-    auto getParentsBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
-    auto getParentLocalID(int level) const -> const Neon::set::MemSet_t<Cell::Location>&;
-    auto getChildBlockID(int level) const -> const Neon::set::MemSet_t<uint32_t>&;
+    auto getParentsBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&;
+    auto getParentLocalID(int level) const -> const Neon::set::MemSet<Idx::InDataBlockIdx>&;
+    auto getChildBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&;
 
 
     /**
@@ -172,33 +174,41 @@ class mGrid
     auto getNumBlocks(int level) const -> const Neon::index_3d&;
 
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d;
-    auto getDescriptor() const -> const mGridDescriptor&;
-    auto getRefFactors() const -> const Neon::set::MemSet_t<int>&;
-    auto getLevelSpacing() const -> const Neon::set::MemSet_t<int>&;
+    auto getDescriptor() const -> const Descriptor&;
+    auto getRefFactors() const -> const Neon::set::MemSet<int>&;
+    auto getLevelSpacing() const -> const Neon::set::MemSet<int>&;
     auto getBackend() const -> const Backend&;
     auto getBackend() -> Backend&;
 
 
    private:
+    //check if the bitmask is set assuming a dense domain
+    auto levelBitMaskIndex(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> std::pair<int, int>;
+
+    auto levelBitMaskIsSet(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> bool;
+
+    //set the bitmask assuming a dense domain
+    auto setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void;
+
     struct Data
     {
         Neon::index_3d domainSize;
 
         //stores the parent of the block
-        std::vector<Neon::set::MemSet_t<uint32_t>> mParentBlockID;
+        std::vector<Neon::set::MemSet<uint32_t>> mParentBlockID;
 
         //Given a block at level L, we store R children block IDs for each block in L where R is the refinement factor
-        std::vector<Neon::set::MemSet_t<uint32_t>> mChildBlockID;
+        std::vector<Neon::set::MemSet<uint32_t>> mChildBlockID;
 
         //store the parent local index within its block
-        std::vector<Neon::set::MemSet_t<Cell::Location>> mParentLocalID;
+        std::vector<Neon::set::MemSet<Idx::InDataBlockIdx>> mParentLocalID;
 
 
         //gird levels refinement factors
-        Neon::set::MemSet_t<int> mRefFactors;
+        Neon::set::MemSet<int> mRefFactors;
 
         //gird levels spacing
-        Neon::set::MemSet_t<int> mSpacing;
+        Neon::set::MemSet<int> mSpacing;
 
 
         //Total number of blocks in the domain
@@ -206,7 +216,7 @@ class mGrid
         std::vector<Neon::index_3d> mTotalNumBlocks;
 
 
-        mGridDescriptor mDescriptor{};
+        Descriptor mDescriptor;
 
         bool mStrongBalanced;
 

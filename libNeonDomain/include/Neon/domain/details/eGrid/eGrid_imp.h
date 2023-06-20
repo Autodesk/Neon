@@ -47,7 +47,7 @@ eGrid::eGrid(const Neon::Backend&         backend,
     mData->mGlobalMappingAField = mData->partitioner1D.getGlobalMapping();
     mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
     mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
-    mData->partitioner1D.getDenseMeta(mData->denseMeta);
+    //mData->partitioner1D.getDenseMeta(mData->denseMeta);
 
     const int32_t numDevices = getBackend().devSet().setCardinality();
 

@@ -5,7 +5,7 @@ namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
 mPartition<T, C>::mPartition()
-    : Neon::bGrid::Partition<T, C>(),
+    : Neon::bGrid::Partition<T, C, kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ>(),
       mMemParent(nullptr),
       mMemChild(nullptr),
       mParentBlockID(nullptr),
@@ -19,26 +19,26 @@ mPartition<T, C>::mPartition()
 }
 
 template <typename T, int C>
-mPartition<T, C>::mPartition(Neon::DataView     dataView,
-                             int                level,
-                             T*                 mem,
-                             T*                 memParent,
-                             T*                 memChild,
-                             int                cardinality,
-                             uint32_t*          neighbourBlocks,
-                             Neon::int32_3d*    origin,
-                             uint32_t*          parentBlockID,
-                             Idx::DataBlockIdx* parentLocalID,
-                             uint32_t*          mask,
-                             uint32_t*          maskLowerLevel,
-                             uint32_t*          maskUpperLevel,
-                             uint32_t*          childBlockID,
-                             uint32_t*          parentNeighbourBlocks,
-                             T                  outsideValue,
-                             NghIdx*            stencilNghIndex,
-                             int*               refFactors,
-                             int*               spacing)
-    : Neon::bGrid::Partition<T, C>(dataView, mem, cardinality, neighbourBlocks, origin, mask, outsideValue, stencilNghIndex),
+mPartition<T, C>::mPartition(Neon::DataView /*dataView*/,
+                             int level,
+                             T* /*mem*/,
+                             T* memParent,
+                             T* memChild,
+                             int /*cardinality*/,
+                             uint32_t* /*neighbourBlocks*/,
+                             Neon::int32_3d* /*origin*/,
+                             uint32_t*            parentBlockID,
+                             Idx::InDataBlockIdx* parentLocalID,
+                             uint64_t* /*mask*/,
+                             uint64_t* maskLowerLevel,
+                             uint64_t* maskUpperLevel,
+                             uint32_t* childBlockID,
+                             uint32_t* parentNeighbourBlocks,
+                             T /*outsideValue*/,
+                             NghIdx* /*stencilNghIndex*/,
+                             int* refFactors,
+                             int* spacing)
+    : Neon::domain::details::bGrid::bPartition<T, C, kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ>(/*0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex*/),
       mLevel(level),
       mMemParent(memParent),
       mMemChild(memChild),
@@ -141,9 +141,9 @@ template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Idx&    parent_cell,
                                                              Neon::int8_3d child,
                                                              int           card,
-                                                             const T&      alternativeVal) const -> NghInfo<T>
+                                                             const T&      alternativeVal) const -> NghData
 {
-    NghInfo<T> ret;
+    NghData ret;
     ret.value = alternativeVal;
     ret.isValid = false;
     if (!parent_cell.mIsActive || !hasChildren(parent_cell)) {
@@ -250,9 +250,9 @@ template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::uncleVal(const Idx&    cell,
                                                              Neon::int8_3d direction,
                                                              int           card,
-                                                             const T&      alternativeVal) const -> NghInfo<T>
+                                                             const T&      alternativeVal) const -> NghData
 {
-    NghInfo<T> ret;
+    NghData ret;
     ret.value = alternativeVal;
     ret.isValid = false;
 

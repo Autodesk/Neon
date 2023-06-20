@@ -37,19 +37,6 @@ auto xField<T, C>::getReference(const Neon::index_3d& idx, const int& cardinalit
     return this->operator()(idx, cardinality);
 }
 
-
-template <typename T, int C>
-auto xField<T, C>::haloUpdate(Neon::set::HuOptions& opt) const -> void
-{
-    mData->field.haloUpdate(opt);
-}
-
-template <typename T, int C>
-auto xField<T, C>::haloUpdate(Neon::set::HuOptions& opt) -> void
-{
-    mData->field.haloUpdate(opt);
-}
-
 template <typename T, int C>
 auto xField<T, C>::operator()(const Neon::index_3d& idx, const int& cardinality) const -> T
 {
@@ -121,15 +108,15 @@ auto xField<T, C>::getPartition(Neon::Execution       exec,
 }
 
 template <typename T, int C>
-auto xField<T, C>::updateIO(int streamId) -> void
+auto xField<T, C>::updateHostData(int streamId) -> void
 {
-    mData->field.updateIO(streamId);
+    mData->field.updateHostData(streamId);
 }
 
 template <typename T, int C>
-auto xField<T, C>::updateCompute(int streamId) -> void
+auto xField<T, C>::updateDeviceData(int streamId) -> void
 {
-    mData->field.updateCompute(streamId);
+    mData->field.updateDeviceData(streamId);
 }
 
 

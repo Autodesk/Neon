@@ -23,7 +23,8 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                                                                              inactiveValue,
                                                                              dataUse,
                                                                              memoryOptions,
-                                                                             Neon::domain::haloStatus_et::e::ON) {
+                                                                             Neon::domain::haloStatus_et::e::ON)
+{
 
 
     mData = std::make_shared<Data>(grid.getBackend());
@@ -262,7 +263,7 @@ auto eField<T, C>::operator()(const Neon::index_3d& idxGlobal,
                               const int&            cardinality) const
     -> Type
 {
-    auto const& meta = mData->grid->mData->denseMeta.get(idxGlobal);
+    auto meta = mData->grid->mData->partitioner1D.getDenseMeta().get(idxGlobal);
     if (meta.isValid()) {
         auto const& span = mData->grid->getSpan(Execution::host, meta.setIdx, Neon::DataView::STANDARD);
         eIndex      eIndex;
@@ -278,7 +279,7 @@ auto eField<T, C>::getReference(const Neon::index_3d& idxGlobal,
                                 const int&            cardinality)
     -> Type&
 {
-    auto const& meta = mData->grid->mData->denseMeta.get(idxGlobal);
+    auto meta = mData->grid->mData->partitioner1D.getDenseMeta().get(idxGlobal);
     if (meta.isValid()) {
         auto const& span = mData->grid->getSpan(Execution::host, meta.setIdx, Neon::DataView::STANDARD);
         eIndex      eIndex;

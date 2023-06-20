@@ -1,25 +1,43 @@
 #pragma once
 
-#include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/details/mGrid/mPartition.h"
+#include "Neon/domain/interface/FieldBaseTemplate.h"
 
 namespace Neon::domain::details::bGrid {
+template <uint32_t mBX, uint32_t mBY, uint32_t mBZ, uint32_t uBX, uint32_t uBY, uint32_t uBZ>
 class bGrid;
 }
 
 namespace Neon::domain::details::mGrid {
+/**
+ *We have to define this field because we want a field that is a bField but gives a mPartition 
+*/
+class mGrid;
+
 template <typename T, int C = 0>
 class xField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 Neon::domain::details::bGrid::bGrid,
+                                                                 Neon::domain::details::bGrid::bGrid<kMemBlockSizeX,
+                                                                                                     kMemBlockSizeY,
+                                                                                                     kMemBlockSizeZ,
+                                                                                                     kUserBlockSizeX,
+                                                                                                     kUserBlockSizeY,
+                                                                                                     kUserBlockSizeZ>,
                                                                  mPartition<T, C>,
                                                                  int>
 
 {
    public:
-    using Field = typename Neon::domain::details::bGrid::bField<T, C>;
-    using Partition = typename Neon::domain::details::mGrid::mPartition<T, C>;
-    using Grid = Neon::domain::details::bGrid::bGrid;
+    using Partition = typename mPartition<T, C>;
+
+
+    using Grid = Neon::domain::details::bGrid::bGrid<kMemBlockSizeX,
+                                                     kMemBlockSizeY,
+                                                     kMemBlockSizeZ,
+                                                     kUserBlockSizeX,
+                                                     kUserBlockSizeY,
+                                                     kUserBlockSizeZ>;
+    using Field = typename Grid::Field<T, C>;
 
 
     xField() = default;
@@ -35,11 +53,6 @@ class xField : public Neon::domain::interface::FieldBaseTemplate<T,
     auto isInsideDomain(const Neon::index_3d& idx) const -> bool final;
 
     auto getReference(const Neon::index_3d& idx, const int& cardinality) -> T& final;
-
-
-    auto haloUpdate(Neon::set::HuOptions& opt) const -> void final;
-
-    auto haloUpdate(Neon::set::HuOptions& opt) -> void final;
 
     auto operator()(const Neon::index_3d& idx, const int& cardinality) const -> T final;
 
@@ -64,9 +77,9 @@ class xField : public Neon::domain::interface::FieldBaseTemplate<T,
                       Neon::SetIdx          idx,
                       const Neon::DataView& dataView) -> Partition& final;
 
-    auto updateIO(int streamId) -> void;
+    auto updateHostData(int streamId) -> void;
 
-    auto updateCompute(int streamId) -> void;
+    auto updateDeviceData(int streamId) -> void;
 
     virtual ~xField() = default;
 
@@ -84,7 +97,7 @@ class xField : public Neon::domain::interface::FieldBaseTemplate<T,
             std::array<
                 Neon::set::DataSet<Partition>,
                 Neon::DataViewUtil::nConfig>,
-            2>  //2 for host and device
+            Neon::ExecutionUtils::numConfigurations>
             mPartitions;
     };
 

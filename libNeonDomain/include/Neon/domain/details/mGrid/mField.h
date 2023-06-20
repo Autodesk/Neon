@@ -2,9 +2,9 @@
 #include "Neon/set/container/Loader.h"
 
 
-#include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/details/bGrid/bField.h"
 #include "Neon/domain/details/mGrid/mPartition.h"
+#include "Neon/domain/interface/FieldBaseTemplate.h"
 
 #include "Neon/domain/details/mGrid/xField.h"
 
@@ -17,10 +17,6 @@ enum struct MultiResCompute
     STENCIL_UP /**< Stencil that reads the parent */,
     STENCIL_DOWN /**< Stencil that reads the children */,
 };
-}
-
-namespace Neon::domain::details::bGrid {
-class bGrid;
 }
 
 namespace Neon::domain::details::mGrid {
@@ -36,9 +32,7 @@ class mField
     using Type = T;
     using Grid = Neon::domain::details::mGrid::mGrid;
     using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
-    using InternalGrid = Neon::domain::details::bGrid::bGrid;
-    using Cell = Neon::domain::details::bGrid::bCell;
-    using ngh_idx = typename Partition::nghIdx_t;
+    using Idx = typename Partition::Idx;
 
     mField() = default;
 
@@ -76,9 +70,9 @@ class mField
 
     auto haloUpdate(Neon::set::HuOptions& opt) -> void;
 
-    auto updateIO(int streamId = 0) -> void;
+    auto updateHostData(int streamId = 0) -> void;
 
-    auto updateCompute(int streamId = 0) -> void;
+    auto updateDeviceData(int streamId = 0) -> void;
 
     auto getSharedMemoryBytes(const int32_t stencilRadius, int level = 0) const -> size_t;
 

@@ -41,22 +41,13 @@ std::map<int, std::array<float, ghiaNumPoints>> ghiaXVals{
 }  // namespace detail
 
 template <typename T>
-inline T verifyGhia1982(const int                     Re,
-                        std::vector<std::pair<T, T>>& xPosVal,
-                        std::vector<std::pair<T, T>>& yPosVal)
+inline T verifyGhia1982(const int                           Re,
+                        const std::vector<std::pair<T, T>>& xPosVal,
+                        const std::vector<std::pair<T, T>>& yPosVal)
 {
     //we assume the ghia points are far less than the input points. so, for every ghia point, we try to find the interval in which it lies in the input points
     //then linearly interpolate the values between the ends of this interval, compute the different between the interpolated value and ghia value. Finally, we
     //report the max different. Note that report the l2 norm of the difference could be also used for grid refinement analysis
-
-    //sort the position so the linear interpolation works
-    std::sort(xPosVal.begin(), xPosVal.end(), [=](std::pair<T, T>& a, std::pair<T, T>& b) {
-        return a.first < b.first;
-    });
-
-    std::sort(yPosVal.begin(), yPosVal.end(), [=](std::pair<T, T>& a, std::pair<T, T>& b) {
-        return a.first < b.first;
-    });
 
     auto calcDiff = [&](const std::vector<std::pair<T, T>>&             posVal,
                         const std::array<float, detail::ghiaNumPoints>& ghiaPos,

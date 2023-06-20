@@ -107,6 +107,14 @@ void postProcess(Neon::domain::mGrid&                        grid,
                 },
                 Neon::computeMode_t::seq);
         }
+        //sort the position so the linear interpolation works
+        std::sort(xPosVal.begin(), xPosVal.end(), [=](std::pair<T, T>& a, std::pair<T, T>& b) {
+            return a.first < b.first;
+        });
+
+        std::sort(yPosVal.begin(), yPosVal.end(), [=](std::pair<T, T>& a, std::pair<T, T>& b) {
+            return a.first < b.first;
+        });
     }
 
     if (verify) {

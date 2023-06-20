@@ -247,8 +247,6 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
         Neon::set::MemSet<int8_t>       mStencil3dTo1dOffset;
         Neon::aGrid::Field<int32_t, 0>  mConnectivityAField;
         Neon::aGrid::Field<index_3d, 0> mGlobalMappingAField;
-
-        tool::Partitioner1D::DenseMeta denseMeta;
     };
 
     std::shared_ptr<Data> mData;
