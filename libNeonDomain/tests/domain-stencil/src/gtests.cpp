@@ -22,9 +22,9 @@ TEST(domain_stencil, eGrid)
                             1);
 }
 
-TEST(domain_stencil, bGridSingleGPU)
+TEST(domain_stencil, bGri )
 {
-    int nGpus = 1;
+    int nGpus = 5;
     using Type = int64_t;
     runAllTestConfiguration(std::function(map::run<Neon::bGrid, Type, 0>),
                             nGpus,

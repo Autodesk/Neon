@@ -3,8 +3,8 @@
 
 namespace Neon::domain::details::bGrid {
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE inline bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::
+template <typename SBlock>
+NEON_CUDA_HOST_DEVICE inline bIndex<SBlock>::
     bIndex(const DataBlockIdx&            blockIdx,
            const InDataBlockIdx::Integer& x,
            const InDataBlockIdx::Integer& y,
@@ -16,86 +16,52 @@ NEON_CUDA_HOST_DEVICE inline bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ,
     mInDataBlockIdx.z = z;
 }
 
-//
-// template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-// NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getTrayIdx() -> TrayIdx
-//{
-//
-//    TrayIdx const exBlockOffset = mDataBlockIdx * (userBlockSizeX * userBlockSizeY * userBlockSizeZ);
-//    TrayIdx const exTrayOffset = [&]() {
-//        int const trayBlockIdxX = mInDataBlockIdx.x / userBlockSizeX;
-//        int const trayBlockIdxY = mInDataBlockIdx.y / userBlockSizeY;
-//        int const trayBlockIdxZ = mInDataBlockIdx.z / userBlockSizeZ;
-//
-//        constexpr int countMicroBlocksInTrayX = (memBlockSizeX / userBlockSizeX);
-//        constexpr int countMicroBlocksInTrayY = (memBlockSizeY / userBlockSizeY);
-//
-//        int const res = trayBlockIdxX + trayBlockIdxY * countMicroBlocksInTrayX +
-//                        trayBlockIdxZ * (countMicroBlocksInTrayX * countMicroBlocksInTrayY);
-//        return res;
-//    };
-//    return exBlockOffset + exTrayOffset;
-//}
-//
-//
-// template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-// NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getInTrayIdx() -> InTrayIdx
-//{
-//    InTrayIdx inTrayIdx;
-//    inTrayIdx.x = mInDataBlockIdx.x % userBlockSizeX;
-//    inTrayIdx.y = mInDataBlockIdx.y % userBlockSizeY;
-//    inTrayIdx.z = mInDataBlockIdx.z % userBlockSizeZ;
-//
-//    return inTrayIdx;
-//}
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::getMicroIndex() -> MicroIndex
+template <typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bIndex<SBlock>::getMicroIndex() -> MicroIndex
 {
-    constexpr uint32_t blockRatioX = memBlockSizeX / userBlockSizeX;
-    constexpr uint32_t blockRatioY = memBlockSizeY / userBlockSizeY;
-    constexpr uint32_t blockRatioZ = memBlockSizeZ / userBlockSizeZ;
 
-    TrayIdx const exBlockOffset = mDataBlockIdx * (blockRatioX * blockRatioY * blockRatioZ);
+
+    TrayIdx const exBlockOffset = mDataBlockIdx * (SBlock::blockRatioX * SBlock::blockRatioY * SBlock::blockRatioZ);
     TrayIdx const exTrayOffset = [&] {
-        TrayIdx const trayBlockIdxX = mInDataBlockIdx.x / userBlockSizeX;
-        TrayIdx const trayBlockIdxY = mInDataBlockIdx.y / userBlockSizeY;
-        TrayIdx const trayBlockIdxZ = mInDataBlockIdx.z / userBlockSizeZ;
+        TrayIdx const trayBlockIdxX = mInDataBlockIdx.x / SBlock::userBlockSizeX;
+        TrayIdx const trayBlockIdxY = mInDataBlockIdx.y / SBlock::userBlockSizeY;
+        TrayIdx const trayBlockIdxZ = mInDataBlockIdx.z / SBlock::userBlockSizeZ;
 
-        TrayIdx const res = trayBlockIdxX + trayBlockIdxY * blockRatioX +
-                            trayBlockIdxZ * (blockRatioX * blockRatioY);
+        TrayIdx const res = trayBlockIdxX + trayBlockIdxY * SBlock::blockRatioX +
+                            trayBlockIdxZ * (SBlock::blockRatioX * SBlock::blockRatioY);
         return res;
     }();
     MicroIndex res;
     res.setTrayBlockIdx(exBlockOffset + exTrayOffset);
-    res.setInTrayBlockIdx({static_cast<InTrayIdx::Integer>(mInDataBlockIdx.x % userBlockSizeX),
-                           static_cast<InTrayIdx::Integer>(mInDataBlockIdx.y % userBlockSizeY),
-                           static_cast<InTrayIdx::Integer>(mInDataBlockIdx.z % userBlockSizeZ)});
+    res.setInTrayBlockIdx({static_cast<InTrayIdx::Integer>(mInDataBlockIdx.x % SBlock::userBlockSizeX),
+                           static_cast<InTrayIdx::Integer>(mInDataBlockIdx.y % SBlock::userBlockSizeY),
+                           static_cast<InTrayIdx::Integer>(mInDataBlockIdx.z % SBlock::userBlockSizeZ)});
     return res;
 }
 
 
-template <uint32_t memBlockSizeX, uint32_t memBlockSizeY, uint32_t memBlockSizeZ, uint32_t userBlockSizeX, uint32_t userBlockSizeY, uint32_t userBlockSizeZ>
-NEON_CUDA_HOST_DEVICE inline auto bIndex<memBlockSizeX, memBlockSizeY, memBlockSizeZ, userBlockSizeX, userBlockSizeY, userBlockSizeZ>::init(MicroIndex const& microIndex) -> void
+template <typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bIndex<SBlock>::init(MicroIndex const& microIndex) -> void
 {
-    constexpr uint32_t memBlockSize = memBlockSizeX * memBlockSizeY * memBlockSizeZ;
-    constexpr uint32_t userBlockSize = userBlockSizeX * userBlockSizeY * userBlockSizeZ;
+    constexpr uint32_t memBlockSize = SBlock::memBlockSizeX * SBlock::memBlockSizeY * SBlock::memBlockSizeZ;
+    constexpr uint32_t userBlockSize = SBlock::userBlockSizeX * SBlock::userBlockSizeY * SBlock::userBlockSizeZ;
     constexpr uint32_t blockRatioSize = memBlockSize / userBlockSize;
 
-    constexpr uint32_t blockRatioX = memBlockSizeX / userBlockSizeX;
-    constexpr uint32_t blockRatioY = memBlockSizeY / userBlockSizeY;
+    constexpr uint32_t blockRatioX = SBlock::memBlockSizeX / SBlock::userBlockSizeX;
+    constexpr uint32_t blockRatioY = SBlock::memBlockSizeY / SBlock::userBlockSizeY;
 
     mDataBlockIdx = microIndex.getTrayBlockIdx() / (blockRatioSize);
 
     uint32_t reminder = microIndex.getTrayBlockIdx() % (blockRatioSize);
 
     const uint32_t reminderInZ = reminder / (blockRatioX * blockRatioY);
-    mInDataBlockIdx.z = static_cast < InDataBlockIdx::Integer>( microIndex.getInTrayBlockIdx().z + reminderInZ * userBlockSizeZ);
+    mInDataBlockIdx.z = static_cast<InDataBlockIdx::Integer>(microIndex.getInTrayBlockIdx().z + reminderInZ * SBlock::userBlockSizeZ);
     reminder = reminder % (blockRatioX * blockRatioY);
     const uint32_t reminderInY = reminder / (blockRatioX);
-    mInDataBlockIdx.y = static_cast<InDataBlockIdx::Integer>(microIndex.getInTrayBlockIdx().y + reminderInY * userBlockSizeY);
+    mInDataBlockIdx.y = static_cast<InDataBlockIdx::Integer>(microIndex.getInTrayBlockIdx().y + reminderInY * SBlock::userBlockSizeY);
     const uint32_t reminderInX = reminder % blockRatioX;
-    mInDataBlockIdx.x = static_cast<InDataBlockIdx::Integer>(microIndex.getInTrayBlockIdx().x + reminderInX * userBlockSizeX);
+    mInDataBlockIdx.x = static_cast<InDataBlockIdx::Integer>(microIndex.getInTrayBlockIdx().x + reminderInX * SBlock::userBlockSizeX);
 }
 
 }  // namespace Neon::domain::details::bGrid

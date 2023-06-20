@@ -90,8 +90,8 @@ struct GridTransformation
             });
     }
 };
+using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
 
 }  // namespace details
-using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
 
 }  // namespace Neon::domain::details::bGrid

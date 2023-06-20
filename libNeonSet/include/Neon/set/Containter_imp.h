@@ -48,6 +48,7 @@ auto Container::factory(const std::string&                                 name,
         std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
         return {tmp};
     }
+    NEON_THROW_UNSUPPORTED_OPERATION("Execution type not supported");
 }
 
 template <typename DataContainerT, typename UserLoadingLambdaT>
