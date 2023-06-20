@@ -17,8 +17,8 @@ struct LbmParameters
 struct Config
 {
     double                     Re = 100.;            // Reynolds number
-    double                     ulb = 0.02;           // Velocity in lattice units
-    int                        N = 128;              // Number of nodes in x-direction
+    double                     ulb = 0.04;           // Velocity in lattice units
+    int                        N = 160;              // Number of nodes in x-direction
     bool                       benchmark = false;    // Run in benchmark mode ?
     double                     max_t = 10.0;         // Non-benchmark mode: Total time in dim.less units
     int                        outFrequency = 200;   // Non-benchmark mode: Frequency in LU for output of terminal message and profiles (use 0 for no messages)

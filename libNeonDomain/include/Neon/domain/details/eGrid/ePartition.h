@@ -74,8 +74,8 @@ class ePartition
 
    public:
     //-- [PUBLIC TYPES] ----------------------------------------------------------------------------
-    using Self = ePartition<T, C>;              //<- this type
-    using Idx = eIndex;                         //<- index type
+    using Self = ePartition<T, C>;            //<- this type
+    using Idx = eIndex;                       //<- index type
     using OuterIdx = typename Idx::OuterIdx;  //<- index type for the subGrid
 
     static constexpr int Cardinality = C;
@@ -147,15 +147,15 @@ class ePartition
     operator()(Idx eId, int cardinalityIdx)
         -> T&;
 
-//    template <typename ComputeType>
-//    NEON_CUDA_HOST_DEVICE inline auto
-//    castRead(Idx eId, int cardinalityIdx) const
-//        -> ComputeType;
-//
-//    template <typename ComputeType>
-//    NEON_CUDA_HOST_DEVICE inline auto
-//    castWrite(Idx eId, int cardinalityIdx, const ComputeType& value)
-//        -> void;
+    //    template <typename ComputeType>
+    //    NEON_CUDA_HOST_DEVICE inline auto
+    //    castRead(Idx eId, int cardinalityIdx) const
+    //        -> ComputeType;
+    //
+    //    template <typename ComputeType>
+    //    NEON_CUDA_HOST_DEVICE inline auto
+    //    castWrite(Idx eId, int cardinalityIdx, const ComputeType& value)
+    //        -> void;
     /**
      * Retrieve value of a neighbour for a field with multiple cardinalities
      * @tparam dataView_ta
@@ -165,9 +165,9 @@ class ePartition
      * @return
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(Idx         eId,
-               NghIdx      nghIdx,
-               int         card)
+    getNghData(Idx    eId,
+               NghIdx nghIdx,
+               int    card)
         const -> NghData;
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -176,7 +176,18 @@ class ePartition
                int                  card)
         const -> NghData;
 
+    template <int xOff, int yOff, int zOff>
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghData(Idx eId,
+               int card)
+        const -> NghData;
 
+    template <int xOff, int yOff, int zOff>
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghData(Idx eId,
+               int card,
+               T defaultValue)
+        const -> NghData;
     /**
      * Check is the
      * @tparam dataView_ta

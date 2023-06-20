@@ -24,3 +24,10 @@ add_custom_command(
 		COMMAND ${CMAKE_COMMAND} -E copy
 		${CMAKE_CURRENT_SOURCE_DIR}/${APP}.sh
 		${CMAKE_BINARY_DIR}/bin/${APP}.sh)
+
+add_custom_command(
+		TARGET ${APP}  POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy
+		${CMAKE_CURRENT_SOURCE_DIR}/${APP}.py
+		${CMAKE_BINARY_DIR}/bin/${APP}.py
+)
