@@ -4,7 +4,7 @@ DEVICE_TYPE_LIST = 'cpu gpu'.split()
 GRID_LIST = "dGrid bGrid eGrid".split()
 STORAGE_FP_LIST = "double float".split()
 COMPUTE_FP_LIST = "double float".split()
-OCC_LIST = "nOCC".split()
+OCC_LIST = "nOCC sOCC".split()
 WARM_UP_ITER = 10
 MAX_ITER = 100
 REPETITIONS = 5
@@ -48,17 +48,18 @@ def countAll():
 SAMPLES = countAll()
 counter = 0
 command = './lbm-lid-driven-cavity-flow'
+# command = 'echo'
 with open(command + '.log', 'w') as fp:
     for DEVICE_TYPE in DEVICE_TYPE_LIST:
         DEVICE_SET_LIST = [DEVICE_ID_LIST[0]]
         if DEVICE_TYPE == 'gpu':
             for DEVICE in DEVICE_ID_LIST[1:]:
                 DEVICE_SET_LIST.append(DEVICE_SET_LIST[-1] + ' ' + DEVICE)
-        for OCC in OCC_LIST:
-            for DOMAIN_SIZE in DOMAIN_SIZE_LIST:
-                for STORAGE_FP in STORAGE_FP_LIST:
-                    for COMPUTE_FP in COMPUTE_FP_LIST:
-                        for DEVICE_SET in DEVICE_SET_LIST:
+        for DEVICE_SET in DEVICE_SET_LIST:
+            for OCC in OCC_LIST:
+                for DOMAIN_SIZE in DOMAIN_SIZE_LIST:
+                    for STORAGE_FP in STORAGE_FP_LIST:
+                        for COMPUTE_FP in COMPUTE_FP_LIST:
                             for GRID in GRID_LIST:
                                 if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
                                     continue
@@ -73,9 +74,12 @@ with open(command + '.log', 'w') as fp:
                                 parameters.append('--max-iter ' + str(MAX_ITER))
                                 parameters.append(
                                     '--report-filename ' + 'lbm-lid-driven-cavity-flow___' +
-                                    DEVICE_TYPE + '_' + DOMAIN_SIZE + '_' +
-                                    STORAGE_FP + '_' + COMPUTE_FP + '_' +
-                                    DEVICE_SET.replace(' ', '_') + '_' + OCC)
+                                    DEVICE_TYPE + '_' +
+                                    DEVICE_SET.replace(' ', '_') + '-' +
+                                    GRID + '_' +
+                                    DOMAIN_SIZE + '-' +
+                                    STORAGE_FP + '-' + COMPUTE_FP + '-' +
+                                    OCC)
                                 parameters.append('--computeFP ' + COMPUTE_FP)
                                 parameters.append('--storageFP ' + STORAGE_FP)
                                 parameters.append('--benchmark')
@@ -91,6 +95,7 @@ with open(command + '.log', 'w') as fp:
                                 fp.write(' '.join(commandList))
                                 fp.write("\n-------------------------------------------\n")
                                 fp.flush()
+                                print(' '.join(commandList))
                                 subprocess.run(commandList, text=True, stdout=fp)
 
                                 counter += 1
