@@ -58,6 +58,7 @@ template <typename IntegerType_ta>
 class Vec_4d<IntegerType_ta, true, false>
 {
    public:
+    using Integer = IntegerType_ta;
     using element_t = IntegerType_ta;
     using self_t = Vec_4d<element_t, true, false>;
 

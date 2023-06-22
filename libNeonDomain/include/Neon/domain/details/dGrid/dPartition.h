@@ -150,13 +150,13 @@ class dPartition
         return NghData(val, isValidNeighbour);
     }
 
-    template <int xOff, int yOff, int zOff, typename LambdaVALID, typename LambdaNOTValid = void* >
+    template <int xOff, int yOff, int zOff, typename LambdaVALID, typename LambdaNOTValid = void*>
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(const Idx&     eId,
                int            card,
                LambdaVALID    funIfValid,
                LambdaNOTValid funIfNOTValid = nullptr)
-        const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> , void>
+        const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T>, void>
     {
         Idx        cellNgh;
         const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(eId, cellNgh);
@@ -419,19 +419,31 @@ class dPartition
         return;
     }
 
+    auto getDataView()
+        -> Neon::DataView
+    {
+        return m_dataView;
+    }
+
+    auto helpGetGlobalToLocalOffets() const
+        -> NghIdx const*
+    {
+        return mStencil;
+    }
+
    private:
-    Neon::DataView m_dataView;
-    T*             m_mem;
-    Neon::index_3d m_dim;
-    int            m_zHaloRadius;
-    int            m_zBoundaryRadius;
-    Pitch          m_pitch;
-    int            m_prtID;
-    Neon::index_3d m_origin;
-    int            m_cardinality;
-    Neon::index_3d m_fullGridSize;
-    bool           mPeriodicZ;
-    NghIdx*        mStencil;
+    Neon::DataView        m_dataView;
+    T* NEON_RESTRICT      m_mem;
+    Neon::index_3d        m_dim;
+    int                   m_zHaloRadius;
+    int                   m_zBoundaryRadius;
+    Pitch                 m_pitch;
+    int                   m_prtID;
+    Neon::index_3d        m_origin;
+    int                   m_cardinality;
+    Neon::index_3d        m_fullGridSize;
+    bool                  mPeriodicZ;
+    NghIdx* NEON_RESTRICT mStencil;
 };
 
 

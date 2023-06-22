@@ -3,6 +3,7 @@
 #include "Neon/domain/bGrid.h"
 #include "Neon/domain/dGrid.h"
 #include "Neon/domain/eGrid.h"
+#include "Neon/domain/details/dGridSoA/dGridSoA.h"
 
 #include "CellType.h"
 #include "LbmIteration.h"
@@ -312,6 +313,9 @@ auto run(Config& config,
     }
     if (config.gridType == "bGrid") {
         return details::runFilterStoreType<Neon::bGrid>(config, report);
+    }
+    if (config.gridType == "dGridSoA") {
+        return details::runFilterStoreType<Neon::domain::details::dGridSoA::dSpanSoA>(config, report);
     }
 }
 }  // namespace CavityTwoPop
