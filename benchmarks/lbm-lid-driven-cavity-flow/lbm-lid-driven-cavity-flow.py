@@ -5,6 +5,7 @@ GRID_LIST = "dGrid bGrid eGrid".split()
 STORAGE_FP_LIST = "double float".split()
 COMPUTE_FP_LIST = "double float".split()
 OCC_LIST = "nOCC sOCC".split()
+HU_LIST = "huGrid huLattice".split()
 WARM_UP_ITER = 10
 MAX_ITER = 100
 REPETITIONS = 5
@@ -38,10 +39,11 @@ def countAll():
                     for COMPUTE_FP in COMPUTE_FP_LIST:
                         for DEVICE_SET in DEVICE_SET_LIST:
                             for GRID in GRID_LIST:
-                                if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
-                                    continue
+                                for HU in HU_LIST:
+                                    if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
+                                        continue
 
-                                counter += 1
+                                    counter += 1
     return counter
 
 
@@ -61,42 +63,44 @@ with open(command + '.log', 'w') as fp:
                     for STORAGE_FP in STORAGE_FP_LIST:
                         for COMPUTE_FP in COMPUTE_FP_LIST:
                             for GRID in GRID_LIST:
-                                if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
-                                    continue
+                                for HU in HU_LIST:
 
-                                parameters = []
-                                parameters.append('--deviceType ' + DEVICE_TYPE)
-                                parameters.append('--deviceIds ' + DEVICE_SET)
-                                parameters.append('--grid ' + GRID)
-                                parameters.append('--domain-size ' + DOMAIN_SIZE)
-                                parameters.append('--warmup-iter ' + str(WARM_UP_ITER))
-                                parameters.append('--repetitions ' + str(REPETITIONS))
-                                parameters.append('--max-iter ' + str(MAX_ITER))
-                                parameters.append(
-                                    '--report-filename ' + 'lbm-lid-driven-cavity-flow___' +
-                                    DEVICE_TYPE + '_' +
-                                    DEVICE_SET.replace(' ', '_') + '-' +
-                                    GRID + '_' +
-                                    DOMAIN_SIZE + '-' +
-                                    STORAGE_FP + '-' + COMPUTE_FP + '-' +
-                                    OCC)
-                                parameters.append('--computeFP ' + COMPUTE_FP)
-                                parameters.append('--storageFP ' + STORAGE_FP)
-                                parameters.append('--benchmark')
-                                parameters.append('--' + OCC)
+                                    if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
+                                        continue
+    
+                                    parameters = []
+                                    parameters.append('--deviceType ' + DEVICE_TYPE)
+                                    parameters.append('--deviceIds ' + DEVICE_SET)
+                                    parameters.append('--grid ' + GRID)
+                                    parameters.append('--domain-size ' + DOMAIN_SIZE)
+                                    parameters.append('--warmup-iter ' + str(WARM_UP_ITER))
+                                    parameters.append('--repetitions ' + str(REPETITIONS))
+                                    parameters.append('--max-iter ' + str(MAX_ITER))
+                                    parameters.append(
+                                        '--report-filename ' + 'lbm-lid-driven-cavity-flow___' +
+                                        DEVICE_TYPE + '_' +
+                                        DEVICE_SET.replace(' ', '_') + '-' +
+                                        GRID + '_' +
+                                        DOMAIN_SIZE + '-' +
+                                        STORAGE_FP + '-' + COMPUTE_FP + '-' +
+                                        OCC)
+                                    parameters.append('--computeFP ' + COMPUTE_FP)
+                                    parameters.append('--storageFP ' + STORAGE_FP)
+                                    parameters.append('--benchmark')
+                                    parameters.append('--' + OCC)
 
-                                commandList = []
-                                commandList.append(command)
-                                for el in parameters:
-                                    for s in el.split():
-                                        commandList.append(s)
+                                    commandList = []
+                                    commandList.append(command)
+                                    for el in parameters:
+                                        for s in el.split():
+                                            commandList.append(s)
 
-                                fp.write("\n-------------------------------------------\n")
-                                fp.write(' '.join(commandList))
-                                fp.write("\n-------------------------------------------\n")
-                                fp.flush()
-                                print(' '.join(commandList))
-                                subprocess.run(commandList, text=True, stdout=fp)
+                                    fp.write("\n-------------------------------------------\n")
+                                    fp.write(' '.join(commandList))
+                                    fp.write("\n-------------------------------------------\n")
+                                    fp.flush()
+                                    print(' '.join(commandList))
+                                    subprocess.run(commandList, text=True, stdout=fp)
 
-                                counter += 1
-                                printProgressBar(counter * 100.0 / SAMPLES, 'Progress')
+                                    counter += 1
+                                    printProgressBar(counter * 100.0 / SAMPLES, 'Progress')
