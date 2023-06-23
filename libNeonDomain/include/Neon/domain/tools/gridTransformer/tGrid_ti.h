@@ -31,6 +31,34 @@ tGrid<GridTransformation>::tGrid(FoundationGrid& foundationGrid)
 }
 
 template <typename GridTransformation>
+template <typename SparsityPattern>
+tGrid<GridTransformation>::tGrid(const Neon::Backend&         bk,
+                                 const Neon::int32_3d&        dimension,
+                                 const SparsityPattern&       activeCellLambda,
+                                 const Neon::domain::Stencil& stencil,
+                                 const Vec_3d<double>&        spacing,
+                                 const Vec_3d<double>&        origin)
+{
+    mData = std::make_shared<Data>(bk);
+    mData->foundationGrid = FoundationGrid(bk,
+                                           dimension,
+                                           activeCellLambda,
+                                           stencil,
+                                           spacing,
+                                           origin);
+    GridTransformation::initSpan(mData->foundationGrid,
+                                 NEON_OUT mData->spanTable);
+    tGrid::GridBase::init("tGrid",
+                          bk,
+                          mData->foundationGrid.getDimension(),
+                          mData->foundationGrid.getStencil(),
+                          mData->foundationGrid.getNumActiveCellsPerPartition(),
+                          mData->foundationGrid.getDefaultBlock(),
+                          mData->foundationGrid.getSpacing(),
+                          mData->foundationGrid.getOrigin());
+}
+
+template <typename GridTransformation>
 tGrid<GridTransformation>::tGrid()
 {
     mData = std::make_shared<Data>();

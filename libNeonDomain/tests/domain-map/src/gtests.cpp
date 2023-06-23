@@ -31,6 +31,15 @@ TEST(domain_map, bGrid)
                             1);
 }
 
+TEST(domain_map, dGridSoA)
+{
+    int nGpus = 1;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::run<Neon::domain::details::dGridSoA::dGridSoA, Type, 0>),
+                            nGpus,
+                            1);
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

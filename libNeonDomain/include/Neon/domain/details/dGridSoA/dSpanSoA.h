@@ -1,6 +1,8 @@
 #pragma once
 #include "Neon/set/DevSet.h"
 #include "dIndexSoA.h"
+#include "Neon/domain/details/dGrid/dSpan.h"
+
 namespace Neon::domain::details::dGridSoA {
 
 /**
@@ -39,6 +41,9 @@ class dSpanSoA
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetDim()
         const -> Neon::index_3d const&;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpInit(Neon::domain::details::dGrid::dSpan const&) ->void;
 
    private:
     Neon::DataView mDataView;

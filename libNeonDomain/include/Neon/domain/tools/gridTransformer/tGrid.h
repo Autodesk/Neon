@@ -54,6 +54,15 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     tGrid();
     virtual ~tGrid();
     explicit tGrid(FoundationGrid& foundationGrid);
+
+    template <typename SparsityPattern>
+    tGrid(const Neon::Backend&         backend /**< Target for computation */,
+          const Neon::int32_3d&        dimension /**< Dimension of the bounding box containing the domain */,
+          const SparsityPattern&       activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
+          const Neon::domain::Stencil& stencil /**< Stencil used by any computation on the grid */,
+          const Vec_3d<double>&        spacing = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
+          const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */);
+
     tGrid(const tGrid& other);                 // copy constructor
     tGrid(tGrid&& other) noexcept;             // move constructor
     tGrid& operator=(const tGrid& other);      // copy assignment
@@ -109,7 +118,7 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     struct Data
     {
         Data() = default;
-        explicit Data(Neon::Backend& bk)
+        explicit Data(Neon::Backend const& bk)
         {
             spanTable = Neon::domain::tool::SpanTable<Span>(bk);
         }

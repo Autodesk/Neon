@@ -56,6 +56,10 @@ class Vec_3d<IntegerType_ta, true, false>
         num_axis = 3
     };
 
+    static constexpr int directionX = axis_e::x_axis;
+    static constexpr int directionY = axis_e::y_axis;
+    static constexpr int directionZ = axis_e::z_axis;
+
     union
     {
         Integer v[axis_e::num_axis]{0, 0, 0};
@@ -120,7 +124,7 @@ class Vec_3d<IntegerType_ta, true, false>
 
     NEON_CUDA_HOST_DEVICE inline void constexpr set(Integer p[self_t::num_axis]);
 
-    NEON_CUDA_HOST_DEVICE inline void  constexpr set(const self_t& other);
+    NEON_CUDA_HOST_DEVICE inline void constexpr set(const self_t& other);
 
     NEON_CUDA_HOST_DEVICE inline void constexpr set(const Integer& xyz);
 

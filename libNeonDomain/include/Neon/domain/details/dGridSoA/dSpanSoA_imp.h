@@ -14,19 +14,19 @@ dSpanSoA::setAndValidate(Idx&            idx,
     idx.setLocation().y = int(y);
     idx.setLocation().z = int(z);
 
-    if (idx.get() < mDim) {
+    if (idx.getLocation() < mDim) {
         res = true;
     }
 
     switch (mDataView) {
         case Neon::DataView::STANDARD: {
             idx.setLocation().z += mZHaloRadius;
-            idx.setLocationOffset() = idx.getLocation().x + idx.getLocation().y * mDim.x + idx.getLocation().z * mDim.x * mDim.y;
+            idx.setOffset() = idx.getLocation().x + idx.getLocation().y * mDim.x + idx.getLocation().z * mDim.x * mDim.y;
             return res;
         }
         case Neon::DataView::INTERNAL: {
             idx.setLocation().z += mZHaloRadius + mZBoundaryRadius;
-            idx.setLocationOffset() = idx.getLocation().x + idx.getLocation().y * mDim.x + idx.getLocation().z * mDim.x * mDim.y;
+            idx.setOffset() = idx.getLocation().x + idx.getLocation().y * mDim.x + idx.getLocation().z * mDim.x * mDim.y;
             return res;
         }
         case Neon::DataView::BOUNDARY: {
@@ -35,7 +35,7 @@ dSpanSoA::setAndValidate(Idx&            idx,
                                ? 0
                                : (mDim.z - 1) + (-1 * mZBoundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
             idx.setLocation().z += mZHaloRadius;
-            idx.setLocationOffset() = idx.getLocation().x + idx.getLocation().y * mDim.x + idx.getLocation().z * mDim.x * mDim.y;
+            idx.setOffset() = idx.getLocation().x + idx.getLocation().y * mDim.x + idx.getLocation().z * mDim.x * mDim.y;
             return res;
         }
         default: {
@@ -67,5 +67,14 @@ NEON_CUDA_HOST_DEVICE inline auto dSpanSoA::helpGetDim()
 {
     return mDim;
 }
+
+NEON_CUDA_HOST_DEVICE inline auto  dSpanSoA::helpInit(Neon::domain::details::dGrid::dSpan const& dspan) ->void
+{
+    mDataView = dspan.helpGetDataView();
+    mZHaloRadius = dspan.helpGetZHaloRadius();
+    mZBoundaryRadius = dspan.helpGetZBoundaryRadius();
+    mDim = dspan.helpGetDim();
+}
+
 
 }  // namespace Neon::domain::details::dGrid

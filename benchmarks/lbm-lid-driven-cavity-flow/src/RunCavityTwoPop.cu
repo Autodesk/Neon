@@ -315,7 +315,7 @@ auto run(Config& config,
         return details::runFilterStoreType<Neon::bGrid>(config, report);
     }
     if (config.gridType == "dGridSoA") {
-        return details::runFilterStoreType<Neon::domain::details::dGridSoA::dSpanSoA>(config, report);
+        return details::runFilterStoreType<Neon::domain::details::dGridSoA::dGridSoA>(config, report);
     }
 }
 }  // namespace CavityTwoPop

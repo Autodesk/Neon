@@ -19,12 +19,13 @@ class dPartitionSoA
     using Idx = dIndexSoA;
     using NghData = Neon::domain::NghData<T>;
     using Pitch = uint32_4d;
+    using NghIdx = int8_3d;
 
     dPartitionSoA()
     {
     }
 
-    dPartitionSoA(Neon::domain::details::dGrid::dPartition<T, C> const& dPartitionOriginal)
+    dPartitionSoA(Neon::domain::details::dGrid::dPartition<T, C>& dPartitionOriginal)
     {
         mDataView = dPartitionOriginal.getDataView();
         mMem = dPartitionOriginal.mem();
@@ -34,22 +35,22 @@ class dPartitionSoA
         mPrtID = dPartitionOriginal.prtID();
         mOrigin = dPartitionOriginal.origin();
         mCardinality = dPartitionOriginal.cardinality();
-        mFullGridSize = dPartitionOriginal.fullGridSize();
-        NghIdx* mStencil = dPartitionOriginal.helpGetGlobalToLocalOffets();
+        mFullGridSize = dPartitionOriginal.getDomainSize();
+        mStencil = dPartitionOriginal.helpGetGlobalToLocalOffets();
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     prtID()
         const -> int
     {
-        return mPrtID();
+        return mPrtID;
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     cardinality()
         const -> int
     {
-        return mCardinality();
+        return mCardinality;
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
@@ -62,30 +63,30 @@ class dPartitionSoA
     inline NEON_CUDA_HOST_DEVICE auto
     getPitch(const Idx& idx,
              int        cardinality)
-        -> Idx::Offset
+        const -> Idx::Offset
     {
-        return idx.getLocationOffset() + cardinality * mPitch.w;
+        return idx.getOffset() + cardinality * mPitch.w;
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     dim()
         const -> const Neon::index_3d
     {
-        return mDim();
+        return mDim;
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     halo()
         const -> const Neon::index_3d
     {
-        return mDPartition.halo();
+        return Neon::index_3d(0, 0, mZHaloRadius);
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     origin()
         const -> const Neon::index_3d
     {
-        return m_ormDPartition.origin();
+        return mOrigin;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -96,7 +97,7 @@ class dPartitionSoA
         const -> NghData
     {
         Idx        gidxNgh;
-        const bool isValidNeighbour = nghIdx(gidx, nghOffset, gidxNgh);
+        const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
         T          val = alternativeVal;
         if (isValidNeighbour) {
             val = operator()(gidxNgh, card);
@@ -111,7 +112,7 @@ class dPartitionSoA
         const -> NghData
     {
         Idx        gidxNgh;
-        const bool isValidNeighbour = nghIdx(gidx, nghOffset, gidxNgh);
+        const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
         T          val;
         if (isValidNeighbour) {
             val = operator()(gidxNgh, card);
@@ -132,7 +133,7 @@ class dPartitionSoA
         const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T>, void>
     {
         Idx        gidxNgh;
-        const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
+        const bool isValidNeighbour = helpGetNghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
         if (isValidNeighbour) {
             T val = this->operator()(gidxNgh, card);
             funIfValid(val);
@@ -152,7 +153,7 @@ class dPartitionSoA
     {
         NghData    res;
         Idx        gidxNgh;
-        const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
+        const bool isValidNeighbour = helpGetNghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
         if (isValidNeighbour) {
             T val = operator()(gidxNgh, card);
             res.set(val, true);
@@ -171,7 +172,7 @@ class dPartitionSoA
     {
         NghData    res(defaultValue, false);
         Idx        gidxNgh;
-        const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
+        const bool isValidNeighbour = helpGetNghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
         if (isValidNeighbour) {
             T val = operator()(gidxNgh, card);
             res.set(val, true);
@@ -199,31 +200,31 @@ class dPartitionSoA
      * @return Whether the neighbour is valid
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    nghIdx(const Idx&    gidx,
-           const NghIdx& nghOffset,
-           Idx&          neighbourIdx)
+    helpGetNghIdx(const Idx&    gidx,
+                  const NghIdx& nghOffset,
+                  Idx&          neighbourIdx)
         const -> bool
     {
-        Neon::index_3d cartesian(gidx.get().x + nghOffset.x,
-                                 gidx.get().y + nghOffset.y,
-                                 gidx.get().z + nghOffset.z);
+        Neon::index_3d cartesian(gidx.getLocation().x + nghOffset.x,
+                                 gidx.getLocation().y + nghOffset.y,
+                                 gidx.getLocation().z + nghOffset.z);
 
-        neighbourIdx = Idx(cartesian,
-                           gidx.getOffset() + nghOffset.x * getPitchData().x +
-                               nghOffset.y * getPitchData().y +
-                               nghOffset.z * getPitchData().z);
+        neighbourIdx = Idx(cartesian, gidx.getOffset() +
+                                          nghOffset.x * getPitchData().x +
+                                          nghOffset.y * getPitchData().y +
+                                          nghOffset.z * getPitchData().z);
 
-        Idx::Location nghCartesianGlobal = getGlobalIndex(gidxNgh);
+        Neon::index_3d const nghCartesianIdx = getGlobalIndex(neighbourIdx);
 
         bool isValidNeighbour = true;
 
-        isValidNeighbour = (gidxNghGlobal.x >= 0) &&
-                           (gidxNghGlobal.y >= 0) &&
-                           (gidxNghGlobal.z >= 0);
+        isValidNeighbour = (nghCartesianIdx.x >= 0) &&
+                           (nghCartesianIdx.y >= 0) &&
+                           (nghCartesianIdx.z >= 0);
 
-        isValidNeighbour = (gidxNghGlobal.x < m_fullGridSize.x) &&
-                           (gidxNghGlobal.y < m_fullGridSize.y) &&
-                           (gidxNghGlobal.z < m_fullGridSize.z) &&
+        isValidNeighbour = (nghCartesianIdx.x < mFullGridSize.x) &&
+                           (nghCartesianIdx.y < mFullGridSize.y) &&
+                           (nghCartesianIdx.z < mFullGridSize.z) &&
                            isValidNeighbour;
 
         return isValidNeighbour;
@@ -235,37 +236,46 @@ class dPartitionSoA
                   Idx&       gidxNgh)
         const -> bool
     {
-        Neon::index_3d cartesian(gidx.get().x + xOff,
-                                 gidx.get().y + yOff,
-                                 gidx.get().z + zOff);
-        gidxNgh = Idx(cartesian,
-                      gidx.getOffset() + xOff * getPitchData().x +
-                          yOff * getPitchData().y +
-                          zOff * getPitchData().z);
-
-        Idx::Location nghCartesianGlobal(getGlobalIndex(gidxNgh));
+        {
+            Neon::index_3d cartesian(gidx.getLocation().x + xOff,
+                                     gidx.getLocation().y + yOff,
+                                     gidx.getLocation().z + zOff);
+            gidxNgh = Idx(cartesian, gidx.getOffset() +
+                                         xOff * getPitchData().x +
+                                         yOff * getPitchData().y +
+                                         zOff * getPitchData().z);
+        }
 
         bool isValidNeighbour = true;
         if constexpr (xOff > 0) {
-            isValidNeighbour = cellNgh.get().x < (m_dim.x) && isValidNeighbour;
-            isValidNeighbour = nghCartesianGlobal.x <= mDPartition.m_fullGridSize.x && isValidNeighbour;
+            int constexpr direction = Neon::index_3d::directionX;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
         }
         if constexpr (xOff < 0) {
-            isValidNeighbour = nghCartesianGlobal.x >= 0 && isValidNeighbour;
+            int constexpr direction = Neon::index_3d::directionX;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
         }
         if constexpr (yOff > 0) {
-            isValidNeighbour = cellNgh.get().y < (m_dim.y) && isValidNeighbour;
-            isValidNeighbour = nghCartesianGlobal.y <= mDPartition.m_fullGridSize.y && isValidNeighbour;
+            int constexpr direction = Neon::index_3d::directionY;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
         }
         if constexpr (yOff < 0) {
-            isValidNeighbour = nghCartesianGlobal.y >= 0 && isValidNeighbour;
+            int constexpr direction = Neon::index_3d::directionY;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
         }
         if constexpr (zOff > 0) {
-            isValidNeighbour = cellNgh.get().z < (m_dim.z + m_zHaloRadius * 2) && isValidNeighbour;
-            isValidNeighbour = nghCartesianGlobal.z <= mDPartition.m_fullGridSize.z && isValidNeighbour;
+            int constexpr direction = Neon::index_3d::directionZ;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
         }
         if constexpr (zOff < 0) {
-            isValidNeighbour = nghCartesianGlobal.z >= mDPartition.m_zHaloRadius && isValidNeighbour;
+            int constexpr direction = Neon::index_3d::directionZ;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
         }
         return isValidNeighbour;
     }
@@ -274,14 +284,14 @@ class dPartitionSoA
     mem()
         -> T*
     {
-        return mDPartition.m_mem;
+        return mMem;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
     mem() const
         -> const T*
     {
-        return mDPartition.m_mem;
+        return mMem;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -290,7 +300,7 @@ class dPartitionSoA
         -> T*
     {
         Idx::Offset p = getPitch(cell, cardinalityIdx);
-        return mDPartition.m_mem[p];
+        return mMem[p];
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -299,7 +309,7 @@ class dPartitionSoA
         -> T&
     {
         Idx::Offset p = getPitch(cell, cardinalityIdx);
-        return mDPartition.m_mem[p];
+        return mMem[p];
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -308,21 +318,35 @@ class dPartitionSoA
         const -> const T&
     {
         Idx::Offset p = getPitch(cell, cardinalityIdx);
-        return mDPartition.m_mem[p];
+        return mMem[p];
     }
 
     NEON_CUDA_HOST_DEVICE inline auto getGlobalIndex(const Idx& local)
         const -> Neon::index_3d
     {
-        Neon::index_3d result = local.mLocation + m_origin;
-        result.z -= mDPartition.m_zHaloRadius;
+        Neon::index_3d result = local.mLocation + mOrigin;
+        result.z -= mZHaloRadius;
         return result;
+    }
+
+    template <int direction>
+    NEON_CUDA_HOST_DEVICE inline auto getGlobalIndexByDirection(const Idx& local)
+        const -> int
+    {
+        if constexpr (Neon::index_3d::directionZ != direction) {
+            return local.mLocation.v[direction] +
+                   mOrigin.v[direction];
+        } else {
+            return local.mLocation.v[Neon::index_3d::directionZ] +
+                   mOrigin.v[Neon::index_3d::directionZ] -
+                   mZHaloRadius;
+        }
     }
 
     NEON_CUDA_HOST_DEVICE inline auto getDomainSize()
         const -> Neon::index_3d
     {
-        return mDPartition.m_fullGridSize;
+        return mFullGridSize;
     }
 
     Neon::DataView        mDataView;

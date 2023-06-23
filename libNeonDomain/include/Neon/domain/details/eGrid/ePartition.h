@@ -59,7 +59,7 @@ class ePartition
      *  |
      *  |   Connectivity table has the same layout of a field with cardinality equal to
      *  |   the number of neighbours and an SoA layout. Let's call this field nghField.
-     *  |   nghField(e, nghIdx) is the eIdx_t of the neighbour element as in a STANDARD
+     *  |   nghField(e, helpGetNghIdx) is the eIdx_t of the neighbour element as in a STANDARD
      *  |   view.
      *  |--)
      */

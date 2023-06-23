@@ -28,21 +28,22 @@
 #include "Neon/domain/patterns/PatternScalar.h"
 
 #include "dPartitionSoA.h"
+#include "dSpanSoA.h"
 
 namespace Neon::domain::details::dGridSoA {
 
 namespace details {
 struct dGridSoATransformation
 {
+    using FoundationGrid = Neon::domain::details::dGrid::dGrid;
+    using Idx = dIndexSoA;
+    using Span = dSpanSoA;
     template <typename T, int C>
     using Partition = dPartitionSoA<T, C>;
-    using Span = Neon::domain::details::eGrid::eSpan;
-    static constexpr Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport = Neon::set::internal::ContainerAPI::DataViewSupport::on;
 
-    using FoundationGrid = Neon::domain::details::eGrid::eGrid;
-    static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = FoundationGrid::executionThreadSpan;
+    static constexpr Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport = Neon::set::internal::ContainerAPI::DataViewSupport::on;
+    static constexpr Neon::set::details::ExecutionThreadSpan            executionThreadSpan = FoundationGrid::executionThreadSpan;
     using ExecutionThreadSpanIndexType = int32_t;
-    using Idx = FoundationGrid::Idx;
 
     static auto getDefaultBlock(FoundationGrid& foundationGrid) -> Neon::index_3d const&
     {
@@ -55,7 +56,7 @@ struct dGridSoATransformation
                                            Neon::SetIdx    setIdx,
                                            Neon::DataView  dw,
                                            Span&           span) {
-            span = foundationGrid.getSpan(execution, setIdx, dw);
+            span.helpInit(foundationGrid.getSpan(execution, setIdx, dw));
         });
     }
 
@@ -67,14 +68,14 @@ struct dGridSoATransformation
         return foundationGrid.getLaunchParameters(dataView, blockSize, shareMem);
     }
 
-    static auto helpGetGridIdx(FoundationGrid&,
-                               Neon::SetIdx const&,
-                               FoundationGrid::Idx const& fgIdx)
-        -> GridTransformation::Idx
-    {
-        GridTransformation::Idx tgIdx = fgIdx;
-        return tgIdx;
-    }
+    //    static auto helpGetGridIdx(FoundationGrid&,
+    //                               Neon::SetIdx const&,
+    //                               FoundationGrid::Idx const& fgIdx)
+    //        -> dGridSoATransformation::Idx
+    //    {
+    //        dGridSoATransformation::Idx tgIdx = fgIdx;
+    //        return tgIdx;
+    //    }
 
     template <typename T, int C>
     static auto initFieldPartition(FoundationGrid::Field<T, C>&                         foundationField,

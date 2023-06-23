@@ -16,11 +16,11 @@ NEON_CUDA_HOST_DEVICE inline dIndex::dIndex(const Location::Integer &x,
     mLocation.z = z;
 }
 
-NEON_CUDA_HOST_DEVICE inline auto dIndex::set() -> Location&
+NEON_CUDA_HOST_DEVICE inline auto dIndex::setLocation() -> Location&
 {
     return mLocation;
 }
-NEON_CUDA_HOST_DEVICE inline auto dIndex::get() const -> const Location&
+NEON_CUDA_HOST_DEVICE inline auto dIndex::getLocation() const -> const Location&
 {
     return mLocation;
 }

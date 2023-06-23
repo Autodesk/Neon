@@ -4,6 +4,7 @@
 #include "Neon/domain/tools/TestData.h"
 #include "TestInformation.h"
 #include "gtest/gtest.h"
+#include "Neon/domain/details/dGridSoA/dGridSoA.h"
 
 
 namespace map {
@@ -75,6 +76,7 @@ auto run(TestData<G, T, C>& data) -> void
 template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
 template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
+template auto run<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>(TestData<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>&) -> void;
 
 
 }  // namespace map

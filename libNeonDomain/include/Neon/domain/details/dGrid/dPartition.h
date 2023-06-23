@@ -44,16 +44,16 @@ class dPartition
                         int            cardinality,
                         Neon::index_3d fullGridSize,
                         NghIdx*        stencil = nullptr)
-        : m_dataView(dataView),
-          m_mem(mem),
-          m_dim(dim),
-          m_zHaloRadius(zHaloRadius),
-          m_zBoundaryRadius(zBoundaryRadius),
-          m_pitch(pitch),
-          m_prtID(prtID),
-          m_origin(origin),
-          m_cardinality(cardinality),
-          m_fullGridSize(fullGridSize),
+        : mDataView(dataView),
+          mMem(mem),
+          mDim(dim),
+          mZHaloRadius(zHaloRadius),
+          mZBoundaryRadius(zBoundaryRadius),
+          mPitch(pitch),
+          mPrtID(prtID),
+          mOrigin(origin),
+          mCardinality(cardinality),
+          mFullGridSize(fullGridSize),
           mPeriodicZ(false),
           mStencil(stencil)
     {
@@ -70,21 +70,21 @@ class dPartition
     prtID()
         const -> int
     {
-        return m_prtID;
+        return mPrtID;
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     cardinality()
         const -> int
     {
-        return m_cardinality;
+        return mCardinality;
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     getPitchData()
         const -> const Pitch&
     {
-        return m_pitch;
+        return mPitch;
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
@@ -92,76 +92,76 @@ class dPartition
              int        cardinalityIdx = 0)
         const -> int64_t
     {
-        return idx.get().x * int64_t(m_pitch.x) +
-               idx.get().y * int64_t(m_pitch.y) +
-               idx.get().z * int64_t(m_pitch.z) +
-               cardinalityIdx * int64_t(m_pitch.w);
+        return idx.getLocation().x * int64_t(mPitch.x) +
+               idx.getLocation().y * int64_t(mPitch.y) +
+               idx.getLocation().z * int64_t(mPitch.z) +
+               cardinalityIdx * int64_t(mPitch.w);
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     dim()
         const -> const Neon::index_3d
     {
-        return m_dim;
+        return mDim;
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     halo()
         const -> const Neon::index_3d
     {
-        return Neon::index_3d(0, 0, m_zHaloRadius);
+        return Neon::index_3d(0, 0, mZHaloRadius);
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
     origin()
         const -> const Neon::index_3d
     {
-        return m_origin;
+        return mOrigin;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Idx& eId,
+    getNghData(const Idx& gidx,
                NghIdx     nghOffset,
                int        card,
                const T&   alternativeVal)
         const -> NghData
     {
-        Idx        cellNgh;
-        const bool isValidNeighbour = nghIdx(eId, nghOffset, cellNgh);
+        Idx        gidxNgh;
+        const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
         T          val = alternativeVal;
         if (isValidNeighbour) {
-            val = operator()(cellNgh, card);
+            val = operator()(gidxNgh, card);
         }
         return NghData(val, isValidNeighbour);
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Idx& eId,
+    getNghData(const Idx& gidx,
                NghIdx     nghOffset,
                int        card)
         const -> NghData
     {
-        Idx        cellNgh;
-        const bool isValidNeighbour = nghIdx(eId, nghOffset, cellNgh);
+        Idx        gidxNgh;
+        const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
         T          val;
         if (isValidNeighbour) {
-            val = operator()(cellNgh, card);
+            val = operator()(gidxNgh, card);
         }
         return NghData(val, isValidNeighbour);
     }
 
     template <int xOff, int yOff, int zOff, typename LambdaVALID, typename LambdaNOTValid = void*>
     NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Idx&     eId,
+    getNghData(const Idx&     gidx,
                int            card,
                LambdaVALID    funIfValid,
                LambdaNOTValid funIfNOTValid = nullptr)
         const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T>, void>
     {
-        Idx        cellNgh;
-        const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(eId, cellNgh);
+        Idx        gidxNgh;
+        const bool isValidNeighbour = helpGetNghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
         if (isValidNeighbour) {
-            T val = this->operator()(cellNgh, card);
+            T val = this->operator()(gidxNgh, card);
             funIfValid(val);
         }
         if constexpr (!std::is_same_v<LambdaNOTValid, void*>) {
@@ -171,131 +171,130 @@ class dPartition
         }
     }
 
-    template <int xOff, int yOff, int zOff>
+    template <int xOff,
+              int yOff,
+              int zOff>
     NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Idx& eId,
+    getNghData(const Idx& gidx,
                int        card)
         const -> NghData
     {
-        NghData    res;
-        Idx        cellNgh;
-        const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(eId, cellNgh);
+        Idx        gidxNgh;
+        const bool isValidNeighbour = helpGetNghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
+        T          val;
         if (isValidNeighbour) {
-            T val = operator()(cellNgh, card);
-            res.set(val, true);
-        } else {
-            res.invalidate();
+            val = operator()(gidxNgh, card);
         }
-        return res;
+        return NghData(val, isValidNeighbour);
     }
 
     template <int xOff, int yOff, int zOff>
     NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Idx& eId,
+    getNghData(const Idx& gidx,
                int        card,
                T const&   defaultValue)
         const -> NghData
     {
         NghData    res(defaultValue, false);
-        Idx        cellNgh;
-        const bool isValidNeighbour = nghIdx<xOff, yOff, zOff>(eId, cellNgh);
+        Idx        gidxNgh;
+        const bool isValidNeighbour = helpGetNghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
         if (isValidNeighbour) {
-            T val = operator()(cellNgh, card);
+            T val = operator()(gidxNgh, card);
             res.set(val, true);
         }
         return res;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
-    nghVal(const Idx& eId,
+    nghVal(const Idx& gidx,
            uint8_t    nghID,
            int        card,
            const T&   alternativeVal)
         const -> NghData
     {
         NghIdx nghOffset = mStencil[nghID];
-        return getNghData(eId, nghOffset, card, alternativeVal);
+        return getNghData(gidx, nghOffset, card, alternativeVal);
     }
     /**
      * Get the index of the neighbor given the offset
      * @tparam dataView_ta
-     * @param[in] eId Index of the current element
+     * @param[in] gidx Index of the current element
      * @param[in] nghOffset Offset of the neighbor of interest from the current element
      * @param[in,out] neighbourIdx Index of the neighbor
      * @return Whether the neighbour is valid
      */
     NEON_CUDA_HOST_DEVICE inline auto
-    nghIdx(const Idx&    eId,
-           const NghIdx& nghOffset,
-           Idx&          neighbourIdx)
+    helpGetNghIdx(const Idx&    gidx,
+                  const NghIdx& nghOffset,
+                  Idx&          neighbourIdx)
         const -> bool
     {
-        Idx cellNgh(eId.get().x + nghOffset.x,
-                    eId.get().y + nghOffset.y,
-                    eId.get().z + nghOffset.z);
+        Idx gidxNgh(gidx.getLocation().x + nghOffset.x,
+                    gidx.getLocation().y + nghOffset.y,
+                    gidx.getLocation().z + nghOffset.z);
 
-        const auto cellNghGlobal = getGlobalIndex(cellNgh);
+        const auto gidxNghGlobal = getGlobalIndex(gidxNgh);
 
         bool isValidNeighbour = true;
 
-        if (mPeriodicZ) {
-            printf("Error, periodic not implemented yet");
-            assert(false);
-        }
+        isValidNeighbour = (gidxNghGlobal.x >= 0) &&
+                           (gidxNghGlobal.y >= 0) &&
+                           (gidxNghGlobal.z >= 0);
 
-        isValidNeighbour = (cellNghGlobal.x >= 0) &&
-                           (cellNghGlobal.y >= 0) &&
-                           (cellNghGlobal.z >= 0);
-
-        //        isValidNeighbour = (cellNgh.get().x < m_dim.x) &&
-        //                           (cellNgh.get().y < m_dim.y) &&
-        //                           (cellNgh.get().z < m_dim.z + 2 * m_zHaloRadius) && isValidNeighbour;
-
-        isValidNeighbour = (cellNghGlobal.x < m_fullGridSize.x) &&
-                           (cellNghGlobal.y < m_fullGridSize.y) &&
-                           (cellNghGlobal.z < m_fullGridSize.z) &&
+        isValidNeighbour = (gidxNghGlobal.x < mFullGridSize.x) &&
+                           (gidxNghGlobal.y < mFullGridSize.y) &&
+                           (gidxNghGlobal.z < mFullGridSize.z) &&
                            isValidNeighbour;
 
         if (isValidNeighbour) {
-            neighbourIdx = cellNgh;
+            neighbourIdx = gidxNgh;
         }
         return isValidNeighbour;
     }
 
     template <int xOff, int yOff, int zOff>
     NEON_CUDA_HOST_DEVICE inline auto
-    nghIdx(const Idx& eId,
-           Idx&       cellNgh)
+    helpGetNghIdx(const Idx& gidx,
+                  Idx&       gidxNgh)
         const -> bool
     {
-        cellNgh = Idx(eId.get().x + xOff,
-                      eId.get().y + yOff,
-                      eId.get().z + zOff);
-        Idx cellNgh_global(cellNgh.get() + m_origin);
-        // const bool isValidNeighbour = (cellNgh_global >= 0 && cellNgh < (m_dim + m_halo) && cellNgh_global < m_fullGridSize);
-        bool isValidNeighbour = true;
-        if constexpr (xOff > 0) {
-            isValidNeighbour = cellNgh.get().x < (m_dim.x) && isValidNeighbour;
-            isValidNeighbour = cellNgh_global.get().x <= m_fullGridSize.x && isValidNeighbour;
-        }
-        if constexpr (xOff < 0) {
-            isValidNeighbour = cellNgh_global.get().x >= 0 && isValidNeighbour;
-        }
-        if constexpr (yOff > 0) {
-            isValidNeighbour = cellNgh.get().y < (m_dim.y) && isValidNeighbour;
-            isValidNeighbour = cellNgh_global.get().y <= m_fullGridSize.y && isValidNeighbour;
-        }
-        if constexpr (yOff < 0) {
-            isValidNeighbour = cellNgh_global.get().y >= 0 && isValidNeighbour;
-        }
-        if constexpr (zOff > 0) {
-            isValidNeighbour = cellNgh.get().z < (m_dim.z + m_zHaloRadius * 2) && isValidNeighbour;
-            isValidNeighbour = cellNgh_global.get().z <= m_fullGridSize.z && isValidNeighbour;
-        }
-        if constexpr (zOff < 0) {
-            isValidNeighbour = cellNgh_global.get().z >= m_zHaloRadius && isValidNeighbour;
-        }
-        return isValidNeighbour;
+        return helpGetNghIdx(gidx, NghIdx{xOff, yOff, zOff}, gidxNgh);
+        //        gidxNgh = Idx(gidx.getLocation().x + xOff,
+        //                      gidx.getLocation().y + yOff,
+        //                      gidx.getLocation().z + zOff);
+        //
+        //        bool isValidNeighbour = true;
+        //        if constexpr (xOff > 0) {
+        //            int constexpr direction = Neon::index_3d::directionX;
+        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+        //            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
+        //        }
+        //        if constexpr (xOff < 0) {
+        //            int constexpr direction = Neon::index_3d::directionX;
+        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+        //            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
+        //        }
+        //        if constexpr (yOff > 0) {
+        //            int constexpr direction = Neon::index_3d::directionY;
+        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+        //            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
+        //        }
+        //        if constexpr (yOff < 0) {
+        //            int constexpr direction = Neon::index_3d::directionY;
+        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+        //            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
+        //        }
+        //        if constexpr (zOff > 0) {
+        //            int constexpr direction = Neon::index_3d::directionZ;
+        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+        //            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
+        //        }
+        //        if constexpr (zOff < 0) {
+        //            int constexpr direction = Neon::index_3d::directionZ;
+        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+        //            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
+        //        }
+        //        return isValidNeighbour;
     }
 
 
@@ -303,7 +302,7 @@ class dPartition
     mem()
         -> T*
     {
-        return m_mem;
+        return mMem;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -311,7 +310,7 @@ class dPartition
         const
         -> const T*
     {
-        return m_mem;
+        return mMem;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -319,7 +318,7 @@ class dPartition
         int        cardinalityIdx) -> T*
     {
         int64_t p = getPitch(cell, cardinalityIdx);
-        return m_mem[p];
+        return mMem[p];
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -327,7 +326,7 @@ class dPartition
                int        cardinalityIdx) -> T&
     {
         int64_t p = getPitch(cell, cardinalityIdx);
-        return m_mem[p];
+        return mMem[p];
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -335,7 +334,7 @@ class dPartition
                int        cardinalityIdx) const -> const T&
     {
         int64_t p = getPitch(cell, cardinalityIdx);
-        return m_mem[p];
+        return mMem[p];
     }
 
     template <typename ComputeType>
@@ -386,22 +385,35 @@ class dPartition
         //               local.mLocation.y < m_dim.y &&
         //               local.mLocation.z < m_dim.z + m_zHaloRadius);
 
-        Neon::index_3d result = local.mLocation + m_origin;
-        result.z -= m_zHaloRadius;
+        Neon::index_3d result = local.mLocation;
+        result.z = result.z + mOrigin.z - mZHaloRadius;
         return result;
+    }
+
+    template <int direction>
+    NEON_CUDA_HOST_DEVICE inline auto getGlobalIndexByDirection(const Idx& local)
+        const -> int
+    {
+        if constexpr (Neon::index_3d::directionZ != direction) {
+            return local.mLocation.v[direction];
+        } else {
+            return local.mLocation.v[Neon::index_3d::directionZ] +
+                   mOrigin.v[Neon::index_3d::directionZ] -
+                   mZHaloRadius;
+        }
     }
 
     NEON_CUDA_HOST_DEVICE inline auto getDomainSize()
         const -> Neon::index_3d
     {
-        return m_fullGridSize;
+        return mFullGridSize;
     }
 
     auto ioToVti(std::string const& fname, std::string const& fieldName)
     {
-        auto fnameCommplete = fname + "_" + std::to_string(m_prtID);
-        auto haloOrigin = Vec_3d<double>(m_origin.x, m_origin.y, m_origin.z - m_zHaloRadius);
-        auto haloDim = m_dim + Neon::index_3d(0, 0, 2 * m_zHaloRadius) + 1;
+        auto fnameCommplete = fname + "_" + std::to_string(mPrtID);
+        auto haloOrigin = Vec_3d<double>(mOrigin.x, mOrigin.y, mOrigin.z - mZHaloRadius);
+        auto haloDim = mDim + Neon::index_3d(0, 0, 2 * mZHaloRadius) + 1;
 
         IoToVTK<int, int64_t> io(fnameCommplete,
                                  haloDim,
@@ -413,35 +425,35 @@ class dPartition
         io.addField([&](const Neon::index_3d& idx, int i) {
             return operator()(dIndex(idx), i);
         },
-                    m_cardinality, "Partition", ioToVTKns::VtiDataType_e::voxel);
+                    mCardinality, "Partition", ioToVTKns::VtiDataType_e::voxel);
 
         io.flushAndClear();
         return;
     }
 
     auto getDataView()
-        -> Neon::DataView
+        const -> Neon::DataView
     {
-        return m_dataView;
+        return mDataView;
     }
 
-    auto helpGetGlobalToLocalOffets() const
-        -> NghIdx const*
+    auto helpGetGlobalToLocalOffets()
+        const -> NghIdx*
     {
         return mStencil;
     }
 
    private:
-    Neon::DataView        m_dataView;
-    T* NEON_RESTRICT      m_mem;
-    Neon::index_3d        m_dim;
-    int                   m_zHaloRadius;
-    int                   m_zBoundaryRadius;
-    Pitch                 m_pitch;
-    int                   m_prtID;
-    Neon::index_3d        m_origin;
-    int                   m_cardinality;
-    Neon::index_3d        m_fullGridSize;
+    Neon::DataView        mDataView;
+    T* NEON_RESTRICT      mMem;
+    Neon::index_3d        mDim;
+    int                   mZHaloRadius;
+    int                   mZBoundaryRadius;
+    Pitch                 mPitch;
+    int                   mPrtID;
+    Neon::index_3d        mOrigin;
+    int                   mCardinality;
+    Neon::index_3d        mFullGridSize;
     bool                  mPeriodicZ;
     NghIdx* NEON_RESTRICT mStencil;
 };

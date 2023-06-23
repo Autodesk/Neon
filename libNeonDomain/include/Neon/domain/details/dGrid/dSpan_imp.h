@@ -10,29 +10,29 @@ dSpan::setAndValidate(Idx&            idx,
     const -> bool
 {
     bool res = false;
-    idx.set().x = int(x);
-    idx.set().y = int(y);
-    idx.set().z = int(z);
+    idx.setLocation().x = int(x);
+    idx.setLocation().y = int(y);
+    idx.setLocation().z = int(z);
 
-    if (idx.get() < mDim) {
+    if (idx.getLocation() < mDim) {
         res = true;
     }
 
     switch (mDataView) {
         case Neon::DataView::STANDARD: {
-            idx.set().z += mZHaloRadius;
+            idx.setLocation().z += mZHaloRadius;
             return res;
         }
         case Neon::DataView::INTERNAL: {
-            idx.set().z += mZHaloRadius + mZBoundaryRadius;
+            idx.setLocation().z += mZHaloRadius + mZBoundaryRadius;
             return res;
         }
         case Neon::DataView::BOUNDARY: {
 
-            idx.set().z += idx.get().z < mZBoundaryRadius
+            idx.setLocation().z += idx.getLocation().z < mZBoundaryRadius
                                ? 0
                                : (mDim.z - 1) + (-1 * mZBoundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
-            idx.set().z += mZHaloRadius;
+            idx.setLocation().z += mZHaloRadius;
 
             return res;
         }
