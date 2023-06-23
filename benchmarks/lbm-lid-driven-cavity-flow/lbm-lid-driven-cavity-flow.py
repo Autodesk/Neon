@@ -67,7 +67,7 @@ with open(command + '.log', 'w') as fp:
 
                                     if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
                                         continue
-    
+
                                     parameters = []
                                     parameters.append('--deviceType ' + DEVICE_TYPE)
                                     parameters.append('--deviceIds ' + DEVICE_SET)
@@ -88,6 +88,7 @@ with open(command + '.log', 'w') as fp:
                                     parameters.append('--storageFP ' + STORAGE_FP)
                                     parameters.append('--benchmark')
                                     parameters.append('--' + OCC)
+                                    parameters.append('--' + HU)
 
                                     commandList = []
                                     commandList.append(command)
