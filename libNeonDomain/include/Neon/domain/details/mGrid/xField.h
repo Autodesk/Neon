@@ -4,7 +4,7 @@
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 
 namespace Neon::domain::details::bGrid {
-template <uint32_t mBX, uint32_t mBY, uint32_t mBZ, uint32_t uBX, uint32_t uBY, uint32_t uBZ>
+template <typename SBlock>
 class bGrid;
 }
 
@@ -17,26 +17,14 @@ class mGrid;
 template <typename T, int C = 0>
 class xField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 Neon::domain::details::bGrid::bGrid<kMemBlockSizeX,
-                                                                                                     kMemBlockSizeY,
-                                                                                                     kMemBlockSizeZ,
-                                                                                                     kUserBlockSizeX,
-                                                                                                     kUserBlockSizeY,
-                                                                                                     kUserBlockSizeZ>,
+                                                                 Neon::domain::details::bGrid::bGrid<kStaticBlock>,
                                                                  mPartition<T, C>,
                                                                  int>
 
 {
    public:
-    using Partition = typename mPartition<T, C>;
-
-
-    using Grid = Neon::domain::details::bGrid::bGrid<kMemBlockSizeX,
-                                                     kMemBlockSizeY,
-                                                     kMemBlockSizeZ,
-                                                     kUserBlockSizeX,
-                                                     kUserBlockSizeY,
-                                                     kUserBlockSizeZ>;
+    using Partition = mPartition<T, C>;
+    using Grid = Neon::domain::details::bGrid::bGrid<kStaticBlock>;
     using Field = typename Grid::Field<T, C>;
 
 

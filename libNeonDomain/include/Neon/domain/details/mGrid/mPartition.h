@@ -1,9 +1,11 @@
 #pragma once
 
+
 #include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/details/bGrid/bPartition.h"
 #include "Neon/domain/interface/NghData.h"
 
+#include "Neon/domain/details/bGrid/StaticBlock.h"
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
 namespace Neon::domain::details::mGrid {
@@ -15,14 +17,21 @@ constexpr uint32_t kUserBlockSizeX = 2;
 constexpr uint32_t kUserBlockSizeY = 2;
 constexpr uint32_t kUserBlockSizeZ = 2;
 
+constexpr uint32_t kNumUserBlockPerMemBlockX = kMemBlockSizeX / kUserBlockSizeX;
+constexpr uint32_t kNumUserBlockPerMemBlockY = kMemBlockSizeY / kUserBlockSizeY;
+constexpr uint32_t kNumUserBlockPerMemBlockZ = kMemBlockSizeZ / kUserBlockSizeZ;
+
+using kStaticBlock = Neon::domain::details::bGrid::StaticBlock<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ, true>;
+
 template <typename T, int C = 0>
-class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ>
+class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>
 {
    public:
-    using Idx = Neon::domain::details::bGrid::bIndex<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ>;
+    using Idx = Neon::domain::details::bGrid::bIndex<kStaticBlock>;
     using NghIdx = Idx::NghIdx;
     using NghData = Neon::domain::NghData<T>;
     using Type = T;
+    using MaskT = typename kStaticBlock::BitMask;
 
    public:
     mPartition();
@@ -39,9 +48,9 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kMemBlo
                         Neon::int32_3d*      origin,
                         uint32_t*            parent,
                         Idx::InDataBlockIdx* parentLocalID,
-                        uint64_t*            mask,
-                        uint64_t*            maskLowerLevel,
-                        uint64_t*            maskUpperLevel,
+                        MaskT*               mask,
+                        MaskT*               maskLowerLevel,
+                        MaskT*               maskUpperLevel,
                         uint32_t*            childBlockID,
                         uint32_t*            parentNeighbourBlocks,
                         T                    defaultValue,
@@ -185,12 +194,12 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kMemBlo
     int                  mLevel;
     T*                   mMemParent;
     T*                   mMemChild;
-    uint32_t*            mParentBlockID;
+    Idx::DataBlockIdx*   mParentBlockID;
     Idx::InDataBlockIdx* mParentLocalID;
-    uint64_t*            mMaskLowerLevel;
-    uint64_t*            mMaskUpperLevel;
-    uint32_t*            mChildBlockID;
-    uint32_t*            mParentNeighbourBlocks;
+    MaskT*               mMaskLowerLevel;
+    MaskT*               mMaskUpperLevel;
+    Idx::DataBlockIdx*   mChildBlockID;
+    Idx::DataBlockIdx*   mParentNeighbourBlocks;
     int*                 mRefFactors;
     int*                 mSpacing;
 };

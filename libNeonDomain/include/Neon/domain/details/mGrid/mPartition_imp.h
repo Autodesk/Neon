@@ -1,11 +1,10 @@
 #pragma once
-#include "Neon/domain/details/mGrid/mPartition.h"
 
 namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
 mPartition<T, C>::mPartition()
-    : Neon::bGrid::Partition<T, C, kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ>(),
+    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(),
       mMemParent(nullptr),
       mMemChild(nullptr),
       mParentBlockID(nullptr),
@@ -20,25 +19,25 @@ mPartition<T, C>::mPartition()
 
 template <typename T, int C>
 mPartition<T, C>::mPartition(Neon::DataView /*dataView*/,
-                             int level,
-                             T* /*mem*/,
-                             T* memParent,
-                             T* memChild,
-                             int /*cardinality*/,
-                             uint32_t* /*neighbourBlocks*/,
-                             Neon::int32_3d* /*origin*/,
+                             int                  level,
+                             T*                   mem,
+                             T*                   memParent,
+                             T*                   memChild,
+                             int                  cardinality,
+                             Idx::DataBlockIdx*   neighbourBlocks,
+                             Neon::int32_3d*      origin,
                              uint32_t*            parentBlockID,
                              Idx::InDataBlockIdx* parentLocalID,
-                             uint64_t* /*mask*/,
-                             uint64_t* maskLowerLevel,
-                             uint64_t* maskUpperLevel,
-                             uint32_t* childBlockID,
-                             uint32_t* parentNeighbourBlocks,
+                             MaskT*               mask,
+                             MaskT*               maskLowerLevel,
+                             MaskT*               maskUpperLevel,
+                             uint32_t*            childBlockID,
+                             uint32_t*            parentNeighbourBlocks,
                              T /*outsideValue*/,
-                             NghIdx* /*stencilNghIndex*/,
-                             int* refFactors,
-                             int* spacing)
-    : Neon::domain::details::bGrid::bPartition<T, C, kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ>(/*0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex*/),
+                             NghIdx* stencilNghIndex,
+                             int*    refFactors,
+                             int*    spacing)
+    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex),
       mLevel(level),
       mMemParent(memParent),
       mMemChild(memChild),

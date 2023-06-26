@@ -1,9 +1,10 @@
+
 #pragma once
 #include "Neon/core/core.h"
 
 #include "Neon/set/memory/memSet.h"
 
-#include "Neon/domain/bGrid.h"
+#include "Neon/domain/details/bGrid/bGrid.h"
 
 #include "Neon/domain/details/mGrid/mGridDescriptor.h"
 
@@ -27,7 +28,7 @@ class mGrid
 {
    public:
     using Grid = mGrid;
-    using InternalGrid = Neon::domain::details::bGrid::bGrid<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ>;
+    using InternalGrid = Neon::domain::details::bGrid::bGrid<kStaticBlock>;
     using Idx = typename InternalGrid::Idx;
     using Descriptor = mGridDescriptor<1, 1, 1>;
 
@@ -195,10 +196,10 @@ class mGrid
         Neon::index_3d domainSize;
 
         //stores the parent of the block
-        std::vector<Neon::set::MemSet<uint32_t>> mParentBlockID;
+        std::vector<Neon::set::MemSet<Idx::DataBlockIdx>> mParentBlockID;
 
         //Given a block at level L, we store R children block IDs for each block in L where R is the refinement factor
-        std::vector<Neon::set::MemSet<uint32_t>> mChildBlockID;
+        std::vector<Neon::set::MemSet<Idx::DataBlockIdx>> mChildBlockID;
 
         //store the parent local index within its block
         std::vector<Neon::set::MemSet<Idx::InDataBlockIdx>> mParentLocalID;

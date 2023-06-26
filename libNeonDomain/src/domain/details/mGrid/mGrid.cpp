@@ -1,4 +1,6 @@
+
 #include "Neon/domain/details//mGrid/mGrid.h"
+#include "Neon/domain/details/mGrid/mPartition.h"
 
 
 namespace Neon::domain::details::mGrid {
@@ -51,6 +53,7 @@ mGrid::mGrid(
             }
         }
     }
+
 
     if (domainSize.x < top_level_spacing || domainSize.y < top_level_spacing || domainSize.z < top_level_spacing) {
         NeonException exp("mGrid::mGrid");
@@ -244,7 +247,6 @@ mGrid::mGrid(
                 backend,
                 levelDomainSize,
                 [&](Neon::int32_3d id) {
-                    id *= voxelSpacing;
                     if (id < domainSize) {
                         Neon::index_3d blockID = mData->mDescriptor.childToParent(id, l);
                         Neon::index_3d localID = mData->mDescriptor.toLocalIndex(id, l);
@@ -254,7 +256,7 @@ mGrid::mGrid(
                     }
                 },
                 stencil,
-                //voxelSpacing,
+                voxelSpacing,
                 spacingData,
                 origin);
     }
@@ -274,20 +276,22 @@ mGrid::mGrid(
     //parent block ID
     mData->mParentBlockID.resize(mData->mDescriptor.getDepth());
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-        mData->mParentBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::HOST_DEVICE},
-                                                                                 1,
-                                                                                 memOptionsAoS,
-                                                                                 mData->grids[l].helpGetBlockViewGrid().getNumActiveCellsPerPartition());
+        mData->mParentBlockID[l] = backend.devSet().template newMemSet<Idx::DataBlockIdx>({Neon::DataUse::HOST_DEVICE},
+                                                                                          1,
+                                                                                          memOptionsAoS,
+                                                                                          mData->grids[l].getBlockViewGrid().getNumActiveCellsPerPartition());
     }
 
     //child block ID
+
+
     std::vector<Neon::set::DataSet<uint64_t>> childAllocSize(mData->mDescriptor.getDepth());
     for (int l = 0; l < descriptor.getDepth(); ++l) {
         childAllocSize[l] = backend.devSet().template newDataSet<uint64_t>();
         for (int64_t i = 0; i < childAllocSize[l].size(); ++i) {
             if (l > 0) {
-                childAllocSize[l][i] = mData->grids[l].helpGetBlockViewGrid().getNumActiveCellsPerPartition()[i] *
-                                       descriptor.getRefFactor(l) * descriptor.getRefFactor(l) * descriptor.getRefFactor(l);
+                childAllocSize[l][i] = mData->grids[l].helpGetPartitioner1D().getStandardCount()[0] *
+                                       kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ;
             } else {
                 //we actually don't need to store anything at level 0
                 childAllocSize[l][i] = 1;
@@ -297,10 +301,16 @@ mGrid::mGrid(
 
     mData->mChildBlockID.resize(mData->mDescriptor.getDepth());
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-        mData->mChildBlockID[l] = backend.devSet().template newMemSet<uint32_t>({Neon::DataUse::HOST_DEVICE},
-                                                                                1,
-                                                                                memOptionsSoA,
-                                                                                childAllocSize[l]);
+        mData->mChildBlockID[l] = backend.devSet().template newMemSet<Idx::DataBlockIdx>({Neon::DataUse::HOST_DEVICE},
+                                                                                         1,
+                                                                                         memOptionsSoA,
+                                                                                         childAllocSize[l]);
+        for (int32_t c = 0; c < childAllocSize[l].cardinality(); ++c) {
+            SetIdx devID(c);
+            for (int64_t i = 0; i < childAllocSize[l][c]; ++i) {
+                mData->mChildBlockID[l].eRef(devID, i) = std::numeric_limits<Idx::DataBlockIdx>::max();
+            }
+        }
     }
 
 
@@ -310,7 +320,7 @@ mGrid::mGrid(
         mData->mParentLocalID[l] = backend.devSet().template newMemSet<Idx::InDataBlockIdx>({Neon::DataUse::HOST_DEVICE},
                                                                                             1,
                                                                                             memOptionsAoS,
-                                                                                            mData->grids[l].helpGetBlockViewGrid().getNumActiveCellsPerPartition());
+                                                                                            mData->grids[l].getBlockViewGrid().getNumActiveCellsPerPartition());
     }
 
 
@@ -341,6 +351,8 @@ mGrid::mGrid(
         }
     }
 
+    SetIdx devID(0);
+
 
     // loop over active blocks to populate the block parents and child info
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
@@ -348,25 +360,18 @@ mGrid::mGrid(
         const int spacing = mData->mDescriptor.getSpacing(l);
         int       voxelSpacing = mData->mDescriptor.getSpacing(l - 1);
 
-        //TODO need to figure out which device owns this block
-        SetIdx devID(0);
 
-
-        //mData->grids[l].getBlockOriginTo1D().forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
         mData->grids[l].helpGetPartitioner1D().forEachSeq(devID, [&](int blockIdx, Neon::index_3d memBlockOrigin, auto /*byPartition*/) {
             Neon::index_3d blockOrigin = memBlockOrigin;
             blockOrigin.x *= kMemBlockSizeX * voxelSpacing;
             blockOrigin.y *= kMemBlockSizeY * voxelSpacing;
             blockOrigin.z *= kMemBlockSizeZ * voxelSpacing;
 
-            //Neon::int32_3d block3DIndex = blockOrigin / spacing;
-
-
             if (l > 0) {
                 //loop over user block
-                for (int32_t k = 0; k < kMemBlockSizeZ / kUserBlockSizeZ; ++k) {
-                    for (int32_t j = 0; j < kMemBlockSizeY / kUserBlockSizeY; ++j) {
-                        for (int32_t i = 0; i < kMemBlockSizeX / kUserBlockSizeX; ++i) {
+                for (int32_t k = 0; k < kNumUserBlockPerMemBlockZ; ++k) {
+                    for (int32_t j = 0; j < kNumUserBlockPerMemBlockY; ++j) {
+                        for (int32_t i = 0; i < kNumUserBlockPerMemBlockX; ++i) {
 
                             const Neon::index_3d userBlockOrigin(i * kUserBlockSizeX * voxelSpacing + blockOrigin.x,
                                                                  j * kUserBlockSizeY * voxelSpacing + blockOrigin.y,
@@ -391,21 +396,20 @@ mGrid::mGrid(
                                         //set child ID
                                         if (levelBitMaskIsSet(l, block3DIndex, localChild)) {
 
+                                            Neon::index_3d childId = mData->mDescriptor.parentToChild(userBlockOrigin, l, localChild);
 
-                                            Neon::index_3d childBase = mData->mDescriptor.parentToChild(userBlockOrigin, l, localChild);
+                                            auto [setIdx, childBlockID] = mData->grids[l - 1].helpGetSetIdxAndGridIdx(childId);
 
-                                            auto meta = mData->grids[l - 1].helpGetPartitioner1D().getDenseMeta().get(childBase);
-
-                                            if (meta.isValid()) {
+                                            if (setIdx.idx() == -1) {
                                                 mData->mChildBlockID[l].eRef(devID,
                                                                              blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
-                                                                                 i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY +
-                                                                                 x + y * refFactor + z * refFactor * refFactor) = meta.index;
+                                                                                 (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX * kUserBlockSizeY * kUserBlockSizeZ +
+                                                                                 x + y * refFactor + z * refFactor * refFactor) = std::numeric_limits<Idx::DataBlockIdx>::max();
                                             } else {
                                                 mData->mChildBlockID[l].eRef(devID,
-                                                                             blockIdx * refFactor * refFactor * refFactor +
-                                                                                 i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY +
-                                                                                 x + y * refFactor + z * refFactor * refFactor) = std::numeric_limits<uint32_t>::max();
+                                                                             blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
+                                                                                 (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX * kUserBlockSizeY * kUserBlockSizeZ +
+                                                                                 x + y * refFactor + z * refFactor * refFactor) = childBlockID.getDataBlockIdx();
                                             }
                                         }
                                     }
@@ -417,91 +421,21 @@ mGrid::mGrid(
             }
 
 
-            //set active mask and child ID
-            //for (int32_t z = 0; z < refFactor; z++) {
-            //    for (int32_t y = 0; y < refFactor; y++) {
-            //        for (int32_t x = 0; x < refFactor; x++) {
-            //
-            //            const Neon::index_3d localChild(x, y, z);
-            //
-            //            if (levelBitMaskIsSet(l, block3DIndex, localChild)) {
-            //
-            //                if (l > 0) {
-            //                    Neon::index_3d childBase = mData->mDescriptor.parentToChild(blockOrigin, l, localChild);
-            //                    //auto           child_it = mData->grids[l - 1].getBlockOriginTo1D().getMetadata(childBase);
-            //                    auto meta = mData->grids[l - 1].helpGetPartitioner1D().getDenseMeta().get(childBase);
-            //
-            //                    if (meta.isValid()) {
-            //                        mData->mChildBlockID[l].eRef(devID,
-            //                                                     blockIdx * refFactor * refFactor * refFactor +
-            //                                                         x + y * refFactor + z * refFactor * refFactor) = meta.index;
-            //                    } else {
-            //                        mData->mChildBlockID[l].eRef(devID,
-            //                                                     blockIdx * refFactor * refFactor * refFactor +
-            //                                                         x + y * refFactor + z * refFactor * refFactor) = std::numeric_limits<uint32_t>::max();
-            //                    }
-            //                }
-            //            }
-            //        }
-            //    }
-            //}
-
-
             //set the parent info
-            /*if (l < mData->mDescriptor.getDepth() - 1) {
+            if (l < mData->mDescriptor.getDepth() - 1) {
+                Neon::index_3d parentOrigin = mData->mDescriptor.toBaseIndexSpace(mData->mDescriptor.childToParent(blockOrigin, l + 1), l + 2);
 
-                Neon::index_3d parentOrigin(blockOrigin.x / (voxelSpacing * refFactor),
-                                            blockOrigin.y / (voxelSpacing * refFactor),
-                                            blockOrigin.z / (voxelSpacing * refFactor));
+                auto [setIdx, parentID] = mData->grids[l + 1].helpGetSetIdxAndGridIdx(parentOrigin);
 
-                auto [_, parentID] = mData->grids[l + 1].helpGetSetIdxAndGridIdx(parentOrigin);
+                if (setIdx.idx() == -1) {
+                    NeonException exp("mGrid::mGrid");
+                    exp << "Something went wrong during constructing mGrid. Can not find the right parent of a block\n";
+                    NEON_THROW(exp);
+                }
 
                 mData->mParentBlockID[l].eRef(devID, blockIdx) = parentID.getDataBlockIdx();
                 mData->mParentLocalID[l].eRef(devID, blockIdx) = parentID.getInDataBlockIdx();
-            }*/
-
-
-            //if (l < mData->mDescriptor.getDepth() - 1) {
-            //    Neon::index_3d grandParentOrigin = mData->mDescriptor.toBaseIndexSpace(mData->mDescriptor.childToParent(blockOrigin, l + 1), l + 2);
-            //
-            //    //auto grand_parent = mData->grids[l + 1].getBlockOriginTo1D().getMetadata(grandParentOrigin);
-            //    auto meta = mData->grids[l + 1].helpGetPartitioner1D().getDenseMeta().get(grandParentOrigin);
-            //    if (!meta.isValid()) {
-            //        NeonException exp("mGrid::mGrid");
-            //        exp << "Something went wrong during constructing mGrid. Can not find the right parent of a block\n";
-            //        NEON_THROW(exp);
-            //    }
-            //    mData->mParentBlockID[l].eRef(devID, blockIdx) = meta.index;
-            //
-            //    //set the parent local ID
-            //    // loop over this grand parent block to find the local index which maps back to the parent block
-            //    const int grandParentRefFactor = mData->mDescriptor.getRefFactor(l + 1);
-            //    bool      found = false;
-            //    for (Idx::InDataBlockIdx::Integer z = 0; z < grandParentRefFactor; z++) {
-            //        for (Idx::InDataBlockIdx::Integer y = 0; y < grandParentRefFactor; y++) {
-            //            for (Idx::InDataBlockIdx::Integer x = 0; x < grandParentRefFactor; x++) {
-            //                Neon::index_3d parent = mData->mDescriptor.neighbourBlock(grandParentOrigin, l + 1, {x, y, z});
-            //                if (parent == blockOrigin) {
-            //                    mData->mParentLocalID[l].eRef(devID, blockIdx) = {x, y, z};
-            //                    found = true;
-            //                    break;
-            //                }
-            //            }
-            //            if (found) {
-            //                break;
-            //            }
-            //        }
-            //        if (found) {
-            //            break;
-            //        }
-            //    }
-            //
-            //    if (!found) {
-            //        NeonException exp("mGrid::mGrid");
-            //        exp << "Something went wrong during constructing mGrid. Can not find the right local index of a parent of a block\n";
-            //        NEON_THROW(exp);
-            //    }
-            //}
+            }
         });
     }
 
@@ -543,33 +477,7 @@ auto mGrid::setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::in
 
 auto mGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
 {
-    //conver the idx which is given on the base/most-refined level to the corresponding
-    //index in the given input level
-    Neon::index_3d localID = mData->mDescriptor.toLocalIndex(idx, level);
-    return mData->grids[level].isInsideDomain(localID);
-
-    ////TODO need to figure out which device owns this block
-    //SetIdx devID(0);
-    //
-    ////We don't have to check over the domain bounds. If idx is outside the domain
-    //// (i.e., idx beyond the bounds of the domain) its block origin will be null
-    //
-    //Neon::int32_3d block_origin = getOriginBlock3DIndex(idx, level);
-    //
-    //auto itr = mData->grids[level].getBlockOriginTo1D().getMetadata(block_origin);
-    //if (itr) {
-    //    Neon::index_3d localID = mData->mDescriptor.toLocalIndex(idx, level);
-    //
-    //    Cell cell(static_cast<Idx::InDataBlockIdx::Integer>(localID.x),
-    //              static_cast<Idx::InDataBlockIdx::Integer>(localID.y),
-    //              static_cast<Idx::InDataBlockIdx::Integer>(localID.z));
-    //
-    //    cell.mBlockID = *itr;
-    //    cell.mBlockSize = mData->mDescriptor.getRefFactor(level);
-    //    cell.mIsActive = cell.computeIsActive(mData->grids[level].getActiveMask().rawMem(devID, Neon::DeviceType::CPU));
-    //    return cell.mIsActive;
-    //}
-    //return false;
+    return mData->grids[level].isInsideDomain(idx);
 }
 
 
@@ -605,39 +513,6 @@ auto mGrid::setReduceEngine(Neon::sys::patterns::Engine eng) -> void
         NEON_THROW(exp);
     }
 }
-
-//auto mGrid::getLaunchParameters(Neon::DataView                         dataView,
-//                                [[maybe_unused]] const Neon::index_3d& blockSize,
-//                                const size_t&                          sharedMem,
-//                                int                                    level) const -> Neon::set::LaunchParameters
-//{
-//    if (dataView != Neon::DataView::STANDARD) {
-//        NEON_WARNING("Requesting LaunchParameters on {} data view but mGrid only supports Standard data view on a single GPU",
-//                     Neon::DataViewUtil::toString(dataView));
-//    }
-//
-//    const Neon::int32_3d cuda_block(mData->mDescriptor.getRefFactor(level),
-//                                    mData->mDescriptor.getRefFactor(level),
-//                                    mData->mDescriptor.getRefFactor(level));
-//
-//    Neon::set::LaunchParameters ret = mData->backend.devSet().newLaunchParameters();
-//    for (int i = 0; i < ret.cardinality(); ++i) {
-//        if (mData->backend.devType() == Neon::DeviceType::CUDA) {
-//            ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::cudaGridMode,
-//                       Neon::int32_3d(int32_t(mData->grids[level].getNumBlocks()[i]), 1, 1),
-//                       cuda_block, sharedMem);
-//        } else {
-//            ret[i].set(Neon::sys::GpuLaunchInfo::mode_e::domainGridMode,
-//                       Neon::int32_3d(int32_t(mData->grids[level].getNumBlocks()[i]) *
-//                                          mData->mDescriptor.getRefFactor(level) *
-//                                          mData->mDescriptor.getRefFactor(level) *
-//                                          mData->mDescriptor.getRefFactor(level),
-//                                      1, 1),
-//                       cuda_block, sharedMem);
-//        }
-//    }
-//    return ret;
-//}
 
 auto mGrid::getParentsBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&
 {

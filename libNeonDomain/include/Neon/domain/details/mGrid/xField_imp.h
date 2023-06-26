@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Neon/domain/details/mGrid/xField.h"
-
 namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>

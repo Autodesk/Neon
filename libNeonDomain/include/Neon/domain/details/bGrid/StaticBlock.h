@@ -1,3 +1,5 @@
+#pragma once 
+
 #include "Neon/domain/details/bGrid/bSpan.h"
 
 namespace Neon::domain::details::bGrid {
