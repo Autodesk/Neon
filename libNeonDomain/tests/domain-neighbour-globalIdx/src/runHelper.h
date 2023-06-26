@@ -9,6 +9,7 @@
 
 #include "Neon/domain/dGrid.h"
 #include "Neon/domain/eGrid.h"
+#include "Neon/domain/details/dGridSoA/dGridSoA.h"
 #include "Neon/domain/tools/Geometries.h"
 #include "Neon/domain/tools/TestData.h"
 

@@ -258,43 +258,44 @@ class dPartition
                   Idx&       gidxNgh)
         const -> bool
     {
-        return helpGetNghIdx(gidx, NghIdx{xOff, yOff, zOff}, gidxNgh);
-        //        gidxNgh = Idx(gidx.getLocation().x + xOff,
-        //                      gidx.getLocation().y + yOff,
-        //                      gidx.getLocation().z + zOff);
-        //
-        //        bool isValidNeighbour = true;
-        //        if constexpr (xOff > 0) {
-        //            int constexpr direction = Neon::index_3d::directionX;
-        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
-        //            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
-        //        }
-        //        if constexpr (xOff < 0) {
-        //            int constexpr direction = Neon::index_3d::directionX;
-        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
-        //            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
-        //        }
-        //        if constexpr (yOff > 0) {
-        //            int constexpr direction = Neon::index_3d::directionY;
-        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
-        //            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
-        //        }
-        //        if constexpr (yOff < 0) {
-        //            int constexpr direction = Neon::index_3d::directionY;
-        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
-        //            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
-        //        }
-        //        if constexpr (zOff > 0) {
-        //            int constexpr direction = Neon::index_3d::directionZ;
-        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
-        //            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
-        //        }
-        //        if constexpr (zOff < 0) {
-        //            int constexpr direction = Neon::index_3d::directionZ;
-        //            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
-        //            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
-        //        }
-        //        return isValidNeighbour;
+        //        NghIdx offset(xOff, yOff, zOff);
+        //        return helpGetNghIdx(gidx, offset, gidxNgh);
+        gidxNgh = Idx(gidx.getLocation().x + xOff,
+                      gidx.getLocation().y + yOff,
+                      gidx.getLocation().z + zOff);
+
+        bool isValidNeighbour = true;
+        if constexpr (xOff > 0) {
+            int constexpr direction = Neon::index_3d::directionX;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
+        }
+        if constexpr (xOff < 0) {
+            int constexpr direction = Neon::index_3d::directionX;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
+        }
+        if constexpr (yOff > 0) {
+            int constexpr direction = Neon::index_3d::directionY;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
+        }
+        if constexpr (yOff < 0) {
+            int constexpr direction = Neon::index_3d::directionY;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
+        }
+        if constexpr (zOff > 0) {
+            int constexpr direction = Neon::index_3d::directionZ;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
+        }
+        if constexpr (zOff < 0) {
+            int constexpr direction = Neon::index_3d::directionZ;
+            int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
+            isValidNeighbour = cartesianByDirection >= 0 && isValidNeighbour;
+        }
+        return isValidNeighbour;
     }
 
 
