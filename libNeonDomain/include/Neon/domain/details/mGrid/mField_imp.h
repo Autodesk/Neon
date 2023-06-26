@@ -150,8 +150,8 @@ auto mField<T, C>::forEachActiveCell(
                                     }
 
                                     if (active) {
-                                        Idx idx(blockIdx, i * kUserBlockSizeX + x, j * kUserBlockSizeY + y, k * kUserBlockSizeZ + z);
-                                        for (int c = 0; c < card; ++c) {                                            
+                                        Idx idx(blockIdx, int8_t(i * kUserBlockSizeX + x), int8_t(j * kUserBlockSizeY + y), int8_t(k * kUserBlockSizeZ + z));
+                                        for (int c = 0; c < card; ++c) {
                                             fun(voxelGlobalID, c, (*this)(level).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, c));
                                         }
                                     }
@@ -446,7 +446,7 @@ auto mField<T, C>::ioToVtk(std::string fileName,
                                                     file << x + y * refFactor + z * refFactor * refFactor
                                                          << "\n";
                                                 } else if (op == Op::OutputData) {
-                                                    Idx idx(blockIdx, i * kUserBlockSizeX + x, j * kUserBlockSizeY + y, k * kUserBlockSizeZ + z);
+                                                    Idx idx(blockIdx, int8_t(i * kUserBlockSizeX + x), int8_t(j * kUserBlockSizeY + y), int8_t(k * kUserBlockSizeZ + z));
                                                     for (int c = 0; c < card; ++c) {
                                                         file << (*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, c) << "\n";
                                                     }

@@ -307,7 +307,7 @@ mGrid::mGrid(
                                                                                          childAllocSize[l]);
         for (int32_t c = 0; c < childAllocSize[l].cardinality(); ++c) {
             SetIdx devID(c);
-            for (int64_t i = 0; i < childAllocSize[l][c]; ++i) {
+            for (size_t i = 0; i < childAllocSize[l][c]; ++i) {
                 mData->mChildBlockID[l].eRef(devID, i) = std::numeric_limits<Idx::DataBlockIdx>::max();
             }
         }
