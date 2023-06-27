@@ -30,7 +30,7 @@ class mGrid
     using Grid = mGrid;
     using InternalGrid = Neon::domain::details::bGrid::bGrid<kStaticBlock>;
     using Idx = typename InternalGrid::Idx;
-    using Descriptor = mGridDescriptor<1, 1, 1>;
+    using Descriptor = mGridDescriptor<1>;
 
     template <typename T, int C = 0>
     using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
@@ -118,7 +118,7 @@ class mGrid
      * @param lambda the lambda function that will do the computation      
     */
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       int                level,
                       index_3d           blockSize,
                       size_t             sharedMem,
@@ -132,7 +132,7 @@ class mGrid
      * @param lambda the lambda function that will do the computation      
     */
     template <typename LoadingLambda>
-    auto getContainer(const std::string& name,
+    auto newContainer(const std::string& name,
                       int                level,
                       LoadingLambda      lambda) const -> Neon::set::Container;
 

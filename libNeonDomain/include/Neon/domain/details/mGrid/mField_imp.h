@@ -144,7 +144,7 @@ auto mField<T, C>::forEachActiveCell(
                                             blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
                                                 (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX * kUserBlockSizeY * kUserBlockSizeZ +
                                                 x + y * refFactor + z * refFactor * refFactor);
-                                        if (childBlockId != std::numeric_limits<Idx::DataBlockIdx>::max()) {
+                                        if (childBlockId != std::numeric_limits<uint32_t>::max()) {
                                             active = false;
                                         }
                                     }
@@ -264,23 +264,23 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
 {
     switch (compute) {
         case Neon::MultiResCompute::MAP: {
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL: {
-            return loader.load(operator()(level), Neon::Compute::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::STENCIL);
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
             const auto& parent = operator()(level + 1);
-            loader.load(parent, Neon::Compute::STENCIL);
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            loader.load(parent, Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
             const auto& child = operator()(level - 1);
-            loader.load(child, Neon::Compute::STENCIL);
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            loader.load(child, Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         default:
@@ -296,23 +296,23 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
 {
     switch (compute) {
         case Neon::MultiResCompute::MAP: {
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL: {
-            return loader.load(operator()(level), Neon::Compute::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::STENCIL);
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
             const auto& parent = operator()(level + 1);
-            loader.load(parent, Neon::Compute::STENCIL);
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            loader.load(parent, Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
             const auto& child = operator()(level - 1);
-            loader.load(child, Neon::Compute::STENCIL);
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            loader.load(child, Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         default:
@@ -404,7 +404,7 @@ auto mField<T, C>::ioToVtk(std::string fileName,
                                                     blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
                                                         (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX * kUserBlockSizeY * kUserBlockSizeZ +
                                                         x + y * refFactor + z * refFactor * refFactor);
-                                                if (childBlockId != std::numeric_limits<Idx::DataBlockIdx>::max()) {
+                                                if (childBlockId != std::numeric_limits<uint32_t>::max()) {
                                                     draw = false;
                                                 }
                                             }
