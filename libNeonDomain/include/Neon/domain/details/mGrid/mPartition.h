@@ -38,8 +38,7 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
 
     ~mPartition() = default;
 
-    explicit mPartition(Neon::DataView       dataView,
-                        int                  level,
+    explicit mPartition(int                  level,
                         T*                   mem,
                         T*                   memParent,
                         T*                   memChild,
@@ -53,7 +52,6 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
                         MaskT*               maskUpperLevel,
                         uint32_t*            childBlockID,
                         uint32_t*            parentNeighbourBlocks,
-                        T                    defaultValue,
                         NghIdx*              stencilNghIndex,
                         int*                 refFactors,
                         int*                 spacing);

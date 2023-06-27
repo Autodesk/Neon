@@ -10,9 +10,9 @@ void MultiResSingleMap()
     const Type             XLevelVal[3] = {2, 5, 10};
     const Type             YInitVal = 1;
 
-    const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
+    Neon::mGridDescriptor<1> descriptor(3);
 
-    for (auto runtime : {Neon::Runtime::stream, Neon::Runtime::openmp}) {
+    for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
 
         auto bk = Neon::Backend(gpusIds, runtime);
 
@@ -30,7 +30,7 @@ void MultiResSingleMap()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        
+
         auto XField = grid.newField<Type>("XField", 1, -1);
         auto YField = grid.newField<Type>("YField", 1, -1);
 
@@ -53,17 +53,19 @@ void MultiResSingleMap()
             XField.updateDeviceData();
             YField.updateDeviceData();
         }
-        //XField.ioToVtk("f");
+
+        //XField.ioToVtk("XF");
+        //YField.ioToVtk("YF");
 
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
 
-            auto container = grid.getContainer(
+            auto container = grid.newContainer(
                 "AXPY", level, [&, a, level](Neon::set::Loader& loader) {
                     auto& xLocal = XField.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& yLocal = YField.load(loader, level, Neon::MultiResCompute::MAP);
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Idx& cell) mutable {
                         for (int card = 0; card < xLocal.cardinality(); card++) {
                             yLocal(cell, card) = a * xLocal(cell, card) + yLocal(cell, card);
                         }
