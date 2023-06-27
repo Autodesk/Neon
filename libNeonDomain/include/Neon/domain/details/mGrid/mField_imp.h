@@ -138,15 +138,7 @@ auto mField<T, C>::forEachActiveCell(
 
                                     bool active = true;
                                     if (level > 0) {
-                                        //avoid overlap with lower/fine level
-                                        auto childBlockId = mData->grid->getChildBlockID(level).eRef(
-                                            devID,
-                                            blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
-                                                (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX * kUserBlockSizeY * kUserBlockSizeZ +
-                                                x + y * refFactor + z * refFactor * refFactor);
-                                        if (childBlockId != std::numeric_limits<uint32_t>::max()) {
-                                            active = false;
-                                        }
+                                        active = !((*(mData->grid))(level - 1).isInsideDomain(voxelGlobalID));
                                     }
 
                                     if (active) {
@@ -399,14 +391,7 @@ auto mField<T, C>::ioToVtk(std::string fileName,
 
                                             bool draw = true;
                                             if (filterOverlaps && l != 0) {
-                                                auto childBlockId = mData->grid->getChildBlockID(l).eRef(
-                                                    devID,
-                                                    blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
-                                                        (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX * kUserBlockSizeY * kUserBlockSizeZ +
-                                                        x + y * refFactor + z * refFactor * refFactor);
-                                                if (childBlockId != std::numeric_limits<uint32_t>::max()) {
-                                                    draw = false;
-                                                }
+                                                draw = !((*(mData->grid))(l - 1).isInsideDomain(voxelGlobalID));
                                             }
 
                                             if (draw) {
