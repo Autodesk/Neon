@@ -2,8 +2,8 @@
 #include "D3Q19.h"
 #include "Neon/domain/bGrid.h"
 #include "Neon/domain/dGrid.h"
-#include "Neon/domain/eGrid.h"
 #include "Neon/domain/details/dGridSoA/dGridSoA.h"
+#include "Neon/domain/eGrid.h"
 
 #include "CellType.h"
 #include "LbmIteration.h"
@@ -313,6 +313,31 @@ auto run(Config& config,
     }
     if (config.gridType == "bGrid") {
         return details::runFilterStoreType<Neon::bGrid>(config, report);
+    }
+    if (config.gridType == "bGrid_4_4_4") {
+        using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
+        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+        return details::runFilterStoreType<Grid>(config, report);
+    }
+    if (config.gridType == "bGrid_32_8_4") {
+        using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 4>;
+        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+        return details::runFilterStoreType<Grid>(config, report);
+    }
+    if (config.gridType == "bGrid_32_8_4") {
+        using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 4, 8>;
+        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+        return details::runFilterStoreType<Grid>(config, report);
+    }
+    if (config.gridType == "bGrid_32_2_8") {
+        using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 2, 8>;
+        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+        return details::runFilterStoreType<Grid>(config, report);
+    }
+    if (config.gridType == "bGrid_32_8_2") {
+        using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 2>;
+        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+        return details::runFilterStoreType<Grid>(config, report);
     }
     if (config.gridType == "dGridSoA") {
         return details::runFilterStoreType<Neon::domain::details::dGridSoA::dGridSoA>(config, report);

@@ -8,7 +8,7 @@
 template <typename Lattice,
           typename PopulationField,
           typename LbmComputeType>
-struct LbmContainers
+struct LbmContainersTemplateOnly
 {
 };
 
@@ -19,9 +19,9 @@ struct LbmContainers
  */
 template <typename PopulationField,
           typename LbmComputeType>
-struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeType>,
-                     PopulationField,
-                     LbmComputeType>
+struct LbmContainersTemplateOnly<D3Q19Template<typename PopulationField::Type, LbmComputeType>,
+                                 PopulationField,
+                                 LbmComputeType>
 {
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
@@ -35,21 +35,22 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     {                                                                                                                   \
         { /*GO*/                                                                                                        \
             if (wallBitFlag & (uint32_t(1) << GOid)) {                                                                  \
-                popIn[GOid] = fin(i, BKid);                                                                             \
+                /*std::cout << "cell " << i.mLocation << " direction " << GOid << " opposite " << BKid << std::endl; */ \
+                popIn[GOid] = fin.template read<BKid>(gidx);                                                            \
             } else {                                                                                                    \
-                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;                                   \
+                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz, GOid>(gidx).value;                                     \
             }                                                                                                           \
         }                                                                                                               \
         { /*BK*/                                                                                                        \
             if (wallBitFlag & (uint32_t(1) << BKid)) {                                                                  \
-                popIn[BKid] = fin(i, GOid);                                                                             \
+                popIn[BKid] = fin.template read<GOid>(gidx);                                                            \
             } else {                                                                                                    \
-                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value;                                   \
+                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz, BKid>(gidx).value;                                     \
             }                                                                                                           \
         }                                                                                                               \
     }
     static inline NEON_CUDA_HOST_DEVICE auto
-    loadPopulation(Idx const&                                 i,
+    loadPopulation(Idx const&                                 gidx,
                    const uint32_t&                            wallBitFlag,
                    typename PopulationField::Partition const& fin,
                    NEON_OUT LbmStoreType                      popIn[19])
@@ -100,6 +101,8 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
                typename PopulationField::Partition const& fin,
                NEON_OUT LbmStoreType                      popIn[19])
     {
+        // #pragma omp critical
+        //        {
 #if 0
         using TopologyByDirection = std::tuple<Neon::int32_3d, int, Neon::int32_3d, int>;
         constexpr std::array<TopologyByDirection, 9> stencil{
@@ -157,6 +160,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         PULL_STREAM(0, -1, -1, /* GOid */ 7, /* --- */ 0, 1, 1, /*  BKid */ 17);
         PULL_STREAM(0, -1, 1, /*  GOid */ 8, /* --- */ 0, 1, -1, /* BKid */ 18);
 
+        //  }
         // Treat the case of the center (c[k] = {0, 0, 0,}).
         {
             popIn[Lattice::centerDirection] = fin(gidx, Lattice::centerDirection);
@@ -262,9 +266,7 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         COMPUTE_GO_AND_BACK(3, 13)
         COMPUTE_GO_AND_BACK(4, 14)
         COMPUTE_GO_AND_BACK(5, 15)
-        // COMPUTE_GO_AND_BACK(6, 16)
-        fOut(i, 6) = static_cast<LbmStoreType>(pop_out_06);
-        fOut(i, 16) = static_cast<LbmStoreType>(pop_out_opp_06);
+        COMPUTE_GO_AND_BACK(6, 16)
         COMPUTE_GO_AND_BACK(7, 17)
         COMPUTE_GO_AND_BACK(8, 18)
 

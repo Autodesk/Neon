@@ -31,7 +31,7 @@ void runAllTestConfiguration(
         nGpuTest.push_back(i);
     }
     // std::vector<int> nGpuTest{2,4,6,8};
-    std::vector<int> cardinalityTest{1};
+    std::vector<int> cardinalityTest{1,3,19};
 
     std::vector<Neon::index_3d> dimTest{{10, 17, 13}, {1, 1, 100}, {17, 1, 77}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
@@ -95,6 +95,7 @@ void runAllTestConfiguration(
     }
 }
 
+#if 0
 
 template <typename G, typename T, int C>
 void runOneTestConfiguration(const std::string&                      gname,
@@ -144,3 +145,4 @@ void runOneTestConfiguration(const std::string&                      gname,
         }
     }
 }
+#endif
