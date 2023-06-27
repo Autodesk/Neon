@@ -45,10 +45,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     location.x += gidx.mInDataBlockIdx.x;
     location.y += gidx.mInDataBlockIdx.y;
     location.z += gidx.mInDataBlockIdx.z;
-    if constexpr (SBlock::isMultiResMode){
+    if constexpr (SBlock::isMultiResMode) {
         return location * mMultiResDiscreteIdxSpacing;
     }
-    return location ;
+    return location;
 }
 
 template <typename T, int C, typename SBlock>
@@ -71,7 +71,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
-operator()(const Idx& cell,
+                                  operator()(const Idx& cell,
            int        card) -> T&
 {
     return mMem[helpGetPitch(cell, card)];
@@ -79,7 +79,7 @@ operator()(const Idx& cell,
 
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
-operator()(const Idx& cell,
+                                  operator()(const Idx& cell,
            int        card) const -> const T&
 {
     return mMem[helpGetPitch(cell, card)];
@@ -354,4 +354,17 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     result.set(value, true);
     return result;
 }
+
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto
+bPartition<T, C, SBlock>::isActive(const Idx&                      cell,
+                                   const typename SBlock::BitMask* mask) const -> bool
+{
+    if (!mask) {
+        return mMask[cell.mDataBlockIdx].isActive(cell.mInDataBlockIdx.x, cell.mInDataBlockIdx.y, cell.mInDataBlockIdx.z);
+    } else {
+        return mask[cell.mDataBlockIdx].isActive(cell.mInDataBlockIdx.x, cell.mInDataBlockIdx.y, cell.mInDataBlockIdx.z);
+    }
+}
+
 }  // namespace Neon::domain::details::bGrid

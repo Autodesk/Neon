@@ -105,6 +105,10 @@ class bPartition
     getGlobalIndex(const Idx& cell)
         const -> Neon::index_3d;
 
+    NEON_CUDA_HOST_DEVICE inline auto
+    isActive(const Idx&                      cell,
+             const typename SBlock::BitMask* mask = nullptr) const -> bool;
+
     /**
      * Gets the Idx for in the block view space.
      */
