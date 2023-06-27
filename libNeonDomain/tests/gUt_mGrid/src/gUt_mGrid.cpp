@@ -12,7 +12,7 @@ TEST(mGrid, multiRes)
         std::vector<int> gpusIds(nGPUs, 0);
         auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
 
-        Neon::mGridDescriptor descr = Neon::mGridOctreeDescr;
+        Neon::mGridDescriptor<1> descr(3);
 
 
         Neon::domain::mGrid grid(
