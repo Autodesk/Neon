@@ -353,13 +353,11 @@ class dPartitionSoA
     T* NEON_RESTRICT      mMem;
     Neon::index_3d        mDim;
     int                   mZHaloRadius;
-    int                   mZBoundaryRadius;
     Pitch                 mPitch;
     int                   mPrtID;
     Neon::index_3d        mOrigin;
     int                   mCardinality;
     Neon::index_3d        mFullGridSize;
-    bool                  mPeriodicZ;
     NghIdx* NEON_RESTRICT mStencil;
 };
 

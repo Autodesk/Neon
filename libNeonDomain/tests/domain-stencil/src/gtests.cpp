@@ -22,11 +22,20 @@ TEST(domain_stencil, eGrid)
                             1);
 }
 
-TEST(domain_stencil, bGri )
+TEST(domain_stencil, bGri)
 {
     int nGpus = 5;
     using Type = int64_t;
     runAllTestConfiguration(std::function(map::run<Neon::bGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_stencil, dGridSoA)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::run<Neon::dGridSoA, Type, 0>),
                             nGpus,
                             1);
 }
