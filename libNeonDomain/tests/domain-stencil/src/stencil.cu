@@ -78,7 +78,7 @@ NEON_CUDA_HOST_DEVICE inline auto viaTemplate(const IDX& idx, int i, const Parti
 };
 
 template <typename Field>
-auto stencilContainerLaplaceTemplate(const Field& filedA,
+auto laplaceTemplate(const Field& filedA,
                                      Field&       fieldB)
     -> Neon::set::Container
 {
@@ -217,7 +217,7 @@ auto runTemplate(TestData<G, T, C>& data) -> void
                 .run(Neon::Backend::mainStreamIdx);
 
             bk.sync(Neon::Backend::mainStreamIdx);
-            stencilContainerLaplaceTemplate(X, Y).run(Neon::Backend::mainStreamIdx);
+            laplaceTemplate(X, Y).run(Neon::Backend::mainStreamIdx);
 
             bk.sync(Neon::Backend::mainStreamIdx);
             Y.newHaloUpdate(Neon::set::StencilSemantic::standard,
@@ -226,7 +226,7 @@ auto runTemplate(TestData<G, T, C>& data) -> void
                 .run(Neon::Backend::mainStreamIdx);
 
             bk.sync(Neon::Backend::mainStreamIdx);
-            laplaceNoTemplate(Y, X).run(Neon::Backend::mainStreamIdx);
+            laplaceTemplate(Y, X).run(Neon::Backend::mainStreamIdx);
         }
         data.getBackend().sync(0);
     }
