@@ -188,6 +188,19 @@ class ePartition
                int card,
                T defaultValue)
         const -> NghData;
+
+    template <int xOff,
+              int yOff,
+              int zOff,
+              typename LambdaVALID,
+              typename LambdaNOTValid = void*>
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghData(const Idx&     gidx,
+               int            card,
+               LambdaVALID    funIfValid,
+               LambdaNOTValid funIfNOTValid = nullptr)
+        const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> &&( std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>;
+
     /**
      * Check is the
      * @tparam dataView_ta

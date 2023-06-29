@@ -20,6 +20,7 @@ class dPartitionSoA
     using NghData = Neon::domain::NghData<T>;
     using Pitch = uint32_4d;
     using NghIdx = int8_3d;
+    using Type = T;
 
     dPartitionSoA()
     {

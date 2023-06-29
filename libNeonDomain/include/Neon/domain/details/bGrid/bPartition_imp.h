@@ -45,10 +45,10 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     location.x += gidx.mInDataBlockIdx.x;
     location.y += gidx.mInDataBlockIdx.y;
     location.z += gidx.mInDataBlockIdx.z;
-    if constexpr (SBlock::isMultiResMode){
+    if constexpr (SBlock::isMultiResMode) {
         return location * mMultiResDiscreteIdxSpacing;
     }
-    return location ;
+    return location;
 }
 
 template <typename T, int C, typename SBlock>
@@ -353,5 +353,35 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     auto const value = mMem[pitch];
     result.set(value, true);
     return result;
+}
+
+template <typename T, int C, typename SBlock>
+
+template <int xOff,
+          int yOff,
+          int zOff,
+          typename LambdaVALID,
+          typename LambdaNOTValid>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    getNghData(const Idx&     gidx,
+               int            card,
+               LambdaVALID    funIfValid,
+               LambdaNOTValid funIfNOTValid)
+        const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> && (std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>
+{
+    NghData result;
+    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(gidx);
+    auto [isValid, pitch] = helpNghPitch(nghIdx, card);
+
+    if (isValid) {
+        auto const& value = mMem[pitch];
+        funIfValid(value);
+        return;
+    }
+
+    if constexpr (!std::is_same_v<LambdaNOTValid, void*>) {
+        funIfNOTValid();
+    }
+    return;
 }
 }  // namespace Neon::domain::details::bGrid
