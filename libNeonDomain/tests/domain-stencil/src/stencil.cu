@@ -59,22 +59,22 @@ static constexpr std::array<const Ngh3DIdx, 6> stencil{
     Ngh3DIdx(0, 0, 1),
     Ngh3DIdx(0, 0, -1)};
 
-template <int X, int Y, int Z, typename IDX, typename Partition, typename Partial>
+template <int sIdx, typename IDX, typename Partition, typename Partial>
 NEON_CUDA_HOST_DEVICE inline auto viaTemplate(const IDX& idx, int i, const Partition& a, Partial& partial, int& count)
 {
-    Neon::index_3d direction(X, Y, Z);
-    auto           nghData = a.getNghData(idx, direction.newType<int8_t>(), i);
-    if (nghData.isValid()) {
-        partial += nghData.getData();
-        count++;
-    }
-    //    a.template getNghData<stencil[stencilIdx].x,
-    //                          stencil[stencilIdx].y,
-    //                          stencil[stencilIdx].z>(idx, i,
-    //                                                 [&](typename Partition::Type const& val) {
-    //                                                     partial += val;
-    //                                                     count++;
-    //                                                 });
+    //    Neon::index_3d direction(X, Y, Z);
+    //    auto           nghData = a.getNghData(idx, direction.newType<int8_t>(), i);
+    //    if (nghData.isValid()) {
+    //        partial += nghData.getData();
+    //        count++;
+    //    }
+    a.template getNghData<stencil[sIdx].x,
+                          stencil[sIdx].y,
+                          stencil[sIdx].z>(idx, i,
+                                           [&](typename Partition::Type const& val) {
+                                               partial += val;
+                                               count++;
+                                           });
 };
 
 template <typename Field>
@@ -98,15 +98,15 @@ auto stencilContainerLaplaceTemplate(const Field& filedA,
                     using Ngh3DIdx = Neon::int8_3d;
 
 
-                    viaTemplate<1, 0, 0>(idx, i, a, partial, count);
-                    viaTemplate<-1, 0, 0>(idx, i, a, partial, count);
-                    viaTemplate<0, 1, 0>(idx, i, a, partial, count);
-                    viaTemplate<0, -1, 0>(idx, i, a, partial, count);
-                    viaTemplate<0, 0, 1>(idx, i, a, partial, count);
-                    viaTemplate<0, 0, -1>(idx, i, a, partial, count);
+                    viaTemplate<0>(idx, i, a, partial, count);
+                    viaTemplate<1>(idx, i, a, partial, count);
+                    viaTemplate<2>(idx, i, a, partial, count);
+                    viaTemplate<3>(idx, i, a, partial, count);
+                    viaTemplate<4>(idx, i, a, partial, count);
+                    viaTemplate<5>(idx, i, a, partial, count);
 
 
-                    b(idx, i) = a(idx, i) - count * partial ;
+                    b(idx, i) = a(idx, i) - count * partial;
                 }
             };
         });
