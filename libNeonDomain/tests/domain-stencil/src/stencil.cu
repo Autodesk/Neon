@@ -78,14 +78,14 @@ NEON_CUDA_HOST_DEVICE inline auto viaTemplate(const IDX& idx, int i, const Parti
 };
 
 
-template <auto Start, auto End, auto Inc, class F>
-constexpr void constexpr_for(F&& f)
-{
-    if constexpr (Start < End) {
-        f(std::integral_constant<decltype(Start), Start>());
-        constexpr_for<Start + Inc, End, Inc>(f);
-    }
-}
+//template <auto Start, auto End, auto Inc, class F>
+//constexpr void constexpr_for(F&& f)
+//{
+//    if constexpr (Start < End) {
+//        f(std::integral_constant<decltype(Start), Start>());
+//        constexpr_for<Start + Inc, End, Inc>(f);
+//    }
+//}
 
 template <typename Field>
 auto laplaceTemplate(const Field& filedA,
@@ -107,7 +107,7 @@ auto laplaceTemplate(const Field& filedA,
                     int                  count = 0;
                     using Ngh3DIdx = Neon::int8_3d;
 
-                    constexpr_for<0, 6, 1>([&](auto sIdx) {
+                    Neon::ConstexprFor<0, 6, 1>([&](auto sIdx) {
                         a.template getNghData<stencil[sIdx].x,
                                               stencil[sIdx].y,
                                               stencil[sIdx].z>(idx, i,
@@ -116,16 +116,7 @@ auto laplaceTemplate(const Field& filedA,
                                                                    count++;
                                                                });
                     });
-
-
-//                    viaTemplate<0>(idx, i, a, partial, count);
-//                    viaTemplate<1>(idx, i, a, partial, count);
-//                    viaTemplate<2>(idx, i, a, partial, count);
-//                    viaTemplate<3>(idx, i, a, partial, count);
-//                    viaTemplate<4>(idx, i, a, partial, count);
-//                    viaTemplate<5>(idx, i, a, partial, count);
-
-
+                    
                     b(idx, i) = a(idx, i) - count * partial;
                 }
             };
