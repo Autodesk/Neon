@@ -1,3 +1,5 @@
+#pragma once
+
 #include "CellType.h"
 #include "D3Q19.h"
 #include "DeviceD3Q19.h"
@@ -25,12 +27,12 @@ struct ContainerFactory<Precision_,
     using Storage = typename Precision::Storage;
     using Grid = Grid_;
 
-    using PopField = typename Grid::template Field<Precision::Strage, Lattice::Q>;
+    using PopField = typename Grid::template Field<Precision::Storage, Lattice::Q>;
     using CellTypeField = typename Grid::template Field<CellType, 1>;
 
     using Idx = typename PopField::Idx;
-    using Rho = typename Grid::template Field<Precision::Strage, 1>;
-    using U = typename Grid::template Field<Precision::Strage, 3>;
+    using Rho = typename Grid::template Field<Precision::Storage, 1>;
+    using U = typename Grid::template Field<Precision::Storage, 3>;
 
     using Functions = DeviceD3Q19<Precision, Grid>;
 

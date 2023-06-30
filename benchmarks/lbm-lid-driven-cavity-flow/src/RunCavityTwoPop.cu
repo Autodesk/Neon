@@ -6,7 +6,7 @@
 #include "Neon/domain/eGrid.h"
 
 #include "CellType.h"
-#include "LbmIteration.h"
+#include "LbmSkeleton.h"
 #include "Metrics.h"
 #include "Repoert.h"
 
@@ -16,14 +16,26 @@ int backendWasReported = false;
 
 namespace details {
 template <typename Grid,
-          typename StorageFP,
-          typename ComputeFP>
+          typename Storage_,
+          typename Compute_>
 auto run(Config& config,
          Report& report) -> void
 {
-    using Lattice = D3Q19<StorageFP, ComputeFP>;
-    using PopulationField = typename Grid::template Field<StorageFP, Lattice::Q>;
+    using Storage = Storage_;
+    using Compute = Compute_;
+    using Precision = Precision<Storage, Compute>;
+    using Lattice = D3Q19<Precision>;
+    using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
 
+    using PopField = typename Grid::template Field<typename Precision::Storage , Lattice::Q>;
+    using CellTypeField = typename Grid::template Field<CellType, 1>;
+
+    using Idx = typename PopField::Idx;
+    using RhoField = typename Grid::template Field<typename Precision::Storage, 1>;
+    using UField = typename Grid::template Field<typename Precision::Storage, 3>;
+
+    using Skeleton = LbmSkeleton<Precision, Lattice, Grid>;
+    using ContainerFactory = ContainerFactory<Precision, Lattice, Grid>;
 
     Neon::Backend bk = [&] {
         if (config.deviceType == "cpu") {
@@ -54,31 +66,30 @@ auto run(Config& config,
         [](const Neon::index_3d&) { return true; },
         lattice.getDirectionAsVector());
 
-    PopulationField pop0 = grid.template newField<StorageFP, Lattice::Q>("Population", Lattice::Q, StorageFP(0.0));
-    PopulationField pop1 = grid.template newField<StorageFP, Lattice::Q>("Population", Lattice::Q, StorageFP(0.0));
+    PopulationField pop0 = grid.template newField<Storage, Lattice::Q>("Population", Lattice::Q, Storage(0.0));
+    PopulationField pop1 = grid.template newField<Storage, Lattice::Q>("Population", Lattice::Q, Storage(0.0));
 
-    typename Grid::template Field<StorageFP, 1> rho;
-    typename Grid::template Field<StorageFP, 3> u;
+    typename Grid::template Field<Storage, 1> rho;
+    typename Grid::template Field<Storage, 3> u;
 
     if (!config.benchmark) {
         std::cout << "Allocating rho and u" << std::endl;
-        rho = grid.template newField<StorageFP, 1>("rho", 1, StorageFP(0.0));
-        u = grid.template newField<StorageFP, 3>("u", 3, StorageFP(0.0));
+        rho = grid.template newField<Storage, 1>("rho", 1, Storage(0.0));
+        u = grid.template newField<Storage, 3>("u", 3, Storage(0.0));
     }
 
 
     CellType defaultCelltype;
     auto     flag = grid.template newField<CellType, 1>("Material", 1, defaultCelltype);
-    auto     lbmParameters = config.getLbmParameters<ComputeFP>();
+    auto     lbmParameters = config.getLbmParameters<Compute>();
 
-    LbmIterationD3Q19<PopulationField, ComputeFP>
-        iteration(config.stencilSemantic,
-                  config.occ,
-                  config.transferMode,
-                  pop0,
-                  pop1,
-                  flag,
-                  lbmParameters.omega);
+    Skeleton iteration(config.stencilSemantic,
+                       config.occ,
+                       config.transferMode,
+                       pop0,
+                       pop1,
+                       flag,
+                       lbmParameters.omega);
 
     auto exportRhoAndU = [&bk, &rho, &u, &iteration, &flag, &grid, &ulid](int iterationId) {
         if ((iterationId) % 100 == 0) {
@@ -92,7 +103,7 @@ auto run(Config& config,
                 bk.syncAll();
             }
 
-            auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeRhoAndU(f, flag, rho, u);
+            auto container = ContainerFactory::computeRhoAndU(f, flag, rho, u);
             container.run(Neon::Backend::mainStreamIdx);
             u.updateHostData(Neon::Backend::mainStreamIdx);
             rho.updateHostData(Neon::Backend::mainStreamIdx);
@@ -168,7 +179,7 @@ auto run(Config& config,
 
         inPop.forEachActiveCell([&c, &t, &dim, &flag, &ulid, &config](const Neon::index_3d& idx,
                                                                       const int&            k,
-                                                                      StorageFP&            val) {
+                                                                      Storage&              val) {
             val = t.at(k);
 
             if (idx.x == 0 || idx.x == dim.x - 1 ||
@@ -188,7 +199,7 @@ auto run(Config& config,
 
         outPop.forEachActiveCell([&c, &t, &dim, &flag, &ulid, &config](const Neon::index_3d& idx,
                                                                        const int&            k,
-                                                                       StorageFP&            val) {
+                                                                       Storage&              val) {
             val = t.at(k);
 
             if (idx.x == 0 || idx.x == dim.x - 1 ||
@@ -237,7 +248,7 @@ auto run(Config& config,
             bk.syncAll();
         }
 
-        auto container = LbmContainers<Lattice, PopulationField, ComputeFP>::computeWallNghMask(flag, flag);
+        auto container = LbmContainers<Lattice, PopulationField, Compute>::computeWallNghMask(flag, flag);
         container.run(Neon::Backend::mainStreamIdx);
         bk.syncAll();
     }
@@ -276,14 +287,14 @@ auto run(Config& config,
     metrics::recordMetrics(bk, config, report, start, clock_iter);
 }
 
-template <typename Grid, typename StorageFP>
+template <typename Grid, typename Storage>
 auto runFilterComputeType(Config& config, Report& report) -> void
 {
     if (config.computeType == "double") {
-        return run<Grid, StorageFP, double>(config, report);
+        return run<Grid, Storage, double>(config, report);
     }
     if (config.computeType == "float") {
-        return run<Grid, StorageFP, float>(config, report);
+        return run<Grid, Storage, float>(config, report);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }

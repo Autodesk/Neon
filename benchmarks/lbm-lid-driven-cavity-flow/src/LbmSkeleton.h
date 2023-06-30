@@ -1,11 +1,11 @@
 #include "CellType.h"
+#include "ContainerFactory.h"
 #include "ContainersD3Q19.h"
 #include "D3Q19.h"
 #include "Neon/Neon.h"
 #include "Neon/set/Backend.h"
 #include "Neon/set/Containter.h"
 #include "Neon/skeleton/Skeleton.h"
-#include "ContainerFactory.h"
 
 template <typename Precision_,
           typename Lattice,
@@ -20,19 +20,28 @@ struct LbmSkeleton<Precision_,
                    D3Q19<Precision_>,
                    Grid_>
 {
-    using LbmStoreType = typename PopulationField::Type;
-    using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
-    using D3Q19 = D3Q19<LbmStoreType, LbmComputeType>;
-    using LbmTools = LbmContainers<D3Q19, PopulationField, LbmComputeType>;
+    using Lattice = D3Q19<Precision_>;
+    using Precision = Precision_;
+    using Compute = typename Precision::Compute;
+    using Storage = typename Precision::Storage;
+    using Grid = Grid_;
 
+    using PopField = typename Grid::template Field<Precision::Storage, Lattice::Q>;
+    using CellTypeField = typename Grid::template Field<CellType, 1>;
+
+    using Idx = typename PopField::Idx;
+    using Rho = typename Grid::template Field<Precision::Storage, 1>;
+    using U = typename Grid::template Field<Precision::Storage, 3>;
+
+    using ContainerFactory = ContainerFactory<Precision, Lattice, Grid>;
 
     LbmSkeleton(Neon::set::StencilSemantic stencilSemantic,
                 Neon::skeleton::Occ        occ,
                 Neon::set::TransferMode    transfer,
-                PopulationField&           fIn /*!   inpout population field */,
-                PopulationField&           fOut,
+                PopField&                  fIn /*!   inpout population field */,
+                PopField&                  fOut,
                 CellTypeField&             cellTypeField /*!       Cell type field     */,
-                LbmComputeType             omega /*! LBM omega parameter */)
+                Compute                    omega /*! LBM omega parameter */)
     {
         pop[0] = fIn;
         pop[1] = fOut;
@@ -42,14 +51,15 @@ struct LbmSkeleton<Precision_,
 
         parity = 0;
     }
+
     auto getInput()
-        -> PopulationField&
+        -> PopField&
     {
         return pop[parity];
     }
 
     auto getOutput()
-        -> PopulationField&
+        -> PopField&
     {
         int other = parity == 0 ? 1 : 0;
         return pop[other];
@@ -79,15 +89,15 @@ struct LbmSkeleton<Precision_,
                         Neon::set::StencilSemantic stencilSemantic,
                         Neon::skeleton::Occ        occ,
                         Neon::set::TransferMode    transfer,
-                        PopulationField&           inField /*!   inpout population field */,
-                        PopulationField&           outField,
+                        PopField&                  inField /*!   inpout population field */,
+                        PopField&                  outField,
                         CellTypeField&             cellTypeField /*!       Cell type field     */,
-                        LbmComputeType             omega /*! LBM omega parameter */)
+                        Compute                    omega /*! LBM omega parameter */)
     {
         std::vector<Neon::set::Container> ops;
         lbmTwoPop[target] = Neon::skeleton::Skeleton(inField.getBackend());
         Neon::skeleton::Options opt(occ, transfer);
-        ops.push_back(LbmTools::iteration(stencilSemantic,
+        ops.push_back(ContainerFactory::iteration(stencilSemantic,
                                           inField,
                                           cellTypeField,
                                           omega,
@@ -98,6 +108,6 @@ struct LbmSkeleton<Precision_,
     }
 
     Neon::skeleton::Skeleton lbmTwoPop[2];
-    PopulationField          pop[2];
+    PopField                 pop[2];
     int                      parity;
 };
