@@ -31,22 +31,22 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
     using Rho = typename Grid::template Field<LbmStoreType, 1>;
     using U = typename Grid::template Field<LbmStoreType, 3>;
 
-#define LOADPOP(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                                                               \
-    {                                                                                                                   \
-        { /*GO*/                                                                                                        \
-            if (wallBitFlag & (uint32_t(1) << GOid)) {                                                                  \
-                popIn[GOid] = fin(i, BKid);                                                                             \
-            } else {                                                                                                    \
-                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value;                                   \
-            }                                                                                                           \
-        }                                                                                                               \
-        { /*BK*/                                                                                                        \
-            if (wallBitFlag & (uint32_t(1) << BKid)) {                                                                  \
-                popIn[BKid] = fin(i, GOid);                                                                             \
-            } else {                                                                                                    \
-                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value;                                   \
-            }                                                                                                           \
-        }                                                                                                               \
+#define LOADPOP(GOx, GOy, GOz, GOid, BKx, BKy, BKz, BKid)                             \
+    {                                                                                 \
+        { /*GO*/                                                                      \
+            if (wallBitFlag & (uint32_t(1) << GOid)) {                                \
+                popIn[GOid] = fin(i, BKid);                                           \
+            } else {                                                                  \
+                popIn[GOid] = fin.template nghVal<BKx, BKy, BKz>(i, GOid, 0.0).value; \
+            }                                                                         \
+        }                                                                             \
+        { /*BK*/                                                                      \
+            if (wallBitFlag & (uint32_t(1) << BKid)) {                                \
+                popIn[BKid] = fin(i, GOid);                                           \
+            } else {                                                                  \
+                popIn[BKid] = fin.template nghVal<GOx, GOy, GOz>(i, BKid, 0.0).value; \
+            }                                                                         \
+        }                                                                             \
     }
     static inline NEON_CUDA_HOST_DEVICE auto
     loadPopulation(Idx const&                                 i,
@@ -209,45 +209,52 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         const LbmComputeType ck_u07 = u[1] + u[2];
         const LbmComputeType ck_u08 = u[1] - u[2];
 
-        const LbmComputeType eq_00 = rho * (1. / 18.) * (1. - 3. * u[0] + 4.5 * u[0] * u[0] - usqr);
-        const LbmComputeType eq_01 = rho * (1. / 18.) * (1. - 3. * u[1] + 4.5 * u[1] * u[1] - usqr);
-        const LbmComputeType eq_02 = rho * (1. / 18.) * (1. - 3. * u[2] + 4.5 * u[2] * u[2] - usqr);
-        const LbmComputeType eq_03 = rho * (1. / 36.) * (1. - 3. * ck_u03 + 4.5 * ck_u03 * ck_u03 - usqr);
-        const LbmComputeType eq_04 = rho * (1. / 36.) * (1. - 3. * ck_u04 + 4.5 * ck_u04 * ck_u04 - usqr);
-        const LbmComputeType eq_05 = rho * (1. / 36.) * (1. - 3. * ck_u05 + 4.5 * ck_u05 * ck_u05 - usqr);
-        const LbmComputeType eq_06 = rho * (1. / 36.) * (1. - 3. * ck_u06 + 4.5 * ck_u06 * ck_u06 - usqr);
-        const LbmComputeType eq_07 = rho * (1. / 36.) * (1. - 3. * ck_u07 + 4.5 * ck_u07 * ck_u07 - usqr);
-        const LbmComputeType eq_08 = rho * (1. / 36.) * (1. - 3. * ck_u08 + 4.5 * ck_u08 * ck_u08 - usqr);
+        constexpr LbmComputeType c1over18 = 1. / 18.;
+        constexpr LbmComputeType c1over36 = 1. / 36.;
+        constexpr LbmComputeType c4dot5 = 4.5;
+        constexpr LbmComputeType c3 = 3.;
+        constexpr LbmComputeType c1 = 1.;
+        constexpr LbmComputeType c6 = 6.;
 
-        const LbmComputeType eqopp_00 = eq_00 + rho * (1. / 18.) * 6. * u[0];
-        const LbmComputeType eqopp_01 = eq_01 + rho * (1. / 18.) * 6. * u[1];
-        const LbmComputeType eqopp_02 = eq_02 + rho * (1. / 18.) * 6. * u[2];
-        const LbmComputeType eqopp_03 = eq_03 + rho * (1. / 36.) * 6. * ck_u03;
-        const LbmComputeType eqopp_04 = eq_04 + rho * (1. / 36.) * 6. * ck_u04;
-        const LbmComputeType eqopp_05 = eq_05 + rho * (1. / 36.) * 6. * ck_u05;
-        const LbmComputeType eqopp_06 = eq_06 + rho * (1. / 36.) * 6. * ck_u06;
-        const LbmComputeType eqopp_07 = eq_07 + rho * (1. / 36.) * 6. * ck_u07;
-        const LbmComputeType eqopp_08 = eq_08 + rho * (1. / 36.) * 6. * ck_u08;
+        const LbmComputeType eq_00 = rho * c1over18 * (c1 - c6 * u[0] + c4dot5 * u[0] * u[0] - usqr);
+        const LbmComputeType eq_01 = rho * c1over18 * (c1 - c6 * u[1] + c4dot5 * u[1] * u[1] - usqr);
+        const LbmComputeType eq_02 = rho * c1over18 * (c1 - c6 * u[2] + c4dot5 * u[2] * u[2] - usqr);
+        const LbmComputeType eq_03 = rho * c1over36 * (c1 - c6 * ck_u03 + c4dot5 * ck_u03 * ck_u03 - usqr);
+        const LbmComputeType eq_04 = rho * c1over36 * (c1 - c6 * ck_u04 + c4dot5 * ck_u04 * ck_u04 - usqr);
+        const LbmComputeType eq_05 = rho * c1over36 * (c1 - c6 * ck_u05 + c4dot5 * ck_u05 * ck_u05 - usqr);
+        const LbmComputeType eq_06 = rho * c1over36 * (c1 - c6 * ck_u06 + c4dot5 * ck_u06 * ck_u06 - usqr);
+        const LbmComputeType eq_07 = rho * c1over36 * (c1 - c6 * ck_u07 + c4dot5 * ck_u07 * ck_u07 - usqr);
+        const LbmComputeType eq_08 = rho * c1over36 * (c1 - c6 * ck_u08 + c4dot5 * ck_u08 * ck_u08 - usqr);
 
-        const LbmComputeType pop_out_00 = (1. - omega) * static_cast<LbmComputeType>(pop[0]) + omega * eq_00;
-        const LbmComputeType pop_out_01 = (1. - omega) * static_cast<LbmComputeType>(pop[1]) + omega * eq_01;
-        const LbmComputeType pop_out_02 = (1. - omega) * static_cast<LbmComputeType>(pop[2]) + omega * eq_02;
-        const LbmComputeType pop_out_03 = (1. - omega) * static_cast<LbmComputeType>(pop[3]) + omega * eq_03;
-        const LbmComputeType pop_out_04 = (1. - omega) * static_cast<LbmComputeType>(pop[4]) + omega * eq_04;
-        const LbmComputeType pop_out_05 = (1. - omega) * static_cast<LbmComputeType>(pop[5]) + omega * eq_05;
-        const LbmComputeType pop_out_06 = (1. - omega) * static_cast<LbmComputeType>(pop[6]) + omega * eq_06;
-        const LbmComputeType pop_out_07 = (1. - omega) * static_cast<LbmComputeType>(pop[7]) + omega * eq_07;
-        const LbmComputeType pop_out_08 = (1. - omega) * static_cast<LbmComputeType>(pop[8]) + omega * eq_08;
+        const LbmComputeType eqopp_00 = eq_00 + rho * c1over18 * c6 * u[0];
+        const LbmComputeType eqopp_01 = eq_01 + rho * c1over18 * c6 * u[1];
+        const LbmComputeType eqopp_02 = eq_02 + rho * c1over18 * c6 * u[2];
+        const LbmComputeType eqopp_03 = eq_03 + rho * c1over36 * c6 * ck_u03;
+        const LbmComputeType eqopp_04 = eq_04 + rho * c1over36 * c6 * ck_u04;
+        const LbmComputeType eqopp_05 = eq_05 + rho * c1over36 * c6 * ck_u05;
+        const LbmComputeType eqopp_06 = eq_06 + rho * c1over36 * c6 * ck_u06;
+        const LbmComputeType eqopp_07 = eq_07 + rho * c1over36 * c6 * ck_u07;
+        const LbmComputeType eqopp_08 = eq_08 + rho * c1over36 * c6 * ck_u08;
 
-        const LbmComputeType pop_out_opp_00 = (1. - omega) * static_cast<LbmComputeType>(pop[10]) + omega * eqopp_00;
-        const LbmComputeType pop_out_opp_01 = (1. - omega) * static_cast<LbmComputeType>(pop[11]) + omega * eqopp_01;
-        const LbmComputeType pop_out_opp_02 = (1. - omega) * static_cast<LbmComputeType>(pop[12]) + omega * eqopp_02;
-        const LbmComputeType pop_out_opp_03 = (1. - omega) * static_cast<LbmComputeType>(pop[13]) + omega * eqopp_03;
-        const LbmComputeType pop_out_opp_04 = (1. - omega) * static_cast<LbmComputeType>(pop[14]) + omega * eqopp_04;
-        const LbmComputeType pop_out_opp_05 = (1. - omega) * static_cast<LbmComputeType>(pop[15]) + omega * eqopp_05;
-        const LbmComputeType pop_out_opp_06 = (1. - omega) * static_cast<LbmComputeType>(pop[16]) + omega * eqopp_06;
-        const LbmComputeType pop_out_opp_07 = (1. - omega) * static_cast<LbmComputeType>(pop[17]) + omega * eqopp_07;
-        const LbmComputeType pop_out_opp_08 = (1. - omega) * static_cast<LbmComputeType>(pop[18]) + omega * eqopp_08;
+        const LbmComputeType pop_out_00 = (c1 - omega) * static_cast<LbmComputeType>(pop[0]) + omega * eq_00;
+        const LbmComputeType pop_out_01 = (c1 - omega) * static_cast<LbmComputeType>(pop[1]) + omega * eq_01;
+        const LbmComputeType pop_out_02 = (c1 - omega) * static_cast<LbmComputeType>(pop[2]) + omega * eq_02;
+        const LbmComputeType pop_out_03 = (c1 - omega) * static_cast<LbmComputeType>(pop[3]) + omega * eq_03;
+        const LbmComputeType pop_out_04 = (c1 - omega) * static_cast<LbmComputeType>(pop[4]) + omega * eq_04;
+        const LbmComputeType pop_out_05 = (c1 - omega) * static_cast<LbmComputeType>(pop[5]) + omega * eq_05;
+        const LbmComputeType pop_out_06 = (c1 - omega) * static_cast<LbmComputeType>(pop[6]) + omega * eq_06;
+        const LbmComputeType pop_out_07 = (c1 - omega) * static_cast<LbmComputeType>(pop[7]) + omega * eq_07;
+        const LbmComputeType pop_out_08 = (c1 - omega) * static_cast<LbmComputeType>(pop[8]) + omega * eq_08;
+
+        const LbmComputeType pop_out_opp_00 = (c1 - omega) * static_cast<LbmComputeType>(pop[10]) + omega * eqopp_00;
+        const LbmComputeType pop_out_opp_01 = (c1 - omega) * static_cast<LbmComputeType>(pop[11]) + omega * eqopp_01;
+        const LbmComputeType pop_out_opp_02 = (c1 - omega) * static_cast<LbmComputeType>(pop[12]) + omega * eqopp_02;
+        const LbmComputeType pop_out_opp_03 = (c1 - omega) * static_cast<LbmComputeType>(pop[13]) + omega * eqopp_03;
+        const LbmComputeType pop_out_opp_04 = (c1 - omega) * static_cast<LbmComputeType>(pop[14]) + omega * eqopp_04;
+        const LbmComputeType pop_out_opp_05 = (c1 - omega) * static_cast<LbmComputeType>(pop[15]) + omega * eqopp_05;
+        const LbmComputeType pop_out_opp_06 = (c1 - omega) * static_cast<LbmComputeType>(pop[16]) + omega * eqopp_06;
+        const LbmComputeType pop_out_opp_07 = (c1 - omega) * static_cast<LbmComputeType>(pop[17]) + omega * eqopp_07;
+        const LbmComputeType pop_out_opp_08 = (c1 - omega) * static_cast<LbmComputeType>(pop[18]) + omega * eqopp_08;
 
 
 #define COMPUTE_GO_AND_BACK(GOid, BKid)                                 \
@@ -262,17 +269,15 @@ struct LbmContainers<D3Q19Template<typename PopulationField::Type, LbmComputeTyp
         COMPUTE_GO_AND_BACK(3, 13)
         COMPUTE_GO_AND_BACK(4, 14)
         COMPUTE_GO_AND_BACK(5, 15)
-        // COMPUTE_GO_AND_BACK(6, 16)
-        fOut(i, 6) = static_cast<LbmStoreType>(pop_out_06);
-        fOut(i, 16) = static_cast<LbmStoreType>(pop_out_opp_06);
+        COMPUTE_GO_AND_BACK(6, 16)
         COMPUTE_GO_AND_BACK(7, 17)
         COMPUTE_GO_AND_BACK(8, 18)
 
 #undef COMPUTE_GO_AND_BACK
 
         {
-            const LbmComputeType eq_09 = rho * (1. / 3.) * (1. - usqr);
-            const LbmComputeType pop_out_09 = (1. - omega) *
+            const LbmComputeType eq_09 = rho * (c1 / c3) * (c1 - usqr);
+            const LbmComputeType pop_out_09 = (c1 - omega) *
                                                   static_cast<LbmComputeType>(pop[Lattice::centerDirection]) +
                                               omega * eq_09;
             fOut(i, Lattice::centerDirection) = static_cast<LbmStoreType>(pop_out_09);
