@@ -19,13 +19,13 @@ struct LbmContainersTemplateOnly
  */
 template <typename PopulationField,
           typename LbmComputeType>
-struct LbmContainersTemplateOnly<D3Q19Template<typename PopulationField::Type, LbmComputeType>,
+struct LbmContainersTemplateOnly<D3Q19<typename PopulationField::Type, LbmComputeType>,
                                  PopulationField,
                                  LbmComputeType>
 {
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
-    using Lattice = D3Q19Template<LbmStoreType, LbmComputeType>;
+    using Lattice = D3Q19<LbmStoreType, LbmComputeType>;
     using Idx = typename PopulationField::Idx;
     using Grid = typename PopulationField::Grid;
     using Rho = typename Grid::template Field<LbmStoreType, 1>;

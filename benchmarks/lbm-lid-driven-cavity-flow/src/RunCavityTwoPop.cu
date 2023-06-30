@@ -21,7 +21,7 @@ template <typename Grid,
 auto run(Config& config,
          Report& report) -> void
 {
-    using Lattice = D3Q19Template<StorageFP, ComputeFP>;
+    using Lattice = D3Q19<StorageFP, ComputeFP>;
     using PopulationField = typename Grid::template Field<StorageFP, Lattice::Q>;
 
 
@@ -52,7 +52,7 @@ auto run(Config& config,
     Grid grid(
         bk, {config.N, config.N, config.N},
         [](const Neon::index_3d&) { return true; },
-        lattice.c_vect);
+        lattice.getDirectionAsVector());
 
     PopulationField pop0 = grid.template newField<StorageFP, Lattice::Q>("Population", Lattice::Q, StorageFP(0.0));
     PopulationField pop1 = grid.template newField<StorageFP, Lattice::Q>("Population", Lattice::Q, StorageFP(0.0));

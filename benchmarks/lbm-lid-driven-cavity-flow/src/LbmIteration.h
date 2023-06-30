@@ -1,36 +1,38 @@
 #include "CellType.h"
+#include "ContainersD3Q19.h"
 #include "D3Q19.h"
-#include "LbmTools.h"
 #include "Neon/Neon.h"
 #include "Neon/set/Backend.h"
 #include "Neon/set/Containter.h"
 #include "Neon/skeleton/Skeleton.h"
+#include "ContainerFactory.h"
 
-template <typename DKQW,
-          typename PopulationField,
-          typename LbmComputeType>
+template <typename Precision_,
+          typename Lattice,
+          typename Grid>
 struct LbmSkeleton
 {
 };
 
 
-template <typename PopulationField,
-          typename LbmComputeType>
-struct LbmIterationD3Q19
+template <typename Precision_, typename Grid_>
+struct LbmSkeleton<Precision_,
+                   D3Q19<Precision_>,
+                   Grid_>
 {
     using LbmStoreType = typename PopulationField::Type;
     using CellTypeField = typename PopulationField::Grid::template Field<CellType, 1>;
-    using D3Q19 = D3Q19Template<LbmStoreType, LbmComputeType>;
+    using D3Q19 = D3Q19<LbmStoreType, LbmComputeType>;
     using LbmTools = LbmContainers<D3Q19, PopulationField, LbmComputeType>;
 
 
-    LbmIterationD3Q19(Neon::set::StencilSemantic stencilSemantic,
-                      Neon::skeleton::Occ        occ,
-                      Neon::set::TransferMode    transfer,
-                      PopulationField&           fIn /*!   inpout population field */,
-                      PopulationField&           fOut,
-                      CellTypeField&             cellTypeField /*!       Cell type field     */,
-                      LbmComputeType             omega /*! LBM omega parameter */)
+    LbmSkeleton(Neon::set::StencilSemantic stencilSemantic,
+                Neon::skeleton::Occ        occ,
+                Neon::set::TransferMode    transfer,
+                PopulationField&           fIn /*!   inpout population field */,
+                PopulationField&           fOut,
+                CellTypeField&             cellTypeField /*!       Cell type field     */,
+                LbmComputeType             omega /*! LBM omega parameter */)
     {
         pop[0] = fIn;
         pop[1] = fOut;
