@@ -100,7 +100,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     helpGetValidIdxPitchExplicit(const Idx& idx, int card)
         const -> uint32_t
 {
-    uint32_t const blockPitchByCard = SBlock::memBlockSizeX * SBlock::memBlockSizeY * SBlock::memBlockSizeZ;
+    uint32_t constexpr blockPitchByCard = SBlock::memBlockSizeX * SBlock::memBlockSizeY * SBlock::memBlockSizeZ;
     uint32_t const inBlockInCardPitch = idx.mInDataBlockIdx.x +
                                         SBlock::memBlockSizeX * idx.mInDataBlockIdx.y +
                                         (SBlock::memBlockSizeX * SBlock::memBlockSizeY) * idx.mInDataBlockIdx.z;
