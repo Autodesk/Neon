@@ -6,13 +6,6 @@
 #include "Neon/Neon.h"
 #include "Neon/set/Containter.h"
 
-template <typename Precision_,
-          typename Lattice,
-          typename Grid>
-struct ContainerFactory
-{
-};
-
 /**
  * Specialization for D3Q19
  */
@@ -27,12 +20,12 @@ struct ContainerFactory<Precision_,
     using Storage = typename Precision::Storage;
     using Grid = Grid_;
 
-    using PopField = typename Grid::template Field<Precision::Storage, Lattice::Q>;
+    using PopField = typename Grid::template Field<Storage, Lattice::Q>;
     using CellTypeField = typename Grid::template Field<CellType, 1>;
 
     using Idx = typename PopField::Idx;
-    using Rho = typename Grid::template Field<Precision::Storage, 1>;
-    using U = typename Grid::template Field<Precision::Storage, 3>;
+    using Rho = typename Grid::template Field<Storage, 1>;
+    using U = typename Grid::template Field<Storage, 3>;
 
     using Functions = DeviceD3Q19<Precision, Grid>;
 
@@ -96,16 +89,16 @@ struct ContainerFactory<Precision_,
                     cellType.wallNghBitflag = 0;
 
                     if (cellType.classification == CellType::bulk) {
-                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto GOid) {
-                            if constexpr (GOid != Lattice::center) {
-                                constexpr int BKid = Lattice::oppositeDirection[GOid];
-                                constexpr int BKx = Lattice::stencil[BKid].x;
-                                constexpr int BKy = Lattice::stencil[BKid].y;
-                                constexpr int BKz = Lattice::stencil[BKid].z;
+                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto GOMemoryId) {
+                            if constexpr (GOMemoryId != Lattice::Memory::center) {
+                                constexpr int BKMemoryId = Lattice::Memory::opposite[GOMemoryId];
+                                constexpr int BKx = Lattice::Memory::stencil[BKMemoryId].x;
+                                constexpr int BKy = Lattice::Memory::stencil[BKMemoryId].y;
+                                constexpr int BKz = Lattice::Memory::stencil[BKMemoryId].z;
 
                                 CellType nghCellType = infoIn.template getNghData<BKx, BKy, BKz>(gidx, 0, CellType::undefined)();
                                 if (nghCellType.classification != CellType::bulk) {
-                                    cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << GOid));
+                                    cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << GOMemoryId));
                                 }
                             }
                         });
@@ -149,11 +142,11 @@ struct ContainerFactory<Precision_,
 
                     } else {
                         if (cellInfo.classification == CellType::movingWall) {
-                            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto GOid) {
-                                if constexpr (GOid == Lattice::center) {
-                                    popIn[Lattice::center] = fIn(gidx, Lattice::center);
+                            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto GORegisterId) {
+                                if constexpr (GORegisterId == Lattice::Registers::center) {
+                                    popIn[Lattice::Registers::center] = fIn(gidx, Lattice::Memory::center);
                                 } else {
-                                    popIn[GOid] = fIn(gidx, GOid);
+                                    popIn[GORegisterId] = fIn(gidx, Lattice::Memory::template mapFromRegisters<GORegisterId>());
                                 }
                             });
 

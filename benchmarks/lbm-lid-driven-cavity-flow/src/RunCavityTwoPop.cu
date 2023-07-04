@@ -57,14 +57,12 @@ auto run(Config& config,
     }
 
     Neon::double_3d ulid(1., 0., 0.);
-    Lattice         lattice(bk);
-
     // Neon Grid and Fields initialization
     auto [start, clock_iter] = metrics::restartClock(bk, true);
     Grid grid(
         bk, {config.N, config.N, config.N},
         [](const Neon::index_3d&) { return true; },
-        lattice.getDirectionAsVector());
+        Lattice::template getDirectionAsVector<Lattice::MemoryMapping>());
 
     PopulationField pop0 = grid.template newField<Storage, Lattice::Q>("Population", Lattice::Q, Storage(0.0));
     PopulationField pop1 = grid.template newField<Storage, Lattice::Q>("Population", Lattice::Q, Storage(0.0));
@@ -174,8 +172,8 @@ auto run(Config& config,
 
         Neon::index_3d dim(config.N, config.N, config.N);
 
-        const auto& t = lattice.t_vect;
-        const auto& c = lattice.c_vect;
+        const auto& t = Lattice::Memory::t;
+        const auto& c = Lattice::Memory::stencil;
 
         inPop.forEachActiveCell([&c, &t, &dim, &flag, &ulid, &config](const Neon::index_3d& idx,
                                                                       const int&            k,
@@ -248,7 +246,7 @@ auto run(Config& config,
             bk.syncAll();
         }
 
-        auto container = LbmContainers<Lattice, PopulationField, Compute>::computeWallNghMask(flag, flag);
+        auto container =  ContainerFactory::computeWallNghMask(flag, flag);
         container.run(Neon::Backend::mainStreamIdx);
         bk.syncAll();
     }

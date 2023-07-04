@@ -26,12 +26,12 @@ struct LbmSkeleton<Precision_,
     using Storage = typename Precision::Storage;
     using Grid = Grid_;
 
-    using PopField = typename Grid::template Field<Precision::Storage, Lattice::Q>;
+    using PopField = typename Grid::template Field<Storage, Lattice::Q>;
     using CellTypeField = typename Grid::template Field<CellType, 1>;
 
     using Idx = typename PopField::Idx;
-    using Rho = typename Grid::template Field<Precision::Storage, 1>;
-    using U = typename Grid::template Field<Precision::Storage, 3>;
+    using Rho = typename Grid::template Field<Storage, 1>;
+    using U = typename Grid::template Field<Storage, 3>;
 
     using ContainerFactory = ContainerFactory<Precision, Lattice, Grid>;
 

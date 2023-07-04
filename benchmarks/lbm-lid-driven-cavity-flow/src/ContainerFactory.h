@@ -6,7 +6,7 @@
 template <typename Precision_,
           typename Lattice,
           typename Grid>
-struct LbmContainers
+struct ContainerFactory
 {
 };
 

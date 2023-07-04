@@ -458,7 +458,7 @@ NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false> Vec_3d<IntegerT
 
 template <typename IntegerType_ta>
 template <typename K_tt>
-NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false> Vec_3d<IntegerType_ta, true, false>::operator*(const Vec_3d<K_tt>& B) const
+NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false> Vec_3d<IntegerType_ta, true, false>::operator*(const Vec_3d<K_tt>& B) const
 {
     const Vec_3d<Integer>& A = *this;
     // Vec_3d<Integer>        C((Integer)(A.x * B.x), (Integer)(A.y * B.y), (Integer)(A.z * B.z));
@@ -468,7 +468,7 @@ NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false> Vec_3d<IntegerT
 
 template <typename IntegerType_ta>
 template <typename K_tt>
-NEON_CUDA_HOST_DEVICE inline Vec_3d<IntegerType_ta, true, false> Vec_3d<IntegerType_ta, true, false>::operator*(const K_tt& alpha) const
+NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false> Vec_3d<IntegerType_ta, true, false>::operator*(const K_tt& alpha) const
 {
     const Vec_3d<Integer>& A = *this;
     const auto             alpha_c = static_cast<Integer>(alpha);
@@ -526,35 +526,35 @@ NEON_CUDA_HOST_DEVICE inline bool Vec_3d<IntegerType_ta, true, false>::operator<
 
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline bool Vec_3d<IntegerType_ta, true, false>::operator==(const Vec_3d<IntegerType_ta, true, false>& B) const
+NEON_CUDA_HOST_DEVICE inline constexpr bool Vec_3d<IntegerType_ta, true, false>::operator==(const Vec_3d<IntegerType_ta, true, false>& B) const
 {
     const Vec_3d<Integer>& A = *this;
     return A.x == B.x && A.y == B.y && A.z == B.z;
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline bool Vec_3d<IntegerType_ta, true, false>::operator==(const IntegerType_ta other[Vec_3d<IntegerType_ta, true, false>::num_axis]) const
+NEON_CUDA_HOST_DEVICE inline constexpr bool Vec_3d<IntegerType_ta, true, false>::operator==(const IntegerType_ta other[Vec_3d<IntegerType_ta, true, false>::num_axis]) const
 {
     const Vec_3d<Integer>& A = *this;
     return A.x == other[0] && A.y == other[1] && A.z == other[2];
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline bool Vec_3d<IntegerType_ta, true, false>::operator==(const IntegerType_ta otherScalar) const
+NEON_CUDA_HOST_DEVICE inline constexpr bool Vec_3d<IntegerType_ta, true, false>::operator==(const IntegerType_ta otherScalar) const
 {
     const Vec_3d<Integer>& A = *this;
     return A.x == otherScalar && A.y == otherScalar && A.z == otherScalar;
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline bool Vec_3d<IntegerType_ta, true, false>::operator!=(const Vec_3d<IntegerType_ta, true, false>& B) const
+NEON_CUDA_HOST_DEVICE inline constexpr bool Vec_3d<IntegerType_ta, true, false>::operator!=(const Vec_3d<IntegerType_ta, true, false>& B) const
 {
     const Vec_3d<Integer>& A = *this;
     return !(A == B);
 }
 
 template <typename IntegerType_ta>
-NEON_CUDA_HOST_DEVICE inline bool Vec_3d<IntegerType_ta, true, false>::operator!=(const IntegerType_ta other[Vec_3d<IntegerType_ta, true, false>::num_axis]) const
+NEON_CUDA_HOST_DEVICE inline constexpr bool Vec_3d<IntegerType_ta, true, false>::operator!=(const IntegerType_ta other[Vec_3d<IntegerType_ta, true, false>::num_axis]) const
 {
     const Vec_3d<Integer>& A = *this;
     return A.x != other[0] || A.y != other[1] || A.z != other[2];

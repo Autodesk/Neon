@@ -14,12 +14,12 @@ struct DeviceD3Q19
     using Storage = typename Precision::Storage;
     using Grid = Grid_;
 
-    using PopField = typename Grid::template Field<Precision::Storage, Lattice::Q>;
+    using PopField = typename Grid::template Field<Storage, Lattice::Q>;
     using CellTypeField = typename Grid::template Field<CellType, 1>;
 
     using Idx = typename PopField::Idx;
-    using Rho = typename Grid::template Field<Precision::Storage, 1>;
-    using U = typename Grid::template Field<Precision::Storage, 3>;
+    using Rho = typename Grid::template Field<Storage, 1>;
+    using U = typename Grid::template Field<Storage, 3>;
 
 
     static inline NEON_CUDA_HOST_DEVICE auto
@@ -29,20 +29,23 @@ struct DeviceD3Q19
                NEON_OUT Storage                    popIn[Lattice::Q])
     {
 
-        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto GOid) {
-            if constexpr (GOid == Lattice::center) {
-                popIn[Lattice::center] = fin(gidx, Lattice::center);
+        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto GOMemoryId) {
+            if constexpr (GOMemoryId == Lattice::Memory::center) {
+                popIn[Lattice::Registers::center] = fin(gidx, Lattice::Memory::center);
             } else {
-                constexpr int BKid = Lattice::opposite[GOid];
-                constexpr int BKx = Lattice::stencil[BKid].x;
-                constexpr int BKy = Lattice::stencil[BKid].y;
-                constexpr int BKz = Lattice::stencil[BKid].z;
+                constexpr int BKMemoryId = Lattice::Memory::opposite[GOMemoryId];
+                constexpr int BKx = Lattice::Memory::stencil[BKMemoryId].x;
+                constexpr int BKy = Lattice::Memory::stencil[BKMemoryId].y;
+                constexpr int BKz = Lattice::Memory::stencil[BKMemoryId].z;
+                constexpr int GORegistersId = Lattice::Memory::template mapToRegisters<GOMemoryId>();
 
-                if (wallBitFlag & (uint32_t(1) << GOid)) {
-                    popIn[GOid] = fin(gidx, BKid) +
-                                  fin.template getNghData<BKx, BKy, BKz>(gidx, BKid)();
+                if (wallBitFlag & (uint32_t(1) << GOMemoryId)) {
+                    popIn[GORegistersId] =
+                        fin(gidx, BKMemoryId) +
+                        fin.template getNghData<BKx, BKy, BKz>(gidx, BKMemoryId)();
                 } else {
-                    popIn[GOid] = fin.template getNghData<BKx, BKy, BKz>(gidx, GOid)();
+                    popIn[GORegistersId] =
+                        fin.template getNghData<BKx, BKy, BKz>(gidx, GOMemoryId)();
                 }
             }
         });
@@ -140,10 +143,10 @@ struct DeviceD3Q19
         const Compute pop_out_opp_08 = (c1 - omega) * static_cast<Compute>(pop[18]) + omega * eqopp_08;
 
 
-#define COMPUTE_GO_AND_BACK(GOid, BKid)                            \
-    {                                                              \
-        fOut(i, GOid) = static_cast<Storage>(pop_out_0##GOid);     \
-        fOut(i, BKid) = static_cast<Storage>(pop_out_opp_0##GOid); \
+#define COMPUTE_GO_AND_BACK(GOid, BKid)                                                                          \
+    {                                                                                                            \
+        fOut(i, Lattice::Memory::template mapFromRegisters<GOid>()) = static_cast<Storage>(pop_out_0##GOid);     \
+        fOut(i, Lattice::Memory::template mapFromRegisters<BKid>()) = static_cast<Storage>(pop_out_opp_0##GOid); \
     }
 
         COMPUTE_GO_AND_BACK(0, 10)
@@ -160,9 +163,9 @@ struct DeviceD3Q19
 
         {
             const Compute eq_09 = rho * (c1 / c3) * (c1 - usqr);
-            const Compute pop_out_09 = (c1 - omega) * static_cast<Compute>(pop[Lattice::center]) +
+            const Compute pop_out_09 = (c1 - omega) * static_cast<Compute>(pop[Lattice::Registers::center]) +
                                        omega * eq_09;
-            fOut(i, Lattice::center) = static_cast<Storage>(pop_out_09);
+            fOut(i, Lattice::Memory::center) = static_cast<Storage>(pop_out_09);
         }
     }
 };

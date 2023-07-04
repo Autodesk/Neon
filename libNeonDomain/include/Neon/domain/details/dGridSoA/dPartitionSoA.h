@@ -242,9 +242,9 @@ class dPartitionSoA
                                      gidx.getLocation().y + yOff,
                                      gidx.getLocation().z + zOff);
             gidxNgh = Idx(cartesian, gidx.getOffset() +
-                                         xOff * getPitchData().x +
-                                         yOff * getPitchData().y +
-                                         zOff * getPitchData().z);
+                                         xOff * static_cast<int>(getPitchData().x) +
+                                         yOff * static_cast<int>(getPitchData().y) +
+                                         zOff * static_cast<int>(getPitchData().z));
         }
 
         bool isValidNeighbour = true;

@@ -328,10 +328,10 @@ class Vec_3d<IntegerType_ta, true, false>
      *   @return Resulting point is C =(A.x / B.x, A.y / B.y, A.z / B.z)
      * */
     template <typename K_tt>
-    NEON_CUDA_HOST_DEVICE inline self_t operator*(const Vec_3d<K_tt>& B) const;
+    NEON_CUDA_HOST_DEVICE inline constexpr self_t operator*(const Vec_3d<K_tt>& B) const;
 
     template <typename K_tt>
-    NEON_CUDA_HOST_DEVICE inline self_t operator*(const K_tt& alpha) const;
+    NEON_CUDA_HOST_DEVICE inline constexpr self_t operator*(const K_tt& alpha) const;
     /**
      *   Compute the division between two points A and B, component by component (A.x/B.x, A.y/B.y, A.z/B.z).
      *   Be careful!!! if the type is int, the division will be an integer division!!!
@@ -368,15 +368,15 @@ class Vec_3d<IntegerType_ta, true, false>
      *   @param[in] B: second point for the operation.
      *   @return True if A.x <= B.x && A.y <= B.y && A.z <= B.z
      */
-    NEON_CUDA_HOST_DEVICE inline bool operator==(const self_t& B) const;
+    NEON_CUDA_HOST_DEVICE inline constexpr bool operator==(const self_t& B) const;
 
-    NEON_CUDA_HOST_DEVICE inline bool operator==(const Integer other[self_t::num_axis]) const;
+    NEON_CUDA_HOST_DEVICE inline constexpr bool operator==(const Integer other[self_t::num_axis]) const;
 
-    NEON_CUDA_HOST_DEVICE inline bool operator==(const Integer otherScalar) const;
+    NEON_CUDA_HOST_DEVICE inline constexpr bool operator==(const Integer otherScalar) const;
 
-    NEON_CUDA_HOST_DEVICE inline bool operator!=(const self_t& B) const;
+    NEON_CUDA_HOST_DEVICE inline constexpr bool operator!=(const self_t& B) const;
 
-    NEON_CUDA_HOST_DEVICE inline bool operator!=(const Integer other[self_t::num_axis]) const;
+    NEON_CUDA_HOST_DEVICE inline constexpr bool operator!=(const Integer other[self_t::num_axis]) const;
 
     NEON_CUDA_HOST_DEVICE inline self_t operator-() const;
 
