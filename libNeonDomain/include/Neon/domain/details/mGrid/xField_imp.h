@@ -79,11 +79,14 @@ auto xField<T, C>::getPartition(Neon::Execution       exec,
                                 const Neon::DataView& dataView) const -> const Partition&
 {
 
-    if (exec == Neon::Execution::device) {
-        return getPartition(Neon::DeviceType::CUDA, idx, dataView);
-    }
     if (exec == Neon::Execution::host) {
         return getPartition(Neon::DeviceType::CPU, idx, dataView);
+    } else {
+        if (mData->field.getBackend().runtime() == Neon::Runtime::openmp) {
+            return getPartition(Neon::DeviceType::CPU, idx, dataView);
+        } else {
+            return getPartition(Neon::DeviceType::CUDA, idx, dataView);
+        }
     }
 
     NEON_THROW_UNSUPPORTED_OPERATION("xField::getPartition() unsupported Execution");
@@ -95,11 +98,14 @@ auto xField<T, C>::getPartition(Neon::Execution       exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) -> Partition&
 {
-    if (exec == Neon::Execution::device) {
-        return getPartition(Neon::DeviceType::CUDA, idx, dataView);
-    }
     if (exec == Neon::Execution::host) {
         return getPartition(Neon::DeviceType::CPU, idx, dataView);
+    } else {
+        if (mData->field.getBackend().runtime() == Neon::Runtime::openmp) {
+            return getPartition(Neon::DeviceType::CPU, idx, dataView);
+        } else {
+            return getPartition(Neon::DeviceType::CUDA, idx, dataView);
+        }
     }
 
     NEON_THROW_UNSUPPORTED_OPERATION("xField::getPartition() unsupported Execution");

@@ -136,15 +136,7 @@ class mGrid
                       int                level,
                       LoadingLambda      lambda) const -> Neon::set::Container;
 
-
-    /*auto getLaunchParameters(Neon::DataView        dataView,
-                             const Neon::index_3d& blockSize,
-                             const size_t&         sharedMem,
-                             int                   level) const -> Neon::set::LaunchParameters;*/
-
-
-    auto getParentsBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&;
-    auto getParentLocalID(int level) const -> const Neon::set::MemSet<Idx::InDataBlockIdx>&;
+    auto getParentsBlockID(int level) const -> Neon::set::MemSet<uint32_t>&;
     auto getChildBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&;
 
 
@@ -200,10 +192,6 @@ class mGrid
 
         //Given a block at level L, we store R children block IDs for each block in L where R is the refinement factor
         std::vector<Neon::set::MemSet<Idx::DataBlockIdx>> mChildBlockID;
-
-        //store the parent local index within its block
-        std::vector<Neon::set::MemSet<Idx::InDataBlockIdx>> mParentLocalID;
-
 
         //gird levels refinement factors
         Neon::set::MemSet<int> mRefFactors;

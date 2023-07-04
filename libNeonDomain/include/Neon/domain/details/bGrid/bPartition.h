@@ -138,6 +138,15 @@ class bPartition
     helpGetNghIdx(const Idx& idx)
         const -> Idx;
 
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetNghIdx(const Idx& idx, const NghIdx& offset, const typename Idx::DataBlockIdx* blockConnectivity)
+        const -> Idx;
+
+    template <int xOff, int yOff, int zOff>
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetNghIdx(const Idx& idx, const typename Idx::DataBlockIdx* blockConnectivity)
+        const -> Idx;
+
     int                                             mCardinality;
     T*                                              mMem;
     NghIdx const* NEON_RESTRICT                     mStencilNghIndex;
@@ -145,7 +154,6 @@ class bPartition
     typename SBlock::BitMask const* NEON_RESTRICT   mMask;
     Neon::int32_3d const* NEON_RESTRICT             mOrigin;
     int                                             mSetIdx;
-    int                                             mMultiResDiscreteIdxSpacing = 1;
 };
 
 }  // namespace Neon::domain::details::bGrid

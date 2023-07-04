@@ -45,9 +45,6 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     location.x += gidx.mInDataBlockIdx.x;
     location.y += gidx.mInDataBlockIdx.y;
     location.z += gidx.mInDataBlockIdx.z;
-    if constexpr (SBlock::isMultiResMode) {
-        return location * mMultiResDiscreteIdxSpacing;
-    }
     return location;
 }
 
@@ -132,6 +129,16 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
                   const NghIdx& offset)
         const -> Idx
 {
+    return this->helpGetNghIdx(idx, offset, mBlockConnectivity);
+}
+
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    helpGetNghIdx(const Idx&                        idx,
+                  const NghIdx&                     offset,
+                  const typename Idx::DataBlockIdx* blockConnectivity)
+        const -> Idx
+{
 
     typename Idx::InDataBlockIdx ngh(idx.mInDataBlockIdx.x + offset.x,
                                      idx.mInDataBlockIdx.y + offset.y,
@@ -185,7 +192,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
                                (xFlag + 1) +
                                (yFlag + 1) * 3 +
                                (zFlag + 1) * 9;
-        remoteNghIdx.mDataBlockIdx = mBlockConnectivity[connectivityJump];
+        remoteNghIdx.mDataBlockIdx = blockConnectivity[connectivityJump];
 
         return remoteNghIdx;
     } else {
@@ -200,6 +207,15 @@ template <typename T, int C, typename SBlock>
 template <int xOff, int yOff, int zOff>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     helpGetNghIdx(const Idx& idx)
+        const -> Idx
+{
+    return this->helpGetNghIdx<xOff, yOff, zOff>(idx, mBlockConnectivity);
+}
+
+template <typename T, int C, typename SBlock>
+template <int xOff, int yOff, int zOff>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    helpGetNghIdx(const Idx& idx, const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx
 {
 
@@ -275,7 +291,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
                                (xFlag + 1) +
                                (yFlag + 1) * 3 +
                                (zFlag + 1) * 9;
-        remoteNghIdx.mDataBlockIdx = mBlockConnectivity[connectivityJump];
+        remoteNghIdx.mDataBlockIdx = blockConnectivity[connectivityJump];
 
         return remoteNghIdx;
     } else {

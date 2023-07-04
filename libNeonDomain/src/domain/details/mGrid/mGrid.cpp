@@ -274,8 +274,8 @@ mGrid::mGrid(
 
 
     //parent block ID
-    mData->mParentBlockID.resize(mData->mDescriptor.getDepth());
-    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+    mData->mParentBlockID.resize(mData->mDescriptor.getDepth() - 1);
+    for (int l = 0; l < mData->mDescriptor.getDepth() - 1; ++l) {
         mData->mParentBlockID[l] = backend.devSet().template newMemSet<Idx::DataBlockIdx>({Neon::DataUse::HOST_DEVICE},
                                                                                           1,
                                                                                           memOptionsAoS,
@@ -311,16 +311,6 @@ mGrid::mGrid(
                 mData->mChildBlockID[l].eRef(devID, i) = std::numeric_limits<Idx::DataBlockIdx>::max();
             }
         }
-    }
-
-
-    //parent local index
-    mData->mParentLocalID.resize(mData->mDescriptor.getDepth());
-    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-        mData->mParentLocalID[l] = backend.devSet().template newMemSet<Idx::InDataBlockIdx>({Neon::DataUse::HOST_DEVICE},
-                                                                                            1,
-                                                                                            memOptionsAoS,
-                                                                                            mData->grids[l].getBlockViewGrid().getNumActiveCellsPerPartition());
     }
 
 
@@ -432,17 +422,16 @@ mGrid::mGrid(
                     exp << "Something went wrong during constructing mGrid. Can not find the right parent of a block\n";
                     NEON_THROW(exp);
                 }
-
                 mData->mParentBlockID[l].eRef(devID, blockIdx) = parentID.getDataBlockIdx();
-                mData->mParentLocalID[l].eRef(devID, blockIdx) = parentID.getInDataBlockIdx();
             }
         });
     }
 
     if (backend.devType() == Neon::DeviceType::CUDA) {
         for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-            mData->mParentBlockID[l].updateDeviceData(backend, 0);
-            mData->mParentLocalID[l].updateDeviceData(backend, 0);
+            if (l < mData->mDescriptor.getDepth() - 1) {
+                mData->mParentBlockID[l].updateDeviceData(backend, 0);
+            }
             if (l > 0) {
                 mData->mChildBlockID[l].updateDeviceData(backend, 0);
             }
@@ -514,18 +503,19 @@ auto mGrid::setReduceEngine(Neon::sys::patterns::Engine eng) -> void
     }
 }
 
-auto mGrid::getParentsBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&
+auto mGrid::getParentsBlockID(int level) const -> Neon::set::MemSet<uint32_t>&
 {
+    if (level >= mData->mDescriptor.getDepth() - 1) {
+        NeonException exp("mGrid::getParentsBlockID");
+        exp << "There is no parent for level " << level << " since the tree depth is " << mData->mDescriptor.getDepth();
+        NEON_THROW(exp);
+    }
+
     return mData->mParentBlockID[level];
 }
 auto mGrid::getChildBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&
 {
     return mData->mChildBlockID[level];
-}
-
-auto mGrid::getParentLocalID(int level) const -> const Neon::set::MemSet<Idx::InDataBlockIdx>&
-{
-    return mData->mParentLocalID[level];
 }
 
 auto mGrid::getRefFactors() const -> const Neon::set::MemSet<int>&

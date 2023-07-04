@@ -62,7 +62,7 @@ uint32_t init(Neon::domain::mGrid&                  grid,
 #endif
 
                         if (!in.hasChildren(cell)) {
-                            const Neon::index_3d idx = in.mapToGlobal(cell);
+                            const Neon::index_3d idx = in.getGlobalIndex(cell);
 
                             //pop
                             for (int q = 0; q < Q; ++q) {

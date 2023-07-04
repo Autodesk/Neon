@@ -79,6 +79,7 @@ class mField
 
     auto forEachActiveCell(int                                                                           level,
                            const std::function<void(const Neon::index_3d&, const int& cardinality, T&)>& fun,
+                           bool                                                                          filterOverlaps = true,
                            Neon::computeMode_t::computeMode_e                                            mode = Neon::computeMode_t::computeMode_e::par) -> void;
 
 
@@ -91,6 +92,11 @@ class mField
     auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) -> typename xField<T, C>::Partition&;
 
     auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) const -> const typename xField<T, C>::Partition&;
+
+    auto getBackend() const -> const Backend&
+    {
+        return mData->grid->getBackend();
+    }
 
    private:
     mField(const std::string&         name,

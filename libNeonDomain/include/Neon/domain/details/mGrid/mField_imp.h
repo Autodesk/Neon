@@ -33,60 +33,58 @@ mField<T, C>::mField(const std::string&         name,
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
 
-        auto parent = mData->grid->getParentsBlockID(l);
-        auto parentLocalID = mData->grid->getParentLocalID(l);
         auto childBlockID = mData->grid->getChildBlockID(l);
 
 
-        for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
-            mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
-            mData->fields[l].mData->mPartitions[PartitionBackend::gpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
+        //for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
+        int dvID = 0;
 
-            for (int32_t gpuID = 0; gpuID < int32_t(mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID].size()); gpuID++) {
+        mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
+        mData->fields[l].mData->mPartitions[PartitionBackend::gpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
 
-                auto setIdx = Neon::SetIdx(gpuID);
+        for (int32_t gpuID = 0; gpuID < int32_t(mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID].size()); gpuID++) {
 
-                mData->fields[l].getPartition(Neon::Execution::host, setIdx, Neon::DataView(dvID)) =
-                    Neon::domain::details::mGrid::mPartition<T, C>(
-                        l,
-                        mData->fields[l].mData->field.getMemoryField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->fields[l + 1].mData->field.getMemoryField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),  //parent
-                        (l == 0) ? nullptr : mData->fields[l - 1].mData->field.getMemoryField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),                               //child
-                        cardinality,
-                        mData->grid->operator()(l).helpGetBlockConnectivity().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
-                        mData->grid->operator()(l).helpGetDataBlockOriginField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
-                        parent.rawMem(gpuID, Neon::DeviceType::CPU),
-                        parentLocalID.rawMem(gpuID, Neon::DeviceType::CPU),
-                        mData->grid->operator()(l).getActiveBitMask().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
-                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveBitMask().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),                               //lower-level mask
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getActiveBitMask().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),  //upper-level mask
-                        (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).helpGetBlockConnectivity().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),  //parent neighbor
-                        mData->grid->operator()(l).helpGetStencilIdTo3dOffset().rawMem(Neon::Execution::host, setIdx),
-                        refFactorSet.rawMem(gpuID, Neon::DeviceType::CPU),
-                        spacingSet.rawMem(gpuID, Neon::DeviceType::CPU));
+            auto setIdx = Neon::SetIdx(gpuID);
 
-                mData->fields[l].getPartition(Neon::Execution::device, setIdx, Neon::DataView(dvID)) =
-                    Neon::domain::details::mGrid::mPartition<T, C>(
-                        l,
-                        mData->fields[l].mData->field.getMemoryField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->fields[l + 1].mData->field.getMemoryField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),  //parent
-                        (l == 0) ? nullptr : mData->fields[l - 1].mData->field.getMemoryField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),                               //child
-                        cardinality,
-                        mData->grid->operator()(l).helpGetBlockConnectivity().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
-                        mData->grid->operator()(l).helpGetDataBlockOriginField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
-                        parent.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        parentLocalID.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        mData->grid->operator()(l).getActiveBitMask().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
-                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveBitMask().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),                               //lower-level mask
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getActiveBitMask().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),  //upper-level mask
-                        (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).helpGetBlockConnectivity().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),  //parent neighbor
-                        mData->grid->operator()(l).helpGetStencilIdTo3dOffset().rawMem(Neon::Execution::device, setIdx),
-                        refFactorSet.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        spacingSet.rawMem(gpuID, Neon::DeviceType::CUDA));
-            }
+            mData->fields[l].getPartition(Neon::DeviceType::CPU, setIdx, Neon::DataView(dvID)) =
+                Neon::domain::details::mGrid::mPartition<T, C>(
+                    l,
+                    mData->fields[l].mData->field.getMemoryField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->fields[l + 1].mData->field.getMemoryField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),  //parent
+                    (l == 0) ? nullptr : mData->fields[l - 1].mData->field.getMemoryField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),                               //child
+                    cardinality,
+                    mData->grid->operator()(l).helpGetBlockConnectivity().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
+                    mData->grid->operator()(l).helpGetDataBlockOriginField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->getParentsBlockID(l).rawMem(gpuID, Neon::DeviceType::CPU),
+                    mData->grid->operator()(l).getActiveBitMask().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveBitMask().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),                               //lower-level mask
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getActiveBitMask().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),  //upper-level mask
+                    (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).helpGetBlockConnectivity().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),  //parent neighbor
+                    mData->grid->operator()(l).helpGetStencilIdTo3dOffset().rawMem(Neon::Execution::host, setIdx),
+                    refFactorSet.rawMem(gpuID, Neon::DeviceType::CPU),
+                    spacingSet.rawMem(gpuID, Neon::DeviceType::CPU));
+
+            mData->fields[l].getPartition(Neon::DeviceType::CUDA, setIdx, Neon::DataView(dvID)) =
+                Neon::domain::details::mGrid::mPartition<T, C>(
+                    l,
+                    mData->fields[l].mData->field.getMemoryField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->fields[l + 1].mData->field.getMemoryField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),  //parent
+                    (l == 0) ? nullptr : mData->fields[l - 1].mData->field.getMemoryField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),                               //child
+                    cardinality,
+                    mData->grid->operator()(l).helpGetBlockConnectivity().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
+                    mData->grid->operator()(l).helpGetDataBlockOriginField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->getParentsBlockID(l).rawMem(gpuID, Neon::DeviceType::CUDA),
+                    mData->grid->operator()(l).getActiveBitMask().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveBitMask().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),                               //lower-level mask
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getActiveBitMask().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),  //upper-level mask
+                    (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).helpGetBlockConnectivity().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),  //parent neighbor
+                    mData->grid->operator()(l).helpGetStencilIdTo3dOffset().rawMem(Neon::Execution::device, setIdx),
+                    refFactorSet.rawMem(gpuID, Neon::DeviceType::CUDA),
+                    spacingSet.rawMem(gpuID, Neon::DeviceType::CUDA));
         }
+        //}
     }
 }
 
@@ -97,6 +95,7 @@ auto mField<T, C>::forEachActiveCell(
     const std::function<void(const Neon::index_3d&,
                              const int& cardinality,
                              T&)>&                      fun,
+    bool                                                filterOverlaps,
     [[maybe_unused]] Neon::computeMode_t::computeMode_e mode)
     -> void
 {
@@ -133,7 +132,7 @@ auto mField<T, C>::forEachActiveCell(
                                 if ((*(mData->grid))(level).isInsideDomain(voxelGlobalID)) {
 
                                     bool active = true;
-                                    if (level > 0) {
+                                    if (level > 0 && filterOverlaps) {
                                         active = !((*(mData->grid))(level - 1).isInsideDomain(voxelGlobalID));
                                     }
 
