@@ -98,7 +98,7 @@ void MultiResDemo()
     std::vector<int> gpusIds(nGPUs, 0);
     auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
 
-    const Neon::domain::mGridDescriptor descriptor({1, 1, 1, 1, 1});
+    Neon::mGridDescriptor<1> descriptor(5);
 
     const float eps = std::numeric_limits<float>::epsilon();
 
@@ -129,7 +129,7 @@ void MultiResDemo()
     for (int i = 0; i < descriptor.getDepth(); ++i) {
         s << descriptor.getLog2RefFactor(i);
     }
-        
+
     auto field = grid.newField<float>("myField", 1, -10000);
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
@@ -148,10 +148,10 @@ void MultiResDemo()
 
     for (int level = 1; level < descriptor.getDepth(); ++level) {
 
-        auto container = grid.getContainer(
+        auto container = grid.newContainer(
             "container", level, [&, level](Neon::set::Loader& loader) {
                 auto& local = field.load(loader, level, Neon::MultiResCompute::MAP);
-                return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                     if (!local.hasChildren(cell)) {
 
                         local(cell, 0) = -1.0;
@@ -167,7 +167,7 @@ void MultiResDemo()
 
                                     Neon::int8_3d child_dir(x, y, z);
 
-                                    val = std::max(val, local.childVal(cell, child_dir, 0, 0).value);
+                                    val = std::max(val, local.childVal(cell, child_dir, 0, 0).mData);
                                 }
                             }
                             local(cell, 0) = val;
@@ -183,7 +183,7 @@ void MultiResDemo()
 
     field.updateHostData();
 
-    field.ioToVtk(s.str());
+    field.ioToVtk(s.str(), true, true, true, false);
 }
 
 
