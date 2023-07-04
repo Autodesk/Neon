@@ -390,16 +390,15 @@ mGrid::mGrid(
 
                                             auto [setIdx, childBlockID] = mData->grids[l - 1].helpGetSetIdxAndGridIdx(childId);
 
+                                            uint32_t pitch = blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
+                                                             (i * kUserBlockSizeX + x) +
+                                                             (j * kUserBlockSizeY + y) * kMemBlockSizeY +
+                                                             (k * kUserBlockSizeZ + z) * kMemBlockSizeY * kMemBlockSizeZ;
+
                                             if (setIdx.idx() == -1) {
-                                                mData->mChildBlockID[l].eRef(devID,
-                                                                             blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
-                                                                                 (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX * kUserBlockSizeY * kUserBlockSizeZ +
-                                                                                 x + y * refFactor + z * refFactor * refFactor) = std::numeric_limits<Idx::DataBlockIdx>::max();
+                                                mData->mChildBlockID[l].eRef(devID, pitch) = std::numeric_limits<Idx::DataBlockIdx>::max();
                                             } else {
-                                                mData->mChildBlockID[l].eRef(devID,
-                                                                             blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
-                                                                                 (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX * kUserBlockSizeY * kUserBlockSizeZ +
-                                                                                 x + y * refFactor + z * refFactor * refFactor) = childBlockID.getDataBlockIdx();
+                                                mData->mChildBlockID[l].eRef(devID, pitch) = childBlockID.getDataBlockIdx();
                                             }
                                         }
                                     }

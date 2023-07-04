@@ -24,12 +24,12 @@ mPartition<T, C>::mPartition(int                level,
                              int                cardinality,
                              Idx::DataBlockIdx* neighbourBlocks,
                              Neon::int32_3d*    origin,
-                             uint32_t*          parentBlockID,
+                             Idx::DataBlockIdx* parentBlockID,
                              MaskT*             mask,
                              MaskT*             maskLowerLevel,
                              MaskT*             maskUpperLevel,
-                             uint32_t*          childBlockID,
-                             uint32_t*          parentNeighbourBlocks,
+                             Idx::DataBlockIdx* childBlockID,
+                             Idx::DataBlockIdx* parentNeighbourBlocks,
                              NghIdx*            stencilNghIndex,
                              int*               refFactors,
                              int*               spacing)
@@ -75,35 +75,28 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getSpacing(const int level) 
 template <typename T, int C>
 inline NEON_CUDA_HOST_DEVICE auto mPartition<T, C>::childID(const Idx& gidx) const -> uint32_t
 {
-    // return the child block id corresponding to this cell
-    // the child block id lives at level mLevel-1
-
-    //const uint32_t childPitch =
-    //    // stride across all block before cell's block
-    //    gidx.getDataBlockIdx() *
-    //        gidx.memBlock3DSize.x * gidx.memBlock3DSize * gidx.memBlock3DSize +
-    //    // stride within the block
-    //    gidx.getInDataBlockIdx().x +
-    //    gidx.getInDataBlockIdx().y * gidx.memBlock3DSize.x +
-    //    gidx.getInDataBlockIdx().z * gidx.memBlock3DSize.x * gidx.memBlock3DSize.y;
-    //
-    //return mChildBlockID[childPitch];
-    return std::numeric_limits<uint32_t>::max();
+    // return the child block id corresponding to this gidx
+    // 
+    // gidx.mDataBlockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
+    // (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX* kUserBlockSizeY* kUserBlockSizeZ +
+    // x + y* refFactor + z* refFactor* refFactor
+    return mChildBlockID[this->helpGetPitch(gidx, 0)];
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getChild(const Idx& parent_cell,
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getChild(const Idx& parentCell,
                                                              NghIdx     child) const -> Idx
 {
     Idx childCell;
     childCell.mDataBlockIdx = std::numeric_limits<typename Idx::DataBlockIdx>::max();
 
-    //if (hasChildren(parent_cell)) {
-    //    childCell.mDataBlockIdx = childID(parent_cell);
-    //    childCell.mInDataBlockIdx.x = child.x;
-    //    childCell.mInDataBlockIdx.y = child.y;
-    //    childCell.mInDataBlockIdx.z = child.z;
-    //}
+    if (hasChildren(parentCell)) {
+        childCell.mDataBlockIdx = childID(parentCell);
+        int ref = getRefFactor(mLevel);
+        childCell.mInDataBlockIdx.x = (ref * parentCell.mInDataBlockIdx.x + child.x) % kMemBlockSizeX;
+        childCell.mInDataBlockIdx.y = (ref * parentCell.mInDataBlockIdx.y + child.y) % kMemBlockSizeY;
+        childCell.mInDataBlockIdx.z = (ref * parentCell.mInDataBlockIdx.z + child.z) % kMemBlockSizeZ;
+    }
     return childCell;
 }
 
@@ -123,7 +116,7 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Idx& childCel
 }
 
 template <typename T, int C>
-NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Idx&   parent_cell,
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Idx&   parentCell,
                                                              const NghIdx child,
                                                              int          card,
                                                              const T&     alternativeVal) const -> NghData
@@ -131,18 +124,18 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::childVal(const Idx&   parent
     NghData ret;
     ret.mData = alternativeVal;
     ret.mIsValid = false;
-    //if (!parent_cell.mIsActive || !hasChildren(parent_cell)) {
-    //    return ret;
-    //}
+    if (!parentCell.isActive() || !hasChildren(parentCell)) {
+        return ret;
+    }
 
-    //Idx child_cell = getChild(parent_cell, child);
+    Idx childCell = getChild(parentCell, child);
 
-    //if (!child_cell.mIsActive) {
-    //    return ret;
-    //}
+    if (!childCell.isActive()) {
+        return ret;
+    }
 
-    //ret.mIsValid = true;
-    //ret.mData = childVal(child_cell, card);
+    ret.mIsValid = true;
+    ret.mData = childVal(childCell, card);
 
     return ret;
 }

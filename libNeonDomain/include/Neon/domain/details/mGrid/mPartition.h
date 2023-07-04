@@ -38,42 +38,42 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
 
     ~mPartition() = default;
 
-    explicit mPartition(int             level,
-                        T*              mem,
-                        T*              memParent,
-                        T*              memChild,
-                        int             cardinality,
-                        uint32_t*       neighbourBlocks,
-                        Neon::int32_3d* origin,
-                        uint32_t*       parent,
-                        MaskT*          mask,
-                        MaskT*          maskLowerLevel,
-                        MaskT*          maskUpperLevel,
-                        uint32_t*       childBlockID,
-                        uint32_t*       parentNeighbourBlocks,
-                        NghIdx*         stencilNghIndex,
-                        int*            refFactors,
-                        int*            spacing);
+    explicit mPartition(int                level,
+                        T*                 mem,
+                        T*                 memParent,
+                        T*                 memChild,
+                        int                cardinality,
+                        Idx::DataBlockIdx* neighbourBlocks,
+                        Neon::int32_3d*    origin,
+                        Idx::DataBlockIdx* parent,
+                        MaskT*             mask,
+                        MaskT*             maskLowerLevel,
+                        MaskT*             maskUpperLevel,
+                        Idx::DataBlockIdx* childBlockID,
+                        Idx::DataBlockIdx* parentNeighbourBlocks,
+                        NghIdx*            stencilNghIndex,
+                        int*               refFactors,
+                        int*               spacing);
 
     /**
      * get the child of a cell
-     * @param parent_cell the parent at which the child is queried
+     * @param parentCell the parent at which the child is queried
      * @param child which child to return. A cell has number of children defined by the branching factor
      * at the level. This defines the 3d local index of the child
      * @param card which cardinality is desired from the child
      * @param alternativeVal in case the child requested is not present
      */
-    NEON_CUDA_HOST_DEVICE inline auto childVal(const Idx&   parent_cell,
+    NEON_CUDA_HOST_DEVICE inline auto childVal(const Idx&   parentCell,
                                                const NghIdx child,
                                                int          card,
                                                const T&     alternativeVal) const -> NghData;
 
     /**
      * Get a cell that represents the child of a parent cell
-     * @param parent_cell the parent cell that its child is requested
+     * @param parentCell the parent cell that its child is requested
      * @param child the child 3d local index relative to the parent
      */
-    NEON_CUDA_HOST_DEVICE inline auto getChild(const Idx& parent_cell,
+    NEON_CUDA_HOST_DEVICE inline auto getChild(const Idx& parentCell,
                                                NghIdx     child) const -> Idx;
 
 
