@@ -70,7 +70,7 @@ class Partitioner1D
         DenseMeta(Neon::index_3d const& d)
         {
             dim = d;
-            index = std::vector<int32_t>(dim.rMulTyped<size_t>(), -1);
+            index.resize(dim.rMulTyped<size_t>(), -1);
             invalidMeta.setIdx = -1;
             invalidMeta.index = -1;
             invalidMeta.dw = Neon::DataView::STANDARD;
@@ -174,7 +174,7 @@ class Partitioner1D
         mData->mTopologyWithGhost = aGrid(backend,
                                           mData->mSpanLayout->getStandardAndGhostCount().typedClone<size_t>(), {251, 1, 1});
 
-        ///setDenseMeta(mData->mDenseMeta);
+        setDenseMeta();
     }
 
     auto getBlockSpan() const
@@ -288,7 +288,7 @@ class Partitioner1D
 
     auto getDenseMeta() -> const DenseMeta&
     {
-        setDenseMeta();
+        //setDenseMeta();
         return *mData->mDenseMeta;
     }
 
@@ -430,11 +430,11 @@ class Partitioner1D
             mData->mDenseMeta = std::make_shared<DenseMeta>(mData->mDomainSize);
             auto const& backend = mData->mTopologyWithGhost.getBackend();
             backend.forEachDeviceSeq(
-                [&](Neon::SetIdx setIdx) {
+                [&, denss = mData->mDenseMeta](Neon::SetIdx setIdx) {
                     forEachSeq(
                         setIdx,
-                        [&](int offset, Neon::int32_3d const& idx3d, Neon::DataView dw) {
-                            mData->mDenseMeta->add(idx3d, setIdx, offset, dw);
+                        [=](int offset, Neon::int32_3d const& idx3d, Neon::DataView dw) {
+                            denss->add(idx3d, setIdx, offset, dw);
                         });
                 });
         }
