@@ -19,13 +19,13 @@ TEST(mGrid, multiRes)
             bk,
             dim,
             {[&](Neon::index_3d id) -> bool {
-                 return id.x == 8 && id.y == 8 && id.z == 0 || id.x == 24 && id.y == 24 && id.z == 0;
+                 return (id.x == 8 && id.y == 8 && id.z == 0) || (id.x == 24 && id.y == 24 && id.z == 0);
              },
              [&](const Neon::index_3d&) -> bool {
                  return false;
              },
              [&](const Neon::index_3d& id) -> bool {
-                 return id.x == 4 && id.y == 4 && id.z == 0 || id.x == 20 && id.y == 20 && id.z == 0;
+                 return (id.x == 4 && id.y == 4 && id.z == 0) || (id.x == 20 && id.y == 20 && id.z == 0);
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descr);
