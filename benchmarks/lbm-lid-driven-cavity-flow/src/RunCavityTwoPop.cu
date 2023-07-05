@@ -172,8 +172,8 @@ auto run(Config& config,
 
         Neon::index_3d dim(config.N, config.N, config.N);
 
-//        const auto& t = Lattice::Memory::t;
-//        const auto& c = Lattice::Memory::stencil;
+        //        const auto& t = Lattice::Memory::t;
+        //        const auto& c = Lattice::Memory::stencil;
 
         ContainerFactory::problemSetup(inPop,
                                        outPop,
@@ -260,6 +260,12 @@ auto runFilterStoreType(Config& config,
 }
 }  // namespace details
 
+#ifdef NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS
+constexpr bool skipTest = true;
+#else
+constexpr bool skipTest = false;
+#endif
+
 auto run(Config& config,
          Report& report) -> void
 {
@@ -267,38 +273,66 @@ auto run(Config& config,
         return details::runFilterStoreType<Neon::dGrid>(config, report);
     }
     if (config.gridType == "eGrid") {
-        return details::runFilterStoreType<Neon::eGrid>(config, report);
+        if constexpr (!skipTest) {
+            return details::runFilterStoreType<Neon::dGrid>(config, report);
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+        }
     }
     if (config.gridType == "bGrid") {
-        return details::runFilterStoreType<Neon::bGrid>(config, report);
+        return details::runFilterStoreType<Neon::dGrid>(config, report);
     }
     if (config.gridType == "bGrid_4_4_4") {
-        using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
-        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
-        return details::runFilterStoreType<Grid>(config, report);
+        if constexpr (!skipTest) {
+            using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
+            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+            return details::runFilterStoreType<Grid>(config, report);
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+        }
     }
     if (config.gridType == "bGrid_32_8_4") {
-        using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 4>;
-        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
-        return details::runFilterStoreType<Grid>(config, report);
+        if constexpr (!skipTest) {
+            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 4>;
+            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+            return details::runFilterStoreType<Grid>(config, report);
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+        }
     }
     if (config.gridType == "bGrid_32_8_4") {
-        using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 4, 8>;
-        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
-        return details::runFilterStoreType<Grid>(config, report);
+        if constexpr (!skipTest) {
+            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 4, 8>;
+            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+            return details::runFilterStoreType<Grid>(config, report);
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+        }
     }
     if (config.gridType == "bGrid_32_2_8") {
-        using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 2, 8>;
-        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
-        return details::runFilterStoreType<Grid>(config, report);
+        if constexpr (!skipTest) {
+            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 2, 8>;
+            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+            return details::runFilterStoreType<Grid>(config, report);
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+        }
     }
     if (config.gridType == "bGrid_32_8_2") {
-        using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 2>;
-        using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
-        return details::runFilterStoreType<Grid>(config, report);
+        if constexpr (!skipTest) {
+            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 2>;
+            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+            return details::runFilterStoreType<Grid>(config, report);
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+        }
     }
     if (config.gridType == "dGridSoA") {
-        return details::runFilterStoreType<Neon::domain::details::dGridSoA::dGridSoA>(config, report);
+        if constexpr (!skipTest) {
+            return details::runFilterStoreType<Neon::domain::details::dGridSoA::dGridSoA>(config, report);
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+        }
     }
 }
 }  // namespace CavityTwoPop

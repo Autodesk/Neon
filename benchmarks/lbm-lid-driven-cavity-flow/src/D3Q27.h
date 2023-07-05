@@ -74,33 +74,10 @@ struct D3Q27
         }
 
         static constexpr std::array<const int, Q> opposite{
-            Self::template getOpposite<0>(),
-            Self::template getOpposite<1>(),
-            Self::template getOpposite<2>(),
-            Self::template getOpposite<3>(),
-            Self::template getOpposite<4>(),
-            Self::template getOpposite<5>(),
-            Self::template getOpposite<6>(),
-            Self::template getOpposite<7>(),
-            Self::template getOpposite<8>(),
-            Self::template getOpposite<9>(),
-            Self::template getOpposite<10>(),
-            Self::template getOpposite<11>(),
-            Self::template getOpposite<12>(),
-            Self::template getOpposite<13>(),
-            Self::template getOpposite<14>(),
-            Self::template getOpposite<15>(),
-            Self::template getOpposite<16>(),
-            Self::template getOpposite<17>(),
-            Self::template getOpposite<18>(),
-            Self::template getOpposite<19>(),
-            Self::template getOpposite<20>(),
-            Self::template getOpposite<21>(),
-            Self::template getOpposite<22>(),
-            Self::template getOpposite<23>(),
-            Self::template getOpposite<24>(),
-            Self::template getOpposite<25>(),
-            Self::template getOpposite<26>()};
+            14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+            13,
+            0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12
+        };
 
         static constexpr std::array<const typename Precision::Storage, Q> t{
             2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
@@ -182,33 +159,10 @@ struct D3Q27
         }
 
         static constexpr std::array<const int, Q> opposite{
-            Self::template getOpposite<0>(),
-            Self::template getOpposite<1>(),
-            Self::template getOpposite<2>(),
-            Self::template getOpposite<3>(),
-            Self::template getOpposite<4>(),
-            Self::template getOpposite<5>(),
-            Self::template getOpposite<6>(),
-            Self::template getOpposite<7>(),
-            Self::template getOpposite<8>(),
-            Self::template getOpposite<9>(),
-            Self::template getOpposite<10>(),
-            Self::template getOpposite<11>(),
-            Self::template getOpposite<12>(),
-            Self::template getOpposite<13>(),
-            Self::template getOpposite<14>(),
-            Self::template getOpposite<15>(),
-            Self::template getOpposite<16>(),
-            Self::template getOpposite<17>(),
-            Self::template getOpposite<18>(),
-            Self::template getOpposite<19>(),
-            Self::template getOpposite<20>(),
-            Self::template getOpposite<21>(),
-            Self::template getOpposite<22>(),
-            Self::template getOpposite<23>(),
-            Self::template getOpposite<24>(),
-            Self::template getOpposite<25>(),
-            Self::template getOpposite<26>()};
+            14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+            13,
+            0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12
+        };
 
         template <int go>
         static constexpr auto helpGetValueforT()
@@ -219,33 +173,11 @@ struct D3Q27
         }
 
         static constexpr std::array<const typename Precision::Storage, Q> t{
-            Self::template helpGetValueforT<0>(),
-            Self::template helpGetValueforT<1>(),
-            Self::template helpGetValueforT<2>(),
-            Self::template helpGetValueforT<3>(),
-            Self::template helpGetValueforT<4>(),
-            Self::template helpGetValueforT<5>(),
-            Self::template helpGetValueforT<6>(),
-            Self::template helpGetValueforT<7>(),
-            Self::template helpGetValueforT<8>(),
-            Self::template helpGetValueforT<9>(),
-            Self::template helpGetValueforT<10>(),
-            Self::template helpGetValueforT<11>(),
-            Self::template helpGetValueforT<12>(),
-            Self::template helpGetValueforT<13>(),
-            Self::template helpGetValueforT<14>(),
-            Self::template helpGetValueforT<15>(),
-            Self::template helpGetValueforT<16>(),
-            Self::template helpGetValueforT<17>(),
-            Self::template helpGetValueforT<18>(),
-            Self::template helpGetValueforT<19>(),
-            Self::template helpGetValueforT<20>(),
-            Self::template helpGetValueforT<21>(),
-            Self::template helpGetValueforT<22>(),
-            Self::template helpGetValueforT<23>(),
-            Self::template helpGetValueforT<24>(),
-            Self::template helpGetValueforT<25>(),
-            Self::template helpGetValueforT<26>()};
+            2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
+            1. / 216., 1. / 216., 1. / 216., 1. / 216.,
+            8. / 27.,
+            2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
+            1. / 216., 1. / 216., 1. / 216., 1. / 216.};
     };
 
    public:
