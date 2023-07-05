@@ -261,7 +261,7 @@ auto runFilterStoreType(Config& config,
 }  // namespace details
 
 #ifdef NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS
-constexpr bool skipTest = true;
+constexpr bool skipTest = false;
 #else
 constexpr bool skipTest = false;
 #endif
@@ -283,6 +283,15 @@ auto run(Config& config,
         return details::runFilterStoreType<Neon::dGrid>(config, report);
     }
     if (config.gridType == "bGrid_4_4_4") {
+        if constexpr (!skipTest) {
+            using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
+            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+            return details::runFilterStoreType<Grid>(config, report);
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+        }
+    }
+    if (config.gridType == "bGrid_2_2_2") {
         if constexpr (!skipTest) {
             using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
             using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;

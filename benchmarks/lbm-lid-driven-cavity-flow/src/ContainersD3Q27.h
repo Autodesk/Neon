@@ -199,25 +199,25 @@ struct ContainerFactory<Precision_,
                             flagVal.classification = CellType::movingWall;
                         }
 
-                        for (int q = 0; q < Lattice::Q; q++) {
+                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
                             if (globlalIdx.y == domainDim.y - 1) {
-                                val = -6. * Lattice::Memory::t.at(q) * ulb *
-                                      (Lattice::Memory::stencil.at(q).v[0] * ulid.v[0] +
-                                       Lattice::Memory::stencil.at(q).v[1] * ulid.v[1] +
-                                       Lattice::Memory::stencil.at(q).v[2] * ulid.v[2]);
+                                val = -6. * Lattice::Memory::template getT<q>() * ulb *
+                                      (Lattice::Memory::template getDirection<q>().v[0] * ulid.v[0] +
+                                       Lattice::Memory::template getDirection<q>().v[1] * ulid.v[1] +
+                                       Lattice::Memory::template getDirection<q>().v[2] * ulid.v[2]);
                             } else {
                                 val = 0;
                             }
                             fIn(gidx, q) = val;
                             fOut(gidx, q) = val;
-                        }
+                        });
                     } else {
                         flagVal.classification = CellType::bulk;
                         cellInfoPartition(gidx, 0) = flagVal;
-                        for (int q = 0; q < Lattice::Q; q++) {
-                            fIn(gidx, q) = Lattice::Memory::t.at(q);
-                            fOut(gidx, q) = Lattice::Memory::t.at(q);
-                        }
+                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+                            fIn(gidx, q) = Lattice::Memory::template getT<q>();
+                            fOut(gidx, q) = Lattice::Memory::template getT<q>();
+                        });
                     }
                 };
             });
