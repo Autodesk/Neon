@@ -166,7 +166,7 @@ void runNonUniformLBM(const int           problemID,
                            levelSDF);
 
     //define the grid
-    const Neon::domain::mGridDescriptor descriptor(depth);
+    const Neon::mGridDescriptor<1> descriptor(depth);
 
     Neon::domain::mGrid grid(
         backend, gridDim,

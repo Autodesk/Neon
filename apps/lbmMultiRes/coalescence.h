@@ -12,14 +12,14 @@ inline Neon::set::Container coalescence(Neon::domain::mGrid&                   g
     // Initiated by the coarse level (hence "pull"), this function simply read the missing population
     // across the interface between coarse<->fine boundary by reading the population prepare during the store()
 
-    return grid.getContainer(
+    return grid.newContainer(
         "Coalescence" + std::to_string(level), level,
         [&, level, fineInitStore](Neon::set::Loader& loader) {
             const auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL);
             const auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::STENCIL);
             auto&       pin = fin.load(loader, level, Neon::MultiResCompute::MAP);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 //If this cell has children i.e., it is been refined, than we should not work on it
                 //because this cell is only there to allow query and not to operate on
                 const int refFactor = pout.getRefFactor(level);
@@ -33,14 +33,14 @@ inline Neon::set::Container coalescence(Neon::domain::mGrid&                   g
                         //if we have a neighbor at the same level that has been refined, then cell is on
                         //the interface and this is where we should do the coalescence
                         if (pin.hasChildren(cell, dir)) {
-                            auto neighbor = pout.nghVal(cell, dir, q, T(0));
-                            if (neighbor.isValid) {
+                            auto neighbor = pout.getNghData(cell, dir, q);
+                            if (neighbor.mIsValid) {
                                 if (fineInitStore) {
-                                    auto ssVal = ss.nghVal(cell, dir, q, T(0));
-                                    assert(ssVal.value != 0);
-                                    pin(cell, q) = neighbor.value / static_cast<T>(ssVal.value * refFactor);
+                                    auto ssVal = ss.getNghData(cell, dir, q);
+                                    assert(ssVal.mData != 0);
+                                    pin(cell, q) = neighbor.mData / static_cast<T>(ssVal.mData * refFactor);
                                 } else {
-                                    pin(cell, q) = neighbor.value / static_cast<T>(refFactor);
+                                    pin(cell, q) = neighbor.mData / static_cast<T>(refFactor);
                                 }
                             }
                         }

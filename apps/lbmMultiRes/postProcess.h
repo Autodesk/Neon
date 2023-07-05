@@ -22,7 +22,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
 
     for (int level = 0; level < numLevels; ++level) {
         auto container =
-            grid.getContainer(
+            grid.newContainer(
                 "postProcess_" + std::to_string(level), level,
                 [&, level](Neon::set::Loader& loader) {
                     const auto& pop = fpop.load(loader, level, Neon::MultiResCompute::STENCIL);
@@ -31,7 +31,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
                     auto&       rh = rho.load(loader, level, Neon::MultiResCompute::MAP);
 
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                         if (!pop.hasChildren(cell)) {
                             if (type(cell, 0) == CellType::bulk) {
 
@@ -72,8 +72,8 @@ void postProcess(Neon::domain::mGrid&                        grid,
     grid.getBackend().syncAll();
 
 
-    vel.updateIO();
-    //rho.updateIO();
+    vel.updateHostData();
+    //rho.updateHostData();
 
 
     int                precision = 4;

@@ -16,12 +16,12 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
     //we prepare is some sort of averaged the data from the children (the cell's children and/or
     //its neighbor's children)
 
-    return grid.getContainer(
+    return grid.newContainer(
         "storeCoarse_" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
             auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 //if the cell is refined, we might need to store something in it for its neighbor
                 if (pout.hasChildren(cell)) {
 
@@ -35,7 +35,7 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                             continue;
                         }
                         //check if the neighbor in this direction has children
-                        auto neighborCell = pout.getNghCell(cell, qDir);
+                        auto neighborCell = pout.helpGetNghIdx(cell, qDir);
                         if (neighborCell.isActive()) {
 
                             if (!pout.hasChildren(neighborCell)) {
@@ -49,7 +49,7 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                                 for (int8_t p = 0; p < Q; ++p) {
                                     const Neon::int8_3d pDir = getDir(p);
 
-                                    const auto p_cell = pout.getNghCell(cell, pDir);
+                                    const auto p_cell = pout.helpGetNghIdx(cell, pDir);
                                     //relative direction of q w.r.t p
                                     //i.e., in which direction we should move starting from p to land on q
                                     const Neon::int8_3d r_dir = qDir - pDir;
@@ -69,9 +69,9 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                                                     if (cq == r_dir) {
                                                         auto childVal = pout.childVal(p_cell, c, q, 0);
                                                         auto childCell = pout.getChild(p_cell, c);
-                                                        if (childVal.isValid) {
+                                                        if (childVal.mIsValid) {
                                                             num++;
-                                                            sum += childVal.value;
+                                                            sum += childVal.mData;
                                                             /*printf("\n S Parent Cell %d (%d,%d, %d) added Child %d (%d, %d, %d) along q= %d",
                                                                    cell.mBlockID,
                                                                    cell.mLocation.x, cell.mLocation.y, cell.mLocation.z,
@@ -108,7 +108,7 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
     // such that another coarse cell (in level +1) will read this pop during coalescence
 
 
-    return grid.getContainer(
+    return grid.newContainer(
         "storeFine_" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
             //auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
@@ -119,7 +119,7 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
             //reload the next level as a map to indicate that we will (remote) write to it
             fout.load(loader, level + 1, Neon::MultiResCompute::MAP);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 assert(pout.hasParent(cell));
 
                 for (int8_t q = 0; q < Q; ++q) {
@@ -129,11 +129,11 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
                         continue;
                     }
 
-                    const Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, qDir);
+                    const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
 
                     //we try to access a cell on the same level (i.e., the refined level) along the same
                     //direction as the uncle and we use this a proxy to check if there is an unrefined uncle
-                    const auto cn = pout.getNghCell(cell, uncleDir);
+                    const auto cn = pout.helpGetNghIdx(cell, uncleDir);
 
                     //cn may not be active because 1. it is outside the domain, or 2. this location is occupied by a coarse cell
                     //we are interested in 2.

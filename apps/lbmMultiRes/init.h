@@ -30,7 +30,7 @@ uint32_t init(Neon::domain::mGrid&                  grid,
     for (int level = 0; level < grid.getDescriptor().getDepth(); ++level) {
 
         auto container =
-            grid.getContainer(
+            grid.newContainer(
                 "Init_" + std::to_string(level), level,
                 [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, ulid, dNumActiveVoxels](Neon::set::Loader& loader) {
                     auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
@@ -40,7 +40,7 @@ uint32_t init(Neon::domain::mGrid&                  grid,
                     auto& rh = rho.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::MAP);
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                         //velocity and density
                         u(cell, 0) = 0;
                         u(cell, 1) = 0;
@@ -105,12 +105,12 @@ uint32_t init(Neon::domain::mGrid&                  grid,
     for (int level = 0; level < grid.getDescriptor().getDepth() - 1; ++level) {
 
         auto container =
-            grid.getContainer(
+            grid.newContainer(
                 "InitSumStore_" + std::to_string(level), level,
                 [&sumStore, level, gridDim](Neon::set::Loader& loader) {
                     auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                         if (ss.hasParent(cell)) {
 
                             for (int8_t q = 0; q < Q; ++q) {
@@ -119,9 +119,9 @@ uint32_t init(Neon::domain::mGrid&                  grid,
                                     continue;
                                 }
 
-                                const Neon::int8_3d uncleDir = uncleOffset(cell.mLocation, qDir);
+                                const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
 
-                                const auto cn = ss.getNghCell(cell, uncleDir);
+                                const auto cn = ss.helpGetNghIdx(cell, uncleDir);
 
                                 if (!cn.isActive()) {
 

@@ -13,7 +13,7 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                                                const Neon::domain::mGrid::Field<T>&        fin,
                                                Neon::domain::mGrid::Field<T>&              fout)
 {
-    return grid.getContainer(
+    return grid.newContainer(
         "collideBGKUnrolled_" + std::to_string(level), level,
         [&, level, omega0, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -21,7 +21,7 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
             auto        out = fout.load(loader, level, Neon::MultiResCompute::MAP);
             const T     omega = computeOmega(omega0, level, numLevels);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
 
                     if (!in.hasChildren(cell)) {
@@ -145,7 +145,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
                                        const Neon::domain::mGrid::Field<T>&        fin,
                                        Neon::domain::mGrid::Field<T>&              fout)
 {
-    return grid.getContainer(
+    return grid.newContainer(
         "collideKBC_" + std::to_string(level), level,
         [&, level, omega0, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -155,7 +155,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
             const T     beta = omega * 0.5;
             const T     invBeta = 1.0 / beta;
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
 
                     constexpr T tiny = 1e-7;
@@ -284,7 +284,7 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
                                 const Neon::domain::mGrid::Field<T>&        fin,
                                 Neon::domain::mGrid::Field<T>&              fout)
 {
-    return grid.getContainer(
+    return grid.newContainer(
         "collideBGK_" + std::to_string(level), level,
         [&, level, omega0, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -292,7 +292,7 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
             auto        out = fout.load(loader, level, Neon::MultiResCompute::MAP);
             const T     omega = computeOmega(omega0, level, numLevels);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
 
                     if (!in.hasChildren(cell)) {

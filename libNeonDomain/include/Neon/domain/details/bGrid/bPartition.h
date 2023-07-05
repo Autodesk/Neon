@@ -116,7 +116,7 @@ class bPartition
     getBlockViewIdx(const Idx& cell)
         const -> BlockViewGridIdx;
 
-   protected:
+   
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetPitch(const Idx& cell, int card)
         const -> uint32_t;
