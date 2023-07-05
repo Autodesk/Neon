@@ -40,7 +40,7 @@ bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
             int elPerBlock = SBlock::memBlockCountElements * cardinality;
             return elPerBlock;
         }(),
-        0,
+        inactiveValue,
         dataUse,
         mData->grid->getBackend().getMemoryOptions(bSpan<SBlock>::activeMaskMemoryLayout));
 
