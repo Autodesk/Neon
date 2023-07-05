@@ -76,7 +76,7 @@ template <typename T, int C>
 inline NEON_CUDA_HOST_DEVICE auto mPartition<T, C>::childID(const Idx& gidx) const -> uint32_t
 {
     // return the child block id corresponding to this gidx
-    // 
+    //
     // gidx.mDataBlockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
     // (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX* kUserBlockSizeY* kUserBlockSizeZ +
     // x + y* refFactor + z* refFactor* refFactor
@@ -159,7 +159,7 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Idx& cell,
         return false;
     }
 
-    Idx nghCell = this->getNghCell(cell, nghDir, this->getneighbourBlocksPtr(cell));
+    Idx nghCell = this->helpGetNghIdx(cell, nghDir);
     if (!this->isActive(nghCell)) {
         return false;
     }
