@@ -113,9 +113,9 @@ auto mField<T, C>::forEachActiveCell(
         blockOrigin.y *= kMemBlockSizeY * voxelSpacing;
         blockOrigin.z *= kMemBlockSizeZ * voxelSpacing;
 
-        for (int32_t k = 0; k < kNumUserBlockPerMemBlockZ; ++k) {
-            for (int32_t j = 0; j < kNumUserBlockPerMemBlockY; ++j) {
-                for (int32_t i = 0; i < kNumUserBlockPerMemBlockX; ++i) {
+        for (uint32_t k = 0; k < kNumUserBlockPerMemBlockZ; ++k) {
+            for (uint32_t j = 0; j < kNumUserBlockPerMemBlockY; ++j) {
+                for (uint32_t i = 0; i < kNumUserBlockPerMemBlockX; ++i) {
 
                     const Neon::index_3d userBlockOrigin(i * kUserBlockSizeX * voxelSpacing + blockOrigin.x,
                                                          j * kUserBlockSizeY * voxelSpacing + blockOrigin.y,
@@ -366,9 +366,9 @@ auto mField<T, C>::ioToVtk(std::string fileName,
                 blockOrigin.y *= kMemBlockSizeY * voxelSpacing;
                 blockOrigin.z *= kMemBlockSizeZ * voxelSpacing;
 
-                for (int32_t k = 0; k < kNumUserBlockPerMemBlockZ; ++k) {
-                    for (int32_t j = 0; j < kNumUserBlockPerMemBlockY; ++j) {
-                        for (int32_t i = 0; i < kNumUserBlockPerMemBlockX; ++i) {
+                for (uint32_t k = 0; k < kNumUserBlockPerMemBlockZ; ++k) {
+                    for (uint32_t j = 0; j < kNumUserBlockPerMemBlockY; ++j) {
+                        for (uint32_t i = 0; i < kNumUserBlockPerMemBlockX; ++i) {
 
                             const Neon::index_3d userBlockOrigin(i * kUserBlockSizeX * voxelSpacing + blockOrigin.x,
                                                                  j * kUserBlockSizeY * voxelSpacing + blockOrigin.y,
