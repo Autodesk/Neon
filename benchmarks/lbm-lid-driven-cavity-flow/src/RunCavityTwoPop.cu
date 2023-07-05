@@ -293,7 +293,7 @@ auto run(Config& config,
     }
     if (config.gridType == "bGrid_2_2_2") {
         if constexpr (!skipTest) {
-            using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
+            using Sblock = Neon::domain::details::bGrid::StaticBlock<2, 2, 2>;
             using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
             return details::runFilterStoreType<Grid>(config, report);
         } else {
