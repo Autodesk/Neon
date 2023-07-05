@@ -210,7 +210,8 @@ ePartition<T, C>::ePartition(int             prtId,
                              Offset*         connRaw,
                              Neon::index_3d* toGlobal,
                              int8_t*         stencil3dTo1dOffset,
-                             int32_t         stencilRadius)
+                             int32_t         stencilRadius,
+                             Neon::index_3d  domainSize)
 {
     mPrtID = prtId;
     mMem = mem;
@@ -225,6 +226,7 @@ ePartition<T, C>::ePartition(int             prtId,
     mStencilTableYPitch = 2 * stencilRadius + 1;
 
     mStencilRadius = stencilRadius;
+    mDomainSize = domainSize;
 }
 
 template <typename T,
@@ -262,6 +264,15 @@ ePartition<T, C>::mem() const
     -> const T*
 {
     return mMem;
+}
+
+template <typename T,
+          int C>
+NEON_CUDA_HOST_DEVICE inline auto
+ePartition<T, C>::getDomainSize()
+    const -> Neon::index_3d
+{
+    return mDomainSize;
 }
 
 }  // namespace Neon::domain::details::eGrid

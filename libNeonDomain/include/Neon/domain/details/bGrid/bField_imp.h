@@ -62,7 +62,8 @@ bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
                                                      blockConnectivity.mem(),
                                                      bitmask.mem(),
                                                      dataBlockOrigins.mem(),
-                                                     mData->grid->helpGetStencilIdTo3dOffset().rawMem(execution, setIdx));
+                                                     mData->grid->helpGetStencilIdTo3dOffset().rawMem(execution, setIdx),
+                                                     mData->grid->getDimension());
             });
     }
 

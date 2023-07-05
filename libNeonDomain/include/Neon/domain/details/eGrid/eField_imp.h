@@ -64,7 +64,8 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                                              mData->grid->getConnectivityField().getPartition(execution, setIdx, Neon::DataView::STANDARD).mem(),
                                              mData->grid->getGlobalMappingField().getPartition(execution, setIdx, Neon::DataView::STANDARD).mem(),
                                              mData->grid->getStencil3dTo1dOffset().rawMem(execution, setIdx),
-                                             mData->grid->getStencil().getRadius());
+                                             mData->grid->getStencil().getRadius(),
+                                             mData->grid->getDimension());
             });
     }
 

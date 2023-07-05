@@ -27,7 +27,7 @@ auto run(Config& config,
     using Lattice = D3Q19<Precision>;
     using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
 
-    using PopField = typename Grid::template Field<typename Precision::Storage , Lattice::Q>;
+    using PopField = typename Grid::template Field<typename Precision::Storage, Lattice::Q>;
     using CellTypeField = typename Grid::template Field<CellType, 1>;
 
     using Idx = typename PopField::Idx;
@@ -172,71 +172,20 @@ auto run(Config& config,
 
         Neon::index_3d dim(config.N, config.N, config.N);
 
-        const auto& t = Lattice::Memory::t;
-        const auto& c = Lattice::Memory::stencil;
+//        const auto& t = Lattice::Memory::t;
+//        const auto& c = Lattice::Memory::stencil;
 
-        inPop.forEachActiveCell([&c, &t, &dim, &flag, &ulid, &config](const Neon::index_3d& idx,
-                                                                      const int&            k,
-                                                                      Storage&              val) {
-            val = t.at(k);
+        ContainerFactory::problemSetup(inPop,
+                                       outPop,
+                                       flag,
+                                       ulid,
+                                       config.ulb)
+            .run(Neon::Backend::mainStreamIdx);
 
-            if (idx.x == 0 || idx.x == dim.x - 1 ||
-                idx.y == 0 || idx.y == dim.y - 1 ||
-                idx.z == 0 || idx.z == dim.z - 1) {
 
-                if (idx.y == dim.y - 1) {
-                    val = -6. * t.at(k) * config.ulb *
-                          (c.at(k).v[0] * ulid.v[0] +
-                           c.at(k).v[1] * ulid.v[1] +
-                           c.at(k).v[2] * ulid.v[2]);
-                } else {
-                    val = 0;
-                }
-            }
-        });
-
-        outPop.forEachActiveCell([&c, &t, &dim, &flag, &ulid, &config](const Neon::index_3d& idx,
-                                                                       const int&            k,
-                                                                       Storage&              val) {
-            val = t.at(k);
-
-            if (idx.x == 0 || idx.x == dim.x - 1 ||
-                idx.y == 0 || idx.y == dim.y - 1 ||
-                idx.z == 0 || idx.z == dim.z - 1) {
-
-                if (idx.y == dim.y - 1) {
-                    val = -6. * t.at(k) * config.ulb *
-                          (c.at(k).v[0] * ulid.v[0] +
-                           c.at(k).v[1] * ulid.v[1] +
-                           c.at(k).v[2] * ulid.v[2]);
-                } else {
-                    val = 0;
-                }
-            }
-        });
-
-        flag.forEachActiveCell([&dim](const Neon::index_3d& idx,
-                                      const int&,
-                                      CellType& flagVal) {
-            flagVal.classification = CellType::bulk;
-            flagVal.wallNghBitflag = 0;
-
-            if (idx.x == 0 || idx.x == dim.x - 1 ||
-                idx.y == 0 || idx.y == dim.y - 1 ||
-                idx.z == 0 || idx.z == dim.z - 1) {
-
-                flagVal.classification = CellType::bounceBack;
-
-                if (idx.y == dim.y - 1) {
-                    flagVal.classification = CellType::movingWall;
-                }
-            }
-        });
-
-        inPop.updateDeviceData(Neon::Backend::mainStreamIdx);
-        outPop.updateDeviceData(Neon::Backend::mainStreamIdx);
-
-        flag.updateDeviceData(Neon::Backend::mainStreamIdx);
+        inPop.updateHostData(Neon::Backend::mainStreamIdx);
+        outPop.updateHostData(Neon::Backend::mainStreamIdx);
+        flag.updateHostData(Neon::Backend::mainStreamIdx);
         {
             bk.syncAll();
             flag.newHaloUpdate(Neon::set::StencilSemantic::standard /*semantic*/,
@@ -246,7 +195,7 @@ auto run(Config& config,
             bk.syncAll();
         }
 
-        auto container =  ContainerFactory::computeWallNghMask(flag, flag);
+        auto container = ContainerFactory::computeWallNghMask(flag, flag);
         container.run(Neon::Backend::mainStreamIdx);
         bk.syncAll();
     }

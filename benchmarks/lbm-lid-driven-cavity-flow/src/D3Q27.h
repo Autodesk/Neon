@@ -14,22 +14,22 @@
  *
  */
 template <typename Precision_>
-struct D3Q19
+struct D3Q27
 {
    public:
-    D3Q19() = delete;
+    D3Q27() = delete;
 
-    static constexpr int Q = 19; /** number of directions */
+    static constexpr int Q = 27; /** number of directions */
     static constexpr int D = 3;  /** Space dimension */
     using Precision = Precision_;
-    using Self = D3Q19<Precision>;
+    using Self = D3Q27<Precision>;
 
     static constexpr int RegisterMapping = 1;
     static constexpr int MemoryMapping = 2;
 
     struct Registers
     {
-        using Self = D3Q19<Precision>::Registers;
+        using Self = D3Q27<Precision>::Registers;
         static constexpr std::array<const Neon::index_3d, Q> stencil{
             Neon::index_3d(-1, 0, 0),
             Neon::index_3d(0, -1, 0),
@@ -40,6 +40,10 @@ struct D3Q19
             Neon::index_3d(-1, 0, 1),
             Neon::index_3d(0, -1, -1),
             Neon::index_3d(0, -1, 1),
+            Neon::index_3d(-1, -1, -1),
+            Neon::index_3d(-1, -1, 1),
+            Neon::index_3d(-1, 1, -1),
+            Neon::index_3d(-1, 1, 1),
             Neon::index_3d(0, 0, 0),
             Neon::index_3d(1, 0, 0),
             Neon::index_3d(0, 1, 0),
@@ -49,9 +53,13 @@ struct D3Q19
             Neon::index_3d(1, 0, 1),
             Neon::index_3d(1, 0, -1),
             Neon::index_3d(0, 1, 1),
-            Neon::index_3d(0, 1, -1)};
+            Neon::index_3d(0, 1, -1),
+            Neon::index_3d(1, 1, 1),
+            Neon::index_3d(1, 1, -1),
+            Neon::index_3d(1, -1, 1),
+            Neon::index_3d(1, -1, -1)};
 
-        static constexpr int center = 9; /** Position of direction {0,0,0} */
+        static constexpr int center = 13; /** Position of direction {0,0,0} */
 
         template <int go>
         static constexpr auto getOpposite()
@@ -84,35 +92,27 @@ struct D3Q19
             Self::template getOpposite<15>(),
             Self::template getOpposite<16>(),
             Self::template getOpposite<17>(),
-            Self::template getOpposite<18>()};
+            Self::template getOpposite<18>(),
+            Self::template getOpposite<19>(),
+            Self::template getOpposite<20>(),
+            Self::template getOpposite<21>(),
+            Self::template getOpposite<22>(),
+            Self::template getOpposite<23>(),
+            Self::template getOpposite<24>(),
+            Self::template getOpposite<25>(),
+            Self::template getOpposite<26>()};
 
         static constexpr std::array<const typename Precision::Storage, Q> t{
-            1. / 18. /*!  0   */,
-            1. / 18. /*!  1   */,
-            1. / 18. /*!  2   */,
-            1. / 36. /*!  3   */,
-            1. / 36. /*!  4   */,
-            1. / 36. /*!  5   */,
-            1. / 36. /*!  6   */,
-            1. / 36. /*!  7   */,
-            1. / 36. /*!  8   */,
-            1. / 3. /*!   9  */,
-            1. / 18. /*!  10   */,
-            1. / 18. /*!  11  */,
-            1. / 18. /*!  12  */,
-            1. / 36. /*!  13  */,
-            1. / 36. /*!  14  */,
-            1. / 36. /*!  15  */,
-            1. / 36. /*!  16  */,
-            1. / 36. /*!  17  */,
-            1. / 36. /*!  18  */,
-        };
+            2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
+            1. / 216., 1. / 216., 1. / 216., 1. / 216.,
+            8. / 27.,
+            2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
+            1. / 216., 1. / 216., 1. / 216., 1. / 216.};
     };
 
     struct Memory
     {
-        using Self = D3Q19<Precision>::Memory;
-
+        using Self = D3Q27<Precision>::Memory;
         static constexpr std::array<const Neon::index_3d, Q> stencil{
             Neon::index_3d(-1, 0, 0),
             Neon::index_3d(0, -1, 0),
@@ -123,6 +123,10 @@ struct D3Q19
             Neon::index_3d(-1, 0, 1),
             Neon::index_3d(0, -1, -1),
             Neon::index_3d(0, -1, 1),
+            Neon::index_3d(-1, -1, -1),
+            Neon::index_3d(-1, -1, 1),
+            Neon::index_3d(-1, 1, -1),
+            Neon::index_3d(-1, 1, 1),
             Neon::index_3d(0, 0, 0),
             Neon::index_3d(1, 0, 0),
             Neon::index_3d(0, 1, 0),
@@ -132,14 +136,15 @@ struct D3Q19
             Neon::index_3d(1, 0, 1),
             Neon::index_3d(1, 0, -1),
             Neon::index_3d(0, 1, 1),
-            Neon::index_3d(0, 1, -1)};
+            Neon::index_3d(0, 1, -1),
+            Neon::index_3d(1, 1, 1),
+            Neon::index_3d(1, 1, -1),
+            Neon::index_3d(1, -1, 1),
+            Neon::index_3d(1, -1, -1)};
 
 
-        static constexpr int center = 9;       /** Position of direction {0,0,0} */
-        static constexpr int goRangeBegin = 0; /** Symmetry is represented as "go" direction and the "back" their opposite */
-        static constexpr int goRangeEnd = 8;
-        static constexpr int goBackOffset = 10; /** Offset to compute apply symmetry */
-
+        static constexpr int center = 13;       /** Position of direction {0,0,0} */
+   
         template <int go>
         static constexpr auto mapToRegisters()
             -> int
@@ -195,7 +200,15 @@ struct D3Q19
             Self::template getOpposite<15>(),
             Self::template getOpposite<16>(),
             Self::template getOpposite<17>(),
-            Self::template getOpposite<18>()};
+            Self::template getOpposite<18>(),
+            Self::template getOpposite<19>(),
+            Self::template getOpposite<20>(),
+            Self::template getOpposite<21>(),
+            Self::template getOpposite<22>(),
+            Self::template getOpposite<23>(),
+            Self::template getOpposite<24>(),
+            Self::template getOpposite<25>(),
+            Self::template getOpposite<26>()};
 
         template <int go>
         static constexpr auto helpGetValueforT()
@@ -224,26 +237,18 @@ struct D3Q19
             Self::template helpGetValueforT<15>(),
             Self::template helpGetValueforT<16>(),
             Self::template helpGetValueforT<17>(),
-            Self::template helpGetValueforT<18>()};
-
-        template <int direction>
-        NEON_CUDA_HOST_DEVICE static constexpr auto getT()
-            -> typename Precision::Storage
-        {
-          return t[direction];
-        }
-        template <int direction>
-        NEON_CUDA_HOST_DEVICE static constexpr auto getDirection()
-            -> typename Neon::index_3d
-        {
-          return stencil[direction];
-        }
+            Self::template helpGetValueforT<18>(),
+            Self::template helpGetValueforT<19>(),
+            Self::template helpGetValueforT<20>(),
+            Self::template helpGetValueforT<21>(),
+            Self::template helpGetValueforT<22>(),
+            Self::template helpGetValueforT<23>(),
+            Self::template helpGetValueforT<24>(),
+            Self::template helpGetValueforT<25>(),
+            Self::template helpGetValueforT<26>()};
     };
 
-
-
    public:
-
     template <int mappingType>
     static auto getDirectionAsVector()
         -> std::vector<Neon::index_3d>

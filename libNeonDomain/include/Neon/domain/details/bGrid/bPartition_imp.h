@@ -25,14 +25,16 @@ bPartition<T, C, SBlock>::
                typename Idx::DataBlockIdx*                   blockConnectivity,
                typename SBlock::BitMask const* NEON_RESTRICT mask,
                Neon::int32_3d*                               origin,
-               NghIdx*                                       stencilNghIndex)
+               NghIdx*                                       stencilNghIndex,
+               Neon::int32_3d                                mDomainSize)
     : mCardinality(cardinality),
       mMem(mem),
       mStencilNghIndex(stencilNghIndex),
       mBlockConnectivity(blockConnectivity),
       mMask(mask),
       mOrigin(origin),
-      mSetIdx(setIdx)
+      mSetIdx(setIdx),
+      mDomainSize(mDomainSize)
 {
 }
 
@@ -49,6 +51,14 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
         return location * mMultiResDiscreteIdxSpacing;
     }
     return location;
+}
+
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    getDomainSize()
+        const -> Neon::index_3d
+{
+    return mDomainSize;
 }
 
 template <typename T, int C, typename SBlock>

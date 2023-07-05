@@ -36,7 +36,8 @@ class bPartition
                         typename Idx::DataBlockIdx*                   mBlockConnectivity,
                         typename SBlock::BitMask const* NEON_RESTRICT mMask,
                         Neon::int32_3d*                               mOrigin,
-                        NghIdx*                                       mStencilNghIndex);
+                        NghIdx*                                       mStencilNghIndex,
+                        Neon::int32_3d                                mDomainSize);
 
     /**
      * Retrieve the cardinality of the field.
@@ -108,7 +109,7 @@ class bPartition
                int            card,
                LambdaVALID    funIfValid,
                LambdaNOTValid funIfNOTValid = nullptr)
-        const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> &&( std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>;
+        const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> && (std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>;
 
 
     /**
@@ -116,6 +117,11 @@ class bPartition
      */
     NEON_CUDA_HOST_DEVICE inline auto
     getGlobalIndex(const Idx& cell)
+        const -> Neon::index_3d;
+
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    getDomainSize()
         const -> Neon::index_3d;
 
     /**
@@ -148,7 +154,6 @@ class bPartition
         const -> Idx;
 
 
-
     int                                             mCardinality;
     T*                                              mMem;
     NghIdx const* NEON_RESTRICT                     mStencilNghIndex;
@@ -157,6 +162,7 @@ class bPartition
     Neon::int32_3d const* NEON_RESTRICT             mOrigin;
     int                                             mSetIdx;
     int                                             mMultiResDiscreteIdxSpacing = 1;
+    Neon::int32_3d                                  mDomainSize;
 };
 
 }  // namespace Neon::domain::details::bGrid

@@ -1,20 +1,20 @@
 #pragma once
 
 #include "CellType.h"
-#include "D3Q19.h"
-#include "DeviceD3Q19.h"
+#include "D3Q27.h"
+#include "DeviceD3Q27.h"
 #include "Neon/Neon.h"
 #include "Neon/set/Containter.h"
 
 /**
- * Specialization for D3Q19
+ * Specialization for D3Q27
  */
 template <typename Precision_, typename Grid_>
 struct ContainerFactory<Precision_,
-                        D3Q19<Precision_>,
+                        D3Q27<Precision_>,
                         Grid_>
 {
-    using Lattice = D3Q19<Precision_>;
+    using Lattice = D3Q27<Precision_>;
     using Precision = Precision_;
     using Compute = typename Precision::Compute;
     using Storage = typename Precision::Storage;
@@ -199,25 +199,25 @@ struct ContainerFactory<Precision_,
                             flagVal.classification = CellType::movingWall;
                         }
 
-                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+                        for (int q = 0; q < Lattice::Q; q++) {
                             if (globlalIdx.y == domainDim.y - 1) {
-                                val = -6. * Lattice::Memory::template getT<q>() * ulb *
-                                      (Lattice::Memory::template getDirection<q>().v[0] * ulid.v[0] +
-                                       Lattice::Memory::template getDirection<q>().v[1] * ulid.v[1] +
-                                       Lattice::Memory::template getDirection<q>().v[2] * ulid.v[2]);
+                                val = -6. * Lattice::Memory::t.at(q) * ulb *
+                                      (Lattice::Memory::stencil.at(q).v[0] * ulid.v[0] +
+                                       Lattice::Memory::stencil.at(q).v[1] * ulid.v[1] +
+                                       Lattice::Memory::stencil.at(q).v[2] * ulid.v[2]);
                             } else {
                                 val = 0;
                             }
                             fIn(gidx, q) = val;
                             fOut(gidx, q) = val;
-                        });
+                        }
                     } else {
                         flagVal.classification = CellType::bulk;
                         cellInfoPartition(gidx, 0) = flagVal;
-                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
-                            fIn(gidx, q) = Lattice::Memory::template getT<q>();
-                            fOut(gidx, q) = Lattice::Memory::template getT<q>();
-                        });
+                        for (int q = 0; q < Lattice::Q; q++) {
+                            fIn(gidx, q) = Lattice::Memory::t.at(q);
+                            fOut(gidx, q) = Lattice::Memory::t.at(q);
+                        }
                     }
                 };
             });
