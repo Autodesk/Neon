@@ -361,7 +361,7 @@ class Partitioner1D
                             auto const start = mData->mSpanLayout->getBoundsInternal(setIdx, byDomain).first;
                             for (uint64_t blockIdx = 0; blockIdx < mapperVec.size(); blockIdx++) {
                                 auto const& point3d = mapperVec[blockIdx];
-                                for (int s = 0; s < mData->mStencil.nPoints(); s++) {
+                                for (int s = 0; s < mData->mStencil.nNeighbours(); s++) {
 
                                     auto const offset = mData->mStencil.neighbours()[s];
 
@@ -393,7 +393,7 @@ class Partitioner1D
                                 auto const start = mData->mSpanLayout->getBoundsBoundary(setIdx, byDirection, byDomain).first;
                                 for (int64_t blockIdx = 0; blockIdx < int64_t(mapperVec.size()); blockIdx++) {
                                     auto const& point3d = mapperVec[blockIdx];
-                                    for (int s = 0; s < mData->mStencil.nPoints(); s++) {
+                                    for (int s = 0; s < mData->mStencil.nNeighbours(); s++) {
 
 
                                         auto const offset = mData->mStencil.neighbours()[s];
