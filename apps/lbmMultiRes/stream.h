@@ -19,7 +19,7 @@ inline Neon::set::Container stream(Neon::domain::mGrid&                        g
             const auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL);
             auto        pin = fin.load(loader, level, Neon::MultiResCompute::MAP);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {                
                 if (type(cell, 0) == CellType::bulk) {
                     //If this cell has children i.e., it is been refined, than we should not work on it
                     //because this cell is only there to allow query and not to operate on
@@ -164,7 +164,7 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
                                         assert(level != 0);
                                         if (fineInitStore) {
                                             auto ssVal = ss.getNghData(cell, dir, q);
-                                            assert(ssVal.value != 0);
+                                            assert(ssVal.mData != 0);
                                             pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(ssVal.mData * refFactor);
                                         } else {
                                             pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(refFactor);

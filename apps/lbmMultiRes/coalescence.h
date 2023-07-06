@@ -13,7 +13,7 @@ inline Neon::set::Container coalescence(Neon::domain::mGrid&                   g
     // across the interface between coarse<->fine boundary by reading the population prepare during the store()
 
     return grid.newContainer(
-        "Coalescence" + std::to_string(level), level,
+        "Coalescence_" + std::to_string(level), level,
         [&, level, fineInitStore](Neon::set::Loader& loader) {
             const auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL);
             const auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::STENCIL);

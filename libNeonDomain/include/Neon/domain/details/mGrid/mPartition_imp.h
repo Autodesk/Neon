@@ -75,12 +75,13 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getSpacing(const int level) 
 template <typename T, int C>
 inline NEON_CUDA_HOST_DEVICE auto mPartition<T, C>::childID(const Idx& gidx) const -> uint32_t
 {
-    // return the child block id corresponding to this gidx
-    //
-    // gidx.mDataBlockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
-    // (i + j * kUserBlockSizeX + k * kUserBlockSizeX * kUserBlockSizeY) * kUserBlockSizeX* kUserBlockSizeY* kUserBlockSizeZ +
-    // x + y* refFactor + z* refFactor* refFactor
-    return mChildBlockID[this->helpGetPitch(gidx, 0)];
+    const uint32_t blockPitchByCard = kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ;
+    const uint32_t inBlockInCardPitch = gidx.mInDataBlockIdx.x +
+                                        kMemBlockSizeX * gidx.mInDataBlockIdx.y +
+                                        (kMemBlockSizeX * kMemBlockSizeY) * gidx.mInDataBlockIdx.z;
+    const uint32_t blockAdnCardPitch = gidx.mDataBlockIdx * blockPitchByCard;
+    const uint32_t pitch = blockAdnCardPitch + inBlockInCardPitch;
+    return mChildBlockID[pitch];
 }
 
 template <typename T, int C>
@@ -160,6 +161,9 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Idx& cell,
     }
 
     Idx nghCell = this->helpGetNghIdx(cell, nghDir);
+    if (nghCell.mDataBlockIdx == std::numeric_limits<typename Idx::DataBlockIdx>::max()) {
+        return false;
+    }
     if (!this->isActive(nghCell)) {
         return false;
     }
@@ -218,8 +222,10 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getUncle(const Idx&   cell,
     Idx uncle = getParent(cell);
     if (uncle.isActive()) {
         uncle = this->helpGetNghIdx(uncle, direction, mParentNeighbourBlocks);
-        if (!this->isActive(uncle, mMaskUpperLevel)) {
-            uncle.mDataBlockIdx = std::numeric_limits<typename Idx::DataBlockIdx>::max();
+        if (uncle.mDataBlockIdx != std::numeric_limits<typename Idx::DataBlockIdx>::max()) {
+            if (!this->isActive(uncle, mMaskUpperLevel)) {
+                uncle.mDataBlockIdx = std::numeric_limits<typename Idx::DataBlockIdx>::max();
+            }
         }
     }
     return uncle;
