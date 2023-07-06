@@ -274,13 +274,13 @@ auto run(Config& config,
     }
     if (config.gridType == "eGrid") {
         if constexpr (!skipTest) {
-            return details::runFilterStoreType<Neon::dGrid>(config, report);
+            return details::runFilterStoreType<Neon::eGrid>(config, report);
         } else {
             NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
         }
     }
     if (config.gridType == "bGrid") {
-        return details::runFilterStoreType<Neon::dGrid>(config, report);
+        return details::runFilterStoreType<Neon::bGrid>(config, report);
     }
     if (config.gridType == "bGrid_4_4_4") {
         if constexpr (!skipTest) {
@@ -311,7 +311,7 @@ auto run(Config& config,
     }
     if (config.gridType == "bGrid_32_8_4") {
         if constexpr (!skipTest) {
-            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 4, 8>;
+            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 4>;
             using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
             return details::runFilterStoreType<Grid>(config, report);
         } else {
