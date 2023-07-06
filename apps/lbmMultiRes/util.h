@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 #include "Neon/Neon.h"
 #include "lattice.h"
 
@@ -22,7 +22,9 @@ NEON_CUDA_HOST_DEVICE inline Neon::int8_3d uncleOffset(const T& cell, const Neon
         const int8_t s = i + j;
         return (s <= 0) ? s : s - 1;
     };
-    Neon::int8_3d offset(off(cell.x, q.x), off(cell.y, q.y), off(cell.z, q.z));
+    Neon::int8_3d offset(off(cell.x % Neon::domain::details::mGrid::kUserBlockSizeX, q.x),
+                         off(cell.y % Neon::domain::details::mGrid::kUserBlockSizeY, q.y),
+                         off(cell.z % Neon::domain::details::mGrid::kUserBlockSizeZ, q.z));
     return offset;
 }
 
