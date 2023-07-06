@@ -238,7 +238,7 @@ void runNonUniformLBM(const int           problemID,
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
     const double mlups = static_cast<double>(numIter * numActiveVoxels) / duration.count();
-    const double eff_mlups = static_cast<double>(numIter * gridDim.rMul()) / duration.count();
+    const double eff_mlups = (double(numIter) * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
 
     NEON_INFO("MLUPS = {0:8.8f}, numActiveVoxels = {1}", mlups, numActiveVoxels);
     NEON_INFO("Effective MLUPS = {0:8.8f}, Effective numActiveVoxels = {1}", eff_mlups, gridDim.rMul());
