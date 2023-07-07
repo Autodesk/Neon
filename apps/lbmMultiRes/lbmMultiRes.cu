@@ -234,12 +234,15 @@ void runNonUniformLBM(const int           problemID,
             postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, t, vel, rho, ulb, true, false);
         }
     }
+    backend.syncAll();
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
     const double mlups = static_cast<double>(numIter * numActiveVoxels) / duration.count();
     const double eff_mlups = (double(numIter) * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
 
+    //auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    //NEON_INFO("Time = {0:8.8f} (ms)", double(duration_ms.count()));
     NEON_INFO("MLUPS = {0:8.8f}, numActiveVoxels = {1}", mlups, numActiveVoxels);
     NEON_INFO("Effective MLUPS = {0:8.8f}, Effective numActiveVoxels = {1}", eff_mlups, gridDim.rMul());
 
