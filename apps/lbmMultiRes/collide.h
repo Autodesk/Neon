@@ -185,7 +185,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
                         T feq[Q];
 
 
-                        auto fdecompose_shear = [&](const int q) {
+                        auto fdecompose_shear = [&](const int q) -> T{
                             const T Nxz = Pi[0] - Pi[5];
                             const T Nyz = Pi[3] - Pi[5];
                             if (q == 9) {

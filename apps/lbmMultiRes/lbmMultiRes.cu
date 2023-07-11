@@ -30,7 +30,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  std::vector<Neon::set::Container>&          containers)
 {
     // 1) collision for all voxels at level L=level
-    //containers.push_back(collideBGK<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    //containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
     containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
     // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
@@ -240,7 +240,7 @@ void runNonUniformLBM(const int           problemID,
 
     const double mlups = static_cast<double>(numIter * numActiveVoxels) / duration.count();
 
-    const double eff_num_iter = double(numIter) * double(2 << (depth - 1));
+    const double eff_num_iter = double(numIter) * std::pow(2.0, depth - 1);
     const double eff_mlups = (eff_num_iter * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
 
     //auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
@@ -265,12 +265,14 @@ int main(int argc, char** argv)
         bool        streamFusedCoal = false;
         bool        streamFuseAll = false;
         int         problemId = 0;
+        std::string dataType = "float";
 
         auto cli =
             (clipp::option("--deviceType") & clipp::value("deviceType", deviceType) % "Type of device (gpu, cpu)",
              clipp::option("--deviceId") & clipp::integers("deviceId", deviceId) % "Device id",
              clipp::option("--numIter") & clipp::integer("numIter", numIter) % "LBM number of iterations",
              clipp::option("--problemId") & clipp::integer("problemId", problemId) % "Problem ID (0 or 1)",
+             clipp::option("--dataType") & clipp::value("dataType", dataType) % "Data type (float or double)",
 
              ((clipp::option("--benchmark").set(benchmark, true) % "Run benchmark mode") |
               (clipp::option("--visual").set(benchmark, false) % "Run export partial data")),
@@ -299,10 +301,16 @@ int main(int argc, char** argv)
         std::vector<int> gpu_ids{deviceId};
         Neon::Backend    backend(gpu_ids, runtime);
 
-        using T = double;
         constexpr int Q = 19;
-
-        runNonUniformLBM<T, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, benchmark);
+        if (dataType == "float") {
+            runNonUniformLBM<float, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, benchmark);
+        } else if (dataType == "double") {
+            runNonUniformLBM<double, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, benchmark);
+        } else {
+            Neon::NeonException exp("app-lbmMultiRes");
+            exp << "Input data type " << dataType;
+            NEON_THROW(exp);
+        }
     }
     return 0;
 }
