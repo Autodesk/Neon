@@ -51,7 +51,7 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                         vel.v[2] = (Z_P1 - Z_M1) / rho;
 
 
-                        const T usqr = (1.5) * (vel.v[0] * vel.v[0] + vel.v[1] * vel.v[1] + vel.v[2] * vel.v[2]);
+                        const T usqr = T(1.5) * (vel.v[0] * vel.v[0] + vel.v[1] * vel.v[1] + vel.v[2] * vel.v[2]);
 
                         //collide
                         const T ck_u03 = vel.v[0] + vel.v[1];
@@ -61,45 +61,53 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                         const T ck_u07 = vel.v[1] + vel.v[2];
                         const T ck_u08 = vel.v[1] - vel.v[2];
 
-                        const T eq_00 = rho * (1. / 18.) * (1. - 3. * vel.v[0] + 4.5 * vel.v[0] * vel.v[0] - usqr);
-                        const T eq_01 = rho * (1. / 18.) * (1. - 3. * vel.v[1] + 4.5 * vel.v[1] * vel.v[1] - usqr);
-                        const T eq_02 = rho * (1. / 18.) * (1. - 3. * vel.v[2] + 4.5 * vel.v[2] * vel.v[2] - usqr);
-                        const T eq_03 = rho * (1. / 36.) * (1. - 3. * ck_u03 + 4.5 * ck_u03 * ck_u03 - usqr);
-                        const T eq_04 = rho * (1. / 36.) * (1. - 3. * ck_u04 + 4.5 * ck_u04 * ck_u04 - usqr);
-                        const T eq_05 = rho * (1. / 36.) * (1. - 3. * ck_u05 + 4.5 * ck_u05 * ck_u05 - usqr);
-                        const T eq_06 = rho * (1. / 36.) * (1. - 3. * ck_u06 + 4.5 * ck_u06 * ck_u06 - usqr);
-                        const T eq_07 = rho * (1. / 36.) * (1. - 3. * ck_u07 + 4.5 * ck_u07 * ck_u07 - usqr);
-                        const T eq_08 = rho * (1. / 36.) * (1. - 3. * ck_u08 + 4.5 * ck_u08 * ck_u08 - usqr);
+                        constexpr T c1over18 = 1. / 18.;
+                        constexpr T c1over36 = 1. / 36.;
+                        constexpr T c1over3 = 1. / 3.;
+                        constexpr T c4dot5 = 4.5;
+                        constexpr T c3 = 3.;
+                        constexpr T c1 = 1.;
+                        constexpr T c6 = 6.;
 
-                        const T eqopp_00 = eq_00 + rho * (1. / 18.) * 6. * vel.v[0];
-                        const T eqopp_01 = eq_01 + rho * (1. / 18.) * 6. * vel.v[1];
-                        const T eqopp_02 = eq_02 + rho * (1. / 18.) * 6. * vel.v[2];
-                        const T eqopp_03 = eq_03 + rho * (1. / 36.) * 6. * ck_u03;
-                        const T eqopp_04 = eq_04 + rho * (1. / 36.) * 6. * ck_u04;
-                        const T eqopp_05 = eq_05 + rho * (1. / 36.) * 6. * ck_u05;
-                        const T eqopp_06 = eq_06 + rho * (1. / 36.) * 6. * ck_u06;
-                        const T eqopp_07 = eq_07 + rho * (1. / 36.) * 6. * ck_u07;
-                        const T eqopp_08 = eq_08 + rho * (1. / 36.) * 6. * ck_u08;
+                        const T eq_00 = rho * c1over18 * (c1 - c3 * vel.v[0] + c4dot5 * vel.v[0] * vel.v[0] - usqr);
+                        const T eq_01 = rho * c1over18 * (c1 - c3 * vel.v[1] + c4dot5 * vel.v[1] * vel.v[1] - usqr);
+                        const T eq_02 = rho * c1over18 * (c1 - c3 * vel.v[2] + c4dot5 * vel.v[2] * vel.v[2] - usqr);
+                        const T eq_03 = rho * c1over36 * (c1 - c3 * ck_u03 + c4dot5 * ck_u03 * ck_u03 - usqr);
+                        const T eq_04 = rho * c1over36 * (c1 - c3 * ck_u04 + c4dot5 * ck_u04 * ck_u04 - usqr);
+                        const T eq_05 = rho * c1over36 * (c1 - c3 * ck_u05 + c4dot5 * ck_u05 * ck_u05 - usqr);
+                        const T eq_06 = rho * c1over36 * (c1 - c3 * ck_u06 + c4dot5 * ck_u06 * ck_u06 - usqr);
+                        const T eq_07 = rho * c1over36 * (c1 - c3 * ck_u07 + c4dot5 * ck_u07 * ck_u07 - usqr);
+                        const T eq_08 = rho * c1over36 * (c1 - c3 * ck_u08 + c4dot5 * ck_u08 * ck_u08 - usqr);
 
-                        const T pop_out_00 = (1. - omega) * ins[0] + omega * eq_00;
-                        const T pop_out_01 = (1. - omega) * ins[1] + omega * eq_01;
-                        const T pop_out_02 = (1. - omega) * ins[2] + omega * eq_02;
-                        const T pop_out_03 = (1. - omega) * ins[3] + omega * eq_03;
-                        const T pop_out_04 = (1. - omega) * ins[4] + omega * eq_04;
-                        const T pop_out_05 = (1. - omega) * ins[5] + omega * eq_05;
-                        const T pop_out_06 = (1. - omega) * ins[6] + omega * eq_06;
-                        const T pop_out_07 = (1. - omega) * ins[7] + omega * eq_07;
-                        const T pop_out_08 = (1. - omega) * ins[8] + omega * eq_08;
+                        const T eqopp_00 = eq_00 + rho * c1over18 * c6 * vel.v[0];
+                        const T eqopp_01 = eq_01 + rho * c1over18 * c6 * vel.v[1];
+                        const T eqopp_02 = eq_02 + rho * c1over18 * c6 * vel.v[2];
+                        const T eqopp_03 = eq_03 + rho * c1over36 * c6 * ck_u03;
+                        const T eqopp_04 = eq_04 + rho * c1over36 * c6 * ck_u04;
+                        const T eqopp_05 = eq_05 + rho * c1over36 * c6 * ck_u05;
+                        const T eqopp_06 = eq_06 + rho * c1over36 * c6 * ck_u06;
+                        const T eqopp_07 = eq_07 + rho * c1over36 * c6 * ck_u07;
+                        const T eqopp_08 = eq_08 + rho * c1over36 * c6 * ck_u08;
 
-                        const T pop_out_opp_00 = (1. - omega) * ins[10] + omega * eqopp_00;
-                        const T pop_out_opp_01 = (1. - omega) * ins[11] + omega * eqopp_01;
-                        const T pop_out_opp_02 = (1. - omega) * ins[12] + omega * eqopp_02;
-                        const T pop_out_opp_03 = (1. - omega) * ins[13] + omega * eqopp_03;
-                        const T pop_out_opp_04 = (1. - omega) * ins[14] + omega * eqopp_04;
-                        const T pop_out_opp_05 = (1. - omega) * ins[15] + omega * eqopp_05;
-                        const T pop_out_opp_06 = (1. - omega) * ins[16] + omega * eqopp_06;
-                        const T pop_out_opp_07 = (1. - omega) * ins[17] + omega * eqopp_07;
-                        const T pop_out_opp_08 = (1. - omega) * ins[18] + omega * eqopp_08;
+                        const T pop_out_00 = (c1 - omega) * ins[0] + omega * eq_00;
+                        const T pop_out_01 = (c1 - omega) * ins[1] + omega * eq_01;
+                        const T pop_out_02 = (c1 - omega) * ins[2] + omega * eq_02;
+                        const T pop_out_03 = (c1 - omega) * ins[3] + omega * eq_03;
+                        const T pop_out_04 = (c1 - omega) * ins[4] + omega * eq_04;
+                        const T pop_out_05 = (c1 - omega) * ins[5] + omega * eq_05;
+                        const T pop_out_06 = (c1 - omega) * ins[6] + omega * eq_06;
+                        const T pop_out_07 = (c1 - omega) * ins[7] + omega * eq_07;
+                        const T pop_out_08 = (c1 - omega) * ins[8] + omega * eq_08;
+
+                        const T pop_out_opp_00 = (c1 - omega) * ins[10] + omega * eqopp_00;
+                        const T pop_out_opp_01 = (c1 - omega) * ins[11] + omega * eqopp_01;
+                        const T pop_out_opp_02 = (c1 - omega) * ins[12] + omega * eqopp_02;
+                        const T pop_out_opp_03 = (c1 - omega) * ins[13] + omega * eqopp_03;
+                        const T pop_out_opp_04 = (c1 - omega) * ins[14] + omega * eqopp_04;
+                        const T pop_out_opp_05 = (c1 - omega) * ins[15] + omega * eqopp_05;
+                        const T pop_out_opp_06 = (c1 - omega) * ins[16] + omega * eqopp_06;
+                        const T pop_out_opp_07 = (c1 - omega) * ins[17] + omega * eqopp_07;
+                        const T pop_out_opp_08 = (c1 - omega) * ins[18] + omega * eqopp_08;
 
 
 #define COMPUTE_GO_AND_BACK(GOid, BKid) \
@@ -117,8 +125,8 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                         COMPUTE_GO_AND_BACK(8, 18)
 
 #undef COMPUTE_GO_AND_BACK
-                        const T eq_09 = rho * (1. / 3.) * (1. - usqr);
-                        const T pop_out_09 = (1. - omega) * ins[9] + omega * eq_09;
+                        const T eq_09 = rho * c1over3 * (c1 - usqr);
+                        const T pop_out_09 = (c1 - omega) * ins[9] + omega * eq_09;
                         out(cell, 9) = pop_out_09;
                     } else {
                         if (level != 0) {
@@ -185,7 +193,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
                         T feq[Q];
 
 
-                        auto fdecompose_shear = [&](const int q) -> T{
+                        auto fdecompose_shear = [&](const int q) -> T {
                             const T Nxz = Pi[0] - Pi[5];
                             const T Nyz = Pi[3] - Pi[5];
                             if (q == 9) {
