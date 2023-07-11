@@ -240,7 +240,7 @@ void runNonUniformLBM(const int           problemID,
 
     const double mlups = static_cast<double>(numIter * numActiveVoxels) / duration.count();
 
-    const double eff_num_iter = double(numIter) * std::pow(2.0, depth - 1);
+    const double eff_num_iter = double(numIter) * double(1 << (depth - 1));
     const double eff_mlups = (eff_num_iter * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
 
     //auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
