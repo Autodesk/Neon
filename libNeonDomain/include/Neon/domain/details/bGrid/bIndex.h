@@ -102,6 +102,7 @@ class bIndex
     NEON_CUDA_HOST_DEVICE inline auto getDataBlockIdx() const -> DataBlockIdx const&;
     NEON_CUDA_HOST_DEVICE inline auto setInDataBlockIdx(InDataBlockIdx const&) -> void;
     NEON_CUDA_HOST_DEVICE inline auto setDataBlockIdx(DataBlockIdx const&) -> void;
+    NEON_CUDA_HOST_DEVICE inline auto isActive() const -> bool;
     // the local index within the block
     InDataBlockIdx mInDataBlockIdx;
     DataBlockIdx   mDataBlockIdx{};
@@ -130,6 +131,11 @@ NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::getInDataBlockIdx() const -> const bI
     return mInDataBlockIdx;
 }
 
+template <typename SBlock>
+NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::isActive() const -> bool
+{
+    return mDataBlockIdx != std::numeric_limits<typename bIndex::DataBlockIdx>::max();
+}
 
 }  // namespace Neon::domain::details::bGrid
 

@@ -11,7 +11,7 @@ git fetch origin refs/pull/%PR%/head:pull_%PR%
 git checkout  pull_%PR%
 mkdir build
 cd build
-cmake ..
+cmake -G "Visual Studio 16 2019" ..
 cmake --build . --config Release -j 10
 set ctest_filename=CTestNeonWindowsReport.log
 ctest --no-compress-output --output-on-failure -T Test --build-config Release --output-log %ctest_filename%

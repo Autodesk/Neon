@@ -119,6 +119,10 @@ class bPartition
     getGlobalIndex(const Idx& cell)
         const -> Neon::index_3d;
 
+    NEON_CUDA_HOST_DEVICE inline auto
+    isActive(const Idx&                      cell,
+             const typename SBlock::BitMask* mask = nullptr) const -> bool;
+
 
     NEON_CUDA_HOST_DEVICE inline auto
     getDomainSize()
@@ -131,7 +135,7 @@ class bPartition
     getBlockViewIdx(const Idx& cell)
         const -> BlockViewGridIdx;
 
-   protected:
+   
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetPitch(const Idx& cell, int card)
         const -> uint32_t;
@@ -151,6 +155,15 @@ class bPartition
     template <int xOff, int yOff, int zOff>
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetNghIdx(const Idx& idx)
+        const -> Idx;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetNghIdx(const Idx& idx, const NghIdx& offset, const typename Idx::DataBlockIdx* blockConnectivity)
+        const -> Idx;
+
+    template <int xOff, int yOff, int zOff>
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpGetNghIdx(const Idx& idx, const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx;
 
 

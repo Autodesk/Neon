@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Neon/domain/details/mGrid/xField.h"
-
 namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
@@ -35,19 +33,6 @@ template <typename T, int C>
 auto xField<T, C>::getReference(const Neon::index_3d& idx, const int& cardinality) -> T&
 {
     return this->operator()(idx, cardinality);
-}
-
-
-template <typename T, int C>
-auto xField<T, C>::haloUpdate(Neon::set::HuOptions& opt) const -> void
-{
-    mData->field.haloUpdate(opt);
-}
-
-template <typename T, int C>
-auto xField<T, C>::haloUpdate(Neon::set::HuOptions& opt) -> void
-{
-    mData->field.haloUpdate(opt);
 }
 
 template <typename T, int C>
@@ -94,11 +79,14 @@ auto xField<T, C>::getPartition(Neon::Execution       exec,
                                 const Neon::DataView& dataView) const -> const Partition&
 {
 
-    if (exec == Neon::Execution::device) {
-        return getPartition(Neon::DeviceType::CUDA, idx, dataView);
-    }
     if (exec == Neon::Execution::host) {
         return getPartition(Neon::DeviceType::CPU, idx, dataView);
+    } else {
+        if (mData->field.getBackend().runtime() == Neon::Runtime::openmp) {
+            return getPartition(Neon::DeviceType::CPU, idx, dataView);
+        } else {
+            return getPartition(Neon::DeviceType::CUDA, idx, dataView);
+        }
     }
 
     NEON_THROW_UNSUPPORTED_OPERATION("xField::getPartition() unsupported Execution");
@@ -110,26 +98,29 @@ auto xField<T, C>::getPartition(Neon::Execution       exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) -> Partition&
 {
-    if (exec == Neon::Execution::device) {
-        return getPartition(Neon::DeviceType::CUDA, idx, dataView);
-    }
     if (exec == Neon::Execution::host) {
         return getPartition(Neon::DeviceType::CPU, idx, dataView);
+    } else {
+        if (mData->field.getBackend().runtime() == Neon::Runtime::openmp) {
+            return getPartition(Neon::DeviceType::CPU, idx, dataView);
+        } else {
+            return getPartition(Neon::DeviceType::CUDA, idx, dataView);
+        }
     }
 
     NEON_THROW_UNSUPPORTED_OPERATION("xField::getPartition() unsupported Execution");
 }
 
 template <typename T, int C>
-auto xField<T, C>::updateIO(int streamId) -> void
+auto xField<T, C>::updateHostData(int streamId) -> void
 {
-    mData->field.updateIO(streamId);
+    mData->field.updateHostData(streamId);
 }
 
 template <typename T, int C>
-auto xField<T, C>::updateCompute(int streamId) -> void
+auto xField<T, C>::updateDeviceData(int streamId) -> void
 {
-    mData->field.updateCompute(streamId);
+    mData->field.updateDeviceData(streamId);
 }
 
 

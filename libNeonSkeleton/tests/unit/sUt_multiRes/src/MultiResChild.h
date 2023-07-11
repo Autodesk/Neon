@@ -7,9 +7,9 @@ void MultiResChild()
     const Neon::index_3d   dim(24, 24, 24);
     const std::vector<int> gpuIds(nGPUs, 0);
 
-    const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
+    Neon::mGridDescriptor<1> descriptor(3);
 
-    for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
+    for (auto runtime : {Neon::Runtime::openmp /*, Neon::Runtime::stream*/}) {
 
         auto bk = Neon::Backend(gpuIds, runtime);
 
@@ -32,7 +32,7 @@ void MultiResChild()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        
+
         auto XField = grid.newField<Type>("XField", 1, -1);
         auto isRefinedField = grid.newField<Type>("isRefined", 1, -1);
 
@@ -59,18 +59,18 @@ void MultiResChild()
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
 
-            auto container = grid.getContainer(
+            auto container = grid.newContainer(
 
                 "hasChildren", level, [&, level, descriptor](Neon::set::Loader& loader) {
                     auto& xLocal = XField.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& isRefinedLocal = isRefinedField.load(loader, level, Neon::MultiResCompute::MAP);
 
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Idx& cell) mutable {
                         if (xLocal.hasChildren(cell)) {
                             isRefinedLocal(cell, 0) = 1;
 
-                            Neon::index_3d cellOrigin = xLocal.mapToGlobal(cell);
+                            Neon::index_3d cellOrigin = xLocal.getGlobalIndex(cell);
 
                             const int refFactor = xLocal.getRefFactor(level - 1);
 

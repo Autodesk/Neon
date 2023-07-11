@@ -77,6 +77,8 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                        Neon::Execution            execution)
         const -> Neon::set::Container;
 
+    auto getMemoryField() -> BlockViewGrid::Field<T, C>&;
+
 
    private:
     auto getRef(const Neon::index_3d& idx, const int& cardinality) const -> T&;

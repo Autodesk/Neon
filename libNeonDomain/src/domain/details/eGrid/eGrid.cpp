@@ -35,7 +35,7 @@ eGrid::eGrid(const Backend&                     backend,
     mData->mGlobalMappingAField = mData->partitioner1D.getGlobalMapping();
     mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
     mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
-    mData->partitioner1D.getDenseMeta(mData->denseMeta);
+    //mData->partitioner1D.getDenseMeta(mData->denseMeta);
 
     const int32_t numDevices = getBackend().devSet().setCardinality();
 
@@ -200,7 +200,8 @@ auto eGrid::convertToNghIdx(Neon::index_3d const& offset)
 
 auto eGrid::isInsideDomain(const index_3d& idx) const -> bool
 {
-    auto const& metaInfo = mData->denseMeta.get(idx);
+    //auto const& metaInfo = mData->denseMeta.get(idx);
+    auto const& metaInfo = mData->partitioner1D.getDenseMeta().get(idx);
     return metaInfo.isValid();
 }
 
@@ -224,7 +225,8 @@ auto eGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellPr
     if (this->getDevSet().setCardinality() == 1) {
         cellProperties.init(0, DataView::INTERNAL);
     } else {
-        auto const& metaInfo = mData->denseMeta.get(idx);
+        //auto const& metaInfo = mData->denseMeta.get(idx);
+        auto const& metaInfo = mData->partitioner1D.getDenseMeta().get(idx);
         cellProperties.init(metaInfo.setIdx, metaInfo.dw);
     }
     return cellProperties;
@@ -260,7 +262,8 @@ auto eGrid::helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon
     SetIdx setIdx;
     setIdx.invalidate();
     {
-        auto const& meta = mData->denseMeta.get(idx);
+        //auto const& meta = mData->denseMeta.get(idx);
+        auto const& meta = mData->partitioner1D.getDenseMeta().get(idx);
         if (meta.isValid()) {
             auto const& span = getSpan(Execution::host, meta.setIdx, Neon::DataView::STANDARD);
             span.setAndValidate(eIndex, meta.index);

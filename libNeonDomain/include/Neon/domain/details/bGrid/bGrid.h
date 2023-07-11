@@ -189,6 +189,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
      */
     auto helpGetStencilIdTo3dOffset() const -> Neon::set::MemSet<Neon::int8_3d>&;
 
+    auto helpGetPartitioner1D() -> Neon::domain::tool::Partitioner1D&;
+
     /**
      * Help function retriev the device and the block index associated to a point in the BlockViewGrid grid
      */
@@ -217,8 +219,6 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
         BlockView::Field<typename SBlock::BitMask, 1> activeBitField;
         BlockView::Field<BlockIdx, 27>                blockConnectivity;
         Neon::set::MemSet<Neon::int8_3d>              stencilIdTo3dOffset;
-
-        tool::Partitioner1D::DenseMeta denseMeta;
 
         int mMultiResDiscreteIdxSpacing;
 

@@ -1,57 +1,56 @@
+#pragma once
+
+#include <assert.h>
 #include <tuple>
-#include <vector>
 
-namespace Neon::domain {
+namespace Neon {
 
-/**
+/** 
  * @brief mGrid descriptor that defines the depth of the grid levels and how each level is partitioned. 
+ * Each level is defined by its refinement factor e.g., block data structure (i.e., single depth grid) with 8^3 blocks 
+ * can be described as mGridDescriptor<3>, a multi-resolution grid with depth of 3 that is partitioned into
+ * 1) 0-level (finest) as 8^3 voxels  
+ * 2) 1-level as 16^3 blocks 
+ * 3) 2-level (coarsest) as 32^3 blocks
+ * can be described as bGridDescriptor<3,4,5>
+ * The refinement factor have to be of power of 2 and thus it is defined by its log2
+ * There are two ways to define the depth of the tree. 
+ * 1) At compile time using the variadic template parameter Log2RefFactor from which we can infer the depth as the sizeof this parameter
+ * 2) At run time using the constructor that takes depth as an input in which case all levels of the tree will have the same branching factor 
+ * thus, the sizeof Log2RefFactor should be 1 
 */
+template <int... Log2RefFactor>
 struct mGridDescriptor
 {
-    /**     
-     * Each level is defined by its refinement factor e.g., block data structure (i.e., a single-depth grid) with 8^3 blocks 
-     * can be described using log 2 of the refinement factor of its blocks which is 3.
-     * A multi-resolution grid with depth of 3 that is partitioned into
-     * 1) 0-level (finest) as 8^3 voxels  
-     * 2) 1-level as 16^3 blocks 
-     * 3) 2-level (coarsest) as 32^3 blocks
-     * can be described as mGridDescriptor({3,4,5})
-     * The refinement factor have to be of power of 2 and thus it is defined by its log2
-     * @param levels as described above defaulted to 3 levels octree 
-    */
-    mGridDescriptor(std::initializer_list<int> log2RefFactors)
-        : mLog2RefFactors(log2RefFactors)
-    {
-        computeSpacing();
-    }
-
     /**
-     * This constructor can be use for the default mGrid descriptor that defines a grid of single depth partitioned 
-     * by 8^3 blocks i.e., block data structure 
+     * @brief Constructor that defines the depth using the variadic template parameter Log2RefFactor 
     */
     mGridDescriptor()
-    {
-        mLog2RefFactors.resize(3, 1);
-        computeSpacing();
-    }
+        : m_depth(0) {}
 
     /**
-     * This constructor can be use for the default mGrid descriptor that defines a grid of single depth partitioned 
-     * by 8^3 blocks i.e., block data structure 
+     * @brief Constructor that define the depth of the tree at run time. It is only allowed when sizeof Log2RefFactor is 1
+     * @param depth 
     */
     mGridDescriptor(int depth)
+        : m_depth(depth)
     {
-        mLog2RefFactors.resize(depth, 1);
-        computeSpacing();
+        assert(sizeof...(Log2RefFactor) == 1);
     }
 
-
     /**
-     * get the depth of the tree/grid i.e., how many levels      
+     * get the depth of the tree/grid i.e., how many levels 
     */
-    int getDepth() const
+    inline int getDepth() const
     {
-        return int(mLog2RefFactors.size());
+        constexpr std::size_t depth = sizeof...(Log2RefFactor);
+        static_assert(depth != 0,
+                      "mGridDescriptor::getDepth() should be at least be of depth 1 i.e., it should have at least single template parameter!");
+        if (depth == 1) {
+            return m_depth;
+        } else {
+            return depth;
+        }
     }
 
 
@@ -61,12 +60,25 @@ struct mGridDescriptor
     */
     int getLog2RefFactor(int level) const
     {
-        if (level >= int(getDepth())) {
-            NeonException ex("mGridDescriptor::getLog2RefFactor()");
-            ex << "Runtime input level is greater than the grid depth!";
-            NEON_THROW(ex);
+        // Runtime input level should be less than the grid depth
+        assert(level < int(getDepth()));
+
+        //case where depth is defined at runtime where all levels have the same
+        //branching factor
+        constexpr std::size_t depth = sizeof...(Log2RefFactor);
+        if (depth == 1) {
+            return std::get<0>(std::forward_as_tuple(Log2RefFactor...));
         }
-        return mLog2RefFactors[level];
+
+        //case where depth is defined at a compile time
+        int counter = 0;
+        for (const auto l : {Log2RefFactor...}) {
+            if (counter == level) {
+                return l;
+            }
+            counter++;
+        }
+        return -1;
     }
 
     /**
@@ -80,21 +92,18 @@ struct mGridDescriptor
 
 
     /**
-     * return the spacing at a certain level     
+     * return the spacing at a certain level
     */
     int getSpacing(int level) const
     {
-        if (level < 0) {
-            return 1;
-        }
+        // Runtime input level should be less than the grid depth
+        assert(level < int(getDepth()));
 
-        if (level >= int(getDepth())) {
-            NeonException ex("mGridDescriptor::getSpacing()");
-            ex << "Runtime input level is greater than the grid depth!";
-            NEON_THROW(ex);
+        int ret = 1;
+        for (int l = 0; l <= level; ++l) {
+            ret *= getRefFactor(l);
         }
-
-        return mSpacing[level];
+        return ret;
     }
 
 
@@ -124,19 +133,13 @@ struct mGridDescriptor
     */
     Neon::index_3d parentToChild(const Neon::index_3d& baseParent, const int parentLevel, const Neon::index_3d& localChild) const
     {
-        if (localChild.x < 0 || localChild.y < 0 || localChild.z < 0) {
-            NeonException ex("mGridDescriptor::parentToChild()");
-            ex << "Child local index should be >=0. The input localChild: " << localChild;
-            NEON_THROW(ex);
-        }
+        //Child local index should be >=0. The input localChild
+        assert(localChild.x >= 0 && localChild.y >= 0 && localChild.z >= 0);
 
-        if (localChild.x >= getRefFactor(parentLevel) ||
-            localChild.y >= getRefFactor(parentLevel) ||
-            localChild.z >= getRefFactor(parentLevel)) {
-            NeonException ex("mGridDescriptor::parentToChild()");
-            ex << "Child local index should be less than the refinement factor of the parent. The input localChild: " << localChild;
-            NEON_THROW(ex);
-        }
+        //Child local index should be less than the refinement factor of the parent. The input localChild
+        assert(localChild.x < getRefFactor(parentLevel) &&
+               localChild.y < getRefFactor(parentLevel) &&
+               localChild.z < getRefFactor(parentLevel));
 
         Neon::index_3d ret = baseParent + localChild * getSpacing(parentLevel - 1);
         return ret;
@@ -222,17 +225,11 @@ struct mGridDescriptor
     }
 
    private:
-    void computeSpacing()
-    {
-        mSpacing.resize(mLog2RefFactors.size());
-        int acc = 1;
-        for (int l = 0; l < int(getDepth()); ++l) {
-            mSpacing[l] = acc * getRefFactor(l);
-            acc = mSpacing[l];
-        }
-    }
-
-    std::vector<int> mLog2RefFactors;
-    std::vector<int> mSpacing;
+    int m_depth;
 };
-}  // namespace Neon::domain
+
+/**
+ * mGrid descriptor similar to NanoVDB default refinement 
+*/
+static mGridDescriptor<3, 4, 5> sBGridVDBDescr;
+}  // namespace Neon

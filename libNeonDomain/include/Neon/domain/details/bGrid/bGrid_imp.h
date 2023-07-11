@@ -63,7 +63,6 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();
         mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
         mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
-        mData->partitioner1D.getDenseMeta(mData->denseMeta);
     }
 
     {  // BlockViewGrid
@@ -107,9 +106,11 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                         for (int k = 0; k < SBlock::memBlockSize3D.template newType<int32_t>().z; k++) {
                             for (int j = 0; j < SBlock::memBlockSize3D.template newType<int32_t>().y; j++) {
                                 for (int i = 0; i < SBlock::memBlockSize3D.template newType<int32_t>().x; i++) {
-                                    auto       globalPosition = blockOrigin + Neon::int32_3d(i, j, k);
-                                    bool const isInDomain = globalPosition < domainSize;
-                                    bool const isActive = activeCellLambda(globalPosition * mData->mMultiResDiscreteIdxSpacing);
+                                    auto       globalPosition = blockOrigin + Neon::int32_3d(i * this->mData->mMultiResDiscreteIdxSpacing,
+                                                                                       j * this->mData->mMultiResDiscreteIdxSpacing,
+                                                                                       k * this->mData->mMultiResDiscreteIdxSpacing);
+                                    bool const isInDomain = globalPosition < domainSize * this->mData->mMultiResDiscreteIdxSpacing;
+                                    bool const isActive = activeCellLambda(globalPosition);
                                     if (isActive && isInDomain) {
                                         countActive++;
                                         bitMask.setActive(i, j, k);
@@ -119,7 +120,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                         }
 #pragma omp critical
                         {
-                            mData->mNumActiveVoxel[prtIdx] += countActive;
+                            this->mData->mNumActiveVoxel[prtIdx] += countActive;
                         }
                     };
                 })
@@ -154,8 +155,8 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                                                                   BlockIdx                                  blockNghIdx = Span::getInvalidBlockId();
                                                                   typename decltype(blockConnectivity)::Idx nghIdx;
                                                                   Neon::int8_3d                             stencilPoint(i - int8_t(1),
-                                                                                                                         j - int8_t(1),
-                                                                                                                         k - int8_t(1));
+                                                                                             j - int8_t(1),
+                                                                                             k - int8_t(1));
                                                                   bool                                      isValid = blockConnectivity.getNghIndex(idx, stencilPoint, nghIdx);
                                                                   if (isValid) {
                                                                       blockNghIdx = static_cast<BlockIdx>(nghIdx.helpGet());
@@ -393,7 +394,7 @@ template <typename SBlock>
 auto bGrid<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
 {
     // 1. check if the block is active
-    const BlockView::index_3d blockIdx3d = idx / SBlock::memBlockSize3D.template newType<int32_t>();
+    const BlockView::index_3d blockIdx3d = idx / (SBlock::memBlockSize3D.template newType<int32_t>() * mData->mMultiResDiscreteIdxSpacing);
     auto                      blockProperties = mData->blockViewGrid.getProperties(blockIdx3d);
 
     if (!blockProperties.isInside()) {
@@ -401,9 +402,10 @@ auto bGrid<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
     }
     // 2. The block is active, check the element in the block
     typename SBlock::BitMask const& bitMask = mData->activeBitField.getReference(blockIdx3d, 0);
-    bool                            isActive = bitMask.isActive(idx.x % SBlock::memBlockSize3D.x,
-                                                                idx.y % SBlock::memBlockSize3D.y,
-                                                                idx.z % SBlock::memBlockSize3D.z);
+
+    bool isActive = bitMask.isActive((idx.x / mData->mMultiResDiscreteIdxSpacing) % SBlock::memBlockSize3D.x,
+                                     (idx.y / mData->mMultiResDiscreteIdxSpacing) % SBlock::memBlockSize3D.y,
+                                     (idx.z / mData->mMultiResDiscreteIdxSpacing) % SBlock::memBlockSize3D.z);
     return isActive;
 }
 
@@ -434,16 +436,21 @@ template <typename SBlock>
 auto bGrid<SBlock>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
     const -> std::tuple<Neon::SetIdx, Idx>
 {
-    const index_3d blockIdx3d = idx / SBlock::memBlockSize3D.template newType<int32_t>();
+    const index_3d blockIdx3d = idx / (SBlock::memBlockSize3D.template newType<int32_t>() * mData->mMultiResDiscreteIdxSpacing);
     auto [setIdx, bvGridIdx] = mData->blockViewGrid.helpGetSetIdxAndGridIdx(blockIdx3d);
     Idx bIdx;
     bIdx.mDataBlockIdx = bvGridIdx.helpGet();
-    bIdx.mInDataBlockIdx.x = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.x % SBlock::memBlockSize3D.x);
-    bIdx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.y % SBlock::memBlockSize3D.y);
-    bIdx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>(idx.z % SBlock::memBlockSize3D.z);
+    bIdx.mInDataBlockIdx.x = static_cast<typename Idx::InDataBlockIdx::Integer>((idx.x / mData->mMultiResDiscreteIdxSpacing) % SBlock::memBlockSize3D.x);
+    bIdx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>((idx.y / mData->mMultiResDiscreteIdxSpacing) % SBlock::memBlockSize3D.y);
+    bIdx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>((idx.z / mData->mMultiResDiscreteIdxSpacing) % SBlock::memBlockSize3D.z);
 
     return {setIdx, bIdx};
 }
 
+template <typename SBlock>
+auto bGrid<SBlock>::helpGetPartitioner1D() -> Neon::domain::tool::Partitioner1D&
+{
+    return mData->partitioner1D;
+}
 
 }  // namespace Neon::domain::details::bGrid

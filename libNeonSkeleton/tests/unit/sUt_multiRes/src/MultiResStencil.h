@@ -9,7 +9,7 @@ void MultiResSameLevelStencil()
     const Type             XVal = 42;
     const Type             YVal = 55;
 
-    const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
+    Neon::mGridDescriptor<1> descriptor(3);
 
     for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
 
@@ -29,7 +29,7 @@ void MultiResSameLevelStencil()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        
+
         auto XField = grid.newField<Type>("XField", 1, -1);
         auto YField = grid.newField<Type>("YField", 1, -1);
 
@@ -57,19 +57,21 @@ void MultiResSameLevelStencil()
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
 
-            auto container = grid.getContainer(
+            auto container = grid.newContainer(
                 "SameLevelStencil", level, [&, level](Neon::set::Loader& loader) {
                     const auto& xLocal = static_cast<const typename Neon::domain::mGrid::Field<Type>>(XField).load(loader, level, Neon::MultiResCompute::STENCIL);
                     auto&       yLocal = YField.load(loader, level, Neon::MultiResCompute::MAP);
 
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Idx& cell) mutable {
                         for (int card = 0; card < xLocal.cardinality(); card++) {
                             Type res = 0;
 
                             for (int8_t nghIdx = 0; nghIdx < 6; ++nghIdx) {
-                                auto neighbor = xLocal.nghVal(cell, nghIdx, card, Type(0));
-                                res += neighbor.value;
+                                auto neighbor = xLocal.getNghData(cell, nghIdx, card);
+                                if (neighbor.mIsValid) {
+                                    res += neighbor.mData;
+                                }
                             }
                             yLocal(cell, card) = res;
                         }

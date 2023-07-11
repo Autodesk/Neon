@@ -8,7 +8,7 @@ void MultiResSkeleton()
     const Neon::int32_3d   dim(64, 64, 64);
     const std::vector<int> gpusIds(nGPUs, 0);
 
-    const Neon::domain::mGridDescriptor descriptor({1, 1, 1, 1, 1});
+    Neon::mGridDescriptor<1> descriptor(3);
 
 
     for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
@@ -29,7 +29,7 @@ void MultiResSkeleton()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        
+
         auto field = grid.newField<Type>("field", 3, -1);
 
 
@@ -52,13 +52,13 @@ void MultiResSkeleton()
         //map operation at the top level
         {
             int level = descriptor.getDepth() - 1;
-            containers.push_back(grid.getContainer(
+            containers.push_back(grid.newContainer(
                 "map" + std::to_string(level),
                 level,
                 [&, level](Neon::set::Loader& loader) {
                     auto& local = field.load(loader, level, Neon::MultiResCompute::MAP);
-                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
-                        Neon::index_3d global = local.mapToGlobal(cell);
+                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
+                        Neon::index_3d global = local.getGlobalIndex(cell);
                         local(cell, 0) = global.v[0];
                         local(cell, 1) = global.v[1];
                         local(cell, 2) = global.v[2];
@@ -68,12 +68,12 @@ void MultiResSkeleton()
 
         //all other levels
         for (int level = descriptor.getDepth() - 2; level >= 0; --level) {
-            containers.push_back(grid.getContainer(
+            containers.push_back(grid.newContainer(
                 "ReadParent" + std::to_string(level),
                 level,
                 [&, level](Neon::set::Loader& loader) {
                     auto& local = field.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
-                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::bGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                         assert(local.hasParent(cell));
 
                         local(cell, 0) = local.parentVal(cell, 0);

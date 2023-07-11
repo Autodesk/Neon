@@ -12,7 +12,7 @@ void MultiResParent()
     SectionX[1] = 16;
     SectionX[2] = 24;
 
-    const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
+    Neon::mGridDescriptor<1> descriptor(3);
 
     for (auto runtime : {Neon::Runtime::openmp, Neon::Runtime::stream}) {
 
@@ -33,8 +33,7 @@ void MultiResParent()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        //grid.topologyToVTK("grid111.vtk", false);
-
+        
         auto XField = grid.newField<Type>("XField", 1, -1);
         auto hasParentField = grid.newField<Type>("hasParent", 1, -1);
 
@@ -45,29 +44,31 @@ void MultiResParent()
                 l,
                 [&](const Neon::int32_3d, const int, Type& val) {
                     val = l;
-                });
+                },
+                false);
             hasParentField.forEachActiveCell(
                 l,
                 [&](const Neon::int32_3d, const int, Type& val) {
                     val = -1;
-                });
+                },
+                false);
         }
 
         if (bk.runtime() == Neon::Runtime::stream) {
             XField.updateDeviceData();
             hasParentField.updateDeviceData();
         }
-        //XField.ioToVtk("f", "f");
+        //XField.ioToVtk("XF", true, true, true, false);
 
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
 
-            auto container = grid.getContainer(
+            auto container = grid.newContainer(
                 "Parent", level, [&, level](Neon::set::Loader& loader) {
                     auto& xLocal = XField.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& hasParentLocal = hasParentField.load(loader, level, Neon::MultiResCompute::MAP);
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Idx& cell) mutable {
                         if (xLocal.hasParent(cell)) {
                             hasParentLocal(cell, 0) = 1;
                             xLocal(cell, 0) = xLocal.parentVal(cell, 0);
@@ -97,8 +98,8 @@ void MultiResParent()
                     } else {
                         EXPECT_EQ(val, -1);
                     }
-                });
-
+                },
+                false);
 
             XField.forEachActiveCell(
                 l,
@@ -108,7 +109,8 @@ void MultiResParent()
                     } else {
                         EXPECT_EQ(val, l) << "l = " << l << " id = " << id;
                     }
-                });
+                },
+                false);
         }
     }
 }
@@ -127,7 +129,7 @@ void MultiResAtomicAddParent()
     const Neon::int32_3d   dim(24, 24, 24);
     const std::vector<int> gpusIds(nGPUs, 0);
 
-    const Neon::domain::mGridDescriptor descriptor({1, 1, 1});
+    Neon::mGridDescriptor<1> descriptor(3);
 
     for (auto runtime : {
              Neon::Runtime::openmp,
@@ -154,7 +156,7 @@ void MultiResAtomicAddParent()
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descriptor);
-        
+
         auto XField = grid.newField<Type>("XField", 1, -1);
 
 
@@ -175,11 +177,11 @@ void MultiResAtomicAddParent()
 
         for (int level = 0; level < descriptor.getDepth(); ++level) {
 
-            auto container = grid.getContainer(
+            auto container = grid.newContainer(
                 "Parent", level, [&, level](Neon::set::Loader& loader) {
                     auto& xLocal = XField.load(loader, level, Neon::MultiResCompute::MAP);
 
-                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Cell& cell) mutable {
+                    return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Idx& cell) mutable {
                         if (xLocal.hasParent(cell)) {
 
 #ifdef NEON_PLACE_CUDA_DEVICE

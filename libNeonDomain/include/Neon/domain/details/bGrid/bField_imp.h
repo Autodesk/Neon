@@ -24,7 +24,8 @@ bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
                                                                              inactiveValue,
                                                                              dataUse,
                                                                              memoryOptions,
-                                                                             Neon::domain::haloStatus_et::e::ON) {
+                                                                             Neon::domain::haloStatus_et::e::ON)
+{
     mData = std::make_shared<Data>(grid.getBackend());
     mData->grid = std::make_shared<Grid>(grid);
 
@@ -39,7 +40,7 @@ bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
             int elPerBlock = SBlock::memBlockCountElements * cardinality;
             return elPerBlock;
         }(),
-        0,
+        inactiveValue,
         dataUse,
         mData->grid->getBackend().getMemoryOptions(bSpan<SBlock>::activeMaskMemoryLayout));
 
@@ -71,6 +72,12 @@ bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
 }
 
 template <typename T, int C, typename SBlock>
+auto bField<T, C, SBlock>::getMemoryField() -> BlockViewGrid::Field<T, C>&
+{
+    return mData->memoryField;
+}
+
+template <typename T, int C, typename SBlock>
 auto bField<T, C, SBlock>::isInsideDomain(const Neon::index_3d& idx) const -> bool
 {
     return mData->grid->isInsideDomain(idx);
@@ -82,9 +89,16 @@ auto bField<T, C, SBlock>::getReference(const Neon::index_3d& cartesianIdx,
 {
     if constexpr (SBlock::isMultiResMode) {
         auto& grid = this->getGrid();
-        auto  uniformCartesianIdx = cartesianIdx / grid.helpGetMultiResFactor();
-        auto  uniformCartesianIdxTruncation = cartesianIdx % grid.helpGetMultiResFactor();
-        static_assert(uniformCartesianIdxTruncation == 0);
+        auto  uniformCartesianIdx = cartesianIdx / grid.helGetMultiResDiscreteIdxSpacing();
+
+        if (cartesianIdx.x % grid.helGetMultiResDiscreteIdxSpacing() != 0 ||
+            cartesianIdx.y % grid.helGetMultiResDiscreteIdxSpacing() != 0 ||
+            cartesianIdx.z % grid.helGetMultiResDiscreteIdxSpacing() != 0) {
+            NeonException exp("bField::getReference");
+            exp << "Input index is not multiple of the grid resolution";
+            exp << "Index = " << cartesianIdx;
+            NEON_THROW(exp);
+        }
         auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(uniformCartesianIdx);
         auto& partition = getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
         auto& result = partition(bIdx, cardinality);

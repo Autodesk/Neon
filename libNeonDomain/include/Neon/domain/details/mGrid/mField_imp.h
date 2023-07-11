@@ -33,80 +33,123 @@ mField<T, C>::mField(const std::string&         name,
 
     for (int l = 0; l < descriptor.getDepth(); ++l) {
 
-        auto mem = mData->fields[l].mData->field.getMem();
-
-        auto origins = mData->grid->operator()(l).getOrigins();
-        auto neighbours_blocks = mData->grid->operator()(l).getNeighbourBlocks();
-        auto stencil_ngh = mData->grid->operator()(l).getStencilNghIndex();
-        auto active_mask = mData->grid->operator()(l).getActiveMask();
-        auto                            parent = mData->grid->getParentsBlockID(l);
-        auto                            parentLocalID = mData->grid->getParentLocalID(l);
-        auto                            childBlockID = mData->grid->getChildBlockID(l);
+        auto childBlockID = mData->grid->getChildBlockID(l);
 
 
-        for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
-            mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
-            mData->fields[l].mData->mPartitions[PartitionBackend::gpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
+        //for (int dvID = 0; dvID < Neon::DataViewUtil::nConfig; dvID++) {
+        int dvID = 0;
 
-            for (int32_t gpuID = 0; gpuID < int32_t(mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID].size()); gpuID++) {
+        mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
+        mData->fields[l].mData->mPartitions[PartitionBackend::gpu][dvID] = mData->grid->getBackend().devSet().template newDataSet<Partition>();
 
-                mData->fields[l].getPartition(Neon::DeviceType::CPU, Neon::SetIdx(gpuID), Neon::DataView(dvID)) =
-                    Neon::domain::details::mGrid::mPartition<T, C>(
-                        Neon::DataView(dvID),
-                        l,
-                        mem.rawMem(gpuID, Neon::DeviceType::CPU),
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->fields[l + 1].mData->field.getMem().rawMem(gpuID, Neon::DeviceType::CPU),  //parent
-                        (l == 0) ? nullptr : mData->fields[l - 1].mData->field.getMem().rawMem(gpuID, Neon::DeviceType::CPU),                               //child
-                        cardinality,
-                        neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CPU),
-                        origins.rawMem(gpuID, Neon::DeviceType::CPU),
-                        parent.rawMem(gpuID, Neon::DeviceType::CPU),
-                        parentLocalID.rawMem(gpuID, Neon::DeviceType::CPU),
-                        active_mask.rawMem(gpuID, Neon::DeviceType::CPU),
-                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CPU),  //lower-level mask
-                        (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getNeighbourBlocks().rawMem(gpuID, Neon::DeviceType::CPU),  //parent neighbor
-                        outsideVal,
-                        stencil_ngh.rawMem(gpuID, Neon::DeviceType::CPU),
-                        refFactorSet.rawMem(gpuID, Neon::DeviceType::CPU),
-                        spacingSet.rawMem(gpuID, Neon::DeviceType::CPU));
+        for (int32_t gpuID = 0; gpuID < int32_t(mData->fields[l].mData->mPartitions[PartitionBackend::cpu][dvID].size()); gpuID++) {
 
-                mData->fields[l].getPartition(Neon::DeviceType::CUDA, Neon::SetIdx(gpuID), Neon::DataView(dvID)) =
-                    Neon::domain::details::mGrid::mPartition<T, C>(
-                        Neon::DataView(dvID),
-                        l,
-                        mem.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->fields[l + 1].mData->field.getMem().rawMem(gpuID, Neon::DeviceType::CUDA),  //parent
-                        (l == 0) ? nullptr : mData->fields[l - 1].mData->field.getMem().rawMem(gpuID, Neon::DeviceType::CUDA),                               //child
-                        cardinality,
-                        neighbours_blocks.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        origins.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        parent.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        parentLocalID.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        active_mask.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveMask().rawMem(gpuID, Neon::DeviceType::CUDA),  //lower-level mask
-                        (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getNeighbourBlocks().rawMem(gpuID, Neon::DeviceType::CUDA),  //parent neighbor
-                        outsideVal,
-                        stencil_ngh.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        refFactorSet.rawMem(gpuID, Neon::DeviceType::CUDA),
-                        spacingSet.rawMem(gpuID, Neon::DeviceType::CUDA));
-            }
+            auto setIdx = Neon::SetIdx(gpuID);
+
+            mData->fields[l].getPartition(Neon::DeviceType::CPU, setIdx, Neon::DataView(dvID)) =
+                Neon::domain::details::mGrid::mPartition<T, C>(
+                    l,
+                    mData->fields[l].mData->field.getMemoryField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->fields[l + 1].mData->field.getMemoryField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),  //parent
+                    (l == 0) ? nullptr : mData->fields[l - 1].mData->field.getMemoryField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),                               //child
+                    cardinality,
+                    mData->grid->operator()(l).helpGetBlockConnectivity().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
+                    mData->grid->operator()(l).helpGetDataBlockOriginField().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->getParentsBlockID(l).rawMem(gpuID, Neon::DeviceType::CPU),
+                    mData->grid->operator()(l).getActiveBitMask().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveBitMask().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),                               //lower-level mask
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getActiveBitMask().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),  //upper-level mask
+                    (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CPU),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).helpGetBlockConnectivity().getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD).mem(),  //parent neighbor
+                    mData->grid->operator()(l).helpGetStencilIdTo3dOffset().rawMem(Neon::Execution::host, setIdx),
+                    refFactorSet.rawMem(gpuID, Neon::DeviceType::CPU),
+                    spacingSet.rawMem(gpuID, Neon::DeviceType::CPU));
+
+            mData->fields[l].getPartition(Neon::DeviceType::CUDA, setIdx, Neon::DataView(dvID)) =
+                Neon::domain::details::mGrid::mPartition<T, C>(
+                    l,
+                    mData->fields[l].mData->field.getMemoryField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->fields[l + 1].mData->field.getMemoryField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),  //parent
+                    (l == 0) ? nullptr : mData->fields[l - 1].mData->field.getMemoryField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),                               //child
+                    cardinality,
+                    mData->grid->operator()(l).helpGetBlockConnectivity().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
+                    mData->grid->operator()(l).helpGetDataBlockOriginField().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->getParentsBlockID(l).rawMem(gpuID, Neon::DeviceType::CUDA),
+                    mData->grid->operator()(l).getActiveBitMask().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),
+                    (l == 0) ? nullptr : mData->grid->operator()(l - 1).getActiveBitMask().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),                               //lower-level mask
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).getActiveBitMask().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),  //upper-level mask
+                    (l == 0) ? nullptr : childBlockID.rawMem(gpuID, Neon::DeviceType::CUDA),
+                    (l == int(descriptor.getDepth()) - 1) ? nullptr : mData->grid->operator()(l + 1).helpGetBlockConnectivity().getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD).mem(),  //parent neighbor
+                    mData->grid->operator()(l).helpGetStencilIdTo3dOffset().rawMem(Neon::Execution::device, setIdx),
+                    refFactorSet.rawMem(gpuID, Neon::DeviceType::CUDA),
+                    spacingSet.rawMem(gpuID, Neon::DeviceType::CUDA));
         }
+        //}
     }
 }
 
 
 template <typename T, int C>
 auto mField<T, C>::forEachActiveCell(
-    const int                          level,
+    const int                                           level,
     const std::function<void(const Neon::index_3d&,
                              const int& cardinality,
-                             T&)>&     fun,
-    Neon::computeMode_t::computeMode_e mode)
+                             T&)>&                      fun,
+    bool                                                filterOverlaps,
+    [[maybe_unused]] Neon::computeMode_t::computeMode_e mode)
     -> void
 {
-    mData->fields[level].mData->field.forEachActiveCell(fun, mode);
+    auto      desc = mData->grid->getDescriptor();
+    auto      card = (*this)(0).getCardinality();
+    const int refFactor = desc.getRefFactor(level);
+    const int voxelSpacing = desc.getSpacing(level - 1);
+
+    // TODO need to figure out which device owns this block
+    SetIdx devID(0);
+
+    (*(mData->grid))(level).helpGetPartitioner1D().forEachSeq(devID, [&](const uint32_t blockIdx, const Neon::int32_3d memBlockOrigin, auto /*byPartition*/) {
+        Neon::index_3d blockOrigin = memBlockOrigin;
+        blockOrigin.x *= kMemBlockSizeX * voxelSpacing;
+        blockOrigin.y *= kMemBlockSizeY * voxelSpacing;
+        blockOrigin.z *= kMemBlockSizeZ * voxelSpacing;
+
+        for (uint32_t k = 0; k < kNumUserBlockPerMemBlockZ; ++k) {
+            for (uint32_t j = 0; j < kNumUserBlockPerMemBlockY; ++j) {
+                for (uint32_t i = 0; i < kNumUserBlockPerMemBlockX; ++i) {
+
+                    const Neon::index_3d userBlockOrigin(i * kUserBlockSizeX * voxelSpacing + blockOrigin.x,
+                                                         j * kUserBlockSizeY * voxelSpacing + blockOrigin.y,
+                                                         k * kUserBlockSizeZ * voxelSpacing + blockOrigin.z);
+
+                    for (int32_t z = 0; z < refFactor; z++) {
+                        for (int32_t y = 0; y < refFactor; y++) {
+                            for (int32_t x = 0; x < refFactor; x++) {
+
+                                const Neon::index_3d voxelGlobalID(x * voxelSpacing + userBlockOrigin.x,
+                                                                   y * voxelSpacing + userBlockOrigin.y,
+                                                                   z * voxelSpacing + userBlockOrigin.z);
+
+                                if ((*(mData->grid))(level).isInsideDomain(voxelGlobalID)) {
+
+                                    bool active = true;
+                                    if (level > 0 && filterOverlaps) {
+                                        active = !((*(mData->grid))(level - 1).isInsideDomain(voxelGlobalID));
+                                    }
+
+                                    if (active) {
+                                        Idx idx(blockIdx, int8_t(i * kUserBlockSizeX + x), int8_t(j * kUserBlockSizeY + y), int8_t(k * kUserBlockSizeZ + z));
+                                        for (int c = 0; c < card; ++c) {
+                                            fun(voxelGlobalID, c, (*this)(level).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, c));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 
@@ -185,19 +228,19 @@ auto mField<T, C>::haloUpdate(Neon::set::HuOptions& /*opt*/) -> void
 }
 
 template <typename T, int C>
-auto mField<T, C>::updateIO(int streamId) -> void
+auto mField<T, C>::updateHostData(int streamId) -> void
 {
 
     for (size_t l = 0; l < mData->fields.size(); ++l) {
-        mData->fields[l].mData->field.updateIO(streamId);
+        mData->fields[l].mData->field.updateHostData(streamId);
     }
 }
 
 template <typename T, int C>
-auto mField<T, C>::updateCompute(int streamId) -> void
+auto mField<T, C>::updateDeviceData(int streamId) -> void
 {
     for (size_t l = 0; l < mData->fields.size(); ++l) {
-        mData->fields[l].mData->field.updateCompute(streamId);
+        mData->fields[l].mData->field.updateDeviceData(streamId);
     }
 }
 
@@ -208,23 +251,23 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
 {
     switch (compute) {
         case Neon::MultiResCompute::MAP: {
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL: {
-            return loader.load(operator()(level), Neon::Compute::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::STENCIL);
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
             const auto& parent = operator()(level + 1);
-            loader.load(parent, Neon::Compute::STENCIL);
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            loader.load(parent, Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
             const auto& child = operator()(level - 1);
-            loader.load(child, Neon::Compute::STENCIL);
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            loader.load(child, Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         default:
@@ -240,23 +283,23 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
 {
     switch (compute) {
         case Neon::MultiResCompute::MAP: {
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL: {
-            return loader.load(operator()(level), Neon::Compute::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::STENCIL);
             break;
         }
         case Neon::MultiResCompute::STENCIL_UP: {
             const auto& parent = operator()(level + 1);
-            loader.load(parent, Neon::Compute::STENCIL);
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            loader.load(parent, Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         case Neon::MultiResCompute::STENCIL_DOWN: {
             const auto& child = operator()(level - 1);
-            loader.load(child, Neon::Compute::STENCIL);
-            return loader.load(operator()(level), Neon::Compute::MAP);
+            loader.load(child, Neon::Pattern::STENCIL);
+            return loader.load(operator()(level), Neon::Pattern::MAP);
             break;
         }
         default:
@@ -312,76 +355,83 @@ auto mField<T, C>::ioToVtk(std::string fileName,
     auto loopOverActiveBlocks = [&](const Op op) {
         for (int l = 0; l < desc.getDepth(); ++l) {
             const int refFactor = desc.getRefFactor(l);
-            const int childSpacing = desc.getSpacing(l - 1);
+            const int voxelSpacing = desc.getSpacing(l - 1);
 
-            (*(mData->grid))(l).getBlockOriginTo1D().forEach([&](const Neon::int32_3d blockOrigin, const uint32_t blockIdx) {
-                // TODO need to figure out which device owns this block
-                SetIdx devID(0);
+            // TODO need to figure out which device owns this block
+            SetIdx devID(0);
 
+            (*(mData->grid))(l).helpGetPartitioner1D().forEachSeq(devID, [&](const uint32_t blockIdx, const Neon::int32_3d memBlockOrigin, auto /*byPartition*/) {
+                Neon::index_3d blockOrigin = memBlockOrigin;
+                blockOrigin.x *= kMemBlockSizeX * voxelSpacing;
+                blockOrigin.y *= kMemBlockSizeY * voxelSpacing;
+                blockOrigin.z *= kMemBlockSizeZ * voxelSpacing;
 
-                for (int z = 0; z < refFactor; z++) {
-                    for (int y = 0; y < refFactor; y++) {
-                        for (int x = 0; x < refFactor; x++) {
-                            Cell cell(static_cast<Cell::Location::Integer>(x),
-                                      static_cast<Cell::Location::Integer>(y),
-                                      static_cast<Cell::Location::Integer>(z));
-                            cell.mBlockID = blockIdx;
-                            cell.mBlockSize = refFactor;
+                for (uint32_t k = 0; k < kNumUserBlockPerMemBlockZ; ++k) {
+                    for (uint32_t j = 0; j < kNumUserBlockPerMemBlockY; ++j) {
+                        for (uint32_t i = 0; i < kNumUserBlockPerMemBlockX; ++i) {
 
-                            if (cell.computeIsActive(
-                                    (*(mData->grid))(l).getActiveMask().rawMem(devID, Neon::DeviceType::CPU))) {
+                            const Neon::index_3d userBlockOrigin(i * kUserBlockSizeX * voxelSpacing + blockOrigin.x,
+                                                                 j * kUserBlockSizeY * voxelSpacing + blockOrigin.y,
+                                                                 k * kUserBlockSizeZ * voxelSpacing + blockOrigin.z);
 
-                                Neon::int32_3d corner(blockOrigin.x + x * childSpacing,
-                                                      blockOrigin.y + y * childSpacing,
-                                                      blockOrigin.z + z * childSpacing);
+                            for (int32_t z = 0; z < refFactor; z++) {
+                                for (int32_t y = 0; y < refFactor; y++) {
+                                    for (int32_t x = 0; x < refFactor; x++) {
 
-                                bool draw = true;
-                                if (filterOverlaps && l != 0) {
-                                    auto cornerIDIter = (*(mData->grid))(l - 1).getBlockOriginTo1D().getMetadata(corner);
-                                    if (cornerIDIter) {
-                                        draw = false;
-                                    }
-                                }
+                                        const Neon::index_3d voxelGlobalID(x * voxelSpacing + userBlockOrigin.x,
+                                                                           y * voxelSpacing + userBlockOrigin.y,
+                                                                           z * voxelSpacing + userBlockOrigin.z);
 
-                                if (draw) {
-                                    if (op == Op::Count) {
-                                        num_cells++;
-                                    } else if (op == Op::OutputTopology) {
+                                        if ((*(mData->grid))(l).isInsideDomain(voxelGlobalID)) {
 
-                                        file << "8 ";
-                                        //x,y,z
-                                        file << mapTo1D(corner.x, corner.y, corner.z) << " ";
-                                        //+x,y,z
-                                        file << mapTo1D(corner.x + childSpacing, corner.y, corner.z) << " ";
+                                            bool draw = true;
+                                            if (filterOverlaps && l != 0) {
+                                                draw = !((*(mData->grid))(l - 1).isInsideDomain(voxelGlobalID));
+                                            }
 
-                                        //x,+y,z
-                                        file << mapTo1D(corner.x, corner.y + childSpacing, corner.z) << " ";
+                                            if (draw) {
+                                                if (op == Op::Count) {
+                                                    num_cells++;
+                                                } else if (op == Op::OutputTopology) {
 
-                                        //+x,+y,z
-                                        file << mapTo1D(corner.x + childSpacing, corner.y + childSpacing, corner.z) << " ";
+                                                    file << "8 ";
+                                                    //x,y,z
+                                                    file << mapTo1D(voxelGlobalID.x, voxelGlobalID.y, voxelGlobalID.z) << " ";
+                                                    //+x,y,z
+                                                    file << mapTo1D(voxelGlobalID.x + voxelSpacing, voxelGlobalID.y, voxelGlobalID.z) << " ";
 
-                                        //x,y,+z
-                                        file << mapTo1D(corner.x, corner.y, corner.z + childSpacing) << " ";
+                                                    //x,+y,z
+                                                    file << mapTo1D(voxelGlobalID.x, voxelGlobalID.y + voxelSpacing, voxelGlobalID.z) << " ";
 
-                                        //+x,y,+z
-                                        file << mapTo1D(corner.x + childSpacing, corner.y, corner.z + childSpacing) << " ";
+                                                    //+x,+y,z
+                                                    file << mapTo1D(voxelGlobalID.x + voxelSpacing, voxelGlobalID.y + voxelSpacing, voxelGlobalID.z) << " ";
 
-                                        //x,+y,+z
-                                        file << mapTo1D(corner.x, corner.y + childSpacing, corner.z + childSpacing) << " ";
+                                                    //x,y,+z
+                                                    file << mapTo1D(voxelGlobalID.x, voxelGlobalID.y, voxelGlobalID.z + voxelSpacing) << " ";
 
-                                        //+x,+y,+z
-                                        file << mapTo1D(corner.x + childSpacing, corner.y + childSpacing, corner.z + childSpacing) << " ";
-                                        file << "\n";
-                                    } else if (op == Op::OutputLevels) {
-                                        file << l << "\n";
-                                    } else if (op == Op::OutputBlockID) {
-                                        file << blockIdx << "\n";
-                                    } else if (op == Op::OutputVoxelID) {
-                                        file << x + y * refFactor + z * refFactor * refFactor
-                                             << "\n";
-                                    } else if (op == Op::OutputData) {
-                                        for (int c = 0; c < card; ++c) {
-                                            file << (*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(cell, c) << "\n";
+                                                    //+x,y,+z
+                                                    file << mapTo1D(voxelGlobalID.x + voxelSpacing, voxelGlobalID.y, voxelGlobalID.z + voxelSpacing) << " ";
+
+                                                    //x,+y,+z
+                                                    file << mapTo1D(voxelGlobalID.x, voxelGlobalID.y + voxelSpacing, voxelGlobalID.z + voxelSpacing) << " ";
+
+                                                    //+x,+y,+z
+                                                    file << mapTo1D(voxelGlobalID.x + voxelSpacing, voxelGlobalID.y + voxelSpacing, voxelGlobalID.z + voxelSpacing) << " ";
+                                                    file << "\n";
+                                                } else if (op == Op::OutputLevels) {
+                                                    file << l << "\n";
+                                                } else if (op == Op::OutputBlockID) {
+                                                    file << blockIdx << "\n";
+                                                } else if (op == Op::OutputVoxelID) {
+                                                    file << x + y * refFactor + z * refFactor * refFactor
+                                                         << "\n";
+                                                } else if (op == Op::OutputData) {
+                                                    Idx idx(blockIdx, int8_t(i * kUserBlockSizeX + x), int8_t(j * kUserBlockSizeY + y), int8_t(k * kUserBlockSizeZ + z));
+                                                    for (int c = 0; c < card; ++c) {
+                                                        file << (*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, c) << "\n";
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }

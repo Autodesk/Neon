@@ -1,68 +1,80 @@
 #pragma once
 
-#include "Neon/domain/details//bGrid/bIndex.h"
-#include "Neon/domain/details//bGrid/bPartition.h"
+
+#include "Neon/domain/details/bGrid/bIndex.h"
+#include "Neon/domain/details/bGrid/bPartition.h"
 #include "Neon/domain/interface/NghData.h"
 
+#include "Neon/domain/details/bGrid/StaticBlock.h"
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
 namespace Neon::domain::details::mGrid {
 
-class bPartitionIndexSpace;
+constexpr uint32_t kMemBlockSizeX = 8;
+constexpr uint32_t kMemBlockSizeY = 8;
+constexpr uint32_t kMemBlockSizeZ = 8;
+constexpr uint32_t kUserBlockSizeX = 2;
+constexpr uint32_t kUserBlockSizeY = 2;
+constexpr uint32_t kUserBlockSizeZ = 2;
+
+constexpr uint32_t kNumUserBlockPerMemBlockX = kMemBlockSizeX / kUserBlockSizeX;
+constexpr uint32_t kNumUserBlockPerMemBlockY = kMemBlockSizeY / kUserBlockSizeY;
+constexpr uint32_t kNumUserBlockPerMemBlockZ = kMemBlockSizeZ / kUserBlockSizeZ;
+
+using kStaticBlock = Neon::domain::details::bGrid::StaticBlock<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ, true>;
 
 template <typename T, int C = 0>
-class mPartition : public Neon::bGrid::bGrid::Partition<T, C>
+class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>
 {
    public:
-    using PartitionIndexSpace = Neon::bGrid::Span;
-    using Idx = Neon::bGrid::Idx;
+    using Idx = Neon::domain::details::bGrid::bIndex<kStaticBlock>;
     using NghIdx = Idx::NghIdx;
+    using NghData = Neon::domain::NghData<T>;
     using Type = T;
+    using MaskT = typename kStaticBlock::BitMask;
 
    public:
     mPartition();
 
     ~mPartition() = default;
 
-    explicit mPartition(Neon::DataView     dataView,
-                        int                level,
+    explicit mPartition(int                level,
                         T*                 mem,
                         T*                 memParent,
                         T*                 memChild,
                         int                cardinality,
-                        uint32_t*          neighbourBlocks,
+                        Idx::DataBlockIdx* neighbourBlocks,
                         Neon::int32_3d*    origin,
-                        uint32_t*          parent,
-                        Idx::DataBlockIdx* parentLocalID,
-                        uint32_t*          mask,
-                        uint32_t*          maskLowerLevel,
-                        uint32_t*          childBlockID,
-                        uint32_t*          parentNeighbourBlocks,
-                        T                  defaultValue,
+                        Idx::DataBlockIdx* parent,
+                        MaskT*             mask,
+                        MaskT*             maskLowerLevel,
+                        MaskT*             maskUpperLevel,
+                        Idx::DataBlockIdx* childBlockID,
+                        Idx::DataBlockIdx* parentNeighbourBlocks,
                         NghIdx*            stencilNghIndex,
                         int*               refFactors,
                         int*               spacing);
 
     /**
      * get the child of a cell
-     * @param parent_cell the parent at which the child is queried
+     * @param parentCell the parent at which the child is queried
      * @param child which child to return. A cell has number of children defined by the branching factor
      * at the level. This defines the 3d local index of the child
      * @param card which cardinality is desired from the child
      * @param alternativeVal in case the child requested is not present
      */
-    NEON_CUDA_HOST_DEVICE inline auto childVal(const Idx&    parent_cell,
-                                               Neon::int8_3d child,
-                                               int           card,
-                                               const T&      alternativeVal) const -> NghData<T>;
+    NEON_CUDA_HOST_DEVICE inline auto childVal(const Idx&   parentCell,
+                                               const NghIdx child,
+                                               int          card,
+                                               const T&     alternativeVal) const -> NghData;
 
     /**
      * Get a cell that represents the child of a parent cell
-     * @param parent_cell the parent cell that its child is requested
+     * @param parentCell the parent cell that its child is requested
      * @param child the child 3d local index relative to the parent
      */
-    NEON_CUDA_HOST_DEVICE inline auto getChild(const Idx&    parent_cell,
-                                               Neon::int8_3d child) const -> Idx;
+    NEON_CUDA_HOST_DEVICE inline auto getChild(const Idx& parentCell,
+                                               NghIdx     child) const -> Idx;
 
 
     /**
@@ -92,7 +104,7 @@ class mPartition : public Neon::bGrid::bGrid::Partition<T, C>
      * @param cell the main cell
      * @param nghDir the direction relative to cell
      */
-    NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Idx& cell, const Neon::int8_3d nghDir) const -> bool;
+    NEON_CUDA_HOST_DEVICE inline auto hasChildren(const Idx& cell, const NghIdx nghDir) const -> bool;
 
 
     /**
@@ -129,8 +141,8 @@ class mPartition : public Neon::bGrid::bGrid::Partition<T, C>
      * @param cell the main cell at level L
      * @param direction the direction w.r.t the parent of cell
      */
-    NEON_CUDA_HOST_DEVICE inline auto getUncle(const Idx&    cell,
-                                               Neon::int8_3d direction) const -> Idx;
+    NEON_CUDA_HOST_DEVICE inline auto getUncle(const Idx&   cell,
+                                               const NghIdx direction) const -> Idx;
 
     /**
      * The uncle of a cell at level L is a cell at level L+1 and is a neighbor to the cell's parent.
@@ -140,10 +152,21 @@ class mPartition : public Neon::bGrid::bGrid::Partition<T, C>
      * @param card the cardinality
      * @param alternativeVal alternative value in case the uncle does not exist.
      */
-    NEON_CUDA_HOST_DEVICE inline auto uncleVal(const Idx&    cell,
-                                               Neon::int8_3d direction,
-                                               int           card,
-                                               const T&      alternativeVal) const -> NghData<T>;
+    NEON_CUDA_HOST_DEVICE inline auto uncleVal(const Idx&   cell,
+                                               const NghIdx direction,
+                                               int          card,
+                                               const T&     alternativeVal) const -> NghData;
+
+    /**
+     * @brief similar to the above uncleVal but returns a reference. Additionally, it is now
+     * the user responsibility to check if the uncle is active (we only assert it)
+     * @param cell the main cell at level L 
+     * @param direction the direction w.r.t the parent of cell      
+     * @param card the cardinality      
+    */
+    NEON_CUDA_HOST_DEVICE inline auto uncleVal(const Idx&   cell,
+                                               const NghIdx direction,
+                                               int          card) const -> T&;
 
     /**
      * Get the refinement factor i.e., number of children at each dimension
@@ -158,23 +181,23 @@ class mPartition : public Neon::bGrid::bGrid::Partition<T, C>
      * Map the cell to its global index as defined by the finest level of the grid (Level 0)
      * @param gidx which will be mapped to global index space
      */
-    NEON_CUDA_HOST_DEVICE inline Neon::index_3d mapToGlobal(const Idx& gidx) const;
+    NEON_CUDA_HOST_DEVICE inline Neon::index_3d getGlobalIndex(Idx gidx) const;
 
 
    private:
     inline NEON_CUDA_HOST_DEVICE auto childID(const Idx& gidx) const -> uint32_t;
 
 
-    int               mLevel;
-    T*                mMemParent;
-    T*                mMemChild;
-    uint32_t*         mParentBlockID;
-    Idx::DataBlockIdx* mParentLocalID;
-    uint32_t*         mMaskLowerLevel;
-    uint32_t*         mChildBlockID;
-    uint32_t*         mParentNeighbourBlocks;
-    int*              mRefFactors;
-    int*              mSpacing;
+    int                mLevel;
+    T*                 mMemParent;
+    T*                 mMemChild;
+    Idx::DataBlockIdx* mParentBlockID;
+    MaskT*             mMaskLowerLevel;
+    MaskT*             mMaskUpperLevel;
+    Idx::DataBlockIdx* mChildBlockID;
+    Idx::DataBlockIdx* mParentNeighbourBlocks;
+    int*               mRefFactors;
+    int*               mSpacing;
 };
 }  // namespace Neon::domain::details::mGrid
 

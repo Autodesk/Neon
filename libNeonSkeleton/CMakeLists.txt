@@ -27,10 +27,6 @@ set_target_properties(libNeonSkeleton PROPERTIES
 	
 target_include_directories(libNeonSkeleton PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 
-if(${NEON_USE_NVTX})
-	target_link_libraries(libNeonSkeleton PUBLIC ${CUDA_nvToolsExt_LIBRARY})     
-endif()
-
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "libNeonSkeleton" FILES ${libNeonSkeletonFiles})
 
 if (${BUILD_NEON_TESTING})
