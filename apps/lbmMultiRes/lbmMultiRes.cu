@@ -20,6 +20,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  const bool                                  streamFusedExpl,
                                  const bool                                  streamFusedCoal,
                                  const bool                                  streamFuseAll,
+                                 const bool                                  collisionFusedStore,
                                  const T                                     omega0,
                                  const int                                   level,
                                  const int                                   numLevels,
@@ -29,17 +30,23 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  Neon::domain::mGrid::Field<T>&              fout,
                                  std::vector<Neon::set::Container>&          containers)
 {
-    // 1) collision for all voxels at level L=level
-    //containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
-    containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    if (!collisionFusedStore) {
+        // 1) collision for all voxels at level L=level
+        //containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+        containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
-    // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
-    if (level != numLevels - 1) {
-        if (fineInitStore) {
-            containers.push_back(storeFine<T, Q>(grid, level, fout));
-        } else {
-            containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+        // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
+        if (level != numLevels - 1) {
+            if (fineInitStore) {
+                containers.push_back(storeFine<T, Q>(grid, level, fout));
+            } else {
+                containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+            }
         }
+    } else {
+        // 6) collision for all voxels at level L = level fused with
+        // 7) Storing fine (level) data for later "coalescence" pulled by the coarse(level)
+        containers.push_back(collideBGKUnrolledFusedStore<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
     }
 
 
@@ -50,6 +57,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                           streamFusedExpl,
                                           streamFusedCoal,
                                           streamFuseAll,
+                                          collisionFusedStore,
                                           omega0,
                                           level - 1,
                                           numLevels,
@@ -76,18 +84,24 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
         return;
     }
 
-    // 6) collision for all voxels at level L = level
-    //containers.push_back(collideBGK<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
-    containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    if (!collisionFusedStore) {
 
+        // 6) collision for all voxels at level L = level
+        //containers.push_back(collideBGK<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+        containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
-    // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
-    if (level != numLevels - 1) {
-        if (fineInitStore) {
-            containers.push_back(storeFine<T, Q>(grid, level, fout));
-        } else {
-            containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+        // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
+        if (level != numLevels - 1) {
+            if (fineInitStore) {
+                containers.push_back(storeFine<T, Q>(grid, level, fout));
+            } else {
+                containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+            }
         }
+    } else {
+        // 6) collision for all voxels at level L = level fused with
+        // 7) Storing fine (level) data for later "coalescence" pulled by the coarse(level)
+        containers.push_back(collideBGKUnrolledFusedStore<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
     }
 
     // 8) recurse down
@@ -97,6 +111,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                           streamFusedExpl,
                                           streamFusedCoal,
                                           streamFuseAll,
+                                          collisionFusedStore,
                                           omega0,
                                           level - 1,
                                           numLevels,
@@ -128,6 +143,7 @@ void runNonUniformLBM(const int           problemID,
                       const bool          streamFusedExpl,
                       const bool          streamFusedCoal,
                       const bool          streamFuseAll,
+                      const bool          collisionFusedStore,
                       const bool          benchmark)
 {
 
@@ -212,6 +228,7 @@ void runNonUniformLBM(const int           problemID,
                                       streamFusedExpl,
                                       streamFusedCoal,
                                       streamFuseAll,
+                                      collisionFusedStore,
                                       omega,
                                       descriptor.getDepth() - 1,
                                       descriptor.getDepth(),
@@ -257,13 +274,14 @@ int main(int argc, char** argv)
 
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
         std::string deviceType = "gpu";
-        int         deviceId = 0;
+        int         deviceId = 99;
         int         numIter = 2;
         bool        benchmark = true;
         bool        fineInitStore = false;
         bool        streamFusedExpl = false;
         bool        streamFusedCoal = false;
         bool        streamFuseAll = false;
+        bool        collisionFusedStore = false;
         int         problemId = 0;
         std::string dataType = "float";
 
@@ -277,8 +295,9 @@ int main(int argc, char** argv)
              ((clipp::option("--benchmark").set(benchmark, true) % "Run benchmark mode") |
               (clipp::option("--visual").set(benchmark, false) % "Run export partial data")),
 
-             ((clipp::option("--storeFine").set(fineInitStore, true) % "Initiate the store operation from the fine level") |
-              (clipp::option("--storeCoarse").set(fineInitStore, false) % "Initiate the store operation from the coarse level")),
+             ((clipp::option("--storeFine").set(fineInitStore, true) % "Initiate the Store operation from the fine level") |
+              (clipp::option("--storeCoarse").set(fineInitStore, false) % "Initiate the Store operation from the coarse level") |
+              (clipp::option("--collisionFusedStore").set(collisionFusedStore, true) % "Fuse Collision with Store operation")),
 
              ((clipp::option("--streamFusedExpl").set(streamFusedExpl, true) % "Fuse Stream with Explosion") |
               (clipp::option("--streamFusedCoal").set(streamFusedCoal, true) % "Fuse Stream with Coalescence") |
@@ -303,9 +322,9 @@ int main(int argc, char** argv)
 
         constexpr int Q = 19;
         if (dataType == "float") {
-            runNonUniformLBM<float, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, benchmark);
+            runNonUniformLBM<float, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
         } else if (dataType == "double") {
-            runNonUniformLBM<double, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, benchmark);
+            runNonUniformLBM<double, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
         } else {
             Neon::NeonException exp("app-lbmMultiRes");
             exp << "Input data type " << dataType;
