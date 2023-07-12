@@ -14,7 +14,7 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                                                Neon::domain::mGrid::Field<T>&              fout)
 {
     return grid.newContainer(
-        "collideBGKUnrolled_" + std::to_string(level), level,
+        "C" + std::to_string(level), level,
         [&, level, omega0, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
             const auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
@@ -408,7 +408,7 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
                                                          Neon::domain::mGrid::Field<T>&              fout)
 {
     return grid.newContainer(
-        "collideBGKUnrolledFusedStore_" + std::to_string(level), level,
+        "CH" + std::to_string(level), level,
         [&, level, omega0, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
             const auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);

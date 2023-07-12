@@ -13,13 +13,13 @@ inline Neon::set::Container stream(Neon::domain::mGrid&                        g
     //This is "pull" stream
 
     return grid.newContainer(
-        "stream_" + std::to_string(level), level,
+        "S" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::STENCIL);
             const auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL);
             auto        pin = fin.load(loader, level, Neon::MultiResCompute::MAP);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {                
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
                     //If this cell has children i.e., it is been refined, than we should not work on it
                     //because this cell is only there to allow query and not to operate on
@@ -61,7 +61,7 @@ inline Neon::set::Container streamFusedExplosion(Neon::domain::mGrid&           
     //This is "pull" stream
 
     return grid.newContainer(
-        "streamFusedExplosion_" + std::to_string(level), level,
+        "SE" + std::to_string(level), level,
         [&, level, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::STENCIL);
 
@@ -132,7 +132,7 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
                                                    Neon::domain::mGrid::Field<T>&              fin)
 {
     return grid.newContainer(
-        "streamFusedCoalescence_" + std::to_string(level), level,
+        "SO" + std::to_string(level), level,
         [&, level, fineInitStore](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::STENCIL);
             const auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL);
@@ -194,7 +194,7 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                                                             Neon::domain::mGrid::Field<T>&              fin)
 {
     return grid.newContainer(
-        "streamFusedCoalescenceExplosion_" + std::to_string(level), level,
+        "SOE" + std::to_string(level), level,
         [&, level, numLevels, fineInitStore](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::STENCIL);
             auto        pin = fin.load(loader, level, Neon::MultiResCompute::MAP);

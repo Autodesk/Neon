@@ -12,7 +12,7 @@ inline Neon::set::Container explosion(Neon::domain::mGrid&                 grid,
 
 
     return grid.newContainer(
-        "Explosion_" + std::to_string(level), level,
+        "E" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
             const auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
             auto        pin = fin.load(loader, level, Neon::MultiResCompute::MAP);

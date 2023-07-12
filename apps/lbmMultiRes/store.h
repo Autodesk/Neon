@@ -17,7 +17,7 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
     //its neighbor's children)
 
     return grid.newContainer(
-        "storeCoarse_" + std::to_string(level), level,
+        "H" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
             auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
@@ -103,7 +103,7 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
 
 
     return grid.newContainer(
-        "storeFine_" + std::to_string(level), level,
+        "H" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
             //auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
 
