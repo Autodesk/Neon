@@ -105,13 +105,14 @@ class Partitioner1D
 
     template <typename ActiveIndexLambda,
               typename BcLambda>
-    Partitioner1D(const Neon::Backend&        backend,
-                  const ActiveIndexLambda&    activeIndexLambda,
-                  const BcLambda&             bcLambda,
-                  const Neon::index_3d&       dataBlockSize,
-                  const Neon::int32_3d&       domainSize,
-                  const Neon::domain::Stencil stencil,
-                  const int&                  multiResDiscreteIdxSpacing = 1)
+    Partitioner1D(const Neon::Backend&                         backend,
+                  const ActiveIndexLambda&                     activeIndexLambda,
+                  const BcLambda&                              bcLambda,
+                  const Neon::index_3d&                        dataBlockSize,
+                  const Neon::int32_3d&                        domainSize,
+                  const Neon::domain::Stencil                  stencil,
+                  const int&                                   multiResDiscreteIdxSpacing = 1,
+                  Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::HILBERT)
     {
         mData = std::make_shared<Data>();
 
@@ -182,7 +183,7 @@ class Partitioner1D
     {
         return mData->block3DSpan;
     }
-    
+
     auto getMemoryGrid() -> Neon::aGrid&
     {
         return mData->mTopologyWithGhost;
@@ -288,7 +289,7 @@ class Partitioner1D
 
     auto getDenseMeta() -> const DenseMeta&
     {
-        //setDenseMeta();
+        // setDenseMeta();
         return *mData->mDenseMeta;
     }
 

@@ -37,7 +37,7 @@ auto SpanClassifier::getMapper1Dto3D(const SetIdx& setIdx,
 auto SpanClassifier::getMapper3Dto1D(const SetIdx& setIdx,
                                      ByPartition   byPartition,
                                      ByDirection   byDirection,
-                                     ByDomain      byDomain) const -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
+                                     ByDomain      byDomain) const -> const Neon::domain::tool::PointHashTable<int32_t, uint64_t>&
 {
     return mData[setIdx]
                 [static_cast<int>(byPartition)]
@@ -63,7 +63,7 @@ auto SpanClassifier::getMapper3Dto1D(const SetIdx& setIdx,
                                      ByPartition   byPartition,
                                      ByDirection   byDirection,
                                      ByDomain      byDomain)
-    -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&
+    -> Neon::domain::tool::PointHashTable<int32_t, uint64_t>&
 {
     return mData[setIdx]
                 [static_cast<int>(byPartition)]

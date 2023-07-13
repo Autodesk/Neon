@@ -2,11 +2,60 @@
 #include "Neon/core/core.h"
 
 
+#include <numeric>
 #include "Cassifications.h"
 #include "Neon/domain/tools/PointHashTable.h"
+#include "Neon/domain/tools/SpaceCurves.h"
 #include "Neon/domain/tools/partitioning/SpanDecomposition.h"
-
+#include  <numeric>
 namespace Neon::domain::tool::partitioning {
+
+struct Hash
+{
+    std::vector<Neon::index_3d>                           id1dTo3d;
+    Neon::domain::tool::PointHashTable<int32_t, uint64_t> id3dTo1d;
+
+    auto reHash(Neon::domain::tool::spaceCurves::EncoderType encoderType) -> void
+    {
+        // Encoding all points w.r.t the encoder type
+        std::vector<uint64_t> code;
+        for (auto const& point : id1dTo3d) {
+            code.push_back(Neon::domain::tool::spaceCurves::Encoder::encode(encoderType, point, id3dTo1d.getBBox()));
+        }
+        // Sort id1dTo3d w.r.t. the codes
+        std::vector<std::size_t> permutation = getSortedPermutation(code, [](uint64_t a, uint64_t b) {
+            return a < b;
+        });
+        id1dTo3d = applyPermutation(id1dTo3d, permutation);
+        for(uint64_t i = 0; i < id1dTo3d.size(); i++) {
+            *(id3dTo1d.getMetadata(id1dTo3d[i])) = i;
+        }
+    }
+
+   private:
+    template <typename T, typename Compare>
+    std::vector<std::size_t> getSortedPermutation(
+        const std::vector<T>& vec,
+        Compare const&        compare)
+    {
+        std::vector<std::size_t> p(vec.size());
+        std::iota(p.begin(), p.end(), 0);
+        std::sort(p.begin(), p.end(),
+                  [&](std::size_t i, std::size_t j) { return compare(vec[i], vec[j]); });
+        return p;
+    }
+
+    template <typename T>
+    std::vector<T> applyPermutation(
+        const std::vector<T>&           vec,
+        const std::vector<std::size_t>& p)
+    {
+        std::vector<T> sorted_vec(vec.size());
+        std::transform(p.begin(), p.end(), sorted_vec.begin(),
+                       [&](std::size_t i) { return vec[i]; });
+        return sorted_vec;
+    }
+};
 
 class SpanClassifier
 {
@@ -48,7 +97,7 @@ class SpanClassifier
                                        ByPartition,
                                        ByDirection,
                                        ByDomain) const
-        -> const Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
+        -> const Neon::domain::tool::PointHashTable<int32_t, uint64_t>&;
 
     [[nodiscard]] auto countInternal(Neon::SetIdx setIdx,
                                      ByDomain     byDomain) const -> int;
@@ -72,7 +121,7 @@ class SpanClassifier
                          ByPartition,
                          ByDirection,
                          ByDomain)
-        -> Neon::domain::tool::PointHashTable<int32_t, uint32_t>&;
+        -> Neon::domain::tool::PointHashTable<int32_t, uint64_t>&;
 
    private:
     auto addPoint(Neon::SetIdx const&   setIdx,
@@ -82,13 +131,7 @@ class SpanClassifier
                   ByDomain              byDomain) -> void;
 
 
-    struct Info
-    {
-        std::vector<Neon::index_3d>                           id1dTo3d;
-        Neon::domain::tool::PointHashTable<int32_t, uint32_t> id3dTo1d;
-    };
-
-    using Leve0_Info = Info;
+    using Leve0_Info = Hash;
     using Leve1_ByDomain = std::array<Leve0_Info, 2>;
     using Leve2_ByDirection = std::array<Leve1_ByDomain, 2>;
     using Leve3_ByPartition = std::array<Leve2_ByDirection, 2>;
@@ -129,7 +172,7 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
         for (auto& level2 : leve3ByPartition) {
             for (auto& level1 : level2) {
                 for (auto& level0 : level1) {
-                    level0.id3dTo1d = Neon::domain::tool::PointHashTable<int32_t, uint32_t>(block3DSpan);
+                    level0.id3dTo1d = Neon::domain::tool::PointHashTable<int32_t, uint64_t>(block3DSpan);
                 }
             }
         }
