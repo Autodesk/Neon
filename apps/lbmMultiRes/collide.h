@@ -415,8 +415,10 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
             auto        out = fout.load(loader, level, Neon::MultiResCompute::MAP);
             const T     omega = computeOmega(omega0, level, numLevels);
 
-            //reload the next level as a map to indicate that we will (remote) write to it
-            fout.load(loader, level + 1, Neon::MultiResCompute::MAP);
+            if (level < numLevels - 1) {
+                //reload the next level as a map to indicate that we will (remote) write to it
+                fout.load(loader, level + 1, Neon::MultiResCompute::MAP);
+            }
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
@@ -526,28 +528,29 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
                         const T pop_out_09 = (c1 - omega) * ins[9] + omega * eq_09;
                         out(cell, 9) = pop_out_09;
 
+                        if (level < numLevels - 1) {
+                            //store operation
+                            store<T, 0>(cell, out, pop_out_00);
+                            store<T, 1>(cell, out, pop_out_01);
+                            store<T, 2>(cell, out, pop_out_02);
+                            store<T, 3>(cell, out, pop_out_03);
+                            store<T, 4>(cell, out, pop_out_04);
+                            store<T, 5>(cell, out, pop_out_05);
+                            store<T, 6>(cell, out, pop_out_06);
+                            store<T, 7>(cell, out, pop_out_07);
+                            store<T, 8>(cell, out, pop_out_08);
+                            store<T, 9>(cell, out, pop_out_09);
 
-                        //store operation
-                        store<T, 0>(cell, out, pop_out_00);
-                        store<T, 1>(cell, out, pop_out_01);
-                        store<T, 2>(cell, out, pop_out_02);
-                        store<T, 3>(cell, out, pop_out_03);
-                        store<T, 4>(cell, out, pop_out_04);
-                        store<T, 5>(cell, out, pop_out_05);
-                        store<T, 6>(cell, out, pop_out_06);
-                        store<T, 7>(cell, out, pop_out_07);
-                        store<T, 8>(cell, out, pop_out_08);
-                        store<T, 9>(cell, out, pop_out_09);
-
-                        store<T, 10>(cell, out, pop_out_opp_00);
-                        store<T, 11>(cell, out, pop_out_opp_01);
-                        store<T, 12>(cell, out, pop_out_opp_02);
-                        store<T, 13>(cell, out, pop_out_opp_03);
-                        store<T, 14>(cell, out, pop_out_opp_04);
-                        store<T, 15>(cell, out, pop_out_opp_05);
-                        store<T, 16>(cell, out, pop_out_opp_06);
-                        store<T, 17>(cell, out, pop_out_opp_07);
-                        store<T, 18>(cell, out, pop_out_opp_08);
+                            store<T, 10>(cell, out, pop_out_opp_00);
+                            store<T, 11>(cell, out, pop_out_opp_01);
+                            store<T, 12>(cell, out, pop_out_opp_02);
+                            store<T, 13>(cell, out, pop_out_opp_03);
+                            store<T, 14>(cell, out, pop_out_opp_04);
+                            store<T, 15>(cell, out, pop_out_opp_05);
+                            store<T, 16>(cell, out, pop_out_opp_06);
+                            store<T, 17>(cell, out, pop_out_opp_07);
+                            store<T, 18>(cell, out, pop_out_opp_08);
+                        }
 
                     } else {
                         if (level != 0) {
