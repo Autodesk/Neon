@@ -70,13 +70,13 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 4) Streaming step that also performs the necessary "explosion" and "coalescence" steps.
     if (streamFusedExpl) {
-        streamFusedExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+        streamFusedExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else if (streamFusedCoal) {
-        streamFusedCoalescence<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+        streamFusedCoalescence<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else if (streamFuseAll) {
-        streamFusedCoalescenceExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+        streamFusedCoalescenceExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else {
-        stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+        stream<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     }
 
     // 5) stop
@@ -124,13 +124,13 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
     // 9) Streaming step
     if (streamFusedExpl) {
-        streamFusedExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+        streamFusedExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else if (streamFusedCoal) {
-        streamFusedCoalescence<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+        streamFusedCoalescence<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else if (streamFuseAll) {
-        streamFusedCoalescenceExplosion<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+        streamFusedCoalescenceExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     } else {
-        stream<T, Q>(grid, fineInitStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+        stream<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
     }
 }
 
