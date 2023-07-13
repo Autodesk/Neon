@@ -261,7 +261,7 @@ void runNonUniformLBM(const int           problemID,
     const double eff_mlups = (eff_num_iter * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
 
     
-    NEON_INFO("Time = {0:8.8f} (ms)", double(duration.count()));
+    NEON_INFO("Time = {0:8.8f} (microseconds)", double(duration.count()));
     NEON_INFO("MLUPS = {0:8.8f}, numActiveVoxels = {1}", mlups, numActiveVoxels);
     NEON_INFO("Effective MLUPS = {0:8.8f}, Effective numActiveVoxels = {1}", eff_mlups, gridDim.rMul());
 
