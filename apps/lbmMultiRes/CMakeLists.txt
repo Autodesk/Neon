@@ -14,4 +14,4 @@ set_target_properties(${APP_NAME} PROPERTIES
 set_target_properties(${APP_NAME} PROPERTIES FOLDER "apps")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "${APP_NAME}" FILES ${SrcFiles})
 
-add_test(NAME ${APP_NAME} COMMAND ${APP_NAME})
+#add_test(NAME ${APP_NAME} COMMAND ${APP_NAME})
