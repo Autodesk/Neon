@@ -1,6 +1,7 @@
 #include "Neon/core/tools/clipp.h"
 
 #include "Neon/Neon.h"
+#include "Neon/Report.h"
 #include "Neon/domain/mGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
@@ -13,6 +14,7 @@
 #include "stream.h"
 #include "util.h"
 
+Neon::Report report;
 
 template <typename T, int Q>
 void nonUniformTimestepRecursive(Neon::domain::mGrid&                        grid,
@@ -146,6 +148,7 @@ void runNonUniformLBM(const int           problemID,
                       const bool          collisionFusedStore,
                       const bool          benchmark)
 {
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
     //constexpr int depth = 2;
     constexpr int depth = 3;
@@ -255,16 +258,92 @@ void runNonUniformLBM(const int           problemID,
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
-    const double mlups = static_cast<double>(numIter * numActiveVoxels) / duration.count();
+    const double MLUPS = static_cast<double>(numIter * numActiveVoxels) / duration.count();
 
-    const double eff_num_iter = double(numIter) * double(1 << (depth - 1));
-    const double eff_mlups = (eff_num_iter * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
+    const double effNumIter = double(numIter) * double(1 << (depth - 1));
+    const double effMLUPS = (effNumIter * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
 
-    
+
     NEON_INFO("Time = {0:8.8f} (microseconds)", double(duration.count()));
-    NEON_INFO("MLUPS = {0:8.8f}, numActiveVoxels = {1}", mlups, numActiveVoxels);
-    NEON_INFO("Effective MLUPS = {0:8.8f}, Effective numActiveVoxels = {1}", eff_mlups, gridDim.rMul());
+    NEON_INFO("MLUPS = {0:8.8f}, numActiveVoxels = {1}", MLUPS, numActiveVoxels);
+    NEON_INFO("Effective MLUPS = {0:8.8f}, Effective numActiveVoxels = {1}", effMLUPS, gridDim.rMul());
 
+
+    //Reporting
+    auto algoName = [&]() {
+        std::string ret;
+        if (collisionFusedStore) {
+            ret = "CH";
+        } else {
+            ret = "C-H";
+        }
+        if (streamFusedExpl) {
+            ret += "-SE-O";
+        } else if (streamFusedCoal) {
+            ret += "-SO-E";
+        } else if (streamFuseAll) {
+            ret += "-SEO";
+        } else {
+            ret += "-S-E-O";
+        }
+        return ret;
+    };
+
+    auto typeName = [&]() {
+        std::string ret;
+        if (std::is_same_v<T, float>) {
+            ret = "F";
+        } else {
+            ret = "D";
+        }
+        return ret;
+    };
+
+    auto reportSuffix = [&]() {
+        std::string ret = "P" + std::to_string(problemID) + "_";
+        ret += algoName();
+        ret += "_" + typeName();
+
+        return ret;
+    };
+
+    //system
+    report.addMember("DeviceType", Neon::DeviceTypeUtil::toString(backend.devType()));
+
+    //grid
+    report.addMember("N", gridDim.x);
+    report.addMember("Depth", depth);
+    report.addMember("DataType", typeName());
+
+    //problem
+    report.addMember("ProblemID", problemID);
+    report.addMember("ulb", ulb);
+    report.addMember("Re", Re);
+    report.addMember("clength", clength);
+    report.addMember("visclb", visclb);
+    report.addMember("omega", omega);
+
+    //algorithm
+    report.addMember("fineInitStore", fineInitStore);
+    report.addMember("streamFusedExpl", streamFusedExpl);
+    report.addMember("streamFusedCoal", streamFusedCoal);
+    report.addMember("streamFuseAll", streamFuseAll);
+    report.addMember("collisionFusedStore", collisionFusedStore);
+    report.addMember("Algorithm", algoName());
+
+    //perf
+    report.addMember("Time (microsecond)", duration.count());
+    report.addMember("MLUPS", MLUPS);
+    report.addMember("NumIter", numIter);
+    report.addMember("NumVoxels", numActiveVoxels);
+    report.addMember("EMLUPS", effMLUPS);
+    report.addMember("ENumIter", effNumIter);
+    report.addMember("ENumVoxels", gridDim.rMul());
+
+    //output
+    report.write("MultiResLBM_" + reportSuffix(), true);
+
+    //post process
     postProcess<T, Q>(grid, Re, descriptor.getDepth(), fout, cellType, numIter, vel, rho, ulb, true, true);
 }
 
@@ -273,6 +352,9 @@ int main(int argc, char** argv)
     Neon::init();
 
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        report = Neon::Report("Lid Driven Cavity MultiRes LBM");
+        report.commandLine(argc, argv);
+
         std::string deviceType = "gpu";
         int         deviceId = 99;
         int         numIter = 2;
