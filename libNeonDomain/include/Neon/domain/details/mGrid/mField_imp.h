@@ -313,7 +313,9 @@ auto mField<T, C>::ioToVtk(std::string fileName,
                            bool        outputLevels,
                            bool        outputBlockID,
                            bool        outputVoxelID,
-                           bool        filterOverlaps) const -> void
+                           bool        filterOverlaps,
+                           double      lowSlice,
+                           double      highSlice) const -> void
 {
     auto l0Dim = mData->grid->getDimension(0);
 
@@ -388,6 +390,17 @@ auto mField<T, C>::ioToVtk(std::string fileName,
                                             if (filterOverlaps && l != 0) {
                                                 draw = !((*(mData->grid))(l - 1).isInsideDomain(voxelGlobalID));
                                             }
+
+                                            const Neon::double_3d location(double(voxelGlobalID.x) / double(l0Dim.x),
+                                                                           double(voxelGlobalID.y) / double(l0Dim.y),
+                                                                           double(voxelGlobalID.z) / double(l0Dim.z));
+
+                                            if (!((location.x > lowSlice && location.x < highSlice) ||
+                                                  (location.y > lowSlice && location.y < highSlice) ||
+                                                  (location.z > lowSlice && location.z < highSlice))) {
+                                                draw = false;
+                                            }
+
 
                                             if (draw) {
                                                 if (op == Op::Count) {

@@ -87,7 +87,9 @@ class mField
                  bool        outputLevels = true,
                  bool        outputBlockID = true,
                  bool        outputVoxelID = true,
-                 bool        filterOverlaps = true) const -> void;
+                 bool        filterOverlaps = true,
+                 double      lowSlice = 0.0,
+                 double      highSlice = 1.0) const -> void;
 
     auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) -> typename xField<T, C>::Partition&;
 
