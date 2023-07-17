@@ -174,15 +174,33 @@ void runNonUniformLBM(const int           problemID,
         levelSDF[1] = -31.0 / 160.0;
         levelSDF[2] = -64 / 160.0;
         levelSDF[3] = -1.0;
+    } else if (problemID == 2) {
+        gridDim = Neon::index_3d(240, 240, 240);
+        levelSDF[0] = 0;
+        levelSDF[1] = -48.0 / 240.0;
+        levelSDF[2] = -144.0 / 240.0;
+        levelSDF[3] = -1.0;
+    } else if (problemID == 3) {
+        gridDim = Neon::index_3d(320, 320, 320);
+        levelSDF[0] = 0;
+        levelSDF[1] = -64.0 / 320.0;
+        levelSDF[2] = -128.0 / 320.0;
+        levelSDF[3] = -1.0;
+    } else if (problemID == 4) {
+        gridDim = Neon::index_3d(480, 480, 480);
+        levelSDF[0] = 0;
+        levelSDF[1] = -96.0 / 480;
+        levelSDF[2] = -192.0 / 480;
+        levelSDF[3] = -1.0;
     }
 
 
-    generatepalabosDATFile(std::string("lid_" + std::to_string(gridDim.x) + "_" +
-                                       std::to_string(gridDim.y) + "_" +
-                                       std::to_string(gridDim.x) + ".dat"),
-                           gridDim,
-                           depth,
-                           levelSDF);
+    //generatepalabosDATFile(std::string("lid_" + std::to_string(gridDim.x) + "_" +
+    //                                   std::to_string(gridDim.y) + "_" +
+    //                                   std::to_string(gridDim.x) + ".dat"),
+    //                       gridDim,
+    //                       depth,
+    //                       levelSDF);
 
     //define the grid
     const Neon::mGridDescriptor<1> descriptor(depth);
