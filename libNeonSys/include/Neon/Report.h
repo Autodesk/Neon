@@ -11,6 +11,8 @@ namespace Neon {
 class Report : public core::Report
 {
    public:
+    Report() = default;
+
     /**
      * Constructor with name of the record
     */

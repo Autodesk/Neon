@@ -17,7 +17,7 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
     //its neighbor's children)
 
     return grid.newContainer(
-        "storeCoarse_" + std::to_string(level), level,
+        "H" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
             auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_DOWN);
 
@@ -72,12 +72,6 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
                                                         if (childVal.mIsValid) {
                                                             num++;
                                                             sum += childVal.mData;
-                                                            /*printf("\n S Parent Cell %d (%d,%d, %d) added Child %d (%d, %d, %d) along q= %d",
-                                                                   cell.mBlockID,
-                                                                   cell.mLocation.x, cell.mLocation.y, cell.mLocation.z,
-                                                                   childCell.mBlockID,
-                                                                   childCell.mLocation.x, childCell.mLocation.y, childCell.mLocation.z,
-                                                                   q);*/
                                                         }
                                                     }
                                                 }
@@ -109,7 +103,7 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
 
 
     return grid.newContainer(
-        "storeFine_" + std::to_string(level), level,
+        "H" + std::to_string(level), level,
         [&, level](Neon::set::Loader& loader) {
             //auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
 
@@ -122,49 +116,45 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 assert(pout.hasParent(cell));
 
-                for (int8_t q = 0; q < Q; ++q) {
+                if (!pout.hasChildren(cell)) {
+                    for (int8_t q = 0; q < Q; ++q) {
 
-                    const Neon::int8_3d qDir = getDir(q);
-                    if (qDir.x == 0 && qDir.y == 0 && qDir.z == 0) {
-                        continue;
-                    }
+                        const Neon::int8_3d qDir = getDir(q);
+                        if (qDir.x == 0 && qDir.y == 0 && qDir.z == 0) {
+                            continue;
+                        }
 
-                    const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
+                        const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
 
-                    //we try to access a cell on the same level (i.e., the refined level) along the same
-                    //direction as the uncle and we use this a proxy to check if there is an unrefined uncle
-                    const auto cn = pout.helpGetNghIdx(cell, uncleDir);
+                        //we try to access a cell on the same level (i.e., the refined level) along the same
+                        //direction as the uncle and we use this a proxy to check if there is an unrefined uncle
+                        const auto cn = pout.helpGetNghIdx(cell, uncleDir);
 
-                    //cn may not be active because 1. it is outside the domain, or 2. this location is occupied by a coarse cell
-                    //we are interested in 2.
-                    if (!cn.isActive()) {
+                        //cn may not be active because 1. it is outside the domain, or 2. this location is occupied by a coarse cell
+                        //we are interested in 2.
+                        if (!cn.isActive()) {
 
-                        //now, we can get the uncle but we need to make sure it is active i.e.,
-                        //it is not out side the domain boundary
-                        const auto uncle = pout.getUncle(cell, uncleDir);
-                        if (uncle.isActive()) {
+                            //now, we can get the uncle but we need to make sure it is active i.e.,
+                            //it is not out side the domain boundary
+                            const auto uncle = pout.getUncle(cell, uncleDir);
+                            if (uncle.isActive()) {
 
-                            //locate the coarse cell where we should store this cell info
-                            const Neon::int8_3d CsDir = uncleDir - qDir;
+                                //locate the coarse cell where we should store this cell info
+                                const Neon::int8_3d CsDir = uncleDir - qDir;
 
-                            const auto cs = pout.getUncle(cell, CsDir);
+                                const auto cs = pout.getUncle(cell, CsDir);
 
-                            if (cs.isActive()) {
+                                if (cs.isActive()) {
 
-                                const T cellVal = pout(cell, q);
+                                    const T cellVal = pout(cell, q);
 
-                            /*printf("\n F Parent Cell %d (%d,%d, %d) added Child %d (%d, %d, %d) along q= %d",
-                                       cs.mBlockID,
-                                       cs.mLocation.x, cs.mLocation.y, cs.mLocation.z,
-                                       cell.mBlockID,
-                                       cell.mLocation.x, cell.mLocation.y, cell.mLocation.z,
-                                       q);*/
 #ifdef NEON_PLACE_CUDA_DEVICE
-                                atomicAdd(&pout.uncleVal(cell, CsDir, q), cellVal);
+                                    atomicAdd(&pout.uncleVal(cell, CsDir, q), cellVal);
 #else
 #pragma omp atomic
-                                pout.uncleVal(cell, CsDir, q) += cellVal;
+                                    pout.uncleVal(cell, CsDir, q) += cellVal;
 #endif
+                                }
                             }
                         }
                     }

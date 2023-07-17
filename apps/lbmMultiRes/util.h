@@ -2,13 +2,13 @@
 #include "Neon/Neon.h"
 #include "lattice.h"
 
-NEON_CUDA_HOST_DEVICE Neon::int8_3d getDir(const int8_t q)
+constexpr NEON_CUDA_HOST_DEVICE Neon::int8_3d getDir(const int8_t q)
 {
     return Neon::int8_3d(latticeVelocity[q][0], latticeVelocity[q][1], latticeVelocity[q][2]);
 }
 
 template <typename T>
-NEON_CUDA_HOST_DEVICE inline Neon::int8_3d uncleOffset(const T& cell, const Neon::int8_3d& q)
+constexpr NEON_CUDA_HOST_DEVICE inline Neon::int8_3d uncleOffset(const T& cell, const Neon::int8_3d& q)
 {
     //given a local index within a cell and a population direction (q)
     //find the uncle's (the parent neighbor) offset from which the desired population (q) should be read
