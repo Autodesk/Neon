@@ -150,48 +150,108 @@ void runNonUniformLBM(const int           problemID,
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
-    //constexpr int depth = 2;
-    constexpr int depth = 3;
-
-    float levelSDF[depth + 1];
-
     Neon::index_3d gridDim;
 
+    int                depth = 2;
+    std::vector<float> levelSDF(depth + 1);
     gridDim = Neon::index_3d(6, 6, 6);
     levelSDF[0] = 0;
     levelSDF[1] = -2.0 / 3.0;
     levelSDF[2] = -1.0;
 
     if (problemID == 0) {
+        depth = 3;
+        levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(48, 48, 48);
         levelSDF[0] = 0;
         levelSDF[1] = -8 / 24.0;
         levelSDF[2] = -16 / 24.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 1) {
+        depth = 3;
+        levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(160, 160, 160);
         levelSDF[0] = 0;
         levelSDF[1] = -31.0 / 160.0;
-        levelSDF[2] = -64 / 160.0;
+        levelSDF[2] = -64.0 / 160.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 2) {
+        depth = 3;
+        levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(240, 240, 240);
         levelSDF[0] = 0;
         levelSDF[1] = -48.0 / 240.0;
         levelSDF[2] = -144.0 / 240.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 3) {
+        depth = 3;
+        levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(320, 320, 320);
         levelSDF[0] = 0;
         levelSDF[1] = -64.0 / 320.0;
         levelSDF[2] = -128.0 / 320.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 4) {
+        depth = 3;
+        levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(480, 480, 480);
         levelSDF[0] = 0;
-        levelSDF[1] = -96.0 / 480;
-        levelSDF[2] = -192.0 / 480;
+        levelSDF[1] = -96.0 / 480.0;
+        levelSDF[2] = -192.0 / 480.0;
         levelSDF[3] = -1.0;
+    } else if (problemID == 5) {
+        depth = 3;
+        levelSDF.resize(depth + 1);
+        gridDim = Neon::index_3d(512, 512, 512);
+        levelSDF[0] = 0;
+        levelSDF[1] = -103.0 / 512.0;
+        levelSDF[2] = -205.0 / 512.0;
+        levelSDF[3] = -1.0;
+    } else if (problemID == 6) {
+        depth = 4;
+        levelSDF.resize(depth + 1);
+        gridDim = Neon::index_3d(160, 160, 160);
+        levelSDF[0] = 0;
+        levelSDF[1] = -31.0 / 160.0;
+        levelSDF[2] = -64.0 / 160.0;
+        levelSDF[3] = -112.0 / 160.0;
+        levelSDF[4] = -1.0;
+    } else if (problemID == 7) {
+        depth = 4;
+        levelSDF.resize(depth + 1);
+        gridDim = Neon::index_3d(240, 240, 240);
+        levelSDF[0] = 0;
+        levelSDF[1] = -48.0 / 240.0;
+        levelSDF[2] = -144.0 / 240.0;
+        levelSDF[3] = -192.0 / 240.0;
+        levelSDF[4] = -1.0;
+    } else if (problemID == 8) {
+        depth = 4;
+        levelSDF.resize(depth + 1);
+        gridDim = Neon::index_3d(320, 320, 320);
+        levelSDF[0] = 0;
+        levelSDF[1] = -64.0 / 320.0;
+        levelSDF[2] = -128.0 / 320.0;
+        levelSDF[2] = -224.0 / 320.0;
+        levelSDF[3] = -1.0;
+    } else if (problemID == 9) {
+        depth = 4;
+        levelSDF.resize(depth + 1);
+        gridDim = Neon::index_3d(480, 480, 480);
+        levelSDF[0] = 0;
+        levelSDF[1] = -96.0 / 480.0;
+        levelSDF[2] = -192.0 / 480.0;
+        levelSDF[3] = -320.0 / 480.0;
+        levelSDF[4] = -1.0;
+    } else if (problemID == 10) {
+        depth = 4;
+        levelSDF.resize(depth + 1);
+        gridDim = Neon::index_3d(512, 512, 512);
+        levelSDF[0] = 0;
+        levelSDF[1] = -103.0 / 512.0;
+        levelSDF[2] = -205.0 / 512.0;
+        levelSDF[3] = -358.0 / 512.0;
+        levelSDF[4] = -1.0;
     }
 
 
@@ -205,20 +265,17 @@ void runNonUniformLBM(const int           problemID,
     //define the grid
     const Neon::mGridDescriptor<1> descriptor(depth);
 
+    std::vector<std::function<bool(const Neon::index_3d&)>> activeCellLambda(depth);
+    for (size_t i = 0; i < depth; ++i) {
+        activeCellLambda[i] = [=](const Neon::index_3d id) -> bool {
+            float sdf = sdfCube(id, gridDim - 1);
+            return sdf <= levelSDF[i] && sdf > levelSDF[i + 1];
+        };
+    }
+
     Neon::domain::mGrid grid(
         backend, gridDim,
-        {[&](const Neon::index_3d id) -> bool {
-             return sdfCube(id, gridDim - 1) <= levelSDF[0] &&
-                    sdfCube(id, gridDim - 1) > levelSDF[1];
-         },
-         [&](const Neon::index_3d& id) -> bool {
-             return sdfCube(id, gridDim - 1) <= levelSDF[1] &&
-                    sdfCube(id, gridDim - 1) > levelSDF[2];
-         },
-         [&](const Neon::index_3d& id) -> bool {
-             return sdfCube(id, gridDim - 1) <= levelSDF[2] &&
-                    sdfCube(id, gridDim - 1) > levelSDF[3];
-         }},
+        activeCellLambda,
         Neon::domain::Stencil::s19_t(false), descriptor);
 
     //LBM problem
@@ -228,6 +285,10 @@ void runNonUniformLBM(const int           problemID,
     const T               visclb = ulb * clength / static_cast<T>(Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d ulid(ulb, 0., 0.);
+
+    //auto vel = grid.newField<T>("vel", 1, 0);
+    //vel.ioToVtk("Test", true, true, true, true, 0.45, 0.55);
+    //exit(0);
 
     //allocate fields
     auto fin = grid.newField<T>("fin", Q, 0);
