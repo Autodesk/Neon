@@ -10,7 +10,8 @@ eGrid::eGrid(const Neon::Backend&         backend,
              const ActiveCellLambda&      activeCellLambda,
              const Neon::domain::Stencil& stencil,
              const Vec_3d<double>&        spacing,
-             const Vec_3d<double>&        origin)
+             const Vec_3d<double>&        origin,
+             Neon::domain::tool::spaceCurves::EncoderType spaceFillingCode )
 {
     mData = std::make_shared<Data>(backend);
     mData->stencil = stencil;
@@ -40,6 +41,7 @@ eGrid::eGrid(const Neon::Backend&         backend,
         1,
         dimension,
         stencil,
+        spaceFillingCode,
         1);
 
 

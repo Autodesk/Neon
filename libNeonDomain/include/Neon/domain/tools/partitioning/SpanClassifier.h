@@ -7,7 +7,6 @@
 #include "Neon/domain/tools/PointHashTable.h"
 #include "Neon/domain/tools/SpaceCurves.h"
 #include "Neon/domain/tools/partitioning/SpanDecomposition.h"
-#include  <numeric>
 namespace Neon::domain::tool::partitioning {
 
 struct Hash
@@ -27,7 +26,7 @@ struct Hash
             return a < b;
         });
         id1dTo3d = applyPermutation(id1dTo3d, permutation);
-        for(uint64_t i = 0; i < id1dTo3d.size(); i++) {
+        for (uint64_t i = 0; i < id1dTo3d.size(); i++) {
             *(id3dTo1d.getMetadata(id1dTo3d[i])) = i;
         }
     }
@@ -76,6 +75,7 @@ class SpanClassifier
                    const Neon::int32_3d&                            domainSize,
                    const Neon::domain::Stencil                      stencil,
                    const int&                                       discreteVoxelSpacing,
+                   Neon::domain::tool::spaceCurves::EncoderType     encoderType,
                    std::shared_ptr<partitioning::SpanDecomposition> sp);
 
 
@@ -146,17 +146,18 @@ template <typename ActiveCellLambda,
           typename BcLambda,
           typename Block3dIdxToBlockOrigin,
           typename GetVoxelAbsolute3DIdx>
-SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
-                               const ActiveCellLambda&            activeCellLambda,
-                               const BcLambda&                    bcLambda,
-                               const Block3dIdxToBlockOrigin&     block3dIdxToBlockOrigin,
-                               const GetVoxelAbsolute3DIdx&       getVoxelAbsolute3DIdx,
-                               const Neon::int32_3d&              block3DSpan,
-                               const Neon::int32_3d&              dataBlockSize3D,
-                               const Neon::int32_3d&              domainSize,
-                               const Neon::domain::Stencil        stencil,
-                               const int&                         discreteVoxelSpacing,
-                               std::shared_ptr<SpanDecomposition> spanDecompositionNoUse)
+SpanClassifier::SpanClassifier(const Neon::Backend&                         backend,
+                               const ActiveCellLambda&                      activeCellLambda,
+                               const BcLambda&                              bcLambda,
+                               const Block3dIdxToBlockOrigin&               block3dIdxToBlockOrigin,
+                               const GetVoxelAbsolute3DIdx&                 getVoxelAbsolute3DIdx,
+                               const Neon::int32_3d&                        block3DSpan,
+                               const Neon::int32_3d&                        dataBlockSize3D,
+                               const Neon::int32_3d&                        domainSize,
+                               const Neon::domain::Stencil                  stencil,
+                               const int&                                   discreteVoxelSpacing,
+                               Neon::domain::tool::spaceCurves::EncoderType spaceFillingType,
+                               std::shared_ptr<SpanDecomposition>           spanDecompositionNoUse)
 {
     mData = backend.devSet().newDataSet<Leve3_ByPartition>();
     mSpanDecomposition = spanDecompositionNoUse;
@@ -279,5 +280,20 @@ SpanClassifier::SpanClassifier(const Neon::Backend&               backend,
                     }
                 }
             });
+
+    mData.forEachSeq([&](SetIdx, auto& leve3ByPartition) {
+        //        using Leve0_Info = Info;
+        //        using Leve1_ByDomain = std::array<Leve0_Info, 2>;
+        //        using Leve2_ByDirection = std::array<Leve1_ByDomain, 2>;
+        //        using Leve3_ByPartition = std::array<Leve2_ByDirection, 2>;
+        //        using Data = Neon::set::DataSet<Leve3_ByPartition>;
+        for (auto& level2 : leve3ByPartition) {
+            for (auto& level1 : level2) {
+                for (auto& level0 : level1) {
+                    level0.reHash(spaceFillingType);
+                }
+            }
+        }
+    });
 }
 }  // namespace Neon::domain::tool::partitioning

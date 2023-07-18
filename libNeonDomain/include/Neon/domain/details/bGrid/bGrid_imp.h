@@ -1,4 +1,5 @@
 #include "Neon/domain/details/bGrid/bGrid.h"
+#include "Neon/domain/tools/SpaceCurves.h"
 
 namespace Neon::domain::details::bGrid {
 
@@ -9,8 +10,9 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                      const ActiveCellLambda       activeCellLambda,
                      const Neon::domain::Stencil& stencil,
                      const double_3d&             spacingData,
-                     const double_3d&             origin)
-    : bGrid(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin)
+                     const double_3d&             origin,
+                     Neon::domain::tool::spaceCurves::EncoderType encoderType)
+    : bGrid(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin, encoderType)
 {
 }
 
@@ -22,7 +24,8 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                      const Neon::domain::Stencil& stencil,
                      const int                    multiResDiscreteIdxSpacing,
                      const double_3d&             spacingData,
-                     const double_3d&             origin)
+                     const double_3d&             origin,
+                     Neon::domain::tool::spaceCurves::EncoderType encoderType )
 {
 
 
@@ -58,6 +61,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
             SBlock::memBlockSize3D.template newType<int32_t>(),
             domainSize,
             Neon::domain::Stencil::s27_t(false),
+            encoderType,
             multiResDiscreteIdxSpacing);
 
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();

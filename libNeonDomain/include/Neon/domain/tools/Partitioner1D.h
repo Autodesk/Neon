@@ -111,8 +111,8 @@ class Partitioner1D
                   const Neon::index_3d&                        dataBlockSize,
                   const Neon::int32_3d&                        domainSize,
                   const Neon::domain::Stencil                  stencil,
-                  const int&                                   multiResDiscreteIdxSpacing = 1,
-                  Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::HILBERT)
+                  Neon::domain::tool::spaceCurves::EncoderType spaceFillingType,
+                  const int&                                   multiResDiscreteIdxSpacing = 1)
     {
         mData = std::make_shared<Data>();
 
@@ -165,6 +165,7 @@ class Partitioner1D
             domainSize,
             stencil,
             multiResDiscreteIdxSpacing,
+            spaceFillingType,
             mData->spanDecomposition);
 
         mData->mSpanLayout = std::make_shared<partitioning::SpanLayout>(
