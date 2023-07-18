@@ -40,7 +40,7 @@ int main(int, char**)
     Neon::index_3d dim(n, n, n);     // Size of the domain
     const double   voxelEdge = 1.0;  // Size of a voxel edge
 
-    using Grid = Neon::domain::eGrid;  // Selecting one of the grid provided by Neon
+    using Grid = Neon::dGrid;  // Selecting one of the grid provided by Neon
     Neon::domain::Stencil gradStencil([] {
         // We use a center difference scheme to compute the grad
         // The order of the points is important,
@@ -118,9 +118,9 @@ int main(int, char**)
                                       3, // <- Number of field's component per grid point.
                                       0); // <- Default value for non active points.
 
-    Neon::set::HuOptions huOptions(Neon::set::TransferMode::get,
-                                   true);
-    sphereSdf.haloUpdate(huOptions);
+    sphereSdf.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                            Neon::set::TransferMode::get,
+                            Neon::Execution::device).run(Neon::Backend::mainStreamIdx);
 
     computeGrad(sphereSdf, grad, voxelEdge).run(Neon::Backend::mainStreamIdx);
     grad.updateHostData(Neon::Backend::mainStreamIdx);

@@ -1,5 +1,5 @@
 #include "Neon/Neon.h"
-#include "Neon/domain/eGrid.h"
+#include "Neon/domain/Grids.h"
 #include "Neon/skeleton/Skeleton.h"
 #include "expandSphere.h"
 
@@ -8,15 +8,15 @@ auto expandedLevelSet(Field& sdf,
                  double expantion)
     ->Neon::set::Container
 {
-    return sdf.getGrid().getContainer(
+    return sdf.getGrid().newContainer(
         "ExpandedLevelSet", [&, expantion](Neon::set::Loader& L) {
             auto& px = L.load(sdf);
 
             return [=] NEON_CUDA_HOST_DEVICE(
-                       const typename Field::Cell& cell) mutable {
-                px(cell, 0) -= expantion;
+                       const typename Field::Idx& gidx) mutable {
+                px(gidx, 0) -= expantion;
             };
         });
 }
 
-template auto expandedLevelSet<Neon::domain::eGrid::Field<double, 0>>(Neon::domain::eGrid::Field<double, 0>& sdf, double expation) -> Neon::set::Container;
+template auto expandedLevelSet<Neon::dGrid::Field<double, 0>>(Neon::dGrid::Field<double, 0>& sdf, double expation) -> Neon::set::Container;
