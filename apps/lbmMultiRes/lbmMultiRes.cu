@@ -232,8 +232,8 @@ void runNonUniformLBM(const int           problemID,
         levelSDF[0] = 0;
         levelSDF[1] = -64.0 / 320.0;
         levelSDF[2] = -128.0 / 320.0;
-        levelSDF[2] = -224.0 / 320.0;
-        levelSDF[3] = -1.0;
+        levelSDF[3] = -224.0 / 320.0;
+        levelSDF[4] = -1.0;
     } else if (problemID == 9) {
         depth = 4;
         levelSDF.resize(depth + 1);
@@ -287,7 +287,7 @@ void runNonUniformLBM(const int           problemID,
     const Neon::double_3d ulid(ulb, 0., 0.);
 
     //auto vel = grid.newField<T>("vel", 1, 0);
-    //vel.ioToVtk("Test", true, true, true, true, 0.45, 0.55);
+    //vel.ioToVtk("Test", true, true, true, true, 0.48, 0.52);
     //exit(0);
 
     //allocate fields
