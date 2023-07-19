@@ -46,7 +46,8 @@ tGrid<GridTransformation>::tGrid(const Neon::Backend&                         bk
                                            activeCellLambda,
                                            stencil,
                                            spacing,
-                                           origin);
+                                           origin,
+                                           encoderType);
     GridTransformation::initSpan(mData->foundationGrid,
                                  NEON_OUT mData->spanTable);
     tGrid::GridBase::init("tGrid",

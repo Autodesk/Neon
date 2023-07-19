@@ -46,7 +46,7 @@ def countAll():
                                             continue
                                         if STORAGE_FP == 'float' and COMPUTE_FP == 'double':
                                             continue
-                                            
+
                                         counter += 1
     return counter
 
