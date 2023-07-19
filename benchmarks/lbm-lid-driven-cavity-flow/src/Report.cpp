@@ -29,6 +29,7 @@ Report::Report(const Config& c)
 
     mReport.addMember("computeType", c.computeType);
     mReport.addMember("storeType", c.storeType);
+    mReport.addMember("spaceCurve", Neon::domain::tool::spaceCurves::EncoderTypeUtil::toString(c.spaceCurve));
 
 
     mReport.addMember("occ", Neon::skeleton::OccUtils::toString(c.occ));

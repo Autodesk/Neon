@@ -32,12 +32,13 @@ tGrid<GridTransformation>::tGrid(FoundationGrid& foundationGrid)
 
 template <typename GridTransformation>
 template <typename SparsityPattern>
-tGrid<GridTransformation>::tGrid(const Neon::Backend&         bk,
-                                 const Neon::int32_3d&        dimension,
-                                 const SparsityPattern&       activeCellLambda,
-                                 const Neon::domain::Stencil& stencil,
-                                 const Vec_3d<double>&        spacing,
-                                 const Vec_3d<double>&        origin)
+tGrid<GridTransformation>::tGrid(const Neon::Backend&                         bk,
+                                 const Neon::int32_3d&                        dimension,
+                                 const SparsityPattern&                       activeCellLambda,
+                                 const Neon::domain::Stencil&                 stencil,
+                                 const Vec_3d<double>&                        spacing,
+                                 const Vec_3d<double>&                        origin,
+                                 Neon::domain::tool::spaceCurves::EncoderType encoderType)
 {
     mData = std::make_shared<Data>(bk);
     mData->foundationGrid = FoundationGrid(bk,

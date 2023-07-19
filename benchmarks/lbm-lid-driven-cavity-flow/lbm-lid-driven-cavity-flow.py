@@ -6,8 +6,9 @@ STORAGE_FP_LIST = "double float".split()
 COMPUTE_FP_LIST = "double float".split()
 OCC_LIST = "nOCC sOCC".split()
 HU_LIST = "huGrid huLattice".split()
+CURVE_LIST = "sweep morton hilbert".split()
 WARM_UP_ITER = 10
-MAX_ITER = 100
+MAX_ITER = 10000
 REPETITIONS = 5
 
 import subprocess
@@ -40,10 +41,13 @@ def countAll():
                         for DEVICE_SET in DEVICE_SET_LIST:
                             for GRID in GRID_LIST:
                                 for HU in HU_LIST:
-                                    if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
-                                        continue
-
-                                    counter += 1
+                                    for CURVE in CURVE_LIST:
+                                        if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
+                                            continue
+                                        if STORAGE_FP == 'float' and COMPUTE_FP == 'double':
+                                            continue
+                                            
+                                        counter += 1
     return counter
 
 
@@ -64,44 +68,49 @@ with open(command + '.log', 'w') as fp:
                         for COMPUTE_FP in COMPUTE_FP_LIST:
                             for GRID in GRID_LIST:
                                 for HU in HU_LIST:
+                                    for CURVE in CURVE_LIST:
 
-                                    if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
-                                        continue
+                                        if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
+                                            continue
+                                        if STORAGE_FP == 'float' and COMPUTE_FP == 'double':
+                                            continue
 
-                                    parameters = []
-                                    parameters.append('--deviceType ' + DEVICE_TYPE)
-                                    parameters.append('--deviceIds ' + DEVICE_SET)
-                                    parameters.append('--grid ' + GRID)
-                                    parameters.append('--domain-size ' + DOMAIN_SIZE)
-                                    parameters.append('--warmup-iter ' + str(WARM_UP_ITER))
-                                    parameters.append('--repetitions ' + str(REPETITIONS))
-                                    parameters.append('--max-iter ' + str(MAX_ITER))
-                                    parameters.append(
-                                        '--report-filename ' + 'lbm-lid-driven-cavity-flow___' +
-                                        DEVICE_TYPE + '_' +
-                                        DEVICE_SET.replace(' ', '_') + '-' +
-                                        GRID + '_' +
-                                        DOMAIN_SIZE + '-' +
-                                        STORAGE_FP + '-' + COMPUTE_FP + '-' +
-                                        OCC)
-                                    parameters.append('--computeFP ' + COMPUTE_FP)
-                                    parameters.append('--storageFP ' + STORAGE_FP)
-                                    parameters.append('--benchmark')
-                                    parameters.append('--' + OCC)
-                                    parameters.append('--' + HU)
+                                        parameters = []
+                                        parameters.append('--deviceType ' + DEVICE_TYPE)
+                                        parameters.append('--deviceIds ' + DEVICE_SET)
+                                        parameters.append('--grid ' + GRID)
+                                        parameters.append('--domain-size ' + DOMAIN_SIZE)
+                                        parameters.append('--warmup-iter ' + str(WARM_UP_ITER))
+                                        parameters.append('--repetitions ' + str(REPETITIONS))
+                                        parameters.append('--max-iter ' + str(MAX_ITER))
+                                        parameters.append(
+                                            '--report-filename ' + 'lbm-lid-driven-cavity-flow___' +
+                                            DEVICE_TYPE + '_' +
+                                            DEVICE_SET.replace(' ', '_') + '-' +
+                                            GRID + '_' +
+                                            DOMAIN_SIZE + '-' +
+                                            STORAGE_FP + '-' + COMPUTE_FP + '-' +
+                                            OCC)
+                                        parameters.append('--computeFP ' + COMPUTE_FP)
+                                        parameters.append('--storageFP ' + STORAGE_FP)
+                                        parameters.append('--curve ' + CURVE)
 
-                                    commandList = []
-                                    commandList.append(command)
-                                    for el in parameters:
-                                        for s in el.split():
-                                            commandList.append(s)
+                                        parameters.append('--benchmark')
+                                        parameters.append('--' + OCC)
+                                        parameters.append('--' + HU)
 
-                                    fp.write("\n-------------------------------------------\n")
-                                    fp.write(' '.join(commandList))
-                                    fp.write("\n-------------------------------------------\n")
-                                    fp.flush()
-                                    print(' '.join(commandList))
-                                    subprocess.run(commandList, text=True, stdout=fp)
+                                        commandList = []
+                                        commandList.append(command)
+                                        for el in parameters:
+                                            for s in el.split():
+                                                commandList.append(s)
 
-                                    counter += 1
-                                    printProgressBar(counter * 100.0 / SAMPLES, 'Progress')
+                                        fp.write("\n-------------------------------------------\n")
+                                        fp.write(' '.join(commandList))
+                                        fp.write("\n-------------------------------------------\n")
+                                        fp.flush()
+                                        print(' '.join(commandList))
+                                        subprocess.run(commandList, text=True, stdout=fp)
+
+                                        counter += 1
+                                        printProgressBar(counter * 100.0 / SAMPLES, 'Progress')

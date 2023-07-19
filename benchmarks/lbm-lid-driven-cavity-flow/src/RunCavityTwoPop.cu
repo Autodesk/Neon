@@ -62,7 +62,9 @@ auto run(Config& config,
     Grid grid(
         bk, {config.N, config.N, config.N},
         [](const Neon::index_3d&) { return true; },
-        Lattice::template getDirectionAsVector<Lattice::MemoryMapping>());
+        Lattice::template getDirectionAsVector<Lattice::MemoryMapping>(),
+        0.0, 1.0,
+        config.spaceCurve);
 
     PopulationField pop0 = grid.template newField<Storage, Lattice::Q>("Population", Lattice::Q, Storage(0.0));
     PopulationField pop1 = grid.template newField<Storage, Lattice::Q>("Population", Lattice::Q, Storage(0.0));

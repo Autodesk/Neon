@@ -8,8 +8,8 @@
 #include "Neon/domain/interface/Stencil.h"
 #include "Neon/domain/interface/common.h"
 #include "Neon/domain/patterns/PatternScalar.h"
+#include "Neon/domain/tools/SpaceCurves.h"
 #include "Neon/domain/tools/SpanTable.h"
-
 /**
  * template <typename FoundationGrid>
  * GridTransformation {
@@ -56,12 +56,13 @@ class tGrid : public Neon::domain::interface::GridBaseTemplate<tGrid<GridTransfo
     explicit tGrid(FoundationGrid& foundationGrid);
 
     template <typename SparsityPattern>
-    tGrid(const Neon::Backend&         backend /**< Target for computation */,
-          const Neon::int32_3d&        dimension /**< Dimension of the bounding box containing the domain */,
-          const SparsityPattern&       activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
-          const Neon::domain::Stencil& stencil /**< Stencil used by any computation on the grid */,
-          const Vec_3d<double>&        spacing = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
-          const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */);
+    tGrid(const Neon::Backend&                         backend /**< Target for computation */,
+          const Neon::int32_3d&                        dimension /**< Dimension of the bounding box containing the domain */,
+          const SparsityPattern&                       activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
+          const Neon::domain::Stencil&                 stencil /**< Stencil used by any computation on the grid */,
+          const Vec_3d<double>&                        spacing = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
+          const Vec_3d<double>&                        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */,
+          Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
     tGrid(const tGrid& other);                 // copy constructor
     tGrid(tGrid&& other) noexcept;             // move constructor
