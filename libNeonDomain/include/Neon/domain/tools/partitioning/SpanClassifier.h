@@ -16,10 +16,29 @@ struct Hash
 
     auto reHash(Neon::domain::tool::spaceCurves::EncoderType encoderType) -> void
     {
+        //        std::cout << "BEFORE Cartesian ";
+        //        for (int i = 0; i < int(id1dTo3d.size()); i++) {
+        //            std::cout << id1dTo3d[i] << " ";
+        //        }
+        //        std::cout << std::endl
+        //                  << " ID ";
+        //        for (int i = 0; i < int(id1dTo3d.size()); i++) {
+        //            std::cout << *id3dTo1d.getMetadata(id1dTo3d[i]) << " ";
+        //        }
+        //        std::cout << std::endl
+        //                  << " CODE ";
+        //        for (int i = 0; i < int(id1dTo3d.size()); i++) {
+        //            std::cout << Neon::domain::tool::spaceCurves::Encoder::encode(encoderType, id3dTo1d.getBBox(), id1dTo3d[i]) << " ";
+        //        }
+        //        std::cout << std::endl;
+        //        std::cout << " BOX " << id3dTo1d.getBBox();
+        //
+        //        std::cout << std::endl;
+
         // Encoding all points w.r.t the encoder type
         std::vector<uint64_t> code;
         for (auto const& point : id1dTo3d) {
-            code.push_back(Neon::domain::tool::spaceCurves::Encoder::encode(encoderType, point, id3dTo1d.getBBox()));
+            code.push_back(Neon::domain::tool::spaceCurves::Encoder::encode(encoderType, id3dTo1d.getBBox(), point));
         }
         // Sort id1dTo3d w.r.t. the codes
         std::vector<std::size_t> permutation = getSortedPermutation(code, [](uint64_t a, uint64_t b) {
@@ -29,6 +48,22 @@ struct Hash
         for (uint64_t i = 0; i < id1dTo3d.size(); i++) {
             *(id3dTo1d.getMetadata(id1dTo3d[i])) = i;
         }
+//
+//        std::cout << "AFTER Cartesian ";
+//        for (int i = 0; i < int(id1dTo3d.size()); i++) {
+//            std::cout << id1dTo3d[i] << " ";
+//        }
+//        std::cout << std::endl
+//                  << " ID ";
+//        for (int i = 0; i < int(id1dTo3d.size()); i++) {
+//            std::cout << *id3dTo1d.getMetadata(id1dTo3d[i]) << " ";
+//        }
+//        std::cout << std::endl
+//                  << " CODE ";
+//        for (int i = 0; i < int(id1dTo3d.size()); i++) {
+//            std::cout << Neon::domain::tool::spaceCurves::Encoder::encode(encoderType, id3dTo1d.getBBox(), id1dTo3d[i]) << " ";
+//        }
+//        std::cout << std::endl;
     }
 
    private:
