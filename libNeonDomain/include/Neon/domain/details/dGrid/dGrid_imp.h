@@ -8,12 +8,18 @@ template <typename ActiveCellLambda>
 dGrid::dGrid(const Neon::Backend&  backend,
              const Neon::int32_3d& dimension,
              const ActiveCellLambda& /*activeCellLambda*/,
-             const Neon::domain::Stencil& stencil,
-             const Vec_3d<double>&        spacing,
-             const Vec_3d<double>&        origin)
+             const Neon::domain::Stencil&                 stencil,
+             const Vec_3d<double>&                        spacing,
+             const Vec_3d<double>&                        origin,
+             Neon::domain::tool::spaceCurves::EncoderType encoderType)
 {
     mData = std::make_shared<Data>(backend);
     const index_3d defaultBlockSize(256, 1, 1);
+    if (encoderType != Neon::domain::tool::spaceCurves::EncoderType::sweep) {
+        NeonException exce("dGrid");
+        exce << "dGRid only supports sweep space filling curves";
+        NEON_THROW(exce);
+    }
 
     {
         auto nElementsPerPartition = backend.devSet().template newDataSet<size_t>(0);
@@ -224,11 +230,11 @@ auto dGrid::newContainer(const std::string& name,
 {
     const Neon::index_3d& defaultBlockSize = getDefaultBlock();
     Neon::set::Container  c = Neon::set::Container::factory<execution>(name,
-                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                     *this,
-                                                                     lambda,
-                                                                     defaultBlockSize,
-                                                                     [](const Neon::index_3d&) { return 0; });
+                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                      *this,
+                                                                      lambda,
+                                                                      defaultBlockSize,
+                                                                      [](const Neon::index_3d&) { return 0; });
     return c;
 }
 
@@ -242,11 +248,11 @@ auto dGrid::newContainer(const std::string& name,
     -> Neon::set::Container
 {
     Neon::set::Container c = Neon::set::Container::factory<execution>(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    blockSize,
-                                                                    [sharedMem](const Neon::index_3d&) { return sharedMem; });
+                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                      *this,
+                                                                      lambda,
+                                                                      blockSize,
+                                                                      [sharedMem](const Neon::index_3d&) { return sharedMem; });
     return c;
 }
 
