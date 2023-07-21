@@ -135,18 +135,18 @@ void postProcess(Neon::domain::mGrid&                        grid,
 }
 
 
-inline void generatepalabosDATFile(const std::string    filename,
-                                   const Neon::index_3d gridDim,
-                                   const int            depth,
-                                   const float*         levelSDF)
+inline void generatepalabosDATFile(const std::string         filename,
+                                   const Neon::index_3d      gridDim,
+                                   const int                 depth,
+                                   const std::vector<float>& levelSDF)
 {
     std::ofstream file;
     file.open(filename);
 
     //a cuboid coordinates specified by it cartesian extents x0, x1, y0, y1, z0, z1
-    file << 0 << " " << gridDim.x << " "
-         << 0 << " " << gridDim.y << " "
-         << 0 << " " << gridDim.z << "\n";
+    file << 0 << " " << gridDim.x - 1 << " "
+         << 0 << " " << gridDim.y - 1 << " "
+         << 0 << " " << gridDim.z - 1 << "\n";
 
     //dx: the finest voxel size
     file << "1\n";
