@@ -90,7 +90,9 @@ with open(command + '.log', 'w') as fp:
                                             GRID + '_' +
                                             DOMAIN_SIZE + '-' +
                                             STORAGE_FP + '-' + COMPUTE_FP + '-' +
-                                            OCC)
+                                            OCC + '-' +
+                                            HU + '-' +
+                                            CURVE)
                                         parameters.append('--computeFP ' + COMPUTE_FP)
                                         parameters.append('--storageFP ' + STORAGE_FP)
                                         parameters.append('--curve ' + CURVE)
