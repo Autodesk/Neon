@@ -143,23 +143,28 @@ inline void generatepalabosDATFile(const std::string         filename,
     std::ofstream file;
     file.open(filename);
 
+    float delta = 0.5;
+
+    Neon::index_3d gridDimFull(gridDim.x / delta, gridDim.y / delta, gridDim.z / delta);
+
     //a cuboid coordinates specified by it cartesian extents x0, x1, y0, y1, z0, z1
     file << 0 << " " << gridDim.x - 1 << " "
          << 0 << " " << gridDim.y - 1 << " "
          << 0 << " " << gridDim.z - 1 << "\n";
 
     //dx: the finest voxel size
-    file << "1\n";
+    file << delta << "\n";
 
     //nx, ny and nz representing the number of finest voxels along each dimension of the cuboid.
-    file << gridDim.x << " "
-         << gridDim.y << " "
-         << gridDim.z << "\n";
+    file << gridDimFull.x << " "
+         << gridDimFull.y << " "
+         << gridDimFull.z << "\n";
 
-    for (int32_t k = 0; k < gridDim.z; ++k) {
-        for (int32_t j = 0; j < gridDim.y; ++j) {
-            for (int32_t i = 0; i < gridDim.x; ++i) {
-                float sdf = sdfCube({i, j, k}, gridDim - 1);
+    for (int32_t k = 0; k < gridDimFull.z; ++k) {
+        for (int32_t j = 0; j < gridDimFull.y; ++j) {
+            for (int32_t i = 0; i < gridDimFull.x; ++i) {
+
+                float sdf = sdfCube({i, j, k}, gridDimFull - 1);
 
                 for (int d = 0; d < depth; ++d) {
                     if (sdf <= levelSDF[d] && sdf > levelSDF[d + 1]) {
@@ -168,6 +173,7 @@ inline void generatepalabosDATFile(const std::string         filename,
                     }
                 }
             }
+            file << "\n";
         }
         file << "\n";
     }
