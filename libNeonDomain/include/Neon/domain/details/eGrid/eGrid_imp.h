@@ -30,7 +30,9 @@ eGrid::eGrid(const Neon::Backend&         backend,
                               nElementsPerPartition,
                               Neon::index_3d(256, 1, 1),
                               spacing,
-                              origin);
+                              origin,
+                              spaceFillingCode,
+                              {1,1,1});
     }
 
 
@@ -126,7 +128,9 @@ eGrid::eGrid(const Neon::Backend&         backend,
                               nElementsPerPartition,
                               defaultBlockSize,
                               spacing,
-                              origin);
+                              origin,
+                              spaceFillingCode,
+                              {1,1,1});
     }
 }
 

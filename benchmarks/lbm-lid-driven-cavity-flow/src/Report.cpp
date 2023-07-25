@@ -101,3 +101,8 @@ void Report::recordBk(Neon::Backend& backend)
 {
     backend.toReport(mReport);
 }
+
+void Report::recordGrid(Neon::domain::interface::GridBase& g)
+{
+    g.toReport(mReport, true);
+}

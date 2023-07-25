@@ -3,14 +3,16 @@
 
 namespace Neon::domain::interface {
 
-auto GridBase::init(const std::string&                gridImplementationName,
-                    const Neon::Backend&              backend,
-                    const Neon::index_3d&             dimension,
-                    const Neon::domain::Stencil&      stencil,
-                    const Neon::set::DataSet<size_t>& nPartitionElements,
-                    const Neon::index_3d&             defaultBlockSize,
-                    const Vec_3d<double>&             spacingData,
-                    const Vec_3d<double>&             origin) -> void
+auto GridBase::init(const std::string&                           gridImplementationName,
+                    const Neon::Backend&                         backend,
+                    const Neon::index_3d&                        dimension,
+                    const Neon::domain::Stencil&                 stencil,
+                    const Neon::set::DataSet<size_t>&            nPartitionElements,
+                    const Neon::index_3d&                        defaultBlockSize,
+                    const Vec_3d<double>&                        spacingData,
+                    const Vec_3d<double>&                        origin,
+                    Neon::domain::tool::spaceCurves::EncoderType spaceCurve,
+                    Neon::index_3d memoryBlock) -> void
 {
     mStorage->backend = backend;
     mStorage->dimension = dimension;
@@ -24,6 +26,8 @@ auto GridBase::init(const std::string&                gridImplementationName,
         mStorage->defaults.launchParameters[DataViewUtil::toInt(dw)] = backend.devSet().newLaunchParameters();
     }
     mStorage->defaults.blockDim = defaultBlockSize;
+    mStorage->spaceCurve = spaceCurve;
+    mStorage->memoryBlock = memoryBlock;
 }
 
 GridBase::GridBase()
@@ -31,14 +35,16 @@ GridBase::GridBase()
 {
 }
 
-GridBase::GridBase(const std::string&                gridImplementationName,
-                   const Neon::Backend&              backend,
-                   const Neon::index_3d&             dimension,
-                   const Neon::domain::Stencil&      stencil,
-                   const Neon::set::DataSet<size_t>& nPartitionElements,
-                   const Neon::index_3d&             defaultBlockSize,
-                   const Vec_3d<double>&             spacingData,
-                   const Vec_3d<double>&             origin)
+GridBase::GridBase(const std::string&                           gridImplementationName,
+                   const Neon::Backend&                         backend,
+                   const Neon::index_3d&                        dimension,
+                   const Neon::domain::Stencil&                 stencil,
+                   const Neon::set::DataSet<size_t>&            nPartitionElements,
+                   const Neon::index_3d&                        defaultBlockSize,
+                   const Vec_3d<double>&                        spacingData,
+                   const Vec_3d<double>&                        origin,
+                   Neon::domain::tool::spaceCurves::EncoderType spaceCurve,
+                   Neon::index_3d memoryBlock)
     : mStorage(std::make_shared<GridBase::Storage>())
 {
     init(gridImplementationName,
@@ -48,7 +54,9 @@ GridBase::GridBase(const std::string&                gridImplementationName,
          nPartitionElements,
          defaultBlockSize,
          spacingData,
-         origin);
+         origin,
+         spaceCurve,
+         memoryBlock);
 }
 
 auto GridBase::getDimension() const -> const Neon::index_3d&
@@ -161,7 +169,8 @@ auto GridBase::toString() const -> std::string
              return tmp.str();
          }()
       << "}"
-      << ", [Backend]:{" << getBackend().toString() << "}";
+      << ", [Backend]:{" << getBackend().toString() << "}"
+      << ", [Memory]:{" << Neon::domain::tool::spaceCurves::EncoderTypeUtil::toString(mStorage->spaceCurve) << ", " << this->mStorage->memoryBlock << "}";
 
     return s.str();
 }
@@ -232,10 +241,41 @@ auto GridBase::toReport(Neon::Report& report,
         }(),
         &subdoc);
 
+    report.addMember(
+        "MemoryBlock",
+        [&] {
+            std::stringstream list;
+            list << "[";
+            list << getMemoryBlock().x << " "
+                 << getMemoryBlock().y << " "
+                 << getMemoryBlock().z << "]";
+            return list.str();
+        }(),
+        &subdoc);
+
+    report.addMember(
+        "SpaceCurve",
+        [&] {
+            std::stringstream list;
+            list << Neon::domain::tool::spaceCurves::EncoderTypeUtil::toString(mStorage->spaceCurve);
+            return list.str();
+        }(),
+        &subdoc);
+
     if (includeBackendInfo)
         getBackend().toReport(report, &subdoc);
 
     report.addSubdoc("Grid", subdoc);
+}
+
+auto GridBase::getMemoryBlock() const -> Neon::index_3d
+{
+    return mStorage->memoryBlock;
+}
+
+auto GridBase::getSpaceCurve() const -> Neon::domain::tool::spaceCurves::EncoderType
+{
+    return mStorage->spaceCurve;
 }
 
 }  // namespace Neon::domain::interface

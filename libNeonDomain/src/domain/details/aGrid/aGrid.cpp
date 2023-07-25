@@ -61,7 +61,9 @@ auto aGrid::init(const Neon::Backend&              backend,
                           lenghts,
                           blockDim,
                           spacingData,
-                          origin);
+                          origin,
+                          Neon::domain::tool::spaceCurves::EncoderType::sweep,
+                          {0, 0, 0});
 
     mStorage = std::make_shared<Storage>();
 

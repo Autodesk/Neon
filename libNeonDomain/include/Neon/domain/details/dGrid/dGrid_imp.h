@@ -32,7 +32,9 @@ dGrid::dGrid(const Neon::Backend&  backend,
                               nElementsPerPartition,
                               Neon::index_3d(256, 1, 1),
                               spacing,
-                              origin);
+                              origin,
+                              Neon::domain::tool::spaceCurves::EncoderType::sweep,
+                              {0, 0, 0});
     }
 
     const int32_t numDevices = getBackend().devSet().setCardinality();
@@ -186,7 +188,9 @@ dGrid::dGrid(const Neon::Backend&  backend,
                               nElementsPerPartition,
                               defaultBlockSize,
                               spacing,
-                              origin);
+                              origin,
+                              Neon::domain::tool::spaceCurves::EncoderType::sweep,
+                              {0, 0, 0});
     }
 }
 

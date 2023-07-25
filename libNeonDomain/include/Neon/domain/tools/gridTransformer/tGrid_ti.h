@@ -27,7 +27,9 @@ tGrid<GridTransformation>::tGrid(FoundationGrid& foundationGrid)
                           foundationGrid.getNumActiveCellsPerPartition(),
                           foundationGrid.getDefaultBlock(),
                           foundationGrid.getSpacing(),
-                          foundationGrid.getOrigin());
+                          foundationGrid.getOrigin(),
+                          foundationGrid.getSpaceCurve(),
+                          foundationGrid.getMemoryBlock());
 }
 
 template <typename GridTransformation>
@@ -57,7 +59,9 @@ tGrid<GridTransformation>::tGrid(const Neon::Backend&                         bk
                           mData->foundationGrid.getNumActiveCellsPerPartition(),
                           mData->foundationGrid.getDefaultBlock(),
                           mData->foundationGrid.getSpacing(),
-                          mData->foundationGrid.getOrigin());
+                          mData->foundationGrid.getOrigin(),
+                          encoderType,
+                          mData->foundationGrid.getMemoryBlock());
 }
 
 template <typename GridTransformation>

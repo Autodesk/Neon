@@ -28,7 +28,7 @@ struct Hash
         //        std::cout << std::endl
         //                  << " CODE ";
         //        for (int i = 0; i < int(id1dTo3d.size()); i++) {
-        //            std::cout << Neon::domain::tool::spaceCurves::Encoder::encode(encoderType, id3dTo1d.getBBox(), id1dTo3d[i]) << " ";
+        //            std::cout << Neon::domain::tool::spaceCurves::Encoder::encode(spaceCurve, id3dTo1d.getBBox(), id1dTo3d[i]) << " ";
         //        }
         //        std::cout << std::endl;
         //        std::cout << " BOX " << id3dTo1d.getBBox();
@@ -61,7 +61,7 @@ struct Hash
 //        std::cout << std::endl
 //                  << " CODE ";
 //        for (int i = 0; i < int(id1dTo3d.size()); i++) {
-//            std::cout << Neon::domain::tool::spaceCurves::Encoder::encode(encoderType, id3dTo1d.getBBox(), id1dTo3d[i]) << " ";
+//            std::cout << Neon::domain::tool::spaceCurves::Encoder::encode(spaceCurve, id3dTo1d.getBBox(), id1dTo3d[i]) << " ";
 //        }
 //        std::cout << std::endl;
     }

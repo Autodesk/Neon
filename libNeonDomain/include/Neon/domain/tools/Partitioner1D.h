@@ -120,6 +120,7 @@ class Partitioner1D
         mData->mMultiResDiscreteIdxSpacing = multiResDiscreteIdxSpacing;
         mData->mStencil = stencil;
         mData->mDomainSize = domainSize;
+        mData->spaceCurve = spaceFillingType;
 
         // Block space interval (i.e. indexing space at the block granularity)
 
@@ -183,6 +184,11 @@ class Partitioner1D
         -> Neon::int32_3d
     {
         return mData->block3DSpan;
+    }
+
+    auto getSpaceCurve() const -> Neon::domain::tool::spaceCurves::EncoderType
+    {
+        return mData->spaceCurve;
     }
 
     auto getMemoryGrid() -> Neon::aGrid&
@@ -445,13 +451,14 @@ class Partitioner1D
     class Data
     {
        public:
-        Neon::index_3d                        mDataBlockSize = 0;
-        int                                   mMultiResDiscreteIdxSpacing = 0;
-        Neon::domain::Stencil                 mStencil;
-        Neon::index_3d                        mDomainSize;
-        Neon::int32_3d                        block3DSpan;
-        bool                                  globalMappingInit = false;
-        Neon::aGrid::Field<Neon::int32_3d, 0> globalMapping;
+        Neon::index_3d                               mDataBlockSize = 0;
+        int                                          mMultiResDiscreteIdxSpacing = 0;
+        Neon::domain::Stencil                        mStencil;
+        Neon::index_3d                               mDomainSize;
+        Neon::int32_3d                               block3DSpan;
+        bool                                         globalMappingInit = false;
+        Neon::aGrid::Field<Neon::int32_3d, 0>        globalMapping;
+        Neon::domain::tool::spaceCurves::EncoderType spaceCurve;
 
         bool                      getStencil3dTo1dOffsetInit = false;
         Neon::set::MemSet<int8_t> stencil3dTo1dOffset;
