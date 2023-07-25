@@ -80,9 +80,6 @@ void postProcess(Neon::domain::mGrid&                        grid,
     std::ostringstream suffix;
     suffix << std::setw(precision) << std::setfill('0') << iteration;
 
-    //vel.ioToVtk("Velocity_" + suffix.str());
-    //rho.ioToVtk("Density_" + suffix.str());
-
     std::vector<std::pair<T, T>> xPosVal;
     std::vector<std::pair<T, T>> yPosVal;
     if (verify || generateValidateFile) {
@@ -132,6 +129,9 @@ void postProcess(Neon::domain::mGrid&                        grid,
         writeToFile(yPosVal, "NeonMultiResLBM_" + suffix.str() + "_Y.dat");
         writeToFile(xPosVal, "NeonMultiResLBM_" + suffix.str() + "_X.dat");
     }
+
+    vel.ioToVtk("Velocity_" + suffix.str());
+    //rho.ioToVtk("Density_" + suffix.str());
 }
 
 

@@ -152,20 +152,30 @@ void runNonUniformLBM(const int           problemID,
 
     Neon::index_3d gridDim;
 
-    int                depth = 2;
+    //int                depth = 2;
+    //std::vector<float> levelSDF(depth + 1);
+    //gridDim = Neon::index_3d(6, 6, 6);
+    //levelSDF[0] = 0;
+    //levelSDF[1] = -2.0 / 3.0;
+    //levelSDF[2] = -1.0;
+
+
+    int                depth = 3;
     std::vector<float> levelSDF(depth + 1);
-    gridDim = Neon::index_3d(6, 6, 6);
+    gridDim = Neon::index_3d(96, 96, 96);
     levelSDF[0] = 0;
-    levelSDF[1] = -2.0 / 3.0;
-    levelSDF[2] = -1.0;
+    levelSDF[1] = -12.0 / 48.0;
+    levelSDF[2] = -36.0 / 48.0;
+    levelSDF[3] = -1.0;
+
 
     if (problemID == 0) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(48, 48, 48);
         levelSDF[0] = 0;
-        levelSDF[1] = -8 / 24.0;
-        levelSDF[2] = -16 / 24.0;
+        levelSDF[1] = -8.0 / 24.0;
+        levelSDF[2] = -16.0 / 24.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 1) {
         depth = 3;
@@ -212,9 +222,9 @@ void runNonUniformLBM(const int           problemID,
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(160, 160, 160);
         levelSDF[0] = 0;
-        levelSDF[1] = -31.0 / 160.0;
+        levelSDF[1] = -32.0 / 160.0;
         levelSDF[2] = -64.0 / 160.0;
-        levelSDF[3] = -112.0 / 160.0;
+        levelSDF[3] = -128.0 / 160.0;
         levelSDF[4] = -1.0;
     } else if (problemID == 7) {
         depth = 4;
@@ -243,16 +253,16 @@ void runNonUniformLBM(const int           problemID,
         levelSDF[2] = -192.0 / 480.0;
         levelSDF[3] = -320.0 / 480.0;
         levelSDF[4] = -1.0;
-    } else if (problemID == 10) {
+    } /*else if (problemID == 10) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(512, 512, 512);
         levelSDF[0] = 0;
         levelSDF[1] = -103.0 / 512.0;
         levelSDF[2] = -205.0 / 512.0;
-        levelSDF[3] = -358.0 / 512.0;
+        levelSDF[3] = -359.0 / 512.0;
         levelSDF[4] = -1.0;
-    }
+    }*/
 
 
     //generatepalabosDATFile(std::string("lid_" + std::to_string(gridDim.x) + "_" +
