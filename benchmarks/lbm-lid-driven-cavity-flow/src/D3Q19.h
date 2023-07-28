@@ -89,6 +89,44 @@ struct D3Q19
             1. / 36. /*!  17  */,
             1. / 36. /*!  18  */
         };
+
+        static constexpr int fwdRegIdxListLen = (Q-1)/2;
+        static constexpr std::array<const int, fwdRegIdxListLen> fwdRegIdxList{0, 1, 2, 3, 4, 5, 6, 7, 8};
+
+        template <int tegIdx, typename Compute>
+        static inline NEON_CUDA_HOST_DEVICE auto
+        getCk_u(std::array<Compute, 3> const& u) -> Compute
+        {
+            if constexpr (tegIdx == 0 || tegIdx == 9) {
+                return u[0];
+            }
+            if constexpr (tegIdx == 1 || tegIdx == 10) {
+                return u[1];
+            }
+            if constexpr (tegIdx == 2 || tegIdx == 11) {
+                return u[2];
+            }
+            if constexpr (tegIdx == 3 || tegIdx == 12) {
+                return u[0] + u[1];
+            }
+            if constexpr (tegIdx == 4 || tegIdx == 13) {
+                return u[0] - u[1];
+            }
+            if constexpr (tegIdx == 5 || tegIdx == 14) {
+                return u[0] + u[2];
+            }
+            if constexpr (tegIdx == 6 || tegIdx == 15) {
+
+                return u[0] - u[2];
+            }
+            if constexpr (tegIdx == 7 || tegIdx == 16) {
+
+                return u[1] + u[2];
+            }
+            if constexpr (tegIdx == 8 || tegIdx == 17) {
+                return u[1] - u[2];
+            }
+        }
     };
 
     struct Memory
@@ -125,6 +163,7 @@ struct D3Q19
         static constexpr std::array<const int, Q> toMemory{
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18};
 
+
         template <int go>
         NEON_CUDA_HOST_DEVICE static constexpr auto mapToRegisters()
             -> int
@@ -156,6 +195,35 @@ struct D3Q19
             auto goInRegisterSpace = Self::template mapToRegisters<go>();
             return Registers::t[goInRegisterSpace];
         }
+
+        template <int fwMemIdx_>
+        struct MemMapper
+        {
+            constexpr static int fwMemIdx = fwMemIdx_;
+            constexpr static int fwX = Memory::stencil[fwMemIdx].x;
+            constexpr static int fwY = Memory::stencil[fwMemIdx].y;
+            constexpr static int fwZ = Memory::stencil[fwMemIdx].z;
+
+            constexpr static int bkMemIdx = Memory::opposite[fwMemIdx];
+            constexpr static int bkX = Memory::stencil[bkMemIdx].x;
+            constexpr static int bkY = Memory::stencil[bkMemIdx].y;
+            constexpr static int bkZ = Memory::stencil[bkMemIdx].z;
+
+            constexpr static int fwRegIdx = Memory::template mapToRegisters<fwMemIdx>();
+            constexpr static int centerRegIdx = Registers::center;
+            constexpr static int centerMemIdx = Memory::center;
+        };
+
+        template <int fwRegIdx_>
+        struct RegMapper
+        {
+            constexpr static int fwRegIdx = fwRegIdx_;
+            constexpr static int bkRegIdx = Registers::opposite[fwRegIdx];
+            constexpr static int fwMemIdx = Registers::template mapToMemory<fwRegIdx>();
+            constexpr static int bkMemIdx = Registers::template mapToMemory<bkRegIdx>();
+            constexpr static int centerRegIdx = Registers::center;
+            constexpr static int centerMemIdx = Memory::center;
+        };
 
         static constexpr std::array<const typename Precision::Storage, Q> t{
             1. / 18. /*!  0   */,

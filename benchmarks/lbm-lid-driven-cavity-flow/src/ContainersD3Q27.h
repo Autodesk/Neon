@@ -5,7 +5,7 @@
 #include "DeviceD3Q27.h"
 #include "Neon/Neon.h"
 #include "Neon/set/Containter.h"
-
+#if 0
 /**
  * Specialization for D3Q27
  */
@@ -224,3 +224,4 @@ struct ContainerFactory<Precision_,
         return container;
     }
 };
+#endif

@@ -4,7 +4,7 @@
 #include "Neon/Neon.h"
 #include "Neon/set/Containter.h"
 
-
+namespace pull {
 template <typename Precision_, typename Grid_>
 struct DeviceD3Q19
 {
@@ -28,28 +28,102 @@ struct DeviceD3Q19
                typename PopField::Partition const& fin,
                NEON_OUT Storage                    popIn[Lattice::Q])
     {
+        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto fwMemIdx) {
+            using M = typename Lattice::template MappersIdxSetWithFwdMem<fwMemIdx>;
 
-        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto GOMemoryId) {
-            if constexpr (GOMemoryId == Lattice::Memory::center) {
-                popIn[Lattice::Registers::center] = fin(gidx, Lattice::Memory::center);
+            if constexpr (fwMemIdx == Lattice::Memory::center) {
+                popIn[M::centerRegIdx] = fin(gidx, M::centerMemIdx);
             } else {
-                constexpr int BKMemoryId = Lattice::Memory::opposite[GOMemoryId];
-                constexpr int BKx = Lattice::Memory::stencil[BKMemoryId].x;
-                constexpr int BKy = Lattice::Memory::stencil[BKMemoryId].y;
-                constexpr int BKz = Lattice::Memory::stencil[BKMemoryId].z;
-                constexpr int GORegistersId = Lattice::Memory::template mapToRegisters<GOMemoryId>();
-
-                if (wallBitFlag & (uint32_t(1) << GOMemoryId)) {
-                    popIn[GORegistersId] =
-                        fin(gidx, BKMemoryId) +
-                        fin.template getNghData<BKx, BKy, BKz>(gidx, BKMemoryId)();
+                if (CellType::isWall<M::bkMemIdx>()) {
+                    popIn[M::fwRegIdx] = fin(gidx, M::bkMemIdx) +
+                                         fin.template getNghData<M::bkX, M::bkY, M::bkZ>(gidx, M::bkMemIdx)();
                 } else {
-                    popIn[GORegistersId] =
-                        fin.template getNghData<BKx, BKy, BKz>(gidx, GOMemoryId)();
+                    popIn[M::fwRegIdx] = fin.template getNghData<M::bkX, M::bkY, M::bkZ>(gidx, fwMemIdx)();
                 }
             }
         });
     }
+};
+
+#undef CAST_TO_COMPUTE
+}  // namespace pull
+
+namespace push {
+template <typename Precision_, typename Grid_>
+struct DeviceD3Q19
+{
+    using Lattice = D3Q19<Precision_>;
+    using Precision = Precision_;
+    using Compute = typename Precision::Compute;
+    using Storage = typename Precision::Storage;
+    using Grid = Grid_;
+
+    using PopField = typename Grid::template Field<Storage, Lattice::Q>;
+    using CellTypeField = typename Grid::template Field<CellType, 1>;
+
+    using Idx = typename PopField::Idx;
+    using Rho = typename Grid::template Field<Storage, 1>;
+    using U = typename Grid::template Field<Storage, 3>;
+
+
+    static inline NEON_CUDA_HOST_DEVICE auto
+    pushStream(Idx const&                                   gidx,
+               const uint32_t&                              wallNghBitFlag,
+               NEON_OUT Storage                             pOut[Lattice::Q],
+               NEON_OUT typename PopField::Partition const& fOut)
+    {
+        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto fwMemIdx_) {
+            using M = typename Lattice::template MappersIdxSetWithFwdMem<fwMemIdx_>;
+
+            if constexpr (M::fwMemIdx == M::centerMemIdx) {
+                fOut(gidx, M::fwMemIdx) = pOut[M::fwRegIdx];
+            } else {
+                if (CellType::isWall<M::fwRegIdx>()) {
+                    // fout(i, opp[k]) =
+                    //      pop_out +
+                    //      f(nb, k);
+                    fOut(gidx, M::bkMemIdx) =
+                        pOut[M::fwdRegIdx] +
+                        fOut.template getNghData<M::fwX, M::fwY, M::fwZ>(gidx, M::fwMemIdx)();
+                } else {
+                    // fout(nb,                                 k)         = pop_out;
+                    fOut.writeNgh<M::fwX, M::fwY, M::fwZ>(gidx, M::fwMemIdx, pOut[M::fwdRegIdx]);
+                }
+            }
+        });
+    }
+
+    static inline NEON_CUDA_HOST_DEVICE auto
+    localLoad(Idx const&                                  gidx,
+              NEON_IN typename PopField::Partition const& fOut,
+              Storage NEON_RESTRICT                       pOut[Lattice::Q])
+    {
+        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto fwMemIdx_) {
+            using M = typename Lattice::template MappersIdxSetWithFwdMem<fwMemIdx_>;
+            pOut[M::fwdRegIdx] = fOut(gidx, M::fwMemIdx);
+        });
+    }
+};
+}  // namespace push
+
+
+namespace common {
+template <typename Precision_, typename Grid_>
+struct DeviceD3Q19
+{
+    using Lattice = D3Q19<Precision_>;
+    using Precision = Precision_;
+    using Compute = typename Precision::Compute;
+    using Storage = typename Precision::Storage;
+    using Grid = Grid_;
+
+    using PopField = typename Grid::template Field<Storage, Lattice::Q>;
+    using CellTypeField = typename Grid::template Field<CellType, 1>;
+
+    using Idx = typename PopField::Idx;
+    using Rho = typename Grid::template Field<Storage, 1>;
+    using U = typename Grid::template Field<Storage, 3>;
+
 
     static inline NEON_CUDA_HOST_DEVICE auto
     macroscopic(const Storage     pop[Lattice::Q],
@@ -79,21 +153,14 @@ struct DeviceD3Q19
 
     static inline NEON_CUDA_HOST_DEVICE auto
     collideBgkUnrolled(Idx const&                    i /*!     Compute iterator   */,
-                       const Storage                 pop[Lattice::Q],
                        Compute const&                rho /*!   Density            */,
                        std::array<Compute, 3> const& u /*!     Velocity           */,
                        Compute const&                usqr /*!  Usqr               */,
                        Compute const&                omega /*! Omega              */,
-                       typename PopField::Partition& fOut /*!  Population         */)
+                       NEON_IO Storage               pop[Lattice::Q])
 
         -> void
     {
-        const Compute ck_u03 = u[0] + u[1];
-        const Compute ck_u04 = u[0] - u[1];
-        const Compute ck_u05 = u[0] + u[2];
-        const Compute ck_u06 = u[0] - u[2];
-        const Compute ck_u07 = u[1] + u[2];
-        const Compute ck_u08 = u[1] - u[2];
 
         constexpr Compute c1over18 = 1. / 18.;
         constexpr Compute c1over36 = 1. / 36.;
@@ -102,72 +169,46 @@ struct DeviceD3Q19
         constexpr Compute c1 = 1.;
         constexpr Compute c6 = 6.;
 
-        const Compute eq_00 = rho * c1over18 * (c1 - c6 * u[0] + c4dot5 * u[0] * u[0] - usqr);
-        const Compute eq_01 = rho * c1over18 * (c1 - c6 * u[1] + c4dot5 * u[1] * u[1] - usqr);
-        const Compute eq_02 = rho * c1over18 * (c1 - c6 * u[2] + c4dot5 * u[2] * u[2] - usqr);
-        const Compute eq_03 = rho * c1over36 * (c1 - c6 * ck_u03 + c4dot5 * ck_u03 * ck_u03 - usqr);
-        const Compute eq_04 = rho * c1over36 * (c1 - c6 * ck_u04 + c4dot5 * ck_u04 * ck_u04 - usqr);
-        const Compute eq_05 = rho * c1over36 * (c1 - c6 * ck_u05 + c4dot5 * ck_u05 * ck_u05 - usqr);
-        const Compute eq_06 = rho * c1over36 * (c1 - c6 * ck_u06 + c4dot5 * ck_u06 * ck_u06 - usqr);
-        const Compute eq_07 = rho * c1over36 * (c1 - c6 * ck_u07 + c4dot5 * ck_u07 * ck_u07 - usqr);
-        const Compute eq_08 = rho * c1over36 * (c1 - c6 * ck_u08 + c4dot5 * ck_u08 * ck_u08 - usqr);
+        constexpr int regCenter = Lattice::Registers::center;
+        constexpr int regFir = Lattice::Registers::center;
 
-        const Compute eqopp_00 = eq_00 + rho * c1over18 * c6 * u[0];
-        const Compute eqopp_01 = eq_01 + rho * c1over18 * c6 * u[1];
-        const Compute eqopp_02 = eq_02 + rho * c1over18 * c6 * u[2];
-        const Compute eqopp_03 = eq_03 + rho * c1over36 * c6 * ck_u03;
-        const Compute eqopp_04 = eq_04 + rho * c1over36 * c6 * ck_u04;
-        const Compute eqopp_05 = eq_05 + rho * c1over36 * c6 * ck_u05;
-        const Compute eqopp_06 = eq_06 + rho * c1over36 * c6 * ck_u06;
-        const Compute eqopp_07 = eq_07 + rho * c1over36 * c6 * ck_u07;
-        const Compute eqopp_08 = eq_08 + rho * c1over36 * c6 * ck_u08;
+        Neon::ConstexprFor<0, Lattice::Registers::fwdRegIdxListLen, 1>(
+            [&](auto fwdRegIdxListIdx) {
+                using M = typename Lattice::template RegMapper<fwdRegIdxListIdx>;
+                using T = typename Lattice::Registers;
 
-        const Compute pop_out_00 = (c1 - omega) * static_cast<Compute>(pop[0]) + omega * eq_00;
-        const Compute pop_out_01 = (c1 - omega) * static_cast<Compute>(pop[1]) + omega * eq_01;
-        const Compute pop_out_02 = (c1 - omega) * static_cast<Compute>(pop[2]) + omega * eq_02;
-        const Compute pop_out_03 = (c1 - omega) * static_cast<Compute>(pop[3]) + omega * eq_03;
-        const Compute pop_out_04 = (c1 - omega) * static_cast<Compute>(pop[4]) + omega * eq_04;
-        const Compute pop_out_05 = (c1 - omega) * static_cast<Compute>(pop[5]) + omega * eq_05;
-        const Compute pop_out_06 = (c1 - omega) * static_cast<Compute>(pop[6]) + omega * eq_06;
-        const Compute pop_out_07 = (c1 - omega) * static_cast<Compute>(pop[7]) + omega * eq_07;
-        const Compute pop_out_08 = (c1 - omega) * static_cast<Compute>(pop[8]) + omega * eq_08;
+                Compute eqFw;
+                Compute eqBk;
 
-        const Compute pop_out_opp_00 = (c1 - omega) * static_cast<Compute>(pop[10]) + omega * eqopp_00;
-        const Compute pop_out_opp_01 = (c1 - omega) * static_cast<Compute>(pop[11]) + omega * eqopp_01;
-        const Compute pop_out_opp_02 = (c1 - omega) * static_cast<Compute>(pop[12]) + omega * eqopp_02;
-        const Compute pop_out_opp_03 = (c1 - omega) * static_cast<Compute>(pop[13]) + omega * eqopp_03;
-        const Compute pop_out_opp_04 = (c1 - omega) * static_cast<Compute>(pop[14]) + omega * eqopp_04;
-        const Compute pop_out_opp_05 = (c1 - omega) * static_cast<Compute>(pop[15]) + omega * eqopp_05;
-        const Compute pop_out_opp_06 = (c1 - omega) * static_cast<Compute>(pop[16]) + omega * eqopp_06;
-        const Compute pop_out_opp_07 = (c1 - omega) * static_cast<Compute>(pop[17]) + omega * eqopp_07;
-        const Compute pop_out_opp_08 = (c1 - omega) * static_cast<Compute>(pop[18]) + omega * eqopp_08;
+                const Compute ck_u = T::template getCk_u<M::fwRegIdx, Compute>(u);
+                // double eq = rho * t[k] *
+                //             (1. +
+                //             3. * ck_u +
+                //             4.5 * ck_u * ck_u -
+                //             usqr);
+                eqFw = rho * T::t[M::fwRegIdx] *
+                       (c1 +
+                        c3 * ck_u +
+                        c4dot5 * ck_u * ck_u -
+                        usqr);
 
+                // double eqopp = eq - 6.* rho * t[k] * ck_u;
+                eqBk = eqFw -
+                       c6 * rho * c1over36 * T::t[M::fwRegIdx] * ck_u;
 
-#define COMPUTE_GO_AND_BACK(GOid, BKid)                                                                          \
-    {                                                                                                            \
-        fOut(i, Lattice::Memory::template mapFromRegisters<GOid>()) = static_cast<Storage>(pop_out_0##GOid);     \
-        fOut(i, Lattice::Memory::template mapFromRegisters<BKid>()) = static_cast<Storage>(pop_out_opp_0##GOid); \
-    }
-
-        COMPUTE_GO_AND_BACK(0, 10)
-        COMPUTE_GO_AND_BACK(1, 11)
-        COMPUTE_GO_AND_BACK(2, 12)
-        COMPUTE_GO_AND_BACK(3, 13)
-        COMPUTE_GO_AND_BACK(4, 14)
-        COMPUTE_GO_AND_BACK(5, 15)
-        COMPUTE_GO_AND_BACK(6, 16)
-        COMPUTE_GO_AND_BACK(7, 17)
-        COMPUTE_GO_AND_BACK(8, 18)
-
-#undef COMPUTE_GO_AND_BACK
-
-        {
-            const Compute eq_09 = rho * (c1 / c3) * (c1 - usqr);
-            const Compute pop_out_09 = (c1 - omega) * static_cast<Compute>(pop[Lattice::Registers::center]) +
-                                       omega * eq_09;
-            fOut(i, Lattice::Memory::center) = static_cast<Storage>(pop_out_09);
+                // pop_out       = (1. - omega) * fin(i, k)                              + omega * eq;
+                pop[M::fwRegIdx] = (c1 - omega) * static_cast<Compute>(pop[M::fwRegIdx]) + omega * eqFw;
+                // pop_out_opp   = (1. - omega) * fin(i, opp[k])                         + omega * eqopp;
+                pop[M::bkRegIdx] = (c1 - omega) * static_cast<Compute>(pop[M::bkRegIdx]) + omega * eqBk;
+            });
+        {  // Center;
+            using T = typename Lattice::Registers;
+            using M = typename Lattice::template RegMapper<Lattice::Registers::center>;
+            //            eq       = rho * t[k]              * (1. - usqr);
+            const Compute eqCenter = rho * T::t[M::fwRegIdx] * (c1 - usqr);
+            //                   fout(i, k) = (1. - omega) * fin(i, k)                              + omega * eq;
+            pop[Lattice::Registers::center] = (c1 - omega) * static_cast<Compute>(pop[M::fwRegIdx]) + omega * eqCenter;
         }
     }
 };
-
-#undef CAST_TO_COMPUTE
+}  // namespace common

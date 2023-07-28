@@ -7,7 +7,8 @@
 #include "Neon/set/Containter.h"
 #include "Neon/skeleton/Skeleton.h"
 
-template <typename Precision_,
+template <typename Method_,
+          typename Precision_,
           typename Lattice,
           typename Grid>
 struct LbmSkeleton
@@ -15,8 +16,11 @@ struct LbmSkeleton
 };
 
 
-template <typename Precision_, typename Grid_>
-struct LbmSkeleton<Precision_,
+template <typename Method_,
+          typename Precision_,
+          typename Grid_>
+struct LbmSkeleton<Method_,
+                   Precision_,
                    D3Q19<Precision_>,
                    Grid_>
 {
@@ -33,7 +37,7 @@ struct LbmSkeleton<Precision_,
     using Rho = typename Grid::template Field<Storage, 1>;
     using U = typename Grid::template Field<Storage, 3>;
 
-    using ContainerFactory = ContainerFactory<Precision, Lattice, Grid>;
+    using ContainerFactory = common::ContainerFactory<Precision, Lattice, Grid>;
 
     LbmSkeleton(Neon::set::StencilSemantic stencilSemantic,
                 Neon::skeleton::Occ        occ,
@@ -97,11 +101,11 @@ struct LbmSkeleton<Precision_,
         std::vector<Neon::set::Container> ops;
         lbmTwoPop[target] = Neon::skeleton::Skeleton(inField.getBackend());
         Neon::skeleton::Options opt(occ, transfer);
-        ops.push_back(ContainerFactory::iteration(stencilSemantic,
-                                          inField,
-                                          cellTypeField,
-                                          omega,
-                                          outField));
+        ops.push_back(ContainerFactory::template iteration<Method_>(stencilSemantic,
+                                                  inField,
+                                                  cellTypeField,
+                                                  omega,
+                                                  outField));
         std::stringstream appName;
         appName << "LBM_iteration_" << std::to_string(target);
         lbmTwoPop[target].sequence(ops, appName.str(), opt);
