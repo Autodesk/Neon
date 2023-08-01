@@ -15,7 +15,7 @@
 int backendWasReported = false;
 
 template <typename Grid_,
-          int method,
+          lbm::Method method,
           typename Precision_,
           typename Lattice_>
 struct Lbm
@@ -126,15 +126,17 @@ struct Lbm
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
         // One collide if 2Pop - pull
         // One iteration if 2Pop = push
-        if constexpr (int(lbm::Method::pull) == method) {
+        if constexpr (lbm::Method::pull == method) {
             NEON_DEV_UNDER_CONSTRUCTION("");
             return;
         }
-        if constexpr (int(lbm::Method::push) == method) {
-            auto lbmParameters = configurations.getLbmParameters<Precision::Compute>();
-            skeleton.resize(2);
+        if constexpr (lbm::Method::push == method) {
+            using Compute = typename Precision::Compute;
+            auto lbmParameters = configurations.template getLbmParameters<Compute>();
+            skeleton = std::vector<Neon::skeleton::Skeleton>(2);
             {
                 iteration = 0;
+                int  skIdx = helpGetSkeletonIdx();
                 auto even = common::ContainerFactory<Precision, Lattice, Grid>::template iteration<lbm::Method::push>(
                     configurations.stencilSemantic,
                     pFieldList.at(helpGetInputIdx()),
@@ -143,15 +145,16 @@ struct Lbm
                     pFieldList.at(helpGetOutputIdx()));
 
                 std::vector<Neon::set::Container> ops;
-                skeleton.at(iteration) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
+                skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
                 Neon::skeleton::Options opt(configurations.occ, configurations.transferMode);
                 ops.push_back(even);
                 std::stringstream appName;
                 appName << "LBM_push_even";
-                skeleton.at(iteration).sequence(ops, appName.str(), opt);
+                skeleton.at(skIdx).sequence(ops, appName.str(), opt);
             }
             {
                 iteration = 1;
+                int  skIdx = helpGetSkeletonIdx();
                 auto odd = CommonContainerFactory::template iteration<lbm::Method::push>(
                     configurations.stencilSemantic,
                     pFieldList.at(helpGetInputIdx()),
@@ -160,22 +163,23 @@ struct Lbm
                     pFieldList.at(helpGetOutputIdx()));
 
                 std::vector<Neon::set::Container> ops;
-                skeleton.at(iteration) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
+                skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
                 Neon::skeleton::Options opt(configurations.occ, configurations.transferMode);
                 ops.push_back(odd);
                 std::stringstream appName;
                 appName << "LBM_push_odd";
-                skeleton.at(iteration).sequence(ops, appName.str(), opt);
+                skeleton.at(skIdx).sequence(ops, appName.str(), opt);
             }
 
             {
                 iteration = 1;
-                skeleton.at(helpGetSkeletonIdx()).run();
+                int skIdx = helpGetSkeletonIdx();
+                skeleton.at(skIdx).run();
                 iteration = 0;
             }
             return;
         }
-        if constexpr (int(lbm::Method::aa) == method) {
+        if constexpr (lbm::Method::aa == method) {
             NEON_DEV_UNDER_CONSTRUCTION("");
             return;
         }
@@ -218,15 +222,15 @@ struct Lbm
 
     auto helpIterateOnce() -> void
     {
-        if (int(lbm::Method::pull) == method) {
+        if (lbm::Method::pull == method) {
             NEON_DEV_UNDER_CONSTRUCTION("");
             return;
         }
-        if (int(lbm::Method::push) == method) {
+        if (lbm::Method::push == method) {
             skeleton.at(helpGetSkeletonIdx()).run(Neon::Backend::mainStreamIdx);
             return;
         }
-        if (int(lbm::Method::aa) == method) {
+        if (lbm::Method::aa == method) {
             NEON_DEV_UNDER_CONSTRUCTION("");
             return;
         }

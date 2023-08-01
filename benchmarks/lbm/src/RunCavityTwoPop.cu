@@ -15,7 +15,7 @@ namespace CavityTwoPop {
 int backendWasReported = false;
 
 namespace details {
-template <int method_,
+template <lbm::Method method_,
           typename Grid,
           typename Storage_,
           typename Compute_>
@@ -85,7 +85,7 @@ auto run(Config& config,
 template <typename Grid, typename Storage, typename Compute>
 auto runFilterMethod(Config& config, Report& report) -> void
 {
-    return run<int(lbm::Method::push), Grid, Storage, double>(config, report);
+    return run<lbm::Method::push, Grid, Storage, double>(config, report);
 }
 
 template <typename Grid, typename Storage>

@@ -188,6 +188,24 @@ class dPartition
         return NghData(val, isValidNeighbour);
     }
 
+    template <int xOff,
+              int yOff,
+              int zOff>
+    NEON_CUDA_HOST_DEVICE inline auto
+    writeNghData(const Idx& gidx,
+                 int        card,
+                 T          value)
+        -> bool
+    {
+        Idx        gidxNgh;
+        const bool isValidNeighbour = helpGetNghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
+        T          val;
+        if (isValidNeighbour) {
+            operator()(gidxNgh, card) = value;
+        }
+        return isValidNeighbour;
+    }
+
     template <int xOff, int yOff, int zOff>
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(const Idx& gidx,

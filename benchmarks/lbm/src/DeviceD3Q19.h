@@ -67,10 +67,10 @@ struct DeviceD3Q19
 
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    pushStream(Idx const&                                   gidx,
-               const uint32_t&                              wallNghBitFlag,
-               NEON_OUT Storage                             pOut[Lattice::Q],
-               NEON_OUT typename PopField::Partition const& fOut)
+    pushStream(Idx const&                             gidx,
+               const uint32_t&                        wallNghBitFlag,
+               NEON_OUT Storage                       pOut[Lattice::Q],
+               NEON_OUT typename PopField::Partition& fOut)
     {
         Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
             using M = typename Lattice::template RegisterMapper<q>;
@@ -78,16 +78,16 @@ struct DeviceD3Q19
             if constexpr (M::fwdMemIdx == M::centerMemIdx) {
                 fOut(gidx, M::fwdMemIdx) = pOut[M::fwdRegIdx];
             } else {
-                if (CellType::isWall<M::fwdRegIdx>()) {
+                if (CellType::isWall<M::fwdRegIdx>(wallNghBitFlag)) {
                     // fout(i, opp[k]) =
                     //      pop_out +
                     //      f(nb, k);
-                    fOut(gidx, M::bkMemIdx) =
+                    fOut(gidx, M::bkwMemIdx) =
                         pOut[M::fwdRegIdx] +
-                        fOut.template getNghData<M::fwX, M::fwY, M::fwZ>(gidx, M::fwdMemIdx)();
+                        fOut.template getNghData<M::fwdX, M::fwdY, M::fwdZ>(gidx, M::fwdMemIdx)();
                 } else {
                     // fout(nb,                                 k)         = pop_out;
-                    fOut.writeNgh<M::fwX, M::fwY, M::fwZ>(gidx, M::fwdMemIdx, pOut[M::fwdRegIdx]);
+                    fOut.template writeNghData<M::fwdX, M::fwdY, M::fwdZ>(gidx, M::fwdMemIdx, pOut[M::fwdRegIdx]);
                 }
             }
         });

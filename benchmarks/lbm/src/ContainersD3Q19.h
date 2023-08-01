@@ -187,7 +187,7 @@ struct ContainerFactory<Precision_,
                                                    Grid_>;
             return Factory::iteration(stencilSemantic,
                                       fInField,
-                                      fOutField,
+                                      cellTypeField,
                                       omega,
                                       fOutField);
         }
@@ -197,7 +197,7 @@ struct ContainerFactory<Precision_,
                                                    Grid_>;
             return Factory::iteration(stencilSemantic,
                                       fInField,
-                                      fOutField,
+                                      cellTypeField,
                                       omega,
                                       fOutField);
         }

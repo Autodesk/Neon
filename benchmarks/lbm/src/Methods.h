@@ -11,20 +11,34 @@ enum class Method
 
 struct MethodUtils
 {
-    template <int method>
+    template <lbm::Method method>
     static auto getNumberOfPFields() -> int
     {
-        Method m = formInt(method);
-        switch (m) {
+        switch (method) {
             case Method::pull:
                 return 2;
             case Method::push:
                 return 2;
             case Method::aa:
-                return 1    ;
+                return 1;
         }
         std::stringstream msg;
-        msg << "The following LBM method is not recognized" << method << std::endl;
+        msg << "The following LBM method is not recognized" << lbm::MethodUtils::toString(method) << std::endl;
+        NEON_THROW_UNSUPPORTED_OPERATION(msg.str());
+    }
+
+    static auto toString(lbm::Method method) -> std::string
+    {
+        switch (method) {
+            case Method::pull:
+                return "pull";
+            case Method::push:
+                return "push";
+            case Method::aa:
+                return "aa";
+        }
+        std::stringstream msg;
+        msg << "The following LBM method is not recognized" << lbm::MethodUtils::toString(method) << std::endl;
         NEON_THROW_UNSUPPORTED_OPERATION(msg.str());
     }
 
@@ -42,4 +56,4 @@ struct MethodUtils
         NEON_THROW_UNSUPPORTED_OPERATION(msg.str());
     }
 };
-}
+}  // namespace lbm
