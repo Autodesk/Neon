@@ -162,10 +162,10 @@ void runNonUniformLBM(const int           problemID,
 
     int                depth = 3;
     std::vector<float> levelSDF(depth + 1);
-    gridDim = Neon::index_3d(96, 96, 96);
+    gridDim = Neon::index_3d(192, 192, 192);
     levelSDF[0] = 0;
-    levelSDF[1] = -12.0 / 48.0;
-    levelSDF[2] = -36.0 / 48.0;
+    levelSDF[1] = -36.0 / 96.0;
+    levelSDF[2] = -72.0 / 96.0;
     levelSDF[3] = -1.0;
 
 
@@ -182,40 +182,40 @@ void runNonUniformLBM(const int           problemID,
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(160, 160, 160);
         levelSDF[0] = 0;
-        levelSDF[1] = -31.0 / 160.0;
-        levelSDF[2] = -64.0 / 160.0;
+        levelSDF[1] = -16.0 / 80.0;
+        levelSDF[2] = -32.0 / 80.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 2) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(240, 240, 240);
         levelSDF[0] = 0;
-        levelSDF[1] = -48.0 / 240.0;
-        levelSDF[2] = -144.0 / 240.0;
+        levelSDF[1] = -24.0 / 120.0;
+        levelSDF[2] = -80.0 / 120.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 3) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(320, 320, 320);
         levelSDF[0] = 0;
-        levelSDF[1] = -64.0 / 320.0;
-        levelSDF[2] = -128.0 / 320.0;
+        levelSDF[1] = -32.0 / 160.0;
+        levelSDF[2] = -64.0 / 160.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 4) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(480, 480, 480);
         levelSDF[0] = 0;
-        levelSDF[1] = -96.0 / 480.0;
-        levelSDF[2] = -192.0 / 480.0;
+        levelSDF[1] = -48.0 / 240.0;
+        levelSDF[2] = -96.0 / 240.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 5) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(512, 512, 512);
         levelSDF[0] = 0;
-        levelSDF[1] = -103.0 / 512.0;
-        levelSDF[2] = -205.0 / 512.0;
+        levelSDF[1] = -64.0 / 256.0;
+        levelSDF[2] = -112.0 / 256.0;
         levelSDF[3] = -1.0;
     } else if (problemID == 6) {
         depth = 4;
@@ -231,27 +231,27 @@ void runNonUniformLBM(const int           problemID,
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(240, 240, 240);
         levelSDF[0] = 0;
-        levelSDF[1] = -48.0 / 240.0;
-        levelSDF[2] = -144.0 / 240.0;
-        levelSDF[3] = -192.0 / 240.0;
+        levelSDF[1] = -32.0 / 120.0;
+        levelSDF[2] = -80.0 / 120.0;
+        levelSDF[3] = -112.0 / 120.0;
         levelSDF[4] = -1.0;
     } else if (problemID == 8) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(320, 320, 320);
         levelSDF[0] = 0;
-        levelSDF[1] = -64.0 / 320.0;
-        levelSDF[2] = -128.0 / 320.0;
-        levelSDF[3] = -224.0 / 320.0;
+        levelSDF[1] = -32.0 / 160.0;
+        levelSDF[2] = -64.0 / 160.0;
+        levelSDF[3] = -112.0 / 160.0;
         levelSDF[4] = -1.0;
     } else if (problemID == 9) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(480, 480, 480);
         levelSDF[0] = 0;
-        levelSDF[1] = -96.0 / 480.0;
-        levelSDF[2] = -192.0 / 480.0;
-        levelSDF[3] = -320.0 / 480.0;
+        levelSDF[1] = -48.0 / 240.0;
+        levelSDF[2] = -96.0 / 240.0;
+        levelSDF[3] = -160.0 / 240.0;
         levelSDF[4] = -1.0;
     } /*else if (problemID == 10) {
         depth = 4;
@@ -290,7 +290,7 @@ void runNonUniformLBM(const int           problemID,
 
     //LBM problem
     const T               ulb = 0.04;
-    const int             Re = 100;
+    const int             Re = 1000;
     const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
     const T               visclb = ulb * clength / static_cast<T>(Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);

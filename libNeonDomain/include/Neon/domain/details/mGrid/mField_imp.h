@@ -395,9 +395,9 @@ auto mField<T, C>::ioToVtk(std::string fileName,
                                                                            double(voxelGlobalID.y) / double(l0Dim.y),
                                                                            double(voxelGlobalID.z) / double(l0Dim.z));
 
-                                            if (!((location.x > lowSlice && location.x < highSlice) ||
+                                            if (!((location.x > lowSlice && location.x < highSlice) /*||
                                                   (location.y > lowSlice && location.y < highSlice) ||
-                                                  (location.z > lowSlice && location.z < highSlice))) {
+                                                  (location.z > lowSlice && location.z < highSlice)*/ ) ) {
                                                 draw = false;
                                             }
 

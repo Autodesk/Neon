@@ -22,7 +22,7 @@ def plotme(dat_filename_X="", dat_filename_Y="", label="", png_filename="", scal
                   label='Ghia et al. 1982')
 
     axes.legend()
-    axes.set_xlabel(r'Y')
+    axes.set_xlabel(r'Distance')
     axes.set_ylabel(r'Velocity')
     plt.tight_layout()
     plt.savefig(png_filename)
@@ -30,11 +30,11 @@ def plotme(dat_filename_X="", dat_filename_Y="", label="", png_filename="", scal
 
 plotme(dat_filename_X='NeonMultiResLBM_5000_X.dat',
        dat_filename_Y='NeonMultiResLBM_5000_Y.dat',
-       label='Neon MultiRes LBM',
+       label='Grid Refinement LBM',
        png_filename='MultiResNeon_vs_ghia1982.png',
        scale=1)
 
 plotme(dat_filename_Y='NeonUniformLBM_20000_Y.dat',
-       label='Neon Uniform LBM',
+       label='Uniform LBM',
        png_filename='UniformNeon_vs_ghia1982.png',
        scale=25)
