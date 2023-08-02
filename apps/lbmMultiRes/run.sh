@@ -11,8 +11,8 @@ ${exe} --numIter $numIter --deviceType gpu --deviceId $deviceId --problemId $pro
 echo ${exe} --numIter $numIter --deviceType gpu --deviceId $deviceId --problemId $problemId --benchmark --dataType $dataType  --storeFine
 ${exe} --numIter $numIter --deviceType gpu --deviceId $deviceId --problemId $problemId --benchmark --dataType $dataType  --storeFine
 
-echo ${exe} --numIter $numIter --deviceType gpu --deviceId $deviceId --problemId $problemId --benchmark --dataType $dataType  --storeFine  --collisionFusedStore
-${exe} --numIter $numIter --deviceType gpu --deviceId $deviceId --problemId $problemId --benchmark --dataType $dataType  --storeFine  --collisionFusedStore
+echo ${exe} --numIter $numIter --deviceType gpu --deviceId $deviceId --problemId $problemId --benchmark --dataType $dataType  --collisionFusedStore
+${exe} --numIter $numIter --deviceType gpu --deviceId $deviceId --problemId $problemId --benchmark --dataType $dataType  --collisionFusedStore
 
 echo ${exe} --numIter $numIter --deviceType gpu --deviceId $deviceId --problemId $problemId --benchmark --dataType $dataType  --collisionFusedStore
 ${exe} --numIter $numIter --deviceType gpu --deviceId $deviceId --problemId $problemId --benchmark --dataType $dataType  --collisionFusedStore
