@@ -181,11 +181,11 @@ class dPartition
     {
         Idx        gidxNgh;
         const bool isValidNeighbour = helpGetNghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
-        T          val;
         if (isValidNeighbour) {
-            val = operator()(gidxNgh, card);
+            T val = operator()(gidxNgh, card);
+            return NghData(val, isValidNeighbour);
         }
-        return NghData(val, isValidNeighbour);
+        return NghData();
     }
 
     template <int xOff,
@@ -199,7 +199,6 @@ class dPartition
     {
         Idx        gidxNgh;
         const bool isValidNeighbour = helpGetNghIdx<xOff, yOff, zOff>(gidx, gidxNgh);
-        T          val;
         if (isValidNeighbour) {
             operator()(gidxNgh, card) = value;
         }

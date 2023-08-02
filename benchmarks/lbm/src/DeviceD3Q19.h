@@ -141,8 +141,7 @@ struct DeviceD3Q19
 
 
     static inline NEON_CUDA_HOST_DEVICE auto
-    collideBgkUnrolled(Idx const&                    i /*!     Compute iterator   */,
-                       Compute const&                rho /*!   Density            */,
+    collideBgkUnrolled(Compute const&                rho /*!   Density            */,
                        std::array<Compute, 3> const& u /*!     Velocity           */,
                        Compute const&                usqr /*!  Usqr               */,
                        Compute const&                omega /*! Omega              */,
@@ -151,15 +150,15 @@ struct DeviceD3Q19
         -> void
     {
 
-        constexpr Compute c1over18 = 1. / 18.;
+        // constexpr Compute c1over18 = 1. / 18.;
         constexpr Compute c1over36 = 1. / 36.;
         constexpr Compute c4dot5 = 4.5;
         constexpr Compute c3 = 3.;
         constexpr Compute c1 = 1.;
         constexpr Compute c6 = 6.;
 
-        constexpr int regCenter = Lattice::Registers::center;
-        constexpr int regFir = Lattice::Registers::center;
+        // constexpr int regCenter = Lattice::Registers::center;
+        // constexpr int regFir = Lattice::Registers::center;
 
         Neon::ConstexprFor<0, Lattice::Registers::fwdRegIdxListLen, 1>(
             [&](auto fwdRegIdxListIdx) {

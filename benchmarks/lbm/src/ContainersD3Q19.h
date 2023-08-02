@@ -111,10 +111,10 @@ struct ContainerFactory<Precision_,
     {
         Neon::set::Container container = fInField.getGrid().newContainer(
             "D3Q19_TwoPop",
-            [&, omega](Neon::set::Loader& L) -> auto {
+            [=](Neon::set::Loader& L) -> auto {
                 auto&       fIn = L.load(fInField,
                                          Neon::Pattern::STENCIL, stencilSemantic);
-                auto&       fOut = L.load(fOutField);
+                auto        fOut = L.load(fOutField);
                 const auto& cellInfoPartition = L.load(cellTypeField);
 
                 return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
@@ -133,8 +133,7 @@ struct ContainerFactory<Precision_,
                                               u[1] * u[1] +
                                               u[2] * u[2]);
 
-                        CommonFunctions::collideBgkUnrolled(gidx,
-                                                            rho, u,
+                        CommonFunctions::collideBgkUnrolled(rho, u,
                                                             usqr, omega,
                                                             NEON_IO popIn);
 

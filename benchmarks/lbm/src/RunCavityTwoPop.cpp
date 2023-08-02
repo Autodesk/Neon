@@ -26,28 +26,26 @@ auto run(Config& config,
     using Compute = Compute_;
     using Precision = Precision<Storage, Compute>;
     using Lattice = D3Q19<Precision>;
-    using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
+    // using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
 
-    using PopField = typename Grid::template Field<typename Precision::Storage, Lattice::Q>;
-    using CellTypeField = typename Grid::template Field<CellType, 1>;
+    // using PopField = typename Grid::template Field<typename Precision::Storage, Lattice::Q>;
+    // using CellTypeField = typename Grid::template Field<CellType, 1>;
 
-    using Idx = typename PopField::Idx;
-    using RhoField = typename Grid::template Field<typename Precision::Storage, 1>;
-    using UField = typename Grid::template Field<typename Precision::Storage, 3>;
+    // using Idx = typename PopField::Idx;
+    // using RhoField = typename Grid::template Field<typename Precision::Storage, 1>;
+    // using UField = typename Grid::template Field<typename Precision::Storage, 3>;
 
     Neon::double_3d ulid(1., 0., 0.);
     // Neon Grid and Fields initialization
-    Neon::index_3d dim(config.N, config.N, config.N);
+    Neon::index_3d domainDim(config.N, config.N, config.N);
 
     Lbm<Grid, method_, Precision, Lattice> lbm(config,
                                                report,
-                                               dim,
                                                [](Neon::index_3d const&) { return true; });
-    auto ulb = config.ulb;
-    auto domainDim = dim;
+    auto                                   ulb = config.ulb;
     lbm.setBC([=] NEON_CUDA_HOST_DEVICE(Neon::index_3d const& globalIdx,
-                                                       NEON_OUT Storage      p[Lattice::Q],
-                                                       NEON_OUT CellType::Classification& cellClass) {
+                                        NEON_OUT Storage      p[Lattice::Q],
+                                        NEON_OUT CellType::Classification& cellClass) {
         typename Lattice::Precision::Storage popVal = 0;
 
         if (globalIdx.x == 0 || globalIdx.x == domainDim.x - 1 ||

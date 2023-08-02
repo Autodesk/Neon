@@ -34,10 +34,8 @@ struct Lbm
     template <typename Lambda>
     Lbm(Config&               config,
         Report&               report,
-        Neon::index_3d const& dim,
         Lambda                activeMask)
     {
-        using Idx = typename PField::Idx;
         reportPtr = &report;
 
         // Setting the backend
@@ -106,7 +104,7 @@ struct Lbm
                                               cellFlagField)
             .run(Neon::Backend::mainStreamIdx);
 
-        for (int i = 1; i < pFieldList.size(); i++) {
+        for (int i = 1; i < int(pFieldList.size()); i++) {
             CommonContainerFactory::copyPopulation(pFieldList[0],
                                                    pFieldList[i])
                 .run(Neon::Backend::mainStreamIdx);
@@ -198,7 +196,7 @@ struct Lbm
         tie(start, clock_iter) = metrics::restartClock(bk, true);
 
         for (time_iter = 0; time_iter < configurations.benchMaxIter; ++time_iter) {
-            if (!configurations.benchmark) {
+            if (true) {
                 bk.syncAll();
                 helpExportVti();
             }
