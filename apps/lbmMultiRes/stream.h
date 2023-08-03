@@ -163,12 +163,13 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
                                         //We only do coalescence if the neighbour is bulk since the transition from one level to
                                         //another happens in the bulk (not at the boundary condition)
                                         assert(level != 0);
+                                        const T dd = pout.getNghData(cell, dir, q).mData;
                                         if (fineInitStore) {
                                             auto ssVal = ss.getNghData(cell, dir, q);
                                             assert(ssVal.mData != 0);
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData * ssVal.mData;
+                                            pin(cell, q) = dd * ssVal.mData;
                                         } else {
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData * repRefFactor;
+                                            pin(cell, q) = dd * repRefFactor;
                                         }
                                     }
                                 } else {
@@ -229,12 +230,13 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                                         //We only do coalescence if the neighbour is bulk since the transition from one level to
                                         //another happens in the bulk (not at the boundary condition)
                                         assert(level != 0);
+                                        const T dd = pout.getNghData(cell, dir, q).mData;
                                         if (fineInitStore) {
                                             auto ssVal = ss.getNghData(cell, dir, q);
                                             assert(ssVal.mData != 0);
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData * ssVal.mData;
+                                            pin(cell, q) = dd * ssVal.mData;
                                         } else {
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData * repRefFactor;
+                                            pin(cell, q) = dd * repRefFactor;
                                         }
                                     }
                                 } else {
