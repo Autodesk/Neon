@@ -2,12 +2,12 @@
 #include "lattice.h"
 
 template <typename T, int Q>
-inline Neon::set::Container coalescence(Neon::domain::mGrid&                   grid,
-                                        const bool                             fineInitStore,
-                                        const int                              level,
-                                        const Neon::domain::mGrid::Field<int>& sumStore,
-                                        const Neon::domain::mGrid::Field<T>&   fout,
-                                        Neon::domain::mGrid::Field<T>&         fin)
+inline Neon::set::Container coalescence(Neon::domain::mGrid&                     grid,
+                                        const bool                               fineInitStore,
+                                        const int                                level,
+                                        const Neon::domain::mGrid::Field<float>& sumStore,
+                                        const Neon::domain::mGrid::Field<T>&     fout,
+                                        Neon::domain::mGrid::Field<T>&           fin)
 {
     // Initiated by the coarse level (hence "pull"), this function simply read the missing population
     // across the interface between coarse<->fine boundary by reading the population prepare during the store()
@@ -22,7 +22,8 @@ inline Neon::set::Container coalescence(Neon::domain::mGrid&                   g
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 //If this cell has children i.e., it is been refined, than we should not work on it
                 //because this cell is only there to allow query and not to operate on
-                const int refFactor = pout.getRefFactor(level);
+                //const int refFactor = pout.getRefFactor(level);
+                constexpr T repRefFactor = 0.5;
                 if (!pin.hasChildren(cell)) {
 
                     for (int q = 0; q < Q; ++q) {
@@ -64,9 +65,9 @@ inline Neon::set::Container coalescence(Neon::domain::mGrid&                   g
                                     //    ssVal.mData = 1;
                                     //}
                                     assert(ssVal.mData != 0);
-                                    pin(cell, q) = neighbor.mData / static_cast<T>(ssVal.mData * refFactor);
+                                    pin(cell, q) = neighbor.mData * ssVal.mData;
                                 } else {
-                                    pin(cell, q) = neighbor.mData / static_cast<T>(refFactor);
+                                    pin(cell, q) = neighbor.mData * repRefFactor;
                                 }
                             }
                         }

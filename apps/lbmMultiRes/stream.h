@@ -126,7 +126,7 @@ template <typename T, int Q>
 inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&                        grid,
                                                    const bool                                  fineInitStore,
                                                    const int                                   level,
-                                                   const Neon::domain::mGrid::Field<int>&      sumStore,
+                                                   const Neon::domain::mGrid::Field<float>&    sumStore,
                                                    const Neon::domain::mGrid::Field<CellType>& cellType,
                                                    const Neon::domain::mGrid::Field<T>&        fout,
                                                    Neon::domain::mGrid::Field<T>&              fin)
@@ -145,7 +145,8 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
                     //because this cell is only there to allow query and not to operate on
                     if (!pin.hasChildren(cell)) {
 
-                        const int refFactor = pout.getRefFactor(level);
+                        //const int refFactor = pout.getRefFactor(level);
+                        constexpr T repRefFactor = 2.0;
 
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
@@ -165,9 +166,9 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
                                         if (fineInitStore) {
                                             auto ssVal = ss.getNghData(cell, dir, q);
                                             assert(ssVal.mData != 0);
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(ssVal.mData * refFactor);
+                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData * ssVal.mData;
                                         } else {
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(refFactor);
+                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData * repRefFactor;
                                         }
                                     }
                                 } else {
@@ -188,7 +189,7 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                                                             const bool                                  fineInitStore,
                                                             const int                                   level,
                                                             const int                                   numLevels,
-                                                            const Neon::domain::mGrid::Field<int>&      sumStore,
+                                                            const Neon::domain::mGrid::Field<float>&    sumStore,
                                                             const Neon::domain::mGrid::Field<CellType>& cellType,
                                                             const Neon::domain::mGrid::Field<T>&        fout,
                                                             Neon::domain::mGrid::Field<T>&              fin)
@@ -210,7 +211,8 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                     //because this cell is only there to allow query and not to operate on
                     if (!pin.hasChildren(cell)) {
 
-                        const int refFactor = pout.getRefFactor(level);
+                        //const int refFactor = pout.getRefFactor(level);
+                        constexpr T repRefFactor = 2.0;
 
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
@@ -230,9 +232,9 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                                         if (fineInitStore) {
                                             auto ssVal = ss.getNghData(cell, dir, q);
                                             assert(ssVal.mData != 0);
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(ssVal.mData * refFactor);
+                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData * ssVal.mData;
                                         } else {
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(refFactor);
+                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData * repRefFactor;
                                         }
                                     }
                                 } else {
@@ -268,7 +270,7 @@ inline void stream(Neon::domain::mGrid&                        grid,
                    const int                                   level,
                    const int                                   numLevels,
                    const Neon::domain::mGrid::Field<CellType>& cellType,
-                   const Neon::domain::mGrid::Field<int>&      sumStore,
+                   const Neon::domain::mGrid::Field<float>&    sumStore,
                    const Neon::domain::mGrid::Field<T>&        fout,
                    Neon::domain::mGrid::Field<T>&              fin,
                    std::vector<Neon::set::Container>&          containers)
@@ -302,7 +304,7 @@ inline void streamFusedExplosion(Neon::domain::mGrid&                        gri
                                  const int                                   level,
                                  const int                                   numLevels,
                                  const Neon::domain::mGrid::Field<CellType>& cellType,
-                                 const Neon::domain::mGrid::Field<int>&      sumStore,
+                                 const Neon::domain::mGrid::Field<float>&    sumStore,
                                  const Neon::domain::mGrid::Field<T>&        fout,
                                  Neon::domain::mGrid::Field<T>&              fin,
                                  std::vector<Neon::set::Container>&          containers)
@@ -333,7 +335,7 @@ inline void streamFusedCoalescence(Neon::domain::mGrid&                        g
                                    const int                                   level,
                                    const int                                   numLevels,
                                    const Neon::domain::mGrid::Field<CellType>& cellType,
-                                   const Neon::domain::mGrid::Field<int>&      sumStore,
+                                   const Neon::domain::mGrid::Field<float>&    sumStore,
                                    const Neon::domain::mGrid::Field<T>&        fout,
                                    Neon::domain::mGrid::Field<T>&              fin,
                                    std::vector<Neon::set::Container>&          containers)
@@ -360,7 +362,7 @@ inline void streamFusedCoalescenceExplosion(Neon::domain::mGrid&                
                                             const int                                   level,
                                             const int                                   numLevels,
                                             const Neon::domain::mGrid::Field<CellType>& cellType,
-                                            const Neon::domain::mGrid::Field<int>&      sumStore,
+                                            const Neon::domain::mGrid::Field<float>&    sumStore,
                                             const Neon::domain::mGrid::Field<T>&        fout,
                                             Neon::domain::mGrid::Field<T>&              fin,
                                             std::vector<Neon::set::Container>&          containers)

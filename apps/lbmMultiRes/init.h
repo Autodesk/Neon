@@ -7,7 +7,7 @@
 
 template <typename T, int Q>
 uint32_t init(Neon::domain::mGrid&                  grid,
-              Neon::domain::mGrid::Field<int>&      sumStore,
+              Neon::domain::mGrid::Field<float>&    sumStore,
               Neon::domain::mGrid::Field<T>&        fin,
               Neon::domain::mGrid::Field<T>&        fout,
               Neon::domain::mGrid::Field<CellType>& cellType,
@@ -107,7 +107,7 @@ uint32_t init(Neon::domain::mGrid&                  grid,
         auto container =
             grid.newContainer(
                 "InitSumStore_" + std::to_string(level), level,
-                [&sumStore, level, gridDim](Neon::set::Loader& loader) {
+                [&sumStore, level](Neon::set::Loader& loader) {
                     auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
@@ -136,7 +136,7 @@ uint32_t init(Neon::domain::mGrid&                  grid,
                                         if (cs.isActive()) {
 
 #ifdef NEON_PLACE_CUDA_DEVICE
-                                            atomicAdd(&ss.uncleVal(cell, CsDir, q), int(1));
+                                            atomicAdd(&ss.uncleVal(cell, CsDir, q), 1.f);
 #else
 #pragma omp atomic
                                             ss.uncleVal(cell, CsDir, q) += 1;
@@ -144,6 +144,29 @@ uint32_t init(Neon::domain::mGrid&                  grid,
                                         }
                                     }
                                 }
+                            }
+                        }
+                    };
+                });
+
+        container.run(0);
+    }
+
+
+    for (int level = 1; level < grid.getDescriptor().getDepth(); ++level) {
+
+        auto container =
+            grid.newContainer(
+                "ReciprocalSumStore_" + std::to_string(level), level,
+                [&sumStore, level](Neon::set::Loader& loader) {
+                    auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::MAP);
+
+                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
+                        //const T refFactor = ss.getRefFactor(level);
+                        constexpr T refFactor = 2.0;
+                        for (int8_t q = 0; q < Q; ++q) {
+                            if (ss(cell, q) > 0.001) {
+                                ss(cell, q) = 1.f / (refFactor * ss(cell, q));
                             }
                         }
                     };

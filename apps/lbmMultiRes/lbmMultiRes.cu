@@ -27,7 +27,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  const int                                   level,
                                  const int                                   numLevels,
                                  const Neon::domain::mGrid::Field<CellType>& cellType,
-                                 const Neon::domain::mGrid::Field<int>&      sumStore,
+                                 const Neon::domain::mGrid::Field<float>&    sumStore,
                                  Neon::domain::mGrid::Field<T>&              fin,
                                  Neon::domain::mGrid::Field<T>&              fout,
                                  std::vector<Neon::set::Container>&          containers)
@@ -290,7 +290,7 @@ void runNonUniformLBM(const int           problemID,
 
     //LBM problem
     const T               ulb = 0.04;
-    const int             Re = 1000;
+    const int             Re = 100;
     const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
     const T               visclb = ulb * clength / static_cast<T>(Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
@@ -303,7 +303,7 @@ void runNonUniformLBM(const int           problemID,
     //allocate fields
     auto fin = grid.newField<T>("fin", Q, 0);
     auto fout = grid.newField<T>("fout", Q, 0);
-    auto storeSum = grid.newField<int>("storeSum", Q, 0);
+    auto storeSum = grid.newField<float>("storeSum", Q, 0);
     auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
     auto vel = grid.newField<T>("vel", 3, 0);
