@@ -146,7 +146,7 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
                     if (!pin.hasChildren(cell)) {
 
                         //const int refFactor = pout.getRefFactor(level);
-                        constexpr T repRefFactor = 2.0;
+                        constexpr T repRefFactor = 0.5;
 
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
@@ -212,7 +212,7 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                     if (!pin.hasChildren(cell)) {
 
                         //const int refFactor = pout.getRefFactor(level);
-                        constexpr T repRefFactor = 2.0;
+                        constexpr T repRefFactor = 0.5;
 
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
