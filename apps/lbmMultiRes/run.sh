@@ -1,6 +1,6 @@
 #!/bin/bash
 exe="../../build/bin/app-lbmMultiRes"
-numIter=50
+numIter=100
 deviceId=7
 
 for problemId in 1 2 3 4 5 6 7 8 9; do
