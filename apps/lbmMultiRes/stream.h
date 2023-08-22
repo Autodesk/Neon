@@ -151,48 +151,31 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
 
-
-                            if (level == 0) {
-                                //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
-                                if (!pin.hasChildren(cell, dir)) {
-                                    auto nghType = type.getNghData(cell, dir, 0);
-
-                                    if (nghType.mIsValid) {
-                                        if (nghType.mData == CellType::bulk) {
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData;
+                            auto nghType = type.getNghData(cell, dir, 0);
+                            if (nghType.mIsValid) {
+                                if (nghType.mData == CellType::bulk) {
+                                    if (!pin.hasChildren(cell, dir)) {
+                                        //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+                                        pin(cell, q) = pout.getNghData(cell, dir, q).mData;
+                                    } else if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
+                                        //if we have a neighbor at the same level that has been refined, then cell is on
+                                        //the interface and this is where we should do the coalescence. Only if it is not the center
+                                        //We only do coalescence if the neighbour is bulk since the transition from one level to
+                                        //another happens in the bulk (not at the boundary condition)
+                                        assert(level != 0);
+                                        const T dd = pout.getNghData(cell, dir, q).mData;
+                                        if (fineInitStore) {
+                                            auto ssVal = ss.getNghData(cell, dir, q);
+                                            assert(ssVal.mData != 0);
+                                            pin(cell, q) = dd * ssVal.mData;
                                         } else {
-                                            const int8_t opposte_q = latticeOppositeID[q];
-                                            pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
+                                            pin(cell, q) = dd * repRefFactor;
                                         }
                                     }
-                                }
-                            } else {
-                                auto nghType = type.getNghData(cell, dir, 0);
-                                if (nghType.mIsValid) {
-                                    if (nghType.mData == CellType::bulk) {
-                                        if (!pin.hasChildren(cell, dir)) {
-                                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData;
-                                        } else if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                            //if we have a neighbor at the same level that has been refined, then cell is on
-                                            //the interface and this is where we should do the coalescence. Only if it is not the center
-                                            //We only do coalescence if the neighbour is bulk since the transition from one level to
-                                            //another happens in the bulk (not at the boundary condition)
-                                            assert(level != 0);
-                                            const T dd = pout.getNghData(cell, dir, q).mData;
-                                            if (fineInitStore) {
-                                                auto ssVal = ss.getNghData(cell, dir, q);
-                                                assert(ssVal.mData != 0);
-                                                pin(cell, q) = dd * ssVal.mData;
-                                            } else {
-                                                pin(cell, q) = dd * repRefFactor;
-                                            }
-                                        }
-                                    } else {
-                                        assert(!pin.hasChildren(cell, dir));
-                                        const int8_t opposte_q = latticeOppositeID[q];
-                                        pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
-                                    }
+                                } else {
+                                    assert(!pin.hasChildren(cell, dir));
+                                    const int8_t opposte_q = latticeOppositeID[q];
+                                    pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
                                 }
                             }
                         }
