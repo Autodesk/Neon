@@ -11,6 +11,7 @@ mGrid::mGrid(
     [[maybe_unused]] const Neon::domain::Stencil&           stencil,
     const Descriptor                                        descriptor,
     bool                                                    isStrongBalanced,
+    bool                                                    isCullOverlaps,
     [[maybe_unused]] const double_3d&                       spacingData,
     [[maybe_unused]] const double_3d&                       origin)
 {
@@ -39,6 +40,7 @@ mGrid::mGrid(
     mData->backend = backend;
     mData->domainSize = domainSize;
     mData->mStrongBalanced = isStrongBalanced;
+    mData->mCullOverlaps = isCullOverlaps;
     mData->mDescriptor = descriptor;
     int top_level_spacing = 1;
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
@@ -131,6 +133,115 @@ mGrid::mGrid(
                             Neon::int32_3d indexInParentBlock = mData->mDescriptor.toLocalIndex(blockOrigin, l + 1);
 
                             setLevelBitMask(l + 1, parentBlock, indexInParentBlock);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //remove a coarse cell is
+    if (mData->mCullOverlaps) {
+
+        //Loop over all voxels in all levels > 0
+        //An active voxel may become inactive if:
+        //1. it is refined and
+        //2. and all its neighbor voxels (at level l) in all direction are also refined
+
+
+        auto isRefined = [&](int level, const Neon::int32_3d& voxel) {
+            if (level < 1) {
+                NeonException exp("mGrid::mGrid");
+                exp << "isRefined only work with level > 0. Input level =" << level;
+                NEON_THROW(exp);
+            }
+
+            //given a voxel at level, check if it's refined i.e., one of its children are active
+            const int refFactor = mData->mDescriptor.getRefFactor(level);
+            const int spacing = mData->mDescriptor.getSpacing(level - 1);
+
+            //for every possible child of this voxel
+            for (int z = 0; z < refFactor; z++) {
+                for (int y = 0; y < refFactor; y++) {
+                    for (int x = 0; x < refFactor; x++) {
+
+                        const Neon::int32_3d childLocal(x, y, z);
+
+                        const Neon::int32_3d child = mData->mDescriptor.neighbourBlock(voxel, level - 1, childLocal);
+
+                        //find the child block
+
+                        if (child < domainSize) {
+                            const Neon::int32_3d childBlock(child.x / spacing,
+                                                            child.y / spacing,
+                                                            child.z / spacing);
+                            if (levelBitMaskIsSet(level - 1, childBlock, childLocal)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return false;
+        };
+
+        //for every level
+        for (int l = mData->mDescriptor.getDepth() - 1; l > 0; --l) {
+            const int refFactor = mData->mDescriptor.getRefFactor(l);
+            const int spacing = mData->mDescriptor.getSpacing(l - 1);
+
+            //for every (user) block in this level
+            for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
+                for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
+                    for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
+
+
+                        const Neon::index_3d blockOrigin = mData->mDescriptor.toBaseIndexSpace({bx, by, bz}, l + 1);
+
+                        //for every voxel in this block
+                        for (int z = 0; z < refFactor; z++) {
+                            for (int y = 0; y < refFactor; y++) {
+                                for (int x = 0; x < refFactor; x++) {
+
+                                    //if this voxel is active
+                                    if (levelBitMaskIsSet(l, {bx, by, bz}, {x, y, z})) {
+
+                                        const Neon::int32_3d voxel = mData->mDescriptor.parentToChild(blockOrigin, l, {x, y, z});
+
+                                        //if the voxel is refined, then there may be a chance that we could deactivate it
+                                        if (voxel < domainSize) {
+                                            if (isRefined(l, voxel)) {
+
+                                                //look at neighbor from all direction and check if there is at least one neighbor that is not refined
+                                                bool deactivate = true;
+                                                for (int k = -1; k < 2; k++) {
+                                                    for (int j = -1; j < 2; j++) {
+                                                        for (int i = -1; i < 2; i++) {
+                                                            if (i == 0 && j == 0 && k == 0) {
+                                                                continue;
+                                                            }
+
+                                                            const Neon::int32_3d neighborVoxel = mData->mDescriptor.neighbourBlock(voxel, l, {i, j, k});
+
+                                                            //if the neigbor is inside the domain
+                                                            if (neighborVoxel.x >= 0 && neighborVoxel.y >= 0 && neighborVoxel.z >= 0 && neighborVoxel < domainSize) {
+                                                                if (!isRefined(l, neighborVoxel)) {
+                                                                    deactivate = false;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                if (deactivate) {
+                                                    clearLevelBitMask(l, {bx, by, bz}, {x, y, z});
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -417,11 +528,10 @@ mGrid::mGrid(
                 auto [setIdx, parentID] = mData->grids[l + 1].helpGetSetIdxAndGridIdx(parentOrigin);
 
                 if (setIdx.idx() == -1) {
-                    NeonException exp("mGrid::mGrid");
-                    exp << "Something went wrong during constructing mGrid. Can not find the right parent of a block\n";
-                    NEON_THROW(exp);
+                    mData->mParentBlockID[l].eRef(devID, blockIdx) = std::numeric_limits<Idx::DataBlockIdx>::max();
+                } else {
+                    mData->mParentBlockID[l].eRef(devID, blockIdx) = parentID.getDataBlockIdx();
                 }
-                mData->mParentBlockID[l].eRef(devID, blockIdx) = parentID.getDataBlockIdx();
             }
         });
     }
@@ -463,6 +573,11 @@ auto mGrid::setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::in
     mData->denseLevelsBitmask[l][id.first] |= (1 << id.second);
 };
 
+auto mGrid::clearLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void
+{
+    auto id = levelBitMaskIndex(l, blockID, localChild);
+    mData->denseLevelsBitmask[l][id.first] &= ~(1 << id.second);
+};
 auto mGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
 {
     return mData->grids[level].isInsideDomain(idx);

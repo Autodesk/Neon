@@ -67,6 +67,7 @@ class mGrid
           const Neon::domain::Stencil&                            stencil,
           const Descriptor                                        descriptor,
           bool                                                    isStrongBalanced = true,
+          bool                                                    isCullOverlaps = true,
           const double_3d&                                        spacingData = double_3d(1, 1, 1),
           const double_3d&                                        origin = double_3d(0, 0, 0));
 
@@ -183,6 +184,9 @@ class mGrid
     //set the bitmask assuming a dense domain
     auto setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void;
 
+    //clear the bitmask assuming a dense domain
+    auto clearLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void;
+
     struct Data
     {
         Neon::index_3d domainSize;
@@ -208,6 +212,8 @@ class mGrid
         Descriptor mDescriptor;
 
         bool mStrongBalanced;
+
+        bool mCullOverlaps;
 
         //bitmask of the active cells at each level and works as if the grid is dense at each level
         std::vector<std::vector<uint32_t>> denseLevelsBitmask;

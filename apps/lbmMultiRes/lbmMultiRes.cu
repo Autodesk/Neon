@@ -296,8 +296,8 @@ void runNonUniformLBM(const int           problemID,
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d ulid(ulb, 0., 0.);
 
-    //auto vel = grid.newField<T>("vel", 1, 0);
-    //vel.ioToVtk("Test", true, true, true, true, 0.48, 0.52);
+    //auto test = grid.newField<T>("test", 1, 0);
+    //test.ioToVtk("Test", true, true, true, false);
     //exit(0);
 
     //allocate fields
