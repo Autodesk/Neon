@@ -498,6 +498,8 @@ void flowOverCylinder(const int           problemID,
 
     Neon::index_3d gridDim(136, 96, 136);
 
+    Neon::index_4d cylinder(52, 52, 0, 8);
+
     int depth = 3;
 
     const Neon::mGridDescriptor<1> descriptor(depth);
@@ -511,18 +513,22 @@ void flowOverCylinder(const int           problemID,
              return idx.x >= 24 && idx.x < 112 && idx.y >= 24 && idx.y < 72;
          },
          [&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 40 && idx.x < 96 && idx.y >= 40 && idx.y < 64;
+             return true;
          }},
         Neon::domain::Stencil::s19_t(false), descriptor);
 
 
     //LBM problem
-    const T               ulb = 0.04;
+    const T               uin = 0.04;
     const int             Re = 100;
     const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
-    const T               visclb = ulb * clength / static_cast<T>(Re);
+    const T               visclb = uin * clength / static_cast<T>(Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
-    const Neon::double_3d ulid(ulb, 0., 0.);
+    const Neon::double_3d inletVelocity(uin, 0., 0.);
+
+    //auto test = grid.newField<T>("test", 1, 0);
+    //test.ioToVtk("Test", true, true, true, false);
+    //exit(0);
 
     auto fin = grid.newField<T>("fin", Q, 0);
     auto fout = grid.newField<T>("fout", Q, 0);
@@ -533,7 +539,10 @@ void flowOverCylinder(const int           problemID,
     auto rho = grid.newField<T>("rho", 1, 0);
 
     //init fields
-    uint32_t numActiveVoxels = initLidDrivenCavity<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, ulid);
+    uint32_t numActiveVoxels = initFlowOverCylinder<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, cylinder);
+
+    //cellType.updateHostData();
+    //cellType.ioToVtk("cellType", true, true, true, true);
 }
 
 int main(int argc, char** argv)
