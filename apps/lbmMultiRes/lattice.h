@@ -7,7 +7,8 @@ enum CellType : int
     bounceBack = 0,
     movingWall = 1,
     bulk = 2,
-    undefined = 3,
+    inlet = 3,
+    undefined = 4,
 };
 
 

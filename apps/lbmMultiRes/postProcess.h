@@ -7,16 +7,13 @@
 
 template <typename T, int Q>
 void postProcess(Neon::domain::mGrid&                        grid,
-                 const int                                   Re,
                  const int                                   numLevels,
                  const Neon::domain::mGrid::Field<T>&        fpop,
                  const Neon::domain::mGrid::Field<CellType>& cellType,
                  const int                                   iteration,
                  Neon::domain::mGrid::Field<T>&              vel,
                  Neon::domain::mGrid::Field<T>&              rho,
-                 T                                           ulb,
-                 bool                                        verify,
-                 bool                                        generateValidateFile)
+                 bool                                        outputFile)
 {
     grid.getBackend().syncAll();
 
@@ -71,67 +68,80 @@ void postProcess(Neon::domain::mGrid&                        grid,
 
     grid.getBackend().syncAll();
 
-
+    
     vel.updateHostData();
     //rho.updateHostData();
 
+    if (outputFile) {
+        int                precision = 4;
+        std::ostringstream suffix;
+        suffix << std::setw(precision) << std::setfill('0') << iteration;
 
+        vel.ioToVtk("Velocity_" + suffix.str());
+        //rho.ioToVtk("Density_" + suffix.str());
+    }
+}
+
+
+template <typename T>
+void verifyLidDrivenCavity(Neon::domain::mGrid&           grid,
+                           const int                      numLevels,
+                           Neon::domain::mGrid::Field<T>& vel,
+                           const int                      Re,
+                           const int                      iteration,
+                           const T                        ulb)
+{
     int                precision = 4;
     std::ostringstream suffix;
     suffix << std::setw(precision) << std::setfill('0') << iteration;
 
     std::vector<std::pair<T, T>> xPosVal;
     std::vector<std::pair<T, T>> yPosVal;
-    if (verify || generateValidateFile) {
-        const Neon::index_3d grid_dim = grid.getDimension();
 
-        const T scale = 1.0 / ulb;
+    const Neon::index_3d grid_dim = grid.getDimension();
 
-        for (int level = 0; level < numLevels; ++level) {
-            vel.forEachActiveCell(
-                level, [&](const Neon::index_3d& id, const int& card, T& val) {
-                    if (id.x == grid_dim.x / 2 && id.z == grid_dim.z / 2) {
-                        if (card == 0) {
-                            yPosVal.push_back({static_cast<double>(id.v[1]) / static_cast<double>(grid_dim.y), val * scale});
-                        }
+    const T scale = 1.0 / ulb;
+
+    for (int level = 0; level < numLevels; ++level) {
+        vel.forEachActiveCell(
+            level, [&](const Neon::index_3d& id, const int& card, T& val) {
+                if (id.x == grid_dim.x / 2 && id.z == grid_dim.z / 2) {
+                    if (card == 0) {
+                        yPosVal.push_back({static_cast<double>(id.v[1]) / static_cast<double>(grid_dim.y), val * scale});
                     }
+                }
 
-                    if (id.y == grid_dim.y / 2 && id.z == grid_dim.z / 2) {
-                        if (card == 1) {
-                            xPosVal.push_back({static_cast<double>(id.v[0]) / static_cast<double>(grid_dim.x), val * scale});
-                        }
+                if (id.y == grid_dim.y / 2 && id.z == grid_dim.z / 2) {
+                    if (card == 1) {
+                        xPosVal.push_back({static_cast<double>(id.v[0]) / static_cast<double>(grid_dim.x), val * scale});
                     }
-                },
-                Neon::computeMode_t::seq);
+                }
+            },
+            Neon::computeMode_t::seq);
+    }
+    //sort the position so the linear interpolation works
+    std::sort(xPosVal.begin(), xPosVal.end(), [=](std::pair<T, T>& a, std::pair<T, T>& b) {
+        return a.first < b.first;
+    });
+
+    std::sort(yPosVal.begin(), yPosVal.end(), [=](std::pair<T, T>& a, std::pair<T, T>& b) {
+        return a.first < b.first;
+    });
+
+
+    NEON_INFO("Max difference = {0:.8f}", verifyGhia1982(Re, xPosVal, yPosVal));
+
+
+    auto writeToFile = [](const std::vector<std::pair<T, T>>& posVal, std::string filename) {
+        std::ofstream file;
+        file.open(filename);
+        for (auto v : posVal) {
+            file << v.first << " " << v.second << "\n";
         }
-        //sort the position so the linear interpolation works
-        std::sort(xPosVal.begin(), xPosVal.end(), [=](std::pair<T, T>& a, std::pair<T, T>& b) {
-            return a.first < b.first;
-        });
-
-        std::sort(yPosVal.begin(), yPosVal.end(), [=](std::pair<T, T>& a, std::pair<T, T>& b) {
-            return a.first < b.first;
-        });
-    }
-
-    if (verify) {
-        NEON_INFO("Max difference = {0:.8f}", verifyGhia1982(Re, xPosVal, yPosVal));
-    }
-    if (generateValidateFile) {
-        auto writeToFile = [](const std::vector<std::pair<T, T>>& posVal, std::string filename) {
-            std::ofstream file;
-            file.open(filename);
-            for (auto v : posVal) {
-                file << v.first << " " << v.second << "\n";
-            }
-            file.close();
-        };
-        writeToFile(yPosVal, "NeonMultiResLBM_" + suffix.str() + "_Y.dat");
-        writeToFile(xPosVal, "NeonMultiResLBM_" + suffix.str() + "_X.dat");
-    }
-
-    vel.ioToVtk("Velocity_" + suffix.str());
-    //rho.ioToVtk("Density_" + suffix.str());
+        file.close();
+    };
+    writeToFile(yPosVal, "NeonMultiResLBM_" + suffix.str() + "_Y.dat");
+    writeToFile(xPosVal, "NeonMultiResLBM_" + suffix.str() + "_X.dat");
 }
 
 
