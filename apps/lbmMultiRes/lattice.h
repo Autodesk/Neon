@@ -11,7 +11,7 @@ enum CellType : int
     undefined = 4,
 };
 
-#ifdef BGK
+#ifdef KBC
 NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity[27][3] = {
     {0, 0, 0},
     {0, 0, -1},
@@ -105,7 +105,7 @@ NEON_CUDA_DEVICE_ONLY static constexpr char latticeMoment[27][6] = {
     {1, 1, -1, 1, -1, 1},
     {1, 1, 1, 1, 1, 1}};
 
-#ifdef KBC
+#ifdef BGK
 NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity[19][3] = {
     {-1, 0, 0} /*!  0  Symmetry first section (GO) */,
     {0, -1, 0} /*!  1  */,
