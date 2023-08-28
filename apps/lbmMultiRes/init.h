@@ -260,8 +260,8 @@ uint32_t initFlowOverCylinder(Neon::domain::mGrid&                  grid,
                             const Neon::index_3d idx = in.getGlobalIndex(cell);
 
                             //the cell classification
-                            if (idx.y == 0 || idx.y == gridDim.y - 1 ||
-                                idx.z == 0 || idx.z == gridDim.z - 1) {
+                            if (idx.y == 0 || idx.y == gridDim.y - (1 << level) ||
+                                idx.z == 0 || idx.z == gridDim.z - (1 << level)) {
                                 type(cell, 0) = CellType::bounceBack;
                             }
 
