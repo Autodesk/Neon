@@ -497,19 +497,39 @@ mGrid::mGrid(
                                         //set child ID
                                         if (levelBitMaskIsSet(l, block3DIndex, localChild)) {
 
-                                            Neon::index_3d childId = mData->mDescriptor.parentToChild(userBlockOrigin, l, localChild);
+                                            Neon::index_3d childBlock3DIndex(block3DIndex.x * refFactor + x,
+                                                                             block3DIndex.y * refFactor + y,
+                                                                             block3DIndex.z * refFactor + z);
 
-                                            auto [setIdx, childBlockID] = mData->grids[l - 1].helpGetSetIdxAndGridIdx(childId);
+                                            bool childExist = false;
+                                            for (int32_t cz = 0; cz < refFactor; cz++) {
+                                                for (int32_t cy = 0; cy < refFactor; cy++) {
+                                                    for (int32_t cx = 0; cx < refFactor; cx++) {
+                                                        Neon::index_3d cc(cx, cy, cz);
+                                                        childExist = childExist || levelBitMaskIsSet(l - 1, childBlock3DIndex, cc);
+                                                    }
+                                                }
+                                            }
 
                                             uint32_t pitch = blockIdx * kMemBlockSizeX * kMemBlockSizeY * kMemBlockSizeZ +
                                                              (i * kUserBlockSizeX + x) +
                                                              (j * kUserBlockSizeY + y) * kMemBlockSizeY +
                                                              (k * kUserBlockSizeZ + z) * kMemBlockSizeY * kMemBlockSizeZ;
 
-                                            if (setIdx.idx() == -1) {
-                                                mData->mChildBlockID[l].eRef(devID, pitch) = std::numeric_limits<Idx::DataBlockIdx>::max();
-                                            } else {
+                                            if (childExist) {
+
+                                                Neon::index_3d childId = mData->mDescriptor.parentToChild(userBlockOrigin, l, localChild);
+
+                                                auto [setIdx, childBlockID] = mData->grids[l - 1].helpGetSetIdxAndGridIdx(childId);
+
+                                                if (setIdx.idx() == -1) {
+                                                    NeonException exp("mGrid::mGrid");
+                                                    exp << "Can not find the child";
+                                                    NEON_THROW(exp);
+                                                }
                                                 mData->mChildBlockID[l].eRef(devID, pitch) = childBlockID.getDataBlockIdx();
+                                            } else {
+                                                mData->mChildBlockID[l].eRef(devID, pitch) = std::numeric_limits<Idx::DataBlockIdx>::max();
                                             }
                                         }
                                     }
