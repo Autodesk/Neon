@@ -87,15 +87,10 @@ void initSumStore(Neon::domain::mGrid&               grid,
     grid.getBackend().syncAll();
 }
 
-template <typename T, int Q>
-uint32_t initLidDrivenCavity(Neon::domain::mGrid&                  grid,
-                             Neon::domain::mGrid::Field<float>&    sumStore,
-                             Neon::domain::mGrid::Field<T>&        fin,
-                             Neon::domain::mGrid::Field<T>&        fout,
-                             Neon::domain::mGrid::Field<CellType>& cellType,
-                             Neon::domain::mGrid::Field<T>&        vel,
-                             Neon::domain::mGrid::Field<T>&        rho,
-                             const Neon::double_3d                 ulid)
+
+template <typename T>
+uint32_t countActiveVoxels(Neon::domain::mGrid&           grid,
+                           Neon::domain::mGrid::Field<T>& fin)
 {
     uint32_t* dNumActiveVoxels = nullptr;
 
@@ -108,13 +103,59 @@ uint32_t initLidDrivenCavity(Neon::domain::mGrid&                  grid,
 
     const Neon::index_3d gridDim = grid.getDimension();
 
+    for (int level = 0; level < grid.getDescriptor().getDepth(); ++level) {
+
+        auto container =
+            grid.newContainer(
+                "CountActiveVoxels" + std::to_string(level), level,
+                [&fin, level, gridDim, dNumActiveVoxels](Neon::set::Loader& loader) {
+                    auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
+
+                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
+
+#ifdef NEON_PLACE_CUDA_DEVICE
+                        atomicAdd(dNumActiveVoxels, 1);
+#else
+#pragma omp atomic
+                        dNumActiveVoxels[0] += 1;
+#endif
+                    };
+                });
+
+        container.run(0);
+    }
+
+    uint32_t hNumActiveVoxels = 0;
+    if (grid(0).getBackend().runtime() == Neon::Runtime::stream) {
+        cudaMemcpy(&hNumActiveVoxels, dNumActiveVoxels, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        cudaFree(dNumActiveVoxels);
+    } else {
+        hNumActiveVoxels = dNumActiveVoxels[0];
+    }
+
+    return hNumActiveVoxels;
+}
+
+
+template <typename T, int Q>
+void initLidDrivenCavity(Neon::domain::mGrid&                  grid,
+                         Neon::domain::mGrid::Field<float>&    sumStore,
+                         Neon::domain::mGrid::Field<T>&        fin,
+                         Neon::domain::mGrid::Field<T>&        fout,
+                         Neon::domain::mGrid::Field<CellType>& cellType,
+                         Neon::domain::mGrid::Field<T>&        vel,
+                         Neon::domain::mGrid::Field<T>&        rho,
+                         const Neon::double_3d                 ulid)
+{
+    const Neon::index_3d gridDim = grid.getDimension();
+
     //init fields
     for (int level = 0; level < grid.getDescriptor().getDepth(); ++level) {
 
         auto container =
             grid.newContainer(
                 "Init_" + std::to_string(level), level,
-                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, ulid, dNumActiveVoxels](Neon::set::Loader& loader) {
+                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, ulid](Neon::set::Loader& loader) {
                     auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -135,13 +176,6 @@ uint32_t initLidDrivenCavity(Neon::domain::mGrid&                  grid,
                             in(cell, q) = 0;
                             out(cell, q) = 0;
                         }
-
-#ifdef NEON_PLACE_CUDA_DEVICE
-                        atomicAdd(dNumActiveVoxels, 1);
-#else
-#pragma omp atomic
-                        dNumActiveVoxels[0] += 1;
-#endif
 
                         if (!in.hasChildren(cell)) {
                             const Neon::index_3d idx = in.getGlobalIndex(cell);
@@ -185,38 +219,20 @@ uint32_t initLidDrivenCavity(Neon::domain::mGrid&                  grid,
 
     //init sumStore
     initSumStore<T, Q>(grid, sumStore);
-
-    uint32_t hNumActiveVoxels = 0;
-    if (grid(0).getBackend().runtime() == Neon::Runtime::stream) {
-        cudaMemcpy(&hNumActiveVoxels, dNumActiveVoxels, sizeof(uint32_t), cudaMemcpyDeviceToHost);
-        cudaFree(dNumActiveVoxels);
-    } else {
-        hNumActiveVoxels = dNumActiveVoxels[0];
-    }
-
-    return hNumActiveVoxels;
 }
 
 
 template <typename T, int Q>
-uint32_t initFlowOverCylinder(Neon::domain::mGrid&                  grid,
-                              Neon::domain::mGrid::Field<float>&    sumStore,
-                              Neon::domain::mGrid::Field<T>&        fin,
-                              Neon::domain::mGrid::Field<T>&        fout,
-                              Neon::domain::mGrid::Field<CellType>& cellType,
-                              Neon::domain::mGrid::Field<T>&        vel,
-                              Neon::domain::mGrid::Field<T>&        rho,
-                              const Neon::double_3d                 inletVelocity,
-                              const Neon::index_4d                  cylinder)  //cylinder location (x,y,z) and radius
+void initFlowOverCylinder(Neon::domain::mGrid&                  grid,
+                          Neon::domain::mGrid::Field<float>&    sumStore,
+                          Neon::domain::mGrid::Field<T>&        fin,
+                          Neon::domain::mGrid::Field<T>&        fout,
+                          Neon::domain::mGrid::Field<CellType>& cellType,
+                          Neon::domain::mGrid::Field<T>&        vel,
+                          Neon::domain::mGrid::Field<T>&        rho,
+                          const Neon::double_3d                 inletVelocity,
+                          const Neon::index_4d                  cylinder)  //cylinder location (x,y,z) and radius
 {
-    uint32_t* dNumActiveVoxels = nullptr;
-
-    if (grid(0).getBackend().runtime() == Neon::Runtime::stream) {
-        cudaMalloc((void**)&dNumActiveVoxels, sizeof(uint32_t));
-        cudaMemset(dNumActiveVoxels, 0, sizeof(uint32_t));
-    } else {
-        dNumActiveVoxels = (uint32_t*)malloc(sizeof(uint32_t));
-    }
 
     const Neon::index_3d gridDim = grid.getDimension();
 
@@ -226,7 +242,7 @@ uint32_t initFlowOverCylinder(Neon::domain::mGrid&                  grid,
         auto container =
             grid.newContainer(
                 "Init_" + std::to_string(level), level,
-                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, inletVelocity, cylinder, dNumActiveVoxels](Neon::set::Loader& loader) {
+                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, inletVelocity, cylinder](Neon::set::Loader& loader) {
                     auto&   in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                     auto&   out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                     auto&   type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -248,13 +264,6 @@ uint32_t initFlowOverCylinder(Neon::domain::mGrid&                  grid,
                             in(cell, q) = 0;
                             out(cell, q) = 0;
                         }
-
-#ifdef NEON_PLACE_CUDA_DEVICE
-                        atomicAdd(dNumActiveVoxels, 1);
-#else
-#pragma omp atomic
-                        dNumActiveVoxels[0] += 1;
-#endif
 
                         if (!in.hasChildren(cell)) {
                             const Neon::index_3d idx = in.getGlobalIndex(cell);
@@ -309,14 +318,4 @@ uint32_t initFlowOverCylinder(Neon::domain::mGrid&                  grid,
 
     //init sumStore
     initSumStore<T, Q>(grid, sumStore);
-
-    uint32_t hNumActiveVoxels = 0;
-    if (grid(0).getBackend().runtime() == Neon::Runtime::stream) {
-        cudaMemcpy(&hNumActiveVoxels, dNumActiveVoxels, sizeof(uint32_t), cudaMemcpyDeviceToHost);
-        cudaFree(dNumActiveVoxels);
-    } else {
-        hNumActiveVoxels = dNumActiveVoxels[0];
-    }
-
-    return hNumActiveVoxels;
 }

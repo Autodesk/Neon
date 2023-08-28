@@ -453,7 +453,8 @@ void lidDrivenCavity(const int           problemID,
     auto rho = grid.newField<T>("rho", 1, 0);
 
     //init fields
-    const uint32_t numActiveVoxels = initLidDrivenCavity<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, ulid);
+    const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
+    initLidDrivenCavity<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, ulid);
 
     runNonUniformLBM<T, Q>(grid,
                            numActiveVoxels,
@@ -530,6 +531,7 @@ void flowOverCylinder(const int           problemID,
     //test.ioToVtk("Test", true, true, true, false);
     //exit(0);
 
+    //allocate fields
     auto fin = grid.newField<T>("fin", Q, 0);
     auto fout = grid.newField<T>("fout", Q, 0);
     auto storeSum = grid.newField<float>("storeSum", Q, 0);
@@ -539,10 +541,30 @@ void flowOverCylinder(const int           problemID,
     auto rho = grid.newField<T>("rho", 1, 0);
 
     //init fields
-    uint32_t numActiveVoxels = initFlowOverCylinder<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, cylinder);
+    const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
+    initFlowOverCylinder<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, cylinder);
 
     //cellType.updateHostData();
     //cellType.ioToVtk("cellType", true, true, true, true);
+
+    runNonUniformLBM<T, Q>(grid,
+                           numActiveVoxels,
+                           numIter,
+                           fineInitStore,
+                           streamFusedExpl,
+                           streamFusedCoal,
+                           streamFuseAll,
+                           collisionFusedStore,
+                           benchmark,
+                           problemID,
+                           "lid",
+                           omega,
+                           cellType,
+                           storeSum,
+                           fin,
+                           fout,
+                           vel,
+                           rho);
 }
 
 int main(int argc, char** argv)
