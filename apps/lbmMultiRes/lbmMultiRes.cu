@@ -1,5 +1,8 @@
 #include "Neon/core/tools/clipp.h"
 
+#define BGK
+//#define KBC
+
 #include "Neon/Neon.h"
 #include "Neon/Report.h"
 #include "Neon/domain/mGrid.h"
@@ -13,6 +16,7 @@
 #include "store.h"
 #include "stream.h"
 #include "util.h"
+
 
 Neon::Report report;
 
@@ -89,7 +93,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
     if (!collisionFusedStore) {
 
         // 6) collision for all voxels at level L = level
-        //containers.push_back(collideBGK<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+        //containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
         containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
 
         // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
@@ -642,7 +646,12 @@ int main(int argc, char** argv)
         std::vector<int> gpu_ids{deviceId};
         Neon::Backend    backend(gpu_ids, runtime);
 
+#ifdef KBC
+        constexpr int Q = 27;
+#endif
+#ifdef BGK
         constexpr int Q = 19;
+#endif
         if (dataType == "float") {
             if (problemType == "lid") {
                 lidDrivenCavity<float, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
