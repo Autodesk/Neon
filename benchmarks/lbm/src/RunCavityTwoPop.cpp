@@ -60,10 +60,10 @@ auto run(Config& config,
             Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
                 using M = typename Lattice::template RegisterMapper<q>;
                 if (globalIdx.y == domainDim.y - 1) {
-                    popVal = -6. * Lattice::Registers::template getT<M::fwdRegIdx>() * ulb *
-                             (Lattice::Registers::template getDirection<M::fwdRegIdx>().v[0] * ulid.v[0] +
-                              Lattice::Registers::template getDirection<M::fwdRegIdx>().v[1] * ulid.v[1] +
-                              Lattice::Registers::template getDirection<M::fwdRegIdx>().v[2] * ulid.v[2]);
+                    popVal = -6. * Lattice::Registers::template getT<M::fwdRegQ>() * ulb *
+                             (Lattice::Registers::template getDirection<M::fwdRegQ>().v[0] * ulid.v[0] +
+                              Lattice::Registers::template getDirection<M::fwdRegQ>().v[1] * ulid.v[1] +
+                              Lattice::Registers::template getDirection<M::fwdRegQ>().v[2] * ulid.v[2]);
                 } else {
                     popVal = 0;
                 }
@@ -73,7 +73,7 @@ auto run(Config& config,
             cellClass = CellType::bulk;
             Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
                 using M = typename Lattice::template RegisterMapper<q>;
-                p[q] = Lattice::Registers::template getT<M::fwdRegIdx>();
+                p[q] = Lattice::Registers::template getT<M::fwdRegQ>();
             });
         }
     });

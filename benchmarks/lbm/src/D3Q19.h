@@ -102,8 +102,11 @@ struct D3Q19
             return stencil[q];
         }
 
-        static constexpr int                                     fwdRegIdxListLen = (Q - 1) / 2;
-        static constexpr std::array<const int, fwdRegIdxListLen> fwdRegIdxList{0, 1, 2, 3, 4, 5, 6, 7, 8};
+        // Identifying first half of the directions
+        // For each direction in the list, the opposite is not present.
+        // Center is also removed
+        static constexpr int                                           firstHalfDirectionsLen = (Q - 1) / 2;
+        static constexpr std::array<const int, firstHalfDirectionsLen> firstHalfDirectionsList{0, 1, 2, 3, 4, 5, 6, 7, 8};
 
         template <int tegIdx, typename Compute>
         static inline NEON_CUDA_HOST_DEVICE auto
@@ -204,38 +207,38 @@ struct D3Q19
 //    template <int fwMemIdx_>
 //    struct MemMapper
 //    {
-//        constexpr static int fwdMemIdx = fwMemIdx_;
-//        constexpr static int fwdX = Memory::stencil[fwdMemIdx].x;
-//        constexpr static int fwdY = Memory::stencil[fwdMemIdx].y;
-//        constexpr static int fwdZ = Memory::stencil[fwdMemIdx].z;
+//        constexpr static int fwdMemQ = fwMemIdx_;
+//        constexpr static int fwdMemQX = Memory::stencil[fwdMemQ].x;
+//        constexpr static int fwdY = Memory::stencil[fwdMemQ].y;
+//        constexpr static int fwdZ = Memory::stencil[fwdMemQ].z;
 //
-//        constexpr static int bkwMemIdx = Memory::opposite[fwdMemIdx];
-//        constexpr static int bkwX = Memory::stencil[bkwMemIdx].x;
-//        constexpr static int bkwY = Memory::stencil[bkwMemIdx].y;
-//        constexpr static int bkwZ = Memory::stencil[bkwMemIdx].z;
+//        constexpr static int bkwMemQ = Memory::opposite[fwdMemQ];
+//        constexpr static int bkwX = Memory::stencil[bkwMemQ].x;
+//        constexpr static int bkwY = Memory::stencil[bkwMemQ].y;
+//        constexpr static int bkwZ = Memory::stencil[bkwMemQ].z;
 //
-//        constexpr static int fwdRegIdx = Memory::template mapToRegisters<fwdMemIdx>();
-//        constexpr static int centerRegIdx = Registers::center;
-//        constexpr static int centerMemIdx = Memory::center;
+//        constexpr static int fwdRegQ = Memory::template mapToRegisters<fwdMemQ>();
+//        constexpr static int centerRegQ = Registers::center;
+//        constexpr static int centerMemQ = Memory::center;
 //    };
 
     template <int fwdRegIdx_>
     struct RegisterMapper
     {
-        constexpr static int fwdRegIdx = fwdRegIdx_;
-        constexpr static int bkwRegIdx = Registers::opposite[fwdRegIdx];
-        constexpr static int fwdMemIdx = Memory::template mapToMemory<fwdRegIdx>();
-        constexpr static int bkwMemIdx = Memory::template mapToMemory<bkwRegIdx>();
-        constexpr static int centerRegIdx = Registers::center;
-        constexpr static int centerMemIdx = Memory::center;
+        constexpr static int fwdRegQ = fwdRegIdx_;
+        constexpr static int bkwRegQ = Registers::opposite[fwdRegQ];
+        constexpr static int fwdMemQ = Memory::template mapToMemory<fwdRegQ>();
+        constexpr static int bkwMemQ = Memory::template mapToMemory<bkwRegQ>();
+        constexpr static int centerRegQ = Registers::center;
+        constexpr static int centerMemQ = Memory::center;
 
-        constexpr static int fwdX = Memory::stencil[fwdMemIdx].x;
-        constexpr static int fwdY = Memory::stencil[fwdMemIdx].y;
-        constexpr static int fwdZ = Memory::stencil[fwdMemIdx].z;
+        constexpr static int fwdMemQX = Memory::stencil[fwdMemQ].x;
+        constexpr static int fwdMemQY = Memory::stencil[fwdMemQ].y;
+        constexpr static int fwdMemQZ= Memory::stencil[fwdMemQ].z;
 
-        constexpr static int bkwX = Memory::stencil[bkwMemIdx].x;
-        constexpr static int bkwY = Memory::stencil[bkwMemIdx].y;
-        constexpr static int bkwZ = Memory::stencil[bkwMemIdx].z;
+        constexpr static int bkwMemQX = Memory::stencil[bkwMemQ].x;
+        constexpr static int bkwMemQY = Memory::stencil[bkwMemQ].y;
+        constexpr static int bkwMemQZ = Memory::stencil[bkwMemQ].z;
     };
 
    public:

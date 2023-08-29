@@ -32,11 +32,11 @@ struct CellType
     // Converting to int to exportVti
     operator int() const { return int(classification); }
 
-    template <int fwdRegIdx>
+    template <int fwdRegQ>
     static auto isWall(const uint32_t& wallNghBitFlag)
         -> bool
     {
-        return wallNghBitFlag & (uint32_t(1) << fwdRegIdx);
+        return wallNghBitFlag & (uint32_t(1) << fwdRegQ);
     }
 
     auto setWall(int fwdRegIdx)

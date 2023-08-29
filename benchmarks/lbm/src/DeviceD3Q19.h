@@ -32,13 +32,13 @@ struct DeviceD3Q19
             using M = typename Lattice::template MappersIdxSetWithFwdMem<fwMemIdx>;
 
             if constexpr (fwMemIdx == Lattice::Memory::center) {
-                popIn[M::centerRegIdx] = fin(gidx, M::centerMemIdx);
+                popIn[M::centerRegIdx] = fin(gidx, M::centerMemQ);
             } else {
                 if (CellType::isWall<M::bkMemIdx>()) {
-                    popIn[M::fwdRegIdx] = fin(gidx, M::bkMemIdx) +
+                    popIn[M::fwdRegQ] = fin(gidx, M::bkMemIdx) +
                                           fin.template getNghData<M::bkX, M::bkY, M::bkZ>(gidx, M::bkMemIdx)();
                 } else {
-                    popIn[M::fwdRegIdx] = fin.template getNghData<M::bkX, M::bkY, M::bkZ>(gidx, fwMemIdx)();
+                    popIn[M::fwdRegQ] = fin.template getNghData<M::bkX, M::bkY, M::bkZ>(gidx, fwMemIdx)();
                 }
             }
         });
@@ -75,19 +75,19 @@ struct DeviceD3Q19
         Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
             using M = typename Lattice::template RegisterMapper<q>;
 
-            if constexpr (M::fwdMemIdx == M::centerMemIdx) {
-                fOut(gidx, M::fwdMemIdx) = pOut[M::fwdRegIdx];
+            if constexpr (M::fwdMemQ == M::centerMemQ) {
+                fOut(gidx, M::fwdMemQ) = pOut[M::fwdRegQ];
             } else {
-                if (CellType::isWall<M::fwdRegIdx>(wallNghBitFlag)) {
+                if (CellType::isWall<M::fwdRegQ>(wallNghBitFlag)) {
                     // fout(i, opp[k]) =
                     //      pop_out +
                     //      f(nb, k);
-                    fOut(gidx, M::bkwMemIdx) =
-                        pOut[M::fwdRegIdx] +
-                        fOut.template getNghData<M::fwdX, M::fwdY, M::fwdZ>(gidx, M::fwdMemIdx)();
+                    fOut(gidx, M::bkwMemQ) =
+                        pOut[M::fwdRegQ] +
+                        fOut.template getNghData<M::fwdMemQX, M::fwdMemQY, M::fwdMemQZ>(gidx, M::fwdMemQ)();
                 } else {
                     // fout(nb,                                 k)         = pop_out;
-                    fOut.template writeNghData<M::fwdX, M::fwdY, M::fwdZ>(gidx, M::fwdMemIdx, pOut[M::fwdRegIdx]);
+                    fOut.template writeNghData<M::fwdMemQX, M::fwdMemQY, M::fwdMemQZ>(gidx, M::fwdMemQ, pOut[M::fwdRegQ]);
                 }
             }
         });
@@ -160,21 +160,21 @@ struct DeviceD3Q19
         // constexpr int regCenter = Lattice::Registers::center;
         // constexpr int regFir = Lattice::Registers::center;
 
-        Neon::ConstexprFor<0, Lattice::Registers::fwdRegIdxListLen, 1>(
-            [&](auto fwdRegIdxListIdx) {
-                using M = typename Lattice::template RegisterMapper<fwdRegIdxListIdx>;
+        Neon::ConstexprFor<0, Lattice::Registers::firstHalfDirectionsLen, 1>(
+            [&](auto q) {
+                using M = typename Lattice::template RegisterMapper<q>;
                 using T = typename Lattice::Registers;
 
                 Compute eqFw;
                 Compute eqBk;
 
-                const Compute ck_u = T::template getCk_u<M::fwdRegIdx, Compute>(u);
+                const Compute ck_u = T::template getCk_u<M::fwdRegQ, Compute>(u);
                 // double eq = rho * t[k] *
                 //             (1. +
                 //             3. * ck_u +
                 //             4.5 * ck_u * ck_u -
                 //             usqr);
-                eqFw = rho * T::t[M::fwdRegIdx] *
+                eqFw = rho * T::t[M::fwdRegQ] *
                        (c1 +
                         c3 * ck_u +
                         c4dot5 * ck_u * ck_u -
@@ -182,20 +182,20 @@ struct DeviceD3Q19
 
                 // double eqopp = eq - 6.* rho * t[k] * ck_u;
                 eqBk = eqFw -
-                       c6 * rho * c1over36 * T::t[M::fwdRegIdx] * ck_u;
+                       c6 * rho * c1over36 * T::t[M::fwdRegQ] * ck_u;
 
                 // pop_out        = (1. - omega) * fin(i, k)                              + omega * eq;
-                pop[M::fwdRegIdx] = (c1 - omega) * static_cast<Compute>(pop[M::fwdRegIdx]) + omega * eqFw;
+                pop[M::fwdRegQ] = (c1 - omega) * static_cast<Compute>(pop[M::fwdRegQ]) + omega * eqFw;
                 // pop_out_opp    = (1. - omega) * fin(i, opp[k])                         + omega * eqopp;
-                pop[M::bkwRegIdx] = (c1 - omega) * static_cast<Compute>(pop[M::bkwRegIdx]) + omega * eqBk;
+                pop[M::bkwRegQ] = (c1 - omega) * static_cast<Compute>(pop[M::bkwRegQ]) + omega * eqBk;
             });
         {  // Center;
             using T = typename Lattice::Registers;
             using M = typename Lattice::template RegisterMapper<Lattice::Registers::center>;
             //                  eq = rho * t[k]              * (1. - usqr);
-            const Compute eqCenter = rho * T::t[M::fwdRegIdx] * (c1 - usqr);
+            const Compute eqCenter = rho * T::t[M::fwdRegQ] * (c1 - usqr);
             //                   fout(i, k) = (1. - omega) * fin(i, k)                              + omega * eq;
-            pop[Lattice::Registers::center] = (c1 - omega) * static_cast<Compute>(pop[M::fwdRegIdx]) + omega * eqCenter;
+            pop[Lattice::Registers::center] = (c1 - omega) * static_cast<Compute>(pop[M::fwdRegQ]) + omega * eqCenter;
         }
     }
     static inline NEON_CUDA_HOST_DEVICE auto
@@ -205,7 +205,7 @@ struct DeviceD3Q19
     {
         Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
             using M = typename Lattice::template RegisterMapper<q>;
-            pOut[M::fwdRegIdx] = fOut(gidx, M::fwdMemIdx);
+            pOut[M::fwdRegQ] = fOut(gidx, M::fwdMemQ);
         });
     }
 
@@ -216,7 +216,7 @@ struct DeviceD3Q19
     {
         Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
             using M = typename Lattice::template RegisterMapper<q>;
-            fOut(gidx, M::fwdMemIdx) = pOut[M::fwdRegIdx];
+            fOut(gidx, M::fwdMemQ) = pOut[M::fwdRegQ];
         });
     }
 };
