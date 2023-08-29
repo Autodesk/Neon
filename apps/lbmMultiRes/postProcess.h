@@ -55,9 +55,17 @@ void postProcess(Neon::domain::mGrid&                        grid,
                             if (type(cell, 0) == CellType::movingWall) {
                                 rh(cell, 0) = 1.0;
 
-                                u(cell, 0) = pop(cell, 0) / (6. * 1. / 18.);
-                                u(cell, 1) = pop(cell, 1) / (6. * 1. / 18.);
-                                u(cell, 2) = pop(cell, 2) / (6. * 1. / 18.);
+                                for (int q = 0; q < Q; ++q) {
+                                    for (int d = 0; d < 3; ++d) {
+                                        int d1 = (d + 1) % 3;
+                                        int d2 = (d + 2) % 3;
+                                        if (latticeVelocity[q][d] == -1 &&
+                                            latticeVelocity[q][d1] == 0 &&
+                                            latticeVelocity[q][d2] == 0) {
+                                            u(cell, d) = pop(cell, q) / (6. * latticeWeights[q]);
+                                        }
+                                    }
+                                }
                             }
                         }
                     };
