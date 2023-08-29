@@ -225,7 +225,8 @@ struct ContainerFactory<Precision_,
                             using M = typename Lattice::template RegisterMapper<fwdRegIdx>;
                             if constexpr (M::centerMemQ != M::fwdMemQ) {
                                 CellType nghCellType = infoIn.template getNghData<M::fwdMemQX, M::fwdMemQY, M::fwdMemQZ>(gidx, 0, CellType::undefined)();
-                                if (nghCellType.classification != CellType::bulk) {
+                                if (nghCellType.classification == CellType::bounceBack ||
+                                        nghCellType.classification == CellType::movingWall) {
                                     cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << M::fwdMemQ));
                                 }
                             }
@@ -417,7 +418,7 @@ struct ContainerFactory<Precision_,
                     {  // All cells are pre-set to Equilibrium
                         Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
                             using M = typename Lattice::template RegisterMapper<q>;
-                            fOut(gidx, M::fwdMemQ) = Lattice::Registers::template getT<q>();
+                            fOut(gidx, M::fwdMemQ) = Lattice::Registers::template getT<M::fwdRegQ>();
                         });
                     }
                 };

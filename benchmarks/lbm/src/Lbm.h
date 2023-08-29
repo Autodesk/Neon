@@ -36,6 +36,7 @@ struct Lbm
         Report&               report,
         Lambda                activeMask)
     {
+        configurations = config;
         reportPtr = &report;
 
         // Setting the backend
@@ -242,12 +243,14 @@ struct Lbm
         computeRhoAndU.run(Neon::Backend::mainStreamIdx);
         u.updateHostData(Neon::Backend::mainStreamIdx);
         rho.updateHostData(Neon::Backend::mainStreamIdx);
+        //pop.updateHostData(Neon::Backend::mainStreamIdx);
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
 
         size_t      numDigits = 5;
         std::string iterIdStr = std::to_string(iteration);
         iterIdStr = std::string(numDigits - std::min(numDigits, iterIdStr.length()), '0') + iterIdStr;
 
+        //pop.ioToVtk("pop_" + iterIdStr, "pop", false);
         u.ioToVtk("u_" + iterIdStr, "u", false);
         rho.ioToVtk("rho_" + iterIdStr, "rho", false);
         cellFlagField.template ioToVtk<int>("cellFlagField_" + iterIdStr, "flag", false);

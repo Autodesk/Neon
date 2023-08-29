@@ -31,25 +31,25 @@ struct D3Q19
     {
         using Self = D3Q19<Precision>::Registers;
         static constexpr std::array<const Neon::index_3d, Q> stencil{
-            Neon::index_3d(-1, 0, 0),
-            Neon::index_3d(0, -1, 0),
-            Neon::index_3d(0, 0, -1),
-            Neon::index_3d(-1, -1, 0),
-            Neon::index_3d(-1, 1, 0),
-            Neon::index_3d(-1, 0, -1),
-            Neon::index_3d(-1, 0, 1),
-            Neon::index_3d(0, -1, -1),
-            Neon::index_3d(0, -1, 1),
-            Neon::index_3d(0, 0, 0),
-            Neon::index_3d(1, 0, 0),
-            Neon::index_3d(0, 1, 0),
-            Neon::index_3d(0, 0, 1),
-            Neon::index_3d(1, 1, 0),
-            Neon::index_3d(1, -1, 0),
-            Neon::index_3d(1, 0, 1),
-            Neon::index_3d(1, 0, -1),
-            Neon::index_3d(0, 1, 1),
-            Neon::index_3d(0, 1, -1)};
+            /*!  0   */ Neon::index_3d(-1, 0, 0),
+            /*!  1   */ Neon::index_3d(0, -1, 0),
+            /*!  2   */ Neon::index_3d(0, 0, -1),
+            /*!  3   */ Neon::index_3d(-1, -1, 0),
+            /*!  4   */ Neon::index_3d(-1, 1, 0),
+            /*!  5   */ Neon::index_3d(-1, 0, -1),
+            /*!  6   */ Neon::index_3d(-1, 0, 1),
+            /*!  7   */ Neon::index_3d(0, -1, -1),
+            /*!  8   */ Neon::index_3d(0, -1, 1),
+            /*!  9   */ Neon::index_3d(0, 0, 0),
+            /*!  10   */ Neon::index_3d(1, 0, 0),
+            /*!  11   */ Neon::index_3d(0, 1, 0),
+            /*!  12   */ Neon::index_3d(0, 0, 1),
+            /*!  13   */ Neon::index_3d(1, 1, 0),
+            /*!  14   */ Neon::index_3d(1, -1, 0),
+            /*!  15   */ Neon::index_3d(1, 0, 1),
+            /*!  16   */ Neon::index_3d(1, 0, -1),
+            /*!  17   */ Neon::index_3d(0, 1, 1),
+            /*!  18   */ Neon::index_3d(0, 1, -1)};
 
         static constexpr int center = 9; /** Position of direction {0,0,0} */
 
@@ -105,41 +105,41 @@ struct D3Q19
         // Identifying first half of the directions
         // For each direction in the list, the opposite is not present.
         // Center is also removed
-        static constexpr int                                           firstHalfDirectionsLen = (Q - 1) / 2;
-        static constexpr std::array<const int, firstHalfDirectionsLen> firstHalfDirectionsList{0, 1, 2, 3, 4, 5, 6, 7, 8};
+        static constexpr int                                  firstHalfQLen = (Q - 1) / 2;
+        static constexpr std::array<const int, firstHalfQLen> firstHalfQList{0, 1, 2, 3, 4, 5, 6, 7, 8};
 
         template <int tegIdx, typename Compute>
         static inline NEON_CUDA_HOST_DEVICE auto
         getCk_u(std::array<Compute, 3> const& u) -> Compute
         {
-            if constexpr (tegIdx == 0 || tegIdx == 9) {
-                return u[0];
+            if constexpr (tegIdx == 0 || tegIdx == 10) {
+                return -u[0];
             }
-            if constexpr (tegIdx == 1 || tegIdx == 10) {
-                return u[1];
+            if constexpr (tegIdx == 1 || tegIdx == 11) {
+                return -u[1];
             }
-            if constexpr (tegIdx == 2 || tegIdx == 11) {
-                return u[2];
+            if constexpr (tegIdx == 2 || tegIdx == 12) {
+                return -u[2];
             }
-            if constexpr (tegIdx == 3 || tegIdx == 12) {
-                return u[0] + u[1];
+            if constexpr (tegIdx == 3 || tegIdx == 13) {
+                return -u[0] - u[1];
             }
-            if constexpr (tegIdx == 4 || tegIdx == 13) {
-                return u[0] - u[1];
+            if constexpr (tegIdx == 4 || tegIdx == 14) {
+                return -u[0] + u[1];
             }
-            if constexpr (tegIdx == 5 || tegIdx == 14) {
-                return u[0] + u[2];
+            if constexpr (tegIdx == 5 || tegIdx == 15) {
+                return -u[0] - u[2];
             }
-            if constexpr (tegIdx == 6 || tegIdx == 15) {
+            if constexpr (tegIdx == 6 || tegIdx == 16) {
 
-                return u[0] - u[2];
+                return -u[0] + u[2];
             }
-            if constexpr (tegIdx == 7 || tegIdx == 16) {
+            if constexpr (tegIdx == 7 || tegIdx == 17) {
 
-                return u[1] + u[2];
+                return -u[1] - u[2];
             }
-            if constexpr (tegIdx == 8 || tegIdx == 17) {
-                return u[1] - u[2];
+            if constexpr (tegIdx == 8 || tegIdx == 18) {
+                return -u[1] + u[2];
             }
         }
     };
@@ -204,23 +204,23 @@ struct D3Q19
             10, 11, 12, 13, 14, 15, 16, 17, 18, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8};
     };
 
-//    template <int fwMemIdx_>
-//    struct MemMapper
-//    {
-//        constexpr static int fwdMemQ = fwMemIdx_;
-//        constexpr static int fwdMemQX = Memory::stencil[fwdMemQ].x;
-//        constexpr static int fwdY = Memory::stencil[fwdMemQ].y;
-//        constexpr static int fwdZ = Memory::stencil[fwdMemQ].z;
-//
-//        constexpr static int bkwMemQ = Memory::opposite[fwdMemQ];
-//        constexpr static int bkwX = Memory::stencil[bkwMemQ].x;
-//        constexpr static int bkwY = Memory::stencil[bkwMemQ].y;
-//        constexpr static int bkwZ = Memory::stencil[bkwMemQ].z;
-//
-//        constexpr static int fwdRegQ = Memory::template mapToRegisters<fwdMemQ>();
-//        constexpr static int centerRegQ = Registers::center;
-//        constexpr static int centerMemQ = Memory::center;
-//    };
+    //    template <int fwMemIdx_>
+    //    struct MemMapper
+    //    {
+    //        constexpr static int fwdMemQ = fwMemIdx_;
+    //        constexpr static int fwdMemQX = Memory::stencil[fwdMemQ].x;
+    //        constexpr static int fwdY = Memory::stencil[fwdMemQ].y;
+    //        constexpr static int fwdZ = Memory::stencil[fwdMemQ].z;
+    //
+    //        constexpr static int bkwMemQ = Memory::opposite[fwdMemQ];
+    //        constexpr static int bkwX = Memory::stencil[bkwMemQ].x;
+    //        constexpr static int bkwY = Memory::stencil[bkwMemQ].y;
+    //        constexpr static int bkwZ = Memory::stencil[bkwMemQ].z;
+    //
+    //        constexpr static int fwdRegQ = Memory::template mapToRegisters<fwdMemQ>();
+    //        constexpr static int centerRegQ = Registers::center;
+    //        constexpr static int centerMemQ = Memory::center;
+    //    };
 
     template <int fwdRegIdx_>
     struct RegisterMapper
@@ -234,7 +234,7 @@ struct D3Q19
 
         constexpr static int fwdMemQX = Memory::stencil[fwdMemQ].x;
         constexpr static int fwdMemQY = Memory::stencil[fwdMemQ].y;
-        constexpr static int fwdMemQZ= Memory::stencil[fwdMemQ].z;
+        constexpr static int fwdMemQZ = Memory::stencil[fwdMemQ].z;
 
         constexpr static int bkwMemQX = Memory::stencil[bkwMemQ].x;
         constexpr static int bkwMemQY = Memory::stencil[bkwMemQ].y;
