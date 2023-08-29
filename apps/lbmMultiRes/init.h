@@ -180,35 +180,40 @@ void initLidDrivenCavity(Neon::domain::mGrid&                  grid,
                         if (!in.hasChildren(cell)) {
                             const Neon::index_3d idx = in.getGlobalIndex(cell);
 
-                            //pop
+                            //the cell classification
+                            if (level == 0) {
+                                if (idx.x == 0 || idx.x == gridDim.x - 1 ||
+                                    idx.y == 0 || idx.y == gridDim.y - 1 ||
+                                    idx.z == 0 || idx.z == gridDim.z - 1) {
+                                    type(cell, 0) = CellType::bounceBack;
+
+                                    if (idx.y == gridDim.y - 1) {
+                                        type(cell, 0) = CellType::movingWall;
+                                    }
+                                }
+                            }
+
+                            //population init value
                             for (int q = 0; q < Q; ++q) {
                                 T pop_init_val = latticeWeights[q];
 
-                                if (level == 0) {
-                                    if (idx.x == 0 || idx.x == gridDim.x - 1 ||
-                                        idx.y == 0 || idx.y == gridDim.y - 1 ||
-                                        idx.z == 0 || idx.z == gridDim.z - 1) {
-                                        type(cell, 0) = CellType::bounceBack;
+                                //bounce back
+                                if (type(cell, 0) == CellType::bounceBack) {
+                                    pop_init_val = 0;
+                                }
 
-                                        if (idx.y == gridDim.y - 1) {
-                                            type(cell, 0) = CellType::movingWall;
-                                            pop_init_val = 0;
-                                            for (int d = 0; d < 3; ++d) {
-                                                pop_init_val += latticeVelocity[q][d] * ulid.v[d];
-                                            }
-                                            pop_init_val *= -6. * latticeWeights[q];
-                                        } else {
-                                            pop_init_val = 0;
-                                        }
+                                //moving wall
+                                if (type(cell, 0) == CellType::movingWall) {
+                                    pop_init_val = 0;
+                                    for (int d = 0; d < 3; ++d) {
+                                        pop_init_val += latticeVelocity[q][d] * ulid.v[d];
                                     }
+                                    pop_init_val *= -6. * latticeWeights[q];
                                 }
 
                                 out(cell, q) = pop_init_val;
                                 in(cell, q) = pop_init_val;
                             }
-                        } else {
-                            in(cell, 0) = 0;
-                            out(cell, 0) = 0;
                         }
                     };
                 });

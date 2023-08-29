@@ -20,6 +20,72 @@
 
 Neon::Report report;
 
+
+template <typename T, int Q>
+void collideStep(Neon::domain::mGrid&                        grid,
+                 const bool                                  fineInitStore,
+                 const bool                                  collisionFusedStore,
+                 const T                                     omega0,
+                 const int                                   level,
+                 const int                                   numLevels,
+                 const Neon::domain::mGrid::Field<CellType>& cellType,
+                 Neon::domain::mGrid::Field<T>&              fin,
+                 Neon::domain::mGrid::Field<T>&              fout,
+                 std::vector<Neon::set::Container>&          containers)
+{
+    if (!collisionFusedStore) {
+        // collision for all voxels at level L=level
+#ifdef KBC
+        containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+#endif
+
+#ifdef BGK
+        containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+#endif
+
+        // Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
+        if (level != numLevels - 1) {
+            if (fineInitStore) {
+                containers.push_back(storeFine<T, Q>(grid, level, fout));
+            } else {
+                containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
+            }
+        }
+    } else {
+        //  collision for all voxels at level L = level fused with
+        //  Storing fine (level) data for later "coalescence" pulled by the coarse(level)
+        containers.push_back(collideBGKUnrolledFusedStore<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    }
+}
+
+
+template <typename T, int Q>
+void streamingStep(Neon::domain::mGrid&                        grid,
+                   const bool                                  fineInitStore,
+                   const bool                                  streamFusedExpl,
+                   const bool                                  streamFusedCoal,
+                   const bool                                  streamFuseAll,
+                   const bool                                  collisionFusedStore,
+                   const int                                   level,
+                   const int                                   numLevels,
+                   const Neon::domain::mGrid::Field<CellType>& cellType,
+                   const Neon::domain::mGrid::Field<float>&    sumStore,
+                   Neon::domain::mGrid::Field<T>&              fin,
+                   Neon::domain::mGrid::Field<T>&              fout,
+                   std::vector<Neon::set::Container>&          containers)
+{
+    // Streaming step that also performs the necessary "explosion" and "coalescence" steps.
+    if (streamFusedExpl) {
+        streamFusedExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    } else if (streamFusedCoal) {
+        streamFusedCoalescence<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    } else if (streamFuseAll) {
+        streamFusedCoalescenceExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    } else {
+        stream<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
+    }
+}
+
 template <typename T, int Q>
 void nonUniformTimestepRecursive(Neon::domain::mGrid&                        grid,
                                  const bool                                  fineInitStore,
@@ -36,27 +102,20 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  Neon::domain::mGrid::Field<T>&              fout,
                                  std::vector<Neon::set::Container>&          containers)
 {
-    if (!collisionFusedStore) {
-        // 1) collision for all voxels at level L=level
-        //containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
-        containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
-
-        // 2) Storing fine (level - 1) data for later "coalescence" pulled by the coarse (level)
-        if (level != numLevels - 1) {
-            if (fineInitStore) {
-                containers.push_back(storeFine<T, Q>(grid, level, fout));
-            } else {
-                containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
-            }
-        }
-    } else {
-        // 6) collision for all voxels at level L = level fused with
-        // 7) Storing fine (level) data for later "coalescence" pulled by the coarse(level)
-        containers.push_back(collideBGKUnrolledFusedStore<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
-    }
+    //Collide
+    collideStep<T, Q>(grid,
+                      fineInitStore,
+                      collisionFusedStore,
+                      omega0,
+                      level,
+                      numLevels,
+                      cellType,
+                      fin,
+                      fout,
+                      containers);
 
 
-    // 3) recurse down
+    // Recurse down
     if (level != 0) {
         nonUniformTimestepRecursive<T, Q>(grid,
                                           fineInitStore,
@@ -74,43 +133,39 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                           containers);
     }
 
-    // 4) Streaming step that also performs the necessary "explosion" and "coalescence" steps.
-    if (streamFusedExpl) {
-        streamFusedExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
-    } else if (streamFusedCoal) {
-        streamFusedCoalescence<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
-    } else if (streamFuseAll) {
-        streamFusedCoalescenceExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
-    } else {
-        stream<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
-    }
+    //Streaming
+    streamingStep<T, Q>(grid,
+                        fineInitStore,
+                        streamFusedExpl,
+                        streamFusedCoal,
+                        streamFuseAll,
+                        collisionFusedStore,
+                        level,
+                        numLevels,
+                        cellType,
+                        sumStore,
+                        fin,
+                        fout,
+                        containers);
 
-    // 5) stop
+    // Stop
     if (level == numLevels - 1) {
         return;
     }
 
-    if (!collisionFusedStore) {
+    //Collide
+    collideStep<T, Q>(grid,
+                      fineInitStore,
+                      collisionFusedStore,
+                      omega0,
+                      level,
+                      numLevels,
+                      cellType,
+                      fin,
+                      fout,
+                      containers);
 
-        // 6) collision for all voxels at level L = level
-        //containers.push_back(collideKBC<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
-        containers.push_back(collideBGKUnrolled<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
-
-        // 7) Storing fine(level) data for later "coalescence" pulled by the coarse(level)
-        if (level != numLevels - 1) {
-            if (fineInitStore) {
-                containers.push_back(storeFine<T, Q>(grid, level, fout));
-            } else {
-                containers.push_back(storeCoarse<T, Q>(grid, level + 1, fout));
-            }
-        }
-    } else {
-        // 6) collision for all voxels at level L = level fused with
-        // 7) Storing fine (level) data for later "coalescence" pulled by the coarse(level)
-        containers.push_back(collideBGKUnrolledFusedStore<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
-    }
-
-    // 8) recurse down
+    // Recurse down
     if (level != 0) {
         nonUniformTimestepRecursive<T, Q>(grid,
                                           fineInitStore,
@@ -128,16 +183,20 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                           containers);
     }
 
-    // 9) Streaming step
-    if (streamFusedExpl) {
-        streamFusedExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
-    } else if (streamFusedCoal) {
-        streamFusedCoalescence<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
-    } else if (streamFuseAll) {
-        streamFusedCoalescenceExplosion<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
-    } else {
-        stream<T, Q>(grid, fineInitStore || collisionFusedStore, level, numLevels, cellType, sumStore, fout, fin, containers);
-    }
+    //Streaming
+    streamingStep<T, Q>(grid,
+                        fineInitStore,
+                        streamFusedExpl,
+                        streamFusedCoal,
+                        streamFuseAll,
+                        collisionFusedStore,
+                        level,
+                        numLevels,
+                        cellType,
+                        sumStore,
+                        fin,
+                        fout,
+                        containers);
 }
 
 
@@ -604,8 +663,11 @@ int main(int argc, char** argv)
               (clipp::option("--visual").set(benchmark, false) % "Run export partial data")),
 
              ((clipp::option("--storeFine").set(fineInitStore, true) % "Initiate the Store operation from the fine level") |
-              (clipp::option("--storeCoarse").set(fineInitStore, false) % "Initiate the Store operation from the coarse level") |
-              (clipp::option("--collisionFusedStore").set(collisionFusedStore, true) % "Fuse Collision with Store operation")),
+              (clipp::option("--storeCoarse").set(fineInitStore, false) % "Initiate the Store operation from the coarse level")
+#ifdef BGK
+              | (clipp::option("--collisionFusedStore").set(collisionFusedStore, true) % "Fuse Collision with Store operation")
+#endif
+                  ),
 
              ((clipp::option("--streamFusedExpl").set(streamFusedExpl, true) % "Fuse Stream with Explosion") |
               (clipp::option("--streamFusedCoal").set(streamFusedCoal, true) % "Fuse Stream with Coalescence") |
