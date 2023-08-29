@@ -28,24 +28,23 @@ struct DeviceD3Q19
                typename PopField::Partition const& fin,
                NEON_OUT Storage                    popIn[Lattice::Q])
     {
-        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto fwMemIdx) {
-            using M = typename Lattice::template MappersIdxSetWithFwdMem<fwMemIdx>;
+        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+            using M = typename Lattice::template RegisterMapper<q>;
 
-            if constexpr (fwMemIdx == Lattice::Memory::center) {
-                popIn[M::centerRegIdx] = fin(gidx, M::centerMemQ);
+            if constexpr (M::fwdMemQ == M::centerMemQ) {
+                popIn[M::centerRegQ] = fin(gidx, M::centerMemQ);
             } else {
                 if (CellType::isWall<M::bkMemIdx>()) {
                     popIn[M::fwdRegQ] = fin(gidx, M::bkMemIdx) +
-                                        fin.template getNghData<M::bkX, M::bkY, M::bkZ>(gidx, M::bkMemIdx)();
+                                        fin.template getNghData<M::bkwMemQX, M::bkwMemQY, M::bkwMemQZ>(gidx, M::bkwMemIdx)();
                 } else {
-                    popIn[M::fwdRegQ] = fin.template getNghData<M::bkX, M::bkY, M::bkZ>(gidx, fwMemIdx)();
+                    popIn[M::fwdRegQ] = fin.template getNghData<M::bkwMemQX, M::bkwMemQY, M::bkwMemQZ>(gidx, M::fwdMemIdx)();
                 }
             }
         });
     }
 };
 
-#undef CAST_TO_COMPUTE
 }  // namespace pull
 
 namespace push {
@@ -76,7 +75,7 @@ struct DeviceD3Q19
             using M = typename Lattice::template RegisterMapper<q>;
 
             if constexpr (M::fwdMemQ == M::centerMemQ) {
-                // fOut(gidx, M::centerMemQ) = pOut[M::centerRegQ];
+                fOut(gidx, M::centerMemQ) = pOut[M::centerRegQ];
             } else {
                 if (CellType::isWall<M::fwdRegQ>(wallNghBitFlag)) {
                     const auto pop_out = pOut[M::fwdRegQ];
