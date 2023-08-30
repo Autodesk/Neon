@@ -51,6 +51,12 @@ struct D3Q19
             /*!  17   */ Neon::index_3d(0, 1, 1),
             /*!  18   */ Neon::index_3d(0, 1, -1)};
 
+        template <int qIdx, int cIdx>
+        static inline NEON_CUDA_HOST_DEVICE auto
+        getComponentOfDirection() -> int{
+            return stencil[qIdx].v[cIdx];
+        }
+
         static constexpr int center = 9; /** Position of direction {0,0,0} */
 
         template <int go>

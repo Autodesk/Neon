@@ -5,6 +5,7 @@
 #include "CellType.h"
 #include "ContainerFactory.h"
 #include "ContainersD3Q19.h"
+#include "ContainersD3QXX.h"
 #include "D3Q19.h"
 #include "Methods.h"
 #include "Neon/Neon.h"
@@ -29,7 +30,8 @@ struct Lbm
     using RhoField = typename Grid::template Field<typename Precision::Storage, 1>;
     using UField = typename Grid::template Field<typename Precision::Storage, 3>;
 
-    using CommonContainerFactory = common::ContainerFactory<Precision, Lattice, Grid>;
+    //using CommonContainerFactory = common::ContainerFactory<Precision, Lattice, Grid>;
+    using ContainerFactory = ContainerFactoryD3QXX<Precision,  Grid, Lattice>;
 
     template <typename Lambda>
     Lbm(Config&               config,
@@ -89,7 +91,7 @@ struct Lbm
         {  // Setting Equilibrium all population field
             for (auto& pField : pFieldList) {
                 // Set all to eq
-                CommonContainerFactory::setToEquilibrium(pField, cellFlagField).run(Neon::Backend::mainStreamIdx);
+                ContainerFactory::Common::setToEquilibrium(pField, cellFlagField).run(Neon::Backend::mainStreamIdx);
             }
         }
     }
@@ -100,13 +102,13 @@ struct Lbm
     {
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
         // Compute ngh mask
-        CommonContainerFactory::userSettingBc(bcSetFunction,
+        ContainerFactory::Common::userSettingBc(bcSetFunction,
                                               pFieldList[0],
                                               cellFlagField)
             .run(Neon::Backend::mainStreamIdx);
 
         for (int i = 1; i < int(pFieldList.size()); i++) {
-            CommonContainerFactory::copyPopulation(pFieldList[0],
+            ContainerFactory::Common::copyPopulation(pFieldList[0],
                                                    pFieldList[i])
                 .run(Neon::Backend::mainStreamIdx);
         }
@@ -115,7 +117,7 @@ struct Lbm
                                     Neon::Execution::device)
             .run(Neon::Backend::mainStreamIdx);
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
-        CommonContainerFactory::computeWallNghMask(cellFlagField,
+        ContainerFactory::Common::computeWallNghMask(cellFlagField,
                                                    cellFlagField)
             .run(Neon::Backend::mainStreamIdx);
     }
@@ -136,7 +138,7 @@ struct Lbm
             {
                 iteration = 0;
                 int  skIdx = helpGetSkeletonIdx();
-                auto even = common::ContainerFactory<Precision, Lattice, Grid>::template iteration<lbm::Method::push>(
+                auto even = ContainerFactory::Push::iteration(
                     configurations.stencilSemantic,
                     pFieldList.at(helpGetInputIdx()),
                     cellFlagField,
@@ -154,7 +156,7 @@ struct Lbm
             {
                 iteration = 1;
                 int  skIdx = helpGetSkeletonIdx();
-                auto odd = CommonContainerFactory::template iteration<lbm::Method::push>(
+                auto odd = ContainerFactory::Push::iteration(
                     configurations.stencilSemantic,
                     pFieldList.at(helpGetInputIdx()),
                     cellFlagField,
@@ -239,7 +241,7 @@ struct Lbm
     {
         grid.getBackend().syncAll();
         auto& pop = pFieldList.at(helpGetOutputIdx());
-        auto  computeRhoAndU = CommonContainerFactory::computeRhoAndU(pop, cellFlagField, rho, u);
+        auto  computeRhoAndU = ContainerFactory::Common::computeRhoAndU(pop, cellFlagField, rho, u);
         computeRhoAndU.run(Neon::Backend::mainStreamIdx);
         u.updateHostData(Neon::Backend::mainStreamIdx);
         rho.updateHostData(Neon::Backend::mainStreamIdx);
