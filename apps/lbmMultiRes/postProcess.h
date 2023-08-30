@@ -85,7 +85,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
         std::ostringstream suffix;
         suffix << std::setw(precision) << std::setfill('0') << iteration;
 
-        vel.ioToVtk("Velocity_" + suffix.str());
+        vel.ioToVtk("Velocity_" + suffix.str(), true, true, true, true, {1, 1, 1});
         //rho.ioToVtk("Density_" + suffix.str());
     }
 }
