@@ -85,6 +85,18 @@ struct D3Q27
             8. / 27.,
             2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
             1. / 216., 1. / 216., 1. / 216., 1. / 216.};
+
+        template <int q>
+        static constexpr auto getT() -> const typename Precision::Storage
+        {
+            return t[q];
+        }
+
+        template <int q>
+        static constexpr auto getDirection() -> const typename Neon::index_3d
+        {
+            return stencil[q];
+        }
     };
 
     struct Memory
@@ -121,33 +133,29 @@ struct D3Q27
 
 
         static constexpr int center = 13;       /** Position of direction {0,0,0} */
-   
+
+        static constexpr std::array<const int, Q> memoryToRegister{
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26};
+
+        static constexpr std::array<const int, Q> registerToMemory{
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26};
+
         template <int go>
-        static constexpr auto mapToRegisters()
+        NEON_CUDA_HOST_DEVICE static constexpr auto mapToRegisters()
             -> int
         {
-            auto direction = stencil[go];
-            for (int i = 0; i < Q; ++i) {
-                if (Registers::stencil[i] == direction) {
-                    return i;
-                }
-            }
+            return memoryToRegister[go];
         }
 
         template <int go>
-        static constexpr auto mapFromRegisters()
+        NEON_CUDA_HOST_DEVICE static constexpr auto mapToMemory()
             -> int
         {
-            auto direction = Registers::stencil[go];
-            for (int i = 0; i < Q; ++i) {
-                if (Self::stencil[i] == direction) {
-                    return i;
-                }
-            }
+            return registerToMemory[go];
         }
 
         template <int go>
-        static constexpr auto getOpposite()
+        NEON_CUDA_HOST_DEVICE static constexpr auto getOpposite()
             -> int
         {
             auto opposite3d = stencil[go] * -1;
@@ -197,4 +205,23 @@ struct D3Q27
         }
         return vec;
     }
+
+    template <int fwdRegIdx_>
+    struct RegisterMapper
+    {
+        constexpr static int fwdRegQ = fwdRegIdx_;
+        constexpr static int bkwRegQ = Registers::opposite[fwdRegQ];
+        constexpr static int fwdMemQ = Memory::template mapToMemory<fwdRegQ>();
+        constexpr static int bkwMemQ = Memory::template mapToMemory<bkwRegQ>();
+        constexpr static int centerRegQ = Registers::center;
+        constexpr static int centerMemQ = Memory::center;
+
+        constexpr static int fwdMemQX = Memory::stencil[fwdMemQ].x;
+        constexpr static int fwdMemQY = Memory::stencil[fwdMemQ].y;
+        constexpr static int fwdMemQZ = Memory::stencil[fwdMemQ].z;
+
+        constexpr static int bkwMemQX = Memory::stencil[bkwMemQ].x;
+        constexpr static int bkwMemQY = Memory::stencil[bkwMemQ].y;
+        constexpr static int bkwMemQZ = Memory::stencil[bkwMemQ].z;
+    };
 };

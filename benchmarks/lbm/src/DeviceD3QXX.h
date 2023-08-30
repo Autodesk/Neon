@@ -85,20 +85,6 @@ struct DeviceD3QXX
 
     struct Common
     {
-        using Lattice = D3Q19<Precision_>;
-        using Precision = Precision_;
-        using Compute = typename Precision::Compute;
-        using Storage = typename Precision::Storage;
-        using Grid = Grid_;
-
-        using PopField = typename Grid::template Field<Storage, Lattice::Q>;
-        using CellTypeField = typename Grid::template Field<CellType, 1>;
-
-        using Idx = typename PopField::Idx;
-        using Rho = typename Grid::template Field<Storage, 1>;
-        using U = typename Grid::template Field<Storage, 3>;
-
-
         static inline NEON_CUDA_HOST_DEVICE auto
         macroscopic(const Storage     pop[Lattice::Q],
                     NEON_OUT Compute& rho,

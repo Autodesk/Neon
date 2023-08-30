@@ -96,7 +96,7 @@ struct Push {
                     if (cellInfo.classification == CellType::bulk) {
 
                         Storage popIn[Lattice::Q];
-                        CommonFunctions::localLoad(gidx, fIn, NEON_OUT popIn);
+                        Device::Common::localLoad(gidx, fIn, NEON_OUT popIn);
 
                         Compute                rho;
                         std::array<Compute, 3> u{.0, .0, .0};

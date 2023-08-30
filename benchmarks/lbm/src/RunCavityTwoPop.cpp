@@ -25,7 +25,7 @@ auto run(Config& config,
     using Storage = Storage_;
     using Compute = Compute_;
     using Precision = Precision<Storage, Compute>;
-    using Lattice = D3Q19<Precision>;
+    using Lattice = D3Q27<Precision>;
     // using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
 
     // using PopField = typename Grid::template Field<typename Precision::Storage, Lattice::Q>;
