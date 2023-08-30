@@ -204,6 +204,7 @@ template <typename T, int Q>
 void runNonUniformLBM(Neon::domain::mGrid&                        grid,
                       const uint32_t                              numActiveVoxels,
                       const int                                   numIter,
+                      const int                                   Re,
                       const bool                                  fineInitStore,
                       const bool                                  streamFusedExpl,
                       const bool                                  streamFusedCoal,
@@ -317,6 +318,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("ProblemID", problemID);
     report.addMember("problemType", problemType);
     report.addMember("omega", omega);
+    report.addMember("Re", Re);
 
     //algorithm
     report.addMember("fineInitStore", fineInitStore);
@@ -347,6 +349,7 @@ template <typename T, int Q>
 void lidDrivenCavity(const int           problemID,
                      const Neon::Backend backend,
                      const int           numIter,
+                     const int           Re,
                      const bool          fineInitStore,
                      const bool          streamFusedExpl,
                      const bool          streamFusedCoal,
@@ -496,7 +499,6 @@ void lidDrivenCavity(const int           problemID,
 
     //LBM problem
     const T               ulb = 0.04;
-    const int             Re = 100;
     const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
     const T               visclb = ulb * clength / static_cast<T>(Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
@@ -522,6 +524,7 @@ void lidDrivenCavity(const int           problemID,
     runNonUniformLBM<T, Q>(grid,
                            numActiveVoxels,
                            numIter,
+                           Re,
                            fineInitStore,
                            streamFusedExpl,
                            streamFusedCoal,
@@ -551,6 +554,7 @@ template <typename T, int Q>
 void flowOverCylinder(const int           problemID,
                       const Neon::Backend backend,
                       const int           numIter,
+                      const int           Re,
                       const bool          fineInitStore,
                       const bool          streamFusedExpl,
                       const bool          streamFusedCoal,
@@ -584,7 +588,6 @@ void flowOverCylinder(const int           problemID,
 
     //LBM problem
     const T               uin = 0.04;
-    const int             Re = 100;
     const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
     const T               visclb = uin * clength / static_cast<T>(Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
@@ -613,6 +616,7 @@ void flowOverCylinder(const int           problemID,
     runNonUniformLBM<T, Q>(grid,
                            numActiveVoxels,
                            numIter,
+                           Re,
                            fineInitStore,
                            streamFusedExpl,
                            streamFusedCoal,
@@ -640,6 +644,7 @@ int main(int argc, char** argv)
 
         std::string deviceType = "gpu";
         std::string problemType = "lid";
+        int         Re = 100;
         int         deviceId = 99;
         int         numIter = 2;
         bool        benchmark = true;
@@ -658,9 +663,11 @@ int main(int argc, char** argv)
              clipp::option("--problemType") & clipp::value("problemType", problemType) % "Problem type ('lid' for lid-driven cavity or 'cylinder' for flow over cylinder)",
              clipp::option("--problemId") & clipp::integer("problemId", problemId) % "Problem ID (0-1 for lid)",
              clipp::option("--dataType") & clipp::value("dataType", dataType) % "Data type (float or double)",
+             clipp::option("--re") & clipp::integers("Re", Re) % "Reynolds number",
 
              ((clipp::option("--benchmark").set(benchmark, true) % "Run benchmark mode") |
               (clipp::option("--visual").set(benchmark, false) % "Run export partial data")),
+
 
              ((clipp::option("--storeFine").set(fineInitStore, true) % "Initiate the Store operation from the fine level") |
               (clipp::option("--storeCoarse").set(fineInitStore, false) % "Initiate the Store operation from the coarse level")
@@ -716,15 +723,15 @@ int main(int argc, char** argv)
 #endif
         if (dataType == "float") {
             if (problemType == "lid") {
-                lidDrivenCavity<float, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
+                lidDrivenCavity<float, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
             } else if (problemType == "cylinder") {
-                flowOverCylinder<float, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
+                flowOverCylinder<float, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
             }
         } else if (dataType == "double") {
             if (problemType == "lid") {
-                lidDrivenCavity<double, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
+                lidDrivenCavity<double, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
             } else if (problemType == "cylinder") {
-                flowOverCylinder<double, Q>(problemId, backend, numIter, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
+                flowOverCylinder<double, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
             }
         }
     }
