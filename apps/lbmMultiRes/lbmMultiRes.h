@@ -309,6 +309,13 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("problemType", problemType);
     report.addMember("omega", omega);
     report.addMember("Re", Re);
+#ifdef BGK
+    report.addMember("Collision", "BGK");
+#endif
+#ifdef KBC
+    report.addMember("Collision", "KBC");
+#endif  
+
 
     //algorithm
     report.addMember("fineInitStore", fineInitStore);
