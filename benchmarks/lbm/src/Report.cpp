@@ -12,8 +12,7 @@ Report::Report(const Config& c)
     mReport.addMember("N", c.N);
     mReport.addMember("benchmark", c.benchmark);
     mReport.addMember("max_t", c.max_t);
-    mReport.addMember("outFrequency", c.outFrequency);
-    mReport.addMember("dataFrequency", c.dataFrequency);
+    mReport.addMember("vtiFrequency", c.vti);
     mReport.addMember("repetitions", c.repetitions);
     mReport.addMember("vti", c.vti);
 

@@ -22,8 +22,6 @@ struct Config
     int    N = 160;              // Number of nodes in x-direction
     bool   benchmark = false;    // Run in benchmark mode ?
     double max_t = 10.0;         // Non-benchmark mode: Total time in dim.less units
-    int    outFrequency = 200;   // Non-benchmark mode: Frequency in LU for output of terminal message and profiles (use 0 for no messages)
-    int    dataFrequency = 0;    // Non-benchmark mode: Frequency in LU of full data dump (use 0 for no data dump)
     int    benchIniIter = 1000;  // Benchmark mode: Number of warmup iterations
     int    benchMaxIter = 2000;  // Benchmark mode: Total number of iterations
     int    repetitions = 1;      // Benchmark mode: number of time the test is run

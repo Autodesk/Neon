@@ -78,7 +78,7 @@ auto Config::parseArgs(const int argc, char* argv[])
             clipp::option("--computeFP") & clipp::value("computeFP", config.computeTypeStr) % Config::getOptionList(config.gridTypeOptions, config.gridType),
             clipp::option("--storageFP") & clipp::value("storageFP", config.storeTypeStr) % "double, float",
 
-            clipp::option("--occ")([&config](const std::string& s) { config.occCli.set(s); }) % config.occCli.getDoc(),
+            clipp::option("--occ") & clipp::value("occ")([&config](const std::string& s) { config.occCli.set(s); }) % config.occCli.getDoc(),
             clipp::option("--transferMode")([&config](const std::string& s) { config.transferModeCli.set(s); }) % config.transferModeCli.getDoc(),
             clipp::option("--stencilSemantic")([&config](const std::string& s) { config.stencilSemanticCli.set(s); }) % config.stencilSemanticCli.getDoc(),
             clipp::option("--spaceCurve")([&config](const std::string& s) { config.spaceCurveCli.set(s); }) % config.spaceCurveCli.getDoc(),
