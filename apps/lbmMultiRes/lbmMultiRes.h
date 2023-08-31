@@ -310,11 +310,11 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("omega", omega);
     report.addMember("Re", Re);
 #ifdef BGK
-    report.addMember("Collision", "BGK");
+    report.addMember("Collision", std::string("BGK"));
 #endif
 #ifdef KBC
-    report.addMember("Collision", "KBC");
-#endif  
+    report.addMember("Collision", std::string("KBC"));
+#endif
 
 
     //algorithm
