@@ -50,7 +50,7 @@ inline Neon::set::Container coalescence(Neon::domain::mGrid&                    
                         }*/
 
 
-                        if (pin.hasChildren(cell, dir)) {
+                        if (pin.hasChildren(cell, dir) && pin.isActive(cell, dir)) {
                             auto neighbor = pout.getNghData(cell, dir, q);
                             if (neighbor.mIsValid) {
                                 if (fineInitStore) {

@@ -361,7 +361,7 @@ auto mField<T, C>::ioToVtk(std::string         fileName,
             // TODO need to figure out which device owns this block
             SetIdx devID(0);
 
-            constexpr T           tiny = 1e-7;
+            constexpr double      tiny = 1e-7;
             const Neon::double_3d voxelSize(1.0 / mData->grid->getDimension(l).x, 1.0 / mData->grid->getDimension(l).y, 1.0 / mData->grid->getDimension(l).z);
 
             (*(mData->grid))(l).helpGetPartitioner1D().forEachSeq(devID, [&](const uint32_t blockIdx, const Neon::int32_3d memBlockOrigin, auto /*byPartition*/) {

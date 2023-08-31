@@ -63,8 +63,9 @@ void initFlowOverCylinder(Neon::domain::mGrid&                  grid,
 
                             const T dx = cylinder.x - idx.x;
                             const T dy = cylinder.y - idx.y;
+                            const T dz = cylinder.z - idx.z;
 
-                            if ((dx * dx + dy * dy) < cylinder.w * cylinder.w) {
+                            if ((dx * dx + dy * dy + dz * dz) < cylinder.w * cylinder.w) {
                                 type(cell, 0) = CellType::bounceBack;
                             }
 
@@ -117,7 +118,7 @@ void flowOverCylinder(const int           problemID,
 
     Neon::index_3d gridDim(136, 96, 136);
 
-    Neon::index_4d cylinder(52, 52, 0, 8);
+    Neon::index_4d cylinder(52, 52, 68, 8);
 
     int depth = 3;
 
@@ -126,10 +127,10 @@ void flowOverCylinder(const int           problemID,
     Neon::domain::mGrid grid(
         backend, gridDim,
         {[&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 40 && idx.x < 96 && idx.y >= 40 && idx.y < 64;
+             return idx.x >= 40 && idx.x < 96 && idx.y >= 40 && idx.y < 64 && idx.z >= 40 && idx.z < 96;
          },
          [&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 24 && idx.x < 112 && idx.y >= 24 && idx.y < 72;
+             return idx.x >= 24 && idx.x < 112 && idx.y >= 24 && idx.y < 72 && idx.z >= 24 && idx.z < 112;
          },
          [&](const Neon::index_3d idx) -> bool {
              return true;
