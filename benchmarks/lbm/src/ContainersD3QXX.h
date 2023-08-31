@@ -247,6 +247,7 @@ struct Common {
 
         -> Neon::set::Container
     {
+
         Neon::set::Container container =
             fInField.getGrid().newContainer(
                 "LBM_iteration",
@@ -264,10 +265,10 @@ struct Common {
                         std::array<Compute, 3> u{.0, .0, .0};
 
                         Storage popIn[Lattice::Q];
-                        CommonFunctions::localLoad(gidx, fIn, NEON_OUT popIn);
+                        Device::Common::localLoad(gidx, fIn, NEON_OUT popIn);
 
                         if (cellInfo.classification == CellType::bulk) {
-                            CommonFunctions::macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
+                            Device::Common::macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
                         } else {
                             if (cellInfo.classification == CellType::movingWall) {
                                 rho = 1.0;

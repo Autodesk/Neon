@@ -59,6 +59,12 @@ struct D3Q27
             Neon::index_3d(1, -1, 1),
             Neon::index_3d(1, -1, -1)};
 
+        template <int qIdx, int cIdx>
+        static inline NEON_CUDA_HOST_DEVICE auto
+        getComponentOfDirection() -> int{
+            return stencil[qIdx].v[cIdx];
+        }
+
         static constexpr int center = 13; /** Position of direction {0,0,0} */
 
         template <int go>
@@ -97,6 +103,11 @@ struct D3Q27
         {
             return stencil[q];
         }
+        // Identifying first half of the directions
+        // For each direction in the list, the opposite is not present.
+        // Center is also removed
+        static constexpr int                                  firstHalfQLen = (Q - 1) / 2;
+        static constexpr std::array<const int, firstHalfQLen> firstHalfQList{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
     };
 
     struct Memory
