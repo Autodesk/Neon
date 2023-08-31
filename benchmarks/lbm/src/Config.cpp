@@ -21,36 +21,40 @@ auto Config::toString() const -> std::string
         return s.str();
     };
 
-    s << ".................. Re " << c.Re << std::endl;
-    s << "................. ulb " << c.ulb << std::endl;
-    s << "................... N " << c.N << std::endl;
-    s << "........... benchmark " << c.benchmark << std::endl;
-    s << "............... max_t " << c.max_t << std::endl;
-    s << "........ outFrequency " << c.outFrequency << std::endl;
-    s << "....... dataFrequency " << c.dataFrequency << std::endl;
-    s << "................. vti " << c.vti << std::endl;
-
-    s << "........ benchIniIter " << c.benchIniIter << std::endl;
-    s << "........ benchMaxIter " << c.benchMaxIter << std::endl;
-
+    s << "Neon Runtime Parameters" << std::endl;
     s << ".......... deviceType " << c.deviceType << std::endl;
     s << ".......... numDevices " << c.devices.size() << std::endl;
     s << "............. devices " << vecToSting(c.devices) << std::endl;
     s << ".......... reportFile " << c.reportFile << std::endl;
     s << "............ gridType " << c.gridType << std::endl;
 
-    s << "......... computeType " << c.computeType << std::endl;
-    s << "........... storeType " << c.storeType << std::endl;
-    s << "............... curve " << c.curve << std::endl;
+    s << ".......... spaceCurve " << c.spaceCurveCli.getStringOptions() << std::endl;
+    s << "................. occ " << c.occCli.getStringOptions() << std::endl;
+    s << "....... transferMode " << c.transferModeCli.getStringOptions() << std::endl;
+    s << ".... stencilSemantic " << c.stencilSemanticCli.getStringOptions() << std::endl;
 
-    s << ". ............... occ " << Neon::skeleton::OccUtils::toString(c.occ) << std::endl;
-    s << "....... transfer Mode " << Neon::set::TransferModeUtils::toString(c.transferMode) << std::endl;
-    s << "... transfer Semantic " << Neon::set::StencilSemanticUtils::toString(c.stencilSemantic) << std::endl;
+    s << "LBM Implementation" << std::endl;
+    s << "............ lattice " << c.lattice << std::endl;
+    s << "... streaming method " << c.streamingMethod << std::endl;
+    s << "......... computeType " << c.computeTypeStr << std::endl;
+    s << "........... storeType " << c.storeTypeStr << std::endl;
 
-    s << ". ............... nu " << mLbmParameters.nu << std::endl;
+    s << "Physics Parameters" << std::endl;
+    s << ".................. Re " << c.Re << std::endl;
+    s << "................. ulb " << c.ulb << std::endl;
+    s << "................... N " << c.N << std::endl;
+    s << "................. nu " << mLbmParameters.nu << std::endl;
     s << ".............. omega " << mLbmParameters.omega << std::endl;
     s << "................. dx " << mLbmParameters.dx << std::endl;
     s << "................. dt " << mLbmParameters.dt << std::endl;
+
+    s << "Test Parameters" << std::endl;
+    s << "........... benchmark " << c.benchmark << std::endl;
+    s << "............... max_t " << c.max_t << std::endl;
+    s << "................. vti " << c.vti << std::endl;
+    s << "........ benchIniIter " << c.benchIniIter << std::endl;
+    s << "........ benchMaxIter " << c.benchMaxIter << std::endl;
+
 
     return s.str();
 }
@@ -61,34 +65,34 @@ auto Config::parseArgs(const int argc, char* argv[])
     auto& config = *this;
 
     auto cli =
-        (clipp::required("--deviceType") & clipp::value("deviceType", config.deviceType) % "Device ids to use",
-         clipp::required("--deviceIds") & clipp::integers("gpus", config.devices) % "Device ids to use",
-         clipp::option("--grid") & clipp::value("grid", config.gridType) % "Could be dGrid, eGrid, bGrid",
-         clipp::option("--domain-size") & clipp::integer("domain_size", config.N) % "Voxels along each dimension of the cube domain",
-         clipp::option("--warmup-iter") & clipp::integer("warmup_iter", config.benchIniIter) % "Number of iteration for warm up. max_iter = warmup_iter + timed_iters",
-         clipp::option("--max-iter") & clipp::integer("max_iter", config.benchMaxIter) % "Maximum solver iterations",
-         clipp::option("--repetitions") & clipp::integer("repetitions", config.repetitions) % "Number of times the benchmark is run.",
-         clipp::option("--report-filename ") & clipp::value("keeper_filename", config.reportFile) % "Output perf keeper filename",
+        (
 
-         clipp::option("--computeFP") & clipp::value("computeFP", config.computeType) % "Could be double or float",
-         clipp::option("--storageFP") & clipp::value("storageFP", config.storeType) % "Could be double or float",
+            clipp::required("--deviceType") & clipp::value("deviceType", config.deviceType) % "Device type (cpu or gpu)",
+            clipp::required("--deviceIds") & clipp::integers("ids", config.devices) % "Device ids",
 
-         clipp::option("--curve") & clipp::value("curve", config.curve) % "Could be sweep (the default), morton, or hilber",
-         (
-             (clipp::option("--sOCC").set(config.occ, Neon::skeleton::Occ::standard) % "Standard OCC") |
-             (clipp::option("--nOCC").set(config.occ, Neon::skeleton::Occ::none) % "No OCC (on by default)")),
-         (
-             (clipp::option("--put").set(config.transferMode, Neon::set::TransferMode::put) % "Set transfer mode to PUT") |
-             (clipp::option("--get").set(config.transferMode, Neon::set::TransferMode::get) % "Set transfer mode to GET (on by default)")),
-         (
-             (clipp::option("--huLattice").set(config.stencilSemantic, Neon::set::StencilSemantic::streaming) % "Halo update with lattice semantic (on by default)") |
-             (clipp::option("--huGrid").set(config.stencilSemantic, Neon::set::StencilSemantic::standard) % "Halo update with grid semantic ")),
-         (
-             (clipp::option("--benchmark").set(config.benchmark, true) % "Run benchmark mode") |
-             (clipp::option("--visual").set(config.benchmark, false) % "Run export partial data")),
+            clipp::option("--grid") & clipp::value("grid", config.gridType) % Config::getOptionList(config.gridTypeOptions, config.gridType),
+            clipp::option("--domain-size") & clipp::integer("domain_size", config.N) % "Voxels along each dimension of the cube domain",
+            clipp::option("--max-iter") & clipp::integer("max_iter", config.benchMaxIter) % "Maximum solver iterations",
+            clipp::option("--report-filename ") & clipp::value("keeper_filename", config.reportFile) % "Output perf keeper filename",
 
-         (
-             clipp::option("--vti").set(config.vti, true) % "Standard OCC")
+            clipp::option("--computeFP") & clipp::value("computeFP", config.computeTypeStr) % Config::getOptionList(config.gridTypeOptions, config.gridType),
+            clipp::option("--storageFP") & clipp::value("storageFP", config.storeTypeStr) % "double, float",
+
+            clipp::option("--occ")([&config](const std::string& s) { config.occCli.set(s); }) % config.occCli.getDoc(),
+            clipp::option("--transferMode")([&config](const std::string& s) { config.transferModeCli.set(s); }) % config.transferModeCli.getDoc(),
+            clipp::option("--stencilSemantic")([&config](const std::string& s) { config.stencilSemanticCli.set(s); }) % config.stencilSemanticCli.getDoc(),
+            clipp::option("--spaceCurve")([&config](const std::string& s) { config.spaceCurveCli.set(s); }) % config.spaceCurveCli.getDoc(),
+
+            clipp::option("--streamingMethod") & clipp::value("streamingMethod", config.streamingMethod) % Config::getOptionList(config.streamingMethodOption, config.streamingMethod),
+            clipp::option("--lattice") & clipp::value("lattice", config.lattice) % Config::getOptionList(config.latticeOptions, config.lattice),
+            (
+                (
+                    clipp::option("--benchmark").set(config.benchmark, true) % "Run benchmark mode",
+                    clipp::option("--warmup-iter") & clipp::integer("warmup_iter", config.benchIniIter) % "Number of iteration for warm up. max_iter = warmup_iter + timed_iters",
+                    clipp::option("--repetitions") & clipp::integer("repetitions", config.repetitions) % "Number of times the benchmark is run."
+
+                    ) |
+                (clipp::option("--vti") & clipp::integer("OutputFrequency", config.vti) % "Voxels along each dimension of the cube domain"))
 
         );
 
@@ -96,20 +100,13 @@ auto Config::parseArgs(const int argc, char* argv[])
     if (!clipp::parse(argc, argv, cli)) {
         auto fmt = clipp::doc_formatting{}.doc_column(31);
         std::cout << make_man_page(cli, argv[0], fmt) << '\n';
-        return -1;
-    }
+        std::cout << '\n';
+        std::cout << '\n';
+        std::cout << "Export example" << '\n';
+        std::cout << "./lbm --deviceType cpu --deviceIds 0  --grid dGrid  --domain-size 100 --max-iter 2000 --nOCC --huGrid --vti 1" << '\n';
+        std::cout << "Benchmark example " << '\n';
+        std::cout << "./lbm --deviceType gpu --deviceIds 0 1 2 3 4  --grid dGrid  --domain-size 100 --max-iter 2000 --computeFP double --storageFP double --nOCC --huGrid --benchmark --warmup-iter 10 --repetitions 5" << '\n';
 
-    if (config.curve == "sweep")
-        config.spaceCurve = Neon::domain::tool::spaceCurves::EncoderType::sweep;
-    if (config.curve == "morton")
-        config.spaceCurve = Neon::domain::tool::spaceCurves::EncoderType::morton;
-    if (config.curve == "hilbert")
-        config.spaceCurve = Neon::domain::tool::spaceCurves::EncoderType::hilbert;
-
-    if (config.curve != "sweep" && config.curve != "morton" && config.curve != "hilbert") {
-        auto fmt = clipp::doc_formatting{}.doc_column(31);
-        std::cout << config.curve << " is not a supported configuration" << std::endl;
-        std::cout << make_man_page(cli, argv[0], fmt) << '\n';
         return -1;
     }
 

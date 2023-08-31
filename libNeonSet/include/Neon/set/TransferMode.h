@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "Neon/core/core.h"
+#include "Neon/Report.h"
 
 namespace Neon::set {
 
@@ -26,9 +27,13 @@ class TransferModeUtils
         explicit Cli(TransferMode model);
         Cli();
 
-        auto getOption() -> TransferMode;
+        auto getOption() const -> TransferMode;
         auto set(const std::string& opt) -> void;
-        auto getStringOptions() -> std::string;
+        auto getStringOptions() const -> std::string;
+        auto getDoc () const -> std::string;
+
+        auto addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) const ->void;
+        auto addToReport(Neon::Report& report) const ->void;
 
        private:
         bool         mSet = false;

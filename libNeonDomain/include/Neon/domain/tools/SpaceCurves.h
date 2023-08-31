@@ -1,5 +1,6 @@
 #pragma once
 #include "Neon/Neon.h"
+#include "Neon/Report.h"
 
 namespace Neon::domain::tool::spaceCurves {
 
@@ -34,11 +35,30 @@ struct EncoderTypeUtil
      * Returns all valid configuration for DataView
      * @return
      */
-    static auto validOptions() -> std::array<EncoderType, DataViewUtil::nConfig>;
+    static auto getOptions() -> std::array<EncoderType, DataViewUtil::nConfig>;
 
     static auto fromInt(int val) -> EncoderType;
-
+    static auto fromString(const std::string& opt) -> EncoderType;
     static auto toInt(EncoderType encoderType) -> int;
+
+    struct Cli
+    {
+        explicit Cli(std::string);
+        explicit Cli(EncoderType model);
+        Cli();
+
+        auto getOption() const -> EncoderType;
+        auto set(const std::string& opt) -> void;
+        auto getStringOptions() const -> std::string;
+        auto getDoc() const -> std::string;
+
+        auto addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) const -> void;
+        auto addToReport(Neon::Report& report) const -> void;
+
+       private:
+        bool        mSet = false;
+        EncoderType mOption;
+    };
 };
 
 
@@ -289,7 +309,6 @@ class Encoder
     }
 
    public:
-
     static inline auto mortonEncode([[maybe_unused]] Neon::index_3d dim, Neon::index_3d idx)
         -> uint64_t
     {
@@ -315,7 +334,8 @@ class Encoder
         return res;
     }
 
-    static inline auto encode(EncoderType type, Neon::index_3d dim, Neon::index_3d idx){
+    static inline auto encode(EncoderType type, Neon::index_3d dim, Neon::index_3d idx)
+    {
         switch (type) {
             case EncoderType::morton:
                 return mortonEncode(dim, idx);

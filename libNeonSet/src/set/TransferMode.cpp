@@ -47,7 +47,7 @@ TransferModeUtils::Cli::Cli(TransferMode model)
     mOption = model;
 }
 
-auto TransferModeUtils::Cli::getOption() -> TransferMode
+auto TransferModeUtils::Cli::getOption() const -> TransferMode
 {
     if (!mSet) {
         std::stringstream errorMsg;
@@ -66,13 +66,13 @@ auto TransferModeUtils::Cli::set(const std::string& opt)
         std::stringstream errorMsg;
         errorMsg << "Transfer: " << opt << " is not a valid option (valid options are {";
         auto options = TransferModeUtils::getOptions();
-        int i = 0;
+        int  i = 0;
         for (auto o : options) {
-            if(i!=0){
-                errorMsg << ", "<< TransferModeUtils::toString(o) ;
+            if (i != 0) {
+                errorMsg << ", " << TransferModeUtils::toString(o);
             }
             errorMsg << TransferModeUtils::toString(o);
-            i=1;
+            i = 1;
         }
         errorMsg << "})";
         NEON_ERROR(errorMsg.str());
@@ -80,19 +80,37 @@ auto TransferModeUtils::Cli::set(const std::string& opt)
     mSet = true;
 }
 
-auto TransferModeUtils::Cli::getStringOptions() -> std::string
+auto TransferModeUtils::Cli::getStringOptions() const -> std::string
 {
     std::stringstream s;
     auto              options = TransferModeUtils::getOptions();
     int               i = 0;
     for (auto o : options) {
         if (i != 0) {
-            s << ", " ;
+            s << ", ";
         }
         s << TransferModeUtils::toString(o);
         i = 1;
     }
-    std::string msg= s.str();
+    std::string msg = s.str();
     return msg;
 }
-}  // namespace Neon
+
+auto TransferModeUtils::Cli::getDoc() const -> std::string
+{
+    std::stringstream s;
+    s << getStringOptions();
+    s << " default: " << getStringOptions();
+    return s.str();
+}
+
+auto TransferModeUtils::Cli::addToReport(Neon::Report& report) const -> void
+{
+    report.addMember("TransferMode", TransferModeUtils::toString(this->getOption()));
+}
+
+auto TransferModeUtils::Cli::addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) const -> void
+{
+    report.addMember("TransferMode", TransferModeUtils::toString(this->getOption()), &subBlock);
+}
+}  // namespace Neon::set

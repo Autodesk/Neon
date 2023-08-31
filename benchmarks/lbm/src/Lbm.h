@@ -62,7 +62,7 @@ struct Lbm
             [&](const Neon::index_3d& p) { return activeMask(p); },
             Lattice::template getDirectionAsVector<Lattice::MemoryMapping>(),
             1.0, 0.0,
-            config.spaceCurve);
+            config.spaceCurveCli.getOption());
 
         // Allocating Populations
         for (int i = 0; i < lbm::MethodUtils::getNumberOfPFields<method>(); i++) {
@@ -139,7 +139,7 @@ struct Lbm
                 iteration = 0;
                 int  skIdx = helpGetSkeletonIdx();
                 auto even = ContainerFactory::Push::iteration(
-                    configurations.stencilSemantic,
+                    configurations.stencilSemanticCli.getOption(),
                     pFieldList.at(helpGetInputIdx()),
                     cellFlagField,
                     lbmParameters.omega,
@@ -147,7 +147,7 @@ struct Lbm
 
                 std::vector<Neon::set::Container> ops;
                 skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
-                Neon::skeleton::Options opt(configurations.occ, configurations.transferMode);
+                Neon::skeleton::Options opt(configurations.occCli.getOption(), configurations.transferModeCli.getOption());
                 ops.push_back(even);
                 std::stringstream appName;
                 appName << "LBM_push_even";
@@ -157,7 +157,7 @@ struct Lbm
                 iteration = 1;
                 int  skIdx = helpGetSkeletonIdx();
                 auto odd = ContainerFactory::Push::iteration(
-                    configurations.stencilSemantic,
+                    configurations.stencilSemanticCli.getOption(),
                     pFieldList.at(helpGetInputIdx()),
                     cellFlagField,
                     lbmParameters.omega,
@@ -165,7 +165,7 @@ struct Lbm
 
                 std::vector<Neon::set::Container> ops;
                 skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
-                Neon::skeleton::Options opt(configurations.occ, configurations.transferMode);
+                Neon::skeleton::Options opt(configurations.occCli.getOption(), configurations.transferModeCli.getOption());
                 ops.push_back(odd);
                 std::stringstream appName;
                 appName << "LBM_push_odd";

@@ -27,12 +27,13 @@ struct OccUtils
         explicit Cli(Occ model);
         Cli();
 
-        auto getOption() -> Occ;
+        auto getOption() const -> Occ;
         auto set(const std::string& opt) -> void;
-        auto getStringOptions() -> std::string;
+        auto getStringOptions() const -> std::string;
+        auto getDoc() const -> std::string;
 
-        auto addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock)->void;
-        auto addToReport(Neon::Report& report)->void;
+        auto addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) const -> void;
+        auto addToReport(Neon::Report& report) const -> void;
 
        private:
         bool mSet = false;

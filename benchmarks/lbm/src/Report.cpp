@@ -27,14 +27,13 @@ Report::Report(const Config& c)
     mReport.addMember("reportFile", c.reportFile);
     mReport.addMember("gridType", c.gridType);
 
-    mReport.addMember("computeType", c.computeType);
-    mReport.addMember("storeType", c.storeType);
-    mReport.addMember("spaceCurve", Neon::domain::tool::spaceCurves::EncoderTypeUtil::toString(c.spaceCurve));
+    mReport.addMember("computeTypeStr", c.computeTypeStr);
+    mReport.addMember("storeTypeStr", c.storeTypeStr);
 
-
-    mReport.addMember("occ", Neon::skeleton::OccUtils::toString(c.occ));
-    mReport.addMember("transferMode", Neon::set::TransferModeUtils::toString(c.transferMode));
-    mReport.addMember("transferSemantic", Neon::set::StencilSemanticUtils::toString(c.stencilSemantic));
+    c.occCli.addToReport(mReport);
+    c.transferModeCli.addToReport(mReport);
+    c.stencilSemanticCli.addToReport(mReport);
+    c.spaceCurveCli.addToReport(mReport);
 
     mReport.addMember("nu", c.mLbmParameters.nu);
     mReport.addMember("omega", c.mLbmParameters.omega);

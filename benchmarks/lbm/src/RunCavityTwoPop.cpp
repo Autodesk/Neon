@@ -16,6 +16,7 @@ int backendWasReported = false;
 
 namespace details {
 template <lbm::Method method_,
+          typename Lattice_,
           typename Grid,
           typename Storage_,
           typename Compute_>
@@ -25,7 +26,7 @@ auto run(Config& config,
     using Storage = Storage_;
     using Compute = Compute_;
     using Precision = Precision<Storage, Compute>;
-    using Lattice = D3Q27<Precision>;
+    using Lattice = Lattice_;//D3Q27<Precision>;
     // using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
 
     // using PopField = typename Grid::template Field<typename Precision::Storage, Lattice::Q>;
@@ -80,19 +81,37 @@ auto run(Config& config,
     lbm.iterate();
 }
 
-template <typename Grid, typename Storage, typename Compute>
+
+template <typename Lattice, typename Grid, typename Storage, typename Compute>
 auto runFilterMethod(Config& config, Report& report) -> void
 {
-    return run<lbm::Method::push, Grid, Storage, double>(config, report);
+    return run<lbm::Method::push, Lattice, Grid, Storage, double>(config, report);
 }
+
+template <typename Grid, typename Storage, typename Compute>
+auto runFilterLattice(Config& config, Report& report) -> void
+{
+    using Precision = Precision<Storage, Compute>;
+
+    if (config.lattice == "d3q19") {
+        using Lattice = D3Q19<Precision>;
+        return runFilterMethod<Lattice, Grid, Storage, double>(config, report);
+    }
+    if (config.lattice == "d3q27") {
+        using Lattice = D3Q19<Precision>;
+        return runFilterMethod<Lattice, Grid, Storage, double>(config, report);
+    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
+}
+
 
 template <typename Grid, typename Storage>
 auto runFilterComputeType(Config& config, Report& report) -> void
 {
-    if (config.computeType == "double") {
-        return runFilterMethod<Grid, Storage, double>(config, report);
+    if (config.computeTypeStr == "double") {
+        return runFilterLattice<Grid, Storage, double>(config, report);
     }
-    //    if (config.computeType == "float") {
+    //    if (config.computeTypeStr == "float") {
     //        return run<Grid, Storage, float>(config, report);
     //    }
     NEON_DEV_UNDER_CONSTRUCTION("");
@@ -103,10 +122,10 @@ auto runFilterStoreType(Config& config,
                         Report& report)
     -> void
 {
-    if (config.storeType == "double") {
+    if (config.storeTypeStr == "double") {
         return runFilterComputeType<Grid, double>(config, report);
     }
-    //    if (config.storeType == "float") {
+    //    if (config.storeTypeStr == "float") {
     //        return runFilterComputeType<Grid, float>(config, report);
     //    }
     NEON_DEV_UNDER_CONSTRUCTION("");

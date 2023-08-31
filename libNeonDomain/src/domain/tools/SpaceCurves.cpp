@@ -3,11 +3,11 @@
 
 namespace Neon::domain::tool::spaceCurves {
 
-auto EncoderTypeUtil::validOptions() -> std::array<EncoderType, EncoderTypeUtil::nConfig>
+auto EncoderTypeUtil::getOptions() -> std::array<EncoderType, EncoderTypeUtil::nConfig>
 {
     std::array<EncoderType, EncoderTypeUtil::nConfig> options = {EncoderType::sweep,
-                                                                       EncoderType::morton,
-                                                                       EncoderType::hilbert};
+                                                                 EncoderType::morton,
+                                                                 EncoderType::hilbert};
     return options;
 }
 
@@ -47,6 +47,17 @@ auto EncoderTypeUtil::fromInt(int val) -> EncoderType
     }
 }
 
+auto EncoderTypeUtil::fromString(const std::string& occ) -> EncoderType
+{
+    std::array<EncoderType, 3> opts = getOptions();
+    for (auto a : opts) {
+        if (toString(a) == occ) {
+            return a;
+        }
+    }
+    NEON_THROW_UNSUPPORTED_OPTION("");
+}
+
 auto EncoderTypeUtil::toInt(EncoderType dataView) -> int
 {
     return static_cast<int>(dataView);
@@ -55,6 +66,89 @@ auto EncoderTypeUtil::toInt(EncoderType dataView) -> int
 std::ostream& operator<<(std::ostream& os, EncoderType const& m)
 {
     return os << std::string(EncoderTypeUtil::toString(m));
+}
+
+
+EncoderTypeUtil::Cli::Cli()
+{
+    mSet = false;
+}
+
+EncoderTypeUtil::Cli::Cli(std::string s)
+{
+    set(s);
+}
+
+EncoderTypeUtil::Cli::Cli(EncoderType model)
+{
+    mOption = model;
+}
+
+auto EncoderTypeUtil::Cli::getOption() const -> EncoderType
+{
+    if (!mSet) {
+        std::stringstream errorMsg;
+        errorMsg << "TransferSemantic was not set.";
+        NEON_ERROR(errorMsg.str());
+    }
+    return mOption;
+}
+
+auto EncoderTypeUtil::Cli::set(const std::string& opt)
+    -> void
+{
+    try {
+        mOption = EncoderTypeUtil::fromString(opt);
+    } catch (...) {
+        std::stringstream errorMsg;
+        errorMsg << "TransferSemantic: " << opt << " is not a valid option (valid options are {";
+        auto options = EncoderTypeUtil::getOptions();
+        int  i = 0;
+        for (auto o : options) {
+            if (i != 0) {
+                errorMsg << ", " << EncoderTypeUtil::toString(o);
+            }
+            errorMsg << EncoderTypeUtil::toString(o);
+            i = 1;
+        }
+        errorMsg << "})";
+        NEON_ERROR(errorMsg.str());
+    }
+    mSet = true;
+}
+
+auto EncoderTypeUtil::Cli::getStringOptions() const -> std::string
+{
+    std::stringstream s;
+    auto              options = EncoderTypeUtil::getOptions();
+    int               i = 0;
+    for (auto o : options) {
+        if (i != 0) {
+            s << ", ";
+        }
+        s << EncoderTypeUtil::toString(o);
+        i = 1;
+    }
+    std::string msg = s.str();
+    return msg;
+}
+
+auto EncoderTypeUtil::Cli::getDoc() const -> std::string
+{
+    std::stringstream s;
+    s << getStringOptions();
+    s << " default: " << getStringOptions();
+    return s.str();
+}
+
+auto EncoderTypeUtil::Cli::addToReport(Neon::Report& report) const -> void
+{
+    report.addMember("EncoderType", EncoderTypeUtil::toString(this->getOption()));
+}
+
+auto EncoderTypeUtil::Cli::addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) const -> void
+{
+    report.addMember("EncoderType", EncoderTypeUtil::toString(this->getOption()), &subBlock);
 }
 
 }  // namespace Neon::domain::tool::spaceCurves

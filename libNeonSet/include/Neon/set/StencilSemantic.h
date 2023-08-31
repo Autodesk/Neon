@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 
+#include "Neon/Report.h"
 #include "Neon/core/core.h"
 
 namespace Neon::set {
@@ -20,19 +21,23 @@ struct StencilSemanticUtils
     static auto toString(StencilSemantic opt) -> std::string;
     static auto fromString(const std::string& opt) -> StencilSemantic;
     static auto getOptions() -> std::array<StencilSemantic, nOptions>;
-    
+
     struct Cli
     {
         explicit Cli(std::string);
         explicit Cli(StencilSemantic model);
         Cli();
 
-        auto getOption() -> StencilSemantic;
+        auto getOption() const -> StencilSemantic;
         auto set(const std::string& opt) -> void;
-        auto getStringOptions() -> std::string;
+        auto getStringOptions() const -> std::string;
+        auto getDoc() const -> std::string;
+
+        auto addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) const -> void;
+        auto addToReport(Neon::Report& report) const -> void;
 
        private:
-        bool mSet = false;
+        bool            mSet = false;
         StencilSemantic mOption;
     };
 };
