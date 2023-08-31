@@ -3,6 +3,97 @@
 #include "Neon/domain/mGrid.h"
 #include "lbmMultiRes.h"
 
+#include "init.h"
+
+template <typename T, int Q>
+void initLidDrivenCavity(Neon::domain::mGrid&                  grid,
+                         Neon::domain::mGrid::Field<float>&    sumStore,
+                         Neon::domain::mGrid::Field<T>&        fin,
+                         Neon::domain::mGrid::Field<T>&        fout,
+                         Neon::domain::mGrid::Field<CellType>& cellType,
+                         Neon::domain::mGrid::Field<T>&        vel,
+                         Neon::domain::mGrid::Field<T>&        rho,
+                         const Neon::double_3d                 ulid)
+{
+    const Neon::index_3d gridDim = grid.getDimension();
+
+    //init fields
+    for (int level = 0; level < grid.getDescriptor().getDepth(); ++level) {
+
+        auto container =
+            grid.newContainer(
+                "Init_" + std::to_string(level), level,
+                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, ulid](Neon::set::Loader& loader) {
+                    auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
+                    auto& out = fout.load(loader, level, Neon::MultiResCompute::MAP);
+                    auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
+                    auto& u = vel.load(loader, level, Neon::MultiResCompute::MAP);
+                    auto& rh = rho.load(loader, level, Neon::MultiResCompute::MAP);
+                    auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::MAP);
+
+                    return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
+                        //velocity and density
+                        u(cell, 0) = 0;
+                        u(cell, 1) = 0;
+                        u(cell, 2) = 0;
+                        rh(cell, 0) = 0;
+                        type(cell, 0) = CellType::bulk;
+
+                        for (int q = 0; q < Q; ++q) {
+                            ss(cell, q) = 0;
+                            in(cell, q) = 0;
+                            out(cell, q) = 0;
+                        }
+
+                        if (!in.hasChildren(cell)) {
+                            const Neon::index_3d idx = in.getGlobalIndex(cell);
+
+                            //the cell classification
+                            if (level == 0) {
+                                if (idx.x == 0 || idx.x == gridDim.x - 1 ||
+                                    idx.y == 0 || idx.y == gridDim.y - 1 ||
+                                    idx.z == 0 || idx.z == gridDim.z - 1) {
+                                    type(cell, 0) = CellType::bounceBack;
+
+                                    if (idx.y == gridDim.y - 1) {
+                                        type(cell, 0) = CellType::movingWall;
+                                    }
+                                }
+                            }
+
+                            //population init value
+                            for (int q = 0; q < Q; ++q) {
+                                T pop_init_val = latticeWeights[q];
+
+                                //bounce back
+                                if (type(cell, 0) == CellType::bounceBack) {
+                                    pop_init_val = 0;
+                                }
+
+                                //moving wall
+                                if (type(cell, 0) == CellType::movingWall) {
+                                    pop_init_val = 0;
+                                    for (int d = 0; d < 3; ++d) {
+                                        pop_init_val += latticeVelocity[q][d] * ulid.v[d];
+                                    }
+                                    pop_init_val *= -6. * latticeWeights[q];
+                                }
+
+                                out(cell, q) = pop_init_val;
+                                in(cell, q) = pop_init_val;
+                            }
+                        }
+                    };
+                });
+
+        container.run(0);
+    }
+
+
+    //init sumStore
+    initSumStore<T, Q>(grid, sumStore);
+}
+
 template <typename T, int Q>
 void lidDrivenCavity(const int           problemID,
                      const Neon::Backend backend,
@@ -13,7 +104,8 @@ void lidDrivenCavity(const int           problemID,
                      const bool          streamFusedCoal,
                      const bool          streamFuseAll,
                      const bool          collisionFusedStore,
-                     const bool          benchmark)
+                     const bool          benchmark,
+                     const int           freq)
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
@@ -189,6 +281,7 @@ void lidDrivenCavity(const int           problemID,
                            streamFuseAll,
                            collisionFusedStore,
                            benchmark,
+                           freq,
                            problemID,
                            "lid",
                            omega,

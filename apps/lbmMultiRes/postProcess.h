@@ -52,7 +52,7 @@ void postProcess(Neon::domain::mGrid&                        grid,
                                 u(cell, 1) = vel.v[1];
                                 u(cell, 2) = vel.v[2];
                             }
-                            if (type(cell, 0) == CellType::movingWall) {
+                            if (type(cell, 0) == CellType::movingWall || type(cell, 0) == CellType::inlet) {
                                 rh(cell, 0) = 1.0;
 
                                 for (int q = 0; q < Q; ++q) {

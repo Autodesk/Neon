@@ -1,7 +1,14 @@
-#pragma once 
+#pragma once
 #include "Neon/Neon.h"
 #include "Neon/domain/mGrid.h"
 #include "Neon/skeleton/Skeleton.h"
+
+#include "collide.h"
+#include "lattice.h"
+#include "postProcess.h"
+#include "store.h"
+#include "stream.h"
+#include "util.h"
 
 template <typename T, int Q>
 void collideStep(Neon::domain::mGrid&                        grid,
@@ -193,6 +200,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
                       const bool                                  streamFuseAll,
                       const bool                                  collisionFusedStore,
                       const bool                                  benchmark,
+                      const int                                   freq,
                       const int                                   problemID,
                       const std::string                           problemType,
                       const T                                     omega,
@@ -232,7 +240,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
             NEON_INFO("Non-uniform LBM Iteration: {}", t);
         }
         skl.run();
-        if (!benchmark && t % 500 == 0) {
+        if (!benchmark && t % freq == 0) {
             postProcess<T, Q>(grid, depth, fout, cellType, t, vel, rho, true);
         }
     }

@@ -9,20 +9,10 @@
 #include "Neon/skeleton/Skeleton.h"
 
 
-#include "collide.h"
-#include "init.h"
-#include "lattice.h"
-#include "postProcess.h"
-#include "store.h"
-#include "stream.h"
-#include "util.h"
-
 Neon::Report report;
 
 #include "flowOverCylinder.h"
 #include "lidDrivenCavity.h"
-
-
 
 
 int main(int argc, char** argv)
@@ -35,6 +25,7 @@ int main(int argc, char** argv)
 
         std::string deviceType = "gpu";
         std::string problemType = "lid";
+        int         freq = 100;
         int         Re = 100;
         int         deviceId = 99;
         int         numIter = 2;
@@ -58,6 +49,8 @@ int main(int argc, char** argv)
 
              ((clipp::option("--benchmark").set(benchmark, true) % "Run benchmark mode") |
               (clipp::option("--visual").set(benchmark, false) % "Run export partial data")),
+
+             clipp::option("--freq") & clipp::integers("freq", freq) % "Output frequency (only works with visual mode)",
 
 
              ((clipp::option("--storeFine").set(fineInitStore, true) % "Initiate the Store operation from the fine level") |
@@ -114,15 +107,15 @@ int main(int argc, char** argv)
 #endif
         if (dataType == "float") {
             if (problemType == "lid") {
-                lidDrivenCavity<float, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
+                lidDrivenCavity<float, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
             } else if (problemType == "cylinder") {
-                flowOverCylinder<float, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
+                flowOverCylinder<float, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
             }
         } else if (dataType == "double") {
             if (problemType == "lid") {
-                lidDrivenCavity<double, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
+                lidDrivenCavity<double, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
             } else if (problemType == "cylinder") {
-                flowOverCylinder<double, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark);
+                flowOverCylinder<double, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
             }
         }
     }
