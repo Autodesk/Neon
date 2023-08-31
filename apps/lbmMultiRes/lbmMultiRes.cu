@@ -11,7 +11,7 @@
 
 Neon::Report report;
 
-#include "flowOverCylinder.h"
+#include "flowOverSphere.h"
 #include "lidDrivenCavity.h"
 
 
@@ -42,7 +42,7 @@ int main(int argc, char** argv)
             (clipp::option("--deviceType") & clipp::value("deviceType", deviceType) % "Type of device (gpu or cpu)",
              clipp::option("--deviceId") & clipp::integers("deviceId", deviceId) % "Device id",
              clipp::option("--numIter") & clipp::integer("numIter", numIter) % "LBM number of iterations",
-             clipp::option("--problemType") & clipp::value("problemType", problemType) % "Problem type ('lid' for lid-driven cavity or 'cylinder' for flow over cylinder)",
+             clipp::option("--problemType") & clipp::value("problemType", problemType) % "Problem type ('lid' for lid-driven cavity or 'sphere' for flow over sphere)",
              clipp::option("--problemId") & clipp::integer("problemId", problemId) % "Problem ID (0-1 for lid)",
              clipp::option("--dataType") & clipp::value("dataType", dataType) % "Data type (float or double)",
              clipp::option("--re") & clipp::integers("Re", Re) % "Reynolds number",
@@ -77,7 +77,7 @@ int main(int argc, char** argv)
             NEON_THROW(exp);
         }
 
-        if (problemType != "lid" && problemType != "cylinder") {
+        if (problemType != "lid" && problemType != "sphere") {
             Neon::NeonException exp("app-lbmMultiRes");
             exp << "Unknown input problem type " << problemType;
             NEON_THROW(exp);
@@ -108,14 +108,14 @@ int main(int argc, char** argv)
         if (dataType == "float") {
             if (problemType == "lid") {
                 lidDrivenCavity<float, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
-            } else if (problemType == "cylinder") {
-                flowOverCylinder<float, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
+            } else if (problemType == "sphere") {
+                flowOverSphere<float, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
             }
         } else if (dataType == "double") {
             if (problemType == "lid") {
                 lidDrivenCavity<double, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
-            } else if (problemType == "cylinder") {
-                flowOverCylinder<double, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
+            } else if (problemType == "sphere") {
+                flowOverSphere<double, Q>(problemId, backend, numIter, Re, fineInitStore, streamFusedExpl, streamFusedCoal, streamFuseAll, collisionFusedStore, benchmark, freq);
             }
         }
     }

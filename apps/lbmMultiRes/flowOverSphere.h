@@ -6,15 +6,15 @@
 #include "init.h"
 
 template <typename T, int Q>
-void initFlowOverCylinder(Neon::domain::mGrid&                  grid,
-                          Neon::domain::mGrid::Field<float>&    sumStore,
-                          Neon::domain::mGrid::Field<T>&        fin,
-                          Neon::domain::mGrid::Field<T>&        fout,
-                          Neon::domain::mGrid::Field<CellType>& cellType,
-                          Neon::domain::mGrid::Field<T>&        vel,
-                          Neon::domain::mGrid::Field<T>&        rho,
-                          const Neon::double_3d                 inletVelocity,
-                          const Neon::index_4d                  cylinder)  //cylinder location (x,y,z) and radius
+void initFlowOverSphere(Neon::domain::mGrid&                  grid,
+                        Neon::domain::mGrid::Field<float>&    sumStore,
+                        Neon::domain::mGrid::Field<T>&        fin,
+                        Neon::domain::mGrid::Field<T>&        fout,
+                        Neon::domain::mGrid::Field<CellType>& cellType,
+                        Neon::domain::mGrid::Field<T>&        vel,
+                        Neon::domain::mGrid::Field<T>&        rho,
+                        const Neon::double_3d                 inletVelocity,
+                        const Neon::index_4d                  sphere)  //sphere location (x,y,z) and radius
 {
 
     const Neon::index_3d gridDim = grid.getDimension();
@@ -25,7 +25,7 @@ void initFlowOverCylinder(Neon::domain::mGrid&                  grid,
         auto container =
             grid.newContainer(
                 "Init_" + std::to_string(level), level,
-                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, inletVelocity, cylinder](Neon::set::Loader& loader) {
+                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, inletVelocity, sphere](Neon::set::Loader& loader) {
                     auto&   in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                     auto&   out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                     auto&   type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -61,11 +61,11 @@ void initFlowOverCylinder(Neon::domain::mGrid&                  grid,
                                 type(cell, 0) = CellType::inlet;
                             }
 
-                            const T dx = cylinder.x - idx.x;
-                            const T dy = cylinder.y - idx.y;
-                            const T dz = cylinder.z - idx.z;
+                            const T dx = sphere.x - idx.x;
+                            const T dy = sphere.y - idx.y;
+                            const T dz = sphere.z - idx.z;
 
-                            if ((dx * dx + dy * dy + dz * dz) < cylinder.w * cylinder.w) {
+                            if ((dx * dx + dy * dy + dz * dz) < sphere.w * sphere.w) {
                                 type(cell, 0) = CellType::bounceBack;
                             }
 
@@ -102,23 +102,23 @@ void initFlowOverCylinder(Neon::domain::mGrid&                  grid,
 }
 
 template <typename T, int Q>
-void flowOverCylinder(const int           problemID,
-                      const Neon::Backend backend,
-                      const int           numIter,
-                      const int           Re,
-                      const bool          fineInitStore,
-                      const bool          streamFusedExpl,
-                      const bool          streamFusedCoal,
-                      const bool          streamFuseAll,
-                      const bool          collisionFusedStore,
-                      const bool          benchmark,
-                      const int           freq)
+void flowOverSphere(const int           problemID,
+                    const Neon::Backend backend,
+                    const int           numIter,
+                    const int           Re,
+                    const bool          fineInitStore,
+                    const bool          streamFusedExpl,
+                    const bool          streamFusedCoal,
+                    const bool          streamFuseAll,
+                    const bool          collisionFusedStore,
+                    const bool          benchmark,
+                    const int           freq)
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
     Neon::index_3d gridDim(136, 96, 136);
 
-    Neon::index_4d cylinder(52, 52, 68, 8);
+    Neon::index_4d sphere(52, 52, 68, 8);
 
     int depth = 3;
 
@@ -140,7 +140,7 @@ void flowOverCylinder(const int           problemID,
 
     //LBM problem
     const T               uin = 0.04;
-    const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
+    const T               clength = T(sphere.w);
     const T               visclb = uin * clength / static_cast<T>(Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
@@ -160,7 +160,7 @@ void flowOverCylinder(const int           problemID,
 
     //init fields
     const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
-    initFlowOverCylinder<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, cylinder);
+    initFlowOverSphere<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, sphere);
 
     //cellType.updateHostData();
     //cellType.ioToVtk("cellType", true, true, true, true);
