@@ -12,7 +12,6 @@ Report::Report(const Config& c)
     mReport.addMember("N", c.N);
     mReport.addMember("benchmark", c.benchmark);
     mReport.addMember("max_t", c.max_t);
-    mReport.addMember("vtiFrequency", c.vti);
     mReport.addMember("repetitions", c.repetitions);
     mReport.addMember("vti", c.vti);
 
@@ -26,13 +25,19 @@ Report::Report(const Config& c)
     mReport.addMember("reportFile", c.reportFile);
     mReport.addMember("gridType", c.gridType);
 
-    mReport.addMember("computeTypeStr", c.computeTypeStr);
-    mReport.addMember("storeTypeStr", c.storeTypeStr);
+
 
     c.occCli.addToReport(mReport);
     c.transferModeCli.addToReport(mReport);
     c.stencilSemanticCli.addToReport(mReport);
     c.spaceCurveCli.addToReport(mReport);
+    c.collisionCli.addToReport(mReport);
+
+    mReport.addMember("computeTypeStr", c.computeTypeStr);
+    mReport.addMember("storeTypeStr", c.storeTypeStr);
+    mReport.addMember("streamingMethod", c.streamingMethod);
+    mReport.addMember("lattice", c.lattice);
+
 
     mReport.addMember("nu", c.mLbmParameters.nu);
     mReport.addMember("omega", c.mLbmParameters.omega);

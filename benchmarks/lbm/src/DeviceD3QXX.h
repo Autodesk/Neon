@@ -213,5 +213,99 @@ struct DeviceD3QXX
                 fOut(gidx, M::fwdMemQ) = pOut[M::fwdRegQ];
             });
         }
+
+        static inline NEON_CUDA_HOST_DEVICE auto
+        collideKBCUnrolled(Compute const&                rho /*!   Density            */,
+                           std::array<Compute, 3> const& u /*!     Velocity           */,
+                           Compute const&                usqr /*!  Usqr               */,
+                           Compute const&                omega /*! Omega              */,
+                           Compute const&                invBeta /*! invBeta              */,
+                           NEON_IO Storage               pop[Lattice::Q])
+
+            -> void
+        {
+            if constexpr (Lattice::Q == 27) {
+                constexpr Compute tiny = Compute(1e-7);
+
+                Compute       Pi[6] = {0, 0, 0, 0, 0, 0};
+                Compute       e0 = 0;
+                Compute       e1 = 0;
+                Compute       deltaS[Lattice::Q];
+                Compute       fneq[Lattice::Q];
+                Compute       feq[Lattice::Q];
+                const Compute beta = omega * 0.5;
+
+                auto fdecompose_shear = [&](const int q) -> Compute {
+                    const Compute Nxz = Pi[0] - Pi[5];
+                    const Compute Nyz = Pi[3] - Pi[5];
+                    if (q == 9) {
+                        return (2.0 * Nxz - Nyz) / 6.0;
+                    } else if (q == 18) {
+                        return (2.0 * Nxz - Nyz) / 6.0;
+                    } else if (q == 3) {
+                        return (-Nxz + 2.0 * Nyz) / 6.0;
+                    } else if (q == 6) {
+                        return (-Nxz + 2.0 * Nyz) / 6.0;
+                    } else if (q == 1) {
+                        return (-Nxz - Nyz) / 6.0;
+                    } else if (q == 2) {
+                        return (-Nxz - Nyz) / 6.0;
+                    } else if (q == 12 || q == 24) {
+                        return Pi[1] / 4.0;
+                    } else if (q == 21 || q == 15) {
+                        return -Pi[1] / 4.0;
+                    } else if (q == 10 || q == 20) {
+                        return Pi[2] / 4.0;
+                    } else if (q == 19 || q == 11) {
+                        return -Pi[2] / 4.0;
+                    } else if (q == 8 || q == 4) {
+                        return Pi[4] / 4.0;
+                    } else if (q == 7 || q == 5) {
+                        return -Pi[4] / 4.0;
+                    } else {
+                        return Compute(0);
+                    }
+                };
+
+                // equilibrium
+                Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+                    const Compute cu = Compute(3) *
+                                       (u[0] * Lattice::Registers::template getComponentOfDirection<q, 0>() +
+                                        u[1] * Lattice::Registers::template getComponentOfDirection<q, 1>() +
+                                        u[2] * Lattice::Registers::template getComponentOfDirection<q, 2>());
+
+                    feq[q] = rho * Lattice::Registers::template getWeightOfDirection<q, 0>() * (1. + cu + 0.5 * cu * cu - usqr);
+
+                    fneq[q] = pop[q] - feq[q];
+                });
+
+                // momentum_flux
+                Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+                    Neon::ConstexprFor<0, 6, 1>([&](auto i) {
+                        Pi[i] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, i>();
+                    });
+                });
+
+                // fdecompose_shear
+                Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+                    deltaS[q] = rho * fdecompose_shear(q);
+
+                    Compute deltaH = fneq[q] - deltaS[q];
+
+                    e0 += (deltaS[q] * deltaH / feq[q]);
+                    e1 += (deltaH * deltaH / feq[q]);
+                });
+
+                // gamma
+                Compute gamma = invBeta - (2.0 - invBeta) * e0 / (tiny + e1);
+
+
+                // fout
+                Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+                    Compute deltaH = fneq[q] - deltaS[q];
+                    pop[q] = pop[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
+                });
+            }
+        }
     };
 };

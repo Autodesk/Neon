@@ -16,6 +16,7 @@ int backendWasReported = false;
 
 namespace details {
 template <lbm::Method method_,
+          Collision CollisionType,
           typename Lattice_,
           typename Grid,
           typename Storage_,
@@ -40,7 +41,7 @@ auto run(Config& config,
     // Neon Grid and Fields initialization
     Neon::index_3d domainDim(config.N, config.N, config.N);
 
-    Lbm<Grid, method_, Precision, Lattice> lbm(config,
+    Lbm<Grid, method_, CollisionType, Precision, Lattice> lbm(config,
                                                report,
                                                [](Neon::index_3d const&) { return true; });
     auto                                   ulb = config.ulb;
@@ -82,10 +83,34 @@ auto run(Config& config,
 }
 
 
-template <typename Lattice, typename Grid, typename Storage, typename Compute>
+template <Collision CollisionType, typename Lattice, typename Grid, typename Storage, typename Compute>
 auto runFilterMethod(Config& config, Report& report) -> void
 {
-    return run<lbm::Method::push, Lattice, Grid, Storage, double>(config, report);
+    if (config.streamingMethod == "push") {
+        return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, double>(config, report);
+    }
+    if (config.streamingMethod == "pull") {
+        return run<lbm::Method::pull, CollisionType, Lattice, Grid, Storage, double>(config, report);
+    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
+}
+
+template <typename Lattice, typename Grid, typename Storage, typename Compute>
+auto runFilterCollision(Config& config, Report& report) -> void
+{
+    if (config.collisionCli.getOption() == Collision::bgk) {
+
+        return runFilterMethod<Collision::bgk, Lattice, Grid, Storage, double>(config, report);
+    }
+    if (config.collisionCli.getOption() == Collision::kbc) {
+        if(config.lattice != "d3q27" && config.lattice != "D3Q27"){
+            Neon::NeonException e("runFilterCollision");
+            e << "LBM kbc collision model only supports d3q27 lattice";
+            NEON_THROW(e);
+        }
+        return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, double>(config, report);
+    }
+    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 template <typename Grid, typename Storage, typename Compute>
@@ -95,11 +120,11 @@ auto runFilterLattice(Config& config, Report& report) -> void
 
     if (config.lattice == "d3q19" || config.lattice == "D3Q19") {
         using Lattice = D3Q19<Precision>;
-        return runFilterMethod<Lattice, Grid, Storage, double>(config, report);
+        return runFilterCollision<Lattice, Grid, Storage, double>(config, report);
     }
     if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
         using Lattice = D3Q19<Precision>;
-        return runFilterMethod<Lattice, Grid, Storage, double>(config, report);
+        return runFilterCollision<Lattice, Grid, Storage, double>(config, report);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }

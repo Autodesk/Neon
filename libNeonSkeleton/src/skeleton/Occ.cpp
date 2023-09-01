@@ -51,6 +51,7 @@ OccUtils::Cli::Cli(std::string s)
 OccUtils::Cli::Cli(Occ model)
 {
     mOption = model;
+    mSet = true;
 }
 
 auto OccUtils::Cli::getOption() const -> Occ
@@ -106,7 +107,7 @@ auto OccUtils::Cli::getDoc() const -> std::string
 {
     std::stringstream s;
     s << getStringOptions();
-    s << " default: " << getStringOptions();
+    s << " default: " << OccUtils::toString(getOption());
     return s.str();
 }
 

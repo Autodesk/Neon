@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include "Collision.h"
 #include "Neon/core/tools/clipp.h"
 #include "Neon/domain/tools/SpaceCurves.h"
 #include "Neon/skeleton/Skeleton.h"
@@ -37,8 +38,8 @@ struct Config
     Neon::set::TransferModeUtils::Cli                     transferModeCli{Neon::set::TransferMode::get};  // Neon transfer mode for halo update
     Neon::set::StencilSemanticUtils::Cli                  stencilSemanticCli{Neon::set::StencilSemantic::streaming};
     Neon::domain::tool::spaceCurves::EncoderTypeUtil::Cli spaceCurveCli{Neon::domain::tool::spaceCurves::EncoderType::sweep};
-
-    int vti = 0;  // Export vti file
+    CollisionUtils::Cli                                   collisionCli{Collision::bgk};
+    int                                                   vti = 0;  // Export vti file
 
     std::vector<std::string> computeTypeOptions = {"double", "float"};
     std::string              computeTypeStr = computeTypeOptions[0];

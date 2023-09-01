@@ -57,11 +57,13 @@ struct D3Q27
             Neon::index_3d(1, 1, 1),
             Neon::index_3d(1, 1, -1),
             Neon::index_3d(1, -1, 1),
+
             Neon::index_3d(1, -1, -1)};
 
         template <int qIdx, int cIdx>
-        static inline NEON_CUDA_HOST_DEVICE auto
-        getComponentOfDirection() -> int{
+        static constexpr inline NEON_CUDA_HOST_DEVICE auto
+        getComponentOfDirection() -> int
+        {
             return stencil[qIdx].v[cIdx];
         }
 
@@ -82,8 +84,7 @@ struct D3Q27
         static constexpr std::array<const int, Q> opposite{
             14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
             13,
-            0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12
-        };
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 
         static constexpr std::array<const typename Precision::Storage, Q> t{
             2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
@@ -92,14 +93,21 @@ struct D3Q27
             2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
             1. / 216., 1. / 216., 1. / 216., 1. / 216.};
 
+        template <int qIdx>
+        static inline NEON_CUDA_HOST_DEVICE auto
+        getWeightOfDirection() -> int
+        {
+            return t[qIdx];
+        }
+
         template <int q>
-        static constexpr auto getT() -> const typename Precision::Storage
+        static constexpr NEON_CUDA_HOST_DEVICE auto getT() -> const typename Precision::Storage
         {
             return t[q];
         }
 
         template <int q>
-        static constexpr auto getDirection() -> const typename Neon::index_3d
+        static constexpr NEON_CUDA_HOST_DEVICE auto getDirection() -> const typename Neon::index_3d
         {
             return stencil[q];
         }
@@ -108,6 +116,56 @@ struct D3Q27
         // Center is also removed
         static constexpr int                                  firstHalfQLen = (Q - 1) / 2;
         static constexpr std::array<const int, firstHalfQLen> firstHalfQList{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+
+        struct Moment
+        {
+            int v[6];
+            Moment(int a0, int a1, int a2, int a3, int a4, int a5)
+            {
+                v[0] = a0;
+                v[1] = a1;
+                v[2] = a2;
+                v[3] = a3;
+                v[4] = a4;
+                v[5] = a5;
+            }
+        };
+
+        static constexpr std::array<const Moment, Q> latticeMoment{
+            {1, 0, 0, 0, 0, 0},
+            {0, 0, 0, 1, 0, 0},
+            {0, 0, 0, 0, 0, 1},
+            {1, 1, 0, 1, 0, 0},
+            {1, -1, 0, 1, 0, 0},
+            {1, 0, 1, 0, 0, 1},
+            {1, 0, -1, 0, 0, 1},
+            {0, 0, 0, 1, 1, 1},
+            {0, 0, 0, 1, -1, 1},
+            {1, 1, 1, 1, 1, 1},
+            {1, 1, -1, 1, -1, 1},
+            {1, -1, 1, 1, -1, 1},
+            {1, -1, -1, 1, 1, 1},
+            {0, 0, 0, 0, 0, 0},
+            {1, 0, 0, 0, 0, 0},
+            {0, 0, 0, 1, 0, 0},
+            {0, 0, 0, 0, 0, 1},
+            {1, 1, 0, 1, 0, 0},
+            {1, -1, 0, 1, 0, 0},
+            {1, 0, 1, 0, 0, 1},
+            {1, 0, -1, 0, 0, 1},
+            {0, 0, 0, 1, 1, 1},
+            {0, 0, 0, 1, -1, 1},
+            {1, 1, 1, 1, 1, 1},
+            {1, 1, -1, 1, -1, 1},
+            {1, -1, 1, 1, -1, 1},
+            {1, -1, -1, 1, 1, 1}};
+
+        template <int qIdx, int mIdx>
+        static constexpr inline NEON_CUDA_HOST_DEVICE auto
+        getMomentByDirection() -> int
+        {
+            return latticeMoment[qIdx].v[mIdx];
+        }
     };
 
     struct Memory
@@ -143,7 +201,7 @@ struct D3Q27
             Neon::index_3d(1, -1, -1)};
 
 
-        static constexpr int center = 13;       /** Position of direction {0,0,0} */
+        static constexpr int center = 13; /** Position of direction {0,0,0} */
 
         static constexpr std::array<const int, Q> memoryToRegister{
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26};
@@ -180,8 +238,7 @@ struct D3Q27
         static constexpr std::array<const int, Q> opposite{
             14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
             13,
-            0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12
-        };
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 
         template <int go>
         static constexpr auto helpGetValueforT()

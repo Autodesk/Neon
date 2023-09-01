@@ -21,7 +21,7 @@ auto Config::toString() const -> std::string
         return s.str();
     };
 
-    s << "Neon Runtime Parameters" << std::endl;
+    s << "\n==>[Neon Runtime Parameters]" << std::endl;
     s << ".......... deviceType " << c.deviceType << std::endl;
     s << ".......... numDevices " << c.devices.size() << std::endl;
     s << "............. devices " << vecToSting(c.devices) << std::endl;
@@ -30,16 +30,17 @@ auto Config::toString() const -> std::string
 
     s << ".......... spaceCurve " << c.spaceCurveCli.getStringOptions() << std::endl;
     s << "................. occ " << c.occCli.getStringOptions() << std::endl;
-    s << "....... transferMode " << c.transferModeCli.getStringOptions() << std::endl;
-    s << ".... stencilSemantic " << c.stencilSemanticCli.getStringOptions() << std::endl;
+    s << "........ transferMode " << c.transferModeCli.getStringOptions() << std::endl;
+    s << "..... stencilSemantic " << c.stencilSemanticCli.getStringOptions() << std::endl;
 
-    s << "LBM Implementation" << std::endl;
-    s << "............ lattice " << c.lattice << std::endl;
-    s << "... streaming method " << c.streamingMethod << std::endl;
+    s << "\n==>[LBM Implementation]" << std::endl;
+    s << "............. lattice " << c.lattice << std::endl;
+    s << ".... streaming method " << c.streamingMethod << std::endl;
+    s << "........... collision " << c.collisionCli.getOptionStr() << std::endl;
     s << "......... computeType " << c.computeTypeStr << std::endl;
     s << "........... storeType " << c.storeTypeStr << std::endl;
 
-    s << "Physics Parameters" << std::endl;
+    s << "\n==>[Physics Parameters]" << std::endl;
     s << ".................. Re " << c.Re << std::endl;
     s << "................. ulb " << c.ulb << std::endl;
     s << "................... N " << c.N << std::endl;
@@ -48,7 +49,7 @@ auto Config::toString() const -> std::string
     s << "................. dx " << mLbmParameters.dx << std::endl;
     s << "................. dt " << mLbmParameters.dt << std::endl;
 
-    s << "Test Parameters" << std::endl;
+    s << "\n==>[Test Parameters]" << std::endl;
     s << "........... benchmark " << c.benchmark << std::endl;
     s << "............... max_t " << c.max_t << std::endl;
     s << "................. vti " << c.vti << std::endl;
@@ -82,6 +83,7 @@ auto Config::parseArgs(const int argc, char* argv[])
             clipp::option("--transferMode")& clipp::value("transferMode")([&config](const std::string& s) { config.transferModeCli.set(s); }) % config.transferModeCli.getDoc(),
             clipp::option("--stencilSemantic")& clipp::value("stencilSemantic")([&config](const std::string& s) { config.stencilSemanticCli.set(s); }) % config.stencilSemanticCli.getDoc(),
             clipp::option("--spaceCurve")& clipp::value("spaceCurve")([&config](const std::string& s) { config.spaceCurveCli.set(s); }) % config.spaceCurveCli.getDoc(),
+            clipp::option("--collision")& clipp::value("collision")([&config](const std::string& s) { config.collisionCli.set(s); }) % config.collisionCli.getDoc(),
 
             clipp::option("--streamingMethod") & clipp::value("streamingMethod", config.streamingMethod) % Config::getOptionList(config.streamingMethodOption, config.streamingMethod),
             clipp::option("--lattice") & clipp::value("lattice", config.lattice) % Config::getOptionList(config.latticeOptions, config.lattice),

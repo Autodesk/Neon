@@ -17,6 +17,7 @@ int backendWasReported = false;
 
 template <typename Grid_,
           lbm::Method method,
+          Collision CollisionId,
           typename Precision_,
           typename Lattice_>
 struct Lbm
@@ -31,7 +32,7 @@ struct Lbm
     using UField = typename Grid::template Field<typename Precision::Storage, 3>;
 
     //using CommonContainerFactory = common::ContainerFactory<Precision, Lattice, Grid>;
-    using ContainerFactory = ContainerFactoryD3QXX<Precision,  Grid, Lattice>;
+    using ContainerFactory = ContainerFactoryD3QXX<Precision,  Grid, Lattice, CollisionId>;
 
     template <typename Lambda>
     Lbm(Config&               config,
