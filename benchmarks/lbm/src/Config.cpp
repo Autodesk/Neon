@@ -79,9 +79,9 @@ auto Config::parseArgs(const int argc, char* argv[])
             clipp::option("--storageFP") & clipp::value("storageFP", config.storeTypeStr) % "double, float",
 
             clipp::option("--occ") & clipp::value("occ")([&config](const std::string& s) { config.occCli.set(s); }) % config.occCli.getDoc(),
-            clipp::option("--transferMode")([&config](const std::string& s) { config.transferModeCli.set(s); }) % config.transferModeCli.getDoc(),
-            clipp::option("--stencilSemantic")([&config](const std::string& s) { config.stencilSemanticCli.set(s); }) % config.stencilSemanticCli.getDoc(),
-            clipp::option("--spaceCurve")([&config](const std::string& s) { config.spaceCurveCli.set(s); }) % config.spaceCurveCli.getDoc(),
+            clipp::option("--transferMode")& clipp::value("transferMode")([&config](const std::string& s) { config.transferModeCli.set(s); }) % config.transferModeCli.getDoc(),
+            clipp::option("--stencilSemantic")& clipp::value("stencilSemantic")([&config](const std::string& s) { config.stencilSemanticCli.set(s); }) % config.stencilSemanticCli.getDoc(),
+            clipp::option("--spaceCurve")& clipp::value("spaceCurve")([&config](const std::string& s) { config.spaceCurveCli.set(s); }) % config.spaceCurveCli.getDoc(),
 
             clipp::option("--streamingMethod") & clipp::value("streamingMethod", config.streamingMethod) % Config::getOptionList(config.streamingMethodOption, config.streamingMethod),
             clipp::option("--lattice") & clipp::value("lattice", config.lattice) % Config::getOptionList(config.latticeOptions, config.lattice),

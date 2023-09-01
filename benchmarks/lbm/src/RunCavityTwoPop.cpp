@@ -26,7 +26,7 @@ auto run(Config& config,
     using Storage = Storage_;
     using Compute = Compute_;
     using Precision = Precision<Storage, Compute>;
-    using Lattice = Lattice_;//D3Q27<Precision>;
+    using Lattice = Lattice_;  // D3Q27<Precision>;
     // using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
 
     // using PopField = typename Grid::template Field<typename Precision::Storage, Lattice::Q>;
@@ -93,11 +93,11 @@ auto runFilterLattice(Config& config, Report& report) -> void
 {
     using Precision = Precision<Storage, Compute>;
 
-    if (config.lattice == "d3q19") {
+    if (config.lattice == "d3q19" || config.lattice == "D3Q19") {
         using Lattice = D3Q19<Precision>;
         return runFilterMethod<Lattice, Grid, Storage, double>(config, report);
     }
-    if (config.lattice == "d3q27") {
+    if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
         using Lattice = D3Q19<Precision>;
         return runFilterMethod<Lattice, Grid, Storage, double>(config, report);
     }

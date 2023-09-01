@@ -199,7 +199,7 @@ struct Lbm
         tie(start, clock_iter) = metrics::restartClock(bk, true);
 
         for (time_iter = 0; time_iter < configurations.benchMaxIter; ++time_iter) {
-            if (time_iter % configurations.vti) {
+            if ((time_iter % configurations.vti)==0) {
                 bk.syncAll();
                 helpExportVti();
             }
