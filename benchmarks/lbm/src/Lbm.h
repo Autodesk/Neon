@@ -161,10 +161,10 @@ struct Lbm
             {
                 // Let's compute 1 collide operation to prepare the input of the first iteration
                 iteration = 1;
-                ContainerFactory::Pull::collideForStep0(pFieldList.at(helpGetInputIdx()),
-                                                        cellFlagField,
-                                                        lbmParameters.omega,
-                                                        pFieldList.at(helpGetOutputIdx()))
+                ContainerFactory::Pull::localCollide(pFieldList.at(helpGetInputIdx()),
+                                                     cellFlagField,
+                                                     lbmParameters.omega,
+                                                     pFieldList.at(helpGetOutputIdx()))
                     .run(Neon::Backend::mainStreamIdx);
                 pFieldList[0].getBackend().syncAll();
                 iteration = 0;
@@ -221,9 +221,10 @@ struct Lbm
             return;
         }
         if constexpr (lbm::Method::aa == method) {
-            NEON_DEV_UNDER_CONSTRUCTION("");
             return;
         }
+        NEON_DEV_UNDER_CONSTRUCTION("");
+
     }
 
     auto iterate() -> void

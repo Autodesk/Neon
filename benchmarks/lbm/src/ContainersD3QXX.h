@@ -32,6 +32,135 @@ struct ContainerFactoryD3QXX
     //    using CommonFunctions = common::DeviceD3Q19<Precision, Grid>;
     using Device = DeviceD3QXX<Precision, Grid, Lattice>;
 
+    struct AA
+    {
+        struct Even
+        {
+
+            static auto
+            iteration(const CellTypeField& cellTypeField /*! Cell type field     */,
+                      const Compute        omega /*!         LBM omega parameter */,
+                      NEON_IO PopField&    fpopField /*!     Output Population field */)
+                -> Neon::set::Container
+            {
+                Neon::set::Container container = fpopField.getGrid().newContainer(
+                    "D3Q19_TwoPop_Pull",
+                    [&, omega](Neon::set::Loader& L) -> auto {
+                        auto&                          fpop = L.load(fpopField);
+                        const auto&                    cellInfoPartition = L.load(cellTypeField);
+                        [[maybe_unused]] const Compute beta = omega * 0.5;
+                        [[maybe_unused]] const Compute invBeta = 1.0 / beta;
+
+                        return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
+                            CellType cellInfo = cellInfoPartition(gidx, 0);
+                            if (cellInfo.classification == CellType::bulk) {
+
+                                Storage popIn[Lattice::Q];
+                                Device::Common::localLoad(gidx, fpop, NEON_OUT popIn);
+
+                                Compute                rho;
+                                std::array<Compute, 3> u{.0, .0, .0};
+                                Device::Common::macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
+
+                                Compute usqr = 1.5 * (u[0] * u[0] +
+                                                      u[1] * u[1] +
+                                                      u[2] * u[2]);
+
+                                if constexpr (CollisionId == Collision::bgk) {
+                                    Device::Common::collideBgkUnrolled(rho, u,
+                                                                       usqr, omega,
+                                                                       NEON_IO popIn);
+                                }
+                                if constexpr (CollisionId == Collision::kbc) {
+                                    Device::Common::collideKBCUnrolled(rho, u,
+                                                                       usqr, omega,
+                                                                       invBeta,
+                                                                       NEON_IO popIn);
+                                }
+                                Device::Common::localStore(gidx, popIn, fpop);
+                            }
+                        };
+                    });
+                return container;
+            }
+
+            static auto
+            computeRhoAndU([[maybe_unused]] const PopField& fInField /*!   inpout population field */,
+                           const CellTypeField&             cellTypeField /*!       Cell type field     */,
+                           Rho&                             rhoField /*!  output Population field */,
+                           U&                               uField /*!  output Population field */)
+
+                -> Neon::set::Container
+            {
+                return Pull::computeRhoAndU(fInField, cellTypeField, rhoField, uField);
+            }
+        };
+        struct Odd
+        {
+            static auto
+            iteration(Neon::set::StencilSemantic stencilSemantic,
+                      const CellTypeField&       cellTypeField /*! Cell type field     */,
+                      const Compute              omega /*!         LBM omega parameter */,
+                      NEON_IO PopField&          fPopField /*!     Output Population field */)
+                -> Neon::set::Container
+            {
+                Neon::set::Container container = fPopField.getGrid().newContainer(
+                    "LBM-iteration",
+                    [=](Neon::set::Loader& L) -> auto {
+                        auto&       fPop = L.load(fPopField,
+                                                  Neon::Pattern::STENCIL, stencilSemantic);
+                        const auto& cellInfoPartition = L.load(cellTypeField);
+
+                        [[maybe_unused]] const Compute beta = omega * 0.5;
+                        [[maybe_unused]] const Compute invBeta = 1.0 / beta;
+
+                        return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
+                            CellType cellInfo = cellInfoPartition(gidx, 0);
+                            if (cellInfo.classification == CellType::bulk) {
+
+                                Storage popIn[Lattice::Q];
+                                Device::Pull::pullStream(gidx, cellInfo.wallNghBitflag, fPop, NEON_OUT popIn);
+
+                                Compute                rho;
+                                std::array<Compute, 3> u{.0, .0, .0};
+                                Device::Common::macroscopic(popIn,
+                                                            NEON_OUT rho, NEON_OUT u);
+
+                                Compute usqr = 1.5 * (u[0] * u[0] +
+                                                      u[1] * u[1] +
+                                                      u[2] * u[2]);
+
+
+                                if constexpr (CollisionId == Collision::bgk) {
+                                    Device::Common::collideBgkUnrolled(rho, u,
+                                                                       usqr, omega,
+                                                                       NEON_IO popIn);
+                                }
+                                if constexpr (CollisionId == Collision::kbc) {
+                                    Device::Common::collideKBCUnrolled(rho, u,
+                                                                       usqr, omega,
+                                                                       invBeta,
+                                                                       NEON_IO popIn);
+                                }
+                                Device::Push::pushStream(gidx, cellInfo.wallNghBitflag, popIn, NEON_OUT fPop);
+                            }
+                        };
+                    });
+                return container;
+            }
+
+            static auto
+            computeRhoAndU([[maybe_unused]] const PopField& fInField /*!   inpout population field */,
+                           const CellTypeField&             cellTypeField /*!       Cell type field     */,
+                           Rho&                             rhoField /*!  output Population field */,
+                           U&                               uField /*!  output Population field */)
+
+                -> Neon::set::Container
+            {
+                return Push::computeRhoAndU(fInField, cellTypeField, rhoField, uField);
+            }
+        };
+    };
 
     struct Pull
     {
@@ -87,10 +216,10 @@ struct ContainerFactoryD3QXX
         }
 
         static auto
-        collideForStep0(const PopField&      fInField /*!      Input population field */,
-                        const CellTypeField& cellTypeField /*! Cell type field     */,
-                        const Compute        omega /*!         LBM omega parameter */,
-                        PopField&            fOutField /*!     Output Population field */)
+        localCollide(const PopField&      fInField /*!      Input population field */,
+                     const CellTypeField& cellTypeField /*! Cell type field     */,
+                     const Compute        omega /*!         LBM omega parameter */,
+                     PopField&            fOutField /*!     Output Population field */)
             -> Neon::set::Container
         {
             Neon::set::Container container = fInField.getGrid().newContainer(
@@ -410,7 +539,6 @@ struct ContainerFactoryD3QXX
                 });
             return container;
         }
-
 
 
         static auto
