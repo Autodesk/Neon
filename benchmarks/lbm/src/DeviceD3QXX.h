@@ -244,7 +244,7 @@ struct DeviceD3QXX
                     const Compute Nyz = Pi[3] - Pi[5];
                     if (q == 0 /* -1, 0, 0 */) {
                         return (2.0 * Nxz - Nyz) / 6.0;
-                    } else if (q == 20 /* 1, 0, -1 */) {
+                    } else if (q == 14 /* 1, 0, -1 */) {
                         return (2.0 * Nxz - Nyz) / 6.0;
                     }else if (q == 1 /*  0, -1, 0 */) {
                         return (-Nxz + 2.0 * Nyz) / 6.0;
@@ -308,9 +308,6 @@ struct DeviceD3QXX
                 Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
                     Compute deltaH = fneq[q] - deltaS[q];
                     pop[q] = pop[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
-                    if (pop[q] != pop[q]) {
-                        printf("ERROR %d \n", Lattice::Q);
-                    }
                 });
             } else {
                 printf("ERROR %d \n", Lattice::Q);
