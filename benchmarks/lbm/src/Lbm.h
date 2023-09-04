@@ -17,7 +17,7 @@ int backendWasReported = false;
 
 template <typename Grid_,
           lbm::Method method,
-          Collision CollisionId,
+          Collision   CollisionId,
           typename Precision_,
           typename Lattice_>
 struct Lbm
@@ -31,13 +31,13 @@ struct Lbm
     using RhoField = typename Grid::template Field<typename Precision::Storage, 1>;
     using UField = typename Grid::template Field<typename Precision::Storage, 3>;
 
-    //using CommonContainerFactory = common::ContainerFactory<Precision, Lattice, Grid>;
-    using ContainerFactory = ContainerFactoryD3QXX<Precision,  Grid, Lattice, CollisionId>;
+    // using CommonContainerFactory = common::ContainerFactory<Precision, Lattice, Grid>;
+    using ContainerFactory = ContainerFactoryD3QXX<Precision, Grid, Lattice, CollisionId>;
 
     template <typename Lambda>
-    Lbm(Config&               config,
-        Report&               report,
-        Lambda                activeMask)
+    Lbm(Config& config,
+        Report& report,
+        Lambda  activeMask)
     {
         configurations = config;
         reportPtr = &report;
@@ -82,7 +82,7 @@ struct Lbm
         cellFlagField = grid.template newField<CellType, 1>("cellFlags", 1, defaultCelltype);
 
         // Allocating rho and u
-        if (config.vti) {
+        if (config.vti != 0) {
             std::cout << "Allocating rho and u" << std::endl;
             using Storage = typename Precision::Storage;
             rho = grid.template newField<Storage, 1>("rho", 1, Storage(0.0));
@@ -104,13 +104,13 @@ struct Lbm
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
         // Compute ngh mask
         ContainerFactory::Common::userSettingBc(bcSetFunction,
-                                              pFieldList[0],
-                                              cellFlagField)
+                                                pFieldList[0],
+                                                cellFlagField)
             .run(Neon::Backend::mainStreamIdx);
 
         for (int i = 1; i < int(pFieldList.size()); i++) {
             ContainerFactory::Common::copyPopulation(pFieldList[0],
-                                                   pFieldList[i])
+                                                     pFieldList[i])
                 .run(Neon::Backend::mainStreamIdx);
         }
         cellFlagField.newHaloUpdate(Neon::set::StencilSemantic::standard,
@@ -119,7 +119,7 @@ struct Lbm
             .run(Neon::Backend::mainStreamIdx);
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
         ContainerFactory::Common::computeWallNghMask(cellFlagField,
-                                                   cellFlagField)
+                                                     cellFlagField)
             .run(Neon::Backend::mainStreamIdx);
     }
 
@@ -129,7 +129,46 @@ struct Lbm
         // One collide if 2Pop - pull
         // One iteration if 2Pop = push
         if constexpr (lbm::Method::pull == method) {
-            NEON_DEV_UNDER_CONSTRUCTION("");
+            // For pull we set up the system in a way that it does one single collide as first operation
+            using Compute = typename Precision::Compute;
+            auto lbmParameters = configurations.template getLbmParameters<Compute>();
+            {
+                skeleton = std::vector<Neon::skeleton::Skeleton>(2);
+                for (int itr_ : {0, 1}) {
+                    iteration = itr_;
+                    int  skIdx = helpGetSkeletonIdx();
+                    auto even = ContainerFactory::Pull::iteration(
+                        configurations.stencilSemanticCli.getOption(),
+                        pFieldList.at(helpGetInputIdx()),
+                        cellFlagField,
+                        lbmParameters.omega,
+                        pFieldList.at(helpGetOutputIdx()));
+
+                    std::vector<Neon::set::Container> ops;
+                    skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
+                    Neon::skeleton::Options opt(configurations.occCli.getOption(), configurations.transferModeCli.getOption());
+                    ops.push_back(even);
+                    std::stringstream appName;
+
+                    if (iteration % 2 == 0)
+                        appName << "LBM_push_even";
+                    else
+                        appName << "LBM_pull_even";
+
+                    skeleton.at(skIdx).sequence(ops, appName.str(), opt);
+                }
+            }
+            {
+                // Let's compute 1 collide operation to prepare the input of the first iteration
+                iteration = 1;
+                ContainerFactory::Pull::collideForStep0(pFieldList.at(helpGetInputIdx()),
+                                                        cellFlagField,
+                                                        lbmParameters.omega,
+                                                        pFieldList.at(helpGetOutputIdx()))
+                    .run(Neon::Backend::mainStreamIdx);
+                pFieldList[0].getBackend().syncAll();
+                iteration = 0;
+            }
             return;
         }
         if constexpr (lbm::Method::push == method) {
@@ -200,7 +239,7 @@ struct Lbm
         tie(start, clock_iter) = metrics::restartClock(bk, true);
 
         for (time_iter = 0; time_iter < configurations.benchMaxIter; ++time_iter) {
-            if ((time_iter % configurations.vti)==0) {
+            if ((time_iter % configurations.vti) == 0) {
                 bk.syncAll();
                 helpExportVti();
             }
@@ -242,18 +281,30 @@ struct Lbm
     {
         grid.getBackend().syncAll();
         auto& pop = pFieldList.at(helpGetOutputIdx());
-        auto  computeRhoAndU = ContainerFactory::Common::computeRhoAndU(pop, cellFlagField, rho, u);
-        computeRhoAndU.run(Neon::Backend::mainStreamIdx);
+        bool done = false;
+        if constexpr (method == lbm::Method::push) {
+            auto computeRhoAndU = ContainerFactory::Push::computeRhoAndU(pop, cellFlagField, rho, u);
+            computeRhoAndU.run(Neon::Backend::mainStreamIdx);
+            done= true;
+        }
+        if constexpr (method == lbm::Method::pull) {
+            auto computeRhoAndU = ContainerFactory::Pull::computeRhoAndU(pop, cellFlagField, rho, u);
+            computeRhoAndU.run(Neon::Backend::mainStreamIdx);
+            done= true;
+        }
+        if(!done){
+            NEON_DEV_UNDER_CONSTRUCTION("helpExportVti");
+        }
         u.updateHostData(Neon::Backend::mainStreamIdx);
         rho.updateHostData(Neon::Backend::mainStreamIdx);
-        //pop.updateHostData(Neon::Backend::mainStreamIdx);
+        // pop.updateHostData(Neon::Backend::mainStreamIdx);
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
 
         size_t      numDigits = 5;
         std::string iterIdStr = std::to_string(iteration);
         iterIdStr = std::string(numDigits - std::min(numDigits, iterIdStr.length()), '0') + iterIdStr;
 
-        //pop.ioToVtk("pop_" + iterIdStr, "pop", false);
+        // pop.ioToVtk("pop_" + iterIdStr, "pop", false);
         u.ioToVtk("u_" + iterIdStr, "u", false);
         rho.ioToVtk("rho_" + iterIdStr, "rho", false);
         cellFlagField.template ioToVtk<int>("cellFlagField_" + iterIdStr, "flag", false);

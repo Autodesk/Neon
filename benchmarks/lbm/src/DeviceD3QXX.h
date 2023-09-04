@@ -29,16 +29,21 @@ struct DeviceD3QXX
                    NEON_OUT Storage                    popIn[Lattice::Q])
         {
             Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
-                using M = typename Lattice::template RegisterMapper<q>;
+                using QPullingReference = typename Lattice::template RegisterMapper<q>;
 
-                if constexpr (M::fwdMemQ == M::centerMemQ) {
-                    popIn[M::centerRegQ] = fin(gidx, M::centerMemQ);
+                if constexpr (QPullingReference::fwdRegQ == QPullingReference::centerRegQ) {
+                    popIn[QPullingReference::centerRegQ] = fin(gidx, QPullingReference::centerMemQ);
                 } else {
-                    if (CellType::isWall<M::bkMemIdx>()) {
-                        popIn[M::fwdRegQ] = fin(gidx, M::bkMemIdx) +
-                                            fin.template getNghData<M::bkwMemQX, M::bkwMemQY, M::bkwMemQZ>(gidx, M::bkwMemIdx)();
+                    if (CellType::isWall<QPullingReference::bkwRegQ>(wallBitFlag)) {
+                        // The cell in the opposite direction of the pull is a wall
+                        popIn[QPullingReference::fwdRegQ] = fin(gidx, QPullingReference::bkwRegQ) +
+                                                            fin.template getNghData<QPullingReference::bkwMemQX,
+                                                                                    QPullingReference::bkwMemQY,
+                                                                                    QPullingReference::bkwMemQZ>(gidx, QPullingReference::fwdMemQ)();
                     } else {
-                        popIn[M::fwdRegQ] = fin.template getNghData<M::bkwMemQX, M::bkwMemQY, M::bkwMemQZ>(gidx, M::fwdMemIdx)();
+                        popIn[QPullingReference::fwdRegQ] = fin.template getNghData<QPullingReference::bkwMemQX,
+                                                                                    QPullingReference::bkwMemQY,
+                                                                                    QPullingReference::bkwMemQZ>(gidx, QPullingReference::fwdMemQ)();
                     }
                 }
             });
@@ -206,7 +211,7 @@ struct DeviceD3QXX
         static inline NEON_CUDA_HOST_DEVICE auto
         localStore(Idx const&                            gidx,
                    Storage NEON_RESTRICT                 pOut[Lattice::Q],
-                   NEON_IN typename PopField::Partition& fOut)
+                   NEON_OUT typename PopField::Partition& fOut)
         {
             Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
                 using M = typename Lattice::template RegisterMapper<q>;
