@@ -13,7 +13,8 @@
 namespace CavityTwoPop {
 
 int backendWasReported = false;
-
+// #include <fenv.h>
+#include "/usr/include/fenv.h"
 namespace details {
 template <lbm::Method method_,
           Collision CollisionType,
@@ -86,6 +87,7 @@ auto run(Config& config,
 template <Collision CollisionType, typename Lattice, typename Grid, typename Storage, typename Compute>
 auto runFilterMethod(Config& config, Report& report) -> void
 {
+    feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);  // Enable all floating point exceptions but FE_INEXACT
     if (config.streamingMethod == "push") {
         return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, double>(config, report);
     }
@@ -123,10 +125,10 @@ auto runFilterLattice(Config& config, Report& report) -> void
         return runFilterCollision<Lattice, Grid, Storage, double>(config, report);
     }
     if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
-        using Lattice = D3Q19<Precision>;
+        using Lattice = D3Q27<Precision>;
         return runFilterCollision<Lattice, Grid, Storage, double>(config, report);
     }
-    NEON_DEV_UNDER_CONSTRUCTION("");
+    NEON_DEV_UNDER_CONSTRUCTION("Lattice type not supported. Available options: D3Q19 and D3Q27");
 }
 
 

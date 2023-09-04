@@ -31,34 +31,33 @@ struct D3Q27
     {
         using Self = D3Q27<Precision>::Registers;
         static constexpr std::array<const Neon::index_3d, Q> stencil{
-            Neon::index_3d(-1, 0, 0),
-            Neon::index_3d(0, -1, 0),
-            Neon::index_3d(0, 0, -1),
-            Neon::index_3d(-1, -1, 0),
-            Neon::index_3d(-1, 1, 0),
-            Neon::index_3d(-1, 0, -1),
-            Neon::index_3d(-1, 0, 1),
-            Neon::index_3d(0, -1, -1),
-            Neon::index_3d(0, -1, 1),
-            Neon::index_3d(-1, -1, -1),
-            Neon::index_3d(-1, -1, 1),
-            Neon::index_3d(-1, 1, -1),
-            Neon::index_3d(-1, 1, 1),
-            Neon::index_3d(0, 0, 0),
-            Neon::index_3d(1, 0, 0),
-            Neon::index_3d(0, 1, 0),
-            Neon::index_3d(0, 0, 1),
-            Neon::index_3d(1, 1, 0),
-            Neon::index_3d(1, -1, 0),
-            Neon::index_3d(1, 0, 1),
-            Neon::index_3d(1, 0, -1),
-            Neon::index_3d(0, 1, 1),
-            Neon::index_3d(0, 1, -1),
-            Neon::index_3d(1, 1, 1),
-            Neon::index_3d(1, 1, -1),
-            Neon::index_3d(1, -1, 1),
-
-            Neon::index_3d(1, -1, -1)};
+            /* 00 */ Neon::index_3d(-1, 0, 0),
+            /* 01 */ Neon::index_3d(0, -1, 0),
+            /* 02 */ Neon::index_3d(0, 0, -1),
+            /* 03 */ Neon::index_3d(-1, -1, 0),
+            /* 04 */ Neon::index_3d(-1, 1, 0),
+            /* 05 */ Neon::index_3d(-1, 0, -1),
+            /* 06 */ Neon::index_3d(-1, 0, 1),
+            /* 07 */ Neon::index_3d(0, -1, -1),
+            /* 08 */ Neon::index_3d(0, -1, 1),
+            /* 09 */ Neon::index_3d(-1, -1, -1),
+            /* 00 */ Neon::index_3d(-1, -1, 1),
+            /* 11 */ Neon::index_3d(-1, 1, -1),
+            /* 12 */ Neon::index_3d(-1, 1, 1),
+            /* 13 */ Neon::index_3d(0, 0, 0),
+            /* 14 */ Neon::index_3d(1, 0, 0),
+            /* 15 */ Neon::index_3d(0, 1, 0),
+            /* 16 */ Neon::index_3d(0, 0, 1),
+            /* 17 */ Neon::index_3d(1, 1, 0),
+            /* 18 */ Neon::index_3d(1, -1, 0),
+            /* 19 */ Neon::index_3d(1, 0, 1),
+            /* 20 */ Neon::index_3d(1, 0, -1),
+            /* 21 */ Neon::index_3d(0, 1, 1),
+            /* 22 */ Neon::index_3d(0, 1, -1),
+            /* 23 */ Neon::index_3d(1, 1, 1),
+            /* 24 */ Neon::index_3d(1, 1, -1),
+            /* 25 */ Neon::index_3d(1, -1, 1),
+            /* 26 */ Neon::index_3d(1, -1, -1)};
 
         template <int qIdx, int cIdx>
         static constexpr inline NEON_CUDA_HOST_DEVICE auto
@@ -86,16 +85,38 @@ struct D3Q27
             13,
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 
-        static constexpr std::array<const typename Precision::Storage, Q> t{
-            2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
-            1. / 216., 1. / 216., 1. / 216., 1. / 216.,
-            8. / 27.,
-            2. / 27., 2. / 27., 2. / 27., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54., 1. / 54.,
-            1. / 216., 1. / 216., 1. / 216., 1. / 216.};
+        static constexpr std::array<const typename Precision::Compute, Q> t{
+            /* 00 */ 2. / 27.,
+            /* 01 */ 2. / 27.,
+            /* 02 */ 2. / 27.,
+            /* 03 */ 1. / 54.,
+            /* 04 */ 1. / 54.,
+            /* 05 */ 1. / 54.,
+            /* 06 */ 1. / 54.,
+            /* 07 */ 1. / 54.,
+            /* 08 */ 1. / 54.,
+            /* 09 */ 1. / 216.,
+            /* 00 */ 1. / 216.,
+            /* 11 */ 1. / 216.,
+            /* 12 */ 1. / 216.,
+            /* 13 */ 8. / 27.,
+            /* 14 */ 2. / 27.,
+            /* 15 */ 2. / 27.,
+            /* 16 */ 2. / 27.,
+            /* 17 */ 1. / 54.,
+            /* 18 */ 1. / 54.,
+            /* 19 */ 1. / 54.,
+            /* 20 */ 1. / 54.,
+            /* 21 */ 1. / 54.,
+            /* 22 */ 1. / 54.,
+            /* 23 */ 1. / 216.,
+            /* 24 */ 1. / 216.,
+            /* 25 */ 1. / 216.,
+            /* 26 */ 1. / 216.};
 
         template <int qIdx>
         static inline NEON_CUDA_HOST_DEVICE auto
-        getWeightOfDirection() -> int
+        getWeightOfDirection() -> const typename Precision::Compute
         {
             return t[qIdx];
         }
@@ -119,8 +140,8 @@ struct D3Q27
 
         struct Moment
         {
-            int v[6];
-            Moment(int a0, int a1, int a2, int a3, int a4, int a5)
+            std::array<int, 6> v{0, 0, 0, 0, 0, 0};
+            inline constexpr Moment(int a0, int a1, int a2, int a3, int a4, int a5)
             {
                 v[0] = a0;
                 v[1] = a1;
@@ -132,37 +153,38 @@ struct D3Q27
         };
 
         static constexpr std::array<const Moment, Q> latticeMoment{
-            {1, 0, 0, 0, 0, 0},
-            {0, 0, 0, 1, 0, 0},
-            {0, 0, 0, 0, 0, 1},
-            {1, 1, 0, 1, 0, 0},
-            {1, -1, 0, 1, 0, 0},
-            {1, 0, 1, 0, 0, 1},
-            {1, 0, -1, 0, 0, 1},
-            {0, 0, 0, 1, 1, 1},
-            {0, 0, 0, 1, -1, 1},
-            {1, 1, 1, 1, 1, 1},
-            {1, 1, -1, 1, -1, 1},
-            {1, -1, 1, 1, -1, 1},
-            {1, -1, -1, 1, 1, 1},
-            {0, 0, 0, 0, 0, 0},
-            {1, 0, 0, 0, 0, 0},
-            {0, 0, 0, 1, 0, 0},
-            {0, 0, 0, 0, 0, 1},
-            {1, 1, 0, 1, 0, 0},
-            {1, -1, 0, 1, 0, 0},
-            {1, 0, 1, 0, 0, 1},
-            {1, 0, -1, 0, 0, 1},
-            {0, 0, 0, 1, 1, 1},
-            {0, 0, 0, 1, -1, 1},
-            {1, 1, 1, 1, 1, 1},
-            {1, 1, -1, 1, -1, 1},
-            {1, -1, 1, 1, -1, 1},
-            {1, -1, -1, 1, 1, 1}};
+            Moment(1, 0, 0, 0, 0, 0),
+            Moment(0, 0, 0, 1, 0, 0),
+            Moment(0, 0, 0, 0, 0, 1),
+            Moment(1, 1, 0, 1, 0, 0),
+            Moment(1, -1, 0, 1, 0, 0),
+            Moment(1, 0, 1, 0, 0, 1),
+            Moment(1, 0, -1, 0, 0, 1),
+            Moment(0, 0, 0, 1, 1, 1),
+            Moment(0, 0, 0, 1, -1, 1),
+            Moment(1, 1, 1, 1, 1, 1),
+            Moment(1, 1, -1, 1, -1, 1),
+            Moment(1, -1, 1, 1, -1, 1),
+            Moment(1, -1, -1, 1, 1, 1),
+            Moment(0, 0, 0, 0, 0, 0),
+            Moment(1, 0, 0, 0, 0, 0),
+            Moment(0, 0, 0, 1, 0, 0),
+            Moment(0, 0, 0, 0, 0, 1),
+            Moment(1, 1, 0, 1, 0, 0),
+            Moment(1, -1, 0, 1, 0, 0),
+            Moment(1, 0, 1, 0, 0, 1),
+            Moment(1, 0, -1, 0, 0, 1),
+            Moment(0, 0, 0, 1, 1, 1),
+            Moment(0, 0, 0, 1, -1, 1),
+            Moment(1, 1, 1, 1, 1, 1),
+            Moment(1, 1, -1, 1, -1, 1),
+            Moment(1, -1, 1, 1, -1, 1),
+            Moment(1, -1, -1, 1, 1, 1)};
 
         template <int qIdx, int mIdx>
         static constexpr inline NEON_CUDA_HOST_DEVICE auto
-        getMomentByDirection() -> int
+        getMomentByDirection()
+            -> int
         {
             return latticeMoment[qIdx].v[mIdx];
         }

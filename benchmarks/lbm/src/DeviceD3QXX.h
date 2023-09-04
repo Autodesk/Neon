@@ -3,7 +3,6 @@
 #include "D3Q19.h"
 #include "Neon/Neon.h"
 #include "Neon/set/Containter.h"
-
 template <typename Precision_, typename Grid_, typename Lattice_>
 struct DeviceD3QXX
 {
@@ -209,8 +208,8 @@ struct DeviceD3QXX
         }
 
         static inline NEON_CUDA_HOST_DEVICE auto
-        localStore(Idx const&                            gidx,
-                   Storage NEON_RESTRICT                 pOut[Lattice::Q],
+        localStore(Idx const&                             gidx,
+                   Storage NEON_RESTRICT                  pOut[Lattice::Q],
                    NEON_OUT typename PopField::Partition& fOut)
         {
             Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
@@ -243,29 +242,29 @@ struct DeviceD3QXX
                 auto fdecompose_shear = [&](const int q) -> Compute {
                     const Compute Nxz = Pi[0] - Pi[5];
                     const Compute Nyz = Pi[3] - Pi[5];
-                    if (q == 9) {
+                    if (q == 0 /* -1, 0, 0 */) {
                         return (2.0 * Nxz - Nyz) / 6.0;
-                    } else if (q == 18) {
+                    } else if (q == 20 /* 1, 0, -1 */) {
                         return (2.0 * Nxz - Nyz) / 6.0;
-                    } else if (q == 3) {
+                    }else if (q == 1 /*  0, -1, 0 */) {
                         return (-Nxz + 2.0 * Nyz) / 6.0;
-                    } else if (q == 6) {
+                    } else if (q == 15 /* 0, 1, 0 */) {
                         return (-Nxz + 2.0 * Nyz) / 6.0;
-                    } else if (q == 1) {
+                    } else if (q == 2 /* 0, 0, -1 */) {
                         return (-Nxz - Nyz) / 6.0;
-                    } else if (q == 2) {
+                    } else if (q == 16 /* 0, 0, 1 */) {
                         return (-Nxz - Nyz) / 6.0;
-                    } else if (q == 12 || q == 24) {
+                    } else if (q == 3 /* -1, -1, 0 */ || q == 17 /* 1, 1, 0 */) {
                         return Pi[1] / 4.0;
-                    } else if (q == 21 || q == 15) {
+                    } else if (q == 18 /* 1, -1, 0 */ || q == 4 /* -1, 1, 0 */) {
                         return -Pi[1] / 4.0;
-                    } else if (q == 10 || q == 20) {
+                    } else if (q == 5 /* -1, 0, -1 */ || q == 19 /* 1, 0, 1 */) {
                         return Pi[2] / 4.0;
-                    } else if (q == 19 || q == 11) {
+                    } else if (q == 20 /* 1, 0, -1 */ || q == 6 /* -1, 0, 1 */) {
                         return -Pi[2] / 4.0;
-                    } else if (q == 8 || q == 4) {
+                    } else if (q == 21 /* 0, 1, 1 */ || q == 7 /* 0, -1, -1 */) {
                         return Pi[4] / 4.0;
-                    } else if (q == 7 || q == 5) {
+                    } else if (q == 22 /* 0, 1, -1 */ || q == 8 /* 0, -1, 1 */) {
                         return -Pi[4] / 4.0;
                     } else {
                         return Compute(0);
@@ -279,8 +278,8 @@ struct DeviceD3QXX
                                         u[1] * Lattice::Registers::template getComponentOfDirection<q, 1>() +
                                         u[2] * Lattice::Registers::template getComponentOfDirection<q, 2>());
 
-                    feq[q] = rho * Lattice::Registers::template getWeightOfDirection<q, 0>() * (1. + cu + 0.5 * cu * cu - usqr);
 
+                    feq[q] = rho * Lattice::Registers::template getWeightOfDirection<q>() * (1. + cu + 0.5 * cu * cu - usqr);
                     fneq[q] = pop[q] - feq[q];
                 });
 
@@ -309,7 +308,12 @@ struct DeviceD3QXX
                 Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
                     Compute deltaH = fneq[q] - deltaS[q];
                     pop[q] = pop[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
+                    if (pop[q] != pop[q]) {
+                        printf("ERROR %d \n", Lattice::Q);
+                    }
                 });
+            } else {
+                printf("ERROR %d \n", Lattice::Q);
             }
         }
     };
