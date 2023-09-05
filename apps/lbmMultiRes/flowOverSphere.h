@@ -102,6 +102,100 @@ void initFlowOverSphere(Neon::domain::mGrid&                  grid,
 }
 
 template <typename T, int Q>
+void flowOverJet(const int           problemID,
+                 const Neon::Backend backend,
+                 const int           numIter,
+                 const int           Re,
+                 const bool          fineInitStore,
+                 const bool          streamFusedExpl,
+                 const bool          streamFusedCoal,
+                 const bool          streamFuseAll,
+                 const bool          collisionFusedStore,
+                 const bool          benchmark,
+                 const int           freq)
+{
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+    Neon::index_3d gridDim(100, 100, 100);
+    Neon::index_3d jetBoxDim(50, 50, 50);
+
+    Neon::index_3d diffBox((gridDim.x - jetBoxDim.x) / 2,
+                           (gridDim.y - jetBoxDim.y) / 2,
+                           (gridDim.z - jetBoxDim.z) / 2);
+
+    Neon::index_4d sphere(52, 52, 68, 8);
+
+    int depth = 2;
+
+    const Neon::mGridDescriptor<1> descriptor(depth);
+
+    Neon::domain::mGrid grid(
+        backend, gridDim,
+        {[&](const Neon::index_3d idx) -> bool {
+             //return sdfJetfighter(glm::ivec3(idx.x, idx.y, idx.z), glm::ivec3(jetBoxDim.x, jetBoxDim.y, jetBoxDim.z)) <= 0;
+
+             return idx.x >= diffBox.x || idx.x < diffBox.x + jetBoxDim.x ||
+                    idx.y >= diffBox.y || idx.y < diffBox.y + jetBoxDim.y ||
+                    idx.z >= diffBox.z || idx.z < diffBox.z + jetBoxDim.z;
+         },
+         [&](const Neon::index_3d idx) -> bool {
+             return true;
+         },
+         [&](const Neon::index_3d idx) -> bool {
+             return true;
+         }},
+        Neon::domain::Stencil::s19_t(false), descriptor);
+
+
+    //LBM problem
+    const T               uin = 0.04;
+    const T               clength = T(sphere.w);
+    const T               visclb = uin * clength / static_cast<T>(Re);
+    const T               omega = 1.0 / (3. * visclb + 0.5);
+    const Neon::double_3d inletVelocity(uin, 0., 0.);
+
+    auto test = grid.newField<T>("test", 1, 0);
+    test.ioToVtk("Test", true, true, true, true);
+    exit(0);
+
+    //allocate fields
+    auto fin = grid.newField<T>("fin", Q, 0);
+    auto fout = grid.newField<T>("fout", Q, 0);
+    auto storeSum = grid.newField<float>("storeSum", Q, 0);
+    auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
+
+    auto vel = grid.newField<T>("vel", 3, 0);
+    auto rho = grid.newField<T>("rho", 1, 0);
+
+    //init fields
+    const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
+    initFlowOverSphere<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, sphere);
+
+    //cellType.updateHostData();
+    //cellType.ioToVtk("cellType", true, true, true, true);
+
+    runNonUniformLBM<T, Q>(grid,
+                           numActiveVoxels,
+                           numIter,
+                           Re,
+                           fineInitStore,
+                           streamFusedExpl,
+                           streamFusedCoal,
+                           streamFuseAll,
+                           collisionFusedStore,
+                           benchmark,
+                           freq,
+                           problemID,
+                           "lid",
+                           omega,
+                           cellType,
+                           storeSum,
+                           fin,
+                           fout,
+                           vel,
+                           rho);
+}
+template <typename T, int Q>
 void flowOverSphere(const int           problemID,
                     const Neon::Backend backend,
                     const int           numIter,
