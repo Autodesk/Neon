@@ -25,6 +25,17 @@ if (NOT rapidjson_POPULATED)
 	file(REMOVE_RECURSE ${rapidjson_SOURCE_DIR}/bin/)
 endif ()
 
+# glm
+FetchContent_GetProperties(glm)
+	if (NOT glm_POPULATED)
+	FetchContent_Declare(glm
+		GIT_REPOSITORY https://github.com/g-truc/glm.git
+		GIT_TAG        master
+	)
+	FetchContent_Populate(glm)
+	add_subdirectory(${glm_SOURCE_DIR})
+endif()
+
 if (${BUILD_NEON_TESTING})
 	# GoogleTest
 	FetchContent_GetProperties(googletest)

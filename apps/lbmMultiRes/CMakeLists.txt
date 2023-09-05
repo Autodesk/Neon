@@ -6,7 +6,7 @@ file(GLOB_RECURSE SrcFiles lbmMultiRes.cu lbmMultiRes.h lattice.h init.h postPro
 add_executable(${APP_NAME} ${SrcFiles})
 
 target_link_libraries(${APP_NAME} 
-	PUBLIC libNeonSkeleton)
+	PUBLIC libNeonSkeleton glm::glm)
 
 set_target_properties(${APP_NAME} PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON
