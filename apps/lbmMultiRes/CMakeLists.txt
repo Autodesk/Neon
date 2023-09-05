@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 set (APP_NAME app-lbmMultiRes)
-file(GLOB_RECURSE SrcFiles lbmMultiRes.cu lbmMultiRes.h lattice.h init.h postProcess.h util.h coalescence.h collide.h explosion.h stream.h store.h verify.h flowOverSphere.h lidDrivenCavity.h)
+file(GLOB_RECURSE SrcFiles lbmMultiRes.cu lbmMultiRes.h lattice.h init.h postProcess.h util.h coalescence.h collide.h explosion.h stream.h store.h verify.h flowOverShape.h lidDrivenCavity.h)
 
 add_executable(${APP_NAME} ${SrcFiles})
 

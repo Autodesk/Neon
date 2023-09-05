@@ -5,16 +5,16 @@
 
 #include "init.h"
 
-template <typename T, int Q>
-void initFlowOverSphere(Neon::domain::mGrid&                  grid,
-                        Neon::domain::mGrid::Field<float>&    sumStore,
-                        Neon::domain::mGrid::Field<T>&        fin,
-                        Neon::domain::mGrid::Field<T>&        fout,
-                        Neon::domain::mGrid::Field<CellType>& cellType,
-                        Neon::domain::mGrid::Field<T>&        vel,
-                        Neon::domain::mGrid::Field<T>&        rho,
-                        const Neon::double_3d                 inletVelocity,
-                        const Neon::index_4d                  sphere)  //sphere location (x,y,z) and radius
+template <typename T, int Q, typename sdfT>
+void initFlowOverShape(Neon::domain::mGrid&                  grid,
+                       Neon::domain::mGrid::Field<float>&    sumStore,
+                       Neon::domain::mGrid::Field<T>&        fin,
+                       Neon::domain::mGrid::Field<T>&        fout,
+                       Neon::domain::mGrid::Field<CellType>& cellType,
+                       Neon::domain::mGrid::Field<T>&        vel,
+                       Neon::domain::mGrid::Field<T>&        rho,
+                       const Neon::double_3d                 inletVelocity,
+                       const sdfT                            shapeSDF)
 {
 
     const Neon::index_3d gridDim = grid.getDimension();
@@ -25,7 +25,7 @@ void initFlowOverSphere(Neon::domain::mGrid&                  grid,
         auto container =
             grid.newContainer(
                 "Init_" + std::to_string(level), level,
-                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, inletVelocity, sphere](Neon::set::Loader& loader) {
+                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, inletVelocity, shapeSDF](Neon::set::Loader& loader) {
                     auto&   in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                     auto&   out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                     auto&   type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
@@ -61,11 +61,7 @@ void initFlowOverSphere(Neon::domain::mGrid&                  grid,
                                 type(cell, 0) = CellType::inlet;
                             }
 
-                            const T dx = sphere.x - idx.x;
-                            const T dy = sphere.y - idx.y;
-                            const T dz = sphere.z - idx.z;
-
-                            if ((dx * dx + dy * dy + dz * dz) < sphere.w * sphere.w) {
+                            if (shapeSDF(idx)) {
                                 type(cell, 0) = CellType::bounceBack;
                             }
 
@@ -116,8 +112,8 @@ void flowOverJet(const int           problemID,
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
-    Neon::index_3d gridDim(100, 100, 100);
-    Neon::index_3d jetBoxDim(50, 50, 50);
+    Neon::index_3d gridDim(128, 128, 128);
+    Neon::index_3d jetBoxDim(64, 64, 64);
 
     Neon::index_3d diffBox((gridDim.x - jetBoxDim.x) / 2,
                            (gridDim.y - jetBoxDim.y) / 2,
@@ -133,10 +129,9 @@ void flowOverJet(const int           problemID,
         backend, gridDim,
         {[&](const Neon::index_3d idx) -> bool {
              //return sdfJetfighter(glm::ivec3(idx.x, idx.y, idx.z), glm::ivec3(jetBoxDim.x, jetBoxDim.y, jetBoxDim.z)) <= 0;
-
-             return idx.x >= diffBox.x || idx.x < diffBox.x + jetBoxDim.x ||
-                    idx.y >= diffBox.y || idx.y < diffBox.y + jetBoxDim.y ||
-                    idx.z >= diffBox.z || idx.z < diffBox.z + jetBoxDim.z;
+             return idx.x >= diffBox.x && idx.x < diffBox.x + jetBoxDim.x &&
+                    idx.y >= diffBox.y && idx.y < diffBox.y + jetBoxDim.y &&
+                    idx.z >= diffBox.z && idx.z < diffBox.z + jetBoxDim.z;
          },
          [&](const Neon::index_3d idx) -> bool {
              return true;
@@ -169,8 +164,10 @@ void flowOverJet(const int           problemID,
 
     //init fields
     const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
-    initFlowOverSphere<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, sphere);
-
+    //initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, [jetBoxDim, sdfJetfighter] NEON_CUDA_HOST_DEVICE(const Neon::index_3d idx) {
+    //    return sdfJetfighter(glm::ivec3(idx.x, idx.y, idx.z), glm::ivec3(jetBoxDim.x, jetBoxDim.y, jetBoxDim.z)) <= 0;
+    //});
+    //
     //cellType.updateHostData();
     //cellType.ioToVtk("cellType", true, true, true, true);
 
@@ -254,7 +251,17 @@ void flowOverSphere(const int           problemID,
 
     //init fields
     const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
-    initFlowOverSphere<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, sphere);
+    initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, [sphere] NEON_CUDA_HOST_DEVICE(const Neon::index_3d idx) {
+        const T dx = sphere.x - idx.x;
+        const T dy = sphere.y - idx.y;
+        const T dz = sphere.z - idx.z;
+
+        if ((dx * dx + dy * dy + dz * dz) < sphere.w * sphere.w) {
+            return true;
+        } else {
+            return false;
+        }
+    });
 
     //cellType.updateHostData();
     //cellType.ioToVtk("cellType", true, true, true, true);
