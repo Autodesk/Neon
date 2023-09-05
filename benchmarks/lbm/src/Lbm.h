@@ -175,8 +175,8 @@ struct Lbm
             using Compute = typename Precision::Compute;
             auto lbmParameters = configurations.template getLbmParameters<Compute>();
             skeleton = std::vector<Neon::skeleton::Skeleton>(2);
-            {
-                iteration = 0;
+            for (int itr_ : {0, 1}) {
+                iteration = itr_;
                 int  skIdx = helpGetSkeletonIdx();
                 auto even = ContainerFactory::Push::iteration(
                     configurations.stencilSemanticCli.getOption(),
@@ -190,25 +190,10 @@ struct Lbm
                 Neon::skeleton::Options opt(configurations.occCli.getOption(), configurations.transferModeCli.getOption());
                 ops.push_back(even);
                 std::stringstream appName;
-                appName << "LBM_push_even";
-                skeleton.at(skIdx).sequence(ops, appName.str(), opt);
-            }
-            {
-                iteration = 1;
-                int  skIdx = helpGetSkeletonIdx();
-                auto odd = ContainerFactory::Push::iteration(
-                    configurations.stencilSemanticCli.getOption(),
-                    pFieldList.at(helpGetInputIdx()),
-                    cellFlagField,
-                    lbmParameters.omega,
-                    pFieldList.at(helpGetOutputIdx()));
-
-                std::vector<Neon::set::Container> ops;
-                skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
-                Neon::skeleton::Options opt(configurations.occCli.getOption(), configurations.transferModeCli.getOption());
-                ops.push_back(odd);
-                std::stringstream appName;
-                appName << "LBM_push_odd";
+                if (iteration % 2 == 0)
+                    appName << "LBM_push_even";
+                else
+                    appName << "LBM_pull_even";
                 skeleton.at(skIdx).sequence(ops, appName.str(), opt);
             }
 
@@ -221,10 +206,42 @@ struct Lbm
             return;
         }
         if constexpr (lbm::Method::aa == method) {
+            using Compute = typename Precision::Compute;
+            auto lbmParameters = configurations.template getLbmParameters<Compute>();
+            skeleton = std::vector<Neon::skeleton::Skeleton>(2);
+            for (int itr_ : {0, 1}) {
+                iteration = itr_;
+                int                  skIdx = helpGetSkeletonIdx();
+                Neon::set::Container lbmIteration;
+                if ((iteration + 2) % 2 == 0) {
+                    auto even = ContainerFactory::AA::Odd::iteration(
+                        configurations.stencilSemanticCli.getOption(),
+                        pFieldList.at(helpGetInputIdx()),
+                        cellFlagField,
+                        lbmParameters.omega,
+                        pFieldList.at(helpGetOutputIdx()));
+                }
+                std::vector<Neon::set::Container> ops;
+                skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
+                Neon::skeleton::Options opt(configurations.occCli.getOption(), configurations.transferModeCli.getOption());
+                ops.push_back(even);
+                std::stringstream appName;
+                if (iteration % 2 == 0)
+                    appName << "LBM_push_even";
+                else
+                    appName << "LBM_pull_even";
+                skeleton.at(skIdx).sequence(ops, appName.str(), opt);
+            }
+
+            {
+                iteration = 1;
+                int skIdx = helpGetSkeletonIdx();
+                skeleton.at(skIdx).run();
+                iteration = 0;
+            }
             return;
         }
         NEON_DEV_UNDER_CONSTRUCTION("");
-
     }
 
     auto iterate() -> void
@@ -282,18 +299,18 @@ struct Lbm
     {
         grid.getBackend().syncAll();
         auto& pop = pFieldList.at(helpGetOutputIdx());
-        bool done = false;
+        bool  done = false;
         if constexpr (method == lbm::Method::push) {
             auto computeRhoAndU = ContainerFactory::Push::computeRhoAndU(pop, cellFlagField, rho, u);
             computeRhoAndU.run(Neon::Backend::mainStreamIdx);
-            done= true;
+            done = true;
         }
         if constexpr (method == lbm::Method::pull) {
             auto computeRhoAndU = ContainerFactory::Pull::computeRhoAndU(pop, cellFlagField, rho, u);
             computeRhoAndU.run(Neon::Backend::mainStreamIdx);
-            done= true;
+            done = true;
         }
-        if(!done){
+        if (!done) {
             NEON_DEV_UNDER_CONSTRUCTION("helpExportVti");
         }
         u.updateHostData(Neon::Backend::mainStreamIdx);
