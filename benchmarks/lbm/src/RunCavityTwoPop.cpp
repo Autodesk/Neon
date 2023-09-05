@@ -89,10 +89,19 @@ auto runFilterMethod(Config& config, Report& report) -> void
 {
     feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);  // Enable all floating point exceptions but FE_INEXACT
     if (config.streamingMethod == "push") {
+        if(config.devices.size() != 1){
+            NEON_THROW_UNSUPPORTED_OPERATION("We only support PUSH in a single device configuration for now.")
+        }
         return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, double>(config, report);
     }
     if (config.streamingMethod == "pull") {
         return run<lbm::Method::pull, CollisionType, Lattice, Grid, Storage, double>(config, report);
+    }
+    if (config.streamingMethod == "aa") {
+        if(config.devices.size() != 1){
+            NEON_THROW_UNSUPPORTED_OPERATION("We only support AA in a single device configuration for now.")
+        }
+        return run<lbm::Method::aa, CollisionType, Lattice, Grid, Storage, double>(config, report);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }

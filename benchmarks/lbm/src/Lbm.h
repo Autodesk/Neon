@@ -70,6 +70,7 @@ struct Lbm
             std::stringstream name;
             name << "PopField_0" << i;
             using Storage = typename Precision::Storage;
+            std::cout << "Allocating population field (#" << std::to_string(i + 1) << std::endl;
             auto field = grid.template newField<Storage,
                                                 Lattice::Q>(name.str(),
                                                             Lattice::Q,
@@ -101,6 +102,7 @@ struct Lbm
     template <typename Lambda>
     auto setBC(Lambda bcSetFunction) -> void
     {
+        std::cout << "Setting the problem's boundary." <<std::endl;
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
         // Compute ngh mask
         ContainerFactory::Common::userSettingBc(bcSetFunction,
@@ -134,15 +136,15 @@ struct Lbm
             auto lbmParameters = configurations.template getLbmParameters<Compute>();
             {
                 skeleton = std::vector<Neon::skeleton::Skeleton>(2);
-                for (int itr_ : {0, 1}) {
-                    iteration = itr_;
-                    int  skIdx = helpGetSkeletonIdx();
+                for (int iteration : {0, 1}) {
+                    iterationPhase.resetPhase(iteration);
+                    int  skIdx = iterationPhase.getSkeletonIdx();
                     auto even = ContainerFactory::Pull::iteration(
                         configurations.stencilSemanticCli.getOption(),
-                        pFieldList.at(helpGetInputIdx()),
+                        pFieldList.at(iterationPhase.getInputIdx()),
                         cellFlagField,
                         lbmParameters.omega,
-                        pFieldList.at(helpGetOutputIdx()));
+                        pFieldList.at(iterationPhase.getOutputIdx()));
 
                     std::vector<Neon::set::Container> ops;
                     skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
@@ -160,14 +162,14 @@ struct Lbm
             }
             {
                 // Let's compute 1 collide operation to prepare the input of the first iteration
-                iteration = 1;
-                ContainerFactory::Pull::localCollide(pFieldList.at(helpGetInputIdx()),
+                iterationPhase.resetPhase(0);
+                ContainerFactory::Pull::localCollide(pFieldList.at(iterationPhase.getInputIdx()),
                                                      cellFlagField,
                                                      lbmParameters.omega,
-                                                     pFieldList.at(helpGetOutputIdx()))
+                                                     pFieldList.at(iterationPhase.getOutputIdx()))
                     .run(Neon::Backend::mainStreamIdx);
                 pFieldList[0].getBackend().syncAll();
-                iteration = 0;
+                iterationPhase.updateIterationPhase();
             }
             return;
         }
@@ -175,15 +177,15 @@ struct Lbm
             using Compute = typename Precision::Compute;
             auto lbmParameters = configurations.template getLbmParameters<Compute>();
             skeleton = std::vector<Neon::skeleton::Skeleton>(2);
-            for (int itr_ : {0, 1}) {
-                iteration = itr_;
-                int  skIdx = helpGetSkeletonIdx();
+            for (int iteration : {0, 1}) {
+                iterationPhase.resetPhase(iteration);
+                int  skIdx = iterationPhase.getSkeletonIdx();
                 auto even = ContainerFactory::Push::iteration(
                     configurations.stencilSemanticCli.getOption(),
-                    pFieldList.at(helpGetInputIdx()),
+                    pFieldList.at(iterationPhase.getInputIdx()),
                     cellFlagField,
                     lbmParameters.omega,
-                    pFieldList.at(helpGetOutputIdx()));
+                    pFieldList.at(iterationPhase.getOutputIdx()));
 
                 std::vector<Neon::set::Container> ops;
                 skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
@@ -198,10 +200,10 @@ struct Lbm
             }
 
             {
-                iteration = 1;
-                int skIdx = helpGetSkeletonIdx();
+                iterationPhase.resetPhase(0);
+                int skIdx = iterationPhase.getSkeletonIdx();
                 skeleton.at(skIdx).run();
-                iteration = 0;
+                iterationPhase.updateIterationPhase();
             }
             return;
         }
@@ -209,35 +211,36 @@ struct Lbm
             using Compute = typename Precision::Compute;
             auto lbmParameters = configurations.template getLbmParameters<Compute>();
             skeleton = std::vector<Neon::skeleton::Skeleton>(2);
-            for (int itr_ : {0, 1}) {
-                iteration = itr_;
-                int                  skIdx = helpGetSkeletonIdx();
+            for (int iteration : {0, 1}) {
+                iterationPhase.resetPhase(iteration);
+                int                  skIdx = iterationPhase.getSkeletonIdx();
                 Neon::set::Container lbmIteration;
-                if ((iteration + 2) % 2 == 0) {
-                    auto even = ContainerFactory::AA::Odd::iteration(
-                        configurations.stencilSemanticCli.getOption(),
-                        pFieldList.at(helpGetInputIdx()),
+                std::stringstream    appName;
+                if (iterationPhase.getPhase() == IterationPhase::Phase::even) {
+                    lbmIteration = ContainerFactory::AA::Even::iteration(
                         cellFlagField,
                         lbmParameters.omega,
-                        pFieldList.at(helpGetOutputIdx()));
+                        pFieldList.at(0));
+                    appName << "LBM_push_even";
+                } else {
+                    lbmIteration = ContainerFactory::AA::Odd::iteration(
+                        cellFlagField,
+                        lbmParameters.omega,
+                        pFieldList.at(0));
+                    appName << "LBM_pull_even";
                 }
                 std::vector<Neon::set::Container> ops;
                 skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
                 Neon::skeleton::Options opt(configurations.occCli.getOption(), configurations.transferModeCli.getOption());
-                ops.push_back(even);
-                std::stringstream appName;
-                if (iteration % 2 == 0)
-                    appName << "LBM_push_even";
-                else
-                    appName << "LBM_pull_even";
+                ops.push_back(lbmIteration);
                 skeleton.at(skIdx).sequence(ops, appName.str(), opt);
             }
 
             {
-                iteration = 1;
-                int skIdx = helpGetSkeletonIdx();
+                iterationPhase.resetPhase(0);
+                int const skIdx = iterationPhase.getSkeletonIdx();
                 skeleton.at(skIdx).run();
-                iteration = 0;
+                iterationPhase.updateIterationPhase();
             }
             return;
         }
@@ -270,35 +273,19 @@ struct Lbm
                 tie(start, clock_iter) = metrics::restartClock(bk, false);
             }
 
-            skeleton[helpGetSkeletonIdx()].run();
+            skeleton[iterationPhase.getSkeletonIdx()].run();
 
             ++clock_iter;
-            ++iteration;
+            iterationPhase.updateIterationPhase();
         }
         std::cout << "Iterations completed" << std::endl;
         metrics::recordMetrics(bk, configurations, *reportPtr, start, clock_iter);
     }
 
-    auto helpIterateOnce() -> void
-    {
-        if (lbm::Method::pull == method) {
-            NEON_DEV_UNDER_CONSTRUCTION("");
-            return;
-        }
-        if (lbm::Method::push == method) {
-            skeleton.at(helpGetSkeletonIdx()).run(Neon::Backend::mainStreamIdx);
-            return;
-        }
-        if (lbm::Method::aa == method) {
-            NEON_DEV_UNDER_CONSTRUCTION("");
-            return;
-        }
-    }
-
     auto helpExportVti() -> void
     {
         grid.getBackend().syncAll();
-        auto& pop = pFieldList.at(helpGetOutputIdx());
+        auto& pop = pFieldList.at(iterationPhase.getOutputIdx());
         bool  done = false;
         if constexpr (method == lbm::Method::push) {
             auto computeRhoAndU = ContainerFactory::Push::computeRhoAndU(pop, cellFlagField, rho, u);
@@ -310,6 +297,16 @@ struct Lbm
             computeRhoAndU.run(Neon::Backend::mainStreamIdx);
             done = true;
         }
+        if constexpr (method == lbm::Method::aa) {
+            if (iterationPhase.getPhase() == IterationPhase::Phase::even) {
+                auto computeRhoAndU = ContainerFactory::AA::Even::computeRhoAndU(pop, cellFlagField, rho, u);
+                computeRhoAndU.run(Neon::Backend::mainStreamIdx);
+            } else {
+                auto computeRhoAndU = ContainerFactory::AA::Odd::computeRhoAndU(pop, cellFlagField, rho, u);
+                computeRhoAndU.run(Neon::Backend::mainStreamIdx);
+            }
+            done = true;
+        }
         if (!done) {
             NEON_DEV_UNDER_CONSTRUCTION("helpExportVti");
         }
@@ -319,7 +316,7 @@ struct Lbm
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
 
         size_t      numDigits = 5;
-        std::string iterIdStr = std::to_string(iteration);
+        std::string iterIdStr = std::to_string(iterationPhase.getCounter());
         iterIdStr = std::string(numDigits - std::min(numDigits, iterIdStr.length()), '0') + iterIdStr;
 
         // pop.ioToVtk("pop_" + iterIdStr, "pop", false);
@@ -370,26 +367,84 @@ struct Lbm
 #endif
     }
 
-    auto helpUpdateIterationCount() -> void
-    {
-        iteration++;
-    }
 
-    auto helpGetInputIdx() -> int
+    struct IterationPhase
     {
-        return iteration % 2;
-    }
-    auto helpGetOutputIdx() -> int
-    {
-        return (iteration + 1) % 2;
-    }
-    auto helpGetSkeletonIdx() -> int
-    {
-        return iteration % 2;
-    }
+        enum Phase
+        {
+            even,
+            odd,
+        };
+
+       private:
+        Phase state{Phase::even};
+
+        int counter = 0;
+
+       public:
+        auto getCounter() const -> int
+        {
+            return counter;
+        }
+
+        auto resetPhase(Phase newPhase)
+        {
+            state = newPhase;
+            counter = 0;
+        }
+
+        auto resetPhase(int iteration)
+        {
+            if (iteration != 0 && iteration != 1) {
+                NEON_THROW_UNSUPPORTED_OPERATION("");
+            }
+            state = iteration == 0 ? even : odd;
+            counter = 0;
+        }
+
+        auto getPhase() const -> Phase
+        {
+            return state;
+        }
+
+        auto updateIterationPhase() -> void
+        {
+            state = state == even ? odd : even;
+            counter++;
+        }
+
+        auto getInputIdx() -> int
+        {
+            if constexpr (method == lbm::Method::pull || method == lbm::Method::push) {
+                return state == IterationPhase::even ? 0 : 1;
+            }
+            if constexpr (method == lbm::Method::aa) {
+                return 0;
+            }
+            NEON_THROW_UNSUPPORTED_OPERATION("helpGetInputIdx");
+        }
+        auto getOutputIdx() -> int
+        {
+            if constexpr (method == lbm::Method::pull || method == lbm::Method::push) {
+                return state == IterationPhase::even ? 1 : 0;
+            }
+            if constexpr (method == lbm::Method::aa) {
+                return 0;
+            }
+            NEON_THROW_UNSUPPORTED_OPERATION("helpGetInputIdx");
+        }
+
+        auto getSkeletonIdx() -> int
+        {
+            if constexpr (method == lbm::Method::pull || method == lbm::Method::push || method == lbm::Method::aa) {
+                return state == IterationPhase::even ? 0 : 1;
+            }
+            NEON_THROW_UNSUPPORTED_OPERATION("helpGetInputIdx");
+        }
+    };
 
     Config                                configurations;
-    int                                   iteration = 0;
+    IterationPhase                        iterationPhase;
     bool                                  prepDone = false;
     Grid                                  grid;
     std::vector<PField>                   pFieldList;

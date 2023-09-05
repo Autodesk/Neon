@@ -49,6 +49,36 @@ struct DeviceD3QXX
         }
     };
 
+    struct AA
+    {
+        static inline NEON_CUDA_HOST_DEVICE auto
+        pullStream(Idx const&                          gidx,
+                   const uint32_t&                     wallBitFlag,
+                   typename PopField::Partition const& fin,
+                   NEON_OUT Storage                    popIn[Lattice::Q])
+        {
+            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+                using QPullingReference = typename Lattice::template RegisterMapper<q>;
+
+                if constexpr (QPullingReference::fwdRegQ == QPullingReference::centerRegQ) {
+                    popIn[QPullingReference::centerRegQ] = fin(gidx, QPullingReference::centerMemQ);
+                } else {
+                    if (CellType::isWall<QPullingReference::bkwRegQ>(wallBitFlag)) {
+                        // The cell in the opposite direction of the pull is a wall
+                        popIn[QPullingReference::fwdRegQ] = fin(gidx, QPullingReference::fwdRegQ) +
+                                                            fin.template getNghData<QPullingReference::bkwMemQX,
+                                                                                    QPullingReference::bkwMemQY,
+                                                                                    QPullingReference::bkwMemQZ>(gidx, QPullingReference::bkwMemQ)();
+                    } else {
+                        popIn[QPullingReference::fwdRegQ] = fin.template getNghData<QPullingReference::bkwMemQX,
+                                                                                    QPullingReference::bkwMemQY,
+                                                                                    QPullingReference::bkwMemQZ>(gidx, QPullingReference::bkwMemQ)();
+                    }
+                }
+            });
+        }
+    };
+
     struct Push
     {
         static inline NEON_CUDA_HOST_DEVICE auto
@@ -219,6 +249,17 @@ struct DeviceD3QXX
         }
 
         static inline NEON_CUDA_HOST_DEVICE auto
+        localStoreOpposite(Idx const&                             gidx,
+                             Storage NEON_RESTRICT                  pOut[Lattice::Q],
+                             NEON_OUT typename PopField::Partition& fOut)
+        {
+            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+                using M = typename Lattice::template RegisterMapper<q>;
+                fOut(gidx, M::bkwMemQ) = pOut[M::fwdRegQ];
+            });
+        }
+
+        static inline NEON_CUDA_HOST_DEVICE auto
         collideKBCUnrolled(Compute const&                rho /*!   Density            */,
                            std::array<Compute, 3> const& u /*!     Velocity           */,
                            Compute const&                usqr /*!  Usqr               */,
@@ -246,7 +287,7 @@ struct DeviceD3QXX
                         return (2.0 * Nxz - Nyz) / 6.0;
                     } else if (q == 14 /* 1, 0, -1 */) {
                         return (2.0 * Nxz - Nyz) / 6.0;
-                    }else if (q == 1 /*  0, -1, 0 */) {
+                    } else if (q == 1 /*  0, -1, 0 */) {
                         return (-Nxz + 2.0 * Nyz) / 6.0;
                     } else if (q == 15 /* 0, 1, 0 */) {
                         return (-Nxz + 2.0 * Nyz) / 6.0;

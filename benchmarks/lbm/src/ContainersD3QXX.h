@@ -36,6 +36,69 @@ struct ContainerFactoryD3QXX
     {
         struct Even
         {
+            // collide
+
+            static auto
+            iteration(const CellTypeField& cellTypeField /*! Cell type field     */,
+                      const Compute        omega /*!         LBM omega parameter */,
+                      NEON_IO PopField&    fpopField /*!     Output Population field */)
+                -> Neon::set::Container
+            {
+                Neon::set::Container container = fpopField.getGrid().newContainer(
+                    "D3Q19_TwoPop_Pull",
+                    [&, omega](Neon::set::Loader& L) -> auto {
+                        auto&                          popMem = L.load(fpopField);
+                        const auto&                    cellInfoPartition = L.load(cellTypeField);
+                        [[maybe_unused]] const Compute beta = omega * 0.5;
+                        [[maybe_unused]] const Compute invBeta = 1.0 / beta;
+
+                        return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
+                            CellType cellInfo = cellInfoPartition(gidx, 0);
+                            if (cellInfo.classification == CellType::bulk) {
+
+                                Storage popRegisters[Lattice::Q];
+                                Device::Common::localLoad(gidx, popMem, NEON_OUT popRegisters);
+
+                                Compute                rho;
+                                std::array<Compute, 3> u{.0, .0, .0};
+                                Device::Common::macroscopic(popRegisters, NEON_OUT rho, NEON_OUT u);
+
+                                Compute usqr = 1.5 * (u[0] * u[0] +
+                                                      u[1] * u[1] +
+                                                      u[2] * u[2]);
+
+                                if constexpr (CollisionId == Collision::bgk) {
+                                    Device::Common::collideBgkUnrolled(rho, u,
+                                                                       usqr, omega,
+                                                                       NEON_IO popRegisters);
+                                }
+                                if constexpr (CollisionId == Collision::kbc) {
+                                    Device::Common::collideKBCUnrolled(rho, u,
+                                                                       usqr, omega,
+                                                                       invBeta,
+                                                                       NEON_IO popRegisters);
+                                }
+                                Device::Common::localStoreOpposite(gidx, popRegisters, popMem);
+                            }
+                        };
+                    });
+                return container;
+            }
+
+            static auto
+            computeRhoAndU([[maybe_unused]] const PopField& fInField /*!   inpout population field */,
+                           const CellTypeField&             cellTypeField /*!       Cell type field     */,
+                           Rho&                             rhoField /*!  output Population field */,
+                           U&                               uField /*!  output Population field */)
+
+                -> Neon::set::Container
+            {
+                return Push::computeRhoAndU(fInField, cellTypeField, rhoField, uField);
+            }
+        };
+        struct Odd
+        {
+            // pullStream - collide - pushStream
 
             static auto
             iteration(const CellTypeField& cellTypeField /*! Cell type field     */,
@@ -55,29 +118,31 @@ struct ContainerFactoryD3QXX
                             CellType cellInfo = cellInfoPartition(gidx, 0);
                             if (cellInfo.classification == CellType::bulk) {
 
-                                Storage popIn[Lattice::Q];
-                                Device::Common::localLoad(gidx, fpop, NEON_OUT popIn);
+                                Storage popRegisters[Lattice::Q];
+                                Device::AA::pullStream(gidx, cellInfo.wallNghBitflag, fpop, NEON_OUT popRegisters);
 
                                 Compute                rho;
                                 std::array<Compute, 3> u{.0, .0, .0};
-                                Device::Common::macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
+                                Device::Common::macroscopic(popRegisters,
+                                                            NEON_OUT rho, NEON_OUT u);
 
                                 Compute usqr = 1.5 * (u[0] * u[0] +
                                                       u[1] * u[1] +
                                                       u[2] * u[2]);
 
+
                                 if constexpr (CollisionId == Collision::bgk) {
                                     Device::Common::collideBgkUnrolled(rho, u,
                                                                        usqr, omega,
-                                                                       NEON_IO popIn);
+                                                                       NEON_IO popRegisters);
                                 }
                                 if constexpr (CollisionId == Collision::kbc) {
                                     Device::Common::collideKBCUnrolled(rho, u,
                                                                        usqr, omega,
                                                                        invBeta,
-                                                                       NEON_IO popIn);
+                                                                       NEON_IO popRegisters);
                                 }
-                                Device::Common::localStore(gidx, popIn, fpop);
+                                Device::Push::pushStream(gidx, cellInfo.wallNghBitflag, popRegisters, NEON_OUT fpop);
                             }
                         };
                     });
@@ -93,71 +158,6 @@ struct ContainerFactoryD3QXX
                 -> Neon::set::Container
             {
                 return Pull::computeRhoAndU(fInField, cellTypeField, rhoField, uField);
-            }
-        };
-        struct Odd
-        {
-            static auto
-            iteration(Neon::set::StencilSemantic stencilSemantic,
-                      const CellTypeField&       cellTypeField /*! Cell type field     */,
-                      const Compute              omega /*!         LBM omega parameter */,
-                      NEON_IO PopField&          fPopField /*!     Output Population field */)
-                -> Neon::set::Container
-            {
-                Neon::set::Container container = fPopField.getGrid().newContainer(
-                    "LBM-iteration",
-                    [=](Neon::set::Loader& L) -> auto {
-                        auto&       fPop = L.load(fPopField,
-                                                  Neon::Pattern::STENCIL, stencilSemantic);
-                        const auto& cellInfoPartition = L.load(cellTypeField);
-
-                        [[maybe_unused]] const Compute beta = omega * 0.5;
-                        [[maybe_unused]] const Compute invBeta = 1.0 / beta;
-
-                        return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
-                            CellType cellInfo = cellInfoPartition(gidx, 0);
-                            if (cellInfo.classification == CellType::bulk) {
-
-                                Storage popIn[Lattice::Q];
-                                Device::Pull::pullStream(gidx, cellInfo.wallNghBitflag, fPop, NEON_OUT popIn);
-
-                                Compute                rho;
-                                std::array<Compute, 3> u{.0, .0, .0};
-                                Device::Common::macroscopic(popIn,
-                                                            NEON_OUT rho, NEON_OUT u);
-
-                                Compute usqr = 1.5 * (u[0] * u[0] +
-                                                      u[1] * u[1] +
-                                                      u[2] * u[2]);
-
-
-                                if constexpr (CollisionId == Collision::bgk) {
-                                    Device::Common::collideBgkUnrolled(rho, u,
-                                                                       usqr, omega,
-                                                                       NEON_IO popIn);
-                                }
-                                if constexpr (CollisionId == Collision::kbc) {
-                                    Device::Common::collideKBCUnrolled(rho, u,
-                                                                       usqr, omega,
-                                                                       invBeta,
-                                                                       NEON_IO popIn);
-                                }
-                                Device::Push::pushStream(gidx, cellInfo.wallNghBitflag, popIn, NEON_OUT fPop);
-                            }
-                        };
-                    });
-                return container;
-            }
-
-            static auto
-            computeRhoAndU([[maybe_unused]] const PopField& fInField /*!   inpout population field */,
-                           const CellTypeField&             cellTypeField /*!       Cell type field     */,
-                           Rho&                             rhoField /*!  output Population field */,
-                           U&                               uField /*!  output Population field */)
-
-                -> Neon::set::Container
-            {
-                return Push::computeRhoAndU(fInField, cellTypeField, rhoField, uField);
             }
         };
     };
@@ -186,12 +186,12 @@ struct ContainerFactoryD3QXX
                         CellType cellInfo = cellInfoPartition(gidx, 0);
                         if (cellInfo.classification == CellType::bulk) {
 
-                            Storage popIn[Lattice::Q];
-                            Device::Pull::pullStream(gidx, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
+                            Storage popRegisters[Lattice::Q];
+                            Device::Pull::pullStream(gidx, cellInfo.wallNghBitflag, fIn, NEON_OUT popRegisters);
 
                             Compute                rho;
                             std::array<Compute, 3> u{.0, .0, .0};
-                            Device::Common::macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
+                            Device::Common::macroscopic(popRegisters, NEON_OUT rho, NEON_OUT u);
 
                             Compute usqr = 1.5 * (u[0] * u[0] +
                                                   u[1] * u[1] +
@@ -200,15 +200,15 @@ struct ContainerFactoryD3QXX
                             if constexpr (CollisionId == Collision::bgk) {
                                 Device::Common::collideBgkUnrolled(rho, u,
                                                                    usqr, omega,
-                                                                   NEON_IO popIn);
+                                                                   NEON_IO popRegisters);
                             }
                             if constexpr (CollisionId == Collision::kbc) {
                                 Device::Common::collideKBCUnrolled(rho, u,
                                                                    usqr, omega,
                                                                    invBeta,
-                                                                   NEON_IO popIn);
+                                                                   NEON_IO popRegisters);
                             }
-                            Device::Common::localStore(gidx, popIn, fOut);
+                            Device::Common::localStore(gidx, popRegisters, fOut);
                         }
                     };
                 });
@@ -235,12 +235,12 @@ struct ContainerFactoryD3QXX
                         CellType cellInfo = cellInfoPartition(gidx, 0);
                         if (cellInfo.classification == CellType::bulk) {
 
-                            Storage popIn[Lattice::Q];
-                            Device::Common::localLoad(gidx, fIn, NEON_OUT popIn);
+                            Storage popRegisters[Lattice::Q];
+                            Device::Common::localLoad(gidx, fIn, NEON_OUT popRegisters);
 
                             Compute                rho;
                             std::array<Compute, 3> u{.0, .0, .0};
-                            Device::Common::macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
+                            Device::Common::macroscopic(popRegisters, NEON_OUT rho, NEON_OUT u);
 
                             Compute usqr = 1.5 * (u[0] * u[0] +
                                                   u[1] * u[1] +
@@ -249,15 +249,15 @@ struct ContainerFactoryD3QXX
                             if constexpr (CollisionId == Collision::bgk) {
                                 Device::Common::collideBgkUnrolled(rho, u,
                                                                    usqr, omega,
-                                                                   NEON_IO popIn);
+                                                                   NEON_IO popRegisters);
                             }
                             if constexpr (CollisionId == Collision::kbc) {
                                 Device::Common::collideKBCUnrolled(rho, u,
                                                                    usqr, omega,
                                                                    invBeta,
-                                                                   NEON_IO popIn);
+                                                                   NEON_IO popRegisters);
                             }
-                            Device::Common::localStore(gidx, popIn, fOut);
+                            Device::Common::localStore(gidx, popRegisters, fOut);
                         }
                     };
                 });
@@ -289,19 +289,19 @@ struct ContainerFactoryD3QXX
                             Compute                rho = 0;
                             std::array<Compute, 3> u{.0, .0, .0};
 
-                            Storage popIn[Lattice::Q];
+                            Storage popRegisters[Lattice::Q];
 
                             if (cellInfo.classification == CellType::bulk) {
-                                Storage popIn[Lattice::Q];
-                                Device::Pull::pullStream(gidx, cellInfo.wallNghBitflag, fIn, NEON_OUT popIn);
-                                Device::Common::macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
+                                Storage popRegisters[Lattice::Q];
+                                Device::Pull::pullStream(gidx, cellInfo.wallNghBitflag, fIn, NEON_OUT popRegisters);
+                                Device::Common::macroscopic(popRegisters, NEON_OUT rho, NEON_OUT u);
                             } else {
-                                Device::Common::localLoad(gidx, fIn, NEON_OUT popIn);
+                                Device::Common::localLoad(gidx, fIn, NEON_OUT popRegisters);
                                 if (cellInfo.classification == CellType::movingWall) {
                                     rho = 1.0;
-                                    u = std::array<Compute, 3>{static_cast<Compute>(popIn[0]) / static_cast<Compute>(6. * 1. / 18.),
-                                                               static_cast<Compute>(popIn[1]) / static_cast<Compute>(6. * 1. / 18.),
-                                                               static_cast<Compute>(popIn[2]) / static_cast<Compute>(6. * 1. / 18.)};
+                                    u = std::array<Compute, 3>{static_cast<Compute>(popRegisters[0]) / static_cast<Compute>(6. * 1. / 18.),
+                                                               static_cast<Compute>(popRegisters[1]) / static_cast<Compute>(6. * 1. / 18.),
+                                                               static_cast<Compute>(popRegisters[2]) / static_cast<Compute>(6. * 1. / 18.)};
                                 }
                             }
 
@@ -339,12 +339,12 @@ struct ContainerFactoryD3QXX
                         CellType cellInfo = cellInfoPartition(gidx, 0);
                         if (cellInfo.classification == CellType::bulk) {
 
-                            Storage popIn[Lattice::Q];
-                            Device::Common::localLoad(gidx, fIn, NEON_OUT popIn);
+                            Storage popRegisters[Lattice::Q];
+                            Device::Common::localLoad(gidx, fIn, NEON_OUT popRegisters);
 
                             Compute                rho;
                             std::array<Compute, 3> u{.0, .0, .0};
-                            Device::Common::macroscopic(popIn,
+                            Device::Common::macroscopic(popRegisters,
                                                         NEON_OUT rho, NEON_OUT u);
 
                             Compute usqr = 1.5 * (u[0] * u[0] +
@@ -355,15 +355,15 @@ struct ContainerFactoryD3QXX
                             if constexpr (CollisionId == Collision::bgk) {
                                 Device::Common::collideBgkUnrolled(rho, u,
                                                                    usqr, omega,
-                                                                   NEON_IO popIn);
+                                                                   NEON_IO popRegisters);
                             }
                             if constexpr (CollisionId == Collision::kbc) {
                                 Device::Common::collideKBCUnrolled(rho, u,
                                                                    usqr, omega,
                                                                    invBeta,
-                                                                   NEON_IO popIn);
+                                                                   NEON_IO popRegisters);
                             }
-                            Device::Push::pushStream(gidx, cellInfo.wallNghBitflag, popIn, NEON_OUT fOut);
+                            Device::Push::pushStream(gidx, cellInfo.wallNghBitflag, popRegisters, NEON_OUT fOut);
                         }
                     };
                 });
@@ -395,17 +395,17 @@ struct ContainerFactoryD3QXX
                             Compute                rho = 0;
                             std::array<Compute, 3> u{.0, .0, .0};
 
-                            Storage popIn[Lattice::Q];
-                            Device::Common::localLoad(gidx, fIn, NEON_OUT popIn);
+                            Storage popRegisters[Lattice::Q];
+                            Device::Common::localLoad(gidx, fIn, NEON_OUT popRegisters);
 
                             if (cellInfo.classification == CellType::bulk) {
-                                Device::Common::macroscopic(popIn, NEON_OUT rho, NEON_OUT u);
+                                Device::Common::macroscopic(popRegisters, NEON_OUT rho, NEON_OUT u);
                             } else {
                                 if (cellInfo.classification == CellType::movingWall) {
                                     rho = 1.0;
-                                    u = std::array<Compute, 3>{static_cast<Compute>(popIn[0]) / static_cast<Compute>(6. * 1. / 18.),
-                                                               static_cast<Compute>(popIn[1]) / static_cast<Compute>(6. * 1. / 18.),
-                                                               static_cast<Compute>(popIn[2]) / static_cast<Compute>(6. * 1. / 18.)};
+                                    u = std::array<Compute, 3>{static_cast<Compute>(popRegisters[0]) / static_cast<Compute>(6. * 1. / 18.),
+                                                               static_cast<Compute>(popRegisters[1]) / static_cast<Compute>(6. * 1. / 18.),
+                                                               static_cast<Compute>(popRegisters[2]) / static_cast<Compute>(6. * 1. / 18.)};
                                 }
                             }
 
