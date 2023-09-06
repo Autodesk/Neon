@@ -51,17 +51,18 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                         if (!in.hasChildren(cell)) {
                             const Neon::index_3d idx = in.getGlobalIndex(cell);
 
-                            //the cell classification
-                            if (idx.y == 0 || idx.y == gridDim.y - (1 << level) ||
-                                idx.z == 0 || idx.z == gridDim.z - (1 << level)) {
-                                type(cell, 0) = CellType::bounceBack;
-                            }
-
                             if (idx.x == 0) {
                                 type(cell, 0) = CellType::inlet;
                             }
 
                             if (shapeSDF(idx)) {
+                                type(cell, 0) = CellType::bounceBack;
+                            }
+
+
+                            //the cell classification
+                            if (idx.y == 0 || idx.y == gridDim.y - (1 << level) ||
+                                idx.z == 0 || idx.z == gridDim.z - (1 << level)) {
                                 type(cell, 0) = CellType::bounceBack;
                             }
 
@@ -76,6 +77,20 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
 
                                 if (type(cell, 0) == CellType::inlet) {
                                     pop_init_val = 0;
+
+                                    //const T usqr = (3.0 / 2.0) * (inletVelocity.x * inletVelocity.x + inletVelocity.y * inletVelocity.y + inletVelocity.z * inletVelocity.z);
+                                    //T       cu = 0;
+                                    //for (int d = 0; d < 3; ++d) {
+                                    //    cu += latticeVelocity[q][d] * inletVelocity.v[d];
+                                    //}
+                                    //cu *= 3.0;
+                                    //
+                                    ////equilibrium
+                                    //T rhooo = T(1.0);
+                                    //T feq = rhooo * latticeWeights[q] * (1. + cu + 0.5 * cu * cu - usqr);
+                                    //
+                                    //pop_init_val = feq;
+
                                     for (int d = 0; d < 3; ++d) {
                                         pop_init_val += latticeVelocity[q][d] * inletVelocity.v[d];
                                     }
@@ -112,26 +127,28 @@ void flowOverJet(const int           problemID,
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
-    Neon::index_3d gridDim(256, 256, 256);
-    Neon::index_3d jetBoxDim(gridDim.x / 2, gridDim.y / 2, gridDim.z / 2);
+    const int scale = 16;
 
-    Neon::index_3d diffBox((gridDim.x - jetBoxDim.x) / 2,
-                           (gridDim.y - jetBoxDim.y) / 2,
-                           (gridDim.z - jetBoxDim.z) / 2);
+    Neon::index_3d gridDim(19 * scale, 8 * scale, 8 * scale);
 
-    int depth = 2;
+    Neon::index_3d jetBoxDim(2 * scale, 2 * scale, 2 * scale);
+    Neon::index_3d jetBoxPosition(3 * scale, 3 * scale, 3 * scale);
+
+    int depth = 3;
 
     const Neon::mGridDescriptor<1> descriptor(depth);
 
     Neon::domain::mGrid grid(
         backend, gridDim,
         {[&](const Neon::index_3d idx) -> bool {
-             return idx.x >= diffBox.x && idx.x < diffBox.x + jetBoxDim.x &&
-                    idx.y >= diffBox.y && idx.y < diffBox.y + jetBoxDim.y &&
-                    idx.z >= diffBox.z && idx.z < diffBox.z + jetBoxDim.z;
+             return idx.x >= 2 * scale && idx.x < 7 * scale &&
+                    idx.y >= 3 * scale && idx.y < 5 * scale &&
+                    idx.z >= 3 * scale && idx.z < 5 * scale;
          },
          [&](const Neon::index_3d idx) -> bool {
-             return true;
+             return idx.x >= scale && idx.x < 11 * scale &&
+                    idx.y >= 2 * scale && idx.y < 6 * scale &&
+                    idx.z >= 2 * scale && idx.z < 6 * scale;
          },
          [&](const Neon::index_3d idx) -> bool {
              return true;
@@ -147,7 +164,7 @@ void flowOverJet(const int           problemID,
     const Neon::double_3d inletVelocity(uin, 0., 0.);
 
     //auto test = grid.newField<T>("test", 1, 0);
-    //test.ioToVtk("Test", true, true, true, true);
+    //test.ioToVtk("Test", true, true, true, true, {-1, -1, 1});
     //exit(0);
 
     //allocate fields
@@ -162,9 +179,9 @@ void flowOverJet(const int           problemID,
     //init fields
     const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
     initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, [=] NEON_CUDA_HOST_DEVICE(Neon::index_3d idx) {
-        idx.x -= diffBox.x;
-        idx.y -= diffBox.y;
-        idx.z -= diffBox.z;
+        idx.x -= jetBoxPosition.x;
+        idx.y -= jetBoxPosition.y;
+        idx.z -= jetBoxPosition.z;
         if (idx.x < 0 || idx.y < 0 || idx.z < 0) {
             return false;
         }
