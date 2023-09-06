@@ -119,8 +119,6 @@ void flowOverJet(const int           problemID,
                            (gridDim.y - jetBoxDim.y) / 2,
                            (gridDim.z - jetBoxDim.z) / 2);
 
-    Neon::index_4d sphere(52, 52, 68, 8);
-
     int depth = 2;
 
     const Neon::mGridDescriptor<1> descriptor(depth);
@@ -143,7 +141,7 @@ void flowOverJet(const int           problemID,
 
     //LBM problem
     const T               uin = 0.04;
-    const T               clength = T(sphere.w);
+    const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
     const T               visclb = uin * clength / static_cast<T>(Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
@@ -214,9 +212,11 @@ void flowOverSphere(const int           problemID,
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
-    Neon::index_3d gridDim(136, 96, 136);
+    int scale = 2;
 
-    Neon::index_4d sphere(52, 52, 68, 8);
+    Neon::index_3d gridDim(136 * scale, 96 * scale, 136 * scale);
+
+    Neon::index_4d sphere(52 * scale, 52 * scale, 68 * scale, 8 * scale);
 
     int depth = 3;
 
@@ -225,10 +225,10 @@ void flowOverSphere(const int           problemID,
     Neon::domain::mGrid grid(
         backend, gridDim,
         {[&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 40 && idx.x < 96 && idx.y >= 40 && idx.y < 64 && idx.z >= 40 && idx.z < 96;
+             return idx.x >= 40 * scale && idx.x < 96 * scale && idx.y >= 40 * scale && idx.y < 64 * scale && idx.z >= 40 * scale && idx.z < 96 * scale;
          },
          [&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 24 && idx.x < 112 && idx.y >= 24 && idx.y < 72 && idx.z >= 24 && idx.z < 112;
+             return idx.x >= 24 * scale && idx.x < 112 * scale && idx.y >= 24 * scale && idx.y < 72 * scale && idx.z >= 24 * scale && idx.z < 112 * scale;
          },
          [&](const Neon::index_3d idx) -> bool {
              return true;
@@ -238,7 +238,7 @@ void flowOverSphere(const int           problemID,
 
     //LBM problem
     const T               uin = 0.04;
-    const T               clength = T(sphere.w);
+    const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
     const T               visclb = uin * clength / static_cast<T>(Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
