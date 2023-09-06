@@ -78,7 +78,7 @@ inline float sdfCube(Neon::index_3d id, Neon::index_3d dim, Neon::float_3d b = {
 }
 
 
-inline float sdfJetfighter(glm::ivec3 id, glm::ivec3 dim)
+NEON_CUDA_HOST_DEVICE inline float sdfJetfighter(glm::ivec3 id, glm::ivec3 dim)
 {
     float     turn = 0.f;
     float     pitch = 0.f + glm::pi<float>();

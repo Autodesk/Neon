@@ -112,8 +112,8 @@ void flowOverJet(const int           problemID,
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
-    Neon::index_3d gridDim(128, 128, 128);
-    Neon::index_3d jetBoxDim(64, 64, 64);
+    Neon::index_3d gridDim(256, 256, 256);
+    Neon::index_3d jetBoxDim(gridDim.x / 2, gridDim.y / 2, gridDim.z / 2);
 
     Neon::index_3d diffBox((gridDim.x - jetBoxDim.x) / 2,
                            (gridDim.y - jetBoxDim.y) / 2,
@@ -128,7 +128,6 @@ void flowOverJet(const int           problemID,
     Neon::domain::mGrid grid(
         backend, gridDim,
         {[&](const Neon::index_3d idx) -> bool {
-             //return sdfJetfighter(glm::ivec3(idx.x, idx.y, idx.z), glm::ivec3(jetBoxDim.x, jetBoxDim.y, jetBoxDim.z)) <= 0;
              return idx.x >= diffBox.x && idx.x < diffBox.x + jetBoxDim.x &&
                     idx.y >= diffBox.y && idx.y < diffBox.y + jetBoxDim.y &&
                     idx.z >= diffBox.z && idx.z < diffBox.z + jetBoxDim.z;
@@ -149,9 +148,9 @@ void flowOverJet(const int           problemID,
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
 
-    auto test = grid.newField<T>("test", 1, 0);
-    test.ioToVtk("Test", true, true, true, true);
-    exit(0);
+    //auto test = grid.newField<T>("test", 1, 0);
+    //test.ioToVtk("Test", true, true, true, true);
+    //exit(0);
 
     //allocate fields
     auto fin = grid.newField<T>("fin", Q, 0);
@@ -164,10 +163,18 @@ void flowOverJet(const int           problemID,
 
     //init fields
     const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
-    //initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, [jetBoxDim, sdfJetfighter] NEON_CUDA_HOST_DEVICE(const Neon::index_3d idx) {
-    //    return sdfJetfighter(glm::ivec3(idx.x, idx.y, idx.z), glm::ivec3(jetBoxDim.x, jetBoxDim.y, jetBoxDim.z)) <= 0;
-    //});
-    //
+    initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, [=] NEON_CUDA_HOST_DEVICE(Neon::index_3d idx) {
+        idx.x -= diffBox.x;
+        idx.y -= diffBox.y;
+        idx.z -= diffBox.z;
+        if (idx.x < 0 || idx.y < 0 || idx.z < 0) {
+            return false;
+        }
+
+        idx.x = (jetBoxDim.x / 2) - (idx.x - (jetBoxDim.x / 2));
+        return sdfJetfighter(glm::ivec3(idx.z, idx.y, idx.x), glm::ivec3(jetBoxDim.x, jetBoxDim.y, jetBoxDim.z)) <= 0;
+    });
+
     //cellType.updateHostData();
     //cellType.ioToVtk("cellType", true, true, true, true);
 
