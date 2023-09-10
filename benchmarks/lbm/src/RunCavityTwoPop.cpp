@@ -37,7 +37,7 @@ auto run(Config&                             config,
     }
     code << "_SS" << config.stencilSemanticCli.getStringOption()<< "_";
     code << "_SF" << config.spaceCurveCli.getStringOption() << "_";
-    code << "_TM" << config.transferModeCli.getStringOptions() << "_";
+    code << "_TM" << config.transferModeCli.getStringOption() << "_";
 
     code << "__";
     // using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;

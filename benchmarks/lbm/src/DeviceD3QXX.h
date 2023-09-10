@@ -265,7 +265,7 @@ struct DeviceD3QXX
                            Compute const&                usqr /*!  Usqr               */,
                            Compute const&                omega /*! Omega              */,
                            Compute const&                invBeta /*! invBeta              */,
-                           NEON_IO Storage               pop[Lattice::Q])
+                           [[maybe_unused]] NEON_IO Storage               pop[Lattice::Q])
 
             -> void
         {
