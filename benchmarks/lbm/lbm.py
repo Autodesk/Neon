@@ -50,10 +50,10 @@ def countAll():
                                         for TRANSFERMODE in transferMode_LIST:
                                             for STENCILSEMANTIC in stencilSemantic_LIST:
                                                 for COLLISION in collision_LIST:
-                                                    if LATTICE != "d3q27" and LATTICE != "D3Q27" and COLLISION == 'kbc':
+                                                    if LATTICE != "d3q27" and COLLISION == 'kbc':
                                                         continue
                                                     for STREAMINGMETHOD in streamingMethod_LIST:
-                                                        if STREAMINGMETHOD != 'pull' and len(deviceIds_LIST) != 1:
+                                                        if STREAMINGMETHOD != 'pull' and len(DEVICE_SET_LIST) != 1:
                                                             continue
                                                         if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
                                                             continue
@@ -85,10 +85,10 @@ with open(command + '.log', 'w') as fp:
                                         for TRANSFERMODE in transferMode_LIST:
                                             for STENCILSEMANTIC in stencilSemantic_LIST:
                                                 for COLLISION in collision_LIST:
-                                                    if LATTICE != "d3q27" and LATTICE != "D3Q27":
+                                                    if LATTICE != "d3q27" and COLLISION == 'kbc':
                                                         continue
                                                     for STREAMINGMETHOD in streamingMethod_LIST:
-                                                        if STREAMINGMETHOD != 'pull' and len(deviceIds_LIST) != 1:
+                                                        if STREAMINGMETHOD != 'pull' and len(DEVICE_SET_LIST) != 1:
                                                             continue
                                                         if STORAGE_FP == 'double' and COMPUTE_FP == 'float':
                                                             continue
