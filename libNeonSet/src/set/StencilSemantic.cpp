@@ -96,6 +96,16 @@ auto StencilSemanticUtils::Cli::getStringOptions() const -> std::string
     return msg;
 }
 
+auto StencilSemanticUtils::Cli::getStringOption() const -> std::string
+{
+    if (!mSet) {
+        std::stringstream errorMsg;
+        errorMsg << "TransferSemantic was not set.";
+        NEON_ERROR(errorMsg.str());
+    }
+    return StencilSemanticUtils::toString(mOption);
+}
+
 auto StencilSemanticUtils::Cli::getDoc() const-> std::string
 {
     std::stringstream s;

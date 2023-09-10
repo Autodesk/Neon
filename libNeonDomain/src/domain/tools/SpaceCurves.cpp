@@ -133,6 +133,16 @@ auto EncoderTypeUtil::Cli::getStringOptions() const -> std::string
     return msg;
 }
 
+auto EncoderTypeUtil::Cli::getStringOption() const -> std::string
+{
+    if (!mSet) {
+        std::stringstream errorMsg;
+        errorMsg << "TransferSemantic was not set.";
+        NEON_ERROR(errorMsg.str());
+    }
+    return EncoderTypeUtil::toString(mOption);
+}
+
 auto EncoderTypeUtil::Cli::getDoc() const -> std::string
 {
     std::stringstream s;

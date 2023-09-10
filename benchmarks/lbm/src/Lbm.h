@@ -42,6 +42,7 @@ struct Lbm
         configurations = config;
         reportPtr = &report;
 
+
         // Setting the backend
         Neon::Backend bk = [&] {
             if (config.deviceType == "cpu") {
@@ -56,6 +57,8 @@ struct Lbm
             exce << config.deviceType << " is not a supported option as device type";
             NEON_THROW(exce);
         }();
+
+        auto [gridInitClockStart, notcare] = metrics::restartClock(bk, true);
 
         // Setting the grid
         grid = Grid(
@@ -96,13 +99,16 @@ struct Lbm
                 ContainerFactory::Common::setToEquilibrium(pField, cellFlagField).run(Neon::Backend::mainStreamIdx);
             }
         }
+        metrics::recordGridInitMetrics(bk, *reportPtr, gridInitClockStart);
     }
 
     // Lambda = void(*)(Neon::Index3d) -> std::tuple<BcType, Array<Storage, Lattice::Q>>
     template <typename Lambda>
     auto setBC(Lambda bcSetFunction) -> void
     {
-        std::cout << "Setting the problem's boundary." <<std::endl;
+        auto [setBcClockStart, notcare] = metrics::restartClock(grid.getBackend(), true);
+
+        std::cout << "Setting the problem's boundary." << std::endl;
         grid.getBackend().sync(Neon::Backend::mainStreamIdx);
         // Compute ngh mask
         ContainerFactory::Common::userSettingBc(bcSetFunction,
@@ -123,6 +129,7 @@ struct Lbm
         ContainerFactory::Common::computeWallNghMask(cellFlagField,
                                                      cellFlagField)
             .run(Neon::Backend::mainStreamIdx);
+        metrics::recordProblemSetupMetrics(grid.getBackend(), *reportPtr, setBcClockStart);
     }
 
     auto helpPrep() -> void
@@ -252,6 +259,7 @@ struct Lbm
         helpPrep();
         // Iteration keep track of all iterations
         // clock_iter keeps tracks of the iteration done after the last clock reset
+        std::cout << "Starting main LBM loop." << std::endl;
 
         auto& bk = grid.getBackend();
         auto [start, clock_iter] = metrics::restartClock(bk, true);
@@ -260,7 +268,7 @@ struct Lbm
         tie(start, clock_iter) = metrics::restartClock(bk, true);
 
         for (time_iter = 0; time_iter < configurations.benchMaxIter; ++time_iter) {
-            if ((time_iter % configurations.vti) == 0) {
+            if ((configurations.vti > 1) && ((time_iter % configurations.vti) == 0)) {
                 bk.syncAll();
                 helpExportVti();
             }
@@ -278,7 +286,7 @@ struct Lbm
             ++clock_iter;
             iterationPhase.updateIterationPhase();
         }
-        std::cout << "Iterations completed" << std::endl;
+        std::cout << "Iterations completed." << std::endl;
         metrics::recordMetrics(bk, configurations, *reportPtr, start, clock_iter);
     }
 

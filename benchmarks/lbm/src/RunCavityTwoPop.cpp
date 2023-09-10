@@ -17,18 +17,29 @@ int backendWasReported = false;
 #include "/usr/include/fenv.h"
 namespace details {
 template <lbm::Method method_,
-          Collision CollisionType,
+          Collision   CollisionType,
           typename Lattice_,
           typename Grid,
           typename Storage_,
           typename Compute_>
-auto run(Config& config,
-         Report& report) -> void
+auto run(Config&                             config,
+         Report&                             report,
+         [[maybe_unused]] std::stringstream& code) -> void
 {
     using Storage = Storage_;
     using Compute = Compute_;
     using Precision = Precision<Storage, Compute>;
     using Lattice = Lattice_;  // D3Q27<Precision>;
+
+    code << "_" << config.deviceType;
+    for (auto const& id : config.devices) {
+        code << id;
+    }
+    code << "_SS" << config.stencilSemanticCli.getStringOption()<< "_";
+    code << "_SF" << config.spaceCurveCli.getStringOption() << "_";
+    code << "_TM" << config.transferModeCli.getStringOptions() << "_";
+
+    code << "__";
     // using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
 
     // using PopField = typename Grid::template Field<typename Precision::Storage, Lattice::Q>;
@@ -43,9 +54,9 @@ auto run(Config& config,
     Neon::index_3d domainDim(config.N, config.N, config.N);
 
     Lbm<Grid, method_, CollisionType, Precision, Lattice> lbm(config,
-                                               report,
-                                               [](Neon::index_3d const&) { return true; });
-    auto                                   ulb = config.ulb;
+                                                              report,
+                                                              [](Neon::index_3d const&) { return true; });
+    auto                                                  ulb = config.ulb;
     lbm.setBC([=] NEON_CUDA_HOST_DEVICE(Neon::index_3d const& globalIdx,
                                         NEON_OUT Storage      p[Lattice::Q],
                                         NEON_OUT CellType::Classification& cellClass) {
@@ -85,67 +96,82 @@ auto run(Config& config,
 
 
 template <Collision CollisionType, typename Lattice, typename Grid, typename Storage, typename Compute>
-auto runFilterMethod(Config& config, Report& report) -> void
+auto runFilterMethod(Config&            config,
+                     Report&            report,
+                     std::stringstream& testCode) -> void
 {
     feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);  // Enable all floating point exceptions but FE_INEXACT
     if (config.streamingMethod == "push") {
-        if(config.devices.size() != 1){
+        if (config.devices.size() != 1) {
             NEON_THROW_UNSUPPORTED_OPERATION("We only support PUSH in a single device configuration for now.")
         }
-        return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, double>(config, report);
+        testCode << "_push";
+        return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, double>(config, report, testCode);
     }
     if (config.streamingMethod == "pull") {
-        return run<lbm::Method::pull, CollisionType, Lattice, Grid, Storage, double>(config, report);
+        testCode << "_pull";
+        return run<lbm::Method::pull, CollisionType, Lattice, Grid, Storage, double>(config, report, testCode);
     }
     if (config.streamingMethod == "aa") {
-        if(config.devices.size() != 1){
+        if (config.devices.size() != 1) {
             NEON_THROW_UNSUPPORTED_OPERATION("We only support AA in a single device configuration for now.")
         }
-        return run<lbm::Method::aa, CollisionType, Lattice, Grid, Storage, double>(config, report);
+        testCode << "_aa";
+        return run<lbm::Method::aa, CollisionType, Lattice, Grid, Storage, double>(config, report, testCode);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 template <typename Lattice, typename Grid, typename Storage, typename Compute>
-auto runFilterCollision(Config& config, Report& report) -> void
+auto runFilterCollision(Config&            config,
+                        Report&            report,
+                        std::stringstream& testCode) -> void
 {
     if (config.collisionCli.getOption() == Collision::bgk) {
-
-        return runFilterMethod<Collision::bgk, Lattice, Grid, Storage, double>(config, report);
+        testCode << "_bgk";
+        return runFilterMethod<Collision::bgk, Lattice, Grid, Storage, double>(config, report, testCode);
     }
     if (config.collisionCli.getOption() == Collision::kbc) {
-        if(config.lattice != "d3q27" && config.lattice != "D3Q27"){
+        if (config.lattice != "d3q27" && config.lattice != "D3Q27") {
             Neon::NeonException e("runFilterCollision");
             e << "LBM kbc collision model only supports d3q27 lattice";
             NEON_THROW(e);
         }
-        return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, double>(config, report);
+        testCode << "_kbc";
+        return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, double>(config, report, testCode);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 template <typename Grid, typename Storage, typename Compute>
-auto runFilterLattice(Config& config, Report& report) -> void
+auto runFilterLattice(Config&            config,
+                      Report&            report,
+                      std::stringstream& testCode) -> void
 {
     using Precision = Precision<Storage, Compute>;
 
     if (config.lattice == "d3q19" || config.lattice == "D3Q19") {
+        testCode << "_D3Q19";
         using Lattice = D3Q19<Precision>;
-        return runFilterCollision<Lattice, Grid, Storage, double>(config, report);
+        return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
     }
     if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
+        testCode << "_D3Q27";
         using Lattice = D3Q27<Precision>;
-        return runFilterCollision<Lattice, Grid, Storage, double>(config, report);
+        return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
     }
     NEON_DEV_UNDER_CONSTRUCTION("Lattice type not supported. Available options: D3Q19 and D3Q27");
 }
 
 
 template <typename Grid, typename Storage>
-auto runFilterComputeType(Config& config, Report& report) -> void
+auto runFilterComputeType(Config&            config,
+                          Report&            report,
+                          std::stringstream& testCode)
 {
     if (config.computeTypeStr == "double") {
-        return runFilterLattice<Grid, Storage, double>(config, report);
+        testCode << "_SD";
+        return runFilterLattice<Grid, Storage, double>(config, report, testCode);
     }
     //    if (config.computeTypeStr == "float") {
     //        return run<Grid, Storage, float>(config, report);
@@ -154,15 +180,18 @@ auto runFilterComputeType(Config& config, Report& report) -> void
 }
 
 template <typename Grid>
-auto runFilterStoreType(Config& config,
-                        Report& report)
+auto runFilterStoreType(Config&            config,
+                        Report&            report,
+                        std::stringstream& testCode)
     -> void
 {
     if (config.storeTypeStr == "double") {
-        return runFilterComputeType<Grid, double>(config, report);
+        testCode << "_CD";
+        return runFilterComputeType<Grid, double>(config, report, testCode);
     }
     //    if (config.storeTypeStr == "float") {
-    //        return runFilterComputeType<Grid, float>(config, report);
+    // testCode << "_CS_";
+    //        return runFilterComputeType<Grid, float>(config, report,testCode);
     //    }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
@@ -174,11 +203,13 @@ constexpr bool skipTest = false;
 constexpr bool skipTest = false;
 #endif
 
-auto run(Config& config,
-         Report& report) -> void
+auto run(Config&            config,
+         Report&            report,
+         std::stringstream& testCode) -> void
 {
     if (config.gridType == "dGrid") {
-        return details::runFilterStoreType<Neon::dGrid>(config, report);
+        testCode << "___DG";
+        return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
     }
     //    if (config.gridType == "eGrid") {
     //        if constexpr (!skipTest) {

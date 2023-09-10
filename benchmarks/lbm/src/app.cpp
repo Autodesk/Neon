@@ -3,9 +3,9 @@
 #include "Repoert.h"
 #include "RunCavityTwoPop.h"
 
+#include "Neon/Neon.h"
 #include "Neon/core/tools/clipp.h"
 #include "Neon/domain/dGrid.h"
-#include "Neon/Neon.h"
 
 int main(int argc, char** argv)
 {
@@ -35,13 +35,14 @@ int main(int argc, char** argv)
     std::cout << config.toString();
     std::cout << "-------------------------------------------\n";
 
-    Report report(config);
-
-    for(int i=0; i<config.repetitions; i++){
-        CavityTwoPop::run(config, report);
+    Report            report(config);
+    std::stringstream testCode;
+    for (int i = 0; i < config.repetitions; i++) {
+        testCode = std::stringstream();
+        CavityTwoPop::run(config, report, testCode);
     }
 
-    report.save();
+    report.save(testCode);
 
     return 0;
 }

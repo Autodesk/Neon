@@ -96,6 +96,16 @@ auto TransferModeUtils::Cli::getStringOptions() const -> std::string
     return msg;
 }
 
+auto TransferModeUtils::Cli::getStringOption() const -> std::string
+{
+    if (!mSet) {
+        std::stringstream errorMsg;
+        errorMsg << "TransferMode was not set.";
+        NEON_ERROR(errorMsg.str());
+    }
+    return TransferModeUtils::toString(mOption);
+}
+
 auto TransferModeUtils::Cli::getDoc() const -> std::string
 {
     std::stringstream s;

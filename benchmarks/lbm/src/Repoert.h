@@ -33,7 +33,7 @@ struct Report
                                 const std::string& unit)
         -> void;
 
-    auto save()
+    auto save(std::stringstream & testCode)
         -> void;
     void recordBk(Neon::Backend& backend);
     void recordGrid(Neon::domain::interface::GridBase& g);

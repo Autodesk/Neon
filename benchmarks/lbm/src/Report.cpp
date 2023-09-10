@@ -7,6 +7,8 @@ Report::Report(const Config& c)
 {
     mFname = c.reportFile;
 
+    mReport.addMember("argv", c.mArgv);
+
     mReport.addMember("Re", c.Re);
     mReport.addMember("ulb", c.ulb);
     mReport.addMember("N", c.N);
@@ -89,7 +91,7 @@ auto Report::recordProblemSetupTime(double time, const std::string& unit) -> voi
 }
 
 auto Report::
-    save()
+    save(std::stringstream & testCode)
         -> void
 {
     mReport.addMember("MLUPS", mMLUPS);
@@ -97,7 +99,7 @@ auto Report::
     mReport.addMember(std::string("Problem Setup Time (") + mtimeUnit + ")", mProblemSetupTime);
     mReport.addMember(std::string("Neon Grid Init Time (") + mtimeUnit + ")", mNeonGridInitTime);
 
-    mReport.write(mFname, true);
+    mReport.write(mFname + testCode.str(), true);
 }
 
 void Report::recordBk(Neon::Backend& backend)

@@ -30,6 +30,7 @@ class TransferModeUtils
         auto getOption() const -> TransferMode;
         auto set(const std::string& opt) -> void;
         auto getStringOptions() const -> std::string;
+        auto getStringOption() const -> std::string;
         auto getDoc () const -> std::string;
 
         auto addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) const ->void;

@@ -56,6 +56,8 @@ struct Config
 
     LbmParameters<double> mLbmParameters;
 
+    std::string mArgv;
+
     auto getOptionList(std::vector<std::string> list, std::string defaultVal) -> std::string
     {
         std::stringstream s;

@@ -8,5 +8,6 @@
 namespace CavityTwoPop {
 
 auto run(Config& config,
-         Report& report) -> void;
+         Report& report,
+         std::stringstream&) -> void;
 }  // namespace CavityTwoPop

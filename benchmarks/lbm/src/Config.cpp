@@ -80,10 +80,10 @@ auto Config::parseArgs(const int argc, char* argv[])
             clipp::option("--storageFP") & clipp::value("storageFP", config.storeTypeStr) % "double, float",
 
             clipp::option("--occ") & clipp::value("occ")([&config](const std::string& s) { config.occCli.set(s); }) % config.occCli.getDoc(),
-            clipp::option("--transferMode")& clipp::value("transferMode")([&config](const std::string& s) { config.transferModeCli.set(s); }) % config.transferModeCli.getDoc(),
-            clipp::option("--stencilSemantic")& clipp::value("stencilSemantic")([&config](const std::string& s) { config.stencilSemanticCli.set(s); }) % config.stencilSemanticCli.getDoc(),
-            clipp::option("--spaceCurve")& clipp::value("spaceCurve")([&config](const std::string& s) { config.spaceCurveCli.set(s); }) % config.spaceCurveCli.getDoc(),
-            clipp::option("--collision")& clipp::value("collision")([&config](const std::string& s) { config.collisionCli.set(s); }) % config.collisionCli.getDoc(),
+            clipp::option("--transferMode") & clipp::value("transferMode")([&config](const std::string& s) { config.transferModeCli.set(s); }) % config.transferModeCli.getDoc(),
+            clipp::option("--stencilSemantic") & clipp::value("stencilSemantic")([&config](const std::string& s) { config.stencilSemanticCli.set(s); }) % config.stencilSemanticCli.getDoc(),
+            clipp::option("--spaceCurve") & clipp::value("spaceCurve")([&config](const std::string& s) { config.spaceCurveCli.set(s); }) % config.spaceCurveCli.getDoc(),
+            clipp::option("--collision") & clipp::value("collision")([&config](const std::string& s) { config.collisionCli.set(s); }) % config.collisionCli.getDoc(),
 
             clipp::option("--streamingMethod") & clipp::value("streamingMethod", config.streamingMethod) % Config::getOptionList(config.streamingMethodOption, config.streamingMethod),
             clipp::option("--lattice") & clipp::value("lattice", config.lattice) % Config::getOptionList(config.latticeOptions, config.lattice),
@@ -113,6 +113,15 @@ auto Config::parseArgs(const int argc, char* argv[])
     }
 
     helpSetLbmParameters();
+
+    std::stringstream s;
+    for (int i = 0; i < argc; i++) {
+        s << argv[i];
+        if (i + 1 != argc) {
+            s << " ";
+        }
+    }
+    mArgv = s.str();
 
     return 0;
 }
