@@ -174,9 +174,9 @@ auto runFilterComputeType(Config&            config,
         testCode << "_SD";
         return runFilterLattice<Grid, Storage, double>(config, report, testCode);
     }
-    //    if (config.computeTypeStr == "float") {
-    //        return run<Grid, Storage, float>(config, report);
-    //    }
+    if (config.computeTypeStr == "float") {
+        return run<Grid, Storage, float>(config, report);
+    }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
