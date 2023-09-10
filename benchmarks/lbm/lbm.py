@@ -100,7 +100,7 @@ with open(command + '.log', 'w') as fp:
                                                         parameters.append('--deviceIds ' + DEVICE_SET)
                                                         parameters.append('--grid ' + GRID)
                                                         parameters.append('--domain-size ' + DOMAIN_SIZE)
-                                                        parameters.append('--max-iter ' + str(MAX_ITER))
+                                                        parameters.append('--max-iter ' + str(maxIter_INT))
                                                         parameters.append('--report-filename ' + 'lbm')
                                                         parameters.append('--computeFP ' + COMPUTE_FP)
                                                         parameters.append('--storageFP ' + STORAGE_FP)
@@ -112,8 +112,8 @@ with open(command + '.log', 'w') as fp:
                                                         parameters.append('--streamingMethod ' + STREAMINGMETHOD)
                                                         parameters.append('--lattice ' + LATTICE)
                                                         parameters.append('--benchmark ')
-                                                        parameters.append('--warmup-iter ' + str(WARM_UP_ITER))
-                                                        parameters.append('--repetitions ' + str(REPETITIONS))
+                                                        parameters.append('--warmup-iter ' + str(warmupIter_INT))
+                                                        parameters.append('--repetitions ' + str(repetitions_INT))
 
                                                         commandList = []
                                                         commandList.append(command)
