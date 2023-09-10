@@ -33,13 +33,13 @@ struct CellType
     operator int() const { return int(classification); }
 
     template <int fwdRegQ>
-    static auto isWall(const uint32_t& wallNghBitFlag)
+    NEON_CUDA_HOST_DEVICE static auto isWall(const uint32_t& wallNghBitFlag)
         -> bool
     {
         return wallNghBitFlag & (uint32_t(1) << fwdRegQ);
     }
 
-    auto setWall(int fwdRegIdx)
+    NEON_CUDA_HOST_DEVICE auto setWall(int fwdRegIdx)
         -> void
     {
         wallNghBitflag = wallNghBitflag | ((uint32_t(1) << fwdRegIdx));

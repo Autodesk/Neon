@@ -29,8 +29,9 @@ struct D3Q19
 
     struct Registers
     {
+
         using Self = D3Q19<Precision>::Registers;
-        static constexpr std::array<const Neon::index_3d, Q> stencil{
+        static constexpr Neon::index_3d stencil[Q]{
             /*!  0   */ Neon::index_3d(-1, 0, 0),
             /*!  1   */ Neon::index_3d(0, -1, 0),
             /*!  2   */ Neon::index_3d(0, 0, -1),
@@ -52,9 +53,31 @@ struct D3Q19
             /*!  18   */ Neon::index_3d(0, 1, -1)};
 
         template <int qIdx, int cIdx>
-        static inline NEON_CUDA_HOST_DEVICE auto
-        getComponentOfDirection() -> int{
-            return stencil[qIdx].v[cIdx];
+        NEON_CUDA_HOST_DEVICE static constexpr auto
+        getComponentOfDirection() -> int
+        {
+            constexpr Neon::index_3d s[Q]{
+                /*!  0   */ Neon::index_3d(-1, 0, 0),
+                /*!  1   */ Neon::index_3d(0, -1, 0),
+                /*!  2   */ Neon::index_3d(0, 0, -1),
+                /*!  3   */ Neon::index_3d(-1, -1, 0),
+                /*!  4   */ Neon::index_3d(-1, 1, 0),
+                /*!  5   */ Neon::index_3d(-1, 0, -1),
+                /*!  6   */ Neon::index_3d(-1, 0, 1),
+                /*!  7   */ Neon::index_3d(0, -1, -1),
+                /*!  8   */ Neon::index_3d(0, -1, 1),
+                /*!  9   */ Neon::index_3d(0, 0, 0),
+                /*!  10   */ Neon::index_3d(1, 0, 0),
+                /*!  11   */ Neon::index_3d(0, 1, 0),
+                /*!  12   */ Neon::index_3d(0, 0, 1),
+                /*!  13   */ Neon::index_3d(1, 1, 0),
+                /*!  14   */ Neon::index_3d(1, -1, 0),
+                /*!  15   */ Neon::index_3d(1, 0, 1),
+                /*!  16   */ Neon::index_3d(1, 0, -1),
+                /*!  17   */ Neon::index_3d(0, 1, 1),
+                /*!  18   */ Neon::index_3d(0, 1, -1)};
+
+            return s[qIdx].template getComponent<cIdx>();
         }
 
         static constexpr int center = 9; /** Position of direction {0,0,0} */

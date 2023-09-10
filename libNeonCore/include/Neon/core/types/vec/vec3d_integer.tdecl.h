@@ -128,6 +128,11 @@ class Vec_3d<IntegerType_ta, true, false>
 
     NEON_CUDA_HOST_DEVICE inline void constexpr set(const Integer& xyz);
 
+    template <int componentId>
+    NEON_CUDA_HOST_DEVICE inline constexpr Integer getComponent() const
+    {
+        return v[componentId];
+    }
 
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------

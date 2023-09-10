@@ -1,5 +1,8 @@
 #include "Config.h"
+
 #include "D3Q19.h"
+#include "D3Q27.h"
+
 #include "Neon/domain/bGrid.h"
 #include "Neon/domain/dGrid.h"
 #include "Neon/domain/details/dGridSoA/dGridSoA.h"
@@ -7,7 +10,6 @@
 
 #include "./Lbm.h"
 #include "CellType.h"
-#include "LbmSkeleton.h"
 #include "Metrics.h"
 #include "Repoert.h"
 namespace CavityTwoPop {

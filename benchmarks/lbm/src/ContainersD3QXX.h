@@ -3,7 +3,6 @@
 #include "./Methods.h"
 #include "CellType.h"
 #include "D3Q19.h"
-#include "DeviceD3Q19.h"
 #include "DeviceD3QXX.h"
 #include "Methods.h"
 #include "Neon/Neon.h"
@@ -53,6 +52,9 @@ struct ContainerFactoryD3QXX
                         [[maybe_unused]] const Compute invBeta = 1.0 / beta;
 
                         return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
+                            [[maybe_unused]] const Compute capturedOmega = omega;
+                            [[maybe_unused]] const Compute capturedInvBeta = invBeta;
+
                             CellType cellInfo = cellInfoPartition(gidx, 0);
                             if (cellInfo.classification == CellType::bulk) {
 
@@ -69,13 +71,13 @@ struct ContainerFactoryD3QXX
 
                                 if constexpr (CollisionId == Collision::bgk) {
                                     Device::Common::collideBgkUnrolled(rho, u,
-                                                                       usqr, omega,
+                                                                       usqr, capturedOmega,
                                                                        NEON_IO popRegisters);
                                 }
                                 if constexpr (CollisionId == Collision::kbc) {
                                     Device::Common::collideKBCUnrolled(rho, u,
-                                                                       usqr, omega,
-                                                                       invBeta,
+                                                                       usqr, capturedOmega,
+                                                                       capturedInvBeta,
                                                                        NEON_IO popRegisters);
                                 }
                                 Device::Common::localStoreOpposite(gidx, popRegisters, popMem);
@@ -115,6 +117,9 @@ struct ContainerFactoryD3QXX
                         [[maybe_unused]] const Compute invBeta = 1.0 / beta;
 
                         return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
+                            [[maybe_unused]] const Compute capturedOmega = omega;
+                            [[maybe_unused]] const Compute capturedInvBeta = invBeta;
+
                             CellType cellInfo = cellInfoPartition(gidx, 0);
                             if (cellInfo.classification == CellType::bulk) {
 
@@ -133,13 +138,13 @@ struct ContainerFactoryD3QXX
 
                                 if constexpr (CollisionId == Collision::bgk) {
                                     Device::Common::collideBgkUnrolled(rho, u,
-                                                                       usqr, omega,
+                                                                       usqr, capturedOmega,
                                                                        NEON_IO popRegisters);
                                 }
                                 if constexpr (CollisionId == Collision::kbc) {
                                     Device::Common::collideKBCUnrolled(rho, u,
-                                                                       usqr, omega,
-                                                                       invBeta,
+                                                                       usqr, capturedOmega,
+                                                                       capturedInvBeta,
                                                                        NEON_IO popRegisters);
                                 }
                                 Device::Push::pushStream(gidx, cellInfo.wallNghBitflag, popRegisters, NEON_OUT fpop);
@@ -183,6 +188,9 @@ struct ContainerFactoryD3QXX
                     [[maybe_unused]] const Compute invBeta = 1.0 / beta;
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
+                        [[maybe_unused]] const Compute capturedOmega = omega;
+                        [[maybe_unused]] const Compute capturedInvBeta = invBeta;
+
                         CellType cellInfo = cellInfoPartition(gidx, 0);
                         if (cellInfo.classification == CellType::bulk) {
 
@@ -199,13 +207,13 @@ struct ContainerFactoryD3QXX
 
                             if constexpr (CollisionId == Collision::bgk) {
                                 Device::Common::collideBgkUnrolled(rho, u,
-                                                                   usqr, omega,
+                                                                   usqr, capturedOmega,
                                                                    NEON_IO popRegisters);
                             }
                             if constexpr (CollisionId == Collision::kbc) {
                                 Device::Common::collideKBCUnrolled(rho, u,
-                                                                   usqr, omega,
-                                                                   invBeta,
+                                                                   usqr, capturedOmega,
+                                                                   capturedInvBeta,
                                                                    NEON_IO popRegisters);
                             }
                             Device::Common::localStore(gidx, popRegisters, fOut);
@@ -232,6 +240,9 @@ struct ContainerFactoryD3QXX
                     [[maybe_unused]] const Compute invBeta = 1.0 / beta;
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
+                        [[maybe_unused]] const Compute capturedOmega = omega;
+                        [[maybe_unused]] const Compute capturedInvBeta = invBeta;
+
                         CellType cellInfo = cellInfoPartition(gidx, 0);
                         if (cellInfo.classification == CellType::bulk) {
 
@@ -248,13 +259,13 @@ struct ContainerFactoryD3QXX
 
                             if constexpr (CollisionId == Collision::bgk) {
                                 Device::Common::collideBgkUnrolled(rho, u,
-                                                                   usqr, omega,
+                                                                   usqr, capturedOmega,
                                                                    NEON_IO popRegisters);
                             }
                             if constexpr (CollisionId == Collision::kbc) {
                                 Device::Common::collideKBCUnrolled(rho, u,
-                                                                   usqr, omega,
-                                                                   invBeta,
+                                                                   usqr, capturedOmega,
+                                                                   capturedInvBeta,
                                                                    NEON_IO popRegisters);
                             }
                             Device::Common::localStore(gidx, popRegisters, fOut);
@@ -336,6 +347,9 @@ struct ContainerFactoryD3QXX
                     [[maybe_unused]] const Compute invBeta = 1.0 / beta;
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
+                        [[maybe_unused]] const Compute capturedOmega = omega;
+                        [[maybe_unused]] const Compute capturedInvBeta = invBeta;
+
                         CellType cellInfo = cellInfoPartition(gidx, 0);
                         if (cellInfo.classification == CellType::bulk) {
 
@@ -354,13 +368,13 @@ struct ContainerFactoryD3QXX
 
                             if constexpr (CollisionId == Collision::bgk) {
                                 Device::Common::collideBgkUnrolled(rho, u,
-                                                                   usqr, omega,
+                                                                   usqr, capturedOmega,
                                                                    NEON_IO popRegisters);
                             }
                             if constexpr (CollisionId == Collision::kbc) {
                                 Device::Common::collideKBCUnrolled(rho, u,
-                                                                   usqr, omega,
-                                                                   invBeta,
+                                                                   usqr, capturedOmega,
+                                                                   capturedInvBeta,
                                                                    NEON_IO popRegisters);
                             }
                             Device::Push::pushStream(gidx, cellInfo.wallNghBitflag, popRegisters, NEON_OUT fOut);
@@ -421,37 +435,6 @@ struct ContainerFactoryD3QXX
     struct Common
     {
 
-        template <lbm::Method method_>
-        static auto
-        iteration([[maybe_unused]] Neon::set::StencilSemantic stencilSemantic,
-                  [[maybe_unused]] const PopField             fInField /*!      Input population field */,
-                  [[maybe_unused]] const CellTypeField&       cellTypeField /*! Cell type field     */,
-                  [[maybe_unused]] const Compute              omega /*!         LBM omega parameter */,
-                  [[maybe_unused]] PopField                   fOutField /*!     Output Population field */)
-            -> Neon::set::Container
-        {
-            if constexpr (method_ == lbm::Method::push) {
-                using FactoryPush = push::ContainerFactory<Precision_,
-                                                           D3Q19<Precision_>,
-                                                           Grid_>;
-                return FactoryPush::iteration(stencilSemantic,
-                                              fInField,
-                                              cellTypeField,
-                                              omega,
-                                              fOutField);
-            }
-            if constexpr (method_ == lbm::Method::pull) {
-                using FactoryPull = pull::ContainerFactory<Precision_,
-                                                           D3Q19<Precision_>,
-                                                           Grid_>;
-                return FactoryPull::iteration(stencilSemantic,
-                                              fInField,
-                                              cellTypeField,
-                                              omega,
-                                              fOutField);
-            }
-            NEON_DEV_UNDER_CONSTRUCTION("");
-        }
 
 
         static auto

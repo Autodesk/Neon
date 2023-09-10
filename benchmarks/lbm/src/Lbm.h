@@ -3,8 +3,6 @@
 #include "./Metrics.h"
 #include "./Repoert.h"
 #include "CellType.h"
-#include "ContainerFactory.h"
-#include "ContainersD3Q19.h"
 #include "ContainersD3QXX.h"
 #include "D3Q19.h"
 #include "Methods.h"

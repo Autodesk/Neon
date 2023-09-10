@@ -250,8 +250,8 @@ struct DeviceD3QXX
 
         static inline NEON_CUDA_HOST_DEVICE auto
         localStoreOpposite(Idx const&                             gidx,
-                             Storage NEON_RESTRICT                  pOut[Lattice::Q],
-                             NEON_OUT typename PopField::Partition& fOut)
+                           Storage NEON_RESTRICT                  pOut[Lattice::Q],
+                           NEON_OUT typename PopField::Partition& fOut)
         {
             Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
                 using M = typename Lattice::template RegisterMapper<q>;
@@ -260,12 +260,12 @@ struct DeviceD3QXX
         }
 
         static inline NEON_CUDA_HOST_DEVICE auto
-        collideKBCUnrolled(Compute const&                rho /*!   Density            */,
-                           std::array<Compute, 3> const& u /*!     Velocity           */,
-                           Compute const&                usqr /*!  Usqr               */,
-                           Compute const&                omega /*! Omega              */,
-                           Compute const&                invBeta /*! invBeta              */,
-                           [[maybe_unused]] NEON_IO Storage               pop[Lattice::Q])
+        collideKBCUnrolled(Compute const&                   rho /*!   Density            */,
+                           std::array<Compute, 3> const&    u /*!     Velocity           */,
+                           Compute const&                   usqr /*!  Usqr               */,
+                           Compute const&                   omega /*! Omega              */,
+                           Compute const&                   invBeta /*! invBeta              */,
+                           [[maybe_unused]] NEON_IO Storage pop[Lattice::Q])
 
             -> void
         {
