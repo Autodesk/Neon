@@ -37,7 +37,7 @@ auto run(Config&                             config,
     for (auto const& id : config.devices) {
         code << id;
     }
-    code << "_SS" << config.stencilSemanticCli.getStringOption()<< "_";
+    code << "_SS" << config.stencilSemanticCli.getStringOption() << "_";
     code << "_SF" << config.spaceCurveCli.getStringOption() << "_";
     code << "_TM" << config.transferModeCli.getStringOption() << "_";
     code << "__";
@@ -156,11 +156,11 @@ auto runFilterLattice(Config&            config,
         using Lattice = D3Q19<Precision>;
         return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
     }
-//    if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
-//        testCode << "_D3Q27";
-//        using Lattice = D3Q27<Precision>;
-//        return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
-//    }
+    //    if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
+    //        testCode << "_D3Q27";
+    //        using Lattice = D3Q27<Precision>;
+    //        return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
+    //    }
     NEON_DEV_UNDER_CONSTRUCTION("Lattice type not supported. Available options: D3Q19 and D3Q27");
 }
 
@@ -175,7 +175,8 @@ auto runFilterComputeType(Config&            config,
         return runFilterLattice<Grid, Storage, double>(config, report, testCode);
     }
     if (config.computeTypeStr == "float") {
-        return run<Grid, Storage, float>(config, report);
+        testCode << "_SF";
+        return runFilterLattice<Grid, Storage, float>(config, report, testCode);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
@@ -190,10 +191,10 @@ auto runFilterStoreType(Config&            config,
         testCode << "_CD";
         return runFilterComputeType<Grid, double>(config, report, testCode);
     }
-    //    if (config.storeTypeStr == "float") {
-    // testCode << "_CS_";
-    //        return runFilterComputeType<Grid, float>(config, report,testCode);
-    //    }
+    if (config.storeTypeStr == "float") {
+        testCode << "_CF";
+        return runFilterComputeType<Grid, float>(config, report, testCode);
+    }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 }  // namespace details
