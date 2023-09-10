@@ -157,11 +157,11 @@ auto runFilterLattice(Config&            config,
         using Lattice = D3Q19<Precision>;
         return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
     }
-    if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
-        testCode << "_D3Q27";
-        using Lattice = D3Q27<Precision>;
-        return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
-    }
+//    if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
+//        testCode << "_D3Q27";
+//        using Lattice = D3Q27<Precision>;
+//        return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
+//    }
     NEON_DEV_UNDER_CONSTRUCTION("Lattice type not supported. Available options: D3Q19 and D3Q27");
 }
 

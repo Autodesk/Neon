@@ -31,6 +31,7 @@ struct D3Q19
     {
 
         using Self = D3Q19<Precision>::Registers;
+
         static constexpr Neon::index_3d stencil[Q]{
             /*!  0   */ Neon::index_3d(-1, 0, 0),
             /*!  1   */ Neon::index_3d(0, -1, 0),
