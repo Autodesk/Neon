@@ -40,7 +40,6 @@ auto run(Config&                             config,
     code << "_SS" << config.stencilSemanticCli.getStringOption()<< "_";
     code << "_SF" << config.spaceCurveCli.getStringOption() << "_";
     code << "_TM" << config.transferModeCli.getStringOption() << "_";
-
     code << "__";
     // using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
 
@@ -209,8 +208,10 @@ auto run(Config&            config,
          Report&            report,
          std::stringstream& testCode) -> void
 {
+    testCode << "___" << config.N << "_";
+
     if (config.gridType == "dGrid") {
-        testCode << "___DG";
+        testCode << "_DG";
         return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
     }
     //    if (config.gridType == "eGrid") {
