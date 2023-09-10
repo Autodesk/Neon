@@ -50,7 +50,7 @@ def countAll():
                                         for TRANSFERMODE in transferMode_LIST:
                                             for STENCILSEMANTIC in stencilSemantic_LIST:
                                                 for COLLISION in collision_LIST:
-                                                    if LATTICE != "d3q27" and LATTICE != "D3Q27":
+                                                    if LATTICE != "d3q27" and LATTICE != "D3Q27" and COLLISION == 'kbc':
                                                         continue
                                                     for STREAMINGMETHOD in streamingMethod_LIST:
                                                         if STREAMINGMETHOD != 'pull' and len(deviceIds_LIST) != 1:
