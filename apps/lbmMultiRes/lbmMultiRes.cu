@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 
         auto cli =
             (clipp::option("--deviceType") & clipp::value("deviceType", params.deviceType) % "Type of device (gpu or cpu)",
-             clipp::option("--deviceId") & clipp::integers("deviceId", params.deviceId) % "Device id",
+             clipp::required("--deviceId") & clipp::integers("deviceId", params.deviceId) % "Device id",
              clipp::option("--numIter") & clipp::integer("numIter", params.numIter) % "LBM number of iterations",
              clipp::option("--problemType") & clipp::value("problemType", params.problemType) % "Problem type ('lid' for lid-driven cavity, 'sphere' for flow over sphere, or 'jet' for flow over jet fighter)",
              clipp::option("--dataType") & clipp::value("dataType", params.dataType) % "Data type (float or double)",

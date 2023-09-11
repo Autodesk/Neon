@@ -250,6 +250,7 @@ void postProcessPolyscope(const std::vector<std::pair<Neon::domain::mGrid::Idx, 
     auto colorQu = polyscope::getVolumeMesh("LBM")->addCellScalarQuantity("Velocity", psColor);
     colorQu->setEnabled(true);
     colorQu->setColorMap("jet");
+    //colorQu->setMapRange({0, 0.04});
 
     polyscope::screenshot(screenshotName + ".png");
 
