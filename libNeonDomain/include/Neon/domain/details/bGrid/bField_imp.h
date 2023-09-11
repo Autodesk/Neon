@@ -312,8 +312,9 @@ auto bField<T, C, SBlock>::initHaloUpdateTable() -> void
                 T* srcMem = blockViewPartitions[Data::EndPoints::src]->mem();
                 T* dstMem = blockViewPartitions[Data::EndPoints::dst]->mem();
 
-                Neon::size_4d srcBoundaryBuff(boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], 0, 0, 0);
                 Neon::size_4d dstGhostBuff(ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], 0, 0, 0);
+                Neon::size_4d srcBoundaryBuff(boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], 0, 0, 0);
+
                 size_t        transferDataBlockCount = mData->grid->mData->partitioner1D.getSpanLayout().getBoundsBoundary(setIdxVec[Data::EndPoints::src], byDirection).count;
 
                 //                std::cout << "To  " << dstGhostBuff << " prt " << blockViewPartitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff << " prt " << blockViewPartitions[Data::EndPoints::src]->prtID() <<  std::endl;

@@ -278,7 +278,7 @@ class Encoder
         uint64_t transform = 0;
         uint64_t out = 0;
 
-        for (int32_t i = 3 * (bits - 1); i >= 0; i -= 3) {
+        for (int32_t i = int(3 * (bits - 1)); i >= 0; i -= 3) {
             transform = lookupTable[transform | ((in >> i) & 7)];
             out = (out << 3) | (transform & 7);
             transform &= ~7;
