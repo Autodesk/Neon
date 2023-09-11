@@ -298,7 +298,7 @@ class Encoder
     }
 
 
-    static inline auto splitBy3(unsigned int a)
+    static inline auto splitBy3(uint64_t a)
     {
         uint64_t x = a & 0x1fffff;              // we only care about 21 bits
         x = (x | x << 32) & 0x1f00000000ffff;   // shift left 32 bits, mask out bits 21-31
