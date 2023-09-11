@@ -67,7 +67,7 @@ ePartition<T, C>::getNghData(eIndex gidx,
         T val = this->operator()(gidxxNgh, card);
         return NghData(val, isValidNeighbour);
     }
-    return NghData(isValidNeighbour);
+    return NghData();
 }
 
 template <typename T,
