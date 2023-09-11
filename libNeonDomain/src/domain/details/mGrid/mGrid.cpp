@@ -188,8 +188,7 @@ mGrid::mGrid(
 
         //for every level
         for (int l = mData->mDescriptor.getDepth() - 1; l > 0; --l) {
-            const int refFactor = mData->mDescriptor.getRefFactor(l);
-            const int spacing = mData->mDescriptor.getSpacing(l - 1);
+            const int refFactor = mData->mDescriptor.getRefFactor(l);            
 
             //for every (user) block in this level
             for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
