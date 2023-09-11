@@ -1,4 +1,7 @@
 #pragma once
+
+#include <cmath>
+
 #include "Neon/Neon.h"
 #include "lattice.h"
 
@@ -150,7 +153,7 @@ NEON_CUDA_HOST_DEVICE inline float sdfJetfighter(glm::ivec3 id, glm::ivec3 dim)
         float d1 = -p.z - h;
         float q = p.z - h;
         float si = 0.5f * (r1 - r2) / h;
-        float d2 = std::max(std::sqrtf(glm::dot(p.xy(), p.xy()) * (1.0f - si * si)) + q * si - r2, q);
+        float d2 = std::max(std::sqrt(glm::dot(p.xy(), p.xy()) * (1.0f - si * si)) + q * si - r2, q);
         return glm::length(glm::max(glm::vec2(d1, d2), 0.0f)) + std::min(std::max(d1, d2), 0.f);
     };
 
@@ -261,7 +264,7 @@ NEON_CUDA_HOST_DEVICE inline float sdfJetfighter(glm::ivec3 id, glm::ivec3 dim)
 
             checkPos = p;
             pR_glm(checkPos, 0.785f, 0, 1);
-            checkPos.xy = pModPolar(checkPos.xy, 4.0f);
+            checkPos.xy() = pModPolar(checkPos.xy(), 4.0f);
 
             missileDist = std::min(missileDist, sdJetHexPrism(checkPos - glm::vec3(0.f, 0.f, .60f), glm::vec2(0.50f, 0.01f)));
             missileDist = std::min(missileDist, sdJetHexPrism(checkPos + glm::vec3(0.f, 0.f, 1.03f), glm::vec2(0.50f, 0.01f)));
@@ -524,8 +527,8 @@ NEON_CUDA_HOST_DEVICE inline float sdfJetfighter(glm::ivec3 id, glm::ivec3 dim)
         engineDist = std::min(engineDist, sdJetConeSection(p - glm::vec3(0.40f, -0.1f, -9.2f), 0.3f, .22f, .36f));
 
         checkPos = p - glm::vec3(0.f, 0.f, -9.24f);
-        checkPos.xy -= glm::vec2(0.4f, -0.1f);
-        checkPos.xy = pModPolar(checkPos.xy(), 22.0f);
+        checkPos.xy() -= glm::vec2(0.4f, -0.1f);
+        checkPos.xy() = pModPolar(checkPos.xy(), 22.0f);
 
         float engineCone = fOpPipe(engineDist, sdJetBox(checkPos, glm::vec3(.6f, 0.001f, 0.26f)), 0.015f);
         engineDist = std::min(engineDist, engineCone);

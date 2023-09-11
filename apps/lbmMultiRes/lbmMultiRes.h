@@ -4,6 +4,7 @@
 #include "Neon/skeleton/Skeleton.h"
 
 #include "collide.h"
+#include "init.h"
 #include "lattice.h"
 #include "postProcess.h"
 #include "store.h"
