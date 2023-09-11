@@ -113,17 +113,8 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
 }
 
 template <typename T, int Q>
-void flowOverJet(const int           problemID,
-                 const Neon::Backend backend,
-                 const int           numIter,
-                 const int           Re,
-                 const bool          fineInitStore,
-                 const bool          streamFusedExpl,
-                 const bool          streamFusedCoal,
-                 const bool          streamFuseAll,
-                 const bool          collisionFusedStore,
-                 const bool          benchmark,
-                 const int           freq)
+void flowOverJet(const Neon::Backend backend,
+                 const Params&       params)
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
@@ -159,7 +150,7 @@ void flowOverJet(const int           problemID,
     //LBM problem
     const T               uin = 0.04;
     const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
-    const T               visclb = uin * clength / static_cast<T>(Re);
+    const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
 
@@ -195,17 +186,7 @@ void flowOverJet(const int           problemID,
 
     runNonUniformLBM<T, Q>(grid,
                            numActiveVoxels,
-                           numIter,
-                           Re,
-                           fineInitStore,
-                           streamFusedExpl,
-                           streamFusedCoal,
-                           streamFuseAll,
-                           collisionFusedStore,
-                           benchmark,
-                           freq,
-                           problemID,
-                           "lid",
+                           params,
                            omega,
                            cellType,
                            storeSum,
@@ -214,18 +195,10 @@ void flowOverJet(const int           problemID,
                            vel,
                            rho);
 }
+
 template <typename T, int Q>
-void flowOverSphere(const int           problemID,
-                    const Neon::Backend backend,
-                    const int           numIter,
-                    const int           Re,
-                    const bool          fineInitStore,
-                    const bool          streamFusedExpl,
-                    const bool          streamFusedCoal,
-                    const bool          streamFuseAll,
-                    const bool          collisionFusedStore,
-                    const bool          benchmark,
-                    const int           freq)
+void flowOverSphere(const Neon::Backend backend,
+                    const Params&       params)
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
@@ -256,7 +229,7 @@ void flowOverSphere(const int           problemID,
     //LBM problem
     const T               uin = 0.04;
     const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
-    const T               visclb = uin * clength / static_cast<T>(Re);
+    const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
 
@@ -292,17 +265,7 @@ void flowOverSphere(const int           problemID,
 
     runNonUniformLBM<T, Q>(grid,
                            numActiveVoxels,
-                           numIter,
-                           Re,
-                           fineInitStore,
-                           streamFusedExpl,
-                           streamFusedCoal,
-                           streamFuseAll,
-                           collisionFusedStore,
-                           benchmark,
-                           freq,
-                           problemID,
-                           "lid",
+                           params,
                            omega,
                            cellType,
                            storeSum,

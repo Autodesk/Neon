@@ -95,17 +95,8 @@ void initLidDrivenCavity(Neon::domain::mGrid&                  grid,
 }
 
 template <typename T, int Q>
-void lidDrivenCavity(const int           problemID,
-                     const Neon::Backend backend,
-                     const int           numIter,
-                     const int           Re,
-                     const bool          fineInitStore,
-                     const bool          streamFusedExpl,
-                     const bool          streamFusedCoal,
-                     const bool          streamFuseAll,
-                     const bool          collisionFusedStore,
-                     const bool          benchmark,
-                     const int           freq)
+void lidDrivenCavity(const Neon::Backend backend,
+                     Params&             params)
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
@@ -128,7 +119,7 @@ void lidDrivenCavity(const int           problemID,
     levelSDF[3] = -1.0;
 
 
-    if (problemID == 0) {
+    if (params.problemId == 0) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(48, 48, 48);
@@ -136,7 +127,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[1] = -8.0 / 24.0;
         levelSDF[2] = -16.0 / 24.0;
         levelSDF[3] = -1.0;
-    } else if (problemID == 1) {
+    } else if (params.problemId == 1) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(160, 160, 160);
@@ -144,7 +135,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[1] = -16.0 / 80.0;
         levelSDF[2] = -32.0 / 80.0;
         levelSDF[3] = -1.0;
-    } else if (problemID == 2) {
+    } else if (params.problemId == 2) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(240, 240, 240);
@@ -152,7 +143,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[1] = -24.0 / 120.0;
         levelSDF[2] = -80.0 / 120.0;
         levelSDF[3] = -1.0;
-    } else if (problemID == 3) {
+    } else if (params.problemId == 3) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(320, 320, 320);
@@ -160,7 +151,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[1] = -32.0 / 160.0;
         levelSDF[2] = -64.0 / 160.0;
         levelSDF[3] = -1.0;
-    } else if (problemID == 4) {
+    } else if (params.problemId == 4) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(480, 480, 480);
@@ -168,7 +159,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[1] = -48.0 / 240.0;
         levelSDF[2] = -96.0 / 240.0;
         levelSDF[3] = -1.0;
-    } else if (problemID == 5) {
+    } else if (params.problemId == 5) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(512, 512, 512);
@@ -176,7 +167,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[1] = -64.0 / 256.0;
         levelSDF[2] = -112.0 / 256.0;
         levelSDF[3] = -1.0;
-    } else if (problemID == 6) {
+    } else if (params.problemId == 6) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(160, 160, 160);
@@ -185,7 +176,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[2] = -64.0 / 160.0;
         levelSDF[3] = -128.0 / 160.0;
         levelSDF[4] = -1.0;
-    } else if (problemID == 7) {
+    } else if (params.problemId == 7) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(240, 240, 240);
@@ -194,7 +185,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[2] = -80.0 / 120.0;
         levelSDF[3] = -112.0 / 120.0;
         levelSDF[4] = -1.0;
-    } else if (problemID == 8) {
+    } else if (params.problemId == 8) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(320, 320, 320);
@@ -203,7 +194,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[2] = -64.0 / 160.0;
         levelSDF[3] = -112.0 / 160.0;
         levelSDF[4] = -1.0;
-    } else if (problemID == 9) {
+    } else if (params.problemId == 9) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(480, 480, 480);
@@ -212,7 +203,7 @@ void lidDrivenCavity(const int           problemID,
         levelSDF[2] = -96.0 / 240.0;
         levelSDF[3] = -160.0 / 240.0;
         levelSDF[4] = -1.0;
-    } /*else if (problemID == 10) {
+    } /*else if (params.problemId == 10) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(512, 512, 512);
@@ -250,7 +241,7 @@ void lidDrivenCavity(const int           problemID,
     //LBM problem
     const T               ulb = 0.04;
     const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
-    const T               visclb = ulb * clength / static_cast<T>(Re);
+    const T               visclb = ulb * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d ulid(ulb, 0., 0.);
 
@@ -273,17 +264,7 @@ void lidDrivenCavity(const int           problemID,
 
     runNonUniformLBM<T, Q>(grid,
                            numActiveVoxels,
-                           numIter,
-                           Re,
-                           fineInitStore,
-                           streamFusedExpl,
-                           streamFusedCoal,
-                           streamFuseAll,
-                           collisionFusedStore,
-                           benchmark,
-                           freq,
-                           problemID,
-                           "lid",
+                           params,
                            omega,
                            cellType,
                            storeSum,
@@ -295,7 +276,7 @@ void lidDrivenCavity(const int           problemID,
     verifyLidDrivenCavity<T>(grid,
                              depth,
                              vel,
-                             Re,
-                             numIter,
+                             params.Re,
+                             params.numIter,
                              ulb);
 }

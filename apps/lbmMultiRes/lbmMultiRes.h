@@ -192,17 +192,7 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 template <typename T, int Q>
 void runNonUniformLBM(Neon::domain::mGrid&                        grid,
                       const uint32_t                              numActiveVoxels,
-                      const int                                   numIter,
-                      const int                                   Re,
-                      const bool                                  fineInitStore,
-                      const bool                                  streamFusedExpl,
-                      const bool                                  streamFusedCoal,
-                      const bool                                  streamFuseAll,
-                      const bool                                  collisionFusedStore,
-                      const bool                                  benchmark,
-                      const int                                   freq,
-                      const int                                   problemID,
-                      const std::string                           problemType,
+                      const Params&                               params,
                       const T                                     omega,
                       const Neon::domain::mGrid::Field<CellType>& cellType,
                       const Neon::domain::mGrid::Field<float>&    storeSum,
@@ -217,11 +207,11 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     //skeleton
     std::vector<Neon::set::Container> containers;
     nonUniformTimestepRecursive<T, Q>(grid,
-                                      fineInitStore,
-                                      streamFusedExpl,
-                                      streamFusedCoal,
-                                      streamFuseAll,
-                                      collisionFusedStore,
+                                      params.fineInitStore,
+                                      params.streamFusedExpl,
+                                      params.streamFusedCoal,
+                                      params.streamFuseAll,
+                                      params.collisionFusedStore,
                                       omega,
                                       depth - 1,
                                       depth,
@@ -233,7 +223,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     skl.sequence(containers, "MultiResLBM");
     skl.ioToDot("MultiResLBM", "", true);
 
-    const Neon::int8_3d slice(-1, -1, 1);
+    const Neon::int8_3d slice(params.sliceX, params.sliceY, params.sliceZ);
 
     std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>> psDrawable;
     std::vector<T>                                           psColor;
@@ -244,28 +234,28 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     //execution
     NEON_INFO("numActiveVoxels: {}", numActiveVoxels);
     auto start = std::chrono::high_resolution_clock::now();
-    for (int t = 0; t < numIter; ++t) {
+    for (int t = 0; t < params.numIter; ++t) {
         if (t % 100 == 0) {
             NEON_INFO("Non-uniform LBM Iteration: {}", t);
         }
         skl.run();
-        if (!benchmark && t % freq == 0) {
+        if (!params.benchmark && t % params.freq == 0) {
             int                precision = 4;
             std::ostringstream suffix;
             suffix << std::setw(precision) << std::setfill('0') << t;
             std::string fileName = "Velocity_" + suffix.str();
 
-            postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, false);
-            postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, false);
+            postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk);
+            postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui);
         }
     }
     grid.getBackend().syncAll();
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
-    const double MLUPS = static_cast<double>(numIter * numActiveVoxels) / duration.count();
+    const double MLUPS = static_cast<double>(params.numIter * numActiveVoxels) / duration.count();
 
-    const double effNumIter = double(numIter) * double(1 << (depth - 1));
+    const double effNumIter = double(params.numIter) * double(1 << (depth - 1));
     const double effMLUPS = (effNumIter * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
 
 
@@ -276,16 +266,16 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     //Reporting
     auto algoName = [&]() {
         std::string ret;
-        if (collisionFusedStore) {
+        if (params.collisionFusedStore) {
             ret = "CH";
         } else {
             ret = "C-H";
         }
-        if (streamFusedExpl) {
+        if (params.streamFusedExpl) {
             ret += "-SE-O";
-        } else if (streamFusedCoal) {
+        } else if (params.streamFusedCoal) {
             ret += "-SO-E";
-        } else if (streamFuseAll) {
+        } else if (params.streamFuseAll) {
             ret += "-SEO";
         } else {
             ret += "-S-E-O";
@@ -304,7 +294,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     };
 
     auto reportSuffix = [&]() {
-        std::string ret = "P" + std::to_string(problemID) + "_";
+        std::string ret = "P" + std::to_string(params.problemId) + "_";
         ret += algoName();
         ret += "_" + typeName();
 
@@ -320,10 +310,10 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("DataType", typeName());
 
     //problem
-    report.addMember("ProblemID", problemID);
-    report.addMember("problemType", problemType);
+    report.addMember("ProblemID", params.problemId);
+    report.addMember("problemType", params.problemType);
     report.addMember("omega", omega);
-    report.addMember("Re", Re);
+    report.addMember("Re", params.Re);
 #ifdef BGK
     report.addMember("Collision", std::string("BGK"));
 #endif
@@ -333,17 +323,17 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
 
     //algorithm
-    report.addMember("fineInitStore", fineInitStore);
-    report.addMember("streamFusedExpl", streamFusedExpl);
-    report.addMember("streamFusedCoal", streamFusedCoal);
-    report.addMember("streamFuseAll", streamFuseAll);
-    report.addMember("collisionFusedStore", collisionFusedStore);
+    report.addMember("fineInitStore", params.fineInitStore);
+    report.addMember("streamFusedExpl", params.streamFusedExpl);
+    report.addMember("streamFusedCoal", params.streamFusedCoal);
+    report.addMember("streamFuseAll", params.streamFuseAll);
+    report.addMember("collisionFusedStore", params.collisionFusedStore);
     report.addMember("Algorithm", algoName());
 
     //perf
     report.addMember("Time (microsecond)", duration.count());
     report.addMember("MLUPS", MLUPS);
-    report.addMember("NumIter", numIter);
+    report.addMember("NumIter", params.numIter);
     report.addMember("NumVoxels", numActiveVoxels);
     report.addMember("EMLUPS", effMLUPS);
     report.addMember("ENumIter", effNumIter);
@@ -355,7 +345,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     //post process
     int                precision = 4;
     std::ostringstream suffix;
-    suffix << std::setw(precision) << std::setfill('0') << numIter;
+    suffix << std::setw(precision) << std::setfill('0') << params.numIter;
     std::string fileName = "Velocity_" + suffix.str();
     postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, false);
     postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, false);
