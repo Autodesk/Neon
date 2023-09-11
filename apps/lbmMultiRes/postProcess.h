@@ -5,14 +5,17 @@
 
 #include "verify.h"
 
+#include "polyscope/volume_mesh.h"
+
 template <typename T, int Q>
 void postProcess(Neon::domain::mGrid&                        grid,
                  const int                                   numLevels,
                  const Neon::domain::mGrid::Field<T>&        fpop,
                  const Neon::domain::mGrid::Field<CellType>& cellType,
-                 const int                                   iteration,
                  Neon::domain::mGrid::Field<T>&              vel,
                  Neon::domain::mGrid::Field<T>&              rho,
+                 const Neon::int8_3d                         slice,
+                 std::string                                 fileName,
                  bool                                        outputFile)
 {
     grid.getBackend().syncAll();
@@ -81,15 +84,179 @@ void postProcess(Neon::domain::mGrid&                        grid,
     //rho.updateHostData();
 
     if (outputFile) {
-        int                precision = 4;
-        std::ostringstream suffix;
-        suffix << std::setw(precision) << std::setfill('0') << iteration;
-
-        vel.ioToVtk("Velocity_" + suffix.str(), true, true, true, true, {1, 1, 1});
+        vel.ioToVtk(fileName, true, true, true, true, slice);
         //rho.ioToVtk("Density_" + suffix.str());
     }
 }
 
+
+template <typename T>
+void initPolyscope(Neon::domain::mGrid&                                      grid,
+                   std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>>& psDrawable,
+                   const Neon::int8_3d                                       slice)
+{
+    polyscope::init();
+
+    //polyscope register points
+    std::vector<std::array<int, 8>> psHex;
+    std::vector<Neon::float_3d>     psHexVert;
+    psDrawable.clear();
+
+    const bool filterOverlaps = true;
+
+    //collect indices to draw
+    Neon::SetIdx devID(0);
+    for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
+        const int refFactor = grid.getDescriptor().getRefFactor(l);
+        const int voxelSpacing = grid.getDescriptor().getSpacing(l - 1);
+
+        constexpr double      tiny = 1e-7;
+        const Neon::double_3d voxelSize(1.0 / grid.getDimension(l).x, 1.0 / grid.getDimension(l).y, 1.0 / grid.getDimension(l).z);
+
+        grid(l).helpGetPartitioner1D().forEachSeq(devID, [&](const uint32_t blockIdx, const Neon::int32_3d memBlockOrigin, auto /*byPartition*/) {
+            Neon::index_3d blockOrigin = memBlockOrigin;
+            blockOrigin.x *= Neon::domain::details::mGrid::kMemBlockSizeX * voxelSpacing;
+            blockOrigin.y *= Neon::domain::details::mGrid::kMemBlockSizeY * voxelSpacing;
+            blockOrigin.z *= Neon::domain::details::mGrid::kMemBlockSizeZ * voxelSpacing;
+
+            for (uint32_t k = 0; k < Neon::domain::details::mGrid::kNumUserBlockPerMemBlockZ; ++k) {
+                for (uint32_t j = 0; j < Neon::domain::details::mGrid::kNumUserBlockPerMemBlockY; ++j) {
+                    for (uint32_t i = 0; i < Neon::domain::details::mGrid::kNumUserBlockPerMemBlockX; ++i) {
+
+                        const Neon::index_3d userBlockOrigin(i * Neon::domain::details::mGrid::kUserBlockSizeX * voxelSpacing + blockOrigin.x,
+                                                             j * Neon::domain::details::mGrid::kUserBlockSizeY * voxelSpacing + blockOrigin.y,
+                                                             k * Neon::domain::details::mGrid::kUserBlockSizeZ * voxelSpacing + blockOrigin.z);
+
+                        for (int32_t z = 0; z < refFactor; z++) {
+                            for (int32_t y = 0; y < refFactor; y++) {
+                                for (int32_t x = 0; x < refFactor; x++) {
+
+                                    const Neon::index_3d voxelGlobalID(x * voxelSpacing + userBlockOrigin.x,
+                                                                       y * voxelSpacing + userBlockOrigin.y,
+                                                                       z * voxelSpacing + userBlockOrigin.z);
+
+                                    if (grid(l).isInsideDomain(voxelGlobalID)) {
+
+                                        bool draw = true;
+                                        if (filterOverlaps && l != 0) {
+                                            draw = !(grid(l - 1).isInsideDomain(voxelGlobalID));
+                                        }
+
+                                        const Neon::double_3d location(double(voxelGlobalID.x) / double(grid.getDimension(0).x),
+                                                                       double(voxelGlobalID.y) / double(grid.getDimension(0).y),
+                                                                       double(voxelGlobalID.z) / double(grid.getDimension(0).z));
+
+                                        if (draw && (slice.x == 1 || slice.y == 1 || slice.z == 1)) {
+                                            draw = false;
+                                            for (int s = 0; s < 3 && !draw; ++s) {
+                                                if (slice.v[s] == 1 && location.v[s] - tiny <= 0.5 && location.v[s] + voxelSize.v[s] >= 0.5 - tiny) {
+                                                    draw = true;
+                                                }
+                                            }
+                                        }
+
+
+                                        if (draw) {
+
+                                            Neon::domain::mGrid::Idx idx(blockIdx, int8_t(i * Neon::domain::details::mGrid::kUserBlockSizeX + x),
+                                                                         int8_t(j * Neon::domain::details::mGrid::kUserBlockSizeY + y),
+                                                                         int8_t(k * Neon::domain::details::mGrid::kUserBlockSizeZ + z));
+
+                                            psDrawable.push_back({idx, int8_t(l)});
+
+                                            std::array<int, 8> hex;
+
+                                            const Neon::float_3d id(voxelGlobalID.x, voxelGlobalID.y, voxelGlobalID.z);
+
+                                            //x,y,z
+                                            hex[0] = psHexVert.size();
+                                            psHexVert.push_back({id.x, id.y, id.z});
+
+                                            //+x,y,z
+                                            hex[1] = psHexVert.size();
+                                            psHexVert.push_back({id.x + voxelSpacing, id.y, id.z});
+
+
+                                            //+x,y,+z
+                                            hex[2] = psHexVert.size();
+                                            psHexVert.push_back({id.x + voxelSpacing, id.y, id.z + voxelSpacing});
+
+
+                                            //x,y,+z
+                                            hex[3] = psHexVert.size();
+                                            psHexVert.push_back({id.x, id.y, id.z + voxelSpacing});
+
+
+                                            //x,+y,z
+                                            hex[4] = psHexVert.size();
+                                            psHexVert.push_back({id.x, id.y + voxelSpacing, id.z});
+
+
+                                            //+x,+y,z
+                                            hex[5] = psHexVert.size();
+                                            psHexVert.push_back({id.x + voxelSpacing, id.y + voxelSpacing, id.z});
+
+
+                                            //+x,+y,+z
+                                            hex[6] = psHexVert.size();
+                                            psHexVert.push_back({id.x + voxelSpacing, id.y + voxelSpacing, id.z + voxelSpacing});
+
+
+                                            //x,+y,+z
+                                            hex[7] = psHexVert.size();
+                                            psHexVert.push_back({id.x, id.y + voxelSpacing, id.z + voxelSpacing});
+
+
+                                            psHex.push_back(hex);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    auto psMesh = polyscope::registerHexMesh("LBM", psHexVert, psHex);
+    //psMesh->setEdgeWidth(1.0);
+    polyscope::options::screenshotExtension = ".png";
+}
+
+template <typename T>
+void postProcessPolyscope(const std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>>& psDrawable,
+                          const Neon::domain::mGrid::Field<T>&                            vel,
+                          std::vector<T>&                                                 psColor,
+                          std::string                                                     screenshotName,
+                          bool                                                            show)
+{
+    if (psColor.empty()) {
+        psColor.resize(psDrawable.size());
+    }
+    Neon::SetIdx devID(0);
+    for (uint32_t t = 0; t < psDrawable.size(); ++t) {
+        const auto id = psDrawable[t].first;
+        int        level = psDrawable[t].second;
+
+        T c = 0;
+        for (int d = 0; d < 3; ++d) {
+            T v = vel(level).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(id, d);
+            c += v * v;
+        }
+        psColor[t] = std::sqrt(c);
+    }
+
+    auto colorQu = polyscope::getVolumeMesh("LBM")->addCellScalarQuantity("Velocity", psColor);
+    colorQu->setEnabled(true);
+    colorQu->setColorMap("jet");
+
+    polyscope::screenshot(screenshotName + ".png");
+
+    if (show) {
+        polyscope::show();
+    }
+}
 
 template <typename T>
 void verifyLidDrivenCavity(Neon::domain::mGrid&           grid,

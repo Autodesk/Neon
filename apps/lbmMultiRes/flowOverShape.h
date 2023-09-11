@@ -127,7 +127,7 @@ void flowOverJet(const int           problemID,
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
-    const int scale = 16;
+    const int scale = 112;
 
     Neon::index_3d gridDim(19 * scale, 8 * scale, 8 * scale);
 

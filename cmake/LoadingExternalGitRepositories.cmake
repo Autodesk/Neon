@@ -36,6 +36,17 @@ FetchContent_GetProperties(glm)
 	add_subdirectory(${glm_SOURCE_DIR})
 endif()
 
+# polyscope
+FetchContent_GetProperties(polyscope)
+if (NOT polyscope_POPULATED)
+	message(STATUS "Fetching polyscope...")
+	FetchContent_Declare(polyscope
+		GIT_REPOSITORY https://github.com/Ahdhn/polyscope.git
+		GIT_TAG        834b9c6c1a2675ccefd254d526f2dac3e3f831c6
+	)
+	FetchContent_MakeAvailable(polyscope)
+endif()
+
 if (${BUILD_NEON_TESTING})
 	# GoogleTest
 	FetchContent_GetProperties(googletest)

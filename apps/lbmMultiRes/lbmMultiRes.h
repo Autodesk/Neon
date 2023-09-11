@@ -233,7 +233,16 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     skl.sequence(containers, "MultiResLBM");
     skl.ioToDot("MultiResLBM", "", true);
 
+    const Neon::int8_3d slice(-1, -1, 1);
+
+    std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>> psDrawable;
+    std::vector<T>                                           psColor;
+
+    initPolyscope<T>(grid, psDrawable, slice);
+
+
     //execution
+    NEON_INFO("numActiveVoxels: {}", numActiveVoxels);
     auto start = std::chrono::high_resolution_clock::now();
     for (int t = 0; t < numIter; ++t) {
         if (t % 100 == 0) {
@@ -241,7 +250,13 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
         }
         skl.run();
         if (!benchmark && t % freq == 0) {
-            postProcess<T, Q>(grid, depth, fout, cellType, t, vel, rho, true);
+            int                precision = 4;
+            std::ostringstream suffix;
+            suffix << std::setw(precision) << std::setfill('0') << t;
+            std::string fileName = "Velocity_" + suffix.str();
+
+            postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, false);
+            postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, false);
         }
     }
     grid.getBackend().syncAll();
@@ -338,5 +353,10 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.write("MultiResLBM_" + reportSuffix(), true);
 
     //post process
-    postProcess<T, Q>(grid, depth, fout, cellType, numIter, vel, rho, !benchmark);
+    int                precision = 4;
+    std::ostringstream suffix;
+    suffix << std::setw(precision) << std::setfill('0') << numIter;
+    std::string fileName = "Velocity_" + suffix.str();
+    postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, false);
+    postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, false);
 }
