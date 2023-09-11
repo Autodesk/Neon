@@ -191,7 +191,6 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 
 template <typename T, int Q>
 void runNonUniformLBM(Neon::domain::mGrid&                        grid,
-                      const uint32_t                              numActiveVoxels,
                       const Params&                               params,
                       const T                                     omega,
                       const Neon::domain::mGrid::Field<CellType>& cellType,
@@ -203,6 +202,8 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 {
     const int  depth = grid.getDescriptor().getDepth();
     const auto gridDim = grid.getDimension();
+
+    const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
 
     //skeleton
     std::vector<Neon::set::Container> containers;
@@ -294,7 +295,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     };
 
     auto reportSuffix = [&]() {
-        std::string ret = "P" + std::to_string(params.problemId) + "_";
+        std::string ret = "P" + std::to_string(params.scale) + "_";
         ret += algoName();
         ret += "_" + typeName();
 
@@ -310,7 +311,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("DataType", typeName());
 
     //problem
-    report.addMember("ProblemID", params.problemId);
+    report.addMember("ProblemScale", params.scale);
     report.addMember("problemType", params.problemType);
     report.addMember("omega", omega);
     report.addMember("Re", params.Re);

@@ -119,7 +119,7 @@ void lidDrivenCavity(const Neon::Backend backend,
     levelSDF[3] = -1.0;
 
 
-    if (params.problemId == 0) {
+    if (params.scale == 0) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(48, 48, 48);
@@ -127,7 +127,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[1] = -8.0 / 24.0;
         levelSDF[2] = -16.0 / 24.0;
         levelSDF[3] = -1.0;
-    } else if (params.problemId == 1) {
+    } else if (params.scale == 1) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(160, 160, 160);
@@ -135,7 +135,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[1] = -16.0 / 80.0;
         levelSDF[2] = -32.0 / 80.0;
         levelSDF[3] = -1.0;
-    } else if (params.problemId == 2) {
+    } else if (params.scale == 2) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(240, 240, 240);
@@ -143,7 +143,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[1] = -24.0 / 120.0;
         levelSDF[2] = -80.0 / 120.0;
         levelSDF[3] = -1.0;
-    } else if (params.problemId == 3) {
+    } else if (params.scale == 3) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(320, 320, 320);
@@ -151,7 +151,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[1] = -32.0 / 160.0;
         levelSDF[2] = -64.0 / 160.0;
         levelSDF[3] = -1.0;
-    } else if (params.problemId == 4) {
+    } else if (params.scale == 4) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(480, 480, 480);
@@ -159,7 +159,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[1] = -48.0 / 240.0;
         levelSDF[2] = -96.0 / 240.0;
         levelSDF[3] = -1.0;
-    } else if (params.problemId == 5) {
+    } else if (params.scale == 5) {
         depth = 3;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(512, 512, 512);
@@ -167,7 +167,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[1] = -64.0 / 256.0;
         levelSDF[2] = -112.0 / 256.0;
         levelSDF[3] = -1.0;
-    } else if (params.problemId == 6) {
+    } else if (params.scale == 6) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(160, 160, 160);
@@ -176,7 +176,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[2] = -64.0 / 160.0;
         levelSDF[3] = -128.0 / 160.0;
         levelSDF[4] = -1.0;
-    } else if (params.problemId == 7) {
+    } else if (params.scale == 7) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(240, 240, 240);
@@ -185,7 +185,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[2] = -80.0 / 120.0;
         levelSDF[3] = -112.0 / 120.0;
         levelSDF[4] = -1.0;
-    } else if (params.problemId == 8) {
+    } else if (params.scale == 8) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(320, 320, 320);
@@ -194,7 +194,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[2] = -64.0 / 160.0;
         levelSDF[3] = -112.0 / 160.0;
         levelSDF[4] = -1.0;
-    } else if (params.problemId == 9) {
+    } else if (params.scale == 9) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(480, 480, 480);
@@ -203,7 +203,7 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[2] = -96.0 / 240.0;
         levelSDF[3] = -160.0 / 240.0;
         levelSDF[4] = -1.0;
-    } /*else if (params.problemId == 10) {
+    } /*else if (params.scale == 10) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(512, 512, 512);
@@ -259,11 +259,9 @@ void lidDrivenCavity(const Neon::Backend backend,
     auto rho = grid.newField<T>("rho", 1, 0);
 
     //init fields
-    const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
     initLidDrivenCavity<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, ulid);
 
     runNonUniformLBM<T, Q>(grid,
-                           numActiveVoxels,
                            params,
                            omega,
                            cellType,

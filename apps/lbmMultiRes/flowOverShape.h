@@ -118,12 +118,10 @@ void flowOverJet(const Neon::Backend backend,
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
-    const int scale = 112;
+    Neon::index_3d gridDim(19 * params.scale, 8 * params.scale, 8 * params.scale);
 
-    Neon::index_3d gridDim(19 * scale, 8 * scale, 8 * scale);
-
-    Neon::index_3d jetBoxDim(2 * scale, 2 * scale, 2 * scale);
-    Neon::index_3d jetBoxPosition(3 * scale, 3 * scale, 3 * scale);
+    Neon::index_3d jetBoxDim(2 * params.scale, 2 * params.scale, 2 * params.scale);
+    Neon::index_3d jetBoxPosition(3 * params.scale, 3 * params.scale, 3 * params.scale);
 
     int depth = 3;
 
@@ -132,14 +130,14 @@ void flowOverJet(const Neon::Backend backend,
     Neon::domain::mGrid grid(
         backend, gridDim,
         {[&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 2 * scale && idx.x < 7 * scale &&
-                    idx.y >= 3 * scale && idx.y < 5 * scale &&
-                    idx.z >= 3 * scale && idx.z < 5 * scale;
+             return idx.x >= 2 * params.scale && idx.x < 7 * params.scale &&
+                    idx.y >= 3 * params.scale && idx.y < 5 * params.scale &&
+                    idx.z >= 3 * params.scale && idx.z < 5 * params.scale;
          },
          [&](const Neon::index_3d idx) -> bool {
-             return idx.x >= scale && idx.x < 11 * scale &&
-                    idx.y >= 2 * scale && idx.y < 6 * scale &&
-                    idx.z >= 2 * scale && idx.z < 6 * scale;
+             return idx.x >= params.scale && idx.x < 11 * params.scale &&
+                    idx.y >= 2 * params.scale && idx.y < 6 * params.scale &&
+                    idx.z >= 2 * params.scale && idx.z < 6 * params.scale;
          },
          [&](const Neon::index_3d idx) -> bool {
              return true;
@@ -168,7 +166,6 @@ void flowOverJet(const Neon::Backend backend,
     auto rho = grid.newField<T>("rho", 1, 0);
 
     //init fields
-    const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
     initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, [=] NEON_CUDA_HOST_DEVICE(Neon::index_3d idx) {
         idx.x -= jetBoxPosition.x;
         idx.y -= jetBoxPosition.y;
@@ -185,7 +182,6 @@ void flowOverJet(const Neon::Backend backend,
     //cellType.ioToVtk("cellType", true, true, true, true);
 
     runNonUniformLBM<T, Q>(grid,
-                           numActiveVoxels,
                            params,
                            omega,
                            cellType,
@@ -202,11 +198,10 @@ void flowOverSphere(const Neon::Backend backend,
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
-    int scale = 2;
 
-    Neon::index_3d gridDim(136 * scale, 96 * scale, 136 * scale);
+    Neon::index_3d gridDim(136 * params.scale, 96 * params.scale, 136 * params.scale);
 
-    Neon::index_4d sphere(52 * scale, 52 * scale, 68 * scale, 8 * scale);
+    Neon::index_4d sphere(52 * params.scale, 52 * params.scale, 68 * params.scale, 8 * params.scale);
 
     int depth = 3;
 
@@ -215,10 +210,10 @@ void flowOverSphere(const Neon::Backend backend,
     Neon::domain::mGrid grid(
         backend, gridDim,
         {[&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 40 * scale && idx.x < 96 * scale && idx.y >= 40 * scale && idx.y < 64 * scale && idx.z >= 40 * scale && idx.z < 96 * scale;
+             return idx.x >= 40 * params.scale && idx.x < 96 * params.scale && idx.y >= 40 * params.scale && idx.y < 64 * params.scale && idx.z >= 40 * params.scale && idx.z < 96 * params.scale;
          },
          [&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 24 * scale && idx.x < 112 * scale && idx.y >= 24 * scale && idx.y < 72 * scale && idx.z >= 24 * scale && idx.z < 112 * scale;
+             return idx.x >= 24 * params.scale && idx.x < 112 * params.scale && idx.y >= 24 * params.scale && idx.y < 72 * params.scale && idx.z >= 24 * params.scale && idx.z < 112 * params.scale;
          },
          [&](const Neon::index_3d idx) -> bool {
              return true;
@@ -247,7 +242,6 @@ void flowOverSphere(const Neon::Backend backend,
     auto rho = grid.newField<T>("rho", 1, 0);
 
     //init fields
-    const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
     initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, [sphere] NEON_CUDA_HOST_DEVICE(const Neon::index_3d idx) {
         const T dx = sphere.x - idx.x;
         const T dy = sphere.y - idx.y;
@@ -264,7 +258,6 @@ void flowOverSphere(const Neon::Backend backend,
     //cellType.ioToVtk("cellType", true, true, true, true);
 
     runNonUniformLBM<T, Q>(grid,
-                           numActiveVoxels,
                            params,
                            omega,
                            cellType,

@@ -25,12 +25,12 @@ struct Params
     bool        streamFusedCoal = false;
     bool        streamFuseAll = false;
     bool        collisionFusedStore = false;
-    int         problemId = 0;
     int         sliceX = -1;
     int         sliceY = -1;
     int         sliceZ = 1;
     bool        vtk = false;
     bool        gui = false;
+    int         scale = 2;
     std::string dataType = "float";
 };
 
@@ -53,9 +53,9 @@ int main(int argc, char** argv)
              clipp::option("--deviceId") & clipp::integers("deviceId", params.deviceId) % "Device id",
              clipp::option("--numIter") & clipp::integer("numIter", params.numIter) % "LBM number of iterations",
              clipp::option("--problemType") & clipp::value("problemType", params.problemType) % "Problem type ('lid' for lid-driven cavity, 'sphere' for flow over sphere, or 'jet' for flow over jet fighter)",
-             clipp::option("--problemId") & clipp::integer("problemId", params.problemId) % "Problem ID (0-9 for lid)",
              clipp::option("--dataType") & clipp::value("dataType", params.dataType) % "Data type (float or double)",
              clipp::option("--re") & clipp::integers("Re", params.Re) % "Reynolds number",
+             clipp::option("--scale") & clipp::integers("scale", params.scale) % "Scale of the problem for parametrized problems. 0-9 for lid. jet is up to 112. Sphere is 2 (or maybe more)",
 
              clipp::option("--sliceX") & clipp::integer("sliceX", params.sliceX) % "Slice along X for output images/VTK",
              clipp::option("--sliceY") & clipp::integer("sliceY", params.sliceY) % "Slice along Y for output images/VTK",
@@ -68,7 +68,6 @@ int main(int argc, char** argv)
              clipp::option("--gui").set(params.gui, true) % "Show Polyscope gui. Active only with if 'visual' is true",
 
              clipp::option("--freq") & clipp::integers("freq", params.freq) % "Output frequency (only works with visual mode)",
-
 
              ((clipp::option("--storeFine").set(params.fineInitStore, true) % "Initiate the Store operation from the fine level") |
               (clipp::option("--storeCoarse").set(params.fineInitStore, false) % "Initiate the Store operation from the coarse level")
