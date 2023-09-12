@@ -246,7 +246,7 @@ void flowOverSphere(const Neon::Backend backend,
     //LBM problem
     const T uin = 0.04;
     //const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
-    const T               clength = T(sphere.w / (1 << depth));
+    const T               clength = T(sphere.w / (1 << (depth - 1)));
     const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
@@ -311,8 +311,8 @@ void flowOverMesh(const Neon::Backend backend,
     igl::read_triangle_mesh(params.meshFile, vertices, faces);
 
     //remove unreferenced vertices because they may affect the scaling
-    Eigen::VectorXi _1, I2;
-    igl::remove_unreferenced(Eigen::MatrixXd(vertices), Eigen::MatrixXi(faces), vertices, faces, _1, I2);
+    Eigen::VectorXi _1, _2;
+    igl::remove_unreferenced(Eigen::MatrixXd(vertices), Eigen::MatrixXi(faces), vertices, faces, _1, _2);
 
     //mesh bounding box using the mesh coordinates
     Eigen::RowVector3d bbMin, bbMax;
