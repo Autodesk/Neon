@@ -5,6 +5,13 @@
 
 #include "init.h"
 
+#include "igl/AABB.h"
+#include "igl/bounding_box.h"
+#include "igl/read_triangle_mesh.h"
+#include "igl/remove_unreferenced.h"
+#include "igl/signed_distance.h"
+#include "igl/writeOBJ.h"
+
 template <typename T, int Q, typename sdfT>
 void initFlowOverShape(Neon::domain::mGrid&                  grid,
                        Neon::domain::mGrid::Field<float>&    sumStore,
@@ -34,8 +41,17 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                     auto&   ss = sumStore.load(loader, level, Neon::MultiResCompute::MAP);
                     const T usqr = (3.0 / 2.0) * (inletVelocity.x * inletVelocity.x + inletVelocity.y * inletVelocity.y + inletVelocity.z * inletVelocity.z);
 
+
+                    Neon::domain::mGrid::Partition<int8_t> sdf;
+                    if constexpr (std::is_same_v<sdfT, Neon::domain::mGrid::Field<int>>) {
+                        sdf = shapeSDF.load(loader, level, Neon::MultiResCompute::MAP);
+                    }
+
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                         //velocity and density
+                        (void)sdf;
+                        (void)shapeSDF;
+
                         u(cell, 0) = 0;
                         u(cell, 1) = 0;
                         u(cell, 2) = 0;
@@ -55,10 +71,19 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                                 type(cell, 0) = CellType::inlet;
                             }
 
-                            if (shapeSDF(idx)) {
-                                type(cell, 0) = CellType::bounceBack;
+                            if constexpr (std::is_same_v<sdfT, Neon::domain::mGrid::Field<int8_t>>) {
+                                if (sdf(cell) == 1) {
+                                    type(cell) = CellType::bounceBack;
+                                }
+                            } else {
+                                if (shapeSDF(idx)) {
+                                    type(cell) = CellType::bounceBack;
+                                }
                             }
 
+                            if (idx.x == gridDim.x - (1 << level)) {
+                                type(cell, 0) = CellType::outlet;
+                            }
 
                             //the cell classification
                             if (idx.y == 0 || idx.y == gridDim.y - (1 << level) ||
@@ -77,19 +102,6 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
 
                                 if (type(cell, 0) == CellType::inlet) {
                                     pop_init_val = 0;
-
-                                    //const T usqr = (3.0 / 2.0) * (inletVelocity.x * inletVelocity.x + inletVelocity.y * inletVelocity.y + inletVelocity.z * inletVelocity.z);
-                                    //T       cu = 0;
-                                    //for (int d = 0; d < 3; ++d) {
-                                    //    cu += latticeVelocity[q][d] * inletVelocity.v[d];
-                                    //}
-                                    //cu *= 3.0;
-                                    //
-                                    ////equilibrium
-                                    //T rhooo = T(1.0);
-                                    //T feq = rhooo * latticeWeights[q] * (1. + cu + 0.5 * cu * cu - usqr);
-                                    //
-                                    //pop_init_val = feq;
 
                                     for (int d = 0; d < 3; ++d) {
                                         pop_init_val += latticeVelocity[q][d] * inletVelocity.v[d];
@@ -176,6 +188,16 @@ void flowOverJet(const Neon::Backend backend,
 
         idx.x = (jetBoxDim.x / 2) - (idx.x - (jetBoxDim.x / 2));
         return sdfJetfighter(glm::ivec3(idx.z, idx.y, idx.x), glm::ivec3(jetBoxDim.x, jetBoxDim.y, jetBoxDim.z)) <= 0;
+
+        //Neon::index_4d sphere(jetBoxPosition.x + jetBoxDim.x / 2, jetBoxPosition.y + jetBoxDim.y / 2, jetBoxPosition.z + jetBoxDim.z / 2, jetBoxDim.x / 4);
+        //const T dx = sphere.x - idx.x;
+        //const T dy = sphere.y - idx.y;
+        //const T dz = sphere.z - idx.z;
+        //if ((dx * dx + dy * dy + dz * dz) < sphere.w * sphere.w) {
+        //    return true;
+        //} else {
+        //    return false;
+        //}
     });
 
     //cellType.updateHostData();
@@ -222,8 +244,9 @@ void flowOverSphere(const Neon::Backend backend,
 
 
     //LBM problem
-    const T               uin = 0.04;
-    const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
+    const T uin = 0.04;
+    //const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
+    const T               clength = T(sphere.w / (1 << depth));
     const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
@@ -256,6 +279,130 @@ void flowOverSphere(const Neon::Backend backend,
 
     //cellType.updateHostData();
     //cellType.ioToVtk("cellType", true, true, true, true);
+
+    runNonUniformLBM<T, Q>(grid,
+                           params,
+                           omega,
+                           cellType,
+                           storeSum,
+                           fin,
+                           fout,
+                           vel,
+                           rho);
+}
+
+
+template <typename T, int Q>
+void flowOverMesh(const Neon::Backend backend,
+                  const Params&       params)
+{
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+    //define the gird and the box that will encompass the mesh
+    Neon::index_3d gridDim(19 * params.scale, 8 * params.scale, 8 * params.scale);
+
+    Eigen::RowVector3d meshBoxDim(2 * params.scale, 2 * params.scale, 2 * params.scale);
+    Eigen::RowVector3d meshBoxPosition(3 * params.scale, 3 * params.scale, 3 * params.scale);
+
+
+    //read the mesh and scale it such that it fits inside meshBox
+    Eigen::MatrixXi faces;
+    Eigen::MatrixXd vertices;
+    igl::read_triangle_mesh(params.meshFile, vertices, faces);
+
+    //remove unreferenced vertices because they may affect the scaling
+    Eigen::VectorXi _1, I2;
+    igl::remove_unreferenced(Eigen::MatrixXd(vertices), Eigen::MatrixXi(faces), vertices, faces, _1, I2);
+
+    //mesh bounding box using the mesh coordinates
+    Eigen::RowVector3d bbMin, bbMax;
+    igl::bounding_box(vertices, bbMin, bbMax);
+
+    //translate and scale the mesh
+    vertices.rowwise() -= bbMin;
+    vertices.rowwise() += meshBoxPosition;
+    double scaling_factor = meshBoxDim.maxCoeff() / (bbMax - bbMin).maxCoeff();
+    vertices *= scaling_factor;
+
+    igl::writeOBJ("scaled.obj", vertices, faces);
+
+    //get the mesh ready for query (inside/outside) using libigl winding number
+    igl::AABB<Eigen::MatrixXd, 3> tree;
+    tree.init(vertices, faces);
+    igl::FastWindingNumberBVH fwn_bvh;
+    igl::fast_winding_number(vertices, faces, 2, fwn_bvh);
+
+    //define the grid
+    int                            depth = 3;
+    const Neon::mGridDescriptor<1> descriptor(depth);
+
+    Neon::domain::mGrid grid(
+        backend, gridDim,
+        {[&](const Neon::index_3d idx) -> bool {
+             return idx.x >= 2 * params.scale && idx.x < 7 * params.scale &&
+                    idx.y >= 3 * params.scale && idx.y < 5 * params.scale &&
+                    idx.z >= 3 * params.scale && idx.z < 5 * params.scale;
+         },
+         [&](const Neon::index_3d idx) -> bool {
+             return idx.x >= params.scale && idx.x < 11 * params.scale &&
+                    idx.y >= 2 * params.scale && idx.y < 6 * params.scale &&
+                    idx.z >= 2 * params.scale && idx.z < 6 * params.scale;
+         },
+         [&](const Neon::index_3d idx) -> bool {
+             return true;
+         }},
+        Neon::domain::Stencil::s19_t(false), descriptor);
+
+
+    //LBM problem
+    const T               uin = 0.04;
+    const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
+    const T               visclb = uin * clength / static_cast<T>(params.Re);
+    const T               omega = 1.0 / (3. * visclb + 0.5);
+    const Neon::double_3d inletVelocity(uin, 0., 0.);
+
+    //auto test = grid.newField<T>("test", 1, 0);
+    //test.ioToVtk("Test", true, true, true, true, {-1, -1, 1});
+    //exit(0);
+
+    //allocate fields
+    auto fin = grid.newField<T>("fin", Q, 0);
+    auto fout = grid.newField<T>("fout", Q, 0);
+    auto storeSum = grid.newField<float>("storeSum", Q, 0);
+    auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
+
+    auto vel = grid.newField<T>("vel", 3, 0);
+    auto rho = grid.newField<T>("rho", 1, 0);
+
+    //a field with 1 if the voxel is inside the shape
+    auto inside = grid.newField<int8_t>("inside", 1, 0);
+
+    NEON_INFO("Start populating inside");
+    for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
+        grid.newContainer<Neon::Execution::host>("isInside", l, [&](Neon::set::Loader& loader) {
+                auto& in = inside.load(loader, l, Neon::MultiResCompute::MAP);
+
+                return [&](const typename Neon::domain::mGrid::Idx& cell) mutable {
+                    if (!in.hasChildren(cell)) {
+                        Neon::index_3d     voxelGlobalLocation = in.getGlobalIndex(cell);
+                        Eigen::RowVector3d point(voxelGlobalLocation.x, voxelGlobalLocation.y, voxelGlobalLocation.z);
+                        in(cell, 0) = int8_t(igl::signed_distance_fast_winding_number(point, vertices, faces, tree, fwn_bvh) <= 0);
+                    }
+                };
+            })
+            .run(0);
+    }
+    NEON_INFO("Done populating inside");
+
+    //inside.ioToVtk("inside", true, true, true, true);
+    //exit(0);
+
+    //init fields
+    initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, inside);
+
+    //cellType.updateHostData();
+    //cellType.ioToVtk("cellType", true, true, true, true);
+    //exit(0);
 
     runNonUniformLBM<T, Q>(grid,
                            params,

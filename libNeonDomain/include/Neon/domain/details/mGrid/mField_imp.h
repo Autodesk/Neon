@@ -471,7 +471,7 @@ auto mField<T, C>::ioToVtk(std::string         fileName,
                                                 } else if (op == Op::OutputData) {
                                                     Idx idx(blockIdx, int8_t(i * kUserBlockSizeX + x), int8_t(j * kUserBlockSizeY + y), int8_t(k * kUserBlockSizeZ + z));
                                                     for (int c = 0; c < card; ++c) {
-                                                        file << (*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, c) << "\n";
+                                                        file << float((*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, c)) << "\n";
                                                     }
                                                 }
                                             }

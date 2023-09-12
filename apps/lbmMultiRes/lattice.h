@@ -8,7 +8,8 @@ enum CellType : int
     movingWall = 1,
     bulk = 2,
     inlet = 3,
-    undefined = 4,
+    outlet = 4,
+    undefined = 5,
 };
 
 #ifdef KBC

@@ -50,7 +50,7 @@ class bPartition
      */
     inline NEON_CUDA_HOST_DEVICE auto
     operator()(const Idx& cell,
-               int        card)
+               int        card = 0)
         -> T&;
 
     /**
@@ -58,7 +58,7 @@ class bPartition
      */
     inline NEON_CUDA_HOST_DEVICE auto
     operator()(const Idx& cell,
-               int        card)
+               int        card = 0)
         const -> const T&;
 
     /**

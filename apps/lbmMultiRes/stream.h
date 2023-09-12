@@ -33,7 +33,7 @@ inline Neon::set::Container stream(Neon::domain::mGrid&                        g
                                 auto nghType = type.getNghData(cell, dir, 0);
 
                                 if (nghType.mIsValid) {
-                                    if (nghType.mData == CellType::bulk) {
+                                    if (nghType.mData == CellType::bulk || nghType.mData == CellType::outlet) {
                                         pin(cell, q) = pout.getNghData(cell, dir, q).mData;
                                     } else {
                                         const int8_t opposte_q = latticeOppositeID[q];
@@ -42,51 +42,6 @@ inline Neon::set::Container stream(Neon::domain::mGrid&                        g
                                 }
                             }
                         }
-
-                        /*int      bcNeighbour = -1;
-                        CellType bcNeighbourType = CellType::bulk;
-                        for (int8_t q = 0; q < Q; ++q) {
-                            const Neon::int8_3d dir = getDir(q);
-
-                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
-                            if (!pin.hasChildren(cell, dir)) {
-                                auto nghType = type.getNghData(cell, dir, 0);
-
-                                if (nghType.mIsValid) {
-                                    if (nghType.mData == CellType::inlet) {
-                                        bcNeighbour = q;
-                                        bcNeighbourType = CellType::inlet;
-                                    }
-                                }
-                            }
-                        }
-
-                        //no bc neighbour
-                        if (bcNeighbour == -1) {
-
-                            for (int8_t q = 0; q < Q; ++q) {
-                                const Neon::int8_3d dir = -getDir(q);
-
-                                //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
-                                if (!pin.hasChildren(cell, dir)) {
-                                    auto nghType = type.getNghData(cell, dir, 0);
-
-                                    if (nghType.mIsValid) {
-                                        if (nghType.mData == CellType::bulk) {
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData;
-                                        } else {
-                                            const int8_t opposte_q = latticeOppositeID[q];
-                                            pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            for (int8_t q = 0; q < Q; ++q) {
-                                const Neon::int8_3d dir = getDir(q);
-                                pin(cell, q) = pout.getNghData(cell, bcNeighbour, q).mData;
-                            }
-                        }*/
                     }
                 }
             };
@@ -137,7 +92,7 @@ inline Neon::set::Container streamFusedExplosion(Neon::domain::mGrid&           
                                 if (neighborCell.isActive()) {
                                     auto nghType = type.getNghData(cell, dir, 0);
                                     assert(nghType.mIsValid);
-                                    if (nghType.mData == CellType::bulk) {
+                                    if (nghType.mData == CellType::bulk || nghType.mData == CellType::outlet) {
                                         pin(cell, q) = pout.getNghData(cell, dir, q).mData;
                                     } else {
                                         const int8_t opposte_q = latticeOppositeID[q];
@@ -198,7 +153,7 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
 
                             auto nghType = type.getNghData(cell, dir, 0);
                             if (nghType.mIsValid) {
-                                if (nghType.mData == CellType::bulk) {
+                                if (nghType.mData == CellType::bulk || nghType.mData == CellType::outlet) {
                                     if (!pin.hasChildren(cell, dir)) {
                                         //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                                         pin(cell, q) = pout.getNghData(cell, dir, q).mData;
@@ -265,7 +220,7 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
 
                             auto nghType = type.getNghData(cell, dir, 0);
                             if (nghType.mIsValid) {
-                                if (nghType.mData == CellType::bulk) {
+                                if (nghType.mData == CellType::bulk || nghType.mData == CellType::outlet) {
                                     if (!pin.hasChildren(cell, dir)) {
                                         //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                                         pin(cell, q) = pout.getNghData(cell, dir, q).mData;

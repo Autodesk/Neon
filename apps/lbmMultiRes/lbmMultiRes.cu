@@ -15,6 +15,7 @@ struct Params
 {
     std::string deviceType = "gpu";
     std::string problemType = "lid";
+    std::string meshFile = "";
     int         freq = 100;
     int         Re = 100;
     int         deviceId = 99;
@@ -52,7 +53,8 @@ int main(int argc, char** argv)
             (clipp::option("--deviceType") & clipp::value("deviceType", params.deviceType) % "Type of device (gpu or cpu)",
              clipp::required("--deviceId") & clipp::integers("deviceId", params.deviceId) % "Device id",
              clipp::option("--numIter") & clipp::integer("numIter", params.numIter) % "LBM number of iterations",
-             clipp::option("--problemType") & clipp::value("problemType", params.problemType) % "Problem type ('lid' for lid-driven cavity, 'sphere' for flow over sphere, or 'jet' for flow over jet fighter)",
+             clipp::option("--problemType") & clipp::value("problemType", params.problemType) % "Problem type ('lid' for lid-driven cavity, 'sphere' for flow over sphere, or 'jet' for flow over jet fighter, 'mesh' for flow over mesh)",
+             clipp::option("--meshFile") & clipp::value("meshFile", params.meshFile) % "Path to mesh file for 'mesh' type problem",
              clipp::option("--dataType") & clipp::value("dataType", params.dataType) % "Data type (float or double)",
              clipp::option("--re") & clipp::integers("Re", params.Re) % "Reynolds number",
              clipp::option("--scale") & clipp::integers("scale", params.scale) % "Scale of the problem for parametrized problems. 0-9 for lid. jet is up to 112. Sphere is 2 (or maybe more)",
@@ -93,7 +95,7 @@ int main(int argc, char** argv)
             NEON_THROW(exp);
         }
 
-        if (params.problemType != "lid" && params.problemType != "sphere" && params.problemType != "jet") {
+        if (params.problemType != "lid" && params.problemType != "sphere" && params.problemType != "jet" && params.problemType != "mesh") {
             Neon::NeonException exp("app-lbmMultiRes");
             exp << "Unknown input problem type " << params.problemType;
             NEON_THROW(exp);
@@ -131,6 +133,9 @@ int main(int argc, char** argv)
             if (params.problemType == "jet") {
                 flowOverJet<float, Q>(backend, params);
             }
+            if (params.problemType == "mesh") {
+                flowOverMesh<float, Q>(backend, params);
+            }
         } else if (params.dataType == "double") {
             if (params.problemType == "lid") {
                 lidDrivenCavity<double, Q>(backend, params);
@@ -140,6 +145,9 @@ int main(int argc, char** argv)
             }
             if (params.problemType == "jet") {
                 flowOverJet<double, Q>(backend, params);
+            }
+            if (params.problemType == "mesh") {
+                flowOverMesh<double, Q>(backend, params);
             }
         }
     }

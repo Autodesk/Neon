@@ -27,6 +27,7 @@ endif ()
 
 # glm
 FetchContent_GetProperties(glm)
+	message(STATUS "Fetching glm...")	
 	if (NOT glm_POPULATED)
 	FetchContent_Declare(glm
 		GIT_REPOSITORY https://github.com/g-truc/glm.git
@@ -45,6 +46,18 @@ if (NOT polyscope_POPULATED)
 		GIT_TAG        834b9c6c1a2675ccefd254d526f2dac3e3f831c6
 	)
 	FetchContent_MakeAvailable(polyscope)
+endif()
+
+#libigl
+FetchContent_GetProperties(libigl)
+if (NOT libigl_POPULATED)
+	message(STATUS "Fetching libigl...")	
+	FetchContent_Declare(
+		libigl
+		GIT_REPOSITORY https://github.com/libigl/libigl.git
+		GIT_TAG        main
+	)
+	FetchContent_MakeAvailable(libigl)
 endif()
 
 if (${BUILD_NEON_TESTING})
