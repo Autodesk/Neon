@@ -44,7 +44,7 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
 
 
                     Neon::domain::mGrid::Partition<int8_t> sdf;
-                    if constexpr (std::is_same_v<sdfT, Neon::domain::mGrid::Field<int>>) {
+                    if constexpr (std::is_same_v<sdfT, Neon::domain::mGrid::Field<int8_t>>) {
                         sdf = shapeSDF.load(loader, level, Neon::MultiResCompute::MAP);
                     }
 
@@ -388,6 +388,8 @@ void flowOverMesh(const Neon::Backend backend,
             .run(0);
     }
     grid.getBackend().syncAll();
+
+    inside.updateDeviceData();
 
     //inside.ioToVtk("inside", true, true, true, true);
     //exit(0);
