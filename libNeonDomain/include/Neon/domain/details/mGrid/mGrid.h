@@ -118,7 +118,7 @@ class mGrid
      * @param sharedMem amount of shared memory in bytes for CUDA kernels 
      * @param lambda the lambda function that will do the computation      
     */
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
                       int                level,
                       index_3d           blockSize,
@@ -132,7 +132,7 @@ class mGrid
      * @param level at which the work/kernel will be launched      
      * @param lambda the lambda function that will do the computation      
     */
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
                       int                level,
                       LoadingLambda      lambda) const -> Neon::set::Container;

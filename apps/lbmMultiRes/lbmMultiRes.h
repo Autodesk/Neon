@@ -230,7 +230,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>> psDrawable;
     std::vector<T>                                           psColor;
 
-    initPolyscope<T>(grid, psDrawable, slice);
+    initPolyscope<T>(grid, vel, psDrawable, slice);
 
 
     //execution
