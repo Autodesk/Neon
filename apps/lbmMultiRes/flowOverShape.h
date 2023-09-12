@@ -6,7 +6,8 @@
 #include "init.h"
 
 #include "igl/AABB.h"
-#include "igl/bounding_box.h"
+#include "igl/max.h"
+#include "igl/min.h"
 #include "igl/read_triangle_mesh.h"
 #include "igl/remove_unreferenced.h"
 #include "igl/signed_distance.h"
@@ -302,7 +303,7 @@ void flowOverMesh(const Neon::Backend backend,
     Neon::index_3d gridDim(19 * params.scale, 8 * params.scale, 8 * params.scale);
 
     Eigen::RowVector3d meshBoxDim(2 * params.scale, 2 * params.scale, 2 * params.scale);
-    Eigen::RowVector3d meshBoxPosition(3 * params.scale, 3 * params.scale, 3 * params.scale);
+    Eigen::RowVector3d meshBoxCenter(4 * params.scale, 4 * params.scale, 4 * params.scale);
 
 
     //read the mesh and scale it such that it fits inside meshBox
@@ -315,14 +316,17 @@ void flowOverMesh(const Neon::Backend backend,
     igl::remove_unreferenced(Eigen::MatrixXd(vertices), Eigen::MatrixXi(faces), vertices, faces, _1, _2);
 
     //mesh bounding box using the mesh coordinates
-    Eigen::RowVector3d bbMin, bbMax;
-    igl::bounding_box(vertices, bbMin, bbMax);
+    Eigen::RowVector3d bbMax, bbMin;
+    Eigen::RowVector3i bbMaxI, bbMinI;
+    igl::max(vertices, 1, bbMax, bbMaxI);
+    igl::min(vertices, 1, bbMin, bbMinI);
 
     //translate and scale the mesh
-    vertices.rowwise() -= bbMin;
-    vertices.rowwise() += meshBoxPosition;
+    vertices.rowwise() -= ((bbMin + bbMax) / 2.0);
     double scaling_factor = meshBoxDim.maxCoeff() / (bbMax - bbMin).maxCoeff();
     vertices *= scaling_factor;
+    vertices.rowwise() += meshBoxCenter;
+
 
     igl::writeOBJ("scaled.obj", vertices, faces);
 
@@ -365,6 +369,29 @@ void flowOverMesh(const Neon::Backend backend,
     //test.ioToVtk("Test", true, true, true, true, {-1, -1, 1});
     //exit(0);
 
+    //a field with 1 if the voxel is inside the shape
+    auto inside = grid.newField<int8_t>("inside", 1, 0);
+
+    for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
+        grid.newContainer<Neon::Execution::host>("isInside", l, [&](Neon::set::Loader& loader) {
+                auto& in = inside.load(loader, l, Neon::MultiResCompute::MAP);
+
+                return [&](const typename Neon::domain::mGrid::Idx& cell) mutable {
+                    if (!in.hasChildren(cell)) {
+                        const double       voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
+                        Neon::index_3d     voxelGlobalLocation = in.getGlobalIndex(cell);
+                        Eigen::RowVector3d point(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing);
+                        in(cell, 0) = int8_t(igl::signed_distance_fast_winding_number(point, vertices, faces, tree, fwn_bvh) <= 0);
+                    }
+                };
+            })
+            .run(0);
+    }
+    grid.getBackend().syncAll();
+
+    //inside.ioToVtk("inside", true, true, true, true);
+    //exit(0);
+
     //allocate fields
     auto fin = grid.newField<T>("fin", Q, 0);
     auto fout = grid.newField<T>("fout", Q, 0);
@@ -374,28 +401,6 @@ void flowOverMesh(const Neon::Backend backend,
     auto vel = grid.newField<T>("vel", 3, 0);
     auto rho = grid.newField<T>("rho", 1, 0);
 
-    //a field with 1 if the voxel is inside the shape
-    auto inside = grid.newField<int8_t>("inside", 1, 0);
-
-    NEON_INFO("Start populating inside");
-    for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
-        grid.newContainer<Neon::Execution::host>("isInside", l, [&](Neon::set::Loader& loader) {
-                auto& in = inside.load(loader, l, Neon::MultiResCompute::MAP);
-
-                return [&](const typename Neon::domain::mGrid::Idx& cell) mutable {
-                    if (!in.hasChildren(cell)) {
-                        Neon::index_3d     voxelGlobalLocation = in.getGlobalIndex(cell);
-                        Eigen::RowVector3d point(voxelGlobalLocation.x, voxelGlobalLocation.y, voxelGlobalLocation.z);
-                        in(cell, 0) = int8_t(igl::signed_distance_fast_winding_number(point, vertices, faces, tree, fwn_bvh) <= 0);
-                    }
-                };
-            })
-            .run(0);
-    }
-    NEON_INFO("Done populating inside");
-
-    //inside.ioToVtk("inside", true, true, true, true);
-    //exit(0);
 
     //init fields
     initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, inside);
