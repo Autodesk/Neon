@@ -57,6 +57,14 @@ class mField
                     const int&            cardinality,
                     const int             level) const -> const T&;
 
+    auto operator()(const Idx& idx,
+                    const int& cardinality,
+                    const int  level) -> T&;
+
+
+    auto operator()(const Idx& idx,
+                    const int& cardinality,
+                    const int  level) const -> const T&;
 
     auto getReference(const Neon::index_3d& idx,
                       const int&            cardinality,

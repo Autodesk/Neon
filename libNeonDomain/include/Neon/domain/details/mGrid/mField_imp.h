@@ -198,6 +198,25 @@ auto mField<T, C>::operator()(const Neon::index_3d& idx,
 }
 
 template <typename T, int C>
+auto mField<T, C>::operator()(const Idx& idx,
+                              const int& cardinality,
+                              const int  level) -> T&
+{
+    Neon::SetIdx devID(0);
+    return (*this)(level).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, cardinality);
+}
+
+
+template <typename T, int C>
+auto mField<T, C>::operator()(const Idx& idx,
+                              const int& cardinality,
+                              const int  level) const -> const T&
+{
+    Neon::SetIdx devID(0);
+    return (*this)(level).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, cardinality);
+}
+
+template <typename T, int C>
 auto mField<T, C>::getReference(const Neon::index_3d& idx,
                                 const int&            cardinality,
                                 const int             level) -> T&

@@ -241,7 +241,7 @@ void postProcessPolyscope(const std::vector<std::pair<Neon::domain::mGrid::Idx, 
 
         T c = 0;
         for (int d = 0; d < 3; ++d) {
-            T v = vel(level).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(id, d);
+            T v = vel(id, d, level);
             c += v * v;
         }
         psColor[t] = std::sqrt(c);
