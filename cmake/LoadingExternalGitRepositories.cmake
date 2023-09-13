@@ -54,8 +54,8 @@ if (NOT libigl_POPULATED)
 	message(STATUS "Fetching libigl...")	
 	FetchContent_Declare(
 		libigl
-		GIT_REPOSITORY https://github.com/libigl/libigl.git
-		GIT_TAG        main
+		GIT_REPOSITORY https://github.com/Ahdhn/libigl.git
+		GIT_TAG        master
 	)
 	FetchContent_MakeAvailable(libigl)
 endif()
