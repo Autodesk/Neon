@@ -321,7 +321,7 @@ class Encoder
         -> uint64_t
     {
         uint64_t mortonEncoded = mortonEncode(dim, idx);
-        uint64_t bits = std::ceil(std::log2(dim.newType<uint64_t>().rMax()));
+        uint64_t bits = uint64_t(std::ceil(std::log2(dim.newType<uint64_t>().rMax())));
         return mortonToHilbert3D(mortonEncoded, bits);
     }
 

@@ -139,7 +139,11 @@ auto runFilterCollision(Config&            config,
             NEON_THROW(e);
         }
         testCode << "_kbc";
-        return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, double>(config, report, testCode);
+        using Precision = Precision<Storage, Compute>;
+        using L = D3Q27<Precision>;
+        if constexpr (std::is_same_v<Lattice, L>) {
+           return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, double>(config, report, testCode);
+        }
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }

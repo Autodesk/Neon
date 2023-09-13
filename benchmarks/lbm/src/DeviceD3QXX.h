@@ -326,9 +326,15 @@ struct DeviceD3QXX
 
                 // momentum_flux
                 Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
-                    Neon::ConstexprFor<0, 6, 1>([&](auto i) {
-                        Pi[i] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, i>();
-                    });
+//                    Neon::ConstexprFor<0, 6, 1>([&](auto i) {
+//                        Pi[i] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, i>();
+//                    });
+                    Pi[0] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 0>();
+                    Pi[1] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 1>();
+                    Pi[2] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 2>();
+                    Pi[3] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 3>();
+                    Pi[4] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 4>();
+                    Pi[5] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 5>();
                 });
 
                 // fdecompose_shear

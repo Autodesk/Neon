@@ -60,39 +60,10 @@ struct D3Q27
             /* 26 */ Neon::index_3d(1, -1, -1)};
 
         template <int qIdx, int cIdx>
-        static constexpr inline NEON_CUDA_HOST_DEVICE auto
+        static constexpr inline auto
         getComponentOfDirection() -> int
         {
-            constexpr std::array<const Neon::index_3d, Q> s{
-                /* 00 */ Neon::index_3d(-1, 0, 0),
-                /* 01 */ Neon::index_3d(0, -1, 0),
-                /* 02 */ Neon::index_3d(0, 0, -1),
-                /* 03 */ Neon::index_3d(-1, -1, 0),
-                /* 04 */ Neon::index_3d(-1, 1, 0),
-                /* 05 */ Neon::index_3d(-1, 0, -1),
-                /* 06 */ Neon::index_3d(-1, 0, 1),
-                /* 07 */ Neon::index_3d(0, -1, -1),
-                /* 08 */ Neon::index_3d(0, -1, 1),
-                /* 09 */ Neon::index_3d(-1, -1, -1),
-                /* 00 */ Neon::index_3d(-1, -1, 1),
-                /* 11 */ Neon::index_3d(-1, 1, -1),
-                /* 12 */ Neon::index_3d(-1, 1, 1),
-                /* 13 */ Neon::index_3d(0, 0, 0),
-                /* 14 */ Neon::index_3d(1, 0, 0),
-                /* 15 */ Neon::index_3d(0, 1, 0),
-                /* 16 */ Neon::index_3d(0, 0, 1),
-                /* 17 */ Neon::index_3d(1, 1, 0),
-                /* 18 */ Neon::index_3d(1, -1, 0),
-                /* 19 */ Neon::index_3d(1, 0, 1),
-                /* 20 */ Neon::index_3d(1, 0, -1),
-                /* 21 */ Neon::index_3d(0, 1, 1),
-                /* 22 */ Neon::index_3d(0, 1, -1),
-                /* 23 */ Neon::index_3d(1, 1, 1),
-                /* 24 */ Neon::index_3d(1, 1, -1),
-                /* 25 */ Neon::index_3d(1, -1, 1),
-                /* 26 */ Neon::index_3d(1, -1, -1)};
-
-            return s[qIdx].v[cIdx];
+            return Self::stencil[qIdx].v[cIdx];
         }
 
         static constexpr int center = 13; /** Position of direction {0,0,0} */

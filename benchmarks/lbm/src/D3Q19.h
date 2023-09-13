@@ -32,7 +32,7 @@ struct D3Q19
 
         using Self = D3Q19<Precision>::Registers;
 
-        static constexpr Neon::index_3d stencil[Q]{
+        static constexpr std::array<const Neon::index_3d, Q> stencil{
             /*!  0   */ Neon::index_3d(-1, 0, 0),
             /*!  1   */ Neon::index_3d(0, -1, 0),
             /*!  2   */ Neon::index_3d(0, 0, -1),
@@ -54,31 +54,10 @@ struct D3Q19
             /*!  18   */ Neon::index_3d(0, 1, -1)};
 
         template <int qIdx, int cIdx>
-        NEON_CUDA_HOST_DEVICE static constexpr auto
+         static constexpr inline auto
         getComponentOfDirection() -> int
         {
-            constexpr Neon::index_3d s[Q]{
-                /*!  0   */ Neon::index_3d(-1, 0, 0),
-                /*!  1   */ Neon::index_3d(0, -1, 0),
-                /*!  2   */ Neon::index_3d(0, 0, -1),
-                /*!  3   */ Neon::index_3d(-1, -1, 0),
-                /*!  4   */ Neon::index_3d(-1, 1, 0),
-                /*!  5   */ Neon::index_3d(-1, 0, -1),
-                /*!  6   */ Neon::index_3d(-1, 0, 1),
-                /*!  7   */ Neon::index_3d(0, -1, -1),
-                /*!  8   */ Neon::index_3d(0, -1, 1),
-                /*!  9   */ Neon::index_3d(0, 0, 0),
-                /*!  10   */ Neon::index_3d(1, 0, 0),
-                /*!  11   */ Neon::index_3d(0, 1, 0),
-                /*!  12   */ Neon::index_3d(0, 0, 1),
-                /*!  13   */ Neon::index_3d(1, 1, 0),
-                /*!  14   */ Neon::index_3d(1, -1, 0),
-                /*!  15   */ Neon::index_3d(1, 0, 1),
-                /*!  16   */ Neon::index_3d(1, 0, -1),
-                /*!  17   */ Neon::index_3d(0, 1, 1),
-                /*!  18   */ Neon::index_3d(0, 1, -1)};
-
-            return s[qIdx].template getComponent<cIdx>();
+            return Self::stencil[qIdx].template getComponent<cIdx>();
         }
 
         static constexpr int center = 9; /** Position of direction {0,0,0} */
@@ -210,21 +189,21 @@ struct D3Q19
 
 
         template <int go>
-        NEON_CUDA_HOST_DEVICE static constexpr auto mapToRegisters()
+         static constexpr auto mapToRegisters()
             -> int
         {
             return memoryToRegister[go];
         }
 
         template <int go>
-        NEON_CUDA_HOST_DEVICE static constexpr auto mapToMemory()
+         static constexpr auto mapToMemory()
             -> int
         {
             return registerToMemory[go];
         }
 
         template <int go>
-        NEON_CUDA_HOST_DEVICE static constexpr auto getOpposite()
+         static constexpr auto getOpposite()
             -> int
         {
             return opposite[go];
