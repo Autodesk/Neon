@@ -1,6 +1,6 @@
 deviceType_LIST = 'cpu gpu'.split()
 deviceIds_LIST= "0 1 2 3 4 5 6 7".split()
-grid_LIST= "dGrid bGrid eGrid".split()
+grid_LIST= "dGrid bGrid_4_4_4".split()
 domainSize_LIST= "64 128 192 256 320 384 448 512".split()
 computeFP_LIST= "double float".split()
 storageFP_LIST= "double float".split()

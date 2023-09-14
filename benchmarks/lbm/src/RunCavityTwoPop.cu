@@ -76,9 +76,9 @@ auto run(Config&                             config,
                 using M = typename Lattice::template RegisterMapper<q>;
                 if (globalIdx.y == domainDim.y - 1) {
                     popVal = -6. * Lattice::Registers::template getT<M::fwdRegQ>() * ulb *
-                             (Lattice::Registers::template getDirection<M::fwdRegQ>().v[0] * ulid.v[0] +
-                              Lattice::Registers::template getDirection<M::fwdRegQ>().v[1] * ulid.v[1] +
-                              Lattice::Registers::template getDirection<M::fwdRegQ>().v[2] * ulid.v[2]);
+                             (Lattice::Registers::template getVelocityComponent<M::fwdRegQ, 0>() * ulid.v[0] +
+                              Lattice::Registers::template getVelocityComponent<M::fwdRegQ, 1>() * ulid.v[1] +
+                              Lattice::Registers::template getVelocityComponent<M::fwdRegQ, 2>() * ulid.v[2]);
                 } else {
                     popVal = 0;
                 }
@@ -142,7 +142,7 @@ auto runFilterCollision(Config&            config,
         using Precision = Precision<Storage, Compute>;
         using L = D3Q27<Precision>;
         if constexpr (std::is_same_v<Lattice, L>) {
-           return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, double>(config, report, testCode);
+            return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, double>(config, report, testCode);
         }
     }
     NEON_DEV_UNDER_CONSTRUCTION("");

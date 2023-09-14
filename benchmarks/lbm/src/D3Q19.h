@@ -32,83 +32,121 @@ struct D3Q19
 
         using Self = D3Q19<Precision>::Registers;
 
-        static constexpr std::array<const Neon::index_3d, Q> stencil{
-            /*!  0   */ Neon::index_3d(-1, 0, 0),
-            /*!  1   */ Neon::index_3d(0, -1, 0),
-            /*!  2   */ Neon::index_3d(0, 0, -1),
-            /*!  3   */ Neon::index_3d(-1, -1, 0),
-            /*!  4   */ Neon::index_3d(-1, 1, 0),
-            /*!  5   */ Neon::index_3d(-1, 0, -1),
-            /*!  6   */ Neon::index_3d(-1, 0, 1),
-            /*!  7   */ Neon::index_3d(0, -1, -1),
-            /*!  8   */ Neon::index_3d(0, -1, 1),
-            /*!  9   */ Neon::index_3d(0, 0, 0),
-            /*!  10   */ Neon::index_3d(1, 0, 0),
-            /*!  11   */ Neon::index_3d(0, 1, 0),
-            /*!  12   */ Neon::index_3d(0, 0, 1),
-            /*!  13   */ Neon::index_3d(1, 1, 0),
-            /*!  14   */ Neon::index_3d(1, -1, 0),
-            /*!  15   */ Neon::index_3d(1, 0, 1),
-            /*!  16   */ Neon::index_3d(1, 0, -1),
-            /*!  17   */ Neon::index_3d(0, 1, 1),
-            /*!  18   */ Neon::index_3d(0, 1, -1)};
-
-        template <int qIdx, int cIdx>
-         static constexpr inline auto
-        getComponentOfDirection() -> int
-        {
-            return Self::stencil[qIdx].template getComponent<cIdx>();
-        }
-
         static constexpr int center = 9; /** Position of direction {0,0,0} */
 
-        template <int go>
-        static constexpr auto getOpposite()
-            -> int
+        template <int myQ, int myXYZ>
+        static constexpr auto getVelocityComponent() -> int
         {
-            auto opposite3d = stencil[go] * -1;
-            for (int i = 0; i < Q; ++i) {
-                if (stencil[i] == opposite3d) {
-                    return i;
-                }
-            }
+            static_assert(myQ < Q);
+            static_assert(myXYZ < 3);
+
+#define ADD_COMPONENT(QQ, XXX, YYY, ZZZ) \
+    if constexpr ((myQ) == (QQ)) {       \
+        if constexpr ((myXYZ) == 0) {    \
+            return XXX;                  \
+        }                                \
+        if constexpr ((myXYZ) == 1) {    \
+            return YYY;                  \
+        }                                \
+        if constexpr ((myXYZ) == 2) {    \
+            return ZZZ;                  \
+        }                                \
+    }
+
+            ADD_COMPONENT(0, -1, 0, 0)
+            ADD_COMPONENT(1, 0, -1, 0)
+            ADD_COMPONENT(2, 0, 0, -1)
+            ADD_COMPONENT(3, -1, -1, 0)
+            ADD_COMPONENT(4, -1, 1, 0)
+            ADD_COMPONENT(5, -1, 0, -1)
+            ADD_COMPONENT(6, -1, 0, 1)
+            ADD_COMPONENT(7, 0, -1, -1)
+            ADD_COMPONENT(8, 0, -1, 1)
+            ADD_COMPONENT(9, 0, 0, 0)
+            ADD_COMPONENT(10, 1, 0, 0)
+            ADD_COMPONENT(11, 0, 1, 0)
+            ADD_COMPONENT(12, 0, 0, 1)
+            ADD_COMPONENT(13, 1, 1, 0)
+            ADD_COMPONENT(14, 1, -1, 0)
+            ADD_COMPONENT(15, 1, 0, 1)
+            ADD_COMPONENT(16, 1, 0, -1)
+            ADD_COMPONENT(17, 0, 1, 1)
+            ADD_COMPONENT(18, 0, 1, -1)
+
+#undef ADD_COMPONENT
         }
 
-        static constexpr std::array<const int, Q> opposite{
-            10, 11, 12, 13, 14, 15, 16, 17, 18, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8};
-
-        static constexpr std::array<const typename Precision::Storage, Q> t{
-            1. / 18. /*!  0   */,
-            1. / 18. /*!  1   */,
-            1. / 18. /*!  2   */,
-            1. / 36. /*!  3   */,
-            1. / 36. /*!  4   */,
-            1. / 36. /*!  5   */,
-            1. / 36. /*!  6   */,
-            1. / 36. /*!  7   */,
-            1. / 36. /*!  8   */,
-            1. / 3. /*!   9  */,
-            1. / 18. /*!  10   */,
-            1. / 18. /*!  11  */,
-            1. / 18. /*!  12  */,
-            1. / 36. /*!  13  */,
-            1. / 36. /*!  14  */,
-            1. / 36. /*!  15  */,
-            1. / 36. /*!  16  */,
-            1. / 36. /*!  17  */,
-            1. / 36. /*!  18  */
-        };
-
-        template <int q>
-        static constexpr auto getT() -> const typename Precision::Storage
+        template <int myQ>
+        static constexpr auto getOpposite() -> int
         {
-            return t[q];
+            static_assert(myQ < Q);
+
+#define ADD_COMPONENT(QQ, XXX)     \
+    if constexpr ((myQ) == (QQ)) { \
+        return XXX;                \
+    }
+            ADD_COMPONENT(0, 10)
+            ADD_COMPONENT(1, 11)
+            ADD_COMPONENT(2, 12)
+            ADD_COMPONENT(3, 13)
+            ADD_COMPONENT(4, 14)
+            ADD_COMPONENT(5, 15)
+            ADD_COMPONENT(6, 16)
+            ADD_COMPONENT(7, 17)
+            ADD_COMPONENT(8, 18)
+            ADD_COMPONENT(9, 9)
+            ADD_COMPONENT(10, 0)
+            ADD_COMPONENT(11, 1)
+            ADD_COMPONENT(12, 2)
+            ADD_COMPONENT(13, 3)
+            ADD_COMPONENT(14, 4)
+            ADD_COMPONENT(15, 5)
+            ADD_COMPONENT(16, 6)
+            ADD_COMPONENT(17, 7)
+            ADD_COMPONENT(18, 8)
+#undef ADD_COMPONENT
         }
 
-        template <int q>
-        static constexpr auto getDirection() -> const typename Neon::index_3d
+        template <int myQ>
+        static constexpr auto getT() -> typename Precision::Storage
         {
-            return stencil[q];
+            static_assert(myQ < Q);
+
+#define ADD_COMPONENT(QQ, XXX)     \
+    if constexpr ((myQ) == (QQ)) { \
+        return XXX;                \
+    }
+
+            ADD_COMPONENT(0, 1. / 18.)
+            ADD_COMPONENT(1, 1. / 18.)
+            ADD_COMPONENT(2, 1. / 18.)
+            ADD_COMPONENT(3, 1. / 36.)
+            ADD_COMPONENT(4, 1. / 36.)
+            ADD_COMPONENT(5, 1. / 36.)
+            ADD_COMPONENT(6, 1. / 36.)
+            ADD_COMPONENT(7, 1. / 36.)
+            ADD_COMPONENT(8, 1. / 36.)
+            ADD_COMPONENT(9, 1. / 3.)
+            ADD_COMPONENT(10, 1. / 18.)
+            ADD_COMPONENT(11, 1. / 18.)
+            ADD_COMPONENT(12, 1. / 18.)
+            ADD_COMPONENT(13, 1. / 36.)
+            ADD_COMPONENT(14, 1. / 36.)
+            ADD_COMPONENT(15, 1. / 36.)
+            ADD_COMPONENT(16, 1. / 36.)
+            ADD_COMPONENT(17, 1. / 36.)
+            ADD_COMPONENT(18, 1. / 36.)
+
+#undef ADD_COMPONENT
+        }
+
+
+        template <int q>
+        static constexpr auto getVelocity() -> const typename Neon::index_3d
+        {
+            return Neon::index_3d(getVelocityComponent<q, 0>,
+                                  getVelocityComponent<q, 1>,
+                                  getVelocityComponent<q, 2>);
         }
 
         // Identifying first half of the directions
@@ -119,7 +157,8 @@ struct D3Q19
 
         template <int tegIdx, typename Compute>
         static inline NEON_CUDA_HOST_DEVICE auto
-        getCk_u(std::array<Compute, 3> const& u) -> Compute
+        getCk_u(std::array<Compute, 3> const& u)
+            -> Compute
         {
             if constexpr (tegIdx == 0 || tegIdx == 10) {
                 return -u[0];
@@ -157,98 +196,166 @@ struct D3Q19
     {
         using Self = D3Q19<Precision>::Memory;
 
-        static constexpr std::array<const Neon::index_3d, Q> stencil{
-            Neon::index_3d(-1, 0, 0),
-            Neon::index_3d(0, -1, 0),
-            Neon::index_3d(0, 0, -1),
-            Neon::index_3d(-1, -1, 0),
-            Neon::index_3d(-1, 1, 0),
-            Neon::index_3d(-1, 0, -1),
-            Neon::index_3d(-1, 0, 1),
-            Neon::index_3d(0, -1, -1),
-            Neon::index_3d(0, -1, 1),
-            Neon::index_3d(0, 0, 0),
-            Neon::index_3d(1, 0, 0),
-            Neon::index_3d(0, 1, 0),
-            Neon::index_3d(0, 0, 1),
-            Neon::index_3d(1, 1, 0),
-            Neon::index_3d(1, -1, 0),
-            Neon::index_3d(1, 0, 1),
-            Neon::index_3d(1, 0, -1),
-            Neon::index_3d(0, 1, 1),
-            Neon::index_3d(0, 1, -1)};
+        template <int myQ, int myXYZ>
+        static constexpr auto getVelocityComponent() -> int
+        {
+            static_assert(myQ < Q);
+            static_assert(myXYZ < 3);
+
+#define ADD_COMPONENT(QQ, XXX, YYY, ZZZ) \
+    if constexpr ((myQ) == (QQ)) {       \
+        if constexpr ((myXYZ) == 0) {    \
+            return XXX;                  \
+        }                                \
+        if constexpr ((myXYZ) == 1) {    \
+            return YYY;                  \
+        }                                \
+        if constexpr ((myXYZ) == 2) {    \
+            return ZZZ;                  \
+        }                                \
+    }
+            ADD_COMPONENT(0, -1, 0, 0)
+            ADD_COMPONENT(1, 0, -1, 0)
+            ADD_COMPONENT(2, 0, 0, -1)
+            ADD_COMPONENT(3, -1, -1, 0)
+            ADD_COMPONENT(4, -1, 1, 0)
+            ADD_COMPONENT(5, -1, 0, -1)
+            ADD_COMPONENT(6, -1, 0, 1)
+            ADD_COMPONENT(7, 0, -1, -1)
+            ADD_COMPONENT(8, 0, -1, 1)
+            ADD_COMPONENT(9, 0, 0, 0)
+            ADD_COMPONENT(10, 1, 0, 0)
+            ADD_COMPONENT(11, 0, 1, 0)
+            ADD_COMPONENT(12, 0, 0, 1)
+            ADD_COMPONENT(13, 1, 1, 0)
+            ADD_COMPONENT(14, 1, -1, 0)
+            ADD_COMPONENT(15, 1, 0, 1)
+            ADD_COMPONENT(16, 1, 0, -1)
+            ADD_COMPONENT(17, 0, 1, 1)
+            ADD_COMPONENT(18, 0, 1, -1)
+
+#undef ADD_COMPONENT
+        }
 
 
         static constexpr int center = 9; /** Position of direction {0,0,0} */
 
-        static constexpr std::array<const int, Q> memoryToRegister{
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18};
-
-        static constexpr std::array<const int, Q> registerToMemory{
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18};
-
-
-        template <int go>
-         static constexpr auto mapToRegisters()
+        template <int myQ>
+        static constexpr auto mapToRegisters()
             -> int
         {
-            return memoryToRegister[go];
+            static_assert(myQ < Q);
+
+#define ADD_COMPONENT(QQ, XXX)     \
+    if constexpr ((myQ) == (QQ)) { \
+        return XXX;                \
+    }
+            ADD_COMPONENT(0, 0)
+            ADD_COMPONENT(1, 1)
+            ADD_COMPONENT(2, 2)
+            ADD_COMPONENT(3, 3)
+            ADD_COMPONENT(4, 4)
+            ADD_COMPONENT(5, 5)
+            ADD_COMPONENT(6, 6)
+            ADD_COMPONENT(7, 7)
+            ADD_COMPONENT(8, 8)
+            ADD_COMPONENT(9, 9)
+            ADD_COMPONENT(10, 10)
+            ADD_COMPONENT(11, 11)
+            ADD_COMPONENT(12, 12)
+            ADD_COMPONENT(13, 13)
+            ADD_COMPONENT(14, 14)
+            ADD_COMPONENT(15, 15)
+            ADD_COMPONENT(16, 16)
+            ADD_COMPONENT(17, 17)
+            ADD_COMPONENT(18, 18)
+#undef ADD_COMPONENT
         }
 
-        template <int go>
-         static constexpr auto mapToMemory()
+        template <int myQ>
+        static constexpr auto mapToMemory()
             -> int
         {
-            return registerToMemory[go];
+            static_assert(myQ < Q);
+
+#define ADD_COMPONENT(QQ, XXX)     \
+    if constexpr ((myQ) == (QQ)) { \
+        return XXX;                \
+    }
+            ADD_COMPONENT(0, 0)
+            ADD_COMPONENT(1, 1)
+            ADD_COMPONENT(2, 2)
+            ADD_COMPONENT(3, 3)
+            ADD_COMPONENT(4, 4)
+            ADD_COMPONENT(5, 5)
+            ADD_COMPONENT(6, 6)
+            ADD_COMPONENT(7, 7)
+            ADD_COMPONENT(8, 8)
+            ADD_COMPONENT(9, 9)
+            ADD_COMPONENT(10, 10)
+            ADD_COMPONENT(11, 11)
+            ADD_COMPONENT(12, 12)
+            ADD_COMPONENT(13, 13)
+            ADD_COMPONENT(14, 14)
+            ADD_COMPONENT(15, 15)
+            ADD_COMPONENT(16, 16)
+            ADD_COMPONENT(17, 17)
+            ADD_COMPONENT(18, 18)
+#undef ADD_COMPONENT
         }
 
-        template <int go>
-         static constexpr auto getOpposite()
-            -> int
+        template <int myQ>
+        static constexpr auto getOpposite() -> int
         {
-            return opposite[go];
-        }
+            static_assert(myQ < Q);
 
-        static constexpr std::array<const int, Q> opposite{
-            10, 11, 12, 13, 14, 15, 16, 17, 18, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+#define ADD_COMPONENT(QQ, XXX)     \
+    if constexpr ((myQ) == (QQ)) { \
+        return XXX;                \
+    }
+            ADD_COMPONENT(0, 10)
+            ADD_COMPONENT(1, 11)
+            ADD_COMPONENT(2, 12)
+            ADD_COMPONENT(3, 13)
+            ADD_COMPONENT(4, 14)
+            ADD_COMPONENT(5, 15)
+            ADD_COMPONENT(6, 16)
+            ADD_COMPONENT(7, 17)
+            ADD_COMPONENT(8, 18)
+            ADD_COMPONENT(9, 9)
+            ADD_COMPONENT(10, 0)
+            ADD_COMPONENT(11, 1)
+            ADD_COMPONENT(12, 2)
+            ADD_COMPONENT(13, 3)
+            ADD_COMPONENT(14, 4)
+            ADD_COMPONENT(15, 5)
+            ADD_COMPONENT(16, 6)
+            ADD_COMPONENT(17, 7)
+            ADD_COMPONENT(18, 8)
+#undef ADD_COMPONENT
+        }
     };
 
-    //    template <int fwMemIdx_>
-    //    struct MemMapper
-    //    {
-    //        constexpr static int fwdMemQ = fwMemIdx_;
-    //        constexpr static int fwdMemQX = Memory::stencil[fwdMemQ].x;
-    //        constexpr static int fwdY = Memory::stencil[fwdMemQ].y;
-    //        constexpr static int fwdZ = Memory::stencil[fwdMemQ].z;
-    //
-    //        constexpr static int bkwMemQ = Memory::opposite[fwdMemQ];
-    //        constexpr static int bkwX = Memory::stencil[bkwMemQ].x;
-    //        constexpr static int bkwY = Memory::stencil[bkwMemQ].y;
-    //        constexpr static int bkwZ = Memory::stencil[bkwMemQ].z;
-    //
-    //        constexpr static int fwdRegQ = Memory::template mapToRegisters<fwdMemQ>();
-    //        constexpr static int centerRegQ = Registers::center;
-    //        constexpr static int centerMemQ = Memory::center;
-    //    };
 
     template <int fwdRegIdx_>
     struct RegisterMapper
     {
         constexpr static int fwdRegQ = fwdRegIdx_;
-        constexpr static int bkwRegQ = Registers::opposite[fwdRegQ];
+        constexpr static int bkwRegQ = Registers::template getOpposite<fwdRegQ>();
         constexpr static int fwdMemQ = Memory::template mapToMemory<fwdRegQ>();
         constexpr static int bkwMemQ = Memory::template mapToMemory<bkwRegQ>();
         constexpr static int centerRegQ = Registers::center;
         constexpr static int centerMemQ = Memory::center;
 
-        constexpr static int fwdMemQX = Memory::stencil[fwdMemQ].x;
-        constexpr static int fwdMemQY = Memory::stencil[fwdMemQ].y;
-        constexpr static int fwdMemQZ = Memory::stencil[fwdMemQ].z;
+        constexpr static int fwdMemQX = Memory::template getVelocityComponent<fwdMemQ, 0>();
+        constexpr static int fwdMemQY = Memory::template getVelocityComponent<fwdMemQ, 1>();
+        constexpr static int fwdMemQZ = Memory::template getVelocityComponent<fwdMemQ, 2>();
 
-        constexpr static int bkwMemQX = Memory::stencil[bkwMemQ].x;
-        constexpr static int bkwMemQY = Memory::stencil[bkwMemQ].y;
-        constexpr static int bkwMemQZ = Memory::stencil[bkwMemQ].z;
+        constexpr static int bkwMemQX = Memory::template getVelocityComponent<bkwMemQ, 0>();
+        constexpr static int bkwMemQY = Memory::template getVelocityComponent<bkwMemQ, 1>();
+        constexpr static int bkwMemQZ = Memory::template getVelocityComponent<bkwMemQ, 2>();
     };
+
 
    public:
     template <int mappingType>
@@ -257,13 +364,21 @@ struct D3Q19
     {
         std::vector<Neon::index_3d> vec;
         if constexpr (mappingType == RegisterMapping) {
-            for (auto const& a : Registers::stencil) {
-                vec.push_back(a);
-            }
+            Neon::ConstexprFor<0, Q, 1>(
+                [&vec](auto q) {
+                    Neon::index_3d val(Registers::template getVelocityComponent<q, 0>(),
+                                       Registers::template getVelocityComponent<q, 1>(),
+                                       Registers::template getVelocityComponent<q, 2>());
+                    vec.push_back(val);
+                });
         } else if constexpr (mappingType == MemoryMapping) {
-            for (auto const& a : Memory::stencil) {
-                vec.push_back(a);
-            }
+            Neon::ConstexprFor<0, Q, 1>(
+                [&vec](auto q) {
+                    Neon::index_3d val(Memory::template getVelocityComponent<q, 0>(),
+                                       Memory::template getVelocityComponent<q, 1>(),
+                                       Memory::template getVelocityComponent<q, 2>());
+                    vec.push_back(val);
+                });
         }
         return vec;
     }

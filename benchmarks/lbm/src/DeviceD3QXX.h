@@ -192,16 +192,16 @@ struct DeviceD3QXX
                     Compute eqFw;
                     Compute eqBk;
 
-                    const Compute ck_u = u[0] * Lattice::Registers::template getComponentOfDirection<q, 0>() +
-                                         u[1] * Lattice::Registers::template getComponentOfDirection<q, 1>() +
-                                         u[2] * Lattice::Registers::template getComponentOfDirection<q, 2>();
+                    const Compute ck_u = u[0] * Lattice::Registers::template getVelocityComponent<q, 0>() +
+                                         u[1] * Lattice::Registers::template getVelocityComponent<q, 1>() +
+                                         u[2] * Lattice::Registers::template getVelocityComponent<q, 2>();
 
                     // double eq = rho * t[k] *
                     //             (1. +
                     //             3. * ck_u +
                     //             4.5 * ck_u * ck_u -
                     //             usqr);
-                    eqFw = rho * T::t[M::fwdRegQ] *
+                    eqFw = rho * T::template getT<M::fwdRegQ>() *
                            (c1 +
                             c3 * ck_u +
                             c4dot5 * ck_u * ck_u -
@@ -209,7 +209,7 @@ struct DeviceD3QXX
 
                     // double eqopp = eq - 6.* rho * t[k] * ck_u;
                     eqBk = eqFw -
-                           c6 * rho * T::t[M::fwdRegQ] * ck_u;
+                           c6 * rho * T::template getT<M::fwdRegQ>() * ck_u;
 
                     // pop_out      = (1. - omega) * fin(i, k)                             + omega * eq;
                     pop[M::fwdRegQ] = (c1 - omega) * static_cast<Compute>(pop[M::fwdRegQ]) + omega * eqFw;
@@ -220,7 +220,7 @@ struct DeviceD3QXX
                 using T = typename Lattice::Registers;
                 using M = typename Lattice::template RegisterMapper<Lattice::Registers::center>;
                 //                  eq = rho * t[k]                * (1. - usqr);
-                const Compute eqCenter = rho * T::t[M::centerRegQ] * (c1 - usqr);
+                const Compute eqCenter = rho * T::template getT<M::centerRegQ>() * (c1 - usqr);
                 //      fout(i, k) = (1. - omega) * fin(i, k)                                + omega * eq;
                 pop[M::centerRegQ] = (c1 - omega) * static_cast<Compute>(pop[M::centerRegQ]) + omega * eqCenter;
             }
@@ -326,9 +326,9 @@ struct DeviceD3QXX
 
                 // momentum_flux
                 Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
-//                    Neon::ConstexprFor<0, 6, 1>([&](auto i) {
-//                        Pi[i] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, i>();
-//                    });
+                    //                    Neon::ConstexprFor<0, 6, 1>([&](auto i) {
+                    //                        Pi[i] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, i>();
+                    //                    });
                     Pi[0] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 0>();
                     Pi[1] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 1>();
                     Pi[2] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 2>();
