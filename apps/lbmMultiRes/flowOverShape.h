@@ -368,7 +368,7 @@ void flowOverMesh(const Neon::Backend backend,
 
     //LBM problem
     const T uin = 0.04;
-    const T clength = T(meshBoxDim.minCoeff());
+    const T clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
     //const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
     const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
