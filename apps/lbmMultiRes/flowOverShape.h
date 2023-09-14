@@ -382,21 +382,14 @@ void flowOverMesh(const Neon::Backend backend,
 
     for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
         grid.newContainer<Neon::Execution::host>("isInside", l, [&](Neon::set::Loader& loader) {
-                auto&                    in = inside.load(loader, l, Neon::MultiResCompute::MAP);
-                const Eigen::RowVector3d meshBoxMin = meshBoxCenter - (meshBoxDim / 2);
-                const Eigen::RowVector3d meshBoxMax = meshBoxCenter + (meshBoxDim / 2);
+                auto& in = inside.load(loader, l, Neon::MultiResCompute::MAP);
 
                 return [&](const typename Neon::domain::mGrid::Idx& cell) mutable {
                     if (!in.hasChildren(cell)) {
                         const double       voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
                         Neon::index_3d     voxelGlobalLocation = in.getGlobalIndex(cell);
                         Eigen::RowVector3d point(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing);
-                        if (point.x() >= meshBoxMin.x() && point.y() >= meshBoxMin.y() && point.z() >= meshBoxMin.z() &&
-                            point.x() < meshBoxMax.x() && point.y() < meshBoxMax.y() && point.z() <= meshBoxMax.z()) {
-                            in(cell, 0) = int8_t(igl::signed_distance_fast_winding_number(point, vertices, faces, tree, fwn_bvh) <= 0);
-                        } else {
-                            in(cell, 0) = int8_t(0);
-                        }
+                        in(cell, 0) = int8_t(igl::signed_distance_fast_winding_number(point, vertices, faces, tree, fwn_bvh) <= 0);
                     }
                 };
             })
