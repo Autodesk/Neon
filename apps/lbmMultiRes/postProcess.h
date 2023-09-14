@@ -266,6 +266,8 @@ void initPolyscope(Neon::domain::mGrid&                                      gri
     }
     polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::None;
     polyscope::view::projectionMode = polyscope::ProjectionMode::Orthographic;
+    //Neon::index_3d dim0 = grid.getDimension(0);
+    //polyscope::view::lookAt(glm::vec3{0, 0, 0}, glm::vec3{0., 0., 1.});
     auto psMesh = polyscope::registerHexMesh("LBM", psHexVert, psHex);
     polyscope::options::screenshotExtension = ".png";
 }

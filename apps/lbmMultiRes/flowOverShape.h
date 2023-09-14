@@ -160,7 +160,7 @@ void flowOverJet(const Neon::Backend backend,
 
     //LBM problem
     const T               uin = 0.04;
-    const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
+    const T               clength = T((jetBoxDim.x / 2) / (1 << (depth - 1)));
     const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
@@ -367,9 +367,8 @@ void flowOverMesh(const Neon::Backend backend,
 
 
     //LBM problem
-    const T uin = 0.04;
-    const T clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
-    //const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
+    const T               uin = 0.04;
+    const T               clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
     const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
