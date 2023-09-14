@@ -5,18 +5,24 @@
 
 #include "verify.h"
 
+#include "polyscope/surface_mesh.h"
 #include "polyscope/volume_mesh.h"
 
+#include <Eigen/Core>
+
 template <typename T, int Q>
-void postProcess(Neon::domain::mGrid&                        grid,
-                 const int                                   numLevels,
-                 const Neon::domain::mGrid::Field<T>&        fpop,
-                 const Neon::domain::mGrid::Field<CellType>& cellType,
-                 Neon::domain::mGrid::Field<T>&              vel,
-                 Neon::domain::mGrid::Field<T>&              rho,
-                 const Neon::int8_3d                         slice,
-                 std::string                                 fileName,
-                 bool                                        outputFile)
+void postProcess(Neon::domain::mGrid&                                            grid,
+                 const int                                                       numLevels,
+                 const Neon::domain::mGrid::Field<T>&                            fpop,
+                 const Neon::domain::mGrid::Field<CellType>&                     cellType,
+                 Neon::domain::mGrid::Field<T>&                                  vel,
+                 Neon::domain::mGrid::Field<T>&                                  rho,
+                 const Neon::int8_3d                                             slice,
+                 std::string                                                     fileName,
+                 bool                                                            outputFile,
+                 const std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>>& psDrawable,
+                 const std::vector<std::array<int, 8>>&                          psHex,
+                 const std::vector<Neon::float_3d>&                              psHexVert)
 {
     grid.getBackend().syncAll();
 
@@ -84,8 +90,67 @@ void postProcess(Neon::domain::mGrid&                        grid,
     //rho.updateHostData();
 
     if (outputFile) {
-        vel.ioToVtk(fileName, true, true, true, true, slice);
+        //vel.ioToVtk(fileName, true, true, true, true, slice);
         //rho.ioToVtk("Density_" + suffix.str());
+
+        std::ofstream file(fileName + ".vtk");
+        file << "# vtk DataFile Version 2.0\n";
+        file << "mGrid\n";
+        file << "ASCII\n";
+        file << "DATASET UNSTRUCTURED_GRID\n";
+        file << "POINTS " << psHexVert.size() << " float \n";
+
+        for (size_t v = 0; v < psHexVert.size(); ++v) {
+            file << psHexVert[v].x << " " << psHexVert[v].y << " " << psHexVert[v].z << "\n";
+        }
+
+        file << "CELLS " << psHex.size() << " " << psHex.size() * 9 << " \n";
+
+        for (uint64_t i = 0; i < psHex.size(); ++i) {
+            file << "8 ";
+            for (int j = 0; j < 8; ++j) {
+                int d = j;
+                if (j == 2) {
+                    d = 3;
+                }
+                if (j == 3) {
+                    d = 2;
+                }
+                if (j == 6) {
+                    d = 7;
+                }
+                if (j == 7) {
+                    d = 6;
+                }
+                file << psHex[i][d] << " ";
+            }
+            file << "\n";
+        }
+
+        file << "CELL_TYPES " << psHex.size() << " \n";
+        for (uint64_t i = 0; i < psHex.size(); ++i) {
+            file << 11 << "\n";
+        }
+
+        file << "CELL_DATA " << psHex.size() << " \n";
+
+        //data
+        file << "SCALARS Velocity float 1 \n";
+        file << "LOOKUP_TABLE default \n";
+
+        for (size_t t = 0; t < psDrawable.size(); ++t) {
+            const auto id = psDrawable[t].first;
+            int        level = psDrawable[t].second;
+
+            T c = 0;
+            for (int d = 0; d < 3; ++d) {
+                T v = vel(id, d, level);
+                c += v * v;
+            }
+            file << c << "\n";
+        }
+
+        file.close();
     }
 }
 
@@ -94,13 +159,15 @@ template <typename T>
 void initPolyscope(Neon::domain::mGrid&                                      grid,
                    const Neon::domain::mGrid::Field<T>&                      vel,
                    std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>>& psDrawable,
+                   std::vector<std::array<int, 8>>&                          psHex,
+                   std::vector<Neon::float_3d>&                              psHexVert,
                    const Neon::int8_3d                                       slice)
 {
-    polyscope::init();
-
     //polyscope register points
-    std::vector<std::array<int, 8>> psHex;
-    std::vector<Neon::float_3d>     psHexVert;
+    //std::vector<std::array<int, 8>> psHex;
+    //std::vector<Neon::float_3d>     psHexVert;
+    psHex.clear();
+    psHexVert.clear();
     psDrawable.clear();
 
 
@@ -194,8 +261,12 @@ void initPolyscope(Neon::domain::mGrid&                                      gri
             .run(0);
     }
 
+    if (!polyscope::isInitialized()) {
+        polyscope::init();
+    }
+    polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::None;
+    polyscope::view::projectionMode = polyscope::ProjectionMode::Orthographic;
     auto psMesh = polyscope::registerHexMesh("LBM", psHexVert, psHex);
-    //psMesh->setEdgeWidth(1.0);
     polyscope::options::screenshotExtension = ".png";
 }
 
@@ -204,12 +275,12 @@ void postProcessPolyscope(const std::vector<std::pair<Neon::domain::mGrid::Idx, 
                           const Neon::domain::mGrid::Field<T>&                            vel,
                           std::vector<T>&                                                 psColor,
                           std::string                                                     screenshotName,
-                          bool                                                            show)
+                          bool                                                            show,
+                          bool                                                            showEdges)
 {
     if (psColor.empty()) {
         psColor.resize(psDrawable.size());
     }
-    Neon::SetIdx devID(0);
     for (uint32_t t = 0; t < psDrawable.size(); ++t) {
         const auto id = psDrawable[t].first;
         int        level = psDrawable[t].second;
@@ -225,6 +296,11 @@ void postProcessPolyscope(const std::vector<std::pair<Neon::domain::mGrid::Idx, 
     auto colorQu = polyscope::getVolumeMesh("LBM")->addCellScalarQuantity("Velocity", psColor);
     colorQu->setEnabled(true);
     colorQu->setColorMap("jet");
+    if (showEdges) {
+        polyscope::getVolumeMesh("LBM")->setEdgeWidth(1.0);
+    } else {
+        polyscope::getVolumeMesh("LBM")->setEdgeWidth(0.0);
+    }
     //colorQu->setMapRange({0, 0.04});
 
     polyscope::screenshot(screenshotName + ".png");
@@ -232,6 +308,18 @@ void postProcessPolyscope(const std::vector<std::pair<Neon::domain::mGrid::Idx, 
     if (show) {
         polyscope::show();
     }
+}
+
+void polyscopeAddMesh(
+    const std::string      name,
+    const Eigen::MatrixXi& faces,
+    const Eigen::MatrixXd& vertices)
+{
+    if (!polyscope::isInitialized()) {
+        polyscope::init();
+    }
+
+    polyscope::registerSurfaceMesh(polyscope::guessNiceNameFromPath(name), vertices, faces);
 }
 
 template <typename T>

@@ -82,9 +82,9 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                                 }
                             }
 
-                            if (idx.x == gridDim.x - (1 << level)) {
-                                type(cell, 0) = CellType::outlet;
-                            }
+                            //if (idx.x == gridDim.x - (1 << level)) {
+                            //    type(cell, 0) = CellType::outlet;
+                            //}
 
                             //the cell classification
                             if (idx.y == 0 || idx.y == gridDim.y - (1 << level) ||
@@ -206,7 +206,10 @@ void flowOverJet(const Neon::Backend backend,
 
     runNonUniformLBM<T, Q>(grid,
                            params,
+                           clength,
                            omega,
+                           visclb,
+                           inletVelocity,
                            cellType,
                            storeSum,
                            fin,
@@ -283,7 +286,10 @@ void flowOverSphere(const Neon::Backend backend,
 
     runNonUniformLBM<T, Q>(grid,
                            params,
+                           clength,
                            omega,
+                           visclb,
+                           inletVelocity,
                            cellType,
                            storeSum,
                            fin,
@@ -300,10 +306,10 @@ void flowOverMesh(const Neon::Backend backend,
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
     //define the gird and the box that will encompass the mesh
-    Neon::index_3d gridDim(19 * params.scale, 8 * params.scale, 8 * params.scale);
+    Neon::index_3d gridDim(19 * params.scale, 10 * params.scale, 10 * params.scale);
 
     Eigen::RowVector3d meshBoxDim(2 * params.scale, 2 * params.scale, 2 * params.scale);
-    Eigen::RowVector3d meshBoxCenter(4 * params.scale, 4 * params.scale, 4 * params.scale);
+    Eigen::RowVector3d meshBoxCenter(4 * params.scale, 5 * params.scale, 5 * params.scale);
 
 
     //read the mesh and scale it such that it fits inside meshBox
@@ -323,12 +329,14 @@ void flowOverMesh(const Neon::Backend backend,
 
     //translate and scale the mesh
     vertices.rowwise() -= ((bbMin + bbMax) / 2.0);
-    double scaling_factor = meshBoxDim.maxCoeff() / (bbMax - bbMin).maxCoeff();
+    double scaling_factor = meshBoxDim.minCoeff() / (bbMax - bbMin).minCoeff();
     vertices *= scaling_factor;
     vertices.rowwise() += meshBoxCenter;
 
 
     igl::writeOBJ("scaled.obj", vertices, faces);
+
+    polyscopeAddMesh(params.meshFile, faces, vertices);
 
     //get the mesh ready for query (inside/outside) using libigl winding number
     igl::AABB<Eigen::MatrixXd, 3> tree;
@@ -343,14 +351,14 @@ void flowOverMesh(const Neon::Backend backend,
     Neon::domain::mGrid grid(
         backend, gridDim,
         {[&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 2 * params.scale && idx.x < 7 * params.scale &&
-                    idx.y >= 3 * params.scale && idx.y < 5 * params.scale &&
-                    idx.z >= 3 * params.scale && idx.z < 5 * params.scale;
+             return idx.x >= 2 * params.scale && idx.x < 8 * params.scale &&
+                    idx.y >= 3 * params.scale && idx.y < 7 * params.scale &&
+                    idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
          },
          [&](const Neon::index_3d idx) -> bool {
-             return idx.x >= params.scale && idx.x < 11 * params.scale &&
-                    idx.y >= 2 * params.scale && idx.y < 6 * params.scale &&
-                    idx.z >= 2 * params.scale && idx.z < 6 * params.scale;
+             return idx.x >= params.scale && idx.x < 13 * params.scale &&
+                    idx.y >= 2 * params.scale && idx.y < 8 * params.scale &&
+                    idx.z >= 2 * params.scale && idx.z < 8 * params.scale;
          },
          [&](const Neon::index_3d idx) -> bool {
              return true;
@@ -359,8 +367,9 @@ void flowOverMesh(const Neon::Backend backend,
 
 
     //LBM problem
-    const T               uin = 0.04;
-    const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
+    const T uin = 0.04;
+    const T clength = T(meshBoxDim.minCoeff());
+    //const T               clength = T(grid.getDimension(descriptor.getDepth() - 1).x);
     const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
@@ -413,7 +422,10 @@ void flowOverMesh(const Neon::Backend backend,
 
     runNonUniformLBM<T, Q>(grid,
                            params,
+                           clength,
                            omega,
+                           visclb,
+                           inletVelocity,
                            cellType,
                            storeSum,
                            fin,

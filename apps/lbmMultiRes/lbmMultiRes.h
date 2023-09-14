@@ -193,7 +193,10 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
 template <typename T, int Q>
 void runNonUniformLBM(Neon::domain::mGrid&                        grid,
                       const Params&                               params,
+                      const T                                     clength,
                       const T                                     omega,
+                      const T                                     visclb,
+                      const Neon::double_3d                       velocity,
                       const Neon::domain::mGrid::Field<CellType>& cellType,
                       const Neon::domain::mGrid::Field<float>&    storeSum,
                       Neon::domain::mGrid::Field<T>&              fin,
@@ -228,9 +231,17 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     const Neon::int8_3d slice(params.sliceX, params.sliceY, params.sliceZ);
 
     std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>> psDrawable;
+    std::vector<std::array<int, 8>>                          psHex;
+    std::vector<Neon::float_3d>                              psHexVert;
     std::vector<T>                                           psColor;
 
-    initPolyscope<T>(grid, vel, psDrawable, slice);
+    initPolyscope<T>(grid, vel, psDrawable, psHex, psHexVert, slice);
+
+    NEON_INFO("Re: {}", params.Re);
+    NEON_INFO("clength: {}", clength);
+    NEON_INFO("omega: {}", omega);
+    NEON_INFO("visclb: {}", visclb);
+    NEON_INFO("velocity: {}, {}, {}", velocity.x, velocity.y, velocity.z);
 
 
     //execution
@@ -247,8 +258,8 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
             suffix << std::setw(precision) << std::setfill('0') << t;
             std::string fileName = "Velocity_" + suffix.str();
 
-            postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk);
-            postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui);
+            postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk, psDrawable, psHex, psHexVert);
+            postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, t == 0);
         }
     }
     grid.getBackend().syncAll();
@@ -316,6 +327,9 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("problemType", params.problemType);
     report.addMember("omega", omega);
     report.addMember("Re", params.Re);
+    report.addMember("velocity", velocity.to_string());
+    report.addMember("clength", clength);
+    report.addMember("visclb", visclb);
 #ifdef BGK
     report.addMember("Collision", std::string("BGK"));
 #endif
@@ -349,6 +363,6 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     std::ostringstream suffix;
     suffix << std::setw(precision) << std::setfill('0') << params.numIter;
     std::string fileName = "Velocity_" + suffix.str();
-    postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, false);
-    postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, false);
+    postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk, psDrawable, psHex, psHexVert);
+    postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, false);
 }
