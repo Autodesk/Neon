@@ -114,9 +114,7 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
             fout.load(loader, level + 1, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                assert(pout.hasParent(cell));
-
-                if (!pout.hasChildren(cell)) {
+                if (!pout.hasChildren(cell) && pout.hasParent(cell)) {
                     for (int8_t q = 0; q < Q; ++q) {
 
                         const Neon::int8_3d qDir = getDir(q);
@@ -132,7 +130,7 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
 
                         //cn may not be active because 1. it is outside the domain, or 2. this location is occupied by a coarse cell
                         //we are interested in 2.
-                        if (!cn.isActive()) {
+                        if (!pout.isActive(cn)) {
 
                             //now, we can get the uncle but we need to make sure it is active i.e.,
                             //it is not out side the domain boundary

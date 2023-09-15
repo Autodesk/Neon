@@ -30,9 +30,11 @@ void initSumStore(Neon::domain::mGrid&               grid,
 
                                 const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
 
-                                const auto cn = ss.helpGetNghIdx(cell, uncleDir);
+                                const auto cn = ss.helpGetNghIdx(cell, uncleDir);                             
 
-                                if (!cn.isActive()) {
+
+                                if (!ss.isActive(cn)) {
+
 
                                     const auto uncle = ss.getUncle(cell, uncleDir);
                                     if (uncle.isActive()) {
