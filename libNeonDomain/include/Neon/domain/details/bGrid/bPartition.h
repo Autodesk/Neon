@@ -111,6 +111,14 @@ class bPartition
                LambdaNOTValid funIfNOTValid = nullptr)
         const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> && (std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>;
 
+    template <int xOff,
+              int yOff,
+              int zOff>
+    NEON_CUDA_HOST_DEVICE inline auto
+    writeNghData(const Idx& gidx,
+                 int        card,
+                 T          value)
+        -> bool;
 
     /**
      * Gets the global coordinates of the cartesian point.
@@ -135,7 +143,7 @@ class bPartition
     getBlockViewIdx(const Idx& cell)
         const -> BlockViewGridIdx;
 
-   
+
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetPitch(const Idx& cell, int card)
         const -> uint32_t;

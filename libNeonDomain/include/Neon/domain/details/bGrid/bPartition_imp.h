@@ -81,7 +81,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
-                                  operator()(const Idx& cell,
+operator()(const Idx& cell,
            int        card) -> T&
 {
     return mMem[helpGetPitch(cell, card)];
@@ -89,7 +89,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
-                                  operator()(const Idx& cell,
+operator()(const Idx& cell,
            int        card) const -> const T&
 {
     return mMem[helpGetPitch(cell, card)];
@@ -412,6 +412,24 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
         funIfNOTValid();
     }
     return;
+}
+
+template <typename T, int C, typename SBlock>
+template <int xOff, int yOff, int zOff>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    writeNghData(const Idx& gidx,
+                 int        card,
+                 T          value)
+        -> bool
+{
+    NghData result;
+    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(gidx);
+    auto [isValid, pitch] = helpNghPitch(nghIdx, card);
+    if (!isValid) {
+        return false;
+    }
+    mMem[pitch] = value;
+    return true;
 }
 
 template <typename T, int C, typename SBlock>
