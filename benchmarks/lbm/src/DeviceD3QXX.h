@@ -315,12 +315,12 @@ struct DeviceD3QXX
                 // equilibrium
                 Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
                     const Compute cu = Compute(3) *
-                                       (u[0] * Lattice::Registers::template getComponentOfDirection<q, 0>() +
-                                        u[1] * Lattice::Registers::template getComponentOfDirection<q, 1>() +
-                                        u[2] * Lattice::Registers::template getComponentOfDirection<q, 2>());
+                                       (u[0] * Lattice::Registers::template getVelocityComponent<q, 0>() +
+                                        u[1] * Lattice::Registers::template getVelocityComponent<q, 1>() +
+                                        u[2] * Lattice::Registers::template getVelocityComponent<q, 2>());
 
 
-                    feq[q] = rho * Lattice::Registers::template getWeightOfDirection<q>() * (1. + cu + 0.5 * cu * cu - usqr);
+                    feq[q] = rho * Lattice::Registers::template getT<q>() * (1. + cu + 0.5 * cu * cu - usqr);
                     fneq[q] = pop[q] - feq[q];
                 });
 
@@ -329,12 +329,12 @@ struct DeviceD3QXX
                     //                    Neon::ConstexprFor<0, 6, 1>([&](auto i) {
                     //                        Pi[i] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, i>();
                     //                    });
-                    Pi[0] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 0>();
-                    Pi[1] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 1>();
-                    Pi[2] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 2>();
-                    Pi[3] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 3>();
-                    Pi[4] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 4>();
-                    Pi[5] += fneq[q] * Lattice::Registers::template getMomentByDirection<q, 5>();
+                    Pi[0] += fneq[q] * Lattice::Registers::template getMomentumComponet<q, 0>();
+                    Pi[1] += fneq[q] * Lattice::Registers::template getMomentumComponet<q, 1>();
+                    Pi[2] += fneq[q] * Lattice::Registers::template getMomentumComponet<q, 2>();
+                    Pi[3] += fneq[q] * Lattice::Registers::template getMomentumComponet<q, 3>();
+                    Pi[4] += fneq[q] * Lattice::Registers::template getMomentumComponet<q, 4>();
+                    Pi[5] += fneq[q] * Lattice::Registers::template getMomentumComponet<q, 5>();
                 });
 
                 // fdecompose_shear
