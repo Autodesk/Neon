@@ -132,7 +132,7 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
                         //we are interested in 2.
                         if (!pout.isActive(cn)) {
 
-                            //now, we can get the uncle but we need to make sure it is active i.e.,
+                            //now, we can get the uncle (Cu) but we need to make sure it is active i.e.,
                             //it is not out side the domain boundary
                             const auto uncle = pout.getUncle(cell, uncleDir);
                             if (uncle.isActive()) {
@@ -142,7 +142,9 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
 
                                 const auto cs = pout.getUncle(cell, CsDir);
 
-                                if (cs.isActive()) {
+                                const auto csChild = pout.helpGetNghIdx(cell, CsDir);
+
+                                if (cs.isActive() && pout.isActive(csChild)) {
 
                                     const T cellVal = pout(cell, q);
 
