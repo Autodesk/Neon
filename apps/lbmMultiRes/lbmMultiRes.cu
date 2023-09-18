@@ -72,11 +72,8 @@ int main(int argc, char** argv)
              clipp::option("--freq") & clipp::integers("freq", params.freq) % "Output frequency (only works with visual mode)",
 
              ((clipp::option("--storeFine").set(params.fineInitStore, true) % "Initiate the Store operation from the fine level") |
-              (clipp::option("--storeCoarse").set(params.fineInitStore, false) % "Initiate the Store operation from the coarse level")
-#ifdef BGK
-              | (clipp::option("--collisionFusedStore").set(params.collisionFusedStore, true) % "Fuse Collision with Store operation")
-#endif
-                  ),
+              (clipp::option("--storeCoarse").set(params.fineInitStore, false) % "Initiate the Store operation from the coarse level") |
+              (clipp::option("--collisionFusedStore").set(params.collisionFusedStore, true) % "Fuse Collision with Store operation")),
 
              ((clipp::option("--streamFusedExpl").set(params.streamFusedExpl, true) % "Fuse Stream with Explosion") |
               (clipp::option("--streamFusedCoal").set(params.streamFusedCoal, true) % "Fuse Stream with Coalescence") |

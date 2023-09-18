@@ -44,7 +44,13 @@ void collideStep(Neon::domain::mGrid&                        grid,
     } else {
         //  collision for all voxels at level L = level fused with
         //  Storing fine (level) data for later "coalescence" pulled by the coarse(level)
+#ifdef KBC
+        containers.push_back(collideKBCFusedStore<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+#endif
+
+#ifdef BGK
         containers.push_back(collideBGKUnrolledFusedStore<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+#endif
     }
 }
 
