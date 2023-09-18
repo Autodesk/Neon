@@ -6,8 +6,8 @@
 
 namespace Neon::set::internal {
 
-template <typename DataIteratorContainerT,
-          typename UserComputeLambdaT>
+template < typename DataIteratorContainerT,
+          typename UserComputeLambdaT, typename CudaLaunchCompileTimeHintT  = Neon::set::container::CudaLaunchCompileTimeHint<false>>
 struct DeviceContainer : ContainerAPI
 {
    public:
@@ -93,7 +93,7 @@ struct DeviceContainer : ContainerAPI
         Neon::set::KernelConfig kernelConfig(dataView, bk, streamIdx, this->getLaunchParameters(dataView));
 
         if (ContainerExecutionType::device == this->getContainerExecutionType()) {
-            bk.devSet().template launchLambdaOnSpan<DataIteratorContainerT, UserComputeLambdaT>(
+            bk.devSet().template launchLambdaOnSpan<CudaLaunchCompileTimeHintT, DataIteratorContainerT, UserComputeLambdaT>(
                 mExecution,
                 kernelConfig,
                 m_dataIteratorContainer,

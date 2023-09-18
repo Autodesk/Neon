@@ -20,6 +20,7 @@
 #include "Neon/set/LambdaExecutor.h"
 #include "Neon/set/LaunchParameters.h"
 #include "Neon/set/Transfer.h"
+#include "Neon/set/container/CudaLaunchCompileTimeHints.h"
 #include "Neon/set/memory/memDevSet.h"
 #include "Neon/set/memory/memSet.h"
 #include "Neon/sys/global/GpuSysGlobal.h"
@@ -222,7 +223,9 @@ class DevSet
     auto newLaunchParameters() const
         -> LaunchParameters;
 
-    template <typename DataSetContainer, typename Lambda>
+    template <typename CudaLaunchCompileTimeHint,
+              typename DataSetContainer,
+              typename Lambda>
     inline auto launchLambdaOnSpan(
         Neon::Execution                       execution,
         const Neon::set::KernelConfig&        kernelConfig,
@@ -236,9 +239,11 @@ class DevSet
         switch (mode) {
             case Neon::Runtime::stream: {
                 if (execution == Neon::Execution::device) {
-                    this->template helpLaunchLambdaOnSpanCUDA<DataSetContainer, Lambda>(kernelConfig,
-                                                                                        dataSetContainer,
-                                                                                        lambdaHolder);
+                    this->template helpLaunchLambdaOnSpanCUDA<CudaLaunchCompileTimeHint,
+                                                              DataSetContainer,
+                                                              Lambda>(kernelConfig,
+                                                                      dataSetContainer,
+                                                                      lambdaHolder);
                     return;
                 }
 #if defined(NEON_OS_LINUX) || defined(NEON_OS_MAC)
@@ -352,7 +357,9 @@ class DevSet
         }
     }
 
-    template <typename DataSetContainer, typename Lambda>
+    template <typename CudaLaunchCompilerTimeHints,
+              typename DataSetContainer,
+              typename Lambda>
     inline auto helpLaunchLambdaOnSpanCUDA([[maybe_unused]] const Neon::set::KernelConfig&        kernelConfig,
                                            [[maybe_unused]] DataSetContainer&                     dataSetContainer,
                                            [[maybe_unused]] std::function<Lambda(SetIdx,
@@ -379,10 +386,20 @@ class DevSet
             Lambda lambda = lambdaHolder(setIdx.idx(), kernelConfig.dataView());
             void*  untypedParams[2] = {&iterator, &lambda};
             void*  executor;
-            if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
-                executor = (void*)Neon::set::details::denseSpan::launchLambdaOnSpanCUDA<DataSetContainer, Lambda>;
-            } else {
-                executor = (void*)Neon::set::details::blockSpan::launchLambdaOnSpanCUDA<DataSetContainer, Lambda>;
+            if constexpr (!CudaLaunchCompilerTimeHints::initialized) {
+                if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
+                    executor = (void*)Neon::set::details::denseSpan::launchLambdaOnSpanCUDA<DataSetContainer, Lambda>;
+                } else {
+                    executor = (void*)Neon::set::details::blockSpan::launchLambdaOnSpanCUDA<DataSetContainer, Lambda>;
+                }
+            }
+
+            if constexpr (CudaLaunchCompilerTimeHints::initialized) {
+                if constexpr (!details::ExecutionThreadSpanUtils::isBlockSpan(DataSetContainer::executionThreadSpan)) {
+                    executor = (void*)Neon::set::details::denseSpan::launchLambdaOnSpanCUDAWithCompilerHints<CudaLaunchCompilerTimeHints, DataSetContainer, Lambda>;
+                } else {
+                    executor = (void*)Neon::set::details::blockSpan::launchLambdaOnSpanCUDAWithCompilerHints<CudaLaunchCompilerTimeHints, DataSetContainer, Lambda>;
+                }
             }
             dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[setIdx.idx()],
                                                                       launchInfoSet[setIdx.idx()],
