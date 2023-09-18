@@ -134,7 +134,7 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                             //this is because we use the refined voxels the interface to
                             //accumulate the fine level information in Store operation
                             //which should be reset after each collide
-                            for (int q = 0; q < Q; ++q) {
+                            for (int8_t q = 0; q < Q; ++q) {
                                 out(cell, q) = 0;
                             }
                         }
@@ -228,7 +228,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
 
                         //equilibrium
                         const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             T cu = 0;
                             for (int d = 0; d < 3; ++d) {
                                 cu += latticeVelocity[q][d] * vel.v[d];
@@ -241,7 +241,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
                         }
 
                         //momentum_flux
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             for (int i = 0; i < 6; ++i) {
                                 Pi[i] += fneq[q] * latticeMoment[q][i];
                             }
@@ -249,7 +249,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
 
 
                         //fdecompose_shear
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             deltaS[q] = rho * fdecompose_shear(q);
 
                             T deltaH = fneq[q] - deltaS[q];
@@ -263,7 +263,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
 
 
                         //fout
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             T deltaH = fneq[q] - deltaS[q];
                             out(cell, q) = ins[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
                         }
@@ -273,7 +273,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
                             //this is because we use the refined voxels the interface to
                             //accumulate the fine level information in Store operation
                             //which should be reset after each collide
-                            for (int q = 0; q < Q; ++q) {
+                            for (int8_t q = 0; q < Q; ++q) {
                                 out(cell, q) = 0;
                             }
                         }
@@ -308,13 +308,13 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
 
                         //fin
                         T ins[Q];
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             ins[q] = in(cell, q);
                         }
 
                         //density
                         T rho = 0;
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             rho += ins[q];
                         }
 
@@ -323,9 +323,9 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
 
 
                         const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             T cu = 0;
-                            for (int d = 0; d < 3; ++d) {
+                            for (int8_t d = 0; d < 3; ++d) {
                                 cu += latticeVelocity[q][d] * vel.v[d];
                             }
                             cu *= 3.0;
@@ -343,7 +343,7 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
                             //this is because we use the refined voxels the interface to
                             //accumulate the fine level information in Store operation
                             //which should be reset after each collide
-                            for (int q = 0; q < Q; ++q) {
+                            for (int8_t q = 0; q < Q; ++q) {
                                 out(cell, q) = 0;
                             }
                         }
@@ -357,7 +357,7 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
 template <typename T, typename FieldT>
 inline NEON_CUDA_HOST_DEVICE void store(const typename Neon::domain::mGrid::Idx& cell,
                                         FieldT&                                  pout,
-                                        const int                                q,
+                                        const int8_t                             q,
                                         const T                                  cellVal)
 {
 
@@ -561,7 +561,7 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
                             //this is because we use the refined voxels the interface to
                             //accumulate the fine level information in Store operation
                             //which should be reset after each collide
-                            for (int q = 0; q < Q; ++q) {
+                            for (int8_t q = 0; q < Q; ++q) {
                                 out(cell, q) = 0;
                             }
                         }
@@ -661,7 +661,7 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
 
                         //equilibrium
                         const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             T cu = 0;
                             for (int d = 0; d < 3; ++d) {
                                 cu += latticeVelocity[q][d] * vel.v[d];
@@ -674,7 +674,7 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
                         }
 
                         //momentum_flux
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             for (int i = 0; i < 6; ++i) {
                                 Pi[i] += fneq[q] * latticeMoment[q][i];
                             }
@@ -682,7 +682,7 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
 
 
                         //fdecompose_shear
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             deltaS[q] = rho * fdecompose_shear(q);
 
                             T deltaH = fneq[q] - deltaS[q];
@@ -696,7 +696,7 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
 
 
                         //fout
-                        for (int q = 0; q < Q; ++q) {
+                        for (int8_t q = 0; q < Q; ++q) {
                             const T deltaH = fneq[q] - deltaS[q];
 
                             const T res = ins[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
