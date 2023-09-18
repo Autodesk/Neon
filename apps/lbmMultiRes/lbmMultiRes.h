@@ -4,6 +4,7 @@
 #include "Neon/skeleton/Skeleton.h"
 
 #include "collide.h"
+#include "fusedFinest.h"
 #include "init.h"
 #include "lattice.h"
 #include "postProcess.h"
@@ -83,6 +84,38 @@ void streamingStep(Neon::domain::mGrid&                        grid,
 }
 
 template <typename T, int Q>
+void collideFusedStreaming(Neon::domain::mGrid&                        grid,
+                           const T                                     omega0,
+                           const int                                   level,
+                           const int                                   numLevels,
+                           const Neon::domain::mGrid::Field<CellType>& cellType,
+                           const Neon::domain::mGrid::Field<float>&    sumStore,
+                           Neon::domain::mGrid::Field<T>&              fin,
+                           Neon::domain::mGrid::Field<T>&              fout,
+                           std::vector<Neon::set::Container>&          containers)
+{
+    containers.push_back(collideBGKUnrolledFusedAll<T, Q>(grid,
+                                                          omega0,
+                                                          level,
+                                                          numLevels,
+                                                          sumStore,
+                                                          cellType,
+                                                          fin,
+                                                          fout,
+                                                          true));
+
+    containers.push_back(collideBGKUnrolledFusedAll<T, Q>(grid,
+                                                          omega0,
+                                                          level,
+                                                          numLevels,
+                                                          sumStore,
+                                                          cellType,
+                                                          fout,
+                                                          fin,
+                                                          false));
+}
+
+template <typename T, int Q>
 void nonUniformTimestepRecursive(Neon::domain::mGrid&                        grid,
                                  const bool                                  fineInitStore,
                                  const bool                                  streamFusedExpl,
@@ -96,103 +129,120 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                  const Neon::domain::mGrid::Field<float>&    sumStore,
                                  Neon::domain::mGrid::Field<T>&              fin,
                                  Neon::domain::mGrid::Field<T>&              fout,
-                                 std::vector<Neon::set::Container>&          containers)
+                                 std::vector<Neon::set::Container>&          containers,
+                                 bool                                        fusedFinest)
 {
-    //Collide
-    collideStep<T, Q>(grid,
-                      fineInitStore,
-                      collisionFusedStore,
-                      omega0,
-                      level,
-                      numLevels,
-                      cellType,
-                      fin,
-                      fout,
-                      containers);
-
-
-    // Recurse down
-    if (level != 0) {
-        nonUniformTimestepRecursive<T, Q>(grid,
-                                          fineInitStore,
-                                          streamFusedExpl,
-                                          streamFusedCoal,
-                                          streamFuseAll,
-                                          collisionFusedStore,
-                                          omega0,
-                                          level - 1,
-                                          numLevels,
-                                          cellType,
-                                          sumStore,
-                                          fin,
-                                          fout,
-                                          containers);
-    }
-
-    //Streaming
-    streamingStep<T, Q>(grid,
-                        fineInitStore,
-                        streamFusedExpl,
-                        streamFusedCoal,
-                        streamFuseAll,
-                        collisionFusedStore,
-                        level,
-                        numLevels,
-                        cellType,
-                        sumStore,
-                        fin,
-                        fout,
-                        containers);
-
-    // Stop
-    if (level == numLevels - 1) {
+    if (fusedFinest && level == 0) {
+        collideFusedStreaming<T, Q>(grid,
+                                    omega0,
+                                    level,
+                                    numLevels,
+                                    cellType,
+                                    sumStore,
+                                    fin,
+                                    fout,
+                                    containers);
         return;
+
+    } else {
+        //Collide
+        collideStep<T, Q>(grid,
+                          fineInitStore,
+                          collisionFusedStore,
+                          omega0,
+                          level,
+                          numLevels,
+                          cellType,
+                          fin,
+                          fout,
+                          containers);
+
+
+        // Recurse down
+        if (level != 0) {
+            nonUniformTimestepRecursive<T, Q>(grid,
+                                              fineInitStore,
+                                              streamFusedExpl,
+                                              streamFusedCoal,
+                                              streamFuseAll,
+                                              collisionFusedStore,
+                                              omega0,
+                                              level - 1,
+                                              numLevels,
+                                              cellType,
+                                              sumStore,
+                                              fin,
+                                              fout,
+                                              containers,
+                                              fusedFinest);
+        }
+
+        //Streaming
+        streamingStep<T, Q>(grid,
+                            fineInitStore,
+                            streamFusedExpl,
+                            streamFusedCoal,
+                            streamFuseAll,
+                            collisionFusedStore,
+                            level,
+                            numLevels,
+                            cellType,
+                            sumStore,
+                            fin,
+                            fout,
+                            containers);
+
+        // Stop
+        if (level == numLevels - 1) {
+            return;
+        }
+
+        //Collide
+        collideStep<T, Q>(grid,
+                          fineInitStore,
+                          collisionFusedStore,
+                          omega0,
+                          level,
+                          numLevels,
+                          cellType,
+                          fin,
+                          fout,
+                          containers);
+
+        // Recurse down
+        if (level != 0) {
+            nonUniformTimestepRecursive<T, Q>(grid,
+                                              fineInitStore,
+                                              streamFusedExpl,
+                                              streamFusedCoal,
+                                              streamFuseAll,
+                                              collisionFusedStore,
+                                              omega0,
+                                              level - 1,
+                                              numLevels,
+                                              cellType,
+                                              sumStore,
+                                              fin,
+                                              fout,
+                                              containers,
+                                              fusedFinest);
+        }
+
+        //Streaming
+        streamingStep<T, Q>(grid,
+                            fineInitStore,
+                            streamFusedExpl,
+                            streamFusedCoal,
+                            streamFuseAll,
+                            collisionFusedStore,
+                            level,
+                            numLevels,
+                            cellType,
+                            sumStore,
+                            fin,
+                            fout,
+                            containers);
     }
-
-    //Collide
-    collideStep<T, Q>(grid,
-                      fineInitStore,
-                      collisionFusedStore,
-                      omega0,
-                      level,
-                      numLevels,
-                      cellType,
-                      fin,
-                      fout,
-                      containers);
-
-    // Recurse down
-    if (level != 0) {
-        nonUniformTimestepRecursive<T, Q>(grid,
-                                          fineInitStore,
-                                          streamFusedExpl,
-                                          streamFusedCoal,
-                                          streamFuseAll,
-                                          collisionFusedStore,
-                                          omega0,
-                                          level - 1,
-                                          numLevels,
-                                          cellType,
-                                          sumStore,
-                                          fin,
-                                          fout,
-                                          containers);
-    }
-
-    //Streaming
-    streamingStep<T, Q>(grid,
-                        fineInitStore,
-                        streamFusedExpl,
-                        streamFusedCoal,
-                        streamFuseAll,
-                        collisionFusedStore,
-                        level,
-                        numLevels,
-                        cellType,
-                        sumStore,
-                        fin,
-                        fout,
-                        containers);
 }
 
 
@@ -228,7 +278,10 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
                                       depth,
                                       cellType,
                                       storeSum,
-                                      fin, fout, containers);
+                                      fin,
+                                      fout,
+                                      containers,
+                                      params.fusedFinest);
 
     Neon::skeleton::Skeleton skl(grid.getBackend());
     skl.sequence(containers, "MultiResLBM");
@@ -285,6 +338,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     //Reporting
     auto algoName = [&]() {
         std::string ret;
+
         if (params.collisionFusedStore) {
             ret = "CH";
         } else {
@@ -298,6 +352,10 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
             ret += "-SEO";
         } else {
             ret += "-S-E-O";
+        }
+
+        if (params.fusedFinest) {
+            ret += "+";
         }
         return ret;
     };
@@ -350,6 +408,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("streamFusedCoal", params.streamFusedCoal);
     report.addMember("streamFuseAll", params.streamFuseAll);
     report.addMember("collisionFusedStore", params.collisionFusedStore);
+    report.addMember("fusedFinest", params.fusedFinest);
     report.addMember("Algorithm", algoName());
 
     //perf

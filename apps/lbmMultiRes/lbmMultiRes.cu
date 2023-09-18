@@ -26,6 +26,7 @@ struct Params
     bool        streamFusedCoal = false;
     bool        streamFuseAll = false;
     bool        collisionFusedStore = false;
+    bool        fusedFinest = false;
     int         sliceX = -1;
     int         sliceY = -1;
     int         sliceZ = 1;
@@ -74,6 +75,8 @@ int main(int argc, char** argv)
              ((clipp::option("--storeFine").set(params.fineInitStore, true) % "Initiate the Store operation from the fine level") |
               (clipp::option("--storeCoarse").set(params.fineInitStore, false) % "Initiate the Store operation from the coarse level") |
               (clipp::option("--collisionFusedStore").set(params.collisionFusedStore, true) % "Fuse Collision with Store operation")),
+
+             (clipp::option("--fusedFinest").set(params.fusedFinest, true) % "Fuse all operations on the finest level"),
 
              ((clipp::option("--streamFusedExpl").set(params.streamFusedExpl, true) % "Fuse Stream with Explosion") |
               (clipp::option("--streamFusedCoal").set(params.streamFusedCoal, true) % "Fuse Stream with Coalescence") |
