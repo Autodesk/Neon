@@ -94,9 +94,7 @@ inline Neon::set::Container streamFusedExplosion(Neon::domain::mGrid&           
 
                             //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                             if (!pin.hasChildren(cell, dir)) {
-                                auto neighborCell = pout.helpGetNghIdx(cell, dir);
-
-                                if (neighborCell.isActive()) {
+                                if (pin.isActive(cell, dir)) {
                                     auto nghType = type.getNghData(cell, dir, 0);
                                     assert(nghType.mIsValid);
                                     if (nghType.mData == CellType::bulk || nghType.mData == CellType::outlet) {
@@ -113,8 +111,6 @@ inline Neon::set::Container streamFusedExplosion(Neon::domain::mGrid&           
                                     //get the uncle direction/offset i.e., the neighbor of the cell's parent
                                     //this direction/offset is wrt to the cell's parent
                                     Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
-
-                                    auto uncleLoc = pout.getUncle(cell, uncleDir);
 
                                     auto uncle = pout.uncleVal(cell, uncleDir, q, T(0));
                                     if (uncle.mIsValid) {
@@ -258,8 +254,6 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                                 //get the uncle direction/offset i.e., the neighbor of the cell's parent
                                 //this direction/offset is wrt to the cell's parent
                                 Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
-
-                                auto uncleLoc = pout.getUncle(cell, uncleDir);
 
                                 auto uncle = pout.uncleVal(cell, uncleDir, q, T(0));
                                 if (uncle.mIsValid) {

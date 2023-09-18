@@ -33,37 +33,12 @@ inline Neon::set::Container coalescence(Neon::domain::mGrid&                    
                         }
                         //if we have a neighbor at the same level that has been refined, then cell is on
                         //the interface and this is where we should do the coalescence
-                        /*if (fineInitStore) {
-                            auto ssVal = ss.getNghData(cell, dir, q);
-                            if (ssVal.mData != 0 && ssVal.mIsValid) {
-                                auto neighbor = pout.getNghData(cell, dir, q);
-                                assert(neighbor.mIsValid);
-                                pin(cell, q) = neighbor.mData / static_cast<T>(ssVal.mData * refFactor);
-                            }
-                        } else {
-                            if (pin.hasChildren(cell, dir)) {
-                                auto neighbor = pout.getNghData(cell, dir, q);
-                                if (neighbor.mIsValid) {
-                                    pin(cell, q) = neighbor.mData / static_cast<T>(refFactor);
-                                }
-                            }
-                        }*/
-
 
                         if (pin.hasChildren(cell, dir) && pin.isActive(cell, dir)) {
                             auto neighbor = pout.getNghData(cell, dir, q);
                             if (neighbor.mIsValid) {
                                 if (fineInitStore) {
                                     auto ssVal = ss.getNghData(cell, dir, q);
-                                    //if (ssVal.mData == 0) {
-                                    //    auto ngh = pout.helpGetNghIdx(cell, dir);
-                                    //    printf("\nb= %u, (%u, %u, %u), q= %d, level = %d, dir(%d, %d %d), ngh= %u (%u, %u, %u), childID = %u",
-                                    //           cell.mDataBlockIdx, cell.mInDataBlockIdx.x, cell.mInDataBlockIdx.y, cell.mInDataBlockIdx.z, q, level,
-                                    //           dir.x, dir.y, dir.z,
-                                    //           ngh.mDataBlockIdx, ngh.mInDataBlockIdx.x, ngh.mInDataBlockIdx.y, ngh.mInDataBlockIdx.z,
-                                    //           pout.childID(ngh));
-                                    //    ssVal.mData = 1;
-                                    //}
                                     assert(ssVal.mData != 0);
                                     pin(cell, q) = neighbor.mData * ssVal.mData;
                                 } else {

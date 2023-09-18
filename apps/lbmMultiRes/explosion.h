@@ -33,10 +33,8 @@ inline Neon::set::Container explosion(Neon::domain::mGrid&                 grid,
                         //in 'normal' streaming
                         //only if we can not do normal streaming, then we may have a coarser neighbor from which
                         //we can read this pop
-                        bool neighbourIsActive = pin.isActive(cell, dir);
 
-
-                        if (!neighbourIsActive) {
+                        if (!pin.isActive(cell, dir)) {
 
                             //get the uncle direction/offset i.e., the neighbor of the cell's parent
                             //this direction/offset is wrt to the cell's parent
