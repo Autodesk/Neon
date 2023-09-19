@@ -1,6 +1,47 @@
 #pragma once
 #include "collide.h"
 
+template <typename T, typename FieldT, typename FieldType>
+inline NEON_CUDA_HOST_DEVICE void stream(const typename Neon::domain::mGrid::Idx& cell,
+                                         FieldT&                                  out,
+                                         const FieldType&                         type,
+                                         const int8_t                             q,
+                                         const T                                  cellVal)
+{
+    //since we are on the finest level, we only need to do streaming and explosion (no coalescence)
+    //streaming is done as push
+
+    const Neon::int8_3d dir = getDir(q);
+
+    //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+    const auto nghCell = out.helpGetNghIdx(cell, dir);
+    if (!out.hasChildren(nghCell)) {
+        if (out.isActive(nghCell)) {
+            auto nghType = type(nghCell);
+            if (nghType == CellType::bulk) {
+                out(nghCell, q) = cellVal;
+            } else {
+                const int8_t opposte_q = latticeOppositeID[q];
+                out(cell, opposte_q) = cellVal + out(nghCell, q);
+            }
+        } else if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
+            //only if we are not on the coarsest level and
+            //only if we can not do normal streaming, then we may have a coarser neighbor from which
+            //we can read this pop
+
+            //get the uncle direction/offset i.e., the neighbor of the cell's parent
+            //this direction/offset is wrt to the cell's parent
+            Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
+
+            auto uncle = out.uncleVal(cell, uncleDir, q, T(0));
+            if (uncle.mIsValid) {
+                out(cell, q) = uncle.mData;
+            }
+        }
+    }
+}
+
+
 template <typename T, int Q>
 inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&                        grid,
                                                        T                                           omega0,
@@ -24,14 +65,17 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
             const auto type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
             auto       in = fin.load(loader, level, Neon::MultiResCompute::MAP);
             auto       out = fout.load(loader, level, Neon::MultiResCompute::MAP);
+            const auto ss = sumStore.load(loader, level, Neon::MultiResCompute::MAP);
             const T    omega = computeOmega(omega0, level, numLevels);
 
-            //load the next level as a map to indicate that we will (remote) write to it
-            fout.load(loader, level + 1, Neon::MultiResCompute::MAP);
+            if (numLevels > 1) {
+                //load the next level as a map to indicate that we will (remote) write to it
+                fout.load(loader, level + 1, Neon::MultiResCompute::MAP);
+            }
 
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                if (type(cell, 0) == CellType::bulk || type(cell, 0) == CellType::outlet) {
+                if (type(cell, 0) == CellType::bulk) {
 
                     if (!in.hasChildren(cell)) {
                         //fin
@@ -140,7 +184,6 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
 
 
                         //store operation
-
                         store<T>(cell, (storeOut ? out : in), 0, pop_out_00);
                         store<T>(cell, (storeOut ? out : in), 1, pop_out_01);
                         store<T>(cell, (storeOut ? out : in), 2, pop_out_02);
@@ -161,6 +204,29 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
                         store<T>(cell, (storeOut ? out : in), 16, pop_out_opp_06);
                         store<T>(cell, (storeOut ? out : in), 17, pop_out_opp_07);
                         store<T>(cell, (storeOut ? out : in), 18, pop_out_opp_08);
+
+
+                        //streaming (push)
+                        stream<T>(cell, out, type, 0, pop_out_00);
+                        stream<T>(cell, out, type, 1, pop_out_01);
+                        stream<T>(cell, out, type, 2, pop_out_02);
+                        stream<T>(cell, out, type, 3, pop_out_03);
+                        stream<T>(cell, out, type, 4, pop_out_04);
+                        stream<T>(cell, out, type, 5, pop_out_05);
+                        stream<T>(cell, out, type, 6, pop_out_06);
+                        stream<T>(cell, out, type, 7, pop_out_07);
+                        stream<T>(cell, out, type, 8, pop_out_08);
+                        stream<T>(cell, out, type, 9, pop_out_09);
+
+                        stream<T>(cell, out, type, 10, pop_out_opp_00);
+                        stream<T>(cell, out, type, 11, pop_out_opp_01);
+                        stream<T>(cell, out, type, 12, pop_out_opp_02);
+                        stream<T>(cell, out, type, 13, pop_out_opp_03);
+                        stream<T>(cell, out, type, 14, pop_out_opp_04);
+                        stream<T>(cell, out, type, 15, pop_out_opp_05);
+                        stream<T>(cell, out, type, 16, pop_out_opp_06);
+                        stream<T>(cell, out, type, 17, pop_out_opp_07);
+                        stream<T>(cell, out, type, 18, pop_out_opp_08);
                     }
                 }
             };
