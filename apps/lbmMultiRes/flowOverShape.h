@@ -6,11 +6,11 @@
 #include "init.h"
 
 #include "igl/AABB.h"
+#include "igl/WindingNumberAABB.h"
 #include "igl/max.h"
 #include "igl/min.h"
 #include "igl/read_triangle_mesh.h"
 #include "igl/remove_unreferenced.h"
-#include "igl/signed_distance.h"
 #include "igl/writeOBJ.h"
 
 template <typename T, int Q, typename sdfT>
@@ -299,6 +299,15 @@ void flowOverSphere(const Neon::Backend backend,
 }
 
 
+template <typename DerivedV, typename DerivedF>
+inline auto winding_number_aabbc(const Eigen::MatrixBase<DerivedV>& V,
+                                 const Eigen::MatrixBase<DerivedF>& F)
+{
+    return igl::WindingNumberAABB<
+        Eigen::Matrix<typename DerivedV::Scalar, 1, 3>,
+        DerivedV,
+        DerivedF>(V, F);
+}
 template <typename T, int Q>
 void flowOverMesh(const Neon::Backend backend,
                   const Params&       params)
@@ -339,10 +348,8 @@ void flowOverMesh(const Neon::Backend backend,
     polyscopeAddMesh(params.meshFile, faces, vertices);
 
     //get the mesh ready for query (inside/outside) using libigl winding number
-    igl::AABB<Eigen::MatrixXd, 3> tree;
-    tree.init(vertices, faces);
-    igl::FastWindingNumberBVH fwn_bvh;
-    igl::fast_winding_number(vertices, faces, 2, fwn_bvh);
+    auto wnAABB = winding_number_aabbc(vertices, faces);
+    wnAABB.grow();
 
     //define the grid
     int                            depth = 3;
@@ -389,7 +396,7 @@ void flowOverMesh(const Neon::Backend backend,
                         const double       voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
                         Neon::index_3d     voxelGlobalLocation = in.getGlobalIndex(cell);
                         Eigen::RowVector3d point(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing);
-                        in(cell, 0) = int8_t(igl::signed_distance_fast_winding_number(point, vertices, faces, tree, fwn_bvh) <= 0);
+                        in(cell, 0) = int8_t(wnAABB.winding_number(point) + std::numeric_limits<float>::epsilon() > 1);
                     }
                 };
             })
