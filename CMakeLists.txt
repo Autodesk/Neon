@@ -10,8 +10,6 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
     set(CMAKE_BUILD_TYPE Release)
 endif ()
 
-set(LIBIGL_USE_STATIC_LIBRARY "ON" CACHE BOOL "Use Libigl as a static library")
-
 # Manage between building Neon as shared or static library
 include("${PROJECT_SOURCE_DIR}/cmake/ManageLibraryType.cmake")
 
