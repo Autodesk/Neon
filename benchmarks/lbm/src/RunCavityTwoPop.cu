@@ -107,18 +107,18 @@ auto runFilterMethod(Config&            config,
             NEON_THROW_UNSUPPORTED_OPERATION("We only support PUSH in a single device configuration for now.")
         }
         testCode << "_push";
-        return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, double>(config, report, testCode);
+        return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
     }
     if (config.streamingMethod == "pull") {
         testCode << "_pull";
-        return run<lbm::Method::pull, CollisionType, Lattice, Grid, Storage, double>(config, report, testCode);
+        return run<lbm::Method::pull, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
     }
     if (config.streamingMethod == "aa") {
         if (config.devices.size() != 1) {
             NEON_THROW_UNSUPPORTED_OPERATION("We only support AA in a single device configuration for now.")
         }
         testCode << "_aa";
-        return run<lbm::Method::aa, CollisionType, Lattice, Grid, Storage, double>(config, report, testCode);
+        return run<lbm::Method::aa, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
@@ -130,7 +130,7 @@ auto runFilterCollision(Config&            config,
 {
     if (config.collisionCli.getOption() == Collision::bgk) {
         testCode << "_bgk";
-        return runFilterMethod<Collision::bgk, Lattice, Grid, Storage, double>(config, report, testCode);
+        return runFilterMethod<Collision::bgk, Lattice, Grid, Storage, Compute>(config, report, testCode);
     }
     if (config.collisionCli.getOption() == Collision::kbc) {
         if (config.lattice != "d3q27" && config.lattice != "D3Q27") {
@@ -139,10 +139,9 @@ auto runFilterCollision(Config&            config,
             NEON_THROW(e);
         }
         testCode << "_kbc";
-        using Precision = Precision<Storage, Compute>;
-        using L = D3Q27<Precision>;
+        using L = D3Q27<Precision<Storage, Compute>>;
         if constexpr (std::is_same_v<Lattice, L>) {
-            return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, double>(config, report, testCode);
+            return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, Compute>(config, report, testCode);
         }
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
@@ -153,17 +152,17 @@ auto runFilterLattice(Config&            config,
                       Report&            report,
                       std::stringstream& testCode) -> void
 {
-    using Precision = Precision<Storage, Compute>;
+    using P = Precision<Storage, Compute>;
 
     if (config.lattice == "d3q19" || config.lattice == "D3Q19") {
         testCode << "_D3Q19";
-        using Lattice = D3Q19<Precision>;
-        return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
+        using L = D3Q19<P>;
+        return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
     }
         if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
             testCode << "_D3Q27";
-            using Lattice = D3Q27<Precision>;
-            return runFilterCollision<Lattice, Grid, Storage, double>(config, report, testCode);
+            using L = D3Q27<P>;
+            return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
         }
     NEON_DEV_UNDER_CONSTRUCTION("Lattice type not supported. Available options: D3Q19 and D3Q27");
 }
