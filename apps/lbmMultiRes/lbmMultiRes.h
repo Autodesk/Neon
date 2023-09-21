@@ -114,7 +114,7 @@ void collideFusedStreaming(Neon::domain::mGrid&                        grid,
                                                           false));
 #endif
 
-#ifdef KBG
+#ifdef BGK
     containers.push_back(collideBGKUnrolledFusedAll<T, Q>(grid,
                                                           omega0,
                                                           level,
