@@ -20,13 +20,13 @@ inline Neon::set::Container stream(Neon::domain::mGrid&                        g
             auto        pin = fin.load(loader, level, Neon::MultiResCompute::MAP);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                if (type(cell, 0) == CellType::outlet) {
-                    if (!pin.hasChildren(cell)) {
-                        for (int8_t q = 0; q < Q; ++q) {
-                            pin(cell, q) = pout(cell, q);
-                        }
-                    }
-                }
+                //if (type(cell, 0) == CellType::outlet) {
+                //    if (!pin.hasChildren(cell)) {
+                //        for (int8_t q = 0; q < Q; ++q) {
+                //            pin(cell, q) = pout(cell, q);
+                //        }
+                //    }
+                //}
                 if (type(cell, 0) == CellType::bulk) {
                     //If this cell has children i.e., it is been refined, than we should not work on it
                     //because this cell is only there to allow query and not to operate on
