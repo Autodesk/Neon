@@ -12,7 +12,15 @@ endif ()
 
 if (WIN32)
 	set(LIBIGL_USE_STATIC_LIBRARY "ON" CACHE BOOL "Use Libigl as a static library")
+	set(NEON_USE_POLYSCOPE "ON" CACHE BOOL "Enable Ployscope for visualization")
 endif()
+
+if(${NEON_USE_POLYSCOPE})
+	message(STATUS "Polyscope is enabled")
+else()
+	message(STATUS "Polyscope is disabled")
+endif()
+
 
 # Manage between building Neon as shared or static library
 include("${PROJECT_SOURCE_DIR}/cmake/ManageLibraryType.cmake")
@@ -74,6 +82,9 @@ if (NOT OpenMP_CXX_FOUND)
     message(FATAL_ERROR "Neon could not find OpenMP")
 endif ()
 target_link_libraries(NeonDeveloperLib INTERFACE OpenMP::OpenMP_CXX)
+if(${NEON_USE_POLYSCOPE})
+	target_compile_definitions(NeonDeveloperLib INTERFACE NEON_USE_POLYSCOPE)
+endif()
 
 #target_link_libraries(libNeonXXX INTERFACE $<BUILD_INTERFACE:NeonDeveloperLib>)
 

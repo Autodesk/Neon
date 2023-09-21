@@ -313,7 +313,9 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     std::vector<Neon::float_3d>                              psHexVert;
     std::vector<T>                                           psColor;
 
-    initPolyscope<T>(grid, vel, psDrawable, psHex, psHexVert, slice);
+    if (!params.benchmark) {
+        initVisualization<T>(grid, vel, psDrawable, psHex, psHexVert, slice);
+    }
 
     NEON_INFO("Re: {}", params.Re);
     NEON_INFO("clength: {}", clength);
@@ -345,7 +347,9 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
             std::string fileName = "Velocity_" + suffix.str();
 
             postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk, psDrawable, psHex, psHexVert);
+#ifdef NEON_USE_POLYSCOPE
             postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, t == 0);
+#endif
         }
     }
     grid.getBackend().syncAll();
@@ -451,10 +455,14 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.write("MultiResLBM_" + reportSuffix(), true);
 
     //post process
-    int                precision = 4;
-    std::ostringstream suffix;
-    suffix << std::setw(precision) << std::setfill('0') << params.numIter;
-    std::string fileName = "Velocity_" + suffix.str();
-    postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk, psDrawable, psHex, psHexVert);
-    postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, false);
+    if (!params.benchmark) {
+        int                precision = 4;
+        std::ostringstream suffix;
+        suffix << std::setw(precision) << std::setfill('0') << params.numIter;
+        std::string fileName = "Velocity_" + suffix.str();
+        postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk, psDrawable, psHex, psHexVert);
+#ifdef NEON_USE_POLYSCOPE
+        postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, false);
+#endif
+    }
 }

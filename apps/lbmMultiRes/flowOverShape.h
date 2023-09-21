@@ -345,7 +345,9 @@ void flowOverMesh(const Neon::Backend backend,
 
     igl::writeOBJ("scaled.obj", vertices, faces);
 
+#ifdef NEON_USE_POLYSCOPE
     polyscopeAddMesh(params.meshFile, faces, vertices);
+#endif
 
     //get the mesh ready for query (inside/outside) using libigl winding number
     auto wnAABB = winding_number_aabbc(vertices, faces);

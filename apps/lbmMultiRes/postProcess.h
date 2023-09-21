@@ -5,8 +5,10 @@
 
 #include "verify.h"
 
+#ifdef NEON_USE_POLYSCOPE
 #include "polyscope/surface_mesh.h"
 #include "polyscope/volume_mesh.h"
+#endif
 
 #include <Eigen/Core>
 
@@ -156,12 +158,12 @@ void postProcess(Neon::domain::mGrid&                                           
 
 
 template <typename T>
-void initPolyscope(Neon::domain::mGrid&                                      grid,
-                   const Neon::domain::mGrid::Field<T>&                      vel,
-                   std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>>& psDrawable,
-                   std::vector<std::array<int, 8>>&                          psHex,
-                   std::vector<Neon::float_3d>&                              psHexVert,
-                   const Neon::int8_3d                                       slice)
+void initVisualization(Neon::domain::mGrid&                                      grid,
+                       const Neon::domain::mGrid::Field<T>&                      vel,
+                       std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>>& psDrawable,
+                       std::vector<std::array<int, 8>>&                          psHex,
+                       std::vector<Neon::float_3d>&                              psHexVert,
+                       const Neon::int8_3d                                       slice)
 {
     //polyscope register points
     //std::vector<std::array<int, 8>> psHex;
@@ -177,7 +179,7 @@ void initPolyscope(Neon::domain::mGrid&                                      gri
         const int             voxelSpacing = grid.getDescriptor().getSpacing(l - 1);
         const Neon::index_3d  dim0 = grid.getDimension(0);
 
-        grid.newContainer<Neon::Execution::host>("initPolyscope", l, [&](Neon::set::Loader& loader) {
+        grid.newContainer<Neon::Execution::host>("initVisualization", l, [&](Neon::set::Loader& loader) {
                 const auto& u = vel.load(loader, l, Neon::MultiResCompute::MAP);
 
                 return [&](const typename Neon::domain::mGrid::Idx& cell) mutable {
@@ -261,6 +263,7 @@ void initPolyscope(Neon::domain::mGrid&                                      gri
             .run(0);
     }
 
+#ifdef NEON_USE_POLYSCOPE
     if (!polyscope::isInitialized()) {
         polyscope::init();
     }
@@ -270,8 +273,10 @@ void initPolyscope(Neon::domain::mGrid&                                      gri
     //polyscope::view::lookAt(glm::vec3{0, 0, 0}, glm::vec3{0., 0., 1.});
     auto psMesh = polyscope::registerHexMesh("LBM", psHexVert, psHex);
     polyscope::options::screenshotExtension = ".png";
+#endif
 }
 
+#ifdef NEON_USE_POLYSCOPE
 template <typename T>
 void postProcessPolyscope(const std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>>& psDrawable,
                           const Neon::domain::mGrid::Field<T>&                            vel,
@@ -323,6 +328,7 @@ void polyscopeAddMesh(
 
     polyscope::registerSurfaceMesh(polyscope::guessNiceNameFromPath(name), vertices, faces);
 }
+#endif
 
 template <typename T>
 void verifyLidDrivenCavity(Neon::domain::mGrid&           grid,

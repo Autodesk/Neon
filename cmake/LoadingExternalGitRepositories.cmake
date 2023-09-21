@@ -38,14 +38,16 @@ FetchContent_GetProperties(glm)
 endif()
 
 # polyscope
-FetchContent_GetProperties(polyscope)
-if (NOT polyscope_POPULATED)
-	message(STATUS "Fetching polyscope...")
-	FetchContent_Declare(polyscope
-		GIT_REPOSITORY https://github.com/Ahdhn/polyscope.git
-		GIT_TAG        834b9c6c1a2675ccefd254d526f2dac3e3f831c6
-	)
-	FetchContent_MakeAvailable(polyscope)
+if(${NEON_USE_POLYSCOPE})
+	FetchContent_GetProperties(polyscope)
+	if (NOT polyscope_POPULATED)
+		message(STATUS "Fetching polyscope...")
+		FetchContent_Declare(polyscope
+			GIT_REPOSITORY https://github.com/Ahdhn/polyscope.git
+			GIT_TAG        834b9c6c1a2675ccefd254d526f2dac3e3f831c6
+		)
+		FetchContent_MakeAvailable(polyscope)
+	endif()
 endif()
 
 #libigl
