@@ -464,5 +464,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 #ifdef NEON_USE_POLYSCOPE
         postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, false);
 #endif
+    } else {
+        postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, "", false, psDrawable, psHex, psHexVert);
     }
 }
