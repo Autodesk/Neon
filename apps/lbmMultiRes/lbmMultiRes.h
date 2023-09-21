@@ -89,16 +89,36 @@ void collideFusedStreaming(Neon::domain::mGrid&                        grid,
                            const int                                   level,
                            const int                                   numLevels,
                            const Neon::domain::mGrid::Field<CellType>& cellType,
-                           const Neon::domain::mGrid::Field<float>&    sumStore,
                            Neon::domain::mGrid::Field<T>&              fin,
                            Neon::domain::mGrid::Field<T>&              fout,
                            std::vector<Neon::set::Container>&          containers)
 {
+
+#ifdef KBC
+    containers.push_back(collideKBCUnrolledFusedAll<T, Q>(grid,
+                                                          omega0,
+                                                          level,
+                                                          numLevels,
+                                                          cellType,
+                                                          fin,
+                                                          fout,
+                                                          true));
+
+    containers.push_back(collideKBCUnrolledFusedAll<T, Q>(grid,
+                                                          omega0,
+                                                          level,
+                                                          numLevels,
+                                                          cellType,
+                                                          fout,
+                                                          fin,
+                                                          false));
+#endif
+
+#ifdef KBG
     containers.push_back(collideBGKUnrolledFusedAll<T, Q>(grid,
                                                           omega0,
                                                           level,
                                                           numLevels,
-                                                          sumStore,
                                                           cellType,
                                                           fin,
                                                           fout,
@@ -108,11 +128,11 @@ void collideFusedStreaming(Neon::domain::mGrid&                        grid,
                                                           omega0,
                                                           level,
                                                           numLevels,
-                                                          sumStore,
                                                           cellType,
                                                           fout,
                                                           fin,
                                                           false));
+#endif
 }
 
 template <typename T, int Q>
@@ -138,7 +158,6 @@ void nonUniformTimestepRecursive(Neon::domain::mGrid&                        gri
                                     level,
                                     numLevels,
                                     cellType,
-                                    sumStore,
                                     fin,
                                     fout,
                                     containers);
@@ -300,6 +319,14 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     NEON_INFO("clength: {}", clength);
     NEON_INFO("omega: {}", omega);
     NEON_INFO("visclb: {}", visclb);
+#ifdef KBC
+    NEON_INFO("Collision: KBC");
+#endif
+#ifdef BGK
+    NEON_INFO("Collision: BGK");
+#endif
+
+
     NEON_INFO("velocity: {}, {}, {}", velocity.x, velocity.y, velocity.z);
 
 
