@@ -4,6 +4,7 @@
 template <typename T, typename FieldT, typename FieldType>
 inline NEON_CUDA_HOST_DEVICE void stream(const typename Neon::domain::mGrid::Idx& cell,
                                          FieldT&                                  out,
+                                         const FieldT&                            explosionIn,
                                          const FieldType&                         type,
                                          const int8_t                             q,
                                          const T                                  cellVal)
@@ -34,7 +35,7 @@ inline NEON_CUDA_HOST_DEVICE void stream(const typename Neon::domain::mGrid::Idx
             Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
 
             const int8_t opposte_q = latticeOppositeID[q];
-            const auto   uncle = out.uncleVal(cell, uncleDir, opposte_q, T(0));
+            const auto   uncle = explosionIn.uncleVal(cell, uncleDir, opposte_q, T(0));
             if (uncle.mIsValid) {
                 out(cell, opposte_q) = uncle.mData;
             }
@@ -188,26 +189,26 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
                     store<T>(cell, (storeOut) ? out : in, 18, pop_out_opp_08);
 
                     //streaming (push)
-                    stream<T>(cell, out, type, 0, pop_out_00);
-                    stream<T>(cell, out, type, 1, pop_out_01);
-                    stream<T>(cell, out, type, 2, pop_out_02);
-                    stream<T>(cell, out, type, 3, pop_out_03);
-                    stream<T>(cell, out, type, 4, pop_out_04);
-                    stream<T>(cell, out, type, 5, pop_out_05);
-                    stream<T>(cell, out, type, 6, pop_out_06);
-                    stream<T>(cell, out, type, 7, pop_out_07);
-                    stream<T>(cell, out, type, 8, pop_out_08);
-                    //stream<T>(cell, out, type, 9, pop_out_09);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 0, pop_out_00);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 1, pop_out_01);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 2, pop_out_02);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 3, pop_out_03);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 4, pop_out_04);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 5, pop_out_05);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 6, pop_out_06);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 7, pop_out_07);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 8, pop_out_08);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 9, pop_out_09);
 
-                    stream<T>(cell, out, type, 10, pop_out_opp_00);
-                    stream<T>(cell, out, type, 11, pop_out_opp_01);
-                    stream<T>(cell, out, type, 12, pop_out_opp_02);
-                    stream<T>(cell, out, type, 13, pop_out_opp_03);
-                    stream<T>(cell, out, type, 14, pop_out_opp_04);
-                    stream<T>(cell, out, type, 15, pop_out_opp_05);
-                    stream<T>(cell, out, type, 16, pop_out_opp_06);
-                    stream<T>(cell, out, type, 17, pop_out_opp_07);
-                    stream<T>(cell, out, type, 18, pop_out_opp_08);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 10, pop_out_opp_00);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 11, pop_out_opp_01);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 12, pop_out_opp_02);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 13, pop_out_opp_03);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 14, pop_out_opp_04);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 15, pop_out_opp_05);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 16, pop_out_opp_06);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 17, pop_out_opp_07);
+                    stream<T>(cell, out, (storeOut) ? out : in, type, 18, pop_out_opp_08);
                 }
             };
         });
