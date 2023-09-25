@@ -347,8 +347,9 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
     //execution
     for (uint32_t l = 0; l < depth; ++l) {
-        NEON_INFO("numActiveVoxels{}: {}", l, numActiveVoxels[l]);
+        NEON_INFO("numActiveVoxels [{}]: {}", l, numActiveVoxels[l]);
     }
+    NEON_INFO("sumActiveVoxels: {}", sumActiveVoxels);
     auto start = std::chrono::high_resolution_clock::now();
     for (int t = 0; t < params.numIter; ++t) {
         if (t % 100 == 0) {
@@ -469,7 +470,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("Time (microsecond)", duration.count());
     report.addMember("MLUPS", MLUPS);
     report.addMember("NumIter", params.numIter);
-    report.addMember("NumVoxels", numActiveVoxels);
+    report.addMember("NumActiveVoxels", numActiveVoxels);
     report.addMember("EMLUPS", effMLUPS);
     report.addMember("ENumIter", effNumIter);
     report.addMember("ENumVoxels", gridDim.rMul());
