@@ -394,9 +394,13 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
         if (params.collisionFusedStore) {
             ret = "CH";
-        } else {
+        } 
+        else if(params.fineInitStore) {
             ret = "C-H";
+        } else {
+            ret = "C-h";
         }
+
         if (params.streamFusedExpl) {
             ret += "-SE-O";
         } else if (params.streamFusedCoal) {
