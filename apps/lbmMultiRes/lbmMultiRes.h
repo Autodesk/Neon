@@ -282,7 +282,11 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     const int  depth = grid.getDescriptor().getDepth();
     const auto gridDim = grid.getDimension();
 
-    const uint32_t numActiveVoxels = countActiveVoxels(grid, fin);
+    std::vector<uint32_t> numActiveVoxels = countActiveVoxels(grid, fin);
+    uint32_t              sumActiveVoxels = 0;
+    for (auto n : numActiveVoxels) {
+        sumActiveVoxels += n;
+    }
 
     //skeleton
     std::vector<Neon::set::Container> containers;
@@ -315,6 +319,15 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
     if (!params.benchmark) {
         initVisualization<T>(grid, vel, psDrawable, psHex, psHexVert, slice);
+
+        if (slice.x == -1 && slice.y == -1 && slice.z == -1) {
+            if (sumActiveVoxels != psDrawable.size()) {
+                Neon::NeonException exp("runNonUniformLBM");
+                exp << "Mismatch between number of active voxels and drawable voxels";
+                exp << "psDrawable.size()= " << psDrawable.size() << ", sumActiveVoxels= " << sumActiveVoxels;
+                NEON_THROW(exp);
+            }
+        }
     }
 
     NEON_INFO("Re: {}", params.Re);
@@ -333,7 +346,9 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
 
     //execution
-    NEON_INFO("numActiveVoxels: {}", numActiveVoxels);
+    for (uint32_t l = 0; l < depth; ++l) {
+        NEON_INFO("numActiveVoxels{}: {}", l, numActiveVoxels[l]);
+    }
     auto start = std::chrono::high_resolution_clock::now();
     for (int t = 0; t < params.numIter; ++t) {
         if (t % 100 == 0) {
@@ -356,14 +371,20 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
-    const double MLUPS = static_cast<double>(params.numIter * numActiveVoxels) / duration.count();
+    //const double MLUPS = static_cast<double>(params.numIter * sumActiveVoxels) / duration.count();
+    //NEON_INFO("MLUPS = {0:8.8f}, sumActiveVoxels = {1}", MLUPS, sumActiveVoxels);
+
+    double MLUPS = 0;
+    for (uint32_t l = 0; l < depth; ++l) {
+        double d = (depth - 1) - l;
+        MLUPS += double(params.numIter) * std::pow(2, d) * double(numActiveVoxels[l]);
+    }
+    MLUPS /= double(duration.count());
+    NEON_INFO("MLUPS = {0:8.8f}", MLUPS);
+    NEON_INFO("Time = {0:8.8f} (microseconds)", double(duration.count()));
 
     const double effNumIter = double(params.numIter) * double(1 << (depth - 1));
     const double effMLUPS = (effNumIter * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
-
-
-    NEON_INFO("Time = {0:8.8f} (microseconds)", double(duration.count()));
-    NEON_INFO("MLUPS = {0:8.8f}, numActiveVoxels = {1}", MLUPS, numActiveVoxels);
     NEON_INFO("Effective MLUPS = {0:8.8f}, Effective numActiveVoxels = {1}", effMLUPS, gridDim.rMul());
 
     //Reporting
@@ -413,7 +434,9 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("DeviceType", Neon::DeviceTypeUtil::toString(grid.getBackend().devType()));
 
     //grid
-    report.addMember("N", gridDim.x);
+    report.addMember("Grid Size X", gridDim.x);
+    report.addMember("Grid Size Y", gridDim.y);
+    report.addMember("Grid Size Z", gridDim.z);
     report.addMember("Depth", depth);
     report.addMember("DataType", typeName());
 

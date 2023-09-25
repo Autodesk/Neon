@@ -30,7 +30,7 @@ void initSumStore(Neon::domain::mGrid&               grid,
 
                                 const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
 
-                                const auto cn = ss.helpGetNghIdx(cell, uncleDir);                             
+                                const auto cn = ss.helpGetNghIdx(cell, uncleDir);
 
 
                                 if (!ss.isActive(cn)) {
@@ -91,21 +91,27 @@ void initSumStore(Neon::domain::mGrid&               grid,
 
 
 template <typename T>
-uint32_t countActiveVoxels(Neon::domain::mGrid&           grid,
-                           Neon::domain::mGrid::Field<T>& fin)
+std::vector<uint32_t>
+countActiveVoxels(Neon::domain::mGrid&           grid,
+                  Neon::domain::mGrid::Field<T>& fin)
 {
-    uint32_t* dNumActiveVoxels = nullptr;
+
+    uint32_t*      dNumActiveVoxels = nullptr;
+    const uint32_t depth = grid.getDescriptor().getDepth();
+    const size_t   numBytes = depth * sizeof(uint32_t);
+
+    std::vector<uint32_t> ret(depth);
 
     if (grid(0).getBackend().runtime() == Neon::Runtime::stream) {
-        cudaMalloc((void**)&dNumActiveVoxels, sizeof(uint32_t));
-        cudaMemset(dNumActiveVoxels, 0, sizeof(uint32_t));
+        cudaMalloc((void**)&dNumActiveVoxels, numBytes);
+        cudaMemset(dNumActiveVoxels, 0, numBytes);
     } else {
-        dNumActiveVoxels = (uint32_t*)malloc(sizeof(uint32_t));
+        dNumActiveVoxels = ret.data();
     }
 
     const Neon::index_3d gridDim = grid.getDimension();
 
-    for (int level = 0; level < grid.getDescriptor().getDepth(); ++level) {
+    for (int level = 0; level < depth; ++level) {
 
         auto container =
             grid.newContainer(
@@ -114,28 +120,25 @@ uint32_t countActiveVoxels(Neon::domain::mGrid&           grid,
                     auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-
+                        if (!in.hasChildren(cell)) {
 #ifdef NEON_PLACE_CUDA_DEVICE
-                        atomicAdd(dNumActiveVoxels, 1);
+                            atomicAdd(dNumActiveVoxels + level, 1);
 #else
 #pragma omp atomic
-                        dNumActiveVoxels[0] += 1;
+                            dNumActiveVoxels[level] += 1;
 #endif
+                        }
                     };
                 });
 
         container.run(0);
     }
 
-    uint32_t hNumActiveVoxels = 0;
+
     if (grid(0).getBackend().runtime() == Neon::Runtime::stream) {
-        cudaMemcpy(&hNumActiveVoxels, dNumActiveVoxels, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        cudaMemcpy(ret.data(), dNumActiveVoxels, numBytes, cudaMemcpyDeviceToHost);
         cudaFree(dNumActiveVoxels);
-    } else {
-        hNumActiveVoxels = dNumActiveVoxels[0];
     }
 
-    return hNumActiveVoxels;
+    return ret;
 }
-
-
