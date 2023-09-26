@@ -203,16 +203,16 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[2] = -96.0 / 240.0;
         levelSDF[3] = -160.0 / 240.0;
         levelSDF[4] = -1.0;
-    } /*else if (params.scale == 10) {
+    } else if (params.scale == 10) {
         depth = 4;
         levelSDF.resize(depth + 1);
         gridDim = Neon::index_3d(512, 512, 512);
         levelSDF[0] = 0;
-        levelSDF[1] = -103.0 / 512.0;
-        levelSDF[2] = -205.0 / 512.0;
-        levelSDF[3] = -359.0 / 512.0;
+        levelSDF[1] = -120.0 / 512.0;
+        levelSDF[2] = -200.0 / 512.0;
+        levelSDF[3] = -400.0 / 512.0;
         levelSDF[4] = -1.0;
-    }*/
+    }
 
 
     //generatepalabosDATFile(std::string("lid_" + std::to_string(gridDim.x) + "_" +
