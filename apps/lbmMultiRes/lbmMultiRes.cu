@@ -1,7 +1,7 @@
 #include "Neon/core/tools/clipp.h"
 
-//#define BGK
-#define KBC
+#define BGK
+//#define KBC
 
 #include "Neon/Neon.h"
 #include "Neon/Report.h"
@@ -45,9 +45,6 @@ int main(int argc, char** argv)
     Neon::init();
 
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        report = Neon::Report("Lid Driven Cavity MultiRes LBM");
-        report.commandLine(argc, argv);
-
         Params params;
 
         auto cli =
@@ -123,30 +120,47 @@ int main(int argc, char** argv)
 #ifdef BGK
         constexpr int Q = 19;
 #endif
-        if (params.dataType == "float") {
-            if (params.problemType == "lid") {
+
+        if (params.problemType == "lid") {
+            report = Neon::Report("Lid Driven Cavity MultiRes LBM");
+            report.commandLine(argc, argv);
+            if (params.dataType == "float") {
                 lidDrivenCavity<float, Q>(backend, params);
             }
-            if (params.problemType == "sphere") {
-                flowOverSphere<float, Q>(backend, params);
-            }
-            if (params.problemType == "jet") {
-                flowOverJet<float, Q>(backend, params);
-            }
-            if (params.problemType == "mesh") {
-                flowOverMesh<float, Q>(backend, params);
-            }
-        } else if (params.dataType == "double") {
-            if (params.problemType == "lid") {
+            if (params.dataType == "double") {
                 lidDrivenCavity<double, Q>(backend, params);
             }
-            if (params.problemType == "sphere") {
+        }
+
+        if (params.problemType == "sphere") {
+            report = Neon::Report("Sphere MultiRes LBM");
+            report.commandLine(argc, argv);
+            if (params.dataType == "float") {
+                flowOverSphere<float, Q>(backend, params);
+            }
+            if (params.dataType == "double") {
                 flowOverSphere<double, Q>(backend, params);
             }
-            if (params.problemType == "jet") {
+        }
+
+        if (params.problemType == "jet") {
+            report = Neon::Report("Jet MultiRes LBM");
+            report.commandLine(argc, argv);
+            if (params.dataType == "float") {
+                flowOverJet<float, Q>(backend, params);
+            }
+            if (params.dataType == "double") {
                 flowOverJet<double, Q>(backend, params);
             }
-            if (params.problemType == "mesh") {
+        }
+
+        if (params.problemType == "mesh") {
+            report = Neon::Report("Mesh MultiRes LBM");
+            report.commandLine(argc, argv);
+            if (params.dataType == "float") {
+                flowOverMesh<float, Q>(backend, params);
+            }
+            if (params.dataType == "double") {
                 flowOverMesh<double, Q>(backend, params);
             }
         }
