@@ -11,8 +11,6 @@ void initLidDrivenCavity(Neon::domain::mGrid&                  grid,
                          Neon::domain::mGrid::Field<T>&        fin,
                          Neon::domain::mGrid::Field<T>&        fout,
                          Neon::domain::mGrid::Field<CellType>& cellType,
-                         Neon::domain::mGrid::Field<T>&        vel,
-                         Neon::domain::mGrid::Field<T>&        rho,
                          const Neon::double_3d                 ulid)
 {
     const Neon::index_3d gridDim = grid.getDimension();
@@ -23,20 +21,13 @@ void initLidDrivenCavity(Neon::domain::mGrid&                  grid,
         auto container =
             grid.newContainer(
                 "Init_" + std::to_string(level), level,
-                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, ulid](Neon::set::Loader& loader) {
+                [&fin, &fout, &cellType, &sumStore, level, gridDim, ulid](Neon::set::Loader& loader) {
                     auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
-                    auto& u = vel.load(loader, level, Neon::MultiResCompute::MAP);
-                    auto& rh = rho.load(loader, level, Neon::MultiResCompute::MAP);
                     auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::MAP);
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                        //velocity and density
-                        u(cell, 0) = 0;
-                        u(cell, 1) = 0;
-                        u(cell, 2) = 0;
-                        rh(cell, 0) = 0;
                         type(cell, 0) = CellType::bulk;
 
                         for (int q = 0; q < Q; ++q) {
@@ -212,6 +203,15 @@ void lidDrivenCavity(const Neon::Backend backend,
         levelSDF[2] = -200.0 / 512.0;
         levelSDF[3] = -400.0 / 512.0;
         levelSDF[4] = -1.0;
+    } else if (params.scale == 11) {
+        depth = 4;
+        levelSDF.resize(depth + 1);
+        gridDim = Neon::index_3d(512, 512, 512);
+        levelSDF[0] = 0;
+        levelSDF[1] = -120.0 / 512.0;
+        levelSDF[2] = -200.0 / 512.0;
+        levelSDF[3] = -400.0 / 512.0;
+        levelSDF[4] = -1.0;
     }
 
 
@@ -255,11 +255,8 @@ void lidDrivenCavity(const Neon::Backend backend,
     auto storeSum = grid.newField<float>("storeSum", Q, 0);
     auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
-    auto vel = grid.newField<T>("vel", 3, 0);
-    auto rho = grid.newField<T>("rho", 1, 0);
-
     //init fields
-    initLidDrivenCavity<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, ulid);
+    initLidDrivenCavity<T, Q>(grid, storeSum, fin, fout, cellType, ulid);
 
     runNonUniformLBM<T, Q>(grid,
                            params,
@@ -271,13 +268,5 @@ void lidDrivenCavity(const Neon::Backend backend,
                            storeSum,
                            fin,
                            fout,
-                           vel,
-                           rho);
-
-    verifyLidDrivenCavity<T>(grid,
-                             depth,
-                             vel,
-                             params.Re,
-                             params.numIter,
-                             ulb);
+                           true);
 }

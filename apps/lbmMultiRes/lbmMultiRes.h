@@ -276,8 +276,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
                       const Neon::domain::mGrid::Field<float>&    storeSum,
                       Neon::domain::mGrid::Field<T>&              fin,
                       Neon::domain::mGrid::Field<T>&              fout,
-                      Neon::domain::mGrid::Field<T>&              vel,
-                      Neon::domain::mGrid::Field<T>&              rho)
+                      bool                                        verify = false)
 {
     const int  depth = grid.getDescriptor().getDepth();
     const auto gridDim = grid.getDimension();
@@ -286,6 +285,13 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     uint32_t              sumActiveVoxels = 0;
     for (auto n : numActiveVoxels) {
         sumActiveVoxels += n;
+    }
+
+    Neon::domain::mGrid::Field<T> vel;
+    Neon::domain::mGrid::Field<T> rho;
+    if (!params.benchmark) {
+        vel = grid.newField<T>("vel", 3, 0);
+        rho = grid.newField<T>("rho", 1, 0);
     }
 
     //skeleton
@@ -394,8 +400,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
         if (params.collisionFusedStore) {
             ret = "CH";
-        } 
-        else if(params.fineInitStore) {
+        } else if (params.fineInitStore) {
             ret = "C-H";
         } else {
             ret = "C-h";
@@ -494,5 +499,14 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 #endif
     } else {
         postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, "", false, psDrawable, psHex, psHexVert);
+    }
+
+    if (verify) {
+        verifyLidDrivenCavity<T>(grid,
+                                 depth,
+                                 vel,
+                                 params.Re,
+                                 params.numIter,
+                                 velocity.x);
     }
 }

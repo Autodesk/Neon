@@ -19,8 +19,6 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                        Neon::domain::mGrid::Field<T>&        fin,
                        Neon::domain::mGrid::Field<T>&        fout,
                        Neon::domain::mGrid::Field<CellType>& cellType,
-                       Neon::domain::mGrid::Field<T>&        vel,
-                       Neon::domain::mGrid::Field<T>&        rho,
                        const Neon::double_3d                 inletVelocity,
                        const sdfT                            shapeSDF)
 {
@@ -33,12 +31,10 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
         auto container =
             grid.newContainer(
                 "Init_" + std::to_string(level), level,
-                [&fin, &fout, &cellType, &vel, &rho, &sumStore, level, gridDim, inletVelocity, shapeSDF](Neon::set::Loader& loader) {
+                [&fin, &fout, &cellType, &sumStore, level, gridDim, inletVelocity, shapeSDF](Neon::set::Loader& loader) {
                     auto&   in = fin.load(loader, level, Neon::MultiResCompute::MAP);
                     auto&   out = fout.load(loader, level, Neon::MultiResCompute::MAP);
                     auto&   type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
-                    auto&   u = vel.load(loader, level, Neon::MultiResCompute::MAP);
-                    auto&   rh = rho.load(loader, level, Neon::MultiResCompute::MAP);
                     auto&   ss = sumStore.load(loader, level, Neon::MultiResCompute::MAP);
                     const T usqr = (3.0 / 2.0) * (inletVelocity.x * inletVelocity.x + inletVelocity.y * inletVelocity.y + inletVelocity.z * inletVelocity.z);
 
@@ -53,10 +49,6 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                         (void)sdf;
                         (void)shapeSDF;
 
-                        u(cell, 0) = 0;
-                        u(cell, 1) = 0;
-                        u(cell, 2) = 0;
-                        rh(cell, 0) = 0;
                         type(cell, 0) = CellType::bulk;
 
                         for (int q = 0; q < Q; ++q) {
@@ -175,11 +167,9 @@ void flowOverJet(const Neon::Backend backend,
     auto storeSum = grid.newField<float>("storeSum", Q, 0);
     auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
-    auto vel = grid.newField<T>("vel", 3, 0);
-    auto rho = grid.newField<T>("rho", 1, 0);
 
     //init fields
-    initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, [=] NEON_CUDA_HOST_DEVICE(Neon::index_3d idx) {
+    initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, inletVelocity, [=] NEON_CUDA_HOST_DEVICE(Neon::index_3d idx) {
         idx.x -= jetBoxPosition.x;
         idx.y -= jetBoxPosition.y;
         idx.z -= jetBoxPosition.z;
@@ -213,9 +203,7 @@ void flowOverJet(const Neon::Backend backend,
                            cellType,
                            storeSum,
                            fin,
-                           fout,
-                           vel,
-                           rho);
+                           fout);
 }
 
 template <typename T, int Q>
@@ -265,11 +253,8 @@ void flowOverSphere(const Neon::Backend backend,
     auto storeSum = grid.newField<float>("storeSum", Q, 0);
     auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
-    auto vel = grid.newField<T>("vel", 3, 0);
-    auto rho = grid.newField<T>("rho", 1, 0);
-
     //init fields
-    initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, [sphere] NEON_CUDA_HOST_DEVICE(const Neon::index_3d idx) {
+    initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, inletVelocity, [sphere] NEON_CUDA_HOST_DEVICE(const Neon::index_3d idx) {
         const T dx = sphere.x - idx.x;
         const T dy = sphere.y - idx.y;
         const T dz = sphere.z - idx.z;
@@ -293,9 +278,7 @@ void flowOverSphere(const Neon::Backend backend,
                            cellType,
                            storeSum,
                            fin,
-                           fout,
-                           vel,
-                           rho);
+                           fout);
 }
 
 
@@ -417,12 +400,9 @@ void flowOverMesh(const Neon::Backend backend,
     auto storeSum = grid.newField<float>("storeSum", Q, 0);
     auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
-    auto vel = grid.newField<T>("vel", 3, 0);
-    auto rho = grid.newField<T>("rho", 1, 0);
-
 
     //init fields
-    initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, vel, rho, inletVelocity, inside);
+    initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, inletVelocity, inside);
 
     //cellType.updateHostData();
     //cellType.ioToVtk("cellType", true, true, true, true);
@@ -437,7 +417,5 @@ void flowOverMesh(const Neon::Backend backend,
                            cellType,
                            storeSum,
                            fin,
-                           fout,
-                           vel,
-                           rho);
+                           fout);
 }
