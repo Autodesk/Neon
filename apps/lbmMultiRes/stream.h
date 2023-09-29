@@ -84,35 +84,25 @@ inline Neon::set::Container streamFusedExplosion(Neon::domain::mGrid&           
                 //We only do streaming in the bulk i.e., non-boundary condition voxels. Since we only allow grid
                 //transition on bulk, then it is okay to do explosion inside this condition because
                 //if the voxel is not bulk then all its neighbours are on the same level and no explosion is needed
+
                 if (type(cell, 0) == CellType::bulk) {
-                    //If this cell has children i.e., it is been refined, than we should not work on it
-                    //because this cell is only there to allow query and not to operate on
                     if (!pin.hasChildren(cell)) {
 
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
-
-                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                             if (!pin.hasChildren(cell, dir)) {
-                                if (pin.isActive(cell, dir)) {
-                                    auto nghType = type.getNghData(cell, dir, 0);
-                                    assert(nghType.mIsValid);
-                                    if (nghType.mData == CellType::bulk || nghType.mData == CellType::outlet) {
+                                auto nghType = type.getNghData(cell, dir, 0);
+
+                                if (nghType.mIsValid) {
+                                    if (nghType.mData == CellType::bulk) {
                                         pin(cell, q) = pout.getNghData(cell, dir, q).mData;
                                     } else {
                                         const int8_t opposte_q = latticeOppositeID[q];
                                         pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
                                     }
-                                } else if (level != numLevels - 1 && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                    //only if we are not on the coarsest level and
-                                    //only if we can not do normal streaming, then we may have a coarser neighbor from which
-                                    //we can read this pop
-
-                                    //get the uncle direction/offset i.e., the neighbor of the cell's parent
-                                    //this direction/offset is wrt to the cell's parent
+                                } else if (pin.hasParent(cell) && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
                                     Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
-
-                                    auto uncle = pout.uncleVal(cell, uncleDir, q, T(0));
+                                    auto          uncle = pout.uncleVal(cell, uncleDir, q, T(0));
                                     if (uncle.mIsValid) {
                                         pin(cell, q) = uncle.mData;
                                     }
