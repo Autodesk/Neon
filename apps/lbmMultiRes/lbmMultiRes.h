@@ -289,7 +289,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
     Neon::domain::mGrid::Field<T> vel;
     Neon::domain::mGrid::Field<T> rho;
-    if (!params.benchmark) {
+    if (!params.benchmark || verify) {
         vel = grid.newField<T>("vel", 3, 0);
         rho = grid.newField<T>("rho", 1, 0);
     }
@@ -497,7 +497,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 #ifdef NEON_USE_POLYSCOPE
         postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, false);
 #endif
-    } else {
+    } else if (verify) {
         postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, "", false, psDrawable, psHex, psHexVert);
     }
 
