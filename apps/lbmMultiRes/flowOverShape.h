@@ -314,14 +314,14 @@ void flowOverMesh(const Neon::Backend backend,
     igl::remove_unreferenced(Eigen::MatrixXd(vertices), Eigen::MatrixXi(faces), vertices, faces, _1, _2);
 
     //mesh bounding box using the mesh coordinates
-    Eigen::RowVector3d bbMax, bbMin;
-    Eigen::RowVector3i bbMaxI, bbMinI;
+    Eigen::RowVectorXd bbMax, bbMin;
+    Eigen::RowVectorXi bbMaxI, bbMinI;
     igl::max(vertices, 1, bbMax, bbMaxI);
     igl::min(vertices, 1, bbMin, bbMinI);
 
     //translate and scale the mesh
     vertices.rowwise() -= ((bbMin + bbMax) / 2.0);
-    double scaling_factor = meshBoxDim.minCoeff() / (bbMax - bbMin).minCoeff();
+    double scaling_factor = meshBoxDim.maxCoeff() / (bbMax - bbMin).maxCoeff();
     vertices *= scaling_factor;
     vertices.rowwise() += meshBoxCenter;
 
