@@ -137,19 +137,26 @@ void postProcess(Neon::domain::mGrid&                                           
         file << "CELL_DATA " << psHex.size() << " \n";
 
         //data
-        file << "SCALARS Velocity float 1 \n";
-        file << "LOOKUP_TABLE default \n";
+        //file << "SCALARS Velocity float 1 \n";
+        //file << "LOOKUP_TABLE default \n";
+        file << "VECTORS Velocity float \n";
 
         for (size_t t = 0; t < psDrawable.size(); ++t) {
             const auto id = psDrawable[t].first;
             int        level = psDrawable[t].second;
-
-            T c = 0;
+            
             for (int d = 0; d < 3; ++d) {
                 T v = vel(id, d, level);
-                c += v * v;
+                file << v << " ";                
             }
-            file << c << "\n";
+            file << "\n";
+
+            //T c = 0;
+            //for (int d = 0; d < 3; ++d) {
+            //    T v = vel(id, d, level);
+            //    c += v * v;
+            //}
+            //file << c << "\n";
         }
 
         file.close();

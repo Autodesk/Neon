@@ -368,7 +368,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
             suffix << std::setw(precision) << std::setfill('0') << t;
             std::string fileName = "Velocity_" + suffix.str();
 
-            postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk, psDrawable, psHex, psHexVert);
+            postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk && t != 0, psDrawable, psHex, psHexVert);
 #ifdef NEON_USE_POLYSCOPE
             postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, t == 0);
 #endif
