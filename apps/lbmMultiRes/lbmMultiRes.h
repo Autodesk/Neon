@@ -548,7 +548,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
         {
             Neon::index_3d            nodeDim(gridDim.x + 1, gridDim.y + 1, gridDim.z + 1);
-            Neon::IoToVTK<int, float> io("BinVelocity", nodeDim, {1, 1, 1}, {0, 0, 0}, Neon::IoFileType::ASCII);
+            Neon::IoToVTK<int, float> io("BinVelocity", nodeDim, {1, 1, 1}, {0, 0, 0}, Neon::IoFileType::BINARY);
 
             io.addField([=](Neon::index_3d idx, int card) {
                 Neon::index_4d loc4D(idx.x, idx.y, idx.z, card);
