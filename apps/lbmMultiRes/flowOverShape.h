@@ -332,8 +332,10 @@ void flowOverMesh(const Neon::Backend backend,
     polyscopeAddMesh(params.meshFile, faces, vertices);
 #endif
 
+    NEON_INFO("Winding Number init");
     //get the mesh ready for query (inside/outside) using libigl winding number
     auto wnAABB = winding_number_aabbc(vertices, faces);
+    wnAABB.set_method(igl::WindingNumberMethod::APPROX_SIMPLE_WINDING_NUMBER_METHOD);
     wnAABB.grow();
 
     //define the grid
@@ -369,6 +371,7 @@ void flowOverMesh(const Neon::Backend backend,
     //test.ioToVtk("Test", true, true, true, true, {-1, -1, 1});
     //exit(0);
 
+    NEON_INFO("Started populating inside field");
     //a field with 1 if the voxel is inside the shape
     auto inside = grid.newField<int8_t>("inside", 1, 0);
 
@@ -377,11 +380,19 @@ void flowOverMesh(const Neon::Backend backend,
                 auto& in = inside.load(loader, l, Neon::MultiResCompute::MAP);
 
                 return [&](const typename Neon::domain::mGrid::Idx& cell) mutable {
-                    if (!in.hasChildren(cell)) {
-                        const double       voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
-                        Neon::index_3d     voxelGlobalLocation = in.getGlobalIndex(cell);
-                        Eigen::RowVector3d point(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing);
-                        in(cell, 0) = int8_t(wnAABB.winding_number(point) + std::numeric_limits<float>::epsilon() > 1);
+                    if (!in.hasChildren(cell) && l == 0) {
+                        Neon::index_3d voxelGlobalLocation = in.getGlobalIndex(cell);
+                        if (voxelGlobalLocation.x < meshBoxCenter.x() - meshBoxDim.x() / 2 || voxelGlobalLocation.x >= meshBoxCenter.x() + meshBoxDim.x() / 2 ||
+                            voxelGlobalLocation.y < meshBoxCenter.y() - meshBoxDim.y() / 2 || voxelGlobalLocation.y >= meshBoxCenter.y() + meshBoxDim.y() / 2 ||
+                            voxelGlobalLocation.z < meshBoxCenter.z() - meshBoxDim.z() / 2 || voxelGlobalLocation.z >= meshBoxCenter.z() + meshBoxDim.z() / 2) {
+                            in(cell, 0) = 0;
+                        } else {
+                            const double       voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
+                            Eigen::RowVector3d point(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing);
+                            in(cell, 0) = int8_t(wnAABB.winding_number(point) + std::numeric_limits<float>::epsilon() > 1);
+                        }
+                    } else {
+                        in(cell, 0) = 0;
                     }
                 };
             })
@@ -389,20 +400,27 @@ void flowOverMesh(const Neon::Backend backend,
     }
     grid.getBackend().syncAll();
 
+    NEON_INFO("Finished populating inside field");
+
     inside.updateDeviceData();
 
     //inside.ioToVtk("inside", true, true, true, true);
     //exit(0);
 
+    NEON_INFO("Start allocating fields");
     //allocate fields
     auto fin = grid.newField<T>("fin", Q, 0);
     auto fout = grid.newField<T>("fout", Q, 0);
     auto storeSum = grid.newField<float>("storeSum", Q, 0);
     auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
+    NEON_INFO("Finished allocating fields");
 
     //init fields
+
+    NEON_INFO("Start initFlowOverShape");
     initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, inletVelocity, inside);
+    NEON_INFO("Finished initFlowOverShape");
 
     //cellType.updateHostData();
     //cellType.ioToVtk("cellType", true, true, true, true);
