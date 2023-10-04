@@ -352,6 +352,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
 
     //execution
+    NEON_INFO("Domain Size {}, {}, {}", gridDim.x, gridDim.y, gridDim.z);
     for (uint32_t l = 0; l < depth; ++l) {
         NEON_INFO("numActiveVoxels [{}]: {}", l, numActiveVoxels[l]);
     }
@@ -508,5 +509,54 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
                                  params.Re,
                                  params.numIter,
                                  velocity.x);
+    }
+
+    if (!params.benchmark) {
+        NEON_INFO("Started Binary VTK");
+        const Neon::index_4d grid4D(gridDim.x, gridDim.y, gridDim.z, 3);
+        std::vector<float>   ioBuffer(gridDim.x * gridDim.y * gridDim.z * 3);
+        float*               ioBufferPtr = ioBuffer.data();
+
+        for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
+
+            grid.newContainer<Neon::Execution::host>("Viz", l, [=](Neon::set::Loader& loader) {
+                    auto& v = vel.load(loader, l, Neon::MultiResCompute::MAP);
+
+                    int step = 1 << l;
+
+                    return [=](const typename Neon::domain::mGrid::Idx& cell) mutable {
+                        if (!v.hasChildren(cell)) {
+                            const Neon::index_3d loc = v.getGlobalIndex(cell);
+                            for (int c = 0; c < 3; ++c) {
+
+                                const float val = v(cell, c);
+
+                                for (int z = 0; z < step; ++z) {
+                                    for (int y = 0; y < step; ++y) {
+                                        for (int x = 0; x < step; ++x) {
+                                            Neon::index_4d loc4D(loc.x + x, loc.y + y, loc.z + z, c);
+                                            ioBufferPtr[loc4D.mPitch(grid4D)] = val;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+                })
+                .run(0);
+        }
+
+        {
+            Neon::index_3d            nodeDim(gridDim.x + 1, gridDim.y + 1, gridDim.z + 1);
+            Neon::IoToVTK<int, float> io("BinVelocity", nodeDim, {1, 1, 1}, {0, 0, 0}, Neon::IoFileType::ASCII);
+
+            io.addField([=](Neon::index_3d idx, int card) {
+                Neon::index_4d loc4D(idx.x, idx.y, idx.z, card);
+                return ioBufferPtr[loc4D.mPitch(grid4D)];
+            },
+                        3, "V", Neon::ioToVTKns::VtiDataType_e::voxel);
+        }
+
+        NEON_INFO("Finished Binary VTK");
     }
 }
