@@ -513,8 +513,12 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 
     if (!params.benchmark) {
         NEON_INFO("Started Binary VTK");
-        const Neon::index_4d grid4D(gridDim.x, gridDim.y, gridDim.z, 3);
-        std::vector<float>   ioBuffer(gridDim.x * gridDim.y * gridDim.z * 3);
+
+        //the level at which we will do the sampling
+        const int theLevel = depth - 1;
+
+        const Neon::index_4d grid4D(gridDim.x / (1 << theLevel), gridDim.y / (1 << theLevel), gridDim.z / (1 << theLevel), 3);
+        std::vector<float>   ioBuffer(grid4D.x * grid4D.y * grid4D.z * grid4D.w);
         float*               ioBufferPtr = ioBuffer.data();
 
         for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
@@ -522,23 +526,26 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
             grid.newContainer<Neon::Execution::host>("Viz", l, [=](Neon::set::Loader& loader) {
                     auto& v = vel.load(loader, l, Neon::MultiResCompute::MAP);
 
-                    int step = 1 << l;
-
                     return [=](const typename Neon::domain::mGrid::Idx& cell) mutable {
                         if (!v.hasChildren(cell)) {
-                            const Neon::index_3d loc = v.getGlobalIndex(cell);
+                            Neon::index_3d loc = v.getGlobalIndex(cell);
+
+                            if (loc.x % (1 << theLevel) != 0 || loc.y % (1 << theLevel) != 0 || loc.z % (1 << theLevel) != 0) {
+                                return;
+                            }
+
+                            loc.x /= (1 << theLevel);
+                            loc.y /= (1 << theLevel);
+                            loc.z /= (1 << theLevel);
+
+
                             for (int c = 0; c < 3; ++c) {
 
                                 const float val = v(cell, c);
 
-                                for (int z = 0; z < step; ++z) {
-                                    for (int y = 0; y < step; ++y) {
-                                        for (int x = 0; x < step; ++x) {
-                                            Neon::index_4d loc4D(loc.x + x, loc.y + y, loc.z + z, c);
-                                            ioBufferPtr[loc4D.mPitch(grid4D)] = val;
-                                        }
-                                    }
-                                }
+
+                                Neon::index_4d loc4D(loc.x, loc.y, loc.z, c);
+                                ioBufferPtr[loc4D.mPitch(grid4D)] = val;
                             }
                         }
                     };
@@ -547,7 +554,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
         }
 
         {
-            Neon::index_3d            nodeDim(gridDim.x + 1, gridDim.y + 1, gridDim.z + 1);
+            Neon::index_3d            nodeDim(grid4D.x + 1, grid4D.y + 1, grid4D.z + 1);
             Neon::IoToVTK<int, float> io("BinVelocity", nodeDim, {1, 1, 1}, {0, 0, 0}, Neon::IoFileType::BINARY);
 
             io.addField([=](Neon::index_3d idx, int card) {
