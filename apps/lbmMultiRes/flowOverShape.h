@@ -300,8 +300,8 @@ void flowOverMesh(const Neon::Backend backend,
     //define the gird and the box that will encompass the mesh
     Neon::index_3d gridDim(19 * params.scale, 10 * params.scale, 10 * params.scale);
 
-    Eigen::RowVector3d meshBoxDim(2 * params.scale, 2 * params.scale, 2 * params.scale);
-    Eigen::RowVector3d meshBoxCenter(4 * params.scale, 5 * params.scale, 5 * params.scale);
+    Eigen::RowVector3d meshBoxDim(4 * params.scale, 4 * params.scale, 4 * params.scale);
+    Eigen::RowVector3d meshBoxCenter(5 * params.scale, 5 * params.scale, 5 * params.scale);
 
 
     //read the mesh and scale it such that it fits inside meshBox
