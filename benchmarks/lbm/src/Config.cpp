@@ -28,10 +28,10 @@ auto Config::toString() const -> std::string
     s << ".......... reportFile " << c.reportFile << std::endl;
     s << "............ gridType " << c.gridType << std::endl;
 
-    s << ".......... spaceCurve " << c.spaceCurveCli.getStringOptions() << std::endl;
-    s << "................. occ " << c.occCli.getStringOptions() << std::endl;
-    s << "........ transferMode " << c.transferModeCli.getStringOptions() << std::endl;
-    s << "..... stencilSemantic " << c.stencilSemanticCli.getStringOptions() << std::endl;
+    s << ".......... spaceCurve " << c.spaceCurveCli.getStringOption() << std::endl;
+    s << "................. occ " << c.occCli.getStringOption() << std::endl;
+    s << "........ transferMode " << c.transferModeCli.getStringOption() << std::endl;
+    s << "..... stencilSemantic " << c.stencilSemanticCli.getStringOption() << std::endl;
 
     s << "\n==>[LBM Implementation]" << std::endl;
     s << "............. lattice " << c.lattice << std::endl;
