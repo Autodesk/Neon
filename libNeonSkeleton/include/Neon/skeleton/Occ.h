@@ -32,6 +32,8 @@ struct OccUtils
         auto getStringOptions() const -> std::string;
         auto getDoc() const -> std::string;
 
+        auto getStringOption() const -> std::string;
+
         auto addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) const -> void;
         auto addToReport(Neon::Report& report) const -> void;
 

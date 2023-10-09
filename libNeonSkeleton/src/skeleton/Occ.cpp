@@ -48,6 +48,16 @@ OccUtils::Cli::Cli(std::string s)
     set(s);
 }
 
+auto OccUtils::Cli::getStringOption() const -> std::string
+{
+    if (!mSet) {
+        std::stringstream errorMsg;
+        errorMsg << "Occ was not set.";
+        NEON_ERROR(errorMsg.str());
+    }
+    return OccUtils::toString(mOption);
+}
+
 OccUtils::Cli::Cli(Occ model)
 {
     mOption = model;

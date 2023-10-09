@@ -33,13 +33,14 @@ auto run(Config&                             config,
     using Precision = Precision<Storage, Compute>;
     using Lattice = Lattice_;  // D3Q27<Precision>;
 
-    code << "_" << config.deviceType;
+    code << "_" << config.deviceType << "_";
     for (auto const& id : config.devices) {
         code << id;
     }
-    code << "_SS" << config.stencilSemanticCli.getStringOption() << "_";
-    code << "_SF" << config.spaceCurveCli.getStringOption() << "_";
-    code << "_TM" << config.transferModeCli.getStringOption() << "_";
+    code << "_SS" << config.stencilSemanticCli.getStringOption();
+    code << "_SF" << config.spaceCurveCli.getStringOption();
+    code << "_TM" << config.transferModeCli.getStringOption();
+    code << "_Occ" << config.occCli.getStringOption();
     code << "__";
     // using PopulationField = typename Grid::template Field<Storage, Lattice::Q>;
 
@@ -159,11 +160,11 @@ auto runFilterLattice(Config&            config,
         using L = D3Q19<P>;
         return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
     }
-        if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
-            testCode << "_D3Q27";
-            using L = D3Q27<P>;
-            return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
-        }
+    if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
+        testCode << "_D3Q27";
+        using L = D3Q27<P>;
+        return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
+    }
     NEON_DEV_UNDER_CONSTRUCTION("Lattice type not supported. Available options: D3Q19 and D3Q27");
 }
 
@@ -174,11 +175,11 @@ auto runFilterComputeType(Config&            config,
                           std::stringstream& testCode)
 {
     if (config.computeTypeStr == "double") {
-        testCode << "_SD";
+        testCode << "_Sdouble";
         return runFilterLattice<Grid, Storage, double>(config, report, testCode);
     }
     if (config.computeTypeStr == "float") {
-        testCode << "_SF";
+        testCode << "_Sfloat";
         return runFilterLattice<Grid, Storage, float>(config, report, testCode);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
@@ -191,11 +192,11 @@ auto runFilterStoreType(Config&            config,
     -> void
 {
     if (config.storeTypeStr == "double") {
-        testCode << "_CD";
+        testCode << "_Cdouble";
         return runFilterComputeType<Grid, double>(config, report, testCode);
     }
     if (config.storeTypeStr == "float") {
-        testCode << "_CF";
+        testCode << "_Cfloat";
         return runFilterComputeType<Grid, float>(config, report, testCode);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
@@ -213,9 +214,10 @@ auto run(Config&            config,
          std::stringstream& testCode) -> void
 {
     testCode << "___" << config.N << "_";
+    testCode << "_numDevs_" << config.devices.size();
 
     if (config.gridType == "dGrid") {
-        testCode << "_DG";
+        testCode << "_dGrid";
         return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
     }
     //    if (config.gridType == "eGrid") {
@@ -230,6 +232,7 @@ auto run(Config&            config,
     //    }
     if (config.gridType == "bGrid_4_4_4") {
         if constexpr (!skipTest) {
+            testCode << "_bGrid_4_4_4";
             using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
             using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
             return details::runFilterStoreType<Grid>(config, report, testCode);
@@ -237,6 +240,15 @@ auto run(Config&            config,
             NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
         }
     }
+    //    if (config.gridType == "bGrid_8_8_8") {
+    //        if constexpr (!skipTest) {
+    //            using Sblock = Neon::domain::details::bGrid::StaticBlock<8, 8, 8>;
+    //            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+    //            return details::runFilterStoreType<Grid>(config, report, testCode);
+    //        } else {
+    //            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+    //        }
+    //    }
     //    if (config.gridType == "bGrid_2_2_2") {
     //        if constexpr (!skipTest) {
     //            using Sblock = Neon::domain::details::bGrid::StaticBlock<2, 2, 2>;

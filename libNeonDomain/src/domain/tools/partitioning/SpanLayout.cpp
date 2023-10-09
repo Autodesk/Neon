@@ -207,7 +207,7 @@ auto SpanLayout::findPossiblyLocalPointOffset(
                                                                          byDomain);
                 auto const  infoPtr = mapper.getMetadata(point);
                 if (infoPtr != nullptr) {
-                    return {true, *infoPtr, byPartition, byDirection, byDomain};
+                    return {true, int32_t(*infoPtr), byPartition, byDirection, byDomain};
                 }
             }
         }
