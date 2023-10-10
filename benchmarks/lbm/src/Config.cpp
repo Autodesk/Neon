@@ -109,6 +109,22 @@ auto Config::parseArgs(const int argc, char* argv[])
         std::cout << "Benchmark example " << '\n';
         std::cout << "./lbm --deviceType gpu --deviceIds 0 1 2 3 4  --grid dGrid  --domain-size 100 --max-iter 2000 --computeFP double --storageFP double --nOCC --huGrid --benchmark --warmup-iter 10 --repetitions 5" << '\n';
 
+        std::cout <<" ./lbm --deviceType gpu\\\n"
+                     "     --deviceIds 0\\\n"
+                     "     --grid dGrid\\\n"
+                     "     --domain-size 100\\\n"
+                     "     --max-iter 1000\\\n"
+                     "     --computeFP float\\\n"
+                     "     --storageFP float\\\n"
+                     "     --occ none\\\n"
+                     "     --transferMode put\\\n"
+                     "     --stencilSemantic grid\\\n"
+                     "     --spaceCurve sweep\\\n"
+                     "     --collision bgk\\\n"
+                     "     --streamingMethod pull\\\n"
+                     "     --lattice d3q19\\\n"
+                     "     --vti 10";
+
         return -1;
     }
 

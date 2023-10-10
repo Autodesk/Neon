@@ -127,6 +127,10 @@ struct Lbm
         ContainerFactory::Common::computeWallNghMask(cellFlagField,
                                                      cellFlagField)
             .run(Neon::Backend::mainStreamIdx);
+        cellFlagField.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                                    Neon::set::TransferMode::get,
+                                    Neon::Execution::device)
+            .run(Neon::Backend::mainStreamIdx);
         metrics::recordProblemSetupMetrics(grid.getBackend(), *reportPtr, setBcClockStart);
     }
 
@@ -157,12 +161,17 @@ struct Lbm
                     ops.push_back(even);
                     std::stringstream appName;
 
-                    if (iteration % 2 == 0)
-                        appName << "LBM_push_even";
-                    else
+                    if (skIdx % 2 == 0)
                         appName << "LBM_pull_even";
+                    else
+                        appName << "LBM_pull_odd";
 
                     skeleton.at(skIdx).sequence(ops, appName.str(), opt);
+
+                    if (skIdx % 2 == 0)
+                        skeleton.at(skIdx).ioToDot("lbm-pull-even","lbm_pull_even",true);
+                    else
+                        skeleton.at(skIdx).ioToDot("lbm-pull-odd","lbm_pull_even", true);
                 }
             }
             {
@@ -200,7 +209,7 @@ struct Lbm
                 if (iteration % 2 == 0)
                     appName << "LBM_push_even";
                 else
-                    appName << "LBM_pull_even";
+                    appName << "LBM_push_odd";
                 skeleton.at(skIdx).sequence(ops, appName.str(), opt);
             }
 
@@ -226,13 +235,13 @@ struct Lbm
                         cellFlagField,
                         lbmParameters.omega,
                         pFieldList.at(0));
-                    appName << "LBM_push_even";
+                    appName << "LBM_aa_even";
                 } else {
                     lbmIteration = ContainerFactory::AA::Odd::iteration(
                         cellFlagField,
                         lbmParameters.omega,
                         pFieldList.at(0));
-                    appName << "LBM_pull_even";
+                    appName << "LBM_aa_even";
                 }
                 std::vector<Neon::set::Container> ops;
                 skeleton.at(skIdx) = Neon::skeleton::Skeleton(pFieldList[0].getBackend());
@@ -299,6 +308,10 @@ struct Lbm
             done = true;
         }
         if constexpr (method == lbm::Method::pull) {
+            pop.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                              Neon::set::TransferMode::get,
+                              Neon::Execution::device)
+                .run(Neon::Backend::mainStreamIdx);
             auto computeRhoAndU = ContainerFactory::Pull::computeRhoAndU(pop, cellFlagField, rho, u);
             computeRhoAndU.run(Neon::Backend::mainStreamIdx);
             done = true;
@@ -326,8 +339,8 @@ struct Lbm
         iterIdStr = std::string(numDigits - std::min(numDigits, iterIdStr.length()), '0') + iterIdStr;
 
         // pop.ioToVtk("pop_" + iterIdStr, "pop", false);
-        u.ioToVtk("u_" + iterIdStr, "u", false);
-        rho.ioToVtk("rho_" + iterIdStr, "rho", false);
+        u.ioToVtk("u_" + iterIdStr, "u", false, Neon::IoFileType::BINARY);
+        rho.ioToVtk("rho_" + iterIdStr, "rho", false, Neon::IoFileType::BINARY);
         cellFlagField.template ioToVtk<int>("cellFlagField_" + iterIdStr, "flag", false);
 
 #if 0
