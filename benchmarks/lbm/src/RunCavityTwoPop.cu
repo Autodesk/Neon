@@ -16,7 +16,8 @@ namespace CavityTwoPop {
 
 int backendWasReported = false;
 // #include <fenv.h>
-#include "/usr/include/fenv.h"
+// #include "/usr/include/fenv.h"
+
 namespace details {
 template <lbm::Method method_,
           Collision   CollisionType,
@@ -102,7 +103,7 @@ auto runFilterMethod(Config&            config,
                      Report&            report,
                      std::stringstream& testCode) -> void
 {
-    feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);  // Enable all floating point exceptions but FE_INEXACT
+    //feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);  // Enable all floating point exceptions but FE_INEXACT
     if (config.streamingMethod == "push") {
         if (config.devices.size() != 1) {
             NEON_THROW_UNSUPPORTED_OPERATION("We only support PUSH in a single device configuration for now.")
