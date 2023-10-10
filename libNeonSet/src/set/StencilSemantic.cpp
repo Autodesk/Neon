@@ -5,11 +5,11 @@ namespace Neon::set {
 auto StencilSemanticUtils::toString(StencilSemantic option) -> std::string
 {
     switch (option) {
-        case StencilSemantic::streaming: {
-            return "streaming";
+        case StencilSemantic::lattice: {
+            return "lattice";
         }
         case StencilSemantic::standard: {
-            return "grid";
+            return "standard";
         }
     }
     NEON_THROW_UNSUPPORTED_OPTION("");
@@ -17,7 +17,7 @@ auto StencilSemanticUtils::toString(StencilSemantic option) -> std::string
 
 auto StencilSemanticUtils::fromString(const std::string& occ) -> StencilSemantic
 {
-    std::array<StencilSemantic, 2> opts{StencilSemantic::standard, StencilSemantic::streaming};
+    std::array<StencilSemantic, 2> opts{StencilSemantic::standard, StencilSemantic::lattice};
     for (auto a : opts) {
         if (toString(a) == occ) {
             return a;
@@ -28,7 +28,7 @@ auto StencilSemanticUtils::fromString(const std::string& occ) -> StencilSemantic
 
 auto StencilSemanticUtils::getOptions() -> std::array<StencilSemantic, nOptions>
 {
-    std::array<StencilSemantic, nOptions> opts = {StencilSemantic::standard, StencilSemantic::streaming};
+    std::array<StencilSemantic, nOptions> opts = {StencilSemantic::standard, StencilSemantic::lattice};
     return opts;
 }
 

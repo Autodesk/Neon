@@ -36,7 +36,7 @@ struct Config
 
     Neon::skeleton::OccUtils::Cli                         occCli{Neon::skeleton::Occ::none};              // Neon OCC type
     Neon::set::TransferModeUtils::Cli                     transferModeCli{Neon::set::TransferMode::get};  // Neon transfer mode for halo update
-    Neon::set::StencilSemanticUtils::Cli                  stencilSemanticCli{Neon::set::StencilSemantic::streaming};
+    Neon::set::StencilSemanticUtils::Cli                  stencilSemanticCli{Neon::set::StencilSemantic::lattice};
     Neon::domain::tool::spaceCurves::EncoderTypeUtil::Cli spaceCurveCli{Neon::domain::tool::spaceCurves::EncoderType::sweep};
     CollisionUtils::Cli                                   collisionCli{Collision::bgk};
     int                                                   vti = 0;  // Export vti file

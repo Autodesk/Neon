@@ -10,7 +10,7 @@ namespace Neon::set {
 enum struct StencilSemantic
 {
     standard = 0 /*<  Transfer for halo update on grid structure    */,
-    streaming = 1 /*< Transfer for halo update on lattice structure */
+    lattice = 1 /*< Transfer for halo update on lattice structure */
 };
 
 

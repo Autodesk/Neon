@@ -115,7 +115,7 @@ auto Loader::
 
             if (compute == Neon::Pattern::STENCIL &&
                 (stencilSemantic == StencilSemantic::standard ||
-                 stencilSemantic == StencilSemantic::streaming)) {
+                 stencilSemantic == StencilSemantic::lattice)) {
                 Neon::NeonException exp("Loader");
                 exp << "Loading a non const field for a stencil operation is not supported in Neon";
                 NEON_THROW(exp);
