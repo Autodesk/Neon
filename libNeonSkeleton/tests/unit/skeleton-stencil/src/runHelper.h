@@ -22,11 +22,11 @@ using namespace Neon::domain::tool::testing;
 using namespace Neon::domain::tool;
 
 template <typename G, typename T, int C>
-void runAllTestConfiguration(const std::string&                                           gname,
-                             std::function<void(TestData<G, T, C>&, Neon::skeleton::Occ)> f,
-                             Neon::skeleton::Occ                                          occ,
-                             int                                                          nGpus,
-                             int                                                          minNumGpus)
+void runAllTestConfiguration(const std::string&                                                        gname,
+                             std::function<void(std::string, TestData<G, T, C>&, Neon::skeleton::Occ)> f,
+                             Neon::skeleton::Occ                                                       occ,
+                             int                                                                       nGpus,
+                             int                                                                       minNumGpus)
 {
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
         std::vector<int> nGpuTest;
@@ -70,7 +70,7 @@ void runAllTestConfiguration(const std::string&                                 
 
                             NEON_INFO(testData.toString());
 
-                            f(testData, occ);
+                            f(gname, testData, occ);
                         }
                     }
                 }

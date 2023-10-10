@@ -59,7 +59,8 @@ auto laplaceOnIntegers(const Field& filedA,
 
 
 template <typename G, typename T, int C>
-void singleStencil(TestData<G, T, C>&  data,
+void singleStencil(std::string         testName,
+                   TestData<G, T, C>&  data,
                    Neon::skeleton::Occ occ)
 {
     using Type = typename TestData<G, T, C>::Type;
@@ -84,7 +85,8 @@ void singleStencil(TestData<G, T, C>&  data,
 
         Neon::skeleton::Skeleton skl(data.getBackend());
         Neon::skeleton::Options  opt(occ, Neon::set::TransferMode::get);
-        skl.sequence(ops, "sUt_dGridStencil", opt);
+        skl.sequence(ops, testName, opt);
+        skl.ioToDot(testName, testName, true);
 
         for (int j = 0; j < nIterations; j++) {
             skl.run();
@@ -110,16 +112,25 @@ void singleStencil(TestData<G, T, C>&  data,
     ASSERT_TRUE(isOk);
 }
 
-TEST(singleStencil, dGrid)
+TEST(skeleton_stencil_occ_none, dGrid)
 {
     int nGpus = 1;
     using Grid = Neon::dGrid;
     using Type = int32_t;
     constexpr int C = 0;
-    runAllTestConfiguration<Grid, Type, 0>("dGrid", singleStencil<Grid, Type, C>, Neon::skeleton::Occ::none, nGpus, 1);
+    runAllTestConfiguration<Grid, Type, 0>("skeleton_stencil_occ_none_dGrid", singleStencil<Grid, Type, C>, Neon::skeleton::Occ::none, nGpus, 1);
 }
 
-TEST(singleStencil, bGridSingleGpu)
+TEST(skeleton_stencil_occ_standard, dGrid)
+{
+    int nGpus = 1;
+    using Grid = Neon::dGrid;
+    using Type = int32_t;
+    constexpr int C = 0;
+    runAllTestConfiguration<Grid, Type, 0>("skeleton_stencil_occ_standard_dGrid", singleStencil<Grid, Type, C>, Neon::skeleton::Occ::standard, nGpus, 1);
+}
+
+TEST(skeleton_stencil, bGridSingleGpu)
 {
     int nGpus = 1;
     using Grid = Neon::bGrid;
