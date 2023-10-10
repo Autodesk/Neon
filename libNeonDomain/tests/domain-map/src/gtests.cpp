@@ -13,6 +13,15 @@ TEST(domain_map, dGrid)
                             1);
 }
 
+TEST(domain_map_dataView, dGrid)
+{
+    int nGpus = 2;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::dataView::run<Neon::dGrid, Type, 0>),
+                            nGpus,
+                            2);
+}
+
 TEST(domain_map, eGrid)
 {
     int nGpus = 3;

@@ -91,15 +91,17 @@ dGrid::dGrid(const Neon::Backend&  backend,
                                                   Neon::DataView dw,
                                                   dSpan&         span) {
             span.mDataView = dw;
-            span.mZHaloRadius = setCardinality == 1 ? 0 : mData->halo.z;
-            span.mZBoundaryRadius = mData->halo.z;
+            span.mZghostRadius = setCardinality == 1 ? 0 : mData->halo.z;
+            span.mZboundaryRadius = mData->halo.z;
+            span.mMaxZInDomain = mData->partitionDims[setIdx].z;
 
             switch (dw) {
                 case Neon::DataView::STANDARD: {
                     // Only works z partitions.
                     assert(mData->halo.x == 0 && mData->halo.y == 0);
 
-                    span.mDim = mData->partitionDims[setIdx];
+                    span.mSpanDim = mData->partitionDims[setIdx];
+
                     break;
                 }
                 case Neon::DataView::BOUNDARY: {
@@ -107,8 +109,8 @@ dGrid::dGrid(const Neon::Backend&  backend,
                     // Only works z partitions.
                     assert(mData->halo.x == 0 && mData->halo.y == 0);
 
-                    span.mDim = mData->partitionDims[setIdx];
-                    span.mDim.z = span.mZBoundaryRadius * 2;
+                    span.mSpanDim = mData->partitionDims[setIdx];
+                    span.mSpanDim.z = span.mZboundaryRadius * 2;
 
                     break;
                 }
@@ -117,12 +119,12 @@ dGrid::dGrid(const Neon::Backend&  backend,
                     // Only works z partitions.
                     assert(mData->halo.x == 0 && mData->halo.y == 0);
 
-                    span.mDim = mData->partitionDims[setIdx];
-                    span.mDim.z = span.mDim.z - span.mZBoundaryRadius * 2;
-                    if (span.mDim.z <= 0 && setCardinality > 1) {
+                    span.mSpanDim = mData->partitionDims[setIdx];
+                    span.mSpanDim.z = span.mSpanDim.z - span.mZboundaryRadius * 2;
+                    if (span.mSpanDim.z <= 0 && setCardinality > 1) {
                         NeonException exp("dGrid");
                         exp << "The grid size is too small to support the data view model correctly \n";
-                        exp << span.mDim << " for setIdx " << setIdx << " and device " << getDevSet().devId(setIdx);
+                        exp << span.mSpanDim << " for setIdx " << setIdx << " and device " << getDevSet().devId(setIdx);
                         NEON_THROW(exp);
                     }
 
@@ -140,7 +142,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
                                                              Neon::DataView  dw,
                                                              int&            count) {
             if (Execution::host == execution) {
-                count = mData->spanTable.getSpan(Neon::Execution::host, setIdx, dw).mDim.rMul();
+                count = mData->spanTable.getSpan(Neon::Execution::host, setIdx, dw).mSpanDim.rMul();
             }
         });
     }

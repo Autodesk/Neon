@@ -59,7 +59,7 @@ auto dGrid::getLaunchParameters(const Neon::DataView  dataView,
 
     auto dimsByDataView = getBackend().devSet().newDataSet<index_3d>([&](Neon::SetIdx const& setIdx,
                                                                          auto&               value) {
-        value = getSpan(Neon::Execution::host, setIdx, dataView).mDim;
+        value = getSpan(Neon::Execution::host, setIdx, dataView).mSpanDim;
     });
 
     ret.set(Neon::sys::GpuLaunchInfo::domainGridMode,

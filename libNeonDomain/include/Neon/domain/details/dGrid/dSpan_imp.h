@@ -14,25 +14,25 @@ dSpan::setAndValidate(Idx&            idx,
     idx.setLocation().y = int(y);
     idx.setLocation().z = int(z);
 
-    if (idx.getLocation() < mDim) {
+    if (idx.getLocation() < mSpanDim) {
         res = true;
     }
 
     switch (mDataView) {
         case Neon::DataView::STANDARD: {
-            idx.setLocation().z += mZHaloRadius;
+            idx.setLocation().z += mZghostRadius;
             return res;
         }
         case Neon::DataView::INTERNAL: {
-            idx.setLocation().z += mZHaloRadius + mZBoundaryRadius;
+            idx.setLocation().z += mZghostRadius + mZboundaryRadius;
             return res;
         }
         case Neon::DataView::BOUNDARY: {
 
-            idx.setLocation().z += idx.getLocation().z < mZBoundaryRadius
-                               ? 0
-                               : (mDim.z - 1) + (-1 * mZBoundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
-            idx.setLocation().z += mZHaloRadius;
+            idx.setLocation().z += idx.getLocation().z < mZboundaryRadius
+                                       ? 0
+                               : (mMaxZInDomain - 1) + (-1 * mZboundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
+            idx.setLocation().z += mZghostRadius;
 
             return res;
         }
@@ -51,19 +51,19 @@ NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetDataView()
 NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetZHaloRadius()
     const -> int const&
 {
-    return mZHaloRadius;
+    return mZghostRadius;
 }
 
 NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetZBoundaryRadius()
     const -> int const&
 {
-    return mZBoundaryRadius;
+    return mZboundaryRadius;
 }
 
 NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetDim()
     const -> Neon::index_3d const&
 {
-    return mDim;
+    return mSpanDim;
 }
 
 }  // namespace Neon::domain::details::dGrid
