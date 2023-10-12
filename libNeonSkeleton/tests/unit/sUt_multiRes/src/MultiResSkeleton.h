@@ -28,7 +28,7 @@ void MultiResSkeleton()
                  return true;
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
-            descriptor);
+            descriptor, true, false);
 
         auto field = grid.newField<Type>("field", 3, -1);
 
