@@ -95,23 +95,23 @@ void collideFusedStreaming(Neon::domain::mGrid&                        grid,
 {
 
 #ifdef KBC
-    containers.push_back(collideKBCUnrolledFusedAll<T, Q>(grid,
-                                                          omega0,
-                                                          level,
-                                                          numLevels,
-                                                          cellType,
-                                                          fin,
-                                                          fout,
-                                                          true));
+    containers.push_back(collideKBCFusedAll<T, Q>(grid,
+                                                  omega0,
+                                                  level,
+                                                  numLevels,
+                                                  cellType,
+                                                  fin,
+                                                  fout,
+                                                  true));
 
-    containers.push_back(collideKBCUnrolledFusedAll<T, Q>(grid,
-                                                          omega0,
-                                                          level,
-                                                          numLevels,
-                                                          cellType,
-                                                          fout,
-                                                          fin,
-                                                          false));
+    containers.push_back(collideKBCFusedAll<T, Q>(grid,
+                                                  omega0,
+                                                  level,
+                                                  numLevels,
+                                                  cellType,
+                                                  fout,
+                                                  fin,
+                                                  false));
 #endif
 
 #ifdef BGK

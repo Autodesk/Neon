@@ -74,10 +74,6 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                                 }
                             }
 
-                            //if (idx.x == gridDim.x - (1 << level)) {
-                            //    type(cell, 0) = CellType::outlet;
-                            //}
-
                             //the cell classification
                             if (idx.y == 0 || idx.y == gridDim.y - (1 << level) ||
                                 idx.z == 0 || idx.z == gridDim.z - (1 << level)) {

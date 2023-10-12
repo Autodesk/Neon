@@ -22,7 +22,7 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
             const T     omega = computeOmega(omega0, level, numLevels);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                if (type(cell, 0) == CellType::bulk || type(cell, 0) == CellType::outlet) {
+                if (type(cell, 0) == CellType::bulk) {
 
                     if (!in.hasChildren(cell)) {
                         //fin

@@ -8,7 +8,6 @@ enum CellType : int
     movingWall = 1,
     bulk = 2,
     inlet = 3,
-    outlet = 4,
     undefined = 5,
 };
 

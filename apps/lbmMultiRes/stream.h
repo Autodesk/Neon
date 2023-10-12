@@ -33,7 +33,7 @@ inline Neon::set::Container stream(Neon::domain::mGrid&                        g
                                 auto nghType = type.getNghData(cell, dir, 0);
 
                                 if (nghType.mIsValid) {
-                                    if (nghType.mData == CellType::bulk || nghType.mData == CellType::outlet) {
+                                    if (nghType.mData == CellType::bulk) {
                                         pin(cell, q) = pout.getNghData(cell, dir, q).mData;
                                     } else {
                                         const int8_t opposte_q = latticeOppositeID[q];
