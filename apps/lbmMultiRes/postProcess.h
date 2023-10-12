@@ -41,7 +41,7 @@ void postProcess(Neon::domain::mGrid&                                           
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                         if (!pop.hasChildren(cell)) {
-                            if (type(cell, 0) == CellType::bulk || type(cell, 0) == CellType::outlet) {
+                            if (type(cell, 0) == CellType::bulk ) {
 
                                 //fin
                                 T ins[Q];

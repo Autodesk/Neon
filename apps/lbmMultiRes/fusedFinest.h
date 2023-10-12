@@ -214,7 +214,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
 
 
 template <typename T, int Q>
-inline Neon::set::Container collideKBCUnrolledFusedAll(Neon::domain::mGrid&                        grid,
+inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&                        grid,
                                                        T                                           omega0,
                                                        int                                         level,
                                                        int                                         numLevels,
@@ -225,7 +225,7 @@ inline Neon::set::Container collideKBCUnrolledFusedAll(Neon::domain::mGrid&     
 {
 
     if (level != 0) {
-        Neon::NeonException exp("collideKBCUnrolledFusedAll");
+        Neon::NeonException exp("collideKBCFusedAll");
         exp << "Only works with on the finest level. Input level =" << level;
         NEON_THROW(exp);
     }

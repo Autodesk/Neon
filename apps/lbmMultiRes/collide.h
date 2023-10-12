@@ -164,7 +164,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
             const T     invBeta = 1.0 / beta;
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                if (type(cell, 0) == CellType::bulk || type(cell, 0) == CellType::outlet) {
+                if (type(cell, 0) == CellType::bulk) {
 
                     constexpr T tiny = 1e-7;
 
@@ -301,7 +301,7 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
             const T     omega = computeOmega(omega0, level, numLevels);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                if (type(cell, 0) == CellType::bulk || type(cell, 0) == CellType::outlet) {
+                if (type(cell, 0) == CellType::bulk ) {
 
                     if (!in.hasChildren(cell)) {
 
@@ -424,7 +424,7 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
             }
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                if (type(cell, 0) == CellType::bulk || type(cell, 0) == CellType::outlet) {
+                if (type(cell, 0) == CellType::bulk ) {
 
                     if (!in.hasChildren(cell)) {
                         //fin
@@ -597,7 +597,7 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
             }
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                if (type(cell, 0) == CellType::bulk || type(cell, 0) == CellType::outlet) {
+                if (type(cell, 0) == CellType::bulk ) {
 
                     constexpr T tiny = 1e-7;
 
