@@ -454,7 +454,7 @@ struct ContainerFactoryD3QXX
                         cellType.wallNghBitflag = 0;
 
                         if (cellType.classification == CellType::bulk) {
-                            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto fwdRegIdx) {
+                            Neon::ConstexprFor<0, Lattice::Q, 1>([&, gidx](auto fwdRegIdx) {
                                 using M = typename Lattice::template RegisterMapper<fwdRegIdx>;
                                 if constexpr (M::centerMemQ != M::fwdMemQ) {
                                     CellType nghCellType = infoIn.template getNghData<M::fwdMemQX, M::fwdMemQY, M::fwdMemQZ>(gidx, 0, CellType::undefined)();

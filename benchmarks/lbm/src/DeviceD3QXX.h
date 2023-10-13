@@ -208,8 +208,7 @@ struct DeviceD3QXX
                             usqr);
 
                     // double eqopp = eq - 6.* rho * t[k] * ck_u;
-                    eqBk = eqFw -
-                           c6 * rho * T::template getT<M::fwdRegQ>() * ck_u;
+                    eqBk = eqFw - c6 * rho * T::template getT<M::fwdRegQ>() * ck_u;
 
                     // pop_out      = (1. - omega) * fin(i, k)                             + omega * eq;
                     pop[M::fwdRegQ] = (c1 - omega) * static_cast<Compute>(pop[M::fwdRegQ]) + omega * eqFw;
