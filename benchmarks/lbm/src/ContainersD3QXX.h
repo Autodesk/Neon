@@ -596,7 +596,7 @@ struct ContainerFactoryD3QXX
                     auto& cellInfoPartition = L.load(cellTypeField, Neon::Pattern::MAP);
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
-                        {  // All pints are pre-set to bulk
+                        {  // All points are pre-set to bulk
                             CellType flagVal;
                             flagVal.classification = CellType::bulk;
                             cellInfoPartition(gidx, 0) = flagVal;

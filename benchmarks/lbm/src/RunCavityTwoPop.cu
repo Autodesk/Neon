@@ -5,6 +5,7 @@
 
 #include "Neon/domain/bGrid.h"
 #include "Neon/domain/dGrid.h"
+#include "Neon/domain/details/dGridDisg/dGrid.h"
 #include "Neon/domain/details/dGridSoA/dGridSoA.h"
 #include "Neon/domain/eGrid.h"
 
@@ -220,6 +221,10 @@ auto run(Config&            config,
     if (config.gridType == "dGrid") {
         testCode << "_dGrid";
         return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
+    }
+    if (config.gridType == "dGridDisg") {
+        testCode << "_dGrid";
+        return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
     }
     //    if (config.gridType == "eGrid") {
     //        if constexpr (!skipTest) {

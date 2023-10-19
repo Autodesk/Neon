@@ -40,6 +40,15 @@ TEST(domain_map, bGrid)
                             1);
 }
 
+TEST(domain_map, dGridDisg)
+{
+    int nGpus = 1;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::run<Neon::domain::details::disaggregated::dGrid::dGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
 TEST(domain_map, dGridSoA)
 {
     int nGpus = 1;

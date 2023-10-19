@@ -3,6 +3,7 @@
 #include "gtest/gtest.h"
 #include "globalIdx.h"
 #include "runHelper.h"
+#include "Neon/domain/details/dGridDisg/dGrid.h"
 
 TEST(domain_globalIdx, dGrid)
 {
@@ -31,11 +32,11 @@ TEST(domain_globalIdx, bGrid)
                             1);
 }
 
-TEST(domain_globalIdx, dGridSoA)
+TEST(domain_globalIdx, dGridDisg)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(globalIdx::run<Neon::domain::details::dGridSoA::dGridSoA , Type, 0>),
+    runAllTestConfiguration(std::function(globalIdx::run<Neon::domain::details::disaggregated::dGrid::dGrid , Type, 0>),
                             nGpus,
                             1);
 }

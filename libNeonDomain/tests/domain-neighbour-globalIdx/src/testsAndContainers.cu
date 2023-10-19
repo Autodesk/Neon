@@ -1,6 +1,7 @@
 #include <functional>
 #include "Neon/domain/Grids.h"
 #include "Neon/domain/details/dGridSoA/dGridSoA.h"
+#include "Neon/domain/details/dGridDisg/dGrid.h"
 
 #include "Neon/domain/tools/TestData.h"
 #include "TestInformation.h"
@@ -405,11 +406,13 @@ template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -
 template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
 template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
 template auto run<Neon::dGridSoA, int64_t, 0>(TestData<Neon::dGridSoA, int64_t, 0>&) -> void;
+template auto run<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>&) -> void;
 
 
 template auto runTemplate<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 template auto runTemplate<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
 template auto runTemplate<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
 template auto runTemplate<Neon::dGridSoA, int64_t, 0>(TestData<Neon::dGridSoA, int64_t, 0>&) -> void;
+template auto runTemplate<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace globalIdx

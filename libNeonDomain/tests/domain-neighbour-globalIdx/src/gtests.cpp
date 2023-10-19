@@ -40,6 +40,15 @@ TEST(domain_neighbour_globalIdx, dGridSoA)
                             1);
 }
 
+TEST(domain_neighbour_globalIdx, dGridDisg)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(globalIdx::run<Neon::domain::details::disaggregated::dGrid::dGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
 ///////////////////////////////////////////
 
 TEST(domain_neighbour_globalIdx, dGrid_template)

@@ -40,6 +40,15 @@ TEST(domain_stencil, dGridSoA_NoTemplate)
                             1);
 }
 
+TEST(domain_stencil, dGridDisg_NoTemplate)
+{
+    int nGpus = 1;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runNoTemplate<Neon::domain::details::disaggregated::dGrid::dGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
 TEST(domain_stencil, dGrid_Template)
 {
     int nGpus = 3;
@@ -72,6 +81,15 @@ TEST(domain_stencil, dGridSoA_Template)
     int nGpus = 5;
     using Type = int64_t;
     runAllTestConfiguration(std::function(map::runTemplate<Neon::dGridSoA, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_stencil, dGridDisg_Template)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runTemplate<Neon::domain::details::disaggregated::dGrid::dGrid, Type, 0>),
                             nGpus,
                             1);
 }

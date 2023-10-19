@@ -77,6 +77,8 @@ struct Lbm
                                                             Lattice::Q,
                                                             Storage(0.0));
             pFieldList.push_back(field);
+            NEON_INFO(field.toString());
+
         }
 
         // Allocating cell type field

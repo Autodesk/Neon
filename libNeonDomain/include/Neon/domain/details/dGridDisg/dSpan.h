@@ -1,9 +1,8 @@
 #pragma once
 #include "Neon/set/DevSet.h"
-#include "dIndexDisg.h"
-#include "Neon/domain/details/dGrid/dSpan.h"
+#include "dIndex.h"
 
-namespace Neon::domain::details::dissagragated::dGrid {
+namespace Neon::domain::details::disaggregated::dGrid {
 
 /**
  * Abstraction that represents the Cell space of a partition
@@ -14,6 +13,7 @@ class dSpan
 {
    public:
     using Idx = dIndex;
+    friend class dGrid;
 
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d3;
     using ExecutionThreadSpanIndexType = int32_t;
@@ -30,28 +30,19 @@ class dSpan
     helpGetDataView()
         const -> Neon::DataView const&;
 
-    NEON_CUDA_HOST_DEVICE inline auto
-    helpGetZHaloRadius()
-        const -> int const&;
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    helpGetZBoundaryRadius()
-        const -> int const&;
 
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetDim()
         const -> Neon::index_3d const&;
 
-    NEON_CUDA_HOST_DEVICE inline auto
-    helpInit(Neon::domain::details::dGrid::dSpan const&) ->void;
-
    private:
-    Neon::DataView mDataView;
-    int            mZHaloRadius;
-    int            mZBoundaryRadius;
-    Neon::index_3d mDim /** Dimension of the span, its values depends on the mDataView*/;
+    Neon::DataView   mDataView;
+    static const int mZghostRadius = 1;
+    static const int mZboundaryRadius = 1;
+    int              mMaxZInDomain;
+    Neon::index_3d   mSpanDim /** Dimension of the span, its values depends on the mDataView*/;
 };
 
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::details::disaggregated::dGrid
 
-#include "dSpanDisg_imp.h"
+#include "dSpan_imp.h"
