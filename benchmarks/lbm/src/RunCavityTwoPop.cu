@@ -162,11 +162,11 @@ auto runFilterLattice(Config&            config,
         using L = D3Q19<P>;
         return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
     }
-//    if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
-//        testCode << "_D3Q27";
-//        using L = D3Q27<P>;
-//        return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
-//    }
+    if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
+        testCode << "_D3Q27";
+        using L = D3Q27<P>;
+        return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
+    }
     NEON_DEV_UNDER_CONSTRUCTION("Lattice type not supported. Available options: D3Q19 and D3Q27");
 }
 
@@ -176,10 +176,10 @@ auto runFilterComputeType(Config&            config,
                           Report&            report,
                           std::stringstream& testCode)
 {
-//    if (config.computeTypeStr == "double") {
-//        testCode << "_Sdouble";
-//        return runFilterLattice<Grid, Storage, double>(config, report, testCode);
-//    }
+    if (config.computeTypeStr == "double") {
+        testCode << "_Sdouble";
+        return runFilterLattice<Grid, Storage, double>(config, report, testCode);
+    }
     if (config.computeTypeStr == "float") {
         testCode << "_Sfloat";
         return runFilterLattice<Grid, Storage, float>(config, report, testCode);
@@ -193,10 +193,10 @@ auto runFilterStoreType(Config&            config,
                         std::stringstream& testCode)
     -> void
 {
-//    if (config.storeTypeStr == "double") {
-//        testCode << "_Cdouble";
-//        return runFilterComputeType<Grid, double>(config, report, testCode);
-//    }
+    if (config.storeTypeStr == "double") {
+        testCode << "_Cdouble";
+        return runFilterComputeType<Grid, double>(config, report, testCode);
+    }
     if (config.storeTypeStr == "float") {
         testCode << "_Cfloat";
         return runFilterComputeType<Grid, float>(config, report, testCode);
