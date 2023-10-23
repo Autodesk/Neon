@@ -410,50 +410,55 @@ auto dField<T, C>::initHaloUpdateTable()
             {
                 using namespace Neon::domain::tool::partitioning;
 
-                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
 
-                int r = grid.getStencil().getRadius();
+                int const r = 1;
 
-                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                  partitions;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> ghostZBeginIdx;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> boundaryZBeginIdx;
-                std::array<Neon::size_4d, Data::EndPointsUtils::nConfigs>                               memPhyDim;
+                Neon::SetIdx                                                                               setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
+                std::array<std::array<size_t, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> beginBoundary;
+                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                     partitions;
 
                 partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
                 partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
 
-                for (auto endPoint : {Data::EndPoints::dst, Data::EndPoints::src}) {
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = 0;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = r;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z;
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z + r;
+                size_t const transferSize = [&] {
+                    typename Data::EndPoints anyEndPoint = Data::EndPoints::dst;
+                    size_t                   res = partitions[anyEndPoint]->dim().x *
+                                 partitions[anyEndPoint]->dim().y *
+                                 this->getCardinality();
+                    return res;
+                }();
 
-                    memPhyDim[endPoint] = Neon::size_4d(
-                        this->getCardinality(),
-                        size_t(partitions[endPoint]->dim().x * this->getCardinality()),
-                        size_t(partitions[endPoint]->dim().x * this->getCardinality()) * partitions[endPoint]->dim().y,
-                        1);
-                }
+
+                partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
+                partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+
+
+                beginBoundary[Data::EndPoints::src][static_cast<int>(ByDirection::down)] =
+                    size_t(partitions[Data::EndPoints::src]->dim().x) *
+                    size_t(partitions[Data::EndPoints::src]->dim().y) *
+                    1 * size_t(this->getCardinality());
+
+                beginBoundary[Data::EndPoints::src][static_cast<int>(ByDirection::up)] =
+                    size_t(partitions[Data::EndPoints::src]->dim().x) *
+                    size_t(partitions[Data::EndPoints::src]->dim().y) *
+                    size_t(partitions[Data::EndPoints::src]->dim().z) *
+                    this->getCardinality();
+
+                beginBoundary[Data::EndPoints::dst][static_cast<int>(ByDirection::down)] = 0;
+
+                beginBoundary[Data::EndPoints::dst][static_cast<int>(ByDirection::up)] =
+                    size_t(partitions[Data::EndPoints::dst]->dim().x) *
+                    size_t(partitions[Data::EndPoints::dst]->dim().y) *
+                    size_t(partitions[Data::EndPoints::dst]->dim().z + 1) *
+                    this->getCardinality();
 
 
                 T* srcMem = partitions[Data::EndPoints::src]->mem();
                 T* dstMem = partitions[Data::EndPoints::dst]->mem();
 
-                Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], 0);
-                Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], 0);
-
-                //                    std::cout << "To  " << dstGhostBuff << " prt " << partitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff << "(src dim" << partitions[Data::EndPoints::src]->dim() << ")" << std::endl;
-                //                    std::cout << "dst mem " << partitions[Data::EndPoints::dst]->mem() << " " << std::endl;
-                //                    std::cout << "dst pitch " << (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum() << " " << std::endl;
-                //                    std::cout << "dst dstGhostBuff " << dstGhostBuff << " " << std::endl;
-                //                    std::cout << "dst pitch all" << memPhyDim[Data::EndPoints::dst] << " " << std::endl;
-
-                Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum(), dstGhostBuff},
-                                                   {setIdxSrc, srcMem + (srcBoundaryBuff * memPhyDim[Data::EndPoints::src]).rSum(), srcBoundaryBuff},
-                                                   sizeof(T) *
-                                                       r * this->getCardinality() *
-                                                       partitions[Data::EndPoints::src]->dim().x *
-                                                       partitions[Data::EndPoints::src]->dim().y);
+                Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + beginBoundary[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))]},
+                                                   {setIdxSrc, srcMem + beginBoundary[Data::EndPoints::src][static_cast<int>(byDirection)]},
+                                                   sizeof(T) * transferSize);
                 if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
                     return;
                 }
@@ -475,31 +480,62 @@ auto dField<T, C>::initHaloUpdateTable()
             {
                 using namespace Neon::domain::tool::partitioning;
 
-                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
 
-                int r = grid.getStencil().getRadius();
+                int const r = 1;
 
-                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                  partitions;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> ghostZBeginIdx;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> boundaryZBeginIdx;
-                std::array<Neon::size_4d, Data::EndPointsUtils::nConfigs>                               memPhyDim;
+                Neon::SetIdx                                                                               setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
+                std::array<std::array<size_t, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> beginBoundary;
+                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                     partitions;
 
                 partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
                 partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
 
-                for (auto endPoint : {Data::EndPoints::dst, Data::EndPoints::src}) {
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = 0;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = r;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z;
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z + r;
+                size_t const transferByteOneCardinality = [&] {
+                    typename Data::EndPoints anyEndPoint = Data::EndPoints::dst;
+                    size_t                   res =
+                        partitions[anyEndPoint]->dim().x *
+                        partitions[anyEndPoint]->dim().y *
+                        sizeof(T);
+                    return res;
+                }();
 
-                    memPhyDim[endPoint] = Neon::size_4d(
-                        1,
-                        size_t(partitions[endPoint]->dim().x),
-                        size_t(partitions[endPoint]->dim().x) * partitions[endPoint]->dim().y,
-                        size_t(partitions[endPoint]->dim().x) * partitions[endPoint]->dim().y * (partitions[endPoint]->dim().z + 2 * r));
+
+                partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
+                partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
+
+
+                beginBoundary[Data::EndPoints::src][static_cast<int>(ByDirection::down)] =
+                    size_t(partitions[Data::EndPoints::src]->dim().x) *
+                    size_t(partitions[Data::EndPoints::src]->dim().y) *
+                    1 * size_t(this->getCardinality());
+
+                beginBoundary[Data::EndPoints::src][static_cast<int>(ByDirection::up)] =
+                    size_t(partitions[Data::EndPoints::src]->dim().x) *
+                    size_t(partitions[Data::EndPoints::src]->dim().y) *
+                    size_t(partitions[Data::EndPoints::src]->dim().z) *
+                    this->getCardinality();
+
+                beginBoundary[Data::EndPoints::dst][static_cast<int>(ByDirection::down)] = 0;
+
+                beginBoundary[Data::EndPoints::dst][static_cast<int>(ByDirection::up)] =
+                    size_t(partitions[Data::EndPoints::dst]->dim().x) *
+                    size_t(partitions[Data::EndPoints::dst]->dim().y) *
+                    size_t(partitions[Data::EndPoints::dst]->dim().z + 1) *
+                    this->getCardinality();
+
+
+                T* srcMem = partitions[Data::EndPoints::src]->mem();
+                T* dstMem = partitions[Data::EndPoints::dst]->mem();
+
+                if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
+                    return;
                 }
 
+                if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
+                    return;
+                }
+
+                bool canBeFusedWithPrevious = false;
                 for (int j = 0; j < this->getCardinality(); j++) {
                     auto const& stencil = this->getGrid().getStencil();
                     if (this->getCardinality() != stencil.nPoints()) {
@@ -508,36 +544,31 @@ auto dField<T, C>::initHaloUpdateTable()
                     T* srcMem = partitions[Data::EndPoints::src]->mem();
                     T* dstMem = partitions[Data::EndPoints::dst]->mem();
 
-                    Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], j);
-                    Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], j);
+                    Neon::set::MemoryTransfer transfer({setIdxDst, dstMem +
+                                                                       beginBoundary[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))] +
+                                                                       size_t(partitions[Data::EndPoints::dst]->dim().x) * size_t(partitions[Data::EndPoints::dst]->dim().y) * size_t(j)},
+                                                       {setIdxSrc, srcMem + beginBoundary[Data::EndPoints::src][static_cast<int>(byDirection)] +
+                                                                       size_t(partitions[Data::EndPoints::dst]->dim().x) * size_t(partitions[Data::EndPoints::dst]->dim().y) * size_t(j)},
+                                                       transferByteOneCardinality);
 
-                    //                    std::cout << "To  " << dstGhostBuff << " prt " << partitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff << "(src dim" << partitions[Data::EndPoints::src]->dim() << ")" << std::endl;
-                    //                    std::cout << "dst mem " << partitions[Data::EndPoints::dst]->mem() << " " << std::endl;
-                    //                    std::cout << "dst pitch " << (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum() << " " << std::endl;
-                    //                    std::cout << "dst dstGhostBuff " << dstGhostBuff << " " << std::endl;
-                    //                    std::cout << "dst pitch all" << memPhyDim[Data::EndPoints::dst] << " " << std::endl;
-
-                    Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum(), dstGhostBuff},
-                                                       {setIdxSrc, srcMem + (srcBoundaryBuff * memPhyDim[Data::EndPoints::src]).rSum(), srcBoundaryBuff},
-                                                       sizeof(T) *
-                                                           r *
-                                                           partitions[Data::EndPoints::src]->dim().x *
-                                                           partitions[Data::EndPoints::src]->dim().y);
-                    if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                        return;
-                    }
-
-                    if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                        return;
-                    }
                     if (ByDirection::up == byDirection && !(stencil.points()[j].z > 0)) {
+                        std::cout << "j " << j << " " << stencil.points()[j] << "skipped" << std::endl;
+                        canBeFusedWithPrevious = false;
                         continue;
                     }
                     if (ByDirection::down == byDirection && !(stencil.points()[j].z < 0)) {
+                        std::cout << "j " << j << " " << stencil.points()[j] << "skipped" << std::endl;
+                        canBeFusedWithPrevious = false;
                         continue;
                     }
-                    // std::cout << transfer.toString() << std::endl;
-                    transfersVec.push_back(transfer);
+                    if (canBeFusedWithPrevious) {
+                        transfersVec[transfersVec.size()].size += transferByteOneCardinality;
+                        std::cout << "j " << j << " " << stencil.points()[j] << "fused" << std::endl;
+                    } else {
+                        transfersVec.push_back(transfer);
+                        std::cout << "j " << j << " " << stencil.points()[j] << "added " << transfer.toString() << std::endl;
+                        canBeFusedWithPrevious = true;
+                    }
                 }
             }
         });
