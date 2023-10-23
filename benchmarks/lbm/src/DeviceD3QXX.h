@@ -35,7 +35,7 @@ struct DeviceD3QXX
                 } else {
                     if (CellType::isWall<QPullingReference::bkwRegQ>(wallBitFlag)) {
                         // The cell in the opposite direction of the pull is a wall
-                        popIn[QPullingReference::fwdRegQ] = fin(gidx, QPullingReference::bkwRegQ) +
+                        popIn[QPullingReference::fwdRegQ] = fin(gidx, QPullingReference::fwdMemQ) +
                                                             fin.template getNghData<QPullingReference::bkwMemQX,
                                                                                     QPullingReference::bkwMemQY,
                                                                                     QPullingReference::bkwMemQZ>(gidx, QPullingReference::fwdMemQ)();
@@ -65,7 +65,7 @@ struct DeviceD3QXX
                 } else {
                     if (CellType::isWall<QPullingReference::bkwRegQ>(wallBitFlag)) {
                         // The cell in the opposite direction of the pull is a wall
-                        popIn[QPullingReference::fwdRegQ] = fin(gidx, QPullingReference::fwdRegQ) +
+                        popIn[QPullingReference::fwdRegQ] = fin(gidx, QPullingReference::fwdMemQ) +
                                                             fin.template getNghData<QPullingReference::bkwMemQX,
                                                                                     QPullingReference::bkwMemQY,
                                                                                     QPullingReference::bkwMemQZ>(gidx, QPullingReference::bkwMemQ)();
