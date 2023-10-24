@@ -436,7 +436,6 @@ struct ContainerFactoryD3QXX
     {
 
 
-
         static auto
         computeWallNghMask(const CellTypeField& infoInField,
                            CellTypeField&       infoOutpeField)
@@ -454,13 +453,15 @@ struct ContainerFactoryD3QXX
                         cellType.wallNghBitflag = 0;
 
                         if (cellType.classification == CellType::bulk) {
-                            Neon::ConstexprFor<0, Lattice::Q, 1>([&, gidx](auto fwdRegIdx) {
-                                using M = typename Lattice::template RegisterMapper<fwdRegIdx>;
+                            Neon::ConstexprFor<0, Lattice::Q, 1>([&, gidx](auto qToBeUsedViaMapper) {
+                                using M = typename Lattice::template MemoryMapper<qToBeUsedViaMapper>;
                                 if constexpr (M::centerMemQ != M::fwdMemQ) {
-                                    CellType nghCellType = infoIn.template getNghData<M::fwdMemQX, M::fwdMemQY, M::fwdMemQZ>(gidx, 0, CellType::undefined)();
+                                    CellType nghCellType = infoIn.template getNghData<M::fwdMemQX,
+                                                                                      M::fwdMemQY,
+                                                                                      M::fwdMemQZ>(gidx, 0, CellType::undefined)();
                                     if (nghCellType.classification == CellType::bounceBack ||
                                         nghCellType.classification == CellType::movingWall) {
-                                        cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << M::fwdMemQ));
+                                        cellType.wallNghBitflag = cellType.wallNghBitflag | ((uint32_t(1) << M::fwdRegQ));
                                     }
                                 }
                             });
@@ -494,8 +495,8 @@ struct ContainerFactoryD3QXX
                         CellType flagVal(cellClass);
                         flag(gidx, 0) = flagVal;
 
-                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
-                            using M = typename Lattice::template RegisterMapper<q>;
+                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto qToBeUsedViaMapper) {
+                            using M = typename Lattice::template MemoryMapper<qToBeUsedViaMapper>;
                             p(gidx, M::fwdMemQ) = pValues[M::fwdRegQ];
                         });
                     };
@@ -515,8 +516,9 @@ struct ContainerFactoryD3QXX
                     auto&       pOut = L.load(foutField, Neon::Pattern::MAP);
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename PopField::Idx& gidx) mutable {
-                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
-                            pOut(gidx, q) = pIn(gidx, q);
+                        Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto qToBeUsedViaMapper) {
+                            using M = typename Lattice::template MemoryMapper<qToBeUsedViaMapper>;
+                            pOut(gidx, M::fwdMemQ) = pIn(gidx, M::fwdMemQ);
                         });
                     };
                 });
@@ -559,23 +561,26 @@ struct ContainerFactoryD3QXX
                                 flagVal.classification = CellType::movingWall;
                             }
 
-                            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
+                            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto qToBeUsedViaMapper) {
+                                using M = typename Lattice::template MemoryMapper<qToBeUsedViaMapper>;
+
                                 if (globalIdx.y == domainDim.y - 1) {
-                                    popVal = -6. * Lattice::Memory::template getT<q>() * ulb *
-                                             (Lattice::Memory::template getDirection<q>().v[0] * ulid.v[0] +
-                                              Lattice::Memory::template getDirection<q>().v[1] * ulid.v[1] +
-                                              Lattice::Memory::template getDirection<q>().v[2] * ulid.v[2]);
+                                    popVal = -6. * Lattice::Memory::template getT<M::fwdMemQ>() * ulb *
+                                             (Lattice::Memory::template getDirection<M::fwdMemQ>().v[0] * ulid.v[0] +
+                                              Lattice::Memory::template getDirection<M::fwdMemQ>().v[1] * ulid.v[1] +
+                                              Lattice::Memory::template getDirection<M::fwdMemQ>().v[2] * ulid.v[2]);
                                 } else {
                                     popVal = 0;
                                 }
-                                fIn(gidx, q) = popVal;
-                                fOut(gidx, q) = popVal;
+                                fIn(gidx, M::fwdMemQ) = popVal;
+                                fOut(gidx, M::fwdMemQ) = popVal;
                             });
                         } else {
                             flagVal.classification = CellType::bulk;
-                            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
-                                fIn(gidx, q) = Lattice::Memory::template getT<q>();
-                                fOut(gidx, q) = Lattice::Memory::template getT<q>();
+                            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto qToBeUsedViaMapper) {
+                                using M = typename Lattice::template MemoryMapper<qToBeUsedViaMapper>;
+                                fIn(gidx, M::fwdMemQ) = Lattice::Memory::template getT<M::fwdMemQ>();
+                                fOut(gidx, M::fwdMemQ) = Lattice::Memory::template getT<M::fwdMemQ>();
                             });
                         }
                         cellInfoPartition(gidx, 0) = flagVal;
@@ -603,8 +608,8 @@ struct ContainerFactoryD3QXX
                         }
 
                         {  // All cells are pre-set to Equilibrium
-                            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto q) {
-                                using M = typename Lattice::template RegisterMapper<q>;
+                            Neon::ConstexprFor<0, Lattice::Q, 1>([&](auto qToBeUsedViaMapper) {
+                                using M = typename Lattice::template MemoryMapper<qToBeUsedViaMapper>;
                                 fOut(gidx, M::fwdMemQ) = Lattice::Registers::template getT<M::fwdRegQ>();
                             });
                         }

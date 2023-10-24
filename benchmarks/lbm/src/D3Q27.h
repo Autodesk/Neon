@@ -447,6 +447,26 @@ struct D3Q27
         constexpr static int bkwMemQZ = Memory::template getVelocityComponent<bkwMemQ, 2>();
     };
 
+    template <int fwdMemIdx_>
+    struct MemoryMapper
+    {
+        constexpr static int fwdMemQ = fwdMemIdx_;
+        constexpr static int bkwMemQ = Memory::template getOpposite<fwdMemQ>();
+
+        constexpr static int fwdRegQ = Memory::template mapToRegisters<fwdMemQ>();
+        ;        constexpr static int bkwRegQ = Registers::template getOpposite<fwdRegQ>();
+
+        constexpr static int centerRegQ = Registers::center;
+        constexpr static int centerMemQ = Memory::center;
+
+        constexpr static int fwdMemQX = Memory::template getVelocityComponent<fwdMemQ, 0>();
+        constexpr static int fwdMemQY = Memory::template getVelocityComponent<fwdMemQ, 1>();
+        constexpr static int fwdMemQZ = Memory::template getVelocityComponent<fwdMemQ, 2>();
+
+        constexpr static int bkwMemQX = Memory::template getVelocityComponent<bkwMemQ, 0>();
+        constexpr static int bkwMemQY = Memory::template getVelocityComponent<bkwMemQ, 1>();
+        constexpr static int bkwMemQZ = Memory::template getVelocityComponent<bkwMemQ, 2>();
+    };
 
    public:
     template <int mappingType>

@@ -192,6 +192,9 @@ struct D3Q19
         }
     };
 
+
+    // Memory ------------------------------------------------------------------------------------------------
+
     struct Memory
     {
         using Self = D3Q19<Precision>::Memory;
@@ -214,25 +217,26 @@ struct D3Q19
             return ZZZ;                  \
         }                                \
     }
+
             ADD_COMPONENT(0, -1, 0, 0)
             ADD_COMPONENT(1, 0, -1, 0)
             ADD_COMPONENT(2, 0, 0, -1)
-            ADD_COMPONENT(3, -1, -1, 0)
-            ADD_COMPONENT(4, -1, 1, 0)
-            ADD_COMPONENT(5, -1, 0, -1)
-            ADD_COMPONENT(6, -1, 0, 1)
-            ADD_COMPONENT(7, 0, -1, -1)
-            ADD_COMPONENT(8, 0, -1, 1)
+            ADD_COMPONENT(3, -1, 0, -1)
+            ADD_COMPONENT(4, 0, -1, -1)
+            ADD_COMPONENT(5, 1, 0, -1)
+            ADD_COMPONENT(6, 0, 1, -1)
+            ADD_COMPONENT(7, -1, -1, 0)
+            ADD_COMPONENT(8, -1, 1, 0)
             ADD_COMPONENT(9, 0, 0, 0)
             ADD_COMPONENT(10, 1, 0, 0)
             ADD_COMPONENT(11, 0, 1, 0)
-            ADD_COMPONENT(12, 0, 0, 1)
-            ADD_COMPONENT(13, 1, 1, 0)
-            ADD_COMPONENT(14, 1, -1, 0)
-            ADD_COMPONENT(15, 1, 0, 1)
-            ADD_COMPONENT(16, 1, 0, -1)
-            ADD_COMPONENT(17, 0, 1, 1)
-            ADD_COMPONENT(18, 0, 1, -1)
+            ADD_COMPONENT(12, 1, 1, 0)
+            ADD_COMPONENT(13, 1, -1, 0)
+            ADD_COMPONENT(14, -1, 0, 1)
+            ADD_COMPONENT(15, 0, -1, 1)
+            ADD_COMPONENT(16, 0, 0, 1)
+            ADD_COMPONENT(17, 1, 0, 1)
+            ADD_COMPONENT(18, 0, 1, 1)
 
 #undef ADD_COMPONENT
         }
@@ -253,22 +257,22 @@ struct D3Q19
             ADD_COMPONENT(0, 0)
             ADD_COMPONENT(1, 1)
             ADD_COMPONENT(2, 2)
-            ADD_COMPONENT(3, 3)
-            ADD_COMPONENT(4, 4)
-            ADD_COMPONENT(5, 5)
-            ADD_COMPONENT(6, 6)
-            ADD_COMPONENT(7, 7)
-            ADD_COMPONENT(8, 8)
+            ADD_COMPONENT(3, 5)
+            ADD_COMPONENT(4, 7)
+            ADD_COMPONENT(5, 16)
+            ADD_COMPONENT(6, 18)
+            ADD_COMPONENT(7, 3)
+            ADD_COMPONENT(8, 4)
             ADD_COMPONENT(9, 9)
             ADD_COMPONENT(10, 10)
             ADD_COMPONENT(11, 11)
-            ADD_COMPONENT(12, 12)
-            ADD_COMPONENT(13, 13)
-            ADD_COMPONENT(14, 14)
-            ADD_COMPONENT(15, 15)
-            ADD_COMPONENT(16, 16)
-            ADD_COMPONENT(17, 17)
-            ADD_COMPONENT(18, 18)
+            ADD_COMPONENT(12, 13)
+            ADD_COMPONENT(13, 14)
+            ADD_COMPONENT(14, 6)
+            ADD_COMPONENT(15, 8)
+            ADD_COMPONENT(16, 12)
+            ADD_COMPONENT(17, 15)
+            ADD_COMPONENT(18, 17)
 #undef ADD_COMPONENT
         }
 
@@ -285,22 +289,22 @@ struct D3Q19
             ADD_COMPONENT(0, 0)
             ADD_COMPONENT(1, 1)
             ADD_COMPONENT(2, 2)
-            ADD_COMPONENT(3, 3)
-            ADD_COMPONENT(4, 4)
-            ADD_COMPONENT(5, 5)
-            ADD_COMPONENT(6, 6)
-            ADD_COMPONENT(7, 7)
-            ADD_COMPONENT(8, 8)
+            ADD_COMPONENT(5, 3)
+            ADD_COMPONENT(7, 4)
+            ADD_COMPONENT(16, 5)
+            ADD_COMPONENT(18, 6)
+            ADD_COMPONENT(3, 7)
+            ADD_COMPONENT(4, 8)
             ADD_COMPONENT(9, 9)
             ADD_COMPONENT(10, 10)
             ADD_COMPONENT(11, 11)
-            ADD_COMPONENT(12, 12)
-            ADD_COMPONENT(13, 13)
-            ADD_COMPONENT(14, 14)
-            ADD_COMPONENT(15, 15)
-            ADD_COMPONENT(16, 16)
-            ADD_COMPONENT(17, 17)
-            ADD_COMPONENT(18, 18)
+            ADD_COMPONENT(13, 12)
+            ADD_COMPONENT(14, 13)
+            ADD_COMPONENT(6, 14)
+            ADD_COMPONENT(8, 15)
+            ADD_COMPONENT(12, 16)
+            ADD_COMPONENT(15, 17)
+            ADD_COMPONENT(17, 18)
 #undef ADD_COMPONENT
         }
 
@@ -315,23 +319,23 @@ struct D3Q19
     }
             ADD_COMPONENT(0, 10)
             ADD_COMPONENT(1, 11)
-            ADD_COMPONENT(2, 12)
-            ADD_COMPONENT(3, 13)
-            ADD_COMPONENT(4, 14)
-            ADD_COMPONENT(5, 15)
-            ADD_COMPONENT(6, 16)
-            ADD_COMPONENT(7, 17)
-            ADD_COMPONENT(8, 18)
+            ADD_COMPONENT(2, 16)
+            ADD_COMPONENT(3, 17)
+            ADD_COMPONENT(4, 18)
+            ADD_COMPONENT(5, 14)
+            ADD_COMPONENT(6, 15)
+            ADD_COMPONENT(7, 12)
+            ADD_COMPONENT(8, 13)
             ADD_COMPONENT(9, 9)
             ADD_COMPONENT(10, 0)
             ADD_COMPONENT(11, 1)
-            ADD_COMPONENT(12, 2)
-            ADD_COMPONENT(13, 3)
-            ADD_COMPONENT(14, 4)
-            ADD_COMPONENT(15, 5)
-            ADD_COMPONENT(16, 6)
-            ADD_COMPONENT(17, 7)
-            ADD_COMPONENT(18, 8)
+            ADD_COMPONENT(12, 7)
+            ADD_COMPONENT(13, 8)
+            ADD_COMPONENT(14, 5)
+            ADD_COMPONENT(15, 6)
+            ADD_COMPONENT(16, 2)
+            ADD_COMPONENT(17, 3)
+            ADD_COMPONENT(18, 4)
 #undef ADD_COMPONENT
         }
     };
@@ -356,6 +360,26 @@ struct D3Q19
         constexpr static int bkwMemQZ = Memory::template getVelocityComponent<bkwMemQ, 2>();
     };
 
+    template <int fwdMemIdx_>
+    struct MemoryMapper
+    {
+        constexpr static int fwdMemQ = fwdMemIdx_;
+        constexpr static int bkwMemQ = Memory::template getOpposite<fwdMemQ>();
+
+        constexpr static int fwdRegQ = Memory::template mapToRegisters<fwdMemQ>();
+        ;        constexpr static int bkwRegQ = Registers::template getOpposite<fwdRegQ>();
+
+        constexpr static int centerRegQ = Registers::center;
+        constexpr static int centerMemQ = Memory::center;
+
+        constexpr static int fwdMemQX = Memory::template getVelocityComponent<fwdMemQ, 0>();
+        constexpr static int fwdMemQY = Memory::template getVelocityComponent<fwdMemQ, 1>();
+        constexpr static int fwdMemQZ = Memory::template getVelocityComponent<fwdMemQ, 2>();
+
+        constexpr static int bkwMemQX = Memory::template getVelocityComponent<bkwMemQ, 0>();
+        constexpr static int bkwMemQY = Memory::template getVelocityComponent<bkwMemQ, 1>();
+        constexpr static int bkwMemQZ = Memory::template getVelocityComponent<bkwMemQ, 2>();
+    };
 
    public:
     template <int mappingType>

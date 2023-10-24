@@ -562,7 +562,7 @@ auto dField<T, C>::initHaloUpdateTable()
                         continue;
                     }
                     if (canBeFusedWithPrevious) {
-                        transfersVec[transfersVec.size()].size += transferByteOneCardinality;
+                        transfersVec[transfersVec.size()-1].size += transferByteOneCardinality;
                         std::cout << "j " << j << " " << stencil.points()[j] << "fused" << std::endl;
                     } else {
                         transfersVec.push_back(transfer);
