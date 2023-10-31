@@ -1,23 +1,41 @@
 deviceType_LIST = 'cpu gpu'.split()
-deviceIds_LIST= "0 1 2 3 4 5 6 7".split()
-grid_LIST= "dGrid bGrid_4_4_4".split()
-domainSize_LIST= "64 128 192 256 320 384 448 512".split()
-computeFP_LIST= "double float".split()
-storageFP_LIST= "double float".split()
-occ_LIST="none".split()
-transferMode_LIST= "get put".split()
-stencilSemantic_LIST= "grid streaming".split()
-spaceCurve_LIST= "sweep morton hilbert".split()
+deviceIds_LIST = "0 1 2 3 4 5 6 7".split()
+grid_LIST = "dGrid bGrid_4_4_4".split()
+domainSize_LIST = "64 128 192 256 320 384 448 512".split()
+computeFP_LIST = "double float".split()
+storageFP_LIST = "double float".split()
+occ_LIST = "none standard".split()
+transferMode_LIST = "get put".split()
+stencilSemantic_LIST = "standard lattice".split()
+spaceCurve_LIST = "sweep morton hilbert".split()
 collision_LIST = "bgk kbc".split()
-streamingMethod_LIST= "push pull aa".split()
-lattice_LIST= "d3q19 d3q27".split()
+streamingMethod_LIST = "push pull aa".split()
+lattice_LIST = "d3q19 d3q27".split()
 
 warmupIter_INT = 10
 repetitions_INT = 5
 maxIter_INT = 10000
 
+goal_is_efficiency_max_num_devices = True
+
 import subprocess
 import sys
+
+
+# from typing import List, Dict
+
+def getDeviceConfigurations(DEVICE_TYPE, deviceIds_LIST):
+    if not goal_is_efficiency_max_num_devices:
+        DEVICE_SET_LIST = [deviceIds_LIST[0]]
+        if DEVICE_TYPE == 'gpu':
+            for DEVICE in deviceIds_LIST[1:]:
+                DEVICE_SET_LIST.append(DEVICE_SET_LIST[-1] + ' ' + DEVICE)
+        return DEVICE_SET_LIST
+    if len(deviceIds_LIST) ==1:
+        return  [deviceIds_LIST[0]]
+
+    if  goal_is_efficiency_max_num_devices:
+        return [deviceIds_LIST[0], deviceIds_LIST]
 
 
 def printProgressBar(value, label):
@@ -35,10 +53,7 @@ def printProgressBar(value, label):
 def countAll():
     counter = 0
     for DEVICE_TYPE in deviceType_LIST:
-        DEVICE_SET_LIST = [deviceIds_LIST[0]]
-        if DEVICE_TYPE == 'gpu':
-            for DEVICE in deviceIds_LIST[1:]:
-                DEVICE_SET_LIST.append(DEVICE_SET_LIST[-1] + ' ' + DEVICE)
+        DEVICE_SET_LIST = getDeviceConfigurations(DEVICE_TYPE, deviceIds_LIST)
         for DEVICE_SET in DEVICE_SET_LIST:
             for OCC in occ_LIST:
                 for DOMAIN_SIZE in domainSize_LIST:
@@ -70,10 +85,7 @@ command = './lbm'
 # command = 'echo'
 with open(command + '.log', 'w') as fp:
     for DEVICE_TYPE in deviceType_LIST:
-        DEVICE_SET_LIST = [deviceIds_LIST[0]]
-        if DEVICE_TYPE == 'gpu':
-            for DEVICE in deviceIds_LIST[1:]:
-                DEVICE_SET_LIST.append(DEVICE_SET_LIST[-1] + ' ' + DEVICE)
+        DEVICE_SET_LIST = getDeviceConfigurations(DEVICE_TYPE, deviceIds_LIST)
         for DEVICE_SET in DEVICE_SET_LIST:
             for OCC in occ_LIST:
                 for DOMAIN_SIZE in domainSize_LIST:
