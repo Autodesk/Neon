@@ -223,7 +223,7 @@ auto run(Config&            config,
         return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
     }
     if (config.gridType == "dGridDisg") {
-        testCode << "_dGrid";
+        testCode << "_dGridDisg";
         return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
     }
     //    if (config.gridType == "eGrid") {
