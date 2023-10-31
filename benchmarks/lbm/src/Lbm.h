@@ -56,6 +56,8 @@ struct Lbm
             NEON_THROW(exce);
         }();
 
+        bk.toReport(report.helpGetReport(), nullptr);
+
         auto [gridInitClockStart, notcare] = metrics::restartClock(bk, true);
 
         // Setting the grid
@@ -65,6 +67,8 @@ struct Lbm
             Lattice::template getDirectionAsVector<Lattice::MemoryMapping>(),
             1.0, 0.0,
             config.spaceCurveCli.getOption());
+
+        grid.toReport(report.helpGetReport(), false);
 
         // Allocating Populations
         for (int i = 0; i < lbm::MethodUtils::getNumberOfPFields<method>(); i++) {

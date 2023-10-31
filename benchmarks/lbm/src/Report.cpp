@@ -28,12 +28,12 @@ Report::Report(const Config& c)
     mReport.addMember("gridType", c.gridType);
 
 
-
     c.occCli.addToReport(mReport);
     c.transferModeCli.addToReport(mReport);
     c.stencilSemanticCli.addToReport(mReport);
     c.spaceCurveCli.addToReport(mReport);
     c.collisionCli.addToReport(mReport);
+    c.problemTypeCli.addToReport(mReport);
 
     mReport.addMember("computeTypeStr", c.computeTypeStr);
     mReport.addMember("storeTypeStr", c.storeTypeStr);
@@ -91,7 +91,7 @@ auto Report::recordProblemSetupTime(double time, const std::string& unit) -> voi
 }
 
 auto Report::
-    save(std::stringstream & testCode)
+    save(std::stringstream& testCode)
         -> void
 {
     mReport.addMember("MLUPS", mMLUPS);
@@ -102,12 +102,17 @@ auto Report::
     mReport.write(mFname + testCode.str(), true);
 }
 
-void Report::recordBk(Neon::Backend& backend)
+auto Report::recordBk(Neon::Backend& backend) -> void
 {
     backend.toReport(mReport);
 }
 
-void Report::recordGrid(Neon::domain::interface::GridBase& g)
+auto Report::recordGrid(Neon::domain::interface::GridBase& g) -> void
 {
     g.toReport(mReport, true);
+}
+
+auto Report::helpGetReport() -> Neon::Report&
+{
+    return mReport;
 }
