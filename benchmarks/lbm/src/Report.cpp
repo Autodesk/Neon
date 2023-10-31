@@ -33,7 +33,6 @@ Report::Report(const Config& c)
     c.stencilSemanticCli.addToReport(mReport);
     c.spaceCurveCli.addToReport(mReport);
     c.collisionCli.addToReport(mReport);
-    c.problemTypeCli.addToReport(mReport);
 
     mReport.addMember("computeTypeStr", c.computeTypeStr);
     mReport.addMember("storeTypeStr", c.storeTypeStr);
