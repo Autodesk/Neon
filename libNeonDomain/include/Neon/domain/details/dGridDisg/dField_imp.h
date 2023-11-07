@@ -340,9 +340,6 @@ auto dField<T, C>::initHaloUpdateTable()
             {
                 using namespace Neon::domain::tool::partitioning;
 
-
-                int const r = 1;
-
                 Neon::SetIdx                                                                               setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
                 std::array<std::array<size_t, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> beginBoundary;
                 std::array<Partition*, Data::EndPointsUtils::nConfigs>                                     partitions;
@@ -409,9 +406,6 @@ auto dField<T, C>::initHaloUpdateTable()
                 std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
             {
                 using namespace Neon::domain::tool::partitioning;
-
-
-                int const r = 1;
 
                 Neon::SetIdx                                                                               setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
                 std::array<std::array<size_t, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> beginBoundary;
@@ -480,9 +474,6 @@ auto dField<T, C>::initHaloUpdateTable()
             {
                 using namespace Neon::domain::tool::partitioning;
 
-
-                int const r = 1;
-
                 Neon::SetIdx                                                                               setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
                 std::array<std::array<size_t, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> beginBoundary;
                 std::array<Partition*, Data::EndPointsUtils::nConfigs>                                     partitions;
@@ -522,10 +513,6 @@ auto dField<T, C>::initHaloUpdateTable()
                     size_t(partitions[Data::EndPoints::dst]->dim().y) *
                     size_t(partitions[Data::EndPoints::dst]->dim().z + 1) *
                     this->getCardinality();
-
-
-                T* srcMem = partitions[Data::EndPoints::src]->mem();
-                T* dstMem = partitions[Data::EndPoints::dst]->mem();
 
                 if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
                     return;
