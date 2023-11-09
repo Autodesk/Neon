@@ -1,4 +1,4 @@
-#include "Neon/domain/details/bGridDisg/BlockView/BlockViewGrid.h"
+#include "Neon/domain/details/bGridDisg/BlockViewGrid//BlockViewGrid.h"
 #include "Neon/domain/tools/GridTransformer.h"
 
 namespace Neon::domain::details::disaggregated::bGrid {

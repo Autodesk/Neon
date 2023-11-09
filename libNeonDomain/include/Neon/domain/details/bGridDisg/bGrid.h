@@ -20,6 +20,7 @@
 #include "bField.h"
 #include "bPartition.h"
 #include "bSpan.h"
+#include "ClassificationGrid/cGrid.h"
 
 namespace Neon::domain::details::disaggregated::bGrid {
 
