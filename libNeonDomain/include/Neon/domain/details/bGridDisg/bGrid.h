@@ -17,10 +17,12 @@
 #include "Neon/set/LaunchParametersTable.h"
 #include "Neon/set/memory/memSet.h"
 
+#include "Neon/domain/details/bGridDisg/ClassificationGrid/cGrid.h"
+
+#include "ClassificationGrid/cGrid.h"
 #include "bField.h"
 #include "bPartition.h"
 #include "bSpan.h"
-#include "ClassificationGrid/cGrid.h"
 
 namespace Neon::domain::details::disaggregated::bGrid {
 
@@ -49,6 +51,11 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
 
     using BlockIdx = uint32_t;
 
+    using AlphaGrid = typename Neon::domain::details::disaggregated::bGrid::details::cGrid::cGrid<SBlock,
+                                                                                                  Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::alpha>;
+    using BetaGrid = typename Neon::domain::details::disaggregated::bGrid::details::cGrid::cGrid<SBlock,
+                                                                                                 Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::beta>;
+
     bGrid() = default;
     virtual ~bGrid();
 
@@ -56,12 +63,12 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
      * Constructor for the vanilla block data structure with depth of 1
      */
     template <typename ActiveCellLambda>
-    bGrid(const Neon::Backend&         backend,
-          const Neon::int32_3d&        domainSize,
-          const ActiveCellLambda       activeCellLambda,
-          const Neon::domain::Stencil& stencil,
-          const double_3d&             spacingData = double_3d(1, 1, 1),
-          const double_3d&             origin = double_3d(0, 0, 0),
+    bGrid(const Neon::Backend&                         backend,
+          const Neon::int32_3d&                        domainSize,
+          const ActiveCellLambda                       activeCellLambda,
+          const Neon::domain::Stencil&                 stencil,
+          const double_3d&                             spacingData = double_3d(1, 1, 1),
+          const double_3d&                             origin = double_3d(0, 0, 0),
           Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
 
@@ -74,9 +81,10 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
           const ActiveCellLambda       activeCellLambda /**< Function that identify the user domain inside the boxed Cartesian discretization  */,
           const Neon::domain::Stencil& stencil /**< union of tall the stencil that will be used in the computation */,
           const int                    multiResDiscreteIdxSpacing /**< Parameter for the multi-resolution. Index i and index (i+1) may be remapped as i*voxelSpacing  and (i+1)* voxelSpacing.
-                                                                   * For a uniform bGrid, i.e outside the context of multi-resolution this parameter is always 1 */,
-          const double_3d& spacingData /** Physical spacing between two consecutive data points in the Cartesian domain */,
-          const double_3d& origin /** Physical location in space of the origin of the Cartesian discretization */,
+                                                                   * For a uniform bGrid, i.e outside the context of multi-resolution this parameter is always 1 */
+          ,
+          const double_3d&                             spacingData /** Physical spacing between two consecutive data points in the Cartesian domain */,
+          const double_3d&                             origin /** Physical location in space of the origin of the Cartesian discretization */,
           Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
     /**
@@ -230,10 +238,13 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
 
         // Stencil neighbor indices
         Neon::set::MemSet<NghIdx> mStencilNghIndex;
+
+        AlphaGrid alphaGrid;
+        BetaGrid  betaGrid;
     };
     std::shared_ptr<Data> mData;
 };
-extern template class bGrid<StaticBlock<8, 8, 8>>;
+extern template class bGrid<StaticBlock<4, 4, 4>>;
 }  // namespace Neon::domain::details::disaggregated::bGrid
 
 #include "bField_imp.h"

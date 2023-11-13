@@ -29,7 +29,7 @@
 
 namespace Neon::domain::details::disaggregated::bGrid {
 
-namespace details {
+namespace details::cGrid {
 
 template <typename SBlock, int classSelector>
 struct GridTransformation_cGrid
@@ -58,7 +58,7 @@ struct GridTransformation_cGrid
                                            Neon::DataView  dataViewOfTheTableEntry,
                                            Span& NEON_OUT  span) {
             typename FoundationGrid::Span const&     foundationSpan = foundationGrid.getSpan(execution, setIdx, dataViewOfTheTableEntry);
-            Neon::domain::tool::Partitioner1D const& foundationPartitioner1D = foundationGrid.helpGetPartitioner1D(execution, setIdx, dw);
+            Neon::domain::tool::Partitioner1D const& foundationPartitioner1D = foundationGrid.helpGetPartitioner1D(execution, setIdx, dataViewOfTheTableEntry);
             auto const&                              spanLayout = foundationPartitioner1D.getSpanLayout();
             typename Idx::DataBlockCount             iCountVirtualSingleClass;
             typename Idx::DataBlockCount             iAndIupCountVirtualSingleClass;
@@ -68,7 +68,7 @@ struct GridTransformation_cGrid
 
             bool skipInternal = dataViewOfTheTableEntry == Neon::DataView::BOUNDARY;
 
-            if constexpr (classSelector == cGrid::ClassSelector::alpha) {
+            if constexpr (classSelector == ClassSelector::alpha) {
                 auto const iCountVirtualAlpha = skipInternal ? 0 : spanLayout.getBoundsInternal(setIdx, Neon::domain::tool::partitioning::ByDomain::bulk).count;
                 auto const iAndIupCountVirtualAlpha = iCountVirtualSingleClass +
                                                       spanLayout.getBoundsBoundary(setIdx,
@@ -202,8 +202,9 @@ struct GridTransformation_cGrid
             });
     }
 };
-using ClassViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
 
-}  // namespace details
+template <typename SBlock, int classSelector>
+using cGrid = typename Neon::domain::tool::GridTransformer<GridTransformation_cGrid<SBlock, classSelector>>::Grid;
 
+}  // namespace details::cGrid
 }  // namespace Neon::domain::details::disaggregated::bGrid

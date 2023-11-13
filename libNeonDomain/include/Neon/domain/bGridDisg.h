@@ -3,5 +3,5 @@
 
 namespace Neon {
 
-using bGridDisg = Neon::domain::details::disaggregated::bGrid::bGrid<Neon::domain::details::bGrid::StaticBlock<8, 8, 8>>;
+using bGridDisg = Neon::domain::details::disaggregated::bGrid::bGrid<Neon::domain::details::bGrid::StaticBlock<4, 4, 4>>;
 }
