@@ -76,6 +76,45 @@ auto setContainerBeta(Field& filedA)
 }
 
 template <typename Field>
+auto setContainerAlphaBeta(typename Field::Type& val,
+                           const Field&          filedA,
+                           Field&                fieldB)
+    -> Neon::set::Container
+{
+    const auto& grid = filedA.getGrid();
+    return grid.newAlphaBetaContainer(
+        "BetaSet",
+        [&](Neon::set::Loader& loader) {
+            loader.load(filedA);
+            loader.load(fieldB);
+        },
+        [&](Neon::set::Loader& loader) {
+            auto const a = loader.load(filedA);
+            auto       b = loader.load(fieldB);
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
+                for (int i = 0; i < a.cardinality(); i++) {
+                    // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
+                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
+                    printf("BetaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
+                    b(e, i) += a(e, i) * val;
+                }
+            };
+        },
+        [&](Neon::set::Loader& loader) {
+            auto const a = loader.load(filedA);
+            auto       b = loader.load(fieldB);
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
+                for (int i = 0; i < a.cardinality(); i++) {
+                    // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
+                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
+                    printf("BetaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
+                    b(e, i) += a(e, i) * val;
+                }
+            };
+        });
+}
+
+template <typename Field>
 auto mapContainer_add(int                   streamIdx,
                       typename Field::Type& val,
                       Field&                fieldB)
@@ -145,9 +184,7 @@ auto run(TestData<G, T, C>& data) -> void
         auto& Y = data.getField(FieldNames::Y);
 
 
-        mapContainer_axpy(Neon::Backend::mainStreamIdx,
-                          val, X, Y)
-            .run(0);
+        setContainerAlphaBeta(val, X, Y).run(0);
 
         X.updateHostData(0);
         Y.updateHostData(0);

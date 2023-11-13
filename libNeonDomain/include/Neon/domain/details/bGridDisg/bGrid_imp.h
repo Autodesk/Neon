@@ -356,13 +356,43 @@ template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
 auto bGrid<SBlock>::newBetaContainer(const std::string& name,
-                                      LoadingLambda      lambda) const -> Neon::set::Container
+                                     LoadingLambda      lambda) const -> Neon::set::Container
 {
 
     auto kContainer = mData->betaGrid.newContainer(name,
-                                                    lambda);
+                                                   lambda);
     return kContainer;
 }
+template <typename SBlock>
+
+template <Neon::Execution execution,
+          typename GeneralLoader,
+          typename LoadingLambdaAlpha,
+          typename LoadingLambdaBeta>
+auto bGrid<SBlock>::newAlphaBetaContainer(const std::string& name,
+                                          GeneralLoader generalLoader,
+                                          LoadingLambdaAlpha lambdaAlpha,
+                                          LoadingLambdaBeta  lambdaBeta) const -> Neon::set::Container
+{
+    auto containerAlpha = mData->alphaGrid.newContainer(name+ "Alpha",
+                                                    lambdaAlpha);
+    auto containerBeta = mData->betaGrid.newContainer(name+ "Blpha",
+                                                       lambdaBeta);
+    Neon::set::container::Graph graph(this->getBackend());
+
+    graph.addNode(containerAlpha);
+    graph.addNode(containerBeta);
+
+//    graph.ioToDot(appName, "UserGraph", false);
+//    graph.ioToDot(appName + "-debug", "UserGraph", true);
+
+    Neon::set::Container exec = Neon::set::Container::factoryGraph(name+"Graph", graph, [&](Neon::SetIdx,
+                                                                                      Neon::set::Loader& loader) {
+        generalLoader(loader);
+    });
+    return exec;
+}
+
 template <typename SBlock>
 auto bGrid<SBlock>::
     getBlockViewGrid()
