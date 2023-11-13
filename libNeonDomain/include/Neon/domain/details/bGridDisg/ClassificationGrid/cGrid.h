@@ -58,7 +58,7 @@ struct GridTransformation_cGrid
                                            Neon::DataView  dataViewOfTheTableEntry,
                                            Span& NEON_OUT  span) {
             typename FoundationGrid::Span const&     foundationSpan = foundationGrid.getSpan(execution, setIdx, dataViewOfTheTableEntry);
-            Neon::domain::tool::Partitioner1D const& foundationPartitioner1D = foundationGrid.helpGetPartitioner1D(execution, setIdx, dataViewOfTheTableEntry);
+            Neon::domain::tool::Partitioner1D const& foundationPartitioner1D = foundationGrid.helpGetPartitioner1D();
             auto const&                              spanLayout = foundationPartitioner1D.getSpanLayout();
             typename Idx::DataBlockCount             iCountVirtualSingleClass;
             typename Idx::DataBlockCount             iAndIupCountVirtualSingleClass;
@@ -70,7 +70,7 @@ struct GridTransformation_cGrid
 
             if constexpr (classSelector == ClassSelector::alpha) {
                 auto const iCountVirtualAlpha = skipInternal ? 0 : spanLayout.getBoundsInternal(setIdx, Neon::domain::tool::partitioning::ByDomain::bulk).count;
-                auto const iAndIupCountVirtualAlpha = iCountVirtualSingleClass +
+                auto const iAndIupCountVirtualAlpha = iCountVirtualAlpha +
                                                       spanLayout.getBoundsBoundary(setIdx,
                                                                                    Neon::domain::tool::partitioning::ByDirection::up,
                                                                                    Neon::domain::tool::partitioning::ByDomain::bulk)
@@ -88,12 +88,20 @@ struct GridTransformation_cGrid
                                                                          Neon::domain::tool::partitioning::ByDirection::up,
                                                                          Neon::domain::tool::partitioning::ByDomain::bc)
                                                 .count;
+
+                span.init(foundationSpan,
+                          iCountVirtualSingleClass,
+                          iAndIupCountVirtualSingleClass,
+                          internalClassFirstMemoryOffset,
+                          bUpClassFirstMemoryOffset,
+                          bDwClassFirstMemoryOffset,
+                          dataViewOfTheTableEntry);
             } else {
                 auto const iCountVirtualBeta = skipInternal
                                                    ? 0
                                                    : spanLayout.getBoundsInternal(setIdx, Neon::domain::tool::partitioning::ByDomain::bc).count;
 
-                auto const iAndIupCountVirtualBeta = iCountVirtualSingleClass +
+                auto const iAndIupCountVirtualBeta = iCountVirtualBeta +
                                                      spanLayout.getBoundsBoundary(setIdx,
                                                                                   Neon::domain::tool::partitioning::ByDirection::up,
                                                                                   Neon::domain::tool::partitioning::ByDomain::bc)
@@ -116,15 +124,17 @@ struct GridTransformation_cGrid
                                                                          Neon::domain::tool::partitioning::ByDirection::down,
                                                                          Neon::domain::tool::partitioning::ByDomain::bulk)
                                                 .count;
+
+                span.init(foundationSpan,
+                          iCountVirtualSingleClass,
+                          iAndIupCountVirtualSingleClass,
+                          internalClassFirstMemoryOffset,
+                          bUpClassFirstMemoryOffset,
+                          bDwClassFirstMemoryOffset,
+                          dataViewOfTheTableEntry);
             }
 
-            span.init(foundationSpan,
-                      iCountVirtualSingleClass,
-                      iAndIupCountVirtualSingleClass,
-                      internalClassFirstMemoryOffset,
-                      bUpClassFirstMemoryOffset,
-                      bDwClassFirstMemoryOffset,
-                      dataViewOfTheTableEntry);
+
         });
     }
 
@@ -133,12 +143,10 @@ struct GridTransformation_cGrid
                                      const Neon::index_3d& blockSize,
                                      const size_t&         shareMem) -> Neon::set::LaunchParameters
     {
-        Neon::set::LaunchParameters launchParameters = foundationGrid.initLaunchParameters(dataView, blockSize, shareMem);
+        Neon::set::LaunchParameters launchParameters = foundationGrid.getLaunchParameters(dataView, blockSize, shareMem);
 
         launchParameters.forEachSeq([&](Neon::SetIdx setIdx, Neon::sys::GpuLaunchInfo& launchParameter) {
-            Neon::domain::tool::Partitioner1D const& foundationPartitioner1D = foundationGrid.helpGetPartitioner1D(Neon::Execution::host,
-                                                                                                                   setIdx,
-                                                                                                                   DataView::STANDARD);
+            Neon::domain::tool::Partitioner1D const& foundationPartitioner1D = foundationGrid.helpGetPartitioner1D();
             auto const&                              spanLayout = foundationPartitioner1D.getSpanLayout();
             int                                      nBlocks;
 

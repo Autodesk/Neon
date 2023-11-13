@@ -35,6 +35,47 @@ auto mapContainer_axpy(int                   streamIdx,
 }
 
 template <typename Field>
+auto setContainerAlpha(Field& filedA)
+    -> Neon::set::Container
+{
+    const auto& grid = filedA.getGrid();
+    return grid.newAlphaContainer(
+        "AlphaSet",
+        [&](Neon::set::Loader& loader) {
+            auto a = loader.load(filedA);
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
+                for (int i = 0; i < a.cardinality(); i++) {
+                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
+                    printf("AlphaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
+                    a(e, i) = -33;
+                }
+            };
+        });
+}
+
+template <typename Field>
+auto setContainerBeta(Field& filedA)
+    -> Neon::set::Container
+{
+    const auto& grid = filedA.getGrid();
+    return grid.newBetaContainer(
+        "BetaSet",
+        [&](Neon::set::Loader& loader) {
+            auto a = loader.load(filedA);
+
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
+                for (int i = 0; i < a.cardinality(); i++) {
+                    // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
+                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
+                    printf("BetaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
+                    a(e, i) = -55;
+                }
+            };
+        });
+}
+
+template <typename Field>
 auto mapContainer_add(int                   streamIdx,
                       typename Field::Type& val,
                       Field&                fieldB)
@@ -62,10 +103,38 @@ auto run(TestData<G, T, C>& data) -> void
 {
 
     using Type = typename TestData<G, T, C>::Type;
-    auto&             grid = data.getGrid();
+    auto& grid = data.getGrid();
+    G     tmp = G(
+        grid.getBackend(),
+        grid.getDimension(),
+        [&](Neon::index_3d idx) {
+            bool isInside = grid.isInsideDomain(idx);
+            if (!isInside) {
+                return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::outside;
+            }
+            if ((idx.x == 0 && idx.y == 0 && idx.z == 0) || (idx.x == grid.getDimension().x - 1 && idx.y == grid.getDimension().y - 1 && idx.z == grid.getDimension().z - 1)) {
+                return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::beta;
+            }
+            return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::alpha;
+        },
+        grid.getStencil(),
+        1,
+        grid.getSpacing(),
+        grid.getOrigin(),
+        grid.getSpaceCurve());
+
+
+    grid = tmp;
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
+    data.resetValuesToLinear(1, 100);
+
+    setContainerAlpha(data.getField(FieldNames::X)).run(0);
+    setContainerBeta(data.getField(FieldNames::Y)).run(0);
+    data.getField(FieldNames::X).ioToVtk("XAlpha", "XAlpha");
+    data.getField(FieldNames::Y).ioToVtk("YBeta", "YBeta");
 
     data.resetValuesToLinear(1, 100);
+
     T val = T(33);
 
     {  // NEON
@@ -154,12 +223,12 @@ auto run(TestData<G, T, C>& data) -> void
 }  // namespace dataView
 
 template auto run<Neon::bGridDisg, int64_t, 0>(TestData<Neon::bGridDisg, int64_t, 0>&) -> void;
-template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
+// template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
 
 namespace dataView {
 template auto run<Neon::bGridDisg, int64_t, 0>(TestData<Neon::bGridDisg, int64_t, 0>&) -> void;
-template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
-template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
+// template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
+// template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace dataView
 }  // namespace map

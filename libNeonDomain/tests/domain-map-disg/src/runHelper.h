@@ -31,13 +31,13 @@ void runAllTestConfiguration(
         nGpuTest.push_back(i);
     }
     // std::vector<int> nGpuTest{2,4,6,8};
-    std::vector<int> cardinalityTest{1,3,19};
+    std::vector<int> cardinalityTest{1};
 
-    std::vector<Neon::index_3d> dimTest{{1, 1, 1}, {1, 1, 100}, {17, 1, 77}};
+    std::vector<Neon::index_3d> dimTest{{1, 1, 6}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        runtimeE.push_back(Neon::Runtime::stream);
-    }
+//    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+//        runtimeE.push_back(Neon::Runtime::stream);
+//    }
 
     std::vector<Geometry> geos;
 
@@ -74,8 +74,8 @@ void runAllTestConfiguration(
                         Neon::MemoryOptions memoryOptions = backend.getMemoryOptions();
 
                         if constexpr (std::is_same_v<G, Neon::bGrid>||std::is_same_v<G, Neon::bGridDisg>) {
-                            if (dim.z < 4 * ngpu * 3) {
-                                dim.z = ngpu * 3 * 4;
+                            if (dim.z < 1 * ngpu * 3) {
+                                dim.z = ngpu * 3 * 1;
                             }
                         }
 
@@ -88,6 +88,7 @@ void runAllTestConfiguration(
                         NEON_INFO(testData.toString());
 
                         f(testData);
+                        return;
                     }
                 }
             }

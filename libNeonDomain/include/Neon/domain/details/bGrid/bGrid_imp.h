@@ -64,7 +64,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
         mData->partitioner1D = Neon::domain::tool::Partitioner1D(
             backend,
             activeCellLambda,
-            [](Neon::index_3d /*idx*/) { return false; },
+            nullptr,
             SBlock::memBlockSize3D.template newType<int32_t>(),
             domainSize,
             Neon::domain::Stencil::s27_t(false),

@@ -60,16 +60,36 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
     }
 
     {  // Initialization of the partitioner
-
-        mData->partitioner1D = Neon::domain::tool::Partitioner1D(
-            backend,
-            activeCellLambda,
-            [](Neon::index_3d /*idx*/) { return false; },
-            SBlock::memBlockSize3D.template newType<int32_t>(),
-            domainSize,
-            Neon::domain::Stencil::s27_t(false),
-            encoderType,
-            multiResDiscreteIdxSpacing);
+        using returTypeOfLambda = typename std::invoke_result<ActiveCellLambda, Neon::index_3d>::type;
+        if constexpr (std::is_same_v<returTypeOfLambda, bool>) {
+            mData->partitioner1D = Neon::domain::tool::Partitioner1D(
+                backend,
+                activeCellLambda,
+                nullptr,
+                SBlock::memBlockSize3D.template newType<int32_t>(),
+                domainSize,
+                Neon::domain::Stencil::s27_t(false),
+                encoderType,
+                multiResDiscreteIdxSpacing);
+        } else if constexpr (std::is_same_v<returTypeOfLambda, details::cGrid::ClassSelector>) {
+            mData->partitioner1D = Neon::domain::tool::Partitioner1D(
+                backend,
+                [&](Neon::index_3d idx) {
+                    return activeCellLambda(idx) != details::cGrid::ClassSelector::outside;
+                },
+                [&](Neon::index_3d idx) {
+                    return (activeCellLambda(idx) == details::cGrid::ClassSelector::beta)
+                               ? Neon::domain::tool::partitioning::ByDomain::bc
+                               : Neon::domain::tool::partitioning::ByDomain::bulk;
+                },
+                SBlock::memBlockSize3D.template newType<int32_t>(),
+                domainSize,
+                Neon::domain::Stencil::s27_t(false),
+                encoderType,
+                multiResDiscreteIdxSpacing);
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("The user defined lambda must return a bool or a ClassSelector");
+        }
 
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();
         mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
@@ -256,6 +276,9 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
             });
         });
     }
+
+    mData->alphaGrid = details::cGrid::cGrid<SBlock, int(details::cGrid::ClassSelector::alpha)>(*this);
+    mData->betaGrid = details::cGrid::cGrid<SBlock, int(details::cGrid::ClassSelector::beta)>(*this);
 }
 
 template <typename SBlock>
@@ -317,6 +340,29 @@ auto bGrid<SBlock>::newContainer(const std::string& name,
     return kContainer;
 }
 
+template <typename SBlock>
+template <Neon::Execution execution,
+          typename LoadingLambda>
+auto bGrid<SBlock>::newAlphaContainer(const std::string& name,
+                                      LoadingLambda      lambda) const -> Neon::set::Container
+{
+
+    auto kContainer = mData->alphaGrid.newContainer(name,
+                                                    lambda);
+    return kContainer;
+}
+
+template <typename SBlock>
+template <Neon::Execution execution,
+          typename LoadingLambda>
+auto bGrid<SBlock>::newBetaContainer(const std::string& name,
+                                      LoadingLambda      lambda) const -> Neon::set::Container
+{
+
+    auto kContainer = mData->betaGrid.newContainer(name,
+                                                    lambda);
+    return kContainer;
+}
 template <typename SBlock>
 auto bGrid<SBlock>::
     getBlockViewGrid()

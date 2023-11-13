@@ -69,13 +69,13 @@ class cSpan
         uint32_t const& y,
         uint32_t const& z) const -> bool
     {
-        typename Idx::InDataBlockIdx offset = mInternalClassFirstMemoryOffset;
+        typename Idx::DataBlockIdx offset = blockIdx + mInternalClassFirstMemoryOffset;
         offset = blockIdx >= mIcountVirtualSingleClass
-                     ? mBupClassFirstMemoryOffset
+                     ? blockIdx + mBupClassFirstMemoryOffset
                      : offset;
 
         offset = blockIdx >= mIandIupCountVirtualSingleClass
-                     ? mBdwClassFirstMemoryOffset
+                     ? blockIdx + mBdwClassFirstMemoryOffset
                      : offset;
 
         bidx = Idx(offset, x, y, z);
@@ -90,19 +90,19 @@ class cSpan
         Idx& bidx) const -> bool
     {
 #ifdef NEON_PLACE_CUDA_DEVICE
-        typename Idx::InDataBlockIdx offset = mInternalClassFirstMemoryOffset;
+        typename Idx::DataBlockIdx offset = blockIdx.x  + mInternalClassFirstMemoryOffset;
         offset = blockIdx.x >= mIcountVirtualSingleClass
-                     ? mBupClassFirstMemoryOffset
+                     ?  blockIdx.x + mBupClassFirstMemoryOffset
                      : offset;
 
         offset = blockIdx.x >= mIandIupCountVirtualSingleClass
-                     ? mBdwClassFirstMemoryOffset
+                     ?  blockIdx.x + mBdwClassFirstMemoryOffset
                      : offset;
 
         bidx = Idx(offset, threadIdx.x, threadIdx.y, threadIdx.z);
-        const bool isActive = mBaseSpan.mActiveMask[bidx.mDataBlockIdx].isActive(bidx.mInDataBlockIdx.x,
-                                                                                 bidx.mInDataBlockIdx.y,
-                                                                                 bidx.mInDataBlockIdx.z);
+        const bool isActive = mActiveMask[bidx.mDataBlockIdx].isActive(bidx.mInDataBlockIdx.x,
+                                                                       bidx.mInDataBlockIdx.y,
+                                                                       bidx.mInDataBlockIdx.z);
 
         return isActive;
 #else

@@ -150,6 +150,16 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     auto newContainer(const std::string& name,
                       LoadingLambda      lambda) const -> Neon::set::Container;
 
+    template <Neon::Execution execution = Neon::Execution::device,
+              typename LoadingLambda = void*>
+    auto newAlphaContainer(const std::string& name,
+                           LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <Neon::Execution execution = Neon::Execution::device,
+              typename LoadingLambda = void*>
+    auto newBetaContainer(const std::string& name,
+                          LoadingLambda      lambda) const -> Neon::set::Container;
+
     /**
      * Defines a new set of parameter to launch a Container
      */

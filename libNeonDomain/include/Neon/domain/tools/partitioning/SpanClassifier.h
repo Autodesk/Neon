@@ -48,22 +48,22 @@ struct Hash
         for (uint64_t i = 0; i < id1dTo3d.size(); i++) {
             *(id3dTo1d.getMetadata(id1dTo3d[i])) = i;
         }
-//
-//        std::cout << "AFTER Cartesian ";
-//        for (int i = 0; i < int(id1dTo3d.size()); i++) {
-//            std::cout << id1dTo3d[i] << " ";
-//        }
-//        std::cout << std::endl
-//                  << " ID ";
-//        for (int i = 0; i < int(id1dTo3d.size()); i++) {
-//            std::cout << *id3dTo1d.getMetadata(id1dTo3d[i]) << " ";
-//        }
-//        std::cout << std::endl
-//                  << " CODE ";
-//        for (int i = 0; i < int(id1dTo3d.size()); i++) {
-//            std::cout << Neon::domain::tool::spaceCurves::Encoder::encode(spaceCurve, id3dTo1d.getBBox(), id1dTo3d[i]) << " ";
-//        }
-//        std::cout << std::endl;
+        //
+        //        std::cout << "AFTER Cartesian ";
+        //        for (int i = 0; i < int(id1dTo3d.size()); i++) {
+        //            std::cout << id1dTo3d[i] << " ";
+        //        }
+        //        std::cout << std::endl
+        //                  << " ID ";
+        //        for (int i = 0; i < int(id1dTo3d.size()); i++) {
+        //            std::cout << *id3dTo1d.getMetadata(id1dTo3d[i]) << " ";
+        //        }
+        //        std::cout << std::endl
+        //                  << " CODE ";
+        //        for (int i = 0; i < int(id1dTo3d.size()); i++) {
+        //            std::cout << Neon::domain::tool::spaceCurves::Encoder::encode(spaceCurve, id3dTo1d.getBBox(), id1dTo3d[i]) << " ";
+        //        }
+        //        std::cout << std::endl;
     }
 
    private:
@@ -249,7 +249,9 @@ SpanClassifier::SpanClassifier(const Neon::Backend&                         back
                 auto inspectBlock = [&](int bx, int by, int bz, ByPartition byPartition, ByDirection byDirection) {
                     Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
 
-                    bool doBreak = false;
+                    bool     doBreak = false;
+                    bool     isActiveBlock = false;
+                    ByDomain byDomain = ByDomain::bulk;
                     for (int z = 0; (z < dataBlockSize3D.z && !doBreak); z++) {
                         for (int y = 0; (y < dataBlockSize3D.y && !doBreak); y++) {
                             for (int x = 0; (x < dataBlockSize3D.x && !doBreak); x++) {
@@ -258,18 +260,29 @@ SpanClassifier::SpanClassifier(const Neon::Backend&                         back
                                 if (globalId < domainSize * discreteVoxelSpacing) {
                                     if (activeCellLambda(globalId)) {
                                         doBreak = true;
-
-                                        Neon::int32_3d const point(bx, by, bz);
-                                        ByDomain const       byDomain = bcLambda(point) ? ByDomain::bc : ByDomain::bulk;
-                                        addPoint(setIdx, point, byPartition, byDirection, byDomain);
+                                        isActiveBlock = true;
+                                        Neon::int32_3d const pointInBlock(bx + x, by + y, bz + z);
+                                        if constexpr (std::is_same_v<BcLambda, nullptr_t>) {
+                                            byDomain = ByDomain::bulk;
+                                            doBreak = true;
+                                            break;
+                                        } else if constexpr (std::is_same_v<typename std::invoke_result<BcLambda, Neon::index_3d>::type, bool>) {
+                                            NEON_THROW_UNSUPPORTED_OPERATION("bool");
+                                        } else if constexpr (std::is_same_v<typename std::invoke_result<BcLambda, Neon::index_3d>::type, ByDomain>) {
+                                            if (bcLambda(pointInBlock) == ByDomain::bc) {
+                                                byDomain = ByDomain::bc;
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                    if (isActiveBlock) {
+                        addPoint(setIdx, blockOrigin, byPartition, byDirection, byDomain);
+                    }
                 };
                 if (backend.deviceCount() > 1) {
-
                     // We are running in the inner partition blocks
                     if (beginZ + zRadius > lastZ - zRadius) {
                         std::cout << spanDecompositionNoUse->toString(backend);

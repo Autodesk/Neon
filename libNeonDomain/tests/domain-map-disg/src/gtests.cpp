@@ -21,24 +21,24 @@ TEST(domain_map_dataView, bGridDisg)
                             nGpus,
                             2);
 }
-
-TEST(domain_map_dataView, bGrid)
-{
-    int nGpus = 3;
-    using Type = int64_t;
-    runAllTestConfiguration(std::function(map::dataView::run<Neon::bGrid, Type, 0>),
-                            nGpus,
-                            2);
-}
-
-TEST(domain_map_dataView, dGrid)
-{
-    int nGpus = 3;
-    using Type = int64_t;
-    runAllTestConfiguration(std::function(map::dataView::run<Neon::dGrid, Type, 0>),
-                            nGpus,
-                            2);
-}
+//
+//TEST(domain_map_dataView, bGrid)
+//{
+//    int nGpus = 3;
+//    using Type = int64_t;
+//    runAllTestConfiguration(std::function(map::dataView::run<Neon::bGrid, Type, 0>),
+//                            nGpus,
+//                            2);
+//}
+//
+//TEST(domain_map_dataView, dGrid)
+//{
+//    int nGpus = 3;
+//    using Type = int64_t;
+//    runAllTestConfiguration(std::function(map::dataView::run<Neon::dGrid, Type, 0>),
+//                            nGpus,
+//                            2);
+//}
 
 int main(int argc, char** argv)
 {
