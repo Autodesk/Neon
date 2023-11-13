@@ -1,22 +1,25 @@
 #pragma once
 
 #include "./ClassSelector.h"
-#include "Neon/domain/details/bGridDisg/ClassificationGrid/cIndex.h"
-#include "Neon/domain/details/bGridDist"
 
 namespace Neon::domain::details::disaggregated::bGrid::cGrid {
 
-template <typename SBlock, ClassSelector classSelector>
+// -------------------------------------
+// | Internal     | BoundaryUP   | BoundaryDW    | Ghost UP        | Ghost Dw     |
+// | alpha | beta | alpha | beta | alpha | beta  | alpha | beta    | alpha | beta |
+// |              |              |               | Ghost setIdx    | Ghost setIdx |
+//        ^               ^              ^               -                 -
+// The span must manage two classes that are split into 3 sections: Internal, BoundaryUP, BoundaryDW
+template <typename SBlock, typename FounderGrid, int classSelector>
 class cSpan
 {
    public:
-    using Idx = cIndex<SBlock>;
-    friend class cGrid<SBlock>;
-    using bSpan = Neon::domain::details::disaggregated::bGrid::bSpan<SBlock>;
-
+    using Idx = typename FounderGrid::Idx;
+    using bSpan = typename FounderGrid::Span;
     static constexpr int SpaceDim = 3;
 
     cSpan() = default;
+
     virtual ~cSpan() = default;
 
     NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId()
@@ -25,53 +28,93 @@ class cSpan
         return std::numeric_limits<uint32_t>::max();
     }
 
-    inline cSpan(typename Idx::DataBlockCount                  mFirstDataBlockOffset,
-                 typename SBlock::BitMask const* NEON_RESTRICT mActiveMask,
-                 typename Idx::DataBlockCount                  firstSectionClassSize,
-                 typename Idx::DataBlockCount                  secondSectionClassBegin,
-                 Neon::DataView                                mDataView)
-        : mBaseSpan(mFirstDataBlockOffset, mActiveMask, mDataView),
-          mFirstSectionClassSize(firstSectionClassSize),
-          mSecondSectionClassBegin(secondSectionClassBegin)
+    inline cSpan(bSpan const&                 baseSpan,
+                 typename Idx::DataBlockCount internalCountVirtualSingleClass,
+                 typename Idx::DataBlockCount iandIupCountVirtualSingleClass,
+                 typename Idx::DataBlockCount internalClassFirstMemoryOffset,
+                 typename Idx::DataBlockCount bupClassFirstMemoryOffset,
+                 typename Idx::DataBlockCount bdwClassFirstMemoryOffset,
+                 Neon::DataView               dataView)
+
     {
+        init(baseSpan,
+             internalCountVirtualSingleClass,
+             iandIupCountVirtualSingleClass,
+             internalClassFirstMemoryOffset,
+             bupClassFirstMemoryOffset,
+             bdwClassFirstMemoryOffset);
+    }
+
+    inline auto init(bSpan const&                 baseSpan,
+                     typename Idx::DataBlockCount internalCountVirtualSingleClass,
+                     typename Idx::DataBlockCount iandIupCountVirtualSingleClass,
+                     typename Idx::DataBlockCount internalClassFirstMemoryOffset,
+                     typename Idx::DataBlockCount bupClassFirstMemoryOffset,
+                     typename Idx::DataBlockCount bdwClassFirstMemoryOffset,
+                     Neon::DataView) -> void
+
+    {
+        mActiveMask = baseSpan.mActiveMask;
+        mIcountVirtualSingleClass = internalCountVirtualSingleClass;
+        mIandIupCountVirtualSingleClass = iandIupCountVirtualSingleClass;
+        mInternalClassFirstMemoryOffset = internalClassFirstMemoryOffset;
+        mBupClassFirstMemoryOffset = bupClassFirstMemoryOffset;
+        mBdwClassFirstMemoryOffset = bdwClassFirstMemoryOffset;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto setAndValidateCPUDevice(
         Idx&            bidx,
-        uint32_t const& dataBlockIdx,
+        uint32_t const& blockIdx,
         uint32_t const& x,
         uint32_t const& y,
         uint32_t const& z) const -> bool
     {
+        typename Idx::InDataBlockIdx offset = mInternalClassFirstMemoryOffset;
+        offset = blockIdx >= mIcountVirtualSingleClass
+                     ? mBupClassFirstMemoryOffset
+                     : offset;
 
-        bidx.mDataBlockIdx = dataBlockIdx < mFirstSectionClassSize ? dataBlockIdx + mBaseSpan.mFirstDataBlockOffset
-                                                                   : dataBlockIdx + mSecondSectionClassBegin;
+        offset = blockIdx >= mIandIupCountVirtualSingleClass
+                     ? mBdwClassFirstMemoryOffset
+                     : offset;
 
-        bidx.mInDataBlockIdx.x = static_cast<typename Idx::InDataBlockIdx::Integer>(x);
-        bidx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>(y);
-        bidx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>(z);
-        const bool isActive = mActiveMask[dataBlockIdx].isActive(bidx.mInDataBlockIdx.x, bidx.mInDataBlockIdx.y, bidx.mInDataBlockIdx.z);
+        bidx = Idx(offset, x, y, z);
+        const bool isActive = mActiveMask[bidx.mDataBlockIdx].isActive(bidx.mInDataBlockIdx.x,
+                                                                       bidx.mInDataBlockIdx.y,
+                                                                       bidx.mInDataBlockIdx.z);
+
         return isActive;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto setAndValidateGPUDevice(
         Idx& bidx) const -> bool
     {
+#ifdef NEON_PLACE_CUDA_DEVICE
+        typename Idx::InDataBlockIdx offset = mInternalClassFirstMemoryOffset;
+        offset = blockIdx.x >= mIcountVirtualSingleClass
+                     ? mBupClassFirstMemoryOffset
+                     : offset;
 
-        bidx.mDataBlockIdx = blockIdx.x < mFirstSectionClassSize ? blockIdx.x + mBaseSpan.mFirstDataBlockOffset
-                                                                 : blockIdx.x + mSecondSectionClassBegin;
+        offset = blockIdx.x >= mIandIupCountVirtualSingleClass
+                     ? mBdwClassFirstMemoryOffset
+                     : offset;
 
-        bidx.mInDataBlockIdx.x = threadIdx.x;
-        bidx.mInDataBlockIdx.y = threadIdx.y;
-        bidx.mInDataBlockIdx.z = threadIdx.z;
-
-        const bool isActive = mActiveMask[bidx.mDataBlockIdx].isActive(bidx.mInDataBlockIdx.x, bidx.mInDataBlockIdx.y, bidx.mInDataBlockIdx.z);
+        bidx = Idx(offset, threadIdx.x, threadIdx.y, threadIdx.z);
+        const bool isActive = mBaseSpan.mActiveMask[bidx.mDataBlockIdx].isActive(bidx.mInDataBlockIdx.x,
+                                                                                 bidx.mInDataBlockIdx.y,
+                                                                                 bidx.mInDataBlockIdx.z);
 
         return isActive;
+#else
+        NEON_THROW_UNSUPPORTED_OPERATION("Operation supported only on GPU");
+#endif
     }
 
-    bSpan                        mBaseSpan;
-    typename Idx::DataBlockCount mFirstSectionClassSize;
-    typename Idx::DataBlockCount mSecondSectionClassBegin;
+    typename SBlock::BitMask const* NEON_RESTRICT mActiveMask;
+    typename Idx::DataBlockCount                  mIcountVirtualSingleClass;
+    typename Idx::DataBlockCount                  mIandIupCountVirtualSingleClass;
+    typename Idx::DataBlockCount                  mInternalClassFirstMemoryOffset;
+    typename Idx::DataBlockCount                  mBupClassFirstMemoryOffset;
+    typename Idx::DataBlockCount                  mBdwClassFirstMemoryOffset;
 };
-}  // namespace Neon::domain::details::disaggregated::cGrid::cGrid
+}  // namespace Neon::domain::details::disaggregated::bGrid::cGrid
