@@ -279,7 +279,8 @@ SpanClassifier::SpanClassifier(const Neon::Backend&                         back
                         }
                     }
                     if (isActiveBlock) {
-                        addPoint(setIdx, blockOrigin, byPartition, byDirection, byDomain);
+                        Neon::int32_3d const point(bx, by, bz);
+                        addPoint(setIdx, point, byPartition, byDirection, byDomain);
                     }
                 };
                 if (backend.deviceCount() > 1) {

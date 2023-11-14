@@ -12,30 +12,27 @@
 namespace map {
 
 template <typename Field>
-auto mapContainer_axpy(int                   streamIdx,
-                       typename Field::Type& val,
-                       const Field&          filedA,
-                       Field&                fieldB)
+auto set(const Field& filedA)
     -> Neon::set::Container
 {
     const auto& grid = filedA.getGrid();
     return grid.newContainer(
-        "mapContainer_axpy",
-        [&, val](Neon::set::Loader& loader) {
-            const auto a = loader.load(filedA);
-            auto       b = loader.load(fieldB);
+        "set",
+        [&](Neon::set::Loader& loader) {
+            auto a = loader.load(filedA);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < a.cardinality(); i++) {
                     // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
-                    b(e, i) += a(e, i) * val;
+                    a(e, i) = 0;
                 }
             };
         });
 }
 
 template <typename Field>
-auto setContainerAlpha(Field& filedA)
+auto addAlpha(typename Field::Type val,
+              Field&               filedA)
     -> Neon::set::Container
 {
     const auto& grid = filedA.getGrid();
@@ -46,39 +43,39 @@ auto setContainerAlpha(Field& filedA)
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < a.cardinality(); i++) {
-                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                    printf("AlphaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
-                    a(e, i) = -33;
+                    // Neon::index_3d globalPoint = a.getGlobalIndex(e);
+                    // printf("AlphaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
+                    a(e, i) += val;
                 }
             };
         });
 }
 
 template <typename Field>
-auto setContainerBeta(Field& filedA)
+auto addBeta(typename Field::Type val,
+             Field&               filedA)
     -> Neon::set::Container
 {
     const auto& grid = filedA.getGrid();
     return grid.newBetaContainer(
-        "BetaSet",
+        "AlphaSet",
         [&](Neon::set::Loader& loader) {
             auto a = loader.load(filedA);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < a.cardinality(); i++) {
-                    // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
-                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                    printf("BetaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
-                    a(e, i) = -55;
+                    // Neon::index_3d globalPoint = a.getGlobalIndex(e);
+                    // printf("AlphaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
+                    a(e, i) += val;
                 }
             };
         });
 }
 
 template <typename Field>
-auto setContainerAlphaBeta(typename Field::Type& val,
-                           const Field&          filedA,
-                           Field&                fieldB)
+auto axpyAlphaBeta(typename Field::Type& val,
+                   const Field&          filedA,
+                   Field&                fieldB)
     -> Neon::set::Container
 {
     const auto& grid = filedA.getGrid();
@@ -93,9 +90,6 @@ auto setContainerAlphaBeta(typename Field::Type& val,
             auto       b = loader.load(fieldB);
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < a.cardinality(); i++) {
-                    // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
-                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                    printf("BetaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
                     b(e, i) += a(e, i) * val;
                 }
             };
@@ -105,9 +99,6 @@ auto setContainerAlphaBeta(typename Field::Type& val,
             auto       b = loader.load(fieldB);
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < a.cardinality(); i++) {
-                    // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
-                    Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                    printf("BetaSet %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z);
                     b(e, i) += a(e, i) * val;
                 }
             };
@@ -151,7 +142,7 @@ auto run(TestData<G, T, C>& data) -> void
             if (!isInside) {
                 return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::outside;
             }
-            if ((idx.x == 0 && idx.y == 0 && idx.z == 0) || (idx.x == grid.getDimension().x - 1 && idx.y == grid.getDimension().y - 1 && idx.z == grid.getDimension().z - 1)) {
+            if (idx.rSum() % 2 == 0) {
                 return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::beta;
             }
             return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::alpha;
@@ -167,10 +158,10 @@ auto run(TestData<G, T, C>& data) -> void
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
     data.resetValuesToLinear(1, 100);
 
-    setContainerAlpha(data.getField(FieldNames::X)).run(0);
-    setContainerBeta(data.getField(FieldNames::Y)).run(0);
-    data.getField(FieldNames::X).ioToVtk("XAlpha", "XAlpha");
-    data.getField(FieldNames::Y).ioToVtk("YBeta", "YBeta");
+    set(data.getField(FieldNames::X)).run(0);
+    addAlpha(11, data.getField(FieldNames::X)).run(0);
+    addBeta(17, data.getField(FieldNames::X)).run(0);
+    data.getField(FieldNames::X).ioToVtk("XAlphaBeta", "XAlphaBeta");
 
     data.resetValuesToLinear(1, 100);
 
@@ -184,7 +175,7 @@ auto run(TestData<G, T, C>& data) -> void
         auto& Y = data.getField(FieldNames::Y);
 
 
-        setContainerAlphaBeta(val, X, Y).run(0);
+        axpyAlphaBeta(val, X, Y).run(0);
 
         X.updateHostData(0);
         Y.updateHostData(0);
@@ -223,13 +214,8 @@ auto run(TestData<G, T, C>& data) -> void
         data.getField(FieldNames::X).ioToVtk("X_t0", "X_t0");
         data.getField(FieldNames::Y).ioToVtk("Y_t0", "Y_t0");
 
-        mapContainer_axpy(Neon::Backend::mainStreamIdx,
-                          val, X, Y)
-            .run(0, Neon::DataView::BOUNDARY);
-
-        mapContainer_axpy(Neon::Backend::mainStreamIdx,
-                          val, X, Y)
-            .run(0, Neon::DataView::INTERNAL);
+        axpyAlphaBeta(val, X, Y).run(0, Neon::DataView::BOUNDARY);
+        axpyAlphaBeta(val, X, Y).run(0, Neon::DataView::INTERNAL);
 
         X.updateHostData(0);
         Y.updateHostData(0);

@@ -33,11 +33,11 @@ void runAllTestConfiguration(
     // std::vector<int> nGpuTest{2,4,6,8};
     std::vector<int> cardinalityTest{1};
 
-    std::vector<Neon::index_3d> dimTest{{1, 1, 6}};
+    std::vector<Neon::index_3d> dimTest{{20, 20, 33}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
-//    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-//        runtimeE.push_back(Neon::Runtime::stream);
-//    }
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        runtimeE.push_back(Neon::Runtime::stream);
+    }
 
     std::vector<Geometry> geos;
 
@@ -88,7 +88,6 @@ void runAllTestConfiguration(
                         NEON_INFO(testData.toString());
 
                         f(testData);
-                        return;
                     }
                 }
             }
