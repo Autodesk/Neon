@@ -62,7 +62,7 @@ struct Lbm
 
         // Setting the grid
         grid = Grid(
-            bk, {config.N, config.N, config.N},
+            bk, config.N,
             [&](const Neon::index_3d& p) { return activeMask(p); },
             Lattice::template getDirectionAsVector<Lattice::MemoryMapping>(),
             1.0, 0.0,

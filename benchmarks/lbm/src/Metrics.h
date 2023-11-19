@@ -24,7 +24,7 @@ void recordBackend(Neon::Backend& bk,
 }
 
 void recordGrid(Neon::domain::interface::GridBase& g,
-                   Report&        report)
+                Report&                            report)
 {
     report.recordGrid(g);
 }
@@ -42,7 +42,7 @@ void recordMetrics(Neon::Backend& bk,
                    int            clock_iter)
 {
     bk.syncAll();
-    size_t nElements = config.N * config.N * config.N;
+    size_t nElements = config.N.rMulTyped<size_t>();
     auto   stop = std::chrono::high_resolution_clock::now();
     auto   duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
     double mlups = static_cast<double>(nElements * clock_iter) / duration.count();

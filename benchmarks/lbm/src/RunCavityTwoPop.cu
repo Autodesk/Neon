@@ -55,7 +55,7 @@ auto run(Config&                             config,
 
     Neon::double_3d ulid(1., 0., 0.);
     // Neon Grid and Fields initialization
-    Neon::index_3d domainDim(config.N, config.N, config.N);
+    Neon::index_3d domainDim = config.N;
 
     Lbm<Grid, method_, CollisionType, Precision, Lattice> lbm(config,
                                                               report,
@@ -105,24 +105,24 @@ auto runFilterMethod(Config&            config,
                      std::stringstream& testCode) -> void
 {
     // feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);  // Enable all floating point exceptions but FE_INEXACT
-//    if (config.streamingMethod == "push") {
-//        if (config.devices.size() != 1) {
-//            NEON_THROW_UNSUPPORTED_OPERATION("We only support PUSH in a single device configuration for now.")
-//        }
-//        testCode << "_push";
-//        return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
-//    }
+    //    if (config.streamingMethod == "push") {
+    //        if (config.devices.size() != 1) {
+    //            NEON_THROW_UNSUPPORTED_OPERATION("We only support PUSH in a single device configuration for now.")
+    //        }
+    //        testCode << "_push";
+    //        return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
+    //    }
     if (config.streamingMethod == "pull") {
         testCode << "_pull";
         return run<lbm::Method::pull, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
     }
-//    if (config.streamingMethod == "aa") {
-//        if (config.devices.size() != 1) {
-//            NEON_THROW_UNSUPPORTED_OPERATION("We only support AA in a single device configuration for now.")
-//        }
-//        testCode << "_aa";
-//        return run<lbm::Method::aa, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
-//    }
+    //    if (config.streamingMethod == "aa") {
+    //        if (config.devices.size() != 1) {
+    //            NEON_THROW_UNSUPPORTED_OPERATION("We only support AA in a single device configuration for now.")
+    //        }
+    //        testCode << "_aa";
+    //        return run<lbm::Method::aa, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
+    //    }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
@@ -135,18 +135,18 @@ auto runFilterCollision(Config&            config,
         testCode << "_bgk";
         return runFilterMethod<Collision::bgk, Lattice, Grid, Storage, Compute>(config, report, testCode);
     }
-//    if (config.collisionCli.getOption() == Collision::kbc) {
-//        if (config.lattice != "d3q27" && config.lattice != "D3Q27") {
-//            Neon::NeonException e("runFilterCollision");
-//            e << "LBM kbc collision model only supports d3q27 lattice";
-//            NEON_THROW(e);
-//        }
-//        testCode << "_kbc";
-//        using L = D3Q27<Precision<Storage, Compute>>;
-//        if constexpr (std::is_same_v<Lattice, L>) {
-//            return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, Compute>(config, report, testCode);
-//        }
-//    }
+    //    if (config.collisionCli.getOption() == Collision::kbc) {
+    //        if (config.lattice != "d3q27" && config.lattice != "D3Q27") {
+    //            Neon::NeonException e("runFilterCollision");
+    //            e << "LBM kbc collision model only supports d3q27 lattice";
+    //            NEON_THROW(e);
+    //        }
+    //        testCode << "_kbc";
+    //        using L = D3Q27<Precision<Storage, Compute>>;
+    //        if constexpr (std::is_same_v<Lattice, L>) {
+    //            return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, Compute>(config, report, testCode);
+    //        }
+    //    }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
@@ -236,16 +236,16 @@ auto run(Config&            config,
     //    if (config.gridType == "bGrid" || config.gridType == "bGrid_8_8_8") {
     //        return details::runFilterStoreType<Neon::bGrid>(config, report);
     //    }
-//    if (config.gridType == "bGrid_4_4_4") {
-//        if constexpr (!skipTest) {
-//            testCode << "_bGrid_4_4_4";
-//            using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
-//            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
-//            return details::runFilterStoreType<Grid>(config, report, testCode);
-//        } else {
-//            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
-//        }
-//    }
+    //    if (config.gridType == "bGrid_4_4_4") {
+    //        if constexpr (!skipTest) {
+    //            testCode << "_bGrid_4_4_4";
+    //            using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
+    //            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
+    //            return details::runFilterStoreType<Grid>(config, report, testCode);
+    //        } else {
+    //            NEON_THROW_UNSUPPORTED_OPERATION("This option was disables. PLease define NEON_BENCHMARK_DESIGN_OF_EXPERIMENTS to enable it.")
+    //        }
+    //    }
     //    if (config.gridType == "bGrid_8_8_8") {
     //        if constexpr (!skipTest) {
     //            using Sblock = Neon::domain::details::bGrid::StaticBlock<8, 8, 8>;

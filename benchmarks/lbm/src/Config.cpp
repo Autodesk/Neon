@@ -72,7 +72,7 @@ auto Config::parseArgs(const int argc, char* argv[])
             clipp::required("--deviceIds") & clipp::integers("ids", config.devices) % "Device ids",
 
             clipp::option("--grid") & clipp::value("grid", config.gridType) % Config::getOptionList(config.gridTypeOptions, config.gridType),
-            clipp::option("--domain-size") & clipp::integer("domain_size", config.N) % "Voxels along each dimension of the cube domain",
+            clipp::option("--domain-size") & clipp::value("domain_size")([&config](const std::string& s) { config.fromArgStringToDim(s); }) % "Voxels along each dimension of the cube domain",
             clipp::option("--max-iter") & clipp::integer("max_iter", config.benchMaxIter) % "Maximum solver iterations",
             clipp::option("--report-filename ") & clipp::value("keeper_filename", config.reportFile) % "Output perf keeper filename",
 
@@ -109,7 +109,7 @@ auto Config::parseArgs(const int argc, char* argv[])
         std::cout << "Benchmark example " << '\n';
         std::cout << "./lbm --deviceType gpu --deviceIds 0 1 2 3 4  --grid dGrid  --domain-size 100 --max-iter 2000 --computeFP double --storageFP double --nOCC --huGrid --benchmark --warmup-iter 10 --repetitions 5" << '\n';
 
-        std::cout <<" ./lbm --deviceType gpu\\\n"
+        std::cout << " ./lbm --deviceType gpu\\\n"
                      "     --deviceIds 0\\\n"
                      "     --grid dGrid\\\n"
                      "     --domain-size 100\\\n"
@@ -118,7 +118,7 @@ auto Config::parseArgs(const int argc, char* argv[])
                      "     --storageFP float\\\n"
                      "     --occ none\\\n"
                      "     --transferMode put\\\n"
-                     "     --stencilSemantic grid\\\n"
+                     "     --stencilSemantic standard\\\n"
                      "     --spaceCurve sweep\\\n"
                      "     --collision bgk\\\n"
                      "     --streamingMethod pull\\\n"
@@ -144,8 +144,8 @@ auto Config::parseArgs(const int argc, char* argv[])
 
 auto Config::helpSetLbmParameters() -> void
 {
-    mLbmParameters.nu = ulb * static_cast<double>(N - 2) / Re;
+    mLbmParameters.nu = ulb * static_cast<double>(N.x - 2) / Re;
     mLbmParameters.omega = 1. / (3. * mLbmParameters.nu + 0.5);
-    mLbmParameters.dx = 1. / static_cast<double>(N - 2);
+    mLbmParameters.dx = 1. / static_cast<double>(N.x - 2);
     mLbmParameters.dt = mLbmParameters.dx * ulb;
 }
