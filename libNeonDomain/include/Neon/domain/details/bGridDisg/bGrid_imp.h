@@ -366,30 +366,22 @@ auto bGrid<SBlock>::newBetaContainer(const std::string& name,
 template <typename SBlock>
 
 template <Neon::Execution execution,
-          typename GeneralLoader,
           typename LoadingLambdaAlpha,
           typename LoadingLambdaBeta>
 auto bGrid<SBlock>::newAlphaBetaContainer(const std::string& name,
-                                          GeneralLoader generalLoader,
                                           LoadingLambdaAlpha lambdaAlpha,
                                           LoadingLambdaBeta  lambdaBeta) const -> Neon::set::Container
 {
-    auto containerAlpha = mData->alphaGrid.newContainer(name+ "Alpha",
-                                                    lambdaAlpha);
-    auto containerBeta = mData->betaGrid.newContainer(name+ "Blpha",
-                                                       lambdaBeta);
-    Neon::set::container::Graph graph(this->getBackend());
+    std::vector<Neon::set::Container> sequence;
+    auto                              containerAlpha = mData->alphaGrid.newContainer(name + "Alpha",
+                                                                                     lambdaAlpha);
+    auto                              containerBeta = mData->betaGrid.newContainer(name + "Beta",
+                                                                                   lambdaBeta);
 
-    graph.addNode(containerAlpha);
-    graph.addNode(containerBeta);
+    sequence.push_back(containerAlpha);
+    sequence.push_back(containerBeta);
 
-//    graph.ioToDot(appName, "UserGraph", false);
-//    graph.ioToDot(appName + "-debug", "UserGraph", true);
-
-    Neon::set::Container exec = Neon::set::Container::factoryGraph(name+"Graph", graph, [&](Neon::SetIdx,
-                                                                                      Neon::set::Loader& loader) {
-        generalLoader(loader);
-    });
+    Neon::set::Container exec = Neon::set::Container::factorySequence(name + "Sequence", sequence);
     return exec;
 }
 

@@ -17,15 +17,16 @@ enum struct ContainerExecutionType
     deviceThenHostManaged = 2, /** a container that stores operation on both device and host. For this type of Container a getHostContainer method is enabled to retrieved a container with the host code */
     hostManaged = 3 /** host managed container */,
     graph = 4 /** A complex container */,
-    communication = 5,
-    host = 6,
-    none = 7
+    sequence = 5,
+    communication = 6,
+    host = 7,
+    none = 8
 };
 
 
 struct ContainerExecutionTypeUtils
 {
-    static constexpr int nOptions = 7;
+    static constexpr int nOptions = 8;
 
     static auto toString(ContainerExecutionType option)
         -> std::string;
@@ -37,6 +38,9 @@ struct ContainerExecutionTypeUtils
         -> std::array<ContainerExecutionType, nOptions>;
 
     static auto isExpandable(ContainerExecutionType option)
+        -> bool;
+
+    static auto isSequence(ContainerExecutionType option)
         -> bool;
 };
 

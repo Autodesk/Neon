@@ -212,10 +212,10 @@ TEST(SingleStencil_NoOCC, bGrid)
 
 TEST(SingleStencil_StandardOCC, bGrid)
 {
-    int nGpus = 1;
+    int nGpus = 3;
     using Grid = Neon::bGrid;
     // using Grid = Neon::domain::eGrid;
     // using Grid = Neon::dGrid;
     using Type = int32_t;
-    runAllTestConfiguration<Grid, Type, 0>("bGrid_t", SingleStencilStandardOCC<Grid, Type, 0>, nGpus, 1);
+    runAllTestConfiguration<Grid, Type, 0>("bGrid_t", SingleStencilStandardOCC<Grid, Type, 0>, nGpus, 2);
 }

@@ -14,15 +14,16 @@ enum struct ContainerOperationType
 {
     compute = 0 /**< Compute container, can be on host or device */,
     graph = 1 /**<  A graph based container */,
-    communication = 2 /**< Halo update container **/,
-    synchronization = 3 /**< Synchronization Container */,
-    anchor = 4 /**< Synchronization Container: begin or end */
+    sequence = 2,
+    communication = 3 /**< Halo update container **/,
+    synchronization = 4 /**< Synchronization Container */,
+    anchor = 5 /**< Synchronization Container: begin or end */
 };
 
 
 struct ContainerOperationTypeUtils
 {
-    static constexpr int nOptions = 5;
+    static constexpr int nOptions = 6;
 
     /**
      * Convert type to string

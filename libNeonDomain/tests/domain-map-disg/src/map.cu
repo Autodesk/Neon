@@ -82,10 +82,6 @@ auto axpyAlphaBeta(typename Field::Type& val,
     return grid.newAlphaBetaContainer(
         "BetaSet",
         [&](Neon::set::Loader& loader) {
-            loader.load(filedA);
-            loader.load(fieldB);
-        },
-        [&](Neon::set::Loader& loader) {
             auto const a = loader.load(filedA);
             auto       b = loader.load(fieldB);
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {

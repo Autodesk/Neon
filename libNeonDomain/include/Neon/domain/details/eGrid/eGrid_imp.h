@@ -39,7 +39,7 @@ eGrid::eGrid(const Neon::Backend&         backend,
     mData->partitioner1D = Neon::domain::tool::Partitioner1D(
         backend,
         activeCellLambda,
-        [](Neon::index_3d /*idx*/) { return false; },
+        nullptr,
         1,
         dimension,
         stencil,

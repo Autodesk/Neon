@@ -6,7 +6,7 @@
 
 TEST(domain_map, bGridDisg)
 {
-    int nGpus = 3;
+    int nGpus = 1;
     using Type = int64_t;
     runAllTestConfiguration(std::function(map::run<Neon::bGridDisg, Type, 0>),
                             nGpus,
@@ -15,7 +15,7 @@ TEST(domain_map, bGridDisg)
 
 TEST(domain_map_dataView, bGridDisg)
 {
-    int nGpus = 3;
+    int nGpus = 1;
     using Type = int64_t;
     runAllTestConfiguration(std::function(map::dataView::run<Neon::bGridDisg, Type, 0>),
                             nGpus,

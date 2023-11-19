@@ -33,16 +33,25 @@ struct Skeleton
                   std::string                              name,
                   Options                                  options = Options())
     {
+        std::vector<Neon::set::Container> opWithSequenceExpanded;
         if (!m_inited) {
             NeonException exp("");
             exp << "A backend was not set";
             NEON_THROW(exp);
         }
+        for (auto op : operations) {
+            if (op.isSequence()) {
+                auto sequence = op.getSequence();
+                for (auto s : sequence) {
+                    opWithSequenceExpanded.push_back(s);
+                }
+            } else {
+                opWithSequenceExpanded.push_back(op);
+            }
+        }
         mOptions = options;
-        mMultiGraph.init(mBackend, operations, name, options);
-        mMultiGraph.ioToDot("DB_multiGpuGraph", "graphname");
-        // mStreamScheduler.init(mBackend, mMultiGraph);
-        // m_streamScheduler.io2Dot("DB_streamScheduler", "graphname");
+        mMultiGraph.init(mBackend, opWithSequenceExpanded, name, options);
+        mMultiGraph.ioToDot("DB_multiGpuGraph", name);
     }
 
 
@@ -68,9 +77,7 @@ struct Skeleton
     Neon::Backend                           mBackend;
     Options                                 mOptions;
     Neon::skeleton::internal::MultiXpuGraph mMultiGraph;
-    //    Neon::skeleton::internal::StreamScheduler mStreamScheduler;
-
-    bool m_inited = {false};
+    bool                                    m_inited = {false};
 };
 
 }  // namespace Neon::skeleton
