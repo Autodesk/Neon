@@ -51,7 +51,7 @@ struct Skeleton
         }
         mOptions = options;
         mMultiGraph.init(mBackend, opWithSequenceExpanded, name, options);
-        mMultiGraph.ioToDot("DB_multiGpuGraph", name);
+        mMultiGraph.ioToDot("DB_multiGpuGraph", name, true);
     }
 
 

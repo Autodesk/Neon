@@ -52,7 +52,12 @@ auto GraphDependency::
     getLabel()
         const -> std::string
 {
-    return GraphDependencyTypeUtil::toString(getType());
+    std::stringstream s;
+    s << GraphDependencyTypeUtil::toString(getType());
+    for(auto const& token : mTokens) {
+        s << "\\l" << token.toString();
+    }
+    return s.str();
 }
 
 auto GraphDependency::
