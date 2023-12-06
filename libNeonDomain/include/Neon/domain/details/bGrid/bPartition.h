@@ -136,6 +136,8 @@ class bPartition
     getDomainSize()
         const -> Neon::index_3d;
 
+    auto mem() const -> T const *;
+
     /**
      * Gets the Idx for in the block view space.
      */

@@ -95,6 +95,12 @@ operator()(const Idx& cell,
     return mMem[helpGetPitch(cell, card)];
 }
 
+    template <typename T, int C, typename SBlock>
+    NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    mem() const -> T const *{
+        return mMem;
+    }
+
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     helpGetPitch(const Idx& idx, int card)
