@@ -32,7 +32,7 @@ struct SequenceContainer : ContainerAPI
              Neon::DataView dataView = Neon::DataView::STANDARD)
         -> void override;
 
-    auto setSequence() const -> const std::vector<Neon::set::Container>&;
+    auto getSequence() const -> const std::vector<Neon::set::Container>&;
 
    private:
     std::vector<Neon::set::Container> mSequence;

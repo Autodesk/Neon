@@ -22,7 +22,7 @@ auto SequenceContainer::
 }
 
 auto SequenceContainer::
-    setSequence()
+    getSequence()
         const -> const std::vector<Neon::set::Container>&
 {
     return mSequence;
