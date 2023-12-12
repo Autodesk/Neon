@@ -35,7 +35,7 @@ dSpan::setAndValidate(Idx&            idx,
                 offsetLocalNoCard += size_t(idx.setLocation().z - 2) * mSpanDim.x * mSpanDim.y;
             }
 
-            idx.setRegionFirstZ(regionFirstZ);
+            idx.setRegionFirstZ(int32_t(regionFirstZ));
             idx.setOffsetLocalNoCard(offsetLocalNoCard);
             idx.setRegionZDim(regionZDim);
 

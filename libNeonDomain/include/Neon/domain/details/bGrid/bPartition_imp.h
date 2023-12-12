@@ -81,7 +81,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
-operator()(const Idx& cell,
+                                  operator()(const Idx& cell,
            int        card) -> T&
 {
     return mMem[helpGetPitch(cell, card)];
@@ -89,17 +89,18 @@ operator()(const Idx& cell,
 
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
-operator()(const Idx& cell,
+                                  operator()(const Idx& cell,
            int        card) const -> const T&
 {
     return mMem[helpGetPitch(cell, card)];
 }
 
-    template <typename T, int C, typename SBlock>
-    NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
-    mem() const -> T const *{
-        return mMem;
-    }
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    mem() const -> T const*
+{
+    return mMem;
+}
 
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
