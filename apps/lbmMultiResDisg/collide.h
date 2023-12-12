@@ -50,7 +50,7 @@ inline NEON_CUDA_HOST_DEVICE void store(const typename Neon::domain::mGrid::Idx&
     }
 }
 
-template <typename T, int Q>
+template <typename T, int Q, bool atInterface>
 inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&                        grid,
                                                          T                                           omega0,
                                                          int                                         level,
@@ -60,7 +60,7 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
                                                          Neon::domain::mGrid::Field<T>&              fout)
 {
     return grid.newContainer(
-        "CH" + std::to_string(level), level,
+        "CH" + std::to_string(level), level, !atInterface,
         [&, level, omega0, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
             const auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
@@ -73,7 +73,7 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
             }
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                if (type(cell, 0) == CellType::bulk ) {
+                if (type(cell, 0) == CellType::bulk) {
 
                     if (!in.hasChildren(cell)) {
                         //fin
@@ -180,28 +180,32 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
                         const T pop_out_09 = (c1 - omega) * ins[9] + omega * eq_09;
                         out(cell, 9) = pop_out_09;
 
-                        if (level < numLevels - 1) {
-                            //store operation
-                            store<T>(cell, out, 0, pop_out_00);
-                            store<T>(cell, out, 1, pop_out_01);
-                            store<T>(cell, out, 2, pop_out_02);
-                            store<T>(cell, out, 3, pop_out_03);
-                            store<T>(cell, out, 4, pop_out_04);
-                            store<T>(cell, out, 5, pop_out_05);
-                            store<T>(cell, out, 6, pop_out_06);
-                            store<T>(cell, out, 7, pop_out_07);
-                            store<T>(cell, out, 8, pop_out_08);
-                            store<T>(cell, out, 9, pop_out_09);
+                        bool doStore = level < numLevels - 1;
 
-                            store<T>(cell, out, 10, pop_out_opp_00);
-                            store<T>(cell, out, 11, pop_out_opp_01);
-                            store<T>(cell, out, 12, pop_out_opp_02);
-                            store<T>(cell, out, 13, pop_out_opp_03);
-                            store<T>(cell, out, 14, pop_out_opp_04);
-                            store<T>(cell, out, 15, pop_out_opp_05);
-                            store<T>(cell, out, 16, pop_out_opp_06);
-                            store<T>(cell, out, 17, pop_out_opp_07);
-                            store<T>(cell, out, 18, pop_out_opp_08);
+                        if constexpr (atInterface) {
+                            if (doStore) {
+                                //store operation
+                                store<T>(cell, out, 0, pop_out_00);
+                                store<T>(cell, out, 1, pop_out_01);
+                                store<T>(cell, out, 2, pop_out_02);
+                                store<T>(cell, out, 3, pop_out_03);
+                                store<T>(cell, out, 4, pop_out_04);
+                                store<T>(cell, out, 5, pop_out_05);
+                                store<T>(cell, out, 6, pop_out_06);
+                                store<T>(cell, out, 7, pop_out_07);
+                                store<T>(cell, out, 8, pop_out_08);
+                                store<T>(cell, out, 9, pop_out_09);
+
+                                store<T>(cell, out, 10, pop_out_opp_00);
+                                store<T>(cell, out, 11, pop_out_opp_01);
+                                store<T>(cell, out, 12, pop_out_opp_02);
+                                store<T>(cell, out, 13, pop_out_opp_03);
+                                store<T>(cell, out, 14, pop_out_opp_04);
+                                store<T>(cell, out, 15, pop_out_opp_05);
+                                store<T>(cell, out, 16, pop_out_opp_06);
+                                store<T>(cell, out, 17, pop_out_opp_07);
+                                store<T>(cell, out, 18, pop_out_opp_08);
+                            }
                         }
 
                     } else {
@@ -246,7 +250,7 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
             }
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                if (type(cell, 0) == CellType::bulk ) {
+                if (type(cell, 0) == CellType::bulk) {
 
                     constexpr T tiny = 1e-7;
 

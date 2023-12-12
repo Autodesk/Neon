@@ -5,6 +5,7 @@
 #include "Neon/set/memory/memSet.h"
 
 #include "Neon/domain/details/bGrid/bGrid.h"
+#include "Neon/domain/details/bGridDisg/bGrid.h"
 
 #include "Neon/domain/details/mGrid/mGridDescriptor.h"
 
@@ -28,7 +29,7 @@ class mGrid
 {
    public:
     using Grid = mGrid;
-    using InternalGrid = Neon::domain::details::bGrid::bGrid<kStaticBlock>;
+    using InternalGrid = Neon::domain::details::disaggregated::bGrid::bGrid<kStaticBlock>;
     using Idx = typename InternalGrid::Idx;
     using Descriptor = mGridDescriptor<1>;
 
@@ -136,6 +137,29 @@ class mGrid
     auto newContainer(const std::string& name,
                       int                level,
                       LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
+    auto newContainer(const std::string& name,
+                      int                level,
+                      bool               isAlpha,
+                      LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
+    auto newAlphaContainer(const std::string& name,
+                           int                level,
+                           LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
+    auto newBetaContainer(const std::string& name,
+                          int                level,
+                          LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambdaAlpha = void*, typename LoadingLambdaBeta = void*>
+    auto newAlphaBetaContainer(const std::string& name,
+                               int                level,
+                               LoadingLambdaAlpha lambdaAlpha,
+                               LoadingLambdaBeta  lambdaBeta) const -> Neon::set::Container;
+
 
     auto getParentsBlockID(int level) const -> Neon::set::MemSet<uint32_t>&;
     auto getChildBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&;

@@ -2,6 +2,7 @@
 #include "Neon/domain/details//mGrid/mGrid.h"
 #include "Neon/domain/details/mGrid/mPartition.h"
 
+#include "Neon/domain/details/bGridDisg/ClassificationGrid/ClassSelector.h"
 
 namespace Neon::domain::details::mGrid {
 mGrid::mGrid(
@@ -140,6 +141,43 @@ mGrid::mGrid(
         }
     }
 
+    auto isRefined = [&](int level, const Neon::int32_3d& voxel) {
+        if (level < 1) {
+            NeonException exp("mGrid::mGrid");
+            exp << "isRefined only work with level > 0. Input level =" << level;
+            NEON_THROW(exp);
+        }
+
+        //given a voxel at level, check if it's refined i.e., one of its children are active
+        const int refFactor = mData->mDescriptor.getRefFactor(level);
+        const int spacing = mData->mDescriptor.getSpacing(level - 1);
+
+        //for every possible child of this voxel
+        for (int z = 0; z < refFactor; z++) {
+            for (int y = 0; y < refFactor; y++) {
+                for (int x = 0; x < refFactor; x++) {
+
+                    const Neon::int32_3d childLocal(x, y, z);
+
+                    const Neon::int32_3d child = mData->mDescriptor.neighbourBlock(voxel, level - 1, childLocal);
+
+                    //find the child block
+
+                    if (child < domainSize) {
+                        const Neon::int32_3d childBlock(child.x / spacing,
+                                                        child.y / spacing,
+                                                        child.z / spacing);
+                        if (levelBitMaskIsSet(level - 1, childBlock, childLocal)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    };
+
     //remove a coarse cell is
     if (mData->mCullOverlaps) {
 
@@ -149,46 +187,9 @@ mGrid::mGrid(
         //2. and all its neighbor voxels (at level l) in all direction are also refined
 
 
-        auto isRefined = [&](int level, const Neon::int32_3d& voxel) {
-            if (level < 1) {
-                NeonException exp("mGrid::mGrid");
-                exp << "isRefined only work with level > 0. Input level =" << level;
-                NEON_THROW(exp);
-            }
-
-            //given a voxel at level, check if it's refined i.e., one of its children are active
-            const int refFactor = mData->mDescriptor.getRefFactor(level);
-            const int spacing = mData->mDescriptor.getSpacing(level - 1);
-
-            //for every possible child of this voxel
-            for (int z = 0; z < refFactor; z++) {
-                for (int y = 0; y < refFactor; y++) {
-                    for (int x = 0; x < refFactor; x++) {
-
-                        const Neon::int32_3d childLocal(x, y, z);
-
-                        const Neon::int32_3d child = mData->mDescriptor.neighbourBlock(voxel, level - 1, childLocal);
-
-                        //find the child block
-
-                        if (child < domainSize) {
-                            const Neon::int32_3d childBlock(child.x / spacing,
-                                                            child.y / spacing,
-                                                            child.z / spacing);
-                            if (levelBitMaskIsSet(level - 1, childBlock, childLocal)) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return false;
-        };
-
         //for every level
         for (int l = mData->mDescriptor.getDepth() - 1; l > 0; --l) {
-            const int refFactor = mData->mDescriptor.getRefFactor(l);            
+            const int refFactor = mData->mDescriptor.getRefFactor(l);
 
             //for every (user) block in this level
             for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
@@ -360,9 +361,32 @@ mGrid::mGrid(
                     if (id < domainSize) {
                         Neon::index_3d blockID = mData->mDescriptor.childToParent(id, l);
                         Neon::index_3d localID = mData->mDescriptor.toLocalIndex(id, l);
-                        return levelBitMaskIsSet(l, blockID, localID);
+                        bool           isInside = levelBitMaskIsSet(l, blockID, localID);
+                        if (!isInside) {
+                            return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::outside;
+                        } else {
+                            bool isOnInterface = false;
+
+
+                            //at l>=0, if the cell has a parent, then it is on the interface i.e., it is a fine cell neighboring coarse cell
+                            //at l> 0, if the cell is refined or has a neighbor that is refined i.e., it is a coarse cell neighboring a fine cell.
+
+                            /*if (l >= 0) {
+
+                            }
+
+                            if (l > 0) {
+                            }*/
+
+                            if (isOnInterface) {
+                                return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::beta;
+                            } else {
+                                return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::alpha;
+                            }
+                        }
+
                     } else {
-                        return false;
+                        return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::outside;
                     }
                 },
                 stencil,

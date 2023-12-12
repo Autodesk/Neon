@@ -1,6 +1,6 @@
 #pragma once
 
-template <typename T, int Q>
+template <typename T, int Q, bool atInterface>
 inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&                        grid,
                                                             const int                                   level,
                                                             const int                                   numLevels,
@@ -10,7 +10,7 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                                                             Neon::domain::mGrid::Field<T>&              fin)
 {
     return grid.newContainer(
-        "SOE" + std::to_string(level), level,
+        "SOE" + std::to_string(level), level, !atInterface,
         [&, level, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::STENCIL);
             auto        pin = fin.load(loader, level, Neon::MultiResCompute::MAP);
@@ -38,19 +38,29 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                                         const int8_t opposte_q = latticeOppositeID[q];
                                         pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
                                     }
-                                } else if (pin.hasParent(cell) && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                    Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
-                                    auto          uncle = pout.uncleVal(cell, uncleDir, q, T(0));
-                                    if (uncle.mIsValid) {
-                                        pin(cell, q) = uncle.mData;
+                                } else {
+                                    if constexpr (atInterface) {
+
+                                        if (pin.hasParent(cell) && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
+                                            Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
+                                            auto          uncle = pout.uncleVal(cell, uncleDir, q, T(0));
+                                            if (uncle.mIsValid) {
+                                                pin(cell, q) = uncle.mData;
+                                            }
+                                        }
                                     }
                                 }
-                            } else if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                if (nghType.mIsValid) {
-                                    auto neighbor = pout.getNghData(cell, dir, q);
-                                    auto ssVal = ss.getNghData(cell, dir, q);
-                                    assert(ssVal.mData != 0);
-                                    pin(cell, q) = neighbor.mData * ssVal.mData;
+                            } else {
+
+                                if constexpr (atInterface) {
+                                    if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
+                                        if (nghType.mIsValid) {
+                                            auto neighbor = pout.getNghData(cell, dir, q);
+                                            auto ssVal = ss.getNghData(cell, dir, q);
+                                            assert(ssVal.mData != 0);
+                                            pin(cell, q) = neighbor.mData * ssVal.mData;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -60,7 +70,7 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
         });
 }
 
-template <typename T, int Q>
+template <typename T, int Q, bool atInterface>
 inline void streamFusedCoalescenceExplosion(Neon::domain::mGrid&                        grid,
                                             const int                                   level,
                                             const int                                   numLevels,
@@ -70,5 +80,5 @@ inline void streamFusedCoalescenceExplosion(Neon::domain::mGrid&                
                                             Neon::domain::mGrid::Field<T>&              fin,
                                             std::vector<Neon::set::Container>&          containers)
 {
-    containers.push_back(streamFusedCoalescenceExplosion<T, Q>(grid, level, numLevels, sumStore, cellType, fout, fin));
+    containers.push_back(streamFusedCoalescenceExplosion<T, Q, atInterface>(grid, level, numLevels, sumStore, cellType, fout, fin));
 }

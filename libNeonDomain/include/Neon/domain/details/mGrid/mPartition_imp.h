@@ -4,7 +4,7 @@ namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
 mPartition<T, C>::mPartition()
-    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(),
+    : Neon::domain::details::disaggregated::bGrid::bPartition<T, C, kStaticBlock>(),
       mMemParent(nullptr),
       mMemChild(nullptr),
       mParentBlockID(nullptr),
@@ -33,7 +33,7 @@ mPartition<T, C>::mPartition(int                level,
                              NghIdx*            stencilNghIndex,
                              int*               refFactors,
                              int*               spacing)
-    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex, {0,0,0}),
+    : Neon::domain::details::disaggregated::bGrid::bPartition<T, C, kStaticBlock>(0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex, {0, 0, 0}),
       mLevel(level),
       mMemParent(memParent),
       mMemChild(memChild),

@@ -1,7 +1,7 @@
 #pragma once
 #include "collide.h"
 
-template <typename T, typename FieldT, typename FieldType>
+template <typename T, bool atInterface, typename FieldT, typename FieldType>
 inline NEON_CUDA_HOST_DEVICE void stream(const typename Neon::domain::mGrid::Idx& cell,
                                          FieldT&                                  out,
                                          const FieldT&                            explosionIn,
@@ -25,26 +25,31 @@ inline NEON_CUDA_HOST_DEVICE void stream(const typename Neon::domain::mGrid::Idx
                 const int8_t opposte_q = latticeOppositeID[q];
                 out(cell, opposte_q) = cellVal + out(nghCell, q);
             }
-        } else if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-            //only if we are not on the coarsest level and
-            //only if we can not do normal streaming, then we may have a coarser neighbor from which
-            //we can read this pop
+        } else {
+            if constexpr (atInterface) {
 
-            //get the uncle direction/offset i.e., the neighbor of the cell's parent
-            //this direction/offset is wrt to the cell's parent
-            Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
+                if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
+                    //only if we are not on the coarsest level and
+                    //only if we can not do normal streaming, then we may have a coarser neighbor from which
+                    //we can read this pop
 
-            const int8_t opposte_q = latticeOppositeID[q];
-            const auto   uncle = explosionIn.uncleVal(cell, uncleDir, opposte_q, T(0));
-            if (uncle.mIsValid) {
-                out(cell, opposte_q) = uncle.mData;
+                    //get the uncle direction/offset i.e., the neighbor of the cell's parent
+                    //this direction/offset is wrt to the cell's parent
+                    Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
+
+                    const int8_t opposte_q = latticeOppositeID[q];
+                    const auto   uncle = explosionIn.uncleVal(cell, uncleDir, opposte_q, T(0));
+                    if (uncle.mIsValid) {
+                        out(cell, opposte_q) = uncle.mData;
+                    }
+                }
             }
         }
     }
 }
 
 
-template <typename T, int Q>
+template <typename T, int Q, bool atInterface>
 inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&                        grid,
                                                        T                                           omega0,
                                                        int                                         level,
@@ -61,7 +66,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
     }
 
     return grid.newContainer(
-        "CHSOE" + std::to_string(level), level,
+        "CHSOE" + std::to_string(level), level, !atInterface,
         [&, level, omega0, numLevels, storeOut](Neon::set::Loader& loader) {
             const auto type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
             const auto in = fin.load(loader, level, Neon::MultiResCompute::MAP);
@@ -165,49 +170,51 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
 
 
                     //store operation
-                    store<T>(cell, (storeOut) ? out : in, 0, pop_out_00);
-                    store<T>(cell, (storeOut) ? out : in, 1, pop_out_01);
-                    store<T>(cell, (storeOut) ? out : in, 2, pop_out_02);
-                    store<T>(cell, (storeOut) ? out : in, 3, pop_out_03);
-                    store<T>(cell, (storeOut) ? out : in, 4, pop_out_04);
-                    store<T>(cell, (storeOut) ? out : in, 5, pop_out_05);
-                    store<T>(cell, (storeOut) ? out : in, 6, pop_out_06);
-                    store<T>(cell, (storeOut) ? out : in, 7, pop_out_07);
-                    store<T>(cell, (storeOut) ? out : in, 8, pop_out_08);
-                    store<T>(cell, (storeOut) ? out : in, 9, pop_out_09);
+                    if constexpr (atInterface) {
+                        store<T>(cell, (storeOut) ? out : in, 0, pop_out_00);
+                        store<T>(cell, (storeOut) ? out : in, 1, pop_out_01);
+                        store<T>(cell, (storeOut) ? out : in, 2, pop_out_02);
+                        store<T>(cell, (storeOut) ? out : in, 3, pop_out_03);
+                        store<T>(cell, (storeOut) ? out : in, 4, pop_out_04);
+                        store<T>(cell, (storeOut) ? out : in, 5, pop_out_05);
+                        store<T>(cell, (storeOut) ? out : in, 6, pop_out_06);
+                        store<T>(cell, (storeOut) ? out : in, 7, pop_out_07);
+                        store<T>(cell, (storeOut) ? out : in, 8, pop_out_08);
+                        store<T>(cell, (storeOut) ? out : in, 9, pop_out_09);
 
-                    store<T>(cell, (storeOut) ? out : in, 10, pop_out_opp_00);
-                    store<T>(cell, (storeOut) ? out : in, 11, pop_out_opp_01);
-                    store<T>(cell, (storeOut) ? out : in, 12, pop_out_opp_02);
-                    store<T>(cell, (storeOut) ? out : in, 13, pop_out_opp_03);
-                    store<T>(cell, (storeOut) ? out : in, 14, pop_out_opp_04);
-                    store<T>(cell, (storeOut) ? out : in, 15, pop_out_opp_05);
-                    store<T>(cell, (storeOut) ? out : in, 16, pop_out_opp_06);
-                    store<T>(cell, (storeOut) ? out : in, 17, pop_out_opp_07);
-                    store<T>(cell, (storeOut) ? out : in, 18, pop_out_opp_08);
+                        store<T>(cell, (storeOut) ? out : in, 10, pop_out_opp_00);
+                        store<T>(cell, (storeOut) ? out : in, 11, pop_out_opp_01);
+                        store<T>(cell, (storeOut) ? out : in, 12, pop_out_opp_02);
+                        store<T>(cell, (storeOut) ? out : in, 13, pop_out_opp_03);
+                        store<T>(cell, (storeOut) ? out : in, 14, pop_out_opp_04);
+                        store<T>(cell, (storeOut) ? out : in, 15, pop_out_opp_05);
+                        store<T>(cell, (storeOut) ? out : in, 16, pop_out_opp_06);
+                        store<T>(cell, (storeOut) ? out : in, 17, pop_out_opp_07);
+                        store<T>(cell, (storeOut) ? out : in, 18, pop_out_opp_08);
+                    }
 
                     //streaming (push)
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 0, pop_out_00);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 1, pop_out_01);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 2, pop_out_02);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 3, pop_out_03);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 4, pop_out_04);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 5, pop_out_05);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 6, pop_out_06);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 7, pop_out_07);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 8, pop_out_08);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 9, pop_out_09);
-
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 10, pop_out_opp_00);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 11, pop_out_opp_01);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 12, pop_out_opp_02);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 13, pop_out_opp_03);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 14, pop_out_opp_04);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 15, pop_out_opp_05);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 16, pop_out_opp_06);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 17, pop_out_opp_07);
-                    stream<T>(cell, out, (storeOut) ? out : in, type, 18, pop_out_opp_08);
-                }
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 0, pop_out_00);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 1, pop_out_01);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 2, pop_out_02);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 3, pop_out_03);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 4, pop_out_04);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 5, pop_out_05);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 6, pop_out_06);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 7, pop_out_07);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 8, pop_out_08);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 9, pop_out_09);
+                              
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 10, pop_out_opp_00);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 11, pop_out_opp_01);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 12, pop_out_opp_02);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 13, pop_out_opp_03);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 14, pop_out_opp_04);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 15, pop_out_opp_05);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 16, pop_out_opp_06);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 17, pop_out_opp_07);
+                    stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 18, pop_out_opp_08);
+                }             
             };
         });
 }
@@ -215,13 +222,13 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
 
 template <typename T, int Q>
 inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&                        grid,
-                                                       T                                           omega0,
-                                                       int                                         level,
-                                                       int                                         numLevels,
-                                                       const Neon::domain::mGrid::Field<CellType>& cellType,
-                                                       const Neon::domain::mGrid::Field<T>&        fin,
-                                                       Neon::domain::mGrid::Field<T>&              fout,
-                                                       bool                                        storeOut)
+                                               T                                           omega0,
+                                               int                                         level,
+                                               int                                         numLevels,
+                                               const Neon::domain::mGrid::Field<CellType>& cellType,
+                                               const Neon::domain::mGrid::Field<T>&        fin,
+                                               Neon::domain::mGrid::Field<T>&              fout,
+                                               bool                                        storeOut)
 {
 
     if (level != 0) {

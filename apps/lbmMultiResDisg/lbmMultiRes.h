@@ -29,7 +29,9 @@ void collideStep(Neon::domain::mGrid&                        grid,
 #endif
 
 #ifdef BGK
-    containers.push_back(collideBGKUnrolledFusedStore<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    // atInterface
+    containers.push_back(collideBGKUnrolledFusedStore<T, Q, true>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideBGKUnrolledFusedStore<T, Q, false>(grid, omega0, level, numLevels, cellType, fin, fout));
 #endif
 }
 
@@ -45,7 +47,9 @@ void streamingStep(Neon::domain::mGrid&                        grid,
                    std::vector<Neon::set::Container>&          containers)
 {
     // Streaming step that also performs the necessary "explosion" and "coalescence" steps.
-    streamFusedCoalescenceExplosion<T, Q>(grid, level, numLevels, cellType, sumStore, fout, fin, containers);
+    //atInterface
+    streamFusedCoalescenceExplosion<T, Q, true>(grid, level, numLevels, cellType, sumStore, fout, fin, containers);
+    streamFusedCoalescenceExplosion<T, Q, false>(grid, level, numLevels, cellType, sumStore, fout, fin, containers);
 }
 
 template <typename T, int Q>
@@ -80,23 +84,42 @@ void collideFusedStreaming(Neon::domain::mGrid&                        grid,
 #endif
 
 #ifdef BGK
-    containers.push_back(collideBGKUnrolledFusedAll<T, Q>(grid,
-                                                          omega0,
-                                                          level,
-                                                          numLevels,
-                                                          cellType,
-                                                          fin,
-                                                          fout,
-                                                          true));
+    //atInterface ??
+    containers.push_back(collideBGKUnrolledFusedAll<T, Q, true>(grid,
+                                                                omega0,
+                                                                level,
+                                                                numLevels,
+                                                                cellType,
+                                                                fin,
+                                                                fout,
+                                                                true));
+    containers.push_back(collideBGKUnrolledFusedAll<T, Q, false>(grid,
+                                                                 omega0,
+                                                                 level,
+                                                                 numLevels,
+                                                                 cellType,
+                                                                 fin,
+                                                                 fout,
+                                                                 true));
 
-    containers.push_back(collideBGKUnrolledFusedAll<T, Q>(grid,
-                                                          omega0,
-                                                          level,
-                                                          numLevels,
-                                                          cellType,
-                                                          fout,
-                                                          fin,
-                                                          false));
+
+    //atInterface ??
+    containers.push_back(collideBGKUnrolledFusedAll<T, Q, true>(grid,
+                                                                omega0,
+                                                                level,
+                                                                numLevels,
+                                                                cellType,
+                                                                fout,
+                                                                fin,
+                                                                false));
+    containers.push_back(collideBGKUnrolledFusedAll<T, Q, false>(grid,
+                                                                 omega0,
+                                                                 level,
+                                                                 numLevels,
+                                                                 cellType,
+                                                                 fout,
+                                                                 fin,
+                                                                 false));
 #endif
 }
 
@@ -375,7 +398,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
 #endif
 
 
-    //algorithm    
+    //algorithm
     report.addMember("Algorithm", algoName());
 
     //perf
