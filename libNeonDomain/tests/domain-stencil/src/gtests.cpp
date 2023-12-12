@@ -4,29 +4,92 @@
 #include "runHelper.h"
 #include "stencil.h"
 
-TEST(domain_stencil, dGrid)
+TEST(domain_stencil, dGrid_NoTemplate)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::dGrid, Type, 0>),
+    runAllTestConfiguration(std::function(map::runNoTemplate<Neon::dGrid, Type, 0>),
                             nGpus,
                             1);
 }
 
-TEST(domain_stencil, eGrid)
+TEST(domain_stencil, eGrid_NoTemplate)
 {
     int nGpus = 3;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::eGrid, Type, 0>),
+    runAllTestConfiguration(std::function(map::runNoTemplate<Neon::eGrid, Type, 0>),
                             nGpus,
                             1);
 }
 
-TEST(domain_stencil, bGri )
+TEST(domain_stencil, bGri_NoTemplate)
 {
     int nGpus = 5;
     using Type = int64_t;
-    runAllTestConfiguration(std::function(map::run<Neon::bGrid, Type, 0>),
+    runAllTestConfiguration(std::function(map::runNoTemplate<Neon::bGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_stencil, dGridSoA_NoTemplate)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runNoTemplate<Neon::dGridSoA, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_stencil, dGridDisg_NoTemplate)
+{
+    int nGpus = 1;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runNoTemplate<Neon::domain::details::disaggregated::dGrid::dGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_stencil, dGrid_Template)
+{
+    int nGpus = 3;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runTemplate<Neon::dGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_stencil, eGrid_Template)
+{
+    int nGpus = 3;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runTemplate<Neon::eGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_stencil, bGri_Template)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runTemplate<Neon::bGrid, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_stencil, dGridSoA_Template)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runTemplate<Neon::dGridSoA, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_stencil, dGridDisg_Template)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runTemplate<Neon::domain::details::disaggregated::dGrid::dGrid, Type, 0>),
                             nGpus,
                             1);
 }

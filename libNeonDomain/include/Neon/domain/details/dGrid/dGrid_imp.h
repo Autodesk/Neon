@@ -8,12 +8,18 @@ template <typename ActiveCellLambda>
 dGrid::dGrid(const Neon::Backend&  backend,
              const Neon::int32_3d& dimension,
              const ActiveCellLambda& /*activeCellLambda*/,
-             const Neon::domain::Stencil& stencil,
-             const Vec_3d<double>&        spacing,
-             const Vec_3d<double>&        origin)
+             const Neon::domain::Stencil&                 stencil,
+             const Vec_3d<double>&                        spacing,
+             const Vec_3d<double>&                        origin,
+             Neon::domain::tool::spaceCurves::EncoderType encoderType)
 {
     mData = std::make_shared<Data>(backend);
     const index_3d defaultBlockSize(256, 1, 1);
+    if (encoderType != Neon::domain::tool::spaceCurves::EncoderType::sweep) {
+        NeonException exce("dGrid");
+        exce << "dGRid only supports sweep space filling curves";
+        NEON_THROW(exce);
+    }
 
     {
         auto nElementsPerPartition = backend.devSet().template newDataSet<size_t>(0);
@@ -26,7 +32,9 @@ dGrid::dGrid(const Neon::Backend&  backend,
                               nElementsPerPartition,
                               Neon::index_3d(256, 1, 1),
                               spacing,
-                              origin);
+                              origin,
+                              Neon::domain::tool::spaceCurves::EncoderType::sweep,
+                              {0, 0, 0});
     }
 
     const int32_t numDevices = getBackend().devSet().setCardinality();
@@ -83,15 +91,17 @@ dGrid::dGrid(const Neon::Backend&  backend,
                                                   Neon::DataView dw,
                                                   dSpan&         span) {
             span.mDataView = dw;
-            span.mZHaloRadius = setCardinality == 1 ? 0 : mData->halo.z;
-            span.mZBoundaryRadius = mData->halo.z;
+            span.mZghostRadius = setCardinality == 1 ? 0 : mData->halo.z;
+            span.mZboundaryRadius = mData->halo.z;
+            span.mMaxZInDomain = mData->partitionDims[setIdx].z;
 
             switch (dw) {
                 case Neon::DataView::STANDARD: {
                     // Only works z partitions.
                     assert(mData->halo.x == 0 && mData->halo.y == 0);
 
-                    span.mDim = mData->partitionDims[setIdx];
+                    span.mSpanDim = mData->partitionDims[setIdx];
+
                     break;
                 }
                 case Neon::DataView::BOUNDARY: {
@@ -99,8 +109,8 @@ dGrid::dGrid(const Neon::Backend&  backend,
                     // Only works z partitions.
                     assert(mData->halo.x == 0 && mData->halo.y == 0);
 
-                    span.mDim = mData->partitionDims[setIdx];
-                    span.mDim.z = span.mZBoundaryRadius * 2;
+                    span.mSpanDim = mData->partitionDims[setIdx];
+                    span.mSpanDim.z = span.mZboundaryRadius * 2;
 
                     break;
                 }
@@ -109,12 +119,12 @@ dGrid::dGrid(const Neon::Backend&  backend,
                     // Only works z partitions.
                     assert(mData->halo.x == 0 && mData->halo.y == 0);
 
-                    span.mDim = mData->partitionDims[setIdx];
-                    span.mDim.z = span.mDim.z - span.mZBoundaryRadius * 2;
-                    if (span.mDim.z <= 0 && setCardinality > 1) {
+                    span.mSpanDim = mData->partitionDims[setIdx];
+                    span.mSpanDim.z = span.mSpanDim.z - span.mZboundaryRadius * 2;
+                    if (span.mSpanDim.z <= 0 && setCardinality > 1) {
                         NeonException exp("dGrid");
                         exp << "The grid size is too small to support the data view model correctly \n";
-                        exp << span.mDim << " for setIdx " << setIdx << " and device " << getDevSet().devId(setIdx);
+                        exp << span.mSpanDim << " for setIdx " << setIdx << " and device " << getDevSet().devId(setIdx);
                         NEON_THROW(exp);
                     }
 
@@ -132,7 +142,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
                                                              Neon::DataView  dw,
                                                              int&            count) {
             if (Execution::host == execution) {
-                count = mData->spanTable.getSpan(Neon::Execution::host, setIdx, dw).mDim.rMul();
+                count = mData->spanTable.getSpan(Neon::Execution::host, setIdx, dw).mSpanDim.rMul();
             }
         });
     }
@@ -180,7 +190,9 @@ dGrid::dGrid(const Neon::Backend&  backend,
                               nElementsPerPartition,
                               defaultBlockSize,
                               spacing,
-                              origin);
+                              origin,
+                              Neon::domain::tool::spaceCurves::EncoderType::sweep,
+                              {0, 0, 0});
     }
 }
 
@@ -224,11 +236,11 @@ auto dGrid::newContainer(const std::string& name,
 {
     const Neon::index_3d& defaultBlockSize = getDefaultBlock();
     Neon::set::Container  c = Neon::set::Container::factory<execution>(name,
-                                                                     Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                     *this,
-                                                                     lambda,
-                                                                     defaultBlockSize,
-                                                                     [](const Neon::index_3d&) { return 0; });
+                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                      *this,
+                                                                      lambda,
+                                                                      defaultBlockSize,
+                                                                      [](const Neon::index_3d&) { return 0; });
     return c;
 }
 
@@ -242,11 +254,11 @@ auto dGrid::newContainer(const std::string& name,
     -> Neon::set::Container
 {
     Neon::set::Container c = Neon::set::Container::factory<execution>(name,
-                                                                    Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                    *this,
-                                                                    lambda,
-                                                                    blockSize,
-                                                                    [sharedMem](const Neon::index_3d&) { return sharedMem; });
+                                                                      Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                      *this,
+                                                                      lambda,
+                                                                      blockSize,
+                                                                      [sharedMem](const Neon::index_3d&) { return sharedMem; });
     return c;
 }
 

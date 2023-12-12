@@ -37,9 +37,9 @@ struct dIndex
 
     NEON_CUDA_HOST_DEVICE inline explicit dIndex(const Location& location);
 
-    NEON_CUDA_HOST_DEVICE inline auto set() -> Location&;
+    NEON_CUDA_HOST_DEVICE inline auto setLocation() -> Location&;
 
-    NEON_CUDA_HOST_DEVICE inline auto get() const -> const Location&;
+    NEON_CUDA_HOST_DEVICE inline auto getLocation() const -> const Location&;
 };
 
 }  // namespace Neon::domain::details::dGrid

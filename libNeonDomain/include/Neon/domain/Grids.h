@@ -3,3 +3,5 @@
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/eGrid.h"
 #include "Neon/domain/bGrid.h"
+#include "Neon/domain/dGridSoA.h"
+#include "Neon/domain/bGridDisg.h"

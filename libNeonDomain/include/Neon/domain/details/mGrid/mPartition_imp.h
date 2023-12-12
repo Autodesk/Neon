@@ -33,7 +33,7 @@ mPartition<T, C>::mPartition(int                level,
                              NghIdx*            stencilNghIndex,
                              int*               refFactors,
                              int*               spacing)
-    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex),
+    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex, {0,0,0}),
       mLevel(level),
       mMemParent(memParent),
       mMemChild(memChild),

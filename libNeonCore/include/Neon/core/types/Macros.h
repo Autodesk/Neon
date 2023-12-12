@@ -206,8 +206,12 @@
 #define NEON_RESTRICT restrict
 #endif
 
-#ifdef NEON_COMPILER_CUDA
+#if defined(NEON_COMPILER_CUDA)
+#if!defined(_WIN32)
 #define NEON_RESTRICT __restrict__
+#else
+#define NEON_RESTRICT
+#endif
 #endif
 
 #ifdef NEON_COMPILER_CLANG

@@ -1,5 +1,7 @@
 #include <functional>
 #include "Neon/domain/Grids.h"
+#include "Neon/domain/details/dGridSoA/dGridSoA.h"
+#include "Neon/domain/details/dGridDisg/dGrid.h"
 
 #include "Neon/domain/tools/TestData.h"
 #include "TestInformation.h"
@@ -27,18 +29,18 @@ auto defContainer(int    streamIdx,
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 // printf("GPU %ld <- %ld + %ld\n", lc(e, i) , la(e, i) , val);
                 Neon::index_3d globalPoint = a.getGlobalIndex(e);
-                a(e, 0) = globalPoint.x ;
+                a(e, 0) = globalPoint.x;
                 b(e, 0) = globalPoint.y;
                 c(e, 0) = globalPoint.z;
-//                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
-//                    printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
-//                           e.mInDataBlockIdx.x,
-//                           e.mInDataBlockIdx.y,
-//                           e.mInDataBlockIdx.z,
-//                           globalPoint.x,
-//                           globalPoint.y,
-//                           globalPoint.z);
-//                }
+                //                if constexpr (std::is_same_v<typename Field::Grid, Neon::bGrid>) {
+                //                    printf("Block %d Th %d %d %d Loc %d %d %d\n", e.mDataBlockIdx,
+                //                           e.mInDataBlockIdx.x,
+                //                           e.mInDataBlockIdx.y,
+                //                           e.mInDataBlockIdx.z,
+                //                           globalPoint.x,
+                //                           globalPoint.y,
+                //                           globalPoint.z);
+                //                }
             };
         });
 }
@@ -98,5 +100,7 @@ auto run(TestData<G, T, C>& data) -> void
 template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -> void;
 template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
+template auto run<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>(TestData<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>&) -> void;
+template auto run<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>&) -> void;
 
 }  // namespace globalIdx

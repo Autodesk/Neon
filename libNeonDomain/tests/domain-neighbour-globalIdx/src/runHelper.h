@@ -8,6 +8,7 @@
 #include "Neon/core/types/DeviceType.h"
 
 #include "Neon/domain/dGrid.h"
+#include "Neon/domain/details/dGridSoA/dGridSoA.h"
 #include "Neon/domain/eGrid.h"
 #include "Neon/domain/tools/Geometries.h"
 #include "Neon/domain/tools/TestData.h"
@@ -82,8 +83,8 @@ void runAllTestConfiguration(
                                 if (dim.z < 8 * ngpu * 3) {
                                     dim.z = ngpu * 3 * 8;
                                 }
-                                if(memoryLayout == Neon::MemoryLayout::arrayOfStructs){
-                                    continue ;
+                                if (memoryLayout == Neon::MemoryLayout::arrayOfStructs) {
+                                    continue;
                                 }
                             }
 

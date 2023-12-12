@@ -181,7 +181,11 @@ auto GraphNode::
         s << "\\l - Execution: " << getContainer().getContainerExecutionType();
         s << "\\lGraph ";
         s << "\\l - Node id: " << this->getGraphData().getUid();
-
+        auto tokens = this->getContainer().getContainerInterface().getTokens();
+        s << "\\lTokens ";
+        for(auto t: tokens) {
+            s << "\\l - Token: " << t.toString();
+        }
         addSchedulingInfo(s);
 
         s << "\\l ---- ";

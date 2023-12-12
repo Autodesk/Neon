@@ -41,7 +41,9 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
                                   nElementsPerPartition,
                                   defaultsBlockDim,
                                   outerGrid.getSpacing(),
-                                  outerGrid.getOrigin());
+                                  outerGrid.getOrigin(),
+                                  outerGrid.getSpaceCurve(),
+                                  outerGrid.getMemoryBlock());
 
     mStorage = std::make_shared<sStorage>();
     mStorage->init(outerGrid);
@@ -173,7 +175,9 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
                           mStorage->getCount(Neon::DataView::STANDARD),
                           defaultsBlockDim,
                           outerGrid.getSpacing(),
-                          outerGrid.getOrigin());
+                          outerGrid.getOrigin(),
+                          outerGrid.getSpaceCurve(),
+                          outerGrid.getMemoryBlock());
 }
 
 template <typename OuterGridT>
