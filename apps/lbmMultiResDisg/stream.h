@@ -23,6 +23,9 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
+                    
+                    (void)ss;
+
                     if (!pin.hasChildren(cell)) {
 
                         for (int8_t q = 0; q < Q; ++q) {

@@ -81,6 +81,9 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
 
+                    (void)storeOut;
+                    (void)out;
+
                     //fin
                     T ins[Q];
                     for (int i = 0; i < Q; ++i) {
@@ -204,7 +207,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 7, pop_out_07);
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 8, pop_out_08);
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 9, pop_out_09);
-                              
+
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 10, pop_out_opp_00);
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 11, pop_out_opp_01);
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 12, pop_out_opp_02);
@@ -214,7 +217,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 16, pop_out_opp_06);
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 17, pop_out_opp_07);
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 18, pop_out_opp_08);
-                }             
+                }
             };
         });
 }

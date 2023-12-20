@@ -30,7 +30,8 @@ class mGrid
    public:
     using Grid = mGrid;
     using InternalGrid = Neon::domain::details::disaggregated::bGrid::bGrid<kStaticBlock>;
-    using Idx = typename InternalGrid::Idx;
+    //using Idx = typename InternalGrid::Idx;
+    using Idx = Neon::domain::details::disaggregated::bGrid::bIndex<kStaticBlock>;
     using Descriptor = mGridDescriptor<1>;
 
     template <typename T, int C = 0>
@@ -241,6 +242,9 @@ class mGrid
 
         //bitmask of the active cells at each level and works as if the grid is dense at each level
         std::vector<std::vector<uint32_t>> denseLevelsBitmask;
+
+        //bitmask of the active cells at each level that are also along the interface of two resolution
+        std::vector<std::vector<uint32_t>> atInterfaceBitmask;
 
         //collection of bGrids that make up the multi-resolution grid
         std::vector<InternalGrid> grids;
