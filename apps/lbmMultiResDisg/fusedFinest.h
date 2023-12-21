@@ -9,16 +9,16 @@ inline NEON_CUDA_HOST_DEVICE void stream(const typename Neon::domain::mGrid::Idx
                                          const int8_t                             q,
                                          const T                                  cellVal)
 {
-    //since we are on the finest level, we only need to do streaming and explosion (no coalescence)
-    //streaming is done as push
+    // since we are on the finest level, we only need to do streaming and explosion (no coalescence)
+    // streaming is done as push
 
     const Neon::int8_3d dir = getDir(q);
 
-    //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+    // if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
     const auto nghCell = out.helpGetNghIdx(cell, dir);
     if (!out.hasChildren(nghCell)) {
         if (out.isActive(nghCell)) {
-            auto nghType = type(nghCell);
+            auto nghType = type(nghCell, 0);
             if (nghType == CellType::bulk) {
                 out(nghCell, q) = cellVal;
             } else {
@@ -29,12 +29,12 @@ inline NEON_CUDA_HOST_DEVICE void stream(const typename Neon::domain::mGrid::Idx
             if constexpr (atInterface) {
 
                 if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                    //only if we are not on the coarsest level and
-                    //only if we can not do normal streaming, then we may have a coarser neighbor from which
-                    //we can read this pop
+                    // only if we are not on the coarsest level and
+                    // only if we can not do normal streaming, then we may have a coarser neighbor from which
+                    // we can read this pop
 
-                    //get the uncle direction/offset i.e., the neighbor of the cell's parent
-                    //this direction/offset is wrt to the cell's parent
+                    // get the uncle direction/offset i.e., the neighbor of the cell's parent
+                    // this direction/offset is wrt to the cell's parent
                     Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
 
                     const int8_t opposte_q = latticeOppositeID[q];
@@ -57,7 +57,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
                                                        const Neon::domain::mGrid::Field<CellType>& cellType,
                                                        const Neon::domain::mGrid::Field<T>&        fin,
                                                        Neon::domain::mGrid::Field<T>&              fout,
-                                                       bool                                        storeOut)  //store in fout
+                                                       bool                                        storeOut)  // store in fout
 {
     if (level != 0) {
         Neon::NeonException exp("collideBGKUnrolledFusedAll");
@@ -74,7 +74,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
             const T    omega = computeOmega(omega0, level, numLevels);
 
             if (numLevels > 1) {
-                //load the next level as a map to indicate that we will (remote) write to it
+                // load the next level as a map to indicate that we will (remote) write to it
                 fout.load(loader, level + 1, Neon::MultiResCompute::MAP);
             }
 
@@ -84,7 +84,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
                     (void)storeOut;
                     (void)out;
 
-                    //fin
+                    // fin
                     T ins[Q];
                     for (int i = 0; i < Q; ++i) {
                         ins[i] = in(cell, i);
@@ -99,10 +99,10 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
                     const T Z_M1 = ins[2] + ins[5] + ins[7] + ins[16] + ins[18];
                     const T Z_P1 = ins[6] + ins[8] + ins[12] + ins[15] + ins[17];
 
-                    //density
+                    // density
                     const T rho = X_M1 + X_P1 + X_0;
 
-                    //velocity
+                    // velocity
                     Neon::Vec_3d<T> vel;
 
                     vel.v[0] = (X_P1 - X_M1) / rho;
@@ -112,7 +112,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
 
                     const T usqr = T(1.5) * (vel.v[0] * vel.v[0] + vel.v[1] * vel.v[1] + vel.v[2] * vel.v[2]);
 
-                    //collide
+                    // collide
                     const T ck_u03 = vel.v[0] + vel.v[1];
                     const T ck_u04 = vel.v[0] - vel.v[1];
                     const T ck_u05 = vel.v[0] + vel.v[2];
@@ -172,7 +172,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
                     const T pop_out_09 = (c1 - omega) * ins[9] + omega * eq_09;
 
 
-                    //store operation
+                    // store operation
                     if constexpr (atInterface) {
                         store<T>(cell, (storeOut) ? out : in, 0, pop_out_00);
                         store<T>(cell, (storeOut) ? out : in, 1, pop_out_01);
@@ -196,7 +196,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
                         store<T>(cell, (storeOut) ? out : in, 18, pop_out_opp_08);
                     }
 
-                    //streaming (push)
+                    // streaming (push)
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 0, pop_out_00);
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 1, pop_out_01);
                     stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, 2, pop_out_02);
@@ -251,7 +251,7 @@ inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&             
             const T    invBeta = 1.0 / beta;
 
             if (numLevels > 1) {
-                //reload the next level as a map to indicate that we will (remote) write to it
+                // reload the next level as a map to indicate that we will (remote) write to it
                 fout.load(loader, level + 1, Neon::MultiResCompute::MAP);
             }
 
@@ -260,19 +260,19 @@ inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&             
 
                     constexpr T tiny = 1e-7;
 
-                    //fin
+                    // fin
                     T ins[Q];
                     for (int i = 0; i < Q; ++i) {
                         ins[i] = in(cell, i);
                     }
 
-                    //density
+                    // density
                     T rho = 0;
                     for (int i = 0; i < Q; ++i) {
                         rho += ins[i];
                     }
 
-                    //velocity
+                    // velocity
                     const Neon::Vec_3d<T> vel = velocity<T, Q>(ins, rho);
 
                     T Pi[6] = {0, 0, 0, 0, 0, 0};
@@ -316,7 +316,7 @@ inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&             
                     };
 
 
-                    //equilibrium
+                    // equilibrium
                     const T usqr = (3.0 / 2.0) * (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
                     for (int8_t q = 0; q < Q; ++q) {
                         T cu = 0;
@@ -330,7 +330,7 @@ inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&             
                         fneq[q] = ins[q] - feq[q];
                     }
 
-                    //momentum_flux
+                    // momentum_flux
                     for (int8_t q = 0; q < Q; ++q) {
                         for (int i = 0; i < 6; ++i) {
                             Pi[i] += fneq[q] * latticeMoment[q][i];
@@ -338,7 +338,7 @@ inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&             
                     }
 
 
-                    //fdecompose_shear
+                    // fdecompose_shear
                     for (int8_t q = 0; q < Q; ++q) {
                         deltaS[q] = rho * fdecompose_shear(q);
 
@@ -348,21 +348,21 @@ inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&             
                         e1 += (deltaH * deltaH / feq[q]);
                     }
 
-                    //gamma
+                    // gamma
                     T gamma = invBeta - (2.0 - invBeta) * e0 / (tiny + e1);
 
 
-                    //fout
+                    // fout
                     for (int8_t q = 0; q < Q; ++q) {
                         const T deltaH = fneq[q] - deltaS[q];
 
                         const T res = ins[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
 
 
-                        //store operation
+                        // store operation
                         store<T>(cell, (storeOut) ? out : in, q, res);
 
-                        //streaming (push)
+                        // streaming (push)
                         stream<T>(cell, out, (storeOut) ? out : in, type, q, res);
                     }
                 }
