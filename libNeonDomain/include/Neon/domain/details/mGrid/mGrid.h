@@ -81,6 +81,12 @@ class mGrid
     */
     auto isInsideDomain(const Neon::index_3d& idx, int level) const -> bool;
 
+
+    /**
+     * Given a voxel, check if it is on the interface between two different resolutions      
+    */
+    auto isOnInterface(const Neon::index_3d& idx, int level) const -> bool;
+
     /**
      * Since mGird is internally represented by a stack of grids, this return the grid at certain level 
      * @param level at which the grid is queried      

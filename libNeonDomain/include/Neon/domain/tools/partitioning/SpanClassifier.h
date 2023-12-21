@@ -272,7 +272,7 @@ namespace Neon::domain::tool::partitioning {
                                                     if (activeCellLambda(globalId)) {
                                                         isActiveBlock = true;
                                                         if (whatdomain == ByDomain::bc) {
-                                                            std::cout << "HERE " << blockOrigin << std::endl;
+                                                            //std::cout << "HERE " << blockOrigin << std::endl;
                                                             byDomain = ByDomain::bc;
                                                             doBreak = true;
                                                         }

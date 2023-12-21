@@ -65,12 +65,12 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                             }
 
                             if constexpr (std::is_same_v<sdfT, Neon::domain::mGrid::Field<int8_t>>) {
-                                if (sdf(cell) == 1) {
-                                    type(cell) = CellType::bounceBack;
+                                if (sdf(cell, 0) == 1) {
+                                    type(cell, 0) = CellType::bounceBack;
                                 }
                             } else {
                                 if (shapeSDF(idx)) {
-                                    type(cell) = CellType::bounceBack;
+                                    type(cell, 0) = CellType::bounceBack;
                                 }
                             }
 

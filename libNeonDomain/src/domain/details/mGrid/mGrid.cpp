@@ -374,28 +374,45 @@ mGrid::mGrid(
 
                                     const Neon::int32_3d voxel = mData->mDescriptor.parentToChild(blockOrigin, l, {x, y, z});
 
-                                    //if the voxel is refined, then it is on the interface
+
                                     if (voxel < domainSize) {
-                                        if (l != 0 && isRefined(l, voxel)) {
-                                            auto id = levelBitMaskIndex(l, blockID, localChild);
-                                            mData->atInterfaceBitmask[l][id.first] |= (1 << id.second);
+
+                                        //if the voxel has a parent, then it is on the interface
+
+                                        if (l < mData->mDescriptor.getDepth() - 1) {
+                                            Neon::int32_3d parentBlockID = mData->mDescriptor.childToParent(voxel, l + 1);
+                                            Neon::int32_3d parentLocalID = mData->mDescriptor.toLocalIndex(voxel, l + 1);
+
+                                            if (levelBitMaskIsSet(l + 1, parentBlockID, parentLocalID)) {
+                                                auto id = levelBitMaskIndex(l, blockID, localChild);
+                                                mData->atInterfaceBitmask[l][id.first] |= (1 << id.second);
+                                            }
                                         }
 
-                                        //look at neighbor from all direction and check if there is at least one neighbor that is refined
-                                        for (int k = -1; k < 2; k++) {
-                                            for (int j = -1; j < 2; j++) {
-                                                for (int i = -1; i < 2; i++) {
-                                                    if (i == 0 && j == 0 && k == 0) {
-                                                        continue;
-                                                    }
 
-                                                    const Neon::int32_3d neighborVoxel = mData->mDescriptor.neighbourBlock(voxel, l, {i, j, k});
+                                        if (l != 0) {
+                                            //if the voxel is refined, then it is on the interface
+                                            if (isRefined(l, voxel)) {
+                                                auto id = levelBitMaskIndex(l, blockID, localChild);
+                                                mData->atInterfaceBitmask[l][id.first] |= (1 << id.second);
+                                            }
 
-                                                    //if the neigbor is inside the domain
-                                                    if (neighborVoxel.x >= 0 && neighborVoxel.y >= 0 && neighborVoxel.z >= 0 && neighborVoxel < domainSize) {
-                                                        if (isRefined(l, neighborVoxel)) {
-                                                            auto id = levelBitMaskIndex(l, blockID, localChild);
-                                                            mData->atInterfaceBitmask[l][id.first] |= (1 << id.second);
+                                            //look at neighbor from all direction and check if there is at least one neighbor that is refined
+                                            for (int k = -1; k < 2; k++) {
+                                                for (int j = -1; j < 2; j++) {
+                                                    for (int i = -1; i < 2; i++) {
+                                                        if (i == 0 && j == 0 && k == 0) {
+                                                            continue;
+                                                        }
+
+                                                        const Neon::int32_3d neighborVoxel = mData->mDescriptor.neighbourBlock(voxel, l, {i, j, k});
+
+                                                        //if the neigbor is inside the domain
+                                                        if (neighborVoxel.x >= 0 && neighborVoxel.y >= 0 && neighborVoxel.z >= 0 && neighborVoxel < domainSize) {
+                                                            if (isRefined(l, neighborVoxel)) {
+                                                                auto id = levelBitMaskIndex(l, blockID, localChild);
+                                                                mData->atInterfaceBitmask[l][id.first] |= (1 << id.second);
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -685,6 +702,14 @@ auto mGrid::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool
     return mData->grids[level].isInsideDomain(idx);
 }
 
+auto mGrid::isOnInterface(const Neon::index_3d& idx, int level) const -> bool
+{
+
+    Neon::index_3d blockID = mData->mDescriptor.childToParent(idx, level);
+    Neon::index_3d localID = mData->mDescriptor.toLocalIndex(idx, level);
+    auto           idd = levelBitMaskIndex(level, blockID, localID);
+    return mData->atInterfaceBitmask[level][idd.first] & (1 << idd.second);
+}
 
 auto mGrid::operator()(int level) -> InternalGrid&
 {

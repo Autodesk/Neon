@@ -367,6 +367,7 @@ auto mField<T, C>::ioToVtk(std::string         fileName,
         OutputBlockID = 3,
         OutputVoxelID = 4,
         OutputData = 5,
+        Interface = 6,
     };
 
     auto desc = mData->grid->getDescriptor();
@@ -473,6 +474,9 @@ auto mField<T, C>::ioToVtk(std::string         fileName,
                                                     for (int c = 0; c < card; ++c) {
                                                         file << float((*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, c)) << "\n";
                                                     }
+                                                } else if (op == Op::Interface) {
+                                                    int inter = mData->grid->isOnInterface(voxelGlobalID, l);
+                                                    file << inter << "\n";
                                                 }
                                             }
                                         }
@@ -522,6 +526,12 @@ auto mField<T, C>::ioToVtk(std::string         fileName,
         loopOverActiveBlocks(Op::OutputVoxelID);
     }
 
+
+    {
+        file << "SCALARS Interface int 1 \n";
+        file << "LOOKUP_TABLE default \n";
+        loopOverActiveBlocks(Op::Interface);
+    }
 
     file.close();
 }

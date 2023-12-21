@@ -18,7 +18,7 @@ struct Params
     std::string meshFile = "";
     int         freq = 100;
     int         Re = 100;
-    int         deviceId = 99;
+    int         deviceId = 0;
     int         numIter = 2;
     bool        benchmark = true;
     int         sliceX = -1;
@@ -26,7 +26,7 @@ struct Params
     int         sliceZ = 1;
     bool        vtk = false;
     bool        gui = false;
-    int         scale = 2;
+    int         scale = 0;
     std::string dataType = "float";
 };
 
@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 
         auto cli =
             (clipp::option("--deviceType") & clipp::value("deviceType", params.deviceType) % "Type of device (gpu or cpu)",
-             clipp::required("--deviceId") & clipp::integers("deviceId", params.deviceId) % "Device id",
+             clipp::option("--deviceId") & clipp::integers("deviceId", params.deviceId) % "Device id",
              clipp::option("--numIter") & clipp::integer("numIter", params.numIter) % "LBM number of iterations",
              clipp::option("--problemType") & clipp::value("problemType", params.problemType) % "Problem type ('lid' for lid-driven cavity, 'sphere' for flow over sphere, or 'jet' for flow over jet fighter, 'mesh' for flow over mesh)",
              clipp::option("--meshFile") & clipp::value("meshFile", params.meshFile) % "Path to mesh file for 'mesh' type problem",
