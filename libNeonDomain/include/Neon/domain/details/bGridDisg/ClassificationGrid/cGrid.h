@@ -145,12 +145,12 @@ struct GridTransformation_cGrid
     {
         Neon::set::LaunchParameters launchParameters = foundationGrid.getLaunchParameters(dataView, blockSize, shareMem);
 
-        launchParameters.forEachSeq([&](Neon::SetIdx setIdx, Neon::sys::GpuLaunchInfo& launchParameter) {
+        launchParameters.forEachSeq([&, shareMem](Neon::SetIdx setIdx, Neon::sys::GpuLaunchInfo& launchParameter) {
             Neon::domain::tool::Partitioner1D const& foundationPartitioner1D = foundationGrid.helpGetPartitioner1D();
             auto const&                              spanLayout = foundationPartitioner1D.getSpanLayout();
             int                                      nBlocks;
-
-            Neon::domain::tool::partitioning::ByDomain byDomain = classSelector == cGrid::ClassSelector::alpha
+            
+            Neon::domain::tool::partitioning::ByDomain byDomain = (classSelector == Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::alpha)
                                                                       ? Neon::domain::tool::partitioning::ByDomain::bulk
                                                                       : Neon::domain::tool::partitioning::ByDomain::bc;
 

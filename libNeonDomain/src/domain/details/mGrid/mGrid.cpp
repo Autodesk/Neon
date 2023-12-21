@@ -434,8 +434,8 @@ mGrid::mGrid(
                         if (!isInside) {
                             return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::outside;
                         } else {
-                            auto id = levelBitMaskIndex(l, blockID, localID);
-                            bool isOnInterface = mData->atInterfaceBitmask[l][id.first] & (1 << id.second);
+                            auto idd = levelBitMaskIndex(l, blockID, localID);
+                            bool isOnInterface = mData->atInterfaceBitmask[l][idd.first] & (1 << idd.second);
 
                             if (isOnInterface) {
                                 return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::beta;
