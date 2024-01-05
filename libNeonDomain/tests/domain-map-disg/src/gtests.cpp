@@ -4,7 +4,7 @@
 #include "map.h"
 #include "runHelper.h"
 
-TEST(domain_map, bGridDisg)
+TEST(domain_map_disg, bGridDisg)
 {
     int nGpus = 1;
     using Type = int64_t;
@@ -13,7 +13,7 @@ TEST(domain_map, bGridDisg)
                             1);
 }
 
-TEST(domain_map_dataView, bGridDisg)
+TEST(domain_map_disg_dataView, bGridDisg)
 {
     int nGpus = 1;
     using Type = int64_t;

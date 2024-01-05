@@ -1,7 +1,7 @@
 #include <functional>
 #include "Neon/domain/Grids.h"
-#include "Neon/domain/details/dGridDisg/dGrid.h"
 #include "Neon/domain/details/bGridDisg/bGrid.h"
+#include "Neon/domain/details/dGridDisg/dGrid.h"
 
 #include "Neon/domain/details/dGridSoA/dGridSoA.h"
 #include "Neon/domain/tools/TestData.h"
@@ -36,15 +36,15 @@ auto mapContainer_axpy(int                   streamIdx,
 
 template <typename Field>
 auto mapContainer_add(int                   streamIdx,
-                       typename Field::Type& val,
-                       Field&                fieldB)
+                      typename Field::Type& val,
+                      Field&                fieldB)
     -> Neon::set::Container
 {
     const auto& grid = fieldB.getGrid();
     return grid.newContainer(
         "mapContainer_axpy",
         [&, val](Neon::set::Loader& loader) {
-            auto       b = loader.load(fieldB);
+            auto b = loader.load(fieldB);
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                 for (int i = 0; i < b.cardinality(); i++) {
@@ -101,6 +101,7 @@ template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t, 0>&) -
 template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
 template auto run<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>(TestData<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>&) -> void;
 template auto run<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>&) -> void;
+template auto run<Neon::bGridMgpu, int64_t, 0>(TestData<Neon::bGridMgpu, int64_t, 0>&) -> void;
 
 namespace dataView {
 template <typename G, typename T, int C>
@@ -151,6 +152,7 @@ template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -
 template auto run<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>(TestData<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>&) -> void;
 template auto run<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>&) -> void;
 template auto run<Neon::bGridDisg, int64_t, 0>(TestData<Neon::bGridDisg, int64_t, 0>&) -> void;
+template auto run<Neon::bGridMgpu, int64_t, 0>(TestData<Neon::bGridMgpu, int64_t, 0>&) -> void;
 
 }  // namespace dataView
 }  // namespace map

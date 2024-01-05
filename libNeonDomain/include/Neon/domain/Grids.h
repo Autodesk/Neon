@@ -5,3 +5,4 @@
 #include "Neon/domain/bGrid.h"
 #include "Neon/domain/dGridSoA.h"
 #include "Neon/domain/bGridDisg.h"
+#include "Neon/domain/bGridMgpuDisg.h"
