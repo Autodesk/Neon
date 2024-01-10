@@ -45,9 +45,9 @@ bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
         mData->grid->getBackend().getMemoryOptions(bSpan<SBlock>::activeMaskMemoryLayout));
 
 
-    {  // Setting up partitionTable
+    {  // Setting up mPartitionTable
         // const int setCardinality = mData->grid->getBackend().getDeviceCount();
-        mData->partitionTable.forEachConfiguration(
+        mData->mPartitionTable.forEachConfiguration(
             [&](Neon::Execution execution,
                 Neon::SetIdx    setIdx,
                 Neon::DataView,
@@ -158,7 +158,7 @@ auto bField<T, C, SBlock>::getPartition(Neon::Execution       execution,
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        Partition const& result = mData->partitionTable.getPartition(execution, setIdx, dataView);
+        Partition const& result = mData->mPartitionTable.getPartition(execution, setIdx, dataView);
         return result;
     }
     std::stringstream message;
@@ -174,7 +174,7 @@ auto bField<T, C, SBlock>::getPartition(Neon::Execution       execution,
     const Neon::DataUse dataUse = this->getDataUse();
     bool                isOk = Neon::ExecutionUtils::checkCompatibility(dataUse, execution);
     if (isOk) {
-        Partition& result = mData->partitionTable.getPartition(execution, setIdx, dataView);
+        Partition& result = mData->mPartitionTable.getPartition(execution, setIdx, dataView);
         return result;
     }
     std::stringstream message;
@@ -203,9 +203,9 @@ auto bField<T, C, SBlock>::newHaloUpdate(Neon::set::StencilSemantic stencilSeman
             for (auto byDirection : {tool::partitioning::ByDirection::up,
                                      tool::partitioning::ByDirection::down}) {
 
-                auto const& tableEntryByDir = mData->soaHaloUpdateTable.get(transferMode,
-                                                                            execution,
-                                                                            byDirection);
+                auto const& tableEntryByDir = mData->mStandardHaloUpdateTable.get(transferMode,
+                                                                                  execution,
+                                                                                  byDirection);
 
                 tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
                     transfers[setIdx].insert(std::end(transfers[setIdx]),
@@ -274,73 +274,99 @@ auto bField<T, C, SBlock>::initHaloUpdateTable() -> void
         return res;
     };
 
-    mData->soaHaloUpdateTable.forEachPutConfiguration(
-        bk, [&](Neon::SetIdx                                  setIdxSrc,
+    mData->mStandardHaloUpdateTable.forEachPutConfiguration(
+        bk, [&](
+                Neon::SetIdx                                  setIdxSend,
                 Execution                                     execution,
                 Neon::domain::tool::partitioning::ByDirection byDirection,
                 std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
             {
                 using namespace Neon::domain::tool::partitioning;
 
-                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
-                Neon::SetIdx setIdxVec[2];
-                setIdxVec[Data::EndPoints::dst] = setIdxDst;
-                setIdxVec[Data::EndPoints::src] = setIdxSrc;
-
-                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                  partitions;
-                std::array<BlockViewPartition<T, 0>*, Data::EndPointsUtils::nConfigs>                   blockViewPartitions;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> ghostZBeginIdx;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> boundaryZBeginIdx;
-                std::array<Neon::size_4d, Data::EndPointsUtils::nConfigs>                               memPhyDim;
-
-                partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
-                partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
-                blockViewPartitions[Data::EndPoints::dst] = &(mData->memoryField.getPartition(execution, setIdxDst, Neon::DataView::STANDARD));
-                blockViewPartitions[Data::EndPoints::src] = &(mData->memoryField.getPartition(execution, setIdxSrc, Neon::DataView::STANDARD));
-
-                for (auto endPoint : {Data::EndPoints::dst, Data::EndPoints::src}) {
-                    for (auto direction : {ByDirection::down, ByDirection::up}) {
-                        auto ghostFirst = mData->grid->mData->partitioner1D.getSpanLayout().getGhostBoundary(setIdxVec[endPoint], direction).first;
-                        auto boundaryFirst = mData->grid->mData->partitioner1D.getSpanLayout().getBoundsBoundary(setIdxVec[endPoint], direction).first;
-                        ghostZBeginIdx[endPoint][static_cast<int>(direction)] = ghostFirst;
-                        boundaryZBeginIdx[endPoint][static_cast<int>(direction)] = boundaryFirst;
-                    }
-
-                    memPhyDim[endPoint] = Neon::size_4d(
-                        SBlock::memBlockCountElements,
-                        1,
-                        1,
-                        size_t(blockViewPartitions[endPoint]->getCountAllocated()) * SBlock::memBlockCountElements);
-                }
-
-                if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
+                if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSend)) {
                     return;
                 }
 
-                if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
+                if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSend)) {
                     return;
                 }
 
-                T* srcMem = blockViewPartitions[Data::EndPoints::src]->mem();
-                T* dstMem = blockViewPartitions[Data::EndPoints::dst]->mem();
 
-                Neon::size_4d dstGhostBuff(ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], 0, 0, 0);
-                Neon::size_4d srcBoundaryBuff(boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], 0, 0, 0);
+                Neon::SetIdx setIdxRecv = getNghSetIdx(setIdxSend, byDirection);
 
-                size_t transferDataBlockCount = mData->grid->mData->partitioner1D.getSpanLayout().getBoundsBoundary(setIdxVec[Data::EndPoints::src], byDirection).count;
+                Partition* partitionsRecv = &this->getPartition(execution, setIdxRecv, Neon::DataView::STANDARD);
+                Partition* partitionsSend = &this->getPartition(execution, setIdxSend, Neon::DataView::STANDARD);
 
-                //                std::cout << "To  " << dstGhostBuff << " prt " << blockViewPartitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff << " prt " << blockViewPartitions[Data::EndPoints::src]->prtID() <<  std::endl;
-                //                std::cout << "dst mem " << blockViewPartitions[Data::EndPoints::dst]->mem() << " " << std::endl;
-                //                std::cout << "dst transferDataBlockCount " << transferDataBlockCount << " " << std::endl;
-                //                std::cout << "dst pitch " << (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum() << " " << std::endl;
-                //                std::cout << "dst dstGhostBuff " << dstGhostBuff << " " << std::endl;
-                //                std::cout << "dst pitch all" << memPhyDim[Data::EndPoints::dst] << " " << std::endl;
+                auto const recvDirection = byDirection == ByDirection::up
+                                               ? ByDirection::down
+                                               : ByDirection::up;
+                auto const sendDirection = byDirection;
 
-                Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum(), dstGhostBuff},
-                                                   {setIdxSrc, srcMem + (srcBoundaryBuff * memPhyDim[Data::EndPoints::src]).rSum(), srcBoundaryBuff},
-                                                   sizeof(T) * SBlock::memBlockCountElements * transferDataBlockCount);
+                int const ghostSectorFirstBlockIdx =
+                    recvDirection == ByDirection::up
+                        ? partitionsRecv->helpGetSectorFirstBlock(Partition::Sectors::gUp)
+                        : partitionsRecv->helpGetSectorFirstBlock(Partition::Sectors::gDw);
 
-                transfersVec.push_back(transfer);
+                int const boundarySectorFirstBlockIdx =
+                    sendDirection == ByDirection::up
+                        ? partitionsSend->helpGetSectorFirstBlock(Partition::Sectors::bUp)
+                        : partitionsSend->helpGetSectorFirstBlock(Partition::Sectors::bDw);
+
+                auto const msgLengthInBlocks = partitionsSend->helpGetSectorLength(sendDirection == ByDirection::up
+                                                                                       ? Partition::Sectors::bUp
+                                                                                       : Partition::Sectors::bDw);
+
+
+                for (int c = 0; c < this->getCardinality(); c++) {
+
+                    auto const recvPitch = [&] {
+                        Idx                          idx;
+                        typename Idx::InDataBlockIdx inDataBlockIdx;
+                        if (recvDirection == ByDirection::up) {
+                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, SBlock::memBlockSizeZ - 1);
+                        } else {
+                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, 0);
+                        }
+                        idx.setInDataBlockIdx(inDataBlockIdx);
+                        idx.setDataBlockIdx(ghostSectorFirstBlockIdx);
+
+                        auto pitch = partitionsRecv->helpGetPitch(idx, c);
+                        return pitch;
+                    }();
+
+                    auto const sendPitch = [&] {
+                        typename Idx::InDataBlockIdx inDataBlockIdx;
+                        if (sendDirection == ByDirection::up) {
+                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, SBlock::memBlockSizeZ - 1);
+                        } else {
+                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, 0);
+                        }
+                        Idx idx;
+                        idx.setInDataBlockIdx(inDataBlockIdx);
+                        idx.setDataBlockIdx(boundarySectorFirstBlockIdx);
+                        auto pitch = partitionsSend->helpGetPitch(idx, c);
+                        return pitch;
+                    }();
+
+                    auto const msgSizePerCardinality = [&] {
+                        // All blocks are mapped into a 3D grid, where blocks are places one after the other in a 1D mapping
+                        // for each block we send only the top or bottom slice
+                        // Therefore the size of the message is equal to the number of blocks in the sector
+                        // by the size of element in a slice of a block...
+                        auto size = msgLengthInBlocks * SBlock::memBlockSizeX * SBlock::memBlockSizeY;
+                        return size;
+                    }();
+
+                    T const* sendMem = partitionsSend->mem();
+                    T const* recvMem = partitionsRecv->mem();
+
+
+                    Neon::set::MemoryTransfer transfer({setIdxRecv, (void*)(recvMem + recvPitch)},
+                                                       {setIdxSend, (void*)(sendMem + sendPitch)},
+                                                       sizeof(T) * msgSizePerCardinality);
+
+                    transfersVec.push_back(transfer);
+                }
             }
         });
 }

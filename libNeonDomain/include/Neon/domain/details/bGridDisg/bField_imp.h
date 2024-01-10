@@ -191,7 +191,7 @@ auto bField<T, C, SBlock>::newHaloUpdate(Neon::set::StencilSemantic stencilSeman
             for (auto byDirection : {tool::partitioning::ByDirection::up,
                                      tool::partitioning::ByDirection::down}) {
 
-                auto const& tableEntryByDir = mData->soaHaloUpdateTable.get(transferMode,
+                auto const& tableEntryByDir = mData->mStandardHaloUpdateTable.get(transferMode,
                                                                             execution,
                                                                             byDirection);
 
@@ -262,7 +262,7 @@ auto bField<T, C, SBlock>::initHaloUpdateTable() -> void
         return res;
     };
 
-    mData->soaHaloUpdateTable.forEachPutConfiguration(
+    mData->mStandardHaloUpdateTable.forEachPutConfiguration(
         bk, [&](Neon::SetIdx                                  setIdxSrc,
                 Execution                                     execution,
                 Neon::domain::tool::partitioning::ByDirection byDirection,

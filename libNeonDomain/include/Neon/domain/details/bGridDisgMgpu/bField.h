@@ -91,7 +91,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
         Data() = default;
         Data(Neon::Backend const& bk)
         {
-            partitionTable.init(bk);
+            mPartitionTable.init(bk);
         }
 
         enum EndPoints
@@ -109,13 +109,12 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
         BlockViewField<T, 0>  memoryField;
         int                   cardinality;
 
-        //        Neon::domain::tool::HaloTable1DPartitioning   latticeHaloUpdateTable;
-        Neon::domain::tool::HaloTable1DPartitioning soaHaloUpdateTable;
-        //        Neon::domain::tool::HaloTable1DPartitioning   aosHaloUpdateTable;
-        Neon::domain::tool::PartitionTable<Partition> partitionTable;
+        Neon::domain::tool::HaloTable1DPartitioning mLatticeHaloUpdateTable;
+        Neon::domain::tool::HaloTable1DPartitioning mStandardHaloUpdateTable;
+        Neon::domain::tool::PartitionTable<Partition> mPartitionTable;
     };
     std::shared_ptr<Data> mData;
 };
 
 
-}  // namespace Neon::domain::details::bGrid
+}  // namespace Neon::domain::details::bGridMgpu

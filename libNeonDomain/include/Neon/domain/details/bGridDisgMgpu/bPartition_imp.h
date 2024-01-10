@@ -507,4 +507,11 @@ bPartition<T, C, SBlock>::helpGetSectorFirstBlock(Sectors sector) const
     return mSectorFirstBlockIdx[sector];
 }
 
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto
+bPartition<T, C, SBlock>::helpGetSectorLength(Sectors sector) const
+    -> typename Idx::DataBlockCount
+{
+    return mSectorFirstBlockIdx[sector + 1] - mSectorFirstBlockIdx[sector];
+}
 }  // namespace Neon::domain::details::bGridMgpu

@@ -232,7 +232,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     };
     std::shared_ptr<Data> mData;
 };
-extern template class bGrid<StaticBlock<8, 8, 8>>;
+extern template class bGrid<StaticBlock<1, 1, 1>>;
 }  // namespace Neon::domain::details::bGrid
 
 #include "bField_imp.h"

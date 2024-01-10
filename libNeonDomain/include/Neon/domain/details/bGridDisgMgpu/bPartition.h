@@ -15,6 +15,7 @@ class bSpan;
 template <typename T, int C, typename SBlock>
 class bPartition
 {
+   public:
     enum Sectors
     {
         bUp = 0,
@@ -25,7 +26,6 @@ class bPartition
         first = bUp
     };
 
-   public:
     using Span = bSpan<SBlock>;
     using Idx = bIndex<SBlock>;
     using NghIdx = typename Idx::NghIdx;
@@ -194,6 +194,9 @@ class bPartition
 
    auto NEON_CUDA_HOST_DEVICE helpGetSectorFirstBlock(Sectors sector) const
         -> typename Idx::DataBlockCount;
+
+   auto NEON_CUDA_HOST_DEVICE helpGetSectorLength(Sectors sector) const
+       -> typename Idx::DataBlockCount;
 
     int                                             mCardinality;
     T*                                              mMem;
