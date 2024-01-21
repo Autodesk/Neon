@@ -55,12 +55,12 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
      * Constructor for the vanilla block data structure with depth of 1
      */
     template <typename ActiveCellLambda>
-    bGrid(const Neon::Backend&         backend,
-          const Neon::int32_3d&        domainSize,
-          const ActiveCellLambda       activeCellLambda,
-          const Neon::domain::Stencil& stencil,
-          const double_3d&             spacingData = double_3d(1, 1, 1),
-          const double_3d&             origin = double_3d(0, 0, 0),
+    bGrid(const Neon::Backend&                         backend,
+          const Neon::int32_3d&                        domainSize,
+          const ActiveCellLambda                       activeCellLambda,
+          const Neon::domain::Stencil&                 stencil,
+          const double_3d&                             spacingData = double_3d(1, 1, 1),
+          const double_3d&                             origin = double_3d(0, 0, 0),
           Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
 
@@ -73,9 +73,10 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
           const ActiveCellLambda       activeCellLambda /**< Function that identify the user domain inside the boxed Cartesian discretization  */,
           const Neon::domain::Stencil& stencil /**< union of tall the stencil that will be used in the computation */,
           const int                    multiResDiscreteIdxSpacing /**< Parameter for the multi-resolution. Index i and index (i+1) may be remapped as i*voxelSpacing  and (i+1)* voxelSpacing.
-                                                                   * For a uniform bGrid, i.e outside the context of multi-resolution this parameter is always 1 */,
-          const double_3d& spacingData /** Physical spacing between two consecutive data points in the Cartesian domain */,
-          const double_3d& origin /** Physical location in space of the origin of the Cartesian discretization */,
+                                                                   * For a uniform bGrid, i.e outside the context of multi-resolution this parameter is always 1 */
+          ,
+          const double_3d&                             spacingData /** Physical spacing between two consecutive data points in the Cartesian domain */,
+          const double_3d&                             origin /** Physical location in space of the origin of the Cartesian discretization */,
           Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
     /**
@@ -232,8 +233,11 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     };
     std::shared_ptr<Data> mData;
 };
-extern template class bGrid<StaticBlock<1, 1, 1>>;
-}  // namespace Neon::domain::details::bGrid
+
+constexpr int defaultBlockSize = 4;
+using bGridMgpuDefault = bGrid<StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>>;
+extern template class bGrid<StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>>;
+}  // namespace Neon::domain::details::bGridMgpu
 
 #include "bField_imp.h"
 #include "bGrid_imp.h"

@@ -143,7 +143,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     int myFirstBlock = 0;
 
     auto const myBlockIdx = idx.getDataBlockIdx();
-    for (int mySector = 3; mySector >= 0; mySector--) {
+    for (int mySector = Sectors::gDw; mySector >= 0; mySector--) {
         if (myBlockIdx >= mSectorFirstBlockIdx[mySector]) {
             sectorLenght = mSectorFirstBlockIdx[mySector + 1] - mSectorFirstBlockIdx[mySector];
             myFirstBlock = mSectorFirstBlockIdx[mySector];

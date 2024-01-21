@@ -323,9 +323,9 @@ auto bField<T, C, SBlock>::initHaloUpdateTable() -> void
                         Idx                          idx;
                         typename Idx::InDataBlockIdx inDataBlockIdx;
                         if (recvDirection == ByDirection::up) {
-                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, SBlock::memBlockSizeZ - 1);
-                        } else {
                             inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, 0);
+                        } else {
+                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, SBlock::memBlockSizeZ - 1);
                         }
                         idx.setInDataBlockIdx(inDataBlockIdx);
                         idx.setDataBlockIdx(ghostSectorFirstBlockIdx);
