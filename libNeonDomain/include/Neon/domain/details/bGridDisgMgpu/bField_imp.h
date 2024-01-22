@@ -226,7 +226,34 @@ auto bField<T, C, SBlock>::newHaloUpdate(Neon::set::StencilSemantic stencilSeman
             NEON_THROW_UNSUPPORTED_OPERATION("");
         }
     } else {
-        NEON_DEV_UNDER_CONSTRUCTION("");
+        auto transfers = bk.template newDataSet<std::vector<Neon::set::MemoryTransfer>>();
+
+        if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::structOfArrays) {
+            for (auto byDirection : {tool::partitioning::ByDirection::up,
+                                     tool::partitioning::ByDirection::down}) {
+
+                auto const& tableEntryByDir = mData->mLatticeHaloUpdateTable.get(transferMode,
+                                                                                 execution,
+                                                                                 byDirection);
+
+                tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
+                    transfers[setIdx].insert(std::end(transfers[setIdx]),
+                                             std::begin(tableEntryByDirBySetIdx),
+                                             std::end(tableEntryByDirBySetIdx));
+                });
+            }
+            dataTransferContainer =
+                Neon::set::Container::factoryDataTransfer(
+                    *this,
+                    transferMode,
+                    stencilSemantic,
+                    transfers,
+                    execution);
+
+
+        } else {
+            NEON_THROW_UNSUPPORTED_OPERATION("");
+        }
     }
     Neon::set::Container SyncContainer =
         Neon::set::Container::factorySynchronization(
@@ -366,6 +393,127 @@ auto bField<T, C, SBlock>::initHaloUpdateTable() -> void
                                                        sizeof(T) * msgSizePerCardinality);
 
                     transfersVec.push_back(transfer);
+                }
+            }
+        });
+
+    mData->mLatticeHaloUpdateTable.forEachPutConfiguration(
+        bk, [&](
+                Neon::SetIdx                                  setIdxSend,
+                Execution                                     execution,
+                Neon::domain::tool::partitioning::ByDirection byDirection,
+                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
+            {
+                using namespace Neon::domain::tool::partitioning;
+
+                if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSend)) {
+                    return;
+                }
+
+                if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSend)) {
+                    return;
+                }
+
+
+                Neon::SetIdx setIdxRecv = getNghSetIdx(setIdxSend, byDirection);
+                Partition*   partitionsRecv = &this->getPartition(execution, setIdxRecv, Neon::DataView::STANDARD);
+                Partition*   partitionsSend = &this->getPartition(execution, setIdxSend, Neon::DataView::STANDARD);
+
+                auto const recvDirection = byDirection == ByDirection::up
+                                               ? ByDirection::down
+                                               : ByDirection::up;
+                auto const sendDirection = byDirection;
+
+                int const ghostSectorFirstBlockIdx =
+                    recvDirection == ByDirection::up
+                        ? partitionsRecv->helpGetSectorFirstBlock(Partition::Sectors::gUp)
+                        : partitionsRecv->helpGetSectorFirstBlock(Partition::Sectors::gDw);
+
+                int const boundarySectorFirstBlockIdx =
+                    sendDirection == ByDirection::up
+                        ? partitionsSend->helpGetSectorFirstBlock(Partition::Sectors::bUp)
+                        : partitionsSend->helpGetSectorFirstBlock(Partition::Sectors::bDw);
+
+                auto const msgLengthInBlocks = partitionsSend->helpGetSectorLength(sendDirection == ByDirection::up
+                                                                                       ? Partition::Sectors::bUp
+                                                                                       : Partition::Sectors::bDw);
+
+                bool canBeFusedWithPrevious = false;
+
+                for (int c = 0; c < this->getCardinality(); c++) {
+                    auto const& stencil = this->getGrid().getStencil();
+
+                    auto const recvPitch = [&] {
+                        Idx                          idx;
+                        typename Idx::InDataBlockIdx inDataBlockIdx;
+                        if (recvDirection == ByDirection::up) {
+                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, 0);
+                        } else {
+                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, SBlock::memBlockSizeZ - 1);
+                        }
+                        idx.setInDataBlockIdx(inDataBlockIdx);
+                        idx.setDataBlockIdx(ghostSectorFirstBlockIdx);
+
+                        auto pitch = partitionsRecv->helpGetPitch(idx, c);
+                        return pitch;
+                    }();
+
+                    auto const sendPitch = [&] {
+                        typename Idx::InDataBlockIdx inDataBlockIdx;
+                        if (sendDirection == ByDirection::up) {
+                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, SBlock::memBlockSizeZ - 1);
+                        } else {
+                            inDataBlockIdx = typename Idx::InDataBlockIdx(0, 0, 0);
+                        }
+                        Idx idx;
+                        idx.setInDataBlockIdx(inDataBlockIdx);
+                        idx.setDataBlockIdx(boundarySectorFirstBlockIdx);
+                        auto pitch = partitionsSend->helpGetPitch(idx, c);
+                        return pitch;
+                    }();
+
+                    auto const msgSizePerCardinality = [&] {
+                        // All blocks are mapped into a 3D grid, where blocks are places one after the other in a 1D mapping
+                        // for each block we send only the top or bottom slice
+                        // Therefore the size of the message is equal to the number of blocks in the sector
+                        // by the size of element in a slice of a block...
+                        auto size = msgLengthInBlocks * SBlock::memBlockSizeX * SBlock::memBlockSizeY;
+                        return size;
+                    }();
+
+                    T const* sendMem = partitionsSend->mem();
+                    T const* recvMem = partitionsRecv->mem();
+
+
+                    Neon::set::MemoryTransfer transfer({setIdxRecv, (void*)(recvMem + recvPitch)},
+                                                       {setIdxSend, (void*)(sendMem + sendPitch)},
+                                                       sizeof(T) * msgSizePerCardinality);
+
+                    if (ByDirection::up == sendDirection && !(stencil.points()[c].z > 0)) {
+                        std::cout << "c " << c << " " << stencil.points()[c] << "skipped" << std::endl;
+                        canBeFusedWithPrevious = false;
+                        continue;
+                    }
+                    if (ByDirection::down == sendDirection && !(stencil.points()[c].z < 0)) {
+                        std::cout << "c " << c << " " << stencil.points()[c] << "skipped" << std::endl;
+                        canBeFusedWithPrevious = false;
+                        continue;
+                    }
+                    if (canBeFusedWithPrevious) {
+
+                        const T* begin = (recvMem + recvPitch);
+                        const T* previous = (((T*)(transfersVec[transfersVec.size() - 1].src.mem)) + msgSizePerCardinality);
+                        if (begin != previous) {
+                            NEON_THROW_UNSUPPORTED_OPTION("begin != transfersVec[transfersVec.size() - 1].dst");
+                        }
+                        transfersVec[transfersVec.size() - 1].size += sizeof(T) * msgSizePerCardinality;
+                        std::cout << "c " << c << " " << stencil.points()[c] << "fused" << std::endl
+                                  << "new size = " << transfersVec[transfersVec.size() - 1].size << std::endl;
+                    } else {
+                        transfersVec.push_back(transfer);
+                        std::cout << "c " << c << " " << stencil.points()[c] << "added " << transfer.toString() << std::endl;
+                        canBeFusedWithPrevious = false;
+                    }
                 }
             }
         });

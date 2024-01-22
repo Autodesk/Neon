@@ -1,6 +1,6 @@
-deviceType_LIST = 'cpu gpu'.split()
+deviceType_LIST = 'gpu'.split()
 deviceIds_LIST = "0 1 2 3 4 5 6 7".split()
-grid_LIST = "dGrid bGrid_4_4_4".split()
+grid_LIST = "bGrid_4_4_4 bGridMgpu_4_4_4".split()
 domainSize_LIST = "64 80 96 112 128 144 160 176 192 208 224 240 256 272 288 304 320 336 352 368 384 400 416 432 448 464 480 496 512".split()
 computeFP_LIST = "double float".split()
 storageFP_LIST = "double float".split()
@@ -35,7 +35,7 @@ def getDeviceConfigurations(DEVICE_TYPE, deviceIds_LIST):
         return  [deviceIds_LIST[0]]
 
     if  goal_is_efficiency_max_num_devices:
-        return [deviceIds_LIST[0], deviceIds_LIST]
+        return [deviceIds_LIST[0], ' '.join(deviceIds_LIST)]
 
 
 def printProgressBar(value, label):

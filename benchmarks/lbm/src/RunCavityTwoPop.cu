@@ -3,11 +3,9 @@
 #include "D3Q19.h"
 #include "D3Q27.h"
 
-#include "Neon/domain/bGrid.h"
-#include "Neon/domain/dGrid.h"
+#include "Neon/domain/Grids.h"
 #include "Neon/domain/details/dGridDisg/dGrid.h"
 #include "Neon/domain/details/dGridSoA/dGridSoA.h"
-#include "Neon/domain/eGrid.h"
 
 #include "./Lbm.h"
 #include "CellType.h"
@@ -218,13 +216,25 @@ auto run(Config&            config,
     testCode << "___" << config.N << "_";
     testCode << "_numDevs_" << config.devices.size();
 
-    if (config.gridType == "dGrid") {
-        testCode << "_dGrid";
-        return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
+    //    if (config.gridType == "dGrid") {
+    //        testCode << "_dGrid";
+    //        return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
+    //    }
+    //    if (config.gridType == "dGridDisg") {
+    //        testCode << "_dGridDisg";
+    //        return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
+    //    }
+    if (config.gridType == "bGrid_4_4_4") {
+        testCode << "_bGrid_4_4_4";
+        using Block = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
+        using Grid = Neon::domain::details::bGrid::bGrid<Block>;
+        return details::runFilterStoreType<Grid>(config, report, testCode);
     }
-    if (config.gridType == "dGridDisg") {
-        testCode << "_dGridDisg";
-        return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
+    if (config.gridType == "bGridMgpu_4_4_4") {
+        testCode << "_bGridMgpu_4_4_4";
+        using Block = Neon::domain::details::bGridMgpu::StaticBlock<4, 4, 4>;
+        using Grid = Neon::domain::details::bGridMgpu::bGrid<Block>;
+        return details::runFilterStoreType<Neon::bGridMgpu>(config, report, testCode);
     }
     //    if (config.gridType == "eGrid") {
     //        if constexpr (!skipTest) {
