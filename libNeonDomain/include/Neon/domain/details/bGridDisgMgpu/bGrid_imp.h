@@ -39,7 +39,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
                                           SBlock::memBlockSizeZ);
 
     std::stringstream gridName;
-    gridName << "bGrid_" << SBlock::memBlockSizeX << "_"
+    gridName << "bGridMgpu_" << SBlock::memBlockSizeX << "_"
              << SBlock::memBlockSizeY << "_"
              << SBlock::memBlockSizeZ;
     {
