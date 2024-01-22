@@ -8,6 +8,7 @@
 #include "Neon/domain/details/dGridDisg/dGrid.h"
 #include "Neon/domain/details/dGridSoA/dGridSoA.h"
 #include "Neon/domain/eGrid.h"
+#include "Neon/domain/Grids.h"
 
 #include "./Lbm.h"
 #include "CellType.h"
@@ -225,6 +226,10 @@ auto run(Config&            config,
     if (config.gridType == "dGridDisg") {
         testCode << "_dGridDisg";
         return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
+    }
+    if (config.gridType == "bGridMgpu") {
+        testCode << "_bGridMgpu";
+        return details::runFilterStoreType<Neon::bGridMgpu>(config, report, testCode);
     }
     //    if (config.gridType == "eGrid") {
     //        if constexpr (!skipTest) {

@@ -125,6 +125,7 @@ auto Config::parseArgs(const int argc, char* argv[])
                      "     --lattice d3q19\\\n"
                      "     --vti 10";
 
+        std::cout << "./lbm --deviceType cpu --deviceIds  0 --grid dGrid --domain-size 100 --max-iter 2000  --computeFP  float --storageFP double --occ none --transferMode get --stencilSemantic standard --spaceCurve sweep --collision bgk --problem windTunnel --streamingMethod pull --lattice d3q19 --vti 10  " << std::endl;
         return -1;
     }
 
