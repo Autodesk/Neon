@@ -1,7 +1,7 @@
 #include "Neon/core/tools/clipp.h"
 
-#define BGK
-//#define KBC
+//#define BGK
+#define KBC
 
 #include "Neon/Neon.h"
 #include "Neon/Report.h"
@@ -31,6 +31,7 @@ struct Params
     int         sliceY = -1;
     int         sliceZ = 1;
     bool        vtk = false;
+    bool        binary = false;
     bool        gui = false;
     int         scale = 2;
     std::string dataType = "float";
@@ -65,6 +66,7 @@ int main(int argc, char** argv)
               (clipp::option("--visual").set(params.benchmark, false) % "Run export partial data")),
 
              clipp::option("--vtk").set(params.vtk, true) % "Output VTK files. Active only with if 'visual' is true",
+             clipp::option("--binary").set(params.binary, true) % "Output binary (down-sampled) files. Active only with if 'visual' is true",
              clipp::option("--gui").set(params.gui, true) % "Show Polyscope gui. Active only with if 'visual' is true",
 
              clipp::option("--freq") & clipp::integers("freq", params.freq) % "Output frequency (only works with visual mode)",

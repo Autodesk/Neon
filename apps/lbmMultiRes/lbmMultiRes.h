@@ -369,7 +369,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
             suffix << std::setw(precision) << std::setfill('0') << t;
             std::string fileName = "Velocity_" + suffix.str();
 
-            postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk && t != 0, psDrawable, psHex, psHexVert);
+            postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk && t != 0, params.binary && t != 0, psDrawable, psHex, psHexVert);
 #ifdef NEON_USE_POLYSCOPE
             postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, t == 0);
 #endif
@@ -486,7 +486,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("ENumVoxels", gridDim.rMul());
 
     //output
-    report.write("MultiResLBM_" + reportSuffix(), true);
+    //report.write("MultiResLBM_" + reportSuffix(), true);
 
     //post process
     if (!params.benchmark) {
@@ -494,12 +494,12 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
         std::ostringstream suffix;
         suffix << std::setw(precision) << std::setfill('0') << params.numIter;
         std::string fileName = "Velocity_" + suffix.str();
-        postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk, psDrawable, psHex, psHexVert);
+        postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, fileName, params.vtk, params.binary, psDrawable, psHex, psHexVert);
 #ifdef NEON_USE_POLYSCOPE
         postProcessPolyscope<T>(psDrawable, vel, psColor, fileName, params.gui, false);
 #endif
     } else if (verify) {
-        postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, "", false, psDrawable, psHex, psHexVert);
+        postProcess<T, Q>(grid, depth, fout, cellType, vel, rho, slice, "", false, false, psDrawable, psHex, psHexVert);
     }
 
     if (verify) {
@@ -509,61 +509,5 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
                                  params.Re,
                                  params.numIter,
                                  velocity.x);
-    }
-
-    if (!params.benchmark) {
-        NEON_INFO("Started Binary VTK");
-
-        //the level at which we will do the sampling
-        const int theLevel = depth - 1;
-
-        const Neon::index_4d grid4D(gridDim.x / (1 << theLevel), gridDim.y / (1 << theLevel), gridDim.z / (1 << theLevel), 3);
-        std::vector<float>   ioBuffer(grid4D.x * grid4D.y * grid4D.z * grid4D.w);
-        float*               ioBufferPtr = ioBuffer.data();
-
-        for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
-
-            grid.newContainer<Neon::Execution::host>("Viz", l, [=](Neon::set::Loader& loader) {
-                    auto& v = vel.load(loader, l, Neon::MultiResCompute::MAP);
-
-                    return [=](const typename Neon::domain::mGrid::Idx& cell) mutable {
-                        if (!v.hasChildren(cell)) {
-                            Neon::index_3d loc = v.getGlobalIndex(cell);
-
-                            if (loc.x % (1 << theLevel) != 0 || loc.y % (1 << theLevel) != 0 || loc.z % (1 << theLevel) != 0) {
-                                return;
-                            }
-
-                            loc.x /= (1 << theLevel);
-                            loc.y /= (1 << theLevel);
-                            loc.z /= (1 << theLevel);
-
-
-                            for (int c = 0; c < 3; ++c) {
-
-                                const float val = v(cell, c);
-
-
-                                Neon::index_4d loc4D(loc.x, loc.y, loc.z, c);
-                                ioBufferPtr[loc4D.mPitch(grid4D)] = val;
-                            }
-                        }
-                    };
-                })
-                .run(0);
-        }
-
-        {
-            Neon::index_3d            nodeDim(grid4D.x + 1, grid4D.y + 1, grid4D.z + 1);
-            Neon::IoToVTK<int, float> io("BinVelocity", nodeDim, {1, 1, 1}, {0, 0, 0}, Neon::IoFileType::BINARY);
-
-            io.addField([=](Neon::index_3d idx, int card) {
-                Neon::index_4d loc4D(idx.x, idx.y, idx.z, card);
-                return ioBufferPtr[loc4D.mPitch(grid4D)];
-            },
-                        3, "V", Neon::ioToVTKns::VtiDataType_e::voxel);
-        }
-
-        NEON_INFO("Finished Binary VTK");
     }
 }
