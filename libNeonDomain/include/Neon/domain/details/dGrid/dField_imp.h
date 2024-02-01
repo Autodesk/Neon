@@ -323,19 +323,7 @@ auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
                                 const int&            cardinality)
     -> Type&
 {
-    auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
-    auto& partition = mData->partitionTable.getPartition(Neon::Execution::host,
-                                                         partitionIdx,
-                                                         Neon::DataView::STANDARD);
-    auto& span = mData->grid->getSpan(Neon::Execution::host, partitionIdx, Neon::DataView::STANDARD);
-    Idx   idx;
-    bool  isOk = span.setAndValidate(idx, localIDx.x, localIDx.y, localIDx.z);
-    if (!isOk) {
-#pragma omp barrier
-        NEON_THROW_UNSUPPORTED_OPERATION("");
-    }
-    auto& result = partition(idx, cardinality);
-    return result;
+    NEON_THROW_UNSUPPORTED_OPERATION("");
 }
 
 template <typename T, int C>

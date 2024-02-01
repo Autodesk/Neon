@@ -15,18 +15,24 @@ namespace Neon::domain::details::dGrid {
  * single device.
  **/
 
-template <typename T, int C = 0>
-class dPartition
+template <int C>
+class dPartition<double, C>
 {
    public:
     using PartitionIndexSpace = dSpan;
     using Span = dSpan;
-    using Self = dPartition<T, C>;
+    using T = double;
+    using Self = dPartition<double, C>;
     using Idx = dIndex;
     using NghIdx = int8_3d;
     using NghData = Neon::domain::NghData<T>;
     using Type = T;
     using Pitch = Neon::size_4d;
+    union Layout
+    {
+        uint32_t components[2];
+        double   value;
+    };
 
    public:
     dPartition() = default;
@@ -45,7 +51,7 @@ class dPartition
                         Neon::index_3d fullGridSize,
                         NghIdx*        stencil = nullptr)
         : mDataView(dataView),
-          mMem(mem),
+          mMem((uint32_t*) mem),
           mDim(dim),
           mZHaloRadius(zHaloRadius),
           mZBoundaryRadius(zBoundaryRadius),
@@ -57,6 +63,7 @@ class dPartition
           mPeriodicZ(false),
           mStencil(stencil)
     {
+
     }
 
     inline NEON_CUDA_HOST_ONLY auto
@@ -90,12 +97,14 @@ class dPartition
     inline NEON_CUDA_HOST_DEVICE auto
     getPitch(const Idx& idx,
              int        cardinalityIdx = 0)
-        const -> int64_t
+        const -> std::tuple<int64_t, int64_t>
     {
-        return idx.getLocation().x * int64_t(mPitch.x) +
-               idx.getLocation().y * int64_t(mPitch.y) +
-               idx.getLocation().z * int64_t(mPitch.z) +
-               cardinalityIdx * int64_t(mPitch.w);
+        int64_t c0 = idx.getLocation().x * int64_t(mPitch.x) +
+                     idx.getLocation().y * int64_t(mPitch.y) +
+                     2 * idx.getLocation().z * int64_t(mPitch.z) +
+                     cardinalityIdx * int64_t(mPitch.w);
+        int64_t c1 = c0 + int64_t(mPitch.z);
+        return std::make_tuple(c0, c1);
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
@@ -320,7 +329,7 @@ class dPartition
     mem()
         -> T*
     {
-        return mMem;
+        return (T*)mMem;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -328,7 +337,7 @@ class dPartition
         const
         -> const T*
     {
-        return mMem;
+        return (const T*)mMem;
     }
 
     NEON_CUDA_HOST_DEVICE inline auto
@@ -341,58 +350,16 @@ class dPartition
 
     NEON_CUDA_HOST_DEVICE inline auto
     operator()(const Idx& cell,
-               int        cardinalityIdx) -> T&
-    {
-        int64_t p = getPitch(cell, cardinalityIdx);
-        return mMem[p];
-    }
-
-    NEON_CUDA_HOST_DEVICE inline auto
-    operator()(const Idx& cell,
                int        cardinalityIdx) const -> const T&
     {
-        int64_t p = getPitch(cell, cardinalityIdx);
-        return mMem[p];
+        Layout  res;
+        auto [c0,c1] = getPitch(cell, cardinalityIdx);
+        res.components[0] = mMem[c0];
+        res.components[1] = mMem[c1];
+
+        return res.value;
     }
 
-    template <typename ComputeType>
-    NEON_CUDA_HOST_DEVICE inline auto
-    castRead(const Idx& cell,
-             int        cardinalityIdx)
-        const -> ComputeType
-    {
-        Type value = this->operator()(cell, cardinalityIdx);
-        if constexpr (std::is_same_v<__half, Type>) {
-
-            if constexpr (std::is_same_v<float, ComputeType>) {
-                return __half2float(value);
-            }
-            if constexpr (std::is_same_v<double, ComputeType>) {
-                return static_cast<double>(__half2double(value));
-            }
-        } else {
-            return static_cast<ComputeType>(value);
-        }
-    }
-
-    template <typename ComputeType>
-    NEON_CUDA_HOST_DEVICE inline auto
-    castWrite(const Idx&         cell,
-              int                cardinalityIdx,
-              const ComputeType& value)
-        -> void
-    {
-        if constexpr (std::is_same_v<__half, Type>) {
-            if constexpr (std::is_same_v<float, ComputeType>) {
-                this->operator()(cell, cardinalityIdx) = __float2half(value);
-            }
-            if constexpr (std::is_same_v<double, ComputeType>) {
-                this->operator()(cell, cardinalityIdx) = __double2half(value);
-            }
-        } else {
-            this->operator()(cell, cardinalityIdx) = static_cast<Type>(value);
-        }
-    }
 
     NEON_CUDA_HOST_DEVICE inline auto
     getGlobalIndex(const Idx& local) const -> Neon::index_3d
@@ -463,21 +430,20 @@ class dPartition
     }
 
    private:
-    Neon::DataView        mDataView;
-    T* NEON_RESTRICT      mMem;
-    Neon::index_3d        mDim;
-    int                   mZHaloRadius;
-    int                   mZBoundaryRadius;
-    Pitch                 mPitch;
-    int                   mPrtID;
-    Neon::index_3d        mOrigin;
-    int                   mCardinality;
-    Neon::index_3d        mFullGridSize;
-    bool                  mPeriodicZ;
-    NghIdx* NEON_RESTRICT mStencil;
+
+    Neon::DataView          mDataView;
+    uint32_t* NEON_RESTRICT mMem;
+    Neon::index_3d          mDim;
+    int                     mZHaloRadius;
+    int                     mZBoundaryRadius;
+    Pitch                   mPitch;
+    int                     mPrtID;
+    Neon::index_3d          mOrigin;
+    int                     mCardinality;
+    Neon::index_3d          mFullGridSize;
+    bool                    mPeriodicZ;
+    NghIdx* NEON_RESTRICT   mStencil;
 };
 
 
 }  // namespace Neon::domain::details::dGrid
-
-#include "./dPartitionDouble.h"
