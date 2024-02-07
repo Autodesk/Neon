@@ -3,11 +3,9 @@
 #include "D3Q19.h"
 #include "D3Q27.h"
 
-#include "Neon/domain/bGrid.h"
-#include "Neon/domain/dGrid.h"
+#include "Neon/domain/Grids.h"
 #include "Neon/domain/details/dGridDisg/dGrid.h"
 #include "Neon/domain/details/dGridSoA/dGridSoA.h"
-#include "Neon/domain/eGrid.h"
 
 #include "./Lbm.h"
 #include "CellType.h"
@@ -135,18 +133,18 @@ auto runFilterCollision(Config&            config,
         testCode << "_bgk";
         return runFilterMethod<Collision::bgk, Lattice, Grid, Storage, Compute>(config, report, testCode);
     }
-    //    if (config.collisionCli.getOption() == Collision::kbc) {
-    //        if (config.lattice != "d3q27" && config.lattice != "D3Q27") {
-    //            Neon::NeonException e("runFilterCollision");
-    //            e << "LBM kbc collision model only supports d3q27 lattice";
-    //            NEON_THROW(e);
-    //        }
-    //        testCode << "_kbc";
-    //        using L = D3Q27<Precision<Storage, Compute>>;
-    //        if constexpr (std::is_same_v<Lattice, L>) {
-    //            return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, Compute>(config, report, testCode);
-    //        }
-    //    }
+    if (config.collisionCli.getOption() == Collision::kbc) {
+        if (config.lattice != "d3q27" && config.lattice != "D3Q27") {
+            Neon::NeonException e("runFilterCollision");
+            e << "LBM kbc collision model only supports d3q27 lattice";
+            NEON_THROW(e);
+        }
+        testCode << "_kbc";
+        using L = D3Q27<Precision<Storage, Compute>>;
+        if constexpr (std::is_same_v<Lattice, L>) {
+            return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, Compute>(config, report, testCode);
+        }
+    }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
@@ -218,13 +216,25 @@ auto run(Config&            config,
     testCode << "___" << config.N << "_";
     testCode << "_numDevs_" << config.devices.size();
 
-    if (config.gridType == "dGrid") {
-        testCode << "_dGrid";
-        return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
+    //    if (config.gridType == "dGrid") {
+    //        testCode << "_dGrid";
+    //        return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
+    //    }
+    //    if (config.gridType == "dGridDisg") {
+    //        testCode << "_dGridDisg";
+    //        return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
+    //    }
+    if (config.gridType == "bGrid_4_4_4") {
+        testCode << "_bGrid_4_4_4";
+        using Block = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
+        using Grid = Neon::domain::details::bGrid::bGrid<Block>;
+        return details::runFilterStoreType<Grid>(config, report, testCode);
     }
-    if (config.gridType == "dGridDisg") {
-        testCode << "_dGridDisg";
-        return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
+    if (config.gridType == "bGridMgpu_4_4_4") {
+        testCode << "_bGridMgpu_4_4_4";
+        using Block = Neon::domain::details::bGridMgpu::StaticBlock<4, 4, 4>;
+        using Grid = Neon::domain::details::bGridMgpu::bGrid<Block>;
+        return details::runFilterStoreType<Neon::bGridMgpu>(config, report, testCode);
     }
     //    if (config.gridType == "eGrid") {
     //        if constexpr (!skipTest) {

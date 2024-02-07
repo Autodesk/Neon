@@ -49,6 +49,15 @@ TEST(domain_neighbour_globalIdx, dGridDisg)
                             1);
 }
 
+TEST(domain_neighbour_globalIdx, bGridMgpu)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(globalIdx::run<Neon::bGridMgpu, Type, 0>),
+                            nGpus,
+                            1);
+}
+
 ///////////////////////////////////////////
 
 TEST(domain_neighbour_globalIdx, dGrid_template)
@@ -86,6 +95,17 @@ TEST(domain_neighbour_globalIdx, dGridSoA_template)
                             nGpus,
                             1);
 }
+
+TEST(domain_neighbour_globalIdx,bGridMgpu_template)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(globalIdx::runTemplate<Neon::bGridMgpu, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+
 
 int main(int argc, char** argv)
 {

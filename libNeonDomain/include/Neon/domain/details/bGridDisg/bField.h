@@ -109,9 +109,7 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
         BlockViewField<T, 0>  memoryField;
         int                   cardinality;
 
-        //        Neon::domain::tool::HaloTable1DPartitioning   latticeHaloUpdateTable;
-        Neon::domain::tool::HaloTable1DPartitioning soaHaloUpdateTable;
-        //        Neon::domain::tool::HaloTable1DPartitioning   aosHaloUpdateTable;
+        Neon::domain::tool::HaloTable1DPartitioning   mStandardHaloUpdateTable;
         Neon::domain::tool::PartitionTable<Partition> partitionTable;
     };
     std::shared_ptr<Data> mData;

@@ -42,7 +42,7 @@ TEST(domain_map, bGrid)
 
 TEST(domain_map, dGridDisg)
 {
-    int nGpus = 1;
+    int nGpus = 3;
     using Type = int64_t;
     runAllTestConfiguration(std::function(map::run<Neon::domain::details::disaggregated::dGrid::dGrid, Type, 0>),
                             nGpus,
@@ -54,6 +54,16 @@ TEST(domain_map, dGridSoA)
     int nGpus = 1;
     using Type = int64_t;
     runAllTestConfiguration(std::function(map::run<Neon::domain::details::dGridSoA::dGridSoA, Type, 0>),
+                            nGpus,
+                            1);
+}
+
+TEST(domain_map, bGridMgpu)
+{
+    int nGpus = 3;
+    using Type = int64_t;
+    // extern template auto run<Neon::bGridMgpu, int64_t, 0>(TestData<Neon::bGridMgpu, int64_t, 0>&) -> void;
+    runAllTestConfiguration(std::function(map::run<Neon::bGridMgpu, Type, 0>),
                             nGpus,
                             1);
 }

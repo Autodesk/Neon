@@ -94,6 +94,15 @@ TEST(domain_stencil, dGridDisg_Template)
                             1);
 }
 
+TEST(domain_stencil, bGridDisgMgpu_Template)
+{
+    int nGpus = 5;
+    using Type = int64_t;
+    runAllTestConfiguration(std::function(map::runTemplate<Neon::bGridMgpu , Type, 0>),
+                            nGpus,
+                            1);
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

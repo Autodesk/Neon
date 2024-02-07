@@ -75,7 +75,7 @@ eField<T, C>::eField(const std::string&         fieldUserName,
     }
 #if 0
     {  // Setting Reduction information
-        mData->partitionTable.forEachConfigurationWithUserData(
+        mData->mPartitionTable.forEachConfigurationWithUserData(
             [&](Neon::Execution,
                 Neon::SetIdx   setIdx,
                 Neon::DataView dw,
@@ -322,7 +322,7 @@ auto eField<T, C>::helpHaloUpdate(SetIdx                     setIdx,
 
                     T* src = [&]() {
                         auto  southDevice = setId;
-                        auto& partition = mData->partitionTable.getPartition(execution,
+                        auto& partition = mData->mPartitionTable.getPartition(execution,
                                                                             southDevice,
                                                                             Neon::DataView::STANDARD);
                         dIndex firstBoundaryNorthCell(0, 0, partition.dim.z - mData->zHaloDim);
@@ -332,7 +332,7 @@ auto eField<T, C>::helpHaloUpdate(SetIdx                     setIdx,
 
                     T* dst = [&]() {
                         auto  northDevice = setId + 1;
-                        auto& partition = mData->partitionTable.getPartition(execution,
+                        auto& partition = mData->mPartitionTable.getPartition(execution,
                                                                             northDevice,
                                                                             Neon::DataView::STANDARD);
                         dIndex firstBoundarySouthCell(0, 0, 0);
@@ -355,7 +355,7 @@ auto eField<T, C>::helpHaloUpdate(SetIdx                     setIdx,
                 const size_t transferBytes = sizeof(T) * mData->zHaloDim * mData->pitch[setId].z;
 
                 if (setId != setCardinality - 1) {  // Addressing all partitions that needs to send data north
-                    auto& partition = mData->partitionTable.getPartition(Neon::Execution::device,
+                    auto& partition = mData->mPartitionTable.getPartition(Neon::Execution::device,
                                                                         setId,
                                                                         Neon::DataView::STANDARD);
 

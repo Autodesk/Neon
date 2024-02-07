@@ -19,6 +19,7 @@ extern template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t,
 extern template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
 extern template auto run<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>(TestData<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>&) -> void;
 extern template auto run<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>&) -> void;
+extern template auto run<Neon::bGridMgpu, int64_t, 0>(TestData<Neon::bGridMgpu, int64_t, 0>&) -> void;
 
 namespace dataView {
 
@@ -30,6 +31,7 @@ extern template auto run<Neon::eGrid, int64_t, 0>(TestData<Neon::eGrid, int64_t,
 extern template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
 extern template auto run<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>(TestData<Neon::domain::details::dGridSoA::dGridSoA, int64_t, 0>&) -> void;
 extern template auto run<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>(TestData<Neon::domain::details::disaggregated::dGrid::dGrid, int64_t, 0>&) -> void;
+extern template auto run<Neon::bGridMgpu, int64_t, 0>(TestData<Neon::bGridMgpu, int64_t, 0>&) -> void;
 
 }  // namespace dataView
 

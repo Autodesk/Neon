@@ -139,6 +139,7 @@ class bPartition
     getDomainSize()
         const -> Neon::index_3d;
 
+    NEON_CUDA_HOST_DEVICE
     auto mem() const -> T const *;
 
     /**
