@@ -77,11 +77,11 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
                 [&](Neon::index_3d idx) {
                     return activeCellLambda(idx) != details::cGrid::ClassSelector::outside;
                 },
-//                [&](Neon::index_3d idx) {
-//                    return (activeCellLambda(idx) == details::cGrid::ClassSelector::beta)
-//                               ? Neon::domain::tool::partitioning::ByDomain::bc
-//                               : Neon::domain::tool::partitioning::ByDomain::bulk;
-//                },
+                //                [&](Neon::index_3d idx) {
+                //                    return (activeCellLambda(idx) == details::cGrid::ClassSelector::beta)
+                //                               ? Neon::domain::tool::partitioning::ByDomain::bc
+                //                               : Neon::domain::tool::partitioning::ByDomain::bulk;
+                //                },
                 nullptr,
                 SBlock::memBlockSize3D.template newType<int32_t>(),
                 domainSize,
@@ -278,6 +278,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
         });
     }
 
+    this->init_mask_field<activeCellLambda>();
     mData->alphaGrid = details::cGrid::cGrid<SBlock, int(details::cGrid::ClassSelector::alpha)>(*this);
     mData->betaGrid = details::cGrid::cGrid<SBlock, int(details::cGrid::ClassSelector::beta)>(*this);
 }
@@ -333,11 +334,11 @@ auto bGrid<SBlock>::newContainer(const std::string& name,
 {
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory<execution>(name,
-                                                                               Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                               *this,
-                                                                               lambda,
-                                                                               defaultBlockSize,
-                                                                               [](const Neon::index_3d&) { return 0; });
+                                                                                Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                                *this,
+                                                                                lambda,
+                                                                                defaultBlockSize,
+                                                                                [](const Neon::index_3d&) { return 0; });
     return kContainer;
 }
 
@@ -535,4 +536,37 @@ auto bGrid<SBlock>::helpGetPartitioner1D() -> Neon::domain::tool::Partitioner1D&
     return mData->partitioner1D;
 }
 
-}  // namespace Neon::domain::details::disaggregated::bGrid
+template <typename SBlock>
+template <typename ActiveCellLambda>
+auto bGrid<SBlock>::init_mask_field(ActiveCellLambda activeCellLambda) -> void
+{
+    using returTypeOfLambda = typename std::invoke_result<ActiveCellLambda, Neon::index_3d>::type;
+    if constexpr (std::is_same_v<returTypeOfLambda, details::cGrid::ClassSelector>) {
+
+
+        auto maskField = this->newField<uint8_t, 1>("maskField", 1, 0, Neon::DataUse::HOST_DEVICE);
+        maskField.getGrid().template newContainer<Neon::Execution::host>(
+                               "maskFieldInit",
+                               [&](Neon::set::Loader& loader) {
+                                   auto maskFieldPartition = loader.load(maskField);
+                                   return [&, maskFieldPartition](const auto& gIdx) mutable {
+                                       details::cGrid::ClassSelector voxelClass = activeCellLambda(gIdx);
+                                       maskFieldPartition(gIdx, 0) = static_cast<uint8_t>(voxelClass);
+                                   };
+                               })
+            .run(Neon::Backend::mainStreamIdx);
+        this->getBackend().sync(Neon::Backend::mainStreamIdx);
+        maskField.updateDeviceData(Neon::Backend::mainStreamIdx);
+        this->getBackend().sync(Neon::Backend::mainStreamIdx);
+        this->mData->maskClassField = maskField;
+        return;
+    }
+}
+
+template <typename SBlock>
+auto bGrid<SBlock>::helpGetClassField() -> Field<uint8_t, 1>&
+{
+    return mData->maskClassField;
+}
+
+}  // namespace Neon::domain::details::disaggregated::bGridMask

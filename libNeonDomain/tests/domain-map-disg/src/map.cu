@@ -138,7 +138,7 @@ auto run(TestData<G, T, C>& data) -> void
             if (!isInside) {
                 return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::outside;
             }
-            if (idx.rSum() % 2 == 0) {
+            if (idx.x == 0 || idx.y == 0 || idx.z == 0 || idx.x == grid.getDimension().x - 1 || idx.y == grid.getDimension().y - 1 || idx.z == grid.getDimension().z - 1) {
                 return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::beta;
             }
             return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::alpha;
@@ -151,6 +151,7 @@ auto run(TestData<G, T, C>& data) -> void
 
 
     grid = tmp;
+    grid.helpGetClassField().template ioToVtk<int>("classField", "classField");
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
     data.resetValuesToLinear(1, 100);
 

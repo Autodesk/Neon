@@ -52,9 +52,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     using BlockIdx = uint32_t;
 
     using AlphaGrid = typename Neon::domain::details::disaggregated::bGridMask::details::cGrid::cGrid<SBlock,
-                                                                                                  Neon::domain::details::disaggregated::bGridMask::details::cGrid::ClassSelector::alpha>;
+                                                                                                      Neon::domain::details::disaggregated::bGridMask::details::cGrid::ClassSelector::alpha>;
     using BetaGrid = typename Neon::domain::details::disaggregated::bGridMask::details::cGrid::cGrid<SBlock,
-                                                                                                 Neon::domain::details::disaggregated::bGridMask::details::cGrid::ClassSelector::beta>;
+                                                                                                     Neon::domain::details::disaggregated::bGridMask::details::cGrid::ClassSelector::beta>;
 
     bGrid() = default;
     virtual ~bGrid();
@@ -223,6 +223,11 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
      */
     auto helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon::SetIdx, Idx>;
 
+    template <typename ActiveCellLambda>
+    auto init_mask_field(ActiveCellLambda activeCellLambda) -> void;
+    auto helpGetClassField() -> Field<uint8_t, 1>&;
+
+
     struct Data
     {
         auto init(const Neon::Backend& bk)
@@ -256,13 +261,14 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
         // Stencil neighbor indices
         Neon::set::MemSet<NghIdx> mStencilNghIndex;
 
-        AlphaGrid alphaGrid;
-        BetaGrid  betaGrid;
+        AlphaGrid         alphaGrid;
+        BetaGrid          betaGrid;
+        Field<uint8_t, 1> maskClassField;
     };
     std::shared_ptr<Data> mData;
 };
 extern template class bGrid<StaticBlock<4, 4, 4>>;
-}  // namespace Neon::domain::details::disaggregated::bGrid
+}  // namespace Neon::domain::details::disaggregated::bGridMask
 
 #include "bField_imp.h"
 #include "bGrid_imp.h"

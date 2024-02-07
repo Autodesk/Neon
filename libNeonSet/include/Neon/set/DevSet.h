@@ -401,10 +401,18 @@ class DevSet
                     executor = (void*)Neon::set::details::blockSpan::launchLambdaOnSpanCUDAWithCompilerHints<CudaLaunchCompilerTimeHints, DataSetContainer, Lambda>;
                 }
             }
-            dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[setIdx.idx()],
-                                                                      launchInfoSet[setIdx.idx()],
-                                                                      executor,
-                                                                      untypedParams);
+            auto launchInfo = launchInfoSet[setIdx.idx()];
+            auto cudaGrid = launchInfo.cudaGrid();
+            if (cudaGrid.x * cudaGrid.y * cudaGrid.z != 0) {
+
+                dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[setIdx.idx()],
+                                                                          launchInfo,
+                                                                          executor,
+                                                                          untypedParams);
+            } else {
+                NEON_WARNING("Cuda grid with zero number of element was detected. The kernel will be skipped.");
+                ;
+            }
         }
 #else
         NeonException exp("DevSet");
@@ -447,10 +455,18 @@ class DevSet
             } else {
                 executor = (void*)Neon::set::details::blockSpan::launchLambdaOnSpanCUDA<DataSetContainer, Lambda>;
             }
-            dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[setIdx.idx()],
-                                                                      launchInfoSet[setIdx.idx()],
-                                                                      executor,
-                                                                      untypedParams);
+            auto launchInfo = launchInfoSet[setIdx.idx()];
+            auto cudaGrid = launchInfo.cudaGrid();
+            if (cudaGrid.x * cudaGrid.y * cudaGrid.z != 0) {
+
+                dev.kernel.template cudaLaunchKernel<Neon::run_et::async>(gpuStreamSet[setIdx.idx()],
+                                                                          launchInfo,
+                                                                          executor,
+                                                                          untypedParams);
+            } else {
+                NEON_WARNING("Cuda grid with zero number of element was detected. The kernel will be skipped.");
+                ;
+            }
         }
         if (kernelConfig.runMode() == Neon::run_et::sync) {
             gpuStreamSet.sync();
@@ -502,9 +518,14 @@ class DevSet
                     const Neon::Integer_3d<IndexType> blockSize(cudaBlock.x, cudaBlock.y, cudaBlock.z);
                     const Neon::Integer_3d<IndexType> gridSize(cudaGrid.x, cudaGrid.y, cudaGrid.z);
 
-                    Neon::set::details::blockSpan::launchLambdaOnSpanOMP<IndexType,
-                                                                         DataSetContainer,
-                                                                         Lambda>(blockSize, gridSize, iterator, lambda);
+                    if (cudaGrid.x * cudaGrid.y * cudaGrid.z != 0) {
+
+                        Neon::set::details::blockSpan::launchLambdaOnSpanOMP<IndexType,
+                                                                             DataSetContainer,
+                                                                             Lambda>(blockSize, gridSize, iterator, lambda);
+                    } else {
+                        NEON_WARNING("Omp grid with zero number of element was detected. The kernel will be skipped.");
+                    }
                 }
             }
         }
@@ -543,10 +564,14 @@ class DevSet
             auto const&                       cudaGrid = launchInfoSet[setIdx].cudaGrid();
             const Neon::Integer_3d<IndexType> blockSize(cudaBlock.x, cudaBlock.y, cudaBlock.z);
             const Neon::Integer_3d<IndexType> gridSize(cudaGrid.x, cudaGrid.y, cudaGrid.z);
+            if (cudaGrid.x * cudaGrid.y * cudaGrid.z != 0) {
 
             Neon::set::details::blockSpan::launchLambdaOnSpanOMP<IndexType,
                                                                  DataSetContainer,
                                                                  Lambda>(blockSize, gridSize, iterator, lambda);
+            } else {
+                NEON_WARNING("Omp grid with zero number of element was detected. The kernel will be skipped.");
+            }
         }
         return;
     }

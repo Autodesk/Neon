@@ -223,6 +223,10 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
      */
     auto helpGetSetIdxAndGridIdx(Neon::index_3d idx) const -> std::tuple<Neon::SetIdx, Idx>;
 
+    template <typename ActiveCellLambda>
+    auto init_mask_field(ActiveCellLambda activeCellLambda) -> void;
+    auto helpGetClassField() -> Field<uint8_t, 1>&;
+
     struct Data
     {
         auto init(const Neon::Backend& bk)
@@ -258,6 +262,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
 
         AlphaGrid alphaGrid;
         BetaGrid  betaGrid;
+
+        Field<uint8_t, 1> maskClassField;
+
     };
     std::shared_ptr<Data> mData;
 };

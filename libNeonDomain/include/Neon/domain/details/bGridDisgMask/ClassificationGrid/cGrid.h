@@ -58,83 +58,10 @@ struct GridTransformation_cGrid
                                            Neon::DataView  dataViewOfTheTableEntry,
                                            Span& NEON_OUT  span) {
             typename FoundationGrid::Span const& foundationSpan = foundationGrid.getSpan(execution, setIdx, dataViewOfTheTableEntry);
-            span = foundationSpan;
-            //            Neon::domain::tool::Partitioner1D const& foundationPartitioner1D = foundationGrid.helpGetPartitioner1D();
-            //            auto const&                              spanLayout = foundationPartitioner1D.getSpanLayout();
-            //            typename Idx::DataBlockCount             iCountVirtualSingleClass;
-            //            typename Idx::DataBlockCount             iAndIupCountVirtualSingleClass;
-            //            typename Idx::DataBlockCount             internalClassFirstMemoryOffset;
-            //            typename Idx::DataBlockCount             bUpClassFirstMemoryOffset;
-            //            typename Idx::DataBlockCount             bDwClassFirstMemoryOffset;
-            //
-            //            bool skipInternal = dataViewOfTheTableEntry == Neon::DataView::BOUNDARY;
-            //
-            //            if constexpr (classSelector == ClassSelector::alpha) {
-            //                auto const iCountVirtualAlpha = skipInternal ? 0 : spanLayout.getBoundsInternal(setIdx, Neon::domain::tool::partitioning::ByDomain::bulk).count;
-            //                auto const iAndIupCountVirtualAlpha = iCountVirtualAlpha +
-            //                                                      spanLayout.getBoundsBoundary(setIdx,
-            //                                                                                   Neon::domain::tool::partitioning::ByDirection::up,
-            //                                                                                   Neon::domain::tool::partitioning::ByDomain::bulk)
-            //                                                          .count;
-            //
-            //                iCountVirtualSingleClass = iCountVirtualAlpha;
-            //                iAndIupCountVirtualSingleClass = iAndIupCountVirtualAlpha;
-            //
-            //                internalClassFirstMemoryOffset = 0;
-            //                bUpClassFirstMemoryOffset = spanLayout.getBoundsInternal(setIdx,
-            //                                                                         Neon::domain::tool::partitioning::ByDomain::bc)
-            //                                                .count;
-            //                bDwClassFirstMemoryOffset = bUpClassFirstMemoryOffset +
-            //                                            spanLayout.getBoundsBoundary(setIdx,
-            //                                                                         Neon::domain::tool::partitioning::ByDirection::up,
-            //                                                                         Neon::domain::tool::partitioning::ByDomain::bc)
-            //                                                .count;
-            //
-            //                span.init(foundationSpan,
-            //                          iCountVirtualSingleClass,
-            //                          iAndIupCountVirtualSingleClass,
-            //                          internalClassFirstMemoryOffset,
-            //                          bUpClassFirstMemoryOffset,
-            //                          bDwClassFirstMemoryOffset,
-            //                          dataViewOfTheTableEntry);
-            //            }
-            //            else {
-            //                auto const iCountVirtualBeta = skipInternal
-            //                                                   ? 0
-            //                                                   : spanLayout.getBoundsInternal(setIdx, Neon::domain::tool::partitioning::ByDomain::bc).count;
-            //
-            //                auto const iAndIupCountVirtualBeta = iCountVirtualBeta +
-            //                                                     spanLayout.getBoundsBoundary(setIdx,
-            //                                                                                  Neon::domain::tool::partitioning::ByDirection::up,
-            //                                                                                  Neon::domain::tool::partitioning::ByDomain::bc)
-            //                                                         .count;
-            //
-            //                iCountVirtualSingleClass = iCountVirtualBeta;
-            //                iAndIupCountVirtualSingleClass = iAndIupCountVirtualBeta;
-            //
-            //                internalClassFirstMemoryOffset = spanLayout.getBoundsInternal(setIdx,
-            //                                                                              Neon::domain::tool::partitioning::ByDomain::bulk)
-            //                                                     .count;
-            //
-            //                bUpClassFirstMemoryOffset = internalClassFirstMemoryOffset +
-            //                                            spanLayout.getBoundsBoundary(setIdx,
-            //                                                                         Neon::domain::tool::partitioning::ByDirection::up,
-            //                                                                         Neon::domain::tool::partitioning::ByDomain::bulk)
-            //                                                .count;
-            //                bDwClassFirstMemoryOffset = bUpClassFirstMemoryOffset +
-            //                                            spanLayout.getBoundsBoundary(setIdx,
-            //                                                                         Neon::domain::tool::partitioning::ByDirection::down,
-            //                                                                         Neon::domain::tool::partitioning::ByDomain::bulk)
-            //                                                .count;
-            //
-            //                span.init(foundationSpan,
-            //                          iCountVirtualSingleClass,
-            //                          iAndIupCountVirtualSingleClass,
-            //                          internalClassFirstMemoryOffset,
-            //                          bUpClassFirstMemoryOffset,
-            //                          bDwClassFirstMemoryOffset,
-            //                          dataViewOfTheTableEntry);
-            //            }
+            span = cSpan<SBlock, classSelector>(foundationSpan.mFirstDataBlockOffset,
+                                                foundationSpan.mActiveMask,
+                                                foundationSpan.mDataView,
+                                                foundationGrid.helpGetClassField().getPartition(execution, setIdx, dataViewOfTheTableEntry));
         });
     }
 
