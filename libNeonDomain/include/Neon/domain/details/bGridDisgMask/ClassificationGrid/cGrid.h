@@ -24,7 +24,6 @@
 #include "Neon/domain/tools/SpanTable.h"
 
 #include "../bGrid.h"
-#include "./ClassSelector.h"
 #include "./cSpan.h"
 
 namespace Neon::domain::details::disaggregated::bGridMask {
@@ -61,7 +60,7 @@ struct GridTransformation_cGrid
             span = cSpan<SBlock, classSelector>(foundationSpan.mFirstDataBlockOffset,
                                                 foundationSpan.mActiveMask,
                                                 foundationSpan.mDataView,
-                                                foundationGrid.helpGetClassField().getPartition(execution, setIdx, dataViewOfTheTableEntry));
+                                                foundationGrid.helpGetClassField().getPartition(execution, setIdx, dataViewOfTheTableEntry).mem());
         });
     }
 
@@ -71,46 +70,6 @@ struct GridTransformation_cGrid
                                      const size_t&         shareMem) -> Neon::set::LaunchParameters
     {
         Neon::set::LaunchParameters launchParameters = foundationGrid.getLaunchParameters(dataView, blockSize, shareMem);
-
-        launchParameters.forEachSeq([&](Neon::SetIdx setIdx, Neon::sys::GpuLaunchInfo& launchParameter) {
-            Neon::domain::tool::Partitioner1D const& foundationPartitioner1D = foundationGrid.helpGetPartitioner1D();
-            auto const&                              spanLayout = foundationPartitioner1D.getSpanLayout();
-            int                                      nBlocks;
-
-            Neon::domain::tool::partitioning::ByDomain byDomain = classSelector == cGrid::ClassSelector::alpha
-                                                                      ? Neon::domain::tool::partitioning::ByDomain::bulk
-                                                                      : Neon::domain::tool::partitioning::ByDomain::bc;
-
-            int countInternal = spanLayout.getBoundsInternal(setIdx, byDomain).count;
-            int countBcUp = spanLayout.getBoundsBoundary(setIdx,
-                                                         Neon::domain::tool::partitioning::ByDirection::up,
-                                                         byDomain)
-                                .count;
-            int countBcDw = spanLayout.getBoundsBoundary(setIdx,
-                                                         Neon::domain::tool::partitioning::ByDirection::down,
-                                                         byDomain)
-                                .count;
-
-            switch (dataView) {
-                case Neon::DataView::INTERNAL:
-                    nBlocks = countInternal;
-                    break;
-                case Neon::DataView::BOUNDARY:
-                    nBlocks = countBcUp + countBcDw;
-                    break;
-                case Neon::DataView::STANDARD:
-                    nBlocks = countInternal +
-                              countBcUp +
-                              countBcDw;
-                    break;
-                default:
-                    throw Neon::NeonException("Unknown data view");
-            }
-
-            launchParameter.set(Neon::sys::GpuLaunchInfo::mode_e::cudaGridMode,
-                                nBlocks,
-                                SBlock::memBlockSize3D.template newType<int32_t>(), shareMem);
-        });
         return launchParameters;
     }
 

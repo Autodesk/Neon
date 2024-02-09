@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Neon::domain::details::disaggregated::bGrid::details::cGrid {
+namespace Neon {
 enum ClassSelector
 {
     alpha = 1,

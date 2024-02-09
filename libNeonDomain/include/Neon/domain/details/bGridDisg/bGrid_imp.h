@@ -71,14 +71,14 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
                 Neon::domain::Stencil::s27_t(false),
                 encoderType,
                 multiResDiscreteIdxSpacing);
-        } else if constexpr (std::is_same_v<returTypeOfLambda, details::cGrid::ClassSelector>) {
+        } else if constexpr (std::is_same_v<returTypeOfLambda, Neon::ClassSelector>) {
             mData->partitioner1D = Neon::domain::tool::Partitioner1D(
                 backend,
                 [&](Neon::index_3d idx) {
-                    return activeCellLambda(idx) != details::cGrid::ClassSelector::outside;
+                    return activeCellLambda(idx) != Neon::outside;
                 },
                 [&](Neon::index_3d idx) {
-                    return (activeCellLambda(idx) == details::cGrid::ClassSelector::beta)
+                    return (activeCellLambda(idx) == Neon::beta)
                                ? Neon::domain::tool::partitioning::ByDomain::bc
                                : Neon::domain::tool::partitioning::ByDomain::bulk;
                 },
@@ -277,8 +277,8 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
         });
     }
 
-    mData->alphaGrid = details::cGrid::cGrid<SBlock, int(details::cGrid::ClassSelector::alpha)>(*this);
-    mData->betaGrid = details::cGrid::cGrid<SBlock, int(details::cGrid::ClassSelector::beta)>(*this);
+    mData->alphaGrid = details::cGrid::cGrid<SBlock, int(Neon::alpha)>(*this);
+    mData->betaGrid = details::cGrid::cGrid<SBlock, int(Neon::beta)>(*this);
     init_mask_field(activeCellLambda);
 }
 
@@ -540,7 +540,7 @@ template <typename ActiveCellLambda>
 auto bGrid<SBlock>::init_mask_field([[maybe_unused]] ActiveCellLambda activeCellLambda) -> void
 {
     using returTypeOfLambda = typename std::invoke_result<ActiveCellLambda, Neon::index_3d>::type;
-    if constexpr (std::is_same_v<returTypeOfLambda, details::cGrid::ClassSelector>) {
+    if constexpr (std::is_same_v<returTypeOfLambda, Neon::ClassSelector>) {
 
 
         auto maskField = this->newField<uint8_t, 1>("maskField", 1, 0, Neon::DataUse::HOST_DEVICE);
@@ -550,7 +550,7 @@ auto bGrid<SBlock>::init_mask_field([[maybe_unused]] ActiveCellLambda activeCell
                                    auto maskFieldPartition = loader.load(maskField);
                                    return [activeCellLambda, maskFieldPartition]  (const auto& gIdx) mutable {
                                        auto globalPosition = maskFieldPartition.getGlobalIndex(gIdx);
-                                       details::cGrid::ClassSelector voxelClass = activeCellLambda(globalPosition);
+                                       Neon::ClassSelector voxelClass = activeCellLambda(globalPosition);
                                        maskFieldPartition(gIdx, 0) = static_cast<uint8_t>(voxelClass);
 //                                       maskFieldPartition(gIdx, 0) = 33;
                                    };

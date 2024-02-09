@@ -11,6 +11,9 @@
 #include "Neon/core/tools/io/ioToVti.h"
 #include "Neon/domain/tools/SpaceCurves.h"
 #include "Stencil.h"
+
+#include "ClassSelector.h"
+
 namespace Neon::domain::interface {
 
 /**

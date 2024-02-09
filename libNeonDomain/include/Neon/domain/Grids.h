@@ -6,3 +6,4 @@
 #include "Neon/domain/dGridSoA.h"
 #include "Neon/domain/bGridDisg.h"
 #include "Neon/domain/bGridMgpuDisg.h"
+#include "Neon/domain/bGridDisgMask.h"

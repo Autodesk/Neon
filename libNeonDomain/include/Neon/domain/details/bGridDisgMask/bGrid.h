@@ -51,12 +51,13 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
 
     using BlockIdx = uint32_t;
 
-    using AlphaGrid = typename Neon::domain::details::disaggregated::bGridMask::details::cGrid::cGrid<SBlock,
-                                                                                                      Neon::domain::details::disaggregated::bGridMask::details::cGrid::ClassSelector::alpha>;
-    using BetaGrid = typename Neon::domain::details::disaggregated::bGridMask::details::cGrid::cGrid<SBlock,
-                                                                                                     Neon::domain::details::disaggregated::bGridMask::details::cGrid::ClassSelector::beta>;
+    template <typename SBlock_, int classSelector_>
+    using cGrid = typename Neon::domain::details::disaggregated::bGridMask::details::cGrid::cGrid<SBlock_, classSelector_>;
+    using AlphaGrid = cGrid<SBlock, 1>;
+    using BetaGrid = cGrid<SBlock, 2>;
 
     bGrid() = default;
+
     virtual ~bGrid();
 
     /**
@@ -264,6 +265,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
         AlphaGrid         alphaGrid;
         BetaGrid          betaGrid;
         Field<uint8_t, 1> maskClassField;
+        bool              classFilterEnable;
     };
     std::shared_ptr<Data> mData;
 };

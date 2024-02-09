@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./ClassSelector.h"
+#include "../../../interface/ClassSelector.h"
 
 namespace Neon::domain::details::disaggregated::bGrid::cGrid {
 

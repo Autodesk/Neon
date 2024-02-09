@@ -58,7 +58,7 @@ auto addBeta(typename Field::Type val,
 {
     const auto& grid = filedA.getGrid();
     return grid.newBetaContainer(
-        "AlphaSet",
+        "addBeta",
         [&](Neon::set::Loader& loader) {
             auto a = loader.load(filedA);
 
@@ -80,7 +80,7 @@ auto axpyAlphaBeta(typename Field::Type& val,
 {
     const auto& grid = filedA.getGrid();
     return grid.newAlphaBetaContainer(
-        "BetaSet",
+        "axpyAlphaBeta",
         [&](Neon::set::Loader& loader) {
             auto const a = loader.load(filedA);
             auto       b = loader.load(fieldB);
@@ -136,12 +136,17 @@ auto run(TestData<G, T, C>& data) -> void
         [&](Neon::index_3d idx) {
             bool isInside = grid.isInsideDomain(idx);
             if (!isInside) {
-                return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::outside;
+                return Neon::ClassSelector::outside;
             }
-            if (idx.x == 0 || idx.y == 0 || idx.z == 0 || idx.x == grid.getDimension().x - 1 || idx.y == grid.getDimension().y - 1 || idx.z == grid.getDimension().z - 1) {
-                return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::beta;
+            if (idx.x == 0 ||
+                idx.y == 0 ||
+                idx.z == 0 ||
+                idx.x == grid.getDimension().x - 1 ||
+                idx.y == grid.getDimension().y - 1 ||
+                idx.z == grid.getDimension().z - 1) {
+                return Neon::ClassSelector::beta;
             }
-            return Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::alpha;
+            return Neon::ClassSelector::alpha;
         },
         grid.getStencil(),
         1,
@@ -187,6 +192,8 @@ auto run(TestData<G, T, C>& data) -> void
     }
 
     bool isOk = data.compare(FieldNames::Y);
+    if(!isOk)
+        exit(99);
     ASSERT_TRUE(isOk);
 }
 
@@ -196,9 +203,34 @@ auto run(TestData<G, T, C>& data) -> void
 {
 
     using Type = typename TestData<G, T, C>::Type;
-    auto&             grid = data.getGrid();
-    const std::string appName = TestInformation::fullName(grid.getImplementationName());
+    auto& grid = data.getGrid();
+    G     tmp = G(
+        grid.getBackend(),
+        grid.getDimension(),
+        [&](Neon::index_3d idx) {
+            bool isInside = grid.isInsideDomain(idx);
+            if (!isInside) {
+                return Neon::ClassSelector::outside;
+            }
+            if (idx.x == 0 ||
+                idx.y == 0 ||
+                idx.z == 0 ||
+                idx.x == grid.getDimension().x - 1 ||
+                idx.y == grid.getDimension().y - 1 ||
+                idx.z == grid.getDimension().z - 1) {
+                return Neon::ClassSelector::beta;
+            }
+            return Neon::ClassSelector::alpha;
+        },
+        grid.getStencil(),
+        1,
+        grid.getSpacing(),
+        grid.getOrigin(),
+        grid.getSpaceCurve());
 
+
+    grid = tmp;
+    grid.helpGetClassField().template ioToVtk<int>("classField", "classField");
     data.resetValuesToLinear(1, 100);
     T val = T(33);
 
@@ -243,10 +275,14 @@ auto run(TestData<G, T, C>& data) -> void
 }  // namespace dataView
 
 template auto run<Neon::bGridDisg, int64_t, 0>(TestData<Neon::bGridDisg, int64_t, 0>&) -> void;
+template auto run<Neon::bGridMask, int64_t, 0>(TestData<Neon::bGridMask, int64_t, 0>&) -> void;
+
 // template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
 
 namespace dataView {
 template auto run<Neon::bGridDisg, int64_t, 0>(TestData<Neon::bGridDisg, int64_t, 0>&) -> void;
+template auto run<Neon::bGridMask, int64_t, 0>(TestData<Neon::bGridMask, int64_t, 0>&) -> void;
+
 // template auto run<Neon::bGrid, int64_t, 0>(TestData<Neon::bGrid, int64_t, 0>&) -> void;
 // template auto run<Neon::dGrid, int64_t, 0>(TestData<Neon::dGrid, int64_t, 0>&) -> void;
 

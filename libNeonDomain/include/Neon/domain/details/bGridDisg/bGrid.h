@@ -52,9 +52,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     using BlockIdx = uint32_t;
 
     using AlphaGrid = typename Neon::domain::details::disaggregated::bGrid::details::cGrid::cGrid<SBlock,
-                                                                                                  Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::alpha>;
+                                                                                                  Neon::ClassSelector::alpha>;
     using BetaGrid = typename Neon::domain::details::disaggregated::bGrid::details::cGrid::cGrid<SBlock,
-                                                                                                 Neon::domain::details::disaggregated::bGrid::details::cGrid::ClassSelector::beta>;
+                                                                                                 Neon::ClassSelector::beta>;
 
     bGrid() = default;
     virtual ~bGrid();

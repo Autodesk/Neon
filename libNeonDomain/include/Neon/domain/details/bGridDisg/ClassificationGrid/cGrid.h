@@ -23,8 +23,8 @@
 #include "Neon/domain/tools/GridTransformer.h"
 #include "Neon/domain/tools/SpanTable.h"
 
+#include "../../../interface/ClassSelector.h"
 #include "../bGrid.h"
-#include "./ClassSelector.h"
 #include "./cSpan.h"
 
 namespace Neon::domain::details::disaggregated::bGrid {
@@ -150,7 +150,7 @@ struct GridTransformation_cGrid
             auto const&                              spanLayout = foundationPartitioner1D.getSpanLayout();
             int                                      nBlocks;
 
-            Neon::domain::tool::partitioning::ByDomain byDomain = classSelector == cGrid::ClassSelector::alpha
+            Neon::domain::tool::partitioning::ByDomain byDomain = classSelector == Neon::ClassSelector::alpha
                                                                       ? Neon::domain::tool::partitioning::ByDomain::bulk
                                                                       : Neon::domain::tool::partitioning::ByDomain::bc;
 

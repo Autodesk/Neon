@@ -14,8 +14,11 @@ cSpan<SBlock, classSelector>::setAndValidateGPUDevice([[maybe_unused]] Idx& bidx
     bidx.mInDataBlockIdx.z = threadIdx.z;
 
     const bool isActive = mActiveMask[bidx.mDataBlockIdx].isActive(bidx.mInDataBlockIdx.x, bidx.mInDataBlockIdx.y, bidx.mInDataBlockIdx.z);
-    const bool isClass = mClassMask[bidx.mDataBlockIdx * SB] == classSelector;
-    return isActive;
+    const bool isClass = mClassMask[bidx.mDataBlockIdx * SBlock::memBlockCountElements +
+                                    bidx.mInDataBlockIdx.x +
+                                    bidx.mInDataBlockIdx.y * SBlock::memBlockSizeX +
+                                    bidx.mInDataBlockIdx.z * SBlock::memBlockSizeX * SBlock::memBlockSizeY] == classSelector;
+    return isActive && isClass;
 #else
     NEON_THROW_UNSUPPORTED_OPERATION("Operation supported only on GPU");
 #endif
@@ -36,10 +39,11 @@ cSpan<SBlock, classSelector>::setAndValidateCPUDevice(Idx&            bidx,
     bidx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>(y);
     bidx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>(z);
     const bool isActive = mActiveMask[dataBlockIdx].isActive(bidx.mInDataBlockIdx.x, bidx.mInDataBlockIdx.y, bidx.mInDataBlockIdx.z);
-    const bool isClass = mClassMask[bidx.mDataBlockIdx * SBlock::memBlockCountElements +
-                                    bidx.mInDataBlockIdx.x +
-                                    bidx.mInDataBlockIdx.y * SBlock::memBlockSizeX +
-                                    bidx.mInDataBlockIdx.z * SBlock::memBlockSizeX * SBlock::memBlockSizeY] == classSelector;
+    int const  voxelClass = mClassMask[bidx.mDataBlockIdx * SBlock::memBlockCountElements +
+                                      bidx.mInDataBlockIdx.x +
+                                      bidx.mInDataBlockIdx.y * SBlock::memBlockSizeX +
+                                      bidx.mInDataBlockIdx.z * SBlock::memBlockSizeX * SBlock::memBlockSizeY];
+    bool const isClass = voxelClass == classSelector;
 
     return isActive && isClass;
 }
@@ -56,5 +60,5 @@ cSpan<SBlock, classSelector>::cSpan(typename Idx::DataBlockCount                
 {
 }
 
-}
+}  // namespace details::cGrid
 }  // namespace Neon::domain::details::disaggregated::bGridMask
