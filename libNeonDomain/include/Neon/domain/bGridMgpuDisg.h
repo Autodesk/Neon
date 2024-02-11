@@ -2,5 +2,9 @@
 #include "Neon/domain/details/bGridDisgMgpu//bGridDisgMgpu.h"
 
 namespace Neon {
-using bGridMgpu = Neon::domain::details::bGridDisgMgpu::bGridDisgMgpu<Neon::domain::details::bGridDisgMgpu::BlockDefault>;
-}
+
+template <typename SBlock>
+using bGridMgpuGenricBlock = Neon::domain::details::bGridDisgMgpu::bGridDisgMgpu<SBlock>;
+using bGridMgpu = bGridMgpuGenricBlock<Neon::domain::details::bGridDisgMgpu::BlockDefault>;
+
+}  // namespace Neon

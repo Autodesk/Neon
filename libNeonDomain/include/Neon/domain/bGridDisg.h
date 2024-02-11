@@ -2,5 +2,9 @@
 #include "Neon/domain/details/bGridDisg/bGridDisg.h"
 
 namespace Neon {
-using bGridDisg = Neon::domain::details::disaggregated::bGridDisg::bGridDisg<Neon::domain::details::StaticBlock<4, 4, 4>>;
+
+template <typename SBlock>
+using bGridDisgGenericBlock = Neon::domain::details::disaggregated::bGridDisg::bGridDisg<SBlock>;
+using bGridDisg = bGridDisgGenericBlock<Neon::domain::details::disaggregated::bGridDisg::BlockDefault>;
+
 }
