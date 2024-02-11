@@ -60,12 +60,12 @@ class MicroIndex
 };
 
 template <typename SBlock>
-class bIndex
+class bDisgMgpuIndex
 {
    public:
     template <typename SBlock_>
     friend class bSpan;
-    using OuterIdx = bIndex<SBlock>;
+    using OuterIdx = bDisgMgpuIndex<SBlock>;
 
     using NghIdx = int8_3d;
     template <typename T, int C, typename SBlock_>
@@ -87,10 +87,10 @@ class bIndex
     using DataBlockIdx = std::make_unsigned_t<TrayIdx>;
     using InDataBlockIdx = InTrayIdx;
 
-    bIndex() = default;
-    ~bIndex() = default;
+    bDisgMgpuIndex() = default;
+    ~bDisgMgpuIndex() = default;
 
-    NEON_CUDA_HOST_DEVICE inline explicit bIndex(const DataBlockIdx&            blockIdx,
+    NEON_CUDA_HOST_DEVICE inline explicit bDisgMgpuIndex(const DataBlockIdx&            blockIdx,
                                                  const InDataBlockIdx::Integer& x,
                                                  const InDataBlockIdx::Integer& y,
                                                  const InDataBlockIdx::Integer& z);
@@ -109,32 +109,32 @@ class bIndex
 };
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::setDataBlockIdx(const bIndex::DataBlockIdx& dataBlockIdx) -> void
+NEON_CUDA_HOST_DEVICE auto bDisgMgpuIndex<SBlock>::setDataBlockIdx(const bDisgMgpuIndex::DataBlockIdx& dataBlockIdx) -> void
 {
     mDataBlockIdx = dataBlockIdx;
 }
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::setInDataBlockIdx(const bIndex::InDataBlockIdx& inDataBlockIdx) -> void
+NEON_CUDA_HOST_DEVICE auto bDisgMgpuIndex<SBlock>::setInDataBlockIdx(const bDisgMgpuIndex::InDataBlockIdx& inDataBlockIdx) -> void
 {
     mInDataBlockIdx = inDataBlockIdx;
 }
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::getDataBlockIdx() const -> const bIndex::DataBlockIdx&
+NEON_CUDA_HOST_DEVICE auto bDisgMgpuIndex<SBlock>::getDataBlockIdx() const -> const bDisgMgpuIndex::DataBlockIdx&
 {
     return mDataBlockIdx;
 }
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::getInDataBlockIdx() const -> const bIndex::InDataBlockIdx&
+NEON_CUDA_HOST_DEVICE auto bDisgMgpuIndex<SBlock>::getInDataBlockIdx() const -> const bDisgMgpuIndex::InDataBlockIdx&
 {
     return mInDataBlockIdx;
 }
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::isActive() const -> bool
+NEON_CUDA_HOST_DEVICE auto bDisgMgpuIndex<SBlock>::isActive() const -> bool
 {
-    return mDataBlockIdx != std::numeric_limits<typename bIndex::DataBlockIdx>::max();
+    return mDataBlockIdx != std::numeric_limits<typename bDisgMgpuIndex::DataBlockIdx>::max();
 }
 
 }  // namespace Neon::domain::details::bGrid

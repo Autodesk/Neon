@@ -1,5 +1,5 @@
 #pragma once
-#include "Neon/domain/details/bGridDisgMgpu/bPartition.h"
+#include "Neon/domain/details/bGridDisgMgpu/bDisgMgpuPartition.h"
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/set/patterns/BlasSet.h"
 
@@ -13,16 +13,15 @@
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/tools/HaloUpdateTable1DPartitioning.h"
 #include "Neon/domain/tools/PartitionTable.h"
-#include "bPartition.h"
 
 namespace Neon::domain::details::bGridDisgMgpu {
 
 
 template <typename T, int C, typename SBlock>
-class bField : public Neon::domain::interface::FieldBaseTemplate<T,
+class bDisgMgpuField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
                                                                  bGridDisgMgpu<SBlock>,
-                                                                 bPartition<T, C, SBlock>,
+                                                                 bDisgMgpuPartition<T, C, SBlock>,
                                                                  int>
 {
     friend bGridDisgMgpu<SBlock>;
@@ -30,9 +29,9 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
    public:
     using Type = T;
     using Grid = bGridDisgMgpu<SBlock>;
-    using Field = bField<T, C, SBlock>;
-    using Partition = bPartition<T, C, SBlock>;
-    using Idx = bIndex<SBlock>;
+    using Field = bDisgMgpuField<T, C, SBlock>;
+    using Partition = bDisgMgpuPartition<T, C, SBlock>;
+    using Idx = bDisgMgpuIndex<SBlock>;
     using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
     template <typename TT, int CC = 0>
     using BlockViewField = BlockViewGrid::template Field<TT, CC>;
@@ -40,16 +39,16 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     using NghIdx = typename Partition::NghIdx;
     using NghData = typename Partition::NghData;
 
-    bField(const std::string&  fieldUserName,
+    bDisgMgpuField(const std::string&  fieldUserName,
            Neon::DataUse       dataUse,
            Neon::MemoryOptions memoryOptions,
            const Grid&         grid,
            int                 cardinality,
            T                   inactiveValue);
 
-    bField();
+    bDisgMgpuField();
 
-    virtual ~bField() = default;
+    virtual ~bDisgMgpuField() = default;
 
     auto getPartition(Neon::Execution,
                       Neon::SetIdx,

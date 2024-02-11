@@ -1,10 +1,10 @@
-#include "Neon/domain/details/bGridDisgMgpu/bSpan.h"
+#include "Neon/domain/details/bGridDisgMgpu/bDisgMgpuSpan.h"
 
 namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto
-bSpan<SBlock>::setAndValidateGPUDevice([[maybe_unused]] Idx& bidx) const -> bool
+bDisgMgpuSpan<SBlock>::setAndValidateGPUDevice([[maybe_unused]] Idx& bidx) const -> bool
 {
 #ifdef NEON_PLACE_CUDA_DEVICE
     bidx.mDataBlockIdx = blockIdx.x + mFirstDataBlockOffset;
@@ -22,7 +22,7 @@ bSpan<SBlock>::setAndValidateGPUDevice([[maybe_unused]] Idx& bidx) const -> bool
 
 template <typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto
-bSpan<SBlock>::setAndValidateCPUDevice(Idx&            bidx,
+bDisgMgpuSpan<SBlock>::setAndValidateCPUDevice(Idx&            bidx,
                                        uint32_t const& dataBlockIdx,
                                        uint32_t const& x,
                                        uint32_t const& y,
@@ -38,7 +38,7 @@ bSpan<SBlock>::setAndValidateCPUDevice(Idx&            bidx,
 }
 
 template <typename SBlock>
-bSpan<SBlock>::bSpan(typename Idx::DataBlockCount                  firstDataBlockOffset,
+bDisgMgpuSpan<SBlock>::bDisgMgpuSpan(typename Idx::DataBlockCount                  firstDataBlockOffset,
                      typename SBlock::BitMask const* NEON_RESTRICT activeMask,
                      Neon::DataView                                dataView)
     : mFirstDataBlockOffset(firstDataBlockOffset),

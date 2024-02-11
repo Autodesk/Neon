@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisgMgpu//bIndex.h"
-#include "Neon/domain/details/bGridDisgMgpu//bSpan.h"
+#include "Neon/domain/details/bGridDisgMgpu//bDisgMgpuIndex.h"
+#include "Neon/domain/details/bGridDisgMgpu//bDisgMgpuSpan.h"
 
 #include "Neon/domain/interface/NghData.h"
 
@@ -10,10 +10,10 @@
 namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename SBlock>
-class bSpan;
+class bDisgMgpuSpan;
 
 template <typename T, int C, typename SBlock>
-class bPartition
+class bDisgMgpuPartition
 {
    public:
     enum Sectors
@@ -26,8 +26,8 @@ class bPartition
         first = bUp
     };
 
-    using Span = bSpan<SBlock>;
-    using Idx = bIndex<SBlock>;
+    using Span = bDisgMgpuSpan<SBlock>;
+    using Idx = bDisgMgpuIndex<SBlock>;
     using NghIdx = typename Idx::NghIdx;
     using Type = T;
     using NghData = Neon::domain::NghData<T>;
@@ -36,11 +36,11 @@ class bPartition
     using BlockViewGridIdx = BlockViewGrid::Idx;
 
    public:
-    bPartition();
+    bDisgMgpuPartition();
 
-    ~bPartition() = default;
+    ~bDisgMgpuPartition() = default;
 
-    explicit bPartition(int                                           setIdx,
+    explicit bDisgMgpuPartition(int                                           setIdx,
                         int                                           mCardinality,
                         T*                                            mMem,
                         typename Idx::DataBlockIdx*                   mBlockConnectivity,
@@ -215,4 +215,4 @@ class bPartition
 
 }  // namespace Neon::domain::details::bGridMgpu
 
-#include "Neon/domain/details/bGridDisgMgpu//bPartition_imp.h"
+#include "Neon/domain/details/bGridDisgMgpu//bDisgMgpuPartition_imp.h"

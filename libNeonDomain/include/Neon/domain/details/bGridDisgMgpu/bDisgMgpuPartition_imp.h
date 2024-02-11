@@ -1,12 +1,12 @@
 #pragma once
 
 #include "Neon/domain/details/bGridDisgMgpu//bGridDisgMgpu.h"
-#include "Neon/domain/details/bGridDisgMgpu/bSpan.h"
+#include "Neon/domain/details/bGridDisgMgpu/bDisgMgpuSpan.h"
 
 namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename T, int C, typename SBlock>
-bPartition<T, C, SBlock>::bPartition()
+bDisgMgpuPartition<T, C, SBlock>::bDisgMgpuPartition()
     : mCardinality(0),
       mMem(nullptr),
       mStencilNghIndex(),
@@ -18,20 +18,20 @@ bPartition<T, C, SBlock>::bPartition()
 }
 
 template <typename T, int C, typename SBlock>
-bPartition<T, C, SBlock>::
-    bPartition(int                                           setIdx,
-               int                                           cardinality,
-               T*                                            mem,
-               typename Idx::DataBlockIdx*                   blockConnectivity,
-               typename SBlock::BitMask const* NEON_RESTRICT mask,
-               Neon::int32_3d*                               origin,
-               NghIdx*                                       stencilNghIndex,
-               Neon::int32_3d                                mDomainSize,
-               typename Idx::DataBlockCount                  mFirstDataBUP,
-               typename Idx::DataBlockCount                  mFirstDataBDW,
-               typename Idx::DataBlockCount                  mFirstDataGUP,
-               typename Idx::DataBlockCount                  mFirstDataGDW,
-               typename Idx::DataBlockCount                  mLastDataGDW)
+bDisgMgpuPartition<T, C, SBlock>::
+    bDisgMgpuPartition(int                                           setIdx,
+                       int                                           cardinality,
+                       T*                                            mem,
+                       typename Idx::DataBlockIdx*                   blockConnectivity,
+                       typename SBlock::BitMask const* NEON_RESTRICT mask,
+                       Neon::int32_3d*                               origin,
+                       NghIdx*                                       stencilNghIndex,
+                       Neon::int32_3d                                mDomainSize,
+                       typename Idx::DataBlockCount                  mFirstDataBUP,
+                       typename Idx::DataBlockCount                  mFirstDataBDW,
+                       typename Idx::DataBlockCount                  mFirstDataGUP,
+                       typename Idx::DataBlockCount                  mFirstDataGDW,
+                       typename Idx::DataBlockCount                  mLastDataGDW)
     : mCardinality(cardinality),
       mMem(mem),
       mStencilNghIndex(stencilNghIndex),
@@ -49,7 +49,7 @@ bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     getGlobalIndex(const Idx& gidx)
         const -> Neon::index_3d
 {
@@ -64,7 +64,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     getDomainSize()
         const -> Neon::index_3d
 {
@@ -72,7 +72,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     getBlockViewIdx(const Idx& gidx)
         const -> BlockViewGridIdx
 {
@@ -82,7 +82,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
+inline NEON_CUDA_HOST_DEVICE auto bDisgMgpuPartition<T, C, SBlock>::
     cardinality()
         const -> int
 {
@@ -90,7 +90,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
+inline NEON_CUDA_HOST_DEVICE auto bDisgMgpuPartition<T, C, SBlock>::
 operator()(const Idx& cell,
            int        card) -> T&
 {
@@ -98,7 +98,7 @@ operator()(const Idx& cell,
 }
 
 template <typename T, int C, typename SBlock>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
+inline NEON_CUDA_HOST_DEVICE auto bDisgMgpuPartition<T, C, SBlock>::
 operator()(const Idx& cell,
            int        card) const -> const T&
 {
@@ -106,14 +106,14 @@ operator()(const Idx& cell,
 }
 
 template <typename T, int C, typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     mem() const -> T const*
 {
     return mMem;
 }
 
 template <typename T, int C, typename SBlock>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
+inline NEON_CUDA_HOST_DEVICE auto bDisgMgpuPartition<T, C, SBlock>::
     helpGetPitch(const Idx& idx, int card)
         const -> uint32_t
 {
@@ -122,7 +122,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
+inline NEON_CUDA_HOST_DEVICE auto bDisgMgpuPartition<T, C, SBlock>::
     helpGetValidIdxPitchExplicit(const Idx& idx, int card)
         const -> uint32_t
 {
@@ -175,7 +175,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
+inline NEON_CUDA_HOST_DEVICE auto bDisgMgpuPartition<T, C, SBlock>::
     helpNghPitch(const Idx& nghIdx, int card)
         const -> std::tuple<bool, uint32_t>
 {
@@ -192,7 +192,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     helpGetNghIdx(const Idx&    idx,
                   const NghIdx& offset)
         const -> Idx
@@ -201,7 +201,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     helpGetNghIdx(const Idx&                        idx,
                   const NghIdx&                     offset,
                   const typename Idx::DataBlockIdx* blockConnectivity)
@@ -273,7 +273,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 template <int xOff, int yOff, int zOff>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     helpGetNghIdx(const Idx& idx)
         const -> Idx
 {
@@ -282,7 +282,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 template <int xOff, int yOff, int zOff>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     helpGetNghIdx(const Idx& idx, const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx
 {
@@ -371,7 +371,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     getNghData(const Idx& eId,
                uint8_t    nghID,
                int        card)
@@ -382,14 +382,14 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     getNghData(const Idx&    idx,
                const NghIdx& offset,
                const int     card)
         const -> NghData
 {
-    NghData result;
-    bIndex  nghIdx = helpGetNghIdx(idx, offset);
+    NghData        result;
+    bDisgMgpuIndex nghIdx = helpGetNghIdx(idx, offset);
     auto [isValid, pitch] = helpNghPitch(nghIdx, card);
     if (!isValid) {
         result.invalidate();
@@ -402,13 +402,13 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 template <int xOff, int yOff, int zOff>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     getNghData(const Idx& idx,
                int        card)
         const -> NghData
 {
-    NghData result;
-    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(idx);
+    NghData        result;
+    bDisgMgpuIndex nghIdx = helpGetNghIdx<xOff, yOff, zOff>(idx);
     auto [isValid, pitch] = helpNghPitch(nghIdx, card);
     if (!isValid) {
         result.invalidate();
@@ -421,14 +421,14 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 template <int xOff, int yOff, int zOff>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     getNghData(const Idx& idx,
                int        card,
                T          defaultValue)
         const -> NghData
 {
-    NghData result;
-    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(idx);
+    NghData        result;
+    bDisgMgpuIndex nghIdx = helpGetNghIdx<xOff, yOff, zOff>(idx);
     auto [isValid, pitch] = helpNghPitch(nghIdx, card);
     if (!isValid) {
         result.set(defaultValue, false);
@@ -446,15 +446,15 @@ template <int xOff,
           int zOff,
           typename LambdaVALID,
           typename LambdaNOTValid>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     getNghData(const Idx&     gidx,
                int            card,
                LambdaVALID    funIfValid,
                LambdaNOTValid funIfNOTValid)
         const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> && (std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>
 {
-    NghData result;
-    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(gidx);
+    NghData        result;
+    bDisgMgpuIndex nghIdx = helpGetNghIdx<xOff, yOff, zOff>(gidx);
     auto [isValid, pitch] = helpNghPitch(nghIdx, card);
 
     if (isValid) {
@@ -471,14 +471,14 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 template <int xOff, int yOff, int zOff>
-NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+NEON_CUDA_HOST_DEVICE inline auto bDisgMgpuPartition<T, C, SBlock>::
     writeNghData(const Idx& gidx,
                  int        card,
                  T          value)
         -> bool
 {
-    NghData result;
-    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(gidx);
+    NghData        result;
+    bDisgMgpuIndex nghIdx = helpGetNghIdx<xOff, yOff, zOff>(gidx);
     auto [isValid, pitch] = helpNghPitch(nghIdx, card);
     if (!isValid) {
         return false;
@@ -489,8 +489,8 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 
 template <typename T, int C, typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto
-bPartition<T, C, SBlock>::isActive(const Idx&                      cell,
-                                   const typename SBlock::BitMask* mask) const -> bool
+bDisgMgpuPartition<T, C, SBlock>::isActive(const Idx&                      cell,
+                                           const typename SBlock::BitMask* mask) const -> bool
 {
     if (!mask) {
         return mMask[cell.mDataBlockIdx].isActive(cell.mInDataBlockIdx.x, cell.mInDataBlockIdx.y, cell.mInDataBlockIdx.z);
@@ -501,7 +501,7 @@ bPartition<T, C, SBlock>::isActive(const Idx&                      cell,
 
 template <typename T, int C, typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto
-bPartition<T, C, SBlock>::helpGetSectorFirstBlock(Sectors sector) const
+bDisgMgpuPartition<T, C, SBlock>::helpGetSectorFirstBlock(Sectors sector) const
     -> typename Idx::DataBlockCount
 {
     return mSectorFirstBlockIdx[sector];
@@ -509,9 +509,9 @@ bPartition<T, C, SBlock>::helpGetSectorFirstBlock(Sectors sector) const
 
 template <typename T, int C, typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto
-bPartition<T, C, SBlock>::helpGetSectorLength(Sectors sector) const
+bDisgMgpuPartition<T, C, SBlock>::helpGetSectorLength(Sectors sector) const
     -> typename Idx::DataBlockCount
 {
     return mSectorFirstBlockIdx[sector + 1] - mSectorFirstBlockIdx[sector];
 }
-}  // namespace Neon::domain::details::bGridMgpu
+}  // namespace Neon::domain::details::bGridDisgMgpu

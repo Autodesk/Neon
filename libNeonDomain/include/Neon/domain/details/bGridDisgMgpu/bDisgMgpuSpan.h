@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisgMgpu/bIndex.h"
+#include "Neon/domain/details/bGridDisgMgpu/bDisgMgpuIndex.h"
 
 namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename SBlock>
-class bSpan
+class bDisgMgpuSpan
 {
    public:
     // bit mask information
@@ -15,13 +15,13 @@ class bSpan
     static constexpr Neon::MemoryLayout activeMaskMemoryLayout = Neon::MemoryLayout::arrayOfStructs;
     static constexpr uint32_t           log2OfbitMaskWordSize = 6;
 
-    using Idx = bIndex<SBlock>;
+    using Idx = bDisgMgpuIndex<SBlock>;
     friend class bGridDisgMgpu<SBlock>;
 
     static constexpr int SpaceDim = 3;
 
-    bSpan() = default;
-    virtual ~bSpan() = default;
+    bDisgMgpuSpan() = default;
+    virtual ~bDisgMgpuSpan() = default;
 
     NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId()
         -> typename Idx::DataBlockIdx
@@ -29,7 +29,7 @@ class bSpan
         return std::numeric_limits<uint32_t>::max();
     }
 
-    inline bSpan(
+    inline bDisgMgpuSpan(
         typename Idx::DataBlockCount                  mFirstDataBlockOffset,
         typename SBlock::BitMask const* NEON_RESTRICT mActiveMask,
         Neon::DataView                                mDataView);
@@ -52,4 +52,4 @@ class bSpan
 };
 }  // namespace Neon::domain::details::bGrid
 
-#include "Neon/domain/details/bGridDisgMgpu/bSpan_imp.h"
+#include "Neon/domain/details/bGridDisgMgpu/bDisgMgpuSpan_imp.h"

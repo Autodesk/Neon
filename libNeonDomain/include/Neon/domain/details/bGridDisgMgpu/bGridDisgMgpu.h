@@ -4,10 +4,10 @@
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/details/StaticBlock.h"
 #include "Neon/domain/details/bGridDisgMgpu/BlockView.h"
-#include "Neon/domain/details/bGridDisgMgpu/bField.h"
-#include "Neon/domain/details/bGridDisgMgpu/bIndex.h"
-#include "Neon/domain/details/bGridDisgMgpu/bPartition.h"
-#include "Neon/domain/details/bGridDisgMgpu/bSpan.h"
+#include "Neon/domain/details/bGridDisgMgpu/bDisgMgpuField.h"
+#include "Neon/domain/details/bGridDisgMgpu/bDisgMgpuIndex.h"
+#include "Neon/domain/details/bGridDisgMgpu/bDisgMgpuPartition.h"
+#include "Neon/domain/details/bGridDisgMgpu/bDisgMgpuSpan.h"
 #include "Neon/domain/interface/GridBaseTemplate.h"
 #include "Neon/domain/patterns/PatternScalar.h"
 #include "Neon/domain/tools/Partitioner1D.h"
@@ -17,32 +17,32 @@
 #include "Neon/set/LaunchParametersTable.h"
 #include "Neon/set/memory/memSet.h"
 
-#include "bField.h"
-#include "bPartition.h"
-#include "bSpan.h"
+#include "bDisgMgpuField.h"
+#include "bDisgMgpuPartition.h"
+#include "bDisgMgpuSpan.h"
 
 namespace Neon::domain::details::bGridDisgMgpu {
 
 
 template <typename T, int C, typename SBlock>
-class bField;
+class bDisgMgpuField;
 
 template <typename SBlock>
 class bGridDisgMgpu : public Neon::domain::interface::GridBaseTemplate<bGridDisgMgpu<SBlock>,
-                                                                       bIndex<SBlock>>
+                                                                       bDisgMgpuIndex<SBlock>>
 {
    public:
     using Grid = bGridDisgMgpu<SBlock>;
     template <typename T, int C = 0>
-    using Partition = bPartition<T, C, SBlock>;
+    using Partition = bDisgMgpuPartition<T, C, SBlock>;
     template <typename T, int C = 0>
-    using Field = Neon::domain::details::bGridDisgMgpu::bField<T, C, SBlock>;
+    using Field = Neon::domain::details::bGridDisgMgpu::bDisgMgpuField<T, C, SBlock>;
 
-    using Span = bSpan<SBlock>;
+    using Span = bDisgMgpuSpan<SBlock>;
     using NghIdx = typename Partition<int>::NghIdx;
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bIndex<SBlock>>;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bDisgMgpuIndex<SBlock>>;
 
-    using Idx = bIndex<SBlock>;
+    using Idx = bDisgMgpuIndex<SBlock>;
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1b3;
     using ExecutionThreadSpanIndexType = uint32_t;
 
@@ -239,5 +239,5 @@ using BlockDefault = StaticBlock<defaultBlockSize, defaultBlockSize, defaultBloc
 extern template class bGridDisgMgpu<BlockDefault>;
 }  // namespace Neon::domain::details::bGridDisgMgpu
 
-#include "bField_imp.h"
-#include "bGrid_imp.h"
+#include "bDisgMgpuField_imp.h"
+#include "bGridDisgMgpu_imp.h"
