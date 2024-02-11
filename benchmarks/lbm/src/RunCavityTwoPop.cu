@@ -226,13 +226,13 @@ auto run(Config&            config,
     //    }
     if (config.gridType == "bGrid_4_4_4") {
         testCode << "_bGrid_4_4_4";
-        using Block = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
+        using Block = Neon::domain::details::StaticBlock<4, 4, 4>;
         using Grid = Neon::domain::details::bGrid::bGrid<Block>;
         return details::runFilterStoreType<Grid>(config, report, testCode);
     }
     if (config.gridType == "bGridMgpu_4_4_4") {
         testCode << "_bGridMgpu_4_4_4";
-        using Block = Neon::domain::details::bGridDisgMgpu::StaticBlock<4, 4, 4>;
+        using Block = Neon::domain::details::StaticBlock<4, 4, 4>;
         using Grid = Neon::domain::details::bGridDisgMgpu::bGridDisgMgpu<Block>;
         return details::runFilterStoreType<Neon::bGridMgpu>(config, report, testCode);
     }
@@ -249,7 +249,7 @@ auto run(Config&            config,
     //    if (config.gridType == "bGrid_4_4_4") {
     //        if constexpr (!skipTest) {
     //            testCode << "_bGrid_4_4_4";
-    //            using Sblock = Neon::domain::details::bGrid::StaticBlock<4, 4, 4>;
+    //            using Sblock = Neon::domain::details::StaticBlock<4, 4, 4>;
     //            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
     //            return details::runFilterStoreType<Grid>(config, report, testCode);
     //        } else {
@@ -258,7 +258,7 @@ auto run(Config&            config,
     //    }
     //    if (config.gridType == "bGrid_8_8_8") {
     //        if constexpr (!skipTest) {
-    //            using Sblock = Neon::domain::details::bGrid::StaticBlock<8, 8, 8>;
+    //            using Sblock = Neon::domain::details::StaticBlock<8, 8, 8>;
     //            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
     //            return details::runFilterStoreType<Grid>(config, report, testCode);
     //        } else {
@@ -267,7 +267,7 @@ auto run(Config&            config,
     //    }
     //    if (config.gridType == "bGrid_2_2_2") {
     //        if constexpr (!skipTest) {
-    //            using Sblock = Neon::domain::details::bGrid::StaticBlock<2, 2, 2>;
+    //            using Sblock = Neon::domain::details::StaticBlock<2, 2, 2>;
     //            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
     //            return details::runFilterStoreType<Grid>(config, report);
     //        } else {
@@ -276,7 +276,7 @@ auto run(Config&            config,
     //    }
     //    if (config.gridType == "bGrid_32_8_4") {
     //        if constexpr (!skipTest) {
-    //            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 4>;
+    //            using Sblock = Neon::domain::details::StaticBlock<32, 8, 4>;
     //            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
     //            return details::runFilterStoreType<Grid>(config, report);
     //        } else {
@@ -285,7 +285,7 @@ auto run(Config&            config,
     //    }
     //    if (config.gridType == "bGrid_32_8_4") {
     //        if constexpr (!skipTest) {
-    //            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 4>;
+    //            using Sblock = Neon::domain::details::StaticBlock<32, 8, 4>;
     //            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
     //            return details::runFilterStoreType<Grid>(config, report);
     //        } else {
@@ -294,7 +294,7 @@ auto run(Config&            config,
     //    }
     //    if (config.gridType == "bGrid_32_2_8") {
     //        if constexpr (!skipTest) {
-    //            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 2, 8>;
+    //            using Sblock = Neon::domain::details::StaticBlock<32, 2, 8>;
     //            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
     //            return details::runFilterStoreType<Grid>(config, report);
     //        } else {
@@ -303,7 +303,7 @@ auto run(Config&            config,
     //    }
     //    if (config.gridType == "bGrid_32_8_2") {
     //        if constexpr (!skipTest) {
-    //            using Sblock = Neon::domain::details::bGrid::StaticBlock<32, 8, 2>;
+    //            using Sblock = Neon::domain::details::StaticBlock<32, 8, 2>;
     //            using Grid = Neon::domain::details::bGrid::bGrid<Sblock>;
     //            return details::runFilterStoreType<Grid>(config, report);
     //        } else {

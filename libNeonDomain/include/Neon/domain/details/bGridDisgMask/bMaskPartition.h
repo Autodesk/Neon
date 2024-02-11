@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisgMask/bIndex.h"
-#include "Neon/domain/details/bGridDisgMask/bSpan.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskIndex.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskSpan.h"
 
 #include "Neon/domain/interface/NghData.h"
 
@@ -10,13 +10,13 @@
 namespace Neon::domain::details::disaggregated::bGridMask {
 
     template<typename SBlock>
-    class bSpan;
+    class bMaskSpan;
 
     template<typename T, int C, typename SBlock>
-    class bPartition {
+    class bMaskPartition {
     public:
-        using Span = bSpan<SBlock>;
-        using Idx = bIndex<SBlock>;
+        using Span = bMaskSpan<SBlock>;
+        using Idx = bMaskIndex<SBlock>;
         using NghIdx = typename Idx::NghIdx;
         using Type = T;
         using NghData = Neon::domain::NghData<T>;
@@ -25,11 +25,11 @@ namespace Neon::domain::details::disaggregated::bGridMask {
         using BlockViewGridIdx = BlockViewGrid::Idx;
 
     public:
-        bPartition();
+        bMaskPartition();
 
-        ~bPartition() = default;
+        ~bMaskPartition() = default;
 
-        explicit bPartition(int setIdx,
+        explicit bMaskPartition(int setIdx,
                             int mCardinality,
                             T *mMem,
                             typename Idx::DataBlockIdx *mBlockConnectivity,
@@ -191,4 +191,4 @@ namespace Neon::domain::details::disaggregated::bGridMask {
 
 }  // namespace Neon::domain::details::disaggregated::bGrid
 
-#include "Neon/domain/details/bGridDisgMask/bPartition_imp.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskPartition_imp.h"

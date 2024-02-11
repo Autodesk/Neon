@@ -36,7 +36,7 @@ struct GridTransformation_cGrid
     using FoundationGrid = Neon::domain::details::disaggregated::bGridMask::bGridMask<SBlock>;
 
     template <typename T, int C>
-    using Partition = Neon::domain::details::disaggregated::bGridMask::bPartition<T, C, SBlock>;
+    using Partition = Neon::domain::details::disaggregated::bGridMask::bMaskPartition<T, C, SBlock>;
     using Span = cSpan<SBlock, classSelector>;
     static constexpr Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport = Neon::set::internal::ContainerAPI::DataViewSupport::on;
 

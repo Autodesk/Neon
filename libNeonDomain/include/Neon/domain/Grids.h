@@ -1,4 +1,5 @@
 #pragma once
+#include "Neon/domain/details/StaticBlock.h"
 #include "Neon/domain/dGrid.h"
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/eGrid.h"

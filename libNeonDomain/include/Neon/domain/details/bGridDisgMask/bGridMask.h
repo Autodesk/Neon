@@ -2,12 +2,12 @@
 #include "Neon/core/core.h"
 
 #include "Neon/domain/aGrid.h"
-#include "Neon/domain/details/bGridDisgMask/BlockView.h"
 #include "Neon/domain/details/StaticBlock.h"
-#include "Neon/domain/details/bGridDisgMask/bField.h"
-#include "Neon/domain/details/bGridDisgMask/bIndex.h"
-#include "Neon/domain/details/bGridDisgMask/bPartition.h"
-#include "Neon/domain/details/bGridDisgMask/bSpan.h"
+#include "Neon/domain/details/bGridDisgMask/BlockView.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskField.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskIndex.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskPartition.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskSpan.h"
 #include "Neon/domain/interface/GridBaseTemplate.h"
 #include "Neon/domain/patterns/PatternScalar.h"
 #include "Neon/domain/tools/Partitioner1D.h"
@@ -20,32 +20,32 @@
 #include "Neon/domain/details/bGridDisgMask/ClassificationGrid/cGrid.h"
 
 #include "ClassificationGrid/cGrid.h"
-#include "bField.h"
-#include "bPartition.h"
-#include "bSpan.h"
+#include "bMaskField.h"
+#include "bMaskPartition.h"
+#include "bMaskSpan.h"
 
 namespace Neon::domain::details::disaggregated::bGridMask {
 
 
 template <typename T, int C, typename SBlock>
-class bField;
+class bMaskField;
 
 template <typename SBlock>
 class bGridMask : public Neon::domain::interface::GridBaseTemplate<bGridMask<SBlock>,
-                                                               bIndex<SBlock>>
+                                                               bMaskIndex<SBlock>>
 {
    public:
     using Grid = bGridMask<SBlock>;
     template <typename T, int C = 0>
-    using Partition = bPartition<T, C, SBlock>;
+    using Partition = bMaskPartition<T, C, SBlock>;
     template <typename T, int C = 0>
-    using Field = Neon::domain::details::disaggregated::bGridMask::bField<T, C, SBlock>;
+    using Field = Neon::domain::details::disaggregated::bGridMask::bMaskField<T, C, SBlock>;
 
-    using Span = bSpan<SBlock>;
+    using Span = bMaskSpan<SBlock>;
     using NghIdx = typename Partition<int>::NghIdx;
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bIndex<SBlock>>;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bMaskIndex<SBlock>>;
 
-    using Idx = bIndex<SBlock>;
+    using Idx = bMaskIndex<SBlock>;
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1b3;
     using ExecutionThreadSpanIndexType = uint32_t;
 
@@ -275,5 +275,5 @@ using BlockDefault = StaticBlock<defaultBlockSize, defaultBlockSize, defaultBloc
 extern template class bGridMask<BlockDefault>;
 }  // namespace Neon::domain::details::disaggregated::bGridMask
 
-#include "bField_imp.h"
-#include "bGrid_imp.h"
+#include "bGridMask_imp.h"
+#include "bMaskField_imp.h"

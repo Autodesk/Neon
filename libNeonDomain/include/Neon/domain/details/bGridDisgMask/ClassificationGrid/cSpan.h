@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisgMask/bIndex.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskIndex.h"
 
 namespace Neon::domain::details::disaggregated::bGridMask {
 namespace details::cGrid {
@@ -16,7 +16,7 @@ class cSpan
     static constexpr Neon::MemoryLayout activeMaskMemoryLayout = Neon::MemoryLayout::arrayOfStructs;
     static constexpr uint32_t           log2OfbitMaskWordSize = 6;
 
-    using Idx = bIndex<SBlock>;
+    using Idx = bMaskIndex<SBlock>;
     friend class bGridMask<SBlock>;
 
     static constexpr int SpaceDim = 3;

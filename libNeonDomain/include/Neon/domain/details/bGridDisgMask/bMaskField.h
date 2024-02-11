@@ -1,5 +1,5 @@
 #pragma once
-#include "Neon/domain/details/bGridDisgMask/bPartition.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskPartition.h"
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/set/patterns/BlasSet.h"
 
@@ -13,16 +13,16 @@
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/tools/HaloUpdateTable1DPartitioning.h"
 #include "Neon/domain/tools/PartitionTable.h"
-#include "bPartition.h"
+#include "bMaskPartition.h"
 
 namespace Neon::domain::details::disaggregated::bGridMask {
 
 
 template <typename T, int C, typename SBlock>
-class bField : public Neon::domain::interface::FieldBaseTemplate<T,
+class bMaskField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
                                                                  bGridMask<SBlock>,
-                                                                 bPartition<T, C, SBlock>,
+                                                                 bMaskPartition<T, C, SBlock>,
                                                                  int>
 {
     friend bGridMask<SBlock>;
@@ -30,9 +30,9 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
    public:
     using Type = T;
     using Grid = bGridMask<SBlock>;
-    using Field = bField<T, C, SBlock>;
-    using Partition = bPartition<T, C, SBlock>;
-    using Idx = bIndex<SBlock>;
+    using Field = bMaskField<T, C, SBlock>;
+    using Partition = bMaskPartition<T, C, SBlock>;
+    using Idx = bMaskIndex<SBlock>;
     using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
     template <typename TT, int CC = 0>
     using BlockViewField = BlockViewGrid::template Field<TT, CC>;
@@ -40,16 +40,16 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     using NghIdx = typename Partition::NghIdx;
     using NghData = typename Partition::NghData;
 
-    bField(const std::string&  fieldUserName,
+    bMaskField(const std::string&  fieldUserName,
            Neon::DataUse       dataUse,
            Neon::MemoryOptions memoryOptions,
            const Grid&         grid,
            int                 cardinality,
            T                   inactiveValue);
 
-    bField();
+    bMaskField();
 
-    virtual ~bField() = default;
+    virtual ~bMaskField() = default;
 
     auto getPartition(Neon::Execution,
                       Neon::SetIdx,

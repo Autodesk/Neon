@@ -1,11 +1,11 @@
 #pragma once
-#include "Neon/domain/details/bGridDisgMask/bIndex.h"
+#include "Neon/domain/details/bGridDisgMask/bMaskIndex.h"
 
 namespace Neon::domain::details::disaggregated::bGridMask {
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE inline bIndex<SBlock>::
-    bIndex(const DataBlockIdx&            blockIdx,
+NEON_CUDA_HOST_DEVICE inline bMaskIndex<SBlock>::
+    bMaskIndex(const DataBlockIdx&            blockIdx,
            const InDataBlockIdx::Integer& x,
            const InDataBlockIdx::Integer& y,
            const InDataBlockIdx::Integer& z)
@@ -18,7 +18,7 @@ NEON_CUDA_HOST_DEVICE inline bIndex<SBlock>::
 
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bIndex<SBlock>::getMicroIndex() -> MicroIndex
+NEON_CUDA_HOST_DEVICE inline auto bMaskIndex<SBlock>::getMicroIndex() -> MicroIndex
 {
 
 
@@ -42,7 +42,7 @@ NEON_CUDA_HOST_DEVICE inline auto bIndex<SBlock>::getMicroIndex() -> MicroIndex
 
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE inline auto bIndex<SBlock>::init(MicroIndex const& microIndex) -> void
+NEON_CUDA_HOST_DEVICE inline auto bMaskIndex<SBlock>::init(MicroIndex const& microIndex) -> void
 {
     constexpr uint32_t memBlockSize = SBlock::memBlockSizeX * SBlock::memBlockSizeY * SBlock::memBlockSizeZ;
     constexpr uint32_t userBlockSize = SBlock::userBlockSizeX * SBlock::userBlockSizeY * SBlock::userBlockSizeZ;

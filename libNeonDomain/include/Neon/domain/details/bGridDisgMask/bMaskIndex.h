@@ -9,9 +9,9 @@ namespace Neon::domain::details::disaggregated::bGridMask {
 template <typename SBlock>
 class bGridMask;
 template <typename SBlock>
-class bSpan;
+class bMaskSpan;
 template <typename T, int C, typename SBlock>
-class bPartition;
+class bMaskPartition;
 
 class MicroIndex
 {
@@ -60,22 +60,22 @@ class MicroIndex
 };
 
 template <typename SBlock>
-class bIndex
+class bMaskIndex
 {
    public:
     template <typename SBlock_>
-    friend class bSpan;
-    using OuterIdx = bIndex<SBlock>;
+    friend class bMaskSpan;
+    using OuterIdx = bMaskIndex<SBlock>;
 
     using NghIdx = int8_3d;
     template <typename T, int C, typename SBlock_>
-    friend class bPartition;
+    friend class bMaskPartition;
 
     template <typename T, int C, typename SBlock_>
-    friend class bField;
+    friend class bMaskField;
 
     template <typename SBlock_>
-    friend class bSpan;
+    friend class bMaskSpan;
     template <typename SBlock_>
     friend class bGridMask;
 
@@ -87,10 +87,10 @@ class bIndex
     using DataBlockIdx = std::make_unsigned_t<TrayIdx>;
     using InDataBlockIdx = InTrayIdx;
 
-    bIndex() = default;
-    ~bIndex() = default;
+    bMaskIndex() = default;
+    ~bMaskIndex() = default;
 
-    NEON_CUDA_HOST_DEVICE inline explicit bIndex(const DataBlockIdx&            blockIdx,
+    NEON_CUDA_HOST_DEVICE inline explicit bMaskIndex(const DataBlockIdx&            blockIdx,
                                                  const InDataBlockIdx::Integer& x,
                                                  const InDataBlockIdx::Integer& y,
                                                  const InDataBlockIdx::Integer& z);
@@ -109,32 +109,32 @@ class bIndex
 };
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::setDataBlockIdx(const bIndex::DataBlockIdx& dataBlockIdx) -> void
+NEON_CUDA_HOST_DEVICE auto bMaskIndex<SBlock>::setDataBlockIdx(const bMaskIndex::DataBlockIdx& dataBlockIdx) -> void
 {
     mDataBlockIdx = dataBlockIdx;
 }
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::setInDataBlockIdx(const bIndex::InDataBlockIdx& inDataBlockIdx) -> void
+NEON_CUDA_HOST_DEVICE auto bMaskIndex<SBlock>::setInDataBlockIdx(const bMaskIndex::InDataBlockIdx& inDataBlockIdx) -> void
 {
     mInDataBlockIdx = inDataBlockIdx;
 }
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::getDataBlockIdx() const -> const bIndex::DataBlockIdx&
+NEON_CUDA_HOST_DEVICE auto bMaskIndex<SBlock>::getDataBlockIdx() const -> const bMaskIndex::DataBlockIdx&
 {
     return mDataBlockIdx;
 }
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::getInDataBlockIdx() const -> const bIndex::InDataBlockIdx&
+NEON_CUDA_HOST_DEVICE auto bMaskIndex<SBlock>::getInDataBlockIdx() const -> const bMaskIndex::InDataBlockIdx&
 {
     return mInDataBlockIdx;
 }
 
 template <typename SBlock>
-NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::isActive() const -> bool
+NEON_CUDA_HOST_DEVICE auto bMaskIndex<SBlock>::isActive() const -> bool
 {
-    return mDataBlockIdx != std::numeric_limits<typename bIndex::DataBlockIdx>::max();
+    return mDataBlockIdx != std::numeric_limits<typename bMaskIndex::DataBlockIdx>::max();
 }
 
 }  // namespace Neon::domain::details::disaggregated::bGrid
