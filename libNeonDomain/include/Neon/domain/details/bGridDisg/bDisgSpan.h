@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisg/bIndex.h"
+#include "Neon/domain/details/bGridDisg/bDisgIndex.h"
 
 namespace Neon::domain::details::disaggregated::bGridDisg {
 
 template <typename SBlock>
-class bSpan
+class bDisgSpan
 {
    public:
     // bit mask information
@@ -15,13 +15,13 @@ class bSpan
     static constexpr Neon::MemoryLayout activeMaskMemoryLayout = Neon::MemoryLayout::arrayOfStructs;
     static constexpr uint32_t           log2OfbitMaskWordSize = 6;
 
-    using Idx = bIndex<SBlock>;
+    using Idx = bDisgIndex<SBlock>;
     friend class bGridDisg<SBlock>;
 
     static constexpr int SpaceDim = 3;
 
-    bSpan() = default;
-    virtual ~bSpan() = default;
+    bDisgSpan() = default;
+    virtual ~bDisgSpan() = default;
 
     NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId()
         -> typename Idx::DataBlockIdx
@@ -29,7 +29,7 @@ class bSpan
         return std::numeric_limits<uint32_t>::max();
     }
 
-    inline bSpan(
+    inline bDisgSpan(
         typename Idx::DataBlockCount                  mFirstDataBlockOffset,
         typename SBlock::BitMask const* NEON_RESTRICT mActiveMask,
         Neon::DataView                                mDataView);

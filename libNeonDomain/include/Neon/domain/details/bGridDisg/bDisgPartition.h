@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisg/bIndex.h"
-#include "Neon/domain/details/bGridDisg/bSpan.h"
+#include "Neon/domain/details/bGridDisg/bDisgIndex.h"
+#include "Neon/domain/details/bGridDisg/bDisgSpan.h"
 
 #include "Neon/domain/interface/NghData.h"
 
@@ -10,13 +10,13 @@
 namespace Neon::domain::details::disaggregated::bGridDisg {
 
     template<typename SBlock>
-    class bSpan;
+    class bDisgSpan;
 
     template<typename T, int C, typename SBlock>
-    class bPartition {
+    class bDisgPartition {
     public:
-        using Span = bSpan<SBlock>;
-        using Idx = bIndex<SBlock>;
+        using Span = bDisgSpan<SBlock>;
+        using Idx = bDisgIndex<SBlock>;
         using NghIdx = typename Idx::NghIdx;
         using Type = T;
         using NghData = Neon::domain::NghData<T>;
@@ -25,11 +25,11 @@ namespace Neon::domain::details::disaggregated::bGridDisg {
         using BlockViewGridIdx = BlockViewGrid::Idx;
 
     public:
-        bPartition();
+        bDisgPartition();
 
-        ~bPartition() = default;
+        ~bDisgPartition() = default;
 
-        explicit bPartition(int setIdx,
+        explicit bDisgPartition(int setIdx,
                             int mCardinality,
                             T *mMem,
                             typename Idx::DataBlockIdx *mBlockConnectivity,

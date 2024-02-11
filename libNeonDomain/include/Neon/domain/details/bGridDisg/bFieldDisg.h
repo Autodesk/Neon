@@ -1,5 +1,5 @@
 #pragma once
-#include "Neon/domain/details/bGridDisg/bPartition.h"
+#include "Neon/domain/details/bGridDisg/bDisgPartition.h"
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/set/patterns/BlasSet.h"
 
@@ -13,16 +13,16 @@
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 #include "Neon/domain/tools/HaloUpdateTable1DPartitioning.h"
 #include "Neon/domain/tools/PartitionTable.h"
-#include "bPartition.h"
+#include "bDisgPartition.h"
 
 namespace Neon::domain::details::disaggregated::bGridDisg {
 
 
 template <typename T, int C, typename SBlock>
-class bField : public Neon::domain::interface::FieldBaseTemplate<T,
+class bFieldDisg : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
                                                                  bGridDisg<SBlock>,
-                                                                 bPartition<T, C, SBlock>,
+                                                                 bDisgPartition<T, C, SBlock>,
                                                                  int>
 {
     friend bGridDisg<SBlock>;
@@ -30,9 +30,9 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
    public:
     using Type = T;
     using Grid = bGridDisg<SBlock>;
-    using Field = bField<T, C, SBlock>;
-    using Partition = bPartition<T, C, SBlock>;
-    using Idx = bIndex<SBlock>;
+    using Field = bFieldDisg<T, C, SBlock>;
+    using Partition = bDisgPartition<T, C, SBlock>;
+    using Idx = bDisgIndex<SBlock>;
     using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
     template <typename TT, int CC = 0>
     using BlockViewField = BlockViewGrid::template Field<TT, CC>;
@@ -40,16 +40,16 @@ class bField : public Neon::domain::interface::FieldBaseTemplate<T,
     using NghIdx = typename Partition::NghIdx;
     using NghData = typename Partition::NghData;
 
-    bField(const std::string&  fieldUserName,
+    bFieldDisg(const std::string&  fieldUserName,
            Neon::DataUse       dataUse,
            Neon::MemoryOptions memoryOptions,
            const Grid&         grid,
            int                 cardinality,
            T                   inactiveValue);
 
-    bField();
+    bFieldDisg();
 
-    virtual ~bField() = default;
+    virtual ~bFieldDisg() = default;
 
     auto getPartition(Neon::Execution,
                       Neon::SetIdx,

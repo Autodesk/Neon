@@ -2,12 +2,12 @@
 #include "Neon/core/core.h"
 
 #include "Neon/domain/aGrid.h"
-#include "Neon/domain/details/bGridDisg/BlockView.h"
 #include "Neon/domain/details/StaticBlock.h"
-#include "Neon/domain/details/bGridDisg/bField.h"
-#include "Neon/domain/details/bGridDisg/bIndex.h"
-#include "Neon/domain/details/bGridDisg/bPartition.h"
-#include "Neon/domain/details/bGridDisg/bSpan.h"
+#include "Neon/domain/details/bGridDisg/BlockView.h"
+#include "Neon/domain/details/bGridDisg/bDisgIndex.h"
+#include "Neon/domain/details/bGridDisg/bDisgPartition.h"
+#include "Neon/domain/details/bGridDisg/bDisgSpan.h"
+#include "Neon/domain/details/bGridDisg/bFieldDisg.h"
 #include "Neon/domain/interface/GridBaseTemplate.h"
 #include "Neon/domain/patterns/PatternScalar.h"
 #include "Neon/domain/tools/Partitioner1D.h"
@@ -20,32 +20,32 @@
 #include "Neon/domain/details/bGridDisg/ClassificationGrid/cGrid.h"
 
 #include "ClassificationGrid/cGrid.h"
-#include "bField.h"
-#include "bPartition.h"
-#include "bSpan.h"
+#include "bDisgPartition.h"
+#include "bDisgSpan.h"
+#include "bFieldDisg.h"
 
 namespace Neon::domain::details::disaggregated::bGridDisg {
 
 
 template <typename T, int C, typename SBlock>
-class bField;
+class bFieldDisg;
 
 template <typename SBlock>
 class bGridDisg : public Neon::domain::interface::GridBaseTemplate<bGridDisg<SBlock>,
-                                                               bIndex<SBlock>>
+                                                               bDisgIndex<SBlock>>
 {
    public:
     using Grid = bGridDisg<SBlock>;
     template <typename T, int C = 0>
-    using Partition = bPartition<T, C, SBlock>;
+    using Partition = bDisgPartition<T, C, SBlock>;
     template <typename T, int C = 0>
-    using Field = Neon::domain::details::disaggregated::bGridDisg::bField<T, C, SBlock>;
+    using Field = Neon::domain::details::disaggregated::bGridDisg::bFieldDisg<T, C, SBlock>;
 
-    using Span = bSpan<SBlock>;
+    using Span = bDisgSpan<SBlock>;
     using NghIdx = typename Partition<int>::NghIdx;
-    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bIndex<SBlock>>;
+    using GridBaseTemplate = Neon::domain::interface::GridBaseTemplate<Grid, bDisgIndex<SBlock>>;
 
-    using Idx = bIndex<SBlock>;
+    using Idx = bDisgIndex<SBlock>;
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1b3;
     using ExecutionThreadSpanIndexType = uint32_t;
 

@@ -1,17 +1,17 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisg/bField.h"
+#include "Neon/domain/details/bGridDisg/bFieldDisg.h"
 
 namespace Neon::domain::details::disaggregated::bGridDisg {
 
 template <typename T, int C, typename SBlock>
-bField<T, C, SBlock>::bField()
+bFieldDisg<T, C, SBlock>::bFieldDisg()
 {
     mData = std::make_shared<Data>();
 }
 
 template <typename T, int C, typename SBlock>
-bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
+bFieldDisg<T, C, SBlock>::bFieldDisg(const std::string&  fieldUserName,
                              Neon::DataUse       dataUse,
                              Neon::MemoryOptions memoryOptions,
                              const Grid&         grid,
@@ -42,7 +42,7 @@ bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
         }(),
         inactiveValue,
         dataUse,
-        mData->grid->getBackend().getMemoryOptions(bSpan<SBlock>::activeMaskMemoryLayout));
+        mData->grid->getBackend().getMemoryOptions(bDisgSpan<SBlock>::activeMaskMemoryLayout));
 
 
     {  // Setting up partitionTable
@@ -57,7 +57,7 @@ bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
                 auto& bitmask = mData->grid->getActiveBitMask().getPartition(execution, setIdx, Neon::DataView::STANDARD);
                 auto& dataBlockOrigins = mData->grid->helpGetDataBlockOriginField().getPartition(execution, setIdx, Neon::DataView::STANDARD);
 
-                partition = bPartition<T, C, SBlock>(setIdx,
+                partition = bDisgPartition<T, C, SBlock>(setIdx,
                                                      cardinality,
                                                      memoryFieldPartition.mem(),
                                                      blockConnectivity.mem(),
@@ -72,19 +72,19 @@ bField<T, C, SBlock>::bField(const std::string&  fieldUserName,
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::getMemoryField() -> BlockViewGrid::Field<T, C>&
+auto bFieldDisg<T, C, SBlock>::getMemoryField() -> BlockViewGrid::Field<T, C>&
 {
     return mData->memoryField;
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::isInsideDomain(const Neon::index_3d& idx) const -> bool
+auto bFieldDisg<T, C, SBlock>::isInsideDomain(const Neon::index_3d& idx) const -> bool
 {
     return mData->grid->isInsideDomain(idx);
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::getReference(const Neon::index_3d& cartesianIdx,
+auto bFieldDisg<T, C, SBlock>::getReference(const Neon::index_3d& cartesianIdx,
                                         const int&            cardinality) -> T&
 {
     if constexpr (SBlock::isMultiResMode) {
@@ -113,7 +113,7 @@ auto bField<T, C, SBlock>::getReference(const Neon::index_3d& cartesianIdx,
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::operator()(const Neon::index_3d& cartesianIdx,
+auto bFieldDisg<T, C, SBlock>::operator()(const Neon::index_3d& cartesianIdx,
                                       const int&            cardinality) const -> T
 {
     auto& grid = this->getGrid();
@@ -127,19 +127,19 @@ auto bField<T, C, SBlock>::operator()(const Neon::index_3d& cartesianIdx,
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::updateHostData(int streamId) -> void
+auto bFieldDisg<T, C, SBlock>::updateHostData(int streamId) -> void
 {
     mData->memoryField.updateHostData(streamId);
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::updateDeviceData(int streamId) -> void
+auto bFieldDisg<T, C, SBlock>::updateDeviceData(int streamId) -> void
 {
     mData->memoryField.updateDeviceData(streamId);
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::getPartition(Neon::Execution       execution,
+auto bFieldDisg<T, C, SBlock>::getPartition(Neon::Execution       execution,
                                         Neon::SetIdx          setIdx,
                                         const Neon::DataView& dataView) const -> const Partition&
 {
@@ -155,7 +155,7 @@ auto bField<T, C, SBlock>::getPartition(Neon::Execution       execution,
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::getPartition(Neon::Execution       execution,
+auto bFieldDisg<T, C, SBlock>::getPartition(Neon::Execution       execution,
                                         Neon::SetIdx          setIdx,
                                         const Neon::DataView& dataView) -> Partition&
 {
@@ -171,7 +171,7 @@ auto bField<T, C, SBlock>::getPartition(Neon::Execution       execution,
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::newHaloUpdate(Neon::set::StencilSemantic stencilSemantic,
+auto bFieldDisg<T, C, SBlock>::newHaloUpdate(Neon::set::StencilSemantic stencilSemantic,
                                          Neon::set::TransferMode    transferMode,
                                          Neon::Execution            execution) const -> Neon::set::Container
 {
@@ -247,7 +247,7 @@ auto bField<T, C, SBlock>::newHaloUpdate(Neon::set::StencilSemantic stencilSeman
 }
 
 template <typename T, int C, typename SBlock>
-auto bField<T, C, SBlock>::initHaloUpdateTable() -> void
+auto bFieldDisg<T, C, SBlock>::initHaloUpdateTable() -> void
 {
     // NEON_THROW_UNSUPPORTED_OPERATION("");
     auto& grid = this->getGrid();
