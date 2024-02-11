@@ -24,21 +24,21 @@
 #include "Neon/domain/tools/SpanTable.h"
 
 #include "../../../interface/ClassSelector.h"
-#include "../bGrid.h"
+#include "../bGridDisg.h"
 #include "./cSpan.h"
 
-namespace Neon::domain::details::disaggregated::bGrid {
+namespace Neon::domain::details::disaggregated::bGridDisg {
 
 namespace details::cGrid {
 
 template <typename SBlock, int classSelector>
 struct GridTransformation_cGrid
 {
-    using FoundationGrid = Neon::domain::details::disaggregated::bGrid::bGrid<SBlock>;
+    using FoundationGrid = Neon::domain::details::disaggregated::bGridDisg::bGridDisg<SBlock>;
 
     template <typename T, int C>
-    using Partition = Neon::domain::details::disaggregated::bGrid::bPartition<T, C, SBlock>;
-    using Span = Neon::domain::details::disaggregated::bGrid::cGrid::cSpan<SBlock, FoundationGrid, classSelector>;
+    using Partition = Neon::domain::details::disaggregated::bGridDisg::bPartition<T, C, SBlock>;
+    using Span = Neon::domain::details::disaggregated::bGridDisg::cGrid::cSpan<SBlock, FoundationGrid, classSelector>;
     static constexpr Neon::set::internal::ContainerAPI::DataViewSupport dataViewSupport = Neon::set::internal::ContainerAPI::DataViewSupport::on;
 
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = FoundationGrid::executionThreadSpan;

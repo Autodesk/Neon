@@ -3,11 +3,11 @@
 #include "Neon/core/core.h"
 
 
-namespace Neon::domain::details::disaggregated::bGrid {
+namespace Neon::domain::details::disaggregated::bGridDisg {
 
 // Common forward declarations
 template <typename SBlock>
-class bGrid;
+class bGridDisg;
 template <typename SBlock>
 class bSpan;
 template <typename T, int C, typename SBlock>
@@ -77,7 +77,7 @@ class bIndex
     template <typename SBlock_>
     friend class bSpan;
     template <typename SBlock_>
-    friend class bGrid;
+    friend class bGridDisg;
 
 
     using TrayIdx = MicroIndex::TrayIdx;

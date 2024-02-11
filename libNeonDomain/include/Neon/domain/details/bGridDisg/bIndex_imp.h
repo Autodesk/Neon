@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/domain/details/bGridDisg/bIndex.h"
 
-namespace Neon::domain::details::disaggregated::bGrid {
+namespace Neon::domain::details::disaggregated::bGridDisg {
 
 template <typename SBlock>
 NEON_CUDA_HOST_DEVICE inline bIndex<SBlock>::

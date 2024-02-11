@@ -29,7 +29,7 @@
 
 #include "BlockViewPartition.h"
 
-namespace Neon::domain::details::disaggregated::bGrid {
+namespace Neon::domain::details::disaggregated::bGridDisg {
 
 namespace details {
 struct GridTransformation

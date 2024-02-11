@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisg/bGrid.h"
+#include "Neon/domain/details/bGridDisg/bGridDisg.h"
 #include "Neon/domain/details/bGridDisg/bSpan.h"
 
-namespace Neon::domain::details::disaggregated::bGrid {
+namespace Neon::domain::details::disaggregated::bGridDisg {
 
 template <typename T, int C, typename SBlock>
 bPartition<T, C, SBlock>::bPartition()

@@ -9,7 +9,7 @@
 #include "Neon/sys/memory/CudaIntrinsics.h"
 #include "cuda_fp16.h"
 
-namespace Neon::domain::details::disaggregated::bGrid {
+namespace Neon::domain::details::disaggregated::bGridDisg {
 
 template <typename T,
           int C = 1>

@@ -1,6 +1,6 @@
 #include <functional>
 #include "Neon/domain/Grids.h"
-#include "Neon/domain/details/bGridDisg/bGrid.h"
+#include "Neon/domain/details/bGridDisg/bGridDisg.h"
 #include "Neon/domain/details/dGridDisg/dGrid.h"
 
 #include "Neon/domain/details/dGridSoA/dGridSoA.h"

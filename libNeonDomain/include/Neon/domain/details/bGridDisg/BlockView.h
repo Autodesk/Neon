@@ -1,7 +1,7 @@
 #include "Neon/domain/details/bGridDisg/BlockViewGrid//BlockViewGrid.h"
 #include "Neon/domain/tools/GridTransformer.h"
 
-namespace Neon::domain::details::disaggregated::bGrid {
+namespace Neon::domain::details::disaggregated::bGridDisg {
 
 struct BlockView
 {

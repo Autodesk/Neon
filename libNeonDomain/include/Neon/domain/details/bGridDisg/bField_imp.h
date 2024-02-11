@@ -2,7 +2,7 @@
 
 #include "Neon/domain/details/bGridDisg/bField.h"
 
-namespace Neon::domain::details::disaggregated::bGrid {
+namespace Neon::domain::details::disaggregated::bGridDisg {
 
 template <typename T, int C, typename SBlock>
 bField<T, C, SBlock>::bField()

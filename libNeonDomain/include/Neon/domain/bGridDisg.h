@@ -1,6 +1,6 @@
 #pragma once
-#include "Neon/domain/details/bGridDisg/bGrid.h"
+#include "Neon/domain/details/bGridDisg/bGridDisg.h"
 
 namespace Neon {
-using bGridDisg = Neon::domain::details::disaggregated::bGrid::bGrid<Neon::domain::details::StaticBlock<4, 4, 4>>;
+using bGridDisg = Neon::domain::details::disaggregated::bGridDisg::bGridDisg<Neon::domain::details::StaticBlock<4, 4, 4>>;
 }

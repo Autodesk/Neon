@@ -2,7 +2,7 @@
 
 #include "../../../interface/ClassSelector.h"
 
-namespace Neon::domain::details::disaggregated::bGrid::cGrid {
+namespace Neon::domain::details::disaggregated::bGridDisg::cGrid {
 
 // -------------------------------------
 // | Internal     | BoundaryUP   | BoundaryDW    | Ghost UP        | Ghost Dw     |
