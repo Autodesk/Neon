@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisgMask/bGrid.h"
+#include "Neon/domain/details/bGridDisgMask/bGridMask.h"
 #include "Neon/domain/details/bGridDisgMask/bSpan.h"
 
 namespace Neon::domain::details::disaggregated::bGridMask {

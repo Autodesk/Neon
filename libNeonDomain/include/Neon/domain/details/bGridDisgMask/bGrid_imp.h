@@ -1,24 +1,24 @@
-#include "Neon/domain/details/bGridDisgMask/bGrid.h"
+#include "Neon/domain/details/bGridDisgMask/bGridMask.h"
 #include "Neon/domain/tools/SpaceCurves.h"
 
 namespace Neon::domain::details::disaggregated::bGridMask {
 
 template <typename SBlock>
 template <typename ActiveCellLambda>
-bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
+bGridMask<SBlock>::bGridMask(const Neon::Backend&                         backend,
                      const Neon::int32_3d&                        domainSize,
                      const ActiveCellLambda                       activeCellLambda,
                      const Neon::domain::Stencil&                 stencil,
                      const double_3d&                             spacingData,
                      const double_3d&                             origin,
                      Neon::domain::tool::spaceCurves::EncoderType encoderType)
-    : bGrid(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin, encoderType)
+    : bGridMask(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin, encoderType)
 {
 }
 
 template <typename SBlock>
 template <typename ActiveCellLambda>
-bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
+bGridMask<SBlock>::bGridMask(const Neon::Backend&                         backend,
                      const Neon::int32_3d&                        domainSize,
                      const ActiveCellLambda                       activeCellLambda,
                      const Neon::domain::Stencil&                 stencil,
@@ -47,7 +47,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
         // We do an initialization with nElementsPerPartition to zero,
         // then we reset to the computed number.
 
-        bGrid::GridBase::init(gridName.str(),
+        bGridMask::GridBase::init(gridName.str(),
                               backend,
                               domainSize,
                               stencil,
@@ -252,7 +252,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
         mData->stencilIdTo3dOffset.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
     }
     // Init the base grid
-    bGrid::GridBase::init(gridName.str(),
+    bGridMask::GridBase::init(gridName.str(),
                           backend,
                           domainSize,
                           Neon::domain::Stencil(),
@@ -289,7 +289,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
 
 template <typename SBlock>
 template <typename T, int C>
-auto bGrid<SBlock>::newField(const std::string   name,
+auto bGridMask<SBlock>::newField(const std::string   name,
                              int                 cardinality,
                              T                   inactiveValue,
                              Neon::DataUse       dataUse,
@@ -302,7 +302,7 @@ auto bGrid<SBlock>::newField(const std::string   name,
 
 template <typename SBlock>
 template <typename T, int C>
-auto bGrid<SBlock>::newBlockViewField(const std::string   name,
+auto bGridMask<SBlock>::newBlockViewField(const std::string   name,
                                       int                 cardinality,
                                       T                   inactiveValue,
                                       Neon::DataUse       dataUse,
@@ -316,7 +316,7 @@ auto bGrid<SBlock>::newBlockViewField(const std::string   name,
 template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<SBlock>::newContainer(const std::string& name,
+auto bGridMask<SBlock>::newContainer(const std::string& name,
                                  index_3d           blockSize,
                                  size_t             sharedMem,
                                  LoadingLambda      lambda) const -> Neon::set::Container
@@ -333,7 +333,7 @@ auto bGrid<SBlock>::newContainer(const std::string& name,
 template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<SBlock>::newContainer(const std::string& name,
+auto bGridMask<SBlock>::newContainer(const std::string& name,
                                  LoadingLambda      lambda) const -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
@@ -349,7 +349,7 @@ auto bGrid<SBlock>::newContainer(const std::string& name,
 template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<SBlock>::newAlphaContainer(const std::string& name,
+auto bGridMask<SBlock>::newAlphaContainer(const std::string& name,
                                       LoadingLambda      lambda) const -> Neon::set::Container
 {
     if (this->mData->classFilterEnable) {
@@ -365,7 +365,7 @@ auto bGrid<SBlock>::newAlphaContainer(const std::string& name,
 template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<SBlock>::newBetaContainer(const std::string& name,
+auto bGridMask<SBlock>::newBetaContainer(const std::string& name,
                                      LoadingLambda      lambda) const -> Neon::set::Container
 {
     if (this->mData->classFilterEnable) {
@@ -382,7 +382,7 @@ template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambdaAlpha,
           typename LoadingLambdaBeta>
-auto bGrid<SBlock>::newAlphaBetaContainer(const std::string& name,
+auto bGridMask<SBlock>::newAlphaBetaContainer(const std::string& name,
                                           LoadingLambdaAlpha lambdaAlpha,
                                           LoadingLambdaBeta  lambdaBeta) const -> Neon::set::Container
 {
@@ -405,7 +405,7 @@ auto bGrid<SBlock>::newAlphaBetaContainer(const std::string& name,
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridMask<SBlock>::
     getBlockViewGrid()
         const -> BlockView::Grid&
 {
@@ -413,7 +413,7 @@ auto bGrid<SBlock>::
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridMask<SBlock>::
     getActiveBitMask()
         const -> BlockView::Field<typename SBlock::BitMask, 1>&
 {
@@ -425,40 +425,40 @@ auto bGrid<SBlock>::
  */
 template <typename SBlock>
 template <int dummy>
-auto bGrid<SBlock>::helGetMultiResDiscreteIdxSpacing() const
+auto bGridMask<SBlock>::helGetMultiResDiscreteIdxSpacing() const
     -> std::enable_if_t<dummy == 1, int>
 {
     return mData->mMultiResDiscreteIdxSpacing;
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridMask<SBlock>::
     helpGetBlockConnectivity()
         const -> BlockView::Field<BlockIdx, 27>&
 {
     return mData->blockConnectivity;
 }
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridMask<SBlock>::
     helpGetDataBlockOriginField()
         const -> Neon::aGrid::Field<index_3d, 0>&
 {
     return mData->mDataBlockOriginField;
 }
 template <typename SBlock>
-auto bGrid<SBlock>::getSpan(Neon::Execution execution,
+auto bGridMask<SBlock>::getSpan(Neon::Execution execution,
                             SetIdx          setIdx,
-                            Neon::DataView  dataView) -> const bGrid::Span&
+                            Neon::DataView  dataView) -> const bGridMask::Span&
 {
     return mData->spanTable.getSpan(execution, setIdx, dataView);
 }
 
 template <typename SBlock>
-bGrid<SBlock>::~bGrid()
+bGridMask<SBlock>::~bGridMask()
 {
 }
 template <typename SBlock>
-auto bGrid<SBlock>::getSetIdx(const index_3d& idx) const -> int32_t
+auto bGridMask<SBlock>::getSetIdx(const index_3d& idx) const -> int32_t
 {
     typename GridBaseTemplate::CellProperties cellProperties;
 
@@ -470,7 +470,7 @@ auto bGrid<SBlock>::getSetIdx(const index_3d& idx) const -> int32_t
     return setIdx;
 }
 template <typename SBlock>
-auto bGrid<SBlock>::getLaunchParameters(Neon::DataView dataView,
+auto bGridMask<SBlock>::getLaunchParameters(Neon::DataView dataView,
                                         const index_3d&,
                                         const size_t& sharedMem) const -> Neon::set::LaunchParameters
 {
@@ -483,7 +483,7 @@ auto bGrid<SBlock>::getLaunchParameters(Neon::DataView dataView,
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridMask<SBlock>::
     helpGetStencilIdTo3dOffset()
         const -> Neon::set::MemSet<Neon::int8_3d>&
 {
@@ -491,7 +491,7 @@ auto bGrid<SBlock>::
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
+auto bGridMask<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
 {
     // 1. check if the block is active
     const BlockView::index_3d blockIdx3d = idx / (SBlock::memBlockSize3D.template newType<int32_t>() * mData->mMultiResDiscreteIdxSpacing);
@@ -510,7 +510,7 @@ auto bGrid<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::getProperties(const index_3d& idx)
+auto bGridMask<SBlock>::getProperties(const index_3d& idx)
     const -> typename GridBaseTemplate::CellProperties
 {
     typename GridBaseTemplate::CellProperties cellProperties;
@@ -533,7 +533,7 @@ auto bGrid<SBlock>::getProperties(const index_3d& idx)
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
+auto bGridMask<SBlock>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
     const -> std::tuple<Neon::SetIdx, Idx>
 {
     const index_3d blockIdx3d = idx / (SBlock::memBlockSize3D.template newType<int32_t>() * mData->mMultiResDiscreteIdxSpacing);
@@ -548,14 +548,14 @@ auto bGrid<SBlock>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::helpGetPartitioner1D() -> Neon::domain::tool::Partitioner1D&
+auto bGridMask<SBlock>::helpGetPartitioner1D() -> Neon::domain::tool::Partitioner1D&
 {
     return mData->partitioner1D;
 }
 
 template <typename SBlock>
 template <typename ActiveCellLambda>
-auto bGrid<SBlock>::init_mask_field(ActiveCellLambda activeCellLambda) -> void
+auto bGridMask<SBlock>::init_mask_field(ActiveCellLambda activeCellLambda) -> void
 {
     std::cout << "THIS IS A TEST" << std::endl;
     using returTypeOfLambda = typename std::invoke_result<ActiveCellLambda, Neon::index_3d>::type;
@@ -584,7 +584,7 @@ auto bGrid<SBlock>::init_mask_field(ActiveCellLambda activeCellLambda) -> void
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::helpGetClassField() -> Field<uint8_t, 1>&
+auto bGridMask<SBlock>::helpGetClassField() -> Field<uint8_t, 1>&
 {
     if (this->mData->classFilterEnable) {
         return mData->maskClassField;

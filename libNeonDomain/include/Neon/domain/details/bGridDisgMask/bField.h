@@ -21,15 +21,15 @@ namespace Neon::domain::details::disaggregated::bGridMask {
 template <typename T, int C, typename SBlock>
 class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 bGrid<SBlock>,
+                                                                 bGridMask<SBlock>,
                                                                  bPartition<T, C, SBlock>,
                                                                  int>
 {
-    friend bGrid<SBlock>;
+    friend bGridMask<SBlock>;
 
    public:
     using Type = T;
-    using Grid = bGrid<SBlock>;
+    using Grid = bGridMask<SBlock>;
     using Field = bField<T, C, SBlock>;
     using Partition = bPartition<T, C, SBlock>;
     using Idx = bIndex<SBlock>;

@@ -17,7 +17,7 @@ class cSpan
     static constexpr uint32_t           log2OfbitMaskWordSize = 6;
 
     using Idx = bIndex<SBlock>;
-    friend class bGrid<SBlock>;
+    friend class bGridMask<SBlock>;
 
     static constexpr int SpaceDim = 3;
 

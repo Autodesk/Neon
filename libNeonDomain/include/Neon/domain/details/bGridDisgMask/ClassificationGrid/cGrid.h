@@ -23,7 +23,7 @@
 #include "Neon/domain/tools/GridTransformer.h"
 #include "Neon/domain/tools/SpanTable.h"
 
-#include "../bGrid.h"
+#include "../bGridMask.h"
 #include "./cSpan.h"
 
 namespace Neon::domain::details::disaggregated::bGridMask {
@@ -33,7 +33,7 @@ namespace details::cGrid {
 template <typename SBlock, int classSelector>
 struct GridTransformation_cGrid
 {
-    using FoundationGrid = Neon::domain::details::disaggregated::bGridMask::bGrid<SBlock>;
+    using FoundationGrid = Neon::domain::details::disaggregated::bGridMask::bGridMask<SBlock>;
 
     template <typename T, int C>
     using Partition = Neon::domain::details::disaggregated::bGridMask::bPartition<T, C, SBlock>;

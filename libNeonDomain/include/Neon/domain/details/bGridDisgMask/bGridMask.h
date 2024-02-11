@@ -31,11 +31,11 @@ template <typename T, int C, typename SBlock>
 class bField;
 
 template <typename SBlock>
-class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
+class bGridMask : public Neon::domain::interface::GridBaseTemplate<bGridMask<SBlock>,
                                                                bIndex<SBlock>>
 {
    public:
-    using Grid = bGrid<SBlock>;
+    using Grid = bGridMask<SBlock>;
     template <typename T, int C = 0>
     using Partition = bPartition<T, C, SBlock>;
     template <typename T, int C = 0>
@@ -56,15 +56,15 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     using AlphaGrid = cGrid<SBlock, 1>;
     using BetaGrid = cGrid<SBlock, 2>;
 
-    bGrid() = default;
+    bGridMask() = default;
 
-    virtual ~bGrid();
+    virtual ~bGridMask();
 
     /**
      * Constructor for the vanilla block data structure with depth of 1
      */
     template <typename ActiveCellLambda>
-    bGrid(const Neon::Backend&                         backend,
+    bGridMask(const Neon::Backend&                         backend,
           const Neon::int32_3d&                        domainSize,
           const ActiveCellLambda                       activeCellLambda,
           const Neon::domain::Stencil&                 stencil,
@@ -77,7 +77,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
      * Constructor for bGrid. This constructor should be directly used only by mGrid
      */
     template <typename ActiveCellLambda>
-    bGrid(const Neon::Backend&         backend /**< Neon backend for the computation */,
+    bGridMask(const Neon::Backend&         backend /**< Neon backend for the computation */,
           const Neon::int32_3d&        domainSize /**< Size of the bounded Cartesian */,
           const ActiveCellLambda       activeCellLambda /**< Function that identify the user domain inside the boxed Cartesian discretization  */,
           const Neon::domain::Stencil& stencil /**< union of tall the stencil that will be used in the computation */,
@@ -272,7 +272,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
 
 constexpr int defaultBlockSize = 4;
 using BlockDefault = StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>;
-extern template class bGrid<BlockDefault>;
+extern template class bGridMask<BlockDefault>;
 }  // namespace Neon::domain::details::disaggregated::bGridMask
 
 #include "bField_imp.h"

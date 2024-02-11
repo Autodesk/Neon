@@ -7,7 +7,7 @@ namespace Neon::domain::details::disaggregated::bGridMask {
 
 // Common forward declarations
 template <typename SBlock>
-class bGrid;
+class bGridMask;
 template <typename SBlock>
 class bSpan;
 template <typename T, int C, typename SBlock>
@@ -77,7 +77,7 @@ class bIndex
     template <typename SBlock_>
     friend class bSpan;
     template <typename SBlock_>
-    friend class bGrid;
+    friend class bGridMask;
 
 
     using TrayIdx = MicroIndex::TrayIdx;
