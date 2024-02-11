@@ -3,7 +3,7 @@
 
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/details/bGridDisgMgpu/BlockView.h"
-#include "Neon/domain/details/bGridDisgMgpu/StaticBlock.h"
+#include "Neon/domain/details/StaticBlock.h"
 #include "Neon/domain/details/bGridDisgMgpu/bField.h"
 #include "Neon/domain/details/bGridDisgMgpu/bIndex.h"
 #include "Neon/domain/details/bGridDisgMgpu/bPartition.h"
@@ -48,7 +48,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
 
     using BlockIdx = uint32_t;
 
-    bGrid() = default;
+             bGrid() = default;
     virtual ~bGrid();
 
     /**
@@ -235,8 +235,8 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
 };
 
 constexpr int defaultBlockSize = 4;
-using bGridMgpuDefault = bGrid<StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>>;
-extern template class bGrid<StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>>;
+using BlockDefault = StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>;
+extern template class bGrid<BlockDefault>;
 }  // namespace Neon::domain::details::bGridMgpu
 
 #include "bField_imp.h"

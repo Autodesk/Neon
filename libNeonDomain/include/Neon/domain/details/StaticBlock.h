@@ -1,8 +1,8 @@
-#pragma once 
+#pragma once
 
-#include "Neon/domain/details/bGrid/bSpan.h"
+#include "bGrid/bSpan.h"
 
-namespace Neon::domain::details::bGrid {
+namespace Neon::domain::details {
 
 template <uint32_t memBlockSizeX_,
           uint32_t memBlockSizeY_,
@@ -103,4 +103,4 @@ struct StaticBlock
     };
 };
 
-}  // namespace Neon::domain::details::bGrid
+}  // namespace Neon::domain::details

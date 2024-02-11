@@ -2,6 +2,6 @@
 
 namespace Neon::domain::details::bGridMgpu {
 
-template class bGrid<StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>>;
+template class bGrid<BlockDefault>;
 
 }  // namespace Neon::domain::details::bGrid

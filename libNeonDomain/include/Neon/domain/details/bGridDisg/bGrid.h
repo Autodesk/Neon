@@ -3,7 +3,7 @@
 
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/details/bGridDisg/BlockView.h"
-#include "Neon/domain/details/bGridDisg/StaticBlock.h"
+#include "Neon/domain/details/StaticBlock.h"
 #include "Neon/domain/details/bGridDisg/bField.h"
 #include "Neon/domain/details/bGridDisg/bIndex.h"
 #include "Neon/domain/details/bGridDisg/bPartition.h"
@@ -268,7 +268,11 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     };
     std::shared_ptr<Data> mData;
 };
-extern template class bGrid<StaticBlock<4, 4, 4>>;
+
+constexpr int defaultBlockSize = 4;
+using BlockDefault = StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>;
+extern template class bGrid<BlockDefault>;
+
 }  // namespace Neon::domain::details::disaggregated::bGrid
 
 #include "bField_imp.h"
