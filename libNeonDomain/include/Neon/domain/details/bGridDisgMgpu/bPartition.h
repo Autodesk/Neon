@@ -7,7 +7,7 @@
 
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename SBlock>
 class bSpan;

@@ -9,7 +9,7 @@
 #include "Neon/sys/memory/CudaIntrinsics.h"
 #include "cuda_fp16.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename T,
           int C = 1>

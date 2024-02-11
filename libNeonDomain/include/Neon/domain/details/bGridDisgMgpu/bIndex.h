@@ -3,11 +3,11 @@
 #include "Neon/core/core.h"
 
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 // Common forward declarations
 template <typename SBlock>
-class bGrid;
+class bGridDisgMgpu;
 template <typename SBlock>
 class bSpan;
 template <typename T, int C, typename SBlock>
@@ -77,7 +77,7 @@ class bIndex
     template <typename SBlock_>
     friend class bSpan;
     template <typename SBlock_>
-    friend class bGrid;
+    friend class bGridDisgMgpu;
 
 
     using TrayIdx = MicroIndex::TrayIdx;

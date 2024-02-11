@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Neon/domain/details/bGridDisgMgpu//bGrid.h"
+#include "Neon/domain/details/bGridDisgMgpu//bGridDisgMgpu.h"
 #include "Neon/domain/details/bGridDisgMgpu/bSpan.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename T, int C, typename SBlock>
 bPartition<T, C, SBlock>::bPartition()

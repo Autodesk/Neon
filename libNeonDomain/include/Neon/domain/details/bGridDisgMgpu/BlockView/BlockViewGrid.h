@@ -29,7 +29,7 @@
 
 #include "BlockViewPartition.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 namespace details {
 struct GridTransformation

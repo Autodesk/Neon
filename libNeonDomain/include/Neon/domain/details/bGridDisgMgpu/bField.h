@@ -15,21 +15,21 @@
 #include "Neon/domain/tools/PartitionTable.h"
 #include "bPartition.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 
 template <typename T, int C, typename SBlock>
 class bField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 bGrid<SBlock>,
+                                                                 bGridDisgMgpu<SBlock>,
                                                                  bPartition<T, C, SBlock>,
                                                                  int>
 {
-    friend bGrid<SBlock>;
+    friend bGridDisgMgpu<SBlock>;
 
    public:
     using Type = T;
-    using Grid = bGrid<SBlock>;
+    using Grid = bGridDisgMgpu<SBlock>;
     using Field = bField<T, C, SBlock>;
     using Partition = bPartition<T, C, SBlock>;
     using Idx = bIndex<SBlock>;

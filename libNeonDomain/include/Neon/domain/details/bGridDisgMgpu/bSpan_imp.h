@@ -1,6 +1,6 @@
 #include "Neon/domain/details/bGridDisgMgpu/bSpan.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto

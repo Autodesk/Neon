@@ -2,7 +2,7 @@
 
 #include "Neon/domain/details/bGridDisgMgpu/bField.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename T, int C, typename SBlock>
 bField<T, C, SBlock>::bField()

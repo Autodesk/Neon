@@ -1,7 +1,7 @@
 #include "Neon/domain/details/bGridDisgMgpu//BlockView/BlockViewGrid.h"
 #include "Neon/domain/tools/GridTransformer.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 struct BlockView
 {

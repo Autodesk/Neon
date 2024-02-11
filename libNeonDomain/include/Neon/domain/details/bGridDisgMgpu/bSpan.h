@@ -2,7 +2,7 @@
 
 #include "Neon/domain/details/bGridDisgMgpu/bIndex.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename SBlock>
 class bSpan
@@ -16,7 +16,7 @@ class bSpan
     static constexpr uint32_t           log2OfbitMaskWordSize = 6;
 
     using Idx = bIndex<SBlock>;
-    friend class bGrid<SBlock>;
+    friend class bGridDisgMgpu<SBlock>;
 
     static constexpr int SpaceDim = 3;
 

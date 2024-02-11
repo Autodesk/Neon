@@ -232,8 +232,8 @@ auto run(Config&            config,
     }
     if (config.gridType == "bGridMgpu_4_4_4") {
         testCode << "_bGridMgpu_4_4_4";
-        using Block = Neon::domain::details::bGridMgpu::StaticBlock<4, 4, 4>;
-        using Grid = Neon::domain::details::bGridMgpu::bGrid<Block>;
+        using Block = Neon::domain::details::bGridDisgMgpu::StaticBlock<4, 4, 4>;
+        using Grid = Neon::domain::details::bGridDisgMgpu::bGridDisgMgpu<Block>;
         return details::runFilterStoreType<Neon::bGridMgpu>(config, report, testCode);
     }
     //    if (config.gridType == "eGrid") {

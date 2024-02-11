@@ -1,24 +1,24 @@
-#include "Neon/domain/details/bGridDisgMgpu/bGrid.h"
+#include "Neon/domain/details/bGridDisgMgpu/bGridDisgMgpu.h"
 #include "Neon/domain/tools/SpaceCurves.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 template <typename SBlock>
 template <typename ActiveCellLambda>
-bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
+bGridDisgMgpu<SBlock>::bGridDisgMgpu(const Neon::Backend&                         backend,
                      const Neon::int32_3d&                        domainSize,
                      const ActiveCellLambda                       activeCellLambda,
                      const Neon::domain::Stencil&                 stencil,
                      const double_3d&                             spacingData,
                      const double_3d&                             origin,
                      Neon::domain::tool::spaceCurves::EncoderType encoderType)
-    : bGrid(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin, encoderType)
+    : bGridDisgMgpu(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin, encoderType)
 {
 }
 
 template <typename SBlock>
 template <typename ActiveCellLambda>
-bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
+bGridDisgMgpu<SBlock>::bGridDisgMgpu(const Neon::Backend&                         backend,
                      const Neon::int32_3d&                        domainSize,
                      const ActiveCellLambda                       activeCellLambda,
                      const Neon::domain::Stencil&                 stencil,
@@ -47,7 +47,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
         // We do an initialization with nElementsPerPartition to zero,
         // then we reset to the computed number.
 
-        bGrid::GridBase::init(gridName.str(),
+        bGridDisgMgpu::GridBase::init(gridName.str(),
                               backend,
                               domainSize,
                               stencil,
@@ -231,7 +231,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
         mData->stencilIdTo3dOffset.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
     }
     // Init the base grid
-    bGrid::GridBase::init(gridName.str(),
+    bGridDisgMgpu::GridBase::init(gridName.str(),
                           backend,
                           domainSize,
                           Neon::domain::Stencil(),
@@ -260,7 +260,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
 
 template <typename SBlock>
 template <typename T, int C>
-auto bGrid<SBlock>::newField(const std::string   name,
+auto bGridDisgMgpu<SBlock>::newField(const std::string   name,
                              int                 cardinality,
                              T                   inactiveValue,
                              Neon::DataUse       dataUse,
@@ -274,7 +274,7 @@ auto bGrid<SBlock>::newField(const std::string   name,
 
 template <typename SBlock>
 template <typename T, int C>
-auto bGrid<SBlock>::newBlockViewField(const std::string   name,
+auto bGridDisgMgpu<SBlock>::newBlockViewField(const std::string   name,
                                       int                 cardinality,
                                       T                   inactiveValue,
                                       Neon::DataUse       dataUse,
@@ -288,7 +288,7 @@ auto bGrid<SBlock>::newBlockViewField(const std::string   name,
 template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<SBlock>::newContainer(const std::string& name,
+auto bGridDisgMgpu<SBlock>::newContainer(const std::string& name,
                                  index_3d           blockSize,
                                  size_t             sharedMem,
                                  LoadingLambda      lambda) const -> Neon::set::Container
@@ -305,7 +305,7 @@ auto bGrid<SBlock>::newContainer(const std::string& name,
 template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
-auto bGrid<SBlock>::newContainer(const std::string& name,
+auto bGridDisgMgpu<SBlock>::newContainer(const std::string& name,
                                  LoadingLambda      lambda) const -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
@@ -319,7 +319,7 @@ auto bGrid<SBlock>::newContainer(const std::string& name,
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridDisgMgpu<SBlock>::
     getBlockViewGrid()
         const -> BlockView::Grid&
 {
@@ -327,7 +327,7 @@ auto bGrid<SBlock>::
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridDisgMgpu<SBlock>::
     getActiveBitMask()
         const -> BlockView::Field<typename SBlock::BitMask, 1>&
 {
@@ -339,40 +339,40 @@ auto bGrid<SBlock>::
  */
 template <typename SBlock>
 template <int dummy>
-auto bGrid<SBlock>::helGetMultiResDiscreteIdxSpacing() const
+auto bGridDisgMgpu<SBlock>::helGetMultiResDiscreteIdxSpacing() const
     -> std::enable_if_t<dummy == 1, int>
 {
     return mData->mMultiResDiscreteIdxSpacing;
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridDisgMgpu<SBlock>::
     helpGetBlockConnectivity()
         const -> BlockView::Field<BlockIdx, 27>&
 {
     return mData->blockConnectivity;
 }
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridDisgMgpu<SBlock>::
     helpGetDataBlockOriginField()
         const -> Neon::aGrid::Field<index_3d, 0>&
 {
     return mData->mDataBlockOriginField;
 }
 template <typename SBlock>
-auto bGrid<SBlock>::getSpan(Neon::Execution execution,
+auto bGridDisgMgpu<SBlock>::getSpan(Neon::Execution execution,
                             SetIdx          setIdx,
-                            Neon::DataView  dataView) -> const bGrid::Span&
+                            Neon::DataView  dataView) -> const bGridDisgMgpu::Span&
 {
     return mData->spanTable.getSpan(execution, setIdx, dataView);
 }
 
 template <typename SBlock>
-bGrid<SBlock>::~bGrid()
+bGridDisgMgpu<SBlock>::~bGridDisgMgpu()
 {
 }
 template <typename SBlock>
-auto bGrid<SBlock>::getSetIdx(const index_3d& idx) const -> int32_t
+auto bGridDisgMgpu<SBlock>::getSetIdx(const index_3d& idx) const -> int32_t
 {
     typename GridBaseTemplate::CellProperties cellProperties;
 
@@ -384,7 +384,7 @@ auto bGrid<SBlock>::getSetIdx(const index_3d& idx) const -> int32_t
     return setIdx;
 }
 template <typename SBlock>
-auto bGrid<SBlock>::getLaunchParameters(Neon::DataView dataView,
+auto bGridDisgMgpu<SBlock>::getLaunchParameters(Neon::DataView dataView,
                                         const index_3d&,
                                         const size_t& sharedMem) const -> Neon::set::LaunchParameters
 {
@@ -397,7 +397,7 @@ auto bGrid<SBlock>::getLaunchParameters(Neon::DataView dataView,
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::
+auto bGridDisgMgpu<SBlock>::
     helpGetStencilIdTo3dOffset()
         const -> Neon::set::MemSet<Neon::int8_3d>&
 {
@@ -405,7 +405,7 @@ auto bGrid<SBlock>::
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
+auto bGridDisgMgpu<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
 {
     // 1. check if the block is active
     const BlockView::index_3d blockIdx3d = idx / (SBlock::memBlockSize3D.template newType<int32_t>() * mData->mMultiResDiscreteIdxSpacing);
@@ -424,7 +424,7 @@ auto bGrid<SBlock>::isInsideDomain(const index_3d& idx) const -> bool
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::getProperties(const index_3d& idx)
+auto bGridDisgMgpu<SBlock>::getProperties(const index_3d& idx)
     const -> typename GridBaseTemplate::CellProperties
 {
     typename GridBaseTemplate::CellProperties cellProperties;
@@ -447,7 +447,7 @@ auto bGrid<SBlock>::getProperties(const index_3d& idx)
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
+auto bGridDisgMgpu<SBlock>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
     const -> std::tuple<Neon::SetIdx, Idx>
 {
     const index_3d blockIdx3d = idx / (SBlock::memBlockSize3D.template newType<int32_t>() * mData->mMultiResDiscreteIdxSpacing);
@@ -462,7 +462,7 @@ auto bGrid<SBlock>::helpGetSetIdxAndGridIdx(Neon::index_3d idx)
 }
 
 template <typename SBlock>
-auto bGrid<SBlock>::helpGetPartitioner1D() -> Neon::domain::tool::Partitioner1D&
+auto bGridDisgMgpu<SBlock>::helpGetPartitioner1D() -> Neon::domain::tool::Partitioner1D&
 {
     return mData->partitioner1D;
 }

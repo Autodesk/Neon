@@ -2,7 +2,7 @@
 
 #include "Neon/domain/details//eGrid/ePartition.h"
 
-namespace Neon::domain::details::bGridMgpu {
+namespace Neon::domain::details::bGridDisgMgpu {
 
 
 template <typename T,
