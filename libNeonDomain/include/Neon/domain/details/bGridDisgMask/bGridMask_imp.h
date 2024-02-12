@@ -39,7 +39,7 @@ bGridMask<SBlock>::bGridMask(const Neon::Backend&                         backen
                                           SBlock::memBlockSizeZ);
 
     std::stringstream gridName;
-    gridName << "bGrid_" << SBlock::memBlockSizeX << "_"
+    gridName << "bGridMask_" << SBlock::memBlockSizeX << "_"
              << SBlock::memBlockSizeY << "_"
              << SBlock::memBlockSizeZ;
     {
