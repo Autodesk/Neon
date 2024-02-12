@@ -294,10 +294,13 @@ void flowOverMesh(const Neon::Backend backend,
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
     //define the gird and the box that will encompass the mesh
-    Neon::index_3d gridDim(19 * params.scale, 10 * params.scale, 10 * params.scale);
-
+    Neon::index_3d     gridDim(19 * params.scale, 10 * params.scale, 10 * params.scale);
     Eigen::RowVector3d meshBoxDim(4 * params.scale, 4 * params.scale, 4 * params.scale);
     Eigen::RowVector3d meshBoxCenter(5 * params.scale, 5 * params.scale, 5 * params.scale);
+
+    //Neon::index_3d gridDim(1.5 * 29 * params.scale, 10 * params.scale, 10 * params.scale);
+    //Eigen::RowVector3d meshBoxDim(2 * params.scale, 2 * params.scale, 2 * params.scale);
+    //Eigen::RowVector3d meshBoxCenter(20 * params.scale, 10, 5 * params.scale);
 
 
     //read the mesh and scale it such that it fits inside meshBox
@@ -308,6 +311,19 @@ void flowOverMesh(const Neon::Backend backend,
     //remove unreferenced vertices because they may affect the scaling
     Eigen::VectorXi _1, _2;
     igl::remove_unreferenced(Eigen::MatrixXd(vertices), Eigen::MatrixXi(faces), vertices, faces, _1, _2);
+
+    //rotate about x-axis by -90 degrees
+    //Eigen::Matrix3d rotation;
+    //rotation << 1, 0, 0,
+    //    0, 0, 1,
+    //    0, -1, 0;
+    //vertices = vertices * rotation.transpose();
+    //
+    ////rotate about y-axis by 180 degrees
+    //rotation << -1, 0, 0,
+    //    0, 1, 0,
+    //    0, 0, -1;
+    //vertices = vertices * rotation.transpose();
 
     //mesh bounding box using the mesh coordinates
     Eigen::RowVectorXd bbMax, bbMin;
@@ -335,25 +351,56 @@ void flowOverMesh(const Neon::Backend backend,
     wnAABB.grow();
 
     //define the grid
-    int                            depth = 3;
+    int depth = 3;
+
+    std::vector<std::function<bool(const Neon::index_3d&)>>
+        activeCellLambda =
+            {[&](const Neon::index_3d idx) -> bool {
+                 return idx.x >= 2 * params.scale && idx.x < 8 * params.scale &&
+                        idx.y >= 3 * params.scale && idx.y < 7 * params.scale &&
+                        idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
+             },
+             [&](const Neon::index_3d idx) -> bool {
+                 return idx.x >= params.scale && idx.x < 13 * params.scale &&
+                        idx.y >= 2 * params.scale && idx.y < 8 * params.scale &&
+                        idx.z >= 2 * params.scale && idx.z < 8 * params.scale;
+             },
+             [&](const Neon::index_3d idx) -> bool {
+                 return true;
+             }};
+
+    //int depth = 5;
+    //
+    //std::vector<std::function<bool(const Neon::index_3d&)>>
+    //    activeCellLambda =
+    //        {[&](const Neon::index_3d idx) -> bool {
+    //             return idx.x >= (0.1 * 29 * params.scale) + 4.3 * params.scale && idx.x < (0.1 * 29 * params.scale) + 10 * params.scale &&
+    //                    idx.y < 1.2 * params.scale &&
+    //                    idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
+    //         },
+    //         [&](const Neon::index_3d idx) -> bool {
+    //             return idx.x >= (0.1 * 29 * params.scale) + 3.0 * params.scale && idx.x < (0.1 * 29 * params.scale) + 14 * params.scale &&
+    //                    idx.y < 3 * params.scale &&
+    //                    idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
+    //         },
+    //         [&](const Neon::index_3d idx) -> bool {
+    //             return idx.x >= (0.1 * 29 * params.scale) + 2.2 * params.scale && idx.x < (0.1 * 29 * params.scale) + 19.5 * params.scale &&
+    //                    idx.y < 4.3 * params.scale &&
+    //                    idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
+    //         },
+    //         [&](const Neon::index_3d idx) -> bool {
+    //             return idx.x >= (0.1 * 29 * params.scale) + 0.7 * params.scale && idx.x < (0.1 * 29 * params.scale) + 25 * params.scale &&
+    //                    idx.y < 6.2 * params.scale &&
+    //                    idx.z >= 2 * params.scale && idx.z < 8 * params.scale;
+    //         },
+    //         [&](const Neon::index_3d idx) -> bool {
+    //             return true;
+    //         }};
+
     const Neon::mGridDescriptor<1> descriptor(depth);
 
     Neon::domain::mGrid grid(
-        backend, gridDim,
-        {[&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 2 * params.scale && idx.x < 8 * params.scale &&
-                    idx.y >= 3 * params.scale && idx.y < 7 * params.scale &&
-                    idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
-         },
-         [&](const Neon::index_3d idx) -> bool {
-             return idx.x >= params.scale && idx.x < 13 * params.scale &&
-                    idx.y >= 2 * params.scale && idx.y < 8 * params.scale &&
-                    idx.z >= 2 * params.scale && idx.z < 8 * params.scale;
-         },
-         [&](const Neon::index_3d idx) -> bool {
-             return true;
-         }},
-        Neon::domain::Stencil::s19_t(false), descriptor);
+        backend, gridDim, activeCellLambda, Neon::domain::Stencil::s19_t(false), descriptor);
 
 
     //LBM problem
@@ -363,6 +410,7 @@ void flowOverMesh(const Neon::Backend backend,
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
 
+    //NEON_INFO("Writing Test file");
     //auto test = grid.newField<T>("test", 1, 0);
     //test.ioToVtk("Test", true, true, true, true, {-1, -1, 1});
     //exit(0);

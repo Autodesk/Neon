@@ -160,6 +160,14 @@ void postProcess(Neon::domain::mGrid&                                           
             //file << c << "\n";
         }
 
+
+        file << "SCALARS Level float 1 \n";
+        file << "LOOKUP_TABLE default \n";
+        for (size_t t = 0; t < psDrawable.size(); ++t) {
+            int level = psDrawable[t].second;
+            file << level << "\n";
+        }
+
         file.close();
     }
 
