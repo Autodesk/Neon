@@ -339,7 +339,7 @@ void flowOverMesh(const Neon::Backend backend,
     polyscopeAddMesh(params.meshFile, faces, vertices);
 #endif
 
-    NEON_INFO("Winding Number init");
+    NEON_INFO("AABB init");
 
     igl::AABB<Eigen::MatrixXd, 3> aabb;
     aabb.init(vertices, faces);
@@ -393,6 +393,8 @@ void flowOverMesh(const Neon::Backend backend,
     //         }};
 
     const Neon::mGridDescriptor<1> descriptor(depth);
+
+    NEON_INFO("Create mGrid");
 
     Neon::domain::mGrid grid(
         backend, gridDim, activeCellLambda, Neon::domain::Stencil::s19_t(false), descriptor);
