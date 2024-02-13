@@ -5,13 +5,14 @@
 
 #include "init.h"
 
-#include "igl/AABB.h"
-#include "igl/WindingNumberAABB.h"
+
 #include "igl/max.h"
 #include "igl/min.h"
 #include "igl/read_triangle_mesh.h"
 #include "igl/remove_unreferenced.h"
 #include "igl/writeOBJ.h"
+
+#include "igl/AABB.h"
 
 template <typename T, int Q, typename sdfT>
 void initFlowOverShape(Neon::domain::mGrid&                  grid,
@@ -278,15 +279,6 @@ void flowOverSphere(const Neon::Backend backend,
 }
 
 
-template <typename DerivedV, typename DerivedF>
-inline auto winding_number_aabbc(const Eigen::MatrixBase<DerivedV>& V,
-                                 const Eigen::MatrixBase<DerivedF>& F)
-{
-    return igl::WindingNumberAABB<
-        Eigen::Matrix<typename DerivedV::Scalar, 1, 3>,
-        DerivedV,
-        DerivedF>(V, F);
-}
 template <typename T, int Q>
 void flowOverMesh(const Neon::Backend backend,
                   const Params&       params)
@@ -337,6 +329,9 @@ void flowOverMesh(const Neon::Backend backend,
     vertices *= scaling_factor;
     vertices.rowwise() += meshBoxCenter;
 
+    igl::max(vertices, 1, bbMax, bbMaxI);
+    igl::min(vertices, 1, bbMin, bbMinI);
+
 
     igl::writeOBJ("scaled.obj", vertices, faces);
 
@@ -345,10 +340,10 @@ void flowOverMesh(const Neon::Backend backend,
 #endif
 
     NEON_INFO("Winding Number init");
-    //get the mesh ready for query (inside/outside) using libigl winding number
-    auto wnAABB = winding_number_aabbc(vertices, faces);
-    wnAABB.set_method(igl::WindingNumberMethod::APPROX_SIMPLE_WINDING_NUMBER_METHOD);
-    wnAABB.grow();
+
+    igl::AABB<Eigen::MatrixXd, 3> aabb;
+    aabb.init(vertices, faces);
+
 
     //define the grid
     int depth = 3;
@@ -404,8 +399,9 @@ void flowOverMesh(const Neon::Backend backend,
 
 
     //LBM problem
-    const T               uin = 0.04;
-    const T               clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
+    const T uin = 0.04;
+    const T clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
+    //const T               clength = T(T((bbMax - bbMin).minCoeff()) / 2.f) / (1 << (depth - 1));
     const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
@@ -431,9 +427,19 @@ void flowOverMesh(const Neon::Backend backend,
                             voxelGlobalLocation.z < meshBoxCenter.z() - meshBoxDim.z() / 2 || voxelGlobalLocation.z >= meshBoxCenter.z() + meshBoxDim.z() / 2) {
                             in(cell, 0) = 0;
                         } else {
-                            const double       voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
-                            Eigen::RowVector3d point(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing);
-                            in(cell, 0) = int8_t(wnAABB.winding_number(point) + std::numeric_limits<float>::epsilon() > 1);
+                            const double voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
+
+                            const double centerToCornerDistSqr = (3.0 / 4.0) * (2.0 * voxelSpacing);                            
+
+                            Eigen::Matrix<double, 1, 3> p(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing), c;
+
+                            int face_index(0);
+
+                            aabb.squared_distance(vertices, faces, p, face_index, c);
+
+                            double sqr_dist = (p - c).norm();
+
+                            in(cell, 0) = int8_t(sqr_dist + std::numeric_limits<double>::epsilon() < centerToCornerDistSqr);
                         }
                     } else {
                         in(cell, 0) = 0;
