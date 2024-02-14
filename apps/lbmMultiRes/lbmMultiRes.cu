@@ -30,6 +30,9 @@ struct Params
     int         sliceX = -1;
     int         sliceY = -1;
     int         sliceZ = 1;
+    double      thetaX = 0;
+    double      thetaY = 0;
+    double      thetaZ = 0;
     bool        vtk = false;
     bool        binary = false;
     bool        gui = false;
@@ -61,6 +64,10 @@ int main(int argc, char** argv)
              clipp::option("--sliceX") & clipp::integer("sliceX", params.sliceX) % "Slice along X for output images/VTK",
              clipp::option("--sliceY") & clipp::integer("sliceY", params.sliceY) % "Slice along Y for output images/VTK",
              clipp::option("--sliceZ") & clipp::integer("sliceZ", params.sliceZ) % "Slice along Z for output images/VTK",
+
+             clipp::option("--thetaX") & clipp::value("thetaX", params.thetaX) % "Angle (degree) of rotation of the input model along X axis",
+             clipp::option("--thetaY") & clipp::value("thetaY", params.thetaY) % "Angle (degree) of rotation of the input model along Y axis",
+             clipp::option("--thetaZ") & clipp::value("thetaZ", params.thetaZ) % "Angle (degree) of rotation of the input model along Z axis",
 
              ((clipp::option("--benchmark").set(params.benchmark, true) % "Run benchmark mode") |
               (clipp::option("--visual").set(params.benchmark, false) % "Run export partial data")),

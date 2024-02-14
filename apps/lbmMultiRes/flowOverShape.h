@@ -304,25 +304,6 @@ void flowOverMesh(const Neon::Backend backend,
     Eigen::VectorXi _1, _2;
     igl::remove_unreferenced(Eigen::MatrixXd(vertices), Eigen::MatrixXi(faces), vertices, faces, _1, _2);
 
-    //rotate about z-axis by 90 degrees
-    //Eigen::Matrix3d rotation;
-    //rotation << 0, -1, 0,
-    //    1, 0, 0,
-    //    0, 0, -1;
-    //vertices = vertices * rotation.transpose();
-
-    //rotate about x-axis by -90 degrees
-    //Eigen::Matrix3d rotation;
-    //rotation << 1, 0, 0,
-    //    0, 0, 1,
-    //    0, -1, 0;
-    //vertices = vertices * rotation.transpose();
-    //
-    ////rotate about y-axis by 180 degrees
-    //rotation << -1, 0, 0,
-    //    0, 1, 0,
-    //    0, 0, -1;
-    //vertices = vertices * rotation.transpose();
 
     //mesh bounding box using the mesh coordinates
     Eigen::RowVectorXd bbMax, bbMin;
@@ -330,12 +311,40 @@ void flowOverMesh(const Neon::Backend backend,
     igl::max(vertices, 1, bbMax, bbMaxI);
     igl::min(vertices, 1, bbMin, bbMinI);
 
-    //translate and scale the mesh
+    //center the mesh
     vertices.rowwise() -= ((bbMin + bbMax) / 2.0);
+
+    //scale
     double scaling_factor = meshBoxDim.maxCoeff() / (bbMax - bbMin).maxCoeff();
     vertices *= scaling_factor;
+
+    auto toRad = [](double t) { return t * (3.14159265358979311600 / 180); };
+
+    Eigen::Matrix3d rotationX;
+    //rotate about x-axis by thetaX degrees
+    rotationX << 1, 0, 0,
+        0, std::cos(toRad(params.thetaX)), -std::sin(toRad(params.thetaX)),
+        0, std::sin(toRad(params.thetaX)), std::cos(toRad(params.thetaX));
+
+    //rotate about y-axis by thetaY degrees
+    Eigen::Matrix3d rotationY;
+    rotationY << std::cos(toRad(params.thetaY)), 0, std::sin(toRad(params.thetaY)),
+        0, 1, 0,
+        -std::sin(toRad(params.thetaY)), 0, std::cos(toRad(params.thetaY));
+
+    //rotate about z-axis by thetaZ degrees
+    Eigen::Matrix3d rotationZ;
+    rotationZ << std::cos(toRad(params.thetaZ)), -std::sin(toRad(params.thetaZ)), 0,
+        std::sin(toRad(params.thetaZ)), std::cos(toRad(params.thetaZ)), 0,
+        0, 0, 1;
+
+    Eigen::Matrix3d rotation = rotationX * rotationY * rotationZ;
+    vertices = vertices * rotation;
+
+    //translate
     vertices.rowwise() += meshBoxCenter;
 
+    //calc the bounding box again
     igl::max(vertices, 1, bbMax, bbMaxI);
     igl::min(vertices, 1, bbMin, bbMinI);
 
@@ -450,7 +459,7 @@ void flowOverMesh(const Neon::Backend backend,
                         } else {
                             const double voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
 
-                            const double centerToCornerDistSqr = (3.0 / 4.0) * (2.0 * voxelSpacing);                            
+                            const double centerToCornerDistSqr = (3.0 / 4.0) * (2.0 * voxelSpacing);
 
                             Eigen::Matrix<double, 1, 3> p(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing), c;
 
