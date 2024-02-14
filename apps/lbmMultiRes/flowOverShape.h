@@ -287,7 +287,7 @@ void flowOverMesh(const Neon::Backend backend,
 
     //define the gird and the box that will encompass the mesh
     Neon::index_3d     gridDim(19 * params.scale, 10 * params.scale, 10 * params.scale);
-    Eigen::RowVector3d meshBoxDim(4 * params.scale, 4 * params.scale, 4 * params.scale);
+    Eigen::RowVector3d meshBoxDim(3.5 * params.scale, 3.5 * params.scale, 3.5 * params.scale);
     Eigen::RowVector3d meshBoxCenter(5 * params.scale, 5 * params.scale, 5 * params.scale);
 
     //Neon::index_3d gridDim(1.5 * 29 * params.scale, 10 * params.scale, 10 * params.scale);
@@ -303,6 +303,13 @@ void flowOverMesh(const Neon::Backend backend,
     //remove unreferenced vertices because they may affect the scaling
     Eigen::VectorXi _1, _2;
     igl::remove_unreferenced(Eigen::MatrixXd(vertices), Eigen::MatrixXi(faces), vertices, faces, _1, _2);
+
+    //rotate about z-axis by 90 degrees
+    //Eigen::Matrix3d rotation;
+    //rotation << 0, -1, 0,
+    //    1, 0, 0,
+    //    0, 0, -1;
+    //vertices = vertices * rotation.transpose();
 
     //rotate about x-axis by -90 degrees
     //Eigen::Matrix3d rotation;
@@ -348,17 +355,26 @@ void flowOverMesh(const Neon::Backend backend,
     //define the grid
     int depth = 3;
 
+    auto distToMesh = [&](const Neon::index_3d idx) {
+        Eigen::Matrix<double, 1, 3> p(idx.x, idx.y, idx.z), c;
+        int                         face_index(0);
+        aabb.squared_distance(vertices, faces, p, face_index, c);
+        return (p - c).norm();
+    };
+
     std::vector<std::function<bool(const Neon::index_3d&)>>
         activeCellLambda =
             {[&](const Neon::index_3d idx) -> bool {
                  return idx.x >= 2 * params.scale && idx.x < 8 * params.scale &&
                         idx.y >= 3 * params.scale && idx.y < 7 * params.scale &&
                         idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
+                 //return distToMesh(idx) < params.scale;
              },
              [&](const Neon::index_3d idx) -> bool {
                  return idx.x >= params.scale && idx.x < 13 * params.scale &&
                         idx.y >= 2 * params.scale && idx.y < 8 * params.scale &&
                         idx.z >= 2 * params.scale && idx.z < 8 * params.scale;
+                 //return distToMesh(idx) < 2 * params.scale;
              },
              [&](const Neon::index_3d idx) -> bool {
                  return true;
@@ -402,8 +418,11 @@ void flowOverMesh(const Neon::Backend backend,
 
     //LBM problem
     const T uin = 0.04;
-    const T clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
-    //const T               clength = T(T((bbMax - bbMin).minCoeff()) / 2.f) / (1 << (depth - 1));
+    //const T clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
+
+    //the plane wing extends along the z direction
+    const T               span = (bbMax - bbMin).z();
+    const T               clength = (span / 2.f) / (1 << (depth - 1));
     const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
