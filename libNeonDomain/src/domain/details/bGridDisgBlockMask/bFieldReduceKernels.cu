@@ -1,7 +1,7 @@
 #include "Neon/domain/details/dGrid/dGrid.h"
 #include "Neon/domain/patterns/ReduceKernels.cuh"
 
-namespace Neon::domain::details::bGridBlockMask {
+namespace Neon::domain::details::bGridMask {
 #if 0
 template <typename T, int C>
 auto dFieldDev<T, C>::dotCUB(

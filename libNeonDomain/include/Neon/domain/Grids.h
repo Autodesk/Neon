@@ -8,3 +8,5 @@
 #include "Neon/domain/bGridDisg.h"
 #include "Neon/domain/bGridMgpuDisg.h"
 #include "Neon/domain/bGridDisgMask.h"
+#include "Neon/domain/bGridDisgBlockMask.h"
+
