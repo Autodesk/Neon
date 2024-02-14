@@ -15,7 +15,7 @@ auto mGrid::newField(const std::string          name,
 }
 
 
-template <typename LoadingLambda>
+template <Neon::Execution execution, typename LoadingLambda>
 auto mGrid::newContainer(const std::string& name,
                          int                level,
                          index_3d           blockSize,
@@ -24,17 +24,17 @@ auto mGrid::newContainer(const std::string& name,
 {
 
 
-    Neon::set::Container kContainer = mData->grids[level].newContainer(name, blockSize, sharedMem, lambda);
+    Neon::set::Container kContainer = mData->grids[level].template newContainer<execution>(name, blockSize, sharedMem, lambda);
 
     return kContainer;
 }
 
-template <typename LoadingLambda>
+template <Neon::Execution execution, typename LoadingLambda>
 auto mGrid::newContainer(const std::string& name,
                          int                level,
                          LoadingLambda      lambda) const -> Neon::set::Container
 {
-    Neon::set::Container kContainer = mData->grids[level].newContainer(name, lambda);
+    Neon::set::Container kContainer = mData->grids[level].template newContainer<execution>(name, lambda);
 
     return kContainer;
 }

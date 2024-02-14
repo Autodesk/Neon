@@ -28,7 +28,7 @@ void MultiResSameLevelStencil()
                  return true;
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
-            descriptor);
+            descriptor, true, false);
 
         auto XField = grid.newField<Type>("XField", 1, -1);
         auto YField = grid.newField<Type>("YField", 1, -1);

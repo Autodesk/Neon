@@ -50,7 +50,7 @@ class bPartition
      */
     inline NEON_CUDA_HOST_DEVICE auto
     operator()(const Idx& cell,
-               int        card)
+               int        card = 0)
         -> T&;
 
     /**
@@ -58,7 +58,7 @@ class bPartition
      */
     inline NEON_CUDA_HOST_DEVICE auto
     operator()(const Idx& cell,
-               int        card)
+               int        card = 0)
         const -> const T&;
 
     /**
@@ -108,6 +108,10 @@ class bPartition
     NEON_CUDA_HOST_DEVICE inline auto
     isActive(const Idx&                      cell,
              const typename SBlock::BitMask* mask = nullptr) const -> bool;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    isActive(const Idx&   cell,
+             const NghIdx nghDir) const -> bool;
 
     /**
      * Gets the Idx for in the block view space.
