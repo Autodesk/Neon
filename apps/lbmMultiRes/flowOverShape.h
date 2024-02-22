@@ -5,13 +5,14 @@
 
 #include "init.h"
 
-#include "igl/AABB.h"
-#include "igl/WindingNumberAABB.h"
+
 #include "igl/max.h"
 #include "igl/min.h"
 #include "igl/read_triangle_mesh.h"
 #include "igl/remove_unreferenced.h"
 #include "igl/writeOBJ.h"
+
+#include "igl/AABB.h"
 
 template <typename T, int Q, typename sdfT>
 void initFlowOverShape(Neon::domain::mGrid&                  grid,
@@ -278,15 +279,6 @@ void flowOverSphere(const Neon::Backend backend,
 }
 
 
-template <typename DerivedV, typename DerivedF>
-inline auto winding_number_aabbc(const Eigen::MatrixBase<DerivedV>& V,
-                                 const Eigen::MatrixBase<DerivedF>& F)
-{
-    return igl::WindingNumberAABB<
-        Eigen::Matrix<typename DerivedV::Scalar, 1, 3>,
-        DerivedV,
-        DerivedF>(V, F);
-}
 template <typename T, int Q>
 void flowOverMesh(const Neon::Backend backend,
                   const Params&       params)
@@ -294,10 +286,13 @@ void flowOverMesh(const Neon::Backend backend,
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
     //define the gird and the box that will encompass the mesh
-    Neon::index_3d gridDim(19 * params.scale, 10 * params.scale, 10 * params.scale);
-
-    Eigen::RowVector3d meshBoxDim(4 * params.scale, 4 * params.scale, 4 * params.scale);
+    Neon::index_3d     gridDim(19 * params.scale, 10 * params.scale, 10 * params.scale);
+    Eigen::RowVector3d meshBoxDim(3.5 * params.scale, 3.5 * params.scale, 3.5 * params.scale);
     Eigen::RowVector3d meshBoxCenter(5 * params.scale, 5 * params.scale, 5 * params.scale);
+
+    //Neon::index_3d gridDim(1.5 * 29 * params.scale, 10 * params.scale, 10 * params.scale);
+    //Eigen::RowVector3d meshBoxDim(2 * params.scale, 2 * params.scale, 2 * params.scale);
+    //Eigen::RowVector3d meshBoxCenter(20 * params.scale, 10, 5 * params.scale);
 
 
     //read the mesh and scale it such that it fits inside meshBox
@@ -309,17 +304,49 @@ void flowOverMesh(const Neon::Backend backend,
     Eigen::VectorXi _1, _2;
     igl::remove_unreferenced(Eigen::MatrixXd(vertices), Eigen::MatrixXi(faces), vertices, faces, _1, _2);
 
+
     //mesh bounding box using the mesh coordinates
     Eigen::RowVectorXd bbMax, bbMin;
     Eigen::RowVectorXi bbMaxI, bbMinI;
     igl::max(vertices, 1, bbMax, bbMaxI);
     igl::min(vertices, 1, bbMin, bbMinI);
 
-    //translate and scale the mesh
+    //center the mesh
     vertices.rowwise() -= ((bbMin + bbMax) / 2.0);
+
+    //scale
     double scaling_factor = meshBoxDim.maxCoeff() / (bbMax - bbMin).maxCoeff();
     vertices *= scaling_factor;
+
+    auto toRad = [](double t) { return t * (3.14159265358979311600 / 180); };
+
+    Eigen::Matrix3d rotationX;
+    //rotate about x-axis by thetaX degrees
+    rotationX << 1, 0, 0,
+        0, std::cos(toRad(params.thetaX)), -std::sin(toRad(params.thetaX)),
+        0, std::sin(toRad(params.thetaX)), std::cos(toRad(params.thetaX));
+
+    //rotate about y-axis by thetaY degrees
+    Eigen::Matrix3d rotationY;
+    rotationY << std::cos(toRad(params.thetaY)), 0, std::sin(toRad(params.thetaY)),
+        0, 1, 0,
+        -std::sin(toRad(params.thetaY)), 0, std::cos(toRad(params.thetaY));
+
+    //rotate about z-axis by thetaZ degrees
+    Eigen::Matrix3d rotationZ;
+    rotationZ << std::cos(toRad(params.thetaZ)), -std::sin(toRad(params.thetaZ)), 0,
+        std::sin(toRad(params.thetaZ)), std::cos(toRad(params.thetaZ)), 0,
+        0, 0, 1;
+
+    Eigen::Matrix3d rotation = rotationX * rotationY * rotationZ;
+    vertices = vertices * rotation;
+
+    //translate
     vertices.rowwise() += meshBoxCenter;
+
+    //calc the bounding box again
+    igl::max(vertices, 1, bbMax, bbMaxI);
+    igl::min(vertices, 1, bbMin, bbMinI);
 
 
     igl::writeOBJ("scaled.obj", vertices, faces);
@@ -328,41 +355,88 @@ void flowOverMesh(const Neon::Backend backend,
     polyscopeAddMesh(params.meshFile, faces, vertices);
 #endif
 
-    NEON_INFO("Winding Number init");
-    //get the mesh ready for query (inside/outside) using libigl winding number
-    auto wnAABB = winding_number_aabbc(vertices, faces);
-    wnAABB.set_method(igl::WindingNumberMethod::APPROX_SIMPLE_WINDING_NUMBER_METHOD);
-    wnAABB.grow();
+    NEON_INFO("AABB init");
+
+    igl::AABB<Eigen::MatrixXd, 3> aabb;
+    aabb.init(vertices, faces);
+
 
     //define the grid
-    int                            depth = 3;
+    int depth = 3;
+
+    auto distToMesh = [&](const Neon::index_3d idx) {
+        Eigen::Matrix<double, 1, 3> p(idx.x, idx.y, idx.z), c;
+        int                         face_index(0);
+        aabb.squared_distance(vertices, faces, p, face_index, c);
+        return (p - c).norm();
+    };
+
+    std::vector<std::function<bool(const Neon::index_3d&)>>
+        activeCellLambda =
+            {[&](const Neon::index_3d idx) -> bool {
+                 return idx.x >= 2 * params.scale && idx.x < 8 * params.scale &&
+                        idx.y >= 3 * params.scale && idx.y < 7 * params.scale &&
+                        idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
+                 //return distToMesh(idx) < params.scale;
+             },
+             [&](const Neon::index_3d idx) -> bool {
+                 return idx.x >= params.scale && idx.x < 13 * params.scale &&
+                        idx.y >= 2 * params.scale && idx.y < 8 * params.scale &&
+                        idx.z >= 2 * params.scale && idx.z < 8 * params.scale;
+                 //return distToMesh(idx) < 2 * params.scale;
+             },
+             [&](const Neon::index_3d idx) -> bool {
+                 return true;
+             }};
+
+    //int depth = 5;
+    //
+    //std::vector<std::function<bool(const Neon::index_3d&)>>
+    //    activeCellLambda =
+    //        {[&](const Neon::index_3d idx) -> bool {
+    //             return idx.x >= (0.1 * 29 * params.scale) + 4.3 * params.scale && idx.x < (0.1 * 29 * params.scale) + 10 * params.scale &&
+    //                    idx.y < 1.2 * params.scale &&
+    //                    idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
+    //         },
+    //         [&](const Neon::index_3d idx) -> bool {
+    //             return idx.x >= (0.1 * 29 * params.scale) + 3.0 * params.scale && idx.x < (0.1 * 29 * params.scale) + 14 * params.scale &&
+    //                    idx.y < 3 * params.scale &&
+    //                    idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
+    //         },
+    //         [&](const Neon::index_3d idx) -> bool {
+    //             return idx.x >= (0.1 * 29 * params.scale) + 2.2 * params.scale && idx.x < (0.1 * 29 * params.scale) + 19.5 * params.scale &&
+    //                    idx.y < 4.3 * params.scale &&
+    //                    idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
+    //         },
+    //         [&](const Neon::index_3d idx) -> bool {
+    //             return idx.x >= (0.1 * 29 * params.scale) + 0.7 * params.scale && idx.x < (0.1 * 29 * params.scale) + 25 * params.scale &&
+    //                    idx.y < 6.2 * params.scale &&
+    //                    idx.z >= 2 * params.scale && idx.z < 8 * params.scale;
+    //         },
+    //         [&](const Neon::index_3d idx) -> bool {
+    //             return true;
+    //         }};
+
     const Neon::mGridDescriptor<1> descriptor(depth);
 
+    NEON_INFO("Create mGrid");
+
     Neon::domain::mGrid grid(
-        backend, gridDim,
-        {[&](const Neon::index_3d idx) -> bool {
-             return idx.x >= 2 * params.scale && idx.x < 8 * params.scale &&
-                    idx.y >= 3 * params.scale && idx.y < 7 * params.scale &&
-                    idx.z >= 3 * params.scale && idx.z < 7 * params.scale;
-         },
-         [&](const Neon::index_3d idx) -> bool {
-             return idx.x >= params.scale && idx.x < 13 * params.scale &&
-                    idx.y >= 2 * params.scale && idx.y < 8 * params.scale &&
-                    idx.z >= 2 * params.scale && idx.z < 8 * params.scale;
-         },
-         [&](const Neon::index_3d idx) -> bool {
-             return true;
-         }},
-        Neon::domain::Stencil::s19_t(false), descriptor);
+        backend, gridDim, activeCellLambda, Neon::domain::Stencil::s19_t(false), descriptor);
 
 
     //LBM problem
-    const T               uin = 0.04;
-    const T               clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
+    const T uin = 0.04;
+    //const T clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
+
+    //the plane wing extends along the z direction
+    const T               span = (bbMax - bbMin).z();
+    const T               clength = (span / 2.f) / (1 << (depth - 1));
     const T               visclb = uin * clength / static_cast<T>(params.Re);
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
 
+    //NEON_INFO("Writing Test file");
     //auto test = grid.newField<T>("test", 1, 0);
     //test.ioToVtk("Test", true, true, true, true, {-1, -1, 1});
     //exit(0);
@@ -383,9 +457,19 @@ void flowOverMesh(const Neon::Backend backend,
                             voxelGlobalLocation.z < meshBoxCenter.z() - meshBoxDim.z() / 2 || voxelGlobalLocation.z >= meshBoxCenter.z() + meshBoxDim.z() / 2) {
                             in(cell, 0) = 0;
                         } else {
-                            const double       voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
-                            Eigen::RowVector3d point(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing);
-                            in(cell, 0) = int8_t(wnAABB.winding_number(point) + std::numeric_limits<float>::epsilon() > 1);
+                            const double voxelSpacing = 0.5 * double(grid.getDescriptor().getSpacing(l - 1));
+
+                            const double centerToCornerDistSqr = (3.0 / 4.0) * (2.0 * voxelSpacing);
+
+                            Eigen::Matrix<double, 1, 3> p(voxelGlobalLocation.x + voxelSpacing, voxelGlobalLocation.y + voxelSpacing, voxelGlobalLocation.z + voxelSpacing), c;
+
+                            int face_index(0);
+
+                            aabb.squared_distance(vertices, faces, p, face_index, c);
+
+                            double sqr_dist = (p - c).norm();
+
+                            in(cell, 0) = int8_t(sqr_dist + std::numeric_limits<double>::epsilon() < centerToCornerDistSqr);
                         }
                     } else {
                         in(cell, 0) = 0;

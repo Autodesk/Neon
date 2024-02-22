@@ -123,6 +123,21 @@ mGrid::mGrid(
 
 
                     if (containVoxels) {
+                        for (int z = 0; z < refFactor; z++) {
+                            for (int y = 0; y < refFactor; y++) {
+                                for (int x = 0; x < refFactor; x++) {
+
+                                    const Neon::int32_3d voxel = mData->mDescriptor.parentToChild(blockOrigin, l, {x, y, z});
+
+                                    if (voxel < domainSize) {
+                                        setLevelBitMask(l, {bx, by, bz}, {x, y, z});
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (containVoxels) {
                         //if the block contains voxels, it should activate itself
                         //find its corresponding index within the next level
                         //i.e., blockOrigin is the parent block that contains refFactor^3 voxels (sparse)

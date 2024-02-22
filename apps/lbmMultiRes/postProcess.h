@@ -22,6 +22,7 @@ void postProcess(Neon::domain::mGrid&                                           
                  const Neon::int8_3d                                             slice,
                  std::string                                                     fileName,
                  bool                                                            outputFile,
+                 bool                                                            outoutFileBinary,
                  const std::vector<std::pair<Neon::domain::mGrid::Idx, int8_t>>& psDrawable,
                  const std::vector<std::array<int, 8>>&                          psHex,
                  const std::vector<Neon::float_3d>&                              psHexVert)
@@ -41,7 +42,7 @@ void postProcess(Neon::domain::mGrid&                                           
 
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                         if (!pop.hasChildren(cell)) {
-                            if (type(cell, 0) == CellType::bulk ) {
+                            if (type(cell, 0) == CellType::bulk) {
 
                                 //fin
                                 T ins[Q];
@@ -144,10 +145,10 @@ void postProcess(Neon::domain::mGrid&                                           
         for (size_t t = 0; t < psDrawable.size(); ++t) {
             const auto id = psDrawable[t].first;
             int        level = psDrawable[t].second;
-            
+
             for (int d = 0; d < 3; ++d) {
                 T v = vel(id, d, level);
-                file << v << " ";                
+                file << v << " ";
             }
             file << "\n";
 
@@ -159,7 +160,70 @@ void postProcess(Neon::domain::mGrid&                                           
             //file << c << "\n";
         }
 
+
+        file << "SCALARS Level float 1 \n";
+        file << "LOOKUP_TABLE default \n";
+        for (size_t t = 0; t < psDrawable.size(); ++t) {
+            int level = psDrawable[t].second;
+            file << level << "\n";
+        }
+
         file.close();
+    }
+
+    if (outoutFileBinary) {
+        //the level at which we will do the sampling
+        const int  depth = grid.getDescriptor().getDepth();
+        const auto gridDim = grid.getDimension();
+        const int  theLevel = depth - 1;
+
+        const Neon::index_4d grid4D(gridDim.x / (1 << theLevel), gridDim.y / (1 << theLevel), gridDim.z / (1 << theLevel), 3);
+        std::vector<float>   ioBuffer(grid4D.x * grid4D.y * grid4D.z * grid4D.w);
+        float*               ioBufferPtr = ioBuffer.data();
+
+        for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
+
+            grid.newContainer<Neon::Execution::host>("Viz", l, [=](Neon::set::Loader& loader) {
+                    auto& v = vel.load(loader, l, Neon::MultiResCompute::MAP);
+
+                    return [=](const typename Neon::domain::mGrid::Idx& cell) mutable {
+                        if (!v.hasChildren(cell)) {
+                            Neon::index_3d loc = v.getGlobalIndex(cell);
+
+                            if (loc.x % (1 << theLevel) != 0 || loc.y % (1 << theLevel) != 0 || loc.z % (1 << theLevel) != 0) {
+                                return;
+                            }
+
+                            loc.x /= (1 << theLevel);
+                            loc.y /= (1 << theLevel);
+                            loc.z /= (1 << theLevel);
+
+
+                            for (int c = 0; c < 3; ++c) {
+
+                                const float val = v(cell, c);
+
+
+                                Neon::index_4d loc4D(loc.x, loc.y, loc.z, c);
+                                ioBufferPtr[loc4D.mPitch(grid4D)] = val;
+                            }
+                        }
+                    };
+                })
+                .run(0);
+        }
+
+        {
+            Neon::index_3d nodeDim(grid4D.x + 1, grid4D.y + 1, grid4D.z + 1);
+
+            Neon::IoToVTK<int, float> io("Bin" + fileName, nodeDim, {1, 1, 1}, {0, 0, 0}, Neon::IoFileType::BINARY);
+
+            io.addField([=](Neon::index_3d idx, int card) {
+                Neon::index_4d loc4D(idx.x, idx.y, idx.z, card);
+                return ioBufferPtr[loc4D.mPitch(grid4D)];
+            },
+                        3, "V", Neon::ioToVTKns::VtiDataType_e::voxel);
+        }
     }
 }
 
