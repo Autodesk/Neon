@@ -223,7 +223,7 @@ inline Neon::set::Container collideBGKUnrolledFusedAll(Neon::domain::mGrid&     
 }
 
 
-template <typename T, int Q>
+template <typename T, int Q, bool atInterface>
 inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&                        grid,
                                                T                                           omega0,
                                                int                                         level,
@@ -241,7 +241,7 @@ inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&             
     }
 
     return grid.newContainer(
-        "CHSOE" + std::to_string(level), level,
+        "CHSOE" + std::to_string(level), level, !atInterface,
         [&, level, omega0, numLevels, storeOut](Neon::set::Loader& loader) {
             const auto type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
             const auto in = fin.load(loader, level, Neon::MultiResCompute::MAP);
@@ -257,6 +257,9 @@ inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&             
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
+
+                    (void)storeOut;
+                    (void)out;
 
                     constexpr T tiny = 1e-7;
 
@@ -360,10 +363,12 @@ inline Neon::set::Container collideKBCFusedAll(Neon::domain::mGrid&             
 
 
                         // store operation
-                        store<T>(cell, (storeOut) ? out : in, q, res);
+                        if constexpr (atInterface) {
+                            store<T>(cell, (storeOut) ? out : in, q, res);
+                        }
 
                         // streaming (push)
-                        stream<T>(cell, out, (storeOut) ? out : in, type, q, res);
+                        stream<T, atInterface>(cell, out, (storeOut) ? out : in, type, q, res);
                     }
                 }
             };

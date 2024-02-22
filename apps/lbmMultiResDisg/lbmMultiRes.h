@@ -25,7 +25,8 @@ void collideStep(Neon::domain::mGrid&                        grid,
     //  collision for all voxels at level L = level fused with
     //  Storing fine (level) data for later "coalescence" pulled by the coarse(level)
 #ifdef KBC
-    containers.push_back(collideKBCFusedStore<T, Q>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideKBCFusedStore<T, Q, true>(grid, omega0, level, numLevels, cellType, fin, fout));
+    containers.push_back(collideKBCFusedStore<T, Q, false>(grid, omega0, level, numLevels, cellType, fin, fout));
 #endif
 
 #ifdef BGK
@@ -64,23 +65,41 @@ void collideFusedStreaming(Neon::domain::mGrid&                        grid,
 {
 
 #ifdef KBC
-    containers.push_back(collideKBCFusedAll<T, Q>(grid,
-                                                  omega0,
-                                                  level,
-                                                  numLevels,
-                                                  cellType,
-                                                  fin,
-                                                  fout,
-                                                  true));
+    containers.push_back(collideKBCFusedAll<T, Q, true>(grid,
+                                                        omega0,
+                                                        level,
+                                                        numLevels,
+                                                        cellType,
+                                                        fin,
+                                                        fout,
+                                                        true));
 
-    containers.push_back(collideKBCFusedAll<T, Q>(grid,
-                                                  omega0,
-                                                  level,
-                                                  numLevels,
-                                                  cellType,
-                                                  fout,
-                                                  fin,
-                                                  false));
+    containers.push_back(collideKBCFusedAll<T, Q, false>(grid,
+                                                         omega0,
+                                                         level,
+                                                         numLevels,
+                                                         cellType,
+                                                         fout,
+                                                         fin,
+                                                         true));
+
+    containers.push_back(collideKBCFusedAll<T, Q, true>(grid,
+                                                        omega0,
+                                                        level,
+                                                        numLevels,
+                                                        cellType,
+                                                        fin,
+                                                        fout,
+                                                        false));
+
+    containers.push_back(collideKBCFusedAll<T, Q, false>(grid,
+                                                         omega0,
+                                                         level,
+                                                         numLevels,
+                                                         cellType,
+                                                         fout,
+                                                         fin,
+                                                         false));
 #endif
 
 #ifdef BGK
@@ -101,7 +120,6 @@ void collideFusedStreaming(Neon::domain::mGrid&                        grid,
                                                                  fin,
                                                                  fout,
                                                                  true));
-
 
     //atInterface ??
     containers.push_back(collideBGKUnrolledFusedAll<T, Q, true>(grid,

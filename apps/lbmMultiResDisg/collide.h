@@ -225,7 +225,7 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
 }
 
 
-template <typename T, int Q>
+template <typename T, int Q, bool atInterface>
 inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&                        grid,
                                                  T                                           omega0,
                                                  int                                         level,
@@ -235,7 +235,7 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
                                                  Neon::domain::mGrid::Field<T>&              fout)
 {
     return grid.newContainer(
-        "CH" + std::to_string(level), level,
+        "CH" + std::to_string(level), level, !atInterface,
         [&, level, omega0, numLevels](Neon::set::Loader& loader) {
             const auto& type = cellType.load(loader, level, Neon::MultiResCompute::MAP);
             const auto& in = fin.load(loader, level, Neon::MultiResCompute::MAP);
@@ -347,6 +347,7 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
                         //gamma
                         T gamma = invBeta - (2.0 - invBeta) * e0 / (tiny + e1);
 
+                        bool doStore = level < numLevels - 1;
 
                         //fout
                         for (int8_t q = 0; q < Q; ++q) {
@@ -354,12 +355,14 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
 
                             const T res = ins[q] - beta * (2.0 * deltaS[q] + gamma * deltaH);
 
-                            if (level < numLevels - 1) {
-                                //store operation
-                                store<T>(cell, out, q, res);
-                            }
-
                             out(cell, q) = res;
+
+                            if constexpr (atInterface) {
+                                if (doStore) {
+                                    //store operation
+                                    store<T>(cell, out, q, res);
+                                }
+                            }
                         }
                     } else {
                         if (level != 0) {
