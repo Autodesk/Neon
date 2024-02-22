@@ -559,7 +559,7 @@ auto bGrid<SBlock>::init_mask_field([[maybe_unused]] ActiveCellLambda activeCell
         this->getBackend().sync(Neon::Backend::mainStreamIdx);
         maskField.updateDeviceData(Neon::Backend::mainStreamIdx);
         this->getBackend().sync(Neon::Backend::mainStreamIdx);
-        maskField.template ioToVtk<int>("maskField", "maskField");
+        //maskField.template ioToVtk<int>("maskField", "maskField");
         this->mData->maskClassField = maskField;
         return;
     }

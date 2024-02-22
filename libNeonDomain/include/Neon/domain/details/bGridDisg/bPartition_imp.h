@@ -444,6 +444,9 @@ NEON_CUDA_HOST_DEVICE inline auto
 bPartition<T, C, SBlock>::isActive(const Idx&                      cell,
                                    const typename SBlock::BitMask* mask) const -> bool
 {
+    if (!cell.isActive()) {
+        return false;
+    }
     if (!mask) {
         return mMask[cell.mDataBlockIdx].isActive(cell.mInDataBlockIdx.x, cell.mInDataBlockIdx.y, cell.mInDataBlockIdx.z);
     } else {
