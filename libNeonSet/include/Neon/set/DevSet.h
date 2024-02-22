@@ -410,8 +410,7 @@ class DevSet
                                                                           executor,
                                                                           untypedParams);
             } else {
-                NEON_WARNING("Cuda grid with zero number of element was detected. The kernel will be skipped.");
-                ;
+                //NEON_WARNING("Cuda grid with zero number of element was detected. The kernel will be skipped.");
             }
         }
 #else
