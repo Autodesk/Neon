@@ -61,6 +61,8 @@ class PointHashTable
     */
     auto size() const -> size_t;
 
+    auto getBBox() const -> Point const&;
+
    private:
     using Key = size_t;
 

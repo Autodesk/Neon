@@ -10,7 +10,7 @@ struct NghData
 {
     Type                  mData;
     bool                  mIsValid;
-    NEON_CUDA_HOST_DEVICE NghData(bool status = false)
+    NEON_CUDA_HOST_DEVICE NghData()
     {
         this->mIsValid = false;
     }

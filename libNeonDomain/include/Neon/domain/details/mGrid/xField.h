@@ -3,7 +3,7 @@
 #include "Neon/domain/details/mGrid/mPartition.h"
 #include "Neon/domain/interface/FieldBaseTemplate.h"
 
-namespace Neon::domain::details::bGrid {
+namespace Neon::domain::details::disaggregated::bGrid {
 template <typename SBlock>
 class bGrid;
 }
@@ -17,14 +17,14 @@ class mGrid;
 template <typename T, int C = 0>
 class xField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 Neon::domain::details::bGrid::bGrid<kStaticBlock>,
+                                                                 Neon::domain::details::disaggregated::bGrid::bGrid<kStaticBlock>,
                                                                  mPartition<T, C>,
                                                                  int>
 
 {
    public:
     using Partition = mPartition<T, C>;
-    using Grid = Neon::domain::details::bGrid::bGrid<kStaticBlock>;
+    using Grid = Neon::domain::details::disaggregated::bGrid::bGrid<kStaticBlock>;
     using Field = typename Grid::Field<T, C>;
 
 

@@ -77,39 +77,25 @@ inline Neon::set::Container streamFusedExplosion(Neon::domain::mGrid&           
                 //We only do streaming in the bulk i.e., non-boundary condition voxels. Since we only allow grid
                 //transition on bulk, then it is okay to do explosion inside this condition because
                 //if the voxel is not bulk then all its neighbours are on the same level and no explosion is needed
+
                 if (type(cell, 0) == CellType::bulk) {
-                    //If this cell has children i.e., it is been refined, than we should not work on it
-                    //because this cell is only there to allow query and not to operate on
                     if (!pin.hasChildren(cell)) {
 
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
-
-                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                             if (!pin.hasChildren(cell, dir)) {
-                                auto neighborCell = pout.helpGetNghIdx(cell, dir);
+                                auto nghType = type.getNghData(cell, dir, 0);
 
-                                if (neighborCell.isActive()) {
-                                    auto nghType = type.getNghData(cell, dir, 0);
-                                    assert(nghType.mIsValid);
+                                if (nghType.mIsValid) {
                                     if (nghType.mData == CellType::bulk) {
                                         pin(cell, q) = pout.getNghData(cell, dir, q).mData;
                                     } else {
                                         const int8_t opposte_q = latticeOppositeID[q];
                                         pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
                                     }
-                                } else if (level != numLevels - 1 && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                    //only if we are not on the coarsest level and
-                                    //only if we can not do normal streaming, then we may have a coarser neighbor from which
-                                    //we can read this pop
-
-                                    //get the uncle direction/offset i.e., the neighbor of the cell's parent
-                                    //this direction/offset is wrt to the cell's parent
+                                } else if (pin.hasParent(cell) && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
                                     Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
-
-                                    auto uncleLoc = pout.getUncle(cell, uncleDir);
-
-                                    auto uncle = pout.uncleVal(cell, uncleDir, q, T(0));
+                                    auto          uncle = pout.uncleVal(cell, uncleDir, q, T(0));
                                     if (uncle.mIsValid) {
                                         pin(cell, q) = uncle.mData;
                                     }
@@ -126,7 +112,7 @@ template <typename T, int Q>
 inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&                        grid,
                                                    const bool                                  fineInitStore,
                                                    const int                                   level,
-                                                   const Neon::domain::mGrid::Field<int>&      sumStore,
+                                                   const Neon::domain::mGrid::Field<float>&    sumStore,
                                                    const Neon::domain::mGrid::Field<CellType>& cellType,
                                                    const Neon::domain::mGrid::Field<T>&        fout,
                                                    Neon::domain::mGrid::Field<T>&              fin)
@@ -138,42 +124,36 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
             const auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL);
             auto        pin = fin.load(loader, level, Neon::MultiResCompute::MAP);
             const auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::STENCIL);
+            constexpr T repRefFactor = 0.5;
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
-                    //If this cell has children i.e., it is been refined, than we should not work on it
-                    //because this cell is only there to allow query and not to operate on
                     if (!pin.hasChildren(cell)) {
-
-                        const int refFactor = pout.getRefFactor(level);
 
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
 
+                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                             auto nghType = type.getNghData(cell, dir, 0);
-                            if (nghType.mIsValid) {
-                                if (nghType.mData == CellType::bulk) {
-                                    if (!pin.hasChildren(cell, dir)) {
-                                        //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+                            if (!pin.hasChildren(cell, dir)) {
+                                if (nghType.mIsValid) {
+                                    if (nghType.mData == CellType::bulk) {
                                         pin(cell, q) = pout.getNghData(cell, dir, q).mData;
-                                    } else if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                        //if we have a neighbor at the same level that has been refined, then cell is on
-                                        //the interface and this is where we should do the coalescence. Only if it is not the center
-                                        //We only do coalescence if the neighbour is bulk since the transition from one level to
-                                        //another happens in the bulk (not at the boundary condition)
-                                        assert(level != 0);
-                                        if (fineInitStore) {
-                                            auto ssVal = ss.getNghData(cell, dir, q);
-                                            assert(ssVal.mData != 0);
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(ssVal.mData * refFactor);
-                                        } else {
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(refFactor);
-                                        }
+                                    } else {
+                                        const int8_t opposte_q = latticeOppositeID[q];
+                                        pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
                                     }
-                                } else {
-                                    assert(!pin.hasChildren(cell, dir));
-                                    const int8_t opposte_q = latticeOppositeID[q];
-                                    pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
+                                }
+                            } else if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
+                                if (nghType.mIsValid) {
+                                    auto neighbor = pout.getNghData(cell, dir, q);
+                                    if (fineInitStore) {
+                                        auto ssVal = ss.getNghData(cell, dir, q);
+                                        assert(ssVal.mData != 0);
+                                        pin(cell, q) = neighbor.mData * ssVal.mData;
+                                    } else {
+                                        pin(cell, q) = neighbor.mData * repRefFactor;
+                                    }
                                 }
                             }
                         }
@@ -188,7 +168,7 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                                                             const bool                                  fineInitStore,
                                                             const int                                   level,
                                                             const int                                   numLevels,
-                                                            const Neon::domain::mGrid::Field<int>&      sumStore,
+                                                            const Neon::domain::mGrid::Field<float>&    sumStore,
                                                             const Neon::domain::mGrid::Field<CellType>& cellType,
                                                             const Neon::domain::mGrid::Field<T>&        fout,
                                                             Neon::domain::mGrid::Field<T>&              fin)
@@ -200,59 +180,45 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
             auto        pin = fin.load(loader, level, Neon::MultiResCompute::MAP);
             const auto& pout = fout.load(loader, level, Neon::MultiResCompute::STENCIL);
             const auto& ss = sumStore.load(loader, level, Neon::MultiResCompute::STENCIL);
+            constexpr T repRefFactor = 0.5;
             if (level != numLevels - 1) {
                 fout.load(loader, level, Neon::MultiResCompute::STENCIL_UP);
             }
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
-                    //If this cell has children i.e., it is been refined, then we should not work on it
-                    //because this cell is only there to allow query and not to operate on
                     if (!pin.hasChildren(cell)) {
-
-                        const int refFactor = pout.getRefFactor(level);
 
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
 
+                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                             auto nghType = type.getNghData(cell, dir, 0);
-                            if (nghType.mIsValid) {
-                                if (nghType.mData == CellType::bulk) {
-                                    if (!pin.hasChildren(cell, dir)) {
-                                        //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+                            if (!pin.hasChildren(cell, dir)) {
+                                if (nghType.mIsValid) {
+                                    if (nghType.mData == CellType::bulk) {
                                         pin(cell, q) = pout.getNghData(cell, dir, q).mData;
-                                    } else if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                        //if we have a neighbor at the same level that has been refined, then cell is on
-                                        //the interface and this is where we should do the coalescence. Only if it is not the center
-                                        //We only do coalescence if the neighbour is bulk since the transition from one level to
-                                        //another happens in the bulk (not at the boundary condition)
-                                        assert(level != 0);
-                                        if (fineInitStore) {
-                                            auto ssVal = ss.getNghData(cell, dir, q);
-                                            assert(ssVal.mData != 0);
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(ssVal.mData * refFactor);
-                                        } else {
-                                            pin(cell, q) = pout.getNghData(cell, dir, q).mData / static_cast<T>(refFactor);
-                                        }
+                                    } else {
+                                        const int8_t opposte_q = latticeOppositeID[q];
+                                        pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
                                     }
-                                } else {
-                                    assert(!pin.hasChildren(cell, dir));
-                                    const int8_t opposte_q = latticeOppositeID[q];
-                                    pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
+                                } else if (pin.hasParent(cell) && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
+                                    Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
+                                    auto          uncle = pout.uncleVal(cell, uncleDir, q, T(0));
+                                    if (uncle.mIsValid) {
+                                        pin(cell, q) = uncle.mData;
+                                    }
                                 }
-                            } else if (level != numLevels - 1 && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                //only if we can not do normal streaming, then we may have a coarser neighbor from which
-                                //we can read this pop
-
-                                //get the uncle direction/offset i.e., the neighbor of the cell's parent
-                                //this direction/offset is wrt to the cell's parent
-                                Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
-
-                                auto uncleLoc = pout.getUncle(cell, uncleDir);
-
-                                auto uncle = pout.uncleVal(cell, uncleDir, q, T(0));
-                                if (uncle.mIsValid) {
-                                    pin(cell, q) = uncle.mData;
+                            } else if (!(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
+                                if (nghType.mIsValid) {
+                                    auto neighbor = pout.getNghData(cell, dir, q);
+                                    if (fineInitStore) {
+                                        auto ssVal = ss.getNghData(cell, dir, q);
+                                        assert(ssVal.mData != 0);
+                                        pin(cell, q) = neighbor.mData * ssVal.mData;
+                                    } else {
+                                        pin(cell, q) = neighbor.mData * repRefFactor;
+                                    }
                                 }
                             }
                         }
@@ -268,7 +234,7 @@ inline void stream(Neon::domain::mGrid&                        grid,
                    const int                                   level,
                    const int                                   numLevels,
                    const Neon::domain::mGrid::Field<CellType>& cellType,
-                   const Neon::domain::mGrid::Field<int>&      sumStore,
+                   const Neon::domain::mGrid::Field<float>&    sumStore,
                    const Neon::domain::mGrid::Field<T>&        fout,
                    Neon::domain::mGrid::Field<T>&              fin,
                    std::vector<Neon::set::Container>&          containers)
@@ -302,7 +268,7 @@ inline void streamFusedExplosion(Neon::domain::mGrid&                        gri
                                  const int                                   level,
                                  const int                                   numLevels,
                                  const Neon::domain::mGrid::Field<CellType>& cellType,
-                                 const Neon::domain::mGrid::Field<int>&      sumStore,
+                                 const Neon::domain::mGrid::Field<float>&    sumStore,
                                  const Neon::domain::mGrid::Field<T>&        fout,
                                  Neon::domain::mGrid::Field<T>&              fin,
                                  std::vector<Neon::set::Container>&          containers)
@@ -333,7 +299,7 @@ inline void streamFusedCoalescence(Neon::domain::mGrid&                        g
                                    const int                                   level,
                                    const int                                   numLevels,
                                    const Neon::domain::mGrid::Field<CellType>& cellType,
-                                   const Neon::domain::mGrid::Field<int>&      sumStore,
+                                   const Neon::domain::mGrid::Field<float>&    sumStore,
                                    const Neon::domain::mGrid::Field<T>&        fout,
                                    Neon::domain::mGrid::Field<T>&              fin,
                                    std::vector<Neon::set::Container>&          containers)
@@ -360,7 +326,7 @@ inline void streamFusedCoalescenceExplosion(Neon::domain::mGrid&                
                                             const int                                   level,
                                             const int                                   numLevels,
                                             const Neon::domain::mGrid::Field<CellType>& cellType,
-                                            const Neon::domain::mGrid::Field<int>&      sumStore,
+                                            const Neon::domain::mGrid::Field<float>&    sumStore,
                                             const Neon::domain::mGrid::Field<T>&        fout,
                                             Neon::domain::mGrid::Field<T>&              fin,
                                             std::vector<Neon::set::Container>&          containers)

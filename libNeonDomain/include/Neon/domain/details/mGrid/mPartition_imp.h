@@ -4,7 +4,7 @@ namespace Neon::domain::details::mGrid {
 
 template <typename T, int C>
 mPartition<T, C>::mPartition()
-    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(),
+    : Neon::domain::details::disaggregated::bGrid::bPartition<T, C, kStaticBlock>(),
       mMemParent(nullptr),
       mMemChild(nullptr),
       mParentBlockID(nullptr),
@@ -33,7 +33,7 @@ mPartition<T, C>::mPartition(int                level,
                              NghIdx*            stencilNghIndex,
                              int*               refFactors,
                              int*               spacing)
-    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex),
+    : Neon::domain::details::disaggregated::bGrid::bPartition<T, C, kStaticBlock>(0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex, {0, 0, 0}),
       mLevel(level),
       mMemParent(memParent),
       mMemChild(memChild),
@@ -209,10 +209,10 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parentVal(const Idx& eId,
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasParent(const Idx& cell) const -> bool
 {
-    if (mMemParent) {
-        return true;
+    if (!cell.isActive()) {
+        return false;
     }
-    return false;
+    return getParent(cell).isActive();
 }
 
 template <typename T, int C>

@@ -5,8 +5,8 @@ namespace Neon::skeleton::internal {
 
 void MultiXpuGraph::init(Neon::Backend&                           bk,
                          const std::vector<Neon::set::Container>& operations,
-                         std::string /*name*/,
-                         Options options)
+                         [[maybe_unused]] std::string             name,
+                         Options                                  options)
 {
     getGraph() = Neon::set::container::Graph(bk);
     parse(bk.devSet().setCardinality(),
@@ -17,16 +17,16 @@ void MultiXpuGraph::init(Neon::Backend&                           bk,
     // We fix them manually after all redundant dependencies are cleaned.
     fixingDependenciesWithBeginNode();
 
-    // h_ioToDot("t0_" + name + ".dot", "i");
+    ioToDot("t0_" + name + ".dot", "i", true);
     optimizations(options);
-    // h_ioToDot("t1_" + name + ".dot", "i");
+    ioToDot("t1_" + name + ".dot", "i", true);
     communications(options);
     getGraph().removeRedundantDependencies();
 
 
-    // h_ioToDot("t2_" + name + ".dot", "i");
+    ioToDot("t2_" + name + ".dot", "i", true);
     this->computeScheduling();
-    // h_ioToDot("final" + name + ".dot", "i");
+    ioToDot("final" + name + ".dot", "i", true);
 }
 
 void MultiXpuGraph::parse(int                                       setCardinalty,

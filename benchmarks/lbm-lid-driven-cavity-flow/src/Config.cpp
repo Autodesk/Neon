@@ -41,6 +41,7 @@ auto Config::toString() const -> std::string
 
     s << "......... computeType " << c.computeType << std::endl;
     s << "........... storeType " << c.storeType << std::endl;
+    s << "............... curve " << c.curve << std::endl;
 
     s << ". ............... occ " << Neon::skeleton::OccUtils::toString(c.occ) << std::endl;
     s << "....... transfer Mode " << Neon::set::TransferModeUtils::toString(c.transferMode) << std::endl;
@@ -60,39 +61,54 @@ auto Config::parseArgs(const int argc, char* argv[])
     auto& config = *this;
 
     auto cli =
-        (
-            clipp::required("--deviceType") & clipp::value("deviceType", config.deviceType) % "Device ids to use",
-            clipp::required("--deviceIds") & clipp::integers("gpus", config.devices) % "Device ids to use",
-            clipp::option("--grid") & clipp::value("grid", config.gridType) % "Could be dGrid, eGrid, bGrid",
-            clipp::option("--domain-size") & clipp::integer("domain_size", config.N) % "Voxels along each dimension of the cube domain",
-            clipp::option("--warmup-iter") & clipp::integer("warmup_iter", config.benchIniIter) % "Number of iteration for warm up. max_iter = warmup_iter + timed_iters",
-            clipp::option("--max-iter") & clipp::integer("max_iter", config.benchMaxIter) % "Maximum solver iterations",
-            clipp::option("--repetitions") & clipp::integer("repetitions", config.repetitions) % "Number of times the benchmark is run.",
-            clipp::option("--report-filename ") & clipp::value("keeper_filename", config.reportFile) % "Output perf keeper filename",
+        (clipp::required("--deviceType") & clipp::value("deviceType", config.deviceType) % "Device ids to use",
+         clipp::required("--deviceIds") & clipp::integers("gpus", config.devices) % "Device ids to use",
+         clipp::option("--grid") & clipp::value("grid", config.gridType) % "Could be dGrid, eGrid, bGrid",
+         clipp::option("--domain-size") & clipp::integer("domain_size", config.N) % "Voxels along each dimension of the cube domain",
+         clipp::option("--warmup-iter") & clipp::integer("warmup_iter", config.benchIniIter) % "Number of iteration for warm up. max_iter = warmup_iter + timed_iters",
+         clipp::option("--max-iter") & clipp::integer("max_iter", config.benchMaxIter) % "Maximum solver iterations",
+         clipp::option("--repetitions") & clipp::integer("repetitions", config.repetitions) % "Number of times the benchmark is run.",
+         clipp::option("--report-filename ") & clipp::value("keeper_filename", config.reportFile) % "Output perf keeper filename",
 
-            clipp::option("--computeFP") & clipp::value("computeFP", config.computeType) % "Could be double or float",
-            clipp::option("--storageFP") & clipp::value("storageFP", config.storeType) % "Could be double or float",
+         clipp::option("--computeFP") & clipp::value("computeFP", config.computeType) % "Could be double or float",
+         clipp::option("--storageFP") & clipp::value("storageFP", config.storeType) % "Could be double or float",
 
-            (
-                (clipp::option("--sOCC").set(config.occ, Neon::skeleton::Occ::standard) % "Standard OCC") |
-                (clipp::option("--nOCC").set(config.occ, Neon::skeleton::Occ::none) % "No OCC (on by default)")),
-            (
-                (clipp::option("--put").set(config.transferMode, Neon::set::TransferMode::put) % "Set transfer mode to PUT") |
-                (clipp::option("--get").set(config.transferMode, Neon::set::TransferMode::get) % "Set transfer mode to GET (on by default)")),
-            (
-                (clipp::option("--huLattice").set(config.stencilSemantic, Neon::set::StencilSemantic::streaming) % "Halo update with lattice semantic (on by default)") |
-                (clipp::option("--huGrid").set(config.stencilSemantic, Neon::set::StencilSemantic::standard) % "Halo update with grid semantic ")),
-            (
-                (clipp::option("--benchmark").set(config.benchmark, true) % "Run benchmark mode") |
-                (clipp::option("--visual").set(config.benchmark, false) % "Run export partial data")),
+         clipp::option("--curve") & clipp::value("curve", config.curve) % "Could be sweep (the default), morton, or hilber",
+         (
+             (clipp::option("--sOCC").set(config.occ, Neon::skeleton::Occ::standard) % "Standard OCC") |
+             (clipp::option("--nOCC").set(config.occ, Neon::skeleton::Occ::none) % "No OCC (on by default)")),
+         (
+             (clipp::option("--put").set(config.transferMode, Neon::set::TransferMode::put) % "Set transfer mode to PUT") |
+             (clipp::option("--get").set(config.transferMode, Neon::set::TransferMode::get) % "Set transfer mode to GET (on by default)")),
+         (
+             (clipp::option("--huLattice").set(config.stencilSemantic, Neon::set::StencilSemantic::streaming) % "Halo update with lattice semantic (on by default)") |
+             (clipp::option("--huGrid").set(config.stencilSemantic, Neon::set::StencilSemantic::standard) % "Halo update with grid semantic ")),
+         (
+             (clipp::option("--benchmark").set(config.benchmark, true) % "Run benchmark mode") |
+             (clipp::option("--visual").set(config.benchmark, false) % "Run export partial data")),
 
-            (
-                clipp::option("--vti").set(config.vti, true) % "Standard OCC")
+         (
+             clipp::option("--vti").set(config.vti, true) % "Standard OCC")
 
         );
 
+
     if (!clipp::parse(argc, argv, cli)) {
         auto fmt = clipp::doc_formatting{}.doc_column(31);
+        std::cout << make_man_page(cli, argv[0], fmt) << '\n';
+        return -1;
+    }
+
+    if (config.curve == "sweep")
+        config.spaceCurve = Neon::domain::tool::spaceCurves::EncoderType::sweep;
+    if (config.curve == "morton")
+        config.spaceCurve = Neon::domain::tool::spaceCurves::EncoderType::morton;
+    if (config.curve == "hilbert")
+        config.spaceCurve = Neon::domain::tool::spaceCurves::EncoderType::hilbert;
+
+    if (config.curve != "sweep" && config.curve != "morton" && config.curve != "hilbert") {
+        auto fmt = clipp::doc_formatting{}.doc_column(31);
+        std::cout << config.curve << " is not a supported configuration" << std::endl;
         std::cout << make_man_page(cli, argv[0], fmt) << '\n';
         return -1;
     }

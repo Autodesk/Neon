@@ -9,8 +9,8 @@
 #include "Neon/set/DevSet.h"
 
 #include "Neon/core/tools/io/ioToVti.h"
+#include "Neon/domain/tools/SpaceCurves.h"
 #include "Stencil.h"
-
 namespace Neon::domain::interface {
 
 /**
@@ -66,13 +66,6 @@ class GridBase
     auto getNumActiveCellsPerPartition() const
         -> const Neon::set::DataSet<size_t>&;
 
-    //    /**
-    //     * Return the number of cells stored per partition
-    //     * @return
-    //     */
-    //    auto getNumActiveCellsPerPartition() const
-    //        -> const Neon::set::DataSet<size_t>&;
-
     /**
      * Creates a DataSet object compatible with the number of GPU used by the grid.
      */
@@ -123,6 +116,8 @@ class GridBase
     auto getGridUID() const
         -> size_t;
 
+
+
     /**
      * Add the grid information in a Report object
      */
@@ -136,31 +131,40 @@ class GridBase
     auto getDefaultBlock() const
         -> const Neon::index_3d&;
 
+    auto getMemoryBlock() const
+        -> Neon::index_3d;
+
+    auto getSpaceCurve() const
+        -> Neon::domain::tool::spaceCurves::EncoderType;
 
    protected:
     /**
      * Protected constructor
      */
-    GridBase(const std::string&                gridImplementationName,
-             const Neon::Backend&              backend,
-             const Neon::index_3d&             dim,
-             const Neon::domain::Stencil&      stencil,
-             const Neon::set::DataSet<size_t>& nPartitionElements /**< Number of element per partition */,
-             const Neon::index_3d&             defaultBlockSize,
-             const Vec_3d<double>&             spacingData = Vec_3d<double>(1, 1, 1) /*! Spacing, i.e. size of a voxel */,
-             const Vec_3d<double>&             origin = Vec_3d<double>(0, 0, 0) /*!      Origin  */);
+    GridBase(const std::string&                           gridImplementationName,
+             const Neon::Backend&                         backend,
+             const Neon::index_3d&                        dim,
+             const Neon::domain::Stencil&                 stencil,
+             const Neon::set::DataSet<size_t>&            nPartitionElements /**< Number of element per partition */,
+             const Neon::index_3d&                        defaultBlockSize,
+             const Vec_3d<double>&                        spacingData /*! Spacing, i.e. size of a voxel */,
+             const Vec_3d<double>&                        origin /*!      Origin  */,
+             Neon::domain::tool::spaceCurves::EncoderType spaceCurve,
+             Neon::index_3d                               memoryBlock);
 
     /**
      * Protected initialization function used by derived classes to set some parameters.
      */
-    auto init(const std::string&                gridImplementationName /**< Name of the implementation, for example dGrid eGrid etc */,
-              const Neon::Backend&              backend /**< Backend used to create the grid */,
-              const Neon::index_3d&             dimension /**< Dimension of the grid */,
-              const Neon::domain::Stencil&      stencil /**< Union of all the stencil that will be used with the grid */,
-              const Neon::set::DataSet<size_t>& nPartitionElements /**< Elements associated to each partition */,
-              const Neon::index_3d&             defaultBlockSize /**< Default thread block size */,
-              const Vec_3d<double>&             spacingData /**< Grid spacing */,
-              const Vec_3d<double>&             origin /**< Position in space of the grid's origin */) -> void;
+    auto init(const std::string&                           gridImplementationName /**< Name of the implementation, for example dGrid eGrid etc */,
+              const Neon::Backend&                         backend /**< Backend used to create the grid */,
+              const Neon::index_3d&                        dimension /**< Dimension of the grid */,
+              const Neon::domain::Stencil&                 stencil /**< Union of all the stencil that will be used with the grid */,
+              const Neon::set::DataSet<size_t>&            nPartitionElements /**< Elements associated to each partition */,
+              const Neon::index_3d&                        defaultBlockSize /**< Default thread block size */,
+              const Vec_3d<double>&                        spacingData /**< Grid spacing */,
+              const Vec_3d<double>&                        origin /**< Position in space of the grid's origin */,
+              Neon::domain::tool::spaceCurves::EncoderType spaceCurve,
+              Neon::index_3d                               memoryBlock) -> void;
 
     /**
      * Protected method to set the default thread blocks size
@@ -175,6 +179,7 @@ class GridBase
         -> Neon::set::LaunchParameters&;
 
 
+
    private:
     struct Storage
     {
@@ -187,14 +192,16 @@ class GridBase
             index_3d blockDim;
         };
 
-        Neon::Backend              backend /**<            Backend used to create and run the grid. */;
-        Neon::index_3d             dimension /**<          Dimension of the grid                    */;
-        Neon::domain::Stencil      stencil /**<            Stencil used for the grid initialization */;
-        Neon::set::DataSet<size_t> nPartitionElements /**< Number of elements per partition         */;
-        Vec_3d<double>             spacing /**<            Spacing, i.e. size of a voxel            */;
-        Vec_3d<double>             origin /**<             Position in space of the grid's origin   */;
-        Defaults_t                 defaults;
-        std::string                gridImplementationName;
+        Neon::Backend                                backend /**<            Backend used to create and run the grid. */;
+        Neon::index_3d                               dimension /**<          Dimension of the grid                    */;
+        Neon::domain::Stencil                        stencil /**<            Stencil used for the grid initialization */;
+        Neon::set::DataSet<size_t>                   nPartitionElements /**< Number of elements per partition         */;
+        Vec_3d<double>                               spacing /**<            Spacing, i.e. size of a voxel            */;
+        Vec_3d<double>                               origin /**<             Position in space of the grid's origin   */;
+        Defaults_t                                   defaults;
+        std::string                                  gridImplementationName;
+        Neon::domain::tool::spaceCurves::EncoderType spaceCurve;
+        Neon::index_3d                               memoryBlock;
     };
 
     std::shared_ptr<Storage> mStorage;

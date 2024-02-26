@@ -209,6 +209,12 @@ auto ContainerAPI::
     mParsingDataUpdated = status;
 }
 
+auto ContainerAPI::isContainerSequence()
+    -> bool
+{
+    return getContainerExecutionType() == ContainerExecutionType::sequence;
+}
+
 auto ContainerAPI::
     parse()
         -> const std::vector<Neon::set::dataDependency::Token>&
@@ -235,9 +241,20 @@ auto ContainerAPI::
 
 
 auto ContainerAPI::
- configureWithScheduling([[maybe_unused]] Neon::set::container::GraphNode& graphNode)
-        -> void{
+    configureWithScheduling([[maybe_unused]] Neon::set::container::GraphNode& graphNode)
+        -> void
+{
+}
 
+auto ContainerAPI::
+    getSequence() const -> const std::vector<Neon::set::Container>&
+{
+    std::string         description = helpGetNameForError();
+    Neon::NeonException exp("ContainerAPI");
+    exp << description << " "
+        << "getSequence"
+        << " is not supported.";
+    NEON_THROW(exp);
 }
 
 }  // namespace Neon::set::internal

@@ -117,6 +117,9 @@ struct Container
                              const container::Graph&                    graph,
                              std::function<void(Neon::SetIdx, Loader&)> loadingLambda) -> Container;
 
+    static auto factorySequence(const std::string&                 name,
+                                std::vector<Neon::set::Container>& sequence) -> Container;
+
     static auto factoryDeviceThenHostManaged(const std::string& name,
                                              Container&         device,
                                              Container&         host)
@@ -157,6 +160,12 @@ struct Container
 
     auto getContainerExecutionType() const
         -> Neon::set::ContainerExecutionType;
+
+    auto getSequence() const
+        -> const std::vector<Neon::set::Container>&;
+
+    auto isSequence() const
+        -> bool;
 
    protected:
     std::shared_ptr<Neon::set::internal::ContainerAPI> mContainer;

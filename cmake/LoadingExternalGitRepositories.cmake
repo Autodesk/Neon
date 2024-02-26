@@ -25,6 +25,43 @@ if (NOT rapidjson_POPULATED)
 	file(REMOVE_RECURSE ${rapidjson_SOURCE_DIR}/bin/)
 endif ()
 
+# glm
+FetchContent_GetProperties(glm)
+	message(STATUS "Fetching glm...")	
+	if (NOT glm_POPULATED)
+	FetchContent_Declare(glm
+		GIT_REPOSITORY https://github.com/g-truc/glm.git
+		GIT_TAG        master
+	)
+	FetchContent_Populate(glm)
+	add_subdirectory(${glm_SOURCE_DIR})
+endif()
+
+# polyscope
+if(${NEON_USE_POLYSCOPE})
+	FetchContent_GetProperties(polyscope)
+	if (NOT polyscope_POPULATED)
+		message(STATUS "Fetching polyscope...")
+		FetchContent_Declare(polyscope
+			GIT_REPOSITORY https://github.com/Ahdhn/polyscope.git
+			GIT_TAG        834b9c6c1a2675ccefd254d526f2dac3e3f831c6
+		)
+		FetchContent_MakeAvailable(polyscope)
+	endif()
+endif()
+
+#libigl
+FetchContent_GetProperties(libigl)
+if (NOT libigl_POPULATED)
+	message(STATUS "Fetching libigl...")	
+	FetchContent_Declare(
+		libigl
+		GIT_REPOSITORY https://github.com/Ahdhn/libigl.git
+		GIT_TAG        master
+	)
+	FetchContent_MakeAvailable(libigl)
+endif()
+
 if (${BUILD_NEON_TESTING})
 	# GoogleTest
 	FetchContent_GetProperties(googletest)

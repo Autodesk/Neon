@@ -4,5 +4,4 @@ add_subdirectory("skeleton-maps")
 add_subdirectory("skeleton-stencil")
 
 add_subdirectory("sUt_skeletonOnStreams")
-add_subdirectory("sUt_userInterface")
 add_subdirectory("sUt_multiRes")

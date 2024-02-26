@@ -105,13 +105,14 @@ class Partitioner1D
 
     template <typename ActiveIndexLambda,
               typename BcLambda>
-    Partitioner1D(const Neon::Backend&        backend,
-                  const ActiveIndexLambda&    activeIndexLambda,
-                  const BcLambda&             bcLambda,
-                  const Neon::index_3d&       dataBlockSize,
-                  const Neon::int32_3d&       domainSize,
-                  const Neon::domain::Stencil stencil,
-                  const int&                  multiResDiscreteIdxSpacing = 1)
+    Partitioner1D(const Neon::Backend&                         backend,
+                  const ActiveIndexLambda&                     activeIndexLambda,
+                  const BcLambda&                              bcLambda,
+                  const Neon::index_3d&                        dataBlockSize,
+                  const Neon::int32_3d&                        domainSize,
+                  const Neon::domain::Stencil                  stencil,
+                  Neon::domain::tool::spaceCurves::EncoderType spaceFillingType,
+                  const int&                                   multiResDiscreteIdxSpacing = 1)
     {
         mData = std::make_shared<Data>();
 
@@ -119,6 +120,7 @@ class Partitioner1D
         mData->mMultiResDiscreteIdxSpacing = multiResDiscreteIdxSpacing;
         mData->mStencil = stencil;
         mData->mDomainSize = domainSize;
+        mData->spaceCurve = spaceFillingType;
 
         // Block space interval (i.e. indexing space at the block granularity)
 
@@ -164,6 +166,7 @@ class Partitioner1D
             domainSize,
             stencil,
             multiResDiscreteIdxSpacing,
+            spaceFillingType,
             mData->spanDecomposition);
 
         mData->mSpanLayout = std::make_shared<partitioning::SpanLayout>(
@@ -182,7 +185,12 @@ class Partitioner1D
     {
         return mData->block3DSpan;
     }
-    
+
+    auto getSpaceCurve() const -> Neon::domain::tool::spaceCurves::EncoderType
+    {
+        return mData->spaceCurve;
+    }
+
     auto getMemoryGrid() -> Neon::aGrid&
     {
         return mData->mTopologyWithGhost;
@@ -288,7 +296,7 @@ class Partitioner1D
 
     auto getDenseMeta() -> const DenseMeta&
     {
-        //setDenseMeta();
+        // setDenseMeta();
         return *mData->mDenseMeta;
     }
 
@@ -443,13 +451,14 @@ class Partitioner1D
     class Data
     {
        public:
-        Neon::index_3d                        mDataBlockSize = 0;
-        int                                   mMultiResDiscreteIdxSpacing = 0;
-        Neon::domain::Stencil                 mStencil;
-        Neon::index_3d                        mDomainSize;
-        Neon::int32_3d                        block3DSpan;
-        bool                                  globalMappingInit = false;
-        Neon::aGrid::Field<Neon::int32_3d, 0> globalMapping;
+        Neon::index_3d                               mDataBlockSize = 0;
+        int                                          mMultiResDiscreteIdxSpacing = 0;
+        Neon::domain::Stencil                        mStencil;
+        Neon::index_3d                               mDomainSize;
+        Neon::int32_3d                               block3DSpan;
+        bool                                         globalMappingInit = false;
+        Neon::aGrid::Field<Neon::int32_3d, 0>        globalMapping;
+        Neon::domain::tool::spaceCurves::EncoderType spaceCurve;
 
         bool                      getStencil3dTo1dOffsetInit = false;
         Neon::set::MemSet<int8_t> stencil3dTo1dOffset;

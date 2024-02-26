@@ -3,6 +3,7 @@
 
 #include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/details/bGrid/bPartition.h"
+#include "Neon/domain/details/bGridDisg/bPartition.h"
 #include "Neon/domain/interface/NghData.h"
 
 #include "Neon/domain/details/bGrid/StaticBlock.h"
@@ -21,13 +22,13 @@ constexpr uint32_t kNumUserBlockPerMemBlockX = kMemBlockSizeX / kUserBlockSizeX;
 constexpr uint32_t kNumUserBlockPerMemBlockY = kMemBlockSizeY / kUserBlockSizeY;
 constexpr uint32_t kNumUserBlockPerMemBlockZ = kMemBlockSizeZ / kUserBlockSizeZ;
 
-using kStaticBlock = Neon::domain::details::bGrid::StaticBlock<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ, true>;
+using kStaticBlock = Neon::domain::details::disaggregated::bGrid::StaticBlock<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ, true>;
 
 template <typename T, int C = 0>
-class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>
+class mPartition : public Neon::domain::details::disaggregated::bGrid::bPartition<T, C, kStaticBlock>
 {
    public:
-    using Idx = Neon::domain::details::bGrid::bIndex<kStaticBlock>;
+    using Idx = Neon::domain::details::disaggregated::bGrid::bIndex<kStaticBlock>;
     using NghIdx = Idx::NghIdx;
     using NghData = Neon::domain::NghData<T>;
     using Type = T;

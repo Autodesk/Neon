@@ -11,6 +11,7 @@
 
 namespace Neon::set {
 struct Loader;
+struct Container;
 }
 
 namespace Neon::set::container {
@@ -88,6 +89,9 @@ struct ContainerAPI
 
     virtual auto getTransferMode() const
         -> Neon::set::TransferMode;
+
+    virtual  auto getSequence() const
+        -> const std::vector<Neon::set::Container>&;
 
     /**
      * Returns a name associated to the container.
@@ -205,6 +209,9 @@ struct ContainerAPI
 
     auto setParsingDataUpdated(bool)
         -> void;
+
+    auto isContainerSequence()
+        -> bool;
 
    private:
     using TokenList = std::vector<Neon::set::dataDependency::Token>;

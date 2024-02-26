@@ -182,6 +182,7 @@ class GpuDevice : public DeviceInterface
                 exc << "\n Kernel requires " << func_attr.sharedSizeBytes << " bytes of static shared memory";
                 exc << "\n Kernel requires " << func_attr.constSizeBytes << " bytes of user-allocated constant memory";
                 exc << "\n Kernel requires " << func_attr.localSizeBytes << " bytes of local memory per thread";
+                exc << "\n Kernel grid size is " << cudaGrid.x << " x " << cudaGrid.y << " x " << cudaGrid.z;
                 exc << "\n Kernel maximum thread/block is " << func_attr.maxThreadsPerBlock << " while launched block is " << cudaBlock.x * cudaBlock.y * cudaBlock.z;
                 exc << "\n Kernel maximum dynamic shared memory is " << func_attr.maxDynamicSharedSizeBytes << " bytes while launched dynamic shared memory is " << shrMemSize << "bytes\n";
                 NEON_THROW(exc);

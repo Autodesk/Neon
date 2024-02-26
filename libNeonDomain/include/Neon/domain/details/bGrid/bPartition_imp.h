@@ -25,14 +25,16 @@ bPartition<T, C, SBlock>::
                typename Idx::DataBlockIdx*                   blockConnectivity,
                typename SBlock::BitMask const* NEON_RESTRICT mask,
                Neon::int32_3d*                               origin,
-               NghIdx*                                       stencilNghIndex)
+               NghIdx*                                       stencilNghIndex,
+               Neon::int32_3d                                mDomainSize)
     : mCardinality(cardinality),
       mMem(mem),
       mStencilNghIndex(stencilNghIndex),
       mBlockConnectivity(blockConnectivity),
       mMask(mask),
       mOrigin(origin),
-      mSetIdx(setIdx)
+      mSetIdx(setIdx),
+      mDomainSize(mDomainSize)
 {
 }
 
@@ -45,7 +47,18 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     location.x += gidx.mInDataBlockIdx.x;
     location.y += gidx.mInDataBlockIdx.y;
     location.z += gidx.mInDataBlockIdx.z;
+    if constexpr (SBlock::isMultiResMode) {
+        return location * mMultiResDiscreteIdxSpacing;
+    }
     return location;
+}
+
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    getDomainSize()
+        const -> Neon::index_3d
+{
+    return mDomainSize;
 }
 
 template <typename T, int C, typename SBlock>
@@ -83,6 +96,13 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    mem() const -> T const*
+{
+    return mMem;
+}
+
+template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     helpGetPitch(const Idx& idx, int card)
         const -> uint32_t
@@ -97,7 +117,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     helpGetValidIdxPitchExplicit(const Idx& idx, int card)
         const -> uint32_t
 {
-    uint32_t const blockPitchByCard = SBlock::memBlockSizeX * SBlock::memBlockSizeY * SBlock::memBlockSizeZ;
+    uint32_t constexpr blockPitchByCard = SBlock::memBlockSizeX * SBlock::memBlockSizeY * SBlock::memBlockSizeZ;
     uint32_t const inBlockInCardPitch = idx.mInDataBlockIdx.x +
                                         SBlock::memBlockSizeX * idx.mInDataBlockIdx.y +
                                         (SBlock::memBlockSizeX * SBlock::memBlockSizeY) * idx.mInDataBlockIdx.z;
@@ -139,6 +159,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
                   const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx
 {
+    if (offset.x == 0 && offset.y == 0 && offset.z == 0) {
+        return idx;
+    }
 
     typename Idx::InDataBlockIdx ngh(idx.mInDataBlockIdx.x + offset.x,
                                      idx.mInDataBlockIdx.y + offset.y,
@@ -218,6 +241,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     helpGetNghIdx(const Idx& idx, const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx
 {
+    if constexpr (xOff == 0 && yOff == 0 && zOff == 0) {
+        return idx;
+    }
 
     typename Idx::InDataBlockIdx ngh(idx.mInDataBlockIdx.x + xOff,
                                      idx.mInDataBlockIdx.y + yOff,
@@ -372,15 +398,78 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
+
+template <int xOff,
+          int yOff,
+          int zOff,
+          typename LambdaVALID,
+          typename LambdaNOTValid>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    getNghData(const Idx&     gidx,
+               int            card,
+               LambdaVALID    funIfValid,
+               LambdaNOTValid funIfNOTValid)
+        const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> && (std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>
+{
+    NghData result;
+    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(gidx);
+    auto [isValid, pitch] = helpNghPitch(nghIdx, card);
+
+    if (isValid) {
+        auto const& value = mMem[pitch];
+        funIfValid(value);
+        return;
+    }
+
+    if constexpr (!std::is_same_v<LambdaNOTValid, void*>) {
+        funIfNOTValid();
+    }
+    return;
+}
+
+template <typename T, int C, typename SBlock>
+template <int xOff, int yOff, int zOff>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    writeNghData(const Idx& gidx,
+                 int        card,
+                 T          value)
+        -> bool
+{
+    NghData result;
+    bIndex  nghIdx = helpGetNghIdx<xOff, yOff, zOff>(gidx);
+    auto [isValid, pitch] = helpNghPitch(nghIdx, card);
+    if (!isValid) {
+        return false;
+    }
+    mMem[pitch] = value;
+    return true;
+}
+
+template <typename T, int C, typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto
 bPartition<T, C, SBlock>::isActive(const Idx&                      cell,
                                    const typename SBlock::BitMask* mask) const -> bool
 {
+    if (!cell.isActive()) {
+        return false;
+    }
     if (!mask) {
         return mMask[cell.mDataBlockIdx].isActive(cell.mInDataBlockIdx.x, cell.mInDataBlockIdx.y, cell.mInDataBlockIdx.z);
     } else {
         return mask[cell.mDataBlockIdx].isActive(cell.mInDataBlockIdx.x, cell.mInDataBlockIdx.y, cell.mInDataBlockIdx.z);
     }
+}
+
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto
+bPartition<T, C, SBlock>::isActive(const Idx&   cell,
+                                   const NghIdx nghDir) const -> bool
+{
+    Idx nghCell = this->helpGetNghIdx(cell, nghDir);
+    if (nghCell.mDataBlockIdx == std::numeric_limits<typename Idx::DataBlockIdx>::max()) {
+        return false;
+    }
+    return isActive(nghCell);
 }
 
 }  // namespace Neon::domain::details::bGrid

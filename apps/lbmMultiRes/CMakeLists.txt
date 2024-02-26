@@ -1,12 +1,17 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 set (APP_NAME app-lbmMultiRes)
-file(GLOB_RECURSE SrcFiles lbmMultiRes.cu lattice.h init.h postProcess.h util.h coalescence.h collide.h explosion.h stream.h store.h verify.h)
+file(GLOB_RECURSE SrcFiles lbmMultiRes.cu lbmMultiRes.h lattice.h init.h postProcess.h util.h coalescence.h collide.h explosion.h stream.h store.h verify.h flowOverShape.h lidDrivenCavity.h fusedFinest.h)
 
 add_executable(${APP_NAME} ${SrcFiles})
 
 target_link_libraries(${APP_NAME} 
-	PUBLIC libNeonSkeleton)
+	PUBLIC libNeonSkeleton glm::glm igl::core)
+	
+if(${NEON_USE_POLYSCOPE})
+	target_link_libraries(${APP_NAME} 
+		PUBLIC libNeonSkeleton polyscope)
+endif()
 
 set_target_properties(${APP_NAME} PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON

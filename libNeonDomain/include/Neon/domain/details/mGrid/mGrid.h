@@ -5,6 +5,7 @@
 #include "Neon/set/memory/memSet.h"
 
 #include "Neon/domain/details/bGrid/bGrid.h"
+#include "Neon/domain/details/bGridDisg/bGrid.h"
 
 #include "Neon/domain/details/mGrid/mGridDescriptor.h"
 
@@ -28,8 +29,9 @@ class mGrid
 {
    public:
     using Grid = mGrid;
-    using InternalGrid = Neon::domain::details::bGrid::bGrid<kStaticBlock>;
-    using Idx = typename InternalGrid::Idx;
+    using InternalGrid = Neon::domain::details::disaggregated::bGrid::bGrid<kStaticBlock>;
+    //using Idx = typename InternalGrid::Idx;
+    using Idx = Neon::domain::details::disaggregated::bGrid::bIndex<kStaticBlock>;
     using Descriptor = mGridDescriptor<1>;
 
     template <typename T, int C = 0>
@@ -67,6 +69,7 @@ class mGrid
           const Neon::domain::Stencil&                            stencil,
           const Descriptor                                        descriptor,
           bool                                                    isStrongBalanced = true,
+          bool                                                    isCullOverlaps = true,
           const double_3d&                                        spacingData = double_3d(1, 1, 1),
           const double_3d&                                        origin = double_3d(0, 0, 0));
 
@@ -77,6 +80,12 @@ class mGrid
      * @param level the level at which we query the voxel      
     */
     auto isInsideDomain(const Neon::index_3d& idx, int level) const -> bool;
+
+
+    /**
+     * Given a voxel, check if it is on the interface between two different resolutions      
+    */
+    auto isOnInterface(const Neon::index_3d& idx, int level) const -> bool;
 
     /**
      * Since mGird is internally represented by a stack of grids, this return the grid at certain level 
@@ -117,7 +126,7 @@ class mGrid
      * @param sharedMem amount of shared memory in bytes for CUDA kernels 
      * @param lambda the lambda function that will do the computation      
     */
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
                       int                level,
                       index_3d           blockSize,
@@ -131,10 +140,33 @@ class mGrid
      * @param level at which the work/kernel will be launched      
      * @param lambda the lambda function that will do the computation      
     */
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
                       int                level,
                       LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
+    auto newContainer(const std::string& name,
+                      int                level,
+                      bool               isAlpha,
+                      LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
+    auto newAlphaContainer(const std::string& name,
+                           int                level,
+                           LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
+    auto newBetaContainer(const std::string& name,
+                          int                level,
+                          LoadingLambda      lambda) const -> Neon::set::Container;
+
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambdaAlpha = void*, typename LoadingLambdaBeta = void*>
+    auto newAlphaBetaContainer(const std::string& name,
+                               int                level,
+                               LoadingLambdaAlpha lambdaAlpha,
+                               LoadingLambdaBeta  lambdaBeta) const -> Neon::set::Container;
+
 
     auto getParentsBlockID(int level) const -> Neon::set::MemSet<uint32_t>&;
     auto getChildBlockID(int level) const -> const Neon::set::MemSet<uint32_t>&;
@@ -183,6 +215,9 @@ class mGrid
     //set the bitmask assuming a dense domain
     auto setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void;
 
+    //clear the bitmask assuming a dense domain
+    auto clearLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void;
+
     struct Data
     {
         Neon::index_3d domainSize;
@@ -209,8 +244,13 @@ class mGrid
 
         bool mStrongBalanced;
 
+        bool mCullOverlaps;
+
         //bitmask of the active cells at each level and works as if the grid is dense at each level
         std::vector<std::vector<uint32_t>> denseLevelsBitmask;
+
+        //bitmask of the active cells at each level that are also along the interface of two resolution
+        std::vector<std::vector<uint32_t>> atInterfaceBitmask;
 
         //collection of bGrids that make up the multi-resolution grid
         std::vector<InternalGrid> grids;

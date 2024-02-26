@@ -20,7 +20,7 @@
 #include "Neon/domain/interface/LaunchConfig.h"
 #include "Neon/domain/interface/Stencil.h"
 #include "Neon/domain/interface/common.h"
-
+#include "Neon/domain/tools/SpaceCurves.h"
 #include "Neon/domain/tools/SpanTable.h"
 
 #include "Neon/domain/patterns/PatternScalar.h"
@@ -84,7 +84,8 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
           const SparsityPattern&       activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
           const Neon::domain::Stencil& stencil /**< Stencil used by any computation on the grid */,
           const Vec_3d<double>&        spacing = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
-          const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */);
+          const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */,
+          Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
     /**
      * Returns a LaunchParameters configured for the specified inputs.

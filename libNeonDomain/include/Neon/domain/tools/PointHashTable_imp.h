@@ -105,4 +105,10 @@ auto PointHashTable<IntegerT, MetaT>::size() const -> size_t
 {
     return mMap.size();
 }
+
+template <typename IntegerT, typename MetaT>
+auto PointHashTable<IntegerT, MetaT>::getBBox() const -> Point const&{
+    return mBBox;
+}
+
 }  // namespace Neon::domain::tool

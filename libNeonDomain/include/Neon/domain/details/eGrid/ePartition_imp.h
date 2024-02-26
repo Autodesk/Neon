@@ -37,43 +37,43 @@ ePartition<T, C>::cardinality() const
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::operator()(eIndex eId, int cardinalityIdx) const
+ePartition<T, C>::operator()(eIndex gidx, int cardinalityIdx) const
     -> T
 {
-    Offset jump = getOffset(eId, cardinalityIdx);
+    Offset jump = getOffset(gidx, cardinalityIdx);
     return mMem[jump];
 }
 
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::operator()(eIndex eId, int cardinalityIdx) -> T&
+ePartition<T, C>::operator()(eIndex gidx, int cardinalityIdx) -> T&
 {
-    Offset jump = getOffset(eId, cardinalityIdx);
+    Offset jump = getOffset(gidx, cardinalityIdx);
     return mMem[jump];
 }
 
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::getNghData(eIndex eId,
+ePartition<T, C>::getNghData(eIndex gidx,
                              NghIdx nghIdx,
                              int    card)
     const -> NghData
 {
-    eIndex     eIdxNgh;
-    const bool isValidNeighbour = isValidNgh(eId, nghIdx, eIdxNgh);
+    eIndex     gidxxNgh;
+    const bool isValidNeighbour = isValidNgh(gidx, nghIdx, gidxxNgh);
     if (isValidNeighbour) {
-        T val = this->operator()(eIdxNgh, card);
+        T val = this->operator()(gidxxNgh, card);
         return NghData(val, isValidNeighbour);
     }
-    return NghData(isValidNeighbour);
+    return NghData();
 }
 
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::getNghData(eIndex               eId,
+ePartition<T, C>::getNghData(eIndex               gidx,
                              const Neon::int8_3d& ngh3dIdx,
                              int                  card)
     const -> NghData
@@ -82,7 +82,7 @@ ePartition<T, C>::getNghData(eIndex               eId,
                      (ngh3dIdx.y + mStencilRadius) * mStencilTableYPitch +
                      (ngh3dIdx.z + mStencilRadius) * mStencilTableYPitch * mStencilTableYPitch;
     NghIdx  nghIdx = mStencil3dTo1dOffset[tablePithc];
-    NghData res = getNghData(eId, nghIdx, card);
+    NghData res = getNghData(gidx, nghIdx, card);
 
     return res;
 }
@@ -91,15 +91,15 @@ template <typename T,
           int C>
 template <int xOff, int yOff, int zOff>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::getNghData(eIndex               eId,
-                             int                  card)
+ePartition<T, C>::getNghData(eIndex gidx,
+                             int    card)
     const -> NghData
 {
     int tablePithc = (xOff + mStencilRadius) +
                      (yOff + mStencilRadius) * mStencilTableYPitch +
                      (zOff + mStencilRadius) * mStencilTableYPitch * mStencilTableYPitch;
     NghIdx  nghIdx = mStencil3dTo1dOffset[tablePithc];
-    NghData res = getNghData(eId, nghIdx, card);
+    NghData res = getNghData(gidx, nghIdx, card);
 
     return res;
 }
@@ -108,16 +108,16 @@ template <typename T,
           int C>
 template <int xOff, int yOff, int zOff>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::getNghData(eIndex               eId,
-                             int                  card,
-                             T defaultVal)
+ePartition<T, C>::getNghData(eIndex gidx,
+                             int    card,
+                             T      defaultVal)
     const -> NghData
 {
     int tablePithc = (xOff + mStencilRadius) +
                      (yOff + mStencilRadius) * mStencilTableYPitch +
                      (zOff + mStencilRadius) * mStencilTableYPitch * mStencilTableYPitch;
     NghIdx  nghIdx = mStencil3dTo1dOffset[tablePithc];
-    NghData res = getNghData(eId, nghIdx, card);
+    NghData res = getNghData(gidx, nghIdx, card);
     if (!res.isValid()) {
         res.set(defaultVal, false);
     }
@@ -126,19 +126,48 @@ ePartition<T, C>::getNghData(eIndex               eId,
 
 template <typename T,
           int C>
+template <int xOff,
+          int yOff,
+          int zOff,
+          typename LambdaVALID,
+          typename LambdaNOTValid>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::getNghIndex(eIndex               eId,
+ePartition<T, C>::getNghData(const Idx&     gidx,
+                             int            card,
+                             LambdaVALID    funIfValid,
+                             LambdaNOTValid funIfNOTValid)
+    const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> && (std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>
+{
+    int tablePithc = (xOff + mStencilRadius) +
+                     (yOff + mStencilRadius) * mStencilTableYPitch +
+                     (zOff + mStencilRadius) * mStencilTableYPitch * mStencilTableYPitch;
+    NghIdx  nghIdx = mStencil3dTo1dOffset[tablePithc];
+    NghData res = getNghData(gidx, nghIdx, card);
+    if (res.isValid()) {
+        funIfValid(res.getData());
+        return;
+    }
+    if constexpr (!std::is_same_v<LambdaNOTValid, void*>) {
+        funIfNOTValid();
+    }
+    return;
+}
+
+template <typename T,
+          int C>
+NEON_CUDA_HOST_DEVICE inline auto
+ePartition<T, C>::getNghIndex(eIndex               gidx,
                               const Neon::int8_3d& ngh3dIdx,
-                              eIndex&              eIdxNgh) const -> bool
+                              eIndex&              gidxxNgh) const -> bool
 {
     int tablePithc = (ngh3dIdx.x + mStencilRadius) +
                      (ngh3dIdx.y + mStencilRadius) * mStencilTableYPitch +
                      (ngh3dIdx.z + mStencilRadius) * mStencilTableYPitch * mStencilTableYPitch;
     NghIdx     nghIdx = mStencil3dTo1dOffset[tablePithc];
     eIndex     tmpEIdxNgh;
-    const bool isValidNeighbour = isValidNgh(eId, nghIdx, tmpEIdxNgh);
+    const bool isValidNeighbour = isValidNgh(gidx, nghIdx, tmpEIdxNgh);
     if (isValidNeighbour) {
-        eIdxNgh = tmpEIdxNgh;
+        gidxxNgh = tmpEIdxNgh;
     }
     return isValidNeighbour;
 }
@@ -146,17 +175,17 @@ ePartition<T, C>::getNghIndex(eIndex               eId,
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::isValidNgh(eIndex  eId,
+ePartition<T, C>::isValidNgh(eIndex  gidx,
                              NghIdx  nghIdx,
                              eIndex& neighbourIdx) const
     -> bool
 {
-    const eIndex::Offset connectivityJumo = mCountAllocated * nghIdx + eId.helpGet();
+    const eIndex::Offset connectivityJumo = mCountAllocated * nghIdx + gidx.helpGet();
     neighbourIdx.helpSet() = NEON_CUDA_CONST_LOAD((mConnectivity + connectivityJumo));
     const bool isValidNeighbour = (neighbourIdx.mIdx > -1);
-    //    printf("(prtId %d) getNghData id %d eIdxNgh %d connectivityJumo %d\n",
+    //    printf("(prtId %d) getNghData id %d gidxxNgh %d connectivityJumo %d\n",
     //           mPrtID,
-    //           eId.mIdx, neighbourIdx.mIdx, connectivityJumo);
+    //           gidx.mIdx, neighbourIdx.mIdx, connectivityJumo);
     return isValidNeighbour;
 }
 
@@ -181,7 +210,8 @@ ePartition<T, C>::ePartition(int             prtId,
                              Offset*         connRaw,
                              Neon::index_3d* toGlobal,
                              int8_t*         stencil3dTo1dOffset,
-                             int32_t         stencilRadius)
+                             int32_t         stencilRadius,
+                             Neon::index_3d  domainSize)
 {
     mPrtID = prtId;
     mMem = mem;
@@ -196,25 +226,26 @@ ePartition<T, C>::ePartition(int             prtId,
     mStencilTableYPitch = 2 * stencilRadius + 1;
 
     mStencilRadius = stencilRadius;
+    mDomainSize = domainSize;
 }
 
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE auto
-ePartition<T, C>::pointer(eIndex eId, int cardinalityIdx) const
+ePartition<T, C>::pointer(eIndex gidx, int cardinalityIdx) const
     -> const Type*
 {
-    Offset jump = getOffset(eId, cardinalityIdx);
+    Offset jump = getOffset(gidx, cardinalityIdx);
     return mMem + jump;
 }
 
 template <typename T,
           int C>
 NEON_CUDA_HOST_DEVICE inline auto
-ePartition<T, C>::getOffset(eIndex eId, int cardinalityIdx) const
+ePartition<T, C>::getOffset(eIndex gidx, int cardinalityIdx) const
     -> Offset
 {
-    return Offset(eId.helpGet() * mPitch.x + cardinalityIdx * mPitch.y);
+    return Offset(gidx.helpGet() * mPitch.x + cardinalityIdx * mPitch.y);
 }
 
 template <typename T,
@@ -233,6 +264,15 @@ ePartition<T, C>::mem() const
     -> const T*
 {
     return mMem;
+}
+
+template <typename T,
+          int C>
+NEON_CUDA_HOST_DEVICE inline auto
+ePartition<T, C>::getDomainSize()
+    const -> Neon::index_3d
+{
+    return mDomainSize;
 }
 
 }  // namespace Neon::domain::details::eGrid

@@ -26,6 +26,7 @@ class tField : public Neon::domain::interface::FieldBaseTemplate<T,
     using Partition = typename GridTransformation::template Partition<T, C>;
     using Idx = typename Partition::Idx;
     using NghIdx = typename Partition::NghIdx;  // for compatibility with eGrid
+    using NghData = typename Partition::NghData;  // for compatibility with eGrid
 
    private:
     using FoundationGrid = typename GridTransformation::FoundationGrid;

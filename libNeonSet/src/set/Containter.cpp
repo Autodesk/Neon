@@ -1,7 +1,8 @@
 #include "Neon/set/Containter.h"
 #include "Neon/set/container/AnchorContainer.h"
-#include "Neon/set/container/SynchronizationContainer.h"
 #include "Neon/set/container/Loader.h"
+#include "Neon/set/container/SequenceContainer.h"
+#include "Neon/set/container/SynchronizationContainer.h"
 
 namespace Neon::set {
 
@@ -110,6 +111,27 @@ auto Container::getContainerExecutionType() const
     return type;
 }
 
+
+auto Container::getSequence() const
+    -> const std::vector<Neon::set::Container>&
+{
+    auto executionType = this->getContainerInterface().getContainerExecutionType();
+    if (executionType == Neon::set::ContainerExecutionType::sequence) {
+        auto&       api = this->getContainerInterface();
+        auto const& seq = api.getSequence();
+        return seq;
+    } else {
+        throw std::runtime_error("Container is not a sequence");
+    }
+}
+
+auto Container::isSequence() const
+    -> bool
+{
+    auto executionType = this->getContainerInterface().getContainerExecutionType();
+    return executionType == Neon::set::ContainerExecutionType::sequence;
+}
+
 Container::Container(std::shared_ptr<Neon::set::internal::ContainerAPI>& container)
     : mContainer(container)
 {
@@ -127,6 +149,15 @@ auto Container::factoryGraph(const std::string&                         name,
                              std::function<void(Neon::SetIdx, Loader&)> loadingLambda) -> Container
 {
     auto k = new Neon::set::internal::GraphContainer(name, graph, loadingLambda);
+
+    std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
+    return Container(tmp);
+}
+
+auto Container::factorySequence(const std::string&                 name,
+                                std::vector<Neon::set::Container>& sequence) -> Container
+{
+    auto k = new Neon::set::internal::SequenceContainer(name, sequence);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
     return Container(tmp);

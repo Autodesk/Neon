@@ -1,7 +1,7 @@
 #pragma once
 #include "Neon/core/core.h"
+#include "Neon/domain/tools/SpaceCurves.h"
 #include "Neon/domain/tools/partitioning/SpanClassifier.h"
-
 namespace Neon::domain::tool::partitioning {
 
 class SpanLayout
@@ -29,6 +29,10 @@ class SpanLayout
         Neon::Backend const&               backend,
         std::shared_ptr<SpanDecomposition> spanPartitionerPtr,
         std::shared_ptr<SpanClassifier>    spanClassifierPtr);
+
+    auto sort(Neon::domain::tool::spaceCurves::EncoderType encoderType,
+              SpanClassifier&                              spanClassifier)
+        -> void;
 
     auto getCount()
         -> Neon::set::DataSet<uint64_t>;
