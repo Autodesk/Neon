@@ -131,6 +131,9 @@ namespace Neon::domain::details::disaggregated::bGrid {
         isActive(const Idx &cell,
                  const typename SBlock::BitMask *mask = nullptr) const -> bool;
 
+        NEON_CUDA_HOST_DEVICE inline auto
+        isActive(const Idx&   cell,
+                 const NghIdx nghDir) const -> bool;
 
         NEON_CUDA_HOST_DEVICE inline auto
         getDomainSize()

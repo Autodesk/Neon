@@ -454,4 +454,16 @@ bPartition<T, C, SBlock>::isActive(const Idx&                      cell,
     }
 }
 
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto
+bPartition<T, C, SBlock>::isActive(const Idx&   cell,
+                                   const NghIdx nghDir) const -> bool
+{
+    Idx nghCell = this->helpGetNghIdx(cell, nghDir);
+    if (nghCell.mDataBlockIdx == std::numeric_limits<typename Idx::DataBlockIdx>::max()) {
+        return false;
+    }
+    return isActive(nghCell);
+}
+
 }  // namespace Neon::domain::details::disaggregated::bGrid
