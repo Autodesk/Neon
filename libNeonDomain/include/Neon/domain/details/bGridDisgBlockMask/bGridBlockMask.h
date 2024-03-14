@@ -32,7 +32,7 @@ class bMaskField;
 
 template <typename SBlock>
 class bGridBlockMask : public Neon::domain::interface::GridBaseTemplate<bGridBlockMask<SBlock>,
-                                                               bMaskIndex<SBlock>>
+                                                                        bMaskIndex<SBlock>>
 {
    public:
     using Grid = bGridBlockMask<SBlock>;
@@ -65,12 +65,12 @@ class bGridBlockMask : public Neon::domain::interface::GridBaseTemplate<bGridBlo
      */
     template <typename ActiveCellLambda>
     bGridBlockMask(const Neon::Backend&                         backend,
-          const Neon::int32_3d&                        domainSize,
-          const ActiveCellLambda                       activeCellLambda,
-          const Neon::domain::Stencil&                 stencil,
-          const double_3d&                             spacingData = double_3d(1, 1, 1),
-          const double_3d&                             origin = double_3d(0, 0, 0),
-          Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
+                   const Neon::int32_3d&                        domainSize,
+                   const ActiveCellLambda                       activeCellLambda,
+                   const Neon::domain::Stencil&                 stencil,
+                   const double_3d&                             spacingData = double_3d(1, 1, 1),
+                   const double_3d&                             origin = double_3d(0, 0, 0),
+                   Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
 
     /**
@@ -78,15 +78,15 @@ class bGridBlockMask : public Neon::domain::interface::GridBaseTemplate<bGridBlo
      */
     template <typename ActiveCellLambda>
     bGridBlockMask(const Neon::Backend&         backend /**< Neon backend for the computation */,
-          const Neon::int32_3d&        domainSize /**< Size of the bounded Cartesian */,
-          const ActiveCellLambda       activeCellLambda /**< Function that identify the user domain inside the boxed Cartesian discretization  */,
-          const Neon::domain::Stencil& stencil /**< union of tall the stencil that will be used in the computation */,
-          const int                    multiResDiscreteIdxSpacing /**< Parameter for the multi-resolution. Index i and index (i+1) may be remapped as i*voxelSpacing  and (i+1)* voxelSpacing.
-                                                                   * For a uniform bGrid, i.e outside the context of multi-resolution this parameter is always 1 */
-          ,
-          const double_3d&                             spacingData /** Physical spacing between two consecutive data points in the Cartesian domain */,
-          const double_3d&                             origin /** Physical location in space of the origin of the Cartesian discretization */,
-          Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
+                   const Neon::int32_3d&        domainSize /**< Size of the bounded Cartesian */,
+                   const ActiveCellLambda       activeCellLambda /**< Function that identify the user domain inside the boxed Cartesian discretization  */,
+                   const Neon::domain::Stencil& stencil /**< union of tall the stencil that will be used in the computation */,
+                   const int                    multiResDiscreteIdxSpacing /**< Parameter for the multi-resolution. Index i and index (i+1) may be remapped as i*voxelSpacing  and (i+1)* voxelSpacing.
+                                                                            * For a uniform bGrid, i.e outside the context of multi-resolution this parameter is always 1 */
+                   ,
+                   const double_3d&                             spacingData /** Physical spacing between two consecutive data points in the Cartesian domain */,
+                   const double_3d&                             origin /** Physical location in space of the origin of the Cartesian discretization */,
+                   Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
     /**
      * Returns some properties for a given cartesian in the Cartesian domain.
@@ -226,7 +226,7 @@ class bGridBlockMask : public Neon::domain::interface::GridBaseTemplate<bGridBlo
 
     template <typename ActiveCellLambda>
     auto init_mask_field(ActiveCellLambda activeCellLambda) -> void;
-    auto helpGetClassField() -> Field<uint8_t, 1>&;
+    auto helpGetClassField() -> BlockView::Field<uint8_t, 1>&;
 
 
     struct Data
@@ -262,10 +262,11 @@ class bGridBlockMask : public Neon::domain::interface::GridBaseTemplate<bGridBlo
         // Stencil neighbor indices
         Neon::set::MemSet<NghIdx> mStencilNghIndex;
 
-        AlphaGrid         alphaGrid;
-        BetaGrid          betaGrid;
-        Field<uint8_t, 1> maskClassField;
-        bool              classFilterEnable;
+        AlphaGrid alphaGrid;
+        BetaGrid  betaGrid;
+
+        BlockView::Field<uint8_t, 1> maskClassBlockField;
+        bool                         classFilterEnable;
     };
     std::shared_ptr<Data> mData;
 };
