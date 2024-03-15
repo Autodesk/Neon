@@ -60,6 +60,10 @@ class aField;
 class aGrid : public Neon::domain::interface::GridBaseTemplate<aGrid, aIndex>
 {
    public:
+
+    constexpr static bool alphaBetaCapabilitySupported = true;
+
+
     using Grid = aGrid;
     using Cell = aIndex;
 

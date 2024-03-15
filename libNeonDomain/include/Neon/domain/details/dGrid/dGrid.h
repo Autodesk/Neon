@@ -41,6 +41,8 @@ namespace Neon::domain::details::dGrid {
 class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
 {
    public:
+    constexpr static bool alphaBetaCapabilitySupported = false;
+
     using Grid = dGrid;
     using Idx = dIndex;
 
