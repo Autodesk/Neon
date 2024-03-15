@@ -32,6 +32,10 @@ class bGridDisgMgpu : public Neon::domain::interface::GridBaseTemplate<bGridDisg
                                                                        bDisgMgpuIndex<SBlock>>
 {
    public:
+
+    constexpr static bool alphaBetaCapabilitySupported = false;
+
+
     using Grid = bGridDisgMgpu<SBlock>;
     template <typename T, int C = 0>
     using Partition = bDisgMgpuPartition<T, C, SBlock>;
