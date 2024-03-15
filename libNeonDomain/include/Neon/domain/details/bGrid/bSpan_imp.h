@@ -29,7 +29,7 @@ bSpan<SBlock>::setAndValidateCPUDevice(Idx&            bidx,
                                        uint32_t const& z) const -> bool
 {
 
-    bidx.mDataBlockIdx = dataBlockIdx;
+    bidx.mDataBlockIdx = dataBlockIdx + mFirstDataBlockOffset;
     bidx.mInDataBlockIdx.x = static_cast<typename Idx::InDataBlockIdx::Integer>(x);
     bidx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>(y);
     bidx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>(z);

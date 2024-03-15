@@ -43,11 +43,12 @@ class dSpan
 
    private:
     Neon::DataView mDataView;
-    int            mZHaloRadius;
-    int            mZBoundaryRadius;
-    Neon::index_3d mDim /** Dimension of the span, its values depends on the mDataView*/;
+    int            mZghostRadius;
+    int            mZboundaryRadius;
+    int            mMaxZInDomain;
+    Neon::index_3d mSpanDim /** Dimension of the span, its values depends on the mDataView*/;
 };
 
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::deta  ils::dGrid
 
 #include "dSpan_imp.h"

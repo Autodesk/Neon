@@ -47,27 +47,27 @@ void test_backToBackConversion()
 
 TEST(bGrid_tray, init_4_4_4_2_2_2)
 {
-    test_backToBackConversion<Neon::domain::details::bGrid::StaticBlock<4, 4, 4, 2, 2, 2>>();
+    test_backToBackConversion<Neon::domain::details::StaticBlock<4, 4, 4, 2, 2, 2>>();
 }
 
 TEST(bGrid_tray, init_8_8_8_2_2_2)
 {
-    test_backToBackConversion<Neon::domain::details::bGrid::StaticBlock<8, 8, 8, 2, 2, 2>>();
+    test_backToBackConversion<Neon::domain::details::StaticBlock<8, 8, 8, 2, 2, 2>>();
 }
 
 TEST(bGrid_tray, init_8_8_8_1_1_1)
 {
-    test_backToBackConversion<Neon::domain::details::bGrid::StaticBlock<8, 8, 8, 1, 1, 1>>();
+    test_backToBackConversion<Neon::domain::details::StaticBlock<8, 8, 8, 1, 1, 1>>();
 }
 
 TEST(bGrid_tray, init_8_8_8_4_4_4)
 {
-    test_backToBackConversion<Neon::domain::details::bGrid::StaticBlock<8, 8, 8, 4, 4, 4>>();
+    test_backToBackConversion<Neon::domain::details::StaticBlock<8, 8, 8, 4, 4, 4>>();
 }
 
 TEST(bGrid_tray, init_4_4_4_2_1_2)
 {
-    test_backToBackConversion<Neon::domain::details::bGrid::StaticBlock<4, 4, 4, 2, 1, 2>>();
+    test_backToBackConversion<Neon::domain::details::StaticBlock<4, 4, 4, 2, 1, 2>>();
 }
 
 int main(int argc, char** argv)

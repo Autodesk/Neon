@@ -48,12 +48,23 @@ OccUtils::Cli::Cli(std::string s)
     set(s);
 }
 
+auto OccUtils::Cli::getStringOption() const -> std::string
+{
+    if (!mSet) {
+        std::stringstream errorMsg;
+        errorMsg << "Occ was not set.";
+        NEON_ERROR(errorMsg.str());
+    }
+    return OccUtils::toString(mOption);
+}
+
 OccUtils::Cli::Cli(Occ model)
 {
     mOption = model;
+    mSet = true;
 }
 
-auto OccUtils::Cli::getOption() -> Occ
+auto OccUtils::Cli::getOption() const -> Occ
 {
     if (!mSet) {
         std::stringstream errorMsg;
@@ -86,7 +97,7 @@ auto OccUtils::Cli::set(const std::string& opt)
     mSet = true;
 }
 
-auto OccUtils::Cli::getStringOptions() -> std::string
+auto OccUtils::Cli::getStringOptions() const -> std::string
 {
     std::stringstream s;
     auto              options = OccUtils::getOptions();
@@ -102,12 +113,20 @@ auto OccUtils::Cli::getStringOptions() -> std::string
     return msg;
 }
 
-auto OccUtils::Cli::addToReport(Neon::Report& report) -> void
+auto OccUtils::Cli::getDoc() const -> std::string
+{
+    std::stringstream s;
+    s << getStringOptions();
+    s << " default: " << OccUtils::toString(getOption());
+    return s.str();
+}
+
+auto OccUtils::Cli::addToReport(Neon::Report& report) const -> void
 {
     report.addMember("Occ", OccUtils::toString(this->getOption()));
 }
 
-auto OccUtils::Cli::addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) -> void
+auto OccUtils::Cli::addToReport(Neon::Report& report, Neon::Report::SubBlock& subBlock) const -> void
 {
     report.addMember("Occ", OccUtils::toString(this->getOption()), &subBlock);
 }

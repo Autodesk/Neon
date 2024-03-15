@@ -1,9 +1,9 @@
 #pragma once
 #include "Neon/core/core.h"
 
+#include "../StaticBlock.h"
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/details/bGrid/BlockView.h"
-#include "Neon/domain/details/bGrid/StaticBlock.h"
 #include "Neon/domain/details/bGrid/bField.h"
 #include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/details/bGrid/bPartition.h"
@@ -32,6 +32,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
                                                                bIndex<SBlock>>
 {
    public:
+    constexpr static bool alphaBetaCapabilitySupported = false;
+
+
     using Grid = bGrid<SBlock>;
     template <typename T, int C = 0>
     using Partition = bPartition<T, C, SBlock>;
@@ -48,19 +51,20 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
 
     using BlockIdx = uint32_t;
 
-    bGrid() = default;
+             bGrid() = default;
     virtual ~bGrid();
 
     /**
      * Constructor for the vanilla block data structure with depth of 1
      */
     template <typename ActiveCellLambda>
-    bGrid(const Neon::Backend&         backend,
-          const Neon::int32_3d&        domainSize,
-          const ActiveCellLambda       activeCellLambda,
-          const Neon::domain::Stencil& stencil,
-          const double_3d&             spacingData = double_3d(1, 1, 1),
-          const double_3d&             origin = double_3d(0, 0, 0));
+    bGrid(const Neon::Backend&                         backend,
+          const Neon::int32_3d&                        domainSize,
+          const ActiveCellLambda                       activeCellLambda,
+          const Neon::domain::Stencil&                 stencil,
+          const double_3d&                             spacingData = double_3d(1, 1, 1),
+          const double_3d&                             origin = double_3d(0, 0, 0),
+          Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
 
     /**
@@ -74,8 +78,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
           const int                    multiResDiscreteIdxSpacing /**< Parameter for the multi-resolution. Index i and index (i+1) may be remapped as i*voxelSpacing  and (i+1)* voxelSpacing.
                                                                    * For a uniform bGrid, i.e outside the context of multi-resolution this parameter is always 1 */
           ,
-          const double_3d& spacingData /** Physical spacing between two consecutive data points in the Cartesian domain */,
-          const double_3d& origin /** Physical location in space of the origin of the Cartesian discretization */);
+          const double_3d&                             spacingData /** Physical spacing between two consecutive data points in the Cartesian domain */,
+          const double_3d&                             origin /** Physical location in space of the origin of the Cartesian discretization */,
+          Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
     /**
      * Returns some properties for a given cartesian in the Cartesian domain.
@@ -231,7 +236,10 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     };
     std::shared_ptr<Data> mData;
 };
-extern template class bGrid<StaticBlock<8, 8, 8>>;
+
+constexpr int defaultBlockSize = 4;
+using BlockDefault = StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>;
+extern template class bGrid<BlockDefault>;
 }  // namespace Neon::domain::details::bGrid
 
 #include "bField_imp.h"

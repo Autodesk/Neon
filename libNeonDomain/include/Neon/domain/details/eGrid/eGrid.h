@@ -84,7 +84,8 @@ class eGrid : public Neon::domain::interface::GridBaseTemplate<eGrid, eIndex>
           const SparsityPattern&       activeCellLambda /**< InOrOutLambda({x,y,z}->{true, false}) */,
           const Neon::domain::Stencil& stencil /**< Stencil used by any computation on the grid */,
           const Vec_3d<double>&        spacing = Vec_3d<double>(1, 1, 1) /**< Spacing, i.e. size of a voxel */,
-          const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */);
+          const Vec_3d<double>&        origin = Vec_3d<double>(0, 0, 0) /**< Origin  */,
+          Neon::domain::tool::spaceCurves::EncoderType encoderType = Neon::domain::tool::spaceCurves::EncoderType::sweep);
 
     eGrid(const Neon::Backend&               backend /**< Target for computation */,
           const Neon::int32_3d&              dimension /**< Dimension of the bounding box containing the domain */,

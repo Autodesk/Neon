@@ -5,7 +5,8 @@
 #include "Neon/domain/details/bGrid/bPartition.h"
 #include "Neon/domain/interface/NghData.h"
 
-#include "Neon/domain/details/bGrid/StaticBlock.h"
+
+#include "Neon/domain/details/StaticBlock.h"
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
 namespace Neon::domain::details::mGrid {
@@ -21,7 +22,7 @@ constexpr uint32_t kNumUserBlockPerMemBlockX = kMemBlockSizeX / kUserBlockSizeX;
 constexpr uint32_t kNumUserBlockPerMemBlockY = kMemBlockSizeY / kUserBlockSizeY;
 constexpr uint32_t kNumUserBlockPerMemBlockZ = kMemBlockSizeZ / kUserBlockSizeZ;
 
-using kStaticBlock = Neon::domain::details::bGrid::StaticBlock<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ, true>;
+using kStaticBlock = Neon::domain::details::StaticBlock<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ, true>;
 
 template <typename T, int C = 0>
 class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>

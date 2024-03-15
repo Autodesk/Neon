@@ -24,6 +24,9 @@ auto ContainerExecutionTypeUtils::toString(ContainerExecutionType option) -> std
         case ContainerExecutionType::graph: {
             return "graph";
         }
+        case ContainerExecutionType::sequence: {
+            return "sequence";
+        }
         case ContainerExecutionType::communication: {
             return "communication";
         }
@@ -57,6 +60,7 @@ auto ContainerExecutionTypeUtils::getOptions() -> std::array<ContainerExecutionT
                                                          ContainerExecutionType::deviceThenHostManaged,
                                                          ContainerExecutionType::hostManaged,
                                                          ContainerExecutionType::graph,
+                                                         ContainerExecutionType::sequence,
                                                          ContainerExecutionType::communication,
                                                          ContainerExecutionType::host};
     return opts;
@@ -66,6 +70,14 @@ auto ContainerExecutionTypeUtils::isExpandable(ContainerExecutionType option) ->
 {
     if (option == ContainerExecutionType::graph ||
         option == ContainerExecutionType::deviceThenHostManaged) {
+        return true;
+    }
+    return false;
+}
+
+auto ContainerExecutionTypeUtils::isSequence(ContainerExecutionType option) -> bool
+{
+    if (option == ContainerExecutionType::sequence) {
         return true;
     }
     return false;

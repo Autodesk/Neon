@@ -10,7 +10,8 @@ eGrid::eGrid(const Neon::Backend&         backend,
              const ActiveCellLambda&      activeCellLambda,
              const Neon::domain::Stencil& stencil,
              const Vec_3d<double>&        spacing,
-             const Vec_3d<double>&        origin)
+             const Vec_3d<double>&        origin,
+             Neon::domain::tool::spaceCurves::EncoderType spaceFillingCode )
 {
     mData = std::make_shared<Data>(backend);
     mData->stencil = stencil;
@@ -29,17 +30,20 @@ eGrid::eGrid(const Neon::Backend&         backend,
                               nElementsPerPartition,
                               Neon::index_3d(256, 1, 1),
                               spacing,
-                              origin);
+                              origin,
+                              spaceFillingCode,
+                              {1,1,1});
     }
 
 
     mData->partitioner1D = Neon::domain::tool::Partitioner1D(
         backend,
         activeCellLambda,
-        [](Neon::index_3d /*idx*/) { return false; },
+        nullptr,
         1,
         dimension,
         stencil,
+        spaceFillingCode,
         1);
 
 
@@ -124,7 +128,9 @@ eGrid::eGrid(const Neon::Backend&         backend,
                               nElementsPerPartition,
                               defaultBlockSize,
                               spacing,
-                              origin);
+                              origin,
+                              spaceFillingCode,
+                              {1,1,1});
     }
 }
 

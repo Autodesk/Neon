@@ -160,7 +160,7 @@ void SingleStencil(TestData<G, T, C>&      data,
 }
 
 template <typename G, typename T, int C>
-void SingleStencilOCC(TestData<G, T, C>& data)
+void SingleStencilStandardOCC(TestData<G, T, C>& data)
 {
     SingleStencil<G, T, C>(data, Neon::skeleton::Occ::standard, Neon::set::TransferMode::get);
 }
@@ -208,4 +208,14 @@ TEST(SingleStencil_NoOCC, bGrid)
     // using Grid = Neon::dGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("bGrid_t", SingleStencilNoOCC<Grid, Type, 0>, nGpus, 1);
+}
+
+TEST(SingleStencil_StandardOCC, bGrid)
+{
+    int nGpus = 3;
+    using Grid = Neon::bGrid;
+    // using Grid = Neon::domain::eGrid;
+    // using Grid = Neon::dGrid;
+    using Type = int32_t;
+    runAllTestConfiguration<Grid, Type, 0>("bGrid_t", SingleStencilStandardOCC<Grid, Type, 0>, nGpus, 2);
 }

@@ -23,6 +23,12 @@ void recordBackend(Neon::Backend& bk,
     report.recordBk(bk);
 }
 
+void recordGrid(Neon::domain::interface::GridBase& g,
+                   Report&        report)
+{
+    report.recordGrid(g);
+}
+
 }  // namespace
 
 

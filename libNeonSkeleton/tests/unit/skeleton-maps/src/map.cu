@@ -1,6 +1,7 @@
 #include "Neon/domain/aGrid.h"
 #include "Neon/domain/dGrid.h"
 #include "Neon/domain/eGrid.h"
+#include "Neon/domain/Grids.h"
 
 #include "Neon/skeleton/Skeleton.h"
 
@@ -189,6 +190,16 @@ TEST(OneStageXPYPipe, bGrid)
     runAllTestConfiguration(std::function(oneStageXPYPipe<Grid, T, C>), nGpus, 1);
 }
 
+TEST(OneStageXPYPipe, bGridDisg)
+{
+    int           nGpus = 1;
+    constexpr int C = 0;
+    using Grid = Neon::bGridDisg;
+    using T = int64_t;
+    // runAllTestConfiguration(AXPY_struct<eGrid_t, int64_t>, nGpus);
+    runAllTestConfiguration(std::function(oneStageXPYPipe<Grid, T, C>), nGpus, 1);
+}
+
 // ===============================================================================
 TEST(twoStageXPYPipe, eGrid)
 {
@@ -220,6 +231,15 @@ TEST(twoStageXPYPipe, bGrid)
     runAllTestConfiguration(std::function(twoStageXPYPipe<Grid, T, C>), nGpus, 1);
 }
 
+TEST(twoStageXPYPipe, bGridDisg )
+{
+    int           nGpus = 1;
+    constexpr int C = 0;
+    using Grid = Neon::bGridDisg;
+    using T = int64_t;
+    // runAllTestConfiguration(AXPY_struct<eGrid_t, int64_t>, nGpus);
+    runAllTestConfiguration(std::function(twoStageXPYPipe<Grid, T, C>), nGpus, 1);
+}
 
 // ===============================================================================
 TEST(threeLevelXPYTree, eGrid)
@@ -247,6 +267,16 @@ TEST(threeLevelXPYTree, bGrid)
     int           nGpus = 3;
     constexpr int C = 0;
     using Grid = Neon::dGrid;
+    using T = int64_t;
+    // runAllTestConfiguration(AXPY_struct<eGrid_t, int64_t>, nGpus);
+    runAllTestConfiguration(std::function(threeLevelXPYTree<Grid, T, C>), nGpus, 1);
+}
+
+TEST(threeLevelXPYTree, bGridDisg )
+{
+    int           nGpus = 1;
+    constexpr int C = 0;
+    using Grid = Neon::bGridDisg;
     using T = int64_t;
     // runAllTestConfiguration(AXPY_struct<eGrid_t, int64_t>, nGpus);
     runAllTestConfiguration(std::function(threeLevelXPYTree<Grid, T, C>), nGpus, 1);
