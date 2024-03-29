@@ -1,7 +1,10 @@
 #pragma once
 
+#if !defined(NEON_WARP_COMPILATION)
+
 #include <string>
 #include <iostream>
+
 
 namespace Neon {
 
@@ -70,3 +73,5 @@ struct isreadAndWrite_type_t<Access::readWrite> : std::integral_constant<bool, t
  * @return
  */
 std::ostream& operator<<(std::ostream& os, Neon::Access const& m);
+
+#endif

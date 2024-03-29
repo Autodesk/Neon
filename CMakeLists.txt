@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
+
+set_property(GLOBAL PROPERTY BUILD_NEON_SHARED_LIBS ON)
+
 #Project name 
 project(Neon
         VERSION 0.3.3
@@ -82,6 +85,7 @@ add_subdirectory("libNeonSkeleton")
 #add_subdirectory("tutorials")
 add_subdirectory("apps")
 add_subdirectory("benchmarks")
+add_subdirectory("libNeonPy")
 
 
 #-------------------------------------------------------------------#

@@ -1,5 +1,7 @@
 #pragma once
 
+#if !defined(NEON_WARP_COMPILATION)
+
 #include <exception>
 #include <iostream>
 #include <sstream>
@@ -100,3 +102,5 @@ class NeonException : public std::exception
 };
 
 }  // End of namespace Neon
+
+#endif

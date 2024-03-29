@@ -9,7 +9,7 @@
  */
 #pragma once
 
-
+#if !defined(NEON_WARP_COMPILATION)
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -24,7 +24,6 @@
 
 #include "Neon/core/types/Exceptions.h"
 #include "Neon/core/types/Macros.h"
-
 
 namespace Neon {
 
@@ -128,3 +127,5 @@ using Timer_ms = Timer_t<std::chrono::milliseconds, std::chrono::steady_clock>;
 using Timer_sec = Timer_t<std::chrono::seconds, std::chrono::steady_clock>;
 
 }  // namespace Neon
+
+#endif

@@ -244,6 +244,8 @@
 //------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------
+#if !defined(NEON_WARP_COMPILATION)
+
 #if defined(__linux__) || defined(__APPLE__)
 #define NEON_FUNCTION_NAME() __PRETTY_FUNCTION__
 #elif defined(_WIN64)
@@ -273,6 +275,8 @@
             NEON_THROW(exc);                                  \
         }                                                     \
     }
+
+#endif
 
 #ifndef __LONG_MAX__
 #define __LONG_MAX__ 9223372036854775807L
