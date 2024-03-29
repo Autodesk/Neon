@@ -2,6 +2,7 @@
 
 #include <string>
 
+#if !defined(NEON_WARP_COMPILATION)
 
 namespace Neon {
 struct run_et
@@ -72,3 +73,5 @@ std::ostream& operator<<(std::ostream& os, run_et const& m);
 std::ostream& operator<<(std::ostream& os, managedMode_t const& m);
 
 }  // END of namespace Neon
+
+#endif
