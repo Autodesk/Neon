@@ -6,12 +6,12 @@ namespace Neon::domain::details::disaggregated::bGridBlockMask {
 template <typename SBlock>
 template <typename ActiveCellLambda>
 bGridBlockMask<SBlock>::bGridBlockMask(const Neon::Backend&                         backend,
-                     const Neon::int32_3d&                        domainSize,
-                     const ActiveCellLambda                       activeCellLambda,
-                     const Neon::domain::Stencil&                 stencil,
-                     const double_3d&                             spacingData,
-                     const double_3d&                             origin,
-                     Neon::domain::tool::spaceCurves::EncoderType encoderType)
+                                       const Neon::int32_3d&                        domainSize,
+                                       const ActiveCellLambda                       activeCellLambda,
+                                       const Neon::domain::Stencil&                 stencil,
+                                       const double_3d&                             spacingData,
+                                       const double_3d&                             origin,
+                                       Neon::domain::tool::spaceCurves::EncoderType encoderType)
     : bGridBlockMask(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin, encoderType)
 {
 }
@@ -19,13 +19,13 @@ bGridBlockMask<SBlock>::bGridBlockMask(const Neon::Backend&                     
 template <typename SBlock>
 template <typename ActiveCellLambda>
 bGridBlockMask<SBlock>::bGridBlockMask(const Neon::Backend&                         backend,
-                     const Neon::int32_3d&                        domainSize,
-                     const ActiveCellLambda                       activeCellLambda,
-                     const Neon::domain::Stencil&                 stencil,
-                     const int                                    multiResDiscreteIdxSpacing,
-                     const double_3d&                             spacingData,
-                     const double_3d&                             origin,
-                     Neon::domain::tool::spaceCurves::EncoderType encoderType)
+                                       const Neon::int32_3d&                        domainSize,
+                                       const ActiveCellLambda                       activeCellLambda,
+                                       const Neon::domain::Stencil&                 stencil,
+                                       const int                                    multiResDiscreteIdxSpacing,
+                                       const double_3d&                             spacingData,
+                                       const double_3d&                             origin,
+                                       Neon::domain::tool::spaceCurves::EncoderType encoderType)
 {
 
 
@@ -48,15 +48,15 @@ bGridBlockMask<SBlock>::bGridBlockMask(const Neon::Backend&                     
         // then we reset to the computed number.
 
         bGridBlockMask::GridBase::init(gridName.str(),
-                              backend,
-                              domainSize,
-                              stencil,
-                              nElementsPerPartition,
-                              defaultKernelBlockSize,
-                              multiResDiscreteIdxSpacing,
-                              origin,
-                              encoderType,
-                              defaultKernelBlockSize);
+                                       backend,
+                                       domainSize,
+                                       stencil,
+                                       nElementsPerPartition,
+                                       defaultKernelBlockSize,
+                                       multiResDiscreteIdxSpacing,
+                                       origin,
+                                       encoderType,
+                                       defaultKernelBlockSize);
     }
 
     {  // Initialization of the partitioner
@@ -253,15 +253,15 @@ bGridBlockMask<SBlock>::bGridBlockMask(const Neon::Backend&                     
     }
     // Init the base grid
     bGridBlockMask::GridBase::init(gridName.str(),
-                          backend,
-                          domainSize,
-                          Neon::domain::Stencil(),
-                          mData->mNumActiveVoxel,
-                          SBlock::memBlockSize3D.template newType<int32_t>(),
-                          spacingData,
-                          origin,
-                          encoderType,
-                          defaultKernelBlockSize);
+                                   backend,
+                                   domainSize,
+                                   Neon::domain::Stencil(),
+                                   mData->mNumActiveVoxel,
+                                   SBlock::memBlockSize3D.template newType<int32_t>(),
+                                   spacingData,
+                                   origin,
+                                   encoderType,
+                                   defaultKernelBlockSize);
     {  // setting launchParameters
         mData->launchParametersTable.forEachSeq([&](Neon::DataView               dw,
                                                     Neon::set::LaunchParameters& bLaunchParameters) {
@@ -290,10 +290,10 @@ bGridBlockMask<SBlock>::bGridBlockMask(const Neon::Backend&                     
 template <typename SBlock>
 template <typename T, int C>
 auto bGridBlockMask<SBlock>::newField(const std::string   name,
-                             int                 cardinality,
-                             T                   inactiveValue,
-                             Neon::DataUse       dataUse,
-                             Neon::MemoryOptions memoryOptions) const -> Field<T, C>
+                                      int                 cardinality,
+                                      T                   inactiveValue,
+                                      Neon::DataUse       dataUse,
+                                      Neon::MemoryOptions memoryOptions) const -> Field<T, C>
 {
     memoryOptions = this->getDevSet().sanitizeMemoryOption(memoryOptions);
     Field<T, C> field(name, dataUse, memoryOptions, *this, cardinality, inactiveValue);
@@ -303,10 +303,10 @@ auto bGridBlockMask<SBlock>::newField(const std::string   name,
 template <typename SBlock>
 template <typename T, int C>
 auto bGridBlockMask<SBlock>::newBlockViewField(const std::string   name,
-                                      int                 cardinality,
-                                      T                   inactiveValue,
-                                      Neon::DataUse       dataUse,
-                                      Neon::MemoryOptions memoryOptions) const -> BlockView::Field<T, C>
+                                               int                 cardinality,
+                                               T                   inactiveValue,
+                                               Neon::DataUse       dataUse,
+                                               Neon::MemoryOptions memoryOptions) const -> BlockView::Field<T, C>
 {
     memoryOptions = this->getDevSet().sanitizeMemoryOption(memoryOptions);
     BlockView::Field<T, C> blockViewField = mData->blockViewGrid.template newField<T, C>(name, cardinality, inactiveValue, dataUse, memoryOptions);
@@ -317,9 +317,9 @@ template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
 auto bGridBlockMask<SBlock>::newContainer(const std::string& name,
-                                 index_3d           blockSize,
-                                 size_t             sharedMem,
-                                 LoadingLambda      lambda) const -> Neon::set::Container
+                                          index_3d           blockSize,
+                                          size_t             sharedMem,
+                                          LoadingLambda      lambda) const -> Neon::set::Container
 {
     Neon::set::Container kContainer = Neon::set::Container::factory<execution>(name,
                                                                                Neon::set::internal::ContainerAPI::DataViewSupport::on,
@@ -334,7 +334,7 @@ template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
 auto bGridBlockMask<SBlock>::newContainer(const std::string& name,
-                                 LoadingLambda      lambda) const -> Neon::set::Container
+                                          LoadingLambda      lambda) const -> Neon::set::Container
 {
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory<execution>(name,
@@ -350,7 +350,7 @@ template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
 auto bGridBlockMask<SBlock>::newAlphaContainer(const std::string& name,
-                                      LoadingLambda      lambda) const -> Neon::set::Container
+                                               LoadingLambda      lambda) const -> Neon::set::Container
 {
     if (this->mData->classFilterEnable) {
         auto kContainer = mData->alphaGrid.newContainer(name,
@@ -366,7 +366,7 @@ template <typename SBlock>
 template <Neon::Execution execution,
           typename LoadingLambda>
 auto bGridBlockMask<SBlock>::newBetaContainer(const std::string& name,
-                                     LoadingLambda      lambda) const -> Neon::set::Container
+                                              LoadingLambda      lambda) const -> Neon::set::Container
 {
     if (this->mData->classFilterEnable) {
         auto kContainer = mData->betaGrid.newContainer(name,
@@ -383,8 +383,8 @@ template <Neon::Execution execution,
           typename LoadingLambdaAlpha,
           typename LoadingLambdaBeta>
 auto bGridBlockMask<SBlock>::newAlphaBetaContainer(const std::string& name,
-                                          LoadingLambdaAlpha lambdaAlpha,
-                                          LoadingLambdaBeta  lambdaBeta) const -> Neon::set::Container
+                                                   LoadingLambdaAlpha lambdaAlpha,
+                                                   LoadingLambdaBeta  lambdaBeta) const -> Neon::set::Container
 {
     if (this->mData->classFilterEnable) {
         std::vector<Neon::set::Container> sequence;
@@ -447,8 +447,8 @@ auto bGridBlockMask<SBlock>::
 }
 template <typename SBlock>
 auto bGridBlockMask<SBlock>::getSpan(Neon::Execution execution,
-                            SetIdx          setIdx,
-                            Neon::DataView  dataView) -> const bGridBlockMask::Span&
+                                     SetIdx          setIdx,
+                                     Neon::DataView  dataView) -> const bGridBlockMask::Span&
 {
     return mData->spanTable.getSpan(execution, setIdx, dataView);
 }
@@ -471,8 +471,8 @@ auto bGridBlockMask<SBlock>::getSetIdx(const index_3d& idx) const -> int32_t
 }
 template <typename SBlock>
 auto bGridBlockMask<SBlock>::getLaunchParameters(Neon::DataView dataView,
-                                        const index_3d&,
-                                        const size_t& sharedMem) const -> Neon::set::LaunchParameters
+                                                 const index_3d&,
+                                                 const size_t& sharedMem) const -> Neon::set::LaunchParameters
 {
     auto res = mData->launchParametersTable.get(dataView);
     res.forEachSeq([&](SetIdx const& /*setIdx*/,
@@ -563,31 +563,49 @@ auto bGridBlockMask<SBlock>::init_mask_field(ActiveCellLambda activeCellLambda) 
 
 
         auto maskField = this->newField<uint8_t, 1>("maskField", 1, 0, Neon::DataUse::HOST_DEVICE);
+        auto maskBlockField = this->newBlockViewField<uint8_t, 1>("maskBlockField", 1, 0, Neon::DataUse::HOST_DEVICE);
+        maskBlockField.getGrid().template newContainer<Neon::Execution::host>(
+                                    "maskFieldInit",
+                                    [&](Neon::set::Loader& loader) {
+                                        auto maskBlockPartition = loader.load(maskBlockField);
+
+                                        return [=](const auto& gIdx) mutable {
+                                            maskPartition(gIdx, 0) =  static_cast<uint8_t>(Neon::ClassSelector::alpha);;
+                                        };
+
+                                    })
+            .run(Neon::Backend::mainStreamIdx);
+
         maskField.getGrid().template newContainer<Neon::Execution::host>(
                                "maskFieldInit",
                                [&](Neon::set::Loader& loader) {
-                                   auto maskFieldPartition = loader.load(maskField);
-                                   return [activeCellLambda, maskFieldPartition](const auto& gIdx) mutable {
-                                       auto                          globalPosition = maskFieldPartition.getGlobalIndex(gIdx);
+                                   auto maskPartition = loader.load(maskField);
+                                   auto maskBlockPartition = loader.load(maskBlockField);
+
+                                   return [activeCellLambda, maskPartition](const auto& gIdx) mutable {
+                                       auto                globalPosition = maskPartition.getGlobalIndex(gIdx);
                                        Neon::ClassSelector voxelClass = activeCellLambda(globalPosition);
-                                       maskFieldPartition(gIdx, 0) = static_cast<uint8_t>(voxelClass);
+                                       if (voxelClass == Neon::ClassSelector::beta) {
+                                           maskPartition(gIdx, 0) = static_cast<uint8_t>(Neon::ClassSelector::beta);
+                                       }
                                    };
                                })
             .run(Neon::Backend::mainStreamIdx);
         this->getBackend().sync(Neon::Backend::mainStreamIdx);
-        maskField.updateDeviceData(Neon::Backend::mainStreamIdx);
+        maskBlockField.updateDeviceData(Neon::Backend::mainStreamIdx);
         this->getBackend().sync(Neon::Backend::mainStreamIdx);
         maskField.template ioToVtk<int>("maskField", "maskField");
+        maskBlockField.template ioToVtk<int>("maskBlockField", "maskBlockField");
         this->mData->maskClassField = maskField;
         return;
     }
 }
 
 template <typename SBlock>
-auto bGridBlockMask<SBlock>::helpGetClassField() -> Field<uint8_t, 1>&
+auto bGridBlockMask<SBlock>::helpGetClassField() -> BlockView::Field<uint8_t, 1>&
 {
     if (this->mData->classFilterEnable) {
-        return mData->maskClassField;
+        return mData->maskClassBlockField;
     }
     Neon::NeonException ex("bGridBlockMask");
     ex << "Alpha-Beta container has been disable as the class distribution was not providded diring the bGridBlockMask contruction";
