@@ -59,6 +59,8 @@ namespace tuple3dTests {
 template <typename T_ta>
 void sum()
 {
+    Neon::Vec_2d<int> a;
+
     for (T_ta z = 0; z < (T_ta)10; z++) {
         for (T_ta y = 0; y < (T_ta)10; y++) {
             for (T_ta x = 0; x < (T_ta)10; x++) {
