@@ -60,31 +60,7 @@ class Vec_3d<IntegerType_ta, true, false>
     static constexpr int directionY = axis_e::y_axis;
     static constexpr int directionZ = axis_e::z_axis;
 
-    union
-    {
-        Integer v[axis_e::num_axis]{0, 0, 0};
-        struct
-        {
-            union
-            {
-                Integer x;
-                Integer r;
-                Integer mXpitch;
-            };
-            union
-            {
-                Integer y;
-                Integer s;
-                Integer mYpitch;
-            };
-            union
-            {
-                Integer z;
-                Integer t;
-                Integer mZpitch;
-            };
-        };
-    };
+    Integer x, y, z;
 
     /**
      * Empty constructor.
@@ -128,10 +104,14 @@ class Vec_3d<IntegerType_ta, true, false>
 
     NEON_CUDA_HOST_DEVICE inline void constexpr set(const Integer& xyz);
 
+    NEON_CUDA_HOST_DEVICE inline auto constexpr getVectorView() -> Integer*;
+
+    NEON_CUDA_HOST_DEVICE inline auto constexpr getVectorView() const -> const Integer*;
+
     template <int componentId>
     NEON_CUDA_HOST_DEVICE inline constexpr Integer getComponent() const
     {
-        return v[componentId];
+        return getVectorView()[componentId];
     }
 
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------

@@ -91,9 +91,10 @@ auto checkNeighbourData(Field const&   filedA,
                 for (int i = 0; i < 3; i++) {
                     auto d = nghInfo[i]->getNghData(e, testDirection.newType<int8_t>(), 0);
                     if (d.isValid()) {
-                        results[i]->operator()(e, 0) = d.getData() == ngh.v[i] ? +1 : -1;
-                        if (d.getData() != ngh.v[i]) {
-                            printf("ERROR: %d %d %d %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z, ngh.v[0], ngh.v[1], ngh.v[2]);
+                        results[i]->operator()(e, 0) = d.getData() == ngh.getVectorView()[i] ? +1 : -1;
+                        if (d.getData() != ngh.getVectorView()[i]) {
+                            printf("ERROR: %d %d %d %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z,
+                                ngh.getVectorView()[0], ngh.getVectorView()[1], ngh.getVectorView()[2]);
                             d = nghInfo[i]->getNghData(e, testDirection.newType<int8_t>(), 0);
                         }
                     } else {
@@ -143,9 +144,10 @@ auto checkNeighbourDataTemplate(Field const& filedA,
                     // auto d = nghInfo[i]->getNghData(e, testDirection.newType<int8_t>(), 0);
 
                     if (d.isValid()) {
-                        results[i]->operator()(e, 0) = d.getData() == ngh.v[i] ? +1 : -1;
-                        if (d.getData() != ngh.v[i]) {
-                            printf("ERROR: %d %d %d %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z, ngh.v[0], ngh.v[1], ngh.v[2]);
+                        results[i]->operator()(e, 0) = d.getData() == ngh.getVectorView()[i] ? +1 : -1;
+                        if (d.getData() != ngh.getVectorView()[i]) {
+                            printf("ERROR: %d %d %d %d %d %d\n", globalPoint.x, globalPoint.y, globalPoint.z,
+                            ngh.getVectorView()[0], ngh.getVectorView()[1], ngh.getVectorView()[2]);
                             d = nghInfo[i]->getNghData(e, testDirection.newType<int8_t>(), 0);
                         }
                     } else {

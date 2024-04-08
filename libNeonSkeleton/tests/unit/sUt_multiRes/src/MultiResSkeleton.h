@@ -59,9 +59,9 @@ void MultiResSkeleton()
                     auto& local = field.load(loader, level, Neon::MultiResCompute::MAP);
                     return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                         Neon::index_3d global = local.getGlobalIndex(cell);
-                        local(cell, 0) = global.v[0];
-                        local(cell, 1) = global.v[1];
-                        local(cell, 2) = global.v[2];
+                        local(cell, 0) = global.getVectorView()[0];
+                        local(cell, 1) = global.getVectorView()[1];
+                        local(cell, 2) = global.getVectorView()[2];
                     };
                 }));
         }
@@ -103,15 +103,16 @@ void MultiResSkeleton()
                 l,
                 [&](const Neon::int32_3d id, const int card, Type& val) {
                     if (l == descriptor.getDepth() - 1) {
-                        EXPECT_EQ(val, id.v[card]);
+                        EXPECT_EQ(val, id.getVectorView()[card]);
                     } else {
                         Neon::index_3d parent = descriptor.toBaseIndexSpace(descriptor.childToParent(id, parent_level - 1), parent_level);
-                        EXPECT_EQ(val, parent.v[card]) << "Level= " << l;
+                        EXPECT_EQ(val, parent.getVectorView()[card]) << "Level= " << l;
                     }
                 });
         }
     }
 }
+
 TEST(MultiRes, Skeleton)
 {
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {

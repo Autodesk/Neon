@@ -21,9 +21,9 @@ void constructor()
         for (T_ta y = 0; y < (T_ta)10; y++) {
             for (T_ta x = 0; x < (T_ta)10; x++) {
                 Neon::Vec_3d<T_ta> p(x, y, z);
-                ASSERT_EQ(p.x, p.v[0]);
-                ASSERT_EQ(p.y, p.v[1]);
-                ASSERT_EQ(p.z, p.v[2]);
+                ASSERT_EQ(p.x, p.getVectorView()[0]);
+                ASSERT_EQ(p.y, p.getVectorView()[1]);
+                ASSERT_EQ(p.z, p.getVectorView()[2]);
 
                 ASSERT_EQ(p.x, x);
                 ASSERT_EQ(p.y, y);

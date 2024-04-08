@@ -24,12 +24,12 @@ void GpuLaunchInfo::m_init(mode_e mode, const T& gridDim, const T& blockDim, siz
     }
 
     for (int i = 0; i < cudaGrid.num_axis; i++) {
-        if (cudaGrid.v[i] > int64_t(std::numeric_limits<int>::max())) {
+        if (cudaGrid.getVectorView()[i] > int64_t(std::numeric_limits<int>::max())) {
             NeonException exp("GpuLaunchInfo_t");
             exp << "Launch configuration allocates too may blocks";
             NEON_THROW(exp);
         }
-        if (cudaBlock.v[i] > int64_t(std::numeric_limits<int>::max())) {
+        if (cudaBlock.getVectorView()[i] > int64_t(std::numeric_limits<int>::max())) {
             NeonException exp("GpuLaunchInfo_t");
             exp << "Launch configuration allocates too may blocks";
             NEON_THROW(exp);

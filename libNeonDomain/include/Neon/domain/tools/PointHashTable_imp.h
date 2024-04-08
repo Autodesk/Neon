@@ -21,9 +21,9 @@ template <typename IntegerT, typename MetaT>
 auto PointHashTable<IntegerT, MetaT>::getMetadata(Point const& point) const
     -> Meta const*
 {
-    if (point.v[0] >= mBBox.v[0] || point.v[0] < 0 ||
-        point.v[1] >= mBBox.v[1] || point.v[1] < 0 ||
-        point.v[2] >= mBBox.v[2] || point.v[2] < 0) {
+    if (point.getVectorView()[0] >= mBBox.getVectorView()[0] || point.getVectorView()[0] < 0 ||
+        point.getVectorView()[1] >= mBBox.getVectorView()[1] || point.getVectorView()[1] < 0 ||
+        point.getVectorView()[2] >= mBBox.getVectorView()[2] || point.getVectorView()[2] < 0) {
         return nullptr;
     }
 
@@ -39,9 +39,9 @@ template <typename IntegerT, typename MetaT>
 auto PointHashTable<IntegerT, MetaT>::getMetadata(Point const& point)
     -> Meta*
 {
-    if (point.v[0] >= mBBox.v[0] || point.v[0] < 0 ||
-        point.v[1] >= mBBox.v[1] || point.v[1] < 0 ||
-        point.v[2] >= mBBox.v[2] || point.v[2] < 0) {
+    if (point.getVectorView()[0] >= mBBox.getVectorView()[0] || point.getVectorView()[0] < 0 ||
+        point.getVectorView()[1] >= mBBox.getVectorView()[1] || point.getVectorView()[1] < 0 ||
+        point.getVectorView()[2] >= mBBox.getVectorView()[2] || point.getVectorView()[2] < 0) {
         return nullptr;
     }
 
@@ -58,9 +58,9 @@ auto PointHashTable<IntegerT, MetaT>::addPoint(const Point& point,
                                                const Meta&  data)
     -> void
 {
-    if (point.v[0] >= mBBox.v[0] || point.v[0] < 0 ||
-        point.v[1] >= mBBox.v[1] || point.v[1] < 0 ||
-        point.v[2] >= mBBox.v[2] || point.v[2] < 0) {
+    if (point.getVectorView()[0] >= mBBox.getVectorView()[0] || point.getVectorView()[0] < 0 ||
+        point.getVectorView()[1] >= mBBox.getVectorView()[1] || point.getVectorView()[1] < 0 ||
+        point.getVectorView()[2] >= mBBox.getVectorView()[2] || point.getVectorView()[2] < 0) {
         NeonException exp("PointHashTable::getMetadata()");
         exp << "Point " << point << " is outside the bounding box" << mBBox;
         NEON_THROW(exp);

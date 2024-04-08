@@ -126,6 +126,21 @@ NEON_CUDA_HOST_DEVICE inline void Vec_3d<RealType_ta, false, true>::set(const se
     z = xyz.z;
 }
 
+template <typename RealType_ta>
+NEON_CUDA_HOST_DEVICE inline constexpr auto Vec_3d<RealType_ta, false, true>::
+    getVectorView()
+        const -> const RealType_ta*
+{
+    return &x;
+}
+
+template <typename RealType_ta>
+NEON_CUDA_HOST_DEVICE inline constexpr auto Vec_3d<RealType_ta, false, true>::
+    getVectorView()
+        -> RealType_ta*
+{
+    return &x;
+}
 
 //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
 //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
@@ -243,8 +258,8 @@ NEON_CUDA_HOST_DEVICE inline index_t Vec_3d<RealType_ta, false, true>::idxOfMax(
     Integer  themax = x;
     index_t  indexMax = 0;
     for (int index = 1; index < 3; index++) {
-        if (themax < v[index]) {
-            themax = v[index];
+        if (themax < getVectorView()[index]) {
+            themax = getVectorView()[index];
             indexMax = index;
         }
     }
@@ -257,8 +272,8 @@ NEON_CUDA_HOST_DEVICE inline index_t Vec_3d<RealType_ta, false, true>::idxOfMin(
     Integer  themin = x;
     index_t  indexMin = 0;
     for (int index = 1; index < 3; index++) {
-        if (themin > v[index]) {
-            themin = v[index];
+        if (themin > getVectorView()[index]) {
+            themin = getVectorView()[index];
             indexMin = index;
         }
     }
@@ -270,7 +285,7 @@ NEON_CUDA_HOST_DEVICE inline Vec_3d<index_t> Vec_3d<RealType_ta, false, true>::i
 {
     Vec_3d<index_t> mask(0);
     const index_t   index = this->iOfMin();
-    mask.v[index] = 1;
+    mask.getVectorView()[index] = 1;
     return mask;
 }
 
@@ -278,15 +293,15 @@ template <typename RealType_ta>
 NEON_CUDA_HOST_DEVICE inline Vec_3d<int32_t> Vec_3d<RealType_ta, false, true>::idxOrderByMax() const
 {
     Vec_3d<int32_t> ordered(0, 1, 2);
-    if (v[0] < v[1]) {
-        ordered.v[0] = 1;
-        ordered.v[1] = 0;
+    if (getVectorView()[0] < getVectorView()[1]) {
+        ordered.getVectorView()[0] = 1;
+        ordered.getVectorView()[1] = 0;
     }
-    if (v[ordered.v[1]] < v[ordered.v[2]]) {
+    if (getVectorView()[ordered.getVectorView()[1]] < getVectorView()[ordered.getVectorView()[2]]) {
 
-        int32_t tmp = ordered.v[1];
-        ordered.v[1] = ordered.v[2];
-        ordered.v[2] = tmp;
+        int32_t tmp = ordered.getVectorView()[1];
+        ordered.getVectorView()[1] = ordered.getVectorView()[2];
+        ordered.getVectorView()[2] = tmp;
     }
     return ordered;
 }

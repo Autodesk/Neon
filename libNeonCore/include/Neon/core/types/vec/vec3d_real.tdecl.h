@@ -33,8 +33,8 @@
 #include <string>
 #include <type_traits>
 
-//#include <cuda.h>
-//#include <cuda_runtime_api.h>
+// #include <cuda.h>
+// #include <cuda_runtime_api.h>
 
 #include "Neon/core/types/BasicTypes.h"
 #include "Neon/core/types/Macros.h"
@@ -43,8 +43,8 @@
 namespace Neon {
 
 /**
-* Partial specialization for floating point types (float, double, long double, ...)
-*/
+ * Partial specialization for floating point types (float, double, long double, ...)
+ */
 template <typename RealType_ta>
 class Vec_3d<RealType_ta, false, true>
 {
@@ -106,7 +106,7 @@ class Vec_3d<RealType_ta, false, true>
 
     /**
      * initialization through an 3 element array
-     * @param other 
+     * @param other
      */
     NEON_CUDA_HOST_DEVICE inline explicit Vec_3d(const Integer other[self_t::num_axis]);
 
@@ -119,7 +119,7 @@ class Vec_3d<RealType_ta, false, true>
     NEON_CUDA_HOST_DEVICE inline Vec_3d(Integer px, Integer py, Integer pz);
 
     /**
-     * Copy constructor  
+     * Copy constructor
      *   @param[in] xyz: element to be copied.
      */
     NEON_CUDA_HOST_DEVICE inline Vec_3d(const self_t& xyz);
@@ -138,6 +138,10 @@ class Vec_3d<RealType_ta, false, true>
 
     NEON_CUDA_HOST_DEVICE inline void set(const self_t& xyz);
 
+    NEON_CUDA_HOST_DEVICE inline auto constexpr getVectorView() -> Integer*;
+
+    NEON_CUDA_HOST_DEVICE inline auto constexpr getVectorView() const -> const Integer*;
+
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
@@ -155,7 +159,7 @@ class Vec_3d<RealType_ta, false, true>
 
     /**
      *   Extracts the max absolute value stored by the 3d tuple.
-     *   @return max absolute value 
+     *   @return max absolute value
      */
     inline Integer rAbsMax() const;
 
@@ -291,10 +295,10 @@ class Vec_3d<RealType_ta, false, true>
     NEON_CUDA_HOST_DEVICE inline self_t operator-(const self_t& B) const;
 
     /**
-        *   Compute the mod between two points A and B, component by component (A.x%B.x, A.y%B.y, A.z%B.z).
-        *   @param[in] B: second point for the diff.
-        *   @return Resulting point is C =(A.x % B.x, A.y % B.y, A.z % B.z)
-        */
+     *   Compute the mod between two points A and B, component by component (A.x%B.x, A.y%B.y, A.z%B.z).
+     *   @param[in] B: second point for the diff.
+     *   @return Resulting point is C =(A.x % B.x, A.y % B.y, A.z % B.z)
+     */
     NEON_CUDA_HOST_DEVICE inline self_t operator%(const self_t& B) const;
 
     /**
@@ -332,15 +336,15 @@ class Vec_3d<RealType_ta, false, true>
     NEON_CUDA_HOST_DEVICE inline bool operator<(const self_t& B) const;
 
     /**  Returns true if A.x >= B.x && A.y >= B.y && A.z >= B.z
-         *   @param[in] B: second point for the operation.
-         *   @return Resulting point is C as C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
-         */
+     *   @param[in] B: second point for the operation.
+     *   @return Resulting point is C as C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
+     */
     NEON_CUDA_HOST_DEVICE inline bool operator>=(const self_t& B) const;
 
     /**  Returns true if A.x <= B.x && A.y <= B.y && A.z <= B.z
-         *   @param[in] B: second point for the operation.
-         *   @return True if A.x <= B.x && A.y <= B.y && A.z <= B.z
-         */
+     *   @param[in] B: second point for the operation.
+     *   @return True if A.x <= B.x && A.y <= B.y && A.z <= B.z
+     */
     NEON_CUDA_HOST_DEVICE inline bool operator<=(const self_t& B) const;
 
     /**  Returns true if A.x <= B.x && A.y <= B.y && A.z <= B.z
@@ -352,18 +356,18 @@ class Vec_3d<RealType_ta, false, true>
     NEON_CUDA_HOST_DEVICE inline bool operator!=(const self_t& B) const;
 
     /** Returns the most north-est-hi point buildable with A and B coordinates"
-         * C = A >> B  is: C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
-         *   @param[in] B: second point for the operation.
-         *   @return Resulting point is C as C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
-         */
+     * C = A >> B  is: C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
+     *   @param[in] B: second point for the operation.
+     *   @return Resulting point is C as C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
+     */
     NEON_CUDA_HOST_DEVICE inline self_t operator>>(const self_t& B) const;
 
     /** Returns the most south-west-low point buildable form A and B coordinates"
-         *  C = A << B  is: C.v[i] = A.v[i] < B.v[i] ? A.v[i] : B.v[i]
-         *
-         *  @param[in] B: second point for the operation.
-         *  @return Resulting point is C as C.v[i] = A.v[i] < B.v[i] ? A.v[i] : B.v[i]
-         */
+     *  C = A << B  is: C.v[i] = A.v[i] < B.v[i] ? A.v[i] : B.v[i]
+     *
+     *  @param[in] B: second point for the operation.
+     *  @return Resulting point is C as C.v[i] = A.v[i] < B.v[i] ? A.v[i] : B.v[i]
+     */
     NEON_CUDA_HOST_DEVICE inline self_t operator<<(const self_t& B) const;
 
     NEON_CUDA_HOST_DEVICE inline void operator()(Integer x, Integer y, Integer z);

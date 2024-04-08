@@ -95,13 +95,13 @@ void postProcess(Neon::domain::mGrid&                        grid,
                 level, [&](const Neon::index_3d& id, const int& card, T& val) {
                     if (id.x == grid_dim.x / 2 && id.z == grid_dim.z / 2) {
                         if (card == 0) {
-                            yPosVal.push_back({static_cast<double>(id.v[1]) / static_cast<double>(grid_dim.y), val * scale});
+                            yPosVal.push_back({static_cast<double>(id.getVectorView()[1]) / static_cast<double>(grid_dim.y), val * scale});
                         }
                     }
 
                     if (id.y == grid_dim.y / 2 && id.z == grid_dim.z / 2) {
                         if (card == 1) {
-                            xPosVal.push_back({static_cast<double>(id.v[0]) / static_cast<double>(grid_dim.x), val * scale});
+                            xPosVal.push_back({static_cast<double>(id.getVectorView()[0]) / static_cast<double>(grid_dim.x), val * scale});
                         }
                     }
                 },
