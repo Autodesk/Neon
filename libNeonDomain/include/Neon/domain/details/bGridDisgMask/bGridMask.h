@@ -35,6 +35,9 @@ class bGridMask : public Neon::domain::interface::GridBaseTemplate<bGridMask<SBl
                                                                bMaskIndex<SBlock>>
 {
    public:
+
+    constexpr static bool alphaBetaCapabilitySupported = true;
+
     using Grid = bGridMask<SBlock>;
     template <typename T, int C = 0>
     using Partition = bMaskPartition<T, C, SBlock>;

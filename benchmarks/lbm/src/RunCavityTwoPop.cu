@@ -216,26 +216,26 @@ auto run(Config&            config,
     testCode << "___" << config.N << "_";
     testCode << "_numDevs_" << config.devices.size();
 
-    //    if (config.gridType == "dGrid") {
-    //        testCode << "_dGrid";
-    //        return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
-    //    }
-    //    if (config.gridType == "dGridDisg") {
-    //        testCode << "_dGridDisg";
-    //        return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
-    //    }
-    if (config.gridType == "bGrid_4_4_4") {
-        testCode << "_bGrid_4_4_4";
-        using Block = Neon::domain::details::StaticBlock<4, 4, 4>;
-        using Grid = Neon::domain::details::bGrid::bGrid<Block>;
-        return details::runFilterStoreType<Grid>(config, report, testCode);
+    if (config.gridType == "dGrid") {
+        testCode << "_dGrid";
+        return details::runFilterStoreType<Neon::dGrid>(config, report, testCode);
     }
-    if (config.gridType == "bGridMgpu_4_4_4") {
-        testCode << "_bGridMgpu_4_4_4";
-        using Block = Neon::domain::details::StaticBlock<4, 4, 4>;
-        using Grid = Neon::domain::details::bGridDisgMgpu::bGridDisgMgpu<Block>;
-        return details::runFilterStoreType<Neon::bGridMgpu>(config, report, testCode);
+    if (config.gridType == "dGridDisg") {
+        testCode << "_dGridDisg";
+        return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
     }
+    // if (config.gridType == "bGrid_4_4_4") {
+    //     testCode << "_bGrid_4_4_4";
+    //     using Block = Neon::domain::details::StaticBlock<4, 4, 4>;
+    //     using Grid = Neon::domain::details::bGrid::bGrid<Block>;
+    //     return details::runFilterStoreType<Grid>(config, report, testCode);
+    // }
+    // if (config.gridType == "bGridMgpu_4_4_4") {
+    //     testCode << "_bGridMgpu_4_4_4";
+    //     using Block = Neon::domain::details::StaticBlock<4, 4, 4>;
+    //     using Grid = Neon::domain::details::bGridDisgMgpu::bGridDisgMgpu<Block>;
+    //     return details::runFilterStoreType<Neon::bGridMgpu>(config, report, testCode);
+    // }
     //    if (config.gridType == "eGrid") {
     //        if constexpr (!skipTest) {
     //            return details::runFilterStoreType<Neon::eGrid>(config, report);

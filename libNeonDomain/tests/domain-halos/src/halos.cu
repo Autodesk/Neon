@@ -63,7 +63,7 @@ auto haloCheckContainer(const Field&        filedA,
                         }
                         checkOnActivity[i] = true;
                         const auto data = nghData.getData();
-                        const auto golden = nghGlobal.v[i];
+                        const auto golden = nghGlobal.getVectorView()[i];
                         if (data != golden) {
                             checkOnValue[i] = false;
                         } else {
@@ -83,7 +83,7 @@ auto haloCheckContainer(const Field&        filedA,
                                nghGlobal.x, nghGlobal.y, nghGlobal.z,
                                i,
                                int(nghData.getData()),
-                               nghGlobal.v[i]);
+                               nghGlobal.getVectorView()[i]);
                     }
                     b(idx, i) = resBycard;
                 }
@@ -145,7 +145,7 @@ auto run(TestData<G, T, C>& data) -> void
                                            int                   cardinality,
                                            Type&                 a) {
                 // Laplacian stencil operates on 6 neighbors (assuming 3D)
-                a = idx.v[cardinality];
+                a = idx.getVectorView()[cardinality];
             },
                                        domainA);
         };
@@ -174,7 +174,7 @@ auto run(TestData<G, T, C>& data) -> void
                         checkOnActivity[i] = false;
                     } else {
                         checkOnActivity[i] = true;
-                        if (neighborVal != nghGlobal.v[i]) {
+                        if (neighborVal != nghGlobal.getVectorView()[i]) {
                             checkOnValue[i] = false;
                         } else {
                             checkOnValue[i] = true;

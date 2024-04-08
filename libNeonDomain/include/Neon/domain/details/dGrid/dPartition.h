@@ -285,7 +285,7 @@ class dPartition
         if constexpr (xOff > 0) {
             int constexpr direction = Neon::index_3d::directionX;
             int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
-            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
+            isValidNeighbour = cartesianByDirection < mFullGridSize.getVectorView()[direction] && isValidNeighbour;
         }
         if constexpr (xOff < 0) {
             int constexpr direction = Neon::index_3d::directionX;
@@ -295,7 +295,7 @@ class dPartition
         if constexpr (yOff > 0) {
             int constexpr direction = Neon::index_3d::directionY;
             int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
-            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
+            isValidNeighbour = cartesianByDirection < mFullGridSize.getVectorView()[direction] && isValidNeighbour;
         }
         if constexpr (yOff < 0) {
             int constexpr direction = Neon::index_3d::directionY;
@@ -305,7 +305,7 @@ class dPartition
         if constexpr (zOff > 0) {
             int constexpr direction = Neon::index_3d::directionZ;
             int const cartesianByDirection = getGlobalIndexByDirection<direction>(gidxNgh);
-            isValidNeighbour = cartesianByDirection < mFullGridSize.v[direction] && isValidNeighbour;
+            isValidNeighbour = cartesianByDirection < mFullGridSize.getVectorView()[direction] && isValidNeighbour;
         }
         if constexpr (zOff < 0) {
             int constexpr direction = Neon::index_3d::directionZ;
@@ -414,10 +414,10 @@ class dPartition
         const -> int
     {
         if constexpr (Neon::index_3d::directionZ != direction) {
-            return local.mLocation.v[direction];
+            return local.mLocation.getVectorView()[direction];
         } else {
-            return local.mLocation.v[Neon::index_3d::directionZ] +
-                   mOrigin.v[Neon::index_3d::directionZ] -
+            return local.mLocation.getVectorView()[Neon::index_3d::directionZ] +
+                   mOrigin.getVectorView()[Neon::index_3d::directionZ] -
                    mZHaloRadius;
         }
     }

@@ -82,7 +82,7 @@ GeometryMask::GeometryMask(Geometry       geo,
                 double b = 0;
                 for (int direction = 0; direction < index_3d::num_axis; direction++) {
                     a += mCenter.v[direction];
-                    b += t.v[direction] + idx.v[direction];
+                    b += t.v[direction] + idx.getVectorView()[direction];
                 }
                 return b <= a;
             };

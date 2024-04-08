@@ -32,6 +32,9 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
                                                                bIndex<SBlock>>
 {
    public:
+    constexpr static bool alphaBetaCapabilitySupported = false;
+
+
     using Grid = bGrid<SBlock>;
     template <typename T, int C = 0>
     using Partition = bPartition<T, C, SBlock>;
