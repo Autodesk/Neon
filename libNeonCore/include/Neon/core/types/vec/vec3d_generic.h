@@ -51,28 +51,9 @@ class Vec_3d<notAnumber_eValue_ta, false, false>
         num_axis = 3
     };
 
-    union
-    {
-        Integer v[self_t::num_axis];
-        struct
-        {
-            union
-            {
-                Integer x;
-                Integer r;
-            };
-            union
-            {
-                Integer y;
-                Integer s;
-            };
-            union
-            {
-                Integer z;
-                Integer t;
-            };
-        };
-    };
+    Integer x;
+    Integer y;
+    Integer z;
 
 
     /**

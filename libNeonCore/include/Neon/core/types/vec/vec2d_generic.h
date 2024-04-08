@@ -31,8 +31,8 @@ class Vec_2d
 
 
 /**
-* Generic partial specialization of the Vec_2d, where the userValue is not a number 
-*/
+ * Generic partial specialization of the Vec_2d, where the userValue is not a number
+ */
 template <typename notAnumber_eValue_ta>
 class Vec_2d<notAnumber_eValue_ta, false, false>
 {
@@ -47,25 +47,9 @@ class Vec_2d<notAnumber_eValue_ta, false, false>
         num_axis = 2
     };
 
-    union
-    {
-        eValue_t v[self_t::num_axis];
-        struct
-        {
-            union
-            {
-                eValue_t x;
-                eValue_t r;
-                eValue_t mYpitch;
-            };
-            union
-            {
-                eValue_t y;
-                eValue_t s;
-                eValue_t mZpitch;
-            };
-        };
-    };
+    eValue_t x;
+    eValue_t y;
+    eValue_t z;
 
 
     /**
@@ -91,10 +75,10 @@ class Vec_2d<notAnumber_eValue_ta, false, false>
         // Nothing to do...
     }
     /**
-    * Creates a 3d tuple with specific values for each component.
-    *   @param[in] px: value for the x component.
-    *   @param[in] py: value for the y component.
-    */
+     * Creates a 3d tuple with specific values for each component.
+     *   @param[in] px: value for the x component.
+     *   @param[in] py: value for the y component.
+     */
     NEON_CUDA_HOST_DEVICE inline Vec_2d(const eValue_t& px, const eValue_t& py)
         : x(px), y(py)
     {
@@ -103,7 +87,7 @@ class Vec_2d<notAnumber_eValue_ta, false, false>
 
     /**
      * copy operator.
-     * @param xyz: element to be copied. 
+     * @param xyz: element to be copied.
      */
     NEON_CUDA_HOST_DEVICE inline self_t& operator=(const self_t& xyz)
     {

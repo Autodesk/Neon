@@ -51,33 +51,11 @@ class Vec_4d<notAnumber_eValue_ta, false, false>
         num_axis = 4
     };
 
-    union
-    {
-        element_t v[self_t::num_axis];
-        struct
-        {
-            union
-            {
-                element_t x;
-                element_t r;
-            };
-            union
-            {
-                element_t y;
-                element_t s;
-            };
-            union
-            {
-                element_t z;
-                element_t t;
-            };
-            union
-            {
-                element_t w;
-                element_t u;
-            };
-        };
-    };
+    element_t x;
+    element_t y;
+    element_t z;
+    element_t w;
+
 
 
     /**
