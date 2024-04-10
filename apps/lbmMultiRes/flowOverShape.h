@@ -196,14 +196,12 @@ void flowOverMesh(const Neon::Backend backend,
 {
     static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
 
-    //define the gird and the box that will encompass the mesh
-    Neon::index_3d     gridDim(19 * params.scale, 10 * params.scale, 10 * params.scale);
+    //define the gird at the finest resolution
+    Neon::index_3d gridDim(19 * params.scale, 10 * params.scale, 10 * params.scale);
+
+    //define the box that will encompass the mesh using the index space and dimensions of the finest resolution
     Eigen::RowVector3d meshBoxDim(3.5 * params.scale, 3.5 * params.scale, 3.5 * params.scale);
     Eigen::RowVector3d meshBoxCenter(5 * params.scale, 5 * params.scale, 5 * params.scale);
-
-    //Neon::index_3d gridDim(1.5 * 29 * params.scale, 10 * params.scale, 10 * params.scale);
-    //Eigen::RowVector3d meshBoxDim(2 * params.scale, 2 * params.scale, 2 * params.scale);
-    //Eigen::RowVector3d meshBoxCenter(20 * params.scale, 10, 5 * params.scale);
 
 
     //read the mesh and scale it such that it fits inside meshBox
@@ -222,28 +220,28 @@ void flowOverMesh(const Neon::Backend backend,
     igl::max(vertices, 1, bbMax, bbMaxI);
     igl::min(vertices, 1, bbMin, bbMinI);
 
-    //center the mesh
+    //center the mesh such that the center of its bounding box is now 0,0,0
     vertices.rowwise() -= ((bbMin + bbMax) / 2.0);
 
-    //scale
+    //scale the mesh within the box that will encompass it
     double scaling_factor = meshBoxDim.maxCoeff() / (bbMax - bbMin).maxCoeff();
     vertices *= scaling_factor;
 
     auto toRad = [](double t) { return t * (3.14159265358979311600 / 180); };
 
     Eigen::Matrix3d rotationX;
-    //rotate about x-axis by thetaX degrees
+    //rotate about x-axis by user-input thetaX degrees
     rotationX << 1, 0, 0,
         0, std::cos(toRad(params.thetaX)), -std::sin(toRad(params.thetaX)),
         0, std::sin(toRad(params.thetaX)), std::cos(toRad(params.thetaX));
 
-    //rotate about y-axis by thetaY degrees
+    //rotate about y-axis by user-input thetaY degrees
     Eigen::Matrix3d rotationY;
     rotationY << std::cos(toRad(params.thetaY)), 0, std::sin(toRad(params.thetaY)),
         0, 1, 0,
         -std::sin(toRad(params.thetaY)), 0, std::cos(toRad(params.thetaY));
 
-    //rotate about z-axis by thetaZ degrees
+    //rotate about z-axis by user-input thetaZ degrees
     Eigen::Matrix3d rotationZ;
     rotationZ << std::cos(toRad(params.thetaZ)), -std::sin(toRad(params.thetaZ)), 0,
         std::sin(toRad(params.thetaZ)), std::cos(toRad(params.thetaZ)), 0,
@@ -255,11 +253,11 @@ void flowOverMesh(const Neon::Backend backend,
     //translate
     vertices.rowwise() += meshBoxCenter;
 
-    //calc the bounding box again
+    //compute the new bounding box
     igl::max(vertices, 1, bbMax, bbMaxI);
     igl::min(vertices, 1, bbMin, bbMinI);
 
-
+    //write the final mesh in obj (to be combined later with VTK files in e.g., paraview)
     igl::writeOBJ("scaled.obj", vertices, faces);
 
 #ifdef NEON_USE_POLYSCOPE
@@ -268,13 +266,15 @@ void flowOverMesh(const Neon::Backend backend,
 
     NEON_INFO("AABB init");
 
+    //initialize the AABB that is used to speed up the inside/output calculation for the grid construction
     igl::AABB<Eigen::MatrixXd, 3> aabb;
     aabb.init(vertices, faces);
 
 
-    //define the grid
+    //Define the multi-resolution grid. depth is the number of layers/resolutions in the grid
     int depth = 3;
 
+    //helper function that could be used to make the grid more aligned with the input geometry
     auto distToMesh = [&](const Neon::index_3d idx) {
         Eigen::Matrix<double, 1, 3> p(idx.x, idx.y, idx.z), c;
         int                         face_index(0);
@@ -282,6 +282,10 @@ void flowOverMesh(const Neon::Backend backend,
         return (p - c).norm();
     };
 
+    //Activation function for the different resolution. For each layer in the grid, we need to specify which
+    //voxels is active. Internally, Neon goes over each voxel at each level and check if it active or not using this
+    //activate function. The first lambda function corresponds to the finest level, the second is for the next coarse level,
+    // and so on.
     std::vector<std::function<bool(const Neon::index_3d&)>>
         activeCellLambda =
             {[&](const Neon::index_3d idx) -> bool {
@@ -328,18 +332,18 @@ void flowOverMesh(const Neon::Backend backend,
     //             return true;
     //         }};
 
-    const Neon::mGridDescriptor<1> descriptor(depth);
-
+    //Pass everything to Neon to build the multi-resolution grid
     NEON_INFO("Create mGrid");
+
+    const Neon::mGridDescriptor<1> descriptor(depth);
 
     Neon::domain::mGrid grid(
         backend, gridDim, activeCellLambda, Neon::domain::Stencil::s19_t(false), descriptor);
 
 
-    //LBM problem
-    const T uin = 0.04;
+    //LBM paramters
+    const T uin = 0.04;  //input velocity
     //const T clength = T((meshBoxDim.minCoeff() / 2) / (1 << (depth - 1)));
-
     //the plane wing extends along the z direction
     const T               span = (bbMax - bbMin).z();
     const T               clength = (span / 2.f) / (1 << (depth - 1));
@@ -347,13 +351,11 @@ void flowOverMesh(const Neon::Backend backend,
     const T               omega = 1.0 / (3. * visclb + 0.5);
     const Neon::double_3d inletVelocity(uin, 0., 0.);
 
-    //NEON_INFO("Writing Test file");
-    //auto test = grid.newField<T>("test", 1, 0);
-    //test.ioToVtk("Test", true, true, true, true, {-1, -1, 1});
-    //exit(0);
 
     NEON_INFO("Started populating inside field");
-    //a field with 1 if the voxel is inside the shape
+
+    //Populate the field that specifies which voxel is inside/outside the input geometry.
+    //In this field, 1 means the voxel is inside the shape
     auto inside = grid.newField<int8_t>("inside", 1, 0);
 
     for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
@@ -396,7 +398,6 @@ void flowOverMesh(const Neon::Backend backend,
     inside.updateDeviceData();
 
     //inside.ioToVtk("inside", true, true, true, true);
-    //exit(0);
 
     NEON_INFO("Start allocating fields");
     //allocate fields
@@ -413,10 +414,7 @@ void flowOverMesh(const Neon::Backend backend,
     initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, inletVelocity, inside);
     NEON_INFO("Finished initFlowOverShape");
 
-    //cellType.updateHostData();
-    //cellType.ioToVtk("cellType", true, true, true, true);
-    //exit(0);
-
+    //Finally run the simulation
     runNonUniformLBM<T, Q>(grid,
                            params,
                            clength,
