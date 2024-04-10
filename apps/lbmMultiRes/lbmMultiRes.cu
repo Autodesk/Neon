@@ -18,15 +18,15 @@ struct Params
     std::string meshFile = "";
     int         freq = 100;
     int         Re = 100;
-    int         deviceId = 99;
-    int         numIter = 2;
+    int         deviceId = 0;
+    int         numIter = 1000;
     bool        benchmark = true;
-    bool        fineInitStore = false;
+    bool        fineInitStore = true;
     bool        streamFusedExpl = false;
     bool        streamFusedCoal = false;
-    bool        streamFuseAll = false;
-    bool        collisionFusedStore = false;
-    bool        fusedFinest = false;
+    bool        streamFuseAll = true;
+    bool        collisionFusedStore = true;
+    bool        fusedFinest = true;
     int         sliceX = -1;
     int         sliceY = -1;
     int         sliceZ = 1;
@@ -53,13 +53,13 @@ int main(int argc, char** argv)
 
         auto cli =
             (clipp::option("--deviceType") & clipp::value("deviceType", params.deviceType) % "Type of device (gpu or cpu)",
-             clipp::required("--deviceId") & clipp::integers("deviceId", params.deviceId) % "Device id",
+             clipp::option("--deviceId") & clipp::integers("deviceId", params.deviceId) % "Device id",
              clipp::option("--numIter") & clipp::integer("numIter", params.numIter) % "LBM number of iterations",
-             clipp::option("--problemType") & clipp::value("problemType", params.problemType) % "Problem type ('lid' for lid-driven cavity, 'sphere' for flow over sphere, or 'jet' for flow over jet fighter, 'mesh' for flow over mesh)",
+             clipp::option("--problemType") & clipp::value("problemType", params.problemType) % "Problem type ('lid' for lid-driven cavity, 'sphere' for flow over sphere, 'mesh' for flow over mesh)",
              clipp::option("--meshFile") & clipp::value("meshFile", params.meshFile) % "Path to mesh file for 'mesh' type problem",
              clipp::option("--dataType") & clipp::value("dataType", params.dataType) % "Data type (float or double)",
-             clipp::option("--re") & clipp::integers("Re", params.Re) % "Reynolds number",
-             clipp::option("--scale") & clipp::integers("scale", params.scale) % "Scale of the problem for parametrized problems. 0-9 for lid. jet is up to 112. Sphere is 2 (or maybe more)",
+             clipp::option("--re") & clipp::integer("Re", params.Re) % "Reynolds number",
+             clipp::option("--scale") & clipp::integer("scale", params.scale) % "Scale of the problem for parametrized problems. 0-9 for lid. Sphere is 2 (or maybe more)",
 
              clipp::option("--sliceX") & clipp::integer("sliceX", params.sliceX) % "Slice along X for output images/VTK",
              clipp::option("--sliceY") & clipp::integer("sliceY", params.sliceY) % "Slice along Y for output images/VTK",
@@ -76,7 +76,7 @@ int main(int argc, char** argv)
              clipp::option("--binary").set(params.binary, true) % "Output binary (down-sampled) files. Active only with if 'visual' is true",
              clipp::option("--gui").set(params.gui, true) % "Show Polyscope gui. Active only with if 'visual' is true",
 
-             clipp::option("--freq") & clipp::integers("freq", params.freq) % "Output frequency (only works with visual mode)",
+             clipp::option("--freq") & clipp::integer("freq", params.freq) % "Output frequency (only works with visual mode)",
 
              ((clipp::option("--storeFine").set(params.fineInitStore, true) % "Initiate the Store operation from the fine level") |
               (clipp::option("--storeCoarse").set(params.fineInitStore, false) % "Initiate the Store operation from the coarse level") |
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
             NEON_THROW(exp);
         }
 
-        if (params.problemType != "lid" && params.problemType != "sphere" && params.problemType != "jet" && params.problemType != "mesh") {
+        if (params.problemType != "lid" && params.problemType != "sphere" && params.problemType != "mesh") {
             Neon::NeonException exp("app-lbmMultiRes");
             exp << "Unknown input problem type " << params.problemType;
             NEON_THROW(exp);
@@ -149,17 +149,6 @@ int main(int argc, char** argv)
             }
             if (params.dataType == "double") {
                 flowOverSphere<double, Q>(backend, params);
-            }
-        }
-
-        if (params.problemType == "jet") {
-            report = Neon::Report("Jet MultiRes LBM");
-            report.commandLine(argc, argv);
-            if (params.dataType == "float") {
-                flowOverJet<float, Q>(backend, params);
-            }
-            if (params.dataType == "double") {
-                flowOverJet<double, Q>(backend, params);
             }
         }
 
