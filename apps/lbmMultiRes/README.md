@@ -16,7 +16,7 @@ Neon runs on all major systems that support running Nvidia GPUs. We have tested 
 
 To build and compile the grid refinement LBM application:
 
-# @@@$$$$$$$$$$ TODO Specify the tag/release $$$$$$$$$$@@@
+
 ```
 git clone -b v0.5 https://github.com/Autodesk/Neon
 cd Neon
