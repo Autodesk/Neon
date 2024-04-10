@@ -209,10 +209,10 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parentVal(const Idx& eId,
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasParent(const Idx& cell) const -> bool
 {
-    if (mMemParent) {
-        return true;
+    if (!cell.isActive()) {
+        return false;
     }
-    return false;
+    return getParent(cell).isActive();
 }
 
 template <typename T, int C>

@@ -31,7 +31,7 @@ void MultiResChild()
                  return id.x >= SectionX[1] && id.x < SectionX[2];
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
-            descriptor);
+            descriptor, true, false);
 
         auto XField = grid.newField<Type>("XField", 1, -1);
         auto isRefinedField = grid.newField<Type>("isRefined", 1, -1);

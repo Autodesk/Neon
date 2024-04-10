@@ -57,6 +57,14 @@ class mField
                     const int&            cardinality,
                     const int             level) const -> const T&;
 
+    auto operator()(const Idx& idx,
+                    const int& cardinality,
+                    const int  level) -> T&;
+
+
+    auto operator()(const Idx& idx,
+                    const int& cardinality,
+                    const int  level) const -> const T&;
 
     auto getReference(const Neon::index_3d& idx,
                       const int&            cardinality,
@@ -83,11 +91,12 @@ class mField
                            Neon::computeMode_t::computeMode_e                                            mode = Neon::computeMode_t::computeMode_e::par) -> void;
 
 
-    auto ioToVtk(std::string fileName,
-                 bool        outputLevels = true,
-                 bool        outputBlockID = true,
-                 bool        outputVoxelID = true,
-                 bool        filterOverlaps = true) const -> void;
+    auto ioToVtk(std::string         fileName,
+                 bool                outputLevels = true,
+                 bool                outputBlockID = true,
+                 bool                outputVoxelID = true,
+                 bool                filterOverlaps = true,
+                 const Neon::int8_3d slice = {-1, -1, -1}) const -> void;
 
     auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) -> typename xField<T, C>::Partition&;
 
