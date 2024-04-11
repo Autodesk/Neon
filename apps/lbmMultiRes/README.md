@@ -14,8 +14,7 @@ Neon runs on all major systems that support running Nvidia GPUs. We have tested 
 
 ## Build
 
-To build and compile the grid refinement LBM application:
-
+To build and compile the grid refinement LBM application, first, make sure to be connected to the internet for Neon to download its dependencies. Then, run:
 
 ```
 git clone -b v0.5 https://github.com/Autodesk/Neon
@@ -23,7 +22,7 @@ cd Neon
 mkdir build
 cd build
 cmake ../
-cmake --build . --target app-lbmMultiRes --config Release -j 99
+cmake --build . --target app-lbmMultiRes --config Release -j 10
 ```
 
 # Grid Refinement LBM
@@ -31,9 +30,9 @@ cmake --build . --target app-lbmMultiRes --config Release -j 99
 `app-lbmMultiRes` comes with two main problem setup 
 
 1. Virtual wind tunnel where we simulate a flow over an input geometry defined by a triangle mesh 
-2. Lid-driven cavity which is a classical test case for measuring the accuracy of the simulation 
+2. Lid-driven cavity which is a classical CFD test case for measuring the accuracy of the simulation 
 
-Both problem setups can be run on either GPU (for fast high-performance simulation) or CPU (for debugging). The executable comes with a set of input users. To display them, run 
+Both problem setups can be run on either GPU (for fast high-performance simulation) or CPU (for debugging). The executable comes with a set of input user-defined parameters. To display them, run 
 
 ```bash
 ./bin/app-lbmMultiRes -h
@@ -79,16 +78,40 @@ By default, we run the best possible configuration as presented in our [paper](h
 | `--streamFuseAll`            |                    |  Fuse Stream with Coalescence and Explosion (Figure 4.f)                                                                   |
 | `--fusedFinest`              |                    |  Fuse all operations on the finest level, i.e., Collision, Accumulate, Explosion, Stream  (Figure 4.f)                     |
 
-Finally, to switch between the `KBC` and `BGK` collision model, change the #define directive parameter at the top of the [`lbmMultiRes.cu`](/lbmMultiRes.cu).
+Finally, to switch between LBM collision models (`KBC` and `BGK`), change the `#define` directive parameter at the top of the [`Neon/apps/lbmMultiRes/lbmMultiRes.cu`](https://github.com/Autodesk/Neon/blob/v0.5.0/apps/lbmMultiRes/lbmMultiRes.cu).
 
 ## Lid-driven cavity
-After running the lid-drive cavity problem, the simulation will output two files (`NeonMultiResLBM_####_Y.dat`, `NeonMultiResLBM_####_X.dat`) which can be used to reproduce Figure 7 in the paper. To reproduce the figure, pass these two files to this [python script](/scripts/plot.py).
+Once the execution of the lid-driven cavity problem is completed, the simulation will output two files (`NeonMultiResLBM_####_Y.dat`, `NeonMultiResLBM_####_X.dat`) which can be used to reproduce Figure 7 in the paper. To reproduce the figure, pass these two files to the python script under [`Neon/apps/lbmMultiRes/scripts/plot.py`](https://github.com/Autodesk/Neon/blob/v0.5.0/apps/lbmMultiRes/scripts/plot.py). 
+
+Example (without visualization): 
+
+`bin/app-lbmMultiRes --deviceType gpu --deviceId 0 --numIter 1000 --problemType lid --scale 2 --benchmark`
 
 ## Virtual Wind Tunnel 
 
-The `flowOverMesh` method in [`flowOverShape.h`](/flowOverShape.h) defined various geometric properties to run a fluid simulation over a shape.  The method is fully documented to facilitate customization. 
+The `flowOverMesh` method in [`Neon/apps/lbmMultiRes/flowOverShape.h`](https://github.com/Autodesk/Neon/blob/v0.5.0/apps/lbmMultiRes/flowOverShape.h) defined various geometric properties to run a fluid simulation over a shape.  The method is fully documented to facilitate customization. 
 
-The airplane input mesh used in Figure 1 can be found [here](/practice_v28.obj).
+The airplane input mesh used in Figure 1 can be found at [`Neon/apps/lbmMultiRes/practice_v28.obj`](https://github.com/Autodesk/Neon/blob/v0.5.0/apps/lbmMultiRes/practice_v28.obj).
+
+Example (with visualization): 
+
+`bin/app-lbmMultiRes --deviceType gpu  --deviceId 0 --problemType mesh --vtk --visual --binary --re 2000 --thetaZ 30 --freq 10000 --numIter 10000 --scale 84 --meshFile ../apps/lbmMultiRes/practice_v28.obj`
+
+---
+
+After the simulation is complete, we output a JSON file that outlines the following 
+- Github SHA
+- CPU and GPU system specs 
+- Backend (CPU vs. GPU)
+- Command line used
+- Gird size and active voxels at each level 
+- Data type (float vs. double)
+- Algorithm 
+- LBM Million Lattice Updates per Second (MLUPS)
+- Number of iterations 
+- Collision model
+- Input velocity 
+- Problem scale 
 
 
 # Citation

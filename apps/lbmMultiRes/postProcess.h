@@ -447,7 +447,7 @@ void verifyLidDrivenCavity(Neon::domain::mGrid&           grid,
     });
 
 
-    NEON_INFO("Max difference = {0:.8f}", verifyGhia1982(Re, xPosVal, yPosVal));
+    //NEON_INFO("Max difference = {0:.8f}", verifyGhia1982(Re, xPosVal, yPosVal));
 
 
     auto writeToFile = [](const std::vector<std::pair<T, T>>& posVal, std::string filename) {
