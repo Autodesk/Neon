@@ -8,7 +8,7 @@ We outline here the complete guide on how to reproduce the results presented in 
 Neon runs on all major systems that support running Nvidia GPUs. We have tested the code on Windows 10/11 (VS 2019/2022) and Ubuntu 20.04/22.04. 
 
 - C++ compiler with C++17 standard support
-- CUDA version 11 or higher
+- CUDA version 12 or higher
 - CMake version 3.19 or higher
 
 
@@ -17,7 +17,7 @@ Neon runs on all major systems that support running Nvidia GPUs. We have tested 
 To build and compile the grid refinement LBM application, first, make sure to be connected to the internet for Neon to download its dependencies. Then, run:
 
 ```
-git clone -b v0.5 https://github.com/Autodesk/Neon
+git clone -b v0.5.1 https://github.com/Autodesk/Neon
 cd Neon
 mkdir build
 cd build
@@ -78,10 +78,10 @@ By default, we run the best possible configuration as presented in our [paper](h
 | `--streamFuseAll`            |                    |  Fuse Stream with Coalescence and Explosion (Figure 4.f)                                                                   |
 | `--fusedFinest`              |                    |  Fuse all operations on the finest level, i.e., Collision, Accumulate, Explosion, Stream  (Figure 4.f)                     |
 
-Finally, to switch between LBM collision models (`KBC` and `BGK`), change the `#define` directive parameter at the top of the [`Neon/apps/lbmMultiRes/lbmMultiRes.cu`](https://github.com/Autodesk/Neon/blob/v0.5.0/apps/lbmMultiRes/lbmMultiRes.cu).
+Finally, to switch between LBM collision models (`KBC` and `BGK`), change the `#define` directive parameter at the top of the [`Neon/apps/lbmMultiRes/lbmMultiRes.cu`](https://github.com/Autodesk/Neon/blob/v0.5.1/apps/lbmMultiRes/lbmMultiRes.cu).
 
 ## Lid-driven cavity
-Once the execution of the lid-driven cavity problem is completed, the simulation will output two files (`NeonMultiResLBM_####_Y.dat`, `NeonMultiResLBM_####_X.dat`) which can be used to reproduce Figure 7 in the paper. To reproduce the figure, pass these two files to the python script under [`Neon/apps/lbmMultiRes/scripts/plot.py`](https://github.com/Autodesk/Neon/blob/v0.5.0/apps/lbmMultiRes/scripts/plot.py). 
+Once the execution of the lid-driven cavity problem is completed, the simulation will output two files (`NeonMultiResLBM_####_Y.dat`, `NeonMultiResLBM_####_X.dat`) which can be used to reproduce Figure 7 in the paper. To reproduce the figure, pass these two files to the python script under [`Neon/apps/lbmMultiRes/scripts/plot.py`](https://github.com/Autodesk/Neon/blob/v0.5.1/apps/lbmMultiRes/scripts/plot.py). 
 
 Example (without visualization): 
 
@@ -89,9 +89,9 @@ Example (without visualization):
 
 ## Virtual Wind Tunnel 
 
-The `flowOverMesh` method in [`Neon/apps/lbmMultiRes/flowOverShape.h`](https://github.com/Autodesk/Neon/blob/v0.5.0/apps/lbmMultiRes/flowOverShape.h) defined various geometric properties to run a fluid simulation over a shape.  The method is fully documented to facilitate customization. 
+The `flowOverMesh` method in [`Neon/apps/lbmMultiRes/flowOverShape.h`](https://github.com/Autodesk/Neon/blob/v0.5.1/apps/lbmMultiRes/flowOverShape.h) defined various geometric properties to run a fluid simulation over a shape.  The method is fully documented to facilitate customization. 
 
-The airplane input mesh used in Figure 1 can be found at [`Neon/apps/lbmMultiRes/practice_v28.obj`](https://github.com/Autodesk/Neon/blob/v0.5.0/apps/lbmMultiRes/practice_v28.obj).
+The airplane input mesh used in Figure 1 can be found at [`Neon/apps/lbmMultiRes/practice_v28.obj`](https://github.com/Autodesk/Neon/blob/v0.5.1/apps/lbmMultiRes/practice_v28.obj).
 
 Example (with visualization): 
 

@@ -1,6 +1,6 @@
 ![Neon logo](docs/logo/neonDarkLogo.jpg "Neon")
 
-# For information about the GPU LBM Grid Refinement work (IPDPS 2024), go to this [README](/apps/lbmMultiRes/README.md)
+# For information about the GPU LBM Grid Refinement work (IPDPS 2024), go to this [README](https://github.com/Autodesk/Neon/blob/v0.5.1/apps/lbmMultiRes/README.md)
 
 Neon is a research framework for programming multi-device systems maintained by [Autodesk Research](https://www.autodesk.com/research/overview). Neon's goal is to automatically transform user sequential code into, for example, a scalable multi-GPU execution.
 
