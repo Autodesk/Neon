@@ -64,28 +64,9 @@ class Vec_3d<RealType_ta, false, true>
         num_axis = 3
     };
 
-    union
-    {
-        Integer v[axis_e::num_axis]{static_cast<Integer>(.0), static_cast<Integer>(.0), static_cast<Integer>(.0)};
-        struct
-        {
-            union
-            {
-                Integer x;
-                Integer r;
-            };
-            union
-            {
-                Integer y;
-                Integer s;
-            };
-            union
-            {
-                Integer z;
-                Integer t;
-            };
-        };
-    };
+    Integer x;
+    Integer y;
+    Integer z;
 
 
     /**

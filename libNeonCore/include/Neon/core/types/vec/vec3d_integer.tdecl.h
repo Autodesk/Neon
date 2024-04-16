@@ -84,8 +84,9 @@ class Vec_3d<IntegerType_ta, true, false>
     NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d(const Integer& xyz);
 
     NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d(const Integer other[self_t::num_axis]);
-
+#if !defined(NEON_WARP_COMPILATION)
     NEON_CUDA_HOST_ONLY inline constexpr Vec_3d(std::initializer_list<Integer> other);
+#endif
     /**
      * Creates a 3d tuple with specific values for each component.
      *   @param[in] px: value for the x component.
@@ -402,7 +403,7 @@ class Vec_3d<IntegerType_ta, true, false>
     std::string to_string(int tab_num = 0) const;
 
     std::string to_stringForComposedNames() const;
-
+#if !defined(NEON_WARP_COMPILATION)
     //---- [ForEach SECTION] ----------------------------------------------------------------------------------------------
     //---- [ForEach SECTION] ----------------------------------------------------------------------------------------------
     //---- [ForEach SECTION] ----------------------------------------------------------------------------------------------
@@ -417,6 +418,7 @@ class Vec_3d<IntegerType_ta, true, false>
     auto forEach(const Lambda& lambda) const -> std::enable_if_t<std::is_invocable_v<Lambda, self_t> ||
                                                                      std::is_invocable_v<Lambda, Integer, Integer, Integer>,
                                                                  void>;
+#endif
 };
 
 

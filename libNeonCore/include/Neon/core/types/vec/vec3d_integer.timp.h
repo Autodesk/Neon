@@ -45,6 +45,8 @@ NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>::
 {
     set(other);
 }
+
+#if !defined(NEON_WARP_COMPILATION)
 template <typename IntegerType_ta>
 NEON_CUDA_HOST_ONLY inline constexpr Vec_3d<IntegerType_ta, true, false>::
     Vec_3d(std::initializer_list<IntegerType_ta> other)
@@ -67,6 +69,7 @@ NEON_CUDA_HOST_ONLY inline constexpr Vec_3d<IntegerType_ta, true, false>::
     z = begin[2];
     return;
 }
+#endif
 
 template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline constexpr Vec_3d<IntegerType_ta, true, false>::
@@ -676,7 +679,7 @@ std::string Vec_3d<IntegerType_ta, true, false>::to_stringForComposedNames() con
     msg += std::to_string(z);
     return msg;
 }
-
+#if !defined(NEON_WARP_COMPILATION)
 template <typename IntegerType_ta>
 template <Neon::computeMode_t::computeMode_e computeMode_ta>
 void Vec_3d<IntegerType_ta, true, false>::forEach(const self_t& len, std::function<void(const self_t& idx)> lambda)
@@ -802,5 +805,5 @@ std::ostream& operator<<(std::ostream& out, const Vec_3d<IntegerType_ta, true, f
     out << p.to_string();
     return out;
 }
-
+#endif
 }  // namespace Neon

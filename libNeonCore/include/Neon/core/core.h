@@ -25,19 +25,29 @@
 
 #include "Neon/core/types/Access.h"
 #include "Neon/core/types/BasicTypes.h"
-#include "Neon/core/types/chrono.h"
+#if !defined(NEON_WARP_COMPILATION)
 #include "Neon/core/types/Exceptions.h"
-#include "Neon/core/types/Macros.h"
-#include "Neon/core/types/mode.h"
-#include "Neon/core/types/SetIdx.h"
-#include "Neon/core/types/vec.h"
+#include "Neon/core/types/chrono.h"
+#endif
+
 #include "Neon/core/types/DataUse.h"
-#include "Neon/core/types/memOptions.h"
-#include "Neon/core/types/DeviceType.h"
-#include "Neon/core/types/Allocator.h"
+#include "Neon/core/types/Macros.h"
+#include "Neon/core/types/SetIdx.h"
+#include "Neon/core/types/mode.h"
+#include "Neon/core/types/vec.h"
+
 #include "Neon/core/types/DataView.h"
 
-#include "Neon/core/tools/development/workInProgress.h"
+#if !defined(NEON_WARP_COMPILATION)
+#include "Neon/core/types/Allocator.h"
+#include "Neon/core/types/DeviceType.h"
+#include "Neon/core/types/memOptions.h"
 #include "Neon/core/tools/Logger.h"
-#include "Neon/core/tools/metaprogramming.h"
 #include "Neon/core/tools/Report.h"
+#include "Neon/core/tools/Report.h"
+#include "Neon/core/tools/development/workInProgress.h"
+#include "Neon/core/tools/metaprogramming.h"
+
+#endif
+
+

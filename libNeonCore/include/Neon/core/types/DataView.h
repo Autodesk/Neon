@@ -1,5 +1,7 @@
 #pragma once
+#if !defined(NEON_WARP_COMPILATION)
 #include <array>
+#endif
 #include <string>
 
 namespace Neon {
@@ -29,11 +31,13 @@ struct DataViewUtil
      */
     static auto toString(DataView dataView) -> std::string;
 
+#if !defined(NEON_WARP_COMPILATION)
     /**
      * Returns all valid configuration for DataView
      * @return
      */
     static auto validOptions() -> std::array<Neon::DataView, DataViewUtil::nConfig>;
+#endif
 
     static auto fromInt(int val) -> DataView;
 
@@ -41,7 +45,7 @@ struct DataViewUtil
 
 };
 
-
+#if !defined(NEON_WARP_COMPILATION)
 /**
  * operator<<
  *
@@ -50,4 +54,5 @@ struct DataViewUtil
  * @return
  */
 std::ostream& operator<<(std::ostream& os, Neon::DataView const& m);
+#endif
 }  // namespace Neon

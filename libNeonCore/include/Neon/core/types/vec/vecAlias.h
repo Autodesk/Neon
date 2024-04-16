@@ -15,6 +15,7 @@ using index64_1d = index64_t;
 using float_1d = float;
 using double_1d = double;
 
+#if !defined(NEON_WARP_COMPILATION)
 //---- [Real 2D SECTION] ----------------------------------------------------------------------------------------------
 //---- [Real 2D SECTION] ----------------------------------------------------------------------------------------------
 //---- [Real 2D SECTION] ----------------------------------------------------------------------------------------------
@@ -32,6 +33,7 @@ using float_2d = Vec_2d<float>;
 template <typename Integer_ta>
 using Integer_2d = Vec_2d<Integer_ta, true, false>;
 
+
 using int8_2d = Integer_2d<int8_t>;
 using int32_2d = Integer_2d<int32_t>;
 using int64_2d = Integer_2d<int64_t>;
@@ -41,6 +43,7 @@ using uint64_2d = Integer_2d<uint64_t>;
 using size_2d = Integer_2d<std::size_t>;
 using index_2d = Integer_2d<index_t>;
 using index64_2d = Integer_2d<index64_1d>;
+#endif
 
 
 //---- [Real 3D SECTION] ----------------------------------------------------------------------------------------------
@@ -72,6 +75,7 @@ using index_3d = Integer_3d<index_t>;
 using index64_3d = Integer_3d<index64_1d>;
 using char_3d = Integer_3d<char>;
 
+#if !defined(NEON_WARP_COMPILATION)
 
 //---- [Real 4D SECTION] ----------------------------------------------------------------------------------------------
 //---- [Real 4D SECTION] ----------------------------------------------------------------------------------------------
@@ -99,5 +103,5 @@ using uint64_4d = Vec_4d<uint64_t>;
 using size_4d = Vec_4d<std::size_t>;
 using index_4d = Vec_4d<index_t, true, false>;
 using char_4d = Vec_4d<char, true, false>;
-
+#endif
 }  // End of namespace Neon
