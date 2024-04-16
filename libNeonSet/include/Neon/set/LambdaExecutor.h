@@ -36,6 +36,38 @@ NEON_CUDA_KERNEL auto launchLambdaOnSpanCUDA(typename DataSetContainer::Span spa
         }
     }
 }
+
+template <typename CudaLaunchCompilerTimeHints,
+          typename DataSetContainer,
+          typename UserLambda>
+__launch_bounds__(CudaLaunchCompilerTimeHints::maxThreadsPerBlock)
+    NEON_CUDA_KERNEL auto launchLambdaOnSpanCUDAWithCompilerHints(typename DataSetContainer::Span span,
+                                                                  UserLambda                      userLambdaTa)
+        -> void
+{
+    typename DataSetContainer::Idx e;
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1) {
+        if (span.setAndValidate(e,
+                                threadIdx.x + blockIdx.x * blockDim.x)) {
+            userLambdaTa(e);
+        }
+    }
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d2) {
+        if (span.setAndValidate(e,
+                                threadIdx.x + blockIdx.x * blockDim.x,
+                                threadIdx.y + blockIdx.y * blockDim.y)) {
+            userLambdaTa(e);
+        }
+    }
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d3) {
+        if (span.setAndValidate(e,
+                                threadIdx.x + blockIdx.x * blockDim.x,
+                                threadIdx.y + blockIdx.y * blockDim.y,
+                                threadIdx.z + blockIdx.z * blockDim.z)) {
+            userLambdaTa(e);
+        }
+    }
+}
 #endif
 
 
@@ -48,9 +80,9 @@ void launchLambdaOnSpanOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 {
     if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1) {
 #ifdef NEON_OS_WINDOWS
-//#pragma omp parallel for default(shared)
+// #pragma omp parallel for default(shared)
 #else
- #pragma omp parallel for simd default(shared)
+#pragma omp parallel for simd default(shared)
 #endif
         for (IndexType x = 0; x < gridDim.x; x++) {
             typename DataSetContainer::Idx e;
@@ -65,7 +97,7 @@ void launchLambdaOnSpanOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 #ifdef NEON_OS_WINDOWS
 #pragma omp parallel for default(shared)
 #else
-// #pragma omp parallel for simd collapse(2) default(shared)
+        // #pragma omp parallel for simd collapse(2) default(shared)
 #endif
         for (IndexType y = 0; y < gridDim.y; y++) {
             for (IndexType x = 0; x < gridDim.x; x++) {
@@ -81,7 +113,7 @@ void launchLambdaOnSpanOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 #ifdef NEON_OS_WINDOWS
 #pragma omp parallel for default(shared)
 #else
-// #pragma omp parallel for simd collapse(1) default(shared) schedule(guided)
+        // #pragma omp parallel for simd collapse(1) default(shared) schedule(guided)
 #endif
         for (IndexType z = 0; z < gridDim.z; z++) {
             for (IndexType y = 0; y < gridDim.y; y++) {
@@ -103,6 +135,21 @@ namespace blockSpan {
 template <typename DataSetContainer,
           typename UserLambda>
 NEON_CUDA_KERNEL auto launchLambdaOnSpanCUDA(typename DataSetContainer::Span span,
+                                             UserLambda                      userLambdaTa)
+    -> void
+{
+    typename DataSetContainer::Idx e;
+    if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1b3) {
+        if (span.setAndValidateGPUDevice(e)) {
+            userLambdaTa(e);
+        }
+    }
+}
+
+template <typename CudaLaunchCompilerTimeHints,
+          typename DataSetContainer,
+          typename UserLambda>
+NEON_CUDA_KERNEL auto launchLambdaOnSpanCUDAWithCompilerHints(typename DataSetContainer::Span span,
                                              UserLambda                      userLambdaTa)
     -> void
 {

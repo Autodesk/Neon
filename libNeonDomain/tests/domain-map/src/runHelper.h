@@ -31,7 +31,7 @@ void runAllTestConfiguration(
         nGpuTest.push_back(i);
     }
     // std::vector<int> nGpuTest{2,4,6,8};
-    std::vector<int> cardinalityTest{1};
+    std::vector<int> cardinalityTest{1,3,19};
 
     std::vector<Neon::index_3d> dimTest{{10, 17, 13}, {1, 1, 100}, {17, 1, 77}};
     std::vector<Neon::Runtime>  runtimeE{Neon::Runtime::openmp};
@@ -73,7 +73,7 @@ void runAllTestConfiguration(
                         Neon::Backend       backend(ids, runtime);
                         Neon::MemoryOptions memoryOptions = backend.getMemoryOptions();
 
-                        if constexpr (std::is_same_v<G, Neon::bGrid>) {
+                        if constexpr (G::executionThreadSpan == Neon::set::details::ExecutionThreadSpan::d1b3) {
                             if (dim.z < 8 * ngpu * 3) {
                                 dim.z = ngpu * 3 * 8;
                             }
@@ -95,6 +95,7 @@ void runAllTestConfiguration(
     }
 }
 
+#if 0
 
 template <typename G, typename T, int C>
 void runOneTestConfiguration(const std::string&                      gname,
@@ -144,3 +145,4 @@ void runOneTestConfiguration(const std::string&                      gname,
         }
     }
 }
+#endif

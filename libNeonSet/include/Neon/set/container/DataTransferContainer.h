@@ -35,12 +35,12 @@ struct DataTransferContainer
         setDataViewSupport(DataViewSupport::off);
     }
 
-    auto run(int            streamIdx,
+    auto run(int streamIdx,
              Neon::DataView /*dataView*/) -> void override
     {
         const Neon::Backend& bk = mMultiXpuData.getBackend();
 
-        bk.forEachDeviceSeq([&](SetIdx setIdx) {
+        bk.forEachDevicePar([&](SetIdx setIdx) {
             //            std::cout <<"Sending Section ("<<setIdx<<") " <<std::endl;
             for (auto& memoryTransfer : mMemoryTransfers[setIdx]) {
                 bk.template deviceToDeviceTransfer<char>(streamIdx,
@@ -48,8 +48,8 @@ struct DataTransferContainer
                                                          mTransferMode,
                                                          memoryTransfer.dst.setIdx, (char*)memoryTransfer.dst.mem,
                                                          memoryTransfer.src.setIdx, (char*)memoryTransfer.src.mem);
-                //std::cout <<"Sending ("<<setIdx<<") " << memoryTransfer.toString()<<std::endl;
-                // std::cout<< " val " << ((int64_t*)memoryTransfer.src.mem)[0]<< " to "<<((int64_t*)memoryTransfer.src.mem)[8*8*8-1]<< std::endl;
+                // std::cout <<"Sending ("<<setIdx<<") " << memoryTransfer.toString()<<std::endl;
+                //  std::cout<< " val " << ((int64_t*)memoryTransfer.src.mem)[0]<< " to "<<((int64_t*)memoryTransfer.src.mem)[8*8*8-1]<< std::endl;
             }
         });
     }

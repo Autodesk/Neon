@@ -1,28 +1,31 @@
 #include "Neon/domain/details/bGrid/bGrid.h"
+#include "Neon/domain/tools/SpaceCurves.h"
 
 namespace Neon::domain::details::bGrid {
 
 template <typename SBlock>
 template <typename ActiveCellLambda>
-bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
-                     const Neon::int32_3d&        domainSize,
-                     const ActiveCellLambda       activeCellLambda,
-                     const Neon::domain::Stencil& stencil,
-                     const double_3d&             spacingData,
-                     const double_3d&             origin)
-    : bGrid(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin)
+bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
+                     const Neon::int32_3d&                        domainSize,
+                     const ActiveCellLambda                       activeCellLambda,
+                     const Neon::domain::Stencil&                 stencil,
+                     const double_3d&                             spacingData,
+                     const double_3d&                             origin,
+                     Neon::domain::tool::spaceCurves::EncoderType encoderType)
+    : bGrid(backend, domainSize, activeCellLambda, stencil, 1, spacingData, origin, encoderType)
 {
 }
 
 template <typename SBlock>
 template <typename ActiveCellLambda>
-bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
-                     const Neon::int32_3d&        domainSize,
-                     const ActiveCellLambda       activeCellLambda,
-                     const Neon::domain::Stencil& stencil,
-                     const int                    multiResDiscreteIdxSpacing,
-                     const double_3d&             spacingData,
-                     const double_3d&             origin)
+bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
+                     const Neon::int32_3d&                        domainSize,
+                     const ActiveCellLambda                       activeCellLambda,
+                     const Neon::domain::Stencil&                 stencil,
+                     const int                                    multiResDiscreteIdxSpacing,
+                     const double_3d&                             spacingData,
+                     const double_3d&                             origin,
+                     Neon::domain::tool::spaceCurves::EncoderType encoderType)
 {
 
 
@@ -35,18 +38,25 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                                           SBlock::memBlockSizeY,
                                           SBlock::memBlockSizeZ);
 
+    std::stringstream gridName;
+    gridName << "bGrid_" << SBlock::memBlockSizeX << "_"
+             << SBlock::memBlockSizeY << "_"
+             << SBlock::memBlockSizeZ;
     {
         auto nElementsPerPartition = backend.devSet().template newDataSet<size_t>(0);
         // We do an initialization with nElementsPerPartition to zero,
         // then we reset to the computed number.
-        bGrid::GridBase::init("bGrid",
+
+        bGrid::GridBase::init(gridName.str(),
                               backend,
                               domainSize,
                               stencil,
                               nElementsPerPartition,
                               defaultKernelBlockSize,
                               multiResDiscreteIdxSpacing,
-                              origin);
+                              origin,
+                              encoderType,
+                              defaultKernelBlockSize);
     }
 
     {  // Initialization of the partitioner
@@ -54,10 +64,11 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
         mData->partitioner1D = Neon::domain::tool::Partitioner1D(
             backend,
             activeCellLambda,
-            [](Neon::index_3d /*idx*/) { return false; },
+            nullptr,
             SBlock::memBlockSize3D.template newType<int32_t>(),
             domainSize,
             Neon::domain::Stencil::s27_t(false),
+            encoderType,
             multiResDiscreteIdxSpacing);
 
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();
@@ -107,8 +118,8 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                             for (int j = 0; j < SBlock::memBlockSize3D.template newType<int32_t>().y; j++) {
                                 for (int i = 0; i < SBlock::memBlockSize3D.template newType<int32_t>().x; i++) {
                                     auto       globalPosition = blockOrigin + Neon::int32_3d(i * this->mData->mMultiResDiscreteIdxSpacing,
-                                                                                       j * this->mData->mMultiResDiscreteIdxSpacing,
-                                                                                       k * this->mData->mMultiResDiscreteIdxSpacing);
+                                                                                             j * this->mData->mMultiResDiscreteIdxSpacing,
+                                                                                             k * this->mData->mMultiResDiscreteIdxSpacing);
                                     bool const isInDomain = globalPosition < domainSize * this->mData->mMultiResDiscreteIdxSpacing;
                                     bool const isActive = activeCellLambda(globalPosition);
                                     if (isActive && isInDomain) {
@@ -155,8 +166,8 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
                                                                   BlockIdx                                  blockNghIdx = Span::getInvalidBlockId();
                                                                   typename decltype(blockConnectivity)::Idx nghIdx;
                                                                   Neon::int8_3d                             stencilPoint(i - int8_t(1),
-                                                                                             j - int8_t(1),
-                                                                                             k - int8_t(1));
+                                                                                                                         j - int8_t(1),
+                                                                                                                         k - int8_t(1));
                                                                   bool                                      isValid = blockConnectivity.getNghIndex(idx, stencilPoint, nghIdx);
                                                                   if (isValid) {
                                                                       blockNghIdx = static_cast<BlockIdx>(nghIdx.helpGet());
@@ -220,14 +231,16 @@ bGrid<SBlock>::bGrid(const Neon::Backend&         backend,
         mData->stencilIdTo3dOffset.updateDeviceData(backend, Neon::Backend::mainStreamIdx);
     }
     // Init the base grid
-    bGrid::GridBase::init("bGrid",
+    bGrid::GridBase::init(gridName.str(),
                           backend,
                           domainSize,
                           Neon::domain::Stencil(),
                           mData->mNumActiveVoxel,
                           SBlock::memBlockSize3D.template newType<int32_t>(),
                           spacingData,
-                          origin);
+                          origin,
+                          encoderType,
+                          defaultKernelBlockSize);
     {  // setting launchParameters
         mData->launchParametersTable.forEachSeq([&](Neon::DataView               dw,
                                                     Neon::set::LaunchParameters& bLaunchParameters) {

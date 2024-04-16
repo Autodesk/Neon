@@ -10,29 +10,29 @@ dSpan::setAndValidate(Idx&            idx,
     const -> bool
 {
     bool res = false;
-    idx.set().x = int(x);
-    idx.set().y = int(y);
-    idx.set().z = int(z);
+    idx.setLocation().x = int(x);
+    idx.setLocation().y = int(y);
+    idx.setLocation().z = int(z);
 
-    if (idx.get() < mDim) {
+    if (idx.getLocation() < mSpanDim) {
         res = true;
     }
 
     switch (mDataView) {
         case Neon::DataView::STANDARD: {
-            idx.set().z += mZHaloRadius;
+            idx.setLocation().z += mZghostRadius;
             return res;
         }
         case Neon::DataView::INTERNAL: {
-            idx.set().z += mZHaloRadius + mZBoundaryRadius;
+            idx.setLocation().z += mZghostRadius + mZboundaryRadius;
             return res;
         }
         case Neon::DataView::BOUNDARY: {
 
-            idx.set().z += idx.get().z < mZBoundaryRadius
-                               ? 0
-                               : (mDim.z - 1) + (-1 * mZBoundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
-            idx.set().z += mZHaloRadius;
+            idx.setLocation().z += idx.getLocation().z < mZboundaryRadius
+                                       ? 0
+                               : (mMaxZInDomain - 1) + (-1 * mZboundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
+            idx.setLocation().z += mZghostRadius;
 
             return res;
         }
@@ -51,19 +51,19 @@ NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetDataView()
 NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetZHaloRadius()
     const -> int const&
 {
-    return mZHaloRadius;
+    return mZghostRadius;
 }
 
 NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetZBoundaryRadius()
     const -> int const&
 {
-    return mZBoundaryRadius;
+    return mZboundaryRadius;
 }
 
 NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetDim()
     const -> Neon::index_3d const&
 {
-    return mDim;
+    return mSpanDim;
 }
 
 }  // namespace Neon::domain::details::dGrid

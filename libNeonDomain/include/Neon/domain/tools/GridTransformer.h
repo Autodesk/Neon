@@ -1,10 +1,10 @@
 #pragma once
 
+#include "Neon/domain/tools/PartitionTable.h"
+#include "Neon/domain/tools/SpanTable.h"
 #include "Neon/domain/tools/gridTransformer/tField.h"
 #include "Neon/domain/tools/gridTransformer/tGrid.h"
 #include "Neon/domain/tools/gridTransformer/tGrid_ti.h"
-#include "Neon/domain/tools/PartitionTable.h"
-#include "Neon/domain/tools/SpanTable.h"
 
 namespace Neon::domain::tool {
 
@@ -24,9 +24,10 @@ template <typename GridTransformation>
 class GridTransformer
 {
    public:
+    using Idx = typename GridTransformation::Idx;
+    using Span = typename GridTransformation::Span;
     template <typename T, int C>
     using Partition = typename GridTransformation::template Partition<T, C>;
-    using Span = typename GridTransformation::Span;
     using FoundationGrid = typename GridTransformation::FoundationGrid;
 
     using Grid = details::tGrid<GridTransformation>;

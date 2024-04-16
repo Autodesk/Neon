@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include "Config.h"
-
+#include "Neon/domain/interface/GridBase.h"
 struct Report
 {
     Neon::Report mReport;
@@ -36,4 +36,5 @@ struct Report
     auto save()
         -> void;
     void recordBk(Neon::Backend& backend);
+    void recordGrid(Neon::domain::interface::GridBase& g);
 };

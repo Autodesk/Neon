@@ -59,7 +59,7 @@ class ePartition
      *  |
      *  |   Connectivity table has the same layout of a field with cardinality equal to
      *  |   the number of neighbours and an SoA layout. Let's call this field nghField.
-     *  |   nghField(e, nghIdx) is the eIdx_t of the neighbour element as in a STANDARD
+     *  |   nghField(e, helpGetNghIdx) is the eIdx_t of the neighbour element as in a STANDARD
      *  |   view.
      *  |--)
      */
@@ -186,8 +186,21 @@ class ePartition
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(Idx eId,
                int card,
-               T defaultValue)
+               T   defaultValue)
         const -> NghData;
+
+    template <int xOff,
+              int yOff,
+              int zOff,
+              typename LambdaVALID,
+              typename LambdaNOTValid = void*>
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghData(const Idx&     gidx,
+               int            card,
+               LambdaVALID    funIfValid,
+               LambdaNOTValid funIfNOTValid = nullptr)
+        const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> && (std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>;
+
     /**
      * Check is the
      * @tparam dataView_ta
@@ -212,6 +225,10 @@ class ePartition
         -> Neon::index_3d;
 
     NEON_CUDA_HOST_DEVICE inline auto
+    getDomainSize()
+        const -> Neon::index_3d;
+
+    NEON_CUDA_HOST_DEVICE inline auto
     mem() const
         -> const T*;
 
@@ -231,7 +248,8 @@ class ePartition
                         Offset*         connRaw,
                         Neon::index_3d* toGlobal,
                         int8_t*         stencil3dTo1dOffset,
-                        int32_t         stencilRadius);
+                        int32_t         stencilRadius,
+                        Neon::index_3d  domainSize);
 
     /**
      * Returns a pointer to element eId with target cardinality cardinalityIdx
@@ -256,11 +274,6 @@ class ePartition
     getOffset(Idx eId, int cardinalityIdx) const
         -> Offset;
 
-    /**
-     * Returns raw pointer of the field
-     * @tparam dataView_ta
-     * @return
-     */
 
    protected:
     //-- [INTERNAL DATA] ----------------------------------------------------------------------------
@@ -278,6 +291,7 @@ class ePartition
     int8_t*         mStencil3dTo1dOffset = {nullptr};
     int32_t         mStencilTableYPitch;
     int32_t         mStencilRadius;  // Shift to be applied to all 3d offset component to access mStencil3dTo1dOffset table
+    Neon::index_3d  mDomainSize;
 };
 }  // namespace Neon::domain::details::eGrid
 

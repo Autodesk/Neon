@@ -18,7 +18,7 @@ inline NEON_CUDA_HOST_DEVICE void stream(const typename Neon::domain::mGrid::Idx
     const auto nghCell = out.helpGetNghIdx(cell, dir);
     if (!out.hasChildren(nghCell)) {
         if (out.isActive(nghCell)) {
-            auto nghType = type(nghCell);
+            auto nghType = type(nghCell,0);
             if (nghType == CellType::bulk) {
                 out(nghCell, q) = cellVal;
             } else {
