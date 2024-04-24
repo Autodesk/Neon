@@ -40,7 +40,7 @@ GeometryMask::GeometryMask(Geometry       geo,
                 auto t = idx.newType<double>();
 
                 for (int direction = 0; direction < index_3d::num_axis; direction++) {
-                    bool newTest = std::abs(mCenter.v[direction] - t.v[direction]) <= mDomainRadia.v[direction];
+                    bool newTest = std::abs(mCenter.getVectorView()[direction] - t.getVectorView()[direction]) <= mDomainRadia.getVectorView()[direction];
                     isOk = isOk && newTest;
                 }
                 return isOk;
@@ -56,7 +56,7 @@ GeometryMask::GeometryMask(Geometry       geo,
                     bool isOk = true;
 
                     for (int direction = 0; direction < index_3d::num_axis; direction++) {
-                        bool newTest = std::abs(mCenter.v[direction] - t.v[direction]) <= mDomainRadia.v[direction];
+                        bool newTest = std::abs(mCenter.getVectorView()[direction] - t.getVectorView()[direction]) <= mDomainRadia.getVectorView()[direction];
                         isOk = isOk && newTest;
                     }
                     testA = isOk;
@@ -66,7 +66,7 @@ GeometryMask::GeometryMask(Geometry       geo,
                     bool isOk = false;
 
                     for (int direction = 0; direction < index_3d::num_axis; direction++) {
-                        bool newTest = std::abs(mCenter.v[direction] - t.v[direction]) >= mHollowRadia.v[direction];
+                        bool newTest = std::abs(mCenter.getVectorView()[direction] - t.getVectorView()[direction]) >= mHollowRadia.getVectorView()[direction];
                         isOk = isOk || newTest;
                     }
                     testB = isOk;
@@ -81,8 +81,8 @@ GeometryMask::GeometryMask(Geometry       geo,
                 double a = 0;
                 double b = 0;
                 for (int direction = 0; direction < index_3d::num_axis; direction++) {
-                    a += mCenter.v[direction];
-                    b += t.v[direction] + idx.getVectorView()[direction];
+                    a += mCenter.getVectorView()[direction];
+                    b += t.getVectorView()[direction] + idx.getVectorView()[direction];
                 }
                 return b <= a;
             };
@@ -95,7 +95,7 @@ GeometryMask::GeometryMask(Geometry       geo,
 
                 double sum = 0;
                 for (int direction = 0; direction < index_3d::num_axis; direction++) {
-                    double tmp = (t.v[direction] - mCenter.v[direction]) / mDomainRadia.v[direction];
+                    double tmp = (t.getVectorView()[direction] - mCenter.getVectorView()[direction]) / mDomainRadia.getVectorView()[direction];
                     sum += std::pow(tmp, 2);
                 }
                 // The norm of geoSize is the diameter of the sphere
@@ -111,7 +111,7 @@ GeometryMask::GeometryMask(Geometry       geo,
                 {
                     double sum = 0;
                     for (int direction = 0; direction < index_3d::num_axis; direction++) {
-                        double tmp = (t.v[direction] - mCenter.v[direction]) / mDomainRadia.v[direction];
+                        double tmp = (t.getVectorView()[direction] - mCenter.getVectorView()[direction]) / mDomainRadia.getVectorView()[direction];
                         sum += std::pow(tmp, 2);
                     }
                     testA = (sum <= 1.0);
@@ -120,7 +120,7 @@ GeometryMask::GeometryMask(Geometry       geo,
                 {
                     double sum = 0;
                     for (int direction = 0; direction < index_3d::num_axis; direction++) {
-                        double tmp = (t.v[direction] - mCenter.v[direction]) / mHollowRadia.v[direction];
+                        double tmp = (t.getVectorView()[direction] - mCenter.getVectorView()[direction]) / mHollowRadia.getVectorView()[direction];
                         sum += std::pow(tmp, 2);
                     }
                     // geoSize is the diameter of the sphere

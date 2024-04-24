@@ -1,7 +1,7 @@
 #include "Neon/py/grid.h"
 #include "Neon/domain/Grids.h"
 
-auto grid_new(uint64_t& handle) -> int
+auto dGrid_new(uint64_t& handle) -> int
 {
     std::cout << "grid_new - BEGIN"<<std::endl;
 
@@ -25,7 +25,7 @@ auto grid_new(uint64_t& handle) -> int
     return 0;
 }
 
-auto grid_delete(uint64_t& handle) -> int
+auto dGrid_delete(uint64_t& handle) -> int
 {
     std::cout << "grid_delete - BEGIN"<<std::endl;
 
@@ -40,7 +40,7 @@ auto grid_delete(uint64_t& handle) -> int
 }
 
 
-auto field_new(uint64_t& handle, uint64_t& gridHandle) -> int
+auto dGrid_dField_new(uint64_t& handle, uint64_t& gridHandle) -> int
 {
     std::cout << "field_new - BEGIN"<<std::endl;
 
@@ -64,7 +64,7 @@ auto field_new(uint64_t& handle, uint64_t& gridHandle) -> int
     return -1;
 }
 
-auto field_delete(uint64_t& handle) -> int
+auto dGrid_dField_delete(uint64_t& handle) -> int
 {
     std::cout << "field_delete - BEGIN"<<std::endl;
 
