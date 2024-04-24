@@ -1,11 +1,18 @@
 import ctypes
+import os
 from enum import Enum
 
 
 class PyNeon(object):
     def __init__(self):
         self.handle_type = ctypes.POINTER(ctypes.c_uint64)
-        self.lib = ctypes.CDLL('/home/max/repos/neon/warp/neon_warp_testing/neon_py_bindings/cmake-build-debug/libNeonPy/liblibNeonPy.so')
+        # get the path of this python file
+        current_file_path = os.path.abspath(__file__)
+        # get the directory containing the script
+        lib_path = os.path.dirname(current_file_path) + "../../neon_py_bindings/cmake-build-debug/libNeonPy/liblibNeonPy.so"
+        # move up two folders with respec to script_dir
+
+        self.lib = ctypes.CDLL(lib_path)
         # # grid_new
         # self.lib.grid_new.argtypes = [self.handle_type]
         # # self.lib.grid_new.re = [ctypes.c_int]

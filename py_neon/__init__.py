@@ -74,11 +74,9 @@ class DSpan(ctypes.Structure):
         str += f"\n\tspan_dim: {self.span_dim}"
         return str
 
-    def get_data_view(self) -> Data_view:
-        pass
+    def get_span_dim(self):
+        return copy.deepcopy(self.span_dim)
 
-    def get_data_view(self) -> Data_view:
-        pass
 
     @staticmethod
     def fields_():
