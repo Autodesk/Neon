@@ -1,3 +1,4 @@
+import copy
 import ctypes
 from enum import Enum
 
@@ -79,6 +80,11 @@ class DSpan(ctypes.Structure):
     def get_data_view(self) -> Data_view:
         pass
 
+    @staticmethod
+    def fields_():
+        return DSpan._fields_
+
+
 
 class DField(object):
     def __init__(self,
@@ -143,7 +149,7 @@ class DGrid(object):
                                                     ctypes.POINTER(DSpan),  # the span object
                                                     ctypes.c_int,  # the execution type
                                                     ctypes.c_int,  # the device id
-                                                    ctypes.c_int,  # the data view 
+                                                    ctypes.c_int,  # the data view
                                                     ]
 
     def help_grid_new(self):

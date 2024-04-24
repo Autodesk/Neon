@@ -53,7 +53,7 @@ auto ExecutionUtils::getCompatibleOptions(Neon::DataUse dataUse)
 }
 
 auto ExecutionUtils::checkCompatibility(Neon::DataUse   dataUse,
-                                         Neon::Execution execution)
+                                        Neon::Execution execution)
     -> bool
 {
     switch (dataUse) {
@@ -68,6 +68,22 @@ auto ExecutionUtils::checkCompatibility(Neon::DataUse   dataUse,
         }
     }
     NEON_THROW_UNSUPPORTED_OPERATION("");
+}
+
+
+auto ExecutionUtils::fromInt(int val) -> Execution
+{
+    switch (val) {
+        case static_cast<int>(Execution::device): {
+            return Execution::device;
+        }
+        case static_cast<int>(Execution::host): {
+            return Execution::host;
+        }
+        default: {
+            NEON_THROW_UNSUPPORTED_OPTION("DataViewUtil");
+        }
+    }
 }
 
 std::ostream& operator<<(std::ostream& os, Neon::Execution const& m)

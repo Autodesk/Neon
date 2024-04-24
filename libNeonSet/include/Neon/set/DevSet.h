@@ -1,4 +1,6 @@
 #pragma once
+#if !defined(NEON_WARP_COMPILATION)
+
 #include "Neon/core/tools/metaprogramming.h"
 #include "Neon/core/tools/metaprogramming/applyTuple.h"
 #include "Neon/set/MemoryOptions.h"
@@ -825,3 +827,4 @@ class DevSet
 
 
 }  // namespace Neon::set
+#endif

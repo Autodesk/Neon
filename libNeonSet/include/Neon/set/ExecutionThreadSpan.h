@@ -1,5 +1,5 @@
 #pragma once
-
+#if !defined(NEON_WARP_COMPILATION)
 #include <functional>
 #include <future>
 #include <iostream>
@@ -12,6 +12,8 @@
 #include "Neon/set/MemoryOptions.h"
 // #include "Neon/core/types/mode.h"
 // #include "Neon/core/types/devType.h"
+#endif
+
 
 namespace Neon::set::details {
 

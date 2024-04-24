@@ -1,5 +1,6 @@
 #pragma once
 
+#if !defined(NEON_WARP_COMPILATION)
 #include <iostream>
 #include <tuple>
 
@@ -91,3 +92,5 @@ using tupleDeVectorizedFunType_t = typename privateImplementation::tupleExtracto
 
 }  // namespace meta
 }  // namespace Neon
+
+#endif

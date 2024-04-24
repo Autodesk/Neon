@@ -1,4 +1,6 @@
 #pragma once
+
+#if !defined(NEON_WARP_COMPILATION)
 #include <stdint.h>
 #include <iostream>
 #include <tuple>
@@ -162,3 +164,5 @@ retVal applyTuple(retVal (*f)(ArgsF...),
 
 }  // namespace meta
 }  // namespace Neon
+
+#endif

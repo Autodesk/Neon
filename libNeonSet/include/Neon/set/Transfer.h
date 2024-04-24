@@ -82,6 +82,7 @@ class StreamSet;
 /**
  * Options for a peer transfer
  */
+ #if !defined(NEON_WARP_COMPILATION)
 struct PeerTransferOption
 {
     enum operationMode_e
@@ -185,6 +186,7 @@ struct PeerTransferOption
         return m_structure;
     }
 };
+#endif
 
 }  // namespace set
 }  // namespace Neon

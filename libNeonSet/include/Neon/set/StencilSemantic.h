@@ -2,7 +2,9 @@
 #include <string>
 #include <vector>
 
+#if !defined(NEON_WARP_COMPILATION)
 #include "Neon/Report.h"
+#endif
 #include "Neon/core/core.h"
 
 namespace Neon::set {
@@ -13,7 +15,7 @@ enum struct StencilSemantic
     lattice = 1 /*< Transfer for halo update on lattice structure */
 };
 
-
+#if !defined(NEON_WARP_COMPILATION)
 struct StencilSemanticUtils
 {
     static constexpr int nOptions = 2;
@@ -43,5 +45,5 @@ struct StencilSemanticUtils
     };
 };
 
-
+#endif
 }  // namespace Neon::set

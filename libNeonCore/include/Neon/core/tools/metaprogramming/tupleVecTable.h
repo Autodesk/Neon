@@ -1,5 +1,5 @@
 #pragma once
-
+#if !defined(NEON_WARP_COMPILATION)
 #include <iostream>
 #include <tuple>
 
@@ -76,3 +76,4 @@ struct rowAsReader_ta
 }  // End of namespace tupleVecTable
 }  // namespace meta
 }  // namespace Neon
+#endif

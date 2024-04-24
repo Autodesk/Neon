@@ -1,9 +1,12 @@
 #pragma once
+#if !defined(NEON_WARP_COMPILATION)
+
 #include <memory>
 #include <string>
 #include <vector>
 
 #include <rapidjson/document.h>
+
 
 namespace Neon::core {
 
@@ -86,3 +89,85 @@ class Report
 }  // namespace Neon::core
 
 #include "Neon/core/tools/Report_imp.h"
+
+#else
+
+
+#include <memory>
+#include <string>
+#include <vector>
+
+
+
+namespace Neon::core {
+
+class Report
+{
+   public:
+
+    Report() = default;
+
+    /**
+     * Constructor with name of the record
+     */
+    Report(const std::string& record_name);
+
+    /**
+     * Add the command line arguments to the report
+     */
+    auto commandLine(int argc, char** argv) -> void;
+
+    /**
+     * Set a token for this report. Token will be added as a new member
+     */
+    auto setToken(const std::string& token) -> void;
+
+    /**
+     * Write the report to a file with possibility to specify the output directory
+     * and appending the time to the file name
+     */
+    auto write(const std::string& outputFilename,
+               bool               appendTimeToFileName = true,
+               const std::string& outputFolder = ".") -> void;
+
+    /**
+     * Add a new key-value to the report. Key must be a string while value could be
+     * int32_t, uint32_t, double, float, bool, std::string, or std::vector of any
+     * of these types
+     */
+    template <typename T>
+    auto addMember(const std::string& memberKey, const T memberVal) -> void;
+
+
+    /**
+     * Add a new key-value to the report. This method is only sensible if the new key-value is added to a subdoc,
+     * Key must be a string while value could be int32_t, uint32_t, double, float, bool,
+     * std::string, or std::vector of any of these types
+     */
+    template <typename T>
+    auto addMember(const std::string&   memberKey,
+                   const T              memberVal,
+                   void* doc) -> void;
+
+    /**
+     * Generate a new subdoc. Subdoc groups a set of relevant information together
+     * where these information are the value
+     */
+    auto getSubdoc() -> int;
+
+    /**
+     * Add a subdoc to this report
+     */
+    auto addSubdoc(const std::string& name, int& subdoc) -> void;
+
+
+    template <typename T>
+    auto addMember(const std::string&    memberKey,
+                   const std::vector<T>& memberVal,
+                   void*  doc) -> void;
+
+   protected:
+
+};
+}  // namespace Neon::core
+#endif

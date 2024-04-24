@@ -41,8 +41,10 @@ struct ExecutionUtils
         -> std::vector<Execution>;
 
     static auto checkCompatibility(Neon::DataUse   dataUse,
-                                    Neon::Execution execution)
+                                   Neon::Execution execution)
         -> bool;
+
+    static auto fromInt(int val) -> Execution;
 
    private:
     static constexpr std::array<Execution, ExecutionUtils::numConfigurations> mAllOptions{Execution::device, Execution::host};

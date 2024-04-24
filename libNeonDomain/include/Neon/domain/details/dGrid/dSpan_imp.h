@@ -10,10 +10,16 @@ dSpan::setAndValidate(Idx&            idx,
     const -> bool
 {
     bool res = false;
+
+#if !defined(NEON_WARP_COMPILATION)
     idx.setLocation().x = int(x);
     idx.setLocation().y = int(y);
     idx.setLocation().z = int(z);
-
+#else
+   idx.setLocation().x = x;
+    idx.setLocation().y = y;
+    idx.setLocation().z = z;
+ #endif
     if (idx.getLocation() < mSpanDim) {
         res = true;
     }

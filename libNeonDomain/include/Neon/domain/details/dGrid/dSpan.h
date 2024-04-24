@@ -1,6 +1,8 @@
 #pragma once
 #include "Neon/set/DevSet.h"
 #include "dIndex.h"
+#include "Neon/set/ExecutionThreadSpan.h"
+
 namespace Neon::domain::details::dGrid {
 
 /**

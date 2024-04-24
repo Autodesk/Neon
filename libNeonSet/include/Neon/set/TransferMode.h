@@ -13,6 +13,8 @@ enum struct TransferMode
     get = 1
 };
 
+#if !defined(NEON_WARP_COMPILATION)
+
 class TransferModeUtils
 {
    public:
@@ -41,5 +43,5 @@ class TransferModeUtils
         TransferMode mOption;
     };
 };
-
+#endif
 }  // namespace Neon::set

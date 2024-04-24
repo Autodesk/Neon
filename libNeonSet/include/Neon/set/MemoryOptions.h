@@ -1,5 +1,7 @@
 #pragma once
-#include <vector>
+#if !defined(NEON_WARP_COMPILATION)
+
+ #include <vector>
 #include "Neon/set/Transfer.h"
 
 namespace Neon {
@@ -110,3 +112,5 @@ struct MemoryOptions
     Neon::MemoryLayout mMemOrder = Neon::MemoryLayout::structOfArrays /** Memory order */;
 };
 }  // namespace Neon
+
+#endif
