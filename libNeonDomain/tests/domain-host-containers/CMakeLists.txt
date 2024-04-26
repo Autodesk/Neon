@@ -11,7 +11,7 @@ target_link_libraries(domain-host-containers
 set_target_properties(domain-host-containers PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON
 	CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(domain-host-containers PROPERTIES FOLDER "libNeonDomain")
+set_target_properties(domain-host-containers PROPERTIES FOLDER "libNeonDomainTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "domain-host-containers" FILES ${SrcFiles})
 
 add_test(NAME domain-host-containers COMMAND domain-host-containers)
