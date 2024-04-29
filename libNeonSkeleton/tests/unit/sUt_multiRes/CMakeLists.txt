@@ -11,7 +11,7 @@ target_link_libraries(sUt_multiRes
 set_target_properties(sUt_multiRes PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON
 	CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(sUt_multiRes PROPERTIES FOLDER "libNeonSkeleton")
+set_target_properties(sUt_multiRes PROPERTIES FOLDER "libNeonSkeletonTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "sUt_multiRes" FILES ${SrcFiles})
 
 add_test(NAME sUt_multiRes COMMAND sUt_multiRes)

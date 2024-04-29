@@ -13,7 +13,7 @@ set_target_properties(domainUt_swap PROPERTIES
 		CUDA_SEPARABLE_COMPILATION ON
 		CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-set_target_properties(domainUt_swap PROPERTIES FOLDER "libNeonDomain")
+set_target_properties(domainUt_swap PROPERTIES FOLDER "libNeonDomainTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "gUt_containers" FILES ${SrcFiles})
 
 add_test(NAME domainUt_swap COMMAND domainUt_swap)

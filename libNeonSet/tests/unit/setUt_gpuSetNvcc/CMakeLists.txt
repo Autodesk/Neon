@@ -11,7 +11,7 @@ target_link_libraries(setUt_gpuSetNvcc
 set_target_properties(setUt_gpuSetNvcc PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON
 	CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(setUt_gpuSetNvcc PROPERTIES FOLDER "libNeonSet")
+set_target_properties(setUt_gpuSetNvcc PROPERTIES FOLDER "libNeonSetTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "setUt_gpuSetNvcc" FILES ${SrcFiles})
 
 add_test(NAME setUt_gpuSetNvcc COMMAND setUt_gpuSetNvcc)

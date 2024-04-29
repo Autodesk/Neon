@@ -13,7 +13,7 @@ set_target_properties(domain-unit-test-staggered-grid PROPERTIES
 		CUDA_SEPARABLE_COMPILATION ON
 		CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-set_target_properties(domain-unit-test-staggered-grid PROPERTIES FOLDER "libNeonDomain")
+set_target_properties(domain-unit-test-staggered-grid PROPERTIES FOLDER "libNeonDomainTests")
 source_group(TREE . PREFIX "gUt_containers" FILES ${SrcFiles})
 
 add_test(NAME domain-unit-test-staggered-grid COMMAND domain-unit-test-staggered-grid)

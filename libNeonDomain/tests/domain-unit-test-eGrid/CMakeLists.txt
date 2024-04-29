@@ -12,7 +12,7 @@ target_link_libraries(${APP_NAME}
 set_target_properties(${APP_NAME} PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON
 	CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(${APP_NAME} PROPERTIES FOLDER "libNeonDomain")
+set_target_properties(${APP_NAME} PROPERTIES FOLDER "libNeonDomainTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "${APP_NAME}" FILES ${SrcFiles})
 
 add_test(NAME ${APP_NAME} COMMAND ${APP_NAME})
