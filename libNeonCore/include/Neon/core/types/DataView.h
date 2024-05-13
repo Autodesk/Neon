@@ -6,7 +6,7 @@
 
 namespace Neon {
 
-enum struct DataView
+enum struct DataView : char
 {
     STANDARD = 0,
     INTERNAL = 1,

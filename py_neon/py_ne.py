@@ -3,16 +3,21 @@ import os
 from enum import Enum
 
 
-class PyNeon(object):
+class Py_neon(object):
     def __init__(self):
         self.handle_type = ctypes.POINTER(ctypes.c_uint64)
         # get the path of this python file
         current_file_path = os.path.abspath(__file__)
         # get the directory containing the script
-        lib_path = os.path.dirname(current_file_path) + "../../neon_py_bindings/cmake-build-debug/libNeonPy/liblibNeonPy.so"
+        lib_path = os.path.dirname(current_file_path) + "/../../neon_py_bindings/cmake-build-debug/libNeonPy/liblibNeonPy.so"
         # move up two folders with respec to script_dir
 
-        self.lib = ctypes.CDLL(lib_path)
+        try:
+            self.lib = ctypes.CDLL(lib_path)
+        except Exception as e:
+            print(f"Failed to load library: {lib_path}")
+            raise e
+
         # # grid_new
         # self.lib.grid_new.argtypes = [self.handle_type]
         # # self.lib.grid_new.re = [ctypes.c_int]
@@ -89,7 +94,7 @@ class DSpan(ctypes.Structure):
 
 class DField(object):
     def __init__(self,
-                 py_neon: PyNeon,
+                 py_neon: Py_neon,
                  dgrid_handle: ctypes.c_uint64
                  ):
         self.py_neon = py_neon
