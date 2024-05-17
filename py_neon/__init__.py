@@ -3,11 +3,11 @@ import ctypes
 from enum import Enum
 
 from .py_ne import Py_neon
-from .data_view import Data_view
+from .dataview import DataView
 from .execution import Execution
 from .index_3d import Index_3d
 
-import dense
+from .dense.__init__ import *
 
 #
 #

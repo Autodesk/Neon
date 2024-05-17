@@ -6,7 +6,7 @@ import py_neon
 from .field import Field
 from py_neon.execution import Execution
 from py_neon import Py_neon
-from py_neon.data_view import Data_view
+from py_neon.dataview import DataView
 from .span import Span
 
 class Grid(object):
@@ -39,7 +39,7 @@ class Grid(object):
                                                     ctypes.POINTER(Span),  # the span object
                                                     py_neon.Execution,  # the execution type
                                                     ctypes.c_int,  # the device id
-                                                    py_neon.Data_view,  # the data view
+                                                    py_neon.DataView,  # the data view
                                                     ]
 
     def help_grid_new(self):
@@ -64,7 +64,7 @@ class Grid(object):
     def get_span(self,
                  execution: Execution,
                  c: ctypes.c_int,
-                 data_view: Data_view) -> Span:
+                 data_view: DataView) -> Span:
         if self.handle == 0:
             raise Exception('DGrid: Invalid handle')
 
@@ -79,7 +79,7 @@ class Grid(object):
     def get_partition(self,
                       execution: Execution,
                       set_idx: int,
-                      data_view: Data_view) -> Span:
+                      data_view: DataView) -> Span:
         if self.handle == 0:
             raise Exception('DGrid: Invalid handle')
         pass

@@ -45,7 +45,7 @@ auto dGrid_get_span(uint64_t&          gridHandle,
                     int                device,
                     int                data_view) -> int
 {
-    std::cout << "dGrid_get_span - BEGIN " <<gridHandle << std::endl;
+    std::cout << "dGrid_get_span - BEGIN " << gridHandle << std::endl;
     std::cout << "dGrid_get_span - execution " << execution << std::endl;
     std::cout << "dGrid_get_span - device " << device << std::endl;
     std::cout << "dGrid_get_span - data_view " << data_view << std::endl;
@@ -56,10 +56,10 @@ auto dGrid_get_span(uint64_t&          gridHandle,
 
     if (gridPtr != nullptr) {
         auto& gridSpan = grid.getSpan(Neon::ExecutionUtils::fromInt(execution),
-                                     device,
-                                     Neon::DataViewUtil::fromInt(data_view));
-       (*spanRes) = gridSpan;
-        std::cout << "field_new - END" <<&gridSpan<< std::endl;
+                                      device,
+                                      Neon::DataViewUtil::fromInt(data_view));
+        (*spanRes) = gridSpan;
+        std::cout << "field_new - END" << &gridSpan << std::endl;
 
         return 0;
     }
@@ -75,8 +75,8 @@ auto dGrid_dField_new(uint64_t& handle, uint64_t& gridHandle) -> int
     Grid& grid = *gridPtr;
 
     if (gridPtr != nullptr) {
-        using Field = Grid::Field<int, 1>;
-        Field  field = grid.newField<int, 1>("test", 1, 0, Neon::DataUse::HOST_DEVICE);
+        using Field = Grid::Field<int, 0>;
+        Field  field = grid.newField<int, 0>("test", 1, 0, Neon::DataUse::HOST_DEVICE);
         Field* fieldPtr = new (std::nothrow) Field(field);
         if (fieldPtr == nullptr) {
             std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
@@ -84,6 +84,37 @@ auto dGrid_dField_new(uint64_t& handle, uint64_t& gridHandle) -> int
         }
         handle = (uint64_t)fieldPtr;
         std::cout << "field_new - END" << std::endl;
+
+        return 0;
+    }
+    std::cout << "field_new - ERROR (grid ptr " << gridPtr << ") " << std::endl;
+
+    return -1;
+}
+
+auto dGrid_dField_get_partition(uint64_t& field_handle,
+                                uint64_t& partition_handle,
+                                int       execution,
+                                int       device,
+                                int       data_view) -> int
+{
+
+    std::cout << "field_get_partition - BEGIN" << std::endl;
+    std::cout << "dGrid_get_span - execution " << execution << std::endl;
+    std::cout << "dGrid_get_span - device " << device << std::endl;
+    std::cout << "dGrid_get_span - data_view " << data_view << std::endl;
+
+    using Grid = Neon::dGrid;
+    using Field = Grid::Field<int, 0>;
+    Field* fieldPtr = (Field*)field_handle;
+    Field& field = *fieldPtr;
+
+    if (fieldPtr != nullptr) {
+        auto partition = field.getPartition(Neon::ExecutionUtils::fromInt(execution),
+                                            device,
+                                            Neon::DataViewUtil::fromInt(data_view));
+        partition_handle = (uint64_t)&partition;
+        std::cout << "field_get_partition - END" << std::endl;
 
         return 0;
     }

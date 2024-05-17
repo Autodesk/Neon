@@ -19,6 +19,12 @@ extern "C" auto dGrid_dField_new(uint64_t& handle,
 
 extern "C" auto dGrid_dField_delete(uint64_t& handle) -> int;
 
+extern "C" auto dGrid_dField_get_partition(uint64_t& field_handle,
+                                           uint64_t& partition_handle,
+                                           int       execution,
+                                           int       device,
+                                           int       data_view) -> int;
+
 extern "C" auto dGrid_get_span(uint64_t&          gridHandle,
                                Neon::dGrid::Span* spanRes,
                                int                execution,

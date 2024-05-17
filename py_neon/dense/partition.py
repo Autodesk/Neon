@@ -5,9 +5,9 @@ from enum import Enum
 import py_neon
 
 
-class Partition(ctypes.Structure):
+class PartitionInt(ctypes.Structure):
     _fields_ = [
-        ("mDataView", py_neon.Data_view),
+        ("mDataView", py_neon.DataView),
         ("mMem", ctypes.POINTER(ctypes.c_int)),
         ("mDim", py_neon.Index_3d),
         ("mZHaloRadius", ctypes.c_int),
@@ -41,7 +41,4 @@ class Partition(ctypes.Structure):
         str += f"\n\tmStencil: {self.mStencil}"
         return str
 
-    @staticmethod
-    def fields_():
-        return Partition._fields_
 

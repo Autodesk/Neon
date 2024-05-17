@@ -2,7 +2,7 @@ import copy
 import ctypes
 from enum import Enum
 
-class Data_view(ctypes.Structure):
+class DataView(ctypes.Structure):
     _fields_ = [("data_view", ctypes.c_uint8)]
 
     class Values(Enum):
@@ -11,11 +11,11 @@ class Data_view(ctypes.Structure):
         boundary = 2
 
     def __init__(self, data_view: Values):
-        if data_view == Data_view.Values.standard:
+        if data_view == DataView.Values.standard:
             self.data_view = 1
-        if data_view == Data_view.Values.internal:
+        if data_view == DataView.Values.internal:
             self.data_view = 2
-        if data_view == Data_view.Values.boundary:
+        if data_view == DataView.Values.boundary:
             self.data_view = 3
 
     @property
@@ -28,23 +28,23 @@ class Data_view(ctypes.Structure):
 
     @staticmethod
     def standard() :
-        return Data_view(Data_view.Values.standard)
+        return DataView(DataView.Values.standard)
 
     @staticmethod
     def internal():
-        return Data_view(Data_view.Values.internal)
+        return DataView(DataView.Values.internal)
 
     @staticmethod
     def boundary():
-        return Data_view(Data_view.Values.boundary)
+        return DataView(DataView.Values.boundary)
 
     def __str__(self):
         str = "<Data_view: addr=%ld, sizeof %ld>" % (ctypes.addressof(self), ctypes.sizeof(self))
-        if self.value == Data_view.Values.standard:
+        if self.value == DataView.Values.standard:
             str += f"\n\tdataView: {'standard'}"
-        if self.value == Data_view.Values.internal:
+        if self.value == DataView.Values.internal:
             str += f"\n\tdataView: {'internal'}"
-        if self.value == Data_view.Values.boundary:
+        if self.value == DataView.Values.boundary:
             str += f"\n\tdataView: {'boundary'}"
         return str
 
