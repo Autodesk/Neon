@@ -9,6 +9,7 @@ from py_neon import Py_neon
 from py_neon.dataview import DataView
 from .span import Span
 
+
 class Grid(object):
     def __init__(self):
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
@@ -29,11 +30,11 @@ class Grid(object):
 
         # grid_new
         self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type]
-        # self.lib.grid_new.re = [ctypes.c_int]
+        self.py_neon.lib.dGrid_new.restype = ctypes.c_int
 
         # grid_delete
         self.py_neon.lib.dGrid_delete.argtypes = [self.py_neon.handle_type]
-        # self.lib.grid_delete.restype = [ctypes.c_int]
+        self.py_neon.lib.dGrid_delete.restype = ctypes.c_int
 
         self.py_neon.lib.dGrid_get_span.argtypes = [self.py_neon.handle_type,
                                                     ctypes.POINTER(Span),  # the span object
@@ -41,6 +42,7 @@ class Grid(object):
                                                     ctypes.c_int,  # the device id
                                                     py_neon.DataView,  # the data view
                                                     ]
+        self.py_neon.lib.dGrid_get_span.restype = ctypes.c_int
 
     def help_grid_new(self):
         if self.handle == 0:
@@ -69,24 +71,7 @@ class Grid(object):
             raise Exception('DGrid: Invalid handle')
 
         span = Span()
-        ex: int = execution
-
         res = self.py_neon.lib.dGrid_get_span(self.handle, span, execution, c, data_view)
         if res != 0:
             raise Exception('Failed to get span')
         return span
-
-    def get_partition(self,
-                      execution: Execution,
-                      set_idx: int,
-                      data_view: DataView) -> Span:
-        if self.handle == 0:
-            raise Exception('DGrid: Invalid handle')
-        pass
-        # partition = Dense_partition()
-        # ex: int = execution
-        #
-        # res = self.py_neon.lib.dGrid_get_span(self.handle, span, 0, 0, 0)
-        # if res != 0:
-        #     raise Exception('Failed to get span')
-        # return span

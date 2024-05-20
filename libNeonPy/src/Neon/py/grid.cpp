@@ -1,9 +1,12 @@
 #include "Neon/py/grid.h"
 #include "Neon/domain/Grids.h"
 
-auto dGrid_new(uint64_t& handle) -> int
+auto dGrid_new(
+    uint64_t& handle)
+    -> int
 {
-    std::cout << "grid_new - BEGIN" << std::endl;
+    std::cout << "dGrid_new - BEGIN" << std::endl;
+    std::cout << "dGrid_get_span - gridHandle " << handle << std::endl;
 
     Neon::init();
 
@@ -25,9 +28,12 @@ auto dGrid_new(uint64_t& handle) -> int
     return 0;
 }
 
-auto dGrid_delete(uint64_t& handle) -> int
+auto dGrid_delete(
+    uint64_t& handle)
+    -> int
 {
-    std::cout << "grid_delete - BEGIN" << std::endl;
+    std::cout << "dGrid_delete - BEGIN" << std::endl;
+    std::cout << "dGrid_get_span - gridHandle " << handle << std::endl;
 
     using Grid = Neon::dGrid;
     Grid* gridPtr = (Grid*)handle;
@@ -35,17 +41,21 @@ auto dGrid_delete(uint64_t& handle) -> int
     if (gridPtr != nullptr) {
         delete gridPtr;
     }
-    std::cout << "grid_delete - END" << std::endl;
+    handle = 0;
+    std::cout << "dGrid_delete - END" << std::endl;
     return 0;
 }
 
-auto dGrid_get_span(uint64_t&          gridHandle,
-                    Neon::dGrid::Span* spanRes,
-                    int                execution,
-                    int                device,
-                    int                data_view) -> int
+auto dGrid_get_span(
+    uint64_t&          gridHandle,
+    Neon::dGrid::Span* spanRes,
+    int                execution,
+    int                device,
+    int                data_view)
+    -> int
 {
-    std::cout << "dGrid_get_span - BEGIN " << gridHandle << std::endl;
+    std::cout << "dGrid_get_span - BEGIN " << std::endl;
+    std::cout << "dGrid_get_span - gridHandle " << gridHandle << std::endl;
     std::cout << "dGrid_get_span - execution " << execution << std::endl;
     std::cout << "dGrid_get_span - device " << device << std::endl;
     std::cout << "dGrid_get_span - data_view " << data_view << std::endl;
@@ -66,9 +76,14 @@ auto dGrid_get_span(uint64_t&          gridHandle,
     return -1;
 }
 
-auto dGrid_dField_new(uint64_t& handle, uint64_t& gridHandle) -> int
+auto dGrid_dField_new(
+    uint64_t& handle,
+    uint64_t& gridHandle)
+    -> int
 {
-    std::cout << "field_new - BEGIN" << std::endl;
+    std::cout << "dGrid_dField_new - BEGIN" << std::endl;
+    std::cout << "dGrid_dField_new - gridHandle " << gridHandle << std::endl;
+    std::cout << "dGrid_dField_new - handle " << handle << std::endl;
 
     using Grid = Neon::dGrid;
     Grid* gridPtr = (Grid*)gridHandle;
@@ -76,54 +91,64 @@ auto dGrid_dField_new(uint64_t& handle, uint64_t& gridHandle) -> int
 
     if (gridPtr != nullptr) {
         using Field = Grid::Field<int, 0>;
-        Field  field = grid.newField<int, 0>("test", 1, 0, Neon::DataUse::HOST_DEVICE);
+        Field field = grid.newField<int, 0>("test", 1, 0, Neon::DataUse::HOST_DEVICE);
+        std::cout << field.toString() << std::endl;
         Field* fieldPtr = new (std::nothrow) Field(field);
         if (fieldPtr == nullptr) {
             std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
             return -1;
         }
         handle = (uint64_t)fieldPtr;
-        std::cout << "field_new - END" << std::endl;
+        std::cout << "dGrid_dField_new - END " << handle << std::endl;
 
         return 0;
     }
-    std::cout << "field_new - ERROR (grid ptr " << gridPtr << ") " << std::endl;
+    std::cout << "dGrid_dField_new - ERROR (grid ptr " << gridPtr << ") " << std::endl;
 
     return -1;
 }
 
-auto dGrid_dField_get_partition(uint64_t& field_handle,
-                                uint64_t& partition_handle,
-                                int       execution,
-                                int       device,
-                                int       data_view) -> int
+auto dGrid_dField_get_partition(
+    uint64_t&                                        field_handle,
+    [[maybe_unused]] Neon::dGrid::Partition<int, 0>* partitionPtr,
+    int                                              execution,
+    int                                              device,
+    int                                              data_view)
+    -> int
 {
 
-    std::cout << "field_get_partition - BEGIN" << std::endl;
-    std::cout << "dGrid_get_span - execution " << execution << std::endl;
-    std::cout << "dGrid_get_span - device " << device << std::endl;
-    std::cout << "dGrid_get_span - data_view " << data_view << std::endl;
+    std::cout << "dGrid_dField_get_partition - BEGIN " << std::endl;
+    std::cout << "dGrid_dField_get_partition - field_handle " << field_handle << std::endl;
+    std::cout << "dGrid_dField_get_partition - execution " << execution << std::endl;
+    std::cout << "dGrid_dField_get_partition - device " << device << std::endl;
+    std::cout << "dGrid_dField_get_partition - data_view " << data_view << std::endl;
 
     using Grid = Neon::dGrid;
     using Field = Grid::Field<int, 0>;
+
     Field* fieldPtr = (Field*)field_handle;
-    Field& field = *fieldPtr;
+    std::cout << fieldPtr->toString() << std::endl;
 
     if (fieldPtr != nullptr) {
-        auto partition = field.getPartition(Neon::ExecutionUtils::fromInt(execution),
-                                            device,
-                                            Neon::DataViewUtil::fromInt(data_view));
-        partition_handle = (uint64_t)&partition;
-        std::cout << "field_get_partition - END" << std::endl;
+        auto p = fieldPtr->getPartition(Neon::ExecutionUtils::fromInt(execution),
+                                        device,
+                                        Neon::DataViewUtil::fromInt(data_view));
+        std::cout << p.cardinality() << std::endl;
+
+        *partitionPtr = p;
+        std::cout << "dGrid_dField_get_partition - END" << std::endl;
 
         return 0;
     }
     return -1;
 }
 
-auto dGrid_dField_delete(uint64_t& handle) -> int
+auto dGrid_dField_delete(
+    uint64_t& handle)
+    -> int
 {
-    std::cout << "field_delete - BEGIN" << std::endl;
+    std::cout << "dGrid_dField_delete - BEGIN" << std::endl;
+    std::cout << "dGrid_dField_delete - handle " << handle << std::endl;
 
     using Grid = Neon::dGrid;
     using Field = Grid::Field<int, 1>;
@@ -133,7 +158,7 @@ auto dGrid_dField_delete(uint64_t& handle) -> int
     if (fieldPtr != nullptr) {
         delete fieldPtr;
     }
-    std::cout << "field_delete - END" << std::endl;
+    std::cout << "dGrid_dField_delete - END" << std::endl;
 
     return 0;
 }

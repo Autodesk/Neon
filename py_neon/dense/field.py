@@ -32,6 +32,7 @@ class Field(object):
         ## new_field
         self.py_neon.lib.dGrid_dField_new.argtypes = [self.handle_type,
                                                       self.handle_type]
+
         ## delete_field
         self.py_neon.lib.dGrid_dField_delete.argtypes = [self.handle_type]
 
@@ -77,5 +78,6 @@ class Field(object):
         if res != 0:
             raise Exception('Failed to get span')
 
+        print(f"Partition {partition}")
         wpne_partition = Wpne_NeonDensePartitionInt(partition)
         return wpne_partition
