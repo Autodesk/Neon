@@ -8,11 +8,14 @@ from py_neon.execution import Execution
 from py_neon import Py_neon
 from py_neon.dataview import DataView
 from .span import Span
+from .backend import Backend
 
 
 class Grid(object):
-    def __init__(self):
+    def __init__(self, backend = None, dim = None):
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
+        self.backend = backend
+        self.dim = dim
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
@@ -29,7 +32,9 @@ class Grid(object):
     def help_load_api(self):
 
         # grid_new
-        self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type]
+        self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type,
+                                               ctypes.POINTER(Backend),
+                                               py_neon.Index_3d]
         self.py_neon.lib.dGrid_new.restype = ctypes.c_int
 
         # grid_delete
@@ -52,7 +57,12 @@ class Grid(object):
         if self.handle == 0:
             raise Exception('DGrid: Invalid handle')
 
-        res = self.py_neon.lib.dGrid_new(self.handle)
+        if self.backend is None:
+            self.backend = Backend()
+        if self.dim is None:
+            self.dim = py_neon.Index_3d(10,10,10)
+
+        res = self.py_neon.lib.dGrid_new(self.handle, self.backend, self.dim)
         if res != 0:
             raise Exception('DGrid: Failed to initialize grid')
 
