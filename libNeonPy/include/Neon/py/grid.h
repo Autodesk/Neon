@@ -35,9 +35,9 @@ extern "C" auto dGrid_dField_delete(
 extern "C" auto dGrid_dField_get_partition(
     uint64_t&                       field_handle,
     Neon::dGrid::Partition<int, 0>* partition_handle,
-    int                             execution,
+    Neon::Execution                 execution,
     int                             device,
-    int                             data_view)
+    Neon::DataView                  data_view)
     -> int;
 
 extern "C" auto dGrid_get_span(
@@ -46,4 +46,12 @@ extern "C" auto dGrid_get_span(
     int                execution,
     int                device,
     int                data_view)
+    -> int;
+
+extern "C" auto dGrid_span_size(
+    Neon::dGrid::Span* spanRes)
+    -> int;
+
+extern "C" auto dGrid_dField_partition_size(
+    Neon::dGrid::Partition<int, 0>* partitionPtr)
     -> int;

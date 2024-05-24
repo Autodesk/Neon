@@ -9,14 +9,14 @@ class Execution(ctypes.Structure):
     _fields_ = [("execution", ctypes.c_uint8)]
 
     class Values(Enum):
-        device = 1
-        host = 2
+        device = 0
+        host = 1
 
     def __init__(self, execution: Values):
         if execution == Execution.Values.device:
-            self.execution = 1
+            self.execution = 0
         if execution == Execution.Values.host:
-            self.execution = 2
+            self.execution = 1
 
     def __int__(self):
         return self.execution

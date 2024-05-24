@@ -45,8 +45,8 @@ class dPartition
                         Neon::index_3d fullGridSize,
                         NghIdx*        stencil = nullptr)
         : mDataView(dataView),
-          mMem(mem),
           mDim(dim),
+          mMem(mem),
           mZHaloRadius(zHaloRadius),
           mZBoundaryRadius(zBoundaryRadius),
           mPitch(pitch),
@@ -462,10 +462,29 @@ class dPartition
         return mStencil;
     }
 
+    auto to_string()
+        const -> std::string
+    {
+        std::stringstream s;
+        s << "mDataView " << mDataView << "\n";
+        s << "mMem " << mMem << "\n";
+        s << "mDim " << mDim << "\n";
+        s << "mZHaloRadius " << mZHaloRadius << "\n";
+        s << "mZBoundaryRadius " << mZBoundaryRadius << "\n";
+        s << "mPitch " << mPitch << "\n";
+        s << "mPrtID " << mPrtID << "\n";
+        s << "mOrigin " << mOrigin << "\n";
+        s << "mCardinality " << mCardinality << "\n";
+        s << "mFullGridSize " << mFullGridSize << "\n";
+        s << "mPeriodicZ " << mPeriodicZ << "\n";
+        s << "mStencil " << mStencil << "\n";
+        return s.str();
+    }
+
    private:
     Neon::DataView        mDataView;
-    T* NEON_RESTRICT      mMem;
     Neon::index_3d        mDim;
+    T* NEON_RESTRICT      mMem;
     int                   mZHaloRadius;
     int                   mZBoundaryRadius;
     Pitch                 mPitch;
