@@ -44,6 +44,10 @@ class Grid(object):
                                                     ]
         self.py_neon.lib.dGrid_get_span.restype = ctypes.c_int
 
+        self.py_neon.lib.dGrid_span_size.argtypes = [ctypes.POINTER(Span)]
+        self.py_neon.lib.dGrid_span_size.restype = ctypes.c_int
+
+
     def help_grid_new(self):
         if self.handle == 0:
             raise Exception('DGrid: Invalid handle')
@@ -74,4 +78,11 @@ class Grid(object):
         res = self.py_neon.lib.dGrid_get_span(self.handle, span, execution, c, data_view)
         if res != 0:
             raise Exception('Failed to get span')
+
+        cpp_size = self.py_neon.lib.dGrid_span_size(span)
+        ctypes_size = ctypes.sizeof(span)
+
+        if cpp_size != ctypes_size:
+            raise Exception(f'Failed to get span: cpp_size {cpp_size} != ctypes_size {ctypes_size}')
+
         return span

@@ -12,11 +12,11 @@ class DataView(ctypes.Structure):
 
     def __init__(self, data_view: Values):
         if data_view == DataView.Values.standard:
-            self.data_view = 1
+            self.data_view = 0
         if data_view == DataView.Values.internal:
-            self.data_view = 2
+            self.data_view = 1
         if data_view == DataView.Values.boundary:
-            self.data_view = 3
+            self.data_view = 2
 
     @property
     def value(self):

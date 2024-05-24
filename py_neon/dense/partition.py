@@ -8,15 +8,15 @@ import py_neon
 class PartitionInt(ctypes.Structure):
     _fields_ = [
         ("mDataView", py_neon.DataView),
-        ("mMem", ctypes.POINTER(ctypes.c_int)),
         ("mDim", py_neon.Index_3d),
+        ("mMem", ctypes.POINTER(ctypes.c_int)),
         ("mZHaloRadius", ctypes.c_int),
         ("mZBoundaryRadius", ctypes.c_int),
         ("mPitch1", ctypes.c_uint64),
         ("mPitch2", ctypes.c_uint64),
         ("mPitch3", ctypes.c_uint64),
         ("mPitch4", ctypes.c_uint64),
-        ("mPrtID", ctypes.c_uint64),
+        ("mPrtID", ctypes.c_int),
         ("mOrigin", py_neon.Index_3d),
         ("mCardinality", ctypes.c_int),
         ("mFullGridSize", py_neon.Index_3d),

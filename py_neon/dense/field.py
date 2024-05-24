@@ -32,9 +32,11 @@ class Field(object):
         ## new_field
         self.py_neon.lib.dGrid_dField_new.argtypes = [self.handle_type,
                                                       self.handle_type]
+        self.py_neon.lib.dGrid_dField_new.restype = ctypes.c_int
 
         ## delete_field
         self.py_neon.lib.dGrid_dField_delete.argtypes = [self.handle_type]
+        self.py_neon.lib.dGrid_dField_delete.restype = ctypes.c_int
 
         ## get_partition
         self.py_neon.lib.dGrid_dField_get_partition.argtypes = [self.handle_type,
@@ -43,6 +45,11 @@ class Field(object):
                                                                 ctypes.c_int,  # the device id
                                                                 NeDataView,  # the data view
                                                                 ]
+        self.py_neon.lib.dGrid_dField_get_partition.restype = ctypes.c_int
+
+        # size partition
+        self.py_neon.lib.dGrid_dField_partition_size.argtypes = [ctypes.POINTER(NePartitionInt)]
+        self.py_neon.lib.dGrid_dField_partition_size.restype = ctypes.c_int
 
     def help_new(self):
         if self.handle == 0:
@@ -77,6 +84,12 @@ class Field(object):
                                                           data_view)
         if res != 0:
             raise Exception('Failed to get span')
+
+        ccp_size = self.py_neon.lib.dGrid_dField_partition_size(partition)
+        ctypes_size = ctypes.sizeof(partition)
+
+        if ccp_size != ctypes_size:
+            raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
 
         print(f"Partition {partition}")
         wpne_partition = Wpne_NeonDensePartitionInt(partition)

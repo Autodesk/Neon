@@ -14,7 +14,7 @@ auto dGrid_new(
     Neon::Backend         bk(1, Neon::Runtime::openmp);
     Neon::index_3d        dim(10, 10, 10);
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
-    Grid                  g(bk, dim, [](auto idx) { return true; }, d3q19);
+    Grid                  g(bk, dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
     auto                  gridPtr = new (std::nothrow) Grid(g);
 
     if (gridPtr == nullptr) {
@@ -59,6 +59,7 @@ auto dGrid_get_span(
     std::cout << "dGrid_get_span - execution " << execution << std::endl;
     std::cout << "dGrid_get_span - device " << device << std::endl;
     std::cout << "dGrid_get_span - data_view " << data_view << std::endl;
+    std::cout << "dGrid_get_span - Span size " << sizeof(*spanRes) << std::endl;
 
     using Grid = Neon::dGrid;
     Grid* gridPtr = (Grid*)gridHandle;
@@ -111,17 +112,17 @@ auto dGrid_dField_new(
 auto dGrid_dField_get_partition(
     uint64_t&                                        field_handle,
     [[maybe_unused]] Neon::dGrid::Partition<int, 0>* partitionPtr,
-    int                                              execution,
+    Neon::Execution                                  execution,
     int                                              device,
-    int                                              data_view)
+    Neon::DataView                                   data_view)
     -> int
 {
 
     std::cout << "dGrid_dField_get_partition - BEGIN " << std::endl;
     std::cout << "dGrid_dField_get_partition - field_handle " << field_handle << std::endl;
-    std::cout << "dGrid_dField_get_partition - execution " << execution << std::endl;
+    std::cout << "dGrid_dField_get_partition - execution " << Neon::ExecutionUtils::toString(execution) << std::endl;
     std::cout << "dGrid_dField_get_partition - device " << device << std::endl;
-    std::cout << "dGrid_dField_get_partition - data_view " << data_view << std::endl;
+    std::cout << "dGrid_dField_get_partition - data_view " << Neon::DataViewUtil::toString(data_view) << std::endl;
 
     using Grid = Neon::dGrid;
     using Field = Grid::Field<int, 0>;
@@ -130,12 +131,14 @@ auto dGrid_dField_get_partition(
     std::cout << fieldPtr->toString() << std::endl;
 
     if (fieldPtr != nullptr) {
-        auto p = fieldPtr->getPartition(Neon::ExecutionUtils::fromInt(execution),
+        auto p = fieldPtr->getPartition(execution,
                                         device,
-                                        Neon::DataViewUtil::fromInt(data_view));
+                                        data_view);
         std::cout << p.cardinality() << std::endl;
-
         *partitionPtr = p;
+        std::cout << "dGrid_dField_get_partition\n"
+                  << partitionPtr->to_string();
+
         std::cout << "dGrid_dField_get_partition - END" << std::endl;
 
         return 0;
@@ -161,4 +164,18 @@ auto dGrid_dField_delete(
     std::cout << "dGrid_dField_delete - END" << std::endl;
 
     return 0;
+}
+
+auto dGrid_span_size(
+    Neon::dGrid::Span* spanRes)
+    -> int
+{
+    return sizeof(*spanRes);
+}
+
+auto dGrid_dField_partition_size(
+    Neon::dGrid::Partition<int, 0>* partitionPtr)
+    -> int
+{
+    return sizeof(*partitionPtr);
 }
