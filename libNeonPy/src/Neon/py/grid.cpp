@@ -2,7 +2,9 @@
 #include "Neon/domain/Grids.h"
 
 auto dGrid_new(
-    uint64_t& handle)
+    uint64_t& handle,
+    Neon::Backend* backendPtr,
+    Neon::index_3d dimInput)
     -> int
 {
     std::cout << "dGrid_new - BEGIN" << std::endl;
