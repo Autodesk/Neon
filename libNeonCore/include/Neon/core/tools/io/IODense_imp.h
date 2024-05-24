@@ -172,10 +172,10 @@ auto IODense<ExportType, IntType>::operator()(const Integer_3d<IntType>& xyz,
         return mImplicitFun(xyz, card);
     }
     const size_t pitch =
-        mPitch.mXpitch * xyz.x +
-        mPitch.mYpitch * xyz.y +
-        mPitch.mZpitch * xyz.z +
-        mPitch.mCpitch * card;
+        mPitch.x * xyz.x +
+        mPitch.y * xyz.y +
+        mPitch.z * xyz.z +
+        mPitch.w * card;
     return mMem[pitch];
 }
 
@@ -189,10 +189,10 @@ auto IODense<ExportType, IntType>::getReference(const Integer_3d<IntType>& xyz,
         NEON_THROW_UNSUPPORTED_OPERATION("A IODense configure as IMPLICIT does not support such operation");
     }
     const size_t pitch =
-        mPitch.mXpitch * xyz.x +
-        mPitch.mYpitch * xyz.y +
-        mPitch.mZpitch * xyz.z +
-        mPitch.mCpitch * card;
+        mPitch.x * xyz.x +
+        mPitch.y * xyz.y +
+        mPitch.z * xyz.z +
+        mPitch.w * card;
     return mMem[pitch];
 }
 
@@ -328,23 +328,23 @@ template <typename ExportType,
 auto IODense<ExportType, IntType>::initPitch() -> void
 {
     if (mOrder == Neon::MemoryLayout::structOfArrays) {
-        mPitch.mXpitch = 1;
-        mPitch.mYpitch = static_cast<size_t>(mSpace.x);
+        mPitch.x = 1;
+        mPitch.y = static_cast<size_t>(mSpace.x);
 
-        mPitch.mZpitch = static_cast<size_t>(mSpace.x) *
+        mPitch.z = static_cast<size_t>(mSpace.x) *
                          static_cast<size_t>(mSpace.y);
 
-        mPitch.mCpitch = static_cast<size_t>(mSpace.x) *
+        mPitch.w = static_cast<size_t>(mSpace.x) *
                          static_cast<size_t>(mSpace.y) *
                          static_cast<size_t>(mSpace.z);
     } else {
-        mPitch.mXpitch = mCardinality;
-        mPitch.mYpitch = mCardinality *
+        mPitch.x = mCardinality;
+        mPitch.y = mCardinality *
                          static_cast<size_t>(mSpace.x);
-        mPitch.mZpitch = mCardinality *
+        mPitch.z = mCardinality *
                          static_cast<size_t>(mSpace.x) *
                          static_cast<size_t>(mSpace.y);
-        mPitch.mCpitch = 1;
+        mPitch.w = 1;
     }
 }
 template <typename ExportType, typename IntType>

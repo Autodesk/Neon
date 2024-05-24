@@ -251,8 +251,8 @@ NEON_CUDA_HOST_DEVICE inline index_t Vec_4d<RealType_ta, false, true>::idxOfMax(
     element_t themax = x;
     index_t  indexMax = 0;
     for (int index = 1; index < 4; index++) {
-        if (themax < v[index]) {
-            themax = v[index];
+        if (themax < getVectorView()[index]) {
+            themax = getVectorView()[index];
             indexMax = index;
         }
     }
@@ -265,8 +265,8 @@ NEON_CUDA_HOST_DEVICE inline index_t Vec_4d<RealType_ta, false, true>::idxOfMin(
     element_t themin = x;
     index_t  indexMin = 0;
     for (int index = 1; index < 4; index++) {
-        if (themin > v[index]) {
-            themin = v[index];
+        if (themin > getVectorView()[index]) {
+            themin = getVectorView()[index];
             indexMin = index;
         }
     }
@@ -278,7 +278,7 @@ NEON_CUDA_HOST_DEVICE inline Vec_4d<index_t> Vec_4d<RealType_ta, false, true>::i
 {
     Vec_4d<index_t> mask(0);
     const index_t   index = this->iOfMin();
-    mask.v[index] = 1;
+    mask.getVectorView()[index] = 1;
     return mask;
 }
 
@@ -286,20 +286,20 @@ template <typename RealType_ta>
 NEON_CUDA_HOST_DEVICE inline Vec_4d<int32_t> Vec_4d<RealType_ta, false, true>::idxOrderByMax() const
 {
     Vec_4d<int32_t> ordered(0, 1, 2, 3);
-    if (v[0] < v[1]) {
-        ordered.v[0] = 1;
-        ordered.v[1] = 0;
+    if (getVectorView()[0] < getVectorView()[1]) {
+        ordered.getVectorView()[0] = 1;
+        ordered.getVectorView()[1] = 0;
     }
-    if (v[ordered.v[1]] < v[ordered.v[2]]) {
-        int32_t tmp = ordered.v[1];
-        ordered.v[1] = ordered.v[2];
-        ordered.v[2] = tmp;
+    if (getVectorView()[ordered.getVectorView()[1]] < getVectorView()[ordered.getVectorView()[2]]) {
+        int32_t tmp = ordered.getVectorView()[1];
+        ordered.getVectorView()[1] = ordered.getVectorView()[2];
+        ordered.getVectorView()[2] = tmp;
     }
 
-	if (v[ordered.v[2]] < v[ordered.v[3]]) {
-        int32_t tmp = ordered.v[2];
-        ordered.v[2] = ordered.v[3];
-        ordered.v[3] = tmp;
+	if (getVectorView()[ordered.getVectorView()[2]] < getVectorView()[ordered.getVectorView()[3]]) {
+        int32_t tmp = ordered.getVectorView()[2];
+        ordered.getVectorView()[2] = ordered.getVectorView()[3];
+        ordered.getVectorView()[3] = tmp;
     }
     return ordered;
 }

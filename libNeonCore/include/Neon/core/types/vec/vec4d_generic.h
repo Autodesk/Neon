@@ -26,9 +26,10 @@ class Vec_4d
         w_axis = 2,
         num_axis = 4
     };
-
+#if !defined(NEON_WARP_COMPILATION)
     static_assert(!IsBaseTypeInteger, "");
     static_assert(!IsBaseTypeReal, "");
+#endif
 };
 
 

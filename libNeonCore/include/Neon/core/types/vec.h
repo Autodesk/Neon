@@ -14,9 +14,7 @@
 
 #include "Neon/core/types/vec/vec3d_generic.h"
 
-#if !defined(NEON_WARP_COMPILATION)
 #include "Neon/core/types/vec/vec4d_generic.h"
-#endif
 
 
 #include "Neon/core/types/vec/vecAlias.h"
@@ -28,8 +26,10 @@
 
 #include "Neon/core/types/vec/vec3d_integer.tdecl.h"
 #include "Neon/core/types/vec/vec3d_real.tdecl.h"
-#if !defined(NEON_WARP_COMPILATION)
+
+
 #include "Neon/core/types/vec/vec4d_integer.tdecl.h"
+#if !defined(NEON_WARP_COMPILATION)
 #include "Neon/core/types/vec/vec4d_real.tdecl.h"
 #endif
 

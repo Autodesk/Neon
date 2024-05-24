@@ -50,6 +50,7 @@ class Vec_4d<RealType_ta, false, true>
 {
    public:
     using element_t = RealType_ta;
+    using Real = RealType_ta;
     using self_t = Vec_4d<element_t, false, true>;
 
     static_assert(!std::is_integral<RealType_ta>::value, "");
@@ -65,34 +66,8 @@ class Vec_4d<RealType_ta, false, true>
         num_axis = 4
     };
 
-    union
-    {
-        element_t v[axis_e::num_axis]{
-            static_cast<element_t>(.0), static_cast<element_t>(.0), static_cast<element_t>(.0), static_cast<element_t>(.0)};
-        struct
-        {
-            union
-            {
-                element_t x;
-                element_t r;
-            };
-            union
-            {
-                element_t y;
-                element_t s;
-            };
-            union
-            {
-                element_t z;
-                element_t t;
-            };
-            union
-            {
-                element_t w;
-                element_t u;
-            };
-        };
-    };
+    Real x, y, z, w;
+
 
 
     /**
@@ -145,6 +120,10 @@ class Vec_4d<RealType_ta, false, true>
     NEON_CUDA_HOST_DEVICE inline void set(const element_t p[self_t::num_axis]);
 
     NEON_CUDA_HOST_DEVICE inline void set(const self_t& xyzw);
+
+   NEON_CUDA_HOST_DEVICE inline auto constexpr getVectorView() -> Real*;
+
+ NEON_CUDA_HOST_DEVICE inline auto constexpr getVectorView() const -> const Real*;
 
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------

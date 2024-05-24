@@ -566,9 +566,9 @@ struct ContainerFactoryD3QXX
 
                                 if (globalIdx.y == domainDim.y - 1) {
                                     popVal = -6. * Lattice::Memory::template getT<M::fwdMemQ>() * ulb *
-                                             (Lattice::Memory::template getDirection<M::fwdMemQ>().v[0] * ulid.v[0] +
-                                              Lattice::Memory::template getDirection<M::fwdMemQ>().v[1] * ulid.v[1] +
-                                              Lattice::Memory::template getDirection<M::fwdMemQ>().v[2] * ulid.v[2]);
+                                             (Lattice::Memory::template getDirection<M::fwdMemQ>().x * ulid.x +
+                                              Lattice::Memory::template getDirection<M::fwdMemQ>().y * ulid.y +
+                                              Lattice::Memory::template getDirection<M::fwdMemQ>().z * ulid.z);
                                 } else {
                                     popVal = 0;
                                 }

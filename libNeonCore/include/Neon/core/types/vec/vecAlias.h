@@ -86,7 +86,7 @@ using Real_4d = Vec_4d<RealType_ta, false, true>;
 
 using double_4d = Vec_4d<double>;
 using float_4d = Vec_4d<float>;
-
+#endif
 //---- [Integer 4D SECTION] ----------------------------------------------------------------------------------------------
 //---- [Integer 4D SECTION] ----------------------------------------------------------------------------------------------
 //---- [Integer 4D SECTION] ----------------------------------------------------------------------------------------------
@@ -103,5 +103,4 @@ using uint64_4d = Vec_4d<uint64_t>;
 using size_4d = Vec_4d<std::size_t>;
 using index_4d = Vec_4d<index_t, true, false>;
 using char_4d = Vec_4d<char, true, false>;
-#endif
 }  // End of namespace Neon

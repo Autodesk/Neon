@@ -5,7 +5,9 @@
 #include "Neon/domain/interface/NghData.h"
 #include "Neon/set/DevSet.h"
 #include "Neon/sys/memory/CudaIntrinsics.h"
+#if !defined(NEON_WARP_COMPILATION)
 #include "cuda_fp16.h"
+#endif
 #include "dIndex.h"
 namespace Neon::domain::details::dGrid {
 
@@ -59,12 +61,14 @@ class dPartition
     {
     }
 
+#if !defined(NEON_WARP_COMPILATION)
     inline NEON_CUDA_HOST_ONLY auto
     enablePeriodicAlongZ()
         -> void
     {
         mPeriodicZ = true;
     }
+#endif
 
     inline NEON_CUDA_HOST_DEVICE auto
     prtID()
@@ -150,6 +154,7 @@ class dPartition
         return NghData(val, isValidNeighbour);
     }
 
+#if !defined(NEON_WARP_COMPILATION)
     template <int xOff, int yOff, int zOff, typename LambdaVALID, typename LambdaNOTValid = void*>
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(const Idx&     gidx,
@@ -170,6 +175,7 @@ class dPartition
             }
         }
     }
+#endif
 
     template <int xOff,
               int yOff,
