@@ -37,8 +37,8 @@
 #include <string>
 #include <type_traits>
 
-//#include <cuda.h>
-//#include <cuda_runtime_api.h>
+// #include <cuda.h>
+// #include <cuda_runtime_api.h>
 
 #include "Neon/core/types/BasicTypes.h"
 #include "Neon/core/types/Exceptions.h"
@@ -52,8 +52,8 @@ namespace Neon {
 
 
 /**
-* Partial specialization for integer types (int32_t, int64_t, size_t,...)
-*/
+ * Partial specialization for integer types (int32_t, int64_t, size_t,...)
+ */
 template <typename IntegerType_ta>
 class Vec_4d<IntegerType_ta, true, false>
 {
@@ -75,39 +75,7 @@ class Vec_4d<IntegerType_ta, true, false>
         c_axis = 3,
         num_axis = 4
     };
-
-    union
-    {
-        element_t v[axis_e::num_axis]{0, 0, 0, 0};
-        struct
-        {
-            union
-            {
-                element_t x;
-                element_t r;
-                element_t mXpitch;
-            };
-            union
-            {
-                element_t y;
-                element_t s;
-                element_t mYpitch;
-            };
-            union
-            {
-                element_t z;
-                element_t t;
-                element_t mZpitch;
-            };
-            union
-            {
-                element_t w;
-                element_t u;
-                element_t mCpitch;
-                element_t c;
-            };
-        };
-    };
+    Integer x, y, z, w;
 
     /**
      * Empty constructor.
@@ -119,9 +87,9 @@ class Vec_4d<IntegerType_ta, true, false>
     ~Vec_4d() = default;
 
     /**
-    * All component of the 4d tuple are set to the same scalar value.
-    *   @param[in] other the vector
-    */
+     * All component of the 4d tuple are set to the same scalar value.
+     *   @param[in] other the vector
+     */
     NEON_CUDA_HOST_DEVICE inline Vec_4d(const self_t& other);
 
     /**
@@ -132,13 +100,15 @@ class Vec_4d<IntegerType_ta, true, false>
 
     NEON_CUDA_HOST_DEVICE inline Vec_4d(const element_t other[self_t::num_axis]);
 
+#if !defined(NEON_WARP_COMPILATION)
     NEON_CUDA_HOST_ONLY inline Vec_4d(std::initializer_list<element_t> other);
+#endif
     /**
      * Creates a 4d tuple with specific values for each component.
      *   @param[in] px: value for the x component.
      *   @param[in] py: value for the y component.
      *   @param[in] pz: value for the z component.
-	 *   @param[in] pw: value for the w component.
+     *   @param[in] pw: value for the w component.
      */
     NEON_CUDA_HOST_DEVICE inline Vec_4d(element_t px, element_t py, element_t pz, element_t pw);
 
@@ -152,6 +122,9 @@ class Vec_4d<IntegerType_ta, true, false>
 
     NEON_CUDA_HOST_DEVICE inline void set(const element_t& xyzw);
 
+    NEON_CUDA_HOST_DEVICE inline auto constexpr getVectorView() -> Integer*;
+
+    NEON_CUDA_HOST_DEVICE inline auto constexpr getVectorView() const -> const Integer*;
 
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
@@ -169,7 +142,7 @@ class Vec_4d<IntegerType_ta, true, false>
 
     /**
      *   Extracts the max absolute value stored by the 4d tuple.
-     *   @return max absolute value 
+     *   @return max absolute value
      */
     inline element_t rAbsMax() const;
 
@@ -319,10 +292,10 @@ class Vec_4d<IntegerType_ta, true, false>
      */
     NEON_CUDA_HOST_DEVICE inline self_t operator-(const self_t& B) const;
     /**
-        *   Compute the mod between two points A and B, component by component (A.x%B.x, A.y%B.y, A.z%B.z).
-        *   @param[in] B: second point for the diff.
-        *   @return Resulting point is C =(A.x % B.x, A.y % B.y, A.z % B.z)
-        */
+     *   Compute the mod between two points A and B, component by component (A.x%B.x, A.y%B.y, A.z%B.z).
+     *   @param[in] B: second point for the diff.
+     *   @return Resulting point is C =(A.x % B.x, A.y % B.y, A.z % B.z)
+     */
     NEON_CUDA_HOST_DEVICE inline self_t operator%(const self_t& B) const;
     /**
      *   Compute the multiplication between two points A and B, component by component (A.x*B.x, A.y*B.y, A.z*B.z, A.w.*B.w).
@@ -356,15 +329,15 @@ class Vec_4d<IntegerType_ta, true, false>
     NEON_CUDA_HOST_DEVICE inline bool operator<(const self_t& B) const;
 
     /**  Returns true if A.x >= B.x && A.y >= B.y && A.z >= B.z
-         *   @param[in] B: second point for the operation.
-         *   @return Resulting point is C as C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
-         */
+     *   @param[in] B: second point for the operation.
+     *   @return Resulting point is C as C.v[i] = A.v[i] > B.v[i] ? A.v[i] : B.v[i]
+     */
     NEON_CUDA_HOST_DEVICE inline bool operator>=(const self_t& B) const;
 
     /**  Returns true if A.x <= B.x && A.y <= B.y && A.z <= B.z
-         *   @param[in] B: second point for the operation.
-         *   @return True if A.x <= B.x && A.y <= B.y && A.z <= B.z
-         */
+     *   @param[in] B: second point for the operation.
+     *   @return True if A.x <= B.x && A.y <= B.y && A.z <= B.z
+     */
     NEON_CUDA_HOST_DEVICE inline bool operator<=(const self_t& B) const;
 
     /**  Returns true if A.x <= B.x && A.y <= B.y && A.z <= B.z
@@ -423,11 +396,13 @@ class Vec_4d<IntegerType_ta, true, false>
     //---- [ForEach SECTION] ----------------------------------------------------------------------------------------------
     //---- [ForEach SECTION] ----------------------------------------------------------------------------------------------
 
+#if !defined(NEON_WARP_COMPILATION)
     template <Neon::computeMode_t::computeMode_e computeMode_ta = Neon::computeMode_t::seq>
     static void forEach(const self_t& len, std::function<void(const self_t& idx)> lambda);
 
     template <Neon::computeMode_t::computeMode_e computeMode_ta = Neon::computeMode_t::seq>
     static void forEach(const self_t& len, std::function<void(element_t idxX, element_t idxY, element_t idxZ, element_t idxW)> lambda);
+#endif
 };
 
 

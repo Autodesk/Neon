@@ -6,6 +6,7 @@ add_executable(sysUt_devGpu ${SrcFiles})
 
 target_link_libraries(sysUt_devGpu 
 	PUBLIC libNeonSys
+	PUBLIC libNeonSet
 	PUBLIC gtest_main)
 
 set_target_properties(sysUt_devGpu PROPERTIES FOLDER "libNeonSys")

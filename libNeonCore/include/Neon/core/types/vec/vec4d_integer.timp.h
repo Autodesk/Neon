@@ -50,6 +50,9 @@ NEON_CUDA_HOST_DEVICE inline Vec_4d<IntegerType_ta, true, false>::Vec_4d(const I
 {
     set(other);
 }
+
+#if !defined(NEON_WARP_COMPILATION)
+
 template <typename IntegerType_ta>
 NEON_CUDA_HOST_ONLY inline Vec_4d<IntegerType_ta, true, false>::Vec_4d(std::initializer_list<IntegerType_ta> other)
 {
@@ -73,6 +76,7 @@ NEON_CUDA_HOST_ONLY inline Vec_4d<IntegerType_ta, true, false>::Vec_4d(std::init
     w = begin[3];
     return;
 }
+#endif
 
 template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline Vec_4d<IntegerType_ta, true, false>::Vec_4d(IntegerType_ta px, IntegerType_ta py, IntegerType_ta pz, IntegerType_ta pw)
@@ -124,6 +128,21 @@ NEON_CUDA_HOST_DEVICE inline void Vec_4d<IntegerType_ta, true, false>::set(const
     w = xyzw;
 }
 
+template <typename IntegerType_ta>
+NEON_CUDA_HOST_DEVICE inline constexpr auto Vec_4d<IntegerType_ta, true, false>::
+    getVectorView()
+        const -> const IntegerType_ta*
+{
+    return &x;
+}
+
+template <typename IntegerType_ta>
+NEON_CUDA_HOST_DEVICE inline constexpr auto Vec_4d<IntegerType_ta, true, false>::
+    getVectorView()
+        -> IntegerType_ta*
+{
+    return &x;
+}
 
 //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
 //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
@@ -210,16 +229,16 @@ NEON_CUDA_HOST_DEVICE inline size_t Vec_4d<IntegerType_ta, true, false>::mCardDe
 {
     switch (order_ta) {
         case Neon::MemoryLayout::structOfArrays: {
-            return size_t(c) +
-                   size_t(x) * size_t(dimGrid.c) +
-                   size_t(y) * size_t(dimGrid.c) * size_t(dimGrid.x) +
-                   size_t(z) * size_t(dimGrid.c) * size_t(dimGrid.x) * size_t(dimGrid.y);
+            return size_t(w) +
+                   size_t(x) * size_t(dimGrid.w) +
+                   size_t(y) * size_t(dimGrid.w) * size_t(dimGrid.x) +
+                   size_t(z) * size_t(dimGrid.w) * size_t(dimGrid.x) * size_t(dimGrid.y);
         }
         case Neon::MemoryLayout::arrayOfStructs: {
             return size_t(x) +
                    size_t(y) * size_t(dimGrid.x) +
                    size_t(z) * size_t(dimGrid.x) * size_t(dimGrid.y) +
-                   size_t(c) * size_t(dimGrid.x) * size_t(dimGrid.y) * size_t(dimGrid.z);
+                   size_t(w) * size_t(dimGrid.x) * size_t(dimGrid.y) * size_t(dimGrid.z);
             ;
         }
     }
@@ -292,8 +311,8 @@ NEON_CUDA_HOST_DEVICE inline index_t Vec_4d<IntegerType_ta, true, false>::idxOfM
     element_t themax = x;
     index_t   indexMax = 0;
     for (int index = 1; index < 4; index++) {
-        if (themax < v[index]) {
-            themax = v[index];
+        if (themax < getVectorView()[index]) {
+            themax = getVectorView()[index];
             indexMax = index;
         }
     }
@@ -307,8 +326,8 @@ NEON_CUDA_HOST_DEVICE inline index_t Vec_4d<IntegerType_ta, true, false>::idxOfM
     element_t themin = x;
     index_t   indexMin = 0;
     for (int index = 1; index < 4; index++) {
-        if (themin > v[index]) {
-            themin = v[index];
+        if (themin > getVectorView()[index]) {
+            themin = getVectorView()[index];
             indexMin = index;
         }
     }
@@ -321,7 +340,7 @@ NEON_CUDA_HOST_DEVICE inline Vec_4d<index_t> Vec_4d<IntegerType_ta, true, false>
 {
     Vec_4d<index_t> mask(0);
     const index_t   index = this->iOfMin();
-    mask.v[index] = 1;
+    mask.getVectorView()[index] = 1;
     return mask;
 }
 
@@ -330,19 +349,19 @@ template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline Vec_4d<int32_t> Vec_4d<IntegerType_ta, true, false>::idxOrderByMax() const
 {
     Vec_4d<int32_t> ordered(0, 1, 2, 3);
-    if (v[0] < v[1]) {
-        ordered.v[0] = 1;
-        ordered.v[1] = 0;
+    if (getVectorView()[0] < getVectorView()[1]) {
+        ordered.getVectorView()[0] = 1;
+        ordered.getVectorView()[1] = 0;
     }
-    if (v[ordered.v[1]] < v[ordered.v[2]]) {
-        int32_t tmp = ordered.v[1];
-        ordered.v[1] = ordered.v[2];
-        ordered.v[2] = tmp;
+    if (getVectorView()[ordered.getVectorView()[1]] < getVectorView()[ordered.getVectorView()[2]]) {
+        int32_t tmp = ordered.getVectorView()[1];
+        ordered.getVectorView()[1] = ordered.getVectorView()[2];
+        ordered.getVectorView()[2] = tmp;
     }
-    if (v[ordered.v[2]] < v[ordered.v[3]]) {
-        int32_t tmp = ordered.v[2];
-        ordered.v[2] = ordered.v[3];
-        ordered.v[3] = tmp;
+    if (getVectorView()[ordered.getVectorView()[2]] < getVectorView()[ordered.getVectorView()[3]]) {
+        int32_t tmp = ordered.getVectorView()[2];
+        ordered.getVectorView()[2] = ordered.getVectorView()[3];
+        ordered.getVectorView()[3] = tmp;
     }
     return ordered;
 }
@@ -673,6 +692,7 @@ std::string Vec_4d<IntegerType_ta, true, false>::to_stringForComposedNames() con
     msg += std::to_string(w);
     return msg;
 }
+#if !defined(NEON_WARP_COMPILATION)
 
 template <typename IntegerType_ta>
 template <Neon::computeMode_t::computeMode_e computeMode_ta>
@@ -743,5 +763,6 @@ std::ostream& operator<<(std::ostream& out, const Vec_4d<IntegerType_ta, true, f
     out << p.to_string();
     return out;
 }
+#endif
 
 }  // namespace Neon

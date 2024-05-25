@@ -77,9 +77,9 @@ auto run(Config&                             config,
                 using M = typename Lattice::template RegisterMapper<q>;
                 if (globalIdx.y == domainDim.y - 1) {
                     popVal = -6. * Lattice::Registers::template getT<M::fwdRegQ>() * ulb *
-                             (Lattice::Registers::template getVelocityComponent<M::fwdRegQ, 0>() * ulid.v[0] +
-                              Lattice::Registers::template getVelocityComponent<M::fwdRegQ, 1>() * ulid.v[1] +
-                              Lattice::Registers::template getVelocityComponent<M::fwdRegQ, 2>() * ulid.v[2]);
+                             (Lattice::Registers::template getVelocityComponent<M::fwdRegQ, 0>() * ulid.x+
+                              Lattice::Registers::template getVelocityComponent<M::fwdRegQ, 1>() * ulid.y +
+                              Lattice::Registers::template getVelocityComponent<M::fwdRegQ, 2>() * ulid.z);
                 } else {
                     popVal = 0;
                 }
