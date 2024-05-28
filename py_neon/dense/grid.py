@@ -62,7 +62,7 @@ class Grid(object):
         if self.dim is None:
             self.dim = py_neon.Index_3d(10,10,10)
 
-        res = self.py_neon.lib.dGrid_new(self.handle, self.backend, self.dim)
+        res = self.py_neon.lib.dGrid_new(self.handle, self.backend.handle, self.dim)
         if res != 0:
             raise Exception('DGrid: Failed to initialize grid')
 

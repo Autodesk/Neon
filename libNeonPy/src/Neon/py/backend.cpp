@@ -17,17 +17,11 @@ int backend_constructor_epilogue(uint64_t& handle, Neon::Backend* backendPtr) {
     return 0;
 }
 
-auto dBackend_new_default(
+auto dBackend_new1(
     uint64_t& handle)
     -> int
 {
-    return dBackend_new(handle, 1, Neon::Runtime::openmp);
-}
-
-auto dBackend_new(
-    uint64_t& handle)
-    -> int
-{
+    std::cout << "first constructor" << std::endl;
     backend_constructor_prologue(handle);
 
     auto backendPtr = new (std::nothrow) Neon::Backend();
@@ -35,67 +29,30 @@ auto dBackend_new(
     return backend_constructor_epilogue(handle, backendPtr);
 }
 
-auto dBackend_new(
+auto dBackend_new2(
+    std::cout << "second constructor" << std::endl;
     uint64_t& handle,
     int nGpus,
-    Neon::Runtime runtime)
+    int runtime)
     -> int
 {
     backend_constructor_prologue(handle);
 
-    auto backendPtr = new (std::nothrow) Neon::Backend(nGpus, runtime);
+    auto backendPtr = new (std::nothrow) Neon::Backend(nGpus, Neon::Runtime(runtime));
 
     return backend_constructor_epilogue(handle, backendPtr);
 }
 
-auto dBackend_new(
+auto dBackend_new3(
+    std::cout << "third constructor" << std::endl;
     uint64_t& handle,
-    const std::vector<int>& devIds,
-    Neon::Runtime runtime)
+    const int* devIds,
+    int runtime)
     -> int
 {
     backend_constructor_prologue(handle);
 
-    auto backendPtr = new (std::nothrow) Neon::Backend(devIds, runtime);
-
-    return backend_constructor_epilogue(handle, backendPtr);
-}
-
-auto dBackend_new(
-    uint64_t& handle,
-    const Neon::set::DevSet& devSet,
-    Neon::Runtime runtime)
-    -> int
-{
-    backend_constructor_prologue(handle);
-
-    auto backendPtr = new (std::nothrow) Neon::Backend(devSet, runtime);
-
-    return backend_constructor_epilogue(handle, backendPtr);
-}
-
-auto dBackend_new(
-    uint64_t& handle,
-    const std::vector<int>& devIds,
-    const Neon::set::StreamSet& streamSet)
-    -> int
-{
-    backend_constructor_prologue(handle);
-
-    auto backendPtr = new (std::nothrow) Neon::Backend(devIds, streamSet);
-
-    return backend_constructor_epilogue(handle, backendPtr);
-}
-
-auto dBackend_new(
-    uint64_t& handle,
-    const std::vector<int>& devSet,
-    const Neon::set::StreamSet& streamSet)
-    -> int
-{
-    backend_constructor_prologue(handle);
-
-    auto backendPtr = new (std::nothrow) Neon::Backend(devSet, streamSet);
+    auto backendPtr = new (std::nothrow) Neon::Backend(std::vector<int>(*devIds), Neon::runtime(runtime));
 
     return backend_constructor_epilogue(handle, backendPtr);
 }
@@ -116,4 +73,14 @@ auto dBackend_delete(
     handle = 0;
     std::cout << "dBackend_delete - END" << std::endl;
     return 0;
+}
+
+auto dBackend_get_string(uint64_t& handle) -> const char* {
+    std::cout << "get_string - BEGIN" << std::endl;
+    std::cout << "backendHandle " << handle << std::endl;
+
+    using Backend = Neon::Backend;
+    Backend* backendPtr = (Backend*)handle;
+
+    return backendPtr->toString().c_str();
 }

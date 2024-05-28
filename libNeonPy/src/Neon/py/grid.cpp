@@ -4,7 +4,7 @@
 auto dGrid_new(
     uint64_t& handle,
     Neon::Backend* backendPtr,
-    Neon::index_3d dimInput)
+    Neon::index_3d dim)
     -> int
 {
     std::cout << "dGrid_new - BEGIN" << std::endl;
@@ -13,10 +13,8 @@ auto dGrid_new(
     Neon::init();
 
     using Grid = Neon::dGrid;
-    Neon::Backend         bk(1, Neon::Runtime::openmp);
-    Neon::index_3d        dim(10, 10, 10);
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
-    Grid                  g(bk, dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
+    Grid                  g(*backendPtr, dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
     auto                  gridPtr = new (std::nothrow) Grid(g);
 
     if (gridPtr == nullptr) {
