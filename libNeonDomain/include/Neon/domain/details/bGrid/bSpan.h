@@ -49,6 +49,9 @@ class bSpan
     typename Idx::DataBlockCount                  mFirstDataBlockOffset;
     typename SBlock::BitMask const* NEON_RESTRICT mActiveMask;
     Neon::DataView                                mDataView;
+
+    // Function to get offsets of member variables
+    static std::vector<size_t> getOffsets();
 };
 }  // namespace Neon::domain::details::bGrid
 

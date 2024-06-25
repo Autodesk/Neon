@@ -48,4 +48,41 @@ bSpan<SBlock>::bSpan(typename Idx::DataBlockCount                  firstDataBloc
 }
 
 
+// #if !defined(NEON_WARP_COMPILATION)
+// template <typename SBlock>
+// // std::vector<size_t> bSpan<SBlock>::getOffsets() {
+// //     return {
+// //         // can't use the `offsetof` macro here since bSpan is a template type
+// //         0,
+// //         sizeof(Idx::DataBlockCount),
+// //         sizeof(Idx::DataBlockCount) + sizeof(SBlock::BitMask*)
+// //     };
+// // }
+// std::vector<size_t> bSpan<SBlock>::getOffsets() {
+//     std::vector<size_t> offsets;
+//     bSpan temp(typename Idx::DataBlockCount(), nullptr, Neon::DataView());
+
+//     offsets.push_back(reinterpret_cast<char*>(&(temp.mFirstDataBlockOffset)) - reinterpret_cast<char*>(&temp));
+//     offsets.push_back(reinterpret_cast<char*>(&(temp.mActiveMask)) - reinterpret_cast<char*>(&temp));
+//     offsets.push_back(reinterpret_cast<char*>(&(temp.mDataView)) - reinterpret_cast<char*>(&temp));
+
+//     return offsets;
+// }
+// #endif
+
+#if !defined(NEON_WARP_COMPILATION)
+template <typename SBlock>
+inline std::vector<size_t> bSpan<SBlock>::getOffsets() {
+    bSpan temp({0}, nullptr, {});
+
+    // Calculate offsets directly
+    std::vector<size_t> offsets;
+    offsets.push_back(reinterpret_cast<size_t>(&(temp.mFirstDataBlockOffset)) - reinterpret_cast<size_t>(&temp));
+    offsets.push_back(reinterpret_cast<size_t>(&(temp.mActiveMask)) - reinterpret_cast<size_t>(&temp));
+    offsets.push_back(reinterpret_cast<size_t>(&(temp.mDataView)) - reinterpret_cast<size_t>(&temp));
+    
+    return offsets;
+}
+#endif
+
 }  // namespace Neon::domain::details::bGrid

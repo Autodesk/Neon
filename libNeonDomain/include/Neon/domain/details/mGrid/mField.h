@@ -33,6 +33,7 @@ class mField
     using Grid = Neon::domain::details::mGrid::mGrid;
     using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
     using Idx = typename Partition::Idx;
+    using Descriptor = mGridDescriptor<1>;
 
     mField() = default;
 
@@ -96,6 +97,11 @@ class mField
     auto getBackend() const -> const Backend&
     {
         return mData->grid->getBackend();
+    }
+
+    auto getDescriptor() const -> const Descriptor&
+    {
+        return mData->grid->getDescriptor();
     }
 
    private:

@@ -522,6 +522,11 @@ auto mGrid::getRefFactors() const -> const Neon::set::MemSet<int>&
     return mData->mRefFactors;
 }
 
+auto mGrid::getGridCount() const -> uint32_t
+{
+    return mData->grids.size();
+}
+
 auto mGrid::getLevelSpacing() const -> const Neon::set::MemSet<int>&
 {
     return mData->mSpacing;
