@@ -57,6 +57,9 @@ class Backend(object):
         self.py_neon.lib.dBackend_get_string.argtypes = [self.py_neon.handle_type]
         self.py_neon.lib.dBackend_get_string.restype = ctypes.c_char_p
 
+        # TODOMATT get num devices
+        # TODOMATT get device type
+
 
 
     def help_backend_new(self, arg1=None, arg2=None):
@@ -65,17 +68,17 @@ class Backend(object):
 
         if arg1 is None and arg2 is None:
             # Call the empty constructor
-            res = self.py_neon.lib.dBackend_new1(self.handle)
-        elif isinstance(arg1, int) and isinstance(arg2, int):
+            res = self.py_neon.lib.dBackend_new1(ctypes.byref(self.handle))
+        elif isinstance(arg1, int) and isinstance(arg2, Backend.Runtime):
             # Call the constructor with nGpus and runtime
-            res = self.py_neon.lib.dBackend_new2(self.handle, arg1, arg2)
-        elif isinstance(arg1, list) and isinstance(arg2, int):
+            res = self.py_neon.lib.dBackend_new2(ctypes.byref(self.handle), arg1, arg2.value)
+        elif isinstance(arg1, list) and isinstance(arg2, Backend.Runtime):
             # Call the constructor with devIds and runtime
-            from ctypes import c_int, POINTER, byref
+            from ctypes import c_int
 
             # Convert the list to a ctypes array
             dev_ids = (c_int * len(arg1))(*arg1)
-            res = self.py_neon.lib.dBackend_new3(self.handle, dev_ids, arg2)
+            res = self.py_neon.lib.dBackend_new3(ctypes.byref(self.handle), dev_ids, arg2.value)
         else:
             raise Exception('DBackend: Invalid arguments provided')
 

@@ -5,7 +5,7 @@ from enum import Enum
 import py_ne
 
 class Index_3d(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_int), ("y", ctypes.c_int), ("z", ctypes.c_int)]
+    _fields_ = [("x", ctypes.c_int32), ("y", ctypes.c_int32), ("z", ctypes.c_int32)]
 
     def __init__(self, x: int, y: int, z: int):
         self.x = x

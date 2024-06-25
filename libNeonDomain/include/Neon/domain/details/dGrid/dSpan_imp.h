@@ -72,4 +72,16 @@ NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetDim()
     return mSpanDim;
 }
 
+#if !defined(NEON_WARP_COMPILATION)
+inline std::vector<size_t> dSpan::getOffsets() {
+    return {
+        offsetof(dSpan, mDataView),
+        offsetof(dSpan, mZghostRadius),
+        offsetof(dSpan, mZboundaryRadius),
+        offsetof(dSpan, mMaxZInDomain),
+        offsetof(dSpan, mSpanDim)
+    };
+}
+#endif
+
 }  // namespace Neon::domain::details::dGrid
