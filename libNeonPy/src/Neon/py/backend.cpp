@@ -1,5 +1,6 @@
 #include "Neon/py/backend.h"
 #include "Neon/set/Backend.h"
+#include "Neon/py/AllocationCounter.h"
 
 void backend_constructor_prologue(uint64_t& handle) {
     std::cout << "dBackend_new - BEGIN" << std::endl;
@@ -11,9 +12,9 @@ int backend_constructor_epilogue(uint64_t& handle, Neon::Backend* backendPtr) {
         std::cout << "NeonPy: Initialization error. Unable to allocage backend " << std::endl;
         return -1;
     }
-    handle = (uint64_t)backendPtr;
+    handle = reinterpret_cast<uint64_t>(backendPtr);
     std::cout << "allocated backend heap location: " << backendPtr << std::endl;
-    std::cout << "grid_new - END" << std::endl;
+    std::cout << "backend_new - END" << std::endl;
     return 0;
 }
 
@@ -22,6 +23,8 @@ auto dBackend_new1(
     -> int
 {
     std::cout << "first constructor" << std::endl;
+    AllocationCounter::Allocation();
+
     backend_constructor_prologue(handle);
 
     auto backendPtr = new (std::nothrow) Neon::Backend();
@@ -30,12 +33,13 @@ auto dBackend_new1(
 }
 
 auto dBackend_new2(
-    std::cout << "second constructor" << std::endl;
     uint64_t& handle,
     int nGpus,
     int runtime)
     -> int
 {
+    std::cout << "second constructor" << std::endl;
+    AllocationCounter::Allocation();
     backend_constructor_prologue(handle);
 
     auto backendPtr = new (std::nothrow) Neon::Backend(nGpus, Neon::Runtime(runtime));
@@ -44,15 +48,17 @@ auto dBackend_new2(
 }
 
 auto dBackend_new3(
-    std::cout << "third constructor" << std::endl;
     uint64_t& handle,
     const int* devIds,
     int runtime)
     -> int
 {
+    std::cout << "third constructor" << std::endl;
+
     backend_constructor_prologue(handle);
 
-    auto backendPtr = new (std::nothrow) Neon::Backend(std::vector<int>(*devIds), Neon::runtime(runtime));
+    auto backendPtr = new (std::nothrow) Neon::Backend(std::vector<int>(*devIds), Neon::Runtime(runtime));
+    AllocationCounter::Allocation();
 
     return backend_constructor_epilogue(handle, backendPtr);
 }
@@ -69,6 +75,7 @@ auto dBackend_delete(
 
     if (backendPtr != nullptr) {
         delete backendPtr;
+        AllocationCounter::Deallocation();
     }
     handle = 0;
     std::cout << "dBackend_delete - END" << std::endl;

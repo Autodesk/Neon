@@ -2,6 +2,7 @@
 #include "Neon/set/DevSet.h"
 #include "dIndex.h"
 #include "Neon/set/ExecutionThreadSpan.h"
+#include <vector>
 
 namespace Neon::domain::details::dGrid {
 
@@ -42,6 +43,11 @@ class dSpan
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetDim()
         const -> Neon::index_3d const&;
+
+    #if !defined(NEON_WARP_COMPILATION)
+    // Function to get offsets of member variables
+    static std::vector<size_t> getOffsets();
+    #endif
 
    private:
     Neon::DataView mDataView;

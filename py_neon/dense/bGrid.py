@@ -3,15 +3,17 @@ import ctypes
 from enum import Enum
 
 import py_neon
-from .field import Field
+from .bField import bField
 from py_neon.execution import Execution
 from py_neon import Py_neon
 from py_neon.dataview import DataView
-from .span import Span
+from .bSpan import bSpan
 from .backend import Backend
+from py_neon.index_3d import Index_3d
+
+class bGrid(object):
 
 
-class Grid(object):
     def __init__(self, backend = None, dim = None):
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.backend = backend
@@ -32,67 +34,82 @@ class Grid(object):
     def help_load_api(self):
 
         # grid_new
-        self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type,
+        self.py_neon.lib.bGrid_new.argtypes = [self.py_neon.handle_type,
                                                ctypes.POINTER(Backend),
                                                py_neon.Index_3d]
-        self.py_neon.lib.dGrid_new.restype = ctypes.c_int
+        self.py_neon.lib.bGrid_new.restype = ctypes.c_int
 
         # grid_delete
-        self.py_neon.lib.dGrid_delete.argtypes = [self.py_neon.handle_type]
-        self.py_neon.lib.dGrid_delete.restype = ctypes.c_int
+        self.py_neon.lib.bGrid_delete.argtypes = [self.py_neon.handle_type]
+        self.py_neon.lib.bGrid_delete.restype = ctypes.c_int
 
-        self.py_neon.lib.dGrid_get_span.argtypes = [self.py_neon.handle_type,
+        self.py_neon.lib.bGrid_get_span.argtypes = [self.py_neon.handle_type,
                                                     ctypes.POINTER(Span),  # the span object
                                                     py_neon.Execution,  # the execution type
                                                     ctypes.c_int,  # the device id
                                                     py_neon.DataView,  # the data view
                                                     ]
-        self.py_neon.lib.dGrid_get_span.restype = ctypes.c_int
+        self.py_neon.lib.bGrid_get_span.restype = ctypes.c_int
 
-        self.py_neon.lib.dGrid_span_size.argtypes = [ctypes.POINTER(Span)]
-        self.py_neon.lib.dGrid_span_size.restype = ctypes.c_int
+        self.py_neon.lib.bGrid_span_size.argtypes = [ctypes.POINTER(bSpan)]
+        self.py_neon.lib.bGrid_span_size.restype = ctypes.c_int
+
+
+        self.py_neon.lib.bGrid_get_properties.argtypes = [self.py_neon.handle_type,
+                                                          py_neon.Index_3d]
+        self.py_neon.lib.bGrid_get_properties.restype = ctypes.c_int
+
+        self.py_neon.lib.bGrid_is_inside_domain.argtypes = [self.py_neon.handle_type,
+                                                            py_neon.Index_3d]
+        self.py_neon.lib.bGrid_is_inside_domain.restype = ctypes.c_bool
 
 
     def help_grid_new(self):
         if self.handle == 0:
-            raise Exception('DGrid: Invalid handle')
+            raise Exception('bGrid: Invalid handle')
 
         if self.backend is None:
             self.backend = Backend()
         if self.dim is None:
             self.dim = py_neon.Index_3d(10,10,10)
 
-        res = self.py_neon.lib.dGrid_new(self.handle, self.backend.handle, self.dim)
+        res = self.py_neon.lib.bGrid_new(self.handle, self.backend.handle, self.dim)
         if res != 0:
-            raise Exception('DGrid: Failed to initialize grid')
+            raise Exception('bGrid: Failed to initialize grid')
 
     def help_grid_delete(self):
         if self.handle == 0:
             return
-        res = self.py_neon.lib.dGrid_delete(self.handle)
+        res = self.py_neon.lib.bGrid_delete(self.handle)
         if res != 0:
             raise Exception('Failed to delete grid')
 
-    def new_field(self) -> Field:
-        field = Field(self.py_neon, self.handle)
+    def new_field(self) -> bField:
+        field = bField(self.py_neon, self.handle)
         return field
 
     def get_span(self,
                  execution: Execution,
                  c: ctypes.c_int,
-                 data_view: DataView) -> Span:
+                 data_view: DataView) -> bSpan:
         if self.handle == 0:
-            raise Exception('DGrid: Invalid handle')
+            raise Exception('bGrid: Invalid handle')
 
-        span = Span()
-        res = self.py_neon.lib.dGrid_get_span(self.handle, span, execution, c, data_view)
+        span = bSpan()
+        res = self.py_neon.lib.bGrid_get_span(self.handle, span, execution, c, data_view)
         if res != 0:
             raise Exception('Failed to get span')
 
-        cpp_size = self.py_neon.lib.dGrid_span_size(span)
+        cpp_size = self.py_neon.lib.bGrid_span_size(span)
         ctypes_size = ctypes.sizeof(span)
 
         if cpp_size != ctypes_size:
             raise Exception(f'Failed to get span: cpp_size {cpp_size} != ctypes_size {ctypes_size}')
 
         return span
+    
+    def getProperties(self, idx: Index_3d):
+        return DataView.from_int(self.py_neon.lib.bGrid_get_properties(self.handle, idx))
+    
+    def isInsideDomain(self, idx: Index_3d):
+        return self.py_neon.lib.bGrid_is_inside_domain(self.handle, idx)
