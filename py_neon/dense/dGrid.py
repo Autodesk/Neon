@@ -41,9 +41,7 @@ class dGrid(object):
         #                                        py_neon.Index_3d]
         self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type,
                                                self.py_neon.handle_type,
-                                                ctypes.c_int32,
-                                                ctypes.c_int32,
-                                                ctypes.c_int32]
+                                                py_neon.Index_3d]
         self.py_neon.lib.dGrid_new.restype = ctypes.c_int
 
         # grid_delete
@@ -82,7 +80,8 @@ class dGrid(object):
         sys.stdout.flush()  # Ensure the print statement is flushed to the console
         # idx3d = Index_3d(10,10,10)
         # res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), idx3d)
-        res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim.x, self.dim.y, self.dim.z)
+        # res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim.x, self.dim.y, self.dim.z)
+        res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim)
         if res != 0:
             raise Exception('DGrid: Failed to initialize grid')
         print(f"Grid initialized with handle {self.handle.value}")

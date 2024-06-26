@@ -9,9 +9,7 @@
 extern "C" auto dGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
-    int32_t x,
-    int32_t y,
-    int32_t z)
+    const Neon::int32_3d& dim)
     -> int;
 // extern "C" auto dGrid_new(
 //     uint64_t& handle,
