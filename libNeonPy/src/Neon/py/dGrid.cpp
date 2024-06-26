@@ -6,9 +6,7 @@
 auto dGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
-    int32_t x,
-    int32_t y,
-    int32_t z)
+    const Neon::int32_3d& dim)
     -> int
 {
     std::cout << "dGrid_new - BEGIN" << std::endl;
@@ -23,9 +21,9 @@ auto dGrid_new(
         std::cerr << "Invalid backend pointer" << std::endl;
         return -1;
     }
-    std::cerr << x << " " << y << " " << z << std::endl;
+    std::cerr << dim.x << " " << dim.y << " " << dim.z << std::endl;
 
-    Neon::int32_3d dim{x,y,z};
+    // Neon::int32_3d dim{x,y,z};
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
     Grid                  g(*backend, dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
     auto                  gridPtr = new (std::nothrow) Grid(g);
