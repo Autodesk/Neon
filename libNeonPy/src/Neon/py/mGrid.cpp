@@ -82,7 +82,7 @@ auto mGrid_get_span(
                                       device,
                                       Neon::DataViewUtil::fromInt(data_view));
         (*spanRes) = gridSpan;
-        std::cout << "field_new - END" << &gridSpan << std::endl;
+        std::cout << "mGrid_get_span - END" << &gridSpan << std::endl;
 
         return 0;
     }
