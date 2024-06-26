@@ -6,7 +6,9 @@
 auto dGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
-    const Neon::int32_3d& dim)
+    int32_t x,
+    int32_t y,
+    int32_t z)
     -> int
 {
     std::cout << "dGrid_new - BEGIN" << std::endl;
@@ -21,9 +23,9 @@ auto dGrid_new(
         std::cerr << "Invalid backend pointer" << std::endl;
         return -1;
     }
-    std::cerr << dim.x << " " << dim.y << " " << dim.z << std::endl;
+    std::cerr << x << " " << y << " " << z << std::endl;
 
-    // Neon::int32_3d dim{x,y,z};
+    Neon::int32_3d dim{x,y,z};
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
     Grid                  g(*backend, dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
     auto                  gridPtr = new (std::nothrow) Grid(g);
@@ -80,7 +82,6 @@ auto dGrid_delete(
 {
     std::cout << "dGrid_delete - gridHandle " << handle << std::endl << std::flush;
     std::cout << "dGrid_delete - BEGIN" << std::endl;
-    std::cout << "test" << std::endl;
 
     using Grid = Neon::dGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(handle);
@@ -358,10 +359,9 @@ auto dGrid_dField_update_device_data(
     return 0;
 }
 
-extern "C" auto dGrid_dSpan_get_member_field_offsets(std::size_t* length)
-    -> std::size_t*
+extern "C" auto dGrid_dSpan_get_member_field_offsets(size_t* offsets, size_t* length)
+    -> void
 {
-    std::vector<std::size_t> offsets = Neon::domain::details::dGrid::dSpan::getOffsets();
-    *length = offsets.size();
-    return offsets.data();
+    Neon::domain::details::dGrid::dSpan::getOffsets(offsets, length);
 }
+

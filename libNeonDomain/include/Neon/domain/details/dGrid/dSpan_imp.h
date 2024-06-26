@@ -73,14 +73,20 @@ NEON_CUDA_HOST_DEVICE inline auto dSpan::helpGetDim()
 }
 
 #if !defined(NEON_WARP_COMPILATION)
-inline std::vector<size_t> dSpan::getOffsets() {
-    return {
+inline void dSpan::getOffsets(size_t* offsets, size_t* length) {
+    std::cout << "dGrid_dSpan cpp offsets: " << offsetof(dSpan, mDataView) << " " << offsetof(dSpan, mZghostRadius) << " " << offsetof(dSpan, mZboundaryRadius) << " " << offsetof(dSpan, mMaxZInDomain) << " " << offsetof(dSpan, mSpanDim) << " " <<  std::endl;
+    static std::vector<size_t> cpp_offsets = {
         offsetof(dSpan, mDataView),
         offsetof(dSpan, mZghostRadius),
         offsetof(dSpan, mZboundaryRadius),
         offsetof(dSpan, mMaxZInDomain),
         offsetof(dSpan, mSpanDim)
     };
+    
+    *length = cpp_offsets.size();
+    for (size_t i = 0; i < cpp_offsets.size(); ++i) {
+        offsets[i] = cpp_offsets[i];
+    }
 }
 #endif
 

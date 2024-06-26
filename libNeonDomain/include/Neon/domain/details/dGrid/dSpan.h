@@ -46,7 +46,7 @@ class dSpan
 
     #if !defined(NEON_WARP_COMPILATION)
     // Function to get offsets of member variables
-    static std::vector<size_t> getOffsets();
+    static void getOffsets(size_t* offsets, size_t* length);
     #endif
 
    private:

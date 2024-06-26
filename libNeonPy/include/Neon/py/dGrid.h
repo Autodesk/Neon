@@ -9,7 +9,9 @@
 extern "C" auto dGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
-    const Neon::int32_3d& dim)
+    int32_t x,
+    int32_t y,
+    int32_t z)
     -> int;
 // extern "C" auto dGrid_new(
 //     uint64_t& handle,
@@ -96,5 +98,5 @@ extern "C" auto dGrid_dField_update_device_data(
     int streamSetId)
     -> int;
 
-extern "C" auto bGrid_bSpan_get_member_field_offsets(std::size_t* length)
-    -> std::size_t*;
+extern "C" auto bGrid_bSpan_get_member_field_offsets(size_t* offsets, size_t* length)
+    -> void;

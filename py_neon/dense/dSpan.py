@@ -17,14 +17,13 @@ class dSpan(ctypes.Structure):
         self.help_load_api()
 
     def help_load_api(self):
-
-        # grid_new
-        self.py_neon.lib.dGrid_dSpan_get_member_field_offsets.argtypes = [ctypes.POINTER(ctypes.c_size_t)]
-        self.py_neon.lib.dGrid_dSpan_get_member_field_offsets.restype = ctypes.POINTER(ctypes.c_size_t)
+        self.py_neon.lib.dGrid_dSpan_get_member_field_offsets.argtypes = [ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_size_t)]
+        self.py_neon.lib.dGrid_dSpan_get_member_field_offsets.restype = None
 
     def get_member_field_offsets(self):
         length = ctypes.c_size_t()
-        offsets = self.py_neon.lib.dGrid_dSpan_get_member_field_offsets(ctypes.byref(length))
+        offsets = (ctypes.c_size_t * 5)()  # Assuming there are 5 offsets based on your C++ code
+        self.py_neon.lib.dGrid_dSpan_get_member_field_offsets(offsets, ctypes.byref(length))
         return [offsets[i] for i in range(length.value)]
     
 
@@ -52,9 +51,10 @@ class dSpan(ctypes.Structure):
         return copy.deepcopy(self.span_dim)
 
     def get_offsets(self):
-        def get_offset(field_name):
-            return ctypes.offsetof(dSpan, field_name)
-        return [get_offset('dataView'), get_offset('z_ghost_radius'), get_offset('z_boundary_radius'), get_offset('max_z_in_domain'), get_offset('span_dim')]
+        # def get_offset(field_name):
+        #     return ctypes.offsetof(dSpan, field_name)
+        # return [get_offset('dataView'), get_offset('z_ghost_radius'), get_offset('z_boundary_radius'), get_offset('max_z_in_domain'), get_offset('span_dim')]
+        return [dSpan.dataView.offset, dSpan.z_ghost_radius.offset, dSpan.z_boundary_radius.offset, dSpan.max_z_in_domain.offset, dSpan.span_dim.offset]
     
     @staticmethod
     def fields_():
