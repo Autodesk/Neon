@@ -41,7 +41,7 @@ class dGrid(object):
         #                                        py_neon.Index_3d]
         self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type,
                                                self.py_neon.handle_type,
-                                                py_neon.Index_3d]
+                                               ctypes.POINTER(py_neon.Index_3d)]
         self.py_neon.lib.dGrid_new.restype = ctypes.c_int
 
         # grid_delete
