@@ -202,7 +202,7 @@ auto mField<T, C>::getReference(const Neon::index_3d& idx,
                                 const int&            cardinality,
                                 const int             level) -> T&
 {
-    return mData->fields[level].getReference()(idx, cardinality);
+    return mData->fields[level].getReference(idx, cardinality);
 }
 
 template <typename T, int C>

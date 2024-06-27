@@ -1,14 +1,15 @@
 import copy
 import ctypes
 from enum import Enum
-from .partition import PartitionInt as NePartitionInt
+import py_neon
+from .dPartition import dPartitionInt as NeDPartition
 from py_neon.execution import Execution as NeExecution
 from py_neon.dataview import DataView as NeDataView
 from py_neon.py_ne import Py_neon as NePy_neon
-from wpne.dense.partition import NeonDensePartitionInt as Wpne_NeonDensePartitionInt
+from py_neon.index_3d import Index_3d
 
 
-class Field(object):
+class dField(object):
     def __init__(self,
                  py_neon: NePy_neon,
                  grid_handle: ctypes.c_uint64
@@ -40,7 +41,7 @@ class Field(object):
 
         ## get_partition
         self.py_neon.lib.dGrid_dField_get_partition.argtypes = [self.handle_type,
-                                                                ctypes.POINTER(NePartitionInt),  # the span object
+                                                                ctypes.POINTER(NeDPartition),  # the span object
                                                                 NeExecution,  # the execution type
                                                                 ctypes.c_int,  # the device id
                                                                 NeDataView,  # the data view
@@ -48,8 +49,33 @@ class Field(object):
         self.py_neon.lib.dGrid_dField_get_partition.restype = ctypes.c_int
 
         # size partition
-        self.py_neon.lib.dGrid_dField_partition_size.argtypes = [ctypes.POINTER(NePartitionInt)]
+        self.py_neon.lib.dGrid_dField_partition_size.argtypes = [ctypes.POINTER(NeDPartition)]
         self.py_neon.lib.dGrid_dField_partition_size.restype = ctypes.c_int
+
+        # field read
+        self.py_neon.lib.dGrid_dField_read.argtypes = [self.handle_type,
+                                                       py_neon.Index_3d,
+                                                       ctypes.c_int]
+        self.py_neon.lib.dGrid_dField_read.restype = ctypes.c_int
+
+        # field write
+        self.py_neon.lib.dGrid_dField_write.argtypes = [self.handle_type,
+                                                       py_neon.Index_3d,
+                                                       ctypes.c_int,
+                                                       ctypes.c_int]
+        self.py_neon.lib.dGrid_dField_write.restype = ctypes.c_int
+
+        # field update host data
+        self.py_neon.lib.dGrid_dField_update_host_data.argtypes = [self.handle_type,
+                                                       ctypes.c_int]
+        self.py_neon.lib.dGrid_dField_update_host_data.restype = ctypes.c_int
+
+        # field update device data
+        self.py_neon.lib.dGrid_dField_update_device_data.argtypes = [self.handle_type,
+                                                       ctypes.c_int]
+        self.py_neon.lib.dGrid_dField_update_device_data.restype = ctypes.c_int
+
+
 
     def help_new(self):
         if self.handle == 0:
@@ -70,12 +96,12 @@ class Field(object):
                       execution: NeExecution,
                       c: ctypes.c_int,
                       data_view: NeDataView
-                      ) -> Wpne_NeonDensePartitionInt:
+                      ) -> NeDPartition:
 
         if self.handle == 0:
             raise Exception('DField: Invalid handle')
 
-        partition = NePartitionInt()
+        partition = NeDPartition()
 
         res = self.py_neon.lib.dGrid_dField_get_partition(self.handle,
                                                           partition,
@@ -92,5 +118,17 @@ class Field(object):
             raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
 
         print(f"Partition {partition}")
-        wpne_partition = Wpne_NeonDensePartitionInt(partition)
-        return wpne_partition
+        return partition
+    
+    def read(self, idx: Index_3d, cardinality: int):
+        return self.py_neon.lib.dGrid_dField_read(self.handle, idx, cardinality)
+    
+    def write(self, idx: Index_3d, cardinality: int, newValue: int):
+        return self.py_neon.lib.dGrid_dField_write(self.handle, idx, cardinality, newValue)
+
+    def updateHostData(self, streamSetId: int):
+        return self.py_neon.lib.dGrid_dField_update_host_data(self.handle, streamSetId)
+    
+    def updateDeviceData(self, streamSetId: int):
+        return self.py_neon.lib.dGrid_dField_update_device_data(self.handle, streamSetId)
+        
