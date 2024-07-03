@@ -169,6 +169,7 @@ class mGrid
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d;
     auto getDescriptor() const -> const Descriptor&;
     auto getRefFactors() const -> const Neon::set::MemSet<int>&;
+    auto getGridCount() const -> uint32_t;
     auto getLevelSpacing() const -> const Neon::set::MemSet<int>&;
     auto getBackend() const -> const Backend&;
     auto getBackend() -> Backend&;
