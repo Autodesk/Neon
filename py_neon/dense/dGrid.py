@@ -8,7 +8,7 @@ from py_neon.execution import Execution
 from py_neon import Py_neon
 from py_neon.dataview import DataView
 from .dSpan import dSpan
-from .backend import Backend
+from py_neon.backend import Backend
 from py_neon.index_3d import Index_3d
 import numpy as np
 
@@ -19,21 +19,30 @@ class dGrid(object):
 
     def __init__(self, backend = None, dim = None):
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
-        self.backend = backend if backend is not None else Backend() # @TODOMATT if the input is not the correct type, throw an error
-        self.dim = dim if dim is not None else Index_3d(10, 10, 10) # @TODOMATT if the input is not the correct type, throw an error
+        self.backend = backend
+        self.dim = dim
+
+        if backend is None:
+            # rise exception
+            raise Exception('dGrid: backend pamrameter is missing')
+        if dim is None:
+            # raise exception
+            raise Exception('dGrid: dim parameter is missing')
+
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
             self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
             raise Exception('Failed to initialize PyNeon: ' + str(e))
-        self.help_load_api()
-        self.help_grid_new()
+
+        self._help_load_api()
+        self._help_grid_new()
 
     def __del__(self):
-        if self.handle.value != 0:
-            self.help_grid_delete()
+        if self.handle != 0:
+            self._help_grid_delete()
 
-    def help_load_api(self):
+    def _help_load_api(self):
 
         # grid_new
         # self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type,
@@ -69,7 +78,7 @@ class dGrid(object):
         self.py_neon.lib.dGrid_is_inside_domain.restype = ctypes.c_bool
 
 
-    def help_grid_new(self):
+    def _help_grid_new(self):
         if self.backend.handle.value == 0:  # Check backend handle validity
             raise Exception('DGrid: Invalid backend handle')
 
@@ -86,7 +95,7 @@ class dGrid(object):
             raise Exception('DGrid: Failed to initialize grid')
         print(f"Grid initialized with handle {self.handle.value}")
 
-    def help_grid_delete(self):
+    def _help_grid_delete(self):
         if self.py_neon.lib.dGrid_delete(ctypes.byref(self.handle)) != 0:
             raise Exception('Failed to delete grid')
 

@@ -37,7 +37,7 @@ class dSpan(ctypes.Structure):
 
     def __str__(self): 
         def get_offset(field_name):
-            return ctypes.offsetof(dSpan, field_name)
+            return "ctypes.(dSpan, field_name)"
 
         str = f"<DSpan: addr={ctypes.addressof(self):#x}>"
         str += f"\n\tdataView: {self.dataView} (offset: {get_offset('dataView')})"
