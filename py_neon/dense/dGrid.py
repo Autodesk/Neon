@@ -16,8 +16,7 @@ import sys
 
 class dGrid(object):
 
-
-    def __init__(self, backend = None, dim = None):
+    def __init__(self, backend = None, dim = None, sparsity_pattern = None):
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.backend = backend if backend is not None else Backend() # @TODOMATT if the input is not the correct type, throw an error
         self.dim = dim if dim is not None else Index_3d(10, 10, 10) # @TODOMATT if the input is not the correct type, throw an error
@@ -48,6 +47,10 @@ class dGrid(object):
         self.py_neon.lib.dGrid_delete.argtypes = [self.py_neon.handle_type]
         self.py_neon.lib.dGrid_delete.restype = ctypes.c_int
 
+        self.py_neon.lib.dGrid_get_dimensions.argtypes = [self.py_neon.handle_type,
+                                                          ctypes.POINTER(py_neon.Index_3d)]
+        self.py_neon.lib.dGrid_get_dimensions.restype = ctypes.c_int
+
         self.py_neon.lib.dGrid_get_span.argtypes = [self.py_neon.handle_type,
                                                     ctypes.POINTER(dSpan),  # the span object
                                                     py_neon.Execution,  # the execution type
@@ -61,11 +64,12 @@ class dGrid(object):
 
 
         self.py_neon.lib.dGrid_get_properties.argtypes = [self.py_neon.handle_type,
-                                                          py_neon.Index_3d]
+                                                          ctypes.POINTER(py_neon.Index_3d),
+                                                          ctypes.POINTER(DataView)]
         self.py_neon.lib.dGrid_get_properties.restype = ctypes.c_int
 
         self.py_neon.lib.dGrid_is_inside_domain.argtypes = [self.py_neon.handle_type,
-                                                            py_neon.Index_3d]
+                                                            ctypes.POINTER(py_neon.Index_3d)]
         self.py_neon.lib.dGrid_is_inside_domain.restype = ctypes.c_bool
 
 
@@ -89,9 +93,20 @@ class dGrid(object):
     def help_grid_delete(self):
         if self.py_neon.lib.dGrid_delete(ctypes.byref(self.handle)) != 0:
             raise Exception('Failed to delete grid')
+        
+    def get_python_dimensions(self):
+        return self.dim
+    
+    def get_cpp_dimensions(self):
+        cpp_dim = Index_3d(0,0,0)
+        res = self.py_neon.lib.dGrid_get_dimensions(ctypes.byref(self.handle), cpp_dim)
+        if res != 0:
+            raise Exception('DGrid: Failed to obtain grid dimension')
+        
+        return cpp_dim
 
-    def new_field(self) -> dField:
-        field = dField(self.py_neon, self.handle)
+    def new_field(self, cardinality: ctypes.c_int) -> dField:
+        field = dField(self.handle, cardinality)
         return field
 
     def get_span(self,
@@ -115,7 +130,8 @@ class dGrid(object):
         return span
     
     def getProperties(self, idx: Index_3d):
-        return DataView.from_int(self.py_neon.lib.dGrid_get_properties(self.handle, idx))
+        dv = DataView(0)
+        return DataView(self.py_neon.lib.dGrid_get_properties(ctypes.byref(self.handle), idx, dv))
     
     def isInsideDomain(self, idx: Index_3d):
         return self.py_neon.lib.dGrid_is_inside_domain(self.handle, idx)

@@ -165,6 +165,7 @@ auto bGrid_bField_delete(
         delete fieldPtr;
         AllocationCounter::Deallocation();
     }
+    handle = 0;
     std::cout << "bGrid_bField_delete - END" << std::endl;
 
     return 0;

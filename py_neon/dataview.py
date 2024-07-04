@@ -47,4 +47,9 @@ class DataView(ctypes.Structure):
         if self.value == DataView.Values.boundary:
             str += f"\n\tdataView: {'boundary'}"
         return str
+    
+    def __eq__(self, other):
+        if not isinstance(other, DataView):
+            return NotImplemented
+        return self.data_view == other.data_view
 

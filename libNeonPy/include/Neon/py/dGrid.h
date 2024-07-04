@@ -11,11 +11,7 @@ extern "C" auto dGrid_new(
     uint64_t& backendPtr,
     const Neon::int32_3d* dim)
     -> int;
-// extern "C" auto dGrid_new(
-//     uint64_t& handle,
-//     uint64_t& backendPtr,
-//     Neon::index_3d dim)
-//     -> int;
+
 
 /**
  * Delete a grid object on the heap.
@@ -24,12 +20,18 @@ extern "C" auto dGrid_delete(
     uint64_t& handle)
     -> int;
 
+extern "C" auto dGrid_get_dimensions(
+    uint64_t& gridHandle,
+    Neon::int32_3d* dim)
+    -> int;
+
 /**
  * Generates a new field object on the heap.
  */
 extern "C" auto dGrid_dField_new(
     uint64_t& handle,
-    uint64_t& grid)
+    uint64_t& grid,
+    int cardinality)
     -> int;
 
 /**
@@ -63,26 +65,27 @@ extern "C" auto dGrid_dField_partition_size(
     Neon::dGrid::Partition<int, 0>* partitionPtr)
     -> int;
 
-extern "C" auto dGrid_get_properties( /* TODOMATT verify what the return of this method should be */
+extern "C" auto dGrid_get_properties( 
     uint64_t& gridHandle,
-    const Neon::index_3d& idx) 
+    const Neon::index_3d* const idx,
+    Neon::DataView* dv) 
     -> int;
 
 extern "C" auto dGrid_is_inside_domain(
     uint64_t& gridHandle,
-    const Neon::index_3d& idx) 
+    const Neon::index_3d* const idx)
     -> bool;
 
 extern "C" auto dGrid_dField_read(
     uint64_t& fieldHandle,
-    const Neon::index_3d& idx,
-    const int& cardinality)
+    const Neon::index_3d* idx,
+    int cardinality)
     -> int;
 
 extern "C" auto dGrid_dField_write(
     uint64_t& fieldHandle,
-    const Neon::index_3d& idx,
-    const int& cardinality,
+    const Neon::index_3d* idx,
+    int cardinality,
     int newValue)
     -> int;
 
@@ -97,4 +100,7 @@ extern "C" auto dGrid_dField_update_device_data(
     -> int;
 
 extern "C" auto bGrid_bSpan_get_member_field_offsets(size_t* offsets, size_t* length)
+    -> void;
+
+extern "C" auto dGrid_dField_dPartition_get_member_field_offsets(size_t* offsets, size_t* length)
     -> void;

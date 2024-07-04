@@ -180,6 +180,7 @@ auto mGrid_mField_delete(
         delete fieldPtr;
         AllocationCounter::Allocation();
     }
+    handle = 0;
     std::cout << "mGrid_mField_delete - END" << std::endl;
 
     return 0;

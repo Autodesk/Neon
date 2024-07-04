@@ -487,6 +487,34 @@ class dPartition
         return s.str();
     }
 
+    #if !defined(NEON_WARP_COMPILATION)
+    inline static void getOffsets(size_t* offsets, size_t* length) {
+        // std::cout << "dGrid_dField_dPartition cpp offsets: " << offsetof(dSpan, mDataView) << " " << offsetof(dSpan, mZghostRadius) << " " << offsetof(dSpan, mZboundaryRadius) << " " << offsetof(dSpan, mMaxZInDomain) << " " << offsetof(dSpan, mSpanDim) << " " <<  std::endl;
+        static std::vector<size_t> cpp_offsets = {
+            offsetof(dPartition, mDataView),
+            offsetof(dPartition, mDim),
+            offsetof(dPartition, mMem),
+            offsetof(dPartition, mZHaloRadius),
+            offsetof(dPartition, mZBoundaryRadius),
+            offsetof(dPartition, mPitch.x),
+            offsetof(dPartition, mPitch.y),
+            offsetof(dPartition, mPitch.z),
+            offsetof(dPartition, mPitch.w),
+            offsetof(dPartition, mPrtID),
+            offsetof(dPartition, mOrigin),
+            offsetof(dPartition, mCardinality),
+            offsetof(dPartition, mFullGridSize),
+            offsetof(dPartition, mPeriodicZ),
+            offsetof(dPartition, mStencil),
+        };
+        
+        *length = cpp_offsets.size();
+        for (size_t i = 0; i < cpp_offsets.size(); ++i) {
+            offsets[i] = cpp_offsets[i];
+        }
+    }
+#endif
+
    private:
     Neon::DataView        mDataView;
     Neon::index_3d        mDim;

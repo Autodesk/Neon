@@ -18,4 +18,9 @@ class Index_3d(ctypes.Structure):
         str += f"\n\ty: {self.y}"
         str += f"\n\tz: {self.z}"
         return str
+    
+    def __eq__(self, other):
+        if not isinstance(other, Index_3d):
+            return NotImplemented
+        return (self.x == other.x and self.y == other.y and self.z == other.z)
 
