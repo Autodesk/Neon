@@ -1,7 +1,7 @@
 #include "Neon/py/backend.h"
 #include "Neon/set/Backend.h"
 #include "Neon/py/AllocationCounter.h"
-
+#include "Neon/Neon.h"
 void backend_constructor_prologue(uint64_t& handle) {
     std::cout << "dBackend_new - BEGIN" << std::endl;
     std::cout << "dBackend handle" << handle << std::endl;
@@ -18,46 +18,48 @@ int backend_constructor_epilogue(uint64_t& handle, Neon::Backend* backendPtr) {
     return 0;
 }
 
-auto dBackend_new1(
-    uint64_t& handle)
-    -> int
-{
-    std::cout << "first constructor" << std::endl;
-    AllocationCounter::Allocation();
+//auto dBackend_new1(
+//    uint64_t& handle)
+//    -> int
+//{
+//    std::cout << "first constructor" << std::endl;
+//    AllocationCounter::Allocation();
+//
+//    backend_constructor_prologue(handle);
+//
+//    auto backendPtr = new (std::nothrow) Neon::Backend();
+//
+//    return backend_constructor_epilogue(handle, backendPtr);
+//}
+//
+//auto dBackend_new2(
+//    uint64_t& handle,
+//    int nGpus,
+//    int runtime)
+//    -> int
+//{
+//    std::cout << "second constructor" << std::endl;
+//    AllocationCounter::Allocation();
+//    backend_constructor_prologue(handle);
+//
+//    auto backendPtr = new (std::nothrow) Neon::Backend(nGpus, Neon::Runtime(runtime));
+//
+//    return backend_constructor_epilogue(handle, backendPtr);
+//}
 
-    backend_constructor_prologue(handle);
-
-    auto backendPtr = new (std::nothrow) Neon::Backend();
-
-    return backend_constructor_epilogue(handle, backendPtr);
-}
-
-auto dBackend_new2(
+auto dBackend_new(
     uint64_t& handle,
-    int nGpus,
-    int runtime)
+    int runtime,
+    int numDevices,
+    const int* devIds)
     -> int
 {
-    std::cout << "second constructor" << std::endl;
-    AllocationCounter::Allocation();
+    Neon::init();
     backend_constructor_prologue(handle);
 
-    auto backendPtr = new (std::nothrow) Neon::Backend(nGpus, Neon::Runtime(runtime));
+    std::vector<int> vec(devIds, devIds + numDevices);
 
-    return backend_constructor_epilogue(handle, backendPtr);
-}
-
-auto dBackend_new3(
-    uint64_t& handle,
-    const int* devIds,
-    int runtime)
-    -> int
-{
-    std::cout << "third constructor" << std::endl;
-
-    backend_constructor_prologue(handle);
-
-    auto backendPtr = new (std::nothrow) Neon::Backend(std::vector<int>(*devIds), Neon::Runtime(runtime));
+    auto backendPtr = new (std::nothrow) Neon::Backend(vec, Neon::Runtime(runtime));
     AllocationCounter::Allocation();
 
     return backend_constructor_epilogue(handle, backendPtr);
