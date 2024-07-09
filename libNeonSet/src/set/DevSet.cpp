@@ -70,6 +70,10 @@ auto DevSet::set(const Neon::DeviceType&                  devType,
                 for (auto&& invalidID : invilidIdsVec) {
                     exp << invalidID << " ";
                 }
+                exp << "valid ids are:\n";
+                for (auto&& invalidID : invilidIdsVec) {
+                    exp << invalidID << " ";
+                }
                 NEON_THROW(exp);
             }
         }
@@ -168,6 +172,7 @@ auto DevSet::validateIds()
     if (m_devType == Neon::DeviceType::CUDA) {
         for (auto&& gpuId : this->m_devIds) {
             if (gpuId.idx() >= Neon::sys::globalSpace::gpuSysObj().numDevs()) {
+                std:: cout << "Neon::sys::globalSpace::gpuSysObj().numDevs() "<< Neon::sys::globalSpace::gpuSysObj().numDevs()<<std::endl;
                 invalidIds.push_back(gpuId);
             }
         }

@@ -177,6 +177,26 @@ class bPartition
     helpGetNghIdx(const Idx& idx, const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx;
 
+#if !defined(NEON_WARP_COMPILATION)
+    inline static void getOffsets(size_t* offsets, size_t* length) {
+        static std::vector<size_t> cpp_offsets = {
+            offsetof(bPartition, mCardinality),
+            offsetof(bPartition, mMem),
+            offsetof(bPartition, mStencilNghIndex),
+            offsetof(bPartition, mBlockConnectivity),
+            offsetof(bPartition, mMask),
+            offsetof(bPartition, mOrigin),
+            offsetof(bPartition, mSetIdx),
+            offsetof(bPartition, mMultiResDiscreteIdxSpacing),
+            offsetof(bPartition, mDomainSize),
+        };
+        
+        *length = cpp_offsets.size();
+        for (size_t i = 0; i < cpp_offsets.size(); ++i) {
+            offsets[i] = cpp_offsets[i];
+        }
+    }
+#endif
 
     int                                             mCardinality;
     T*                                              mMem;

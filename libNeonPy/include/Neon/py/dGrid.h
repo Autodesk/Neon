@@ -99,8 +99,9 @@ extern "C" auto dGrid_dField_update_device_data(
     int streamSetId)
     -> int;
 
-extern "C" auto bGrid_bSpan_get_member_field_offsets(size_t* offsets, size_t* length)
+extern "C" auto dGrid_dSpan_get_member_field_offsets(size_t* offsets, size_t* length)
     -> void;
 
 extern "C" auto dGrid_dField_dPartition_get_member_field_offsets(size_t* offsets, size_t* length)
     -> void;
+    

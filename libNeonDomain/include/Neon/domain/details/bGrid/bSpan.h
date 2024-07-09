@@ -44,14 +44,15 @@ class bSpan
     NEON_CUDA_HOST_DEVICE inline auto setAndValidateGPUDevice(
         Idx& bidx) const -> bool;
 
-
+    #if !defined(NEON_WARP_COMPILATION)
+    // Function to get offsets of member variables
+    static void getOffsets(size_t* offsets, size_t* length);
+    #endif
+    
     // We don't need to have a count on active blocks
     typename Idx::DataBlockCount                  mFirstDataBlockOffset;
     typename SBlock::BitMask const* NEON_RESTRICT mActiveMask;
     Neon::DataView                                mDataView;
-
-    // Function to get offsets of member variables
-    static std::vector<size_t> getOffsets();
 };
 }  // namespace Neon::domain::details::bGrid
 

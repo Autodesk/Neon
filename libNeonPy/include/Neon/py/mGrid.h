@@ -8,8 +8,8 @@
  */ /* TODOMATT fix the constructor to have correct arguments */
 extern "C" auto mGrid_new(
     uint64_t& handle,
-    Neon::Backend* backendPtr,
-    Neon::index_3d dim,
+    uint64_t& backendPtr,
+    const Neon::index_3d* dim,
     uint32_t& depth)
     -> int;
 
@@ -64,26 +64,26 @@ extern "C" auto mGrid_mField_partition_size(
 extern "C" auto mGrid_get_properties( /* TODOMATT verify what the return of this method should be */
     uint64_t& gridHandle,
     uint64_t& grid_level,
-    const Neon::index_3d& idx) 
+    const Neon::index_3d* idx) 
     -> int;
 
 extern "C" auto mGrid_is_inside_domain(
     uint64_t& gridHandle,
     uint64_t& grid_level,
-    const Neon::index_3d& idx) 
+    const Neon::index_3d* idx) 
     -> bool;
 
 extern "C" auto mGrid_mField_read(
     uint64_t& fieldHandle,
     uint64_t& field_level,
-    const Neon::index_3d& idx,
+    const Neon::index_3d* idx,
     const int& cardinality)
     -> int;
 
 extern "C" auto mGrid_mField_write(
     uint64_t& fieldHandle,
     uint64_t& field_level,
-    const Neon::index_3d& idx,
+    const Neon::index_3d* idx,
     const int& cardinality,
     int newValue)
     -> int;

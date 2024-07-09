@@ -27,13 +27,13 @@ class dField(object):
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.grid_handle = grid_handle
         self.cardinality = cardinality
-        self.help_load_api()
+        self._help_load_api()
         self.help_new()
 
     def __del__(self):
         self.help_delete()
 
-    def help_load_api(self):
+    def _help_load_api(self):
         # Importing new functions
         ## new_field
         self.py_neon.lib.dGrid_dField_new.argtypes = [self.handle_type,

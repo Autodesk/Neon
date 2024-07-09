@@ -22,9 +22,9 @@ class dSpan(ctypes.Structure):
         except Exception as e:
             self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
             raise Exception('Failed to initialize PyNeon: ' + str(e))
-        self.help_load_api()
+        self._help_load_api()
 
-    def help_load_api(self):
+    def _help_load_api(self):
         self.py_neon.lib.dGrid_dSpan_get_member_field_offsets.argtypes = [ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_size_t)]
         self.py_neon.lib.dGrid_dSpan_get_member_field_offsets.restype = None
 
@@ -37,15 +37,12 @@ class dSpan(ctypes.Structure):
 
 
     def __str__(self): 
-        def get_offset(field_name):
-            return ctypes.offsetof(dSpan, field_name)
-
-        str = f"<DSpan: addr={ctypes.addressof(self):#x}>"
-        str += f"\n\tdataView: {self.dataView} (offset: {get_offset('dataView')})"
-        str += f"\n\tz_ghost_radius: {self.z_ghost_radius} (offset: {get_offset('z_ghost_radius')})"
-        str += f"\n\tz_boundary_radius: {self.z_boundary_radius} (offset: {get_offset('z_boundary_radius')})"
-        str += f"\n\tmax_z_in_domain: {self.max_z_in_domain} (offset: {get_offset('max_z_in_domain')})"
-        str += f"\n\tspan_dim: {self.span_dim} (offset: {get_offset('span_dim')})"
+        str = f"<dSpan: addr={ctypes.addressof(self):#x}>"
+        str += f"\n\tdataView: {self.dataView} (offset: {dSpan.dataView.offset})"
+        str += f"\n\tz_ghost_radius: {self.z_ghost_radius} (offset: {dSpan.z_ghost_radius.offset})"
+        str += f"\n\tz_boundary_radius: {self.z_boundary_radius} (offset: {dSpan.z_boundary_radius.offset})"
+        str += f"\n\tmax_z_in_domain: {self.max_z_in_domain} (offset: {dSpan.max_z_in_domain.offset})"
+        str += f"\n\tspan_dim: {self.span_dim} (offset: {dSpan.span_dim.offset})"
         return str
 
     def get_span_dim(self):

@@ -7,8 +7,8 @@ from .mField import mField
 from py_neon.execution import Execution
 from py_neon import Py_neon
 from py_neon.dataview import DataView
-from .dSpan import dSpan
-from .backend import Backend
+from ..dense.dSpan import dSpan
+from ..backend import Backend
 from py_neon.index_3d import Index_3d
 
 class mGrid(object):
@@ -24,20 +24,20 @@ class mGrid(object):
         except Exception as e:
             self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
             raise Exception('Failed to initialize PyNeon: ' + str(e))
-        self.help_load_api()
-        self.help_grid_new()
+        self._help_load_api()
+        self._help_grid_new()
 
     def __del__(self):
         if self.handle == 0:
             return
-        self.help_grid_delete()
+        self._help_grid_delete()
 
-    def help_load_api(self):
+    def _help_load_api(self):
 
         # grid_new
         self.py_neon.lib.mGrid_new.argtypes = [self.py_neon.handle_type,
-                                               ctypes.POINTER(Backend),
-                                               py_neon.Index_3d,
+                                               self.py_neon.handle_type,
+                                               ctypes.POINTER(py_neon.Index_3d),
                                                ctypes.c_int]
         self.py_neon.lib.mGrid_new.restype = ctypes.c_int
 
@@ -60,16 +60,16 @@ class mGrid(object):
 
         self.py_neon.lib.mGrid_get_properties.argtypes = [self.py_neon.handle_type,
                                                           ctypes.c_int, # the grid index
-                                                          py_neon.Index_3d]
+                                                          ctypes.POINTER(py_neon.Index_3d)]
         self.py_neon.lib.mGrid_get_properties.restype = ctypes.c_int
 
         self.py_neon.lib.mGrid_is_inside_domain.argtypes = [self.py_neon.handle_type,
                                                             ctypes.c_int,
-                                                            py_neon.Index_3d]
+                                                            ctypes.POINTER(py_neon.Index_3d)]
         self.py_neon.lib.mGrid_is_inside_domain.restype = ctypes.c_bool
 
 
-    def help_grid_new(self):
+    def _help_grid_new(self):
         if self.handle == 0:
             raise Exception('mGrid: Invalid handle')
 
@@ -78,15 +78,12 @@ class mGrid(object):
         if self.dim is None:
             self.dim = py_neon.Index_3d(10,10,10)
 
-        res = self.py_neon.lib.mGrid_new(self.handle, self.backend.handle, self.dim, self.depth)
+        res = self.py_neon.lib.mGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim, self.depth)
         if res != 0:
             raise Exception('mGrid: Failed to initialize grid')
 
-    def help_grid_delete(self):
-        if self.handle == 0:
-            return
-        res = self.py_neon.lib.mGrid_delete(self.handle)
-        if res != 0:
+    def _help_grid_delete(self):
+        if self.py_neon.lib.mGrid_delete(ctypes.byref(self.handle)) != 0:
             raise Exception('Failed to delete grid')
 
     def new_field(self) -> mField:
@@ -102,7 +99,7 @@ class mGrid(object):
             raise Exception('mGrid: Invalid handle')
 
         span = dSpan()
-        res = self.py_neon.lib.mGrid_get_span(self.handle, grid_level, span, execution, c, data_view)
+        res = self.py_neon.lib.mGrid_get_span(ctypes.byref(self.handle), grid_level, span, execution, c, data_view)
         if res != 0:
             raise Exception('Failed to get span')
 
@@ -115,7 +112,7 @@ class mGrid(object):
         return span
     
     def getProperties(self, grid_inex: ctypes.c_int, idx: Index_3d):
-        return DataView.from_int(self.py_neon.lib.mGrid_get_properties(self.handle, grid_inex, idx))
+        return DataView.from_int(self.py_neon.lib.mGrid_get_properties(ctypes.byref(self.handle), grid_inex, idx))
     
     def isInsideDomain(self, grid_level: ctypes.c_int, idx: Index_3d):
-        return self.py_neon.lib.mGrid_is_inside_domain(self.handle, grid_level, idx)
+        return self.py_neon.lib.mGrid_is_inside_domain(ctypes.byref(self.handle), grid_level, idx)

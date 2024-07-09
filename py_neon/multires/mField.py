@@ -24,13 +24,13 @@ class mField(object):
         self.handle_type = ctypes.POINTER(ctypes.c_uint64)
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.grid_handle = grid_handle
-        self.help_load_api()
+        self._help_load_api()
         self.help_new()
 
     def __del__(self):
         self.help_delete()
 
-    def help_load_api(self):
+    def _help_load_api(self):
         # Importing new functions
         ## new_field
         self.py_neon.lib.mGrid_mField_new.argtypes = [self.handle_type,
@@ -43,7 +43,7 @@ class mField(object):
 
         ## get_partition
         self.py_neon.lib.mGrid_mField_get_partition.argtypes = [self.handle_type,
-                                                                ctypes.POINTER(NePartitionInt),  # the span object
+                                                                ctypes.POINTER(NeMPartitionInt),  # the span object
                                                                 ctypes.c_int,
                                                                 NeExecution,  # the execution type
                                                                 ctypes.c_int,  # the device id
@@ -52,20 +52,20 @@ class mField(object):
         self.py_neon.lib.mGrid_mField_get_partition.restype = ctypes.c_int
 
         # size partition
-        self.py_neon.lib.mGrid_mField_partition_size.argtypes = [ctypes.POINTER(NePartitionInt)]
+        self.py_neon.lib.mGrid_mField_partition_size.argtypes = [ctypes.POINTER(NeMPartitionInt)]
         self.py_neon.lib.mGrid_mField_partition_size.restype = ctypes.c_int
 
         # field read
         self.py_neon.lib.mGrid_mField_read.argtypes = [self.handle_type,
                                                        ctypes.c_int,
-                                                       py_neon.Index_3d,
+                                                       ctypes.POINTER(py_neon.Index_3d),
                                                        ctypes.c_int]
         self.py_neon.lib.mGrid_mField_read.restype = ctypes.c_int
 
         # field write
         self.py_neon.lib.mGrid_mField_write.argtypes = [self.handle_type,
                                                         ctypes.c_int,
-                                                        py_neon.Index_3d,
+                                                        ctypes.POINTER(py_neon.Index_3d),
                                                         ctypes.c_int,
                                                         ctypes.c_int]
         self.py_neon.lib.mGrid_mField_write.restype = ctypes.c_int

@@ -8,8 +8,8 @@
  */ /* TODOMATT fix the constructor to have correct arguments */
 extern "C" auto bGrid_new(
     uint64_t& handle,
-    Neon::Backend* backendPtr,
-    Neon::index_3d dim)
+    uint64_t& backendPtr,
+    const Neon::index_3d* dim)
     -> int;
 
 /**
@@ -60,23 +60,23 @@ extern "C" auto bGrid_bField_partition_size(
 
 extern "C" auto bGrid_get_properties( /* TODOMATT verify what the return of this method should be */
     uint64_t& gridHandle,
-    const Neon::index_3d& idx) 
+    const Neon::index_3d* idx) 
     -> int;
 
 extern "C" auto bGrid_is_inside_domain(
     uint64_t& gridHandle,
-    const Neon::index_3d& idx) 
+    const Neon::index_3d* const idx) 
     -> bool;
 
 extern "C" auto bGrid_bField_read(
     uint64_t& fieldHandle,
-    const Neon::index_3d& idx,
+    const Neon::index_3d* idx,
     const int& cardinality)
     -> int;
 
 extern "C" auto bGrid_bField_write(
     uint64_t& fieldHandle,
-    const Neon::index_3d& idx,
+    const Neon::index_3d* idx,
     const int& cardinality,
     int newValue)
     -> int;
@@ -91,5 +91,10 @@ extern "C" auto bGrid_bField_update_device_data(
     int streamSetId)
     -> int;
 
-extern "C" auto dGrid_dSpan_get_member_field_offsets(std::size_t* length)
-    -> std::size_t*;
+
+extern "C" auto bGrid_bSpan_get_member_field_offsets(size_t* offsets, size_t* length)
+    -> void;
+
+
+extern "C" auto bGrid_bField_bPartition_get_member_field_offsets(size_t* offsets, size_t* length)
+    -> void;

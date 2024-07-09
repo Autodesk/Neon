@@ -4,8 +4,8 @@
 
 auto mGrid_new(
     uint64_t& handle,
-    Neon::Backend* backendPtr,
-    Neon::index_3d dim,
+    uint64_t& backendPtr,
+    const Neon::index_3d* dim,
     uint32_t& depth)
     -> int
 {
@@ -15,9 +15,16 @@ auto mGrid_new(
     Neon::init();
 
     using Grid = Neon::domain::mGrid;
+
+    Neon::Backend* backend = reinterpret_cast<Neon::Backend*>(backendPtr);
+    if (backend == nullptr) {
+        std::cerr << "Invalid backend pointer" << std::endl;
+        return -1;
+    }
+
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
     // @TODOMATT define/use a multiresolution constructor for Grid g (talk to max about this)
-    Grid                  g(*backendPtr, dim, std::vector<std::function<bool(const Neon::index_3d&)>>{[](Neon::index_3d const& /*idx*/) { return true; }}, d3q19, Grid::Descriptor(depth));
+    Grid                  g(*backend, *dim, std::vector<std::function<bool(const Neon::index_3d&)>>{[](Neon::index_3d const& /*idx*/) { return true; }}, d3q19, Grid::Descriptor(depth));
     auto                  gridPtr = new (std::nothrow) Grid(g);
     AllocationCounter::Allocation();
 
@@ -203,7 +210,7 @@ auto mGrid_mField_partition_size(
 auto mGrid_get_properties( /* TODOMATT verify what the return of this method should be */
     uint64_t& gridHandle,
     uint64_t& grid_level,
-    const Neon::index_3d& idx) 
+    const Neon::index_3d* idx) 
     -> int
 {
     std::cout << "mGrid_get_properties begin" << std::endl;
@@ -213,7 +220,7 @@ auto mGrid_get_properties( /* TODOMATT verify what the return of this method sho
     if (grid_level >= gridPtr->getGridCount()) {
             std::cout << "grid_level out of range in mGrid_get_properties" << std::endl;
         }
-    int returnValue = int((*gridPtr)(grid_level).getProperties(idx).getDataView());
+    int returnValue = int((*gridPtr)(grid_level).getProperties(*idx).getDataView());
     std::cout << "mGrid_get_properties end" << std::endl;
 
     return returnValue;
@@ -222,7 +229,7 @@ auto mGrid_get_properties( /* TODOMATT verify what the return of this method sho
 auto mGrid_is_inside_domain(
     uint64_t& gridHandle,
     uint64_t& grid_level,
-    const Neon::index_3d& idx
+    const Neon::index_3d* idx
     ) 
     -> bool
 {
@@ -230,7 +237,7 @@ auto mGrid_is_inside_domain(
     
     using Grid = Neon::domain::mGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-    bool returnValue = gridPtr->isInsideDomain(idx, grid_level);
+    bool returnValue = gridPtr->isInsideDomain(*idx, grid_level);
 
     std::cout << "mGrid_is_inside_domain end" << std::endl;
 
@@ -241,7 +248,7 @@ auto mGrid_is_inside_domain(
 auto mGrid_mField_read(
     uint64_t& fieldHandle,
     uint64_t& field_level,
-    const Neon::index_3d& idx,
+    const Neon::index_3d* idx,
     const int& cardinality)
     -> int
 {
@@ -256,7 +263,7 @@ auto mGrid_mField_read(
         std::cout << "invalid field" << std::endl;
     }
 
-    auto returnValue = (*fieldPtr)(idx, cardinality, field_level);
+    auto returnValue = (*fieldPtr)(*idx, cardinality, field_level);
     
     std::cout << "mGrid_mField_read end" << std::endl;
 
@@ -266,7 +273,7 @@ auto mGrid_mField_read(
 auto mGrid_mField_write(
     uint64_t& fieldHandle,
     uint64_t& field_level,
-    const Neon::index_3d& idx,
+    const Neon::index_3d* idx,
     const int& cardinality,
     int newValue)
     -> int
@@ -283,7 +290,7 @@ auto mGrid_mField_write(
         return -1;
     }
 
-    fieldPtr->getReference(idx, cardinality, field_level) = newValue;
+    fieldPtr->getReference(*idx, cardinality, field_level) = newValue;
     
     std::cout << "mGrid_mField_write end" << std::endl;
     return 0;

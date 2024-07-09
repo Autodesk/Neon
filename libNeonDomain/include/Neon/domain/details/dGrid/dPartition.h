@@ -487,7 +487,7 @@ class dPartition
         return s.str();
     }
 
-    #if !defined(NEON_WARP_COMPILATION)
+#if !defined(NEON_WARP_COMPILATION)
     inline static void getOffsets(size_t* offsets, size_t* length) {
         // std::cout << "dGrid_dField_dPartition cpp offsets: " << offsetof(dSpan, mDataView) << " " << offsetof(dSpan, mZghostRadius) << " " << offsetof(dSpan, mZboundaryRadius) << " " << offsetof(dSpan, mMaxZInDomain) << " " << offsetof(dSpan, mSpanDim) << " " <<  std::endl;
         static std::vector<size_t> cpp_offsets = {

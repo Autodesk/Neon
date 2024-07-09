@@ -24,13 +24,13 @@ class bField(object):
         self.handle_type = ctypes.POINTER(ctypes.c_uint64)
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.grid_handle = grid_handle
-        self.help_load_api()
-        self.help_new()
+        self._help_load_api()
+        self._help_grid_new()
 
     def __del__(self):
         self.help_delete()
 
-    def help_load_api(self):
+    def _help_load_api(self):
         # Importing new functions
         ## new_field
         self.py_neon.lib.bGrid_bField_new.argtypes = [self.handle_type,
@@ -56,13 +56,13 @@ class bField(object):
 
         # field read
         self.py_neon.lib.bGrid_bField_read.argtypes = [self.handle_type,
-                                                       py_neon.Index_3d,
+                                                       ctypes.POINTER(py_neon.Index_3d),
                                                        ctypes.c_int]
         self.py_neon.lib.bGrid_bField_read.restype = ctypes.c_int
 
         # field write
         self.py_neon.lib.bGrid_bField_write.argtypes = [self.handle_type,
-                                                       py_neon.Index_3d,
+                                                       ctypes.POINTER(py_neon.Index_3d),
                                                        ctypes.c_int,
                                                        ctypes.c_int]
         self.py_neon.lib.bGrid_bField_write.restype = ctypes.c_int
@@ -79,7 +79,7 @@ class bField(object):
 
 
 
-    def help_new(self):
+    def _help_grid_new(self):
         if self.handle == 0:
             raise Exception('bGrid: Invalid handle')
 

@@ -6,7 +6,7 @@
 auto bGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
-    Neon::index_3d dim)
+    const Neon::index_3d* dim)
     -> int
 {
     std::cout << "bGrid_new - BEGIN" << std::endl;
@@ -15,8 +15,15 @@ auto bGrid_new(
     Neon::init();
 
     using Grid = Neon::bGrid;
+
+    Neon::Backend* backend = reinterpret_cast<Neon::Backend*>(backendPtr);
+    if (backend == nullptr) {
+        std::cerr << "Invalid backend pointer" << std::endl;
+        return -1;
+    }
+
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
-    Grid                  g(*reinterpret_cast<Neon::Backend*>(backendPtr), dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
+    Grid                  g(*backend, *dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
     auto                  gridPtr = new (std::nothrow) Grid(g);
     AllocationCounter::Allocation();
 
@@ -187,14 +194,14 @@ auto bGrid_bField_partition_size(
 
 auto bGrid_get_properties( /* TODOMATT verify what the return of this method should be */
     uint64_t& gridHandle,
-    const Neon::index_3d& idx) 
+    const Neon::index_3d* idx) 
     -> int
 {
     std::cout << "bGrid_get_properties begin" << std::endl;
     
     using Grid = Neon::bGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-    int returnValue = int(gridPtr->getProperties(idx).getDataView());
+    int returnValue = int(gridPtr->getProperties(*idx).getDataView());
     std::cout << "bGrid_get_properties end" << std::endl;
 
     return returnValue;
@@ -202,14 +209,14 @@ auto bGrid_get_properties( /* TODOMATT verify what the return of this method sho
 
 auto bGrid_is_inside_domain(
     uint64_t& gridHandle,
-    const Neon::index_3d& idx) 
+    const Neon::index_3d* const idx) 
     -> bool
 {
     std::cout << "bGrid_is_inside_domain begin" << std::endl;
     
     using Grid = Neon::bGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-    bool returnValue = gridPtr->isInsideDomain(idx);
+    bool returnValue = gridPtr->isInsideDomain(*idx);
 
     std::cout << "bGrid_is_inside_domain end" << std::endl;
 
@@ -219,7 +226,7 @@ auto bGrid_is_inside_domain(
 
 auto bGrid_bField_read(
     uint64_t& fieldHandle,
-    const Neon::index_3d& idx,
+    const Neon::index_3d* idx,
     const int& cardinality)
     -> int
 {
@@ -234,7 +241,7 @@ auto bGrid_bField_read(
         std::cout << "invalid field" << std::endl;
     }
 
-    auto returnValue = (*fieldPtr)(idx, cardinality);
+    auto returnValue = (*fieldPtr)(*idx, cardinality);
     
     std::cout << "bGrid_bField_read end" << std::endl;
 
@@ -243,7 +250,7 @@ auto bGrid_bField_read(
 
 auto bGrid_bField_write(
     uint64_t& fieldHandle,
-    const Neon::index_3d& idx,
+    const Neon::index_3d* idx,
     const int& cardinality,
     int newValue)
     -> int
@@ -260,7 +267,7 @@ auto bGrid_bField_write(
         return -1;
     }
 
-    fieldPtr->getReference(idx, cardinality) = newValue;
+    fieldPtr->getReference(*idx, cardinality) = newValue;
     
     std::cout << "bGrid_bField_write end" << std::endl;
     return 0;
@@ -312,10 +319,15 @@ auto bGrid_bField_update_device_data(
     return 0;
 }
 
-extern "C" auto bGrid_bSpan_get_member_field_offsets(std::size_t* length)
-    -> std::size_t*
+extern "C" auto bGrid_bSpan_get_member_field_offsets(size_t* offsets, size_t* length)
+    -> void
 {
-    std::vector<std::size_t> offsets = Neon::domain::details::bGrid::bSpan<Neon::domain::details::bGrid::BlockDefault>::getOffsets(); // @TODOMATT I am not sure if it should be templated with <int> or with something else, but I think so?
-    *length = offsets.size();
-    return offsets.data();
+    Neon::domain::details::bGrid::bSpan<Neon::domain::details::bGrid::BlockDefault>::getOffsets(offsets, length);
 }
+
+extern "C" auto bGrid_bField_bPartition_get_member_field_offsets(size_t* offsets, size_t* length)
+    -> void
+{
+    Neon::domain::details::bGrid::bPartition<int, 0, Neon::domain::details::bGrid::BlockDefault>::getOffsets(offsets, length);
+}
+
