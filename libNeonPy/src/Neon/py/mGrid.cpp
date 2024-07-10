@@ -6,6 +6,7 @@ auto mGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
     const Neon::index_3d* dim,
+    int* sparsity_pattern,
     uint32_t depth)
     -> int
 {
@@ -24,7 +25,7 @@ auto mGrid_new(
 
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
     // @TODOMATT define/use a multiresolution constructor for Grid g (talk to max about this)
-    Grid                  g(*backend, *dim, std::vector<std::function<bool(const Neon::index_3d&)>>{[](Neon::index_3d const& /*idx*/) { return true; }}, d3q19, Grid::Descriptor(depth));
+    Grid                  g(*backend, *dim, std::vector<std::function<bool(const Neon::index_3d&)>>{[=](Neon::index_3d const& idx) { return sparsity_pattern[idx.x * (dim->x * dim->y) + idx.y * dim->z + idx.z ]; }}, d3q19, Grid::Descriptor(depth));
     auto                  gridPtr = new (std::nothrow) Grid(g);
     AllocationCounter::Allocation();
 

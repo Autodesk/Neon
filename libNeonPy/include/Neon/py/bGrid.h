@@ -5,11 +5,12 @@
 /**
  * Initialize a new grid object on the heap.
  * NOTE: some parameters are still not exposed
- */ /* TODOMATT fix the constructor to have correct arguments */
+ */
 extern "C" auto bGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
-    const Neon::index_3d* dim)
+    const Neon::int32_3d* dim,
+    int* sparsity_pattern)
     -> int;
 
 /**

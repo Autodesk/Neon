@@ -10,8 +10,10 @@ extern "C" auto mGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
     const Neon::index_3d* dim,
+    int* sparsity_pattern,
     uint32_t depth)
     -> int;
+
 
 /**
  * Delete a grid object on the heap.

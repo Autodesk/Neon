@@ -10,20 +10,33 @@ from py_neon.dataview import DataView
 from ..block.bSpan import bSpan
 from ..backend import Backend
 from py_neon.index_3d import Index_3d
+import numpy as np
 
 class mGrid(object):
 
 
-    def __init__(self, backend = None, dim = None, depth = 1):
+    def __init__(self, backend = None, dim = None, depth = 1, sparsity_pattern: np.ndarray = None):
+        if sparsity_pattern is None:
+            sparsity_pattern = np.ones((dim.x,dim.y,dim.z))
+        if backend is None:
+            # raise exception
+            raise Exception('dGrid: backend pamrameter is missing')
+        if sparsity_pattern.shape[0] != dim.x or sparsity_pattern.shape[1] != dim.y or sparsity_pattern.shape[2] != dim.z:
+            raise Exception('dGrid: sparsity_pattern\'s shape does not match the dim')
+
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.backend = backend
         self.dim = dim
+        self.sparsity_pattern = sparsity_pattern
         self.depth = depth
+
+
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
             self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
             raise Exception('Failed to initialize PyNeon: ' + str(e))
+        
         self._help_load_api()
         self._help_grid_new()
 
@@ -38,6 +51,7 @@ class mGrid(object):
         self.py_neon.lib.mGrid_new.argtypes = [self.py_neon.handle_type,
                                                self.py_neon.handle_type,
                                                ctypes.POINTER(py_neon.Index_3d),
+                                               ctypes.POINTER(ctypes.c_int),
                                                ctypes.c_int]
         self.py_neon.lib.mGrid_new.restype = ctypes.c_int
 
@@ -75,17 +89,17 @@ class mGrid(object):
 
 
     def _help_grid_new(self):
-        if self.handle == 0:
-            raise Exception('mGrid: Invalid handle')
+        if self.backend.handle.value == 0:  # Check backend handle validity
+            raise Exception('mGrid: Invalid backend handle')
 
-        if self.backend is None:
-            self.backend = Backend()
-        if self.dim is None:
-            self.dim = py_neon.Index_3d(10,10,10)
-
-        res = self.py_neon.lib.mGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim, self.depth)
+        if self.handle.value != 0:  # Ensure the grid handle is uninitialized
+            raise Exception('mGrid: Grid handle already initialized')
+        
+        sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+        res = self.py_neon.lib.mGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim, sparsity_pattern_array, self.depth)
         if res != 0:
             raise Exception('mGrid: Failed to initialize grid')
+        print(f"mGrid initialized with handle {self.handle.value}")
 
     def _help_grid_delete(self):
         if self.py_neon.lib.mGrid_delete(ctypes.byref(self.handle)) != 0:

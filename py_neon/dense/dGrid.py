@@ -16,7 +16,7 @@ import sys
 
 class dGrid(object):
 
-    def __init__(self, backend: Backend = None, dim: Index_3d = Index_3d(10,10,10), sparsity_pattern: np.ndarray = None): # @TODOMATT implement psarsity pattern
+    def __init__(self, backend: Backend = None, dim: Index_3d = Index_3d(10,10,10), sparsity_pattern: np.ndarray = None):
         if sparsity_pattern is None:
             sparsity_pattern = np.ones((dim.x,dim.y,dim.z))
         if backend is None:
@@ -46,10 +46,6 @@ class dGrid(object):
 
     def _help_load_api(self):
 
-        # grid_new
-        # self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type,
-        #                                        self.py_neon.handle_type,
-        #                                        py_neon.Index_3d]
         self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type,
                                                self.py_neon.handle_type,
                                                ctypes.POINTER(py_neon.Index_3d),
@@ -87,19 +83,16 @@ class dGrid(object):
 
     def _help_grid_new(self):
         if self.backend.handle.value == 0:  # Check backend handle validity
-            raise Exception('DGrid: Invalid backend handle')
+            raise Exception('dGrid: Invalid backend handle')
 
         if self.handle.value != 0:  # Ensure the grid handle is uninitialized
-            raise Exception('DGrid: Grid handle already initialized')
+            raise Exception('dGrid: Grid handle already initialized')
         
-        print(f"Initializing grid with handle {self.handle.value} and backend handle {self.backend.handle.value}")
-        sys.stdout.flush()  # Ensure the print statement is flushed to the console
-
         sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
         res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim, sparsity_pattern_array)
         if res != 0:
-            raise Exception('DGrid: Failed to initialize grid')
-        print(f"Grid initialized with handle {self.handle.value}")
+            raise Exception('dGrid: Failed to initialize grid')
+        print(f"dGrid initialized with handle {self.handle.value}")
 
     def _help_grid_delete(self):
         if self.py_neon.lib.dGrid_delete(ctypes.byref(self.handle)) != 0:

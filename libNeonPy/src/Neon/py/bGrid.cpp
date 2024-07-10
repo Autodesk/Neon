@@ -6,7 +6,8 @@
 auto bGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
-    const Neon::index_3d* dim)
+    const Neon::index_3d* dim,
+    int* sparsity_pattern)
     -> int
 {
     std::cout << "bGrid_new - BEGIN" << std::endl;
@@ -23,7 +24,7 @@ auto bGrid_new(
     }
 
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
-    Grid                  g(*backend, *dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
+    Grid                  g(*backend, *dim, [=](Neon::index_3d const& idx) { return sparsity_pattern[idx.x * (dim->x * dim->y) + idx.y * dim->z + idx.z ]; }, d3q19);
     auto                  gridPtr = new (std::nothrow) Grid(g);
     AllocationCounter::Allocation();
 
