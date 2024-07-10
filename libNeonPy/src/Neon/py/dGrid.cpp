@@ -2,10 +2,11 @@
 #include "Neon/domain/Grids.h"
 #include "Neon/set/Backend.h"
 #include "Neon/py/AllocationCounter.h"
+#include <nvtx3/nvToolsExt.h>
 
 auto dGrid_new(
-    uint64_t& handle,
-    uint64_t& backendPtr,
+    uint64_t&             handle,
+    uint64_t&             backendPtr,
     const Neon::int32_3d* dim)
     -> int
 {
@@ -26,7 +27,7 @@ auto dGrid_new(
     // Neon::int32_3d dim{x,y,z};
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
     Grid                  g(*backend, *dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
-    auto                  gridPtr = new (std::nothrow) Grid(g);
+    auto                  gridPtr = new(std::nothrow) Grid(g);
     AllocationCounter::Allocation();
 
     if (gridPtr == nullptr) {
@@ -39,40 +40,7 @@ auto dGrid_new(
     // g.ioDomainToVtk("")
     return 0;
 }
-// auto dGrid_new(
-//     uint64_t& handle,
-//     uint64_t& backendPtr)
-//     Neon::index_3d dim,
-//     -> int
-// {
-//     std::cout << "dGrid_new - BEGIN" << std::endl;
-//     std::cout << "dGrid_new - gridHandle " << handle << std::endl;
 
-//     Neon::init();
-
-//     using Grid = Neon::dGrid;
-
-//     Neon::Backend* backend = reinterpret_cast<Neon::Backend*>(backendPtr);
-//     if (backend == nullptr) {
-//         std::cerr << "Invalid backend pointer" << std::endl;
-//         return -1;
-//     }
-//     std::cerr << dim.x << " " << dim.y << " " << dim.z << std::endl;
-//     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
-//     Grid                  g(*backend, dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
-//     auto                  gridPtr = new (std::nothrow) Grid(g);
-//     AllocationCounter::Allocation();
-
-//     if (gridPtr == nullptr) {
-//         std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
-//         return -1;
-//     }
-//     handle = reinterpret_cast<uint64_t>(gridPtr);
-//     std::cout << "grid_new - END" << std::endl;
-
-//     // g.ioDomainToVtk("")
-//     return 0;
-// }
 
 auto dGrid_delete(
     uint64_t& handle)
@@ -141,7 +109,7 @@ auto dGrid_dField_new(
         using Field = Grid::Field<int, 0>;
         Field field = grid.newField<int, 0>("test", 1, 0, Neon::DataUse::HOST_DEVICE);
         std::cout << field.toString() << std::endl;
-        Field* fieldPtr = new (std::nothrow) Field(field);
+        Field* fieldPtr = new(std::nothrow) Field(field);
         AllocationCounter::Allocation();
 
         if (fieldPtr == nullptr) {
@@ -186,7 +154,7 @@ auto dGrid_dField_get_partition(
         std::cout << p.cardinality() << std::endl;
         *partitionPtr = p;
         std::cout << "dGrid_dField_get_partition\n"
-                  << partitionPtr->to_string();
+            << partitionPtr->to_string();
 
         std::cout << "dGrid_dField_get_partition - END" << std::endl;
 
@@ -231,30 +199,30 @@ auto dGrid_dField_partition_size(
 }
 
 auto dGrid_get_properties( /* TODOMATT verify what the return of this method should be */
-    uint64_t& gridHandle,
-    const Neon::index_3d& idx) 
+    uint64_t&             gridHandle,
+    const Neon::index_3d& idx)
     -> int
 {
     std::cout << "dGrid_get_properties begin" << std::endl;
-    
+
     using Grid = Neon::dGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-    int returnValue = int(gridPtr->getProperties(idx).getDataView());
+    int   returnValue = int(gridPtr->getProperties(idx).getDataView());
     std::cout << "dGrid_get_properties end" << std::endl;
 
     return returnValue;
 }
 
 auto dGrid_is_inside_domain(
-    uint64_t& gridHandle,
-    const Neon::index_3d& idx) 
+    uint64_t&             gridHandle,
+    const Neon::index_3d& idx)
     -> bool
 {
     std::cout << "dGrid_is_inside_domain begin" << std::endl;
-    
+
     using Grid = Neon::dGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-    bool returnValue = gridPtr->isInsideDomain(idx);
+    bool  returnValue = gridPtr->isInsideDomain(idx);
 
     std::cout << "dGrid_is_inside_domain end" << std::endl;
 
@@ -263,9 +231,9 @@ auto dGrid_is_inside_domain(
 }
 
 auto dGrid_dField_read(
-    uint64_t& fieldHandle,
+    uint64_t&             fieldHandle,
     const Neon::index_3d& idx,
-    const int& cardinality)
+    const int&            cardinality)
     -> int
 {
     std::cout << "dGrid_dField_read begin" << std::endl;
@@ -280,17 +248,17 @@ auto dGrid_dField_read(
     }
 
     auto returnValue = (*fieldPtr)(idx, cardinality);
-    
+
     std::cout << "dGrid_dField_read end" << std::endl;
 
     return returnValue;
 }
 
 auto dGrid_dField_write(
-    uint64_t& fieldHandle,
+    uint64_t&             fieldHandle,
     const Neon::index_3d& idx,
-    const int& cardinality,
-    int newValue)
+    const int&            cardinality,
+    int                   newValue)
     -> int
 {
     std::cout << "dGrid_dField_write begin" << std::endl;
@@ -306,16 +274,20 @@ auto dGrid_dField_write(
     }
 
     fieldPtr->getReference(idx, cardinality) = newValue;
-    
+
     std::cout << "dGrid_dField_write end" << std::endl;
     return 0;
 }
 
 auto dGrid_dField_update_host_data(
     uint64_t& fieldHandle,
-    int streamSetId)
+    int       streamSetId)
     -> int
 {
+#ifdef NEON_USE_NVTX
+    nvtxRangePush("dGrid_dField_update_host_data");
+#endif
+
     std::cout << "dGrid_dField_update_host_data begin" << std::endl;
 
     using Grid = Neon::dGrid;
@@ -329,16 +301,22 @@ auto dGrid_dField_update_host_data(
     }
 
     fieldPtr->updateHostData(streamSetId);
-    
+
     std::cout << "dGrid_dField_update_host_data end" << std::endl;
+#ifdef NEON_USE_NVTX
+    nvtxRangePop();
+#endif
     return 0;
 }
 
 auto dGrid_dField_update_device_data(
     uint64_t& fieldHandle,
-    int streamSetId)
+    int       streamSetId)
     -> int
 {
+#ifdef NEON_USE_NVTX
+    nvtxRangePush("dGrid_dField_update_host_data");
+#endif
     std::cout << "dGrid_dField_update_device_data begin" << std::endl;
 
     using Grid = Neon::dGrid;
@@ -352,14 +330,17 @@ auto dGrid_dField_update_device_data(
     }
 
     fieldPtr->updateDeviceData(streamSetId);
-    
+
     std::cout << "dGrid_dField_update_device_data end" << std::endl;
+#ifdef NEON_USE_NVTX
+    nvtxRangePop();
+#endif
     return 0;
 }
 
-extern "C" auto dGrid_dSpan_get_member_field_offsets(size_t* offsets, size_t* length)
+extern "C" auto dGrid_dSpan_get_member_field_offsets(size_t* offsets,
+                                                     size_t* length)
     -> void
 {
     Neon::domain::details::dGrid::dSpan::getOffsets(offsets, length);
 }
-
