@@ -50,12 +50,15 @@ class dSpan(ctypes.Structure):
     def get_span_dim(self):
         return copy.deepcopy(self.span_dim)
 
+    def get_thread_space(self):
+        return copy.deepcopy(self.span_dim)
+
     def get_offsets(self):
         # def get_offset(field_name):
         #     return ctypes.offsetof(dSpan, field_name)
         # return [get_offset('dataView'), get_offset('z_ghost_radius'), get_offset('z_boundary_radius'), get_offset('max_z_in_domain'), get_offset('span_dim')]
         return [dSpan.dataView.offset, dSpan.z_ghost_radius.offset, dSpan.z_boundary_radius.offset, dSpan.max_z_in_domain.offset, dSpan.span_dim.offset]
-    
+
     @staticmethod
     def fields_():
         return dSpan._fields_

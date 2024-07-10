@@ -26,7 +26,7 @@ class dPartitionInt(ctypes.Structure):
 
     def __str__(self):    
         def get_offset(field_name):
-                return ctypes.offsetof(dPartitionInt, field_name)
+                return "ctypes.offsetof(dPartitionInt, field_name)"
 
         str = f"<DPartition: addr={ctypes.addressof(self):#x}>"
         str += f"\n\tdataView: {self.mDataView} (offset: {get_offset('mDataView')})"

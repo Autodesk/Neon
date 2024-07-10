@@ -1,23 +1,18 @@
-import copy
 import ctypes
-from enum import Enum
+import sys
 
 import py_neon
-from .dField import dField
-from py_neon.execution import Execution
 from py_neon import Py_neon
 from py_neon.dataview import DataView
-from .dSpan import dSpan
-from py_neon.backend import Backend
+from py_neon.execution import Execution
 from py_neon.index_3d import Index_3d
-import numpy as np
+from .dField import dField
+from .dSpan import dSpan
 
-import sys
 
 class dGrid(object):
 
-
-    def __init__(self, backend = None, dim = None):
+    def __init__(self, backend=None, dim=None):
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.backend = backend
         self.dim = dim
@@ -68,7 +63,6 @@ class dGrid(object):
         self.py_neon.lib.dGrid_span_size.argtypes = [ctypes.POINTER(dSpan)]
         self.py_neon.lib.dGrid_span_size.restype = ctypes.c_int
 
-
         self.py_neon.lib.dGrid_get_properties.argtypes = [self.py_neon.handle_type,
                                                           py_neon.Index_3d]
         self.py_neon.lib.dGrid_get_properties.restype = ctypes.c_int
@@ -77,14 +71,13 @@ class dGrid(object):
                                                             py_neon.Index_3d]
         self.py_neon.lib.dGrid_is_inside_domain.restype = ctypes.c_bool
 
-
     def _help_grid_new(self):
         if self.backend.handle.value == 0:  # Check backend handle validity
             raise Exception('DGrid: Invalid backend handle')
 
         if self.handle.value != 0:  # Ensure the grid handle is uninitialized
             raise Exception('DGrid: Grid handle already initialized')
-        
+
         print(f"Initializing grid with handle {self.handle.value} and backend handle {self.backend.handle.value}")
         sys.stdout.flush()  # Ensure the print statement is flushed to the console
         # idx3d = Index_3d(10,10,10)
@@ -99,19 +92,25 @@ class dGrid(object):
         if self.py_neon.lib.dGrid_delete(ctypes.byref(self.handle)) != 0:
             raise Exception('Failed to delete grid')
 
+    def get_backend(self):
+        return self.backend
+
     def new_field(self) -> dField:
-        field = dField(self.py_neon, self.handle)
+        field = dField(self.py_neon,
+                       self.handle,
+                       self)
         return field
 
     def get_span(self,
                  execution: Execution,
-                 c: ctypes.c_int,
+                 dev_idx: int,
                  data_view: DataView) -> dSpan:
         if self.handle == 0:
             raise Exception('DGrid: Invalid handle')
 
         span = dSpan()
-        res = self.py_neon.lib.dGrid_get_span(self.handle, span, execution, c, data_view)
+        dev_idx_ctypes = ctypes.c_int(dev_idx)
+        res = self.py_neon.lib.dGrid_get_span(self.handle, span, execution, dev_idx_ctypes, data_view)
         if res != 0:
             raise Exception('Failed to get span')
 
@@ -122,9 +121,9 @@ class dGrid(object):
             raise Exception(f'Failed to get span: cpp_size {cpp_size} != ctypes_size {ctypes_size}')
 
         return span
-    
+
     def getProperties(self, idx: Index_3d):
         return DataView.from_int(self.py_neon.lib.dGrid_get_properties(self.handle, idx))
-    
+
     def isInsideDomain(self, idx: Index_3d):
         return self.py_neon.lib.dGrid_is_inside_domain(self.handle, idx)

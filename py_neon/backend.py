@@ -20,13 +20,17 @@ class Backend(object):
                  dev_idx_list: List[int] = [0]):
 
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
+        self.n_dev = n_dev
+        self.dev_idx_list = dev_idx_list
+        self.runtime = runtime
+
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
             self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
             raise Exception('Failed to initialize PyNeon: ' + str(e))
         self.help_load_api()
-        self.help_backend_new(runtime, n_dev, dev_idx_list)
+        self.help_backend_new()
 
     def __del__(self):
         if self.handle == 0:
@@ -64,24 +68,21 @@ class Backend(object):
         # TODOMATT get num devices
         # TODOMATT get device type
 
-    def help_backend_new(self,
-                         runtime: Runtime,
-                         n_dev: int,
-                         dev_idx_list: List[int]):
+    def help_backend_new(self):
         if self.handle.value != ctypes.c_uint64(0).value:
             raise Exception(f'DBackend: Invalid handle {self.handle}')
 
-        if n_dev > len(dev_idx_list):
-            dev_idx_list = list(range(n_dev))
+        if self.n_dev > len(self.dev_idx_list):
+            dev_idx_list = list(range(self.n_dev))
         else:
-            n_dev = len(dev_idx_list)
+            self.n_dev = len(self.dev_idx_list)
 
-        dev_idx_np = np.array(dev_idx_list, dtype=int)
+        dev_idx_np = np.array(self.dev_idx_list, dtype=int)
         dev_idx_ptr = dev_idx_np.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
 
         res = self.py_neon.lib.dBackend_new(ctypes.byref(self.handle),
-                                            runtime.value,
-                                            n_dev,
+                                            self.runtime.value,
+                                            self.n_dev,
                                             dev_idx_ptr)
         if res != 0:
             raise Exception('DBackend: Failed to initialize backend')
@@ -92,6 +93,15 @@ class Backend(object):
         res = self.py_neon.lib.dBackend_delete(self.handle)
         if res != 0:
             raise Exception('Failed to delete backend')
+
+    def get_num_devices(self):
+        return self.n_dev
+
+    def get_warp_device_name(self):
+        if self.runtime == Backend.Runtime.stream:
+            return 'cuda'
+        else:
+            return 'cpu'
 
     def __str__(self):
         return ctypes.cast(self.py_neon.lib.get_string(self.handle), ctypes.c_char_p).value.decode('utf-8')
