@@ -7,6 +7,7 @@ from py_neon import DataView
 
 class bSpan(ctypes.Structure):
     _fields_ = [
+        ("vtablePtr", ctypes.c_uint64),
         ("mFirstDataBlockOffset", ctypes.c_uint32),
         ("mActiveMask", ctypes.POINTER(ctypes.c_uint32)),
         ("mDataView", DataView)

@@ -19,12 +19,18 @@ extern "C" auto bGrid_delete(
     uint64_t& handle)
     -> int;
 
+extern "C" auto bGrid_get_dimensions(
+    uint64_t& gridHandle,
+    Neon::index_3d* dim)
+    -> int;
+
 /**
  * Generates a new field object on the heap.
  */
 extern "C" auto bGrid_bField_new(
-    uint64_t& handle,
-    uint64_t& grid)
+    uint64_t& fieldHandle,
+    uint64_t& gridHandle,
+    int cardinality)
     -> int;
 
 /**
@@ -71,13 +77,13 @@ extern "C" auto bGrid_is_inside_domain(
 extern "C" auto bGrid_bField_read(
     uint64_t& fieldHandle,
     const Neon::index_3d* idx,
-    const int& cardinality)
+    const int cardinality)
     -> int;
 
 extern "C" auto bGrid_bField_write(
     uint64_t& fieldHandle,
     const Neon::index_3d* idx,
-    const int& cardinality,
+    const int cardinality,
     int newValue)
     -> int;
 

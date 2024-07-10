@@ -9,7 +9,8 @@
 extern "C" auto dGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
-    const Neon::int32_3d* dim)
+    const Neon::int32_3d* dim,
+    int* sparsity_pattern)
     -> int;
 
 
@@ -22,7 +23,7 @@ extern "C" auto dGrid_delete(
 
 extern "C" auto dGrid_get_dimensions(
     uint64_t& gridHandle,
-    Neon::int32_3d* dim)
+    Neon::index_3d* dim)
     -> int;
 
 /**
@@ -67,8 +68,7 @@ extern "C" auto dGrid_dField_partition_size(
 
 extern "C" auto dGrid_get_properties( 
     uint64_t& gridHandle,
-    const Neon::index_3d* const idx,
-    Neon::DataView* dv) 
+    const Neon::index_3d* const idx) 
     -> int;
 
 extern "C" auto dGrid_is_inside_domain(

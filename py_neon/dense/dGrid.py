@@ -17,14 +17,20 @@ import sys
 class dGrid(object):
 
     def __init__(self, backend: Backend = None, dim: Index_3d = Index_3d(10,10,10), sparsity_pattern: np.ndarray = None): # @TODOMATT implement psarsity pattern
+        if sparsity_pattern is None:
+            sparsity_pattern = np.ones((dim.x,dim.y,dim.z))
+        if backend is None:
+            # raise exception
+            raise Exception('dGrid: backend pamrameter is missing')
+        if sparsity_pattern.shape[0] != dim.x or sparsity_pattern.shape[1] != dim.y or sparsity_pattern.shape[2] != dim.z:
+            raise Exception('dGrid: sparsity_pattern\'s shape does not match the dim')
+
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.backend = backend
         self.dim = dim
         self.sparsity_pattern = sparsity_pattern
-        if backend is None:
-            # rise exception
-            raise Exception('dGrid: backend pamrameter is missing')
-        
+
+
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
@@ -46,7 +52,8 @@ class dGrid(object):
         #                                        py_neon.Index_3d]
         self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type,
                                                self.py_neon.handle_type,
-                                               ctypes.POINTER(py_neon.Index_3d)]
+                                               ctypes.POINTER(py_neon.Index_3d),
+                                               ctypes.POINTER(ctypes.c_int)]
         self.py_neon.lib.dGrid_new.restype = ctypes.c_int
 
         # grid_delete
@@ -70,8 +77,7 @@ class dGrid(object):
 
 
         self.py_neon.lib.dGrid_get_properties.argtypes = [self.py_neon.handle_type,
-                                                          ctypes.POINTER(py_neon.Index_3d),
-                                                          ctypes.POINTER(DataView)]
+                                                          ctypes.POINTER(py_neon.Index_3d)]
         self.py_neon.lib.dGrid_get_properties.restype = ctypes.c_int
 
         self.py_neon.lib.dGrid_is_inside_domain.argtypes = [self.py_neon.handle_type,
@@ -88,10 +94,9 @@ class dGrid(object):
         
         print(f"Initializing grid with handle {self.handle.value} and backend handle {self.backend.handle.value}")
         sys.stdout.flush()  # Ensure the print statement is flushed to the console
-        # idx3d = Index_3d(10,10,10)
-        # res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), idx3d)
-        # res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim.x, self.dim.y, self.dim.z)
-        res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim)
+
+        sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+        res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim, sparsity_pattern_array)
         if res != 0:
             raise Exception('DGrid: Failed to initialize grid')
         print(f"Grid initialized with handle {self.handle.value}")
@@ -136,8 +141,7 @@ class dGrid(object):
         return span
     
     def getProperties(self, idx: Index_3d):
-        dv = DataView(0)
-        return DataView(self.py_neon.lib.dGrid_get_properties(ctypes.byref(self.handle), idx, dv))
+        return DataView(self.py_neon.lib.dGrid_get_properties(ctypes.byref(self.handle), idx))
     
     def isInsideDomain(self, idx: Index_3d):
         return self.py_neon.lib.dGrid_is_inside_domain(ctypes.byref(self.handle), idx)

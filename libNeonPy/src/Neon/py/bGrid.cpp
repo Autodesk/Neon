@@ -57,6 +57,34 @@ auto bGrid_delete(
     return 0;
 }
 
+extern "C" auto bGrid_get_dimensions(
+    uint64_t& gridHandle,
+    Neon::index_3d* dim)
+    -> int
+{
+    std::cout << "bGrid_get_dimension - BEGIN" << std::endl;
+    std::cout << "bGrid_get_dimension - gridHandle " << gridHandle << std::endl;
+
+
+    using Grid = Neon::bGrid;    
+    Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
+
+    if (gridPtr == nullptr) {
+        std::cout << "NeonPy: gridHandle is invalid " << std::endl;
+        return -1;
+    }
+
+    auto dimension = gridPtr->getDimension();
+    dim->x = dimension.x;
+    dim->y = dimension.y;
+    dim->z = dimension.z;
+
+    std::cout << "bGrid_get_dimension - END" << std::endl;
+
+    // g.ioDomainToVtk("")
+    return 0;
+}
+
 auto bGrid_get_span(
     uint64_t&          gridHandle,
     Neon::bGrid::Span* spanRes,
@@ -89,13 +117,14 @@ auto bGrid_get_span(
 }
 
 auto bGrid_bField_new(
-    uint64_t& handle,
-    uint64_t& gridHandle)
+    uint64_t& fieldHandle,
+    uint64_t& gridHandle,
+    int cardinality)
     -> int
 {
     std::cout << "bGrid_bField_new - BEGIN" << std::endl;
     std::cout << "bGrid_bField_new - gridHandle " << gridHandle << std::endl;
-    std::cout << "bGrid_bField_new - handle " << handle << std::endl;
+    std::cout << "bGrid_bField_new - fieldHandle " << fieldHandle << std::endl;
 
     using Grid = Neon::bGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
@@ -103,7 +132,7 @@ auto bGrid_bField_new(
 
     if (gridPtr != nullptr) {
         using Field = Grid::Field<int, 0>;
-        Field field = grid.newField<int, 0>("test", 1, 0, Neon::DataUse::HOST_DEVICE);
+        Field field = grid.newField<int, 0>("test", cardinality, 0, Neon::DataUse::HOST_DEVICE);
         std::cout << field.toString() << std::endl;
         Field* fieldPtr = new (std::nothrow) Field(field);
         AllocationCounter::Allocation();
@@ -112,8 +141,8 @@ auto bGrid_bField_new(
             std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
             return -1;
         }
-        handle = (uint64_t)fieldPtr;
-        std::cout << "bGrid_bField_new - END " << handle << std::endl;
+        fieldHandle = (uint64_t)fieldPtr;
+        std::cout << "bGrid_bField_new - END " << fieldHandle << std::endl;
 
         return 0;
     }
@@ -227,7 +256,7 @@ auto bGrid_is_inside_domain(
 auto bGrid_bField_read(
     uint64_t& fieldHandle,
     const Neon::index_3d* idx,
-    const int& cardinality)
+    const int cardinality)
     -> int
 {
     std::cout << "bGrid_bField_read begin" << std::endl;
@@ -251,7 +280,7 @@ auto bGrid_bField_read(
 auto bGrid_bField_write(
     uint64_t& fieldHandle,
     const Neon::index_3d* idx,
-    const int& cardinality,
+    const int cardinality,
     int newValue)
     -> int
 {

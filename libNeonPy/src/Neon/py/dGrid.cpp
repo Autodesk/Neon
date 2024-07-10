@@ -6,7 +6,8 @@
 auto dGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
-    const Neon::index_3d* dim)
+    const Neon::index_3d* dim,
+    int* sparsity_pattern)
     -> int
 {
     std::cout << "dGrid_new - BEGIN" << std::endl;
@@ -24,7 +25,7 @@ auto dGrid_new(
 
     // Neon::index_3d dim{x,y,z};
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
-    Grid                  g(*backend, *dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
+    Grid                  g(*backend, *dim, [=](Neon::index_3d const& idx) { return sparsity_pattern[idx.x * (dim->x * dim->y) + idx.y * dim->z + idx.z ]; }, d3q19);
     auto                  gridPtr = new (std::nothrow) Grid(g);
     AllocationCounter::Allocation();
 
@@ -70,8 +71,6 @@ extern "C" auto dGrid_get_dimensions(
 
     using Grid = Neon::dGrid;    
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-
-    std::cerr << dim->x << " " << dim->y << " " << dim->z << std::endl;
 
     if (gridPtr == nullptr) {
         std::cout << "NeonPy: gridHandle is invalid " << std::endl;
@@ -230,21 +229,18 @@ auto dGrid_dField_partition_size(
 
 auto dGrid_get_properties( /* TODOMATT verify what the return of this method should be */
     uint64_t& gridHandle,
-    const Neon::index_3d* const idx,
-    Neon::DataView* dv) 
+    const Neon::index_3d* const idx) 
     -> int
 {
     std::cout << "dGrid_get_properties begin" << std::endl;
     
     using Grid = Neon::dGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-    if (gridPtr == nullptr) {
-        return -1;
-    }
-    *dv = gridPtr->getProperties(*idx).getDataView();
+
+    int result = static_cast<int>(gridPtr->getProperties(*idx).getDataView());
     std::cout << "dGrid_get_properties end" << std::endl;
 
-    return 0;
+    return result;
 }
 
 auto dGrid_is_inside_domain(

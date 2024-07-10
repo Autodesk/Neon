@@ -43,6 +43,10 @@ class bGrid(object):
         self.py_neon.lib.bGrid_delete.argtypes = [self.py_neon.handle_type]
         self.py_neon.lib.bGrid_delete.restype = ctypes.c_int
 
+        self.py_neon.lib.bGrid_get_dimensions.argtypes = [self.py_neon.handle_type,
+                                                          ctypes.POINTER(py_neon.Index_3d)]
+        self.py_neon.lib.bGrid_get_dimensions.restype = ctypes.c_int
+
         self.py_neon.lib.bGrid_get_span.argtypes = [self.py_neon.handle_type,
                                                     ctypes.POINTER(bSpan),  # the span object
                                                     py_neon.Execution,  # the execution type
@@ -81,8 +85,19 @@ class bGrid(object):
         if self.py_neon.lib.bGrid_delete(ctypes.byref(self.handle)) != 0:
             raise Exception('Failed to delete grid')
 
-    def new_field(self) -> bField:
-        field = bField(self.py_neon, self.handle)
+    def get_python_dimensions(self):
+        return self.dim
+    
+    def get_cpp_dimensions(self):
+        cpp_dim = Index_3d(0,0,0)
+        res = self.py_neon.lib.bGrid_get_dimensions(ctypes.byref(self.handle), cpp_dim)
+        if res != 0:
+            raise Exception('bGrid: Failed to obtain grid dimension')
+        
+        return cpp_dim
+
+    def new_field(self, cardinality: ctypes.c_int) -> bField:
+        field = bField(self.handle, cardinality)
         return field
 
     def get_span(self,
@@ -106,7 +121,10 @@ class bGrid(object):
         return span
     
     def getProperties(self, idx: Index_3d):
-        return DataView.from_int(self.py_neon.lib.bGrid_get_properties(ctypes.byref(self.handle), idx))
-    
+        return DataView(self.py_neon.lib.bGrid_get_properties(ctypes.byref(self.handle), idx))
+        
+    # for some reason, negative numbers in the index will return true for bGrids.
     def isInsideDomain(self, idx: Index_3d):
-        return self.py_neon.lib.bGrid_is_inside_domain(ctypes.by_ref(self.handle), idx)
+        if idx.x < 0 or idx.y < 0 or idx.z < 0:
+            raise Exception(f'can\'t access negative indices in mGrid') # @TODOMATT make sure that this is a valid requirement
+        return self.py_neon.lib.bGrid_is_inside_domain(ctypes.byref(self.handle), idx)

@@ -7,14 +7,14 @@ from .mField import mField
 from py_neon.execution import Execution
 from py_neon import Py_neon
 from py_neon.dataview import DataView
-from ..dense.dSpan import dSpan
+from ..block.bSpan import bSpan
 from ..backend import Backend
 from py_neon.index_3d import Index_3d
 
 class mGrid(object):
 
 
-    def __init__(self, backend = None, dim = None, depth = 0):
+    def __init__(self, backend = None, dim = None, depth = 1):
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.backend = backend
         self.dim = dim
@@ -45,16 +45,21 @@ class mGrid(object):
         self.py_neon.lib.mGrid_delete.argtypes = [self.py_neon.handle_type]
         self.py_neon.lib.mGrid_delete.restype = ctypes.c_int
 
+        
+        self.py_neon.lib.mGrid_get_dimensions.argtypes = [self.py_neon.handle_type,
+                                                          ctypes.POINTER(py_neon.Index_3d)]
+        self.py_neon.lib.mGrid_get_dimensions.restype = ctypes.c_int
+
         self.py_neon.lib.mGrid_get_span.argtypes = [self.py_neon.handle_type,
                                                     ctypes.c_int, # the grid index
-                                                    ctypes.POINTER(dSpan),  # the span object
+                                                    ctypes.POINTER(bSpan),  # the span object
                                                     py_neon.Execution,  # the execution type
                                                     ctypes.c_int,  # the device id
                                                     py_neon.DataView,  # the data view
                                                     ]
         self.py_neon.lib.mGrid_get_span.restype = ctypes.c_int
 
-        self.py_neon.lib.mGrid_span_size.argtypes = [ctypes.POINTER(dSpan)]
+        self.py_neon.lib.mGrid_span_size.argtypes = [ctypes.POINTER(bSpan)]
         self.py_neon.lib.mGrid_span_size.restype = ctypes.c_int
 
 
@@ -86,19 +91,30 @@ class mGrid(object):
         if self.py_neon.lib.mGrid_delete(ctypes.byref(self.handle)) != 0:
             raise Exception('Failed to delete grid')
 
-    def new_field(self) -> mField:
-        field = mField(self.py_neon, self.handle)
+    def get_python_dimensions(self):
+        return self.dim
+    
+    def get_cpp_dimensions(self):
+        cpp_dim = Index_3d(0,0,0)
+        res = self.py_neon.lib.mGrid_get_dimensions(ctypes.byref(self.handle), cpp_dim)
+        if res != 0:
+            raise Exception('mGrid: Failed to obtain grid dimension')
+        
+        return cpp_dim
+    
+    def new_field(self, cardinality: ctypes.c_int) -> mField:
+        field = mField(self.handle, cardinality)
         return field
 
     def get_span(self,
                  grid_level: ctypes.c_int,
                  execution: Execution,
                  c: ctypes.c_int,
-                 data_view: DataView) -> dSpan:
+                 data_view: DataView) -> bSpan:
         if self.handle == 0:
             raise Exception('mGrid: Invalid handle')
 
-        span = dSpan()
+        span = bSpan()
         res = self.py_neon.lib.mGrid_get_span(ctypes.byref(self.handle), grid_level, span, execution, c, data_view)
         if res != 0:
             raise Exception('Failed to get span')
@@ -111,8 +127,10 @@ class mGrid(object):
 
         return span
     
-    def getProperties(self, grid_inex: ctypes.c_int, idx: Index_3d):
-        return DataView.from_int(self.py_neon.lib.mGrid_get_properties(ctypes.byref(self.handle), grid_inex, idx))
+    def getProperties(self, grid_level: ctypes.c_int, idx: Index_3d):
+        return DataView(self.py_neon.lib.mGrid_get_properties(ctypes.byref(self.handle), grid_level, idx))
     
     def isInsideDomain(self, grid_level: ctypes.c_int, idx: Index_3d):
+        if idx.x < 0 or idx.y < 0 or idx.z < 0:
+            raise Exception(f'can\'t access negative indices in mGrid') # @TODOMATT make sure that this is a valid requirement
         return self.py_neon.lib.mGrid_is_inside_domain(ctypes.byref(self.handle), grid_level, idx)

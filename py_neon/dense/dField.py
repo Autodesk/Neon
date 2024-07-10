@@ -3,7 +3,7 @@ import ctypes
 from enum import Enum
 import py_neon
 from py_neon import Py_neon
-from .dPartition import dPartitionInt as NeDPartition
+from .dPartition import dPartitionInt as NeDPartitionInt
 from py_neon.execution import Execution as NeExecution
 from py_neon.dataview import DataView as NeDataView
 from py_neon.py_ne import Py_neon as NePy_neon
@@ -28,7 +28,7 @@ class dField(object):
         self.grid_handle = grid_handle
         self.cardinality = cardinality
         self._help_load_api()
-        self.help_new()
+        self._help_field_new()
 
     def __del__(self):
         self.help_delete()
@@ -47,7 +47,7 @@ class dField(object):
 
         ## get_partition
         self.py_neon.lib.dGrid_dField_get_partition.argtypes = [self.handle_type,
-                                                                ctypes.POINTER(NeDPartition),  # the span object
+                                                                ctypes.POINTER(NeDPartitionInt),  # the span object
                                                                 NeExecution,  # the execution type
                                                                 ctypes.c_int,  # the device id
                                                                 NeDataView,  # the data view
@@ -55,7 +55,7 @@ class dField(object):
         self.py_neon.lib.dGrid_dField_get_partition.restype = ctypes.c_int
 
         # size partition
-        self.py_neon.lib.dGrid_dField_partition_size.argtypes = [ctypes.POINTER(NeDPartition)]
+        self.py_neon.lib.dGrid_dField_partition_size.argtypes = [ctypes.POINTER(NeDPartitionInt)]
         self.py_neon.lib.dGrid_dField_partition_size.restype = ctypes.c_int
 
         # field read
@@ -83,13 +83,13 @@ class dField(object):
 
 
 
-    def help_new(self):
+    def _help_field_new(self):
         if self.handle == 0:
-            raise Exception('DGrid: Invalid handle')
+            raise Exception('dGrid: Invalid handle')
 
         res = self.py_neon.lib.dGrid_dField_new(ctypes.byref(self.handle), ctypes.byref(self.grid_handle), self.cardinality)
         if res != 0:
-            raise Exception('DGrid: Failed to initialize field')
+            raise Exception('dGrid: Failed to initialize field')
 
     def help_delete(self):
         if self.handle == 0:
@@ -102,12 +102,12 @@ class dField(object):
                       execution: NeExecution,
                       c: ctypes.c_int,
                       data_view: NeDataView
-                      ) -> NeDPartition:
+                      ) -> NeDPartitionInt:
 
         if self.handle == 0:
-            raise Exception('DField: Invalid handle')
+            raise Exception('dField: Invalid handle')
 
-        partition = NeDPartition()
+        partition = NeDPartitionInt()
 
         res = self.py_neon.lib.dGrid_dField_get_partition(self.handle,
                                                           partition,
@@ -115,7 +115,7 @@ class dField(object):
                                                           c,
                                                           data_view)
         if res != 0:
-            raise Exception('Failed to get span')
+            raise Exception('Failed to get partition')
 
         ccp_size = self.py_neon.lib.dGrid_dField_partition_size(partition)
         ctypes_size = ctypes.sizeof(partition)

@@ -3,7 +3,7 @@ import ctypes
 from enum import Enum
 
 class DataView(ctypes.Structure):
-    _fields_ = [("data_view", ctypes.c_uint8)]
+    _fields_ = [("data_view", ctypes.c_char)]
 
     class Values(Enum):
         standard = 0

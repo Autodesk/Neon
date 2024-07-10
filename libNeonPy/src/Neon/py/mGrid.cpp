@@ -6,7 +6,7 @@ auto mGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
     const Neon::index_3d* dim,
-    uint32_t& depth)
+    uint32_t depth)
     -> int
 {
     std::cout << "mGrid_new - BEGIN" << std::endl;
@@ -60,9 +60,37 @@ auto mGrid_delete(
     return 0;
 }
 
+extern "C" auto mGrid_get_dimensions(
+    uint64_t& gridHandle,
+    Neon::index_3d* dim)
+    -> int
+{
+    std::cout << "mGrid_get_dimension - BEGIN" << std::endl;
+    std::cout << "mGrid_get_dimension - gridHandle " << gridHandle << std::endl;
+
+
+    using Grid = Neon::domain::mGrid;    
+    Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
+
+    if (gridPtr == nullptr) {
+        std::cout << "NeonPy: gridHandle is invalid " << std::endl;
+        return -1;
+    }
+
+    auto dimension = gridPtr->getDimension();
+    dim->x = dimension.x;
+    dim->y = dimension.y;
+    dim->z = dimension.z;
+
+    std::cout << "mGrid_get_dimension - END" << std::endl;
+
+    // g.ioDomainToVtk("")
+    return 0;
+}
+
 auto mGrid_get_span(
     uint64_t&                   gridHandle,
-    uint64_t&                   grid_level,
+    uint64_t                    grid_level,
     Neon::domain::mGrid::Span*  spanRes,
     int                         execution,
     int                         device,
@@ -97,29 +125,30 @@ auto mGrid_get_span(
 }
 
 auto mGrid_mField_new(
-    uint64_t& handle,
-    uint64_t& gridHandle)
+    uint64_t& fieldHandle,
+    uint64_t& gridHandle,
+    int cardinality)
     -> int
 {
     std::cout << "mGrid_mField_new - BEGIN" << std::endl;
-    std::cout << "mGrid_mField_new - gridHandle " << gridHandle << std::endl;
-    std::cout << "mGrid_mField_new - handle " << handle << std::endl;
+    std::cout << "mGrid_mField_new - fieldHandle: " << fieldHandle << std::endl;
+    std::cout << "mGrid_mField_new - gridHandle: " << gridHandle << std::endl;
 
     using Grid = Neon::domain::mGrid;
     using Field = Grid::Field<int, 0>;
-    Grid* gridPtr = reinterpret_cast<Grid*>(handle);
+    Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
     Grid& grid = *gridPtr;
 
     if (gridPtr != nullptr) {
-        Field field = grid.newField<int, 0>("test", 1, 0, Neon::DataUse::HOST_DEVICE);
+        Field field = grid.newField<int, 0>("test", cardinality, 0, Neon::DataUse::HOST_DEVICE);
         Field* fieldPtr = new (std::nothrow) Field(field);
         if (fieldPtr == nullptr) {
             std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
             return -1;
         }
         AllocationCounter::Allocation();
-        handle = (uint64_t)fieldPtr;
-        std::cout << "mGrid_mField_new - END " << handle << std::endl;
+        fieldHandle = (uint64_t)fieldPtr;
+        std::cout << "mGrid_mField_new - END fieldHandle: " << fieldHandle << std::endl;
 
         return 0;
     }
@@ -131,7 +160,7 @@ auto mGrid_mField_new(
 auto mGrid_mField_get_partition(
     uint64_t&                                                   field_handle,
     [[maybe_unused]] Neon::domain::mGrid::Partition<int, 0>*    partitionPtr,
-    uint64_t&                                                   field_level,
+    uint64_t                                                    field_level,
     Neon::Execution                                             execution,
     int                                                         device,
     Neon::DataView                                              data_view)
@@ -185,7 +214,7 @@ auto mGrid_mField_delete(
 
     if (fieldPtr != nullptr) {
         delete fieldPtr;
-        AllocationCounter::Allocation();
+        AllocationCounter::Deallocation();
     }
     handle = 0;
     std::cout << "mGrid_mField_delete - END" << std::endl;
@@ -209,7 +238,7 @@ auto mGrid_mField_partition_size(
 
 auto mGrid_get_properties( /* TODOMATT verify what the return of this method should be */
     uint64_t& gridHandle,
-    uint64_t& grid_level,
+    uint64_t  grid_level,
     const Neon::index_3d* idx) 
     -> int
 {
@@ -228,7 +257,7 @@ auto mGrid_get_properties( /* TODOMATT verify what the return of this method sho
 
 auto mGrid_is_inside_domain(
     uint64_t& gridHandle,
-    uint64_t& grid_level,
+    uint64_t  grid_level,
     const Neon::index_3d* idx
     ) 
     -> bool
@@ -247,9 +276,9 @@ auto mGrid_is_inside_domain(
 
 auto mGrid_mField_read(
     uint64_t& fieldHandle,
-    uint64_t& field_level,
+    uint64_t  field_level,
     const Neon::index_3d* idx,
-    const int& cardinality)
+    const int cardinality)
     -> int
 {
     std::cout << "mGrid_mField_read begin" << std::endl;
@@ -272,9 +301,9 @@ auto mGrid_mField_read(
 
 auto mGrid_mField_write(
     uint64_t& fieldHandle,
-    uint64_t& field_level,
+    uint64_t  field_level,
     const Neon::index_3d* idx,
-    const int& cardinality,
+    const int cardinality,
     int newValue)
     -> int
 {
@@ -340,4 +369,10 @@ auto mGrid_mField_update_device_data(
     
     std::cout << "mGrid_mField_update_device_data end" << std::endl;
     return 0;
+}
+
+extern "C" auto mGrid_mField_mPartition_get_member_field_offsets(size_t* offsets, size_t* length)
+    -> void
+{
+   Neon::domain::mGrid::Partition<int, 0>::getOffsets(offsets, length);
 }
