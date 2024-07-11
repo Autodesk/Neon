@@ -67,6 +67,3 @@ class dPartitionInt(ctypes.Structure):
                 dPartitionInt.mZBoundaryRadius.offset, dPartitionInt.mPitch1.offset, dPartitionInt.mPitch2.offset, dPartitionInt.mPitch3.offset, 
                 dPartitionInt.mPitch4.offset, dPartitionInt.mPrtID.offset, dPartitionInt.mOrigin.offset, dPartitionInt.mCardinality.offset, 
                 dPartitionInt.mFullGridSize.offset, dPartitionInt.mPeriodicZ.offset, dPartitionInt.mStencil.offset]
-
-
-

@@ -13,8 +13,6 @@ from py_neon.index_3d import Index_3d
 import numpy as np
 
 class bGrid(object):
-
-
     def __init__(self, backend = None, dim = None, sparsity_pattern: np.ndarray = None):
         if sparsity_pattern is None:
             sparsity_pattern = np.ones((dim.x,dim.y,dim.z))
@@ -28,7 +26,6 @@ class bGrid(object):
         self.backend = backend
         self.dim = dim
         self.sparsity_pattern = sparsity_pattern
-
 
         try:
             self.py_neon: Py_neon = Py_neon()

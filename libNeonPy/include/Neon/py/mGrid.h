@@ -14,7 +14,6 @@ extern "C" auto mGrid_new(
     uint32_t depth)
     -> int;
 
-
 /**
  * Delete a grid object on the heap.
  */

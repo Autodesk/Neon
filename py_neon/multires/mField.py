@@ -86,7 +86,6 @@ class mField(object):
         self.py_neon.lib.mGrid_mField_update_device_data.restype = ctypes.c_int
 
 
-
     def _help_field_new(self):
         if self.handle == 0:
             raise Exception('mGrid: Invalid handle')
@@ -143,4 +142,3 @@ class mField(object):
     
     def updateDeviceData(self, streamSetId: ctypes.c_int):
         return self.py_neon.lib.mGrid_mField_update_device_data(ctypes.byref(self.handle), streamSetId)
-        

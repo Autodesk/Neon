@@ -30,7 +30,6 @@ class dGrid(object):
         self.dim = dim
         self.sparsity_pattern = sparsity_pattern
 
-
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
@@ -59,7 +58,6 @@ class dGrid(object):
         self.py_neon.lib.dGrid_get_dimensions.argtypes = [self.py_neon.handle_type,
                                                           ctypes.POINTER(py_neon.Index_3d)]
         self.py_neon.lib.dGrid_get_dimensions.restype = ctypes.c_int
-
         self.py_neon.lib.dGrid_get_span.argtypes = [self.py_neon.handle_type,
                                                     ctypes.POINTER(dSpan),  # the span object
                                                     py_neon.Execution,  # the execution type

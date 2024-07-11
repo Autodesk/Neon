@@ -67,7 +67,6 @@ class Backend(object):
         self.py_neon.lib.dBackend_get_string.argtypes = [self.py_neon.handle_type]
         self.py_neon.lib.dBackend_get_string.restype = ctypes.c_char_p
 
-
         self.py_neon.lib.dBackend_sync.argtypes = [self.py_neon.handle_type]
         self.py_neon.lib.dBackend_sync.restype = ctypes.c_int
 
@@ -80,8 +79,6 @@ class Backend(object):
                          dev_idx_list: List[int]):
         if self.handle.value != ctypes.c_uint64(0).value:
             raise Exception(f'DBackend: Invalid handle {self.handle}')
-
-        
 
         if n_dev > len(dev_idx_list):
             dev_idx_list = list(range(n_dev))

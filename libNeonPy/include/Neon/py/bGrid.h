@@ -98,7 +98,6 @@ extern "C" auto bGrid_bField_update_device_data(
     int streamSetId)
     -> int;
 
-
 extern "C" auto bGrid_bSpan_get_member_field_offsets(size_t* offsets, size_t* length)
     -> void;
 

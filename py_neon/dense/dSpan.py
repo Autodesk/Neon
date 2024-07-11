@@ -33,9 +33,7 @@ class dSpan(ctypes.Structure):
         offsets = (ctypes.c_size_t * 5)()  # Assuming there are 5 offsets
         self.py_neon.lib.dGrid_dSpan_get_member_field_offsets(offsets, ctypes.byref(length))
         return [offsets[i] for i in range(length.value)]
-    
-
-
+      
     def __str__(self): 
         str = f"<dSpan: addr={ctypes.addressof(self):#x}>"
         str += f"\n\tdataView: {self.dataView} (offset: {dSpan.dataView.offset})"

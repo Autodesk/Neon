@@ -13,8 +13,6 @@ from py_neon.index_3d import Index_3d
 import numpy as np
 
 class mGrid(object):
-
-
     def __init__(self, backend = None, dim = None, depth = 1, sparsity_pattern: np.ndarray = None):
         if sparsity_pattern is None:
             sparsity_pattern = np.ones((dim.x,dim.y,dim.z))
@@ -29,7 +27,6 @@ class mGrid(object):
         self.dim = dim
         self.sparsity_pattern = sparsity_pattern
         self.depth = depth
-
 
         try:
             self.py_neon: Py_neon = Py_neon()

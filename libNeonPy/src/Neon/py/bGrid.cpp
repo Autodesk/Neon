@@ -142,6 +142,7 @@ auto bGrid_bField_new(
             std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
             return -1;
         }
+
         fieldHandle = (uint64_t)fieldPtr;
         std::cout << "bGrid_bField_new - END " << fieldHandle << std::endl;
 
@@ -202,6 +203,7 @@ auto bGrid_bField_delete(
         delete fieldPtr;
         AllocationCounter::Deallocation();
     }
+
     handle = 0;
     std::cout << "bGrid_bField_delete - END" << std::endl;
 
@@ -296,7 +298,7 @@ auto bGrid_bField_write(
         std::cout << "invalid field" << std::endl;
         return -1;
     }
-
+    
     fieldPtr->getReference(*idx, cardinality) = newValue;
     
     std::cout << "bGrid_bField_write end" << std::endl;
@@ -360,4 +362,3 @@ extern "C" auto bGrid_bField_bPartition_get_member_field_offsets(size_t* offsets
 {
     Neon::domain::details::bGrid::bPartition<int, 0, Neon::domain::details::bGrid::BlockDefault>::getOffsets(offsets, length);
 }
-

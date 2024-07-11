@@ -250,6 +250,7 @@ auto mGrid_get_properties( /* TODOMATT verify what the return of this method sho
     if (grid_level >= gridPtr->getGridCount()) {
             std::cout << "grid_level out of range in mGrid_get_properties" << std::endl;
         }
+    
     int returnValue = int((*gridPtr)(grid_level).getProperties(*idx).getDataView());
     std::cout << "mGrid_get_properties end" << std::endl;
 
@@ -267,11 +268,11 @@ auto mGrid_is_inside_domain(
     
     using Grid = Neon::domain::mGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
+
     bool returnValue = gridPtr->isInsideDomain(*idx, grid_level);
 
     std::cout << "mGrid_is_inside_domain end" << std::endl;
-
-
+    
     return returnValue;
 }
 

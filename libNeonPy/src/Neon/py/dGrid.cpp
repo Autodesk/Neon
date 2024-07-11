@@ -40,7 +40,6 @@ auto dGrid_new(
     return 0;
 }
 
-
 auto dGrid_delete(
     uint64_t& handle)
     -> int
@@ -207,6 +206,7 @@ auto dGrid_dField_delete(
         delete fieldPtr;
         AllocationCounter::Deallocation();
     }
+
     handle = 0;
     std::cout << "dGrid_dField_delete - END" << std::endl;
 
@@ -252,6 +252,7 @@ auto dGrid_is_inside_domain(
     
     using Grid = Neon::dGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
+    
     bool returnValue = gridPtr->isInsideDomain(*idx);
 
     std::cout << "dGrid_is_inside_domain end" << std::endl;
@@ -366,5 +367,3 @@ extern "C" auto dGrid_dField_dPartition_get_member_field_offsets(size_t* offsets
 {
     Neon::domain::details::dGrid::dPartition<int,0>::getOffsets(offsets, length);
 }
-
-

@@ -24,4 +24,3 @@ class allocationCounter(object):
 
     def get_allocation_count(self):
         return self.py_neon.lib.get_allocation_counter()
-        

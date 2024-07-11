@@ -9,9 +9,6 @@ from py_neon.dataview import DataView as NeDataView
 from py_neon.py_ne import Py_neon as NePy_neon
 from py_neon.index_3d import Index_3d
 
-# TODOMATT ask Max how to reconcile our new partitions with the wpne partitions
-# from wpne.dense.partition import NeonDensePartitionInt as Wpne_NeonDensePartitionInt
-
 class bField(object):
     def __init__(self,
                  grid_handle: ctypes.c_uint64,
@@ -81,8 +78,6 @@ class bField(object):
         self.py_neon.lib.bGrid_bField_update_device_data.argtypes = [self.handle_type,
                                                        ctypes.c_int]
         self.py_neon.lib.bGrid_bField_update_device_data.restype = ctypes.c_int
-
-
 
     def _help_field_new(self):
         if self.handle == 0:

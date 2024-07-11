@@ -18,6 +18,7 @@ class dField(object):
 
         if grid_handle == 0:
             raise Exception('DField: Invalid handle')
+
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
