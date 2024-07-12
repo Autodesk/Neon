@@ -2,6 +2,7 @@
 #include "Neon/set/Backend.h"
 #include "Neon/py/AllocationCounter.h"
 #include "Neon/Neon.h"
+
 void backend_constructor_prologue(uint64_t& handle) {
     std::cout << "dBackend_new - BEGIN" << std::endl;
     std::cout << "dBackend handle" << handle << std::endl;
@@ -17,35 +18,6 @@ int backend_constructor_epilogue(uint64_t& handle, Neon::Backend* backendPtr) {
     std::cout << "backend_new - END" << std::endl;
     return 0;
 }
-
-//auto dBackend_new1(
-//    uint64_t& handle)
-//    -> int
-//{
-//    std::cout << "first constructor" << std::endl;
-//    AllocationCounter::Allocation();
-//
-//    backend_constructor_prologue(handle);
-//
-//    auto backendPtr = new (std::nothrow) Neon::Backend();
-//
-//    return backend_constructor_epilogue(handle, backendPtr);
-//}
-//
-//auto dBackend_new2(
-//    uint64_t& handle,
-//    int nGpus,
-//    int runtime)
-//    -> int
-//{
-//    std::cout << "second constructor" << std::endl;
-//    AllocationCounter::Allocation();
-//    backend_constructor_prologue(handle);
-//
-//    auto backendPtr = new (std::nothrow) Neon::Backend(nGpus, Neon::Runtime(runtime));
-//
-//    return backend_constructor_epilogue(handle, backendPtr);
-//}
 
 auto dBackend_new(
     uint64_t& handle,
@@ -90,6 +62,25 @@ auto dBackend_get_string(uint64_t& handle) -> const char* {
 
     using Backend = Neon::Backend;
     Backend* backendPtr = (Backend*)handle;
+    if (backendPtr == nullptr) {
+        return "Backend handle is invalid";
+    }
 
     return backendPtr->toString().c_str();
+    std::cout << "get_string - END" << std::endl;
+}
+
+auto dBackend_sync(uint64_t& handle) -> int {
+    std::cout << "dBackend_sync - BEGIN" << std::endl;
+    std::cout << "backendHandle " << handle << std::endl;
+
+    using Backend = Neon::Backend;
+    Backend* backendPtr = (Backend*)handle;
+    if (backendPtr == nullptr) {
+        return -1;
+    }
+    backendPtr->syncAll();
+
+    return 0;
+    std::cout << "dBackend_sync - END" << std::endl;
 }

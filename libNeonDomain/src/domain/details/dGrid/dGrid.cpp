@@ -32,7 +32,6 @@ auto dGrid::getSpan(Neon::Execution execution,
     return mData->spanTable.getSpan(execution, setIdx, dataView);
 }
 
-
 auto dGrid::helpGetPartitionDim()
     const -> const Neon::set::DataSet<index_3d>
 {

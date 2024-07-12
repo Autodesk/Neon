@@ -1,11 +1,12 @@
 import ctypes
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
 from py_neon import Py_neon
 
+# TODOMATT why are these functions called dBackend_XXX, it should just be Backend_XXX
 
 class Backend(object):
     class Runtime(Enum):
@@ -17,7 +18,11 @@ class Backend(object):
     def __init__(self,
                  runtime: Runtime = Runtime.openmp,
                  n_dev: int = 1,
-                 dev_idx_list: List[int] = [0]):
+                 dev_idx_list: Optional[List[int]] = None):
+
+        # having a default list specified in the constructor might cause problems
+        if dev_idx_list is None:
+            dev_idx_list = [0]
 
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         try:
@@ -25,15 +30,16 @@ class Backend(object):
         except Exception as e:
             self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
             raise Exception('Failed to initialize PyNeon: ' + str(e))
-        self.help_load_api()
-        self.help_backend_new(runtime, n_dev, dev_idx_list)
+        
+        self._help_load_api()
+        self._help_backend_new(runtime, n_dev, dev_idx_list)
 
     def __del__(self):
         if self.handle == 0:
             return
         self.help_backend_delete()
 
-    def help_load_api(self):
+    def _help_load_api(self):
 
         # # backend_new
         # self.py_neon.lib.dBackend_new1.argtypes = [self.py_neon.handle_type]
@@ -61,10 +67,13 @@ class Backend(object):
         self.py_neon.lib.dBackend_get_string.argtypes = [self.py_neon.handle_type]
         self.py_neon.lib.dBackend_get_string.restype = ctypes.c_char_p
 
+        self.py_neon.lib.dBackend_sync.argtypes = [self.py_neon.handle_type]
+        self.py_neon.lib.dBackend_sync.restype = ctypes.c_int
+
         # TODOMATT get num devices
         # TODOMATT get device type
 
-    def help_backend_new(self,
+    def _help_backend_new(self,
                          runtime: Runtime,
                          n_dev: int,
                          dev_idx_list: List[int]):
@@ -92,6 +101,9 @@ class Backend(object):
         res = self.py_neon.lib.dBackend_delete(self.handle)
         if res != 0:
             raise Exception('Failed to delete backend')
+        
+    def sync(self):
+        return self.py_neon.lib.dBackend_sync(ctypes.byref(self.handle))
 
     def __str__(self):
         return ctypes.cast(self.py_neon.lib.get_string(self.handle), ctypes.c_char_p).value.decode('utf-8')

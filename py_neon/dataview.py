@@ -3,7 +3,7 @@ import ctypes
 from enum import Enum
 
 class DataView(ctypes.Structure):
-    _fields_ = [("data_view", ctypes.c_uint8)]
+    _fields_ = [("data_view", ctypes.c_char)]
 
     class Values(Enum):
         standard = 0
@@ -47,4 +47,9 @@ class DataView(ctypes.Structure):
         if self.value == DataView.Values.boundary:
             str += f"\n\tdataView: {'boundary'}"
         return str
+    
+    def __eq__(self, other):
+        if not isinstance(other, DataView):
+            return NotImplemented
+        return self.data_view == other.data_view
 

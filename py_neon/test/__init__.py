@@ -2,15 +2,24 @@ import copy
 import ctypes
 from enum import Enum
 
-from .py_ne import Py_neon
-from .dataview import DataView
-from .execution import Execution
-from .index_3d import Index_3d
+from ..py_ne import Py_neon
+from ..dataview import DataView
+from ..execution import Execution
+from ..index_3d import Index_3d
 
-from .dense.__init__ import *
-from .block.__init__ import *
-from .multires.__init__ import *
+from ..dense.dGrid import bSpan
+from ..dense.dField import bSpan
+from ..dense.dSpan import bSpan
+from ..dense.dPartition import bSpan
+from ..block.bGrid import bSpan
+from ..block.bField import bSpan
+from ..block.bSpan import bSpan
+from ..block.bPartition import bSpan
+from ..multires.mGrid import mGrid
+from ..multires.mField import mField
+from ..multires.mPartition import mPartitionInt
 
+from py_neon.allocationCounter import allocationCounter
 
 #
 #
