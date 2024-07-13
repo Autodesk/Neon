@@ -2,6 +2,7 @@ import copy
 import ctypes
 from enum import Enum
 import py_neon
+from py_neon import Py_neon
 from .mPartition import mPartitionInt as NeMPartitionInt
 from py_neon.execution import Execution as NeExecution
 from py_neon.dataview import DataView as NeDataView
@@ -13,24 +14,28 @@ from py_neon.index_3d import Index_3d
 
 class mField(object):
     def __init__(self,
-                 py_neon: NePy_neon,
-                 grid_handle: ctypes.c_uint64
+                 grid_handle: ctypes.c_uint64,
+                 cardinality: ctypes.c_int
                  ):
 
         if grid_handle == 0:
-            raise Exception('mField: Invalid handle')
-
-        self.py_neon = py_neon
+            raise Exception('DField: Invalid handle')
+        try:
+            self.py_neon: Py_neon = Py_neon()
+        except Exception as e:
+            self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
+            raise Exception('Failed to initialize PyNeon: ' + str(e))
         self.handle_type = ctypes.POINTER(ctypes.c_uint64)
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.grid_handle = grid_handle
-        self.help_load_api()
-        self.help_new()
+        self.cardinality = cardinality
+        self._help_load_api()
+        self._help_field_new()
 
     def __del__(self):
         self.help_delete()
 
-    def help_load_api(self):
+    def _help_load_api(self):
         # Importing new functions
         ## new_field
         self.py_neon.lib.mGrid_mField_new.argtypes = [self.handle_type,
@@ -43,7 +48,7 @@ class mField(object):
 
         ## get_partition
         self.py_neon.lib.mGrid_mField_get_partition.argtypes = [self.handle_type,
-                                                                ctypes.POINTER(NePartitionInt),  # the span object
+                                                                ctypes.POINTER(NeMPartitionInt),  # the span object
                                                                 ctypes.c_int,
                                                                 NeExecution,  # the execution type
                                                                 ctypes.c_int,  # the device id
@@ -52,20 +57,20 @@ class mField(object):
         self.py_neon.lib.mGrid_mField_get_partition.restype = ctypes.c_int
 
         # size partition
-        self.py_neon.lib.mGrid_mField_partition_size.argtypes = [ctypes.POINTER(NePartitionInt)]
+        self.py_neon.lib.mGrid_mField_partition_size.argtypes = [ctypes.POINTER(NeMPartitionInt)]
         self.py_neon.lib.mGrid_mField_partition_size.restype = ctypes.c_int
 
         # field read
         self.py_neon.lib.mGrid_mField_read.argtypes = [self.handle_type,
                                                        ctypes.c_int,
-                                                       py_neon.Index_3d,
+                                                       ctypes.POINTER(py_neon.Index_3d),
                                                        ctypes.c_int]
         self.py_neon.lib.mGrid_mField_read.restype = ctypes.c_int
 
         # field write
         self.py_neon.lib.mGrid_mField_write.argtypes = [self.handle_type,
                                                         ctypes.c_int,
-                                                        py_neon.Index_3d,
+                                                        ctypes.POINTER(py_neon.Index_3d),
                                                         ctypes.c_int,
                                                         ctypes.c_int]
         self.py_neon.lib.mGrid_mField_write.restype = ctypes.c_int
@@ -81,63 +86,59 @@ class mField(object):
         self.py_neon.lib.mGrid_mField_update_device_data.restype = ctypes.c_int
 
 
-
-    def help_new(self):
+    def _help_field_new(self):
         if self.handle == 0:
             raise Exception('mGrid: Invalid handle')
 
-        res = self.py_neon.lib.mGrid_mField_new(self.handle, self.grid_handle)
+        res = self.py_neon.lib.mGrid_mField_new(ctypes.byref(self.handle), ctypes.byref(self.grid_handle), self.cardinality)
         if res != 0:
             raise Exception('mGrid: Failed to initialize field')
 
     def help_delete(self):
         if self.handle == 0:
             return
-        res = self.py_neon.lib.mGrid_mField_delete(self.handle)
+        res = self.py_neon.lib.mGrid_mField_delete(ctypes.byref(self.handle))
         if res != 0:
             raise Exception('Failed to delete field')
 
-    # TODOMATT ask Max how to reconcile our new partitions with the wpne partitions
-    # def get_partition(self,
-    #                   field_index: ctypes.c_int,
-    #                   execution: NeExecution,
-    #                   c: ctypes.c_int,
-    #                   data_view: NeDataView
-    #                   ) -> Wpne_NeonDensePartitionInt:
+    def get_partition(self,
+                      field_index: ctypes.c_int,
+                      execution: NeExecution,
+                      c: ctypes.c_int,
+                      data_view: NeDataView
+                      ) -> NeMPartitionInt:
 
-    #     if self.handle == 0:
-    #         raise Exception('mField: Invalid handle')
+        if self.handle == 0:
+            raise Exception('mField: Invalid handle')
 
-    #     partition = NePartitionInt()
+        partition = NeMPartitionInt()
 
-    #     res = self.py_neon.lib.mGrid_mField_get_partition(self.handle,
-    #                                                       partition,
-    #                                                       field_index,
-    #                                                       execution,
-    #                                                       c,
-    #                                                       data_view)
-    #     if res != 0:
-    #         raise Exception('Failed to get span')
+        res = self.py_neon.lib.mGrid_mField_get_partition(self.handle,
+                                                          partition,
+                                                          field_index,
+                                                          execution,
+                                                          c,
+                                                          data_view)
+        if res != 0:
+            raise Exception('Failed to get partition')
 
-    #     ccp_size = self.py_neon.lib.mGrid_mField_partition_size(partition)
-    #     ctypes_size = ctypes.sizeof(partition)
+        ccp_size = self.py_neon.lib.mGrid_mField_partition_size(partition)
+        ctypes_size = ctypes.sizeof(partition)
 
-    #     if ccp_size != ctypes_size:
-    #         raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
+        if ccp_size != ctypes_size:
+            raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
 
-    #     print(f"Partition {partition}")
-    #     wpne_partition = Wpne_NeonDensePartitionInt(partition)
-    #     return wpne_partition
+        print(f"Partition {partition}")
+        return partition
     
     def read(self, field_level: ctypes.c_int, idx: Index_3d, cardinality: ctypes.c_int):
-        return self.py_neon.lib.mGrid_mField_read(self.handle, field_level, idx, cardinality)
+        return self.py_neon.lib.mGrid_mField_read(ctypes.byref(self.handle), field_level, idx, cardinality)
     
     def write(self, field_level: ctypes.c_int, idx: Index_3d, cardinality: ctypes.c_int, newValue: ctypes.c_int):
-        return self.py_neon.lib.mGrid_mField_write(self.handle, field_level, idx, cardinality, newValue)
+        return self.py_neon.lib.mGrid_mField_write(ctypes.byref(self.handle), field_level, idx, cardinality, newValue)
 
     def updateHostData(self, streamSetId: ctypes.c_int):
-        return self.py_neon.lib.mGrid_mField_update_host_data(self.handle, streamSetId)
+        return self.py_neon.lib.mGrid_mField_update_host_data(ctypes.byref(self.handle), streamSetId)
     
     def updateDeviceData(self, streamSetId: ctypes.c_int):
-        return self.py_neon.lib.mGrid_mField_update_device_data(self.handle, streamSetId)
-        
+        return self.py_neon.lib.mGrid_mField_update_device_data(ctypes.byref(self.handle), streamSetId)

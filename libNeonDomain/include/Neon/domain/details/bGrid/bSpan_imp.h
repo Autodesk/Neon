@@ -1,3 +1,5 @@
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #include "Neon/domain/details/bGrid/bSpan.h"
 
 namespace Neon::domain::details::bGrid {
@@ -29,7 +31,7 @@ bSpan<SBlock>::setAndValidateCPUDevice(Idx&            bidx,
                                        uint32_t const& z) const -> bool
 {
 
-    bidx.mDataBlockIdx = dataBlockIdx + mFirstDataBlockOffset;
+    bidx.mDataBlockIdx = dataBlockIdx;
     bidx.mInDataBlockIdx.x = static_cast<typename Idx::InDataBlockIdx::Integer>(x);
     bidx.mInDataBlockIdx.y = static_cast<typename Idx::InDataBlockIdx::Integer>(y);
     bidx.mInDataBlockIdx.z = static_cast<typename Idx::InDataBlockIdx::Integer>(z);
@@ -47,42 +49,22 @@ bSpan<SBlock>::bSpan(typename Idx::DataBlockCount                  firstDataBloc
 {
 }
 
-
-// #if !defined(NEON_WARP_COMPILATION)
-// template <typename SBlock>
-// // std::vector<size_t> bSpan<SBlock>::getOffsets() {
-// //     return {
-// //         // can't use the `offsetof` macro here since bSpan is a template type
-// //         0,
-// //         sizeof(Idx::DataBlockCount),
-// //         sizeof(Idx::DataBlockCount) + sizeof(SBlock::BitMask*)
-// //     };
-// // }
-// std::vector<size_t> bSpan<SBlock>::getOffsets() {
-//     std::vector<size_t> offsets;
-//     bSpan temp(typename Idx::DataBlockCount(), nullptr, Neon::DataView());
-
-//     offsets.push_back(reinterpret_cast<char*>(&(temp.mFirstDataBlockOffset)) - reinterpret_cast<char*>(&temp));
-//     offsets.push_back(reinterpret_cast<char*>(&(temp.mActiveMask)) - reinterpret_cast<char*>(&temp));
-//     offsets.push_back(reinterpret_cast<char*>(&(temp.mDataView)) - reinterpret_cast<char*>(&temp));
-
-//     return offsets;
-// }
-// #endif
-
 #if !defined(NEON_WARP_COMPILATION)
 template <typename SBlock>
-inline std::vector<size_t> bSpan<SBlock>::getOffsets() {
-    bSpan temp({0}, nullptr, {});
-
-    // Calculate offsets directly
-    std::vector<size_t> offsets;
-    offsets.push_back(reinterpret_cast<size_t>(&(temp.mFirstDataBlockOffset)) - reinterpret_cast<size_t>(&temp));
-    offsets.push_back(reinterpret_cast<size_t>(&(temp.mActiveMask)) - reinterpret_cast<size_t>(&temp));
-    offsets.push_back(reinterpret_cast<size_t>(&(temp.mDataView)) - reinterpret_cast<size_t>(&temp));
+inline void bSpan<SBlock>::getOffsets(size_t* offsets, size_t* length) {
+    static std::vector<size_t> cpp_offsets = {
+        offsetof(bSpan, mFirstDataBlockOffset),
+        offsetof(bSpan, mActiveMask),
+        offsetof(bSpan, mDataView)
+    };
     
-    return offsets;
+    *length = cpp_offsets.size();
+    for (size_t i = 0; i < cpp_offsets.size(); ++i) {
+        offsets[i] = cpp_offsets[i];
+    }
 }
 #endif
 
 }  // namespace Neon::domain::details::bGrid
+
+#pragma GCC diagnostic pop

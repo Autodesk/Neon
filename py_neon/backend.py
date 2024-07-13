@@ -105,3 +105,6 @@ class Backend(object):
 
     def __str__(self):
         return ctypes.cast(self.py_neon.lib.get_string(self.handle), ctypes.c_char_p).value.decode('utf-8')
+
+    def sync(self):
+        return self.py_neon.lib.dBackend_sync(ctypes.byref(self.handle))

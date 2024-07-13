@@ -5,9 +5,10 @@
 #include <nvtx3/nvToolsExt.h>
 
 auto dGrid_new(
-    uint64_t&             handle,
-    uint64_t&             backendPtr,
-    const Neon::int32_3d* dim)
+    uint64_t& handle,
+    uint64_t& backendPtr,
+    const Neon::index_3d* dim,
+    int* sparsity_pattern)
     -> int
 {
     std::cout << "dGrid_new - BEGIN" << std::endl;
@@ -22,12 +23,11 @@ auto dGrid_new(
         std::cerr << "Invalid backend pointer" << std::endl;
         return -1;
     }
-    std::cerr << dim->x << " " << dim->y << " " << dim->z << std::endl;
 
-    // Neon::int32_3d dim{x,y,z};
+    // Neon::index_3d dim{x,y,z};
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
-    Grid                  g(*backend, *dim, [](Neon::index_3d const& /*idx*/) { return true; }, d3q19);
-    auto                  gridPtr = new(std::nothrow) Grid(g);
+    Grid                  g(*backend, *dim, [=](Neon::index_3d const& idx) { return sparsity_pattern[idx.x * (dim->x * dim->y) + idx.y * dim->z + idx.z ]; }, d3q19);
+    auto                  gridPtr = new (std::nothrow) Grid(g);
     AllocationCounter::Allocation();
 
     if (gridPtr == nullptr) {
@@ -40,7 +40,6 @@ auto dGrid_new(
     // g.ioDomainToVtk("")
     return 0;
 }
-
 
 auto dGrid_delete(
     uint64_t& handle)
@@ -58,6 +57,34 @@ auto dGrid_delete(
     }
     handle = 0;
     std::cout << "dGrid_delete - END" << std::endl;
+    return 0;
+}
+
+extern "C" auto dGrid_get_dimensions(
+    uint64_t& gridHandle,
+    Neon::index_3d* dim)
+    -> int
+{
+    std::cout << "dGrid_get_dimension - BEGIN" << std::endl;
+    std::cout << "dGrid_get_dimension - gridHandle " << gridHandle << std::endl;
+
+
+    using Grid = Neon::dGrid;    
+    Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
+
+    if (gridPtr == nullptr) {
+        std::cout << "NeonPy: gridHandle is invalid " << std::endl;
+        return -1;
+    }
+
+    auto dimension = gridPtr->getDimension();
+    dim->x = dimension.x;
+    dim->y = dimension.y;
+    dim->z = dimension.z;
+
+    std::cout << "dGrid_get_dimension - END" << std::endl;
+
+    // g.ioDomainToVtk("")
     return 0;
 }
 
@@ -94,7 +121,8 @@ auto dGrid_get_span(
 
 auto dGrid_dField_new(
     uint64_t& handle,
-    uint64_t& gridHandle)
+    uint64_t& gridHandle,
+    int cardinality)
     -> int
 {
     std::cout << "dGrid_dField_new - BEGIN" << std::endl;
@@ -107,7 +135,7 @@ auto dGrid_dField_new(
 
     if (gridPtr != nullptr) {
         using Field = Grid::Field<int, 0>;
-        Field field = grid.newField<int, 0>("test", 1, 0, Neon::DataUse::HOST_DEVICE);
+        Field field = grid.newField<int, 0>("test", cardinality, 0, Neon::DataUse::HOST_DEVICE);
         std::cout << field.toString() << std::endl;
         Field* fieldPtr = new(std::nothrow) Field(field);
         AllocationCounter::Allocation();
@@ -179,6 +207,8 @@ auto dGrid_dField_delete(
         delete fieldPtr;
         AllocationCounter::Deallocation();
     }
+
+    handle = 0;
     std::cout << "dGrid_dField_delete - END" << std::endl;
 
     return 0;
@@ -199,30 +229,32 @@ auto dGrid_dField_partition_size(
 }
 
 auto dGrid_get_properties( /* TODOMATT verify what the return of this method should be */
-    uint64_t&             gridHandle,
-    const Neon::index_3d& idx)
+    uint64_t& gridHandle,
+    const Neon::index_3d* const idx) 
     -> int
 {
     std::cout << "dGrid_get_properties begin" << std::endl;
 
     using Grid = Neon::dGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-    int   returnValue = int(gridPtr->getProperties(idx).getDataView());
+
+    int result = static_cast<int>(gridPtr->getProperties(*idx).getDataView());
     std::cout << "dGrid_get_properties end" << std::endl;
 
-    return returnValue;
+    return result;
 }
 
 auto dGrid_is_inside_domain(
-    uint64_t&             gridHandle,
-    const Neon::index_3d& idx)
+    uint64_t& gridHandle,
+    const Neon::index_3d* const idx)
     -> bool
 {
     std::cout << "dGrid_is_inside_domain begin" << std::endl;
 
     using Grid = Neon::dGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-    bool  returnValue = gridPtr->isInsideDomain(idx);
+    
+    bool returnValue = gridPtr->isInsideDomain(*idx);
 
     std::cout << "dGrid_is_inside_domain end" << std::endl;
 
@@ -231,9 +263,9 @@ auto dGrid_is_inside_domain(
 }
 
 auto dGrid_dField_read(
-    uint64_t&             fieldHandle,
-    const Neon::index_3d& idx,
-    const int&            cardinality)
+    uint64_t& fieldHandle,
+    const Neon::index_3d* idx,
+    const int cardinality)
     -> int
 {
     std::cout << "dGrid_dField_read begin" << std::endl;
@@ -247,18 +279,18 @@ auto dGrid_dField_read(
         std::cout << "invalid field" << std::endl;
     }
 
-    auto returnValue = (*fieldPtr)(idx, cardinality);
-
+    auto returnValue = (*fieldPtr)(*idx, cardinality);
+    
     std::cout << "dGrid_dField_read end" << std::endl;
 
     return returnValue;
 }
 
 auto dGrid_dField_write(
-    uint64_t&             fieldHandle,
-    const Neon::index_3d& idx,
-    const int&            cardinality,
-    int                   newValue)
+    uint64_t& fieldHandle,
+    const Neon::index_3d* idx,
+    int cardinality,
+    int newValue)
     -> int
 {
     std::cout << "dGrid_dField_write begin" << std::endl;
@@ -273,8 +305,8 @@ auto dGrid_dField_write(
         return -1;
     }
 
-    fieldPtr->getReference(idx, cardinality) = newValue;
-
+    fieldPtr->getReference(*idx, cardinality) = newValue;
+    
     std::cout << "dGrid_dField_write end" << std::endl;
     return 0;
 }
@@ -343,4 +375,10 @@ extern "C" auto dGrid_dSpan_get_member_field_offsets(size_t* offsets,
     -> void
 {
     Neon::domain::details::dGrid::dSpan::getOffsets(offsets, length);
+}
+
+extern "C" auto dGrid_dField_dPartition_get_member_field_offsets(size_t* offsets, size_t* length)
+    -> void
+{
+    Neon::domain::details::dGrid::dPartition<int,0>::getOffsets(offsets, length);
 }

@@ -99,13 +99,13 @@ class DField(object):
                  ):
         self.py_neon = py_neon
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
-        self.help_load_api()
+        self._help_load_api()
         self.help_new()
 
     def __del__(self):
         self.help_delete()
 
-    def help_load_api(self):
+    def _help_load_api(self):
         # Importing new functions
         ## new_field
         self.py_neon.lib.dGrid_dField_new.argtypes = [self.handle_type,
@@ -133,15 +133,15 @@ class DGrid(object):
     def __init__(self):
         self.py_neon: PyNeon = PyNeon()
         self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
-        self.help_load_api()
+        self._help_load_api()
         self.help_grid_new()
 
     def __del__(self):
         if self.handle == 0:
             return
-        self.help_grid_delete()
+        self._help_grid_delete()
 
-    def help_load_api(self):
+    def _help_load_api(self):
 
         # grid_new
         self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type]
@@ -166,7 +166,7 @@ class DGrid(object):
         if res != 0:
             raise Exception('DGrid: Failed to initialize grid')
 
-    def help_grid_delete(self):
+    def _help_grid_delete(self):
         if self.handle == 0:
             return
         res = self.py_neon.lib.dGrid_delete(self.handle)
