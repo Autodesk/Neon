@@ -37,9 +37,8 @@ class bGrid(object):
         self._help_grid_new()
 
     def __del__(self):
-        if self.handle == 0:
-            return
-        self._help_grid_delete()
+        if self.handle != 0:
+            self._help_grid_delete()
 
     def _help_load_api(self):
 

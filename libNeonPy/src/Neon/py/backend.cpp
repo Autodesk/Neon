@@ -4,8 +4,8 @@
 #include "Neon/Neon.h"
 
 void backend_constructor_prologue(uint64_t& handle) {
-    std::cout << "dBackend_new - BEGIN" << std::endl;
-    std::cout << "dBackend handle" << handle << std::endl;
+    std::cout << "backend_new - BEGIN" << std::endl;
+    std::cout << "backend handle" << handle << std::endl;
 }
 
 int backend_constructor_epilogue(uint64_t& handle, Neon::Backend* backendPtr) {
@@ -19,7 +19,7 @@ int backend_constructor_epilogue(uint64_t& handle, Neon::Backend* backendPtr) {
     return 0;
 }
 
-auto dBackend_new(
+auto backend_new(
     uint64_t& handle,
     int runtime,
     int numDevices,
@@ -37,11 +37,11 @@ auto dBackend_new(
     return backend_constructor_epilogue(handle, backendPtr);
 }
 
-auto dBackend_delete(
+auto backend_delete(
     uint64_t& handle)
     -> int
 {
-    std::cout << "dBackend_delete - BEGIN" << std::endl;
+    std::cout << "backend_delete - BEGIN" << std::endl;
     std::cout << "backendHandle " << handle << std::endl;
 
     using Backend = Neon::Backend;
@@ -52,11 +52,11 @@ auto dBackend_delete(
         AllocationCounter::Deallocation();
     }
     handle = 0;
-    std::cout << "dBackend_delete - END" << std::endl;
+    std::cout << "backend_delete - END" << std::endl;
     return 0;
 }
 
-auto dBackend_get_string(uint64_t& handle) -> const char* {
+auto backend_get_string(uint64_t& handle) -> const char* {
     std::cout << "get_string - BEGIN" << std::endl;
     std::cout << "backendHandle " << handle << std::endl;
 
@@ -70,8 +70,8 @@ auto dBackend_get_string(uint64_t& handle) -> const char* {
     std::cout << "get_string - END" << std::endl;
 }
 
-auto dBackend_sync(uint64_t& handle) -> int {
-    std::cout << "dBackend_sync - BEGIN" << std::endl;
+auto backend_sync(uint64_t& handle) -> int {
+    std::cout << "backend_sync - BEGIN" << std::endl;
     std::cout << "backendHandle " << handle << std::endl;
 
     using Backend = Neon::Backend;
@@ -82,5 +82,5 @@ auto dBackend_sync(uint64_t& handle) -> int {
     backendPtr->syncAll();
 
     return 0;
-    std::cout << "dBackend_sync - END" << std::endl;
+    std::cout << "backend_sync - END" << std::endl;
 }
