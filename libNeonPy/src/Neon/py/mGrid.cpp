@@ -237,7 +237,7 @@ auto mGrid_mField_partition_size(
     return sizeof(*partitionPtr);
 }
 
-auto mGrid_get_properties( /* TODOMATT verify what the return of this method should be */
+auto mGrid_get_properties(
     uint64_t& gridHandle,
     uint64_t  grid_level,
     const Neon::index_3d* idx) 

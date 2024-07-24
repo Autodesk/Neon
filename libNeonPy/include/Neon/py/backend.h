@@ -5,7 +5,7 @@
 /**
  *
  */
-extern "C" auto dBackend_new(
+extern "C" auto backend_new(
     uint64_t& handle,
     int runtime /*! Type of runtime to use */,
     int numDecices /*! Number of devices */,
@@ -15,10 +15,10 @@ extern "C" auto dBackend_new(
 /**
  * Delete a backend object on the heap.
  */
-extern "C" auto dBackend_delete(
+extern "C" auto backend_delete(
     uint64_t& handle)
     -> int;
 
-extern "C" auto dBackend_get_string(uint64_t& handle) -> const char*;
+extern "C" auto backend_get_string(uint64_t& handle) -> const char*;
 
-extern "C" auto dBackend_sync(uint64_t& handle) -> int;
+extern "C" auto backend_sync(uint64_t& handle) -> int;

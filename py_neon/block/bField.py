@@ -94,35 +94,33 @@ class bField(object):
         if res != 0:
             raise Exception('Failed to delete field')
 
-    # TODOMATT ask Max how to reconcile our new partitions with the wpne partitions
-    # def get_partition(self,
-    #                   execution: NeExecution,
-    #                   c: ctypes.c_int,
-    #                   data_view: NeDataView
-    #                   ) -> Wpne_NeonDensePartitionInt:
+    def get_partition(self,
+                      execution: NeExecution,
+                      c: ctypes.c_int,
+                      data_view: NeDataView
+                      ) -> NeBPartitionInt:
 
-    #     if self.handle == 0:
-    #         raise Exception('bField: Invalid handle')
+        if self.handle == 0:
+            raise Exception('bField: Invalid handle')
 
-    #     partition = NeBPartitionInt()
+        partition = NeBPartitionInt()
 
-    #     res = self.py_neon.lib.bGrid_bField_get_partition(self.handle,
-    #                                                       partition,
-    #                                                       execution,
-    #                                                       c,
-    #                                                       data_view)
-    #     if res != 0:
-    #         raise Exception('Failed to get span')
+        res = self.py_neon.lib.bGrid_bField_get_partition(self.handle,
+                                                          partition,
+                                                          execution,
+                                                          c,
+                                                          data_view)
+        if res != 0:
+            raise Exception('Failed to get span')
 
-    #     ccp_size = self.py_neon.lib.bGrid_bField_partition_size(partition)
-    #     ctypes_size = ctypes.sizeof(partition)
+        ccp_size = self.py_neon.lib.bGrid_bField_partition_size(partition)
+        ctypes_size = ctypes.sizeof(partition)
 
-    #     if ccp_size != ctypes_size:
-    #         raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
+        if ccp_size != ctypes_size:
+            raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
 
-    #     print(f"Partition {partition}")
-    #     wpne_partition = Wpne_NeonDensePartitionInt(partition)
-    #     return wpne_partition
+        print(f"Partition {partition}")
+        return partition
     
     def read(self, idx: Index_3d, cardinality: ctypes.c_int):
         return self.py_neon.lib.bGrid_bField_read(ctypes.byref(self.handle), idx, cardinality)

@@ -65,7 +65,7 @@ extern "C" auto bGrid_bField_partition_size(
     Neon::bGrid::Partition<int, 0>* partitionPtr)
     -> int;
 
-extern "C" auto bGrid_get_properties( /* TODOMATT verify what the return of this method should be */
+extern "C" auto bGrid_get_properties(
     uint64_t& gridHandle,
     const Neon::index_3d* idx) 
     -> int;

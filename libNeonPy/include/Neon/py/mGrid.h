@@ -5,7 +5,7 @@
 /**
  * Initialize a new grid object on the heap.
  * NOTE: some parameters are still not exposed
- */ /* TODOMATT fix the constructor to have correct arguments */
+ */
 extern "C" auto mGrid_new(
     uint64_t& handle,
     uint64_t& backendPtr,
