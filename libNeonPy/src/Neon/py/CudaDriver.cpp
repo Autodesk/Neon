@@ -104,15 +104,20 @@ extern "C" int cuda_driver_new(void*& handle, void* bk_handle)
     std::cout << "backendPtr: " << backendPtr->toString() << std::endl;
     auto  cuda_driver = new(std::nothrow) Neon::py::CudaDriver(backendPtr);
     handle = reinterpret_cast<void*>(cuda_driver);
+    std::cout << "cuda_driver_handle " << handle << std::endl;
+
     return 0;
 }
 
-extern "C" void cuda_driver_delete(uint64_t& handle)
+extern "C" int cuda_driver_delete(void*& handle)
 {
+    std::cout << "cuda_driver_delete - BEGIN" << std::endl;
+    std::cout << "cuda_driver_handle " << handle << std::endl;
     auto* cuda_driver_ptr = reinterpret_cast<Neon::py::CudaDriver*>(handle);
 
     if (cuda_driver_ptr != nullptr) {
         delete cuda_driver_ptr;
     }
     handle = 0;
+    return 0;
 }

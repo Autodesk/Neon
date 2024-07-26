@@ -67,7 +67,7 @@ class Backend(object):
         # ------------------------------------------------------------------
         # cuda_driver_delete
         self.py_neon.lib.cuda_driver_delete.argtypes = [self.py_neon.handle_type]
-        self.py_neon.lib.cuda_driver_delete.restype = None
+        self.py_neon.lib.cuda_driver_delete.restype = ctypes.c_int
         # ------------------------------------------------------------------
 
         # TODOMATT get num devices
@@ -102,7 +102,8 @@ class Backend(object):
     def help_backend_delete(self):
         if self.backend_handle == 0:
             return
-        self.py_neon.lib.cuda_driver_delete(self.cuda_driver_handle)
+        print(f'PYTHON cuda_driver_handle {hex(self.cuda_driver_handle.value)}')
+        self.py_neon.lib.cuda_driver_delete(ctypes.byref(self.cuda_driver_handle))
         res = self.py_neon.lib.dBackend_delete(self.backend_handle)
         if res != 0:
             raise Exception('Failed to delete backend')
