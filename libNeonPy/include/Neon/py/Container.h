@@ -20,9 +20,7 @@ extern "C" void warp_dgrid_container_new(
     Neon::Execution execution,
     uint64_t&       handle_cudaDriver,
     uint64_t&       handle_dgrid,
-    void**          kernels_standard,
-    void**          kernels_internal,
-    void**          kernels_boundary,
+    void**          kernels_matrix,
     Neon::index_3d* blockSize);
 
 /**

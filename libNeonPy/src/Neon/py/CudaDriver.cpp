@@ -11,19 +11,18 @@
 
 namespace Neon::py {
 CudaDriver::CudaDriver(Neon::Backend* bk_prt)
-    : bk_prt(bk_prt)
 {
     Neon::init();
-    Neon::Backend& bk = *bk_prt;
-    cu_devices = bk.newDataSet<CUdevice>();
-    cu_contexts = bk.newDataSet<CUcontext>();
+    this->backend = *bk_prt;
+    cu_devices = backend.newDataSet<CUdevice>();
+    cu_contexts = backend.newDataSet<CUcontext>();
 
-    auto     dev_list = bk.devSet();
+    auto     dev_list = backend.devSet();
     CUresult res = cuInit(0);
     check_cuda_res(res, "cuInit");
 
-    int const ndevs = bk.getDeviceCount();
-    auto      devSet = bk.devSet();
+    int const ndevs = backend.getDeviceCount();
+    auto      devSet = backend.devSet();
 #pragma omp parallel for num_threads(ndevs)
     for (int setIdx = 0; setIdx < ndevs; setIdx++) {
         Neon::sys::DeviceID devId = devSet.devId(setIdx);
@@ -43,12 +42,11 @@ CudaDriver::CudaDriver(Neon::Backend* bk_prt)
 
 CudaDriver::~CudaDriver()
 {
-    Neon::Backend& bk = *bk_prt;
 
-    auto dev_list = bk.devSet();
+    auto dev_list = backend.devSet();
 
-    int  ndevs = bk.getDeviceCount();
-    auto devSet = bk.devSet();
+    int  ndevs = backend.getDeviceCount();
+    auto devSet = backend.devSet();
     for (int setIdx = 0; setIdx < ndevs; setIdx++) {
         Neon::sys::DeviceID devId = devSet.devId(setIdx);
         int                 cuda_dev_idx = devId.idx();
@@ -64,12 +62,11 @@ auto CudaDriver::run_kernel(
     Neon::set::LaunchParameters const& launch_params,
     Neon::StreamIdx                    streamIdx) -> void
 {
-    auto& bk = *this->bk_prt;
-    auto& streamSet = bk.streamSet(streamIdx);
+    auto& streamSet = backend.streamSet(streamIdx);
 
-    int const ndevs = bk.getDeviceCount();
+    int const ndevs = backend.getDeviceCount();
 #pragma omp parallel for num_threads(ndevs)
-    for (int setIdx = 0; setIdx < bk.getDeviceCount(); setIdx++) {
+    for (int setIdx = 0; setIdx < backend.getDeviceCount(); setIdx++) {
         cudaStream_t const& cuda_stream = streamSet.cudaStream(setIdx);
         CUstream            driverStream = (CUstream)cuda_stream;
         CUfunction          function = static_cast<CUfunction>(kernelSet[setIdx]);
@@ -94,23 +91,23 @@ auto CudaDriver::run_kernel(
     }
 }
 
-auto CudaDriver::get_bk_prt() -> Neon::Backend* { return bk_prt; }
+// auto CudaDriver::get_bk_prt() -> Neon::Backend* { return bk_prt; }
 
 }
 
-extern "C" void cuda_driver_entry_point_new(uint64_t& handle, uint64_t* bk_handle)
+extern "C" void cuda_driver_new(uint64_t& handle, uint64_t bk_handle)
 {
     auto* backendPtr = reinterpret_cast<Neon::Backend*>(bk_handle);
-    auto  cuda_driver_entry_point = new(std::nothrow) Neon::py::CudaDriver(backendPtr);
-    handle = uint64_t(cuda_driver_entry_point);
+    auto  cuda_driver = new(std::nothrow) Neon::py::CudaDriver(backendPtr);
+    handle = uint64_t(cuda_driver);
 }
 
-extern "C" void cuda_driver_entry_point_delete(uint64_t& handle)
+extern "C" void cuda_driver_delete(uint64_t& handle)
 {
-    auto* cuda_driver_entry_point_ptr = reinterpret_cast<Neon::py::CudaDriver*>(handle);
+    auto* cuda_driver_ptr = reinterpret_cast<Neon::py::CudaDriver*>(handle);
 
-    if (cuda_driver_entry_point_ptr != nullptr) {
-        delete cuda_driver_entry_point_ptr;
+    if (cuda_driver_ptr != nullptr) {
+        delete cuda_driver_ptr;
     }
     handle = 0;
 }

@@ -25,15 +25,12 @@ public:
 
     WarpContainer(
         const Neon::Execution execution,
-        Neon::py::CudaDriver* cuda_driver_entry_point,
+        Neon::py::CudaDriver* cuda_driver,
         Grid*                 grid,
-        void**                kernels_standard,
-        void**                kernels_internal,
-        void**                kernels_boundary,
-        Neon::index_3d const& blockSize)
-        : m_cudaDriver(cuda_driver_entry_point),
+        void**                kernels_matrix)
+        : m_cudaDriver(cuda_driver),
           m_gridPtr(grid),
-          m_backendPtr(cuda_driver_entry_point->get_bk_prt()),
+          m_backendPtr(cuda_driver->get_bk_prt()),
           m_execution(execution)
     {
         this->setName("WarpContainer");
@@ -41,26 +38,18 @@ public:
         setContainerExecutionType(Neon::set::ContainerExecutionType::device);
         setContainerOperationType(Neon::set::ContainerOperationType::compute);
         setDataViewSupport(Neon::set::internal::ContainerAPI::DataViewSupport::on);
-        initLaunchParameters(*grid,
-                             blockSize,
-                             [](Neon::index_3d const&) { return 0; });
 
-        m_kernels[Neon::DataViewUtil::toInt(Neon::DataView::STANDARD)] =
-            m_backendPtr->newDataSet<kernel>();
-        m_kernels[Neon::DataViewUtil::toInt(Neon::DataView::INTERNAL)] =
-            m_backendPtr->newDataSet<kernel>();
-        m_kernels[Neon::DataViewUtil::toInt(Neon::DataView::BOUNDARY)] =
-            m_backendPtr->newDataSet<kernel>();
+
+        initLaunchParameters(*grid);
 
         int const ndevs = m_backendPtr->getDeviceCount();
 
-        for (int i = 0; i < ndevs; i++) {
-            m_kernels[Neon::DataViewUtil::toInt(Neon::DataView::STANDARD)][i] =
-                kernels_standard[i];
-            m_kernels[Neon::DataViewUtil::toInt(Neon::DataView::INTERNAL)][i] =
-                kernels_internal[i];
-            m_kernels[Neon::DataViewUtil::toInt(Neon::DataView::BOUNDARY)][i] =
-                kernels_boundary[i];
+        for (const auto& dw : Neon::DataViewUtil::validOptions()) {
+            int dw_idx = Neon::DataViewUtil::toInt(dw);
+            m_kernels[dw_idx] = m_backendPtr->newDataSet<kernel>();
+            for (int dev_idx = 0; dev_idx < ndevs; dev_idx++) {
+                m_kernels[dw_idx][dw_idx] = kernels_matrix[dev_idx * Neon::DataViewUtil::nConfig + dw_idx];
+            }
         }
 
         //this->parse();
@@ -77,6 +66,17 @@ public:
               DataView::BOUNDARY,
               DataView::INTERNAL}) {
             this->setLaunchParameters(dw) = grid.getLaunchParameters(dw, blockSize, sharedMem);
+        }
+    }
+
+    auto initLaunchParameters(
+        const Grid& grid)
+    {
+        for (auto dw :
+             {DataView::STANDARD,
+              DataView::BOUNDARY,
+              DataView::INTERNAL}) {
+            this->setLaunchParameters(dw) = grid.getDefaultLaunchParameters(dw);
         }
     }
 
@@ -117,9 +117,8 @@ public:
     }
 
 
-    virtual auto run(
-        int            streamIdx = 0,
-        Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
+    virtual auto run(int            streamIdx = 0,
+                     Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
     {
         auto                    launchParameters = this->getLaunchParameters(dataView);
         Neon::set::KernelConfig kernelConfig(
@@ -190,12 +189,9 @@ private:
 extern "C" void warp_dgrid_container_new(
     uint64_t&       out_handle,
     Neon::Execution execution,
-    uint64_t&       handle_cudaDriver,
-    uint64_t&       handle_dgrid,
-    void**          kernels_standard,
-    void**          kernels_internal,
-    void**          kernels_boundary,
-    Neon::index_3d* blockSize)
+    uint64_t        handle_cudaDriver,
+    uint64_t        handle_dgrid,
+    void**          kernels_matrix)
 {
     auto* cudaDriverPtr =
         reinterpret_cast<Neon::py::CudaDriver*>(handle_cudaDriver);
@@ -208,11 +204,7 @@ extern "C" void warp_dgrid_container_new(
             execution,
             cudaDriverPtr,
             dGridPtr,
-            kernels_standard,
-            kernels_internal,
-            kernels_boundary,
-            *blockSize
-            );
+            kernels_matrix);
 
     if (warp_container == nullptr) {
         Neon::NeonException e("warp_dgrid_container_new");

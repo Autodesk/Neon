@@ -51,6 +51,7 @@ auto dBackend_delete(
         delete backendPtr;
         AllocationCounter::Deallocation();
     }
+
     handle = 0;
     std::cout << "dBackend_delete - END" << std::endl;
     return 0;

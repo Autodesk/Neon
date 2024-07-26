@@ -12,7 +12,7 @@ namespace Neon::py {
 class CudaDriver
 {
 
-    Neon::Backend* bk_prt;
+    Neon::Backend backend;
 
     Neon::set::DataSet<CUdevice>  cu_devices;
     Neon::set::DataSet<CUcontext> cu_contexts;
@@ -60,6 +60,6 @@ public:
 };
 }
 
-extern "C" void cuda_driver_entry_point_new(uint64_t& handle, uint64_t* bk_handle);
+extern "C" void cuda_driver_new(uint64_t& handle, uint64_t bk_handle);
 
-extern "C" void cuda_driver_entry_point_delete(uint64_t& handle);
+extern "C" void cuda_driver_delete(uint64_t& handle);

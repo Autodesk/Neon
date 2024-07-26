@@ -1,6 +1,6 @@
-import copy
 import ctypes
 from enum import Enum
+
 
 class DataView(ctypes.Structure):
     _fields_ = [("data_view", ctypes.c_char)]
@@ -27,7 +27,7 @@ class DataView(ctypes.Structure):
         self.data_view = data_view
 
     @staticmethod
-    def standard() :
+    def standard():
         return DataView(DataView.Values.standard)
 
     @staticmethod
@@ -38,6 +38,17 @@ class DataView(ctypes.Structure):
     def boundary():
         return DataView(DataView.Values.boundary)
 
+    @staticmethod
+    def from_int(v: int):
+        if v == 0:
+            return DataView(DataView.Values.standard)
+        if v == 1:
+            return DataView(DataView.Values.internal)
+        if v == 2:
+            return DataView(DataView.Values.boundary)
+        # rise exeption
+        raise Exception('Invalid DataView value')
+
     def __str__(self):
         str = "<Data_view: addr=%ld, sizeof %ld>" % (ctypes.addressof(self), ctypes.sizeof(self))
         if self.value == DataView.Values.standard:
@@ -47,9 +58,8 @@ class DataView(ctypes.Structure):
         if self.value == DataView.Values.boundary:
             str += f"\n\tdataView: {'boundary'}"
         return str
-    
+
     def __eq__(self, other):
         if not isinstance(other, DataView):
             return NotImplemented
         return self.data_view == other.data_view
-

@@ -25,7 +25,7 @@ class dGrid(object):
             2] != dim.z:
             raise Exception('dGrid: sparsity_pattern\'s shape does not match the dim')
 
-        self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
+        self.grid_handle: ctypes.c_uint64 = ctypes.c_uint64(0)
         self.backend = backend
         self.dim = dim
         self.sparsity_pattern = sparsity_pattern
@@ -33,14 +33,14 @@ class dGrid(object):
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
-            self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
+            self.grid_handle: ctypes.c_uint64 = ctypes.c_uint64(0)
             raise Exception('Failed to initialize PyNeon: ' + str(e))
 
         self._help_load_api()
         self._help_grid_new()
 
     def __del__(self):
-        if self.handle != 0:
+        if self.grid_handle != 0:
             self._help_grid_delete()
 
     def _help_load_api(self):
@@ -50,14 +50,14 @@ class dGrid(object):
                                                ctypes.POINTER(py_neon.Index_3d),
                                                ctypes.POINTER(ctypes.c_int)]
         self.py_neon.lib.dGrid_new.restype = ctypes.c_int
-
-        # grid_delete
+        # ---
         self.py_neon.lib.dGrid_delete.argtypes = [self.py_neon.handle_type]
         self.py_neon.lib.dGrid_delete.restype = ctypes.c_int
-
+        # ---
         self.py_neon.lib.dGrid_get_dimensions.argtypes = [self.py_neon.handle_type,
                                                           ctypes.POINTER(py_neon.Index_3d)]
         self.py_neon.lib.dGrid_get_dimensions.restype = ctypes.c_int
+        # ---
         self.py_neon.lib.dGrid_get_span.argtypes = [self.py_neon.handle_type,
                                                     ctypes.POINTER(dSpan),  # the span object
                                                     py_neon.Execution,  # the execution type
@@ -65,32 +65,34 @@ class dGrid(object):
                                                     py_neon.DataView,  # the data view
                                                     ]
         self.py_neon.lib.dGrid_get_span.restype = ctypes.c_int
-
+        # ---
         self.py_neon.lib.dGrid_span_size.argtypes = [ctypes.POINTER(dSpan)]
         self.py_neon.lib.dGrid_span_size.restype = ctypes.c_int
-
+        # ---
         self.py_neon.lib.dGrid_get_properties.argtypes = [self.py_neon.handle_type,
                                                           ctypes.POINTER(py_neon.Index_3d)]
         self.py_neon.lib.dGrid_get_properties.restype = ctypes.c_int
-
+        # ---
         self.py_neon.lib.dGrid_is_inside_domain.argtypes = [self.py_neon.handle_type,
                                                             ctypes.POINTER(py_neon.Index_3d)]
         self.py_neon.lib.dGrid_is_inside_domain.restype = ctypes.c_bool
 
     def _help_grid_new(self):
 
-        if self.handle.value != 0:  # Ensure the grid handle is uninitialized
+        if self.grid_handle.value != 0:  # Ensure the grid handle is uninitialized
             raise Exception('dGrid: Grid handle already initialized')
 
         sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
-        res = self.py_neon.lib.dGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim,
+        res = self.py_neon.lib.dGrid_new(ctypes.byref(self.grid_handle),
+                                         ctypes.byref(self.backend.handle),
+                                         self.dim,
                                          sparsity_pattern_array)
         if res != 0:
             raise Exception('dGrid: Failed to initialize grid')
-        print(f"dGrid initialized with handle {self.handle.value}")
+        print(f"dGrid initialized with handle {self.grid_handle.value}")
 
     def _help_grid_delete(self):
-        if self.py_neon.lib.dGrid_delete(ctypes.byref(self.handle)) != 0:
+        if self.py_neon.lib.dGrid_delete(ctypes.byref(self.grid_handle)) != 0:
             raise Exception('Failed to delete grid')
 
     def get_python_dimensions(self):
@@ -98,7 +100,7 @@ class dGrid(object):
 
     def get_cpp_dimensions(self):
         cpp_dim = Index_3d(0, 0, 0)
-        res = self.py_neon.lib.dGrid_get_dimensions(ctypes.byref(self.handle), cpp_dim)
+        res = self.py_neon.lib.dGrid_get_dimensions(ctypes.byref(self.grid_handle), cpp_dim)
         if res != 0:
             raise Exception('DGrid: Failed to obtain grid dimension')
 
@@ -107,7 +109,7 @@ class dGrid(object):
     def new_field(self, cardinality: int) -> dField:
         cardinality = ctypes.c_int(cardinality)
         field = dField(py_neon=self.py_neon,
-                       grid_handle=self.handle,
+                       grid_handle=self.grid_handle,
                        cardinality=cardinality,
                        py_grid=self)
         return field
@@ -116,12 +118,12 @@ class dGrid(object):
                  execution: Execution,
                  dev_idx: int,
                  data_view: DataView) -> dSpan:
-        if self.handle == 0:
+        if self.grid_handle == 0:
             raise Exception('DGrid: Invalid handle')
 
         span = dSpan()
         dev_idx_ctypes = ctypes.c_int(dev_idx)
-        res = self.py_neon.lib.dGrid_get_span(ctypes.byref(self.handle),
+        res = self.py_neon.lib.dGrid_get_span(ctypes.byref(self.grid_handle),
                                               span,
                                               execution,
                                               dev_idx_ctypes,
@@ -138,10 +140,13 @@ class dGrid(object):
         return span
 
     def get_properties(self, idx: Index_3d):
-        return DataView(self.py_neon.lib.dGrid_get_properties(ctypes.byref(self.handle), idx))
+        return DataView(self.py_neon.lib.dGrid_get_properties(ctypes.byref(self.grid_handle), idx))
 
     def is_inside_domain(self, idx: Index_3d):
-        return self.py_neon.lib.dGrid_is_inside_domain(ctypes.byref(self.handle), idx)
+        return self.py_neon.lib.dGrid_is_inside_domain(ctypes.byref(self.grid_handle), idx)
 
     def get_backend(self):
         return self.backend
+
+    def get_handle(self):
+        return self.grid_handle
