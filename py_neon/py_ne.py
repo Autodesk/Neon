@@ -5,7 +5,7 @@ from enum import Enum
 
 class Py_neon(object):
     def __init__(self):
-        self.handle_type = ctypes.POINTER(ctypes.c_uint64)
+        self.handle_type = ctypes.c_void_p
         # get the path of this python file
         current_file_path = os.path.abspath(__file__)
         # get the directory containing the script

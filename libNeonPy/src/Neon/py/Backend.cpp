@@ -33,7 +33,7 @@ auto dBackend_new(
 
     auto backendPtr = new (std::nothrow) Neon::Backend(vec, Neon::Runtime(runtime));
     AllocationCounter::Allocation();
-
+    std::cout <<"BK "<< backendPtr << std::endl;
     return backend_constructor_epilogue(handle, backendPtr);
 }
 

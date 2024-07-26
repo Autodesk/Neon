@@ -91,15 +91,20 @@ auto CudaDriver::run_kernel(
     }
 }
 
-// auto CudaDriver::get_bk_prt() -> Neon::Backend* { return bk_prt; }
+ auto CudaDriver::get_bk_prt() -> Neon::Backend* { return &backend; }
 
 }
 
-extern "C" void cuda_driver_new(uint64_t& handle, uint64_t bk_handle)
+extern "C" int cuda_driver_new(void*& handle, void* bk_handle)
 {
     auto* backendPtr = reinterpret_cast<Neon::Backend*>(bk_handle);
+    std::cout << "handle:OOOO---- " << handle << std::endl;
+    std::cout << "bk_handle:OOOO---- " << bk_handle << std::endl;
+    std::cout << "backendPtr: " << backendPtr << std::endl;
+    std::cout << "backendPtr: " << backendPtr->toString() << std::endl;
     auto  cuda_driver = new(std::nothrow) Neon::py::CudaDriver(backendPtr);
-    handle = uint64_t(cuda_driver);
+    handle = reinterpret_cast<void*>(cuda_driver);
+    return 0;
 }
 
 extern "C" void cuda_driver_delete(uint64_t& handle)

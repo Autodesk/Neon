@@ -16,7 +16,8 @@ target_link_libraries(libNeonPy
         PUBLIC libNeonSet
         PUBLIC libNeonDomain
         PUBLIC libNeonSkeleton
-        PUBLIC CUDA::cudart)
+        PUBLIC CUDA::cudart
+        PUBLIC CUDA::cuda_driver)
 
 #
 #target_link_libraries(libNeonPy)
