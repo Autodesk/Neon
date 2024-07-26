@@ -84,7 +84,7 @@ class dGrid(object):
 
         sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
         res = self.py_neon.lib.dGrid_new(ctypes.byref(self.grid_handle),
-                                         ctypes.byref(self.backend.handle),
+                                         ctypes.byref(self.backend.backend_handle),
                                          self.dim,
                                          sparsity_pattern_array)
         if res != 0:
