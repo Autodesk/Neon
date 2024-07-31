@@ -72,7 +72,7 @@ auto CudaDriver::run_kernel(
         CUfunction function = static_cast<CUfunction>(kernelSet[setIdx]);
         std::cout << "foo " << function << std::endl;
         backend.devSet().setActiveDevContext(setIdx);
-        // auto&      launch_info = launch_params[setIdx];
+        auto& launch_info = launch_params[setIdx];
         // auto const cudaGrid = launch_info.cudaGrid();
         // auto const cudaBlock = launch_info.cudaBlock();
         // Set the created context as the current context
@@ -89,13 +89,13 @@ auto CudaDriver::run_kernel(
         };
 
         launch_bounds_t bounds;
+        std::cout << "domaina " << Neon::index_3d(launch_info.cudaGrid().x,
+                                                  launch_info.cudaGrid().y,
+                                                  launch_info.cudaGrid().z) << std::endl;
+        int n = 2;
         bounds.ndim = 1;
-        bounds.shape[0] = 1;
-        bounds.shape[1] = 0;
-        bounds.shape[2] = 0;
-        bounds.shape[3] = 0;
-
-        bounds.size = 1;
+        bounds.shape[0] = n;
+        bounds.size = n;
 
 
         std::vector<void*> args;
@@ -110,11 +110,16 @@ auto CudaDriver::run_kernel(
         // } catch (...) {
         //
         // }
-        std::cout << "cuLaunchKernel" <<  std::endl;
+        int block_dim = 256;
+        int grid_dim = (n + block_dim - 1) / block_dim;
+        std::cout << "block_dim " << block_dim << std::endl;
+        std::cout << "grid_dim " << grid_dim << std::endl;
+        std::cout << "n  " << n << std::endl;
+        std::cout << "cuLaunchKernel" << std::endl;
         CUresult res = cuLaunchKernel(
             function,
-            1, 1, 1,
-            256, 1, 1,
+            grid_dim, 1, 1,
+            block_dim, 1, 1,
             0,
             nullptr,
             args.data(),
