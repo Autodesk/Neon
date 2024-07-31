@@ -125,7 +125,7 @@ class dField(object):
         if ccp_size != ctypes_size:
             raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
 
-        print(f"Partition {partition}")
+        #print(f"Partition {partition}")
         return partition
 
     def read(self, idx: Index_3d, cardinality: ctypes.c_int):

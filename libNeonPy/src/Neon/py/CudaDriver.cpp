@@ -58,40 +58,74 @@ CudaDriver::~CudaDriver()
 
 
 auto CudaDriver::run_kernel(
-    Neon::set::DataSet<kernel> const&         kernelSet,
+    Neon::set::DataSet<kernel> const&  kernelSet,
     Neon::set::LaunchParameters const& launch_params,
     Neon::StreamIdx                    streamIdx) -> void
 {
-    auto& streamSet = backend.streamSet(streamIdx);
+    [[maybe_unused]] auto& streamSet = backend.streamSet(streamIdx);
 
     int const ndevs = backend.getDeviceCount();
-#pragma omp parallel for num_threads(ndevs)
-    for (int setIdx = 0; setIdx < backend.getDeviceCount(); setIdx++) {
-        cudaStream_t const& cuda_stream = streamSet.cudaStream(setIdx);
-        CUstream            driverStream = (CUstream)cuda_stream;
-        CUfunction          function = static_cast<CUfunction>(kernelSet[setIdx]);
-
-        auto&      launch_info = launch_params[setIdx];
-        auto const cudaGrid = launch_info.cudaGrid();
-        auto const cudaBlock = launch_info.cudaBlock();
+    //#pragma omp parallel for num_threads(ndevs)
+    for (int setIdx = 0; setIdx < ndevs; setIdx++) {
+        // cudaStream_t const& cuda_stream = streamSet.cudaStream(setIdx);
+        // CUstream            driverStream = (CUstream)cuda_stream;
+        CUfunction function = static_cast<CUfunction>(kernelSet[setIdx]);
+        std::cout << "foo " << function << std::endl;
+        backend.devSet().setActiveDevContext(setIdx);
+        // auto&      launch_info = launch_params[setIdx];
+        // auto const cudaGrid = launch_info.cudaGrid();
+        // auto const cudaBlock = launch_info.cudaBlock();
         // Set the created context as the current context
-        CUresult res = cuCtxSetCurrent(cu_contexts[setIdx]);
-        check_cuda_res(res, "cuCtxSetCurrent");
+        //CUresult res = cuCtxSetCurrent(cu_contexts[setIdx]);
+        //check_cuda_res(res, "cuCtxSetCurrent");
+        int64_t pywarp_size = 1;
+        std::cout << "pywarp_size" << pywarp_size << std::endl;
+        const int LAUNCH_MAX_DIMS = 4; // should match types.py
+        struct launch_bounds_t
+        {
+            int    shape[LAUNCH_MAX_DIMS]; // size of each dimension
+            int    ndim; // number of valid dimension
+            size_t size; // total number of threads
+        };
 
-        res = cuLaunchKernel(
+        launch_bounds_t bounds;
+        bounds.ndim = 1;
+        bounds.shape[0] = 1;
+        bounds.shape[1] = 0;
+        bounds.shape[2] = 0;
+        bounds.shape[3] = 0;
+
+        bounds.size = 1;
+
+
+        std::vector<void*> args;
+        args.push_back(&bounds);
+
+        [[maybe_unused]] auto devset = backend.devSet();
+        devset.setActiveDevContext(setIdx);
+        [[maybe_unused]] auto const& gpuDev = devset.gpuDev(setIdx);
+        [[maybe_unused]] auto        kinfo = launch_params.operator[](setIdx);
+        // try {
+        //     gpuDev.kernel.cudaLaunchKernel<Neon::run_et::sync>(streamSet[setIdx], kinfo, function, args.data());
+        // } catch (...) {
+        //
+        // }
+        std::cout << "cuLaunchKernel" <<  std::endl;
+        CUresult res = cuLaunchKernel(
             function,
-            cudaGrid.x, cudaGrid.y, cudaGrid.z,
-            cudaBlock.x, cudaBlock.y, cudaBlock.z,
+            1, 1, 1,
+            256, 1, 1,
             0,
-            driverStream,
             nullptr,
+            args.data(),
             0);
 
         check_cuda_res(res, "cuLaunchKernel");
+        cuCtxSynchronize();
     }
 }
 
- auto CudaDriver::get_bk_prt() -> Neon::Backend* { return &backend; }
+auto CudaDriver::get_bk_prt() -> Neon::Backend* { return &backend; }
 
 }
 
@@ -102,7 +136,7 @@ extern "C" int cuda_driver_new(void*& handle, void* bk_handle)
     std::cout << "bk_handle:OOOO---- " << bk_handle << std::endl;
     std::cout << "backendPtr: " << backendPtr << std::endl;
     std::cout << "backendPtr: " << backendPtr->toString() << std::endl;
-    auto  cuda_driver = new(std::nothrow) Neon::py::CudaDriver(backendPtr);
+    auto cuda_driver = new(std::nothrow) Neon::py::CudaDriver(backendPtr);
     handle = reinterpret_cast<void*>(cuda_driver);
     std::cout << "cuda_driver_handle " << handle << std::endl;
 

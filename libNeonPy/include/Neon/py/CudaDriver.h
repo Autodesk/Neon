@@ -31,7 +31,7 @@ public:
             cuGetErrorName(res, &errorName);
             cuGetErrorString(res, &errorString);
             Neon::NeonException e("CudaDriverEntryPoint");
-            e << op << " failed with \n" << res;
+            e << op << " failed with \n" << res << " ";
             e << errorName << "\n";
             e << errorString;
             NEON_THROW(e);

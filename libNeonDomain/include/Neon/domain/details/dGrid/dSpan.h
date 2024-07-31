@@ -16,6 +16,7 @@ namespace Neon::domain::details::dGrid
     public:
         using Idx = dIndex;
         friend class dGrid;
+        using Grid = dGrid;
 
         static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan =
             Neon::set::details::ExecutionThreadSpan::d3;
@@ -35,6 +36,17 @@ namespace Neon::domain::details::dGrid
                             const uint32_t& y,
                             const uint32_t& z) const
             -> void;
+
+        /**
+         * Funcion to be called by the C++ via the Neon-warp runtime
+         * @tparam DataSetContainer
+         * @param idx
+         * @return
+         */
+        template<typename DataSetContainer>
+        NEON_CUDA_HOST_DEVICE inline auto
+        setAndValidate_warp(Idx& idx) const
+        -> bool;
 
         NEON_CUDA_HOST_DEVICE inline auto
         helpGetDataView()

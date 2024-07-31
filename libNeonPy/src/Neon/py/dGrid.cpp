@@ -96,12 +96,12 @@ auto dGrid_get_span(
     int                data_view)
     -> int
 {
-    std::cout << "dGrid_get_span - BEGIN " << std::endl;
-    std::cout << "dGrid_get_span - gridHandle " << gridHandle << std::endl;
-    std::cout << "dGrid_get_span - execution " << execution << std::endl;
-    std::cout << "dGrid_get_span - device " << device << std::endl;
-    std::cout << "dGrid_get_span - data_view " << data_view << std::endl;
-    std::cout << "dGrid_get_span - Span size " << sizeof(*spanRes) << std::endl;
+//    std::cout << "dGrid_get_span - BEGIN " << std::endl;
+//    std::cout << "dGrid_get_span - gridHandle " << gridHandle << std::endl;
+//    std::cout << "dGrid_get_span - execution " << execution << std::endl;
+//    std::cout << "dGrid_get_span - device " << device << std::endl;
+//    std::cout << "dGrid_get_span - data_view " << data_view << std::endl;
+//    std::cout << "dGrid_get_span - Span size " << sizeof(*spanRes) << std::endl;
 
     using Grid = Neon::dGrid;
     Grid* gridPtr = (Grid*)gridHandle;
@@ -112,7 +112,7 @@ auto dGrid_get_span(
                                       device,
                                       Neon::DataViewUtil::fromInt(data_view));
         (*spanRes) = gridSpan;
-        std::cout << "dGrid_get_span - END" << &gridSpan << std::endl;
+        //std::cout << "dGrid_get_span - END" << &gridSpan << std::endl;
 
         return 0;
     }
@@ -125,9 +125,9 @@ auto dGrid_dField_new(
     int cardinality)
     -> int
 {
-    std::cout << "dGrid_dField_new - BEGIN" << std::endl;
-    std::cout << "dGrid_dField_new - gridHandle " << gridHandle << std::endl;
-    std::cout << "dGrid_dField_new - handle " << handle << std::endl;
+//    std::cout << "dGrid_dField_new - BEGIN" << std::endl;
+//    std::cout << "dGrid_dField_new - gridHandle " << gridHandle << std::endl;
+//    std::cout << "dGrid_dField_new - handle " << handle << std::endl;
 
     using Grid = Neon::dGrid;
     Grid* gridPtr = (Grid*)gridHandle;
@@ -145,7 +145,7 @@ auto dGrid_dField_new(
             return -1;
         }
         handle = (uint64_t)fieldPtr;
-        std::cout << "dGrid_dField_new - END " << handle << std::endl;
+        //std::cout << "dGrid_dField_new - END " << handle << std::endl;
 
         return 0;
     }
@@ -163,28 +163,28 @@ auto dGrid_dField_get_partition(
     -> int
 {
 
-    std::cout << "dGrid_dField_get_partition - BEGIN " << std::endl;
-    std::cout << "dGrid_dField_get_partition - field_handle " << field_handle << std::endl;
-    std::cout << "dGrid_dField_get_partition - execution " << Neon::ExecutionUtils::toString(execution) << std::endl;
-    std::cout << "dGrid_dField_get_partition - device " << device << std::endl;
-    std::cout << "dGrid_dField_get_partition - data_view " << Neon::DataViewUtil::toString(data_view) << std::endl;
+    //std::cout << "dGrid_dField_get_partition - BEGIN " << std::endl;
+    //std::cout << "dGrid_dField_get_partition - field_handle " << field_handle << std::endl;
+    //std::cout << "dGrid_dField_get_partition - execution " << Neon::ExecutionUtils::toString(execution) << std::endl;
+    //std::cout << "dGrid_dField_get_partition - device " << device << std::endl;
+    //std::cout << "dGrid_dField_get_partition - data_view " << Neon::DataViewUtil::toString(data_view) << std::endl;
 
     using Grid = Neon::dGrid;
     using Field = Grid::Field<int, 0>;
 
     Field* fieldPtr = (Field*)field_handle;
-    std::cout << fieldPtr->toString() << std::endl;
+    //std::cout << fieldPtr->toString() << std::endl;
 
     if (fieldPtr != nullptr) {
         auto p = fieldPtr->getPartition(execution,
                                         device,
                                         data_view);
-        std::cout << p.cardinality() << std::endl;
+        //std::cout << p.cardinality() << std::endl;
         *partitionPtr = p;
-        std::cout << "dGrid_dField_get_partition\n"
-            << partitionPtr->to_string();
+        // std::cout << "dGrid_dField_get_partition\n"
+        //     << partitionPtr->to_string();
 
-        std::cout << "dGrid_dField_get_partition - END" << std::endl;
+        // std::cout << "dGrid_dField_get_partition - END" << std::endl;
 
         return 0;
     }

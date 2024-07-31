@@ -25,7 +25,7 @@ class dGrid(object):
             2] != dim.z:
             raise Exception('dGrid: sparsity_pattern\'s shape does not match the dim')
 
-        self.grid_handle: ctypes.c_uint64 = ctypes.c_uint64(0)
+        self.grid_handle = ctypes.c_void_p(None)
         self.backend = backend
         self.dim = dim
         self.sparsity_pattern = sparsity_pattern
@@ -33,7 +33,7 @@ class dGrid(object):
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
-            self.grid_handle: ctypes.c_uint64 = ctypes.c_uint64(0)
+            self.grid_handle: ctypes.c_uint64 = ctypes.c_void_p(0)
             raise Exception('Failed to initialize PyNeon: ' + str(e))
 
         self._help_load_api()
@@ -79,7 +79,7 @@ class dGrid(object):
 
     def _help_grid_new(self):
 
-        if self.grid_handle.value != 0:  # Ensure the grid handle is uninitialized
+        if self.grid_handle.value != None:  # Ensure the grid handle is uninitialized
             raise Exception('dGrid: Grid handle already initialized')
 
         sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))

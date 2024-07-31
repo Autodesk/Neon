@@ -48,7 +48,7 @@ public:
             int dw_idx = Neon::DataViewUtil::toInt(dw);
             m_kernels[dw_idx] = m_backendPtr->newDataSet<kernel>();
             for (int dev_idx = 0; dev_idx < ndevs; dev_idx++) {
-                m_kernels[dw_idx][dw_idx] = kernels_matrix[dev_idx * Neon::DataViewUtil::nConfig + dw_idx];
+                m_kernels[dw_idx][dev_idx] = kernels_matrix[dev_idx * Neon::DataViewUtil::nConfig + dw_idx];
             }
         }
 
@@ -127,6 +127,7 @@ public:
             streamIdx,
             launchParameters);
 
+
         m_cudaDriver->run_kernel(
             m_kernels[Neon::DataViewUtil::toInt(dataView)],
             launchParameters,
@@ -187,11 +188,12 @@ private:
 
 
 extern "C" void warp_dgrid_container_new(
-    uint64_t&       out_handle,
+    void*&          out_handle,
     Neon::Execution execution,
-    uint64_t        handle_cudaDriver,
-    uint64_t        handle_dgrid,
-    void**          kernels_matrix)
+    void*           handle_cudaDriver,
+    void*           handle_dgrid,
+    void**          kernels_matrix,
+     Neon::index_3d* /*blockSize*/)
 {
     auto* cudaDriverPtr =
         reinterpret_cast<Neon::py::CudaDriver*>(handle_cudaDriver);
@@ -211,7 +213,7 @@ extern "C" void warp_dgrid_container_new(
         NEON_THROW(e);
     }
 
-    out_handle = uint64_t(warp_container);
+    out_handle = reinterpret_cast<void*>(warp_container);
 }
 
 extern "C" void warp_container_delete(
@@ -228,7 +230,7 @@ extern "C" void warp_container_delete(
 }
 
 extern "C" void warp_container_run(
-    uint64_t&      handle,
+    void*          handle,
     int            streamIdx,
     Neon::DataView dataView)
 {

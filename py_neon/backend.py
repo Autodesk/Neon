@@ -1,6 +1,7 @@
 import ctypes
 from enum import Enum
 from typing import List
+import warp as wp
 
 import numpy as np
 
@@ -20,12 +21,14 @@ class Backend(object):
                  dev_idx_list: List[int] = [0]):
 
         self.backend_handle: ctypes.c_void_p = ctypes.c_void_p(0)
-        self.cuda_driver_handle:ctypes.c_void_p = ctypes.c_void_p(0)
+        self.cuda_driver_handle: ctypes.c_void_p = ctypes.c_void_p(0)
 
         self.n_dev = n_dev
         self.dev_idx_list = dev_idx_list
         self.runtime = runtime
 
+        devices = {}
+        devices['cuda:0'] = wp.get_device("cuda:0")
         try:
             self.py_neon: Py_neon = Py_neon()
         except Exception as e:
@@ -58,7 +61,7 @@ class Backend(object):
         # ------------------------------------------------------------------
         # cuda_driver_new
         self.py_neon.lib.cuda_driver_new.argtypes = [self.py_neon.handle_type,
-                                                  self.py_neon.handle_type]
+                                                     self.py_neon.handle_type]
         self.py_neon.lib.cuda_driver_new.restype = ctypes.c_int
 
         # self.py_neon.lib.cuda_driver_new.argtypes = [self.py_neon.handle_type,
@@ -89,7 +92,6 @@ class Backend(object):
                                             self.runtime.value,
                                             self.n_dev,
                                             dev_idx_ptr)
-
 
         print(f"PYTHON self.backend_handle: {self.backend_handle}")
         if res != 0:
@@ -122,3 +124,11 @@ class Backend(object):
 
     def sync(self):
         return self.py_neon.lib.dBackend_sync(ctypes.byref(self.backend_handle))
+
+    def get_device_name(self, dev_idx: int):
+        if self.runtime == Backend.Runtime.stream:
+            dev_id = self.dev_idx_list[dev_idx]
+            return f"cuda:{dev_id}"
+        else:
+            dev_id = self.dev_idx_list[dev_idx]
+            return f"cpu:{dev_id}"
