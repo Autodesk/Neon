@@ -614,4 +614,10 @@ auto Backend::isLastDevice(Neon::SetIdx id) const -> bool
 {
     return id.idx() == (deviceCount() - 1);
 }
+
+auto Backend::countAvailableGpus() -> int32_t
+{
+    return  Neon::sys::globalSpace::gpuSysObjStorage.numDevs();
+}
+
 }  // namespace Neon

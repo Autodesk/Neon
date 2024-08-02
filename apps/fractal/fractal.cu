@@ -5,8 +5,8 @@
 #include "Neon/domain/dGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
-template <typename FieldT>
-inline void draw_pixels(const int t, FieldT& field)
+template <typename Field>
+inline void draw_pixels(const int t, Field& field)
 {
     printf("\n Exporting Frame =%d", t);
     int                precision = 4;
@@ -28,19 +28,19 @@ NEON_CUDA_HOST_DEVICE inline Neon::float_2d complex_pow(Neon::float_2d& z, Neon:
     return Neon::float_2d(radius * cos(angle), radius * sin(angle));
 }
 
-template <typename FieldT>
-inline Neon::set::Container FractalsContainer(FieldT&  pixels,
+template <typename Field>
+inline Neon::set::Container FractalsContainer(Field&  pixels,
                                               int32_t& time,
                                               int32_t  n)
 {
-    return pixels.getGrid().getContainer(
+    return pixels.getGrid().newContainer(
         "FractalContainer", [&, n](Neon::set::Loader& L) {
             auto& px = L.load(pixels);
             auto& t = time;
 
             return [=] NEON_CUDA_HOST_DEVICE(
-                       const typename FieldT::Cell& idx) mutable {
-                auto id = px.mapToGlobal(idx);
+                       const typename Field::Idx& idx) mutable {
+                auto id = px.getGlobalIndex(idx);
 
                 Neon::float_2d c(-0.8, cos(t * 0.03) * 0.2);
                 Neon::float_2d z((float(id.x) / float(n)) - 1.0f,
@@ -59,7 +59,7 @@ inline Neon::set::Container FractalsContainer(FieldT&  pixels,
 int main(int argc, char** argv)
 {
     Neon::init();
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+    if ( Neon::Backend::countAvailableGpus() > 0) {
         int32_t          n = 320;
         Neon::index_3d   dim(2 * n, n, 1);
         std::vector<int> gpu_ids{0};
@@ -90,7 +90,7 @@ int main(int argc, char** argv)
             skeleton.run();
 
             pixels.updateHostData(0);
-            //draw_pixels(time, pixels);
+            draw_pixels(time, pixels);
         }
     }
 }
