@@ -53,3 +53,6 @@ temp
 docs/doxygen/html/
 
 docs/doxygen/latex/
+
+!apps/lbmMultiRes/practice_v28.obj
+!apps/lbmMultiRes/sphere3.obj

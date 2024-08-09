@@ -112,7 +112,7 @@ auto Report::device() -> void
         NEON_THROW(exception);
     }
     int32_t num_gpus = Neon::sys::globalSpace::gpuSysObjStorage.numDevs();
-    if (num_gpus > 1) {
+    if (num_gpus >= 1) {
 
         {
             auto subdoc = getSubdoc();

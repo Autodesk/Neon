@@ -11,7 +11,7 @@ target_link_libraries(skeleton-stencil
 set_target_properties(skeleton-stencil PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON
 	CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(skeleton-stencil PROPERTIES FOLDER "libNeonSkeleton")
+set_target_properties(skeleton-stencil PROPERTIES FOLDER "libNeonSkeletonTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "skeleton-stencil" FILES ${SrcFiles})
 
 add_test(NAME skeleton-stencil COMMAND skeleton-stencil)

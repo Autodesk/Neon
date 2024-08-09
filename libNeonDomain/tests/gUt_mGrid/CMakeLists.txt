@@ -8,7 +8,7 @@ target_link_libraries(gUt_mGrid
 	PUBLIC libNeonDomain
 	PUBLIC gtest_main)
 
-set_target_properties(gUt_mGrid PROPERTIES FOLDER "libNeonDomain")
+set_target_properties(gUt_mGrid PROPERTIES FOLDER "libNeonDomainTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "gUt_mGrid" FILES ${SrcFiles})
 
 add_test(NAME gUt_mGrid COMMAND gUt_mGrid)

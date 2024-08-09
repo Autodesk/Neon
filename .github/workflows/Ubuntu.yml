@@ -14,6 +14,8 @@ jobs:
         with:
           cuda: '11.7.0'
           linux-local-args: '["--toolkit"]'
+      - run: sudo apt-get update 
+      - run: sudo apt-get install -y xorg-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
       - run: nvcc -V      
       - name: Checkout
         uses: actions/checkout@v2            

@@ -158,6 +158,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
                   const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx
 {
+    if (offset.x == 0 && offset.y == 0 && offset.z == 0) {
+        return idx;
+    }
 
     typename Idx::InDataBlockIdx ngh(idx.mInDataBlockIdx.x + offset.x,
                                      idx.mInDataBlockIdx.y + offset.y,
@@ -237,6 +240,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     helpGetNghIdx(const Idx& idx, const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx
 {
+    if constexpr (xOff == 0 && yOff == 0 && zOff == 0) {
+        return idx;
+    }
 
     typename Idx::InDataBlockIdx ngh(idx.mInDataBlockIdx.x + xOff,
                                      idx.mInDataBlockIdx.y + yOff,
@@ -443,11 +449,26 @@ NEON_CUDA_HOST_DEVICE inline auto
 bPartition<T, C, SBlock>::isActive(const Idx&                      cell,
                                    const typename SBlock::BitMask* mask) const -> bool
 {
+    if (!cell.isActive()) {
+        return false;
+    }
     if (!mask) {
         return mMask[cell.mDataBlockIdx].isActive(cell.mInDataBlockIdx.x, cell.mInDataBlockIdx.y, cell.mInDataBlockIdx.z);
     } else {
         return mask[cell.mDataBlockIdx].isActive(cell.mInDataBlockIdx.x, cell.mInDataBlockIdx.y, cell.mInDataBlockIdx.z);
     }
+}
+
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto
+bPartition<T, C, SBlock>::isActive(const Idx&   cell,
+                                   const NghIdx nghDir) const -> bool
+{
+    Idx nghCell = this->helpGetNghIdx(cell, nghDir);
+    if (nghCell.mDataBlockIdx == std::numeric_limits<typename Idx::DataBlockIdx>::max()) {
+        return false;
+    }
+    return isActive(nghCell);
 }
 
 }  // namespace Neon::domain::details::bGrid

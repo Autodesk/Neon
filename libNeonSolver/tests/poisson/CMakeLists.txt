@@ -11,5 +11,5 @@ target_include_directories(poisson PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/"
 set_target_properties(poisson PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON
 	CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(poisson PROPERTIES FOLDER "libNeonSolver")
+set_target_properties(poisson PROPERTIES FOLDER "libNeonSolverTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "poisson" FILES ${SrcFiles})

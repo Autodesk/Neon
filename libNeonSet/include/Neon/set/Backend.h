@@ -15,6 +15,8 @@
 // #include "Neon/core/types/devType.h"
 #include "Neon/set/DataSet.h"
 
+#include <Neon/sys/devices/gpu/GpuSys.h>
+
 namespace Neon {
 using StreamIdx = int;
 using EventIdx = int;
@@ -280,6 +282,8 @@ class Backend
         -> Neon::MemoryOptions;
 
     static std::string toString(Neon::Runtime e);
+
+    static auto countAvailableGpus() -> int32_t;
 
     /**
      *

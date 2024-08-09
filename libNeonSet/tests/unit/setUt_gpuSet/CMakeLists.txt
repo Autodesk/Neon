@@ -8,7 +8,7 @@ target_link_libraries(setUt_gpuSet
 	PUBLIC libNeonSet
 	PUBLIC gtest_main)
 
-set_target_properties(setUt_gpuSet PROPERTIES FOLDER "libNeonSet")
+set_target_properties(setUt_gpuSet PROPERTIES FOLDER "libNeonSetTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "setUt_gpuSet" FILES ${SrcFiles})
 
 add_test(NAME setUt_gpuSet COMMAND setUt_gpuSet)

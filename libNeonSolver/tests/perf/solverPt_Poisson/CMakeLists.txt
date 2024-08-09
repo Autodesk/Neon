@@ -12,7 +12,7 @@ target_link_libraries(solverPt_Poisson
 set_target_properties(solverPt_Poisson PROPERTIES 
 	CUDA_SEPARABLE_COMPILATION ON
 	CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(solverPt_Poisson PROPERTIES FOLDER "libNeonSolver")
+set_target_properties(solverPt_Poisson PROPERTIES FOLDER "libNeonSolverTests")
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "solverPt_Poisson" FILES ${SrcFiles})
 
 add_test(NAME solverPt_Poisson COMMAND solverPt_Poisson)

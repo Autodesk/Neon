@@ -122,7 +122,7 @@ void MultiResDemo()
              return false;
          }},
         Neon::domain::Stencil::s7_Laplace_t(),
-        descriptor);
+        descriptor, true, false);
 
     std::stringstream s("mGridDemo", std::ios_base::app | std::ios_base::out);
 
