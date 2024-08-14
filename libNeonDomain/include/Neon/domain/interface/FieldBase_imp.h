@@ -147,7 +147,8 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
     -> void
 {
     const auto& dim = getDimension();
-    std::vector<T*> vec(getCardinality(), nullptr);
+    const int cardinality = getCardinality();
+    std::vector<T*> vec(cardinality, nullptr);
 
     if (mode == Neon::computeMode_t::computeMode_e::par) {
 #ifdef _MSC_VER
@@ -163,7 +164,7 @@ auto FieldBase<T, C>::forEachActiveCell(const std::function<void(const Neon::ind
                     if (isInside) {
                         for (int c = 0; c < getCardinality(); c++) {
                             auto& ref = this->getReference(index3D, c);
-                            vec.push_back(&ref);
+                            vec[c]=&ref;
                         }
                         fun(index3D, vec);
                     }
