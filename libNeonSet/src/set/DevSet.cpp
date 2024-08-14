@@ -87,7 +87,7 @@ auto DevSet::set(const Neon::DeviceType&                  devType,
                     }
                     const Neon::sys::GpuDevice& gpuDev = Neon::sys::globalSpace::gpuSysObj().dev(gpuIdx);
                     try {
-                        gpuDev.memory.enablePeerAccsessWith(peerId);
+                        gpuDev.memory.enablePeerAccessWith(peerId);
                     } catch (...) {
                         errors[gpuIdx.idx()].push_back(peerId);
                         continue;

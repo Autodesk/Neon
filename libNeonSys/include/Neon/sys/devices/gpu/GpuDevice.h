@@ -228,7 +228,7 @@ class GpuDevice : public DeviceInterface
         template <typename Type_ta, mem_et::enum_e dest_ta, mem_et::enum_e src_ta, run_et::et runMode>
         void transfer(const GpuStream& gpuStream, Type_ta* dest, const Type_ta* src, const int64_t nElemensts) const;
 
-        void enablePeerAccsessWith(ComputeID gpuId) const;
+        void enablePeerAccessWith(ComputeID gpuId) const;
 
         void peerTransfer(const GpuStream& gpuStream, ComputeID dstDevId, char* dest, ComputeID srcDevId, const char* src, size_t numBytes) const;
 

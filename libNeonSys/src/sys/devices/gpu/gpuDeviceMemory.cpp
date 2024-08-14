@@ -24,7 +24,7 @@
 namespace Neon {
 namespace sys {
 
-void GpuDevice::memory_t::enablePeerAccsessWith(ComputeID gpuId) const
+void GpuDevice::memory_t::enablePeerAccessWith(ComputeID gpuId) const
 {
     gpuDev.tools.setActiveDevContext();
     cudaError_t res = cudaDeviceEnablePeerAccess(gpuId.idx(), 0);
