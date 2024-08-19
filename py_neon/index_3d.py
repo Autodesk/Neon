@@ -1,13 +1,16 @@
-import copy
 import ctypes
-from enum import Enum
 import typing
-import py_ne
+
 
 class Index_3d(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_int32), ("y", ctypes.c_int32), ("z", ctypes.c_int32)]
+    _fields_ = [("x", ctypes.c_int32),
+                ("y", ctypes.c_int32),
+                ("z", ctypes.c_int32)]
 
-    def __init__(self, x: int, y: int, z: int):
+    def __init__(self,
+                 x: int,
+                 y: int,
+                 z: int):
         self.x = x
         self.y = y
         self.z = z
@@ -24,7 +27,7 @@ class Index_3d(ctypes.Structure):
             return self.z
         raise IndexError("Index out of range")
 
-    def to_wp_kernel_dim(self )->typing.Tuple[int, int, int]:
+    def to_wp_kernel_dim(self) -> typing.Tuple[int, int, int]:
         return (self.x, self.y, self.z)
 
     def __str__(self):
@@ -33,9 +36,8 @@ class Index_3d(ctypes.Structure):
         str += f"\n\ty: {self.y}"
         str += f"\n\tz: {self.z}"
         return str
-    
+
     def __eq__(self, other):
         if not isinstance(other, Index_3d):
             return NotImplemented
         return (self.x == other.x and self.y == other.y and self.z == other.z)
-

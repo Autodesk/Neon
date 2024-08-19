@@ -131,12 +131,12 @@ class dField(object):
         return partition
 
     def read(self, idx: Index_3d, cardinality: ctypes.c_int):
-        return self.py_neon.lib.dGrid_dField_read(ctypes.pointer(self.handle),
+        return self.py_neon.lib.dGrid_dField_read(self.handle,
                                                   idx,
                                                   cardinality)
 
     def write(self, idx: Index_3d, cardinality: ctypes.c_int, newValue: ctypes.c_int):
-        return self.py_neon.lib.dGrid_dField_write(ctypes.pointer(self.handle),
+        return self.py_neon.lib.dGrid_dField_write(self.handle,
                                                    idx,
                                                    cardinality,
                                                    newValue)

@@ -6,21 +6,20 @@
 
 #include "Neon/Neon.h"
 #include "Neon/core/core.h"
+#include "Neon/domain/Grids.h"
+#include "Neon/domain/interface/GridBase.h"
+#include "Neon/py/CudaDriver.h"
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/container/Loader.h"
-#include "Neon/domain/interface/GridBase.h"
-#include "Neon/domain/Grids.h"
-#include "Neon/py/CudaDriver.h"
 
 namespace Neon::py {
 
 template <typename Grid>
-struct WarpContainer :
-    Neon::set::internal::ContainerAPI
+struct WarpContainer : Neon::set::internal::ContainerAPI
 {
     using kernel = Neon::py::CudaDriver::kernel;
 
-public:
+   public:
     virtual ~WarpContainer() override = default;
 
     WarpContainer(
@@ -52,7 +51,7 @@ public:
             }
         }
 
-        //this->parse();
+        // this->parse();
     }
 
     auto initLaunchParameters(
@@ -72,11 +71,14 @@ public:
     auto initLaunchParameters(
         const Grid& grid)
     {
-        for (auto dw :
-             {DataView::STANDARD,
-              DataView::BOUNDARY,
-              DataView::INTERNAL}) {
-            this->setLaunchParameters(dw) = grid.getDefaultLaunchParameters(dw);
+        std::cout << "Grid AHAHHAHHHAHHAHA" << &grid << std::endl;
+        std::cout << "Grid " << grid.toString() << std::endl;
+
+        size_t sharedMem = 0;
+        for (auto dw : {DataView::STANDARD,
+                        DataView::BOUNDARY,
+                        DataView::INTERNAL}) {
+            this->setLaunchParameters(dw) = grid.getLaunchParameters(dw, grid.getDefaultBlock(), sharedMem);
         }
     }
 
@@ -176,24 +178,23 @@ public:
         NEON_THROW_UNSUPPORTED_OPTION("");
     }
 
-private:
+   private:
     Neon::py::CudaDriver*      m_cudaDriver;
     Grid*                      m_gridPtr = nullptr;
     Neon::Backend*             m_backendPtr;
     Neon::Execution            m_execution;
     Neon::set::DataSet<kernel> m_kernels[Neon::DataViewUtil::nConfig];
-
 };
-} // namespace Neon::set::internal
+}  // namespace Neon::py
 
 
 extern "C" void warp_dgrid_container_new(
-    void*&          out_handle,
+    void**          out_handle,
     Neon::Execution execution,
     void*           handle_cudaDriver,
     void*           handle_dgrid,
     void**          kernels_matrix,
-     Neon::index_3d* /*blockSize*/)
+    Neon::index_3d* /*blockSize*/)
 {
     auto* cudaDriverPtr =
         reinterpret_cast<Neon::py::CudaDriver*>(handle_cudaDriver);
@@ -201,7 +202,7 @@ extern "C" void warp_dgrid_container_new(
     auto* dGridPtr =
         reinterpret_cast<Neon::dGrid*>(handle_dgrid);
 
-    auto warp_container = new(std::nothrow)
+    auto warp_container = new (std::nothrow)
         Neon::py::WarpContainer<Neon::dGrid>(
             execution,
             cudaDriverPtr,
@@ -213,20 +214,20 @@ extern "C" void warp_dgrid_container_new(
         NEON_THROW(e);
     }
 
-    out_handle = reinterpret_cast<void*>(warp_container);
+    *out_handle = reinterpret_cast<void*>(warp_container);
 }
 
 extern "C" void warp_container_delete(
-    uint64_t& handle)
+    uint64_t** handle)
 {
     auto* warp_container =
-        reinterpret_cast<Neon::py::WarpContainer<Neon::dGrid>*>(handle);
+        reinterpret_cast<Neon::py::WarpContainer<Neon::dGrid>*>(*handle);
 
     if (warp_container != nullptr) {
         delete warp_container;
     }
 
-    handle = 0;
+    (*handle) = 0;
 }
 
 extern "C" void warp_container_run(

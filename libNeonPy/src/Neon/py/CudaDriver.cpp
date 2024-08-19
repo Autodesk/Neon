@@ -5,10 +5,10 @@
 
 #include "Neon/Neon.h"
 #include "Neon/core/core.h"
-#include "Neon/set/container/ContainerAPI.h"
-#include "Neon/set/container/Loader.h"
 #include "Neon/py/CudaDriver.h"
 #include "Neon/py/macros.h"
+#include "Neon/set/container/ContainerAPI.h"
+#include "Neon/set/container/Loader.h"
 
 namespace Neon::py {
 CudaDriver::CudaDriver(Neon::Backend* bk_prt)
@@ -38,7 +38,6 @@ CudaDriver::CudaDriver(Neon::Backend* bk_prt)
     // kernelSet = bk.newDataSet<void*>([](Neon::SetIdx const&, void*& ptr) {
     //     ptr = nullptr;
     // });
-
 }
 
 CudaDriver::~CudaDriver()
@@ -66,34 +65,32 @@ auto CudaDriver::run_kernel(
     [[maybe_unused]] auto& streamSet = backend.streamSet(streamIdx);
 
     int const ndevs = backend.getDeviceCount();
-    //#pragma omp parallel for num_threads(ndevs)
+    // #pragma omp parallel for num_threads(ndevs)
     for (int setIdx = 0; setIdx < ndevs; setIdx++) {
-        // cudaStream_t const& cuda_stream = streamSet.cudaStream(setIdx);
-        // CUstream            driverStream = (CUstream)cuda_stream;
-        CUfunction function = static_cast<CUfunction>(kernelSet[setIdx]);
-        std::cout << "foo " << function << std::endl;
+        cudaStream_t const& cuda_stream = streamSet.cudaStream(setIdx);
+        CUstream            driverStream = (CUstream)cuda_stream;
+        CUfunction          function = static_cast<CUfunction>(kernelSet[setIdx]);
         backend.devSet().setActiveDevContext(setIdx);
         auto& launch_info = launch_params[setIdx];
+
         // auto const cudaGrid = launch_info.cudaGrid();
         // auto const cudaBlock = launch_info.cudaBlock();
+
         // Set the created context as the current context
-        //CUresult res = cuCtxSetCurrent(cu_contexts[setIdx]);
-        //check_cuda_res(res, "cuCtxSetCurrent");
-        int64_t pywarp_size = 1;
-        std::cout << "pywarp_size" << pywarp_size << std::endl;
-        const int LAUNCH_MAX_DIMS = 4; // should match types.py
+        CUresult res = cuCtxSetCurrent(cu_contexts[setIdx]);
+        check_cuda_res(res, "cuCtxSetCurrent");
+        // int64_t pywarp_size = 1;
+        // std::cout << "pywarp_size" << pywarp_size << std::endl;
+        const int LAUNCH_MAX_DIMS = 4;  // should match types.py
         struct launch_bounds_t
         {
-            int    shape[LAUNCH_MAX_DIMS]; // size of each dimension
-            int    ndim; // number of valid dimension
-            size_t size; // total number of threads
+            int    shape[LAUNCH_MAX_DIMS];  // size of each dimension
+            int    ndim;                    // number of valid dimension
+            size_t size;                    // total number of threads
         };
 
-        launch_bounds_t bounds;
-        std::cout << "domaina " << Neon::index_3d(launch_info.cudaGrid().x,
-                                                  launch_info.cudaGrid().y,
-                                                  launch_info.cudaGrid().z) << std::endl;
-        int n = 2;
+        int const       n = launch_info.domainGrid().x;
+        launch_bounds_t bounds{};
         bounds.ndim = 1;
         bounds.shape[0] = n;
         bounds.size = n;
@@ -111,35 +108,43 @@ auto CudaDriver::run_kernel(
         // } catch (...) {
         //
         // }
-        int block_dim = 256;
-        int grid_dim = (n + block_dim - 1) / block_dim;
-        std::cout << "block_dim " << block_dim << std::endl;
-        std::cout << "grid_dim " << grid_dim << std::endl;
-        std::cout << "n  " << n << std::endl;
-        std::cout << "cuLaunchKernel" << std::endl;
-        CUresult res = cuLaunchKernel(
+        // int block_dim = 256;
+        // int grid_dim = (n + block_dim - 1) / block_dim;
+        // std::cout << "block_dim " << block_dim << std::endl;
+        // std::cout << "grid_dim " << grid_dim << std::endl;
+        // std::cout << "n  " << n << std::endl;
+        // std::cout << "cuLaunchKernel" << std::endl;
+
+        res = cuLaunchKernel(
             function,
-            grid_dim, 1, 1,
-            block_dim, 1, 1,
+            launch_info.cudaGrid().x,
+            launch_info.cudaGrid().y,
+            launch_info.cudaGrid().z,
+            launch_info.cudaBlock().x,
+            launch_info.cudaBlock().y,
+            launch_info.cudaBlock().z,
             0,
-            nullptr,
+            driverStream,
             args.data(),
             0);
 
         check_cuda_res(res, "cuLaunchKernel");
-        cuCtxSynchronize();
+        //cuCtxSynchronize();
     }
 }
 
-auto CudaDriver::get_bk_prt() -> Neon::Backend* { return &backend; }
-
+auto CudaDriver::get_bk_prt() -> Neon::Backend*
+{
+    return &backend;
 }
+
+}  // namespace Neon::py
 
 extern "C" int cuda_driver_new(void** handle, void* bk_handle)
 {
     NEON_PY_PRINT_BEGIN((*handle));
     auto* backendPtr = reinterpret_cast<Neon::Backend*>(bk_handle);
-    auto cuda_driver = new(std::nothrow) Neon::py::CudaDriver(backendPtr);
+    auto  cuda_driver = new (std::nothrow) Neon::py::CudaDriver(backendPtr);
     (*handle) = reinterpret_cast<void*>(cuda_driver);
     NEON_PY_PRINT_END((*handle));
 
@@ -148,7 +153,8 @@ extern "C" int cuda_driver_new(void** handle, void* bk_handle)
 
 extern "C" int cuda_driver_delete(void** handle)
 {
-    NEON_PY_PRINT_BEGIN((*handle));;
+    NEON_PY_PRINT_BEGIN((*handle));
+    ;
     auto* cuda_driver_ptr = reinterpret_cast<Neon::py::CudaDriver*>(*handle);
 
     if (cuda_driver_ptr != nullptr) {
