@@ -6,7 +6,7 @@
  *
  */
 extern "C" auto dBackend_new(
-    uint64_t& handle,
+    void** handle,
     int runtime /*! Type of runtime to use */,
     int numDecices /*! Number of devices */,
     const int* devIds /*!  Vectors of device ids. There are CUDA device ids */)
@@ -16,7 +16,7 @@ extern "C" auto dBackend_new(
  * Delete a backend object on the heap.
  */
 extern "C" auto dBackend_delete(
-    uint64_t& handle)
+   void** handle)
     -> int;
 
 extern "C" auto dBackend_get_string(uint64_t& handle) -> const char*;

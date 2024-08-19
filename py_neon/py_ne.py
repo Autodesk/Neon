@@ -187,7 +187,7 @@ class DGrid(object):
         span = DSpan()
         ex:int = execution
 
-        res = self.py_neon.lib.dGrid_get_span(self.handle, span, 0, 0, 0)
+        res = self.py_neon.lib.dGrid_get_span(self.handle, span, ex, set_idx, data_view)
         if res != 0:
             raise Exception('Failed to get span')
         return span

@@ -11,7 +11,7 @@ from .dPartition import dPartitionInt as dPartitionInt
 class dField(object):
     def __init__(self,
                  py_neon: NePy_neon,
-                 grid_handle: ctypes.c_uint64,
+                 grid_handle: ctypes.c_void_p,
                  cardinality: ctypes.c_int,
                  py_grid,
                  ):
@@ -20,8 +20,8 @@ class dField(object):
             raise Exception('DField: Invalid handle')
 
         self.py_neon = py_neon
-        self.handle_type = ctypes.POINTER(ctypes.c_uint64)
-        self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
+        self.handle_type = ctypes.c_void_p
+        self.handle: ctypes.c_uint64 = ctypes.c_void_p(0)
         self.grid_handle = grid_handle
         self.cardinality = cardinality
         self.py_grid = py_grid
@@ -30,17 +30,18 @@ class dField(object):
 
     def __del__(self):
         self.help_delete()
+        pass
 
     def _help_load_api(self):
         # Importing new functions
         ## new_field
-        self.py_neon.lib.dGrid_dField_new.argtypes = [self.handle_type,
+        self.py_neon.lib.dGrid_dField_new.argtypes = [ctypes.POINTER(self.handle_type),
                                                       self.handle_type,
                                                       ctypes.c_int]
         self.py_neon.lib.dGrid_dField_new.restype = ctypes.c_int
 
         ## delete_field
-        self.py_neon.lib.dGrid_dField_delete.argtypes = [self.handle_type]
+        self.py_neon.lib.dGrid_dField_delete.argtypes = [ctypes.POINTER(self.handle_type)]
         self.py_neon.lib.dGrid_dField_delete.restype = ctypes.c_int
 
         ## get_partition
@@ -85,7 +86,8 @@ class dField(object):
         if self.handle == 0:
             raise Exception('dGrid: Invalid handle')
 
-        res = self.py_neon.lib.dGrid_dField_new(ctypes.byref(self.handle), ctypes.byref(self.grid_handle),
+        res = self.py_neon.lib.dGrid_dField_new(ctypes.pointer(self.handle),
+                                                self.grid_handle,
                                                 self.cardinality)
         if res != 0:
             raise Exception('dGrid: Failed to initialize field')
@@ -93,7 +95,7 @@ class dField(object):
     def help_delete(self):
         if self.handle == 0:
             return
-        res = self.py_neon.lib.dGrid_dField_delete(ctypes.byref(self.handle))
+        res = self.py_neon.lib.dGrid_dField_delete(ctypes.pointer(self.handle))
         if res != 0:
             raise Exception('Failed to delete field')
 
@@ -129,19 +131,19 @@ class dField(object):
         return partition
 
     def read(self, idx: Index_3d, cardinality: ctypes.c_int):
-        return self.py_neon.lib.dGrid_dField_read(ctypes.byref(self.handle),
+        return self.py_neon.lib.dGrid_dField_read(ctypes.pointer(self.handle),
                                                   idx,
                                                   cardinality)
 
     def write(self, idx: Index_3d, cardinality: ctypes.c_int, newValue: ctypes.c_int):
-        return self.py_neon.lib.dGrid_dField_write(ctypes.byref(self.handle),
+        return self.py_neon.lib.dGrid_dField_write(ctypes.pointer(self.handle),
                                                    idx,
                                                    cardinality,
                                                    newValue)
 
     def updateHostData(self, streamSetId: ctypes.c_int):
-        return self.py_neon.lib.dGrid_dField_update_host_data(ctypes.byref(self.handle),
+        return self.py_neon.lib.dGrid_dField_update_host_data(self.handle,
                                                               streamSetId)
 
     def updateDeviceData(self, streamSetId: ctypes.c_int):
-        return self.py_neon.lib.dGrid_dField_update_device_data(ctypes.byref(self.handle), streamSetId)
+        return self.py_neon.lib.dGrid_dField_update_device_data(self.handle, streamSetId)

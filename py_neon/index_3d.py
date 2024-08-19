@@ -15,7 +15,6 @@ class Index_3d(ctypes.Structure):
     def __len__(self):
         return 3
 
-
     def __getitem__(self, index):
         if index == 0:
             return self.x

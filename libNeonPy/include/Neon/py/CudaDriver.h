@@ -60,6 +60,6 @@ public:
 };
 }
 
-extern "C" int cuda_driver_new(void*& handle, void* bk_handle);
+extern "C" int cuda_driver_new(void** handle, void* bk_handle);
 
-extern "C" int cuda_driver_delete(void*& handle);
+extern "C" int cuda_driver_delete(void** handle);

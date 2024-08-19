@@ -41,18 +41,19 @@ class Backend(object):
         if self.backend_handle == 0:
             return
         self.help_backend_delete()
+        pass
 
     def help_load_api(self):
         # ------------------------------------------------------------------
         # backend_new
-        self.py_neon.lib.dBackend_new.argtypes = [self.py_neon.handle_type,
+        self.py_neon.lib.dBackend_new.argtypes = [ctypes.POINTER(self.py_neon.handle_type),
                                                   ctypes.c_int,
                                                   ctypes.c_int,
                                                   ctypes.POINTER(ctypes.c_int)]
         self.py_neon.lib.dBackend_new.restype = ctypes.c_int
         # ------------------------------------------------------------------
         # backend_delete
-        self.py_neon.lib.dBackend_delete.argtypes = [self.py_neon.handle_type]
+        self.py_neon.lib.dBackend_delete.argtypes = [ctypes.POINTER(self.py_neon.handle_type)]
         self.py_neon.lib.dBackend_delete.restype = ctypes.c_int
         # ------------------------------------------------------------------
         # backend_get_string
@@ -60,7 +61,7 @@ class Backend(object):
         self.py_neon.lib.dBackend_get_string.restype = ctypes.c_char_p
         # ------------------------------------------------------------------
         # cuda_driver_new
-        self.py_neon.lib.cuda_driver_new.argtypes = [self.py_neon.handle_type,
+        self.py_neon.lib.cuda_driver_new.argtypes = [ctypes.POINTER(self.py_neon.handle_type),
                                                      self.py_neon.handle_type]
         self.py_neon.lib.cuda_driver_new.restype = ctypes.c_int
 
@@ -69,7 +70,7 @@ class Backend(object):
         # self.py_neon.lib.cuda_driver_new.restype = None
         # ------------------------------------------------------------------
         # cuda_driver_delete
-        self.py_neon.lib.cuda_driver_delete.argtypes = [self.py_neon.handle_type]
+        self.py_neon.lib.cuda_driver_delete.argtypes = [ctypes.POINTER(self.py_neon.handle_type)]
         self.py_neon.lib.cuda_driver_delete.restype = ctypes.c_int
         # ------------------------------------------------------------------
 
@@ -88,16 +89,16 @@ class Backend(object):
         dev_idx_np = np.array(self.dev_idx_list, dtype=int)
         dev_idx_ptr = dev_idx_np.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
 
-        res = self.py_neon.lib.dBackend_new(ctypes.byref(self.backend_handle),
+        res = self.py_neon.lib.dBackend_new(ctypes.pointer(self.backend_handle),
                                             self.runtime.value,
                                             self.n_dev,
                                             dev_idx_ptr)
 
-        print(f"PYTHON self.backend_handle: {self.backend_handle}")
+        print(f"NEON PYTHON self.backend_handle: {hex(self.backend_handle.value)}")
         if res != 0:
             raise Exception('DBackend: Failed to initialize backend')
 
-        self.py_neon.lib.cuda_driver_new(ctypes.byref(self.cuda_driver_handle),
+        self.py_neon.lib.cuda_driver_new(ctypes.pointer(self.cuda_driver_handle),
                                          self.backend_handle)
         pass
 
@@ -105,8 +106,9 @@ class Backend(object):
         if self.backend_handle == 0:
             return
         print(f'PYTHON cuda_driver_handle {hex(self.cuda_driver_handle.value)}')
-        self.py_neon.lib.cuda_driver_delete(ctypes.byref(self.cuda_driver_handle))
-        res = self.py_neon.lib.dBackend_delete(self.backend_handle)
+        self.py_neon.lib.cuda_driver_delete(ctypes.pointer(self.cuda_driver_handle))
+        print(f'PYTHON backend_handle {hex(self.backend_handle.value)}')
+        res = self.py_neon.lib.dBackend_delete(ctypes.pointer(self.backend_handle))
         if res != 0:
             raise Exception('Failed to delete backend')
 
@@ -123,7 +125,7 @@ class Backend(object):
         return ctypes.cast(self.py_neon.lib.get_string(self.backend_handle), ctypes.c_char_p).value.decode('utf-8')
 
     def sync(self):
-        return self.py_neon.lib.dBackend_sync(ctypes.byref(self.backend_handle))
+        return self.py_neon.lib.dBackend_sync(self.backend_handle)
 
     def get_device_name(self, dev_idx: int):
         if self.runtime == Backend.Runtime.stream:

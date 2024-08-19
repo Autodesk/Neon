@@ -8,6 +8,7 @@
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/container/Loader.h"
 #include "Neon/py/CudaDriver.h"
+#include "Neon/py/macros.h"
 
 namespace Neon::py {
 CudaDriver::CudaDriver(Neon::Backend* bk_prt)
@@ -134,29 +135,26 @@ auto CudaDriver::get_bk_prt() -> Neon::Backend* { return &backend; }
 
 }
 
-extern "C" int cuda_driver_new(void*& handle, void* bk_handle)
+extern "C" int cuda_driver_new(void** handle, void* bk_handle)
 {
+    NEON_PY_PRINT_BEGIN((*handle));
     auto* backendPtr = reinterpret_cast<Neon::Backend*>(bk_handle);
-    std::cout << "handle:OOOO---- " << handle << std::endl;
-    std::cout << "bk_handle:OOOO---- " << bk_handle << std::endl;
-    std::cout << "backendPtr: " << backendPtr << std::endl;
-    std::cout << "backendPtr: " << backendPtr->toString() << std::endl;
     auto cuda_driver = new(std::nothrow) Neon::py::CudaDriver(backendPtr);
-    handle = reinterpret_cast<void*>(cuda_driver);
-    std::cout << "cuda_driver_handle " << handle << std::endl;
+    (*handle) = reinterpret_cast<void*>(cuda_driver);
+    NEON_PY_PRINT_END((*handle));
 
     return 0;
 }
 
-extern "C" int cuda_driver_delete(void*& handle)
+extern "C" int cuda_driver_delete(void** handle)
 {
-    std::cout << "cuda_driver_delete - BEGIN" << std::endl;
-    std::cout << "cuda_driver_handle " << handle << std::endl;
-    auto* cuda_driver_ptr = reinterpret_cast<Neon::py::CudaDriver*>(handle);
+    NEON_PY_PRINT_BEGIN((*handle));;
+    auto* cuda_driver_ptr = reinterpret_cast<Neon::py::CudaDriver*>(*handle);
 
     if (cuda_driver_ptr != nullptr) {
         delete cuda_driver_ptr;
     }
-    handle = 0;
+    *handle = nullptr;
+    NEON_PY_PRINT_END((*handle));
     return 0;
 }

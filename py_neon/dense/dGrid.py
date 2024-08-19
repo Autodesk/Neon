@@ -40,7 +40,7 @@ class dGrid(object):
         self._help_grid_new()
 
     def __del__(self):
-        if self.grid_handle != 0:
+        if self.grid_handle != ctypes.c_void_p(0):
             self._help_grid_delete()
 
     def _help_load_api(self):
@@ -83,8 +83,8 @@ class dGrid(object):
             raise Exception('dGrid: Grid handle already initialized')
 
         sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
-        res = self.py_neon.lib.dGrid_new(ctypes.byref(self.grid_handle),
-                                         ctypes.byref(self.backend.backend_handle),
+        res = self.py_neon.lib.dGrid_new(ctypes.pointer(self.grid_handle),
+                                         self.backend.backend_handle,
                                          self.dim,
                                          sparsity_pattern_array)
         if res != 0:
@@ -92,7 +92,7 @@ class dGrid(object):
         print(f"dGrid initialized with handle {self.grid_handle.value}")
 
     def _help_grid_delete(self):
-        if self.py_neon.lib.dGrid_delete(ctypes.byref(self.grid_handle)) != 0:
+        if self.py_neon.lib.dGrid_delete(ctypes.pointer(self.grid_handle)) != 0:
             raise Exception('Failed to delete grid')
 
     def get_python_dimensions(self):
@@ -123,7 +123,7 @@ class dGrid(object):
 
         span = dSpan()
         dev_idx_ctypes = ctypes.c_int(dev_idx)
-        res = self.py_neon.lib.dGrid_get_span(ctypes.byref(self.grid_handle),
+        res = self.py_neon.lib.dGrid_get_span(self.grid_handle,
                                               span,
                                               execution,
                                               dev_idx_ctypes,

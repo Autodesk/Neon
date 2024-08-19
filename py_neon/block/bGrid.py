@@ -44,14 +44,14 @@ class bGrid(object):
     def _help_load_api(self):
 
         # grid_new
-        self.py_neon.lib.bGrid_new.argtypes = [self.py_neon.handle_type,
+        self.py_neon.lib.bGrid_new.argtypes = [ctypes.POINTER(self.py_neon.handle_type),
                                                self.py_neon.handle_type,
                                                ctypes.POINTER(py_neon.Index_3d),
                                                ctypes.POINTER(ctypes.c_int)]
         self.py_neon.lib.bGrid_new.restype = ctypes.c_int
 
         # grid_delete
-        self.py_neon.lib.bGrid_delete.argtypes = [self.py_neon.handle_type]
+        self.py_neon.lib.bGrid_delete.argtypes = [ctypes.POINTER(self.py_neon.handle_type)]
         self.py_neon.lib.bGrid_delete.restype = ctypes.c_int
 
         self.py_neon.lib.bGrid_get_dimensions.argtypes = [self.py_neon.handle_type,
@@ -87,13 +87,13 @@ class bGrid(object):
             raise Exception('bGrid: Grid handle already initialized')
         
         sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
-        res = self.py_neon.lib.bGrid_new(ctypes.byref(self.handle), ctypes.byref(self.backend.handle), self.dim, sparsity_pattern_array)
+        res = self.py_neon.lib.bGrid_new(ctypes.pointer(self.handle), self.backend.handle, self.dim, sparsity_pattern_array)
         if res != 0:
             raise Exception('bGrid: Failed to initialize grid')
         print(f"bGrid initialized with handle {self.handle.value}")
 
     def _help_grid_delete(self):
-        if self.py_neon.lib.bGrid_delete(ctypes.byref(self.handle)) != 0:
+        if self.py_neon.lib.bGrid_delete(ctypes.pointer(self.handle)) != 0:
             raise Exception('Failed to delete grid')
 
     def get_python_dimensions(self):

@@ -1,51 +1,48 @@
 #include "Neon/py/Backend.h"
-#include "Neon/set/Backend.h"
-#include "Neon/py/AllocationCounter.h"
 #include "Neon/Neon.h"
+#include "Neon/py/AllocationCounter.h"
+#include "Neon/py/macros.h"
+#include "Neon/set/Backend.h"
 
-void backend_constructor_prologue(uint64_t& handle) {
-    std::cout << "dBackend_new - BEGIN" << std::endl;
-    std::cout << "dBackend handle" << handle << std::endl;
-}
-
-int backend_constructor_epilogue(uint64_t& handle, Neon::Backend* backendPtr) {
-    if (backendPtr == nullptr) {
-        std::cout << "NeonPy: Initialization error. Unable to allocage backend " << std::endl;
-        return -1;
-    }
-    handle = reinterpret_cast<uint64_t>(backendPtr);
-    std::cout << "allocated backend heap location: " << backendPtr << std::endl;
-    std::cout << "backend_new - END" << std::endl;
-    return 0;
-}
 
 auto dBackend_new(
-    uint64_t& handle,
-    int runtime,
-    int numDevices,
+    void**     handle,
+    int        runtime,
+    int        numDevices,
     const int* devIds)
     -> int
 {
+    NEON_PY_PRINT_BEGIN(*handle);
+
     Neon::init();
-    backend_constructor_prologue(handle);
 
     std::vector<int> vec(devIds, devIds + numDevices);
 
     auto backendPtr = new (std::nothrow) Neon::Backend(vec, Neon::Runtime(runtime));
+    std::cout << "NeonPy: Backend created" << backendPtr->toString() << std::endl;
+
+    if (backendPtr == nullptr) {
+        std::cout << "NeonPy: Initialization error. Unable to allocage backend " << std::endl;
+        return -1;
+    }
+    *handle = reinterpret_cast<void*>(backendPtr);
+
     AllocationCounter::Allocation();
-    std::cout <<"BK "<< backendPtr << std::endl;
-    return backend_constructor_epilogue(handle, backendPtr);
+    std::cout << "dBackend_new handle " << backendPtr << std::endl;
+    NEON_PY_PRINT_END(*handle);
+
+    return 0;
 }
 
 auto dBackend_delete(
-    uint64_t& handle)
+    void** handle)
     -> int
 {
     std::cout << "dBackend_delete - BEGIN" << std::endl;
-    std::cout << "backendHandle " << handle << std::endl;
 
     using Backend = Neon::Backend;
-    Backend* backendPtr = (Backend*)handle;
+    Backend* backendPtr = (Backend*)(*handle);
+    std::cout << "dBackend_delete backendHandle " << backendPtr << std::endl;
 
     if (backendPtr != nullptr) {
         delete backendPtr;
@@ -57,7 +54,8 @@ auto dBackend_delete(
     return 0;
 }
 
-auto dBackend_get_string(uint64_t& handle) -> const char* {
+auto dBackend_get_string(uint64_t& handle) -> const char*
+{
     std::cout << "get_string - BEGIN" << std::endl;
     std::cout << "backendHandle " << handle << std::endl;
 
@@ -71,7 +69,8 @@ auto dBackend_get_string(uint64_t& handle) -> const char* {
     std::cout << "get_string - END" << std::endl;
 }
 
-auto dBackend_sync(uint64_t& handle) -> int {
+auto dBackend_sync(uint64_t& handle) -> int
+{
     std::cout << "dBackend_sync - BEGIN" << std::endl;
     std::cout << "backendHandle " << handle << std::endl;
 
