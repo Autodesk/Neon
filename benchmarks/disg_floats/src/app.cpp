@@ -1,11 +1,10 @@
 
 #include "Config.h"
 #include "Repoert.h"
-#include "test.h"
 
 #include "Neon/Neon.h"
 #include "Neon/domain/dGrid.h"
-
+#include "test.h"
 int main(int argc, char* argv[])
 {
     Neon::init();
