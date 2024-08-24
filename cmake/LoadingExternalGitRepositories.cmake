@@ -1,6 +1,63 @@
+include(FetchContent)
+
+# nanovdb
+if(${NEON_USE_NANOVDB})
+	FetchContent_GetProperties(nanovdb)
+	if (NOT nanovdb_POPULATED)
+		message(STATUS "Fetching nanovdb...")
+		FetchContent_Declare(nanovdb
+			GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/openvdb.git
+			GIT_TAG        master
+		)
+		FetchContent_Populate(nanovdb)
+
+		# Configure and build nanovdb with the desired options
+		add_custom_target(build_nanovdb ALL
+			COMMAND ${CMAKE_COMMAND} -S ${nanovdb_SOURCE_DIR} -B ${nanovdb_BINARY_DIR}
+				-DNANOVDB_USE_OPENVDB=OFF
+				-DUSE_NANOVDB=ON
+				-DOPENVDB_BUILD_CORE=OFF
+				-DOPENVDB_BUILD_BINARIES=OFF
+				-DNANOVDB_USE_TBB=OFF
+				-DNANOVDB_USE_CUDA=ON
+				-DNANOVDB_USE_BLOSC=OFF
+				-DNANOVDB_USE_ZLIB=OFF
+				-DCMAKE_INSTALL_PREFIX=/usr/local
+			COMMAND ${CMAKE_COMMAND} --build ${nanovdb_BINARY_DIR} --target install
+			WORKING_DIRECTORY ${nanovdb_SOURCE_DIR}
+		)
+	endif ()
+endif ()
+
+# hdf5 and HighFive
+if(${NEON_USE_HDF5})
+    find_package(HDF5 REQUIRED COMPONENTS CXX)
+    if(HDF5_FOUND)
+        message(STATUS "HDF5 found: ${HDF5_INCLUDE_DIRS}")
+
+        # Include HDF5 directories and libraries globally
+        set(HDF5_INCLUDE_DIRS ${HDF5_INCLUDE_DIRS})
+        set(HDF5_LIBRARIES ${HDF5_LIBRARIES})
+
+		message(STATUS "Fetching HighFive...")
+        FetchContent_Declare(
+            HighFive
+            GIT_REPOSITORY https://github.com/BlueBrain/HighFive.git
+            GIT_TAG v2.3.1  # Specify the version you want to use
+        )
+        FetchContent_MakeAvailable(HighFive)
+        set(HighFive_FOUND TRUE)
+        set(HighFive_INCLUDE_DIRS ${HighFive_INCLUDE_DIRS})
+        set(HighFive_LIBRARIES HighFive)
+
+        # Add definitions
+        add_definitions(-DNEON_USE_HDF5)
+    else()
+        message(FATAL_ERROR "HDF5 not found")
+    endif()
+endif()
 
 # spdlog
-include(FetchContent)
 FetchContent_GetProperties(spdlog)
 if (NOT spdlog_POPULATED)
 	message(STATUS "Fetching spdlog...")

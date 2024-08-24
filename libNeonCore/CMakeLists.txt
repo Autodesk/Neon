@@ -23,6 +23,11 @@ target_include_directories(libNeonCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/inclu
 target_include_directories(libNeonCore PUBLIC "${spdlog_SOURCE_DIR}/include")
 target_include_directories(libNeonCore PUBLIC "${rapidjson_SOURCE_DIR}/include")
 
+if(HDF5_FOUND)
+    target_include_directories(libNeonCore PUBLIC ${HDF5_INCLUDE_DIRS} ${HighFive_INCLUDE_DIRS})
+    target_link_libraries(libNeonCore PUBLIC ${HDF5_LIBRARIES} ${HighFive_LIBRARIES})
+endif()
+
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_link_libraries(libNeonCore PRIVATE "-lstdc++fs")
 endif ()

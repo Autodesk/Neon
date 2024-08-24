@@ -153,12 +153,12 @@ struct BuildGridVisitor {
 }  // namespace helpNs
 
 template <typename intType_ta, typename real_tt = double>
-void ioToNanoVDB(const ioToNanoVDBns::UserFieldInformation<intType_ta, real_tt>&      fieldData /*!                             User data that defines the field */,
-             ioToNanoVDBns::UserFieldAccessMask<real_tt, intType_ta>                  mask /*!                                  Stores a mask for which indices in the field should be outputted*/,
-             const std::string&                                                       filename /*!                              File name */,
-             const Neon::Integer_3d<intType_ta>&                                      dim /*!                                   Dimension of the field */,
-             double                                                                   spacingScale = 1.0 /*! Spacing, i.e. size of a voxel */, /* TODOMATT: add spacing data transformation */
-             const Neon::Integer_3d<intType_ta>&                                      origin = Neon::Integer_3d<intType_ta>(0, 0, 0) /*!      Origin  */,
+void ioToNanoVDB(const ioToNanoVDBns::UserFieldInformation<intType_ta, real_tt>&      fieldData /*!                                         User data that defines the field */,
+             ioToNanoVDBns::UserFieldAccessMask<real_tt, intType_ta>                  mask /*!                                              Stores a mask for which indices in the field should be outputted*/,
+             const std::string&                                                       filename /*!                                          File name */,
+             const Neon::Integer_3d<intType_ta>&                                      dim /*!                                               Dimension of the field */,
+             double                                                                   spacingScale = 1.0 /*!                                Spacing, i.e. size of a voxel */,
+             const Neon::Integer_3d<intType_ta>&                                      origin = Neon::Integer_3d<intType_ta>(0, 0, 0) /*!    Origin  */,
              [[maybe_unused]] int                                                     iterationId = -1)
 {
     // Create our grid
@@ -178,7 +178,8 @@ void ioToNanoVDB(const ioToNanoVDBns::UserFieldInformation<intType_ta, real_tt>&
             outputGrid = std::make_shared<nanovdb::tools::build::Grid<Vec4<real_tt>>>(
                 Vec4<real_tt>(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min()), filename, nanovdb::GridClass::LevelSet);
             break;
-        default:            std::string msg = std::string("Too many components specified during attempt at creating nanoVDB output");
+        default:            
+            std::string msg = std::string("Too many components specified during attempt at creating nanoVDB output");
             NeonException exception("ioToNanoVDB");
             exception << msg;
             NEON_THROW(exception);
@@ -229,12 +230,12 @@ void ioToNanoVDB(const ioToNanoVDBns::UserFieldInformation<intType_ta, real_tt>&
 template <typename intType_ta = int, class real_tt = double>
 struct ioToNanoVDB
 {
-    ioToNanoVDB(const std::string&                                                               filename /*!                                                 File name */,
-            const Neon::Integer_3d<intType_ta>&                                                  dim /*!                                                      IoDense dimension of the field */,
-            const std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx)>& fun /*!                                                      Implicit defintion of the user field */,
-            const nComponent_t                                                                   card /*!                                                     Field cardinality */,
-            const double                                                                         scalingData = 1.0 /*!                                        Spacing, i.e. size of a voxel */,
-            const Neon::Integer_3d<intType_ta>&                                                  origin = Neon::Integer_3d<intType_ta>(0, 0, 0) /*!                         Minimum Corner && Origin  */,
+    ioToNanoVDB(const std::string&                                                               filename /*!                                                                      File name */,
+            const Neon::Integer_3d<intType_ta>&                                                  dim /*!                                                                           IoDense dimension of the field */,
+            const std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx)>& fun /*!                                                                           Implicit defintion of the user field */,
+            const nComponent_t                                                                   card /*!                                                                          Field cardinality */,
+            const double                                                                         scalingData = 1.0 /*!                                                             Spacing, i.e. size of a voxel */,
+            const Neon::Integer_3d<intType_ta>&                                                  origin = Neon::Integer_3d<intType_ta>(0, 0, 0) /*!                                Minimum Corner && Origin  */,
             const Neon::ioToNanoVDBns::UserFieldAccessMask<real_tt, intType_ta>                  mask = [](const Neon::index_3d& idx){return (idx.x == idx.x) ? true: false;}) /*! Used for sparce matrices; returns true for indices that should be stored in vdb output */
         : m_filename(filename),
           m_dim(dim),
@@ -285,11 +286,11 @@ struct ioToNanoVDB
 
 
    private:
-    std::string                                                       m_filename /*!                              File name */;
-    Neon::Integer_3d<intType_ta>                                      m_dim /*!                                   IoDense dimension of the field */;
-    double                                                            m_scalingData = 1.0 /*!                     Spacing, i.e. size of a voxel */;
+    std::string                                                       m_filename /*!                                            File name */;
+    Neon::Integer_3d<intType_ta>                                      m_dim /*!                                                 IoDense dimension of the field */;
+    double                                                            m_scalingData = 1.0 /*!                                   Spacing, i.e. size of a voxel */;
     Neon::Integer_3d<intType_ta>                                      m_origin = Neon::Integer_3d<intType_ta>(0, 0, 0) /*!      Origin  */;
-    ioToNanoVDBns::UserFieldInformation<intType_ta, real_tt>          m_field /*!                                 Field data*/;
+    ioToNanoVDBns::UserFieldInformation<intType_ta, real_tt>          m_field /*!                                               Field data*/;
     ioToNanoVDBns::UserFieldAccessMask<real_tt, intType_ta>           m_mask;
     int                                                               m_iteration = -1;
 };
