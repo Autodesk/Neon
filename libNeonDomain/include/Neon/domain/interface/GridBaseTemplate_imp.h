@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Neon/core/tools/io/ioToVTK.h"
+#include "Neon/core/tools/io/ioToNanoVDB.h"
 
 namespace Neon::domain::interface {
 
@@ -14,8 +15,8 @@ auto GridBaseTemplate<GridT, CellT>::ioDomainToVtk(const std::string& fileName, 
                             ioFileType);
 
     io.addField([&](const Neon::index_3d& idx, int) {
-        bool isActieVox = isInsideDomain(idx);
-        return isActieVox;
+        bool isActiveVox = isInsideDomain(idx);
+        return isActiveVox;
     },
                 1, "Domain", ioToVTKns::VtiDataType_e::voxel);
 
@@ -30,6 +31,38 @@ auto GridBaseTemplate<GridT, CellT>::ioDomainToVtk(const std::string& fileName, 
                 1, "Partition", ioToVTKns::VtiDataType_e::voxel);
 
     io.flushAndClear();
+    return;
+}
+
+template <typename GridT, typename CellT>
+auto GridBaseTemplate<GridT, CellT>::ioDomainToNanoVDB(const std::string& fileName) const -> void
+{
+    ioToNanoVDB<int, float> io1(fileName + "_domain",
+                            this->getDimension(),
+                            [&](const Neon::index_3d& idx, int) {
+                                bool isActiveVox = isInsideDomain(idx);
+                                return isActiveVox;
+                            },
+                            1,
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+    ioToNanoVDB<int, float> io2(fileName + "_partition",
+                            this->getDimension(),
+                            [&](const Neon::index_3d& idx, int) {
+                                const auto& cellProperties = this->getProperties(idx);
+                                if (!cellProperties.isInside()) {
+                                    return -1;
+                                }
+                                auto setIdx = cellProperties.getSetIdx();
+                                return setIdx.idx();
+                            },
+                            1,
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+    io1.flush();
+    io2.flush();
     return;
 }
 }  // namespace Neon::domain::interface

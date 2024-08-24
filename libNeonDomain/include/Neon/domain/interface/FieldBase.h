@@ -140,6 +140,14 @@ class FieldBase
                  Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
                  bool               isNodeSpace = false) const -> void;
 
+    template <typename NanoVDBExportType = T>
+    auto ioToNanoVDB(const std::string& fileName,
+                     bool               isNodeSpace = false) const -> void;
+
+    template <typename NanoVDBExportType = T>
+    auto ioDomainToNanoVDB(const std::string& fileName,
+                     bool               isNodeSpace = false) const -> void;
+
 
    private:
     struct Storage

@@ -2,6 +2,7 @@
 
 #include "Neon/domain/interface/FieldBase.h"
 #include "Neon/domain/tools/IOGridVTK.h"
+#include "Neon/core/tools/io/ioToNanoVDB.h"
 
 namespace Neon::domain::interface {
 
@@ -315,6 +316,45 @@ auto FieldBase<T, C>::ioToVtk(const std::string& fileName,
         iovtk.addIODenseField(domain, "Domain");
     }
     iovtk.flushAndClear();
+    return;
+}
+
+template <typename T, int C>
+template <typename NanoVDBExportType>
+auto FieldBase<T, C>::ioToNanoVDB(const std::string& fileName,
+                                  bool               isNodeSpace) const -> void
+{
+    Neon::ioToNanoVDB<int, NanoVDBExportType> io(fileName,
+                            this->getDimension(),
+                            [&](Neon::Integer_3d<int> idx, int card) -> NanoVDBExportType {
+                                return (*this)(idx, card);
+                            },
+                            this->getCardinality(),
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+
+    io.flush();
+    return;
+}
+
+template <typename T, int C>
+template <typename NanoVDBExportType>
+auto FieldBase<T, C>::ioDomainToNanoVDB(const std::string& fileName,
+                                        bool               isNodeSpace) const -> void
+{
+    Neon::ioToNanoVDB<int32_t, NanoVDBExportType> io(fileName,
+                            this->getDimension(),
+                            [&](const Neon::index_3d& idx, int) {
+                                NanoVDBExportType setIdx = NanoVDBExportType(getBaseGridTool().getSetIdx(idx));
+                                return setIdx;
+                            },
+                            1,
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+
+    io.flush();
     return;
 }
 
