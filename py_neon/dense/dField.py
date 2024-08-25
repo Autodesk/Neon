@@ -13,9 +13,11 @@ class dField(object):
                  py_neon: NePy_neon,
                  grid_handle: ctypes.c_void_p,
                  cardinality: ctypes.c_int,
+                 dtype,
                  py_grid,
                  ):
 
+        self.dtype = dtype
         if grid_handle == 0:
             raise Exception('DField: Invalid handle')
 
@@ -25,12 +27,28 @@ class dField(object):
         self.grid_handle = grid_handle
         self.cardinality = cardinality
         self.py_grid = py_grid
+        self.field_type = None
+        self._set_field_type()
         self._help_field_new()
         self._help_load_api()
 
     def __del__(self):
         self.help_delete()
         pass
+
+    def _set_field_type(self  ):
+        if self.dtype == int:
+            self.field_type = ctypes.c_int32
+            self.partition_type = dPartitionInt
+        elif self.dtype == float:
+            self.field_type = self.ctypes.c_float
+            self.partition_type = dPartitionFloat
+        elif self.dtype == bool:
+            self.field_type = self.ctypes.c_char
+            self.partition_type = dPartitionChar
+
+        else:
+            raise Exception('dField: Unsupported data type')
 
     def _help_load_api(self):
         # Importing new functions
@@ -47,7 +65,7 @@ class dField(object):
         ## get_partition
         self.py_neon.lib.dGrid_dField_get_partition.argtypes = [
             self.handle_type,
-            ctypes.POINTER(dPartitionInt),  # the span object
+            ctypes.POINTER(self.partition_type),  # the span object
             NeExecution,  # the execution type
             ctypes.c_int,  # the device id
             NeDataView,  # the data view
@@ -56,7 +74,7 @@ class dField(object):
 
         # size partition
         self.py_neon.lib.dGrid_dField_partition_size.argtypes = [
-            ctypes.POINTER(dPartitionInt)]
+            ctypes.POINTER(self.partition_type)]
         self.py_neon.lib.dGrid_dField_partition_size.restype = ctypes.c_int
 
         # field read
@@ -69,7 +87,7 @@ class dField(object):
         self.py_neon.lib.dGrid_dField_write.argtypes = [self.handle_type,
                                                         ctypes.POINTER(py_neon.Index_3d),
                                                         ctypes.c_int,
-                                                        ctypes.c_int]
+                                                        self.field_type]
         self.py_neon.lib.dGrid_dField_write.restype = ctypes.c_int
 
         # field update host data

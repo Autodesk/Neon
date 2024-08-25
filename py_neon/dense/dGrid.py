@@ -106,12 +106,15 @@ class dGrid(object):
 
         return cpp_dim
 
-    def new_field(self, cardinality: int) -> dField:
+    def new_field(self,
+                  cardinality: int,
+                  dtype) -> dField:
         cardinality = ctypes.c_int(cardinality)
         field = dField(py_neon=self.py_neon,
                        grid_handle=self.grid_handle,
                        cardinality=cardinality,
-                       py_grid=self)
+                       py_grid=self,
+                       dtype=dtype)
         return field
 
     def get_span(self,
