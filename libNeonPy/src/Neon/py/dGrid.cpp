@@ -277,7 +277,7 @@ auto dGrid_dField_read(
     const int             cardinality)
     -> int
 {
-    std::cout << "dGrid_dField_read begin" << std::endl;
+    //std::cout << "dGrid_dField_read begin" << std::endl;
 
     using Grid = Neon::dGrid;
     using Field = Grid::Field<int, 1>;
@@ -290,7 +290,7 @@ auto dGrid_dField_read(
 
     auto returnValue = (*fieldPtr)(*idx, cardinality);
 
-    std::cout << "dGrid_dField_read end" << std::endl;
+    //std::cout << "dGrid_dField_read end" << std::endl;
 
     return returnValue;
 }
@@ -302,7 +302,7 @@ auto dGrid_dField_write(
     int                   newValue)
     -> int
 {
-    std::cout << "dGrid_dField_write begin" << std::endl;
+    //std::cout << "dGrid_dField_write begin" << std::endl;
 
     using Grid = Neon::dGrid;
     using Field = Grid::Field<int, 1>;
@@ -316,7 +316,7 @@ auto dGrid_dField_write(
 
     fieldPtr->getReference(*idx, cardinality) = newValue;
 
-    std::cout << "dGrid_dField_write end" << std::endl;
+    //std::cout << "dGrid_dField_write end" << std::endl;
     return 0;
 }
 
@@ -343,7 +343,6 @@ auto dGrid_dField_update_host_data(
 
     fieldPtr->updateHostData(streamSetId);
 
-    std::cout << "dGrid_dField_update_host_data end" << std::endl;
 #ifdef NEON_USE_NVTX
     nvtxRangePop();
 #endif
@@ -362,7 +361,6 @@ auto dGrid_dField_update_device_data(
 #ifdef NEON_USE_NVTX
     nvtxRangePush("dGrid_dField_update_host_data");
 #endif
-    std::cout << "dGrid_dField_update_device_data begin" << std::endl;
 
     using Grid = Neon::dGrid;
     using Field = Grid::Field<int, 1>;
@@ -376,7 +374,6 @@ auto dGrid_dField_update_device_data(
 
     fieldPtr->updateDeviceData(streamSetId);
 
-    std::cout << "dGrid_dField_update_device_data end" << std::endl;
 #ifdef NEON_USE_NVTX
     nvtxRangePop();
 #endif

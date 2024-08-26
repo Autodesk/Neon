@@ -38,11 +38,11 @@ auto dBackend_delete(
     void** handle)
     -> int
 {
-    std::cout << "dBackend_delete - BEGIN" << std::endl;
+    //std::cout << "dBackend_delete - BEGIN" << std::endl;
 
     using Backend = Neon::Backend;
     Backend* backendPtr = (Backend*)(*handle);
-    std::cout << "dBackend_delete backendHandle " << backendPtr << std::endl;
+    //std::cout << "dBackend_delete backendHandle " << backendPtr << std::endl;
 
     if (backendPtr != nullptr) {
         delete backendPtr;
@@ -50,14 +50,14 @@ auto dBackend_delete(
     }
 
     handle = 0;
-    std::cout << "dBackend_delete - END" << std::endl;
+    //std::cout << "dBackend_delete - END" << std::endl;
     return 0;
 }
 
 auto dBackend_get_string(uint64_t& handle) -> const char*
 {
-    std::cout << "get_string - BEGIN" << std::endl;
-    std::cout << "backendHandle " << handle << std::endl;
+    //std::cout << "get_string - BEGIN" << std::endl;
+    //std::cout << "backendHandle " << handle << std::endl;
 
     using Backend = Neon::Backend;
     Backend* backendPtr = (Backend*)handle;
@@ -66,13 +66,13 @@ auto dBackend_get_string(uint64_t& handle) -> const char*
     }
 
     return backendPtr->toString().c_str();
-    std::cout << "get_string - END" << std::endl;
+    //std::cout << "get_string - END" << std::endl;
 }
 
 auto dBackend_sync(uint64_t& handle) -> int
 {
-    std::cout << "dBackend_sync - BEGIN" << std::endl;
-    std::cout << "backendHandle " << handle << std::endl;
+    //std::cout << "dBackend_sync - BEGIN" << std::endl;
+    //std::cout << "backendHandle " << handle << std::endl;
 
     using Backend = Neon::Backend;
     Backend* backendPtr = (Backend*)handle;
@@ -82,5 +82,5 @@ auto dBackend_sync(uint64_t& handle) -> int
     backendPtr->syncAll();
 
     return 0;
-    std::cout << "dBackend_sync - END" << std::endl;
+    //std::cout << "dBackend_sync - END" << std::endl;
 }

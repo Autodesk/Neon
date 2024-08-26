@@ -5,7 +5,8 @@ from py_neon.dataview import DataView as NeDataView
 from py_neon.execution import Execution as NeExecution
 from py_neon.index_3d import Index_3d
 from py_neon.py_ne import Py_neon as NePy_neon
-from .dPartition import dPartitionInt as dPartitionInt
+import py_neon.dense.dPartition as dPartition
+# from .dPartition import dPartitionInt as dPartitionInt
 
 
 class dField(object):
@@ -39,14 +40,19 @@ class dField(object):
     def _set_field_type(self  ):
         if self.dtype == int:
             self.field_type = ctypes.c_int32
-            self.partition_type = dPartitionInt
+            self.Partition_type = dPartition.dPartitionInt
         elif self.dtype == float:
-            self.field_type = self.ctypes.c_float
-            self.partition_type = dPartitionFloat
+            self.field_type = ctypes.c_double
+            self.Partition_type = dPartition.dPartitionFloat
         elif self.dtype == bool:
-            self.field_type = self.ctypes.c_char
-            self.partition_type = dPartitionChar
-
+            self.field_type = ctypes.c_char
+            self.Partition_type = dPartition.dPartitionChar
+        elif self.dtype == ctypes.c_double:
+            self.field_type = ctypes.c_double
+            self.Partition_type = dPartition.dPartitionDouble
+        elif self.dtype == ctypes.c_float:
+            self.field_type = ctypes.c_float
+            self.Partition_type = dPartition.dPartitionFloat
         else:
             raise Exception('dField: Unsupported data type')
 
@@ -65,7 +71,7 @@ class dField(object):
         ## get_partition
         self.py_neon.lib.dGrid_dField_get_partition.argtypes = [
             self.handle_type,
-            ctypes.POINTER(self.partition_type),  # the span object
+            ctypes.POINTER(self.Partition_type),  # the span object
             NeExecution,  # the execution type
             ctypes.c_int,  # the device id
             NeDataView,  # the data view
@@ -74,14 +80,14 @@ class dField(object):
 
         # size partition
         self.py_neon.lib.dGrid_dField_partition_size.argtypes = [
-            ctypes.POINTER(self.partition_type)]
+            ctypes.POINTER(self.Partition_type)]
         self.py_neon.lib.dGrid_dField_partition_size.restype = ctypes.c_int
 
         # field read
         self.py_neon.lib.dGrid_dField_read.argtypes = [self.handle_type,
                                                        ctypes.POINTER(py_neon.Index_3d),
                                                        ctypes.c_int]
-        self.py_neon.lib.dGrid_dField_read.restype = ctypes.c_int
+        self.py_neon.lib.dGrid_dField_read.restype = self.field_type
 
         # field write
         self.py_neon.lib.dGrid_dField_write.argtypes = [self.handle_type,
@@ -124,12 +130,12 @@ class dField(object):
                       execution: NeExecution,
                       c: ctypes.c_int,
                       data_view: NeDataView
-                      ) -> dPartitionInt:
+                      ) :
 
         if self.handle == 0:
             raise Exception('dField: Invalid handle')
 
-        partition = dPartitionInt()
+        partition = self.Partition_type()
 
         res = self.py_neon.lib.dGrid_dField_get_partition(self.handle,
                                                           partition,

@@ -94,9 +94,9 @@ const -> bool
 {
     Idx e;
     bool res = false;
-    printf("setAndValidate_warp\n");
+    //printf("setAndValidate_warp\n");
 #if !defined(NEON_COMPILER_CUDA)
-printf("setAndValidate_warp Error\n");
+    printf("setAndValidate_warp Error\n");
 #else
 #if !defined(NEON_WARP_COMPILATION)
     printf("setAndValidate_warp Error\n");

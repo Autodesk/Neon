@@ -105,9 +105,9 @@ class Backend(object):
     def help_backend_delete(self):
         if self.backend_handle == 0:
             return
-        print(f'PYTHON cuda_driver_handle {hex(self.cuda_driver_handle.value)}')
+        # print(f'PYTHON cuda_driver_handle {hex(self.cuda_driver_handle.value)}')
         self.py_neon.lib.cuda_driver_delete(ctypes.pointer(self.cuda_driver_handle))
-        print(f'PYTHON backend_handle {hex(self.backend_handle.value)}')
+        # print(f'PYTHON backend_handle {hex(self.backend_handle.value)}')
         res = self.py_neon.lib.dBackend_delete(ctypes.pointer(self.backend_handle))
         if res != 0:
             raise Exception('Failed to delete backend')

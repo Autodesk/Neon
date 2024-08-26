@@ -71,8 +71,7 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
     auto initLaunchParameters(
         const Grid& grid)
     {
-        std::cout << "Grid AHAHHAHHHAHHAHA" << &grid << std::endl;
-        std::cout << "Grid " << grid.toString() << std::endl;
+        //std::cout << "Grid " << grid.toString() << std::endl;
 
         size_t sharedMem = 0;
         for (auto dw : {DataView::STANDARD,
