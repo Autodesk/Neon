@@ -60,6 +60,12 @@ auto Container::factoryAnchor(const std::string& name) -> Container
     return Container(tmp);
 }
 
+auto Container::factoryNewWarp(std::shared_ptr<Neon::set::internal::ContainerAPI> warpContainer)
+    -> Container*
+{
+    auto* containerPtr = new (std::nothrow) Neon::set::Container(warpContainer);
+    return containerPtr;
+}
 
 auto Container::getName() const
     -> const std::string&

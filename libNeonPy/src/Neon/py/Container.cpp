@@ -9,6 +9,8 @@
 #include "Neon/domain/Grids.h"
 #include "Neon/domain/interface/GridBase.h"
 #include "Neon/py/CudaDriver.h"
+#include "Neon/py/macros.h"
+#include "Neon/set/Containter.h"
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/container/Loader.h"
 
@@ -71,7 +73,7 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
     auto initLaunchParameters(
         const Grid& grid)
     {
-        //std::cout << "Grid " << grid.toString() << std::endl;
+        // std::cout << "Grid " << grid.toString() << std::endl;
 
         size_t sharedMem = 0;
         for (auto dw : {DataView::STANDARD,
@@ -195,6 +197,7 @@ extern "C" void warp_dgrid_container_new(
     void**          kernels_matrix,
     Neon::index_3d* /*blockSize*/)
 {
+    NEON_PY_PRINT_BEGIN(*out_handle)
     auto* cudaDriverPtr =
         reinterpret_cast<Neon::py::CudaDriver*>(handle_cudaDriver);
 
@@ -207,23 +210,28 @@ extern "C" void warp_dgrid_container_new(
             cudaDriverPtr,
             dGridPtr,
             kernels_matrix);
+    Neon::set::Container*                              container = nullptr;
+    std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(warp_container);
 
-    if (warp_container == nullptr) {
+    container = Neon::set::Container::factoryNewWarp(tmp);
+
+    if (container == nullptr) {
         Neon::NeonException e("warp_dgrid_container_new");
         NEON_THROW(e);
     }
 
-    *out_handle = reinterpret_cast<void*>(warp_container);
+    *out_handle = reinterpret_cast<void*>(container);
+    NEON_PY_PRINT_END(*out_handle);
 }
 
 extern "C" void warp_container_delete(
     uint64_t** handle)
 {
-    auto* warp_container =
-        reinterpret_cast<Neon::py::WarpContainer<Neon::dGrid>*>(*handle);
 
-    if (warp_container != nullptr) {
-        delete warp_container;
+    auto* c = reinterpret_cast<Neon::set::Container*>(*handle);
+
+    if (c != nullptr) {
+        delete c;
     }
 
     (*handle) = 0;
@@ -234,8 +242,7 @@ extern "C" void warp_container_run(
     int            streamIdx,
     Neon::DataView dataView)
 {
-    auto* warpContainerPtr =
-        reinterpret_cast<Neon::py::WarpContainer<Neon::dGrid>*>(handle);
+    auto* c = reinterpret_cast<Neon::set::Container*>(handle);
 
-    warpContainerPtr->run(streamIdx, dataView);
+    c->run(streamIdx, dataView);
 }

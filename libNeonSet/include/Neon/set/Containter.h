@@ -141,6 +141,9 @@ struct Container
     static auto factoryAnchor(const std::string& name /**< A user's string to identify the computation done by the Container. */)
         -> Container;
 
+    static auto factoryNewWarp( std::shared_ptr<Neon::set::internal::ContainerAPI> warpContainer)
+        -> Container*;
+
     auto getName() const
         -> const std::string&;
 
