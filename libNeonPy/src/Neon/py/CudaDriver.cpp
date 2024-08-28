@@ -63,22 +63,23 @@ auto CudaDriver::run_kernel(
     Neon::StreamIdx                    streamIdx) -> void
 {
     [[maybe_unused]] auto& streamSet = backend.streamSet(streamIdx);
-
-    int const ndevs = backend.getDeviceCount();
-    // #pragma omp parallel for num_threads(ndevs)
+    int const              ndevs = backend.getDeviceCount();
+#pragma omp parallel for num_threads(ndevs)
     for (int setIdx = 0; setIdx < ndevs; setIdx++) {
         backend.devSet().setActiveDevContext(setIdx);
+
         cudaStream_t const& cuda_stream = streamSet.cudaStream(setIdx);
         CUstream            driverStream = (CUstream)cuda_stream;
         CUfunction          function = static_cast<CUfunction>(kernelSet[setIdx]);
-        auto& launch_info = launch_params[setIdx];
-
+        auto&               launch_info = launch_params[setIdx];
+        //std::cout << "setIdx " << setIdx << " function " << function << std::endl;
         // auto const cudaGrid = launch_info.cudaGrid();
         // auto const cudaBlock = launch_info.cudaBlock();
 
         // Set the created context as the current context
-        CUresult res = cuCtxSetCurrent(cu_contexts[setIdx]);
-        check_cuda_res(res, "cuCtxSetCurrent");
+        // CUresult res = cuCtxSetCurrent(cu_contexts[setIdx]);
+        // check_cuda_res(res, "cuCtxSetCurrent");
+        // std::cout << "Current CUDA context ID (handle): " << (cu_contexts[setIdx]) << std::endl;
         // int64_t pywarp_size = 1;
         // std::cout << "pywarp_size" << pywarp_size << std::endl;
         const int LAUNCH_MAX_DIMS = 4;  // should match types.py
@@ -99,10 +100,9 @@ auto CudaDriver::run_kernel(
         std::vector<void*> args;
         args.push_back(&bounds);
 
-        [[maybe_unused]] auto devset = backend.devSet();
-        devset.setActiveDevContext(setIdx);
-        [[maybe_unused]] auto const& gpuDev = devset.gpuDev(setIdx);
-        [[maybe_unused]] auto        kinfo = launch_params.operator[](setIdx);
+        // [[maybe_unused]] auto        devset = backend.devSet();
+        // [[maybe_unused]] auto const& gpuDev = devset.gpuDev(setIdx);
+        // [[maybe_unused]] auto        kinfo = launch_params.operator[](setIdx);
         // try {
         //     gpuDev.kernel.cudaLaunchKernel<Neon::run_et::sync>(streamSet[setIdx], kinfo, function, args.data());
         // } catch (...) {
@@ -110,12 +110,18 @@ auto CudaDriver::run_kernel(
         // }
         // int block_dim = 256;
         // int grid_dim = (n + block_dim - 1) / block_dim;
-//         std::cout << "block_dim " <<  launch_info.toString()<< std::endl;
-//         std::cout << "grid_dim " << launch_info << std::endl;
-//         std::cout << "n  " << n << std::endl;
-//         std::cout << "cuLaunchKernel" << std::endl;
+        // std::cout << "block_dim " << launch_info.domainGrid() << std::endl;
+        // // std::cout << "grid_dim " << launch_info << std::endl;
+        // std::cout << "n  " << n << std::endl;
+        // std::cout << "cuLaunchKernel" << std::endl;
+        // int         deviceId;
+        // cudaError_t status = cudaGetDevice(&deviceId);
+        // if (status != cudaSuccess) {
+        //     std::cerr << "Failed to get current device ID: " << cudaGetErrorString(status) << std::endl;
+        // }
 
-        res = cuLaunchKernel(
+        //std::cout << "Current CUDA device ID: " << deviceId << std::endl;
+        auto res = cuLaunchKernel(
             function,
             launch_info.cudaGrid().x,
             launch_info.cudaGrid().y,
@@ -129,7 +135,7 @@ auto CudaDriver::run_kernel(
             0);
 
         check_cuda_res(res, "cuLaunchKernel");
-        //cuCtxSynchronize();
+        // cuCtxSynchronize();
     }
 }
 
