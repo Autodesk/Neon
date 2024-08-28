@@ -6,6 +6,7 @@ from .py_ne import Py_neon
 from .dataview import DataView
 from .execution import Execution
 from .index_3d import Index_3d
+from .ngh_idx import Ngh_idx
 
 from .dense.__init__ import *
 from .block.__init__ import *
