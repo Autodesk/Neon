@@ -67,10 +67,10 @@ auto CudaDriver::run_kernel(
     int const ndevs = backend.getDeviceCount();
     // #pragma omp parallel for num_threads(ndevs)
     for (int setIdx = 0; setIdx < ndevs; setIdx++) {
+        backend.devSet().setActiveDevContext(setIdx);
         cudaStream_t const& cuda_stream = streamSet.cudaStream(setIdx);
         CUstream            driverStream = (CUstream)cuda_stream;
         CUfunction          function = static_cast<CUfunction>(kernelSet[setIdx]);
-        backend.devSet().setActiveDevContext(setIdx);
         auto& launch_info = launch_params[setIdx];
 
         // auto const cudaGrid = launch_info.cudaGrid();
@@ -110,10 +110,10 @@ auto CudaDriver::run_kernel(
         // }
         // int block_dim = 256;
         // int grid_dim = (n + block_dim - 1) / block_dim;
-        // std::cout << "block_dim " << block_dim << std::endl;
-        // std::cout << "grid_dim " << grid_dim << std::endl;
-        // std::cout << "n  " << n << std::endl;
-        // std::cout << "cuLaunchKernel" << std::endl;
+//         std::cout << "block_dim " <<  launch_info.toString()<< std::endl;
+//         std::cout << "grid_dim " << launch_info << std::endl;
+//         std::cout << "n  " << n << std::endl;
+//         std::cout << "cuLaunchKernel" << std::endl;
 
         res = cuLaunchKernel(
             function,
