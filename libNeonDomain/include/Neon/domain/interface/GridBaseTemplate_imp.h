@@ -2,6 +2,7 @@
 
 #include "Neon/core/tools/io/ioToVTK.h"
 #include "Neon/core/tools/io/ioToNanoVDB.h"
+#include "Neon/core/tools/io/ioToHDF5.h"
 
 namespace Neon::domain::interface {
 
@@ -48,6 +49,38 @@ auto GridBaseTemplate<GridT, CellT>::ioDomainToNanoVDB(const std::string& fileNa
                             Neon::Integer_3d<int>(0, 0, 0));
 
     ioToNanoVDB<int, float> io2(fileName + "_partition",
+                            this->getDimension(),
+                            [&](const Neon::index_3d& idx, int) {
+                                const auto& cellProperties = this->getProperties(idx);
+                                if (!cellProperties.isInside()) {
+                                    return -1;
+                                }
+                                auto setIdx = cellProperties.getSetIdx();
+                                return setIdx.idx();
+                            },
+                            1,
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+    io1.flush();
+    io2.flush();
+    return;
+}
+
+template <typename GridT, typename CellT>
+auto GridBaseTemplate<GridT, CellT>::ioDomainToHDF5(const std::string& fileName) const -> void
+{
+    ioToHDF5<int, float> io1(fileName + "_domain",
+                            this->getDimension(),
+                            [&](const Neon::index_3d& idx, int) {
+                                bool isActiveVox = isInsideDomain(idx);
+                                return isActiveVox;
+                            },
+                            1,
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+    ioToHDF5<int, float> io2(fileName + "_partition",
                             this->getDimension(),
                             [&](const Neon::index_3d& idx, int) {
                                 const auto& cellProperties = this->getProperties(idx);
