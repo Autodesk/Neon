@@ -2,7 +2,7 @@ import copy
 import ctypes
 from enum import Enum
 
-import py_ne
+#import py_ne
 
 
 class Execution(ctypes.Structure):
