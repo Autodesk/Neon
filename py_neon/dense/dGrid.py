@@ -1,6 +1,7 @@
 import ctypes
 
 import numpy as np
+from typing import List
 
 import py_neon
 from py_neon import Py_neon
@@ -13,22 +14,44 @@ from ..backend import Backend
 
 
 class dGrid(object):
+    """
+    dGrid class represents a 3D grid structure with a specified sparsity pattern and backend.
+    """
 
-    def __init__(self, backend: Backend = None, dim: Index_3d = Index_3d(10, 10, 10),
-                 sparsity_pattern: np.ndarray = None):
-        if sparsity_pattern is None:
-            sparsity_pattern = np.ones((dim.x, dim.y, dim.z))
+    def __init__(
+            self, backend: Backend = None,
+            dim: Index_3d = Index_3d(10, 10, 10),
+            sparsity: np.ndarray = None,
+            stencil: List[List[int]] = None
+    ):
+        """
+        Initializes a dGrid object.
+
+        Parameters:
+        backend (Backend): The backend to be used for the grid. Must not be None.
+        dim (Index_3d): The dimensions of the grid. Default is Index_3d(10, 10, 10).
+        sparsity (np.ndarray): A 3D numpy array representing the sparsity pattern of the grid.
+                                       If None, a fully dense grid is assumed.
+        stencil (List[py_neon.Index_3d]): A list of stencil indices. Must not be None.
+
+        Raises:
+        Exception: If backend is None.
+        Exception: If the shape of sparsity does not match the dimensions specified by dim.
+        """
+        if sparsity is None:
+            sparsity = np.ones((dim.x, dim.y, dim.z))
         if backend is None:
             # raise exception
-            raise Exception('dGrid: backend pamrameter is missing')
-        if sparsity_pattern.shape[0] != dim.x or sparsity_pattern.shape[1] != dim.y or sparsity_pattern.shape[
+            raise Exception('dGrid: backend parameter is missing')
+        if sparsity.shape[0] != dim.x or sparsity.shape[1] != dim.y or sparsity.shape[
             2] != dim.z:
-            raise Exception('dGrid: sparsity_pattern\'s shape does not match the dim')
+            raise Exception('dGrid: sparsity\'s shape does not match the dim')
 
         self.grid_handle = ctypes.c_void_p(None)
         self.backend = backend
         self.dim = dim
-        self.sparsity_pattern = sparsity_pattern
+        self.sparsity = sparsity
+        self.stencil = stencil
 
         try:
             self.py_neon: Py_neon = Py_neon()
@@ -48,6 +71,8 @@ class dGrid(object):
         self.py_neon.lib.dGrid_new.argtypes = [self.py_neon.handle_type,
                                                self.py_neon.handle_type,
                                                ctypes.POINTER(py_neon.Index_3d),
+                                               ctypes.POINTER(ctypes.c_int),
+                                               ctypes.c_int,
                                                ctypes.POINTER(ctypes.c_int)]
         self.py_neon.lib.dGrid_new.restype = ctypes.c_int
         # ---
@@ -82,11 +107,21 @@ class dGrid(object):
         if self.grid_handle.value != None:  # Ensure the grid handle is uninitialized
             raise Exception('dGrid: Grid handle already initialized')
 
-        sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+        stencil_type = ctypes.c_int * (3*len(self.stencil))
+        stencil_array = stencil_type()
+        for s_idx, s in enumerate(self.stencil):
+            a_idx = s_idx * 3
+            stencil_array[a_idx] = s[0]
+            stencil_array[a_idx + 1] = s[1]
+            stencil_array[a_idx + 2] = s[2]
+
+        sparsity_array = self.sparsity.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
         res = self.py_neon.lib.dGrid_new(ctypes.pointer(self.grid_handle),
                                          self.backend.backend_handle,
                                          self.dim,
-                                         sparsity_pattern_array)
+                                         sparsity_array,
+                                         len(self.stencil),
+                                         stencil_array)
         if res != 0:
             raise Exception('dGrid: Failed to initialize grid')
         print(f"dGrid initialized with handle {self.grid_handle.value}")

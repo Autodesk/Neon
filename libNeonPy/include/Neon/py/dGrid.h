@@ -9,8 +9,10 @@
 extern "C" auto dGrid_new(
     void**                handle,
     void*                 backendPtr,
-    const Neon::int32_3d* dim,
-    int*                  sparsity_pattern)
+    const Neon::index_3d* dim,
+    int const*            sparsity_pattern,
+    int                   numStencilPoints,
+    int const*            stencilPointFlatArray)
     -> int;
 
 /**

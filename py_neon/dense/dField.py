@@ -6,6 +6,7 @@ from py_neon.dataview import DataView as NeDataView
 from py_neon.execution import Execution as NeExecution
 from py_neon.index_3d import Index_3d
 from py_neon.py_ne import Py_neon as NePy_neon
+import warp as wp
 
 
 # from .dPartition import dPartitionInt as dPartitionInt
@@ -40,26 +41,34 @@ class dField(object):
         pass
 
     def _set_field_type(self):
-        if self.dtype == int:
-            self.field_type = ctypes.c_int32
-            self.Partition_type = dPartition.dPartitionInt
-            self.suffix = '_int'
-        elif self.dtype == float:
-            self.field_type = ctypes.c_float
-            self.Partition_type = dPartition.dPartitionFloat
-            self.suffix = '_float'
-        elif self.dtype == bool:
-            self.field_type = ctypes.c_char
-            self.Partition_type = dPartition.dPartitionChar
-        elif self.dtype == ctypes.c_double:
-            self.field_type = ctypes.c_double
-            self.Partition_type = dPartition.dPartitionDouble
-            self.suffix = '_double'
-        elif self.dtype == ctypes.c_float:
-            self.field_type = ctypes.c_float
-            self.Partition_type = dPartition.dPartitionFloat
-            self.suffix = '_float'
-        else:
+        def _set_via_suffix(suffix):
+            s_native, s_wp, s_cytpes = suffix
+            is_native = self.dtype == s_native
+            is_ctypes = s_wp == self.dtype
+            is_warp = self.dtype == s_cytpes
+            if (is_native or is_warp or is_ctypes):
+                self.suffix = f'_{s_native}'
+                self.field_type = s_cytpes
+                self.Partition_type = getattr(dPartition, f'dPartition{self.suffix}')
+                return True
+            return False
+
+        supported_suffixes = [('bool', wp.bool, ctypes.c_bool),
+                              ('int8', wp.int8, ctypes.c_int8),
+                                ('uint8', wp.uint8, ctypes.c_uint8),
+                                ('int32', wp.int32, ctypes.c_int32),
+                                ('uint32', wp.uint32, ctypes.c_uint32),
+                                ('int64', wp.int64, ctypes.c_int64),
+                                ('uint64', wp.uint64, ctypes.c_uint64),
+                                ('float32', wp.float32, ctypes.c_float),
+                                ('float64', wp.float64, ctypes.c_double)]
+        match_found = False
+        for suffix in supported_suffixes:
+
+            match_found = _set_via_suffix(suffix)
+            if match_found:
+                break
+        if not match_found:
             raise Exception('dField: Unsupported data type')
 
     def _help_load_api(self):
@@ -186,3 +195,7 @@ class dField(object):
 
     def updateDeviceData(self, streamSetId: ctypes.c_int):
         return self.api_update_device(self.handle, streamSetId)
+
+    @property
+    def type(self):
+        return self.dtype

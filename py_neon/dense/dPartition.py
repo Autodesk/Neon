@@ -4,7 +4,7 @@ from enum import Enum
 
 import py_neon
 from py_neon import Py_neon
-
+import warp as wp
 
 class dPartitionGeneric(ctypes.Structure):
     # _fields_ = [
@@ -77,10 +77,33 @@ def factory_dPartition(mem_type):
     """
 
     # Define the _fields_ structure with the dynamic mMem field
+    mem_type_ctypes=None
+    if mem_type == wp.int8:
+        mem_type_ctypes = ctypes.c_int8
+    elif mem_type == wp.uint8:
+        mem_type_ctypes = ctypes.c_uint8
+    elif mem_type == wp.bool:
+        mem_type_ctypes = ctypes.c_bool
+    elif mem_type == wp.int32:
+        mem_type_ctypes = ctypes.c_int32
+    elif mem_type == wp.uint32:
+        mem_type_ctypes = ctypes.c_uint32
+    elif mem_type == wp.int64:
+        mem_type_ctypes = ctypes.c_int64
+    elif mem_type == wp.uint64:
+        mem_type_ctypes = ctypes.c_uint64
+    elif mem_type == wp.float32:
+        mem_type_ctypes = ctypes.c_float
+    elif mem_type == wp.float64:
+        mem_type_ctypes = ctypes.c_double
+    else:
+        raise Exception('dPartition: Unsupported data type')
+
+
     fields = [
         ("mDataView", py_neon.DataView),
         ("mDim", py_neon.Index_3d),
-        ("mMem", ctypes.POINTER(mem_type)),
+        ("mMem", ctypes.POINTER(mem_type_ctypes)),
         ("mZHaloRadius", ctypes.c_int),
         ("mZBoundaryRadius", ctypes.c_int),
         ("mPitch1", ctypes.c_uint64),
@@ -109,6 +132,19 @@ def factory_dPartition(mem_type):
 
     return new_class
 
-dPartitionInt = factory_dPartition(ctypes.c_int)
-dPartitionFloat = factory_dPartition(ctypes.c_float)
-dPartitionDouble = factory_dPartition(ctypes.c_double)
+
+
+dPartition_int8 = factory_dPartition(wp.int8)
+dPartition_uint8 = factory_dPartition(wp.uint8)
+dPartition_bool = factory_dPartition(wp.bool)
+
+dPartition_int32 = factory_dPartition(wp.int32)
+dPartition_uint32 = factory_dPartition(wp.uint32)
+
+dPartition_int64 = factory_dPartition(wp.int64)
+dPartition_uint64 = factory_dPartition(wp.uint64)
+
+dPartition_float32 = factory_dPartition(wp.float32)
+dPartition_float64 = factory_dPartition(wp.float64)
+
+

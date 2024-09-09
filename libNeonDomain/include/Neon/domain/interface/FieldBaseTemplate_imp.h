@@ -119,7 +119,7 @@ auto FieldBaseTemplate<T, C, G, P, S>::toString() const
             s << "\n|   Accelerator first pointers";
             for (int i = 0; i < launchParameters.cardinality(); i++) {
                 const auto& partitionCompute = this->getPartition(Neon::Execution::device, i, dw);
-                s << " " << partitionCompute.mem() << " ";
+                s << " " << (void*)partitionCompute.mem() << " ";
             }
             s << "\n|   Host first pointers       ";
             for (int i = 0; i < launchParameters.cardinality(); i++) {

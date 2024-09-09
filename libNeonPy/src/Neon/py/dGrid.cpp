@@ -10,7 +10,9 @@ auto dGrid_new(
     void**                handle,
     void*                 backendPtr,
     const Neon::index_3d* dim,
-    int*                  sparsity_pattern)
+    int const*            sparsity_pattern,
+    int                   numStencilPoints,
+    int const*            stencilPointFlatArray)
     -> int
 {
     NEON_PY_PRINT_BEGIN(*handle);
@@ -27,13 +29,22 @@ auto dGrid_new(
     }
 
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
+
+    std::vector<Neon::index_3d> points(numStencilPoints);
+    for (int sId = 0; sId < numStencilPoints; sId++) {
+        points[sId].x = stencilPointFlatArray[sId * 3];
+        points[sId].y = stencilPointFlatArray[sId * 3 + 1];
+        points[sId].z = stencilPointFlatArray[sId * 3 + 2];
+    }
+
+    Neon::domain::Stencil stencil(points);
     Grid                  g(
         *backend,
         *dim,
         [=](Neon::index_3d const& idx) {
             return sparsity_pattern[idx.x * (dim->x * dim->y) + idx.y * dim->z + idx.z];
         },
-        d3q19);
+        stencil);
     auto gridPtr = new (std::nothrow) Grid(g);
     AllocationCounter::Allocation();
 
@@ -247,10 +258,31 @@ auto dGrid_dField_new(
     return -1;
 }
 
+using int8 = int8_t;
+using uint8 = uint8_t;
 
-DO_EXPORT(int, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
-DO_EXPORT(float, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
-DO_EXPORT(double, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+using int32 = int32_t;
+using uint32 = uint32_t;
+
+using int64 = int64_t;
+using uint64 = uint64_t;
+
+using float32 = float;
+using float64 = double;
+
+
+DO_EXPORT(int8, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(uint8, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(bool, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+
+DO_EXPORT(int32, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(uint32, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+
+DO_EXPORT(int64, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(uint64, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+
+DO_EXPORT(float32, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(float64, 3, dGrid_dField_new, int, void**, handle, void*, gridHandle, int, cardinality);
 
 template <typename T>
 auto dGrid_dField_delete(
@@ -276,9 +308,19 @@ auto dGrid_dField_delete(
     return 0;
 }
 
-DO_EXPORT(int, 1, dGrid_dField_delete, int, void**, handle);
-DO_EXPORT(float, 1, dGrid_dField_delete, int, void**, handle);
-DO_EXPORT(double, 1, dGrid_dField_delete, int, void**, handle);
+DO_EXPORT(int8, 1, dGrid_dField_delete, int, void**, handle);
+DO_EXPORT(uint8, 1, dGrid_dField_delete, int, void**, handle);
+DO_EXPORT(bool, 1, dGrid_dField_delete, int, void**, handle);
+
+DO_EXPORT(int32, 1, dGrid_dField_delete, int, void**, handle);
+DO_EXPORT(uint32, 1, dGrid_dField_delete, int, void**, handle);
+
+DO_EXPORT(int64, 1, dGrid_dField_delete, int, void**, handle);
+DO_EXPORT(uint64, 1, dGrid_dField_delete, int, void**, handle);
+
+DO_EXPORT(float32, 1, dGrid_dField_delete, int, void**, handle);
+DO_EXPORT(float64, 1, dGrid_dField_delete, int, void**, handle);
+
 
 template <typename T>
 auto dGrid_dField_get_partition(
@@ -317,10 +359,19 @@ auto dGrid_dField_get_partition(
     return -1;
 }
 
+DO_EXPORT(int8, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<int8, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(uint8, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<uint8, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(bool, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<bool, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
 
-DO_EXPORT(int, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<int, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
-DO_EXPORT(float, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<float, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
-DO_EXPORT(double, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<double, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(int32, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<int32, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(uint32, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<uint32, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+
+DO_EXPORT(int64, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<int64, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(uint64, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<uint64, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+
+DO_EXPORT(float32, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<float32, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(float64, 5, dGrid_dField_get_partition, int, void*, field_handle, decltype(Neon::dGrid::Partition<float64, 0>())*, partitionPtr, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+
 
 
 auto dGrid_span_size(
@@ -396,9 +447,18 @@ auto dGrid_dField_read(
     return returnValue;
 }
 
-DO_EXPORT(int, 3, dGrid_dField_read, int, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
-DO_EXPORT(float, 3, dGrid_dField_read, float, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
-DO_EXPORT(double, 3, dGrid_dField_read, double, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(int8, 3, dGrid_dField_read, int8, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(uint8, 3, dGrid_dField_read, uint8, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(bool, 3, dGrid_dField_read, uint8, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
+
+DO_EXPORT(int32, 3, dGrid_dField_read, int32, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(uint32, 3, dGrid_dField_read, uint32, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
+
+DO_EXPORT(int64, 3, dGrid_dField_read, int64, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(uint64, 3, dGrid_dField_read, uint64, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
+
+DO_EXPORT(float32, 3, dGrid_dField_read, float32, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(float64, 3, dGrid_dField_read, float64, void*, fieldHandle, const Neon::index_3d*, idx, const int, cardinality);
 
 template <typename T>
 auto dGrid_dField_write(
@@ -426,9 +486,19 @@ auto dGrid_dField_write(
     return 0;
 }
 
-DO_EXPORT(int, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, int, newValue);
-DO_EXPORT(float, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, float, newValue);
-DO_EXPORT(double, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, double, newValue);
+DO_EXPORT(int8, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, int8, newValue);
+DO_EXPORT(uint8, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, uint8, newValue);
+DO_EXPORT(bool, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, uint8, newValue);
+
+DO_EXPORT(int32, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, int32, newValue);
+DO_EXPORT(uint32, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, uint32, newValue);
+
+DO_EXPORT(int64, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, int64, newValue);
+DO_EXPORT(uint64, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, uint64, newValue);
+
+DO_EXPORT(float32, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, float32, newValue);
+DO_EXPORT(float64, 4, dGrid_dField_write, int, void*, fieldHandle, const Neon::index_3d*, idx, int, cardinality, float64, newValue);
+
 
 template <typename T>
 auto dGrid_dField_update_host_data(
@@ -462,9 +532,19 @@ auto dGrid_dField_update_host_data(
     return 0;
 }
 
-DO_EXPORT(int, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
-DO_EXPORT(float, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
-DO_EXPORT(double, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(int8, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint8, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(bool, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(int32, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint32, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(int64, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint64, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(float32, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(float64, 2, dGrid_dField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+
 
 template <typename T>
 auto dGrid_dField_update_device_data(
@@ -498,9 +578,19 @@ auto dGrid_dField_update_device_data(
     return 0;
 }
 
-DO_EXPORT(int, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
-DO_EXPORT(float, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
-DO_EXPORT(double, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(int8, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint8, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(bool, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(int32, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint32, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(int64, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint64, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(float32, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(float64, 2, dGrid_dField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+
 
 extern "C" auto dGrid_dSpan_get_member_field_offsets(size_t* offsets,
                                                      size_t* length)
