@@ -31,6 +31,16 @@ class GridBaseTemplate : public GridBase
      */
     auto ioDomainToVtk(const std::string& fileName,
                        Neon::IoFileType   vtiIOe = IoFileType::ASCII) const -> void;
+
+    /**
+     * Exporting the domain active voxel to nanoVDB
+     */
+    auto ioDomainToNanoVDB(const std::string& fileName) const -> void;
+
+    /**
+     * Exporting the domain active voxel to HDF5
+     */
+    auto ioDomainToHDF5(const std::string& fileName) const -> void;
 };
 }  // namespace Neon::domain::interface
 
