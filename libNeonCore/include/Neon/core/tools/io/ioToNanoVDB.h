@@ -20,8 +20,8 @@
 
 
 #include <nanovdb/NanoVDB.h>
-#include <nanovdb/util/CreateNanoGrid.h>
-#include <nanovdb/util/IO.h>
+#include <nanovdb/tools/CreateNanoGrid.h>
+#include <nanovdb/io/IO.h>
 #include <nanovdb/tools/GridBuilder.h>
 #include <nanovdb/tools/CreateNanoGrid.h>
 
@@ -232,7 +232,7 @@ struct ioToNanoVDB
 {
     ioToNanoVDB(const std::string&                                                               filename /*!                                                                      File name */,
             const Neon::Integer_3d<intType_ta>&                                                  dim /*!                                                                           IoDense dimension of the field */,
-            const std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx)>& fun /*!                                                                           Implicit defintion of the user field */,
+            const ioToNanoVDBns::UserFieldAccessGenericFunction_t<real_tt, intType_ta>&          fun /*!                                                                           Implicit defintion of the user field */,
             const nComponent_t                                                                   card /*!                                                                          Field cardinality */,
             const double                                                                         scalingData = 1.0 /*!                                                             Spacing, i.e. size of a voxel */,
             const Neon::Integer_3d<intType_ta>&                                                  origin = Neon::Integer_3d<intType_ta>(0, 0, 0) /*!                                Minimum Corner && Origin  */,

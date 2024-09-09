@@ -106,9 +106,9 @@ void ioToHDF5(const ioToHDF5ns::UserFieldInformation<intType_ta, real_tt>&      
     for (int i = origin.x; i < origin.x + dim.x; ++i) {
         for (int j = origin.y; j < origin.y + dim.y; ++j) {
             for (int k = origin.z; k < origin.z + dim.z; ++k) {
-                if (!mask(Neon::Integer_3d<intType_ta>(i, j, k)) {
+                if (!mask(Neon::Integer_3d<intType_ta>(i, j, k))) {
                     dataset.select({i - origin.x, j - origin.y, k - origin.z}, {1, 1, 1}).write(fieldData.m_userFieldAccessGenericFunction(Neon::Integer_3d<intType_ta>(i, j, k), 0));
-                })
+                }
             }
         }
     }
@@ -121,7 +121,7 @@ struct ioToHDF5
 {
     ioToHDF5(const std::string&                                                                  filename /*!                                                 File name */,
             const Neon::Integer_3d<intType_ta>&                                                  dim /*!                                                      IoDense dimension of the field */,
-            const std::function<real_tt(const Neon::Integer_3d<intType_ta>&, int componentIdx)>& fun /*!                                                      Implicit defintion of the user field */,
+            const ioToHDF5ns::UserFieldAccessGenericFunction_t<real_tt, intType_ta>&             fun /*!                                                      Implicit defintion of the user field */,
             const nComponent_t                                                                   card /*!                                                     Field cardinality */,
             const double                                                                         scalingData = 1.0 /*!                                        Spacing, i.e. size of a voxel */,
             const Neon::Integer_3d<intType_ta>&                                                  origin = Neon::Integer_3d<intType_ta>(0, 0, 0) /*!           Minimum Corner && Origin  */,

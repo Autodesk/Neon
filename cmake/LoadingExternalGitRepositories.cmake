@@ -26,6 +26,8 @@ if(${NEON_USE_NANOVDB})
 			COMMAND ${CMAKE_COMMAND} --build ${nanovdb_BINARY_DIR} --target install
 			WORKING_DIRECTORY ${nanovdb_SOURCE_DIR}
 		)
+
+		include_directories(${nanovdb_SOURCE_DIR}/nanovdb)
 	endif ()
 endif ()
 
