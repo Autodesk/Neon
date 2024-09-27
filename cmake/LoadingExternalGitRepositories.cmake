@@ -8,7 +8,7 @@ if (NOT spdlog_POPULATED)
 			GIT_REPOSITORY https://github.com/gabime/spdlog.git
 			GIT_TAG v1.8.5
 			)
-	FetchContent_Populate(spdlog)
+	FetchContent_MakeAvailable(spdlog)
 endif ()
 
 # rapidjson
@@ -19,7 +19,7 @@ if (NOT rapidjson_POPULATED)
 			GIT_REPOSITORY https://github.com/Tencent/rapidjson.git
 			GIT_TAG 8f4c021fa2f1e001d2376095928fc0532adf2ae6
 			)
-	FetchContent_Populate(rapidjson)
+	FetchContent_MakeAvailable(rapidjson)
 	# Removing the bin directory from rapidjson sources.
 	# The directory contains jsonchecker, which is problematic from a licence prospective.
 	file(REMOVE_RECURSE ${rapidjson_SOURCE_DIR}/bin/)
@@ -72,7 +72,7 @@ if (${BUILD_NEON_TESTING})
 				GIT_REPOSITORY https://github.com/google/googletest.git
 				GIT_TAG eaf9a3fd77869cf95befb87455a2e2a2e85044ff
 				)
-		FetchContent_MakeAvailable(googletest)
+		FetchContent_Populate(googletest)
 		enable_testing()
 		include(GoogleTest)
 	endif ()
