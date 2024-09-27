@@ -1,22 +1,47 @@
 deviceType_LIST = 'gpu'.split()
 deviceIds_LIST = "0 1 2 3 4 5 6 7".split()
-grid_LIST = "bGrid_4_4_4 bGridMgpu_4_4_4".split()
+grid_LIST = "dGrid dGridDisg".split()
 domainSize_LIST = "64 80 96 112 128 144 160 176 192 208 224 240 256 272 288 304 320 336 352 368 384 400 416 432 448 464 480 496 512".split()
 computeFP_LIST = "double float".split()
 storageFP_LIST = "double float".split()
-occ_LIST = "none standard".split()
-transferMode_LIST = "get put".split()
-stencilSemantic_LIST = "standard lattice".split()
-spaceCurve_LIST = "sweep morton hilbert".split()
+occ_LIST = "standard".split()
+transferMode_LIST = "get".split()
+stencilSemantic_LIST = "lattice".split()
+spaceCurve_LIST = "sweep".split()
 collision_LIST = "bgk kbc".split()
-streamingMethod_LIST = "push pull aa".split()
+streamingMethod_LIST = "pull".split()
 lattice_LIST = "d3q19 d3q27".split()
 
 warmupIter_INT = 10
 repetitions_INT = 5
 maxIter_INT = 10000
 
-goal_is_efficiency_max_num_devices = True
+goal_is_efficiency_max_num_devices = False
+
+# deviceType_LIST = 'gpu'.split()
+# deviceIds_LIST = "0 1 2 3 4 5 6 7".split()
+# grid_LIST = "dGrid bGridMgpu_4_4_4".split()
+# domainSize_LIST = "64 80 96 112 128 144 160 176 192 208 224 240 256 272 288 304 320 336 352 368 384 400 416 432 448 464 480 496 512".split()
+# computeFP_LIST = "double float".split()
+# storageFP_LIST = "double float".split()
+# occ_LIST = "none standard".split()
+# transferMode_LIST = "get put".split()
+# stencilSemantic_LIST = "standard lattice".split()
+# spaceCurve_LIST = "sweep morton hilbert".split()
+# collision_LIST = "bgk kbc".split()
+# streamingMethod_LIST = "push pull aa".split()
+# lattice_LIST = "d3q19 d3q27".split()
+#
+# warmupIter_INT = 10
+# repetitions_INT = 5
+# maxIter_INT = 10000
+#
+# goal_is_efficiency_max_num_devices = False
+
+
+
+
+
 
 import subprocess
 import sys
