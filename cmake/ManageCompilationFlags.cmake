@@ -63,5 +63,4 @@ set(NeonCUDAFlags
         -Xptxas -warn-spills -res-usage
         --ptxas-options=-v
         --relocatable-device-code=true
-		--maxrregcount 125
         )
