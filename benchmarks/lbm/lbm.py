@@ -16,7 +16,9 @@ warmupIter_INT = 10
 repetitions_INT = 5
 maxIter_INT = 10000
 
-goal_is_efficiency_max_num_devices = False
+execute_for_efficiency_max_num_devices = False
+execute_by_skipping_single_gpu = False
+execute_single_gpu_only = False
 
 # deviceType_LIST = 'gpu'.split()
 # deviceIds_LIST = "0 1 2 3 4 5 6 7".split()
@@ -39,10 +41,6 @@ goal_is_efficiency_max_num_devices = False
 # goal_is_efficiency_max_num_devices = False
 
 
-
-
-
-
 import subprocess
 import sys
 
@@ -50,17 +48,41 @@ import sys
 # from typing import List, Dict
 
 def getDeviceConfigurations(DEVICE_TYPE, deviceIds_LIST):
-    if not goal_is_efficiency_max_num_devices:
-        DEVICE_SET_LIST = [deviceIds_LIST[0]]
-        if DEVICE_TYPE == 'gpu':
-            for DEVICE in deviceIds_LIST[1:]:
-                DEVICE_SET_LIST.append(DEVICE_SET_LIST[-1] + ' ' + DEVICE)
-        return DEVICE_SET_LIST
-    if len(deviceIds_LIST) ==1:
-        return  [deviceIds_LIST[0]]
+    """
+    This function returns a list of device configurations.
+    The returned list is a list of strings, where each string is a space-separated list of device ids.
 
-    if  goal_is_efficiency_max_num_devices:
+    For example: ['0', '0 1', '0 1 2', '0 1 2 3', '0 1 2 3 4', '0 1 2 3 4 5', '0 1 2 3 4 5 6', '0 1 2 3 4 5 6 7']
+
+    The behaviour of this function is controlled by the following global variables:
+    - execute_for_efficiency_max_num_devices
+    - execute_by_skipping_single_gpu
+    - execute_single_gpu
+
+    :param DEVICE_TYPE:
+    :param deviceIds_LIST:
+    :return:
+    """
+    assert DEVICE_TYPE in ['gpu', 'cpu']
+    assert len(deviceIds_LIST) > 0
+
+    if len(deviceIds_LIST) == 1:
+        return [deviceIds_LIST[0]]
+    if execute_single_gpu_only:
+        return [deviceIds_LIST[0]]
+    if execute_for_efficiency_max_num_devices:
         return [deviceIds_LIST[0], ' '.join(deviceIds_LIST)]
+    if not execute_for_efficiency_max_num_devices:
+        DEVICE_SET_LIST = [deviceIds_LIST[0]]
+        offset = 1
+        if execute_by_skipping_single_gpu:
+            DEVICE_SET_LIST = [deviceIds_LIST[0] + ' ' + deviceIds_LIST[1]]
+            offset = 2
+        for DEVICE in deviceIds_LIST[offset:]:
+            # take a copy of the last element in the list and append the new device
+            # add the combine sequence of ids to the list
+            DEVICE_SET_LIST.append(DEVICE_SET_LIST[-1] + ' ' + DEVICE)
+        return DEVICE_SET_LIST
 
 
 def printProgressBar(value, label):
@@ -73,6 +95,7 @@ def printProgressBar(value, label):
 
     sys.stdout.write(f"{label.ljust(10)} | [{bar:{n_bar}s}] {int(100 * j)}% ")
     sys.stdout.flush()
+
 
 
 def countAll():
