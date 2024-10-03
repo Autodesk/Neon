@@ -1,9 +1,9 @@
 deviceType_LIST = 'gpu'.split()
 deviceIds_LIST = "0 1 2 3 4 5 6 7".split()
 grid_LIST = "dGrid dGridDisg".split()
-domainSize_LIST = "64 80 96 112 128 144 160 176 192 208 224 240 256 272 288 304 320 336 352 368 384 400 416 432 448 464 480 496 512".split()
-computeFP_LIST = "double float".split()
-storageFP_LIST = "double float".split()
+domainSize_LIST = "352 368 384 400 416 432 448 464 480 496 512".split()
+computeFP_LIST = "double".split()
+storageFP_LIST = "double".split()
 occ_LIST = "standard".split()
 transferMode_LIST = "get".split()
 stencilSemantic_LIST = "lattice".split()
@@ -13,8 +13,8 @@ streamingMethod_LIST = "pull".split()
 lattice_LIST = "d3q19 d3q27".split()
 
 warmupIter_INT = 10
-repetitions_INT = 5
-maxIter_INT = 10000
+repetitions_INT = 3
+maxIter_INT = 5000
 
 execute_for_efficiency_max_num_devices = False
 execute_by_skipping_single_gpu = False

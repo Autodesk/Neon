@@ -58,3 +58,5 @@ docs/doxygen/latex/
 !apps/lbmMultiRes/sphere3.obj
 
 release/
+
+benchmarks/lbm/checkpoint.txt
