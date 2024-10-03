@@ -293,7 +293,7 @@ with (open(command + '.log', 'w') as fp):
             fp.write("\n-------------------------------------------\n")
             fp.flush()
             print(' '.join(commandList))
-            # subprocess.run(commandList, text=True, stdout=fp)
+            subprocess.run(commandList, text=True, stdout=fp)
 
             # if counter == 5:
             #     exit(99)
