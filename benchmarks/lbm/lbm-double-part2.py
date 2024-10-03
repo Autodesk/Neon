@@ -13,8 +13,8 @@ streamingMethod_LIST = "pull".split()
 lattice_LIST = "d3q19 d3q27".split()
 
 warmupIter_INT = 10
-repetitions_INT = 3
-maxIter_INT = 5000
+repetitions_INT = 1
+maxIter_INT = 10000
 
 execute_for_efficiency_max_num_devices = False
 execute_by_skipping_single_gpu = False
