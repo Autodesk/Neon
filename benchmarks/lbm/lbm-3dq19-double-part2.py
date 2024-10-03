@@ -10,7 +10,7 @@ stencilSemantic_LIST = "lattice".split()
 spaceCurve_LIST = "sweep".split()
 collision_LIST = "bgk".split()
 streamingMethod_LIST = "pull".split()
-lattice_LIST = "d3q19 d3q27".split()
+lattice_LIST = "d3q19".split()
 
 warmupIter_INT = 10
 repetitions_INT = 1

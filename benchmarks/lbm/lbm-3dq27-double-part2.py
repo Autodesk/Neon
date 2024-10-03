@@ -1,7 +1,7 @@
 deviceType_LIST = 'gpu'.split()
 deviceIds_LIST = "0 1 2 3 4 5 6 7".split()
 grid_LIST = "dGrid dGridDisg".split()
-domainSize_LIST = "64 80 96 112 128 144 160 176 192 208 224 240 256 272 288 304 320 336".split()
+domainSize_LIST = "352 368 384 400 416 432 448 464 480 496 512".split()
 computeFP_LIST = "double".split()
 storageFP_LIST = "double".split()
 occ_LIST = "standard".split()
@@ -10,7 +10,7 @@ stencilSemantic_LIST = "lattice".split()
 spaceCurve_LIST = "sweep".split()
 collision_LIST = "bgk".split()
 streamingMethod_LIST = "pull".split()
-lattice_LIST = "d3q19 d3q27".split()
+lattice_LIST = "d3q27".split()
 
 warmupIter_INT = 10
 repetitions_INT = 1
