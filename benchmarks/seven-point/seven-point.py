@@ -189,14 +189,10 @@ config_space.add(deviceIds_LIST)
 config_space.add(grid_LIST)
 config_space.add(domainSize_LIST)
 config_space.add(computeFP_LIST)
-config_space.add(storageFP_LIST)
+config_space.add(dimSpace_LIST)
 config_space.add(occ_LIST)
 config_space.add(transferMode_LIST)
-config_space.add(stencilSemantic_LIST)
 config_space.add(spaceCurve_LIST)
-config_space.add(collision_LIST)
-config_space.add(streamingMethod_LIST)
-config_space.add(lattice_LIST)
 
 counter = 0
 command = './seven-point'
