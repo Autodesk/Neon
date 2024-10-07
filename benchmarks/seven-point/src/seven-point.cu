@@ -65,12 +65,12 @@ auto filterBySpaceDim(Config&            config,
                           std::stringstream& testCode)
 {
     if (config.dimSpaceStr == "2D") {
-        testCode << "_2D";
+        testCode << "_spaceDim2D";
         using P = Parameters<2, 2, typename P_::Grid,  typename P_::Type>;
         return runFilterComputeType<P>(config, report, testCode);
     }
     if (config.dimSpaceStr == "3D") {
-        testCode << "_3D";
+        testCode << "_spaceDim3D";
         using P = Parameters<3, 3, typename P_::Grid, typename P_::Type>;
         return runFilterComputeType<P>(config, report, testCode);
     }

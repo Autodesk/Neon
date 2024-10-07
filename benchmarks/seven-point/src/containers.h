@@ -20,43 +20,40 @@ struct ContainerFactory
     {
         auto g = fin.getGrid();
         auto c = g.newContainer("iteration",
-            [=](Neon::set::Loader& loader) {
+                                [=](Neon::set::Loader& loader) {
+                                    auto       pin = loader.load(fin, Neon::Pattern::STENCIL);
+                                    auto       pout = loader.load(fout, Neon::Pattern::MAP);
+                                    const Type invh2 = Type(1.0) / (stepSize * stepSize);
 
-                auto pin = loader.load(fin, Neon::Pattern::STENCIL);
-                auto pout = loader.load(fout, Neon::Pattern::MAP);
-                const Type invh2 = Type (1.0) / (stepSize * stepSize);
 
+                                    return
+                                        [pin, invh2, pout] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& gidx) mutable -> void {
+                                            auto partial = Type(0);
+                                            //printf(".");
+                                            int  numNeighb = 0;
+                                            int  card = 0;
+                                            Type sum = 0;
+                                            for (; card < fieldCard; card++) {
+                                                const Type center = pin(gidx, card);
 
-                return
-                    [pin,invh2] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& gidx) mutable -> void {
-                        auto partial = Type(0);
-                        if constexpr (spaceDim == 3) {
+                                                Neon::ConstexprFor<0, S::numNgh, 1>(
+                                                    [&](auto q) -> void {
+                                                        Neon::domain::NghData<Type> neighbor =
+                                                            pin.template getNghData<S::template getOffset<q, 0>(),
+                                                                                    S::template getOffset<q, 1>(),
+                                                                                    S::template getOffset<q, 2>()>(gidx, card, Type(0));
 
-                            int  numNeighb = 0;
-                            int  card = 0;
-                            Type sum = 0;
-                            for (; card < fieldCard; card++) {
-                                const Type center = pin(gidx, card);
+                                                        if (neighbor.isValid()) {
+                                                            ++numNeighb;
+                                                            sum += neighbor.getData();
+                                                        }
 
-                                Neon::ConstexprFor<0, 6, 1>(
-                                    [&](auto q) -> void {
-                                        Neon::domain::NghData<Type> neighbor =
-                                            pin.template getNghData<S::template getOffset<q, 0>(),
-                                                                                                       S::template getOffset<q, 1>(),
-                                                                                                       S::template getOffset<q, 2>()>(gidx, card, Type(0));
-
-                                        if (neighbor.isValid) {
-                                            ++numNeighb;
-                                            sum += neighbor.value;
-                                        }
-
-                                        return;
-                                    });
-                                out(gidx, card) = (-sum + static_cast<Type>(numNeighb) * center) * invh2;
-                            };
-                        }
-                    };
-            });
+                                                        return;
+                                                    });
+                                                pout(gidx, card) = (-sum + static_cast<Type>(numNeighb) * center) * invh2;
+                                            };
+                                        };
+                                });
         return c;
     }
 };
