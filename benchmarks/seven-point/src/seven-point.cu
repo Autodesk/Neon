@@ -67,12 +67,12 @@ auto filterBySpaceDim(Config&            config,
     if (config.dimSpaceStr == "2D") {
         testCode << "_2D";
         using P = Parameters<2, 2, typename P_::Grid,  typename P_::Type>;
-        return run<P>(config, report, testCode);
+        return runFilterComputeType<P>(config, report, testCode);
     }
     if (config.dimSpaceStr == "3D") {
         testCode << "_3D";
         using P = Parameters<3, 3, typename P_::Grid, typename P_::Type>;
-        return run<P>(config, report, testCode);
+        return runFilterComputeType<P>(config, report, testCode);
     }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
@@ -101,7 +101,7 @@ auto run(Config&            config,
         testCode << "_dGridDisg";
         using Grid = Neon::domain::details::disaggregated::dGrid::dGrid;
         using P = Parameters<0, 0, Grid,  nullptr_t>;
-        return details::runFilterComputeType<P>(config, report, testCode);
+        return details::filterBySpaceDim<P>(config, report, testCode);
     }
     NEON_THROW_UNSUPPORTED_OPERATION("Unknown grid type: " + config.gridType);
 }
