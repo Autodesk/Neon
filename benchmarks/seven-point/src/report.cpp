@@ -31,6 +31,7 @@ Report::Report(const Config& c)
     c.spaceCurveCli.addToReport(mReport);
 
     mReport.addMember("computeTypeStr", c.computeTypeStr);
+    mReport.addMember("dimSpace", c.dimSpaceStr);
 
 }
 
