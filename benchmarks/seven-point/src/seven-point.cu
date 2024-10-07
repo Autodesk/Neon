@@ -95,7 +95,7 @@ auto run(Config&            config,
         testCode << "_dGrid";
         using Grid = Neon::dGrid;
         using P = Parameters<0, 0, Grid,  nullptr_t>;
-        return details::runFilterComputeType<P>(config, report, testCode);
+        return details::filterBySpaceDim<P>(config, report, testCode);
     }
     if (config.gridType == "dGridDisg") {
         testCode << "_dGridDisg";
