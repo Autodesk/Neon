@@ -86,17 +86,7 @@ class Config_space:
         return counter
 
     def __filtering(self):
-        new_configurations = []
-        for conf in self.configurations:
-            if conf['collision'] == 'kbc' and conf['lattice'] != 'd3q27':
-                continue
-            if conf['streamingMethod'] != 'pull' and len(conf['deviceIds']) != 1:
-                continue
-            if conf['storageFP'] == 'double' and conf['computeFP'] == 'float':
-                continue
-            if conf['storageFP'] == 'float' and conf['computeFP'] == 'double':
-                continue
-            new_configurations.append(conf)
+        pass
 
     def __expand_device_sets(self):
         """
