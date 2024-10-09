@@ -22,7 +22,7 @@ class dGrid(object):
             self, backend: Backend = None,
             dim: Index_3d = Index_3d(10, 10, 10),
             sparsity: np.ndarray = None,
-            stencil: List[List[int]] = None
+            stencil: List[List[int]] = []
     ):
         """
         Initializes a dGrid object.

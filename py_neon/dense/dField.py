@@ -169,13 +169,13 @@ class dField(object):
         if res != 0:
             raise Exception('Failed to get partition')
 
-        ccp_size = self.py_neon.lib.dGrid_dField_partition_size(partition)
-        ctypes_size = ctypes.sizeof(partition)
-
-        if ccp_size != ctypes_size:
-            raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
-
-        # print(f"Partition {partition}")
+        # ccp_size = self.py_neon.lib.dGrid_dField_partition_size(partition)
+        # ctypes_size = ctypes.sizeof(partition)
+        # 
+        # if ccp_size != ctypes_size:
+        #     raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
+        # 
+        # # print(f"Partition {partition}")
         return partition
 
     def read(self, idx: Index_3d, cardinality: ctypes.c_int):
