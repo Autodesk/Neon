@@ -31,10 +31,11 @@ class Index_3d(ctypes.Structure):
         return (self.x, self.y, self.z)
 
     def __str__(self):
-        str = "<Index_3d: addr=%ld>" % (ctypes.addressof(self))
-        str += f"\n\tx: {self.x}"
-        str += f"\n\ty: {self.y}"
-        str += f"\n\tz: {self.z}"
+        str = f"({self.x}, "
+        str += f"{self.y}, "
+        str += f"{self.z})"
+        str += "<Index_3d: addr=%ld>" % (ctypes.addressof(self))
+
         return str
 
     def __eq__(self, other):

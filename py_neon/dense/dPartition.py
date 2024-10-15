@@ -44,29 +44,30 @@ class dPartitionGeneric(ctypes.Structure):
         return [offsets[i] for i in range(length.value)]
 
     def __str__(self):
-        str = f"<dPartition: addr={ctypes.addressof(self):#x}>"
-        str += f"\n\tdataView: {self.mDataView} (offset: {dPartitionInt.mDataView.offset})"
-        str += f"\n\tmDim: {self.mDim} (offset: {dPartitionInt.mDim.offset})"
-        str += f"\n\tmMem: {self.mMem} (offset: {dPartitionInt.mMem.offset})"
-        str += f"\n\tmZHaloRadius: {self.mZHaloRadius} (offset: {dPartitionInt.mZHaloRadius.offset})"
-        str += f"\n\tmZBoundaryRadius: {self.mZBoundaryRadius} (offset: {dPartitionInt.mZBoundaryRadius.offset})"
-        str += f"\n\tmPitch1: {self.mPitch1} (offset: {dPartitionInt.mPitch1.offset})"
-        str += f"\n\tmPitch2: {self.mPitch2} (offset: {dPartitionInt.mPitch2.offset})"
-        str += f"\n\tmPitch3: {self.mPitch3} (offset: {dPartitionInt.mPitch3.offset})"
-        str += f"\n\tmPitch4: {self.mPitch4} (offset: {dPartitionInt.mPitch4.offset})"
-        str += f"\n\tmPrtID: {self.mPrtID} (offset: {dPartitionInt.mPrtID.offset})"
-        str += f"\n\tmOrigin: {self.mOrigin} (offset: {dPartitionInt.mOrigin.offset})"
-        str += f"\n\tmCardinality: {self.mCardinality} (offset: {dPartitionInt.mCardinality.offset})"
-        str += f"\n\tmFullGridSize: {self.mFullGridSize} (offset: {dPartitionInt.mFullGridSize.offset})"
-        str += f"\n\tmPeriodicZ: {self.mPeriodicZ} (offset: {dPartitionInt.mPeriodicZ.offset})"
-        str += f"\n\tmStencil: {self.mStencil} (offset: {dPartitionInt.mStencil.offset})"
+        #str = f"<dPartition: addr={ctypes.addressof(self):#x}>"
+        str = f"<dPartition:>"
+        str += f"\n\tdataView: {self.mDataView.value} "
+        str += f"\n\tmDim: {self.mDim.__str__()}"
+        str += f"\n\tmMem: {self.mMem} "
+        str += f"\n\tmZHaloRadius: {self.mZHaloRadius}"
+        str += f"\n\tmZBoundaryRadius: {self.mZBoundaryRadius}"
+        # str += f"\n\tmPitch1: {self.mPitch1}"
+        # str += f"\n\tmPitch2: {self.mPitch2}"
+        # str += f"\n\tmPitch3: {self.mPitch3}"
+        # str += f"\n\tmPitch4: {self.mPitch4}"
+        str += f"\n\tmPrtID: {self.mPrtID}"
+        # str += f"\n\tmOrigin: {self.mOrigin}"
+        str += f"\n\tmCardinality: {self.mCardinality}"
+        # str += f"\n\tmFullGridSize: {self.mFullGridSize}"
+        # str += f"\n\tmPeriodicZ: {self.mPeriodicZ}"
+        # str += f"\n\tmStencil: {self.mStencil}"
         return str
     
     def get_offsets(self):
-        return [dPartitionInt.mDataView.offset, dPartitionInt.mDim.offset, dPartitionInt.mMem.offset, dPartitionInt.mZHaloRadius.offset, 
-                dPartitionInt.mZBoundaryRadius.offset, dPartitionInt.mPitch1.offset, dPartitionInt.mPitch2.offset, dPartitionInt.mPitch3.offset, 
-                dPartitionInt.mPitch4.offset, dPartitionInt.mPrtID.offset, dPartitionInt.mOrigin.offset, dPartitionInt.mCardinality.offset, 
-                dPartitionInt.mFullGridSize.offset, dPartitionInt.mPeriodicZ.offset, dPartitionInt.mStencil.offset]
+        return [dPartitionGeneric.mDataView.offset, dPartitionGeneric.mDim.offset, dPartitionGeneric.mMem.offset, dPartitionGeneric.mZHaloRadius.offset, 
+                dPartitionGeneric.mZBoundaryRadius.offset, dPartitionGeneric.mPitch1.offset, dPartitionGeneric.mPitch2.offset, dPartitionGeneric.mPitch3.offset, 
+                dPartitionGeneric.mPitch4.offset, dPartitionGeneric.mPrtID.offset, dPartitionGeneric.mOrigin.offset, dPartitionGeneric.mCardinality.offset, 
+                dPartitionGeneric.mFullGridSize.offset, dPartitionGeneric.mPeriodicZ.offset, dPartitionGeneric.mStencil.offset]
 
 def factory_dPartition(mem_type):
     """
@@ -127,6 +128,7 @@ def factory_dPartition(mem_type):
             '__init__': dPartitionGeneric.__init__,
             '_help_load_api': dPartitionGeneric._help_load_api,
             'get_cpp_field_offsets': dPartitionGeneric.get_cpp_field_offsets,
+            '__str__': dPartitionGeneric.__str__,
         }
     )
 
