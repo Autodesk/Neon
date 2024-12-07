@@ -1,7 +1,7 @@
 #include "Neon/core/tools/clipp.h"
 
-//#define BGK
-#define KBC
+#define BGK
+//#define KBC
 
 #include "Neon/Neon.h"
 #include "Neon/Report.h"
