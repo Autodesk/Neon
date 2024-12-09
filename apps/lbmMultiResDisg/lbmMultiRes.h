@@ -429,7 +429,7 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
     report.addMember("ENumVoxels", gridDim.rMul());
 
     //output
-    report.write("MultiResLBM_disg" + reportSuffix(), true);
+    report.write("MultiResLBM_disag_" + reportSuffix(), true);
 
     //post process
     if (!params.benchmark) {
