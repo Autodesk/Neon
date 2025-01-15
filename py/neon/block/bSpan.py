@@ -2,33 +2,31 @@ import copy
 import ctypes
 from enum import Enum
 from neon import neon
-
+import warp as wp
 from neon import DataView
 
 class bSpan(ctypes.Structure):
     _fields_ = [
-        ("vtablePtr", ctypes.c_uint64),
         ("mFirstDataBlockOffset", ctypes.c_uint32),
         ("mActiveMask", ctypes.POINTER(ctypes.c_uint32)),
         ("mDataView", DataView)
     ]
 
     def __init__(self):
-        try:
-            self.neon: neon.Gate = neon.Gate()        except Exception as e:
-            self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
-            raise Exception('Failed to initialize PyNeon: ' + str(e))
+        self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
+        self.neon: neon.Gate = neon.Gate()
         self._help_load_api()
 
     def _help_load_api(self):
-        self.neon.lib.bGrid_bSpan_get_member_field_offsets.argtypes = [ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_size_t)]
-        self.neon.lib.bGrid_bSpan_get_member_field_offsets.restype = None
+        pass
+        # self.neon.lib.bGrid_bSpan_get_member_field_offsets.argtypes = [ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_size_t)]
+        # self.neon.lib.bGrid_bSpan_get_member_field_offsets.restype = None
 
-    def get_cpp_field_offsets(self):
-        length = ctypes.c_size_t()
-        offsets = (ctypes.c_size_t * 3)()  # Assuming there are 3 offsets
-        self.neon.lib.bGrid_bSpan_get_member_field_offsets(offsets, ctypes.byref(length))
-        return [offsets[i] for i in range(length.value)]
+    # def get_cpp_field_offsets(self):
+    #     length = ctypes.c_size_t()
+    #     offsets = (ctypes.c_size_t * 3)()  # Assuming there are 3 offsets
+    #     self.neon.lib.bGrid_bSpan_get_member_field_offsets(offsets, ctypes.byref(length))
+    #     return [offsets[i] for i in range(length.value)]
 
 
     def __str__(self):
@@ -38,9 +36,14 @@ class bSpan(ctypes.Structure):
         str_repr += f"\n\tmDataView: {self.mDataView} (offset: {bSpan.mDataView.offset})"
         return str_repr
     
-    def get_offsets(self):
-        return [bSpan.mFirstDataBlockOffset.offset, bSpan.mActiveMask.offset, bSpan.mDataView.offset]
+    # def get_offsets(self):
+    #     return [bSpan.mFirstDataBlockOffset.offset, bSpan.mActiveMask.offset, bSpan.mDataView.offset]
 
     @staticmethod
     def fields_():
         return bSpan._fields_
+
+    @staticmethod
+    def register_builtins():
+        # register type
+        wp.types.add_type(bSpan, native_name="NeonBlockSpan", has_binary_ctor=True)

@@ -19,11 +19,8 @@ class dSpan(ctypes.Structure):
     ]
 
     def __init__(self):
-        try:
-            self.neon_gate: neon.Gate = neon.Gate()
-        except Exception as e:
-            self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
-            raise Exception('Failed to initialize PyNeon: ' + str(e))
+        self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
+        self.neon_gate: neon.Gate = neon.Gate()
         self._help_load_api()
 
     def _help_load_api(self):
