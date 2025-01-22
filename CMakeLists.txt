@@ -97,6 +97,7 @@ add_subdirectory("libNeonSkeleton")
 add_subdirectory("tutorials")
 add_subdirectory("apps")
 add_subdirectory("benchmarks")
+add_subdirectory("utils")
 
 
 #-------------------------------------------------------------------#
