@@ -1,4 +1,5 @@
 #pragma once
+#if !defined(NEON_WARP_COMPILATION)
 
 #include "Neon/core/core.h"
 
@@ -223,3 +224,4 @@ std::ostream& operator<<(std::ostream& os, DeviceInterface const& m);
 
 }  // namespace sys
 }  // End of namespace Neon
+#endif

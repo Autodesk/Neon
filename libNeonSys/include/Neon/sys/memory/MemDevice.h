@@ -1,6 +1,7 @@
 #pragma once
-
+#if !defined(NEON_WARP_COMPILATION)
 #include <atomic>
+#endif
 
 #include "Neon/core/core.h"
 #include "Neon/core/tools/io/exportVTI.h"

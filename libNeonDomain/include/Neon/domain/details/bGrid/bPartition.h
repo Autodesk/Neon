@@ -1,16 +1,24 @@
 #pragma once
 
 #include "Neon/domain/details/bGrid/bIndex.h"
+#include "Neon/domain/details/eGrid/eIndex.h"
 #include "Neon/domain/details/bGrid/bSpan.h"
-
 #include "Neon/domain/interface/NghData.h"
-
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
 namespace Neon::domain::details::bGrid {
 
 template <typename SBlock>
 class bSpan;
+
+#if defined(NEON_WARP_COMPILATION)
+namespace warp_compilation {
+struct BlockViewGrid
+{
+   using Idx = Neon::domain::details::eGrid::eIndex;
+};
+}
+#endif
 
 template <typename T, int C, typename SBlock>
 class bPartition
@@ -22,8 +30,13 @@ class bPartition
     using Type = T;
     using NghData = Neon::domain::NghData<T>;
 
+#if !defined(NEON_WARP_COMPILATION)
     using BlockViewGrid = Neon::domain::tool::GridTransformer<details::GridTransformation>::Grid;
     using BlockViewGridIdx = BlockViewGrid::Idx;
+#else
+    using BlockViewGridIdx = warp_compilation::BlockViewGrid::Idx;
+#endif
+
 
    public:
     bPartition();
@@ -99,6 +112,8 @@ class bPartition
                T          defaultValue)
         const -> NghData;
 
+#if !defined(NEON_WARP_COMPILATION)
+
     template <int xOff,
               int yOff,
               int zOff,
@@ -110,6 +125,7 @@ class bPartition
                LambdaVALID    funIfValid,
                LambdaNOTValid funIfNOTValid = nullptr)
         const -> std::enable_if_t<std::is_invocable_v<LambdaVALID, T> && (std::is_invocable_v<LambdaNOTValid, T> || std::is_same_v<LambdaNOTValid, void*>), void>;
+#endif
 
     template <int xOff,
               int yOff,
@@ -155,10 +171,11 @@ class bPartition
     helpGetValidIdxPitchExplicit(const Idx& idx, int card)
         const -> uint32_t;
 
+#if !defined(NEON_WARP_COMPILATION)
     NEON_CUDA_HOST_DEVICE inline auto
     helpNghPitch(const Idx& nghIdx, int card)
         const -> std::tuple<bool, uint32_t>;
-
+#endif
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetNghIdx(const Idx& idx, const NghIdx& offset)
         const -> Idx;

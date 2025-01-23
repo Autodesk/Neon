@@ -1,6 +1,6 @@
 #pragma once
 
-#include "bGrid/bSpan.h"
+#include "Neon/core/core.h"
 
 namespace Neon::domain::details {
 
@@ -102,5 +102,6 @@ struct StaticBlock
         BitMaskWordType bits[nWords];
     };
 };
-
+constexpr int StaticBlockSizeDefault = 4;
+using StaticBlockDefault = StaticBlock<StaticBlockSizeDefault, StaticBlockSizeDefault, StaticBlockSizeDefault>;
 }  // namespace Neon::domain::details

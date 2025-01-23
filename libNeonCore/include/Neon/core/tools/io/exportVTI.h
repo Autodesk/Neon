@@ -1,10 +1,12 @@
 #pragma once
+#if !defined(NEON_WARP_COMPILATION)
 
-#include <algorithm>
-#include <cfloat>
-#include <cinttypes>
+//
+// #include <algorithm>
+// #include <cfloat>
+// #include <cinttypes>
 #include <fstream>
-#include <functional>
+//#include <functional>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -1157,3 +1159,4 @@ class vtiOutput_t
 }  // namespace internal
 
 }  // namespace Neon
+#endif

@@ -8,9 +8,9 @@
 
 namespace wp
 {
-// using NeonDenseSpan = ::Neon::domain::details::dGrid::dSpan;
+// using NeonBlockSpan = ::Neon::domain::details::dGrid::dSpan;
 
-class NeonBlockSpan : public ::Neon::domain::details::bGrid::bSpan
+class NeonBlockSpan : public ::Neon::domain::details::bGrid::bSpan<Neon::domain::details::bGrid::BlockDefault>
 {
 public:
 
@@ -26,35 +26,22 @@ public:
     {
     }
 };
-//
-//// print
-//CUDA_CALLABLE inline auto neon_print(const NeonDenseSpan& a) -> void
+
+CUDA_CALLABLE inline auto neon_set(NeonBlockSpan& span, bool& is_valid)
+ -> NeonBlockIdx
+{
+    NeonBlockIdx index;
+    using DummyType = int;
+    is_valid = span.setAndValidateGPUDevice(index);
+
+    return index;
+}
+
+//CUDA_CALLABLE inline auto neon_set(NeonBlockSpan& span, int x, int y, int z)
+// -> NeonBlockIdx
 //{
-//    Neon::index_3d dim = a.helpGetDim();
-////    printf("NeonDenseSpan(%d, %d, %d, {%d, %d, %d})\n",
-////        int(a.helpGetDataView()),
-////        a.helpGetZHaloRadius(),
-////        a.helpGetZBoundaryRadius(),
-////        dim.x, dim.y, dim.z);
-//}
-//
-//CUDA_CALLABLE inline auto neon_set(NeonDenseSpan& span, bool& is_valid)
-// -> NeonDenseIdx
-//{
-//    NeonDenseIdx index;
-//    using DummyType = int;
-//    is_valid = span.template setAndValidate_warp<DummyType>(index);
-//
-//    return index;
-//}
-//
-//CUDA_CALLABLE inline auto neon_set(NeonDenseSpan& span, int x, int y, int z)
-// -> NeonDenseIdx
-//{
-//    NeonDenseIdx index;
+//    NeonBlockIdx index;
 //    span.setAndValidate_warp(index, x,y,z);
 //    return index;
 //}
-
-
 }

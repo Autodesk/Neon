@@ -82,9 +82,15 @@ class bIndex
 
     using TrayIdx = MicroIndex::TrayIdx;
     using InTrayIdx = MicroIndex::InTrayIdx;
+#if !defined(NEON_WARP_COMPILATION)
 
     using DataBlockCount = std::make_unsigned_t<TrayIdx>;
     using DataBlockIdx = std::make_unsigned_t<TrayIdx>;
+#else
+    using DataBlockCount = TrayIdx;
+    using DataBlockIdx = TrayIdx;
+#endif
+
     using InDataBlockIdx = InTrayIdx;
 
     bIndex() = default;
@@ -138,5 +144,11 @@ NEON_CUDA_HOST_DEVICE auto bIndex<SBlock>::isActive() const -> bool
 }
 
 }  // namespace Neon::domain::details::bGrid
+
+#include "Neon/domain/details/StaticBlock.h"
+namespace Neon::domain::details::bGrid {
+constexpr int defaultBlockSize = ::Neon::domain::details::StaticBlockSizeDefault;
+using BlockDefault = ::Neon::domain::details::StaticBlockDefault;
+}
 
 #include "Neon/domain/details/bGrid/bIndex_imp.h"

@@ -29,8 +29,9 @@ class eIndex
     using Offset = int32_t;
     using InternalIdx = int32_t;
     using Count = int32_t;
+#if !defined(NEON_WARP_COMPILATION)
     using ePitch = Neon::Integer_2d<Offset>;
-
+#endif
     NEON_CUDA_HOST_DEVICE inline auto
     manualSet(InternalIdx idx) -> void;
 

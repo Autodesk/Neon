@@ -237,8 +237,6 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     std::shared_ptr<Data> mData;
 };
 
-constexpr int defaultBlockSize = 4;
-using BlockDefault = StaticBlock<defaultBlockSize, defaultBlockSize, defaultBlockSize>;
 extern template class bGrid<BlockDefault>;
 }  // namespace Neon::domain::details::bGrid
 

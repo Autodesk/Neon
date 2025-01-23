@@ -1,9 +1,10 @@
 import copy
 import ctypes
 from enum import Enum
-from neon import neon
 import warp as wp
+import neon
 from neon import DataView
+
 
 class bSpan(ctypes.Structure):
     _fields_ = [
@@ -47,3 +48,9 @@ class bSpan(ctypes.Structure):
     def register_builtins():
         # register type
         wp.types.add_type(bSpan, native_name="NeonBlockSpan", has_binary_ctor=True)
+        wp.context.add_builtin(
+            "neon_set",
+            input_types={"span": neon.block.bSpan, "is_valid": wp.bool},
+            value_type=neon.block.bIndex,
+            missing_grad=True,
+        )

@@ -1,5 +1,7 @@
+#if !defined(NEON_WARP_COMPILATION)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#endif
 #include "Neon/domain/details/bGrid/bSpan.h"
 
 namespace Neon::domain::details::bGrid {
@@ -67,4 +69,6 @@ inline void bSpan<SBlock>::getOffsets(size_t* offsets, size_t* length) {
 
 }  // namespace Neon::domain::details::bGrid
 
+#if !defined(NEON_WARP_COMPILATION)
 #pragma GCC diagnostic pop
+#endif

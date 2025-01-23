@@ -6,21 +6,28 @@ from neon.execution import Execution
 from .bSpan import bSpan
 from neon.index_3d import Index_3d
 import numpy as np
+from typing import List
 
 class bGrid(object):
-    def __init__(self, backend = None, dim = None, sparsity_pattern: np.ndarray = None):
+    def __init__(self,
+                 backend = None,
+                 dim = None,
+                 sparsity_pattern: np.ndarray = None,
+                 stencil: List[List[int]] = []                 ):
+        
         if sparsity_pattern is None:
             sparsity_pattern = np.ones((dim.x,dim.y,dim.z))
         if backend is None:
             # raise exception
-            raise Exception('dGrid: backend pamrameter is missing')
+            raise Exception('bGrid: backend pamrameter is missing')
         if sparsity_pattern.shape[0] != dim.x or sparsity_pattern.shape[1] != dim.y or sparsity_pattern.shape[2] != dim.z:
-            raise Exception('dGrid: sparsity_pattern\'s shape does not match the dim')
+            raise Exception('bGrid: sparsity_pattern\'s shape does not match the dim')
 
         self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
         self.backend = backend
         self.dim = dim
         self.sparsity_pattern = sparsity_pattern
+        self.stencil = stencil
 
         self._help_load_api()
         self._help_grid_new()
@@ -31,11 +38,8 @@ class bGrid(object):
         self._help_grid_delete()
 
     def _help_load_api(self):
-        try:
-            self.neon_gate: neon.Gate = neon.Gate()
-        except Exception as e:
-            self.grid_handle: ctypes.c_void_p = ctypes.c_void_p(0)
-            raise Exception('Failed to initialize PyNeon: ' + str(e))
+        self.neon_gate: neon.Gate = neon.Gate()
+        self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
         # grid_new
         lib = self.neon_gate.lib
         self.api_new = lib.bGrid_new
@@ -86,17 +90,24 @@ class bGrid(object):
 
 
     def _help_grid_new(self):
-        if self.backend.handle.value == 0:  # Check backend handle validity
-            raise Exception('bGrid: Invalid backend handle')
-
-        if self.handle.value != 0:  # Ensure the grid handle is uninitialized
+        if self.handle.value != None:  # Ensure the grid handle is uninitialized
             raise Exception('bGrid: Grid handle already initialized')
+
+        stencil_type = ctypes.c_int * (3*len(self.stencil))
+        stencil_array = stencil_type()
+        for s_idx, s in enumerate(self.stencil):
+            a_idx = s_idx * 3
+            stencil_array[a_idx] = s[0]
+            stencil_array[a_idx + 1] = s[1]
+            stencil_array[a_idx + 2] = s[2]
 
         sparsity_pattern_array = self.sparsity_pattern.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
         res = self.api_new(ctypes.pointer(self.handle),
-                           self.backend.handle,
+                           self.backend.backend_handle,
                            self.dim,
-                           sparsity_pattern_array)
+                           sparsity_pattern_array,
+                           len(self.stencil),
+                               stencil_array        )
         if res != 0:
             raise Exception('bGrid: Failed to initialize grid')
         print(f"bGrid initialized with handle {self.handle.value}")
@@ -116,31 +127,37 @@ class bGrid(object):
 
         return cpp_dim
 
-    def new_field(self, cardinality: ctypes.c_int) -> bField:
-        field = bField(self.handle, cardinality)
+    def new_field(self,
+                  cardinality: int,
+                  dtype) -> bField:
+        field = bField(neon_gate=self.neon_gate,
+                       grid_handle=self.handle,
+                       cardinality=cardinality,
+                       py_grid=self,
+                       dtype=dtype)
         return field
 
     def get_span(self,
                  execution: Execution,
-                 c: ctypes.c_int,
+                 dev_idx: int,
                  data_view: neon.DataView) -> bSpan:
         if self.handle == 0:
             raise Exception('bGrid: Invalid handle')
 
         span = bSpan()
         res = self.api_get_span(self.handle,
-                                ctypes.addressof(span),
+                                span,
                                 execution,
-                                c,
+                                dev_idx,
                                 data_view)
         if res != 0:
             raise Exception('Failed to get span')
-
-        cpp_size = self.api_span_size(span)
-        ctypes_size = ctypes.sizeof(span)
-
-        if cpp_size != ctypes_size:
-            raise Exception(f'Failed to get span: cpp_size {cpp_size} != ctypes_size {ctypes_size}')
+        #
+        # cpp_size = self.api_span_size(span)
+        # ctypes_size = ctypes.sizeof(span)
+        #
+        # if cpp_size != ctypes_size:
+        #     raise Exception(f'Failed to get span: cpp_size {cpp_size} != ctypes_size {ctypes_size}')
 
         return span
 
@@ -152,3 +169,9 @@ class bGrid(object):
         if idx.x < 0 or idx.y < 0 or idx.z < 0:
             raise Exception('can\'t access negative indices in mGrid') # @TODOMATT make sure that this is a valid requirement
         return self.neon_gate.lib.bGrid_is_inside_domain(ctypes.byref(self.handle), idx)
+
+    def get_backend(self):
+        return self.backend
+
+    def get_handle(self):
+        return self.handle

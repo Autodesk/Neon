@@ -30,8 +30,9 @@
 #include "BlockViewPartition.h"
 
 namespace Neon::domain::details::bGrid {
-
 namespace details {
+
+
 struct GridTransformation
 {
     template <typename T, int C>

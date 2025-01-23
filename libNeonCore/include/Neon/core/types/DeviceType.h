@@ -1,10 +1,13 @@
 #pragma once
+#if !defined(NEON_WARP_COMPILATION)
 
 #include <stdint.h>
 #include <array>
 #include <iostream>
 #include "Neon/core/tools/Report.h"
 #include "Neon/core/types/Execution.h"
+#endif
+
 namespace Neon {
 
 /**
@@ -19,6 +22,7 @@ enum struct DeviceType
     NONE = 4,
     NUM_USER_OPTIONS = 4 /** We don't count SYSTEM as USER option */
 };
+#if !defined(NEON_WARP_COMPILATION)
 
 struct DeviceTypeUtil
 {
@@ -50,5 +54,5 @@ struct DeviceTypeUtil
 };
 
 std::ostream& operator<<(std::ostream& os, Neon::DeviceType const& m);
-
+#endif
 }  // namespace Neon

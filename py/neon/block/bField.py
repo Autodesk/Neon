@@ -4,7 +4,7 @@ import neon
 import warp as wp
 
 
-# from .dPartition import dPartitionInt as dPartitionInt
+# from .bPartition import bPartitionInt as bPartitionInt
 
 
 class bField(object):
@@ -37,7 +37,7 @@ class bField(object):
     def _set_field_type(self):
         self.type_mapping = self.neon_gate.get_type_mapping(self.dtype)
         self.suffix = f'_{self.type_mapping["suffix"]}'
-        self.Partition_type = getattr(neon.dense.dPartition, f'dPartition{self.suffix}')
+        self.Partition_type = getattr(neon.block.bPartition, f'bPartition{self.suffix}')
 
 
     def _help_load_api(self):
@@ -100,12 +100,12 @@ class bField(object):
                                            ctypes.c_int]
         self.api_update_device.restype = ctypes.c_int
 
-        # export vti
-        self.api_export_vti = getattr(lib_obj, f'bGrid_bField_to_vti{self.suffix}')
-        self.api_export_vti.argtypes = [self.handle_type,
-                                           ctypes.c_char_p,
-                                           ctypes.c_char_p]
-        self.api_export_vti.restype = ctypes.c_int
+        # # export vti
+        # self.api_export_vti = getattr(lib_obj, f'bGrid_bField_to_vti{self.suffix}')
+        # self.api_export_vti.argtypes = [self.handle_type,
+        #                                    ctypes.c_char_p,
+        #                                    ctypes.c_char_p]
+        # self.api_export_vti.restype = ctypes.c_int
 
     def _help_field_new(self):
         if self.handle == 0:

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Neon/domain/details/bGrid/bGrid.h"
+// #include "Neon/domain/details/bGrid/bGrid.h"
 #include "Neon/domain/details/bGrid/bSpan.h"
 
 namespace Neon::domain::details::bGrid {
@@ -124,7 +124,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     uint32_t const pitch = blockAdnCardPitch + inBlockInCardPitch;
     return pitch;
 }
-
+#if !defined(NEON_WARP_COMPILATION)
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     helpNghPitch(const Idx& nghIdx, int card)
@@ -141,6 +141,7 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     auto const offset = helpGetValidIdxPitchExplicit(nghIdx, card);
     return {true, offset};
 }
+#endif
 
 template <typename T, int C, typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
@@ -390,8 +391,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     return result;
 }
 
-template <typename T, int C, typename SBlock>
+#if !defined(NEON_WARP_COMPILATION)
 
+template <typename T, int C, typename SBlock>
 template <int xOff,
           int yOff,
           int zOff,
@@ -419,6 +421,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     }
     return;
 }
+#endif
 
 template <typename T, int C, typename SBlock>
 template <int xOff, int yOff, int zOff>
