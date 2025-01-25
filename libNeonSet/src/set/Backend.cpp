@@ -6,9 +6,133 @@
 #include <thread>
 #include <tuple>
 #include <vector>
+#include "Neon/Neon.h"
 #include "Neon/set/DevSet.h"
 
 namespace Neon {
+
+
+void Backend::Data_t::Nccl::checkNccl(ncclResult_t result, const char* func)
+{
+    if (result != ncclSuccess) {
+        std::cerr << "NCCL error in " << func << ": " << ncclGetErrorString(result) << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, -1);
+    }
+}
+
+void Backend::Data_t::Nccl::checkCuda(cudaError_t result, const char* func)
+{
+    if (result != cudaSuccess) {
+        std::cerr << "CUDA error in " << func << ": " << cudaGetErrorString(result) << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, -1);
+    }
+}
+
+auto Backend::Data_t::Nccl::initMPI() -> void
+{
+    auto& data = *this;
+
+    MPI_Init(nullptr, nullptr);
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &data.worldRank);
+    MPI_Comm_size(MPI_COMM_WORLD, &data.worldSize);
+
+    {  // loca rank info
+        MPI_Comm local_comm;
+        MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &local_comm);
+        MPI_Comm_rank(local_comm, &data.localRank);
+        MPI_Comm_size(local_comm, &data.localSize);
+        MPI_Comm_free(&local_comm);
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    {  // Get the number of available GPUs
+        checkCuda(cudaGetDeviceCount(&data.numLocalDevices), "cudaGetDeviceCount");
+        std::cout << "MPI Rank " << data.worldRank
+                  << " using GPU " << data.localRank
+                  << " of " << data.numLocalDevices << std::endl;
+    }
+
+
+    if (data.sizeLocalRanks > data.numLocalDevices) {
+        std::cout << "error..." << std::endl;
+        MPI_Barrier(MPI_COMM_WORLD);
+        Neon::NeonException ex("distributed::Backend");
+        ex << "Unsupported configuration. At the moment we require the number of devices (";
+        ex << data.numLocalDevices;
+        ex << ") to be the same as the MPI rank per node";
+    } else {
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    std::cout << "MPI Rank " << data.worldRank
+              << "MPI init completed" << std::endl;
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+auto Backend::Data_t::Nccl::initNCCL() -> void
+{
+    auto& data = *this;
+    if (data.worldRank == 0) {
+        std::cout << "MPI rank 0 - ncclGetUniqueId " << std::endl;
+        ncclGetUniqueId(&(data.nccl_id));
+    }
+
+    // Broadcast NCCL ID from rank 0 to all other ranks
+    MPI_Bcast(&(data.nccl_id), sizeof(data.nccl_id), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // Initialize NCCL communicator
+    checkNccl(ncclCommInitRank(&(data.nccl_comm),
+                               data.worldSize,
+                               data.nccl_id,
+                               data.worldRank),
+              "initNCCL");
+    std::cout << "NCCL initialized for rank " << data.worldRank << std::endl;
+}
+
+Backend::Data_t::Nccl::~Nccl()
+{
+    if (isDistributed()) {
+        finiNCCL();
+        finiMPI();
+    }
+    localRank = 0;
+    localSize = 0;
+    worldRank = 0;
+    worldSize = 0;
+    numLocalDevices = 0;
+}
+
+auto Backend::Data_t::Nccl::finiMPI() -> void
+{
+    std::cout << "MPI_Finalize" << std::endl;
+    MPI_Finalize();
+}
+
+auto Backend::Data_t::Nccl::finiNCCL() -> void
+{
+    ncclCommDestroy(nccl_comm);
+}
+
+auto Backend::Data_t::Nccl::isDistributed() const -> bool
+{
+    return worldSize > 1;
+}
+auto Backend::Data_t::Nccl::getWorldRank() const -> int
+{
+    return worldRank;
+}
+auto Backend::Data_t::Nccl::getWorldSize() const -> int
+{
+    return worldSize;
+}
+auto Backend::Data_t::Nccl::getLocalRank() const -> int
+{
+    return localRank;
+}
+auto Backend::Data_t::Nccl::getLocalSize() const -> int
+{
+    return localSize;
+}
 
 auto Backend::selfData() -> Data_t&
 {
@@ -29,13 +153,49 @@ Backend::Backend()
     selfData().eventSetVec = std::vector<Neon::set::GpuEventSet>(0);
 }
 
+Backend::Backend(Neon::Runtime runtime)
+{
+    m_data = std::make_shared<Data_t>();
+    Neon::init();
+    selfData().nccl.initMPI();
+
+    if (!selfData().nccl.isDistributed()) {
+        // We have only 1 process
+        // we are going to set Neon backend with no MPI support with all the available devices
+        int              numDevs = runtime == Neon::Runtime::openmp
+                                       ? 1
+                                       : Neon::sys::globalSpace::gpuSysObjStorage.numDevs();
+        std::vector<int> devIds;
+        for (int i = 0; i < numDevs; i++) {
+            devIds.push_back(i);
+        }
+        selfData().runtime = runtime;
+        selfData().devSet = std::make_shared<Neon::set::DevSet>(devType(), devIds);
+        selfData().streamSetVec.push_back(selfData().devSet->defaultStreamSet());
+        h_initFirstEvent();
+        assert(selfData().eventSetVec.size() == selfData().streamSetVec.size());
+        return;
+    } else {
+        std::vector<int> devIds;
+        devIds.push_back(selfData().nccl.getLocalRank());
+        selfData().runtime = runtime;
+        selfData().devSet = std::make_shared<Neon::set::DevSet>(devType(), devIds);
+        selfData().streamSetVec.push_back(selfData().devSet->defaultStreamSet());
+        h_initFirstEvent();
+        assert(selfData().eventSetVec.size() == selfData().streamSetVec.size());
+        devSet().setActiveDevContext(0);
+        selfData().nccl.initNCCL();
+        return;
+    }
+}
+
 Backend::Backend(int nGpus, Neon::Runtime runtime)
 {
+    m_data = std::make_shared<Data_t>();
     std::vector<int> devIds;
     for (int i = 0; i < nGpus; i++) {
         devIds.push_back(i);
     }
-    m_data = std::make_shared<Data_t>();
     selfData().runtime = runtime;
     selfData().devSet = std::make_shared<Neon::set::DevSet>(devType(), devIds);
     selfData().streamSetVec.push_back(selfData().devSet->defaultStreamSet());
@@ -87,6 +247,7 @@ Backend::Backend(const std::vector<int>&     devIds,
     h_initFirstEvent();
     assert(selfData().eventSetVec.size() == selfData().streamSetVec.size());
 }
+
 
 auto Backend::clone(Neon::Runtime runtime) -> Backend
 {
@@ -578,6 +739,11 @@ auto Backend::getDeviceCount() const -> int
     return m_data->devSet->setCardinality();
 }
 
+auto Backend::getNccl() const -> Data_t::Nccl&
+{
+    return m_data->nccl;
+}
+
 auto Backend::helpDeviceToDeviceTransferByte(int                     streamId,
                                              size_t                  bytes,
                                              Neon::set::TransferMode transferMode,
@@ -615,9 +781,14 @@ auto Backend::isLastDevice(Neon::SetIdx id) const -> bool
     return id.idx() == (deviceCount() - 1);
 }
 
+auto Backend::isDistributed() const -> bool
+{
+    return selfData().nccl.isDistributed();
+}
+
 auto Backend::countAvailableGpus() -> int32_t
 {
-    return  Neon::sys::globalSpace::gpuSysObjStorage.numDevs();
+    return Neon::sys::globalSpace::gpuSysObjStorage.numDevs();
 }
 
 }  // namespace Neon

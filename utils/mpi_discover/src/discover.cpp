@@ -1,7 +1,8 @@
 #include <mpi.h>
+#include <nccl.h>
 #include <iostream>
 #include "Neon/Neon.h"
-#include <nccl.h>
+#include "Neon/domain/details/ncclGrid/ncclGrid.h"
 #include "backend.h"
 /**
  * A simple tutorial demonstrating the use of staggered grid in Neon.
@@ -10,7 +11,12 @@
 
 int main(int /*argc*/, char** /*argv*/)
 {
-    Neon::distributed::Backend bk;
+    Neon::Backend                             bk(Neon::Runtime::stream);
+    Neon::domain::details::ncclGrid::ncclGrid grid(
+        bk,
+        Neon::int32_3d(128, 128, 128),
+        [&](Neon::index_3d const& /*idx*/) -> bool { return true; },
+        Neon::domain::Stencil::s7_Laplace_t());
 }
 
 #if 0

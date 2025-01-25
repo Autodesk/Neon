@@ -12,11 +12,28 @@ auto Backend::newDataSet()
 }
 
 template <typename T>
+auto Backend::newRankData()
+const -> Neon::set::DataSet<T>{
+    int  numRanks = getNccl().worldSize;
+    auto result = Neon::set::DataSet<T>(numRanks);
+    return result;
+}
+
+template <typename T>
 auto Backend::newDataSet(T const& val)
     const -> Neon::set::DataSet<T>
 {
     int  nDevs = getDeviceCount();
     auto result = Neon::set::DataSet<T>(nDevs, val);
+    return result;
+}
+
+template <typename T>
+auto Backend::newRankData(T const& val)
+    const -> Neon::set::DataSet<T>
+{
+    int  numRanks = getNccl().getWorldSize();
+    auto result = Neon::set::DataSet<T>(numRanks, val);
     return result;
 }
 
@@ -37,6 +54,16 @@ auto Backend::forEachDeviceSeq(const Lambda& lambda)
     int const nDevs = getDeviceCount();
     for (int i = 0; i < nDevs; i++) {
         lambda(Neon::SetIdx(i));
+    }
+}
+
+template <typename Lambda>
+auto Backend::forEachMPIRank(const Lambda& lambda)
+    const -> void
+{
+    int worldSize = selfData().nccl.getWorldSize();
+    for (int i = 0; i < worldSize; i++) {
+        lambda(i);
     }
 }
 

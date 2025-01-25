@@ -1,5 +1,6 @@
 #pragma once
-
+#include <mpi.h>
+#include <nccl.h>
 #include <functional>
 #include <future>
 #include <iostream>
@@ -41,8 +42,38 @@ class Backend
         std::vector<Neon::set::GpuEventSet> userEventSetVec;
 
         std::shared_ptr<Neon::set::DevSet> devSet;
+
+        struct Nccl
+        {
+            ~Nccl();
+            auto initMPI() -> void;
+            auto initNCCL() -> void;
+
+            auto isDistributed() const -> bool;
+            auto getWorldRank() const -> int;
+            auto getWorldSize() const -> int;
+            auto getLocalRank() const -> int;
+            auto getLocalSize() const -> int;
+
+           private:
+            auto finiMPI() -> void;
+            auto finiNCCL() -> void;
+            void checkNccl(ncclResult_t result, const char* func);
+            void checkCuda(cudaError_t result, const char* func);
+
+            int          worldRank;
+            int          worldSize;
+            ncclUniqueId nccl_id;
+            ncclComm_t   nccl_comm;
+            int          numLocalDevices;
+            int          sizeLocalRanks;
+            int          localRank = 0;
+            int          localSize = 0;
+        } nccl;
     };
+
     auto selfData() -> Data_t&;
+
     auto selfData() const -> const Data_t&;
 
     std::shared_ptr<Data_t> m_data;
@@ -58,43 +89,59 @@ class Backend
     Backend();
 
     /**
+     * Initialization with just the type of runtime
+     * For streaming it will use all available devices
+     * This is the only constructor that works with NCCL/MPI
+     */
+    explicit Backend(Neon::Runtime runtime /*! Type of runtime to use */);
+
+    /**
      * Creating a Backend object with the first nGpus devices.
      */
-    Backend(int           nGpus /*!   Number of devices. The devices are selected in the order specifies by CUDA */,
-            Neon::Runtime runtime /*! Type of runtime to use */);
+    explicit Backend(int           nGpus /*!   Number of devices. The devices are selected in the order specifies by CUDA */,
+                     Neon::Runtime runtime /*! Type of runtime to use */);
 
     /**
      *
      */
-    Backend(const std::vector<int>& devIds /*!  Vectors of device ids. There are CUDA device ids */,
-            Neon::Runtime           runtime /*! Type of runtime to use */);
+    explicit Backend(const std::vector<int>& devIds /*!  Vectors of device ids. There are CUDA device ids */,
+                     Neon::Runtime           runtime /*! Type of runtime to use */);
 
     /**
      *
      */
-    Backend(const Neon::set::DevSet& devSet,
-            Neon::Runtime);
+    explicit Backend(const Neon::set::DevSet& devSet,
+                     Neon::Runtime);
     /**
      *
      * @param streamSet
      */
-    Backend(const std::vector<int>&     devIds,
-            const Neon::set::StreamSet& streamSet);
+    explicit Backend(const std::vector<int>&     devIds,
+                     const Neon::set::StreamSet& streamSet);
 
     /**
      *
      * @param streamSet
      */
-    Backend(const Neon::set::DevSet&    devSet,
-            const Neon::set::StreamSet& streamSet);
+    explicit Backend(const Neon::set::DevSet&    devSet,
+                     const Neon::set::StreamSet& streamSet);
+
 
     template <typename T>
     auto newDataSet()
         const -> Neon::set::DataSet<T>;
 
     template <typename T>
+    auto newRankData()
+        const -> Neon::set::RankData<T>;
+
+    template <typename T>
     auto newDataSet(T const& val)
         const -> Neon::set::DataSet<T>;
+
+    template <typename T>
+    auto newRankData(T const& val)
+        const -> Neon::set::RankData<T>;
 
     template <typename T, typename Lambda>
     auto newDataSet(Lambda lambda)
@@ -108,8 +155,15 @@ class Backend
     auto forEachDevicePar(const Lambda& lambda)
         const -> void;
 
+    template <typename Lambda>
+    auto forEachMPIRank(const Lambda& lambda)
+        const -> void;
+
     auto getDeviceCount()
         const -> int;
+
+    auto getNccl()
+        const -> Data_t::Nccl&;
 
     auto clone(Neon::Runtime runtime = Neon::Runtime::system) -> Backend;
 
@@ -138,6 +192,9 @@ class Backend
         const
         -> bool;
 
+    auto isDistributed()
+        const
+        -> bool;
     /**
      * Returns the mode for the kernel lauch
      * @return
@@ -147,14 +204,14 @@ class Backend
         -> const Neon::Runtime&;
 
     template <typename T>
-    auto deviceToDeviceTransfer(int          streamId,
-                                size_t          nItems,
+    auto deviceToDeviceTransfer(int                     streamId,
+                                size_t                  nItems,
                                 Neon::set::TransferMode transferMode,
-                                Neon::SetIdx dstSet,
-                                T*           dstAddr,
-                                Neon::SetIdx srcSet,
-                                T const*     srcAddr)
-      const  -> void;
+                                Neon::SetIdx            dstSet,
+                                T*                      dstAddr,
+                                Neon::SetIdx            srcSet,
+                                T const*                srcAddr)
+        const -> void;
     /**
      * Run mode: sync/async
      */
@@ -302,8 +359,9 @@ class Backend
                                         char*                   dstAddr,
                                         Neon::SetIdx            srcSet,
                                         const char*             srcAddr)
-    const    -> void;
+        const -> void;
 };
+
 
 }  // namespace Neon
 
