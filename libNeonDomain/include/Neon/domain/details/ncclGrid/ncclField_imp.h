@@ -10,15 +10,15 @@ ncclField<T, C>::ncclField()
 }
 
 template <typename T, int C>
-ncclField<T, C>::ncclField(const std::string&                        fieldUserName,
-                     Neon::DataUse                             dataUse,
-                     const Neon::MemoryOptions&                memoryOptions,
-                     const Grid&                               grid,
-                     const Neon::set::DataSet<Neon::index_3d>& dims,
-                     int                                       zHaloRadius,
-                     Neon::domain::haloStatus_et::e            haloStatus,
-                     int                                       cardinality,
-                     Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset)
+ncclField<T, C>::ncclField(const std::string&                         fieldUserName,
+                           Neon::DataUse                              dataUse,
+                           const Neon::MemoryOptions&                 memoryOptions,
+                           const Grid&                                grid,
+                           const Neon::set::RankData<Neon::index_3d>& dimsRank,
+                           int                                        zHaloRadius,
+                           Neon::domain::haloStatus_et::e             haloStatus,
+                           int                                        cardinality,
+                           Neon::set::MemSet<Neon::int8_3d>&          stencilIdTo3dOffset)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "ncclField",
@@ -30,9 +30,9 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
 {
 
     // only works if dims in x and y direction for all partitions match
-    for (int i = 0; i < dims.size() - 1; ++i) {
-        for (int j = i + 1; j < dims.size(); ++j) {
-            if (dims[i].x != dims[j].x || dims[i].y != dims[j].y) {
+    for (int i = 0; i < dimsRank.size() - 1; ++i) {
+        for (int j = i + 1; j < dimsRank.size(); ++j) {
+            if (dimsRank[i].x != dimsRank[j].x || dimsRank[i].y != dimsRank[j].y) {
                 NeonException exc("ncclField_t");
                 exc << "New ncclField only works on partitioning along z axis.";
                 NEON_THROW(exc);
@@ -46,40 +46,40 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
     mData->cardinality = cardinality;
     mData->memoryOptions = memoryOptions;
     mData->grid = std::make_shared<Grid>(grid);
-    mData->haloStatus = (mData->grid->getDevSet().setCardinality() == 1)
-                            ? haloStatus_et::e::OFF
-                            : haloStatus;
+    mData->haloStatus = haloStatus_et::e::ON;
     const int haloRadius = mData->haloStatus == Neon::domain::haloStatus_et::ON ? zHaloRadius : 0;
     mData->zHaloDim = zHaloRadius;
+    const auto myRank = mData->grid->getBackend().getNccl().getWorldRank();
+    //const auto worldSize = mData->grid->getBackend().getNccl().getWorldSize();
 
-    Neon::set::DataSet<index_3d> origins = this->getGrid().getBackend().template newDataSet<index_3d>({0, 0, 0});
+    Neon::set::RankData<index_3d> originsRank = this->getGrid().getBackend().template newRankData<index_3d>({0, 0, 0});
     {  // Computing origins
-        origins.forEachSeq(
-            [&](Neon::SetIdx setIdx, Neon::index_3d& val) {
-                if (setIdx == 0) {
+        originsRank.forEachSeq(
+            [&](int idxRank, Neon::index_3d& val) {
+                if (idxRank == 0) {
                     val.z = 0;
                     return;
                 }
-                const Neon::SetIdx proceedingIdx = setIdx - 1;
-                val.z = origins[proceedingIdx].z + dims[proceedingIdx].z;
+                const auto proceedingRank = idxRank - 1;
+                val.z = originsRank[proceedingRank].z + dimsRank[proceedingRank].z;
             });
     }
 
     {  // Computing Pitch
         mData->pitch.forEachSeq(
-            [&](Neon::SetIdx setIdx, Neon::size_4d& pitch) {
+            [&]([[maybe_unused]] Neon::SetIdx setIdx, Neon::size_4d& pitch) {
                 switch (mData->memoryOptions.getOrder()) {
                     case MemoryLayout::structOfArrays: {
                         pitch.x = 1;
-                        pitch.y = pitch.x * dims[setIdx.idx()].x;
-                        pitch.z = pitch.y * dims[setIdx.idx()].y;
-                        pitch.w = pitch.z * (dims[setIdx.idx()].z + 2 * haloRadius);
+                        pitch.y = pitch.x * dimsRank[myRank].x;
+                        pitch.z = pitch.y * dimsRank[myRank].y;
+                        pitch.w = pitch.z * (dimsRank[myRank].z + 2 * haloRadius);
                         break;
                     }
                     case MemoryLayout::arrayOfStructs: {
                         pitch.x = mData->cardinality;
-                        pitch.y = pitch.x * dims[setIdx.idx()].x;
-                        pitch.z = pitch.y * dims[setIdx.idx()].y;
+                        pitch.y = pitch.x * dimsRank[myRank].x;
+                        pitch.z = pitch.y * dimsRank[myRank].y;
                         pitch.w = 1;
                         break;
                     }
@@ -99,23 +99,23 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
                 auto memoryFielncclPartition = mData->memoryField.getPartition(execution, setIdx, Neon::DataView::STANDARD);
 
                 partition = ncclPartition<T, C>(dw,
-                                             memoryFielncclPartition.mem(),
-                                             dims[setIdx],
-                                             haloRadius,
-                                             mData->zHaloDim,
-                                             mData->pitch[setIdx],
-                                             setIdx.idx(),
-                                             origins[setIdx],
-                                             mData->cardinality,
-                                             mData->grid->getDimension(),
-                                             stencilIdTo3dOffset.rawMem(execution, setIdx));
+                                                memoryFielncclPartition.mem(),
+                                                dimsRank[myRank],
+                                                haloRadius,
+                                                mData->zHaloDim,
+                                                mData->pitch[setIdx],
+                                                setIdx.idx(),
+                                                originsRank[myRank],
+                                                mData->cardinality,
+                                                mData->grid->getDimension(),
+                                                stencilIdTo3dOffset.rawMem(execution, setIdx));
             });
     }
 
     {  // Setting Reduction information
         mData->partitionTable.forEachConfigurationWithUserData(
             [&](Neon::Execution,
-                Neon::SetIdx   setIdx,
+                [[maybe_unused]] Neon::SetIdx   setIdx,
                 Neon::DataView dw,
                 typename Self::Partition&,
                 typename Data::ReductionInformation& reductionInfo) {
@@ -125,7 +125,7 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
                         if (grid.getBackend().devSet().setCardinality() == 1) {
                             // As the number of devices is 1, we don't have halos.
                             reductionInfo.startIDByView.push_back(0);
-                            reductionInfo.nElementsByView.push_back(int(dims[setIdx.idx()].rMul()));
+                            reductionInfo.nElementsByView.push_back(int(dimsRank[myRank].rMul()));
                         } else {
                             switch (mData->memoryOptions.getOrder()) {
                                 case MemoryLayout::structOfArrays: {
@@ -133,9 +133,9 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
                                         // To compute the start point we need to
                                         // jump the previous cardinalities -> c * dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + 2 * haloRadius)
                                         // jump one halo -> dims[setIdx].x * dims[setIdx].y * haloRadius
-                                        int const startPoint = c * dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + 2 * haloRadius) +
-                                                               dims[setIdx].x * dims[setIdx].y * haloRadius;
-                                        int const nElements = dims[setIdx].rMul();
+                                        int const startPoint = c * dimsRank[myRank].x * dimsRank[myRank].y * (dimsRank[myRank].z + 2 * haloRadius) +
+                                                               dimsRank[myRank].x * dimsRank[myRank].y * haloRadius;
+                                        int const nElements = dimsRank[myRank].rMul();
 
                                         reductionInfo.startIDByView.push_back(startPoint);
                                         reductionInfo.nElementsByView.push_back(nElements);
@@ -143,8 +143,8 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
                                     break;
                                 }
                                 case MemoryLayout::arrayOfStructs: {
-                                    int const startPoint = dims[setIdx].x * dims[setIdx].y * haloRadius * mData->cardinality;
-                                    int const nElements = dims[setIdx].x * dims[setIdx].y * dims[setIdx].z * mData->cardinality;
+                                    int const startPoint = dimsRank[myRank].x * dimsRank[myRank].y * haloRadius * mData->cardinality;
+                                    int const nElements = dimsRank[myRank].x * dimsRank[myRank].y * dimsRank[myRank].z * mData->cardinality;
 
                                     reductionInfo.startIDByView.push_back(startPoint);
                                     reductionInfo.nElementsByView.push_back(nElements);
@@ -162,10 +162,10 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
                                     for (int c = 0; c < mData->cardinality; ++c) {
 
                                         auto const boundaryRadius = mData->zHaloDim;
-                                        int const  startPoint = c * dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + 2 * haloRadius) +
-                                                               dims[setIdx].x * dims[setIdx].y * (haloRadius + boundaryRadius);
+                                        int const  startPoint = c * dimsRank[myRank].x * dimsRank[myRank].y * (dimsRank[myRank].z + 2 * haloRadius) +
+                                                               dimsRank[myRank].x * dimsRank[myRank].y * (haloRadius + boundaryRadius);
 
-                                        int const nElements = dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z - 2 * haloRadius);
+                                        int const nElements = dimsRank[myRank].x * dimsRank[myRank].y * (dimsRank[myRank].z - 2 * haloRadius);
 
                                         reductionInfo.startIDByView.push_back(startPoint);
                                         reductionInfo.nElementsByView.push_back(nElements);
@@ -174,8 +174,8 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
                                 }
                                 case MemoryLayout::arrayOfStructs: {
                                     auto const boundaryRadius = mData->zHaloDim;
-                                    int const  startPoint = dims[setIdx].x * dims[setIdx].y * (haloRadius + boundaryRadius) * mData->cardinality;
-                                    int const  nElements = dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z - 2 * haloRadius) * mData->cardinality;
+                                    int const  startPoint = dimsRank[myRank].x * dimsRank[myRank].y * (haloRadius + boundaryRadius) * mData->cardinality;
+                                    int const  nElements = dimsRank[myRank].x * dimsRank[myRank].y * (dimsRank[myRank].z - 2 * haloRadius) * mData->cardinality;
 
                                     reductionInfo.startIDByView.push_back(startPoint);
                                     reductionInfo.nElementsByView.push_back(nElements);
@@ -193,9 +193,9 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
                                     for (int c = 0; c < mData->cardinality; ++c) {
                                         {  // up
                                             auto const boundaryRadius = mData->zHaloDim;
-                                            int const  startPoint = c * dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + 2 * haloRadius) +
-                                                                   dims[setIdx].x * dims[setIdx].y * haloRadius;
-                                            int const nElements = dims[setIdx].x * dims[setIdx].y * boundaryRadius;
+                                            int const  startPoint = c * dimsRank[myRank].x * dimsRank[myRank].y * (dimsRank[myRank].z + 2 * haloRadius) +
+                                                                   dimsRank[myRank].x * dimsRank[myRank].y * haloRadius;
+                                            int const nElements = dimsRank[myRank].x * dimsRank[myRank].y * boundaryRadius;
 
                                             reductionInfo.startIDByView.push_back(startPoint);
                                             reductionInfo.nElementsByView.push_back(nElements);
@@ -203,9 +203,9 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
 
                                         {  // down
                                             auto const boundaryRadius = mData->zHaloDim;
-                                            int const  startPoint = c * dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + 2 * haloRadius) +
-                                                                   dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + haloRadius - boundaryRadius);
-                                            int const nElements = dims[setIdx].x * dims[setIdx].y * boundaryRadius;
+                                            int const  startPoint = c * dimsRank[myRank].x * dimsRank[myRank].y * (dimsRank[myRank].z + 2 * haloRadius) +
+                                                                   dimsRank[myRank].x * dimsRank[myRank].y * (dimsRank[myRank].z + haloRadius - boundaryRadius);
+                                            int const nElements = dimsRank[myRank].x * dimsRank[myRank].y * boundaryRadius;
 
                                             reductionInfo.startIDByView.push_back(startPoint);
                                             reductionInfo.nElementsByView.push_back(nElements);
@@ -216,16 +216,16 @@ ncclField<T, C>::ncclField(const std::string&                        fieldUserNa
                                 case MemoryLayout::arrayOfStructs: {
                                     {  // up
                                         auto const boundaryRadius = mData->zHaloDim;
-                                        int const  startPoint = dims[setIdx].x * dims[setIdx].y * haloRadius * mData->cardinality;
-                                        int const  nElements = dims[setIdx].x * dims[setIdx].y * boundaryRadius * mData->cardinality;
+                                        int const  startPoint = dimsRank[myRank].x * dimsRank[myRank].y * haloRadius * mData->cardinality;
+                                        int const  nElements = dimsRank[myRank].x * dimsRank[myRank].y * boundaryRadius * mData->cardinality;
 
                                         reductionInfo.startIDByView.push_back(startPoint);
                                         reductionInfo.nElementsByView.push_back(nElements);
                                     }
                                     {  // down
                                         auto const boundaryRadius = mData->zHaloDim;
-                                        int const  startPoint = dims[setIdx].x * dims[setIdx].y * (dims[setIdx].z + haloRadius - boundaryRadius) * mData->cardinality;
-                                        int const  nElements = dims[setIdx].x * dims[setIdx].y * boundaryRadius * mData->cardinality;
+                                        int const  startPoint = dimsRank[myRank].x * dimsRank[myRank].y * (dimsRank[myRank].z + haloRadius - boundaryRadius) * mData->cardinality;
+                                        int const  nElements = dimsRank[myRank].x * dimsRank[myRank].y * boundaryRadius * mData->cardinality;
 
                                         reductionInfo.startIDByView.push_back(startPoint);
                                         reductionInfo.nElementsByView.push_back(nElements);
@@ -265,8 +265,8 @@ auto ncclField<T, C>::updateHostData(int streamSetId)
 
 template <typename T, int C>
 auto ncclField<T, C>::getPartition(Neon::Execution       execution,
-                                Neon::SetIdx          setIdx,
-                                const Neon::DataView& dataView)
+                                   Neon::SetIdx          setIdx,
+                                   const Neon::DataView& dataView)
     const
     -> const Partition&
 {
@@ -283,8 +283,8 @@ auto ncclField<T, C>::getPartition(Neon::Execution       execution,
 
 template <typename T, int C>
 auto ncclField<T, C>::getPartition(Neon::Execution       execution,
-                                Neon::SetIdx          setIdx,
-                                const Neon::DataView& dataView)
+                                   Neon::SetIdx          setIdx,
+                                   const Neon::DataView& dataView)
     -> Partition&
 {
     const auto dataUse = this->getDataUse();
@@ -300,7 +300,7 @@ auto ncclField<T, C>::getPartition(Neon::Execution       execution,
 
 template <typename T, int C>
 auto ncclField<T, C>::operator()(const Neon::index_3d& idxGlobal,
-                              const int&            cardinality) const
+                                 const int&            cardinality) const
     -> Type
 {
     auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
@@ -320,7 +320,7 @@ auto ncclField<T, C>::operator()(const Neon::index_3d& idxGlobal,
 
 template <typename T, int C>
 auto ncclField<T, C>::getReference(const Neon::index_3d& idxGlobal,
-                                const int&            cardinality)
+                                   const int&            cardinality)
     -> Type&
 {
     auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);

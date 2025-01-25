@@ -14,9 +14,17 @@ int main(int /*argc*/, char** /*argv*/)
     Neon::Backend                             bk(Neon::Runtime::stream);
     Neon::domain::details::ncclGrid::ncclGrid grid(
         bk,
-        Neon::int32_3d(128, 128, 128),
+        Neon::int32_3d(1, 1, 12),
         [&](Neon::index_3d const& /*idx*/) -> bool { return true; },
         Neon::domain::Stencil::s7_Laplace_t());
+
+    auto field = grid.template newField<int>("test", 1, 0);
+    field.forEachActiveCell([](const Neon::index_3d& idx, auto& values) {
+        *values[0] = idx.x + idx.y + idx.z;
+    });
+
+    field.updateDeviceData(0);
+    field.ioToVtk("test", "test");
 }
 
 #if 0

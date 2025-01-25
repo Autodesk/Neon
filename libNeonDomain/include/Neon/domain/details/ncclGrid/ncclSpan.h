@@ -14,6 +14,9 @@ class ncclSpan
     using Idx = ncclIndex;
     friend class ncclGrid;
 
+    template <typename T, int C>
+    friend class ncclField;
+
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d3;
     using ExecutionThreadSpanIndexType = int32_t;
 

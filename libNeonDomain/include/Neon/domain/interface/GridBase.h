@@ -140,7 +140,6 @@ class GridBase
     auto getSpaceCurve() const
         -> Neon::domain::tool::spaceCurves::EncoderType;
 
-   protected:
     /**
      * Protected constructor
      */
@@ -154,6 +153,7 @@ class GridBase
              const Vec_3d<double>&                        origin /*!      Origin  */,
              Neon::domain::tool::spaceCurves::EncoderType spaceCurve,
              Neon::index_3d                               memoryBlock);
+protected:
 
     /**
      * Protected initialization function used by derived classes to set some parameters.
