@@ -21,7 +21,10 @@ def get_solver_operator_container(field):
             value = wp.neon_read(f_read, idx, 0)
             cartesianIdx = wp.neon_global_idx(f_read, idx)
             extra = wp.neon_get_x(cartesianIdx) + wp.neon_get_y(cartesianIdx) + wp.neon_get_z(cartesianIdx)
-            wp.printf("Position (%d %d %d) read %d extra %d\n", wp.neon_get_x(cartesianIdx), wp.neon_get_y(cartesianIdx), wp.neon_get_z(cartesianIdx), value, extra)
+            wp.printf("Position (%d %d %d) read %d extra %d\n",
+                      wp.neon_get_x(cartesianIdx),
+                      wp.neon_get_y(cartesianIdx),
+                      wp.neon_get_z(cartesianIdx), value, extra)
             value = value + extra
             wp.print(value)
 
@@ -52,7 +55,7 @@ def block_grid_try():
     bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
                     dev_idx_list=[0])
 
-    dim = neon.Index_3d(1, 1, 3)
+    dim = neon.Index_3d(1, 1, 5)
     grid = neon.block.bGrid(bk, dim)
     field = grid.new_field(cardinality=1, dtype=wp.int32)
 
@@ -64,7 +67,7 @@ def block_grid_try():
             for x in range(0, dim.x):
                 idx = neon.Index_3d(x, y, z)
                 newValue = set_value(idx)
-                print(f"Init@({x},{y},{z}): [value]{newValue} ")
+                print(f"Init@({x},{y},{z}): [value] {newValue} ")
                 field.write(idx=idx,
                             cardinality=0,
                             newValue=newValue)
@@ -76,7 +79,7 @@ def block_grid_try():
     solver_operator.run(
         stream_idx=0,
         data_view=neon.DataView.standard(),
-        container_runtime=neon.Container.ContainerRuntime.warp)
+        container_runtime=neon.Container.ContainerRuntime.neon)
     print('=====================')
     solver_operator.run(
         stream_idx=0,

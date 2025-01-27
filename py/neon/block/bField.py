@@ -24,7 +24,7 @@ class bField(object):
         self.handle_type = ctypes.c_void_p
         self.handle: ctypes.c_uint64 = ctypes.c_void_p(0)
         self.grid_handle = grid_handle
-        self.cardinality = cardinality
+        self.cardinality = ctypes.c_int(cardinality)
         self.py_grid = py_grid
         self._set_field_type()
         self._help_load_api()

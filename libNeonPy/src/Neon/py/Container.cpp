@@ -207,14 +207,14 @@ struct container_warp_data
         m_grid_ptr = reinterpret_cast<Grid*>(grid_handle);
 
         m_warp_container_ptr = new (std::nothrow)
-            Neon::py::WarpContainer<Neon::dGrid>(
+            Neon::py::WarpContainer<Grid>(
                 execution,
                 m_cuda_driver_ptr,
                 m_grid_ptr,
                 kernels_matrix);
 
         if (m_warp_container_ptr == nullptr) {
-            Neon::NeonException e("warp_dgrid_container_new");
+            Neon::NeonException e("warp_container_new");
             NEON_THROW(e);
         }
 
@@ -222,7 +222,7 @@ struct container_warp_data
         m_container_prt = Neon::set::Container::factoryNewWarp(tmp);
 
         if (m_container_prt == nullptr) {
-            Neon::NeonException e("warp_dgrid_container_new");
+            Neon::NeonException e("warp_container_new");
             NEON_THROW(e);
         }
 
@@ -232,7 +232,7 @@ struct container_warp_data
                                              Neon::DataView::STANDARD,
                                              Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA);
         if (m_parser_ptr == nullptr) {
-            Neon::NeonException e("warp_dgrid_container_new");
+            Neon::NeonException e("warp_container_new");
             NEON_THROW(e);
         }
     }
@@ -243,19 +243,19 @@ struct container_warp_data
     }
 };
 
- auto container_warp_data_get_container_prt(void * data_prt) -> Neon::set::Container*
- {
-     // We use the type dGrid to instantiate the object.
-     // We could have used any other type as the return value
-     // does not depend on the Grid type.
-     auto data = static_cast<container_warp_data<Neon::dGrid>*>(data_prt);
-     return data->m_container_prt;
- }
+auto container_warp_data_get_container_prt(void* data_prt) -> Neon::set::Container*
+{
+    // We use the type dGrid to instantiate the object.
+    // We could have used any other type as the return value
+    // does not depend on the Grid type.
+    auto data = static_cast<container_warp_data<Neon::dGrid>*>(data_prt);
+    return data->m_container_prt;
+}
 
 }  // namespace Neon::py
 
 
-extern "C" auto warp_dgrid_container_new(
+extern "C" auto warp_dGrid_container_new(
     void**          handle,
     Neon::Execution execution,
     void*           handle_cudaDriver,
@@ -271,6 +271,33 @@ extern "C" auto warp_dgrid_container_new(
                                                    handle_dgrid,
                                                    kernels_matrix,
                                                    blockSize);
+
+    if (data == nullptr) {
+        Neon::NeonException e("warp_dgrid_container_new");
+        NEON_THROW(e);
+    }
+
+    *handle = reinterpret_cast<void*>(data);
+    NEON_PY_PRINT_END(*handle);
+    return 0;
+}
+
+extern "C" auto warp_bGrid_container_new(
+    void**          handle,
+    Neon::Execution execution,
+    void*           handle_cudaDriver,
+    void*           handle_dgrid,
+    void**          kernels_matrix,
+    Neon::index_3d* blockSize) -> int
+{
+    NEON_PY_PRINT_BEGIN(*handle)
+    using Grid = Neon::bGrid;
+    auto data = new (std::nothrow)
+        Neon::py::container_warp_data<Grid>(execution,
+                                            handle_cudaDriver,
+                                            handle_dgrid,
+                                            kernels_matrix,
+                                            blockSize);
 
     if (data == nullptr) {
         Neon::NeonException e("warp_dgrid_container_new");

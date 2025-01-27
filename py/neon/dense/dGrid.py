@@ -194,3 +194,6 @@ class dGrid(object):
 
     def get_handle(self):
         return self.grid_handle
+
+    def get_name(self):
+        return "dGrid"

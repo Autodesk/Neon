@@ -7,7 +7,7 @@ extern "C" auto bGrid_new(
     void**                handle,
     void*                 backendPtr,
     const Neon::index_3d* dim,
-    int*                  sparsity_pattern,
+    [[maybe_unused]] int*                  sparsity_pattern,
     int                   numStencilPoints,
     int const*            stencilPointFlatArray)
     -> int
@@ -38,8 +38,9 @@ extern "C" auto bGrid_new(
     Grid g(
         *backend,
         *dim,
-        [=](Neon::index_3d const& idx) {
-            return sparsity_pattern[idx.x * (dim->x * dim->y) + idx.y * dim->z + idx.z];
+        [=](Neon::index_3d const& /*idx*/) {
+            return true;
+            //return sparsity_pattern[idx.x * (dim->x * dim->y) + idx.y * dim->z + idx.z];
         },
         stencil);
     auto gridPtr = new (std::nothrow) Grid(g);
@@ -66,7 +67,7 @@ extern "C" auto bGrid_delete(
     std::cout << "bGrid_delete - gridHandle " << handle << std::endl;
 
     using Grid = Neon::bGrid;
-    Grid* gridPtr = reinterpret_cast<Grid*>(handle);
+    Grid* gridPtr = reinterpret_cast<Grid*>(*handle);
 
     if (gridPtr != nullptr) {
         delete gridPtr;
@@ -164,7 +165,7 @@ auto bGrid_bField_new(
         }
 
         *fieldHandle = (void*)fieldPtr;
-        std::cout << "bGrid_bField_new - END " << fieldHandle << std::endl;
+        std::cout << "bGrid_bField_new - END " << *fieldHandle << std::endl;
 
         return 0;
     }
@@ -197,7 +198,7 @@ auto bGrid_bField_delete(
     using Grid = Neon::bGrid;
     using Field = Grid::Field<T, 0>;
 
-    auto fieldPtr = (Field*)handle;
+    auto fieldPtr = (Field*)(*handle);
 
     if (fieldPtr != nullptr) {
         delete fieldPtr;
@@ -376,6 +377,7 @@ auto bGrid_bField_write(
         std::cout << "invalid field" << std::endl;
         return -1;
     }
+    std::cout <<fieldPtr->toString() << std::endl;
 
     fieldPtr->getReference(*idx, cardinality) = newValue;
 

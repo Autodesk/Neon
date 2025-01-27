@@ -19,9 +19,9 @@ class bSpan
     friend class bGrid<SBlock>;
 
     static constexpr int SpaceDim = 3;
-
+    //
     bSpan() = default;
-    virtual ~bSpan() = default;
+    // virtual ~bSpan() = default;
 
     NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId()
         -> typename Idx::DataBlockIdx
@@ -29,7 +29,7 @@ class bSpan
         return std::numeric_limits<uint32_t>::max();
     }
 
-    inline bSpan(
+    bSpan(
         typename Idx::DataBlockCount                  mFirstDataBlockOffset,
         typename SBlock::BitMask const* NEON_RESTRICT mActiveMask,
         Neon::DataView                                mDataView);
@@ -44,13 +44,13 @@ class bSpan
     NEON_CUDA_HOST_DEVICE inline auto setAndValidateGPUDevice(
         Idx& bidx) const -> bool;
 
-    #if !defined(NEON_WARP_COMPILATION)
+#if !defined(NEON_WARP_COMPILATION)
     // Function to get offsets of member variables
     static void getOffsets(size_t* offsets, size_t* length);
     // Function to get offsets of member variables
     static std::vector<size_t> getOffsets();
-    #endif
-    
+#endif
+
     // We don't need to have a count on active blocks
     typename Idx::DataBlockCount                  mFirstDataBlockOffset;
     typename SBlock::BitMask const* NEON_RESTRICT mActiveMask;

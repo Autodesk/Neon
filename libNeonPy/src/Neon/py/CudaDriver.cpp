@@ -9,6 +9,7 @@
 #include "Neon/py/macros.h"
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/container/Loader.h"
+#include <limits>
 
 namespace Neon::py {
 CudaDriver::CudaDriver(Neon::Backend* bk_prt)
@@ -89,11 +90,15 @@ auto CudaDriver::run_kernel(
             int    ndim;                    // number of valid dimension
             size_t size;                    // total number of threads
         };
+        auto cuda_block = launch_info.cudaBlock();
+        auto cuda_grid = launch_info.cudaGrid();
+        int const       n = cuda_block.x * cuda_grid.x;
 
-        int const       n = launch_info.domainGrid().x;
+        // static_cast<size_t>(blockDim.x) * static_cast<size_t>(blockIdx.x) + static_cast<size_t>(threadIdx.x);
         launch_bounds_t bounds{};
         bounds.ndim = 1;
-        bounds.shape[0] = n;
+        bounds.shape[0] = n;;
+        std::cout << "launch_info.domainGrid().rMul() " << launch_info.domainGrid().rMul() << std::endl;
         bounds.size = n;
 
 

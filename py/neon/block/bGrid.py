@@ -175,3 +175,6 @@ class bGrid(object):
 
     def get_handle(self):
         return self.handle
+
+    def get_name(self):
+        return "bGrid"

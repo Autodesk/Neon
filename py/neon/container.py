@@ -27,7 +27,6 @@ class Container:
         if loading_lambda is None:
             raise Exception('Container: Invalid loading lambda')
 
-        self.help_load_api()
 
         self.api_delete = None
         self.loading_lambda = None
@@ -47,6 +46,11 @@ class Container:
         self.loading_lambda = loading_lambda
         self.loading_lambda(container_parser)
         self.grid = container_parser._retrieve_grid()
+
+        # We can load the C-API only after the grid is set
+        grid_name = self.grid.get_name()
+        self.help_load_api(grid_name = grid_name)
+
         self.backend = self.grid.get_backend()
         # Setting up the information of the Neon container for Neon runtime
         n_devices = self.backend.get_num_devices()  # rows
@@ -78,7 +82,10 @@ class Container:
 
         self.container_handle = self.neon_gate.handle_type(0)
         block_size = neon.Index_3d(128, 0, 0)
-        self.neon_gate.lib.warp_dgrid_container_new(ctypes.pointer(self.container_handle),
+        # Search a function in the .so by composing the function name
+
+
+        self.api_new(ctypes.pointer(self.container_handle),
                                                     execution,
                                                     self.backend.cuda_driver_handle,
                                                     self.grid.get_handle(),
@@ -140,7 +147,7 @@ class Container:
         self.retained_executable_modules[dev_idx].add(module_exec)
         return module_exec.get_kernel_hooks(kernel).forward
 
-    def help_load_api(self):
+    def help_load_api(self, grid_name: str):
         try:
             self.neon_gate: neon.Gate = neon.Gate()
         except Exception as e:
@@ -150,7 +157,7 @@ class Container:
         # ------------------------------------------------------------------
         # backend_new
         api_gate = self.neon_gate.lib
-        self.api_new = api_gate.warp_dgrid_container_new
+        self.api_new = getattr(self.neon_gate.lib, f'warp_{grid_name}_container_new')
         self.api_new.argtypes = [ctypes.POINTER(self.neon_gate.handle_type),
                                  neon.Execution,
                                  self.neon_gate.handle_type,
@@ -220,36 +227,38 @@ class Container:
             self,
             stream_idx: int,
             data_view: neon.DataView):
-        """
-        Executing a container in the warp backend.
-        :param stream_idx:
-        :param data_view:
-        :return:
-        """
-        nvtx.push_range(f"{self.name}_warp", color="red")
-
-        bk = self.grid.get_backend()
-        n_devices = bk.get_num_devices()
-        wp_device_name: str = bk.get_warp_device_name()
-
-        for dev_idx in range(n_devices):
-            wp_device = f"{wp_device_name}:{dev_idx}"
-            span = self.grid.get_span(execution=self.execution,
-                                      dev_idx=dev_idx,
-                                      data_view=data_view)
-            thread_space = span.get_thread_space()
-            kernel = self._get_kernel(
-                container_runtime=Container.ContainerRuntime.warp,
-                execution=self.execution,
-                gpu_id=dev_idx,
-                data_view=data_view)
-
-            wp_kernel_dim = thread_space.to_wp_kernel_dim()
-            wp.launch(kernel, dim=wp_kernel_dim, device=wp_device)
-            # TODO@Max - WARNING - the following synchronization is temporary
-            wp.synchronize_device(wp_device)
-
-        nvtx.pop_range()
+        # Throw exception as this operation is not supported
+        raise Exception('Container: Warp runtime is not supported')
+        # """
+        # Executing a container in the warp backend.
+        # :param stream_idx:
+        # :param data_view:
+        # :return:
+        # """
+        # nvtx.push_range(f"{self.name}_warp", color="red")
+        #
+        # bk = self.grid.get_backend()
+        # n_devices = bk.get_num_devices()
+        # wp_device_name: str = bk.get_warp_device_name()
+        #
+        # for dev_idx in range(n_devices):
+        #     wp_device = f"{wp_device_name}:{dev_idx}"
+        #     span = self.grid.get_span(execution=self.execution,
+        #                               dev_idx=dev_idx,
+        #                               data_view=data_view)
+        #     thread_space = span.get_thread_space()
+        #     kernel = self._get_kernel(
+        #         container_runtime=Container.ContainerRuntime.warp,
+        #         execution=self.execution,
+        #         gpu_id=dev_idx,
+        #         data_view=data_view)
+        #
+        #     wp_kernel_dim = thread_space.to_wp_kernel_dim()
+        #     wp.launch(kernel, dim=wp_kernel_dim, device=wp_device)
+        #     # TODO@Max - WARNING - the following synchronization is temporary
+        #     wp.synchronize_device(wp_device)
+        #
+        # nvtx.pop_range()
 
     def _run_neon(
             self,

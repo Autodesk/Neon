@@ -49,6 +49,7 @@ bSpan<SBlock>::bSpan(typename Idx::DataBlockCount                  firstDataBloc
       mActiveMask(activeMask),
       mDataView(dataView)
 {
+    std::cout<<"HERE:: SIZE OF "<<sizeof(bSpan<SBlock>)<<std::endl;
 }
 
 #if !defined(NEON_WARP_COMPILATION)

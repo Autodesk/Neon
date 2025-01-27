@@ -3,20 +3,35 @@
 #include <cstdio>
 
 #include "Neon/domain/details/bGrid/bSpan.h"
+//#include "Neon/domain/details/dGrid/dSpan.h"
+
 #include "../Index_3d.h"
 #include "./bIndex.h"
 
 namespace wp
 {
 // using NeonBlockSpan = ::Neon::domain::details::dGrid::dSpan;
-
-class NeonBlockSpan : public ::Neon::domain::details::bGrid::bSpan<Neon::domain::details::bGrid::BlockDefault>
+namespace neon {
+namespace warp{
+   using BlockDefault = Neon::domain::details::bGrid::BlockDefault;
+  using  bSpan = ::Neon::domain::details::bGrid::template bSpan<BlockDefault>;
+  }
+ }
+class NeonBlockSpan : public ::wp::neon::warp::bSpan
 {
 public:
 
     // ... that's why we need to initialize it from bytes
     NeonBlockSpan(const char* bytes, size_t n)
     {
+//        printf("bSpan(%ld, %ld)\n", sizeof(neon::warp::bSpan), n);
+//        //printf("dSpan(%ld, %ld)\n", sizeof(Neon::domain::details::dGrid::dSpan), n);
+//
+//        printf("mFirstDataBlockOffset(%ld, %ld)\n", sizeof(this->mFirstDataBlockOffset), n);
+//        printf("mActiveMask(%ld, %ld)\n", sizeof(this->mActiveMask), n);
+//        printf("mDataView(%ld, %ld)\n", sizeof(this->mDataView), n);
+//
+//        printf("NeonBlockSpan(%ld, %ld)\n", sizeof(*this), n);
         assert(n == sizeof(*this));
         memcpy(this, bytes, n);
     }
