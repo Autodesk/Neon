@@ -11,25 +11,55 @@
 
 int main(int /*argc*/, char** /*argv*/)
 {
-    Neon::Backend                             bk(Neon::Runtime::stream);
-    Neon::domain::details::ncclGrid::ncclGrid grid(
-        bk,
-        Neon::int32_3d(100, 100, 100),
-        [&](Neon::index_3d const& /*idx*/) -> bool { return true; },
-        Neon::domain::Stencil::s7_Laplace_t());
+    if (false) {
+        Neon::Backend                             bk(Neon::Runtime::stream);
+        Neon::domain::details::ncclGrid::ncclGrid grid(
+            bk,
+            Neon::int32_3d(100, 100, 100),
+            [&](Neon::index_3d const& /*idx*/) -> bool { return true; },
+            Neon::domain::Stencil::s7_Laplace_t());
 
-    auto field = grid.template newField<int>("test", 1, 0);
-    field.forEachActiveCell([](const Neon::index_3d& idx, auto& values) {
-        *values[0] = idx.x + idx.y + idx.z;
-    });
+        auto field = grid.template newField<int>("test", 1, 0);
+        field.forEachActiveCell([](const Neon::index_3d& idx, auto& values) {
+            *values[0] = idx.x + idx.y + idx.z;
+        });
 
-    field.updateDeviceData(0);
-    field.ioToVtk("test", "test");
-    auto hu = field.newHaloUpdate(Neon::set::StencilSemantic::standard,
-        Neon::set::TransferMode::get,
-        Neon::Execution::device);
+        field.updateDeviceData(0);
+        field.ioToVtk("test", "test");
+        auto hu = field.newHaloUpdate(Neon::set::StencilSemantic::standard,
+            Neon::set::TransferMode::get,
+            Neon::Execution::device);
 
-    hu.run(0);
+        hu.run(0);
+        bk.sync(0);
+    }else {
+        Neon::Backend                             bk(Neon::Runtime::stream);
+        Neon::domain::details::ncclGrid::ncclGrid grid(
+            bk,
+            Neon::int32_3d(100, 100, 100),
+            [&](Neon::index_3d const& /*idx*/) -> bool { return true; },
+            Neon::domain::Stencil::s7_Laplace_t());
+
+        auto fA = grid.template newField<int>("test", 3, 0);
+        auto fB = grid.template newField<int>("test", 3, 0);
+
+        fA.forEachActiveCell([](const Neon::index_3d& idx, auto& values) {
+            *values[0] = idx.x ;
+            *values[1] = idx.y ;
+            *values[2] = idx.z;
+        });
+
+        fA.updateDeviceData(0);
+        field.ioToVtk("test", "test");
+        bk.sync(0);
+
+        auto hu = fA.newHaloUpdate(Neon::set::StencilSemantic::standard,
+            Neon::set::TransferMode::get,
+            Neon::Execution::device);
+
+        hu.run(0);
+        bk.sync(0);
+    }
 }
 
 #if 0
