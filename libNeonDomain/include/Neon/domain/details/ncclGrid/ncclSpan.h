@@ -44,6 +44,10 @@ class ncclSpan
     helpGetDim()
         const -> Neon::index_3d const&;
 
+    auto helpHalosetAndValidate(const int32_t& x,
+                                const int32_t& y,
+                                const int32_t& z) const -> Idx;
+
    private:
     Neon::DataView mDataView;
     int            mZghostRadius;

@@ -1,4 +1,5 @@
 #pragma once
+#include "Neon/set/container/NcclTransferContainer.h"
 #include "ncclField.h"
 
 namespace Neon::domain::details::ncclGrid {
@@ -50,7 +51,7 @@ ncclField<T, C>::ncclField(const std::string&                         fieldUserN
     const int haloRadius = mData->haloStatus == Neon::domain::haloStatus_et::ON ? zHaloRadius : 0;
     mData->zHaloDim = zHaloRadius;
     const auto myRank = mData->grid->getBackend().getNccl().getWorldRank();
-    //const auto worldSize = mData->grid->getBackend().getNccl().getWorldSize();
+    // const auto worldSize = mData->grid->getBackend().getNccl().getWorldSize();
 
     Neon::set::RankData<index_3d> originsRank = this->getGrid().getBackend().template newRankData<index_3d>({0, 0, 0});
     {  // Computing origins
@@ -115,8 +116,8 @@ ncclField<T, C>::ncclField(const std::string&                         fieldUserN
     {  // Setting Reduction information
         mData->partitionTable.forEachConfigurationWithUserData(
             [&](Neon::Execution,
-                [[maybe_unused]] Neon::SetIdx   setIdx,
-                Neon::DataView dw,
+                [[maybe_unused]] Neon::SetIdx setIdx,
+                Neon::DataView                dw,
                 typename Self::Partition&,
                 typename Data::ReductionInformation& reductionInfo) {
                 switch (dw) {
@@ -244,7 +245,7 @@ ncclField<T, C>::ncclField(const std::string&                         fieldUserN
                 }
             });
 
-        this->initHaloUpdateTable();
+        // this->initHaloUpdateTable();
     }
 }
 
@@ -338,276 +339,6 @@ auto ncclField<T, C>::getReference(const Neon::index_3d& idxGlobal,
     return result;
 }
 
-template <typename T, int C>
-auto ncclField<T, C>::initHaloUpdateTable()
-    -> void
-{
-    auto& grid = this->getGrid();
-    auto  bk = grid.getBackend();
-    auto  getNghSetIdx = [&](SetIdx setIdx, Neon::domain::tool::partitioning::ByDirection direction) {
-        int res;
-        if (direction == Neon::domain::tool::partitioning::ByDirection::up) {
-            res = (setIdx + 1) % bk.getDeviceCount();
-        } else {
-            res = (setIdx + bk.getDeviceCount() - 1) % bk.getDeviceCount();
-        }
-        return res;
-    };
-
-    mData->soaHaloUpdateTable.forEachPutConfiguration(
-        bk, [&](Neon::SetIdx                                  setIdxSrc,
-                Execution                                     execution,
-                Neon::domain::tool::partitioning::ByDirection byDirection,
-                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
-            {
-                using namespace Neon::domain::tool::partitioning;
-
-                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
-
-                int r = grid.getStencil().getRadius();
-
-                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                  partitions;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> ghostZBeginIdx;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> boundaryZBeginIdx;
-                std::array<Neon::size_4d, Data::EndPointsUtils::nConfigs>                               memPhyDim;
-
-                partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
-                partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
-
-                for (auto endPoint : {Data::EndPoints::dst, Data::EndPoints::src}) {
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = 0;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = r;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z;
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z + r;
-
-                    memPhyDim[endPoint] = Neon::size_4d(
-                        1,
-                        size_t(partitions[endPoint]->dim().x),
-                        size_t(partitions[endPoint]->dim().x) * partitions[endPoint]->dim().y,
-                        size_t(partitions[endPoint]->dim().x) * partitions[endPoint]->dim().y * (partitions[endPoint]->dim().z + 2 * r));
-                }
-
-                for (int j = 0; j < this->getCardinality(); j++) {
-
-                    T* srcMem = partitions[Data::EndPoints::src]->mem();
-                    T* dstMem = partitions[Data::EndPoints::dst]->mem();
-
-                    Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], j);
-                    Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], j);
-
-                    //                    std::cout << "To  " << dstGhostBuff << " prt " << partitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff << "(src dim" << partitions[Data::EndPoints::src]->dim() << ")" << std::endl;
-                    //                    std::cout << "dst mem " << partitions[Data::EndPoints::dst]->mem() << " " << std::endl;
-                    //                    std::cout << "dst pitch " << (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum() << " " << std::endl;
-                    //                    std::cout << "dst dstGhostBuff " << dstGhostBuff << " " << std::endl;
-                    //                    std::cout << "dst pitch all" << memPhyDim[Data::EndPoints::dst] << " " << std::endl;
-
-                    Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum(), dstGhostBuff},
-                                                       {setIdxSrc, srcMem + (srcBoundaryBuff * memPhyDim[Data::EndPoints::src]).rSum(), srcBoundaryBuff},
-                                                       sizeof(T) *
-                                                           r *
-                                                           partitions[Data::EndPoints::src]->dim().x *
-                                                           partitions[Data::EndPoints::src]->dim().y);
-                    if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                        return;
-                    }
-
-                    if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                        return;
-                    }
-
-                    // std::cout << transfer.toString() << std::endl;
-                    transfersVec.push_back(transfer);
-                }
-            }
-        });
-
-    mData->aosHaloUpdateTable.forEachPutConfiguration(
-        bk, [&](Neon::SetIdx                                  setIdxSrc,
-                Execution                                     execution,
-                Neon::domain::tool::partitioning::ByDirection byDirection,
-                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
-            {
-                using namespace Neon::domain::tool::partitioning;
-
-                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
-
-                int r = grid.getStencil().getRadius();
-
-                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                  partitions;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> ghostZBeginIdx;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> boundaryZBeginIdx;
-                std::array<Neon::size_4d, Data::EndPointsUtils::nConfigs>                               memPhyDim;
-
-                partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
-                partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
-
-                for (auto endPoint : {Data::EndPoints::dst, Data::EndPoints::src}) {
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = 0;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = r;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z;
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z + r;
-
-                    memPhyDim[endPoint] = Neon::size_4d(
-                        this->getCardinality(),
-                        size_t(partitions[endPoint]->dim().x * this->getCardinality()),
-                        size_t(partitions[endPoint]->dim().x * this->getCardinality()) * partitions[endPoint]->dim().y,
-                        1);
-                }
-
-
-                T* srcMem = partitions[Data::EndPoints::src]->mem();
-                T* dstMem = partitions[Data::EndPoints::dst]->mem();
-
-                Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], 0);
-                Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], 0);
-
-                //                    std::cout << "To  " << dstGhostBuff << " prt " << partitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff << "(src dim" << partitions[Data::EndPoints::src]->dim() << ")" << std::endl;
-                //                    std::cout << "dst mem " << partitions[Data::EndPoints::dst]->mem() << " " << std::endl;
-                //                    std::cout << "dst pitch " << (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum() << " " << std::endl;
-                //                    std::cout << "dst dstGhostBuff " << dstGhostBuff << " " << std::endl;
-                //                    std::cout << "dst pitch all" << memPhyDim[Data::EndPoints::dst] << " " << std::endl;
-
-                Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum(), dstGhostBuff},
-                                                   {setIdxSrc, srcMem + (srcBoundaryBuff * memPhyDim[Data::EndPoints::src]).rSum(), srcBoundaryBuff},
-                                                   sizeof(T) *
-                                                       r * this->getCardinality() *
-                                                       partitions[Data::EndPoints::src]->dim().x *
-                                                       partitions[Data::EndPoints::src]->dim().y);
-                if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                    return;
-                }
-
-                if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                    return;
-                }
-
-                // std::cout << transfer.toString() << std::endl;
-                transfersVec.push_back(transfer);
-            }
-        });
-
-    mData->latticeHaloUpdateTable.forEachPutConfiguration(
-        bk, [&](Neon::SetIdx                                  setIdxSrc,
-                Execution                                     execution,
-                Neon::domain::tool::partitioning::ByDirection byDirection,
-                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
-            {
-                using namespace Neon::domain::tool::partitioning;
-
-                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
-
-                int r = grid.getStencil().getRadius();
-
-                std::array<Partition*, Data::EndPointsUtils::nConfigs>                                  partitions;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> ghostZBeginIdx;
-                std::array<std::array<int, ByDirectionUtils::nConfigs>, Data::EndPointsUtils::nConfigs> boundaryZBeginIdx;
-                std::array<Neon::size_4d, Data::EndPointsUtils::nConfigs>                               memPhyDim;
-
-                partitions[Data::EndPoints::dst] = &this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
-                partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
-
-                for (auto endPoint : {Data::EndPoints::dst, Data::EndPoints::src}) {
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = 0;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::down)] = r;
-                    boundaryZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z;
-                    ghostZBeginIdx[endPoint][static_cast<int>(ByDirection::up)] = partitions[endPoint]->dim().z + r;
-
-                    memPhyDim[endPoint] = Neon::size_4d(
-                        1,
-                        size_t(partitions[endPoint]->dim().x),
-                        size_t(partitions[endPoint]->dim().x) * partitions[endPoint]->dim().y,
-                        size_t(partitions[endPoint]->dim().x) * partitions[endPoint]->dim().y * (partitions[endPoint]->dim().z + 2 * r));
-                }
-
-                for (int j = 0; j < this->getCardinality(); j++) {
-                    auto const& stencil = this->getGrid().getStencil();
-                    if (this->getCardinality() != stencil.nPoints()) {
-                        continue;
-                    }
-                    T* srcMem = partitions[Data::EndPoints::src]->mem();
-                    T* dstMem = partitions[Data::EndPoints::dst]->mem();
-
-                    Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], j);
-                    Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], j);
-
-                    //                    std::cout << "To  " << dstGhostBuff << " prt " << partitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff << "(src dim" << partitions[Data::EndPoints::src]->dim() << ")" << std::endl;
-                    //                    std::cout << "dst mem " << partitions[Data::EndPoints::dst]->mem() << " " << std::endl;
-                    //                    std::cout << "dst pitch " << (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum() << " " << std::endl;
-                    //                    std::cout << "dst dstGhostBuff " << dstGhostBuff << " " << std::endl;
-                    //                    std::cout << "dst pitch all" << memPhyDim[Data::EndPoints::dst] << " " << std::endl;
-
-                    Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + (dstGhostBuff * memPhyDim[Data::EndPoints::dst]).rSum(), dstGhostBuff},
-                                                       {setIdxSrc, srcMem + (srcBoundaryBuff * memPhyDim[Data::EndPoints::src]).rSum(), srcBoundaryBuff},
-                                                       sizeof(T) *
-                                                           r *
-                                                           partitions[Data::EndPoints::src]->dim().x *
-                                                           partitions[Data::EndPoints::src]->dim().y);
-                    if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                        return;
-                    }
-
-                    if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                        return;
-                    }
-                    if (ByDirection::up == byDirection && !(stencil.points()[j].z > 0)) {
-                        continue;
-                    }
-                    if (ByDirection::down == byDirection && !(stencil.points()[j].z < 0)) {
-                        continue;
-                    }
-                    // std::cout << transfer.toString() << std::endl;
-                    transfersVec.push_back(transfer);
-                }
-            }
-        });
-    //
-    //    mData->latticeHaloUpdateTable.forEachPutConfiguration(
-    //        bk, [&](Neon::SetIdx                                  setIdxSrc,
-    //                Execution                                     execution,
-    //                Neon::domain::tool::partitioning::ByDirection byDirection,
-    //                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
-    //            {
-    //                using namespace Neon::domain::tool::partitioning;
-    //
-    //                Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
-    //                auto&        srcPartition = this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
-    //                auto&        dstPartition = this->getPartition(execution, setIdxDst, Neon::DataView::STANDARD);
-    //
-    //                int r = grid.getStencil().getRadius();
-    //
-    //                int ghostZBeginIdx[2];
-    //                int boundaryZBeginIdx[2];
-    //
-    //                ghostZBeginIdx[static_cast<int>(ByDirection::down)] = 0;
-    //                ghostZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z + r;
-    //
-    //                boundaryZBeginIdx[static_cast<int>(ByDirection::down)] = r;
-    //                boundaryZBeginIdx[static_cast<int>(ByDirection::up)] = grid.getDimension().z;
-    //
-    //                Neon::size_4d memPitch(1,
-    //                                       grid.getDimension().x,
-    //                                       grid.getDimension().x * grid.getDimension().y,
-    //                                       grid.getDimension().x * grid.getDimension().y * (grid.getDimension().z + 2 * r));
-    //
-    //                for (int j = 0; j < this->getCardinality(); j++) {
-    //
-    //                    T* srcMem = srcPartition.mem();
-    //                    T* dstMem = dstPartition.mem();
-    //
-    //                    Neon::size_4d srcBoundaryBuff(0, 0, boundaryZBeginIdx[static_cast<int>(byDirection)], j);
-    //                    Neon::size_4d dstGhostBuff(0, 0, ghostZBeginIdx[static_cast<int>(byDirection)], j);
-    //
-    //                    Neon::set::MemoryTransfer transfer({setIdxDst, dstMem + dstGhostBuff.mPitch(memPitch)},
-    //                                                       {setIdxSrc, srcMem + srcBoundaryBuff.mPitch(memPitch)},
-    //                                                       grid.getDimension().x * grid.getDimension().y * sizeof(T));
-    //
-    //
-    //                    transfersVec.push_back(transfer);
-    //                }
-    //            }
-    //        });
-}
-
 
 template <typename T, int C>
 auto ncclField<T, C>::ioToVtiPartitions(std::string const& fname) const -> void
@@ -622,8 +353,8 @@ auto ncclField<T, C>::ioToVtiPartitions(std::string const& fname) const -> void
 template <typename T, int C>
 auto ncclField<T, C>::
     newHaloUpdate(Neon::set::StencilSemantic stencilSemantic,
-                  Neon::set::TransferMode    transferMode,
-                  Neon::Execution            execution)
+                  Neon::set::TransferMode /*transferMode*/,
+                  Neon::Execution execution)
         const -> Neon::set::Container
 {
 
@@ -632,114 +363,58 @@ auto ncclField<T, C>::
     // One for the actual memory transfer
     // One for the synchronization
     // The order depends on the transfer mode: put or get
-    Neon::set::Container dataTransferContainer;
-    auto const&          bk = this->getGrid().getBackend();
-
+    // Neon::set::Container dataTransferContainer;
+    auto const&                      bk = this->getGrid().getBackend();
+    int                              upRank = (bk.getNccl().getWorldRank() + 1) % bk.getNccl().getWorldSize();
+    int                              downRank = (bk.getNccl().getWorldRank() - 1 + bk.getNccl().getWorldSize()) % bk.getNccl().getWorldSize();
+    std::vector<Neon::set::NcclPtoP> nccSession;
     if (stencilSemantic == Neon::set::StencilSemantic::standard) {
-        auto transfers = bk.template newDataSet<std::vector<Neon::set::MemoryTransfer>>();
+        Neon::set::NcclPtoP upSend;
+        Neon::set::NcclPtoP upRecv;
+        Neon::set::NcclPtoP downSend;
+        Neon::set::NcclPtoP downRecv;
 
         if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::structOfArrays) {
-            for (auto byDirection : {tool::partitioning::ByDirection::up,
-                                     tool::partitioning::ByDirection::down}) {
+            Neon::SetIdx const setIdx = 0;
+            auto               span = this->getGrid().getSpan(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
+            auto               spanDim = span.helpGetDim();
+            auto               haloRadius = span.helpGetZHaloRadius();
 
-                auto const& tableEntryByDir = mData->soaHaloUpdateTable.get(transferMode,
-                                                                            execution,
-                                                                            byDirection);
 
-                tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
-                    transfers[setIdx].insert(std::end(transfers[setIdx]),
-                                             std::begin(tableEntryByDirBySetIdx),
-                                             std::end(tableEntryByDirBySetIdx));
-                });
+            ncclGrid::Idx dw_first_boundary = span.helpHalosetAndValidate(0, 0, 0);
+            ncclGrid::Idx up_first_boundary = span.helpHalosetAndValidate(0, 0, spanDim.z - 1 - haloRadius);
+            ncclGrid::Idx dw_first_halo_Idx = span.helpHalosetAndValidate(0, 0, -haloRadius);
+            ncclGrid::Idx up_first_halo_Idx = span.helpHalosetAndValidate(0, 0, spanDim.z);
+
+            size_t numElementForTransfer = size_t(spanDim.x) * spanDim.y * haloRadius;
+            auto   partition = this->getPartition(Neon::Execution::device, setIdx, Neon::DataView::STANDARD);
+
+            for (int i = 0; i < this->getCardinality(); i++) {
+                upSend = Neon::set::NcclPtoP::init<Type>(bk, upRank, numElementForTransfer, &(partition(up_first_boundary, i)), Neon::set::NcclPtoP::send);
+                upRecv = Neon::set::NcclPtoP::init<Type>(bk, upRank, numElementForTransfer, &(partition(up_first_halo_Idx, i)), Neon::set::NcclPtoP::receive);
+
+                downSend = Neon::set::NcclPtoP::init<Type>(bk, downRank, numElementForTransfer, &(partition(dw_first_boundary, i)), Neon::set::NcclPtoP::send);
+                downRecv = Neon::set::NcclPtoP::init<Type>(bk, downRank, numElementForTransfer, &(partition(dw_first_halo_Idx, i)), Neon::set::NcclPtoP::receive);
+
+                nccSession.push_back(upSend);
+                nccSession.push_back(upRecv);
+                nccSession.push_back(downSend);
+                nccSession.push_back(downRecv);
             }
-            dataTransferContainer =
-                Neon::set::Container::factoryDataTransfer(
-                    *this,
-                    transferMode,
-                    stencilSemantic,
-                    transfers,
-                    execution);
-
-
-        } else {
-            for (auto byDirection : {tool::partitioning::ByDirection::up,
-                                     tool::partitioning::ByDirection::down}) {
-
-                auto const& tableEntryByDir = mData->aosHaloUpdateTable.get(transferMode,
-                                                                            execution,
-                                                                            byDirection);
-
-                tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
-                    transfers[setIdx].insert(std::end(transfers[setIdx]),
-                                             std::begin(tableEntryByDirBySetIdx),
-                                             std::end(tableEntryByDirBySetIdx));
-                });
-            }
-            dataTransferContainer =
-                Neon::set::Container::factoryDataTransfer(
-                    *this,
-                    transferMode,
-                    stencilSemantic,
-                    transfers,
-                    execution);
-        }
-    } else {
-        auto transfers = bk.template newDataSet<std::vector<Neon::set::MemoryTransfer>>();
-        if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::structOfArrays) {
-            for (auto byDirection : {tool::partitioning::ByDirection::up,
-                                     tool::partitioning::ByDirection::down}) {
-
-                auto const& tableEntryByDir = mData->latticeHaloUpdateTable.get(transferMode,
-                                                                                execution,
-                                                                                byDirection);
-
-                tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
-                    transfers[setIdx].insert(std::end(transfers[setIdx]),
-                                             std::begin(tableEntryByDirBySetIdx),
-                                             std::end(tableEntryByDirBySetIdx));
-                });
-            }
-            dataTransferContainer =
-                Neon::set::Container::factoryDataTransfer(
-                    *this,
-                    transferMode,
-                    stencilSemantic,
-                    transfers,
-                    execution);
-
-
+            auto res = Neon::set::Container::factoryNcclTransfer(this->getGrid(),
+                                                      stencilSemantic,
+                                                      nccSession,
+                                                      execution);
+            return res;
         } else {
             NEON_DEV_UNDER_CONSTRUCTION("");
         }
-    }
-    Neon::set::Container SyncContainer =
-        Neon::set::Container::factorySynchronization(
-            *this,
-            Neon::set::SynchronizationContainerType::hostOmpBarrier);
-
-    Neon::set::container::Graph graph(this->getBackend());
-    const auto&                 dataTransferNode = graph.addNode(dataTransferContainer);
-    const auto&                 syncNode = graph.addNode(SyncContainer);
-
-    switch (transferMode) {
-        case Neon::set::TransferMode::put:
-            graph.addDependency(dataTransferNode, syncNode, Neon::GraphDependencyType::data);
-            break;
-        case Neon::set::TransferMode::get:
-            graph.addDependency(syncNode, dataTransferNode, Neon::GraphDependencyType::data);
-            break;
-        default:
-            NEON_THROW_UNSUPPORTED_OPTION();
-            break;
+    } else {
+        NEON_DEV_UNDER_CONSTRUCTION("");
     }
 
-    graph.removeRedundantDependencies();
 
-    Neon::set::Container output =
-        Neon::set::Container::factoryGraph("ncclGrid-Halo-Update",
-                                           graph,
-                                           [](Neon::SetIdx, Neon::set::Loader&) {});
-    return output;
+    NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
 template <typename T, int C>

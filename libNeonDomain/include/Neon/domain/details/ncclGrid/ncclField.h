@@ -299,10 +299,10 @@ class ncclField : public Neon::domain::interface::FieldBaseTemplate<T,
         };
 
         Neon::domain::tool::PartitionTable<Partition, ReductionInformation> partitionTable;
-        Neon::domain::tool::HaloTable1DPartitioning                         latticeHaloUpdateTable;
-        Neon::domain::tool::HaloTable1DPartitioning                         soaHaloUpdateTable;
-        Neon::domain::tool::HaloTable1DPartitioning                         aosHaloUpdateTable;
-        Neon::aGrid::Field<T, C>                                            memoryField;
+
+
+
+        Neon::aGrid::Field<T, C> memoryField;
 
         Neon::DataUse                     dataUse;
         Neon::MemoryOptions               memoryOptions;

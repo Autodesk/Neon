@@ -14,7 +14,7 @@ int main(int /*argc*/, char** /*argv*/)
     Neon::Backend                             bk(Neon::Runtime::stream);
     Neon::domain::details::ncclGrid::ncclGrid grid(
         bk,
-        Neon::int32_3d(1, 1, 12),
+        Neon::int32_3d(100, 100, 100),
         [&](Neon::index_3d const& /*idx*/) -> bool { return true; },
         Neon::domain::Stencil::s7_Laplace_t());
 
@@ -25,6 +25,11 @@ int main(int /*argc*/, char** /*argv*/)
 
     field.updateDeviceData(0);
     field.ioToVtk("test", "test");
+    auto hu = field.newHaloUpdate(Neon::set::StencilSemantic::standard,
+        Neon::set::TransferMode::get,
+        Neon::Execution::device);
+
+    hu.run(0);
 }
 
 #if 0

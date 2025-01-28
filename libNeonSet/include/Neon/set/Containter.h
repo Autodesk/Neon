@@ -133,6 +133,13 @@ struct Container
                                     Neon::Execution                                                   execution)
         -> Neon::set::Container;
 
+    template <typename MultiXpuDataT>
+    static auto factoryNcclTransfer(const MultiXpuDataT&                    multiXpuData,
+                                    Neon::set::StencilSemantic              transferSemantic,
+                                    std::vector<Neon::set::NcclPtoP> const& NcclSession,
+                                    Neon::Execution                         execution)
+        -> Neon::set::Container;
+
     template <typename MxpuDataT>
     static auto factorySynchronization(const MxpuDataT&             multiXpuData,
                                        SynchronizationContainerType syncType)

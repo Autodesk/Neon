@@ -54,6 +54,7 @@ class Backend
             auto getWorldSize() const -> int;
             auto getLocalRank() const -> int;
             auto getLocalSize() const -> int;
+            auto getNcclComm() const -> ncclComm_t;
 
            private:
             auto finiMPI() -> void;

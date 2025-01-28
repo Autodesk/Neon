@@ -66,4 +66,43 @@ NEON_CUDA_HOST_DEVICE inline auto ncclSpan::helpGetDim()
     return mSpanDim;
 }
 
+/** function to help set the pointer for teh nccl halo update */
+NEON_CUDA_HOST_DEVICE inline auto
+ncclSpan::helpHalosetAndValidate(
+                      const int32_t& x,
+                      const int32_t& y,
+                      const int32_t& z)
+    const -> Idx
+{
+    Idx            idx;
+    idx.setLocation().x = int(x);
+    idx.setLocation().y = int(y);
+    idx.setLocation().z = int(z);
+
+
+    switch (mDataView) {
+        case Neon::DataView::STANDARD: {
+            idx.setLocation().z += mZghostRadius;
+            return idx;
+        }
+        case Neon::DataView::INTERNAL: {
+            idx.setLocation().z += mZghostRadius + mZboundaryRadius;
+            return idx;
+        }
+        case Neon::DataView::BOUNDARY: {
+
+            idx.setLocation().z += idx.getLocation().z < mZboundaryRadius
+                                       ? 0
+                                       : (mMaxZInDomain - 1) + (-1 * mZboundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
+            idx.setLocation().z += mZghostRadius;
+
+            return idx;
+        }
+        default: {
+        }
+    }
+    return idx;
+}
+
+
 }  // namespace Neon::domain::details::ncclGrid

@@ -14,9 +14,9 @@
 #include "Neon/set/container/GraphContainer.h"
 #include "Neon/set/container/HostContainer.h"
 #include "Neon/set/container/HostManagedContainer.h"
+#include "Neon/set/container/NcclTransferContainer.h"
 #include "Neon/set/container/OldDeviceManagedContainer.h"
 #include "Neon/set/container/SynchronizationContainer.h"
-
 
 namespace Neon::set {
 
@@ -138,6 +138,21 @@ auto Container::
                                                             transferSemantic,
                                                             memoryTransfers,
                                                             execution);
+
+    std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
+    return {tmp};
+}
+
+template <typename MultiXpuDataT>
+auto Container::factoryNcclTransfer(const MultiXpuDataT&                    multiXpuData,
+                                    Neon::set::StencilSemantic              transferSemantic,
+                                    std::vector<Neon::set::NcclPtoP> const& ncclSession,
+                                    Neon::Execution                         execution) -> Neon::set::Container
+{
+    auto k = new Neon::set::internal::NcclTransferContainer<MultiXpuDataT>(multiXpuData,
+                                                                           transferSemantic,
+                                                                           ncclSession,
+                                                                           execution);
 
     std::shared_ptr<Neon::set::internal::ContainerAPI> tmp(k);
     return {tmp};

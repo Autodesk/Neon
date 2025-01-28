@@ -134,6 +134,11 @@ auto Backend::Data_t::Nccl::getLocalSize() const -> int
     return localSize;
 }
 
+auto Backend::Data_t::Nccl::getNcclComm() const -> ncclComm_t
+{
+    return nccl_comm;
+}
+
 auto Backend::selfData() -> Data_t&
 {
     return *m_data;
