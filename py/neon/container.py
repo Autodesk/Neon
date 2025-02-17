@@ -118,11 +118,12 @@ class Container:
             field_type = field.get_type()
             field_type_name = ''
             try:
-                field_type_name = self.neon_gate.warp_type_to_cpp_type_string[field_type]
+                field_type_name = self.neon_gate.warp_type_to_string[field_type]
             except KeyError:
                 raise Exception(f'Unsupported field type {field_type}')
+            grid_name = field.get_grid().get_name()
 
-            register_token = getattr(lib_obj, f'warp_dgrid_container_add_parse_token_{field_type_name}_{field_card}')
+            register_token = getattr(lib_obj, f'warp_container_add_parse_token_{grid_name}_{field_type_name}_{0}')
             register_token.argtypes = [self.neon_gate.handle_type,
                                        self.neon_gate.handle_type,
                                        ctypes.c_int,

@@ -402,74 +402,61 @@ extern "C" auto warp_container_run(
         return 0;                                                                                          \
     }
 
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint8_t, 0)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint8_t, 1)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint8_t, 2)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint8_t, 3)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint8_t, 4)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint8_t, 5)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint8_t, 19)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint8_t, 27)
 
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int8_t, 0)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int8_t, 1)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int8_t, 2)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int8_t, 3)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int8_t, 4)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int8_t, 5)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int8_t, 19)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int8_t, 27)
+template <typename Grid, typename Type, int Card>
+auto warp_container_add_parse_token(
+    void* handle,
+    void* field_handle,
+    int   access_int,
+    int   pattern_int,
+    int   stencilSemantic_int)
+    -> int
+{
+    using Field = typename Grid::template Field<Type, Card>;
+    auto  pattern = Neon::PatternUtils::fromInt(pattern_int);
+    auto  access = Neon::set::dataDependency::AccessTypeUtils::fromInt(access_int);
+    auto  stenSemantic = Neon::set::StencilSemanticUtils::fromInt(stencilSemantic_int);
+    auto* data = reinterpret_cast<Neon::py::container_warp_data<Neon::dGrid>*>(handle);
 
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int32_t, 0)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int32_t, 1)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int32_t, 2)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int32_t, 3)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int32_t, 4)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int32_t, 5)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int32_t, 19)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int32_t, 27)
+    Field* field = reinterpret_cast<Field*>(field_handle);
+    if (field == nullptr) {
+        Neon::NeonException e("parse_token");
+        NEON_THROW(e);
+    }
 
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint32_t, 0)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint32_t, 1)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint32_t, 2)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint32_t, 3)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint32_t, 4)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint32_t, 5)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint32_t, 19)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint32_t, 27)
+    if (access == Neon::set::dataDependency::AccessType::READ) {
+        const Field& parsingField = *field;
+        data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
+    } else {
+        Field& parsingField = *field;
+        data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
+    }
+    return 0;
+}
 
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int64_t, 0)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int64_t, 1)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int64_t, 2)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int64_t, 3)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int64_t, 4)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int64_t, 5)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int64_t, 19)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(int64_t, 27)
+#define DO_EXPORT_PARSER(FOO_NAME, GRID, GRID_TYPE, TYPE, CARD, N, RET, ...)               \
+    extern "C" auto FOO_NAME##_##GRID##_##TYPE##_##CARD(EXPAND_PAIRS(N, __VA_ARGS__))->RET \
+    {                                                                                      \
+        return FOO_NAME<GRID_TYPE, TYPE, CARD>(EXTRACT_NAMES(N, __VA_ARGS__));             \
+    }
 
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint64_t, 0)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint64_t, 1)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint64_t, 2)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint64_t, 3)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint64_t, 4)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint64_t, 5)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint64_t, 19)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(uint64_t, 27)
+// For now we expose only fields with dynamic cardinality; i.e. the templated cardinality is 0
+DO_EXPORT_PARSER(warp_container_add_parse_token, dGrid, Neon::domain::details::dGrid::dGrid, int8, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, dGrid, Neon::domain::details::dGrid::dGrid, uint8, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, dGrid, Neon::domain::details::dGrid::dGrid, bool, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, dGrid, Neon::domain::details::dGrid::dGrid, int32, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, dGrid, Neon::domain::details::dGrid::dGrid, uint32, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, dGrid, Neon::domain::details::dGrid::dGrid, int64, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, dGrid, Neon::domain::details::dGrid::dGrid, uint64, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, dGrid, Neon::domain::details::dGrid::dGrid, float32, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, dGrid, Neon::domain::details::dGrid::dGrid, float64, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
 
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(float, 0)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(float, 1)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(float, 2)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(float, 3)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(float, 4)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(float, 5)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(float, 19)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(float, 27)
-
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(double, 0)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(double, 1)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(double, 2)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(double, 3)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(double, 4)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(double, 5)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(double, 19)
-DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(double, 27)
+DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, int8, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, uint8, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, bool, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, int32, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, uint32, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, int64, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, uint64, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, float32, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, float64, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
