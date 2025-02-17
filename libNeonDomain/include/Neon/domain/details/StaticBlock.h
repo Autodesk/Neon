@@ -102,6 +102,6 @@ struct StaticBlock
         BitMaskWordType bits[nWords];
     };
 };
-constexpr int StaticBlockSizeDefault = 4;
-using StaticBlockDefault = StaticBlock<StaticBlockSizeDefault, StaticBlockSizeDefault, StaticBlockSizeDefault>;
+constexpr int StaticBlockSizeDefault = 8;
+using StaticBlockDefault = StaticBlock<StaticBlockSizeDefault, StaticBlockSizeDefault, StaticBlockSizeDefault, 2, 2, 2, true>;
 }  // namespace Neon::domain::details

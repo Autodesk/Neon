@@ -6,7 +6,7 @@
 #include "Neon/py/AllocationCounter.h"
 #include "Neon/py/macros.h"
 #include "Neon/set/Backend.h"
-auto dGrid_new(
+extern "C" auto dGrid_new(
     void**                handle,
     void*                 backendPtr,
     const Neon::index_3d* dim,
@@ -57,7 +57,7 @@ auto dGrid_new(
     return 0;
 }
 
-auto dGrid_delete(
+extern "C" auto dGrid_delete(
     void** handle)
     -> int
 {

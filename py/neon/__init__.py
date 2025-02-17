@@ -14,6 +14,7 @@ from .ngh_idx import Ngh_idx
 from .tool.__init__ import *
 from .dense.__init__ import *
 from .block.__init__ import *
+from .multires.__init__ import *
 
 from .loader import Loader
 from .container import Container

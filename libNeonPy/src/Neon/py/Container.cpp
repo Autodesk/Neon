@@ -300,7 +300,37 @@ extern "C" auto warp_bGrid_container_new(
                                             blockSize);
 
     if (data == nullptr) {
-        Neon::NeonException e("warp_dgrid_container_new");
+        Neon::NeonException e("warp_bGrid_container_new");
+        NEON_THROW(e);
+    }
+
+    *handle = reinterpret_cast<void*>(data);
+    NEON_PY_PRINT_END(*handle);
+    return 0;
+}
+
+extern "C" auto warp_mGrid_container_new(
+    void**          handle,
+    int32_t         grid_level,
+    Neon::Execution execution,
+    void*           handle_cudaDriver,
+    void*           handle_dgrid,
+    void**          kernels_matrix,
+    Neon::index_3d* blockSize) -> int
+{
+    NEON_PY_PRINT_BEGIN(*handle)
+    using Grid = Neon::domain::mGrid;
+    auto* grid = reinterpret_cast<Grid*>(handle_dgrid);
+    auto  level_grid = grid->operator()(grid_level);
+    auto  data = new (std::nothrow)
+        Neon::py::container_warp_data<decltype(level_grid)>(execution,
+                                                            handle_cudaDriver,
+                                                            &level_grid,
+                                                            kernels_matrix,
+                                                            blockSize);
+
+    if (data == nullptr) {
+        Neon::NeonException e("warp_mGrid_container_new");
         NEON_THROW(e);
     }
 

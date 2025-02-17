@@ -1,4 +1,3 @@
-import ctypes
 from enum import Enum
 import neon
 
@@ -36,6 +35,7 @@ class Loader:
                  data_view: neon.DataView,
                  parsing: bool = False):
 
+        self.mres_level = None
         self.execution = execution
         self.gpu_id = gpu_id
         self.data_view = data_view
@@ -77,8 +77,50 @@ class Loader:
 
         return partition
 
+    def get_mres_write_handle(self,
+                         neon_field,
+                         operation: Operation = Operation.map,
+                         discretization:Discretization = Discretization.cartesian):
+
+        if self.parsing:
+            access = Loader.Access.write
+            token = Loader.Token(neon_field, access, operation, discretization)
+            self.tokens.append(token)
+
+        partition = neon_field.get_partition(
+            self.mres_level,
+            self.execution,
+            self.gpu_id,
+            self.data_view)
+
+        return partition
+
+    def get_mres_read_handle(
+            self,
+            neon_field,
+            operation: Operation = Operation.map,
+            discretization: Discretization = Discretization.cartesian):
+
+        if self.parsing:
+            access = Loader.Access.read
+            token = Loader.Token(neon_field, access, operation, discretization)
+            self.tokens.append(token)
+
+        partition = neon_field.get_partition(
+            self.mres_level,
+            self.execution,
+            self.gpu_id,
+            self.data_view
+        )
+
+        return partition
+
     def set_grid(self, grid):
         self.neon_field = grid
+
+    def set_mres_grid(self, grid, level):
+        self.neon_field = grid
+        self.mres_level = level
 
     def _retrieve_grid(self):
         return self.neon_field

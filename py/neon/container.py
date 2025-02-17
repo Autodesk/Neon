@@ -62,10 +62,13 @@ class Container:
 
         for dev_idx in range(n_devices):
             for dw_idx in range(n_data_views):
+                if grid_name == 'mGrid' and dw_idx != 0:
+                    # For mGrid at the moment we only support the STANDARD data view
+                    continue
                 dev_kernel = self._get_kernel(execution=execution,
-                                     gpu_id=dev_idx,
-                                     data_view=neon.DataView.from_int(dw_idx),
-                                     container_runtime=Container.ContainerRuntime.neon)
+                                              gpu_id=dev_idx,
+                                              data_view=neon.DataView.from_int(dw_idx),
+                                              container_runtime=Container.ContainerRuntime.neon)
                 # using self.k for debugging
                 offset = dev_idx * n_data_views + dw_idx
                 dev_str = self.backend.get_device_name(dev_idx)
@@ -84,13 +87,21 @@ class Container:
         block_size = neon.Index_3d(128, 0, 0)
         # Search a function in the .so by composing the function name
 
-
-        self.api_new(ctypes.pointer(self.container_handle),
-                                                    execution,
-                                                    self.backend.cuda_driver_handle,
-                                                    self.grid.get_handle(),
-                                                    self.k_2Darray,
-                                                    block_size)
+        if container_parser.mres_level is None:
+            self.api_new(ctypes.pointer(self.container_handle),
+                         execution,
+                         self.backend.cuda_driver_handle,
+                         self.grid.get_handle(),
+                         self.k_2Darray,
+                         block_size)
+        else:
+            self.api_mres_new(ctypes.pointer(self.container_handle),
+                         container_parser.mres_level,
+                         execution,
+                         self.backend.cuda_driver_handle,
+                         self.grid.get_handle(),
+                         self.k_2Darray,
+                         block_size)
 
         self._parsing(container_parser)
 
@@ -113,17 +124,17 @@ class Container:
 
             register_token = getattr(lib_obj, f'warp_dgrid_container_add_parse_token_{field_type_name}_{field_card}')
             register_token.argtypes = [self.neon_gate.handle_type,
-                                            self.neon_gate.handle_type,
-                                            ctypes.c_int,
-                                            ctypes.c_int,
-                                            ctypes.c_int]
+                                       self.neon_gate.handle_type,
+                                       ctypes.c_int,
+                                       ctypes.c_int,
+                                       ctypes.c_int]
             register_token.restype = ctypes.c_int
 
             register_token(self.container_handle,
-                        field.get_handle(),
-                        access.value,
-                        operation.value,
-                        discretization.value)
+                           field.get_handle(),
+                           access.value,
+                           operation.value,
+                           discretization.value)
 
         parse = lib_obj.warp_container_parse
         parse.argtypes = [self.neon_gate.handle_type]
@@ -155,16 +166,26 @@ class Container:
             raise Exception('Failed to initialize PyNeon: ' + str(e))
 
         # ------------------------------------------------------------------
-        # backend_new
         api_gate = self.neon_gate.lib
-        self.api_new = getattr(self.neon_gate.lib, f'warp_{grid_name}_container_new')
-        self.api_new.argtypes = [ctypes.POINTER(self.neon_gate.handle_type),
-                                 neon.Execution,
-                                 self.neon_gate.handle_type,
-                                 self.neon_gate.handle_type,
-                                 ctypes.POINTER(ctypes.c_void_p),
-                                 ctypes.POINTER(neon.Index_3d)]
-        self.api_new.restype = ctypes.c_int
+        if grid_name != "mGrid":
+            self.api_new = getattr(self.neon_gate.lib, f'warp_{grid_name}_container_new')
+            self.api_new.argtypes = [ctypes.POINTER(self.neon_gate.handle_type),
+                                     neon.Execution,
+                                     self.neon_gate.handle_type,
+                                     self.neon_gate.handle_type,
+                                     ctypes.POINTER(ctypes.c_void_p),
+                                     ctypes.POINTER(neon.Index_3d)]
+            self.api_new.restype = ctypes.c_int
+        else:
+            self.api_mres_new = getattr(self.neon_gate.lib, f'warp_{grid_name}_container_new')
+            self.api_mres_new.argtypes = [ctypes.POINTER(self.neon_gate.handle_type),
+                                     ctypes.c_int32, #Level
+                                     neon.Execution,
+                                     self.neon_gate.handle_type,
+                                     self.neon_gate.handle_type,
+                                     ctypes.POINTER(ctypes.c_void_p),
+                                     ctypes.POINTER(neon.Index_3d)]
+            self.api_mres_new.restype = ctypes.c_int
         # ------------------------------------------------------------------
         # warp_container_delete
         self.api_delete = api_gate.warp_container_delete
@@ -189,9 +210,17 @@ class Container:
                     execution: neon.Execution,
                     gpu_id: int,
                     data_view: neon.DataView):
-        span = self.grid.get_span(execution=execution,
+        span = None
+        if self.grid.get_name() != "mGrid":
+            span = self.grid.get_span(execution=execution,
                                   dev_idx=gpu_id,
                                   data_view=data_view)
+        else:
+            span = self.grid.get_span( grid_level = 0,
+                                       execution=execution,
+                                       dev_idx=gpu_id,
+                                       data_view=data_view,
+                                       )
         loader: neon.Loader = neon.Loader(execution=execution,
                                           gpu_id=gpu_id,
                                           data_view=data_view)

@@ -1,7 +1,8 @@
+#if !defined(NEON_WARP_COMPILATION)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #pragma once
-
+#endif
 
 #include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/details/bGrid/bPartition.h"
@@ -235,5 +236,6 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
 }  // namespace Neon::domain::details::mGrid
 
 #include "Neon/domain/details/mGrid/mPartition_imp.h"
-
+#if !defined(NEON_WARP_COMPILATION)
 #pragma GCC diagnostic pop
+#endif

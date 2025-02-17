@@ -1,15 +1,18 @@
 #include "Neon/py/mGrid.h"
+#include <nvtx3/nvToolsExt.h>
 #include "Neon/domain/Grids.h"
 #include "Neon/py/AllocationCounter.h"
-
-auto mGrid_new(
-    uint64_t& handle,
-    uint64_t& backendPtr,
+#include "Neon/py/macros.h"
+extern "C" auto mGrid_new(
+    void**                handle,
+    void*                 backendPtr,
     const Neon::index_3d* dim,
-    int* sparsity_pattern,
-    uint32_t depth)
+    int**                 sparsity_pattern_vec,
+    int                   sparsity_pattern_size,
+    uint32_t              depth)
     -> int
 {
+    NEON_PY_PRINT_BEGIN(*handle);
     std::cout << "mGrid_new - BEGIN" << std::endl;
     std::cout << "mGrid_new - gridHandle " << handle << std::endl;
 
@@ -25,44 +28,58 @@ auto mGrid_new(
 
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
     // @TODOMATT define/use a multiresolution constructor for Grid g (talk to max about this)
-    Grid                  g(*backend, *dim, std::vector<std::function<bool(const Neon::index_3d&)>>{[=](Neon::index_3d const& idx) { return sparsity_pattern[idx.x * (dim->x * dim->y) + idx.y * dim->z + idx.z ]; }}, d3q19, Grid::Descriptor(depth));
-    auto                  gridPtr = new (std::nothrow) Grid(g);
-    AllocationCounter::Allocation();
+    std::vector<std::function<bool(const Neon::index_3d&)>> sparsity(sparsity_pattern_size);
+    for (int i = 0; i < sparsity_pattern_size; i++) {
+        sparsity[i] = [=](Neon::index_3d const& idx) {
+            int val = sparsity_pattern_vec[i][idx.x +
+                                              (dim->y) * idx.y +
+                                              (dim->x * dim->y) * idx.z];
+            std::cout << "mGrid_new - sparsity_pattern_vec[" << i << "][" << idx.x << "][" << idx.y << "][" << idx.z << "] = " << val << std::endl;
+            return val == 1;
+            // return true;
+        };
+    }
+
+    auto gridPtr = new (std::nothrow) Grid(*backend,
+                                           *dim,
+                                           sparsity,
+                                           d3q19, Grid::Descriptor(depth));
 
     if (gridPtr == nullptr) {
         std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
         return -1;
     }
-    handle = (uint64_t)gridPtr;
+    *handle = (void*)gridPtr;
     std::cout << "grid_new - END" << std::endl;
 
-    // g.ioDomainToVtk("")
+    // g.ioDomainToVtk("");
+    NEON_PY_PRINT_END(*handle);
+
     return 0;
 }
 
 
-auto mGrid_delete(
-    uint64_t& handle)
+extern "C" auto mGrid_delete(
+    void** handle)
     -> int
 {
     std::cout << "mGrid_delete - BEGIN" << std::endl;
     std::cout << "mGrid_delete - gridHandle " << handle << std::endl;
 
     using Grid = Neon::domain::mGrid;
-    Grid* gridPtr = reinterpret_cast<Grid*>(handle);
+    Grid* gridPtr = reinterpret_cast<Grid*>(*handle);
 
     if (gridPtr != nullptr) {
         delete gridPtr;
-        AllocationCounter::Deallocation();
     }
-    handle = 0;
+    *handle = nullptr;
 
     std::cout << "mGrid_delete - END" << std::endl;
     return 0;
 }
 
 extern "C" auto mGrid_get_dimensions(
-    uint64_t& gridHandle,
+    void*           gridHandle,
     Neon::index_3d* dim)
     -> int
 {
@@ -70,7 +87,7 @@ extern "C" auto mGrid_get_dimensions(
     std::cout << "mGrid_get_dimension - gridHandle " << gridHandle << std::endl;
 
 
-    using Grid = Neon::domain::mGrid;    
+    using Grid = Neon::domain::mGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
 
     if (gridPtr == nullptr) {
@@ -89,13 +106,13 @@ extern "C" auto mGrid_get_dimensions(
     return 0;
 }
 
-auto mGrid_get_span(
-    uint64_t&                   gridHandle,
-    uint64_t                    grid_level,
-    Neon::domain::mGrid::Span*  spanRes,
-    int                         execution,
-    int                         device,
-    int                         data_view)
+extern "C" auto mGrid_get_span(
+    void*                      gridHandle,
+    int32_t                    grid_level,
+    Neon::domain::mGrid::Span* spanRes,
+    int                        execution,
+    int                        device,
+    int                        data_view)
     -> int
 {
     std::cout << "mGrid_get_span - BEGIN " << std::endl;
@@ -111,12 +128,10 @@ auto mGrid_get_span(
     Grid& grid = *gridPtr;
 
     if (gridPtr != nullptr) {
-        if (grid_level < grid.getGridCount()) {
+        if (grid_level < int(grid.getGridCount())) {
             std::cout << "grid_level out of range in mGrid_get_span" << std::endl;
         }
-        auto& gridSpan = grid(grid_level).getSpan(Neon::ExecutionUtils::fromInt(execution),
-                                      device,
-                                      Neon::DataViewUtil::fromInt(data_view));
+        auto& gridSpan = grid(grid_level).getSpan(Neon::ExecutionUtils::fromInt(execution), device, Neon::DataViewUtil::fromInt(data_view));
         (*spanRes) = gridSpan;
         std::cout << "mGrid_get_span - END" << &gridSpan << std::endl;
 
@@ -125,84 +140,62 @@ auto mGrid_get_span(
     return -1;
 }
 
+template <typename T>
 auto mGrid_mField_new(
-    uint64_t& fieldHandle,
-    uint64_t& gridHandle,
-    int cardinality)
+    void** fieldHandle,
+    void*  gridHandle,
+    int    cardinality)
     -> int
 {
+    NEON_PY_PRINT_BEGIN(*fieldHandle);
+
     std::cout << "mGrid_mField_new - BEGIN" << std::endl;
     std::cout << "mGrid_mField_new - fieldHandle: " << fieldHandle << std::endl;
     std::cout << "mGrid_mField_new - gridHandle: " << gridHandle << std::endl;
 
     using Grid = Neon::domain::mGrid;
-    using Field = Grid::Field<int, 0>;
+    using Field = Grid::Field<T, 0>;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
     Grid& grid = *gridPtr;
 
     if (gridPtr != nullptr) {
-        Field field = grid.newField<int, 0>("test", cardinality, 0, Neon::DataUse::HOST_DEVICE);
+        Field  field = grid.newField<T, 0>("test", cardinality, 0, Neon::DataUse::HOST_DEVICE);
         Field* fieldPtr = new (std::nothrow) Field(field);
         if (fieldPtr == nullptr) {
             std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
             return -1;
         }
-        AllocationCounter::Allocation();
-        fieldHandle = (uint64_t)fieldPtr;
-        std::cout << "mGrid_mField_new - END fieldHandle: " << fieldHandle << std::endl;
+
+        // auto partition = fieldPtr->operator()(0).getPartition(Neon::Execution::device, 0, Neon::DataView::INTERNAL);
+        // std::cout << "mGrid_mField_new - partition cardinality " << partition.cardinality() << std::endl;
+
+        *fieldHandle = fieldPtr;
+        NEON_PY_PRINT_END(*fieldHandle);
 
         return 0;
+
     }
     std::cout << "mGrid_mField_new - ERROR (grid ptr " << gridPtr << ") " << std::endl;
 
     return -1;
 }
 
-auto mGrid_mField_get_partition(
-    uint64_t&                                                   field_handle,
-    [[maybe_unused]] Neon::domain::mGrid::Partition<int, 0>*    partitionPtr,
-    uint64_t                                                    field_level,
-    Neon::Execution                                             execution,
-    int                                                         device,
-    Neon::DataView                                              data_view)
-    -> int
-{
+DO_EXPORT(int8, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(uint8, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(bool, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
 
-    std::cout << "mGrid_mField_get_partition - BEGIN " << std::endl;
-    std::cout << "mGrid_mField_get_partition - field_handle " << field_handle << std::endl;
-    std::cout << "mGrid_mField_get_partition - execution " << Neon::ExecutionUtils::toString(execution) << std::endl;
-    std::cout << "mGrid_mField_get_partition - field_level " << field_level << std::endl;
-    std::cout << "mGrid_mField_get_partition - device " << device << std::endl;
-    std::cout << "mGrid_mField_get_partition - data_view " << Neon::DataViewUtil::toString(data_view) << std::endl;
+DO_EXPORT(int32, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(uint32, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
 
-    using Grid = Neon::domain::mGrid;
-    using Field = Grid::Field<int, 0>;
+DO_EXPORT(int64, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(uint64, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
 
-    Field* fieldPtr = (Field*)field_handle;
+DO_EXPORT(float32, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(float64, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
 
-    if (fieldPtr != nullptr) {
-        const auto& descriptor = fieldPtr->getDescriptor();
-
-        // check to make sure that the given field level is within bounds. The first clause is to allow a cast in the second clause.
-        if (descriptor.getDepth() < 0 || field_level >= static_cast<uint64_t>(descriptor.getDepth())) {
-            std::cout << "field index out of bounds" << std::endl;
-            return -1;
-        }
-        auto p = (*fieldPtr)(field_level).getPartition(execution,
-                                        device,
-                                        data_view);
-        std::cout << p.cardinality() << std::endl;
-        *partitionPtr = p;
-
-        std::cout << "mGrid_mField_get_partition - END" << std::endl;
-
-        return 0;
-    }
-    return -1;
-}
-
+template <typename T>
 auto mGrid_mField_delete(
-    uint64_t& handle)
+    void* handle)
     -> int
 {
     std::cout << "mGrid_mField_delete - BEGIN" << std::endl;
@@ -223,6 +216,75 @@ auto mGrid_mField_delete(
     return 0;
 }
 
+DO_EXPORT(int8, 1, mGrid_mField_delete, int, void**, handle);
+DO_EXPORT(uint8, 1, mGrid_mField_delete, int, void**, handle);
+DO_EXPORT(bool, 1, mGrid_mField_delete, int, void**, handle);
+
+DO_EXPORT(int32, 1, mGrid_mField_delete, int, void**, handle);
+DO_EXPORT(uint32, 1, mGrid_mField_delete, int, void**, handle);
+
+DO_EXPORT(int64, 1, mGrid_mField_delete, int, void**, handle);
+DO_EXPORT(uint64, 1, mGrid_mField_delete, int, void**, handle);
+
+DO_EXPORT(float32, 1, mGrid_mField_delete, int, void**, handle);
+DO_EXPORT(float64, 1, mGrid_mField_delete, int, void**, handle);
+
+template <typename T>
+auto mGrid_mField_get_partition(
+    void*                                                  field_handle,
+    [[maybe_unused]] Neon::domain::mGrid::Partition<T, 0>* partitionPtr,
+    int32_t                                                resolution_level,
+    Neon::Execution                                        execution,
+    int                                                    device,
+    Neon::DataView                                         data_view)
+    -> int
+{
+    NEON_PY_PRINT_BEGIN(field_handle);
+
+    std::cout << "mGrid_mField_get_partition - BEGIN " << std::endl;
+    std::cout << "mGrid_mField_get_partition - field_handle " << field_handle << std::endl;
+    std::cout << "mGrid_mField_get_partition - execution " << Neon::ExecutionUtils::toString(execution) << std::endl;
+    std::cout << "mGrid_mField_get_partition - resolution_level " << resolution_level << std::endl;
+    std::cout << "mGrid_mField_get_partition - device " << device << std::endl;
+    std::cout << "mGrid_mField_get_partition - data_view " << Neon::DataViewUtil::toString(data_view) << std::endl;
+
+    using Grid = Neon::domain::mGrid;
+    using Field = Grid::Field<T, 0>;
+
+    Field* fieldPtr = (Field*)field_handle;
+
+    if (fieldPtr != nullptr) {
+        const auto& descriptor = fieldPtr->getDescriptor();
+
+        // check to make sure that the given field level is within bounds. The first clause is to allow a cast in the second clause.
+        if (descriptor.getDepth() < 0 || resolution_level >= descriptor.getDepth()) {
+            std::cout << "field index out of bounds" << std::endl;
+            return -1;
+        }
+        auto p = (*fieldPtr)(resolution_level).getPartition(execution, device, data_view);
+        std::cout << p.cardinality() << std::endl;
+        *partitionPtr = p;
+
+        std::cout << "mGrid_mField_get_partition - END" << std::endl;
+        NEON_PY_PRINT_END(field_handle);
+
+        return 0;
+    }
+    return -1;
+}
+
+DO_EXPORT(int8, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<int8, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(uint8, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<uint8, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(bool, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<bool, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(int32, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<int32, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(uint32, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<uint32, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+
+DO_EXPORT(int64, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<int64, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(uint64, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<uint64, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+
+DO_EXPORT(float32, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<float32, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(float64, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<float64, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+
 auto mGrid_span_size(
     Neon::domain::mGrid::Span* spanRes)
     -> int
@@ -237,56 +299,57 @@ auto mGrid_mField_partition_size(
     return sizeof(*partitionPtr);
 }
 
-auto mGrid_get_properties( /* TODOMATT verify what the return of this method should be */
-    uint64_t& gridHandle,
-    uint64_t  grid_level,
-    const Neon::index_3d* idx) 
-    -> int
-{
-    std::cout << "mGrid_get_properties begin" << std::endl;
-    
-    using Grid = Neon::domain::mGrid;
-    Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
-    if (grid_level >= gridPtr->getGridCount()) {
-            std::cout << "grid_level out of range in mGrid_get_properties" << std::endl;
-        }
-    
-    int returnValue = int((*gridPtr)(grid_level).getProperties(*idx).getDataView());
-    std::cout << "mGrid_get_properties end" << std::endl;
 
-    return returnValue;
-}
-
-auto mGrid_is_inside_domain(
-    uint64_t& gridHandle,
-    uint64_t  grid_level,
-    const Neon::index_3d* idx
-    ) 
+// auto mGrid_get_properties(/* TODOMATT verify what the return of this method should be */
+//                           void*                 gridHandle,
+//                           uint64_t              grid_level,
+//                           const Neon::index_3d* idx)
+//     -> int
+// {
+//     std::cout << "mGrid_get_properties begin" << std::endl;
+//
+//     using Grid = Neon::domain::mGrid;
+//     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
+//     if (grid_level >= gridPtr->getGridCount()) {
+//         std::cout << "grid_level out of range in mGrid_get_properties" << std::endl;
+//     }
+//
+//     int returnValue = int((*gridPtr)(grid_level).getProperties(*idx).getDataView());
+//     std::cout << "mGrid_get_properties end" << std::endl;
+//
+//     return returnValue;
+// }
+//
+extern "C" auto mGrid_is_inside_domain(
+    void*                 gridHandle,
+    uint64_t              grid_level,
+    const Neon::index_3d* idx)
     -> bool
 {
     std::cout << "mGrid_is_inside_domain begin" << std::endl;
-    
+
     using Grid = Neon::domain::mGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
 
     bool returnValue = gridPtr->isInsideDomain(*idx, grid_level);
 
     std::cout << "mGrid_is_inside_domain end" << std::endl;
-    
+
     return returnValue;
 }
 
+template <typename T>
 auto mGrid_mField_read(
-    uint64_t& fieldHandle,
-    uint64_t  field_level,
+    void*                 fieldHandle,
+    int32_t               resolution_level,
     const Neon::index_3d* idx,
-    const int cardinality)
-    -> int
+    const int             cardinality)
+    -> T
 {
     std::cout << "mGrid_mField_read begin" << std::endl;
 
     using Grid = Neon::domain::mGrid;
-    using Field = Grid::Field<int, 1>;
+    using Field = Grid::Field<T, 0>;
 
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 
@@ -294,19 +357,35 @@ auto mGrid_mField_read(
         std::cout << "invalid field" << std::endl;
     }
 
-    auto returnValue = (*fieldPtr)(*idx, cardinality, field_level);
-    
+    auto returnValue = (*fieldPtr)(*idx, cardinality, resolution_level);
+
     std::cout << "mGrid_mField_read end" << std::endl;
 
     return returnValue;
 }
 
+
+DO_EXPORT(int8, 4, mGrid_mField_read, int8, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(uint8, 4, mGrid_mField_read, uint8, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(bool, 4, mGrid_mField_read, bool, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+
+DO_EXPORT(int32, 4, mGrid_mField_read, int32, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(uint32, 4, mGrid_mField_read, uint32, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+
+DO_EXPORT(int64, 4, mGrid_mField_read, int64, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(uint64, 4, mGrid_mField_read, uint64, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+
+DO_EXPORT(float32, 4, mGrid_mField_read, float32, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(float64, 4, mGrid_mField_read, float64, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+
+
+template <typename T>
 auto mGrid_mField_write(
-    uint64_t& fieldHandle,
-    uint64_t  field_level,
+    void*                 fieldHandle,
+    int32_t               resolution_level,
     const Neon::index_3d* idx,
-    const int cardinality,
-    int newValue)
+    const int             cardinality,
+    T                     newValue)
     -> int
 {
     std::cout << "mGrid_mField_write begin" << std::endl;
@@ -321,21 +400,35 @@ auto mGrid_mField_write(
         return -1;
     }
 
-    fieldPtr->getReference(*idx, cardinality, field_level) = newValue;
-    
+    fieldPtr->getReference(*idx, cardinality, resolution_level) = newValue;
+
     std::cout << "mGrid_mField_write end" << std::endl;
     return 0;
 }
 
+DO_EXPORT(int8, 5, mGrid_mField_write, int8, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, int8, newValue);
+DO_EXPORT(uint8, 5, mGrid_mField_write, uint8, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, uint8, newValue);
+DO_EXPORT(bool, 5, mGrid_mField_write, bool, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, bool, newValue);
+
+DO_EXPORT(int32, 5, mGrid_mField_write, int32, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, int32, newValue);
+DO_EXPORT(uint32, 5, mGrid_mField_write, uint32, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, uint32, newValue);
+
+DO_EXPORT(int64, 5, mGrid_mField_write, int64, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, int64, newValue);
+DO_EXPORT(uint64, 5, mGrid_mField_write, uint64, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, uint64, newValue);
+
+DO_EXPORT(float32, 5, mGrid_mField_write, float32, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, float32, newValue);
+DO_EXPORT(float64, 5, mGrid_mField_write, float64, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, float64, newValue);
+
+template <typename T>
 auto mGrid_mField_update_host_data(
-    uint64_t& fieldHandle,
-    int streamSetId)
+    void* fieldHandle,
+    int   streamSetId)
     -> int
 {
     std::cout << "mGrid_mField_update_host_data begin" << std::endl;
 
     using Grid = Neon::domain::mGrid;
-    using Field = Grid::Field<int, 1>;
+    using Field = Grid::Field<T, 0>;
 
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 
@@ -345,20 +438,34 @@ auto mGrid_mField_update_host_data(
     }
 
     fieldPtr->updateHostData(streamSetId);
-    
+
     std::cout << "mGrid_mField_update_host_data end" << std::endl;
     return 0;
 }
 
+DO_EXPORT(int8, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint8, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(bool, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(int32, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint32, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(int64, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint64, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(float32, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(float64, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+
+template <typename T>
 auto mGrid_mField_update_device_data(
-    uint64_t& fieldHandle,
-    int streamSetId)
+    void* fieldHandle,
+    int   streamSetId)
     -> int
 {
     std::cout << "mGrid_mField_update_device_data begin" << std::endl;
 
     using Grid = Neon::domain::mGrid;
-    using Field = Grid::Field<int, 1>;
+    using Field = Grid::Field<T, 0>;
 
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 
@@ -368,13 +475,78 @@ auto mGrid_mField_update_device_data(
     }
 
     fieldPtr->updateDeviceData(streamSetId);
-    
+
     std::cout << "mGrid_mField_update_device_data end" << std::endl;
     return 0;
 }
 
+DO_EXPORT(int8, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint8, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(bool, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(int32, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint32, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(int64, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(uint64, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+
+DO_EXPORT(float32, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(float64, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+
+
+template <typename T>
+auto mGrid_mField_to_vti(
+    void*       fieldHandle,
+    const char* fname,
+    const char* fieldName)
+    -> int
+{
+#ifdef NEON_USE_NVTX
+    nvtxRangePush("mGrid_mField_to_vti");
+#endif
+
+    NEON_PY_PRINT_BEGIN(fieldHandle);
+
+    using Grid = Neon::domain::mGrid;
+    using Field = Grid::Field<T, 0>;
+
+    Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
+
+    if (fieldPtr == nullptr) {
+        std::cout << "invalid field" << std::endl;
+        return -1;
+    }
+    std::cout << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
+    fieldPtr->ioToVtk(fname,
+                      fieldName);
+    //                      bool               includeDomain = false,
+    //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
+    //                      bool               isNodeSpace = false
+    // fieldPtr->updateHostData(streamSetId);
+
+#ifdef NEON_USE_NVTX
+    nvtxRangePop();
+#endif
+    NEON_PY_PRINT_END(fieldHandle);
+
+    return 0;
+}
+
+DO_EXPORT(int8, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(uint8, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(bool, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+
+DO_EXPORT(int32, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(uint32, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+
+DO_EXPORT(int64, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(uint64, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+
+DO_EXPORT(float32, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(float64, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+
 extern "C" auto mGrid_mField_mPartition_get_member_field_offsets(size_t* offsets, size_t* length)
     -> void
 {
-   Neon::domain::mGrid::Partition<int, 0>::getOffsets(offsets, length);
+    Neon::domain::mGrid::Partition<int, 0>::getOffsets(offsets, length);
 }

@@ -58,7 +58,14 @@ def _register_block_builtins():
     bSpan.register_builtins()
     bPartition.register_builtins()
 
+def _register_mres_builtins():
+    include_path = os.path.abspath(os.path.dirname(__file__))
+    _add_header(f"{include_path}/multires/mPartition.h")
+    from .multires import mIndex, mSpan, mPartition
+    mPartition.register_builtins()
+
 def register_neon_warp_type():
     _register_base_builtins()
     _register_dense_builtins()
     _register_block_builtins()
+    _register_mres_builtins()

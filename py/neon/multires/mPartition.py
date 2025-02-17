@@ -3,21 +3,62 @@ import ctypes
 from enum import Enum
 
 import neon
-from neon import neon
+import warp as wp
+class mPartitionGeneric(ctypes.Structure):
 
+    def __init__(self):
+        self._help_load_api()
+        pass
 
-class mPartitionInt(ctypes.Structure):
-    _fields_ = [
+    def __str__(self):
+        str_repr = f"<mPartitionInt: addr={ctypes.addressof(self):#x}>"
+        str_repr += f"\n\tmCardinality: {self.mCardinality} (offset: {self.mPartitionInt.mCardinality.offset})"
+        str_repr += f"\n\tmMem: {self.mMem} (offset: {self.mPartitionInt.mMem.offset})"
+        str_repr += f"\n\tmStencilNghIndex: {self.mStencilNghIndex} (offset: {self.mPartitionInt.mStencilNghIndex.offset})"
+        str_repr += f"\n\tmBlockConnectivity: {self.mBlockConnectivity} (offset: {self.mPartitionInt.mBlockConnectivity.offset})"
+        str_repr += f"\n\tmMask: {self.mMask} (offset: {self.mPartitionInt.mMask.offset})"
+        str_repr += f"\n\tmOrigin: {self.mOrigin} (offset: {self.mPartitionInt.mOrigin.offset})"
+        str_repr += f"\n\tmSetIdx: {self.mSetIdx} (offset: {self.mPartitionInt.mSetIdx.offset})"
+        str_repr += f"\n\tmMultiResDiscreteIdxSpacing: {self.mMultiResDiscreteIdxSpacing} (offset: {self.mPartitionInt.mMultiResDiscreteIdxSpacing.offset})"
+        str_repr += f"\n\tmDomainSize: {self.mDomainSize} (offset: {self.mPartitionInt.mDomainSize.offset})"
+        str_repr += f"\n\tmLevel: {self.mLevel} (offset: {self.mPartitionInt.mLevel.offset})"
+        str_repr += f"\n\tmMemParent: {self.mMemParent} (offset: {self.mPartitionInt.mMemParent.offset})"
+        str_repr += f"\n\tmMemChild: {self.mMemChild} (offset: {self.mPartitionInt.mMemChild.offset})"
+        str_repr += f"\n\tmParentBlockID: {self.mParentBlockID} (offset: {self.mPartitionInt.mParentBlockID.offset})"
+        str_repr += f"\n\tmMaskLowerLevel: {self.mMaskLowerLevel} (offset: {self.mPartitionInt.mMaskLowerLevel.offset})"
+        str_repr += f"\n\tmMaskUpperLevel: {self.mMaskUpperLevel} (offset: {self.mPartitionInt.mMaskUpperLevel.offset})"
+        str_repr += f"\n\tmChildBlockID: {self.mChildBlockID} (offset: {self.mPartitionInt.mChildBlockID.offset})"
+        str_repr += f"\n\tmParentNeighbourBlocks: {self.mParentNeighbourBlocks} (offset: {self.mPartitionInt.mParentNeighbourBlocks.offset})"
+        str_repr += f"\n\tmRefFactors: {self.mRefFactors} (offset: {self.mPartitionInt.mRefFactors.offset})"
+        str_repr += f"\n\tmSpacing: {self.mSpacing} (offset: {self.mPartitionInt.mSpacing.offset})"
+        return str_repr
+
+    def _help_load_api(self):
+        self.neon_gate:neon.Gate =  neon.Gate()
+        
+def factory_mPartition(dtype):
+    """
+    Creates a new class based on bPartitionGeneric where the mMem field's type is set to dtype.
+
+    :param dtype: The type to be used for the mMem field (e.g., ctypes.POINTER(ctypes.c_double)).
+    :return: A new class with the same structure as bPartitionGeneric, but with mMem of type dtype.
+    """
+    neon_gate: neon.Gate = neon.Gate()
+    type_mapping = neon_gate.get_type_mapping(dtype)
+    
+    mPartition_fields_  = [
         ("mCardinality", ctypes.c_int),
-        ("mMem", ctypes.POINTER(ctypes.c_int)), 
-        ("mStencilNghIndex", ctypes.POINTER(ctypes.c_int)), 
+        ("mMem", ctypes.POINTER(ctypes.c_int)),
+        ("mStencilNghIndex", ctypes.POINTER(ctypes.c_int)),
         ("mBlockConnectivity", ctypes.POINTER(ctypes.c_uint32)),
-        ("mMask", ctypes.POINTER(ctypes.c_uint32)),  
+        ("mMask", ctypes.POINTER(ctypes.c_uint32)),
         ("mOrigin", ctypes.POINTER(neon.Index_3d)),
         ("mSetIdx", ctypes.c_int),
         ("mMultiResDiscreteIdxSpacing", ctypes.c_int),
-        ("mDomainSize", neon.Index_3d),
-        ("mLevel", ctypes.c_int),
+        ("mDomainSize", neon.Index_3d)
+    ]
+    
+    mPartition_fields_ = [("mLevel", ctypes.c_int),
         ("mMemParent", ctypes.POINTER(ctypes.c_int)),
         ("mMemChild", ctypes.POINTER(ctypes.c_int)),
         ("mParentBlockID", ctypes.POINTER(ctypes.c_uint32)),
@@ -26,54 +67,120 @@ class mPartitionInt(ctypes.Structure):
         ("mChildBlockID", ctypes.POINTER(ctypes.c_uint32)),
         ("mParentNeighbourBlocks", ctypes.POINTER(ctypes.c_uint32)),
         ("mRefFactors", ctypes.POINTER(ctypes.c_int)),
-        ("mSpacing", ctypes.POINTER(ctypes.c_int))
-    ]
+        ("mSpacing", ctypes.POINTER(ctypes.c_int))]
 
-    def __init__(self):
-        try:
-            self.neon: neon = neon()
-        except Exception as e:
-            self.handle: ctypes.c_uint64 = ctypes.c_uint64(0)
-            raise Exception('Failed to initialize PyNeon: ' + str(e))
-        self._help_load_api()
+    fields = mPartition_fields_ + mPartition_fields_
 
-    def _help_load_api(self):
-        self.neon.lib.mGrid_mField_mPartition_get_member_field_offsets.argtypes = [ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_size_t)]
-        self.neon.lib.mGrid_mField_mPartition_get_member_field_offsets.restype = None
+    # Create the new class dynamically
+    suffix = type_mapping['suffix']
+    new_class = type(
+        f'mPartitionGeneric_{suffix}',  # Class name with mem_type name appended
+        (ctypes.Structure,),  # Base classes
+        {
+            '_fields_': fields,
+            '__init__': mPartitionGeneric.__init__,
+            '_help_load_api': mPartitionGeneric._help_load_api,
+            '__str__': mPartitionGeneric.__str__,
+        }
+    )
 
-    def get_cpp_field_offsets(self):
-        length = ctypes.c_size_t()
-        offsets = (ctypes.c_size_t * 19)()  # Since there are 19 offsets
-        self.neon.lib.mGrid_mField_mPartition_get_member_field_offsets(offsets, ctypes.byref(length))
-        return [offsets[i] for i in range(length.value)]
+    return new_class
 
-    def __str__(self):
-        str_repr = f"<mPartitionInt: addr={ctypes.addressof(self):#x}>"
-        str_repr += f"\n\tmCardinality: {self.mCardinality} (offset: {mPartitionInt.mCardinality.offset})"
-        str_repr += f"\n\tmMem: {self.mMem} (offset: {mPartitionInt.mMem.offset})"
-        str_repr += f"\n\tmStencilNghIndex: {self.mStencilNghIndex} (offset: {mPartitionInt.mStencilNghIndex.offset})"
-        str_repr += f"\n\tmBlockConnectivity: {self.mBlockConnectivity} (offset: {mPartitionInt.mBlockConnectivity.offset})"
-        str_repr += f"\n\tmMask: {self.mMask} (offset: {mPartitionInt.mMask.offset})"
-        str_repr += f"\n\tmOrigin: {self.mOrigin} (offset: {mPartitionInt.mOrigin.offset})"
-        str_repr += f"\n\tmSetIdx: {self.mSetIdx} (offset: {mPartitionInt.mSetIdx.offset})"
-        str_repr += f"\n\tmMultiResDiscreteIdxSpacing: {self.mMultiResDiscreteIdxSpacing} (offset: {mPartitionInt.mMultiResDiscreteIdxSpacing.offset})"
-        str_repr += f"\n\tmDomainSize: {self.mDomainSize} (offset: {mPartitionInt.mDomainSize.offset})"
-        str_repr += f"\n\tmLevel: {self.mLevel} (offset: {mPartitionInt.mLevel.offset})"
-        str_repr += f"\n\tmMemParent: {self.mMemParent} (offset: {mPartitionInt.mMemParent.offset})"
-        str_repr += f"\n\tmMemChild: {self.mMemChild} (offset: {mPartitionInt.mMemChild.offset})"
-        str_repr += f"\n\tmParentBlockID: {self.mParentBlockID} (offset: {mPartitionInt.mParentBlockID.offset})"
-        str_repr += f"\n\tmMaskLowerLevel: {self.mMaskLowerLevel} (offset: {mPartitionInt.mMaskLowerLevel.offset})"
-        str_repr += f"\n\tmMaskUpperLevel: {self.mMaskUpperLevel} (offset: {mPartitionInt.mMaskUpperLevel.offset})"
-        str_repr += f"\n\tmChildBlockID: {self.mChildBlockID} (offset: {mPartitionInt.mChildBlockID.offset})"
-        str_repr += f"\n\tmParentNeighbourBlocks: {self.mParentNeighbourBlocks} (offset: {mPartitionInt.mParentNeighbourBlocks.offset})"
-        str_repr += f"\n\tmRefFactors: {self.mRefFactors} (offset: {mPartitionInt.mRefFactors.offset})"
-        str_repr += f"\n\tmSpacing: {self.mSpacing} (offset: {mPartitionInt.mSpacing.offset})"
-        return str_repr
-    
-    def get_offsets(self):
-        return [mPartitionInt.mCardinality.offset, mPartitionInt.mMem.offset, mPartitionInt.mStencilNghIndex.offset, 
-                mPartitionInt.mBlockConnectivity.offset, mPartitionInt.mMask.offset, mPartitionInt.mOrigin.offset, 
-                mPartitionInt.mSetIdx.offset, mPartitionInt.mMultiResDiscreteIdxSpacing.offset, mPartitionInt.mDomainSize.offset, 
-                mPartitionInt.mLevel.offset, mPartitionInt.mMemParent.offset, mPartitionInt.mMemChild.offset, mPartitionInt.mParentBlockID.offset,
-                mPartitionInt.mMaskLowerLevel.offset, mPartitionInt.mMaskUpperLevel.offset, mPartitionInt.mChildBlockID.offset, 
-                mPartitionInt.mParentNeighbourBlocks.offset, mPartitionInt.mRefFactors.offset, mPartitionInt.mSpacing.offset]
+
+mPartition_int8 = factory_mPartition(wp.int8)
+mPartition_uint8 = factory_mPartition(wp.uint8)
+mPartition_bool = factory_mPartition(wp.bool)
+
+mPartition_int32 = factory_mPartition(wp.int32)
+mPartition_uint32 = factory_mPartition(wp.uint32)
+
+mPartition_int64 = factory_mPartition(wp.int64)
+mPartition_uint64 = factory_mPartition(wp.uint64)
+
+mPartition_float32 = factory_mPartition(wp.float32)
+mPartition_float64 = factory_mPartition(wp.float64)
+
+
+def register_builtins():
+    supported_types = [(mPartition_int8, 'int8', wp.int8),
+                       (mPartition_uint8, 'uint8', wp.uint8),
+
+                       (mPartition_int32, 'int32', wp.int32),
+                       (mPartition_uint32, 'uint32', wp.uint32),
+
+                       (mPartition_int64, 'int64', wp.int64),
+                       (mPartition_uint64, 'uint64', wp.uint64),
+
+                       (mPartition_float32, 'float32', wp.float32),
+                       (mPartition_float64, 'float64', wp.float64)]
+
+    for Partition, suffix, Type in supported_types:
+        # register type
+        wp.types.add_type(Partition, native_name=f"NeonMultiresPartition_{suffix}", has_binary_ctor=True)
+
+        # # print
+        # wp.context.add_builtin(
+        #     "neon_print_dbg",
+        #     input_types={"p": Partition},
+        #     value_type=None,
+        #     missing_grad=True,
+        # )
+
+        wp.context.add_builtin(
+            "neon_read",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         "card": int},
+            value_type=Type,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_write",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         "card": int,
+                         "value": Type},
+            value_type=None,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_cardinality",
+            input_types={"partition": Partition},
+            value_type=int,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_ngh_data",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'ngh_idx': neon.Ngh_idx,
+                         "card": wp.int32,
+                         "alternative": Type,
+                         'is_valid': wp.bool},
+            value_type=Type,
+            missing_grad=True,
+        )
+        wp.context.add_builtin(
+            "neon_partition_id",
+            input_types={"partition": Partition},
+            value_type=int,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_device_id",
+            input_types={"partition": Partition},
+            value_type=int,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_global_idx",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex},
+            value_type=neon.Index_3d,
+            missing_grad=True,
+        )

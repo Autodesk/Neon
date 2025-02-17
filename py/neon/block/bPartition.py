@@ -47,13 +47,12 @@ def factory_bPartition(dtype):
         ("mSetIdx", ctypes.c_int),
         ("mMultiResDiscreteIdxSpacing", ctypes.c_int),
         ("mDomainSize", neon.Index_3d)
-
     ]
 
     # Create the new class dynamically
     suffix = type_mapping['suffix']
     new_class = type(
-        f'bPartitionGeneric{suffix}',  # Class name with mem_type name appended
+        f'bPartitionGeneric_{suffix}',  # Class name with mem_type name appended
         (ctypes.Structure,),  # Base classes
         {
             '_fields_': fields,
