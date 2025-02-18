@@ -130,7 +130,8 @@ class mGrid(object):
         print(f"mGrid initialized with handle {self.handle.value}")
 
     def _help_grid_delete(self):
-        if self.api_delete(ctypes.POINTER(self.handle)) != 0:
+        res = self.api_delete(ctypes.pointer(self.handle))
+        if res != 0:
             raise Exception('Failed to delete grid')
 
     def get_python_dimensions(self):

@@ -123,19 +123,37 @@ class Container:
                 raise Exception(f'Unsupported field type {field_type}')
             grid_name = field.get_grid().get_name()
 
-            register_token = getattr(lib_obj, f'warp_container_add_parse_token_{grid_name}_{field_type_name}_{0}')
-            register_token.argtypes = [self.neon_gate.handle_type,
-                                       self.neon_gate.handle_type,
-                                       ctypes.c_int,
-                                       ctypes.c_int,
-                                       ctypes.c_int]
-            register_token.restype = ctypes.c_int
+            if grid_name == 'mGrid':
+                register_token = getattr(lib_obj, f'warp_container_mres_add_parse_token_{grid_name}_{field_type_name}_{0}')
+                register_token.argtypes = [self.neon_gate.handle_type,
+                                           self.neon_gate.handle_type,
+                                           ctypes.c_int,
+                                           ctypes.c_int,
+                                           ctypes.c_int,
+                                           ctypes.c_int]
+                register_token.restype = ctypes.c_int
 
-            register_token(self.container_handle,
-                           field.get_handle(),
-                           access.value,
-                           operation.value,
-                           discretization.value)
+                register_token(self.container_handle,
+                               field.get_handle(),
+                               parser.get_mres_level(),
+                               access.value,
+                               operation.value,
+                               discretization.value
+                               )
+            else:
+                register_token = getattr(lib_obj, f'warp_container_add_parse_token_{grid_name}_{field_type_name}_{0}')
+                register_token.argtypes = [self.neon_gate.handle_type,
+                                           self.neon_gate.handle_type,
+                                           ctypes.c_int,
+                                           ctypes.c_int,
+                                           ctypes.c_int]
+                register_token.restype = ctypes.c_int
+
+                register_token(self.container_handle,
+                               field.get_handle(),
+                               access.value,
+                               operation.value,
+                               discretization.value)
 
         parse = lib_obj.warp_container_parse
         parse.argtypes = [self.neon_gate.handle_type]

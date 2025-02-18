@@ -122,6 +122,9 @@ class Loader:
         self.neon_field = grid
         self.mres_level = level
 
+    def get_mres_level(self):
+        return self.mres_level
+
     def _retrieve_grid(self):
         return self.neon_field
 

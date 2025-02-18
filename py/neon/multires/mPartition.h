@@ -19,6 +19,7 @@ public:
    // initialize from bytes
    NeonMultiresPartition(const char* bytes, size_t n)
    {
+      //printf("NeonMultiresPartition(const char* bytes, size_t n) n %ld sizeof(*this) %ld\n", n, sizeof(*this));
       assert(n == sizeof(*this));
       memcpy(this, bytes, n);
    }

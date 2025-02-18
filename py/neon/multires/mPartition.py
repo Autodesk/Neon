@@ -46,7 +46,7 @@ def factory_mPartition(dtype):
     neon_gate: neon.Gate = neon.Gate()
     type_mapping = neon_gate.get_type_mapping(dtype)
     
-    mPartition_fields_  = [
+    bPartition_fields_  = [
         ("mCardinality", ctypes.c_int),
         ("mMem", ctypes.POINTER(ctypes.c_int)),
         ("mStencilNghIndex", ctypes.POINTER(ctypes.c_int)),
@@ -69,7 +69,7 @@ def factory_mPartition(dtype):
         ("mRefFactors", ctypes.POINTER(ctypes.c_int)),
         ("mSpacing", ctypes.POINTER(ctypes.c_int))]
 
-    fields = mPartition_fields_ + mPartition_fields_
+    fields = bPartition_fields_ + mPartition_fields_
 
     # Create the new class dynamically
     suffix = type_mapping['suffix']

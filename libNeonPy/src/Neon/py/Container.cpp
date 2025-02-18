@@ -460,3 +460,45 @@ DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, int64, 0, 5
 DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, uint64, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
 DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, float32, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
 DO_EXPORT_PARSER(warp_container_add_parse_token, bGrid, Neon::bGrid, float64, 0, 5, int, void*, handle, void*, field_handle, int, access_int, int, pattern_int, int, stencilSemantic_int)
+
+template <typename Grid, typename Type, int Card>
+auto warp_container_mres_add_parse_token(
+    void* handle,
+    void* field_handle,
+    int   level,
+    int   access_int,
+    int   pattern_int,
+    int   stencilSemantic_int)
+    -> int
+{
+    using Field = typename Grid::template Field<Type, Card>;
+    auto  pattern = Neon::PatternUtils::fromInt(pattern_int);
+    auto  access = Neon::set::dataDependency::AccessTypeUtils::fromInt(access_int);
+    auto  stenSemantic = Neon::set::StencilSemanticUtils::fromInt(stencilSemantic_int);
+    auto* data = reinterpret_cast<Neon::py::container_warp_data<Neon::dGrid>*>(handle);
+
+    Field* field_mres = reinterpret_cast<Field*>(field_handle);
+    if (field_mres == nullptr) {
+        Neon::NeonException e("parse_token");
+        NEON_THROW(e);
+    }
+
+    if (access == Neon::set::dataDependency::AccessType::READ) {
+        const auto & parsingField = field_mres->operator()(level);
+        data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
+    } else {
+        auto & parsingField = field_mres->operator()(level);
+        data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
+    }
+    return 0;
+}
+
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, int8, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, uint8, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, bool, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, int32, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, uint32, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, int64, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, uint64, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, float32, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, float64, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)

@@ -7,7 +7,7 @@ extern "C" auto mGrid_new(
     void**                handle,
     void*                 backendPtr,
     const Neon::index_3d* dim,
-    int**                 sparsity_pattern_vec,
+    int**                 /*sparsity_pattern_vec*/,
     int                   sparsity_pattern_size,
     uint32_t              depth)
     -> int
@@ -30,13 +30,13 @@ extern "C" auto mGrid_new(
     // @TODOMATT define/use a multiresolution constructor for Grid g (talk to max about this)
     std::vector<std::function<bool(const Neon::index_3d&)>> sparsity(sparsity_pattern_size);
     for (int i = 0; i < sparsity_pattern_size; i++) {
-        sparsity[i] = [=](Neon::index_3d const& idx) {
-            int val = sparsity_pattern_vec[i][idx.x +
-                                              (dim->y) * idx.y +
-                                              (dim->x * dim->y) * idx.z];
-            std::cout << "mGrid_new - sparsity_pattern_vec[" << i << "][" << idx.x << "][" << idx.y << "][" << idx.z << "] = " << val << std::endl;
-            return val == 1;
-            // return true;
+        sparsity[i] = [=](Neon::index_3d const& /*idx*/) {
+            // int val = sparsity_pattern_vec[i][idx.x +
+            //                                   (dim->y) * idx.y +
+            //                                   (dim->x * dim->y) * idx.z];
+            // std::cout << "mGrid_new - sparsity_pattern_vec[" << i << "][" << idx.x << "][" << idx.y << "][" << idx.z << "] = " << val << std::endl;
+            // return val == 1;
+            return true;
         };
     }
 
@@ -195,22 +195,22 @@ DO_EXPORT(float64, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, 
 
 template <typename T>
 auto mGrid_mField_delete(
-    void* handle)
+    void** handle)
     -> int
 {
     std::cout << "mGrid_mField_delete - BEGIN" << std::endl;
     std::cout << "mGrid_mField_delete - handle " << handle << std::endl;
 
     using Grid = Neon::domain::mGrid;
-    using Field = Grid::Field<int, 1>;
+    using Field = Grid::Field<T, 0>;
 
-    Field* fieldPtr = (Field*)handle;
+    Field* fieldPtr = (Field*)(*handle);
 
     if (fieldPtr != nullptr) {
         delete fieldPtr;
         AllocationCounter::Deallocation();
     }
-    handle = 0;
+    *handle = 0;
     std::cout << "mGrid_mField_delete - END" << std::endl;
 
     return 0;
