@@ -61,7 +61,7 @@ if [ "$DEBUG_MODE" -eq 1 ]; then
     # Launch all MPI processes in separate gnome-terminal windows
     echo "Starting MPI program with $NUM_PROCS processes..."
 
-    mpiexec -n "$NUM_PROCS" bash -c '
+    nsys profile --trace=mpi,cuda  --output=profile mpiexec -n "$NUM_PROCS" bash -c '
     	gnome-terminal --wait -- bash -c "
         source ~/.bashrc;                  # Ensure MPI variables are loaded
         echo MPI Rank: \$OMPI_COMM_WORLD_RANK;
@@ -71,7 +71,7 @@ else
     CMD="$MPI_PROGRAM"
     echo "Running MPI program normally."
     echo mpiexec -n "$NUM_PROCS" "$CMD";
-    mpiexec -n "$NUM_PROCS" "$CMD";
+    nsys profile --trace=nvtx,mpi,cuda  --output=profile mpiexec -n "$NUM_PROCS" "$CMD";
 fi
 
 
