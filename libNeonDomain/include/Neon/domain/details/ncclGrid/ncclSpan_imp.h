@@ -66,7 +66,7 @@ NEON_CUDA_HOST_DEVICE inline auto ncclSpan::helpGetDim()
     return mSpanDim;
 }
 
-/** function to help set the pointer for teh nccl halo update */
+/** function to help set the pointer for the nccl halo update */
 NEON_CUDA_HOST_DEVICE inline auto
 ncclSpan::helpHalosetAndValidate(
                       const int32_t& x,

@@ -1,58 +1,119 @@
-#include "../../../libNeonSkeleton/tests/perf/SkeletonSyntheticBenchmarks/src/CLiCorrectness.h"
-#include "Neon/domain/details/bGridDisg/BlockView.h"
+#include <mpi.h>
+#include <nccl.h>
+#include <iostream>
+#include "Neon/Neon.h"
 #include "Neon/domain/details/ncclGrid/ncclGrid.h"
-#include "Neon/set/Containter.h"
+#include "backend.h"
 
-/**
- * A simple tutorial demonstrating the use of staggered grid in Neon.
- */
-using Field = Neon::domain::details::ncclGrid::ncclField<int>;
-auto laplaceTemplate(const Field& filedA,
-                     Field&       fieldB)
-    -> Neon::set::Container
+
+template <typename T>
+auto newConatiner(Neon::domain::details::ncclGrid::ncclField<T, 0> fieldA,
+                  Neon::domain::details::ncclGrid::ncclField<T, 0> fieldB) -> Neon::set::Container
 {
-    const auto& grid = filedA.getGrid();
+    const auto& grid = fieldA.getGrid();
+    using Field = Neon::domain::details::ncclGrid::ncclField<T, 0>;
     return grid.newContainer(
-        "stencilFun",
+        "HU-test",
         [&](Neon::set::Loader& loader) {
-            const auto aP = loader.load(filedA, Neon::Pattern::STENCIL);
-            auto       bP = loader.load(fieldB);
+            using Ngh3DIdx = Neon::int8_3d;
+            const auto d_fa = loader.load(fieldA);
+            auto       d_fb = loader.load(fieldB);
 
-            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& gIdx) mutable {
-                auto          globalIdx = aP.getGlobalIndex(gIdx);
-                Neon::int8_3d offseets[6];
-                offseets[0] = {1, 0, 0};
-                offseets[1] = {-1, 0, 0};
-                offseets[2] = {0, 1, 0};
-                offseets[3] = {0, -1, 0};
-                offseets[4] = {0, 0, 1};
-                offseets[5] = {0, 0, -1};
+            return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& pIdx) mutable {
+                auto                                    gIdx = d_fa.getGlobalIndex(pIdx);
+                Neon::index_3d                          center(d_fa(pIdx, 0), d_fa(pIdx, 1), d_fa(pIdx, 2));
+                Neon::index_3d                          pass(0, 0, 0);
+                constexpr std::array<const Ngh3DIdx, 6> stencil{
+                    Ngh3DIdx(1, 0, 0),
+                    Ngh3DIdx(-1, 0, 0),
+                    Ngh3DIdx(0, 1, 0),
+                    Ngh3DIdx(0, -1, 0),
+                    Ngh3DIdx(0, 0, 1),
+                    Ngh3DIdx(0, 0, -1)};
 
-                for (int i = 0; i < 6; i++) {
-
-                    auto const&          offset = offseets[i];
-                    const Neon::index_3d expected_vals = globalIdx + offset.newType<int>();
-                    auto                 nghDataX = aP.getNghData(gIdx, offset, 0, 0);
-                    auto                 nghDataY = aP.getNghData(gIdx, offset, 1, 0);
-                    auto                 nghDataZ = aP.getNghData(gIdx, offset, 2, 0);
-
-                    if (nghDataX.isValid()) {
-                        Neon::index_3d readFromNgh(nghDataX.getData(),
-                                                   nghDataY.getData(),
-                                                   nghDataZ.getData());
-
-
-                        readFromNgh.x == expected_vals.x ? bP(gIdx, 0) = 1 : bP(gIdx, 0) = -1;
-                        readFromNgh.y == expected_vals.y ? bP(gIdx, 1) = 1 : bP(gIdx, 1) = -1;
-                        readFromNgh.z == expected_vals.z ? bP(gIdx, 2) = 1 : bP(gIdx, 2) = -1;
-                    } else {
-                        bP(gIdx, 0) = 0;
-                        bP(gIdx, 1) = 0;
-                        bP(gIdx, 2) = 0;
+                for (auto const& direction : stencil) {
+                    Neon::index_3d                          passPerDirection(0, 0, 0);
+                    Neon::index_3d ngh(0, 0, 0);
+                    auto           expected = center + direction.newType<int32_t>();
+                    for (int i = 0; i < 3; i++) {
+                        typename Field::NghData nghData = d_fa.getNghData(pIdx, direction, i);
+                        if (nghData.isValid()) {
+                            ngh.v[i] = nghData.getData();
+                            if (ngh.v[i] != expected.v[i]) {
+                                passPerDirection.v[i] = 1;
+                                pass.v[i] = 1;
+                            }
+                        }
                     }
+                    if (passPerDirection != Neon::index_3d(0,0,0)) {
+                        printf("Error! at %d %d %d Expected %d %d %d Found %d %d %d\n", gIdx.x, gIdx.y, gIdx.z, expected.x, expected.y, expected.z, ngh.x, ngh.y, ngh.z);
+                    }else {
+                        //printf("Pass! at %d %d %d Expected %d %d %d Found %d %d %d\n", gIdx.x, gIdx.y, gIdx.z, expected.x, expected.y, expected.z, ngh.x, ngh.y, ngh.z);
+                    }
+                }
+                for (int i = 0; i < 3; i++) {
+                    d_fb(pIdx, i) = pass.v[i];
                 }
             };
         });
+}
+
+
+int main(int /*argc*/, char** /*argv*/)
+{
+    if (false) {
+        Neon::Backend                             bk(Neon::Runtime::stream);
+        Neon::domain::details::ncclGrid::ncclGrid grid(
+            bk,
+            Neon::int32_3d(100, 100, 100),
+            [&](Neon::index_3d const& /*idx*/) -> bool { return true; },
+            Neon::domain::Stencil::s7_Laplace_t());
+
+        auto field = grid.template newField<int>("test", 1, 0);
+        field.forEachActiveCell([](const Neon::index_3d& idx, auto& values) {
+            *values[0] = idx.x + idx.y + idx.z;
+        });
+
+        field.updateDeviceData(0);
+        field.ioToVtk("test", "test");
+        auto hu = field.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                                      Neon::set::TransferMode::get,
+                                      Neon::Execution::device);
+
+        hu.run(0);
+        bk.sync(0);
+    } else {
+        Neon::Backend                             bk(Neon::Runtime::stream);
+        Neon::domain::details::ncclGrid::ncclGrid grid(
+            bk,
+            Neon::int32_3d(10, 10, 10),
+            [&](Neon::index_3d const& /*idx*/) -> bool { return true; },
+            Neon::domain::Stencil::s7_Laplace_t());
+
+        auto fA = grid.template newField<int>("test", 3, 0);
+        auto fB = grid.template newField<int>("test", 3, 0);
+
+        fA.forEachActiveCell([](const Neon::index_3d& idx, auto& values) {
+            *values[0] = idx.x;
+            *values[1] = idx.y;
+            *values[2] = idx.z;
+        });
+
+        fA.updateDeviceData(0);
+        fA.ioToVtk("test", "test");
+        bk.sync(0);
+
+        auto hu = fA.newHaloUpdate(Neon::set::StencilSemantic::standard,
+                                   Neon::set::TransferMode::get,
+                                   Neon::Execution::device);
+
+        hu.run(0);
+        bk.sync(0);
+
+        auto test = newConatiner(fA, fB);
+        test.run(0);
+        bk.sync(0);
+    }
 }
 
 #if 0

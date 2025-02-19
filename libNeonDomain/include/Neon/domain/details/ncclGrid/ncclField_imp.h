@@ -380,9 +380,8 @@ auto ncclField<T, C>::
             auto               spanDim = span.helpGetDim();
             auto               haloRadius = span.helpGetZHaloRadius();
 
-
             ncclGrid::Idx dw_first_boundary = span.helpHalosetAndValidate(0, 0, 0);
-            ncclGrid::Idx up_first_boundary = span.helpHalosetAndValidate(0, 0, spanDim.z - 1 - haloRadius);
+            ncclGrid::Idx up_first_boundary = span.helpHalosetAndValidate(0, 0, spanDim.z - haloRadius);
             ncclGrid::Idx dw_first_halo_Idx = span.helpHalosetAndValidate(0, 0, -haloRadius);
             ncclGrid::Idx up_first_halo_Idx = span.helpHalosetAndValidate(0, 0, spanDim.z);
 
@@ -396,15 +395,19 @@ auto ncclField<T, C>::
                 downSend = Neon::set::NcclPtoP::init<Type>(bk, downRank, numElementForTransfer, &(partition(dw_first_boundary, i)), Neon::set::NcclPtoP::send);
                 downRecv = Neon::set::NcclPtoP::init<Type>(bk, downRank, numElementForTransfer, &(partition(dw_first_halo_Idx, i)), Neon::set::NcclPtoP::receive);
 
-                nccSession.push_back(upSend);
-                nccSession.push_back(upRecv);
-                nccSession.push_back(downSend);
-                nccSession.push_back(downRecv);
+                if (upRank > bk.getNccl().getWorldRank()) {
+                    nccSession.push_back(upSend);
+                    nccSession.push_back(upRecv);
+                }
+                if (downRank < bk.getNccl().getWorldRank()) {
+                    nccSession.push_back(downSend);
+                    nccSession.push_back(downRecv);
+                }
             }
             auto res = Neon::set::Container::factoryNcclTransfer(this->getGrid(),
-                                                      stencilSemantic,
-                                                      nccSession,
-                                                      execution);
+                                                                 stencilSemantic,
+                                                                 nccSession,
+                                                                 execution);
             return res;
         } else {
             NEON_DEV_UNDER_CONSTRUCTION("");
