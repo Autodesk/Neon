@@ -13,28 +13,23 @@ class mGrid(object):
     def __init__(self,
                  backend : neon.Backend,
                  dim ,
-                 depth : int,
                  sparsity_pattern_list: List[np.ndarray]):
-        # the lenght of the spartiry_pattern_list should be equal to the depth
-        if len(sparsity_pattern_list) != depth:
-            raise Exception('mGrid: sparsity_pattern_list\'s length does not match the depth')
 
         if backend is None:
             # raise exception
             raise Exception('dGrid: backend parameter is missing')
 
-        for sparsity_pattern in sparsity_pattern_list:
-            if (sparsity_pattern.shape[0] != dim.x or
-                    sparsity_pattern.shape[1] != dim.y or
-                    sparsity_pattern.shape[2] != dim.z):
-                raise Exception('mGrid: sparsity_pattern\'s shape does not match the dim')
+        # for sparsity_pattern in sparsity_pattern_list:
+        #     if (sparsity_pattern.shape[0] != dim.x or
+        #             sparsity_pattern.shape[1] != dim.y or
+        #             sparsity_pattern.shape[2] != dim.z):
+        #         raise Exception('mGrid: sparsity_pattern\'s shape does not match the dim')
 
 
         self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
         self.backend = backend
         self.dim = dim
         self.sparsity_pattern_list = sparsity_pattern_list
-        self.depth = depth
 
 
         self._help_load_api()
@@ -56,9 +51,11 @@ class mGrid(object):
         self.api_new.argtypes = [ctypes.POINTER(self.handle_type),
                                  self.handle_type,
                                  ctypes.POINTER(neon.Index_3d),
-                                 ctypes.POINTER(ctypes.POINTER(ctypes.c_int)),
                                  ctypes.c_int,
-                                 ctypes.c_int]
+                                 ctypes.POINTER(ctypes.POINTER(ctypes.c_int)),
+                                 ctypes.POINTER(ctypes.c_int),
+                                 ctypes.POINTER(ctypes.c_int),
+                                 ctypes.POINTER(ctypes.c_int)]
         self.api_new.restype = ctypes.c_int
 
         # grid_delete
@@ -89,27 +86,34 @@ class mGrid(object):
 
 
     def _help_grid_new(self):
-        def get_numpy_array_pointers(arrays):
+        def prepare_int32_arrays_and_sizes(np_arrays):
             """
-            Given a list of NumPy arrays, returns a ctypes pointer to a contiguous
-            block of pointers (of type `double**`) to the data buffers of these arrays.
+            Given a list of 3D NumPy arrays of type np.int32, returns:
+              - c_arrays: a ctypes array of pointers to the data of each array.
+              - dims0, dims1, dims2: ctypes arrays (of type c_int) containing the sizes in each dimension.
 
-            Parameters:
-                arrays (list of np.ndarray): List of NumPy arrays (assumed to be float64).
-
-            Returns:
-                (ctypes.POINTER(ctypes.POINTER(ctypes.c_double)), int):
-                    A tuple containing:
-                      - A pointer to the first element of a contiguous block containing pointers
-                        to each array's data buffer.
-                      - The count of arrays (i.e., number of pointers).
-
-            Note:
-                The original NumPy arrays must remain alive as long as the returned pointer is used.
+            Each array is made contiguous in memory to ensure proper layout.
             """
-            pointer_values = np.array([arr.ctypes.data for arr in arrays], dtype=np.intp)
-            c_pointer = pointer_values.ctypes.data_as(ctypes.POINTER(ctypes.POINTER(ctypes.c_int)))
-            return c_pointer, len(arrays)
+            # Ensure each array is contiguous in memory.
+            contiguous_arrays = [np.ascontiguousarray(arr) for arr in np_arrays]
+
+            num_arrays = len(contiguous_arrays)
+
+            # Define a ctypes pointer type for int32_t.
+            # ctypes.c_int32 represents a 32-bit integer.
+            Int32P = ctypes.POINTER(ctypes.c_int32)
+
+            # Create a ctypes array type that can hold 'num_arrays' pointers.
+            ArrayOfPointers = Int32P * num_arrays
+            # Build the ctypes array of pointers by converting each NumPy array's data pointer.
+            c_arrays = ArrayOfPointers(*(arr.ctypes.data_as(Int32P) for arr in contiguous_arrays))
+
+            # Create ctypes arrays for each dimension.
+            dims0 = (ctypes.c_int * num_arrays)(*(int(arr.shape[0]) for arr in contiguous_arrays))
+            dims1 = (ctypes.c_int * num_arrays)(*(int(arr.shape[1]) for arr in contiguous_arrays))
+            dims2 = (ctypes.c_int * num_arrays)(*(int(arr.shape[2]) for arr in contiguous_arrays))
+
+            return num_arrays, c_arrays, dims0, dims1, dims2
 
         if self.backend.backend_handle.value == ctypes.c_void_p(0):  # Check backend handle validity
             raise Exception('mGrid: Invalid backend handle')
@@ -117,14 +121,15 @@ class mGrid(object):
         if self.handle.value != None:  # Ensure the grid handle is uninitialized
             raise Exception('mGrid: Grid handle already initialized')
 
-        sparsity_pattern_array, sparsity_pattern_array_size = get_numpy_array_pointers(self.sparsity_pattern_list)
+        num_arrays, c_arrays, dims0, dims1, dims2 = prepare_int32_arrays_and_sizes(self.sparsity_pattern_list)
+        self.depth = num_arrays
 
         res = self.api_new(ctypes.pointer(self.handle),
                            self.backend.backend_handle,
                            self.dim,
-                           sparsity_pattern_array,
-                           sparsity_pattern_array_size,
-                           self.depth)
+                           self.depth,
+                           c_arrays, dims0, dims1, dims2
+                           )
         if res != 0:
             raise Exception('mGrid: Failed to initialize grid')
         print(f"mGrid initialized with handle {self.handle.value}")

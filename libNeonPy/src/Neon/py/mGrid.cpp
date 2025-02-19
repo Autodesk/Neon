@@ -7,9 +7,11 @@ extern "C" auto mGrid_new(
     void**                handle,
     void*                 backendPtr,
     const Neon::index_3d* dim,
-    int**                 /*sparsity_pattern_vec*/,
-    int                   sparsity_pattern_size,
-    uint32_t              depth)
+    int32_t               depth,
+    int**                 sparsity_pattern_vec,
+    int*                  dim_x_vec,
+    int*                  dim_y_vec,
+    int*                  dim_z_vec)
     -> int
 {
     NEON_PY_PRINT_BEGIN(*handle);
@@ -28,15 +30,17 @@ extern "C" auto mGrid_new(
 
     Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
     // @TODOMATT define/use a multiresolution constructor for Grid g (talk to max about this)
-    std::vector<std::function<bool(const Neon::index_3d&)>> sparsity(sparsity_pattern_size);
-    for (int i = 0; i < sparsity_pattern_size; i++) {
-        sparsity[i] = [=](Neon::index_3d const& /*idx*/) {
-            // int val = sparsity_pattern_vec[i][idx.x +
-            //                                   (dim->y) * idx.y +
-            //                                   (dim->x * dim->y) * idx.z];
-            // std::cout << "mGrid_new - sparsity_pattern_vec[" << i << "][" << idx.x << "][" << idx.y << "][" << idx.z << "] = " << val << std::endl;
-            // return val == 1;
-            return true;
+    std::vector<std::function<bool(const Neon::index_3d&)>> sparsity(depth);
+    for (int i = 0; i < depth; i++) {
+        Neon::index_3d level_dim(dim_x_vec[i], dim_y_vec[i], dim_z_vec[i]);
+        int*           level_sparsity = sparsity_pattern_vec[i];
+        sparsity[i] = [=](Neon::index_3d const& idx) {
+            if (idx < level_dim) {
+                int index = idx.x * (level_dim.x * level_dim.y) + idx.y * level_dim.y + idx.z;
+                std::cout << "IN mGrid_new - sparsity index " << index << " idx "<<idx.to_string()<<" read "<< level_sparsity[index]<<std::endl;
+                return level_sparsity[index] == 1;
+            }
+            return false;
         };
     }
 
@@ -173,7 +177,6 @@ auto mGrid_mField_new(
         NEON_PY_PRINT_END(*fieldHandle);
 
         return 0;
-
     }
     std::cout << "mGrid_mField_new - ERROR (grid ptr " << gridPtr << ") " << std::endl;
 

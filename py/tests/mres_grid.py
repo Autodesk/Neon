@@ -58,8 +58,28 @@ def block_grid_try():
     bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
                     dev_idx_list=[0])
 
-    dim = neon.Index_3d(1, 1, 5)
-    grid = neon.mGrid(bk, dim, 1, [np.ones((dim.x, dim.y, dim.z),dtype=int)])
+    dim = neon.Index_3d(4, 4, 4)
+    maskZero = np.zeros((dim.x, dim.y, dim.z), dtype=int)
+    maskZero[0, 0, 0] = 1
+    maskZero[0, 0, 0] = 1
+    maskZero[0, 0, 0] = 1
+    maskZero[0, 0, 1] = 1
+    maskZero[1, 0, 0] = 1
+    maskZero[1, 0, 1] = 1
+    maskZero[1, 0, 0] = 1
+    maskZero[1, 0, 1] = 1
+    maskZero[3, 0, 3] = 1
+
+    maskOne = np.zeros((2, 2, 2), dtype=int)
+    maskOne[1, 0, 0] = 0
+    maskOne[0, 0, 1] = 0
+    maskOne[0, 1, 0] = 0
+    maskOne[1, 1, 1] = 0
+
+    grid = neon.mGrid(bk, dim, [
+        np.ascontiguousarray(maskZero, dtype=np.int32),
+        np.ascontiguousarray(maskOne, dtype=np.int32),
+    ])
     print(grid)
     field = grid.new_field(cardinality=1, dtype=wp.int32)
     print("Field created")

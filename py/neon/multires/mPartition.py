@@ -4,6 +4,8 @@ from enum import Enum
 
 import neon
 import warp as wp
+
+
 class mPartitionGeneric(ctypes.Structure):
 
     def __init__(self):
@@ -34,8 +36,9 @@ class mPartitionGeneric(ctypes.Structure):
         return str_repr
 
     def _help_load_api(self):
-        self.neon_gate:neon.Gate =  neon.Gate()
-        
+        self.neon_gate: neon.Gate = neon.Gate()
+
+
 def factory_mPartition(dtype):
     """
     Creates a new class based on bPartitionGeneric where the mMem field's type is set to dtype.
@@ -45,8 +48,8 @@ def factory_mPartition(dtype):
     """
     neon_gate: neon.Gate = neon.Gate()
     type_mapping = neon_gate.get_type_mapping(dtype)
-    
-    bPartition_fields_  = [
+
+    bPartition_fields_ = [
         ("mCardinality", ctypes.c_int),
         ("mMem", ctypes.POINTER(ctypes.c_int)),
         ("mStencilNghIndex", ctypes.POINTER(ctypes.c_int)),
@@ -57,17 +60,17 @@ def factory_mPartition(dtype):
         ("mMultiResDiscreteIdxSpacing", ctypes.c_int),
         ("mDomainSize", neon.Index_3d)
     ]
-    
+
     mPartition_fields_ = [("mLevel", ctypes.c_int),
-        ("mMemParent", ctypes.POINTER(ctypes.c_int)),
-        ("mMemChild", ctypes.POINTER(ctypes.c_int)),
-        ("mParentBlockID", ctypes.POINTER(ctypes.c_uint32)),
-        ("mMaskLowerLevel", ctypes.POINTER(ctypes.c_uint32)),
-        ("mMaskUpperLevel", ctypes.POINTER(ctypes.c_uint32)),
-        ("mChildBlockID", ctypes.POINTER(ctypes.c_uint32)),
-        ("mParentNeighbourBlocks", ctypes.POINTER(ctypes.c_uint32)),
-        ("mRefFactors", ctypes.POINTER(ctypes.c_int)),
-        ("mSpacing", ctypes.POINTER(ctypes.c_int))]
+                          ("mMemParent", ctypes.POINTER(ctypes.c_int)),
+                          ("mMemChild", ctypes.POINTER(ctypes.c_int)),
+                          ("mParentBlockID", ctypes.POINTER(ctypes.c_uint32)),
+                          ("mMaskLowerLevel", ctypes.POINTER(ctypes.c_uint32)),
+                          ("mMaskUpperLevel", ctypes.POINTER(ctypes.c_uint32)),
+                          ("mChildBlockID", ctypes.POINTER(ctypes.c_uint32)),
+                          ("mParentNeighbourBlocks", ctypes.POINTER(ctypes.c_uint32)),
+                          ("mRefFactors", ctypes.POINTER(ctypes.c_int)),
+                          ("mSpacing", ctypes.POINTER(ctypes.c_int))]
 
     fields = bPartition_fields_ + mPartition_fields_
 
@@ -182,5 +185,122 @@ def register_builtins():
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex},
             value_type=neon.Index_3d,
+            missing_grad=True,
+        )
+        ###### Multi-resolution specific builtins
+        wp.context.add_builtin(
+            "neon_childValue",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'ngh_idx': neon.Ngh_idx,
+                         "card": wp.int32,
+                         "alternative": Type,
+                         'is_valid': wp.bool},
+            value_type=Type,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_getChild",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'ngh_idx': neon.Ngh_idx},
+            value_type=neon.block.bIndex,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_childValue",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'card': wp.int32},
+            value_type=Type,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_hasChildren",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex},
+            value_type=wp.bool,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_hasChildren",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'ngh_idx': neon.Ngh_idx},
+            value_type=wp.bool,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_hasChildren",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex},
+            value_type=neon.block.bIndex,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_parentVal",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'card': wp.int32},
+            value_type=Type,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_hasParent",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex},
+            value_type=wp.bool,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_getUncle",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'ngh_idx': neon.Ngh_idx},
+            value_type=neon.block.bIndex,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_uncleVal",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'ngh_idx': neon.Ngh_idx,
+                         'card': wp.int32,
+                         'alternative': Type,
+                         'is_valid': wp.bool},
+            value_type=Type,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_uncleVal",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'ngh_idx': neon.Ngh_idx,
+                         'card': wp.int32},
+            value_type=Type,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_getRefFactor",
+            input_types={"level": wp.int32},
+            value_type=wp.int32,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_getSpacing",
+            input_types={"level": wp.int32},
+            value_type=wp.int32,
             missing_grad=True,
         )
