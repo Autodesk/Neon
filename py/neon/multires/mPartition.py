@@ -244,11 +244,31 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_parentVal",
+            "neon_parentVal_read",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'card': wp.int32},
             value_type=Type,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_parentVal_write",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'card': wp.int32,
+                         'value': Type},
+            value_type=None,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_parentVal_atomic_write",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'card': wp.int32,
+                         'value': Type},
+            value_type=None,
             missing_grad=True,
         )
 

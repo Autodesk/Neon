@@ -181,12 +181,33 @@ CUDA_CALLABLE inline auto neon_getParent(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_parentVal(
+CUDA_CALLABLE inline auto neon_parentVal_read(
     NeonMultiresPartition<T> const& p,
     const NeonBlockIdx&             cell,
     int                             card) -> T
 {
     return p.parentVal(cell, card);
+}
+
+
+template <typename T>
+CUDA_CALLABLE inline auto neon_parentVal_write(
+    NeonMultiresPartition<T> const& p,
+    const NeonBlockIdx&             cell,
+    int                             card,
+    T value) -> void
+{
+    return p.parentVal(cell, card) = value;
+}
+
+template <typename T>
+CUDA_CALLABLE inline auto neon_parentVal_atomic_write(
+    NeonMultiresPartition<T> const& p,
+    const NeonBlockIdx&             cell,
+    int                             card,
+    T value) -> void
+{
+    atomicAdd(&p.parentVal(cell, card), value);
 }
 
 template <typename T>
