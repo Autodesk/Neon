@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 #Project name 
-project(Neon
+project(neon
         VERSION 0.3.3
         LANGUAGES CXX C CUDA)
 
@@ -11,15 +11,15 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
 endif ()
 
 if (WIN32)
-	set(LIBIGL_USE_STATIC_LIBRARY "ON" CACHE BOOL "Use Libigl as a static library")
-	set(NEON_USE_POLYSCOPE "ON" CACHE BOOL "Enable Ployscope for visualization")
-endif()
+    set(LIBIGL_USE_STATIC_LIBRARY "ON" CACHE BOOL "Use Libigl as a static library")
+    set(NEON_USE_POLYSCOPE "ON" CACHE BOOL "Enable Ployscope for visualization")
+endif ()
 
-if(${NEON_USE_POLYSCOPE})
-	message(STATUS "Polyscope is enabled")
-else()
-	message(STATUS "Polyscope is disabled")
-endif()
+if (${NEON_USE_POLYSCOPE})
+    message(STATUS "Polyscope is enabled")
+else ()
+    message(STATUS "Polyscope is disabled")
+endif ()
 
 
 # Manage between building Neon as shared or static library
@@ -45,8 +45,8 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 include("${PROJECT_SOURCE_DIR}/cmake/LoadingExternalGitRepositories.cmake")
 
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -63,7 +63,7 @@ include("${PROJECT_SOURCE_DIR}/cmake/ManageGitShaInformation.cmake")
 target_compile_options(NeonDeveloperLib INTERFACE
         $<$<COMPILE_LANGUAGE:CXX>:${NeonCXXFlags}>
         $<$<COMPILE_LANGUAGE:CUDA>:${NeonCUDAFlags}>
-        )
+)
 
 target_include_directories(NeonDeveloperLib INTERFACE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
@@ -82,22 +82,13 @@ if (NOT OpenMP_CXX_FOUND)
     message(FATAL_ERROR "Neon could not find OpenMP")
 endif ()
 target_link_libraries(NeonDeveloperLib INTERFACE OpenMP::OpenMP_CXX)
-if(${NEON_USE_POLYSCOPE})
-	target_compile_definitions(NeonDeveloperLib INTERFACE NEON_USE_POLYSCOPE)
-endif()
+if (${NEON_USE_POLYSCOPE})
+    target_compile_definitions(NeonDeveloperLib INTERFACE NEON_USE_POLYSCOPE)
+endif ()
 
 #target_link_libraries(libNeonXXX INTERFACE $<BUILD_INTERFACE:NeonDeveloperLib>)
 
-add_subdirectory("libNeonCore")
-add_subdirectory("libNeonSys")
-add_subdirectory("libNeonSet")
-add_subdirectory("libNeonDomain")
-add_subdirectory("libNeonSkeleton")
-#add_subdirectory("libNeonSolver")
-add_subdirectory("tutorials")
-add_subdirectory("apps")
-add_subdirectory("benchmarks")
-add_subdirectory("utils")
+add_subdirectory("lib")
 
 
 #-------------------------------------------------------------------#
