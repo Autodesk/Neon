@@ -1,9 +1,12 @@
-cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.30 FATAL_ERROR)
+# Suppress developer warnings
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
 
 #Project name 
 project(neon
         VERSION 0.3.3
         LANGUAGES CXX C CUDA)
+enable_language(CUDA)
 
 #Default build type is Release if no build type is passed by the user
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
@@ -15,21 +18,12 @@ if (WIN32)
     set(NEON_USE_POLYSCOPE "ON" CACHE BOOL "Enable Ployscope for visualization")
 endif ()
 
-if (${NEON_USE_POLYSCOPE})
-    message(STATUS "Polyscope is enabled")
-else ()
-    message(STATUS "Polyscope is disabled")
-endif ()
-
-
 # Manage between building Neon as shared or static library
 include("${PROJECT_SOURCE_DIR}/cmake/ManageLibraryType.cmake")
 
 # Manage unit testing compilation following directives from BUILD_NEON_TESTING
 include("${PROJECT_SOURCE_DIR}/cmake/ManageUnitTests.cmake")
 
-# Manage CUDA compute capabilities by setting CMAKE_CUDA_ARCHITECTURES
-include("${PROJECT_SOURCE_DIR}/cmake/ManageTargetCUDACompute.cmake")
 
 # Toggle NVTX ranges. Enabled by default on linux. To enable use "-DNEON_USE_NVTX=ON"
 include("${PROJECT_SOURCE_DIR}/cmake/Nvtx.cmake")
@@ -53,7 +47,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Definition of the target interface NeonDeveloperLib
 add_library(NeonDeveloperLib INTERFACE)
-target_compile_features(NeonDeveloperLib INTERFACE cxx_std_17)
+target_compile_features(NeonDeveloperLib INTERFACE cxx_std_20)
+set_target_properties(NeonDeveloperLib PROPERTIES CUDA_ARCHITECTURES "native")
 
 include("${PROJECT_SOURCE_DIR}/cmake/ManageCompilationFlags.cmake")
 
@@ -67,7 +62,7 @@ target_compile_options(NeonDeveloperLib INTERFACE
 
 target_include_directories(NeonDeveloperLib INTERFACE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
-if (${BUILD_NEON_SHARED_LIBS})
+if (${NEON_BUILD_SHARED_LIBS})
     set_property(TARGET NeonDeveloperLib PROPERTY POSITION_INDEPENDENT_CODE ON)
     set_property(TARGET NeonDeveloperLib PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 endif ()

@@ -12,6 +12,7 @@ namespace neon::util {
  * basic methods like adding a member. It should not be used as it is if the user
  * is looking for more information about the host or device systems
  */
+
 class Report
 {
    public:

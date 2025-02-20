@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 file(GLOB_RECURSE neonFiles neon/*.*)
 
-if (${BUILD_NEON_SHARED_LIBS})
+if (${NEON_BUILD_SHARED_LIBS})
     add_library(neon SHARED ${neonFiles})
     message(STATUS "Configuring neon as a shared library...")
     set_target_properties(neon PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
