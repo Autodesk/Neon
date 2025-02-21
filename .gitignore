@@ -65,3 +65,11 @@ py/neon/tool/Neon.log
 py/neon/Neon.log
 
 py/tests/Neon.log
+
+py/neon/liblibNeonPy.so
+
+py/dist/
+
+py/build/
+
+py/neon.egg-info/
