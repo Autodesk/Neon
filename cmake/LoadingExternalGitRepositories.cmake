@@ -60,31 +60,35 @@ endif ()
 # Set CMAKE_INSTALL_INCLUDEDIR to a relative path
 set(CMAKE_INSTALL_INCLUDEDIR "include" CACHE PATH "Installation directory for header files")
 
-# VTK
+## VTK
+#FetchContent_Declare(
+#        vtk
+#        GIT_REPOSITORY https://gitlab.kitware.com/vtk/vtk.git
+#        GIT_TAG v9.4.1  # Specify the desired version
+#)
+#
+## Disable all VTK modules by default
+#set(VTK_MODULE_ENABLE_VTK_CommonCore "YES" CACHE STRING "")
+#set(VTK_MODULE_ENABLE_VTK_IOCore "YES" CACHE STRING "Enable VTK IOCore module")
+#set(VTK_MODULE_ENABLE_VTK_RenderingCore "NO" CACHE STRING "Enable VTK RenderingCore module")
+#set(VTK_MODULE_ENABLE_VTK_* "NO" CACHE STRING "Disable all other VTK modules")
+##VTK_BUILD_TESTING
+#set(VTK_MODULE_ENABLE_VTK_eigen "NO" CACHE STRING "")
+#
+#FetchContent_MakeAvailable(vtk)
+
+
+
+include(FetchContent)
 FetchContent_Declare(
-        vtk
-        GIT_REPOSITORY https://gitlab.kitware.com/vtk/vtk.git
-        GIT_TAG v9.4.1  # Specify the desired version
+        Kokkos
+        URL      https://github.com/kokkos/kokkos/releases/download/4.5.01/kokkos-4.5.01.tar.gz
+        URL_HASH SHA256=52d003ffbbe05f30c89966e4009c017efb1662b02b2b73190670d3418719564c
 )
+set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Enable the OpenMP backend for Kokkos")
+set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Enable the CUDA backend for Kokkos")
 
-# Disable all VTK modules by default
-set(VTK_MODULE_ENABLE_VTK_CommonCore "YES" CACHE STRING "")
-set(VTK_MODULE_ENABLE_VTK_IOCore "YES" CACHE STRING "Enable VTK IOCore module")
-set(VTK_MODULE_ENABLE_VTK_RenderingCore "NO" CACHE STRING "Enable VTK RenderingCore module")
-set(VTK_MODULE_ENABLE_VTK_* "NO" CACHE STRING "Disable all other VTK modules")
-#VTK_BUILD_TESTING
-set(VTK_MODULE_ENABLE_VTK_eigen "NO" CACHE STRING "")
-
-FetchContent_MakeAvailable(vtk)
-
-
-
-
-
-
-
-
-
+FetchContent_MakeAvailable(Kokkos)
 
 
 #if (${BUILD_NEON_TESTING})

@@ -84,7 +84,7 @@ endif ()
 #target_link_libraries(libNeonXXX INTERFACE $<BUILD_INTERFACE:NeonDeveloperLib>)
 
 add_subdirectory("lib")
-
+add_subdirectory("miscelana")
 
 #-------------------------------------------------------------------#
 # Configuration summary
@@ -118,4 +118,3 @@ message("\\===================================================")
 # get_target_property(interfaceLibs NeonDeveloperLib INTERFACE_COMPILE_OPTIONS)
 # set(info ${interfaceLibs}[CXX_COMPILER_ID])
 # message(STATUS "NeonDeveloperLib INTERFACE_LINK_LIBRARIES: ${info}")
-
