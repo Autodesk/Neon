@@ -1,7 +1,7 @@
 import ctypes
 import os
 import warp as wp
-
+import platform
 
 class Gate(object):
     def __init__(self):
@@ -9,8 +9,23 @@ class Gate(object):
         # get the path of this python file
         current_file_path = os.path.abspath(__file__)
         # get the directory containing the script
-        lib_path = os.path.dirname(current_file_path) + "/../../cmake-build-debug/libNeonPy/liblibNeonPy.so"
-        # move up two folders with respec to script_dir
+        # Determine platform and architecture
+        current_platform = platform.system().lower()
+        machine = platform.machine().lower()
+        
+        if current_platform.startswith("linux"):
+            platform_key = f"linux_{machine}"
+            lib_extension = ".so"
+        elif current_platform.startswith("darwin"):
+            platform_key = f"macos_{machine}"
+            lib_extension = ".dylib" 
+        elif current_platform.startswith("windows"):
+            platform_key = f"windows_{machine}"
+            lib_extension = ".dll"
+        else:
+            raise RuntimeError(f"Unsupported platform: {current_platform}")
+            
+        lib_path = os.path.join(os.path.dirname(current_file_path), "lib", platform_key, f"liblibNeonPy{lib_extension}")
 
         try:
             self.lib =    ctypes.CDLL(lib_path)
