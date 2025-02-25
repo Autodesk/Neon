@@ -321,7 +321,7 @@ class Container:
     def run(self,
             stream_idx: int,
             data_view: neon.DataView = neon.DataView.standard(),
-            container_runtime: ContainerRuntime = ContainerRuntime.warp):
+            container_runtime: ContainerRuntime = ContainerRuntime.neon):
         if container_runtime == Container.ContainerRuntime.warp:
             self._run_warp(stream_idx=stream_idx,
                            data_view=data_view)
