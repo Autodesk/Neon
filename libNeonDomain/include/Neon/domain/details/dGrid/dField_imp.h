@@ -767,6 +767,7 @@ auto dField<T, C>::swap(dField::Field& A, dField::Field& B) -> void
     std::swap(A, B);
 }
 
+
 template <typename T, int C>
 auto dField<T, C>::getData()
     -> Data&
