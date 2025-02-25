@@ -39,7 +39,6 @@ class dField(object):
         self.suffix = f'_{self.type_mapping["suffix"]}'
         self.Partition_type = getattr(neon.dense.dPartition, f'dPartition{self.suffix}')
 
-
     def _help_load_api(self):
         # Importing new functions
         ## new_field
@@ -110,12 +109,18 @@ class dField(object):
         # field update host data
         self.api_fill = getattr(lib_obj, f'dGrid_dField_fill{self.suffix}')
         self.api_fill.argtypes = [self.handle_type,
-                                         self.type_mapping["ctype"],
-                                         ctypes.c_int]
+                                   self.type_mapping["ctype"],
+                                  ctypes.c_int]
         self.api_fill.restype = ctypes.c_int
 
+        # self.api_fill = getattr(lib_obj, f'dGrid_dField_fill{self.suffix}')
+        # self.api_fill.argtypes = [self.handle_type,
+        #                           self.type_mapping["ctype"],
+        #                           ctypes.c_int]
+        # self.api_fill.restype = ctypes.c_int
+
         # field update host data
-        self.api_copy = getattr(lib_obj, f'dGrid_dField_fill{self.suffix}')
+        self.api_copy = getattr(lib_obj, f'dGrid_dField_copy{self.suffix}')
         self.api_copy.argtypes = [self.handle_type,
                                          self.handle_type,
                                          ctypes.c_int]
@@ -161,10 +166,10 @@ class dField(object):
 
         # ccp_size = self.neon.lib.dGrid_dField_partition_size(partition)
         # ctypes_size = ctypes.sizeof(partition)
-        # 
+        #
         # if ccp_size != ctypes_size:
         #     raise Exception(f'Failed to get span: cpp_size {ccp_size} != ctypes_size {ctypes_size}')
-        # 
+        #
         # # print(f"Partition {partition}")
         return partition
 
@@ -200,11 +205,22 @@ class dField(object):
     def get_handle(self):
         return self.handle
 
-    def copy_run(self, dst_field,src_field, stream_idx):
-        self.api_copy(dst_field.handle, src_field.handle, stream_idx)
+    def copy_from_run(self, src_field, stream_idx):
+        self.api_copy(self.handle, src_field.handle, stream_idx)
 
-    def copy_fill(self, field, value, stream_idx):
-        self.api_fill(field.handle, self.type_mapping['ctype'](value), stream_idx)
+    def fill_run(self, value, stream_idx):
+        value = self.type_mapping['ctype'](value)
+        print(f"fill_run: value type: {type(value)}, expected ctype: {self.type_mapping['ctype']}")
+        print(f"fill_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
+
+        self.api_fill(self.get_handle(),
+                      value.value,
+                      stream_idx
+                      )
+
+    def zero_run(self, stream_idx):
+        print(f"zero_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
+        self.fill_run(value=self.dtype(0), stream_idx=stream_idx)
 
     @property
     def type(self):

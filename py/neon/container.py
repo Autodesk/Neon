@@ -342,53 +342,53 @@ class Container:
 
             return container_generator
         return factory_decorator
-
-    @staticmethod
-    def fill(field: typing.Any,
-             fill_value: typing.Any):
-
-        @Container.factory(name="Fill")
-        def container_fill(field):
-            def fill_container(loader: neon.Loader):
-                loader.set_grid(field.get_grid())
-                f = loader.get_write_handle(field)
-
-                @wp.func
-                def foo(idx: typing.Any):
-                    for c in range(wp.neon_cardinality(f)):
-                        wp.neon_write(f, idx, c, fill_value)
-
-                loader.declare_kernel(foo)
-
-            return fill_container
-
-        ret = container_fill(field=field)
-        return ret
-
-    @staticmethod
-    def zero(field):
-        ret = Container.fill(field=field, fill_value=field.type(0))
-        return ret
-
-    @staticmethod
-    def copy(field_src: typing.Any,
-             field_dst: typing.Any):
-
-        @Container.factory(name="copy")
-        def copy_container(field_src, field_dst):
-            def copy_ll(loader: neon.Loader):
-                loader.set_grid(field_src.get_grid())
-                src_pn = loader.get_read_handle(field_src)
-                dst_pn = loader.get_read_handle(field_dst)
-
-                @wp.func
-                def copy_cl(idx: typing.Any):
-                    for c in range(wp.neon_cardinality(src_pn)):
-                        val = wp.neon_read(src_pn, idx, c)
-                        wp.neon_write(dst_pn, idx, c, val)
-
-                loader.declare_kernel(copy_cl)
-            return copy_ll
-
-        ret = copy_container(field_src=field_src, field_dst=field_dst)
-        return ret
+    #
+    # @staticmethod
+    # def fill(field: typing.Any,
+    #          fill_value: typing.Any):
+    #
+    #     @Container.factory(name="Fill")
+    #     def container_fill(field):
+    #         def fill_container(loader: neon.Loader):
+    #             loader.set_grid(field.get_grid())
+    #             f = loader.get_write_handle(field)
+    #
+    #             @wp.func
+    #             def foo(idx: typing.Any):
+    #                 for c in range(wp.neon_cardinality(f)):
+    #                     wp.neon_write(f, idx, c, fill_value)
+    #
+    #             loader.declare_kernel(foo)
+    #
+    #         return fill_container
+    #
+    #     ret = container_fill(field=field)
+    #     return ret
+    #
+    # @staticmethod
+    # def zero(field):
+    #     ret = Container.fill(field=field, fill_value=field.type(0))
+    #     return ret
+    #
+    # @staticmethod
+    # def copy(field_src: typing.Any,
+    #          field_dst: typing.Any):
+    #
+    #     @Container.factory(name="copy")
+    #     def copy_container(field_src, field_dst):
+    #         def copy_ll(loader: neon.Loader):
+    #             loader.set_grid(field_src.get_grid())
+    #             src_pn = loader.get_read_handle(field_src)
+    #             dst_pn = loader.get_read_handle(field_dst)
+    #
+    #             @wp.func
+    #             def copy_cl(idx: typing.Any):
+    #                 for c in range(wp.neon_cardinality(src_pn)):
+    #                     val = wp.neon_read(src_pn, idx, c)
+    #                     wp.neon_write(dst_pn, idx, c, val)
+    #
+    #             loader.declare_kernel(copy_cl)
+    #         return copy_ll
+    #
+    #     ret = copy_container(field_src=field_src, field_dst=field_dst)
+    #     return ret
