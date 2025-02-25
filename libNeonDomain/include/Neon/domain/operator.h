@@ -22,15 +22,14 @@ auto newfillContainer(typename Field::Type& val,
 
 
 template <typename Field>
-auto newCopyContainer(typename Field::Type& val,
-                      const Field&          filedSrc,
-                      Field&                fieldDst)
+auto newCopyContainer(const Field& filedSrc,
+                      Field&       fieldDst)
     -> Neon::set::Container
 {
-    const auto& grid = filedA.getGrid();
+    const auto& grid = filedSrc.getGrid();
     return grid.newContainer(
         "newCopyContainer",
-        [&, val](Neon::set::Loader& loader) {
+        [&](Neon::set::Loader& loader) {
             const auto a = loader.load(filedSrc);
             auto       b = loader.load(fieldDst);
 

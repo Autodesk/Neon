@@ -610,23 +610,23 @@ auto dGrid_dField_copy(
     using Grid = Neon::dGrid;
     using Field = Grid::Field<T, 0>;
 
-    Field & fieldDst = reinterpret_cast<Field*>(fieldHandleDst);
-    Field const &fieldSrc = reinterpret_cast<Field*>(fieldHandleSrc);
+    Field&       fieldDst = *reinterpret_cast<Field*>(fieldHandleDst);
+    Field const& fieldSrc = *reinterpret_cast<Field*>(fieldHandleSrc);
 
     auto container = Neon::domain::newCopyContainer(fieldSrc, fieldDst);
     container.run(streamSetId);
     return 0;
 }
 
-DO_EXPORT(int8, 3, dGrid_dField_copy, int, void*, fieldHandle, void*, fieldHandle, int, streamIdx);
-DO_EXPORT(uint8, 3, dGrid_dField_copy, int, void*, fieldHandle, void*, fieldHandle, int, streamIdx);
-DO_EXPORT(bool, 3, dGrid_dField_copy, int, void*, fieldHandle, void*, fieldHandle, int, streamIdx);
+DO_EXPORT(int8, 3, dGrid_dField_copy, int, void*, fhA, void*, fhB, int, streamIdx);
+DO_EXPORT(uint8, 3, dGrid_dField_copy, int, void*, fhA, void*, fhB, int, streamIdx);
+DO_EXPORT(bool, 3, dGrid_dField_copy, int, void*, fhA, void*, fhB, int, streamIdx);
 
-DO_EXPORT(int32, 3, dGrid_dField_copy, int, void*, fieldHandle, void*, fieldHandle, int, streamIdx);
-DO_EXPORT(uint32, 3, dGrid_dField_copy, int, void*, fieldHandle, void*, fieldHandle, int, streamIdx);
+DO_EXPORT(int32, 3, dGrid_dField_copy, int, void*, fhA, void*, fhB, int, streamIdx);
+DO_EXPORT(uint32, 3, dGrid_dField_copy, int, void*, fhA, void*, fhB, int, streamIdx);
 
-DO_EXPORT(int64, 3, dGrid_dField_copy, int, void*, fieldHandle, void*, fieldHandle, int, streamIdx);
-DO_EXPORT(uint64, 3, dGrid_dField_copy, int, void*, fieldHandle, void*, fieldHandle, int, streamIdx);
+DO_EXPORT(int64, 3, dGrid_dField_copy, int, void*, fhA, void*, fhB, int, streamIdx);
+DO_EXPORT(uint64, 3, dGrid_dField_copy, int, void*, fhA, void*, fhB, int, streamIdx);
 
-DO_EXPORT(float32, 3, dGrid_dField_copy, int, void*, fieldHandle, void*, fieldHandle, int, streamIdx);
-DO_EXPORT(float64, 3, dGrid_dField_copy, int, void*, fieldHandle, void*, fieldHandle, int, streamIdx);
+DO_EXPORT(float32, 3, dGrid_dField_copy, int, void*, fhA, void*, fhB, int, streamIdx);
+DO_EXPORT(float64, 3, dGrid_dField_copy, int, void*, fhA, void*, fhB, int, streamIdx);

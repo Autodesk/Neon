@@ -107,6 +107,20 @@ class dField(object):
                                            ctypes.c_char_p]
         self.api_export_vti.restype = ctypes.c_int
 
+        # field update host data
+        self.api_fill = getattr(lib_obj, f'dGrid_dField_fill{self.suffix}')
+        self.api_fill.argtypes = [self.handle_type,
+                                         self.type_mapping["ctype"],
+                                         ctypes.c_int]
+        self.api_fill.restype = ctypes.c_int
+
+        # field update host data
+        self.api_copy = getattr(lib_obj, f'dGrid_dField_fill{self.suffix}')
+        self.api_copy.argtypes = [self.handle_type,
+                                         self.handle_type,
+                                         ctypes.c_int]
+        self.api_copy.restype = ctypes.c_int
+
     def _help_field_new(self):
         if self.handle == 0:
             raise Exception('dGrid: Invalid handle')
@@ -185,6 +199,12 @@ class dField(object):
 
     def get_handle(self):
         return self.handle
+
+    def copy_run(self, dst_field,src_field, stream_idx):
+        self.api_copy(dst_field.handle, src_field.handle, stream_idx)
+
+    def copy_fill(self, field, value, stream_idx):
+        self.api_fill(field.handle, self.type_mapping['ctype'](value), stream_idx)
 
     @property
     def type(self):
