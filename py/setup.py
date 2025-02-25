@@ -13,6 +13,7 @@ class BinaryDistribution(Distribution):
 
 class CustomBuildPy(build_py_orig):
     """Custom build command to copy the appropriate shared library."""
+
     def run(self):
         # Determine platform and architecture
         current_platform = sys.platform
@@ -28,8 +29,8 @@ class CustomBuildPy(build_py_orig):
         elif current_platform.startswith("win"):
             platform_key = "windows_" + machine
             lib_extension = ".dll"
-        else:
-            raise RuntimeError(f"Unsupported platform: {current_platform}")
+        # else:
+        #     raise RuntimeError(f"Unsupported platform: {current_platform}")
 
         # Define the path to the shared library. TODO: This is a hack to get the path to the shared library. We need to find a better way to do this for multiple platforms.
         source_so = os.path.abspath(os.path.join(os.path.dirname(__file__), f'../cmake-build-debug/libNeonPy/liblibNeonPy{lib_extension}'))
@@ -53,7 +54,7 @@ class CustomBuildPy(build_py_orig):
         super().run()
 
 setup(
-    name="neon",
+    name="neon-lang",
     version="0.1.0",
     packages=find_packages(),
     package_data={
