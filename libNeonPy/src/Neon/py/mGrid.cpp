@@ -9,9 +9,10 @@ extern "C" auto mGrid_new(
     const Neon::index_3d* dim,
     int32_t               depth,
     int**                 sparsity_pattern_vec,
-    int*                  dim_x_vec,
-    int*                  dim_y_vec,
-    int*                  dim_z_vec)
+    Neon::index_3d*       dim_vec,
+    Neon::index_3d*       origin_vec,
+    int                   numStencilPoints,
+    int const*            stencilPointFlatArray)
     -> int
 {
     NEON_PY_PRINT_BEGIN(*handle);
@@ -32,22 +33,36 @@ extern "C" auto mGrid_new(
     // @TODOMATT define/use a multiresolution constructor for Grid g (talk to max about this)
     std::vector<std::function<bool(const Neon::index_3d&)>> sparsity(depth);
     for (int i = 0; i < depth; i++) {
-        Neon::index_3d level_dim(dim_x_vec[i], dim_y_vec[i], dim_z_vec[i]);
-        int*           level_sparsity = sparsity_pattern_vec[i];
+
+        Neon::index_3d const& level_mask_dim = dim_vec[i];
+        Neon::index_3d const& level_mask_offset = origin_vec[i];
+        int*                  level_sparsity = sparsity_pattern_vec[i];
+
         sparsity[i] = [=](Neon::index_3d const& idx) {
-            if (idx < level_dim) {
-                int index = idx.x * (level_dim.x * level_dim.y) + idx.y * level_dim.y + idx.z;
-                std::cout << "IN mGrid_new - sparsity index " << index << " idx "<<idx.to_string()<<" read "<< level_sparsity[index]<<std::endl;
+            int        dividend = 1 << i;
+            auto       scaled_idx = idx / dividend;
+            auto const mask_idx = scaled_idx - level_mask_offset;
+            if (mask_idx < level_mask_dim && mask_idx >= 0) {
+                int index = mask_idx.x * (level_mask_dim.x * level_mask_dim.y) + mask_idx.y * level_mask_dim.y + mask_idx.z;
+                std::cout << "IN mGrid_new - sparsity index " << index << " idx " << idx.to_string() << " read " << level_sparsity[index] << std::endl;
                 return level_sparsity[index] == 1;
             }
             return false;
         };
     }
-
-    auto gridPtr = new (std::nothrow) Grid(*backend,
-                                           *dim,
-                                           sparsity,
-                                           d3q19, Grid::Descriptor(depth));
+    std::vector<Neon::index_3d> points(numStencilPoints);
+    for (int sId = 0; sId < numStencilPoints; sId++) {
+        points[sId].x = stencilPointFlatArray[sId * 3];
+        points[sId].y = stencilPointFlatArray[sId * 3 + 1];
+        points[sId].z = stencilPointFlatArray[sId * 3 + 2];
+    }
+    Neon::domain::Stencil stencil(points);
+    auto                  gridPtr = new (std::nothrow)
+        Grid(*backend,
+             *dim,
+             sparsity,
+             stencil,
+             Grid::Descriptor(depth));
 
     if (gridPtr == nullptr) {
         std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;

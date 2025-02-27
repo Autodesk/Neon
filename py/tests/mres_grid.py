@@ -23,7 +23,7 @@ def get_solver_operator_container(field):
             value = wp.neon_read(f_read, idx, 0)
             cartesianIdx = wp.neon_global_idx(f_read, idx)
             extra = wp.neon_get_x(cartesianIdx) + wp.neon_get_y(cartesianIdx) + wp.neon_get_z(cartesianIdx)
-            extra = extra * 0 +1
+            extra = extra * 0 + 1
             wp.printf("Position (%d %d %d) read %d extra %d\n",
                       wp.neon_get_x(cartesianIdx),
                       wp.neon_get_y(cartesianIdx),
@@ -56,30 +56,26 @@ def block_grid_try():
     neon.init()
 
     bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
-                    dev_idx_list=[0])
+                      dev_idx_list=[0])
 
     dim = neon.Index_3d(4, 4, 4)
     maskZero = np.zeros((dim.x, dim.y, dim.z), dtype=int)
-    maskZero[0, 0, 0] = 1
-    maskZero[0, 0, 0] = 1
-    maskZero[0, 0, 0] = 1
-    maskZero[0, 0, 1] = 1
-    maskZero[1, 0, 0] = 1
-    maskZero[1, 0, 1] = 1
-    maskZero[1, 0, 0] = 1
-    maskZero[1, 0, 1] = 1
-    maskZero[3, 0, 3] = 1
-
+    maskZero[3, 3, 0] = 1
+    maskZero[0, 3, 3] = 1
     maskOne = np.zeros((2, 2, 2), dtype=int)
-    maskOne[1, 0, 0] = 0
+    maskOne[0, 0, 0] = 1
     maskOne[0, 0, 1] = 0
     maskOne[0, 1, 0] = 0
-    maskOne[1, 1, 1] = 0
+    maskOne[1, 1, 1] = 1
 
-    grid = neon.mGrid(bk, dim, [
-        np.ascontiguousarray(maskZero, dtype=np.int32),
-        np.ascontiguousarray(maskOne, dtype=np.int32),
-    ])
+    grid = neon.mGrid(bk, dim,
+                      sparsity_pattern_list=[
+                          np.ascontiguousarray(maskZero, dtype=np.int32),
+                          np.ascontiguousarray(maskOne, dtype=np.int32),
+                      ],
+                      sparsity_pattern_origins=[neon.Index_3d(0, 0, 0),
+                                                neon.Index_3d(0, 0, 0)],
+                      stencil=[[0, 0, 0], [1, 0, 0]], )
     print(grid)
     field = grid.new_field(cardinality=1, dtype=wp.int32)
     print("Field created")
@@ -87,26 +83,26 @@ def block_grid_try():
     def set_value(idx: neon.Index_3d):
         return idx.x + idx.y + idx.z
 
-    for z in range(0, dim.z):
-        for y in range(0, dim.y):
-            for x in range(0, dim.x):
-                idx = neon.Index_3d(x, y, z)
-                newValue = set_value(idx)
-                print(f"Init@({x},{y},{z}): [value] {newValue} ")
-                field.write(idx=idx,
-                            level=0,
-                            cardinality=0,
-                            newValue=newValue)
+    # for z in range(0, dim.z):
+    #     for y in range(0, dim.y):
+    #         for x in range(0, dim.x):
+    #             idx = neon.Index_3d(x, y, z)
+    #             newValue = set_value(idx)
+    #             print(f"Init@({x},{y},{z}): [value] {newValue} ")
+    #             field.write(idx=idx,
+    #                         level=0,
+    #                         cardinality=0,
+    #                         newValue=newValue)
     field.export_vti("in.vti")
     #
     field.update_device(0)
     wp.synchronize()
     #
-    solver_operator = get_solver_operator_container(field)
-    solver_operator.run(
-        stream_idx=0,
-        data_view=neon.DataView.standard(),
-        container_runtime=neon.Container.ContainerRuntime.neon)
+    # solver_operator = get_solver_operator_container(field)
+    # solver_operator.run(
+    #     stream_idx=0,
+    #     data_view=neon.DataView.standard(),
+    #     container_runtime=neon.Container.ContainerRuntime.neon)
 
     print('=====================')
     # print('=====================')
@@ -141,5 +137,5 @@ if __name__ == "__main__":
     pid = os.getpid()
     print(f"Process PID: {pid}")
     print("Press any key to continue...")
-    #input()
+    # input()
     block_grid_try()
