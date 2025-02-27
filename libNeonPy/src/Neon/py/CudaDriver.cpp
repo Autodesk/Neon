@@ -98,7 +98,7 @@ auto CudaDriver::run_kernel(
         launch_bounds_t bounds{};
         bounds.ndim = 1;
         bounds.shape[0] = n;;
-        std::cout << "launch_info.domainGrid().rMul() " << launch_info.domainGrid().rMul() << std::endl;
+        //std::cout << "launch_info.domainGrid().rMul() " << launch_info.domainGrid().rMul() << std::endl;
         bounds.size = n;
 
 
