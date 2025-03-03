@@ -513,7 +513,7 @@ auto dGrid_dField_to_vti(
     }
     std::cout << "dGrid_dField_to_vti - " << fname << " - " << fieldName << std::endl;
     fieldPtr->ioToVtk(fname,
-                      fieldName);
+                      fieldName, false, Neon::IoFileType::BINARY, true);
     //                      bool               includeDomain = false,
     //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
     //                      bool               isNodeSpace = false
