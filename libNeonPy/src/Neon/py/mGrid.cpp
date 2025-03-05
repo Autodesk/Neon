@@ -18,6 +18,7 @@ extern "C" auto mGrid_new(
     NEON_PY_PRINT_BEGIN(*handle);
     std::cout << "mGrid_new - BEGIN" << std::endl;
     std::cout << "mGrid_new - gridHandle " << handle << std::endl;
+    std::cout << "mGrid_new - dim " << dim->to_string() << std::endl;
 
     Neon::init();
 
@@ -29,22 +30,22 @@ extern "C" auto mGrid_new(
         return -1;
     }
 
-    Neon::domain::Stencil d3q19 = Neon::domain::Stencil::s19_t(false);
-    // @TODOMATT define/use a multiresolution constructor for Grid g (talk to max about this)
     std::vector<std::function<bool(const Neon::index_3d&)>> sparsity(depth);
     for (int i = 0; i < depth; i++) {
-
         Neon::index_3d const& level_mask_dim = dim_vec[i];
         Neon::index_3d const& level_mask_offset = origin_vec[i];
         int*                  level_sparsity = sparsity_pattern_vec[i];
 
         sparsity[i] = [=](Neon::index_3d const& idx) {
+            // std::cout << "IN mGrid_new - sparsity idx " << idx.to_string() << std::endl;
+            // std::cout << "IN mGrid_new - level_mask_dim " << level_mask_dim.to_string() <<" level_mask_offset " <<level_mask_offset.to_string()<< std::endl;
+
             int        dividend = 1 << i;
             auto       scaled_idx = idx / dividend;
             auto const mask_idx = scaled_idx - level_mask_offset;
             if (mask_idx < level_mask_dim && mask_idx >= 0) {
                 int index = mask_idx.x * (level_mask_dim.x * level_mask_dim.y) + mask_idx.y * level_mask_dim.y + mask_idx.z;
-                std::cout << "IN mGrid_new - sparsity index " << index << " idx " << idx.to_string() << " read " << level_sparsity[index] << std::endl;
+                // std::cout << "IN mGrid_new - sparsity index " << index << " idx " << idx.to_string() << " read " << level_sparsity[index] << std::endl;
                 return level_sparsity[index] == 1;
             }
             return false;
@@ -135,12 +136,12 @@ extern "C" auto mGrid_get_span(
     -> int
 {
     std::cout << "mGrid_get_span - BEGIN " << std::endl;
-    std::cout << "mGrid_get_span - gridHandle " << gridHandle << std::endl;
-    std::cout << "mGrid_get_span - grid_level " << grid_level << std::endl;
-    std::cout << "mGrid_get_span - execution " << execution << std::endl;
-    std::cout << "mGrid_get_span - device " << device << std::endl;
-    std::cout << "mGrid_get_span - data_view " << data_view << std::endl;
-    std::cout << "mGrid_get_span - Span size " << sizeof(*spanRes) << std::endl;
+    // std::cout << "mGrid_get_span - gridHandle " << gridHandle << std::endl;
+    // std::cout << "mGrid_get_span - grid_level " << grid_level << std::endl;
+    // std::cout << "mGrid_get_span - execution " << execution << std::endl;
+    // std::cout << "mGrid_get_span - device " << device << std::endl;
+    // std::cout << "mGrid_get_span - data_view " << data_view << std::endl;
+    // std::cout << "mGrid_get_span - Span size " << sizeof(*spanRes) << std::endl;
 
     using Grid = Neon::domain::mGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
@@ -409,7 +410,7 @@ auto mGrid_mField_write(
     std::cout << "mGrid_mField_write begin" << std::endl;
 
     using Grid = Neon::domain::mGrid;
-    using Field = Grid::Field<int, 1>;
+    using Field = Grid::Field<T, 0>;
 
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 

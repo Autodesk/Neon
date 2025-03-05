@@ -2,6 +2,7 @@ import ctypes
 import neon
 import neon.multires.mPartition
 
+
 class mField(object):
     def __init__(self,
                  neon_gate: neon.Gate,
@@ -14,7 +15,7 @@ class mField(object):
         if grid_handle == 0:
             raise Exception('mField: Invalid handle')
 
-        self.neon_gate:neon.Gate =  neon_gate
+        self.neon_gate: neon.Gate = neon_gate
         self.handle_type = ctypes.c_void_p
         self.handle: ctypes.c_uint64 = ctypes.c_void_p(0)
         self.grid_handle = grid_handle
@@ -31,7 +32,6 @@ class mField(object):
         self.type_mapping = self.neon_gate.get_type_mapping(self.dtype)
         self.suffix = f'_{self.type_mapping["suffix"]}'
         self.Partition_type = getattr(neon.multires.mPartition, f'mPartition{self.suffix}')
-
 
     def _help_load_api(self):
         # Importing new functions
@@ -55,7 +55,7 @@ class mField(object):
         self.api_get_partition.argtypes = [
             self.handle_type,
             ctypes.POINTER(self.Partition_type),  # the span object
-            ctypes.c_int, # resolution level
+            ctypes.c_int,  # resolution level
             neon.Execution,  # the execution type
             ctypes.c_int,  # the device id
             neon.DataView,  # the data view
@@ -70,7 +70,7 @@ class mField(object):
         # field read
         self.api_read = getattr(lib_obj, f'mGrid_mField_read{self.suffix}')
         self.api_read.argtypes = [self.handle_type,
-                                  ctypes.c_int32, # resolution level
+                                  ctypes.c_int32,  # resolution level
                                   ctypes.POINTER(neon.Index_3d),
                                   ctypes.c_int32]
         self.api_read.restype = self.type_mapping["ctype"]
@@ -99,9 +99,31 @@ class mField(object):
         # export vti
         self.api_export_vti = getattr(lib_obj, f'mGrid_mField_to_vti{self.suffix}')
         self.api_export_vti.argtypes = [self.handle_type,
-                                           ctypes.c_char_p,
-                                           ctypes.c_char_p]
+                                        ctypes.c_char_p,
+                                        ctypes.c_char_p]
         self.api_export_vti.restype = ctypes.c_int32
+
+        # field update host data
+        self.api_fill = getattr(lib_obj, f'mGrid_mField_fill{self.suffix}')
+        self.api_fill.argtypes = [self.handle_type,
+                                  ctypes.c_int32,
+                                  self.type_mapping["ctype"],
+                                  ctypes.c_int]
+        self.api_fill.restype = ctypes.c_int
+
+        # self.api_fill = getattr(lib_obj, f'dGrid_dField_fill{self.suffix}')
+        # self.api_fill.argtypes = [self.handle_type,
+        #                           self.type_mapping["ctype"],
+        #                           ctypes.c_int]
+        # self.api_fill.restype = ctypes.c_int
+
+        # field update host data
+        self.api_copy = getattr(lib_obj, f'mGrid_mField_copy{self.suffix}')
+        self.api_copy.argtypes = [self.handle_type,
+                                  self.handle_type,
+                                  ctypes.c_int,
+                                  ctypes.c_int]
+        self.api_copy.restype = ctypes.c_int
 
     def _help_field_new(self):
         if self.handle == 0:
@@ -194,6 +216,24 @@ class mField(object):
 
     def get_handle(self):
         return self.handle
+
+    def copy_from_run(self, level, src_field, stream_idx):
+        self.api_copy(self.handle,  src_field.handle, level, stream_idx)
+
+    def fill_run(self, level, value, stream_idx):
+        value = self.type_mapping['ctype'](value)
+        print(f"fill_run: value type: {type(value)}, expected ctype: {self.type_mapping['ctype']}")
+        print(f"fill_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
+
+        self.api_fill(self.get_handle(),
+                      level,
+                      value.value,
+                      stream_idx
+                      )
+
+    def zero_run(self, level, stream_idx):
+        print(f"zero_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
+        self.fill_run(value=self.dtype(0), level=level , stream_idx=stream_idx)
 
     @property
     def type(self):

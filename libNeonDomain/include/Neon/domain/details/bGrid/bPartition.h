@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Neon/domain/details/bGrid/bIndex.h"
-#include "Neon/domain/details/eGrid/eIndex.h"
 #include "Neon/domain/details/bGrid/bSpan.h"
+#include "Neon/domain/details/eGrid/eIndex.h"
 #include "Neon/domain/interface/NghData.h"
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
@@ -15,9 +15,9 @@ class bSpan;
 namespace warp_compilation {
 struct BlockViewGrid
 {
-   using Idx = Neon::domain::details::eGrid::eIndex;
+    using Idx = Neon::domain::details::eGrid::eIndex;
 };
-}
+}  // namespace warp_compilation
 #endif
 
 template <typename T, int C, typename SBlock>
@@ -74,6 +74,13 @@ class bPartition
     operator()(const Idx& cell,
                int        card)
         const -> const T&;
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghData(const Idx&    gidx,
+               const NghIdx& nghOffset,
+               int           card,
+               const T&      alternativeVal)
+        const -> NghData;
 
     /**
      * Gets the field metadata at a neighbour cartesian point.
@@ -153,7 +160,7 @@ class bPartition
         const -> Neon::index_3d;
 
     NEON_CUDA_HOST_DEVICE
-    auto mem() const -> T const *;
+    auto mem() const -> T const*;
 
     /**
      * Gets the Idx for in the block view space.
@@ -176,6 +183,11 @@ class bPartition
     helpNghPitch(const Idx& nghIdx, int card)
         const -> std::tuple<bool, uint32_t>;
 #endif
+
+    NEON_CUDA_HOST_DEVICE inline auto
+    helpNghPitch(const Idx& nghIdx, int card, bool&, uint32_t&)
+        const -> void;
+
     NEON_CUDA_HOST_DEVICE inline auto
     helpGetNghIdx(const Idx& idx, const NghIdx& offset)
         const -> Idx;
@@ -195,7 +207,8 @@ class bPartition
         const -> Idx;
 
 #if !defined(NEON_WARP_COMPILATION)
-    inline static void getOffsets(size_t* offsets, size_t* length) {
+    inline static void getOffsets(size_t* offsets, size_t* length)
+    {
         static std::vector<size_t> cpp_offsets = {
             offsetof(bPartition, mCardinality),
             offsetof(bPartition, mMem),
@@ -207,7 +220,7 @@ class bPartition
             offsetof(bPartition, mMultiResDiscreteIdxSpacing),
             offsetof(bPartition, mDomainSize),
         };
-        
+
         *length = cpp_offsets.size();
         for (size_t i = 0; i < cpp_offsets.size(); ++i) {
             offsets[i] = cpp_offsets[i];

@@ -95,11 +95,12 @@ operator()(const Idx& cell,
     return mMem[helpGetPitch(cell, card)];
 }
 
-    template <typename T, int C, typename SBlock>
-    NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
-    mem() const -> T const *{
-        return mMem;
-    }
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    mem() const -> T const*
+{
+    return mMem;
+}
 
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
@@ -124,6 +125,29 @@ inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     uint32_t const pitch = blockAdnCardPitch + inBlockInCardPitch;
     return pitch;
 }
+
+template <typename T, int C, typename SBlock>
+inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
+    helpNghPitch(const Idx& nghIdx, int card, bool& isValid, uint32_t& offset)
+        const -> void
+{
+    if (nghIdx.mDataBlockIdx == Span::getInvalidBlockId()) {
+        offset = 0;
+        isValid = false;
+        return;
+    }
+
+    const bool isActive = mMask[nghIdx.mDataBlockIdx].isActive(nghIdx.mInDataBlockIdx.x, nghIdx.mInDataBlockIdx.y, nghIdx.mInDataBlockIdx.z);
+    if (!isActive) {
+        offset = 0;
+        isValid = false;
+        return;
+    }
+    offset = helpGetValidIdxPitchExplicit(nghIdx, card);
+    isValid = true;
+    return;
+}
+
 #if !defined(NEON_WARP_COMPILATION)
 template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
@@ -332,6 +356,29 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     NghIdx nghOffset = mStencilNghIndex[nghID];
     return getNghData(eId, nghOffset, card);
 }
+
+template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+    getNghData(const Idx&    idx,
+               const NghIdx& offset,
+               int           card,
+               const T&      alternativeVal)
+        const -> NghData
+{
+    NghData result;
+    bIndex  nghIdx = helpGetNghIdx(idx, offset);
+    bool isValid;
+    uint32_t pitch;
+    helpNghPitch(nghIdx, card, isValid, pitch);
+    if (!isValid) {
+        result.set(alternativeVal, false);
+        return result;
+    }
+    auto const value = mMem[pitch];
+    result.set(value, true);
+    return result;
+}
+
 
 template <typename T, int C, typename SBlock>
 NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
