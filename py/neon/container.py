@@ -27,7 +27,6 @@ class Container:
         if loading_lambda is None:
             raise Exception('Container: Invalid loading lambda')
 
-
         self.api_delete = None
         self.loading_lambda = None
         self.grid = None
@@ -42,14 +41,13 @@ class Container:
                                                     parsing=True
                                                     )
 
-
         self.loading_lambda = loading_lambda
         self.loading_lambda(container_parser)
         self.grid = container_parser._retrieve_grid()
 
         # We can load the C-API only after the grid is set
-        grid_name = self.grid.get_name()
-        self.help_load_api(grid_name = grid_name)
+        self.grid_name = self.grid.get_name()
+        self.help_load_api(grid_name = self.grid_name)
 
         self.backend = self.grid.get_backend()
         # Setting up the information of the Neon container for Neon runtime
@@ -62,7 +60,7 @@ class Container:
 
         for dev_idx in range(n_devices):
             for dw_idx in range(n_data_views):
-                if grid_name == 'mGrid' and dw_idx != 0:
+                if self.grid_name == 'mGrid' and dw_idx != 0:
                     # For mGrid at the moment we only support the STANDARD data view
                     continue
                 dev_kernel = self._get_kernel(execution=execution,
@@ -155,7 +153,7 @@ class Container:
                                operation.value,
                                discretization.value)
 
-        parse = lib_obj.warp_container_parse
+        parse = getattr(lib_obj, f'warp_container_parse_{self.grid_name}')
         parse.argtypes = [self.neon_gate.handle_type]
         parse.restype = ctypes.c_int
 
@@ -207,12 +205,12 @@ class Container:
             self.api_mres_new.restype = ctypes.c_int
         # ------------------------------------------------------------------
         # warp_container_delete
-        self.api_delete = api_gate.warp_container_delete
+        self.api_delete = getattr(self.neon_gate.lib, f'warp_container_delete_{grid_name}')
         self.api_delete.argtypes = [ctypes.POINTER(self.neon_gate.handle_type)]
         self.api_delete.restype = None
         # ------------------------------------------------------------------
         # warp_container_run
-        self.api_run = api_gate.warp_container_run
+        self.api_run = getattr(self.neon_gate.lib, f'warp_container_run_{grid_name}')
         self.api_run.argtypes = [self.neon_gate.handle_type,
                                  ctypes.c_int,
                                  neon.DataView]
@@ -222,7 +220,6 @@ class Container:
 
         # TODOMATT get num devices
         # TODOMATT get device type
-
 
     def _get_kernel(self,
                     container_runtime: ContainerRuntime,
@@ -313,7 +310,7 @@ class Container:
             stream_idx: int,
             data_view: neon.DataView):
         nvtx.push_range(f"{self.name}_neon", color="green")
-        self.neon_gate.lib.warp_container_run(self.container_handle,
+        self.api_run(self.container_handle,
                                               stream_idx,
                                               data_view)
         nvtx.pop_range()
@@ -342,53 +339,3 @@ class Container:
 
             return container_generator
         return factory_decorator
-    #
-    # @staticmethod
-    # def fill(field: typing.Any,
-    #          fill_value: typing.Any):
-    #
-    #     @Container.factory(name="Fill")
-    #     def container_fill(field):
-    #         def fill_container(loader: neon.Loader):
-    #             loader.set_grid(field.get_grid())
-    #             f = loader.get_write_handle(field)
-    #
-    #             @wp.func
-    #             def foo(idx: typing.Any):
-    #                 for c in range(wp.neon_cardinality(f)):
-    #                     wp.neon_write(f, idx, c, fill_value)
-    #
-    #             loader.declare_kernel(foo)
-    #
-    #         return fill_container
-    #
-    #     ret = container_fill(field=field)
-    #     return ret
-    #
-    # @staticmethod
-    # def zero(field):
-    #     ret = Container.fill(field=field, fill_value=field.type(0))
-    #     return ret
-    #
-    # @staticmethod
-    # def copy(field_src: typing.Any,
-    #          field_dst: typing.Any):
-    #
-    #     @Container.factory(name="copy")
-    #     def copy_container(field_src, field_dst):
-    #         def copy_ll(loader: neon.Loader):
-    #             loader.set_grid(field_src.get_grid())
-    #             src_pn = loader.get_read_handle(field_src)
-    #             dst_pn = loader.get_read_handle(field_dst)
-    #
-    #             @wp.func
-    #             def copy_cl(idx: typing.Any):
-    #                 for c in range(wp.neon_cardinality(src_pn)):
-    #                     val = wp.neon_read(src_pn, idx, c)
-    #                     wp.neon_write(dst_pn, idx, c, val)
-    #
-    #             loader.declare_kernel(copy_cl)
-    #         return copy_ll
-    #
-    #     ret = copy_container(field_src=field_src, field_dst=field_dst)
-    #     return ret

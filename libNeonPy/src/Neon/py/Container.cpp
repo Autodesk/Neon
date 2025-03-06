@@ -15,6 +15,8 @@
 #include "Neon/set/container/Loader.h"
 
 namespace Neon::py {
+// using bGrid = Neon::domain::details::bGrid::bGrid;
+
 template <typename Grid>
 struct WarpContainer : Neon::set::internal::ContainerAPI
 {
@@ -339,68 +341,75 @@ extern "C" auto warp_mGrid_container_new(
     return 0;
 }
 
-extern "C" auto warp_container_delete(
+using dGrid = Neon::domain::details::dGrid::dGrid;
+using mGrid = Neon::domain::details::mGrid::mGrid;
+
+template <typename Grid>
+auto warp_container_delete(
     void** handle) -> int
 {
-    auto* data = reinterpret_cast<Neon::py::container_warp_data<Neon::dGrid>*>(*handle);
-
-    if (data != nullptr) {
-        delete data;
+    if constexpr (std::is_same_v<Grid, mGrid>) {
+        using InternalGrid = typename Grid::InternalGrid;
+        auto* data = reinterpret_cast<Neon::py::container_warp_data<InternalGrid>*>(handle);
+        if (data != nullptr) {
+            delete data;
+        }
+        (*handle) = nullptr;
+        return 0;
+    } else {
+        auto* data = reinterpret_cast<Neon::py::container_warp_data<Grid>*>(*handle);
+        if (data != nullptr) {
+            delete data;
+        }
+        (*handle) = nullptr;
+        return 0;
     }
-
-    (*handle) = nullptr;
-    return 0;
 }
 
-extern "C" auto warp_container_parse(
+DO_EXPORT(dGrid, 1, warp_container_delete, int, void**, handle);
+DO_EXPORT(mGrid, 1, warp_container_delete, int, void**, handle);
+
+template <typename Grid>
+auto warp_container_parse(
     void* handle) -> int
 {
-    auto* data = reinterpret_cast<Neon::py::container_warp_data<Neon::dGrid>*>(handle);
-    data->m_warp_container_ptr->parse();
-    return 0;
+    if constexpr (std::is_same_v<Grid, mGrid>) {
+        using InternalGrid = typename Grid::InternalGrid;
+        auto* data = reinterpret_cast<Neon::py::container_warp_data<InternalGrid>*>(handle);
+        data->m_warp_container_ptr->parse();
+        return 0;
+    } else {
+        auto* data = reinterpret_cast<Neon::py::container_warp_data<Grid>*>(handle);
+        data->m_warp_container_ptr->parse();
+        return 0;
+    }
 }
 
-extern "C" auto warp_container_run(
+DO_EXPORT(dGrid, 1, warp_container_parse, int, void*, handle);
+DO_EXPORT(mGrid, 1, warp_container_parse, int, void*, handle);
+
+
+template <typename Grid>
+auto warp_container_run(
     void*          handle,
     int            streamIdx,
     Neon::DataView dataView) -> int
 {
-    auto* data = reinterpret_cast<Neon::py::container_warp_data<Neon::dGrid>*>(handle);
-    data->m_container_prt->run(streamIdx, dataView);
+    if constexpr (std::is_same_v<Grid, mGrid>) {
+        using InternalGrid = typename Grid::InternalGrid;
+        auto* data = reinterpret_cast<Neon::py::container_warp_data<InternalGrid>*>(handle);
+        data->m_container_prt->run(streamIdx, dataView);
+        return 0;
+    } else {
+        auto* data = reinterpret_cast<Neon::py::container_warp_data<Grid>*>(handle);
+        data->m_container_prt->run(streamIdx, dataView);
+    }
     return 0;
 }
 
 
-#define DEFINE_WARP_DGRID_CONTAINER_ADD_PARSE_TOKEN(TYPE, CARD)                                            \
-    extern "C" auto warp_dgrid_container_add_parse_token_##TYPE##_##CARD(                                  \
-        void* handle,                                                                                      \
-        void* field_handle,                                                                                \
-        int   access_int,                                                                                  \
-        int   pattern_int,                                                                                 \
-        int   stencilSemantic_int)                                                                         \
-        ->int                                                                                              \
-    {                                                                                                      \
-        using Field = Neon::dGrid::Field<TYPE, CARD>;                                                      \
-        auto  pattern = Neon::PatternUtils::fromInt(pattern_int);                                          \
-        auto  access = Neon::set::dataDependency::AccessTypeUtils::fromInt(access_int);                    \
-        auto  stenSemantic = Neon::set::StencilSemanticUtils::fromInt(stencilSemantic_int);                \
-        auto* data = reinterpret_cast<Neon::py::container_warp_data<Neon::dGrid>*>(handle);                \
-                                                                                                           \
-        Field* field = reinterpret_cast<Field*>(field_handle);                                             \
-        if (field == nullptr) {                                                                            \
-            Neon::NeonException e("parse_token");                                                          \
-            NEON_THROW(e);                                                                                 \
-        }                                                                                                  \
-                                                                                                           \
-        if (access == Neon::set::dataDependency::AccessType::READ) {                                       \
-            const Field& parsingField = *field;                                                            \
-            data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic); \
-        } else {                                                                                           \
-            Field& parsingField = *field;                                                                  \
-            data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic); \
-        }                                                                                                  \
-        return 0;                                                                                          \
-    }
+DO_EXPORT(dGrid, 3, warp_container_run, int, void*, handle, int, streamIdx, Neon::DataView, dataView);
+DO_EXPORT(mGrid, 3, warp_container_run, int, void*, handle, int, streamIdx, Neon::DataView, dataView);
 
 
 template <typename Grid, typename Type, int Card>
@@ -484,10 +493,10 @@ auto warp_container_mres_add_parse_token(
     }
 
     if (access == Neon::set::dataDependency::AccessType::READ) {
-        const auto & parsingField = field_mres->operator()(level);
+        const auto& parsingField = field_mres->operator()(level);
         data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
     } else {
-        auto & parsingField = field_mres->operator()(level);
+        auto& parsingField = field_mres->operator()(level);
         data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
     }
     return 0;
