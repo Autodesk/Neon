@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
 set_property(GLOBAL PROPERTY BUILD_NEON_SHARED_LIBS ON)
@@ -7,7 +7,6 @@ set_property(GLOBAL PROPERTY BUILD_NEON_SHARED_LIBS ON)
 project(Neon
         VERSION 0.3.3
         LANGUAGES CXX C CUDA)
-enable_language(CUDA)
 
 #Default build type is Release if no build type is passed by the user
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
@@ -20,6 +19,8 @@ include("${PROJECT_SOURCE_DIR}/cmake/ManageLibraryType.cmake")
 # Manage unit testing compilation following directives from BUILD_NEON_TESTING
 include("${PROJECT_SOURCE_DIR}/cmake/ManageUnitTests.cmake")
 
+# Manage CUDA compute capabilities by setting CMAKE_CUDA_ARCHITECTURES
+include("${PROJECT_SOURCE_DIR}/cmake/ManageTargetCUDACompute.cmake")
 
 # Toggle NVTX ranges. Enabled by default on linux. To enable use "-DNEON_USE_NVTX=ON"
 include("${PROJECT_SOURCE_DIR}/cmake/Nvtx.cmake")
@@ -44,7 +45,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Definition of the target interface NeonDeveloperLib
 add_library(NeonDeveloperLib INTERFACE)
 target_compile_features(NeonDeveloperLib INTERFACE cxx_std_17)
-set_target_properties(NeonDeveloperLib PROPERTIES CUDA_ARCHITECTURES "native")
 
 include("${PROJECT_SOURCE_DIR}/cmake/ManageCompilationFlags.cmake")
 
