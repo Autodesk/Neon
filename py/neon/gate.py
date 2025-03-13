@@ -9,7 +9,7 @@ class Gate(object):
         # get the path of this python file
         current_file_path = os.path.abspath(__file__)
         # get the directory containing the script
-        lib_path = os.path.dirname(current_file_path) + "/../../cmake-build-debug/libNeonPy/liblibNeonPy.so"
+        lib_path = os.path.dirname(current_file_path) + "/../../build/libNeonPy/liblibNeonPy.so"
         # move up two folders with respec to script_dir
 
         try:
