@@ -28,6 +28,8 @@ if (NOT googletest_POPULATED)
 
 	# Include GoogleTest CMake functions
 	include(GoogleTest)
+	FetchContent_MakeAvailable(googletest)
+
 endif ()
 
 # rapidjson
@@ -55,6 +57,30 @@ if (NOT rapidjson_POPULATED)
 	file(REMOVE_RECURSE ${rapidjson_SOURCE_DIR}/bin/)
 endif ()
 
+
+# glm
+FetchContent_GetProperties(glm)
+message(STATUS "Fetching glm...")
+if (NOT glm_POPULATED)
+	FetchContent_Declare(glm
+			GIT_REPOSITORY https://github.com/g-truc/glm.git
+			GIT_TAG        master
+	)
+	FetchContent_Populate(glm)
+	add_subdirectory(${glm_SOURCE_DIR})
+endif()
+
+#libigl
+FetchContent_GetProperties(libigl)
+if (NOT libigl_POPULATED)
+	message(STATUS "Fetching libigl...")
+	FetchContent_Declare(
+			libigl
+			GIT_REPOSITORY https://github.com/Ahdhn/libigl.git
+			GIT_TAG        master
+	)
+	FetchContent_MakeAvailable(libigl)
+endif()
 
 
 # Set CMAKE_INSTALL_INCLUDEDIR to a relative path

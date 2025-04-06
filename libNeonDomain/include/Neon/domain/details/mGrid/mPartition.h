@@ -1,13 +1,9 @@
-#if !defined(NEON_WARP_COMPILATION)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #pragma once
-#endif
+
 
 #include "Neon/domain/details/bGrid/bIndex.h"
 #include "Neon/domain/details/bGrid/bPartition.h"
 #include "Neon/domain/interface/NghData.h"
-
 
 #include "Neon/domain/details/StaticBlock.h"
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
@@ -187,36 +183,6 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
      */
     NEON_CUDA_HOST_DEVICE inline Neon::index_3d getGlobalIndex(Idx gidx) const;
 
-#if !defined(NEON_WARP_COMPILATION)
-    inline static void getOffsets(size_t* offsets, size_t* length) {
-        static std::vector<size_t> cpp_offsets = {
-            offsetof(mPartition, mCardinality),
-            offsetof(mPartition, mMem),
-            offsetof(mPartition, mStencilNghIndex),
-            offsetof(mPartition, mBlockConnectivity),
-            offsetof(mPartition, mMask),
-            offsetof(mPartition, mOrigin),
-            offsetof(mPartition, mSetIdx),
-            offsetof(mPartition, mMultiResDiscreteIdxSpacing),
-            offsetof(mPartition, mDomainSize),
-            offsetof(mPartition, mLevel),
-            offsetof(mPartition, mMemParent),
-            offsetof(mPartition, mMemChild),
-            offsetof(mPartition, mParentBlockID),
-            offsetof(mPartition, mMaskLowerLevel),
-            offsetof(mPartition, mMaskUpperLevel),
-            offsetof(mPartition, mChildBlockID),
-            offsetof(mPartition, mParentNeighbourBlocks),
-            offsetof(mPartition, mRefFactors),
-            offsetof(mPartition, mSpacing),
-        };
-        
-        *length = cpp_offsets.size();
-        for (size_t i = 0; i < cpp_offsets.size(); ++i) {
-            offsets[i] = cpp_offsets[i];
-        }
-    }
-#endif
 
    private:
     inline NEON_CUDA_HOST_DEVICE auto childID(const Idx& gidx) const -> uint32_t;
@@ -236,6 +202,3 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
 }  // namespace Neon::domain::details::mGrid
 
 #include "Neon/domain/details/mGrid/mPartition_imp.h"
-#if !defined(NEON_WARP_COMPILATION)
-#pragma GCC diagnostic pop
-#endif

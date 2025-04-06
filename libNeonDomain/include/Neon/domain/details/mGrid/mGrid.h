@@ -67,6 +67,7 @@ class mGrid
           const Neon::domain::Stencil&                            stencil,
           const Descriptor                                        descriptor,
           bool                                                    isStrongBalanced = true,
+          bool                                                    isCullOverlaps = true,
           const double_3d&                                        spacingData = double_3d(1, 1, 1),
           const double_3d&                                        origin = double_3d(0, 0, 0));
 
@@ -117,7 +118,7 @@ class mGrid
      * @param sharedMem amount of shared memory in bytes for CUDA kernels 
      * @param lambda the lambda function that will do the computation      
     */
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
                       int                level,
                       index_3d           blockSize,
@@ -131,7 +132,7 @@ class mGrid
      * @param level at which the work/kernel will be launched      
      * @param lambda the lambda function that will do the computation      
     */
-    template <typename LoadingLambda>
+    template <Neon::Execution execution = Neon::Execution::device, typename LoadingLambda = void*>
     auto newContainer(const std::string& name,
                       int                level,
                       LoadingLambda      lambda) const -> Neon::set::Container;
@@ -169,8 +170,8 @@ class mGrid
     auto getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d;
     auto getDescriptor() const -> const Descriptor&;
     auto getRefFactors() const -> const Neon::set::MemSet<int>&;
-    auto getGridCount() const -> uint32_t;
     auto getLevelSpacing() const -> const Neon::set::MemSet<int>&;
+    auto getLevelCount() const -> uint32_t;
     auto getBackend() const -> const Backend&;
     auto getBackend() -> Backend&;
 
@@ -183,6 +184,9 @@ class mGrid
 
     //set the bitmask assuming a dense domain
     auto setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void;
+
+    //clear the bitmask assuming a dense domain
+    auto clearLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void;
 
     struct Data
     {
@@ -209,6 +213,8 @@ class mGrid
         Descriptor mDescriptor;
 
         bool mStrongBalanced;
+
+        bool mCullOverlaps;
 
         //bitmask of the active cells at each level and works as if the grid is dense at each level
         std::vector<std::vector<uint32_t>> denseLevelsBitmask;

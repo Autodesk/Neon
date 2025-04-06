@@ -33,7 +33,14 @@ mPartition<T, C>::mPartition(int                level,
                              NghIdx*            stencilNghIndex,
                              int*               refFactors,
                              int*               spacing)
-    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(0, cardinality, mem, neighbourBlocks, mask, origin, stencilNghIndex, {0,0,0}),
+    : Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>(0,
+                                                                   cardinality,
+                                                                   mem,
+                                                                   neighbourBlocks,
+                                                                   mask,
+                                                                   origin,
+                                                                   stencilNghIndex,
+                                                                   Neon::int32_3d(0, 0, 0) /*TODO@Max this is just a temporary solution*/),
       mLevel(level),
       mMemParent(memParent),
       mMemChild(memChild),
@@ -209,10 +216,10 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::parentVal(const Idx& eId,
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasParent(const Idx& cell) const -> bool
 {
-    if (mMemParent) {
-        return true;
+    if (!cell.isActive()) {
+        return false;
     }
-    return false;
+    return getParent(cell).isActive();
 }
 
 template <typename T, int C>
