@@ -34,6 +34,7 @@ class mGrid(object):
         self.sparsity_pattern_list = sparsity_pattern_list
         self.sparsity_pattern_origins = sparsity_pattern_origins
         self.stencil = stencil
+        self.num_levels = len(sparsity_pattern_list)
 
         self._help_load_api()
         self._help_grid_new()
@@ -217,3 +218,6 @@ class mGrid(object):
 
     def get_name(self):
         return "mGrid"
+
+    def get_num_levels(self):
+        return self.num_levels

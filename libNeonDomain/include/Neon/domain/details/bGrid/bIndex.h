@@ -1,7 +1,75 @@
 #pragma once
 
 #include "Neon/core/core.h"
+#if defined(NEON_WARP_COMPILATION)
+namespace std{
+// Generic (non-specialized) template for numeric_limits.
+template <typename T>
+class numeric_limits {
+public:
+    static constexpr bool is_specialized = false;
 
+    // Default implementations simply return a default-constructed T.
+    static constexpr T min() noexcept { return T(); }
+    static constexpr T max() noexcept { return T(); }
+    static constexpr T epsilon() noexcept { return T(); }
+};
+
+// Specialized version for float using literal constants.
+template <>
+class numeric_limits<float> {
+public:
+    static constexpr bool is_specialized = true;
+
+    // Smallest positive normalized float (approximately)
+    static constexpr float min() noexcept { return 1.17549435e-38F; }
+    // Largest finite float value (approximately)
+    static constexpr float max() noexcept { return 3.402823466e+38F; }
+    // Difference between 1 and the next representable float
+    static constexpr float epsilon() noexcept { return 1.19209290e-7F; }
+};
+
+// Specialized version for double using literal constants.
+template <>
+class numeric_limits<double> {
+public:
+    static constexpr bool is_specialized = true;
+
+    // Smallest positive normalized double (approximately)
+    static constexpr double min() noexcept { return 2.2250738585072014e-308; }
+    // Largest finite double value (approximately)
+    static constexpr double max() noexcept { return 1.7976931348623158e+308; }
+    // Difference between 1 and the next representable double
+    static constexpr double epsilon() noexcept { return 2.2204460492503131e-16; }
+};
+
+// Specialized version for int using literal constants.
+template <>
+class numeric_limits<int> {
+public:
+    static constexpr bool is_specialized = true;
+
+    // Minimum and maximum for a 32-bit signed integer.
+    static constexpr int min() noexcept { return -2147483648; }
+    static constexpr int max() noexcept { return 2147483647; }
+    // For integral types, epsilon is not applicable.
+    static constexpr int epsilon() noexcept { return 0; }
+};
+
+// Specialized version for int64_t using literal constants.
+template <>
+class numeric_limits<int64_t> {
+public:
+    static constexpr bool is_specialized = true;
+
+    // Minimum and maximum for a 64-bit signed integer.
+    static constexpr int64_t min() noexcept { return -9223372036854775807LL - 1; }
+    static constexpr int64_t max() noexcept { return 9223372036854775807LL; }
+    // For integral types, epsilon is not applicable.
+    static constexpr int64_t epsilon() noexcept { return 0; }
+};
+}
+#endif
 
 namespace Neon::domain::details::bGrid {
 

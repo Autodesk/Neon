@@ -536,8 +536,7 @@ auto mGrid_mField_to_vti(
         return -1;
     }
     std::cout << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
-    fieldPtr->ioToVtk(fname,
-                      fieldName);
+    fieldPtr->ioToVtk(fname, true, true, true, false);
     //                      bool               includeDomain = false,
     //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
     //                      bool               isNodeSpace = false
