@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
-set_property(GLOBAL PROPERTY BUILD_NEON_SHARED_LIBS ON)
+#set_property(GLOBAL PROPERTY BUILD_NEON_SHARED_LIBS ON)
 
 #Project name 
 project(Neon
@@ -45,6 +45,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Definition of the target interface NeonDeveloperLib
 add_library(NeonDeveloperLib INTERFACE)
 target_compile_features(NeonDeveloperLib INTERFACE cxx_std_17)
+
+# Link with CUDA runtime (cudart)
+find_package(CUDAToolkit REQUIRED)
+target_link_libraries(NeonDeveloperLib INTERFACE CUDA::cudart)
 
 include("${PROJECT_SOURCE_DIR}/cmake/ManageCompilationFlags.cmake")
 

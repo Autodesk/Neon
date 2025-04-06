@@ -198,6 +198,25 @@ auto mField<T, C>::operator()(const Neon::index_3d& idx,
 }
 
 template <typename T, int C>
+auto mField<T, C>::operator()(const Idx& idx,
+                              const int& cardinality,
+                              const int  level) -> T&
+{
+    Neon::SetIdx devID(0);
+    return (*this)(level).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, cardinality);
+}
+
+
+template <typename T, int C>
+auto mField<T, C>::operator()(const Idx& idx,
+                              const int& cardinality,
+                              const int  level) const -> const T&
+{
+    Neon::SetIdx devID(0);
+    return (*this)(level).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, cardinality);
+}
+
+template <typename T, int C>
 auto mField<T, C>::getReference(const Neon::index_3d& idx,
                                 const int&            cardinality,
                                 const int             level) -> T&
@@ -273,6 +292,7 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
         default:
             break;
     }
+    NEON_THROW_UNSUPPORTED_OPTION("mField::load: Unknown compute type")
 }
 
 
@@ -305,15 +325,17 @@ auto mField<T, C>::load(Neon::set::Loader     loader,
         default:
             break;
     }
+    NEON_THROW_UNSUPPORTED_OPTION("mField::load: Unknown compute type")
 }
 
 
 template <typename T, int C>
-auto mField<T, C>::ioToVtk(std::string fileName,
-                           bool        outputLevels,
-                           bool        outputBlockID,
-                           bool        outputVoxelID,
-                           bool        filterOverlaps) const -> void
+auto mField<T, C>::ioToVtk(std::string         fileName,
+                           bool                outputLevels,
+                           bool                outputBlockID,
+                           bool                outputVoxelID,
+                           bool                filterOverlaps,
+                           const Neon::int8_3d slice) const -> void
 {
     auto l0Dim = mData->grid->getDimension(0);
 
@@ -360,6 +382,9 @@ auto mField<T, C>::ioToVtk(std::string fileName,
             // TODO need to figure out which device owns this block
             SetIdx devID(0);
 
+            constexpr double      tiny = 1e-7;
+            const Neon::double_3d voxelSize(1.0 / mData->grid->getDimension(l).x, 1.0 / mData->grid->getDimension(l).y, 1.0 / mData->grid->getDimension(l).z);
+
             (*(mData->grid))(l).helpGetPartitioner1D().forEachSeq(devID, [&](const uint32_t blockIdx, const Neon::int32_3d memBlockOrigin, auto /*byPartition*/) {
                 Neon::index_3d blockOrigin = memBlockOrigin;
                 blockOrigin.x *= kMemBlockSizeX * voxelSpacing;
@@ -388,6 +413,26 @@ auto mField<T, C>::ioToVtk(std::string fileName,
                                             if (filterOverlaps && l != 0) {
                                                 draw = !((*(mData->grid))(l - 1).isInsideDomain(voxelGlobalID));
                                             }
+
+                                            const Neon::double_3d location(double(voxelGlobalID.x) / double(l0Dim.x),
+                                                                           double(voxelGlobalID.y) / double(l0Dim.y),
+                                                                           double(voxelGlobalID.z) / double(l0Dim.z));
+
+                                            //if (!(/*(location.x > lowSlice && location.x < highSlice) ||
+                                            //      (location.y > lowSlice && location.y < highSlice) ||*/
+                                            //      (location.z > lowSlice && location.z < highSlice))) {
+                                            //    draw = false;
+                                            //}
+
+                                            if (draw && (slice.x == 1 || slice.y == 1 || slice.z == 1)) {
+                                                draw = false;
+                                                for (int s = 0; s < 3 && !draw; ++s) {
+                                                    if (slice.getVectorView()[s] == 1 && location.getVectorView()[s] - tiny <= 0.5 && location.getVectorView()[s] + voxelSize.getVectorView()[s] >= 0.5 - tiny) {
+                                                        draw = true;
+                                                    }
+                                                }
+                                            }
+
 
                                             if (draw) {
                                                 if (op == Op::Count) {
@@ -428,7 +473,7 @@ auto mField<T, C>::ioToVtk(std::string fileName,
                                                 } else if (op == Op::OutputData) {
                                                     Idx idx(blockIdx, int8_t(i * kUserBlockSizeX + x), int8_t(j * kUserBlockSizeY + y), int8_t(k * kUserBlockSizeZ + z));
                                                     for (int c = 0; c < card; ++c) {
-                                                        file << (*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, c) << "\n";
+                                                        file << float((*this)(l).getPartition(Neon::Execution::host, devID, Neon::DataView::STANDARD)(idx, c)) << "\n";
                                                     }
                                                 }
                                             }
