@@ -52,11 +52,11 @@ NEON_CUDA_HOST_DEVICE Neon::Vec_3d<T> velocity(const T* fin,
     for (int i = 0; i < Q; ++i) {
         const T f = fin[i];
         for (int d = 0; d < 3; ++d) {
-            vel.getVectorView()[d] += f * latticeVelocity[i][d];
+            vel.v[d] += f * latticeVelocity[i][d];
         }
     }
     for (int d = 0; d < 3; ++d) {
-        vel.getVectorView()[d] /= rho;
+        vel.v[d] /= rho;
     }
     return vel;
 }

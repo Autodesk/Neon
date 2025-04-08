@@ -65,7 +65,7 @@ void initLidDrivenCavity(Neon::domain::mGrid&                  grid,
                                 if (type(cell, 0) == CellType::movingWall) {
                                     pop_init_val = 0;
                                     for (int d = 0; d < 3; ++d) {
-                                        pop_init_val += latticeVelocity[q][d] * ulid.getVectorView()[d];
+                                        pop_init_val += latticeVelocity[q][d] * ulid.v[d];
                                     }
                                     pop_init_val *= -6. * latticeWeights[q];
                                 }

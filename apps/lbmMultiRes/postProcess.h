@@ -60,9 +60,9 @@ void postProcess(Neon::domain::mGrid&                                           
                                 //velocity
                                 const Neon::Vec_3d<T> vel = velocity<T, Q>(ins, r);
 
-                                u(cell, 0) = vel.getVectorView()[0];
-                                u(cell, 1) = vel.getVectorView()[1];
-                                u(cell, 2) = vel.getVectorView()[2];
+                                u(cell, 0) = vel.v[0];
+                                u(cell, 1) = vel.v[1];
+                                u(cell, 2) = vel.v[2];
                             }
                             if (type(cell, 0) == CellType::movingWall || type(cell, 0) == CellType::inlet) {
                                 rh(cell, 0) = 1.0;
@@ -265,7 +265,7 @@ void initVisualization(Neon::domain::mGrid&                                     
                                                                  double(voxelGlobalLocation.y) / double(dim0.y),
                                                                  double(voxelGlobalLocation.z) / double(dim0.z));
                             for (int s = 0; s < 3 && !draw; ++s) {
-                                if (slice.getVectorView()[s] == 1 && locationScaled.getVectorView()[s] - tiny <= 0.5 && locationScaled.getVectorView()[s] + voxelSize.getVectorView()[s] >= 0.5 - tiny) {
+                                if (slice.v[s] == 1 && locationScaled.v[s] - tiny <= 0.5 && locationScaled.v[s] + voxelSize.v[s] >= 0.5 - tiny) {
                                     draw = true;
                                 }
                             }
@@ -425,13 +425,13 @@ void verifyLidDrivenCavity(Neon::domain::mGrid&           grid,
             level, [&](const Neon::index_3d& id, const int& card, T& val) {
                 if (id.x == grid_dim.x / 2 && id.z == grid_dim.z / 2) {
                     if (card == 0) {
-                        yPosVal.push_back({static_cast<double>(id.getVectorView()[1]) / static_cast<double>(grid_dim.y), val * scale});
+                        yPosVal.push_back({static_cast<double>(id.v[1]) / static_cast<double>(grid_dim.y), val * scale});
                     }
                 }
 
                 if (id.y == grid_dim.y / 2 && id.z == grid_dim.z / 2) {
                     if (card == 1) {
-                        xPosVal.push_back({static_cast<double>(id.getVectorView()[0]) / static_cast<double>(grid_dim.x), val * scale});
+                        xPosVal.push_back({static_cast<double>(id.v[0]) / static_cast<double>(grid_dim.x), val * scale});
                     }
                 }
             },
