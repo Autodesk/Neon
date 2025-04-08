@@ -28,7 +28,7 @@ void MultiResSameLevelStencil()
                  return true;
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
-            descriptor);
+            descriptor, true, false);
 
         auto XField = grid.newField<Type>("XField", 1, -1);
         auto YField = grid.newField<Type>("YField", 1, -1);
@@ -95,11 +95,11 @@ void MultiResSameLevelStencil()
                     EXPECT_NE(val, YVal);
                     Type TrueVal = 6 * XVal;
                     for (int i = 0; i < 3; ++i) {
-                        if (idx.getVectorView()[i] + grid.getDescriptor().getSpacing(l - 1) >= dim.getVectorView()[i]) {
+                        if (idx.v[i] + grid.getDescriptor().getSpacing(l - 1) >= dim.v[i]) {
                             TrueVal -= XVal;
                         }
 
-                        if (idx.getVectorView()[i] - grid.getDescriptor().getSpacing(l - 1) < 0) {
+                        if (idx.v[i] - grid.getDescriptor().getSpacing(l - 1) < 0) {
                             TrueVal -= XVal;
                         }
                     }
