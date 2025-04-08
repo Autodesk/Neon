@@ -19,7 +19,7 @@ inline float sdfDodecahedron(Neon::float_3d p, float r = 1.0)
     constexpr float PHI = 1.618033988749895;
 
     auto dot = [&](const Neon::float_3d& x, const Neon::float_3d& y) -> float {
-        return x.v[0] * y.v[0] + x.v[1] * y.v[1] + x.v[2] * y.v[2];
+        return x.getVectorView()[0] * y.getVectorView()[0] + x.getVectorView()[1] * y.getVectorView()[1] + x.getVectorView()[2] * y.getVectorView()[2];
     };
 
     auto normalize = [&](const Neon::float_3d& x) -> Neon::float_3d {
@@ -43,7 +43,7 @@ inline float sdfMenger(Neon::float_3d p)
     auto mod = [](float x, float y) { return x - y * floor(x / y); };
 
     auto length = [&](const Neon::float_3d& x) -> float {
-        return std::sqrt(x.v[0] * x.v[0] + x.v[1] * x.v[1] + x.v[2] * x.v[2]);
+        return std::sqrt(x.getVectorView()[0] * x.getVectorView()[0] + x.getVectorView()[1] * x.getVectorView()[1] + x.getVectorView()[2] * x.getVectorView()[2]);
     };
 
     auto maxcomp = [](Neon::float_3d q) { return std::max(q.x, std::max(q.y, q.z)); };

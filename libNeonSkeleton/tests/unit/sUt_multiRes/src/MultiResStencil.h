@@ -95,11 +95,11 @@ void MultiResSameLevelStencil()
                     EXPECT_NE(val, YVal);
                     Type TrueVal = 6 * XVal;
                     for (int i = 0; i < 3; ++i) {
-                        if (idx.v[i] + grid.getDescriptor().getSpacing(l - 1) >= dim.v[i]) {
+                        if (idx.getVectorView()[i] + grid.getDescriptor().getSpacing(l - 1) >= dim.getVectorView()[i]) {
                             TrueVal -= XVal;
                         }
 
-                        if (idx.v[i] - grid.getDescriptor().getSpacing(l - 1) < 0) {
+                        if (idx.getVectorView()[i] - grid.getDescriptor().getSpacing(l - 1) < 0) {
                             TrueVal -= XVal;
                         }
                     }
