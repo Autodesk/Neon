@@ -1,6 +1,6 @@
 #pragma once
 
-void MultiResParent()
+void MultiResWrite()
 {
     using Type = int32_t;
     const int              nGPUs = 1;
@@ -30,7 +30,7 @@ void MultiResParent()
             dim,
             {[peel](const Neon::index_3d id) -> bool {
                  //   return peel(id, 3, false);  //&& peel(id, 5, false);
-                 return peel(id, 3, true);
+                 return peel(id, 2, true);
              },
              [peel](const Neon::index_3d& id) -> bool {
                  return peel(id, 6, false) && peel(id, 11, true);
@@ -54,7 +54,7 @@ void MultiResParent()
 
 
                     return [=] NEON_CUDA_HOST_DEVICE(const Neon::domain::mGrid::Idx& cell) mutable {
-                            y(cell, 0) = level;
+                            y(cell, 0) = level+3;
                     };
                 });
 
@@ -68,6 +68,6 @@ void MultiResParent()
 TEST(MultiRes, Write)
 {
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        MultiResParent();
+        MultiResWrite();
     }
 }

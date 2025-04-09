@@ -59,6 +59,18 @@ def block_grid_try():
     wp.init()
     neon.init()
 
+    def peel(dim, idx, peel_level, outwards):
+        if outwards:
+            xIn =  idx.x <= peel_level or idx.x >= dim.x -1 -peel_level
+            yIn =  idx.y <= peel_level or idx.y >= dim.y -1 -peel_level
+            zIn =  idx.z <= peel_level or idx.z >= dim.z -1 - peel_level
+            return xIn or yIn or zIn
+        else:
+            xIn = idx.x >= peel_level and idx.x <= dim.x - 1 - peel_level
+            yIn = idx.y >= peel_level and idx.y <= dim.y - 1 - peel_level
+            zIn = idx.z >= peel_level and idx.z <= dim.z - 1 - peel_level
+            return xIn and yIn and zIn
+
     bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
                       dev_idx_list=[0])
     grid_shape = (64, 64, 64)
@@ -71,40 +83,22 @@ def block_grid_try():
     for i in range(dim.x):
         for j in range(dim.y):
             for k in range(dim.z):
-                if i == 0 or j == 0 or k == 0:
-                    level_zero_mask[i, j, k] = 1
-                if i == dim.x-1 or j == dim.y-1 or k == dim.z-1:
-                    level_zero_mask[i, j, k] = 1
-                if i == 1 or j == 1 or k == 1:
-                    level_zero_mask[i, j, k] = 1
-                if i == dim.x-2 or j == dim.y-2 or k == dim.z-2:
-                    level_zero_mask[i, j, k] = 1
-                if (i == 2 or j == 2 or k == 2):
-                    level_zero_mask[i, j, k] = 1
-                if i == dim.x-3 or j == dim.y-3 or k == dim.z-3:
-                    level_zero_mask[i, j, k] = 1
-                if i == 3 or j == 3 or k == 3:
-                    level_zero_mask[i, j, k] = 1
-                if i == dim.x-4 or j == dim.y-4 or k == dim.z-4:
-                    level_zero_mask[i, j, k] = 1
+                idx = neon.Index_3d(i,j,k)
+                val = 0
+                if peel(dim, idx, 6, True):
+                    val = 1
+                level_zero_mask[i, j, k] = val
 
-
-    level_one_mask = np.ones((dim.x//2, dim.y//2, dim.z//2), dtype=int)
     m = neon.Index_3d(dim.x // 2, dim.y // 2, dim.z // 2)
-    for i in range(dim.x//2):
-        for j in range(dim.y//2):
-            for k in range(dim.z//2):
-                m = neon.Index_3d(dim.x//2,
-                                  dim.y//2,
-                                  dim.z//2)
-                if i == 0 or j == 0 or k == 0:
-                    level_one_mask[i, j, k] = 0
-                if i == m.x-1 or j == m.y-1 or k == m.z-1:
-                    level_one_mask[i, j, k] = 0
-                if i == 1 or j == 1 or k == 1:
-                    level_one_mask[i, j, k] = 0
-                if (i == m.x-2 or j == m.y-2 or k == m.z-2):
-                    level_one_mask[i, j, k] = 0
+    level_one_mask = np.ones((m.x, m.y, m.z), dtype=int)
+    for i in range(m.x):
+        for j in range(m.x):
+            for k in range(m.x):
+                idx = neon.Index_3d(i,j,k)
+                val = 0
+                if peel(dim, idx, dim.x, True) and peel(dim, idx, 3, False):
+                    val = 1
+                level_one_mask[i, j, k] = val
 
     level_one_mask = np.ascontiguousarray(level_one_mask, dtype=np.int32)
 
