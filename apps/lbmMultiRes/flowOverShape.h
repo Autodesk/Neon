@@ -66,12 +66,12 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                             }
 
                             if constexpr (std::is_same_v<sdfT, Neon::domain::mGrid::Field<int8_t>>) {
-                                if (sdf(cell) == 1) {
-                                    type(cell) = CellType::bounceBack;
+                                if (sdf(cell,0) == 1) {
+                                    type(cell,0) = CellType::bounceBack;
                                 }
                             } else {
                                 if (shapeSDF(idx)) {
-                                    type(cell) = CellType::bounceBack;
+                                    type(cell,0) = CellType::bounceBack;
                                 }
                             }
 
@@ -94,7 +94,7 @@ void initFlowOverShape(Neon::domain::mGrid&                  grid,
                                     pop_init_val = 0;
 
                                     for (int d = 0; d < 3; ++d) {
-                                        pop_init_val += latticeVelocity[q][d] * inletVelocity.v[d];
+                                        pop_init_val += latticeVelocity[q][d] * inletVelocity.getVectorView()[d];
                                     }
                                     pop_init_val *= -6. * latticeWeights[q];
                                 }

@@ -46,20 +46,20 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                         //velocity
                         Neon::Vec_3d<T> vel;
 
-                        vel.v[0] = (X_P1 - X_M1) / rho;
-                        vel.v[1] = (Y_P1 - Y_M1) / rho;
-                        vel.v[2] = (Z_P1 - Z_M1) / rho;
+                        vel.getVectorView()[0] = (X_P1 - X_M1) / rho;
+                        vel.getVectorView()[1] = (Y_P1 - Y_M1) / rho;
+                        vel.getVectorView()[2] = (Z_P1 - Z_M1) / rho;
 
 
-                        const T usqr = T(1.5) * (vel.v[0] * vel.v[0] + vel.v[1] * vel.v[1] + vel.v[2] * vel.v[2]);
+                        const T usqr = T(1.5) * (vel.getVectorView()[0] * vel.getVectorView()[0] + vel.getVectorView()[1] * vel.getVectorView()[1] + vel.getVectorView()[2] * vel.getVectorView()[2]);
 
                         //collide
-                        const T ck_u03 = vel.v[0] + vel.v[1];
-                        const T ck_u04 = vel.v[0] - vel.v[1];
-                        const T ck_u05 = vel.v[0] + vel.v[2];
-                        const T ck_u06 = vel.v[0] - vel.v[2];
-                        const T ck_u07 = vel.v[1] + vel.v[2];
-                        const T ck_u08 = vel.v[1] - vel.v[2];
+                        const T ck_u03 = vel.getVectorView()[0] + vel.getVectorView()[1];
+                        const T ck_u04 = vel.getVectorView()[0] - vel.getVectorView()[1];
+                        const T ck_u05 = vel.getVectorView()[0] + vel.getVectorView()[2];
+                        const T ck_u06 = vel.getVectorView()[0] - vel.getVectorView()[2];
+                        const T ck_u07 = vel.getVectorView()[1] + vel.getVectorView()[2];
+                        const T ck_u08 = vel.getVectorView()[1] - vel.getVectorView()[2];
 
                         constexpr T c1over18 = 1. / 18.;
                         constexpr T c1over36 = 1. / 36.;
@@ -69,9 +69,9 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                         constexpr T c1 = 1.;
                         constexpr T c6 = 6.;
 
-                        const T eq_00 = rho * c1over18 * (c1 - c3 * vel.v[0] + c4dot5 * vel.v[0] * vel.v[0] - usqr);
-                        const T eq_01 = rho * c1over18 * (c1 - c3 * vel.v[1] + c4dot5 * vel.v[1] * vel.v[1] - usqr);
-                        const T eq_02 = rho * c1over18 * (c1 - c3 * vel.v[2] + c4dot5 * vel.v[2] * vel.v[2] - usqr);
+                        const T eq_00 = rho * c1over18 * (c1 - c3 * vel.getVectorView()[0] + c4dot5 * vel.getVectorView()[0] * vel.getVectorView()[0] - usqr);
+                        const T eq_01 = rho * c1over18 * (c1 - c3 * vel.getVectorView()[1] + c4dot5 * vel.getVectorView()[1] * vel.getVectorView()[1] - usqr);
+                        const T eq_02 = rho * c1over18 * (c1 - c3 * vel.getVectorView()[2] + c4dot5 * vel.getVectorView()[2] * vel.getVectorView()[2] - usqr);
                         const T eq_03 = rho * c1over36 * (c1 - c3 * ck_u03 + c4dot5 * ck_u03 * ck_u03 - usqr);
                         const T eq_04 = rho * c1over36 * (c1 - c3 * ck_u04 + c4dot5 * ck_u04 * ck_u04 - usqr);
                         const T eq_05 = rho * c1over36 * (c1 - c3 * ck_u05 + c4dot5 * ck_u05 * ck_u05 - usqr);
@@ -79,9 +79,9 @@ inline Neon::set::Container collideBGKUnrolled(Neon::domain::mGrid&             
                         const T eq_07 = rho * c1over36 * (c1 - c3 * ck_u07 + c4dot5 * ck_u07 * ck_u07 - usqr);
                         const T eq_08 = rho * c1over36 * (c1 - c3 * ck_u08 + c4dot5 * ck_u08 * ck_u08 - usqr);
 
-                        const T eqopp_00 = eq_00 + rho * c1over18 * c6 * vel.v[0];
-                        const T eqopp_01 = eq_01 + rho * c1over18 * c6 * vel.v[1];
-                        const T eqopp_02 = eq_02 + rho * c1over18 * c6 * vel.v[2];
+                        const T eqopp_00 = eq_00 + rho * c1over18 * c6 * vel.getVectorView()[0];
+                        const T eqopp_01 = eq_01 + rho * c1over18 * c6 * vel.getVectorView()[1];
+                        const T eqopp_02 = eq_02 + rho * c1over18 * c6 * vel.getVectorView()[2];
                         const T eqopp_03 = eq_03 + rho * c1over36 * c6 * ck_u03;
                         const T eqopp_04 = eq_04 + rho * c1over36 * c6 * ck_u04;
                         const T eqopp_05 = eq_05 + rho * c1over36 * c6 * ck_u05;
@@ -231,7 +231,7 @@ inline Neon::set::Container collideKBC(Neon::domain::mGrid&                     
                         for (int8_t q = 0; q < Q; ++q) {
                             T cu = 0;
                             for (int d = 0; d < 3; ++d) {
-                                cu += latticeVelocity[q][d] * vel.v[d];
+                                cu += latticeVelocity[q][d] * vel.getVectorView()[d];
                             }
                             cu *= 3.0;
 
@@ -326,7 +326,7 @@ Neon::set::Container collideBGK(Neon::domain::mGrid&                        grid
                         for (int8_t q = 0; q < Q; ++q) {
                             T cu = 0;
                             for (int8_t d = 0; d < 3; ++d) {
-                                cu += latticeVelocity[q][d] * vel.v[d];
+                                cu += latticeVelocity[q][d] * vel.getVectorView()[d];
                             }
                             cu *= 3.0;
 
@@ -448,20 +448,20 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
                         //velocity
                         Neon::Vec_3d<T> vel;
 
-                        vel.v[0] = (X_P1 - X_M1) / rho;
-                        vel.v[1] = (Y_P1 - Y_M1) / rho;
-                        vel.v[2] = (Z_P1 - Z_M1) / rho;
+                        vel.getVectorView()[0] = (X_P1 - X_M1) / rho;
+                        vel.getVectorView()[1] = (Y_P1 - Y_M1) / rho;
+                        vel.getVectorView()[2] = (Z_P1 - Z_M1) / rho;
 
 
-                        const T usqr = T(1.5) * (vel.v[0] * vel.v[0] + vel.v[1] * vel.v[1] + vel.v[2] * vel.v[2]);
+                        const T usqr = T(1.5) * (vel.getVectorView()[0] * vel.getVectorView()[0] + vel.getVectorView()[1] * vel.getVectorView()[1] + vel.getVectorView()[2] * vel.getVectorView()[2]);
 
                         //collide
-                        const T ck_u03 = vel.v[0] + vel.v[1];
-                        const T ck_u04 = vel.v[0] - vel.v[1];
-                        const T ck_u05 = vel.v[0] + vel.v[2];
-                        const T ck_u06 = vel.v[0] - vel.v[2];
-                        const T ck_u07 = vel.v[1] + vel.v[2];
-                        const T ck_u08 = vel.v[1] - vel.v[2];
+                        const T ck_u03 = vel.getVectorView()[0] + vel.getVectorView()[1];
+                        const T ck_u04 = vel.getVectorView()[0] - vel.getVectorView()[1];
+                        const T ck_u05 = vel.getVectorView()[0] + vel.getVectorView()[2];
+                        const T ck_u06 = vel.getVectorView()[0] - vel.getVectorView()[2];
+                        const T ck_u07 = vel.getVectorView()[1] + vel.getVectorView()[2];
+                        const T ck_u08 = vel.getVectorView()[1] - vel.getVectorView()[2];
 
                         constexpr T c1over18 = 1. / 18.;
                         constexpr T c1over36 = 1. / 36.;
@@ -471,9 +471,9 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
                         constexpr T c1 = 1.;
                         constexpr T c6 = 6.;
 
-                        const T eq_00 = rho * c1over18 * (c1 - c3 * vel.v[0] + c4dot5 * vel.v[0] * vel.v[0] - usqr);
-                        const T eq_01 = rho * c1over18 * (c1 - c3 * vel.v[1] + c4dot5 * vel.v[1] * vel.v[1] - usqr);
-                        const T eq_02 = rho * c1over18 * (c1 - c3 * vel.v[2] + c4dot5 * vel.v[2] * vel.v[2] - usqr);
+                        const T eq_00 = rho * c1over18 * (c1 - c3 * vel.getVectorView()[0] + c4dot5 * vel.getVectorView()[0] * vel.getVectorView()[0] - usqr);
+                        const T eq_01 = rho * c1over18 * (c1 - c3 * vel.getVectorView()[1] + c4dot5 * vel.getVectorView()[1] * vel.getVectorView()[1] - usqr);
+                        const T eq_02 = rho * c1over18 * (c1 - c3 * vel.getVectorView()[2] + c4dot5 * vel.getVectorView()[2] * vel.getVectorView()[2] - usqr);
                         const T eq_03 = rho * c1over36 * (c1 - c3 * ck_u03 + c4dot5 * ck_u03 * ck_u03 - usqr);
                         const T eq_04 = rho * c1over36 * (c1 - c3 * ck_u04 + c4dot5 * ck_u04 * ck_u04 - usqr);
                         const T eq_05 = rho * c1over36 * (c1 - c3 * ck_u05 + c4dot5 * ck_u05 * ck_u05 - usqr);
@@ -481,9 +481,9 @@ inline Neon::set::Container collideBGKUnrolledFusedStore(Neon::domain::mGrid&   
                         const T eq_07 = rho * c1over36 * (c1 - c3 * ck_u07 + c4dot5 * ck_u07 * ck_u07 - usqr);
                         const T eq_08 = rho * c1over36 * (c1 - c3 * ck_u08 + c4dot5 * ck_u08 * ck_u08 - usqr);
 
-                        const T eqopp_00 = eq_00 + rho * c1over18 * c6 * vel.v[0];
-                        const T eqopp_01 = eq_01 + rho * c1over18 * c6 * vel.v[1];
-                        const T eqopp_02 = eq_02 + rho * c1over18 * c6 * vel.v[2];
+                        const T eqopp_00 = eq_00 + rho * c1over18 * c6 * vel.getVectorView()[0];
+                        const T eqopp_01 = eq_01 + rho * c1over18 * c6 * vel.getVectorView()[1];
+                        const T eqopp_02 = eq_02 + rho * c1over18 * c6 * vel.getVectorView()[2];
                         const T eqopp_03 = eq_03 + rho * c1over36 * c6 * ck_u03;
                         const T eqopp_04 = eq_04 + rho * c1over36 * c6 * ck_u04;
                         const T eqopp_05 = eq_05 + rho * c1over36 * c6 * ck_u05;
@@ -664,7 +664,7 @@ inline Neon::set::Container collideKBCFusedStore(Neon::domain::mGrid&           
                         for (int8_t q = 0; q < Q; ++q) {
                             T cu = 0;
                             for (int d = 0; d < 3; ++d) {
-                                cu += latticeVelocity[q][d] * vel.v[d];
+                                cu += latticeVelocity[q][d] * vel.getVectorView()[d];
                             }
                             cu *= 3.0;
 

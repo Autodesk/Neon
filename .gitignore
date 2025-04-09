@@ -65,3 +65,7 @@ py/neon/tool/Neon.log
 py/neon/Neon.log
 
 py/tests/Neon.log
+
+*.dot
+
+*.vtk

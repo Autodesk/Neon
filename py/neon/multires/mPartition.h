@@ -292,7 +292,6 @@ CUDA_CALLABLE inline auto neon_has_children(
     const NeonBlockIdx&       cell,
     const NeonNghIdx          nghDir) -> bool
 {
-    printf("C++ neon_has_children\n");
     return p.hasChildren(cell, nghDir);
 }
 
