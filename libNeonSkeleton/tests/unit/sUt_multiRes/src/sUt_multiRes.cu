@@ -6,8 +6,9 @@
 
 #include "Neon/skeleton/Options.h"
 #include "Neon/skeleton/Skeleton.h"
-
+#include "MultiResUncle.h"
 #include "MultiResChild.h"
+#include "MultiResWrite.h"
 #include "MultiResDemo.h"
 #include "MultiResMap.h"
 #include "MultiResParent.h"
