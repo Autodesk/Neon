@@ -16,7 +16,7 @@ def get_solver_operator_container(field,level):
         loader.set_mres_grid(field.get_grid(), level=level)
 
         f_read = loader.get_mres_write_handle(field)
-
+        dtype = field.dtype
         @wp.func
         def foo(idx: typing.Any):
             # wp.neon_print(f_read)
@@ -24,13 +24,20 @@ def get_solver_operator_container(field,level):
             cartesianIdx = wp.neon_global_idx(f_read, idx)
             extra = wp.neon_get_x(cartesianIdx) + wp.neon_get_y(cartesianIdx) + wp.neon_get_z(cartesianIdx)
             #extra = extra * 0 + 1
-            wp.printf("Position (%d,%d,%d) read %d extra %d\n",
-                      wp.neon_get_x(cartesianIdx),
-                      wp.neon_get_y(cartesianIdx),
-                      wp.neon_get_z(cartesianIdx), value, extra)
-            value = level+3
-            #wp.print(value)
-            wp.neon_write(f_read, idx, 0, value)
+            for c in range(wp.neon_cardinality(f_read)):
+                    #     if wp.neon_has_children(f_read, idx):
+                    #         wp.printf("Position (%d,%d,%d) read %d extra %d\n",
+                    #                   wp.neon_get_x(cartesianIdx),
+                    #                   wp.neon_get_y(cartesianIdx),
+                    #                   wp.neon_get_z(cartesianIdx), value, extra)
+                    #         value = level+1
+                    # wp.printf("Position (%d,%d,%d) read %d extra %d\n",
+                    #           wp.neon_get_x(cartesianIdx),
+                    #           wp.neon_get_y(cartesianIdx),
+                    #           wp.neon_get_z(cartesianIdx), value, extra)
+                value = dtype(level+3 + c)
+                #wp.print(value)
+                wp.neon_write(f_read, idx, c, dtype(value))
 
             # if not wp.neon.neon_has_children(f_read, idx):
             #     # value = value + int(idx.x)
@@ -114,14 +121,25 @@ def block_grid_try():
                       stencil=[[0, 0, 0], [1, 0, 0]], )
     print(grid)
     field = grid.new_field(cardinality=1, dtype=wp.int32)
+    c3_field = grid.new_field(cardinality=3, dtype=wp.float32)
+
     print("Field created")
     field.export_vti("export_test","ut")
     field.update_device(0)
+    c3_field.update_device(0)
+
     wp.synchronize()
     get_solver_operator_container(field, level=0).run(0)
     get_solver_operator_container(field, level=1).run(0)
+    get_solver_operator_container(c3_field, level=0).run(0)
+    get_solver_operator_container(c3_field, level=1).run(0)
     field.update_host(0)
+    c3_field.update_host(0)
+
+    wp.synchronize()
+
     field.export_vti("export_test_after_kernel","ut")
+    c3_field.export_vti("export_test_after_kernel_c3","c3")
 
 
 
