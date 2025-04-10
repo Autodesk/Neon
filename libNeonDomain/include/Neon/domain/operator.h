@@ -21,12 +21,12 @@ auto newfillContainer(typename Field::Type& val,
                 };
             });
     } else {
-        auto&       field_level = filedA(level);
-        const auto& grid = field_level.getGrid();
+        const auto& grid = filedA.getGrid();
         return grid.newContainer(
             "newfillContainer",
+            level,
             [&, val](Neon::set::Loader& loader) {
-                auto a = loader.load(field_level);
+                auto& a = filedA.load(loader, level, Neon::MultiResCompute::MAP);
 
                 return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                     for (int i = 0; i < a.cardinality(); i++) {
@@ -63,12 +63,13 @@ auto newCopyContainer(const Field&         filedSrc,
         auto& fieldSrc_level = filedSrc(level);
         auto& fieldDst_level = fieldDst(level);
 
-        const auto& grid = fieldSrc_level.getGrid();
+        const auto& grid = filedSrc.getGrid();
         return grid.newContainer(
             "newCopyContainer",
+            level,
             [&](Neon::set::Loader& loader) {
-                const auto a = loader.load(fieldSrc_level);
-                auto       b = loader.load(fieldDst_level);
+                const auto a = filedSrc.load(loader, level,  Neon::MultiResCompute::MAP);
+                auto       b = fieldDst.load(loader, level, Neon::MultiResCompute::MAP);
 
                 return [=] NEON_CUDA_HOST_DEVICE(const typename Field::Idx& e) mutable {
                     for (int i = 0; i < a.cardinality(); i++) {

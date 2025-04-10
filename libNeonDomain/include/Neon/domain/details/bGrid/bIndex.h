@@ -68,6 +68,123 @@ public:
     // For integral types, epsilon is not applicable.
     static constexpr int64_t epsilon() noexcept { return 0; }
 };
+
+// Specialized version for unsigned int using literal constants.
+template <>
+class numeric_limits<unsigned int> {
+public:
+    static constexpr bool is_specialized = true;
+
+    // Minimum for an unsigned 32-bit integer is zero.
+    static constexpr unsigned int min() noexcept { return 0; }
+    // Maximum for an unsigned 32-bit integer (approximately)
+    static constexpr unsigned int max() noexcept { return 4294967295U; }
+    // For integral types, epsilon is not applicable.
+    static constexpr unsigned int epsilon() noexcept { return 0; }
+};
+
+// Specialized version for uint64_t using literal constants.
+template <>
+class numeric_limits<uint64_t> {
+public:
+    static constexpr bool is_specialized = true;
+
+    // Minimum for a 64-bit unsigned integer is zero.
+    static constexpr uint64_t min() noexcept { return 0; }
+    // Maximum for a 64-bit unsigned integer (approximately)
+    static constexpr uint64_t max() noexcept { return 18446744073709551615ULL; }
+    // For integral types, epsilon is not applicable.
+    static constexpr uint64_t epsilon() noexcept { return 0; }
+};
+
+template<typename T>
+struct my_make_unsigned;
+
+// Specializations for the fundamental integral types
+
+// signed char and unsigned char
+template<>
+struct my_make_unsigned<signed char> {
+    using type = unsigned char;
+};
+
+template<>
+struct my_make_unsigned<unsigned char> {
+    using type = unsigned char;
+};
+
+// The type "char" in C++ is implementation defined (it can be signed or unsigned).
+// Here we choose unsigned char by default.
+template<>
+struct my_make_unsigned<char> {
+    using type = unsigned char;
+};
+
+// short and unsigned short
+template<>
+struct my_make_unsigned<short> {
+    using type = unsigned short;
+};
+
+template<>
+struct my_make_unsigned<unsigned short> {
+    using type = unsigned short;
+};
+
+// int and unsigned int
+template<>
+struct my_make_unsigned<int> {
+    using type = unsigned int;
+};
+
+template<>
+struct my_make_unsigned<unsigned int> {
+    using type = unsigned int;
+};
+
+// long and unsigned long
+template<>
+struct my_make_unsigned<long> {
+    using type = unsigned long;
+};
+
+template<>
+struct my_make_unsigned<unsigned long> {
+    using type = unsigned long;
+};
+
+// long long and unsigned long long
+template<>
+struct my_make_unsigned<long long> {
+    using type = unsigned long long;
+};
+
+template<>
+struct my_make_unsigned<unsigned long long> {
+    using type = unsigned long long;
+};
+
+// Propagate cv-qualifiers for const-qualified types
+template<typename T>
+struct my_make_unsigned<const T> {
+    using type = const typename my_make_unsigned<T>::type;
+};
+
+template<typename T>
+struct my_make_unsigned<volatile T> {
+    using type = volatile typename my_make_unsigned<T>::type;
+};
+
+template<typename T>
+struct my_make_unsigned<const volatile T> {
+    using type = const volatile typename my_make_unsigned<T>::type;
+};
+
+// Alias template for easier use, similar to std::make_unsigned_t
+template<typename T>
+using my_make_unsigned_t = typename my_make_unsigned<T>::type;
+
+
 }
 #endif
 
@@ -150,13 +267,13 @@ class bIndex
 
     using TrayIdx = MicroIndex::TrayIdx;
     using InTrayIdx = MicroIndex::InTrayIdx;
-#if !defined(NEON_WARP_COMPILATION)
+ #if !defined(NEON_WARP_COMPILATION)
 
     using DataBlockCount = std::make_unsigned_t<TrayIdx>;
     using DataBlockIdx = std::make_unsigned_t<TrayIdx>;
 #else
-    using DataBlockCount = TrayIdx;
-    using DataBlockIdx = TrayIdx;
+    using DataBlockCount = uint32_t;
+    using DataBlockIdx = uint32_t;
 #endif
 
     using InDataBlockIdx = InTrayIdx;

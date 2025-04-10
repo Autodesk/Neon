@@ -113,6 +113,11 @@ class mField
         return mData->grid->getDescriptor();
     }
 
+    auto getGrid( ) const -> Grid&
+    {
+        return *mData->grid;
+    }
+
    private:
     mField(const std::string&         name,
            const mGrid&               grid,

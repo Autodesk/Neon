@@ -26,7 +26,7 @@ class bSpan
     NEON_CUDA_HOST_DEVICE inline static auto getInvalidBlockId()
         -> typename Idx::DataBlockIdx
     {
-        return 0xFFFFFFFF;//std::numeric_limits<uint32_t>::max();
+        return std::numeric_limits<uint32_t>::max();
     }
 
     bSpan(

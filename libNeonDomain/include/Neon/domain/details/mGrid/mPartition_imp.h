@@ -154,6 +154,9 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Idx& cell)
     if (mMemChild == nullptr || mMaskLowerLevel == nullptr || mLevel == 0) {
         return false;
     }
+    //auto chId = childID(cell);
+    //auto maxIdx = std::numeric_limits<typename Idx::DataBlockIdx>::max();
+    //printf("childID: %x  vs   %x (%x)\n", chId, maxIdx, 4294967295U);
     if (childID(cell) == std::numeric_limits<typename Idx::DataBlockIdx>::max()) {
         return false;
     }

@@ -25,32 +25,33 @@ def get_solver_operator_container(field,level):
             extra = wp.neon_get_x(cartesianIdx) + wp.neon_get_y(cartesianIdx) + wp.neon_get_z(cartesianIdx)
             #extra = extra * 0 + 1
             for c in range(wp.neon_cardinality(f_read)):
-                    #     if wp.neon_has_children(f_read, idx):
-                    #         wp.printf("Position (%d,%d,%d) read %d extra %d\n",
-                    #                   wp.neon_get_x(cartesianIdx),
-                    #                   wp.neon_get_y(cartesianIdx),
-                    #                   wp.neon_get_z(cartesianIdx), value, extra)
-                    #         value = level+1
-                    # wp.printf("Position (%d,%d,%d) read %d extra %d\n",
-                    #           wp.neon_get_x(cartesianIdx),
-                    #           wp.neon_get_y(cartesianIdx),
-                    #           wp.neon_get_z(cartesianIdx), value, extra)
                 value = dtype(level+3 + c)
-                #wp.print(value)
                 wp.neon_write(f_read, idx, c, dtype(value))
+        loader.declare_kernel(foo)
 
-            # if not wp.neon.neon_has_children(f_read, idx):
-            #     # value = value + int(idx.x)
-            #     wp.neon_write(f_read, idx, 0, value)
-            # else:
-            #     value = value *-1
-            #     wp.neon_write(f_read, idx, 0, value)
+    return setup
+
+@neon.Container.factory(name='parent_mask_operator')
+def parent_mask_operator(field,level):
+    def setup(loader: neon.Loader):
+        loader.set_mres_grid(field.get_grid(), level=level)
+
+        f = loader.get_mres_write_handle(field)
+        dtype = field.dtype
+        @wp.func
+        def foo(idx: typing.Any):
+            # wp.neon_print(f_read)
+            value = dtype(level+1)
+            if wp.neon_has_children(f, idx):
+                value = -value
+
+            for c in range(wp.neon_cardinality(f)):
+                wp.neon_write(f, idx, c, value)
 
 
         loader.declare_kernel(foo)
 
     return setup
-
 
 def block_grid_try():
     # Get the path of the current script
@@ -135,11 +136,25 @@ def block_grid_try():
     get_solver_operator_container(c3_field, level=1).run(0)
     field.update_host(0)
     c3_field.update_host(0)
-
     wp.synchronize()
 
     field.export_vti("export_test_after_kernel","ut")
     c3_field.export_vti("export_test_after_kernel_c3","c3")
+
+    # ----------------------
+
+    wp.synchronize()
+    #parent_mask_operator(field, level=0).run(0)
+    parent_mask_operator(field, level=1).run(0)
+    #parent_mask_operator(c3_field, level=0).run(0)
+    #parent_mask_operator(c3_field, level=1).run(0)
+    wp.synchronize()
+    field.update_host(0)
+    c3_field.update_host(0)
+    wp.synchronize()
+
+    field.export_vti("export_test_after_kernel_has_children_mask","ut")
+    c3_field.export_vti("export_test_after_kernel_has_children_mask_c3","c3")
 
 
 
