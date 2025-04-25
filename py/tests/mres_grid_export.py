@@ -53,7 +53,7 @@ def has_child_operator(field,level):
 
     return setup
 
-@neon.Container.factory(name='has_child_operator')
+@neon.Container.factory(name='has_parent_operator')
 def has_parent_operator(field,level):
     def kernel(loader: neon.Loader):
         loader.set_mres_grid(field.get_grid(), level=level)
