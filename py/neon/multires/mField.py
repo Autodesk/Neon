@@ -195,14 +195,14 @@ class mField(object):
                               self.type_mapping['ctype'](newValue))
 
     def update_host(self,
-                    streamSetId: ctypes.c_int):
+                    stream: ctypes.c_int):
         return self.api_update_host(self.handle,
-                                    streamSetId)
+                                    stream)
 
     def update_device(self,
-                      streamSetId: ctypes.c_int):
+                      stream: ctypes.c_int):
         return self.api_update_device(self.handle,
-                                      streamSetId)
+                                      stream)
 
     def export_vti(self, filename: str,
                    field_name: str = "field"):

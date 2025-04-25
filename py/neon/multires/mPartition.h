@@ -71,7 +71,7 @@ CUDA_CALLABLE inline auto neon_cardinality(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_ngh_data(
+CUDA_CALLABLE inline auto neon_read_ngh(
     const NeonMultiresPartition<T>& p,
     NeonBlockIdx const&             idx,
     NeonNghIdx const&               ngh,
@@ -86,7 +86,7 @@ CUDA_CALLABLE inline auto neon_ngh_data(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_uncle_read(
+CUDA_CALLABLE inline auto neon_read_uncle(
     const NeonMultiresPartition<T>& p,
     NeonBlockIdx const&             idx,
     NeonNghIdx const&               ngh,
@@ -94,11 +94,12 @@ CUDA_CALLABLE inline auto neon_uncle_read(
     T                               alternative,
     bool&                           valid) -> T
 {
-    auto getUncleOffset  = (auto cell, auto q)[]{//uncleOffset
+    auto getUncleOffset  = [] (const Neon::int8_3d& cell,
+                               const Neon::int8_3d& q)->Neon::int8_3d{//uncleOffset
          //given a local index within a cell and a population direction (q)
         //find the uncle's (the parent neighbor) offset from which the desired population (q) should be read
         //this offset is wrt the cell containing the localID (i.e., the parent of localID)
-        auto off = [](const int8_t i, const int8_t j) {
+        auto off = [](const int8_t i, const int8_t j) ->int8_t {
             //0, -1 --> -1
             //1, -1 --> 0
             //0, 0 --> 0
@@ -112,11 +113,11 @@ CUDA_CALLABLE inline auto neon_uncle_read(
                              off(cell.y % Neon::domain::details::mGrid::kUserBlockSizeY, q.y),
                              off(cell.z % Neon::domain::details::mGrid::kUserBlockSizeZ, q.z));
         return offset;
-     }
-     Neon::int8_3d uncleDir = uncleOffset(idx.mInDataBlockIdx, ngh);
-     const auto   uncleData = explosionIn.uncleVal(cell, uncleDir, card, alternativeVal);
-        valid = nghData.isValid();
-    return nghData.getData();
+    };
+    Neon::int8_3d uncleDir = getUncleOffset(idx.mInDataBlockIdx, ngh);
+    const auto   uncleData = p.uncleVal(idx, uncleDir, card, alternative);
+    valid = uncleData.isValid();
+    return uncleData.getData();
 }
 
 
@@ -175,13 +176,7 @@ CUDA_CALLABLE inline auto neon_mres_lbm_store_op( const NeonMultiresPartition<T>
             const auto csChild = pout.helpGetNghIdx(cell, CsDir);
 
             if (cs.isActive() && pout.isActive(csChild)) {
-
-#ifdef NEON_PLACE_CUDA_DEVICE
                 atomicAdd(&pout.uncleVal(cell, CsDir, q), cellVal);
-#else
-#pragma omp atomic
-                pout.uncleVal(cell, CsDir, q) += cellVal;
-#endif
             }
         }
     }
@@ -245,7 +240,7 @@ CUDA_CALLABLE inline auto neon_global_idx(
 //// Multi-res Capabilities
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_childValue(
+CUDA_CALLABLE inline auto neon_read_child(
     NeonMultiresPartition<T>& p,
     const NeonBlockIdx&       parentCell,
     const NeonNghIdx          child,
@@ -261,7 +256,7 @@ CUDA_CALLABLE inline auto neon_childValue(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_getChild(
+CUDA_CALLABLE inline auto neon_get_child(
     NeonMultiresPartition<T>& p,
     const NeonBlockIdx&       parentCell,
     const NeonNghIdx          child) -> NeonNghIdx
@@ -270,7 +265,7 @@ CUDA_CALLABLE inline auto neon_getChild(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_childValue(
+CUDA_CALLABLE inline auto neon_read_child(
     NeonMultiresPartition<T>& p,
     const NeonBlockIdx&       childIdx,
     int                       card) -> T
@@ -279,7 +274,7 @@ CUDA_CALLABLE inline auto neon_childValue(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_has_children(
+CUDA_CALLABLE inline auto neon_has_child(
     NeonMultiresPartition<T>& p,
     const NeonBlockIdx&       idx) -> bool
 {
@@ -287,7 +282,7 @@ CUDA_CALLABLE inline auto neon_has_children(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_has_children(
+CUDA_CALLABLE inline auto neon_has_child(
     NeonMultiresPartition<T>& p,
     const NeonBlockIdx&       cell,
     const NeonNghIdx          nghDir) -> bool
@@ -304,7 +299,7 @@ CUDA_CALLABLE inline auto neon_getParent(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_parentVal_read(
+CUDA_CALLABLE inline auto neon_read_parent(
     NeonMultiresPartition<T> const& p,
     const NeonBlockIdx&             cell,
     int                             card) -> T
@@ -314,7 +309,7 @@ CUDA_CALLABLE inline auto neon_parentVal_read(
 
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_parentVal_write(
+CUDA_CALLABLE inline auto neon_write_parent(
     NeonMultiresPartition<T> const& p,
     const NeonBlockIdx&             cell,
     int                             card,
@@ -323,18 +318,18 @@ CUDA_CALLABLE inline auto neon_parentVal_write(
     return p.parentVal(cell, card) = value;
 }
 
-template <typename T>
-CUDA_CALLABLE inline auto neon_parentVal_atomic_write(
-    NeonMultiresPartition<T> const& p,
-    const NeonBlockIdx&             cell,
-    int                             card,
-    T value) -> void
-{
-    atomicAdd(&p.parentVal(cell, card), value);
-}
+//template <typename T>
+//CUDA_CALLABLE inline auto neon_parentVal_atomic_write(
+//    NeonMultiresPartition<T> const& p,
+//    const NeonBlockIdx&             cell,
+//    int                             card,
+//    T value) -> void
+//{
+//    atomicAdd(&p.parentVal(cell, card), value);
+//}
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_hasParent(
+CUDA_CALLABLE inline auto neon_has_parent(
     NeonMultiresPartition<T> const& p,
     const NeonBlockIdx&             cell) -> bool
 {
@@ -351,7 +346,7 @@ CUDA_CALLABLE inline auto neon_getUncle(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_uncleVal(
+CUDA_CALLABLE inline auto neon_read_uncle(
     NeonMultiresPartition<T> const& p,
     const NeonBlockIdx&             cell,
     const NeonNghIdx                direction,
@@ -366,7 +361,7 @@ CUDA_CALLABLE inline auto neon_uncleVal(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_uncleVal(
+CUDA_CALLABLE inline auto neon_read_uncle(
     NeonMultiresPartition<T> const& p,
     const NeonBlockIdx&             cell,
     const NeonNghIdx                direction,
@@ -376,13 +371,13 @@ CUDA_CALLABLE inline auto neon_uncleVal(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_getRefFactor(int level) -> int
+CUDA_CALLABLE inline auto neon_refinement_factor(int level) -> int
 {
     return p.getRefFactor(level);
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_getSpacing(int level) -> int
+CUDA_CALLABLE inline auto neon_spacing(int level) -> int
 {
     return p.neon_getSpacing(level);
 }

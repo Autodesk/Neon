@@ -11,7 +11,7 @@ import typing
 
 
 @neon.Container.factory(name='SolverOperator')
-def get_solver_operator_container(field,level):
+def get_solver_operator_container(field, level):
     def setup(loader: neon.Loader):
         loader.set_mres_grid(field.get_grid(), level=level)
 
@@ -31,8 +31,8 @@ def get_solver_operator_container(field,level):
 
     return setup
 
-@neon.Container.factory(name='parent_mask_operator')
-def parent_mask_operator(field,level):
+@neon.Container.factory(name='has_child_operator')
+def has_child_operator(field,level):
     def setup(loader: neon.Loader):
         loader.set_mres_grid(field.get_grid(), level=level)
 
@@ -42,7 +42,7 @@ def parent_mask_operator(field,level):
         def foo(idx: typing.Any):
             # wp.neon_print(f_read)
             value = dtype(level+1)
-            if wp.neon_has_children(f, idx):
+            if wp.neon_has_child(f, idx):
                 value = -value
 
             for c in range(wp.neon_cardinality(f)):
@@ -53,16 +53,39 @@ def parent_mask_operator(field,level):
 
     return setup
 
+@neon.Container.factory(name='has_child_operator')
+def has_parent_operator(field,level):
+    def kernel(loader: neon.Loader):
+        loader.set_mres_grid(field.get_grid(), level=level)
+
+        f = loader.get_mres_write_handle(field)
+        dtype = field.dtype
+
+        @wp.func
+        def device(idx: typing.Any):
+            # wp.neon_print(f_read)
+            value = dtype(level+1)
+            if wp.neon_has_parent(f, idx):
+                value = -value
+
+            for c in range(wp.neon_cardinality(f)):
+                wp.neon_write(f, idx, c, value)
+
+
+        loader.declare_kernel(device)
+
+    return kernel
+
 def block_grid_try():
     # Get the path of the current script
     script_path = __file__
     # Get the directory containing the script
     script_dir = os.path.dirname(os.path.abspath(script_path))
 
-    wp.config.mode = "debug"
-    wp.config.llvm_cuda = False
-    wp.config.verbose = True
-    wp.verbose_warnings = True
+    # wp.config.mode = "debug"
+    # wp.config.llvm_cuda = False
+    # wp.config.verbose = True
+    # wp.verbose_warnings = True
 
     wp.init()
     neon.init()
@@ -144,18 +167,27 @@ def block_grid_try():
     # ----------------------
 
     wp.synchronize()
-    #parent_mask_operator(field, level=0).run(0)
-    parent_mask_operator(field, level=1).run(0)
-    #parent_mask_operator(c3_field, level=0).run(0)
-    #parent_mask_operator(c3_field, level=1).run(0)
+    has_child_operator(field, level=0).run(0)
+    has_child_operator(field, level=1).run(0)
+    #has_child_operator(c3_field, level=0).run(0)
+    #has_child_operator(c3_field, level=1).run(0)
     wp.synchronize()
-    field.update_host(0)
-    c3_field.update_host(0)
+    field.update_host(stream=0)
+    c3_field.update_host(stream=0)
     wp.synchronize()
 
-    field.export_vti("export_test_after_kernel_has_children_mask","ut")
-    c3_field.export_vti("export_test_after_kernel_has_children_mask_c3","c3")
+    field.export_vti("export_test_after_kernel_has_child_mask","ut")
 
+   # ----------------------
+
+    wp.synchronize()
+    has_parent_operator(field, level=0).run(0)
+    has_parent_operator(field, level=1).run(0)
+    wp.synchronize()
+    field.update_host(stream=0)
+    wp.synchronize()
+
+    field.export_vti("export_test_after_has_parent_operator","has_parent_operator")
 
 
 if __name__ == "__main__":

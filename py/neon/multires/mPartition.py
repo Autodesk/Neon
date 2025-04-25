@@ -171,7 +171,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_ngh_data",
+            "neon_read_ngh",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx,
@@ -183,7 +183,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_uncle_read",
+            "neon_read_uncle",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx,
@@ -217,7 +217,7 @@ def register_builtins():
         )
         ###### Multi-resolution specific builtins
         wp.context.add_builtin(
-            "neon_childValue",
+            "neon_read_child",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx,
@@ -229,7 +229,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_getChild",
+            "neon_get_child",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx},
@@ -238,7 +238,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_childValue",
+            "neon_read_child",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'card': wp.int32},
@@ -247,7 +247,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_has_children",
+            "neon_has_child",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex},
             value_type=wp.bool,
@@ -255,7 +255,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_has_children",
+            "neon_has_child",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx},
@@ -272,7 +272,7 @@ def register_builtins():
         # )
 
         wp.context.add_builtin(
-            "neon_parentVal_read",
+            "neon_read_parent",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'card': wp.int32},
@@ -281,7 +281,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_parentVal_write",
+            "neon_write_parent",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'card': wp.int32,
@@ -290,18 +290,18 @@ def register_builtins():
             missing_grad=True,
         )
 
-        wp.context.add_builtin(
-            "neon_parentVal_atomic_write",
-            input_types={"partition": Partition,
-                         'idx': neon.block.bIndex,
-                         'card': wp.int32,
-                         'value': Type},
-            value_type=None,
-            missing_grad=True,
-        )
+        # wp.context.add_builtin(
+        #     "neon_parentVal_atomic_write",
+        #     input_types={"partition": Partition,
+        #                  'idx': neon.block.bIndex,
+        #                  'card': wp.int32,
+        #                  'value': Type},
+        #     value_type=None,
+        #     missing_grad=True,
+        # )
 
         wp.context.add_builtin(
-            "neon_hasParent",
+            "neon_has_parent",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex},
             value_type=wp.bool,
@@ -329,7 +329,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_uncleVal",
+            "neon_read_uncle",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx,
@@ -341,7 +341,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_uncleVal",
+            "neon_read_uncle",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx,
@@ -351,14 +351,14 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_getRefFactor",
+            "neon_refinement_factor",
             input_types={"level": wp.int32},
             value_type=wp.int32,
             missing_grad=True,
         )
 
         wp.context.add_builtin(
-            "neon_getSpacing",
+            "neon_spacing",
             input_types={"level": wp.int32},
             value_type=wp.int32,
             missing_grad=True,
