@@ -183,7 +183,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_read_uncle",
+            "neon_lbm_read_coarser_ngh",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx,
@@ -255,7 +255,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_has_child",
+            "neon_has_finer_ngh",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx},
@@ -329,7 +329,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_read_uncle",
+            "neon_read_coarser_ngh",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx,
@@ -341,7 +341,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_read_uncle",
+            "neon_read_coarser_ngh",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          'ngh_idx': neon.Ngh_idx,

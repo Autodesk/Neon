@@ -86,7 +86,7 @@ CUDA_CALLABLE inline auto neon_read_ngh(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_read_uncle(
+CUDA_CALLABLE inline auto neon_lbm_read_coarser_ngh(
     const NeonMultiresPartition<T>& p,
     NeonBlockIdx const&             idx,
     NeonNghIdx const&               ngh,
@@ -97,7 +97,7 @@ CUDA_CALLABLE inline auto neon_read_uncle(
     auto getUncleOffset  = [] (const Neon::int8_3d& cell,
                                const Neon::int8_3d& q)->Neon::int8_3d{//uncleOffset
          //given a local index within a cell and a population direction (q)
-        //find the uncle's (the parent neighbor) offset from which the desired population (q) should be read
+        //find the uncle's (the parent neighbor) offset from which he desired population (q) should be read
         //this offset is wrt the cell containing the localID (i.e., the parent of localID)
         auto off = [](const int8_t i, const int8_t j) ->int8_t {
             //0, -1 --> -1
@@ -282,7 +282,7 @@ CUDA_CALLABLE inline auto neon_has_child(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_has_child(
+CUDA_CALLABLE inline auto neon_has_finer_ngh(
     NeonMultiresPartition<T>& p,
     const NeonBlockIdx&       cell,
     const NeonNghIdx          nghDir) -> bool
@@ -346,7 +346,7 @@ CUDA_CALLABLE inline auto neon_getUncle(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_read_uncle(
+CUDA_CALLABLE inline auto neon_read_coarser_ngh(
     NeonMultiresPartition<T> const& p,
     const NeonBlockIdx&             cell,
     const NeonNghIdx                direction,
@@ -361,7 +361,7 @@ CUDA_CALLABLE inline auto neon_read_uncle(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_read_uncle(
+CUDA_CALLABLE inline auto neon_read_coarser_ngh(
     NeonMultiresPartition<T> const& p,
     const NeonBlockIdx&             cell,
     const NeonNghIdx                direction,
