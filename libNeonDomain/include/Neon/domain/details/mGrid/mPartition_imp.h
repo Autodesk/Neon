@@ -63,9 +63,15 @@ NEON_CUDA_HOST_DEVICE inline Neon::index_3d mPartition<T, C>::getGlobalIndex(Idx
     ret.x += gidx.mInDataBlockIdx.x * sp;
     ret.y += gidx.mInDataBlockIdx.y * sp;
     ret.z += gidx.mInDataBlockIdx.z * sp;
+
     return ret;
 }
 
+template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getLevel() const -> int
+{
+    return mLevel;
+}
 
 template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getRefFactor(const int level) const -> int

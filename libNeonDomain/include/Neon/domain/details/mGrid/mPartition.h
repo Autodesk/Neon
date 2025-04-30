@@ -183,6 +183,9 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
      */
     NEON_CUDA_HOST_DEVICE inline Neon::index_3d getGlobalIndex(Idx gidx) const;
 
+    NEON_CUDA_HOST_DEVICE inline auto getLevel() const -> int;
+
+
 
    private:
     inline NEON_CUDA_HOST_DEVICE auto childID(const Idx& gidx) const -> uint32_t;

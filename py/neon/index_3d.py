@@ -95,3 +95,17 @@ class Index_3d(ctypes.Structure):
             value_type=None,
             missing_grad=True,
         )
+
+        wp.context.add_builtin(
+            "neon_is_equal",
+            input_types={"idx": Index_3d, "x": int, "y": int, "z" : int},
+            value_type=bool,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_cuda_info",
+            input_types={},
+            value_type=None,
+            missing_grad=True,
+        )

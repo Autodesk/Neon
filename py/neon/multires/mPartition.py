@@ -263,14 +263,6 @@ def register_builtins():
             missing_grad=True,
         )
 
-        # wp.context.add_builtin(
-        #     "neon_has_children",
-        #     input_types={"partition": Partition,
-        #                  'idx': neon.block.bIndex},
-        #     value_type=neon.block.bIndex,
-        #     missing_grad=True,
-        # )
-
         wp.context.add_builtin(
             "neon_read_parent",
             input_types={"partition": Partition,
@@ -289,16 +281,6 @@ def register_builtins():
             value_type=None,
             missing_grad=True,
         )
-
-        # wp.context.add_builtin(
-        #     "neon_parentVal_atomic_write",
-        #     input_types={"partition": Partition,
-        #                  'idx': neon.block.bIndex,
-        #                  'card': wp.int32,
-        #                  'value': Type},
-        #     value_type=None,
-        #     missing_grad=True,
-        # )
 
         wp.context.add_builtin(
             "neon_has_parent",
@@ -360,6 +342,14 @@ def register_builtins():
         wp.context.add_builtin(
             "neon_spacing",
             input_types={"level": wp.int32},
+            value_type=wp.int32,
+            missing_grad=True,
+        )
+
+
+        wp.context.add_builtin(
+            "neon_level",
+            input_types={"partition": Partition},
             value_type=wp.int32,
             missing_grad=True,
         )

@@ -371,15 +371,24 @@ CUDA_CALLABLE inline auto neon_read_coarser_ngh(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_refinement_factor(int level) -> int
+CUDA_CALLABLE inline auto neon_refinement_factor(    NeonMultiresPartition<T> const& p,
+int level) -> int
 {
     return p.getRefFactor(level);
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_spacing(int level) -> int
+CUDA_CALLABLE inline auto neon_spacing(    NeonMultiresPartition<T> const& p,
+ int level) -> int
 {
-    return p.neon_getSpacing(level);
+    return p.getSpacing(level);
+}
+
+template <typename T>
+CUDA_CALLABLE inline auto neon_level(NeonMultiresPartition<T> const& p
+) -> int
+{
+    return p.getLevel();
 }
 
 }  // namespace wp

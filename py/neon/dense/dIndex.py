@@ -78,6 +78,8 @@ class dIndex(ctypes.Structure):
             missing_grad=True,
         )
 
+
+
         # print dense index
         wp.context.add_builtin(
             "neon_print",
