@@ -10,52 +10,9 @@ import neon
 import typing
 
 
-@neon.Container.factory(name='SolverOperator')
-def get_solver_operator_container(field, level):
-    def setup(loader: neon.Loader):
-        loader.set_mres_grid(field.get_grid(), level=level)
 
-        f_read = loader.get_mres_write_handle(field)
-        dtype = field.dtype
-        @wp.func
-        def foo(idx: typing.Any):
-            # wp.neon_print(f_read)
-            value = wp.neon_read(f_read, idx, 0)
-            cartesianIdx = wp.neon_global_idx(f_read, idx)
-            extra = wp.neon_get_x(cartesianIdx) + wp.neon_get_y(cartesianIdx) + wp.neon_get_z(cartesianIdx)
-
-            #extra = extra * 0 + 1
-            for c in range(wp.neon_cardinality(f_read)):
-                value = dtype(level+3 + c)
-                wp.neon_write(f_read, idx, c, dtype(value))
-        loader.declare_kernel(foo)
-
-    return setup
-
-@neon.Container.factory(name='has_child_operator')
-def has_child_operator(field,level):
-    def setup(loader: neon.Loader):
-        loader.set_mres_grid(field.get_grid(), level=level)
-
-        f = loader.get_mres_write_handle(field)
-        dtype = field.dtype
-        @wp.func
-        def foo(idx: typing.Any):
-            # wp.neon_print(f_read)
-            value = dtype(level+1)
-            if wp.neon_has_child(f, idx):
-                value = -value
-
-            for c in range(wp.neon_cardinality(f)):
-                wp.neon_write(f, idx, c, value)
-
-
-        loader.declare_kernel(foo)
-
-    return setup
-
-@neon.Container.factory(name='has_parent_operator')
-def has_parent_operator(field,level):
+@neon.Container.factory(name='test')
+def test(field,level):
     def kernel(loader: neon.Loader):
         loader.set_mres_grid(field.get_grid(), level=level)
 
@@ -65,7 +22,7 @@ def has_parent_operator(field,level):
         @wp.func
         def device(idx: typing.Any):
             # wp.neon_print(f_read)
-            value = dtype(level+87)*0
+            value = dtype(level+1)*0
             if wp.neon_has_parent(f, idx):
                 value = -value
 
@@ -78,20 +35,21 @@ def has_parent_operator(field,level):
             #               wp.neon_get_y(global_point),
             #               wp.neon_get_z(global_point), level)
             if level ==  1:
-                if wp.neon_is_equal(global_point, 2,2,2):
+                if wp.neon_is_equal(global_point, 4,4,4) or wp.neon_is_equal(global_point, 6,6,6):
                     wp.neon_print(global_point)
                     global_point3 = wp.neon_global_idx(f, idx)
-
+                    wp.neon_cuda_info()
                     wp.printf(
-                        "YESSSSSSS (%d,%d,%d) level %d\n",
+                        "YESSSSSSS (%d,%d,%d) level %d vs %d \n",
                         wp.neon_get_x(global_point3),
                         wp.neon_get_y(global_point3),
                         wp.neon_get_z(global_point3),
                         level,
+                        wp.neon_level(f)
                     )
+                    wp.neon_print(idx)
                     for c in range(wp.neon_cardinality(f)):
                         wp.neon_write(f, idx, c, 88)
-
         loader.declare_kernel(device)
 
     return kernel
@@ -172,42 +130,15 @@ def block_grid_try():
     field.update_device(0)
     c3_field.update_device(0)
 
-   #  wp.synchronize()
-   #  get_solver_operator_container(field, level=0).run(0)
-   #  get_solver_operator_container(field, level=1).run(0)
-   #  get_solver_operator_container(c3_field, level=0).run(0)
-   #  get_solver_operator_container(c3_field, level=1).run(0)
-   #  field.update_host(0)
-   #  c3_field.update_host(0)
-   #  wp.synchronize()
-   #
-   #  field.export_vti("export_test_after_kernel","ut")
-   #  c3_field.export_vti("export_test_after_kernel_c3","c3")
-   #
-   #  # ----------------------
-   #
-   #  wp.synchronize()
-   #  has_child_operator(field, level=0).run(0)
-   #  has_child_operator(field, level=1).run(0)
-   #  #has_child_operator(c3_field, level=0).run(0)
-   #  #has_child_operator(c3_field, level=1).run(0)
-   #  wp.synchronize()
-   #  field.update_host(stream=0)
-   #  c3_field.update_host(stream=0)
-   #  wp.synchronize()
-   #
-   #  field.export_vti("export_test_after_kernel_has_child_mask","ut")
-   #
-   # # ----------------------
 
     wp.synchronize()
-    # has_parent_operator(field, level=0).run(0)
-    has_parent_operator(field, level=1).run(0)
+    # test(field, level=0).run(0)
+    test(field, level=1).run(0)
     wp.synchronize()
     field.update_host(stream=0)
     wp.synchronize()
 
-    field.export_vti("export_test_after_has_parent_operator","has_parent_operator")
+    field.export_vti("mres_global_idx","test")
 
 
 if __name__ == "__main__":

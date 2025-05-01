@@ -12,8 +12,10 @@
 #include "MultiResDemo.h"
 #include "MultiResMap.h"
 #include "MultiResParent.h"
+#include "MultiResFinerNgh.h"
 #include "MultiResSkeleton.h"
 #include "MultiResStencil.h"
+#include "MultiResGlobal.h"
 
 int main(int argc, char** argv)
 {
