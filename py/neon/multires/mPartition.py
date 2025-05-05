@@ -353,3 +353,10 @@ def register_builtins():
             value_type=wp.int32,
             missing_grad=True,
         )
+
+        wp.context.add_builtin(
+            "neon_print_log",
+            input_types={"partition": Partition, "masterOnly": wp.bool},
+            value_type=None,
+            missing_grad=True,
+        )

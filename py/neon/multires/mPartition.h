@@ -391,4 +391,10 @@ CUDA_CALLABLE inline auto neon_level(NeonMultiresPartition<T> const& p
     return p.getLevel();
 }
 
+template <typename T>
+CUDA_CALLABLE inline auto neon_print_log(NeonMultiresPartition<T> const& p, bool masterOnly) -> void
+{
+    return p.printLog(masterOnly);
+}
+
 }  // namespace wp

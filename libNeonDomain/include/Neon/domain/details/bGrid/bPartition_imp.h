@@ -103,6 +103,26 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 }
 
 template <typename T, int C, typename SBlock>
+NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
+printLog(bool masterOnly ) const -> void
+{
+#if defined(NEON_PLACE_CUDA_DEVICE)
+    if ((!masterOnly) || (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.y == 0 && threadIdx.z == 0)) {
+#else
+    if (masterOnly){
+#endif
+
+        printf("bPartition: cardinality %d\n", mCardinality);
+        printf("bPartition: mem %p\n", mMem);
+        printf("bPartition: blockConnectivity %p\n", mBlockConnectivity);
+        printf("bPartition: mask %p\n", mMask);
+        printf("bPartition: mask Val %d\n", mMask[0].isActive(0, 0, 0)? 1 : 0);
+        printf("bPartition: mask word %d\n", mMask[0].getFirstWord());
+        printf("bPartition: stencilNghIndex %p\n", mStencilNghIndex);
+    }
+}
+
+template <typename T, int C, typename SBlock>
 inline NEON_CUDA_HOST_DEVICE auto bPartition<T, C, SBlock>::
     helpGetPitch(const Idx& idx, int card)
         const -> uint32_t
@@ -193,9 +213,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
      * 1 positive offset
      * -1 negative offset
      */
-    const int xFlag = ngh.x < 0 ? -1 : (ngh.x >= SBlock::memBlockSizeX ? +1 : 0);
-    const int yFlag = ngh.y < 0 ? -1 : (ngh.y >= SBlock::memBlockSizeX ? +1 : 0);
-    const int zFlag = ngh.z < 0 ? -1 : (ngh.z >= SBlock::memBlockSizeX ? +1 : 0);
+    const int xFlag = ngh.x < 0 ? -1 : (ngh.x >= int8_t(SBlock::memBlockSizeX) ? +1 : 0);
+    const int yFlag = ngh.y < 0 ? -1 : (ngh.y >= int8_t(SBlock::memBlockSizeX) ? +1 : 0);
+    const int zFlag = ngh.z < 0 ? -1 : (ngh.z >= int8_t(SBlock::memBlockSizeX) ? +1 : 0);
 
     const bool isLocal = (xFlag | yFlag | zFlag) == 0;
     if (!(isLocal)) {

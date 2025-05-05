@@ -165,6 +165,9 @@ class bPartition
     NEON_CUDA_HOST_DEVICE
     auto mem() const -> T const*;
 
+    NEON_CUDA_HOST_DEVICE
+    auto printLog(bool masterOnly = true) const -> void;
+
     /**
      * Gets the Idx for in the block view space.
      */

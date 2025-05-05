@@ -63,10 +63,27 @@ class Container:
                 if self.grid_name == 'mGrid' and dw_idx != 0:
                     # For mGrid at the moment we only support the STANDARD data view
                     continue
-                dev_kernel = self._get_kernel(execution=execution,
-                                              gpu_id=dev_idx,
-                                              data_view=neon.DataView.from_int(dw_idx),
-                                              container_runtime=Container.ContainerRuntime.neon)
+                dev_kernel = None
+
+                if self.grid_name == 'mGrid':
+                    grid_level = container_parser.mres_level
+                    # Get the kernel for the device and data view
+                    dev_kernel = self._get_kernel_mgrid(
+                        grid_level = grid_level,
+                        execution=execution,
+                        gpu_id=dev_idx,
+                        data_view=neon.DataView.from_int(dw_idx),
+                        container_runtime=Container.ContainerRuntime.neon,
+                    )
+                else:
+                    # Get the kernel for the device and data view
+                    dev_kernel = self._get_kernel(
+                        execution=execution,
+                        gpu_id=dev_idx,
+                        data_view=neon.DataView.from_int(dw_idx),
+                        container_runtime=Container.ContainerRuntime.neon,
+                    )
+
                 # using self.k for debugging
                 offset = dev_idx * n_data_views + dw_idx
                 dev_str = self.backend.get_device_name(dev_idx)
@@ -237,6 +254,51 @@ class Container:
                                        dev_idx=gpu_id,
                                        data_view=data_view,
                                        )
+        loader: neon.Loader = neon.Loader(execution=execution,
+                                          gpu_id=gpu_id,
+                                          data_view=data_view)
+
+        self.loading_lambda(loader)
+        compute_lambda = loader._retrieve_compute_lambda()
+
+        if container_runtime == Container.ContainerRuntime.warp:
+            @wp.kernel
+            def kernel():
+                x, y, z = wp.tid()
+                # wp.printf("WARP my kernel - tid: %d %d %d\n", x, y, z)
+                myIdx = wp.neon_set(span, x, y, z)
+                # print("my kernel - myIdx: ")
+                # wp.neon_print(myIdx)
+                compute_lambda(myIdx)
+
+            return kernel
+
+        elif container_runtime == Container.ContainerRuntime.neon:
+            @wp.kernel
+            def kernel():
+                is_active = wp.bool(False)
+                myIdx = wp.neon_set(span, is_active)
+                if is_active:
+                    # print("NEON-RUNTIME kernel - myIdx: ")
+                    # wp.neon_print(myIdx)
+                    compute_lambda(myIdx)
+
+            return kernel
+
+    def _get_kernel_mgrid(self,
+                    grid_level,
+                    container_runtime: ContainerRuntime,
+                    execution: neon.Execution,
+                    gpu_id: int,
+                    data_view: neon.DataView):
+        span = None
+
+        span = self.grid.get_span( grid_level = grid_level,
+                                   execution=execution,
+                                   dev_idx=gpu_id,
+                                   data_view=data_view,
+                                   )
+
         loader: neon.Loader = neon.Loader(execution=execution,
                                           gpu_id=gpu_id,
                                           data_view=data_view)

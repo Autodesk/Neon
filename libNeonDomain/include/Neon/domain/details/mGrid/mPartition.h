@@ -185,6 +185,7 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
 
     NEON_CUDA_HOST_DEVICE inline auto getLevel() const -> int;
 
+    NEON_CUDA_HOST_DEVICE inline auto printLog(bool masterOnly = true) const -> void;
 
 
    private:

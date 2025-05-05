@@ -74,6 +74,32 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getLevel() const -> int
 }
 
 template <typename T, int C>
+NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::printLog([[maybe_unused]] bool masterOnly) const -> void
+{
+#if defined(NEON_PLACE_CUDA_DEVICE)
+    if ((!masterOnly) || (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.y == 0 && threadIdx.z == 0)) {
+#else
+    masterOnly = true;
+    if (masterOnly) {
+#endif
+
+        printf("mPartition: BEGIN\n");
+        Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>::printLog(masterOnly);
+        printf("mPartition: level %d\n", mLevel);
+        printf("mPartition: memParent %p\n", mMemParent);
+        printf("mPartition: memChild %p\n", mMemChild);
+        printf("mPartition: parentBlockID %p\n", mParentBlockID);
+        printf("mPartition: maskLowerLevel %p\n", mMaskLowerLevel);
+        printf("mPartition: maskUpperLevel %p\n", mMaskUpperLevel);
+        printf("mPartition: childBlockID %p\n", mChildBlockID);
+        printf("mPartition: parentNeighbourBlocks %p\n", mParentNeighbourBlocks);
+        printf("mPartition: parentNeighbourBlocks %p\n", mParentNeighbourBlocks);
+        printf("mPartition: END\n");
+
+    }
+}
+
+template <typename T, int C>
 NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::getRefFactor(const int level) const -> int
 {
     return mRefFactors[level];
@@ -160,9 +186,9 @@ NEON_CUDA_HOST_DEVICE inline auto mPartition<T, C>::hasChildren(const Idx& cell)
     if (mMemChild == nullptr || mMaskLowerLevel == nullptr || mLevel == 0) {
         return false;
     }
-    //auto chId = childID(cell);
-    //auto maxIdx = std::numeric_limits<typename Idx::DataBlockIdx>::max();
-    //printf("childID: %x  vs   %x (%x)\n", chId, maxIdx, 4294967295U);
+    // auto chId = childID(cell);
+    // auto maxIdx = std::numeric_limits<typename Idx::DataBlockIdx>::max();
+    // printf("childID: %x  vs   %x (%x)\n", chId, maxIdx, 4294967295U);
     if (childID(cell) == std::numeric_limits<typename Idx::DataBlockIdx>::max()) {
         return false;
     }

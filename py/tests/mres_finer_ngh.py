@@ -44,7 +44,7 @@ def foo(field,level):
         def device(idx: typing.Any):
             # global_point =  wp.neon_global_idx(f, idx)
             wp.print("I AM HERE\n")
-
+            wp.neon_print_log(f, True)
             are_we_a_halo_cell = wp.neon_has_child(f, idx)
             if are_we_a_halo_cell:
                 # HERE: we are a halo cell so we just exit
@@ -139,7 +139,7 @@ def block_grid_try():
 
     wp.synchronize()
     # test(field, level=0).run(0)
-    foo(A, level=0).run(0)
+    foo(A, level=1).run(0)
     wp.synchronize()
     A.update_host(stream=0)
     wp.synchronize()

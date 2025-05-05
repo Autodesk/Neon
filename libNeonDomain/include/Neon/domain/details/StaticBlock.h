@@ -76,6 +76,12 @@ struct StaticBlock
             return (word & mask) != 0;
         }
 
+        inline auto NEON_CUDA_HOST_DEVICE getFirstWord() const -> bool
+        {
+            auto& word = bits[0];
+            return word ;
+        }
+
         static inline auto NEON_CUDA_HOST_DEVICE getMaskAndWordI(int                       threadX,
                                                                  int                       threadY,
                                                                  int                       threadZ,

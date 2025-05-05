@@ -44,6 +44,27 @@ class bSpan
     NEON_CUDA_HOST_DEVICE inline auto setAndValidateGPUDevice(
         Idx& bidx) const -> bool;
 
+    NEON_CUDA_HOST_DEVICE inline auto printLog([[maybe_unused]] bool masterOnly) const -> void
+    {
+#if defined(NEON_PLACE_CUDA_DEVICE)
+        if ((!masterOnly) || (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.y == 0 && threadIdx.z == 0)) {
+#else
+        masterOnly = true;
+        if (masterOnly) {
+#endif
+
+            printf("bSpan Log: BEGIN\n");
+            printf("bSpan Log: mFirstDataBlockOffset %d\n", mFirstDataBlockOffset);
+            printf("bSpan Log: mask %p\n", mActiveMask);
+            printf("bSpan Log: mask Val %d\n", mActiveMask[0].isActive(0, 0, 0)? 1 : 0);
+            printf("bSpan Log: mask word %d\n", mActiveMask[0].getFirstWord());
+            printf("bSpan Log: data view %d\n", mDataView == Neon::DataView::STANDARD ? 1 : -1);
+            printf("bSpan Log: END\n");
+
+        }
+    }
+
+
 #if !defined(NEON_WARP_COMPILATION)
     // Function to get offsets of member variables
     static void getOffsets(size_t* offsets, size_t* length);
