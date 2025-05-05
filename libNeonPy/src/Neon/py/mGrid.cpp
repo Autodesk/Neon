@@ -536,7 +536,7 @@ auto mGrid_mField_to_vti(
         return -1;
     }
     std::cout << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
-    fieldPtr->ioToVtk(fname, true, true, true, false);
+    fieldPtr->ioToVtk(fname, false, false, false, true);
     //                      bool               includeDomain = false,
     //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
     //                      bool               isNodeSpace = false
@@ -562,6 +562,57 @@ DO_EXPORT(uint64, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, 
 
 DO_EXPORT(float32, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
 DO_EXPORT(float64, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+
+
+template <typename T>
+auto mGrid_mField_to_vti_debug(
+    void*       fieldHandle,
+    const char* fname,
+    const char* fieldName)
+    -> int
+{
+#ifdef NEON_USE_NVTX
+    nvtxRangePush("mGrid_mField_to_vti");
+#endif
+
+    NEON_PY_PRINT_BEGIN(fieldHandle);
+
+    using Grid = Neon::domain::mGrid;
+    using Field = Grid::Field<T, 0>;
+
+    Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
+
+    if (fieldPtr == nullptr) {
+        std::cout << "invalid field" << std::endl;
+        return -1;
+    }
+    std::cout << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
+    fieldPtr->ioToVtk(fname, true, true, true, false);
+    //                      bool               includeDomain = false,
+    //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
+    //                      bool               isNodeSpace = false
+    // fieldPtr->updateHostData(streamSetId);
+
+#ifdef NEON_USE_NVTX
+    nvtxRangePop();
+#endif
+    NEON_PY_PRINT_END(fieldHandle);
+
+    return 0;
+}
+
+DO_EXPORT(int8, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(uint8, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(bool, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+
+DO_EXPORT(int32, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(uint32, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+
+DO_EXPORT(int64, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(uint64, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+
+DO_EXPORT(float32, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(float64, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
 
 extern "C" auto mGrid_mField_mPartition_get_member_field_offsets(size_t* offsets, size_t* length)
     -> void

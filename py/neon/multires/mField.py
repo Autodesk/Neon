@@ -103,6 +103,13 @@ class mField(object):
                                         ctypes.c_char_p]
         self.api_export_vti.restype = ctypes.c_int32
 
+        # export vti debug
+        self.api_export_vti_debug = getattr(lib_obj, f'mGrid_mField_to_vti_debug{self.suffix}')
+        self.api_export_vti.argtypes = [self.handle_type,
+                                        ctypes.c_char_p,
+                                        ctypes.c_char_p]
+        self.api_export_vti.restype = ctypes.c_int32
+
         # field update host data
         self.api_fill = getattr(lib_obj, f'mGrid_mField_fill{self.suffix}')
         self.api_fill.argtypes = [self.handle_type,
