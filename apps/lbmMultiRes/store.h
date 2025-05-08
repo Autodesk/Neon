@@ -65,7 +65,7 @@ inline Neon::set::Container storeCoarse(Neon::domain::mGrid&           grid,
 
                                                     //cq is coarse neighbor (i.e., uncle) that we need to go in order to read q
                                                     //for c (this is what we do for explosion but here we do this just for the check)
-                                                    const Neon::int8_3d cq = uncleOffset(c, qDir);
+                                                    const Neon::int8_3d cq = uncleOffset<typename Neon::domain::mGrid::Block>(c, qDir);
                                                     if (cq == r_dir) {
                                                         auto childVal = pout.childVal(p_cell, c, q, 0);
                                                         auto childCell = pout.getChild(p_cell, c);
@@ -122,7 +122,7 @@ inline Neon::set::Container storeFine(Neon::domain::mGrid&           grid,
                             continue;
                         }
 
-                        const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
+                        const Neon::int8_3d uncleDir = uncleOffset<typename Neon::domain::mGrid::Block>(cell.mInDataBlockIdx, qDir);
 
                         //we try to access a cell on the same level (i.e., the refined level) along the same
                         //direction as the uncle and we use this a proxy to check if there is an unrefined uncle

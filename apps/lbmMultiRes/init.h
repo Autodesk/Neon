@@ -28,7 +28,7 @@ void initSumStore(Neon::domain::mGrid&               grid,
                                     continue;
                                 }
 
-                                const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
+                                const Neon::int8_3d uncleDir = uncleOffset<typename Neon::domain::mGrid::Block>(cell.mInDataBlockIdx, qDir);
 
                                 const auto cn = ss.helpGetNghIdx(cell, uncleDir);
 

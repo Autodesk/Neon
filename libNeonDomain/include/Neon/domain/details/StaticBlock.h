@@ -28,6 +28,10 @@ struct StaticBlock
     constexpr static uint32_t blockRatioY = memBlockSizeY / userBlockSizeY;
     constexpr static uint32_t blockRatioZ = memBlockSizeZ / userBlockSizeZ;
 
+    constexpr static uint32_t userBlockPerMemBlockX = blockRatioX;
+    constexpr static uint32_t userBlockPerMemBlockY = blockRatioY;
+    constexpr static uint32_t userBlockPerMemBlockZ = blockRatioZ;
+
     constexpr static uint32_t memBlockPitchX = 1;
     constexpr static uint32_t memBlockPitchY = memBlockSizeX;
     constexpr static uint32_t memBlockPitchZ = memBlockSizeX * memBlockSizeY;
@@ -79,7 +83,7 @@ struct StaticBlock
         inline auto NEON_CUDA_HOST_DEVICE getFirstWord() const -> bool
         {
             auto& word = bits[0];
-            return word ;
+            return word;
         }
 
         static inline auto NEON_CUDA_HOST_DEVICE getMaskAndWordI(int                       threadX,
@@ -108,6 +112,6 @@ struct StaticBlock
         BitMaskWordType bits[nWords];
     };
 };
-constexpr int StaticBlockSizeDefault = 8;
+constexpr int StaticBlockSizeDefault = 4;
 using StaticBlockDefault = StaticBlock<StaticBlockSizeDefault, StaticBlockSizeDefault, StaticBlockSizeDefault, 2, 2, 2, true>;
 }  // namespace Neon::domain::details

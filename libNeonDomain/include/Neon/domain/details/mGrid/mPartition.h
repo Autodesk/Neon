@@ -10,50 +10,51 @@
 
 namespace Neon::domain::details::mGrid {
 
-constexpr uint32_t kMemBlockSizeX = 8;
-constexpr uint32_t kMemBlockSizeY = 8;
-constexpr uint32_t kMemBlockSizeZ = 8;
-constexpr uint32_t kUserBlockSizeX = 2;
-constexpr uint32_t kUserBlockSizeY = 2;
-constexpr uint32_t kUserBlockSizeZ = 2;
+// constexpr uint32_t kMemBlockSizeX = 8;
+// constexpr uint32_t kMemBlockSizeY = 8;
+// constexpr uint32_t kMemBlockSizeZ = 8;
+// constexpr uint32_t kUserBlockSizeX = 2;
+// constexpr uint32_t kUserBlockSizeY = 2;
+// constexpr uint32_t kUserBlockSizeZ = 2;
+//
+// constexpr uint32_t kNumUserBlockPerMemBlockX = kMemBlockSizeX / kUserBlockSizeX;
+// constexpr uint32_t kNumUserBlockPerMemBlockY = kMemBlockSizeY / kUserBlockSizeY;
+// constexpr uint32_t kNumUserBlockPerMemBlockZ = kMemBlockSizeZ / kUserBlockSizeZ;
+//
+// using SBlock = Neon::domain::details::StaticBlock<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ, true>;
 
-constexpr uint32_t kNumUserBlockPerMemBlockX = kMemBlockSizeX / kUserBlockSizeX;
-constexpr uint32_t kNumUserBlockPerMemBlockY = kMemBlockSizeY / kUserBlockSizeY;
-constexpr uint32_t kNumUserBlockPerMemBlockZ = kMemBlockSizeZ / kUserBlockSizeZ;
-
-using kStaticBlock = Neon::domain::details::StaticBlock<kMemBlockSizeX, kMemBlockSizeY, kMemBlockSizeZ, kUserBlockSizeX, kUserBlockSizeY, kUserBlockSizeZ, true>;
-
-template <typename T, int C = 0>
-class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStaticBlock>
+template <typename T, int C, typename SBlock>
+class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, SBlock>
 {
    public:
-    using Idx = Neon::domain::details::bGrid::bIndex<kStaticBlock>;
-    using NghIdx = Idx::NghIdx;
+    using Idx = Neon::domain::details::bGrid::bIndex<SBlock>;
+    using NghIdx = typename Idx::NghIdx;
     using NghData = Neon::domain::NghData<T>;
     using Type = T;
-    using MaskT = typename kStaticBlock::BitMask;
+    using MaskT = typename SBlock::BitMask;
+    using Block=SBlock;
 
    public:
     mPartition();
 
     ~mPartition() = default;
 
-    explicit mPartition(int                level,
-                        T*                 mem,
-                        T*                 memParent,
-                        T*                 memChild,
-                        int                cardinality,
-                        Idx::DataBlockIdx* neighbourBlocks,
-                        Neon::int32_3d*    origin,
-                        Idx::DataBlockIdx* parent,
-                        MaskT*             mask,
-                        MaskT*             maskLowerLevel,
-                        MaskT*             maskUpperLevel,
-                        Idx::DataBlockIdx* childBlockID,
-                        Idx::DataBlockIdx* parentNeighbourBlocks,
-                        NghIdx*            stencilNghIndex,
-                        int*               refFactors,
-                        int*               spacing);
+    explicit mPartition(int                         level,
+                        T*                          mem,
+                        T*                          memParent,
+                        T*                          memChild,
+                        int                         cardinality,
+                        typename Idx::DataBlockIdx* neighbourBlocks,
+                        Neon::int32_3d*             origin,
+                        typename Idx::DataBlockIdx* parent,
+                        MaskT*                      mask,
+                        MaskT*                      maskLowerLevel,
+                        MaskT*                      maskUpperLevel,
+                        typename Idx::DataBlockIdx* childBlockID,
+                        typename Idx::DataBlockIdx* parentNeighbourBlocks,
+                        NghIdx*                     stencilNghIndex,
+                        int*                        refFactors,
+                        int*                        spacing);
 
     /**
      * get the child of a cell
@@ -160,10 +161,10 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
     /**
      * @brief similar to the above uncleVal but returns a reference. Additionally, it is now
      * the user responsibility to check if the uncle is active (we only assert it)
-     * @param cell the main cell at level L 
-     * @param direction the direction w.r.t the parent of cell      
-     * @param card the cardinality      
-    */
+     * @param cell the main cell at level L
+     * @param direction the direction w.r.t the parent of cell
+     * @param card the cardinality
+     */
     NEON_CUDA_HOST_DEVICE inline auto uncleVal(const Idx&   cell,
                                                const NghIdx direction,
                                                int          card) const -> T&;
@@ -192,16 +193,16 @@ class mPartition : public Neon::domain::details::bGrid::bPartition<T, C, kStatic
     inline NEON_CUDA_HOST_DEVICE auto childID(const Idx& gidx) const -> uint32_t;
 
 
-    int                mLevel;
-    T*                 mMemParent;
-    T*                 mMemChild;
-    Idx::DataBlockIdx* mParentBlockID;
-    MaskT*             mMaskLowerLevel;
-    MaskT*             mMaskUpperLevel;
-    Idx::DataBlockIdx* mChildBlockID;
-    Idx::DataBlockIdx* mParentNeighbourBlocks;
-    int*               mRefFactors;
-    int*               mSpacing;
+    int                         mLevel;
+    T*                          mMemParent;
+    T*                          mMemChild;
+    typename Idx::DataBlockIdx* mParentBlockID;
+    MaskT*                      mMaskLowerLevel;
+    MaskT*                      mMaskUpperLevel;
+    typename Idx::DataBlockIdx* mChildBlockID;
+    typename Idx::DataBlockIdx* mParentNeighbourBlocks;
+    int*                        mRefFactors;
+    int*                        mSpacing;
 };
 }  // namespace Neon::domain::details::mGrid
 

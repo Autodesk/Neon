@@ -20,20 +20,23 @@ enum struct MultiResCompute
 }
 
 namespace Neon::domain::details::mGrid {
+
+template <typename SBlock>
 class mGrid;
 
-
-template <typename T, int C = 0>
+template <typename T, int C, typename SBlock>
 class mField
 {
-    friend mGrid;
+    friend mGrid<SBlock>;
 
    public:
     using Type = T;
-    using Grid = Neon::domain::details::mGrid::mGrid;
-    using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
+    using Grid = typename Neon::domain::details::mGrid::mGrid<SBlock>;
+    using Partition = Neon::domain::details::mGrid::mPartition<T, C, SBlock>;
+    using Block = SBlock;
     using Idx = typename Partition::Idx;
     using Descriptor = mGridDescriptor<1>;
+    using Self = mField<T, C, SBlock>;
 
     mField() = default;
 
@@ -43,10 +46,10 @@ class mField
     auto isInsideDomain(const Neon::index_3d& idx, const int level = 0) const -> bool;
 
 
-    auto operator()(int level) -> xField<T, C>&;
+    auto operator()(int level) -> xField<T, C, SBlock>&;
 
 
-    auto operator()(int level) const -> const xField<T, C>&;
+    auto operator()(int level) const -> const xField<T, C, SBlock>&;
 
 
     auto operator()(const Neon::index_3d& idx,
@@ -99,9 +102,9 @@ class mField
                  bool                filterOverlaps = true,
                  const Neon::int8_3d slice = {-1, -1, -1}) const -> void;
 
-    auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) -> typename xField<T, C>::Partition&;
+    auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) -> typename xField<T, C, SBlock>::Partition&;
 
-    auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) const -> const typename xField<T, C>::Partition&;
+    auto load(Neon::set::Loader loader, int level, Neon::MultiResCompute compute) const -> const typename xField<T, C, SBlock>::Partition&;
 
     auto getBackend() const -> const Backend&
     {
@@ -113,14 +116,14 @@ class mField
         return mData->grid->getDescriptor();
     }
 
-    auto getGrid( ) const -> Grid&
+    auto getGrid() const -> Grid&
     {
         return *mData->grid;
     }
 
    private:
     mField(const std::string&         name,
-           const mGrid&               grid,
+           const mGrid<SBlock>&       grid,
            int                        cardinality,
            T                          outsideVal,
            Neon::DataUse              dataUse,
@@ -136,8 +139,8 @@ class mField
     };
     struct Data
     {
-        std::shared_ptr<Grid>     grid;
-        std::vector<xField<T, C>> fields;
+        std::shared_ptr<Grid>             grid;
+        std::vector<xField<T, C, SBlock>> fields;
     };
     std::shared_ptr<Data> mData;
 };

@@ -38,7 +38,7 @@ inline Neon::set::Container explosion(Neon::domain::mGrid&                 grid,
 
                             //get the uncle direction/offset i.e., the neighbor of the cell's parent
                             //this direction/offset is wrt to the cell's parent
-                            Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
+                            Neon::int8_3d uncleDir = uncleOffset<Neon::domain::mGrid::Block>(cell.mInDataBlockIdx, dir);
 
                             auto uncle = pout.uncleVal(cell, uncleDir, q, T(0));
 

@@ -2,13 +2,13 @@
 
 namespace Neon::domain::details::mGrid {
 
-template <typename T, int C>
-xField<T, C>::xField(const std::string&         name,
-                     const Grid&                grid,
-                     int                        cardinality,
-                     T                          outsideVal,
-                     Neon::DataUse              dataUse,
-                     const Neon::MemoryOptions& memoryOptions)
+template <typename T, int C, typename SBlock>
+xField<T, C, SBlock>::xField(const std::string&         name,
+                             const Grid&                grid,
+                             int                        cardinality,
+                             T                          outsideVal,
+                             Neon::DataUse              dataUse,
+                             const Neon::MemoryOptions& memoryOptions)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              name,
                                                                              "xbField",
@@ -23,34 +23,34 @@ xField<T, C>::xField(const std::string&         name,
 }
 
 
-template <typename T, int C>
-auto xField<T, C>::isInsideDomain(const Neon::index_3d& idx) const -> bool
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::isInsideDomain(const Neon::index_3d& idx) const -> bool
 {
     return this->mData->field.isInsideDomain(idx);
 }
 
-template <typename T, int C>
-auto xField<T, C>::getReference(const Neon::index_3d& idx, const int& cardinality) -> T&
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::getReference(const Neon::index_3d& idx, const int& cardinality) -> T&
 {
     return this->operator()(idx, cardinality);
 }
 
-template <typename T, int C>
-auto xField<T, C>::operator()(const Neon::index_3d& idx, const int& cardinality) const -> T
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::operator()(const Neon::index_3d& idx, const int& cardinality) const -> T
 {
     return mData->field.getReference(idx, cardinality);
 }
 
-template <typename T, int C>
-auto xField<T, C>::operator()(const Neon::index_3d& idx,
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::operator()(const Neon::index_3d& idx,
                               const int&            cardinality) -> T&
 {
     return mData->field.getReference(idx, cardinality);
 }
 
 
-template <typename T, int C>
-auto xField<T, C>::getPartition(const Neon::DeviceType& devType,
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::getPartition(const Neon::DeviceType& devType,
                                 const Neon::SetIdx&     idx,
                                 const Neon::DataView&   dataView) const -> const Partition&
 {
@@ -61,8 +61,8 @@ auto xField<T, C>::getPartition(const Neon::DeviceType& devType,
     }
 }
 
-template <typename T, int C>
-auto xField<T, C>::getPartition(const Neon::DeviceType& devType,
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::getPartition(const Neon::DeviceType& devType,
                                 const Neon::SetIdx&     idx,
                                 const Neon::DataView&   dataView) -> Partition&
 {
@@ -73,8 +73,8 @@ auto xField<T, C>::getPartition(const Neon::DeviceType& devType,
     }
 }
 
-template <typename T, int C>
-auto xField<T, C>::getPartition(Neon::Execution       exec,
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::getPartition(Neon::Execution       exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) const -> const Partition&
 {
@@ -93,8 +93,8 @@ auto xField<T, C>::getPartition(Neon::Execution       exec,
 }
 
 
-template <typename T, int C>
-auto xField<T, C>::getPartition(Neon::Execution       exec,
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::getPartition(Neon::Execution       exec,
                                 Neon::SetIdx          idx,
                                 const Neon::DataView& dataView) -> Partition&
 {
@@ -111,14 +111,14 @@ auto xField<T, C>::getPartition(Neon::Execution       exec,
     NEON_THROW_UNSUPPORTED_OPERATION("xField::getPartition() unsupported Execution");
 }
 
-template <typename T, int C>
-auto xField<T, C>::updateHostData(int streamId) -> void
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::updateHostData(int streamId) -> void
 {
     mData->field.updateHostData(streamId);
 }
 
-template <typename T, int C>
-auto xField<T, C>::updateDeviceData(int streamId) -> void
+template <typename T, int C, typename SBlock>
+auto xField<T, C, SBlock>::updateDeviceData(int streamId) -> void
 {
     mData->field.updateDeviceData(streamId);
 }

@@ -32,7 +32,7 @@ inline NEON_CUDA_HOST_DEVICE void stream(const typename Neon::domain::mGrid::Idx
 
             //get the uncle direction/offset i.e., the neighbor of the cell's parent
             //this direction/offset is wrt to the cell's parent
-            Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
+            Neon::int8_3d uncleDir = uncleOffset<typename FieldT::Block>(cell.mInDataBlockIdx, dir);
 
             const int8_t opposte_q = latticeOppositeID[q];
             const auto   uncle = explosionIn.uncleVal(cell, uncleDir, opposte_q, T(0));
