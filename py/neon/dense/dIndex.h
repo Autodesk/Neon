@@ -22,20 +22,21 @@ using NeonDenseIdx = ::Neon::domain::details::dGrid::dIndex;
 //    idx.setLocation().z= z;
 //}
 //
-//CUDA_CALLABLE inline auto neon_get_x(NeonDenseIdx& idx) -> int
-//{
-//    return idx.getLocation().x  ;
-//}
-//
-//CUDA_CALLABLE inline auto neon_get_y(NeonDenseIdx& idx) -> int
-//{
-//    return idx.getLocation().y;
-//}
-//
-//CUDA_CALLABLE inline auto neon_get_z(NeonDenseIdx& idx) -> int
-//{
-//    return idx.getLocation().z;
-//}
+
+CUDA_CALLABLE inline auto neon_get_x(NeonDenseIdx& idx) -> int
+{
+    return idx.getLocation().x  ;
+}
+
+CUDA_CALLABLE inline auto neon_get_y(NeonDenseIdx& idx) -> int
+{
+    return idx.getLocation().y;
+}
+
+CUDA_CALLABLE inline auto neon_get_z(NeonDenseIdx& idx) -> int
+{
+    return idx.getLocation().z;
+}
 
 // print dense index
 CUDA_CALLABLE inline auto neon_print(const NeonDenseIdx& a) -> void

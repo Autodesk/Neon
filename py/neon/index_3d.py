@@ -43,7 +43,6 @@ class Index_3d(ctypes.Structure):
             return NotImplemented
         return (self.x == other.x and self.y == other.y and self.z == other.z)
 
-
     @staticmethod
     def warp_register_builtins():
         import warp as wp
@@ -62,28 +61,28 @@ class Index_3d(ctypes.Structure):
         # create dense index
         wp.context.add_builtin(
             "neon_init",
-            input_types={"idx":Index_3d, "x": int, "y": int, "z": int},
+            input_types={"idx": Index_3d, "x": int, "y": int, "z": int},
             value_type=None,
             missing_grad=True,
         )
 
         wp.context.add_builtin(
             "neon_get_x",
-            input_types={"idx":Index_3d},
+            input_types={"idx": Index_3d},
             value_type=int,
             missing_grad=True,
         )
 
         wp.context.add_builtin(
             "neon_get_y",
-            input_types={"idx":Index_3d},
+            input_types={"idx": Index_3d},
             value_type=int,
             missing_grad=True,
         )
 
         wp.context.add_builtin(
             "neon_get_z",
-            input_types={"idx":Index_3d},
+            input_types={"idx": Index_3d},
             value_type=int,
             missing_grad=True,
         )
@@ -98,7 +97,7 @@ class Index_3d(ctypes.Structure):
 
         wp.context.add_builtin(
             "neon_is_equal",
-            input_types={"idx": Index_3d, "x": int, "y": int, "z" : int},
+            input_types={"idx": Index_3d, "x": int, "y": int, "z": int},
             value_type=bool,
             missing_grad=True,
         )
@@ -107,5 +106,12 @@ class Index_3d(ctypes.Structure):
             "neon_cuda_info",
             input_types={},
             value_type=None,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
+            "neon_get_component",
+            input_types={"idx": Index_3d, "component": int},
+            value_type=int,
             missing_grad=True,
         )
