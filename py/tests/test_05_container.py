@@ -1,5 +1,4 @@
 from env_setup import update_pythonpath
-
 update_pythonpath()
 
 import os
@@ -8,7 +7,7 @@ import neon
 import typing
 
 
-@neon.Container.factory
+@neon.Container.factory(name="solver")
 def get_solver_operator_container(field):
     def setup(loader: neon.Loader):
         loader.set_grid(field.get_grid())
@@ -55,7 +54,7 @@ def test_container_int():
 
     dim = neon.Index_3d(1, 1, 3)
     grid = neon.dense.dGrid(bk, dim)
-    field = grid.new_field(cardinality=1, dtype='int32')
+    field = grid.new_field(cardinality=1, dtype=wp.int32)
 
     def set_value(idx: neon.Index_3d):
         return idx.x + idx.y + idx.z
@@ -77,7 +76,7 @@ def test_container_int():
     solver_operator.run(
         stream_idx=0,
         data_view=neon.DataView.standard(),
-        container_runtime=neon.Container.ContainerRuntime.warp)
+        container_runtime=neon.Container.ContainerRuntime.neon)
     print('=====================')
     solver_operator.run(
         stream_idx=0,

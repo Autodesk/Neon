@@ -27,6 +27,11 @@ CUDA_CALLABLE inline auto neon_get_x(NeonIndex3d& idx) -> int
     return idx.x  ;
 }
 
+CUDA_CALLABLE inline auto neon_get_component(NeonIndex3d& idx, int component) -> int
+{
+    return idx.getVectorView()[component];
+}
+
 CUDA_CALLABLE inline auto neon_is_equal(NeonIndex3d& idx, int x, int y, int z) -> bool
 {
     //printf("(%d %d %d ) (%d %d %d)\n", idx.x, idx.y,idx.z, x, y, z);

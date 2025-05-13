@@ -4,17 +4,16 @@ update_pythonpath()
 
 import os
 import warp as wp
-import wpne
-import neon as ne
+import neon
 from neon import Index_3d
 from neon.dense import dSpan
 from neon.skeleton import Skeleton
 import typing
 
 
-@wpne.Container.factory
+@neon.Container.factory(name='solver')
 def get_solver_operator_container(field):
-    def setup(loader: wpne.Loader):
+    def setup(loader: neon.Loader):
         loader.set_grid(field.get_grid())
 
         f_read = loader.get_read_handle(field)
@@ -61,13 +60,13 @@ def test_container_int():
     wp.build.clear_kernel_cache()
 
     # !!! DO THIS BEFORE DEFINING/USING ANY KERNELS WITH CUSTOM TYPES
-    wpne.init()
+    neon.init()
 
-    bk = ne.Backend(runtime=ne.Backend.Runtime.stream,
+    bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
                     dev_idx_list=[0])
 
     dim = Index_3d(1, 1, 3)
-    grid = ne.dense.dGrid(bk, dim)
+    grid = neon.dense.dGrid(bk, dim)
     field = grid.new_field(cardinality=1, dtype=wp.int32)
 
     def set_value(idx: Index_3d):
@@ -86,19 +85,19 @@ def test_container_int():
     wp.synchronize()
 
     solver_operator = get_solver_operator_container(field)
-    solver_operator.run(
-        stream_idx=0,
-        data_view=ne.DataView.standard(),
-        container_runtime=wpne.Container.ContainerRuntime.warp)
+    # solver_operator.run(
+    #     stream_idx=0,
+    #     data_view=neon.DataView.standard(),
+    #     container_runtime=neon.Container.ContainerRuntime.neon)
     print('=====================')
-    solver_operator.run(
-        stream_idx=0,
-        data_view=ne.DataView.standard(),
-        container_runtime=wpne.Container.ContainerRuntime.neon)
+    # solver_operator.run(
+    #     stream_idx=0,
+    #     data_view=neon.DataView.standard(),
+    #     container_runtime=neon.Container.ContainerRuntime.neon)
 
     sk = Skeleton(backend=bk)
     sk.sequence("skeletonTest", [solver_operator])
-    sk.run(stream_idx=0)
+    sk.run()
 
     field.update_host(0)
     wp.synchronize()
