@@ -7,6 +7,7 @@
 #include "Neon/set/Backend.h"
 #include "Neon/set/DataSet.h"
 #include "Neon/set/DevSet.h"
+#include "Neon/domain/interface/Representation.h"
 
 #include "Neon/domain/interface/GridBase.h"
 #include "Neon/domain/interface/IndexProperties.h"

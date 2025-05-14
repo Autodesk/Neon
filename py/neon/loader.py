@@ -9,6 +9,8 @@ class Loader:
     class Operation(Enum):
         map = 0
         stencil = 1
+        stencil_up = 2
+        stencil_down = 3
 
     class Discretization(Enum):
         cartesian = 0
@@ -44,7 +46,7 @@ class Loader:
         self.tokens = []
 
         self.kernel = None
-        self.neon_field = None
+        self.neon_grid = None
 
 
     def get_read_handle(self, neon_field,
@@ -116,17 +118,17 @@ class Loader:
         return partition
 
     def set_grid(self, grid):
-        self.neon_field = grid
+        self.neon_grid = grid
 
     def set_mres_grid(self, grid, level):
-        self.neon_field = grid
+        self.neon_grid = grid
         self.mres_level = level
 
     def get_mres_level(self):
         return self.mres_level
 
     def _retrieve_grid(self):
-        return self.neon_field
+        return self.neon_grid
 
     def declare_kernel(self, kernel):
         self.kernel = kernel

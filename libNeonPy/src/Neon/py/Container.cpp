@@ -8,6 +8,7 @@
 #include "Neon/core/core.h"
 #include "Neon/domain/Grids.h"
 #include "Neon/domain/interface/GridBase.h"
+#include "Neon/domain/interface/Representation.h"
 #include "Neon/py/CudaDriver.h"
 #include "Neon/py/macros.h"
 #include "Neon/set/Containter.h"
@@ -26,6 +27,7 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
     virtual ~WarpContainer() override = default;
 
     WarpContainer(
+        const char*           name,
         const Neon::Execution execution,
         Neon::py::CudaDriver* cuda_driver,
         Grid*                 grid,
@@ -35,7 +37,7 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
           m_backendPtr(cuda_driver->get_bk_prt()),
           m_execution(execution)
     {
-        this->setName("WarpContainer");
+        this->setName(name);
 
         setContainerExecutionType(Neon::set::ContainerExecutionType::device);
         setContainerOperationType(Neon::set::ContainerOperationType::compute);
@@ -139,6 +141,29 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
         }
     }
 
+    template <typename Field>
+    auto register_manual_loading_step_mres(Field&                                      f,
+                                           int                                         level,
+                                           Neon::MultiResCompute                       computeE,
+                                           [[maybe_unused]] Neon::set::StencilSemantic stencilSemantic)
+    {
+        if constexpr (std::is_const_v<Field>) {
+            auto step = [=](Neon::set::Loader& loader) {
+                const Field& fConstView = f;
+                std::cout << "register_manual_loading_step_mres level " << level << std::endl;
+                fConstView.load(loader, level, computeE);
+            };
+            std::function<void(Neon::set::Loader&)> stepFunction = step;
+            m_loadingLambdaSteps.push_back(stepFunction);
+        } else {
+            auto step = [=](Neon::set::Loader& loader) mutable {
+                std::cout << "register_manual_loading_step_mres level " << level << std::endl;
+                f.load(loader, level, computeE);
+            };
+            std::function<void(Neon::set::Loader&)> stepFunction = step;
+            m_loadingLambdaSteps.push_back(stepFunction);
+        }
+    }
 
     virtual auto run(int            streamIdx = 0,
                      Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
@@ -199,7 +224,8 @@ struct container_warp_data
     Neon::set::Loader*             m_parser_ptr;
 
    public:
-    container_warp_data(Neon::Execution execution,
+    container_warp_data(char const*     name,
+                        Neon::Execution execution,
                         void*           cuda_driver_handle,
                         void*           grid_handle,
                         void**          kernels_matrix,
@@ -210,6 +236,7 @@ struct container_warp_data
 
         m_warp_container_ptr = new (std::nothrow)
             Neon::py::WarpContainer<Grid>(
+                name,
                 execution,
                 m_cuda_driver_ptr,
                 m_grid_ptr,
@@ -259,6 +286,7 @@ auto container_warp_data_get_container_prt(void* data_prt) -> Neon::set::Contain
 
 extern "C" auto warp_dGrid_container_new(
     void**          handle,
+    const char*     name,
     Neon::Execution execution,
     void*           handle_cudaDriver,
     void*           handle_dgrid,
@@ -268,7 +296,8 @@ extern "C" auto warp_dGrid_container_new(
     NEON_PY_PRINT_BEGIN(*handle)
 
     auto data = new (std::nothrow)
-        Neon::py::container_warp_data<Neon::dGrid>(execution,
+        Neon::py::container_warp_data<Neon::dGrid>(name,
+                                                   execution,
                                                    handle_cudaDriver,
                                                    handle_dgrid,
                                                    kernels_matrix,
@@ -286,6 +315,7 @@ extern "C" auto warp_dGrid_container_new(
 
 extern "C" auto warp_bGrid_container_new(
     void**          handle,
+    char const*     name,
     Neon::Execution execution,
     void*           handle_cudaDriver,
     void*           handle_dgrid,
@@ -295,7 +325,7 @@ extern "C" auto warp_bGrid_container_new(
     NEON_PY_PRINT_BEGIN(*handle)
     using Grid = Neon::bGrid;
     auto data = new (std::nothrow)
-        Neon::py::container_warp_data<Grid>(execution,
+        Neon::py::container_warp_data<Grid>(name, execution,
                                             handle_cudaDriver,
                                             handle_dgrid,
                                             kernels_matrix,
@@ -313,6 +343,7 @@ extern "C" auto warp_bGrid_container_new(
 
 extern "C" auto warp_mGrid_container_new(
     void**          handle,
+    char const*     name,
     int32_t         grid_level,
     Neon::Execution execution,
     void*           handle_cudaDriver,
@@ -325,7 +356,8 @@ extern "C" auto warp_mGrid_container_new(
     auto* grid = reinterpret_cast<Grid*>(handle_dgrid);
     auto  level_grid = grid->operator()(grid_level);
     auto  data = new (std::nothrow)
-        Neon::py::container_warp_data<decltype(level_grid)>(execution,
+        Neon::py::container_warp_data<decltype(level_grid)>(name,
+                                                            execution,
                                                             handle_cudaDriver,
                                                             &level_grid,
                                                             kernels_matrix,
@@ -395,7 +427,7 @@ auto warp_container_run(
     int            streamIdx,
     Neon::DataView dataView) -> int
 {
-    if constexpr (std::is_same_v<Grid, mGrid>) {
+    if constexpr (std::is_same_v<typename Grid::Representation, Neon::representation::MultiResolution>) {
         using InternalGrid = typename Grid::InternalGrid;
         auto* data = reinterpret_cast<Neon::py::container_warp_data<InternalGrid>*>(handle);
         data->m_container_prt->run(streamIdx, dataView);
@@ -421,6 +453,9 @@ auto warp_container_add_parse_token(
     int   stencilSemantic_int)
     -> int
 {
+    if (std::is_same_v<typename Grid::Representation, Neon::representation::MultiResolution>) {
+        NEON_THROW_UNSUPPORTED_OPTION("warp_container_add_parse_token")
+    }
     using Field = typename Grid::template Field<Type, Card>;
     auto  pattern = Neon::PatternUtils::fromInt(pattern_int);
     auto  access = Neon::set::dataDependency::AccessTypeUtils::fromInt(access_int);
@@ -481,10 +516,14 @@ auto warp_container_mres_add_parse_token(
     -> int
 {
     using Field = typename Grid::template Field<Type, Card>;
-    auto  pattern = Neon::PatternUtils::fromInt(pattern_int);
+    auto  pattern = Neon::MultiResComputeUtils::fromInt(pattern_int);
     auto  access = Neon::set::dataDependency::AccessTypeUtils::fromInt(access_int);
     auto  stenSemantic = Neon::set::StencilSemanticUtils::fromInt(stencilSemantic_int);
     auto* data = reinterpret_cast<Neon::py::container_warp_data<Neon::dGrid>*>(handle);
+
+    if (!std::is_same_v<typename Grid::Representation, Neon::representation::MultiResolution>) {
+        NEON_THROW_UNSUPPORTED_OPTION("warp_container_add_parse_token")
+    }
 
     Field* field_mres = reinterpret_cast<Field*>(field_handle);
     if (field_mres == nullptr) {
@@ -493,11 +532,9 @@ auto warp_container_mres_add_parse_token(
     }
 
     if (access == Neon::set::dataDependency::AccessType::READ) {
-        const auto& parsingField = field_mres->operator()(level);
-        data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
+        data->m_warp_container_ptr->register_manual_loading_step_mres(*field_mres, level, pattern, stenSemantic);
     } else {
-        auto& parsingField = field_mres->operator()(level);
-        data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
+        data->m_warp_container_ptr->register_manual_loading_step_mres(*field_mres, level, pattern, stenSemantic);
     }
     return 0;
 }

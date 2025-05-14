@@ -17,6 +17,18 @@ enum struct MultiResCompute
     STENCIL_UP /**< Stencil that reads the parent */,
     STENCIL_DOWN /**< Stencil that reads the children */,
 };
+
+struct MultiResComputeUtils
+{
+    inline static auto fromInt(int i) -> MultiResCompute
+    {
+        if (i == int(MultiResCompute::MAP)) return MultiResCompute::MAP;
+        if (i == int(MultiResCompute::STENCIL)) return MultiResCompute::STENCIL;
+        if (i == int(MultiResCompute::STENCIL_UP)) return MultiResCompute::STENCIL_UP;
+        if (i == int(MultiResCompute::STENCIL_DOWN)) return MultiResCompute::STENCIL_DOWN;
+        NEON_THROW_UNSUPPORTED_OPTION("MultiResComputeUtils");
+    }
+};
 }
 
 namespace Neon::domain::details::mGrid {

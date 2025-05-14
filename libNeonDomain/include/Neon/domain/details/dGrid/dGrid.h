@@ -13,6 +13,7 @@
 #include "Neon/sys/memory/MemDevice.h"
 
 #include "Neon/domain/aGrid.h"
+#include "Neon/domain/interface/Representation.h"
 
 #include "Neon/domain/interface/GridBaseTemplate.h"
 #include "Neon/domain/interface/GridConcept.h"
@@ -55,6 +56,7 @@ class dGrid : public Neon::domain::interface::GridBaseTemplate<dGrid, dIndex>
     using Span = dSpan;
     using NghIdx = typename Partition<int>::NghIdx;
 
+    using Representation = Neon::representation::Dense;
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Span::executionThreadSpan;
     using ExecutionThreadSpanIndexType = dSpan::ExecutionThreadSpanIndexType;
 
