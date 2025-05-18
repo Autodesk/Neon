@@ -307,7 +307,7 @@ mGrid<SBlock>::mGrid(
 
                                                         if (proxyVoxelLocation < domainSize && proxyVoxelLocation >= 0) {
 
-                                                            Neon::int32_3d prv_nVoxelBlockOrigin, prv_nVoxelLocalID;
+                                                            Neon::int32_3d prv_nVoxelBlockOrigin(0), prv_nVoxelLocalID(0);
                                                             for (int l_n = l; l_n < mData->mDescriptor.getDepth(); ++l_n) {
                                                                 const int l_n_ref_factor = mData->mDescriptor.getRefFactor(l_n);
 

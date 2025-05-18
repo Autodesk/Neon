@@ -11,7 +11,7 @@
 namespace wp {
 // NOTE: We create a subclass so that we can add a custom constructor
 template <typename T>
-class NeonMultiresPartition : public ::Neon::domain::details::mGrid::mPartition<T, 0>
+class NeonMultiresPartition : public ::Neon::domain::details::mGrid::mPartition<T, 0, Neon::domain::details::StaticBlockDefault>
 {
    public:
     // initialize from bytes
@@ -109,9 +109,9 @@ CUDA_CALLABLE inline auto neon_lbm_read_coarser_ngh(
             return (s <= 0) ? s : s - 1;
         };
 
-        Neon::int8_3d offset(off(cell.x % Neon::domain::details::mGrid::kUserBlockSizeX, q.x),
-                             off(cell.y % Neon::domain::details::mGrid::kUserBlockSizeY, q.y),
-                             off(cell.z % Neon::domain::details::mGrid::kUserBlockSizeZ, q.z));
+        Neon::int8_3d offset(off(cell.x % Neon::domain::details::StaticBlockDefault::userBlockSizeX, q.x),
+                             off(cell.y % Neon::domain::details::StaticBlockDefault::userBlockSizeY, q.y),
+                             off(cell.z % Neon::domain::details::StaticBlockDefault::userBlockSizeZ, q.z));
         return offset;
     };
     Neon::int8_3d uncleDir = getUncleOffset(idx.mInDataBlockIdx, ngh);
@@ -143,9 +143,9 @@ CUDA_CALLABLE inline auto neon_mres_lbm_store_op( const NeonMultiresPartition<T>
             const int8_t s = i + j;
             return (s <= 0) ? s : s - 1;
         };
-        Neon::int8_3d offset(off(cell.x % Neon::domain::details::mGrid::kUserBlockSizeX, q.x),
-                             off(cell.y % Neon::domain::details::mGrid::kUserBlockSizeY, q.y),
-                             off(cell.z % Neon::domain::details::mGrid::kUserBlockSizeZ, q.z));
+        Neon::int8_3d offset(off(cell.x % Neon::domain::details::StaticBlockDefault::userBlockSizeX, q.x),
+                             off(cell.y % Neon::domain::details::StaticBlockDefault::userBlockSizeY, q.y),
+                             off(cell.z % Neon::domain::details::StaticBlockDefault::userBlockSizeZ, q.z));
         return offset;
     };
 
