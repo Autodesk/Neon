@@ -12,6 +12,7 @@
 #include "Neon/domain/details/mGrid/mField.h"
 #include "Neon/domain/details/mGrid/mPartition.h"
 
+#include "Neon/domain/interface/Representation.h"
 #include "Neon/set/Containter.h"
 
 
@@ -46,6 +47,8 @@ class mGrid
 
     template <typename T, int C, typename SSBlock>
     friend class Neon::domain::details::mGrid::mField;
+
+    using Representation = typename Neon::representation::MultiResolution;
 
     mGrid() = default;
     virtual ~mGrid() {};

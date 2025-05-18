@@ -148,8 +148,8 @@ extern "C" auto mGrid_get_span(
     Grid& grid = *gridPtr;
 
     if (gridPtr != nullptr) {
-        if (grid_level < int(grid.getLevelCount())) {
-            std::cout << "grid_level out of range in mGrid_get_span" << std::endl;
+        if (!(grid_level < int(grid.getLevelCount()))) {
+            std::cout << "grid_level out of range in mGrid_get_span LEVEL" << grid_level << " of " << grid.getLevelCount() <<std::endl;
         }
         auto& gridSpan = grid(grid_level).getSpan(Neon::ExecutionUtils::fromInt(execution), device, Neon::DataViewUtil::fromInt(data_view));
         (*spanRes) = gridSpan;

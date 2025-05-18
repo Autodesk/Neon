@@ -20,9 +20,9 @@ class Container:
     # to prevent them from being unloaded prematurely.
 
     def __init__(self,
+                 name,
                  loading_lambda=None,
-                 execution: neon.Execution = neon.Execution.device(),
-                 name = "neon_container"):
+                 execution: neon.Execution = neon.Execution.device()):
 
         if loading_lambda is None:
             raise Exception('Container: Invalid loading lambda')
@@ -32,7 +32,7 @@ class Container:
         self.grid = None
         self.backend = None
 
-        self.name  = name
+        self.name = name
         self.execution = execution
 
         container_parser: neon.Loader = neon.Loader(execution=execution,
@@ -43,11 +43,12 @@ class Container:
 
         self.loading_lambda = loading_lambda
         self.loading_lambda(container_parser)
+        self.target_level = container_parser.mres_level
         self.grid = container_parser._retrieve_grid()
 
         # We can load the C-API only after the grid is set
         self.grid_name = self.grid.get_name()
-        self.help_load_api(grid_name = self.grid_name)
+        self.help_load_api(grid_name=self.grid_name)
 
         self.backend = self.grid.get_backend()
         # Setting up the information of the Neon container for Neon runtime
@@ -69,7 +70,7 @@ class Container:
                     grid_level = container_parser.mres_level
                     # Get the kernel for the device and data view
                     dev_kernel = self._get_kernel_mgrid(
-                        grid_level = grid_level,
+                        grid_level=grid_level,
                         execution=execution,
                         gpu_id=dev_idx,
                         data_view=neon.DataView.from_int(dw_idx),
@@ -101,9 +102,10 @@ class Container:
         self.container_handle = self.neon_gate.handle_type(0)
         block_size = neon.Index_3d(128, 0, 0)
         # Search a function in the .so by composing the function name
-
+        name_utf8_bytes = f"{name}_L{self.target_level}_py".encode("utf-8")  # Convert to `bytes`
         if container_parser.mres_level is None:
             self.api_new(ctypes.pointer(self.container_handle),
+                         name_utf8_bytes,
                          execution,
                          self.backend.cuda_driver_handle,
                          self.grid.get_handle(),
@@ -111,12 +113,13 @@ class Container:
                          block_size)
         else:
             self.api_mres_new(ctypes.pointer(self.container_handle),
-                         container_parser.mres_level,
-                         execution,
-                         self.backend.cuda_driver_handle,
-                         self.grid.get_handle(),
-                         self.k_2Darray,
-                         block_size)
+                              name_utf8_bytes,
+                              container_parser.mres_level,
+                              execution,
+                              self.backend.cuda_driver_handle,
+                              self.grid.get_handle(),
+                              self.k_2Darray,
+                              block_size)
 
         self._parsing(container_parser)
 
@@ -139,7 +142,8 @@ class Container:
             grid_name = field.get_grid().get_name()
 
             if grid_name == 'mGrid':
-                register_token = getattr(lib_obj, f'warp_container_mres_add_parse_token_{grid_name}_{field_type_name}_{0}')
+                register_token = getattr(lib_obj,
+                                         f'warp_container_mres_add_parse_token_{grid_name}_{field_type_name}_{0}')
                 register_token.argtypes = [self.neon_gate.handle_type,
                                            self.neon_gate.handle_type,
                                            ctypes.c_int,
@@ -204,6 +208,7 @@ class Container:
         if grid_name != "mGrid":
             self.api_new = getattr(self.neon_gate.lib, f'warp_{grid_name}_container_new')
             self.api_new.argtypes = [ctypes.POINTER(self.neon_gate.handle_type),
+                                     ctypes.c_char_p,
                                      neon.Execution,
                                      self.neon_gate.handle_type,
                                      self.neon_gate.handle_type,
@@ -213,12 +218,13 @@ class Container:
         else:
             self.api_mres_new = getattr(self.neon_gate.lib, f'warp_{grid_name}_container_new')
             self.api_mres_new.argtypes = [ctypes.POINTER(self.neon_gate.handle_type),
-                                     ctypes.c_int32, #Level
-                                     neon.Execution,
-                                     self.neon_gate.handle_type,
-                                     self.neon_gate.handle_type,
-                                     ctypes.POINTER(ctypes.c_void_p),
-                                     ctypes.POINTER(neon.Index_3d)]
+                                          ctypes.c_char_p,
+                                          ctypes.c_int32,  # Level
+                                          neon.Execution,
+                                          self.neon_gate.handle_type,
+                                          self.neon_gate.handle_type,
+                                          ctypes.POINTER(ctypes.c_void_p),
+                                          ctypes.POINTER(neon.Index_3d)]
             self.api_mres_new.restype = ctypes.c_int
         # ------------------------------------------------------------------
         # warp_container_delete
@@ -246,14 +252,14 @@ class Container:
         span = None
         if self.grid.get_name() != "mGrid":
             span = self.grid.get_span(execution=execution,
-                                  dev_idx=gpu_id,
-                                  data_view=data_view)
+                                      dev_idx=gpu_id,
+                                      data_view=data_view)
         else:
-            span = self.grid.get_span( grid_level = 0,
-                                       execution=execution,
-                                       dev_idx=gpu_id,
-                                       data_view=data_view,
-                                       )
+            span = self.grid.get_span(grid_level=0,
+                                      execution=execution,
+                                      dev_idx=gpu_id,
+                                      data_view=data_view,
+                                      )
         loader: neon.Loader = neon.Loader(execution=execution,
                                           gpu_id=gpu_id,
                                           data_view=data_view)
@@ -286,18 +292,18 @@ class Container:
             return kernel
 
     def _get_kernel_mgrid(self,
-                    grid_level,
-                    container_runtime: ContainerRuntime,
-                    execution: neon.Execution,
-                    gpu_id: int,
-                    data_view: neon.DataView):
+                          grid_level,
+                          container_runtime: ContainerRuntime,
+                          execution: neon.Execution,
+                          gpu_id: int,
+                          data_view: neon.DataView):
         span = None
 
-        span = self.grid.get_span( grid_level = grid_level,
-                                   execution=execution,
-                                   dev_idx=gpu_id,
-                                   data_view=data_view,
-                                   )
+        span = self.grid.get_span(grid_level=grid_level,
+                                  execution=execution,
+                                  dev_idx=gpu_id,
+                                  data_view=data_view,
+                                  )
 
         loader: neon.Loader = neon.Loader(execution=execution,
                                           gpu_id=gpu_id,
@@ -373,8 +379,8 @@ class Container:
             data_view: neon.DataView):
         nvtx.push_range(f"{self.name}_neon", color="green")
         self.api_run(self.container_handle,
-                                              stream_idx,
-                                              data_view)
+                     stream_idx,
+                     data_view)
         nvtx.pop_range()
 
     def run(self,
@@ -396,8 +402,9 @@ class Container:
                 local_name = copy.deepcopy(name)
                 if local_name is None:
                     local_name = f"{loading_lambda.__name__}_neon_container"
-                container = Container(loading_lambda=loading_lambda, name = local_name)
+                container = Container(loading_lambda=loading_lambda, name=local_name)
                 return container
 
             return container_generator
+
         return factory_decorator

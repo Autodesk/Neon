@@ -48,6 +48,7 @@ class bGrid : public Neon::domain::interface::GridBaseTemplate<bGrid<SBlock>,
     using Idx = bIndex<SBlock>;
     static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan = Neon::set::details::ExecutionThreadSpan::d1b3;
     using ExecutionThreadSpanIndexType = uint32_t;
+    using Representation = Neon::representation::Sparse;
 
     using BlockIdx = uint32_t;
 
