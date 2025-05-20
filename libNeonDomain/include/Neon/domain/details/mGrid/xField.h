@@ -12,19 +12,20 @@ namespace Neon::domain::details::mGrid {
 /**
  *We have to define this field because we want a field that is a bField but gives a mPartition 
 */
+template <typename SBlock>
 class mGrid;
 
-template <typename T, int C = 0>
+template <typename T, int C, typename SBlock>
 class xField : public Neon::domain::interface::FieldBaseTemplate<T,
                                                                  C,
-                                                                 Neon::domain::details::bGrid::bGrid<kStaticBlock>,
-                                                                 mPartition<T, C>,
+                                                                 Neon::domain::details::bGrid::bGrid<SBlock>,
+                                                                 mPartition<T, C, SBlock>,
                                                                  int>
 
 {
    public:
-    using Partition = mPartition<T, C>;
-    using Grid = Neon::domain::details::bGrid::bGrid<kStaticBlock>;
+    using Partition = mPartition<T, C, SBlock>;
+    using Grid = Neon::domain::details::bGrid::bGrid<SBlock>;
     using Field = typename Grid::Field<T, C>;
 
 

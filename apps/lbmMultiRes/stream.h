@@ -9,8 +9,8 @@ inline Neon::set::Container stream(Neon::domain::mGrid&                        g
                                    const Neon::domain::mGrid::Field<T>&        fout,
                                    Neon::domain::mGrid::Field<T>&              fin)
 {
-    //regular Streaming of the normal voxels at level L which are not interfaced with L+1 and L-1 levels.
-    //This is "pull" stream
+    // regular Streaming of the normal voxels at level L which are not interfaced with L+1 and L-1 levels.
+    // This is "pull" stream
 
     return grid.newContainer(
         "S" + std::to_string(level), level,
@@ -21,14 +21,14 @@ inline Neon::set::Container stream(Neon::domain::mGrid&                        g
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
                 if (type(cell, 0) == CellType::bulk) {
-                    //If this cell has children i.e., it is been refined, than we should not work on it
-                    //because this cell is only there to allow query and not to operate on
+                    // If this cell has children i.e., it is been refined, than we should not work on it
+                    // because this cell is only there to allow query and not to operate on
                     if (!pin.hasChildren(cell)) {
 
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
 
-                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+                            // if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                             if (!pin.hasChildren(cell, dir)) {
                                 auto nghType = type.getNghData(cell, dir, 0);
 
@@ -57,8 +57,8 @@ inline Neon::set::Container streamFusedExplosion(Neon::domain::mGrid&           
                                                  const Neon::domain::mGrid::Field<T>&        fout,
                                                  Neon::domain::mGrid::Field<T>&              fin)
 {
-    //regular Streaming of the normal voxels at level L which are not interfaced with L+1 and L-1 levels.
-    //This is "pull" stream
+    // regular Streaming of the normal voxels at level L which are not interfaced with L+1 and L-1 levels.
+    // This is "pull" stream
 
     return grid.newContainer(
         "SE" + std::to_string(level), level,
@@ -74,9 +74,9 @@ inline Neon::set::Container streamFusedExplosion(Neon::domain::mGrid&           
             }
 
             return [=] NEON_CUDA_HOST_DEVICE(const typename Neon::domain::mGrid::Idx& cell) mutable {
-                //We only do streaming in the bulk i.e., non-boundary condition voxels. Since we only allow grid
-                //transition on bulk, then it is okay to do explosion inside this condition because
-                //if the voxel is not bulk then all its neighbours are on the same level and no explosion is needed
+                // We only do streaming in the bulk i.e., non-boundary condition voxels. Since we only allow grid
+                // transition on bulk, then it is okay to do explosion inside this condition because
+                // if the voxel is not bulk then all its neighbours are on the same level and no explosion is needed
 
                 if (type(cell, 0) == CellType::bulk) {
                     if (!pin.hasChildren(cell)) {
@@ -94,7 +94,7 @@ inline Neon::set::Container streamFusedExplosion(Neon::domain::mGrid&           
                                         pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
                                     }
                                 } else if (pin.hasParent(cell) && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                    Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
+                                    Neon::int8_3d uncleDir = uncleOffset<Neon::domain::mGrid::Block>(cell.mInDataBlockIdx, dir);
                                     auto          uncle = pout.uncleVal(cell, uncleDir, q, T(0));
                                     if (uncle.mIsValid) {
                                         pin(cell, q) = uncle.mData;
@@ -133,7 +133,7 @@ inline Neon::set::Container streamFusedCoalescence(Neon::domain::mGrid&         
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
 
-                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+                            // if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                             auto nghType = type.getNghData(cell, dir, 0);
                             if (!pin.hasChildren(cell, dir)) {
                                 if (nghType.mIsValid) {
@@ -192,7 +192,7 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                         for (int8_t q = 0; q < Q; ++q) {
                             const Neon::int8_3d dir = -getDir(q);
 
-                            //if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
+                            // if the neighbor cell has children, then this 'cell' is interfacing with L-1 (fine) along q direction
                             auto nghType = type.getNghData(cell, dir, 0);
                             if (!pin.hasChildren(cell, dir)) {
                                 if (nghType.mIsValid) {
@@ -203,7 +203,7 @@ inline Neon::set::Container streamFusedCoalescenceExplosion(Neon::domain::mGrid&
                                         pin(cell, q) = pout(cell, opposte_q) + pout.getNghData(cell, dir, opposte_q).mData;
                                     }
                                 } else if (pin.hasParent(cell) && !(dir.x == 0 && dir.y == 0 && dir.z == 0)) {
-                                    Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, dir);
+                                    Neon::int8_3d uncleDir = uncleOffset<Neon::domain::mGrid::Block>(cell.mInDataBlockIdx, dir);
                                     auto          uncle = pout.uncleVal(cell, uncleDir, q, T(0));
                                     if (uncle.mIsValid) {
                                         pin(cell, q) = uncle.mData;
@@ -242,21 +242,21 @@ inline void stream(Neon::domain::mGrid&                        grid,
     containers.push_back(stream<T, Q>(grid, level, cellType, fout, fin));
 
     /*
-    * Streaming for interface voxels that have
-    *  (i) coarser or (ii) finer neighbors at level+1 and level-1 and hence require
-    *  (i) "explosion" or (ii) coalescence
-    */
+     * Streaming for interface voxels that have
+     *  (i) coarser or (ii) finer neighbors at level+1 and level-1 and hence require
+     *  (i) "explosion" or (ii) coalescence
+     */
     if (level != numLevels - 1) {
-        /* Explosion: pull missing populations from coarser neighbors by copying coarse (level+1) to fine (level) 
-        * neighbors, initiated by the fine level ("Pull").
-        */
+        /* Explosion: pull missing populations from coarser neighbors by copying coarse (level+1) to fine (level)
+         * neighbors, initiated by the fine level ("Pull").
+         */
         containers.push_back(explosion<T, Q>(grid, level, fout, fin));
     }
 
     if (level != 0) {
-        /* Coalescence: pull missing populations from finer neighbors by "smart" averaging fine (level-1) 
-        * to coarse (level) communication, initiated by the coarse level ("Pull").
-        */
+        /* Coalescence: pull missing populations from finer neighbors by "smart" averaging fine (level-1)
+         * to coarse (level) communication, initiated by the coarse level ("Pull").
+         */
         containers.push_back(coalescence<T, Q>(grid, fineInitStore, level, sumStore, fout, fin));
     }
 }
@@ -274,20 +274,20 @@ inline void streamFusedExplosion(Neon::domain::mGrid&                        gri
                                  std::vector<Neon::set::Container>&          containers)
 {
     /*
-    * Streaming for interface voxels that have
-    *  (i) coarser or (ii) finer neighbors at level+1 and level-1 and hence require
-    *  (i) "explosion" or (ii) coalescence
-    * Explosion: pull missing populations from coarser neighbors by copying coarse (level+1) to fine (level) 
-    * neighbors, initiated by the fine level ("Pull").
-    * Here we fuse the explosion with stream and do the check if we need explosion (since we don't 
-    * need explosion on the coarsest level) inside the container. 
-    */
+     * Streaming for interface voxels that have
+     *  (i) coarser or (ii) finer neighbors at level+1 and level-1 and hence require
+     *  (i) "explosion" or (ii) coalescence
+     * Explosion: pull missing populations from coarser neighbors by copying coarse (level+1) to fine (level)
+     * neighbors, initiated by the fine level ("Pull").
+     * Here we fuse the explosion with stream and do the check if we need explosion (since we don't
+     * need explosion on the coarsest level) inside the container.
+     */
     containers.push_back(streamFusedExplosion<T, Q>(grid, level, numLevels, cellType, fout, fin));
 
     if (level != 0) {
-        /* Coalescence: pull missing populations from finer neighbors by "smart" averaging fine (level-1) 
-        * to coarse (level) communication, initiated by the coarse level ("Pull").
-        */
+        /* Coalescence: pull missing populations from finer neighbors by "smart" averaging fine (level-1)
+         * to coarse (level) communication, initiated by the coarse level ("Pull").
+         */
         containers.push_back(coalescence<T, Q>(grid, fineInitStore, level, sumStore, fout, fin));
     }
 }
@@ -307,14 +307,14 @@ inline void streamFusedCoalescence(Neon::domain::mGrid&                        g
     containers.push_back(streamFusedCoalescence<T, Q>(grid, fineInitStore, level, sumStore, cellType, fout, fin));
 
     /*
-    * Streaming for interface voxels that have
-    *  (i) coarser or (ii) finer neighbors at level+1 and level-1 and hence require
-    *  (i) "explosion" or (ii) coalescence
-    */
+     * Streaming for interface voxels that have
+     *  (i) coarser or (ii) finer neighbors at level+1 and level-1 and hence require
+     *  (i) "explosion" or (ii) coalescence
+     */
     if (level != numLevels - 1) {
-        /* Explosion: pull missing populations from coarser neighbors by copying coarse (level+1) to fine (level) 
-        * neighbors, initiated by the fine level ("Pull").
-        */
+        /* Explosion: pull missing populations from coarser neighbors by copying coarse (level+1) to fine (level)
+         * neighbors, initiated by the fine level ("Pull").
+         */
         containers.push_back(explosion<T, Q>(grid, level, fout, fin));
     }
 }

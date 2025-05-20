@@ -2,21 +2,22 @@
 
 namespace Neon::domain::details::mGrid {
 
+template <typename SBlock>
 template <typename T, int C>
-auto mGrid::newField(const std::string          name,
+auto mGrid<SBlock>::newField(const std::string          name,
                      int                        cardinality,
                      T                          inactiveValue,
                      Neon::DataUse              dataUse,
                      const Neon::MemoryOptions& memoryOptions) const -> Field<T, C>
 {
-    mField<T, C> field(name, *this, cardinality, inactiveValue, dataUse, memoryOptions);
+    mField<T, C, SBlock> field(name, *this, cardinality, inactiveValue, dataUse, memoryOptions);
 
     return field;
 }
 
-
+template <typename SBlock>
 template <Neon::Execution execution, typename LoadingLambda>
-auto mGrid::newContainer(const std::string& name,
+auto mGrid<SBlock>::newContainer(const std::string& name,
                          int                level,
                          index_3d           blockSize,
                          size_t             sharedMem,
@@ -29,8 +30,9 @@ auto mGrid::newContainer(const std::string& name,
     return kContainer;
 }
 
+template <typename SBlock>
 template <Neon::Execution execution, typename LoadingLambda>
-auto mGrid::newContainer(const std::string& name,
+auto mGrid<SBlock>::newContainer(const std::string& name,
                          int                level,
                          LoadingLambda      lambda) const -> Neon::set::Container
 {

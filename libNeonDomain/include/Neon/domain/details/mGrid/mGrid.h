@@ -18,32 +18,34 @@
 
 namespace Neon::domain::details::mGrid {
 
-template <typename T, int C>
+template <typename T, int C, typename SBlock>
 class mField;
 
 /**
  * Multi-resolution gird represented as a stack of bGrids i.e., block-sparse data structures. Level 0 represents the root of the grid
  * i.e., the finest level of the gird. mGird can store data (through mField) and operate on each level of the grid
  */
+template <typename SBlock>
 class mGrid
 {
    public:
     using Grid = mGrid;
-    using InternalGrid = Neon::domain::details::bGrid::bGrid<kStaticBlock>;
+    using InternalGrid = Neon::domain::details::bGrid::bGrid<SBlock>;
     using Idx = typename InternalGrid::Idx;
     using Descriptor = mGridDescriptor<1>;
+    using Block = SBlock;
 
     template <typename T, int C = 0>
-    using Partition = Neon::domain::details::mGrid::mPartition<T, C>;
+    using Partition = Neon::domain::details::mGrid::mPartition<T, C, SBlock>;
 
     template <typename T, int C = 0>
-    using Field = Neon::domain::details::mGrid::mField<T, C>;
+    using Field = Neon::domain::details::mGrid::mField<T, C, SBlock>;
 
-    using NghIdx = typename Partition<int>::NghIdx;
+    using NghIdx = typename Partition<int, 0>::NghIdx;
 
     using Span = typename InternalGrid::Span;
 
-    template <typename T, int C>
+    template <typename T, int C, typename SSBlock>
     friend class Neon::domain::details::mGrid::mField;
 
     using Representation = typename Neon::representation::MultiResolution;
@@ -196,10 +198,10 @@ class mGrid
         Neon::index_3d domainSize;
 
         // stores the parent of the block
-        std::vector<Neon::set::MemSet<Idx::DataBlockIdx>> mParentBlockID;
+        std::vector<Neon::set::MemSet<typename Idx::DataBlockIdx>> mParentBlockID;
 
         // Given a block at level L, we store R children block IDs for each block in L where R is the refinement factor
-        std::vector<Neon::set::MemSet<Idx::DataBlockIdx>> mChildBlockID;
+        std::vector<Neon::set::MemSet<typename Idx::DataBlockIdx>> mChildBlockID;
 
         // gird levels refinement factors
         Neon::set::MemSet<int> mRefFactors;
@@ -231,5 +233,10 @@ class mGrid
 };
 
 }  // namespace Neon::domain::details::mGrid
+
+
+extern template class Neon::domain::details::mGrid::mGrid<Neon::domain::details::StaticBlock<8, 8, 8, 2, 2, 2, true>>;
+extern template class Neon::domain::details::mGrid::mGrid<Neon::domain::details::StaticBlock<4, 4, 4, 2, 2, 2, true>>;
+extern template class Neon::domain::details::mGrid::mGrid<Neon::domain::details::StaticBlock<2, 2, 2, 2, 2, 2, true>>;
 
 #include "Neon/domain/details/mGrid/mGrid_imp.h"

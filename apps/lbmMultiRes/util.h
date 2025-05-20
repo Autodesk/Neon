@@ -15,7 +15,7 @@ constexpr NEON_CUDA_HOST_DEVICE Neon::int8_3d getDir(const int8_t q)
     return Neon::int8_3d(latticeVelocity[q][0], latticeVelocity[q][1], latticeVelocity[q][2]);
 }
 
-template <typename T>
+template <typename SBlock, typename T>
 constexpr NEON_CUDA_HOST_DEVICE inline Neon::int8_3d uncleOffset(const T& cell, const Neon::int8_3d& q)
 {
     //given a local index within a cell and a population direction (q)
@@ -30,9 +30,9 @@ constexpr NEON_CUDA_HOST_DEVICE inline Neon::int8_3d uncleOffset(const T& cell, 
         const int8_t s = i + j;
         return (s <= 0) ? s : s - 1;
     };
-    Neon::int8_3d offset(off(cell.x % Neon::domain::details::mGrid::kUserBlockSizeX, q.x),
-                         off(cell.y % Neon::domain::details::mGrid::kUserBlockSizeY, q.y),
-                         off(cell.z % Neon::domain::details::mGrid::kUserBlockSizeZ, q.z));
+    Neon::int8_3d offset(off(cell.x % SBlock::userBlockSizeX, q.x),
+                         off(cell.y % SBlock::userBlockSizeY, q.y),
+                         off(cell.z % SBlock::userBlockSizeZ, q.z));
     return offset;
 }
 

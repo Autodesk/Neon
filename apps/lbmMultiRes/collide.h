@@ -366,7 +366,7 @@ inline NEON_CUDA_HOST_DEVICE void store(const typename Neon::domain::mGrid::Idx&
         return;
     }
 
-    const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
+    const Neon::int8_3d uncleDir = uncleOffset<typename FieldT::Block>(cell.mInDataBlockIdx, qDir);
 
     //we try to access a cell on the same level (i.e., the refined level) along the same
     //direction as the uncle and we use this a proxy to check if there is an unrefined uncle

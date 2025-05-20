@@ -374,7 +374,7 @@ extern "C" auto warp_mGrid_container_new(
 }
 
 using dGrid = Neon::domain::details::dGrid::dGrid;
-using mGrid = Neon::domain::details::mGrid::mGrid;
+using mGrid = Neon::domain::mGrid;
 
 template <typename Grid>
 auto warp_container_delete(
