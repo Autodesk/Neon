@@ -121,7 +121,7 @@ CUDA_CALLABLE inline auto neon_cardinality(
 }
 
 template<typename T>
-CUDA_CALLABLE inline auto neon_ngh_data(
+CUDA_CALLABLE inline auto neon_read_ngh(
     const NeonDensePartition<T>& p,
     NeonDenseIdx const & idx,
     NeonNghIdx const & ngh,
