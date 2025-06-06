@@ -40,42 +40,42 @@ extern "C" auto mGrid_new(
         // std::cout << "Pattern Dimension: " << level_mask_dim.to_string() << std::endl;
         // std::cout << "Pattern Origin: " << level_mask_origin.to_string() << std::endl;
 
-        if (i == 1) {
-            for (int z = 0; z < level_mask_dim.z; z++) {
-                std::cout << "." << std::endl;
-                for (int y = 0; y < level_mask_dim.y; y++) {
-                    for (int x = 0; x < level_mask_dim.x; x++) {
-                        int index = x * (level_mask_dim.y * level_mask_dim.z) + y * level_mask_dim.z + z;
-                        std::cout << "YESS " << level_sparsity[index] << " x->" << x << "  y->" << y << "  z->" << z << std::endl;
-                    }
-                }
-            }
-        }
+        // if (i == 1) {
+        //     for (int z = 0; z < level_mask_dim.z; z++) {
+        //         std::cout << "." << std::endl;
+        //         for (int y = 0; y < level_mask_dim.y; y++) {
+        //             for (int x = 0; x < level_mask_dim.x; x++) {
+        //                 int index = x * (level_mask_dim.y * level_mask_dim.z) + y * level_mask_dim.z + z;
+        //                 std::cout << "YESS " << level_sparsity[index] << " x->" << x << "  y->" << y << "  z->" << z << std::endl;
+        //             }
+        //         }
+        //     }
+        // }
 
         sparsity[i] = [=](Neon::index_3d const& idx) {
             auto const scaled_idx = idx / dividend;
             auto const mask_idx = scaled_idx - level_mask_origin;
 
             if (mask_idx.x < 0 || mask_idx.y < 0 || mask_idx.z < 0) {
-                if (i == 1) {
-                    std::cout << "LINE 61 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << std::endl;
-                }
+                // if (i == 1) {
+                //     std::cout << "LINE 61 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << std::endl;
+                // }
                 return false;
             }
             if (mask_idx.x >= level_mask_dim.x || mask_idx.y >= level_mask_dim.y || mask_idx.z >= level_mask_dim.z) {
-                if (i == 1) {
-                    std::cout << "LINE 67 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << " level_mask_dim " << level_mask_dim <<std::endl;
-                }
+                // if (i == 1) {
+                //     std::cout << "LINE 67 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << " level_mask_dim " << level_mask_dim <<std::endl;
+                // }
                 return false;
             }
             // int idx = i * (dim1 * dim2) + j * dim2 + k;
             // int32_t value = data[idx];
             // std::printf("arr[%d][%d][%d] = %d\n", i, j, k, value);
-            if (i == 1)
-                std::cout << "CHECK idx " << idx << " scaled_idx " << scaled_idx << " " << std::endl;
-            int index = mask_idx.x * (level_mask_dim.y * level_mask_dim.z) +
-                        mask_idx.y * level_mask_dim.z +
-                        mask_idx.z;
+            // if (i == 1)
+            //     std::cout << "CHECK idx " << idx << " scaled_idx " << scaled_idx << " " << std::endl;
+            // int index = mask_idx.x * (level_mask_dim.y * level_mask_dim.z) +
+            //             mask_idx.y * level_mask_dim.z +
+            //             mask_idx.z;
             return level_sparsity[index] == 1;
         };
     }
