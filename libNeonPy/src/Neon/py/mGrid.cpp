@@ -68,14 +68,11 @@ extern "C" auto mGrid_new(
                 // }
                 return false;
             }
-            // int idx = i * (dim1 * dim2) + j * dim2 + k;
-            // int32_t value = data[idx];
-            // std::printf("arr[%d][%d][%d] = %d\n", i, j, k, value);
             // if (i == 1)
             //     std::cout << "CHECK idx " << idx << " scaled_idx " << scaled_idx << " " << std::endl;
-            // int index = mask_idx.x * (level_mask_dim.y * level_mask_dim.z) +
-            //             mask_idx.y * level_mask_dim.z +
-            //             mask_idx.z;
+            int index = mask_idx.x * (level_mask_dim.y * level_mask_dim.z) +
+                        mask_idx.y * level_mask_dim.z +
+                        mask_idx.z;
             return level_sparsity[index] == 1;
         };
     }
