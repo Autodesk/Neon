@@ -7,7 +7,7 @@ extern "C" auto mGrid_new(
     void**                handle,
     void*                 backendPtr,
     const Neon::index_3d* dim,
-    int32_t               depth,
+    int32_t               num_levels,
     int**                 sparsity_pattern_vec,
     Neon::index_3d*       dim_vec,
     Neon::index_3d*       origin_vec,
@@ -30,27 +30,56 @@ extern "C" auto mGrid_new(
         return -1;
     }
 
-    std::vector<std::function<bool(const Neon::index_3d&)>> sparsity(depth);
-    for (int i = 0; i < depth; i++) {
-        Neon::index_3d const& level_mask_dim = dim_vec[i];
-        Neon::index_3d const& level_mask_offset = origin_vec[i];
-        int*                  level_sparsity = sparsity_pattern_vec[i];
+    std::vector<std::function<bool(const Neon::index_3d&)>> sparsity(num_levels);
+    for (int i = 0; i < num_levels; i++) {
+        Neon::index_3d const level_mask_dim = dim_vec[i];
+        Neon::index_3d const level_mask_origin = origin_vec[i];
+        int* const           level_sparsity = sparsity_pattern_vec[i];
+        int const            dividend = 1 << i;
+        // std::cout << "Level " << i << " dividend " << dividend << std::endl;
+        // std::cout << "Pattern Dimension: " << level_mask_dim.to_string() << std::endl;
+        // std::cout << "Pattern Origin: " << level_mask_origin.to_string() << std::endl;
+
+        if (i == 1) {
+            for (int z = 0; z < level_mask_dim.z; z++) {
+                std::cout << "." << std::endl;
+                for (int y = 0; y < level_mask_dim.y; y++) {
+                    for (int x = 0; x < level_mask_dim.x; x++) {
+                        int index = x * (level_mask_dim.y * level_mask_dim.z) + y * level_mask_dim.z + z;
+                        std::cout << "YESS " << level_sparsity[index] << " x->" << x << "  y->" << y << "  z->" << z << std::endl;
+                    }
+                }
+            }
+        }
 
         sparsity[i] = [=](Neon::index_3d const& idx) {
-            // std::cout << "IN mGrid_new - sparsity idx " << idx.to_string() << std::endl;
-            // std::cout << "IN mGrid_new - level_mask_dim " << level_mask_dim.to_string() <<" level_mask_offset " <<level_mask_offset.to_string()<< std::endl;
+            auto const scaled_idx = idx / dividend;
+            auto const mask_idx = scaled_idx - level_mask_origin;
 
-            int        dividend = 1 << i;
-            auto       scaled_idx = idx / dividend;
-            auto const mask_idx = scaled_idx - level_mask_offset;
-            if (mask_idx < level_mask_dim && mask_idx >= 0) {
-                int index = mask_idx.x * (level_mask_dim.x * level_mask_dim.y) + mask_idx.y * level_mask_dim.y + mask_idx.z;
-                // std::cout << "IN mGrid_new - sparsity index " << index << " idx " << idx.to_string() << " read " << level_sparsity[index] << std::endl;
-                return level_sparsity[index] == 1;
+            if (mask_idx.x < 0 || mask_idx.y < 0 || mask_idx.z < 0) {
+                if (i == 1) {
+                    std::cout << "LINE 61 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << std::endl;
+                }
+                return false;
             }
-            return false;
+            if (mask_idx.x >= level_mask_dim.x || mask_idx.y >= level_mask_dim.y || mask_idx.z >= level_mask_dim.z) {
+                if (i == 1) {
+                    std::cout << "LINE 67 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << " level_mask_dim " << level_mask_dim <<std::endl;
+                }
+                return false;
+            }
+            // int idx = i * (dim1 * dim2) + j * dim2 + k;
+            // int32_t value = data[idx];
+            // std::printf("arr[%d][%d][%d] = %d\n", i, j, k, value);
+            if (i == 1)
+                std::cout << "CHECK idx " << idx << " scaled_idx " << scaled_idx << " " << std::endl;
+            int index = mask_idx.x * (level_mask_dim.y * level_mask_dim.z) +
+                        mask_idx.y * level_mask_dim.z +
+                        mask_idx.z;
+            return level_sparsity[index] == 1;
         };
     }
+
     std::vector<Neon::index_3d> points(numStencilPoints);
     for (int sId = 0; sId < numStencilPoints; sId++) {
         points[sId].x = stencilPointFlatArray[sId * 3];
@@ -63,7 +92,7 @@ extern "C" auto mGrid_new(
              *dim,
              sparsity,
              stencil,
-             Grid::Descriptor(depth));
+             Grid::Descriptor(num_levels));
 
     if (gridPtr == nullptr) {
         std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
@@ -149,7 +178,7 @@ extern "C" auto mGrid_get_span(
 
     if (gridPtr != nullptr) {
         if (!(grid_level < int(grid.getLevelCount()))) {
-            std::cout << "grid_level out of range in mGrid_get_span LEVEL" << grid_level << " of " << grid.getLevelCount() <<std::endl;
+            std::cout << "grid_level out of range in mGrid_get_span LEVEL" << grid_level << " of " << grid.getLevelCount() << std::endl;
         }
         auto& gridSpan = grid(grid_level).getSpan(Neon::ExecutionUtils::fromInt(execution), device, Neon::DataViewUtil::fromInt(data_view));
         (*spanRes) = gridSpan;
@@ -517,9 +546,14 @@ template <typename T>
 auto mGrid_mField_to_vti(
     void*       fieldHandle,
     const char* fname,
-    const char* fieldName)
+    const char* fieldName,
+    bool        outputLevels,
+    bool        outputBlockID,
+    bool        outputVoxelID,
+    bool        filterOverlaps)
     -> int
 {
+
 #ifdef NEON_USE_NVTX
     nvtxRangePush("mGrid_mField_to_vti");
 #endif
@@ -536,7 +570,7 @@ auto mGrid_mField_to_vti(
         return -1;
     }
     std::cout << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
-    fieldPtr->ioToVtk(fname, false, false, false, true);
+    fieldPtr->ioToVtk(fname, outputLevels, outputBlockID, outputVoxelID, filterOverlaps);
     //                      bool               includeDomain = false,
     //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
     //                      bool               isNodeSpace = false
@@ -550,18 +584,18 @@ auto mGrid_mField_to_vti(
     return 0;
 }
 
-DO_EXPORT(int8, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
-DO_EXPORT(uint8, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
-DO_EXPORT(bool, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(int8, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldNamebool, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
+DO_EXPORT(uint8, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
+DO_EXPORT(bool, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
 
-DO_EXPORT(int32, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
-DO_EXPORT(uint32, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(int32, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
+DO_EXPORT(uint32, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
 
-DO_EXPORT(int64, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
-DO_EXPORT(uint64, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(int64, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
+DO_EXPORT(uint64, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
 
-DO_EXPORT(float32, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
-DO_EXPORT(float64, 3, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(float32, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
+DO_EXPORT(float64, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
 
 
 template <typename T>

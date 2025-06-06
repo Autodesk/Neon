@@ -100,7 +100,11 @@ class mField(object):
         self.api_export_vti = getattr(lib_obj, f'mGrid_mField_to_vti{self.suffix}')
         self.api_export_vti.argtypes = [self.handle_type,
                                         ctypes.c_char_p,
-                                        ctypes.c_char_p]
+                                        ctypes.c_char_p,
+                                        ctypes.c_bool,
+                                        ctypes.c_bool,
+                                        ctypes.c_bool
+                                        ]  # field name
         self.api_export_vti.restype = ctypes.c_int32
 
         # export vti debug
@@ -212,8 +216,16 @@ class mField(object):
                                       stream)
 
     def export_vti(self, filename: str,
-                   field_name: str = "field"):
-        self.api_export_vti(self.handle, filename.encode('utf-8'), field_name.encode('utf-8'))
+                   field_name: str = "field",
+                   outputLevels: bool = True,
+                   outputBlockID: bool = True,
+                   outputVoxelID: bool = True,
+                   filterOverlaps: bool = True):
+        self.api_export_vti(self.handle, filename.encode('utf-8'), field_name.encode('utf-8'),
+                            outputLevels,
+                            outputBlockID,
+                            outputVoxelID,
+                            filterOverlaps)
 
     def get_cardinality(self):
         return self.cardinality.value
@@ -225,7 +237,7 @@ class mField(object):
         return self.handle
 
     def copy_from_run(self, level, src_field, stream_idx):
-        self.api_copy(self.handle,  src_field.handle, level, stream_idx)
+        self.api_copy(self.handle, src_field.handle, level, stream_idx)
 
     def fill_run(self, level, value, stream_idx):
         value = self.type_mapping['ctype'](value)
@@ -240,7 +252,7 @@ class mField(object):
 
     def zero_run(self, level, stream_idx):
         print(f"zero_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
-        self.fill_run(value=self.dtype(0), level=level , stream_idx=stream_idx)
+        self.fill_run(value=self.dtype(0), level=level, stream_idx=stream_idx)
 
     @property
     def type(self):
