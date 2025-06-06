@@ -181,7 +181,7 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
-            "neon_ngh_data",
+            "neon_read_ngh",
             input_types={"partition": Partition,
                          'idx': dIndex,
                          'ngh_idx': Ngh_idx,
