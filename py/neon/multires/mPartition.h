@@ -86,6 +86,22 @@ CUDA_CALLABLE inline auto neon_read_ngh(
 }
 
 template <typename T>
+CUDA_CALLABLE inline auto neon_write_ngh(
+    NeonMultiresPartition<T>& p,
+    NeonBlockIdx const&       idx,
+    NeonNghIdx const&         ngh,
+    int                       card,
+    T                         value) -> bool
+{
+    const auto nghIdx = p.helpGetNghIdx(idx, ngh);
+    auto const isActive = p.isActive(nghIdx);
+    if (isActive) {
+        p(nghIdx, card) = value;
+    }
+    return isActive;
+}
+
+template <typename T>
 CUDA_CALLABLE inline auto neon_lbm_read_coarser_ngh(
     const NeonMultiresPartition<T>& p,
     NeonBlockIdx const&             idx,
@@ -94,17 +110,17 @@ CUDA_CALLABLE inline auto neon_lbm_read_coarser_ngh(
     T                               alternative,
     bool&                           valid) -> T
 {
-    auto getUncleOffset  = [] (const Neon::int8_3d& cell,
-                               const Neon::int8_3d& q)->Neon::int8_3d{//uncleOffset
-         //given a local index within a cell and a population direction (q)
-        //find the uncle's (the parent neighbor) offset from which he desired population (q) should be read
-        //this offset is wrt the cell containing the localID (i.e., the parent of localID)
-        auto off = [](const int8_t i, const int8_t j) ->int8_t {
-            //0, -1 --> -1
-            //1, -1 --> 0
-            //0, 0 --> 0
-            //0, 1 --> 0
-            //1, 1 --> 1
+    auto getUncleOffset = [](const Neon::int8_3d& cell,
+                             const Neon::int8_3d& q) -> Neon::int8_3d {  // uncleOffset
+        // given a local index within a cell and a population direction (q)
+        // find the uncle's (the parent neighbor) offset from which he desired population (q) should be read
+        // this offset is wrt the cell containing the localID (i.e., the parent of localID)
+        auto off = [](const int8_t i, const int8_t j) -> int8_t {
+            // 0, -1 --> -1
+            // 1, -1 --> 0
+            // 0, 0 --> 0
+            // 0, 1 --> 0
+            // 1, 1 --> 1
             const int8_t s = i + j;
             return (s <= 0) ? s : s - 1;
         };
@@ -115,31 +131,30 @@ CUDA_CALLABLE inline auto neon_lbm_read_coarser_ngh(
         return offset;
     };
     Neon::int8_3d uncleDir = getUncleOffset(idx.mInDataBlockIdx, ngh);
-    const auto   uncleData = p.uncleVal(idx, uncleDir, card, alternative);
+    const auto    uncleData = p.uncleVal(idx, uncleDir, card, alternative);
     valid = uncleData.isValid();
     return uncleData.getData();
 }
 
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_mres_lbm_store_op( const NeonMultiresPartition<T>& pout,
-                                         const NeonBlockIdx& cell,
-                                        const int8_t                             q,
-                                        NeonNghIdx const&               qDir,
-                                        const T                                  cellVal) -> void
+CUDA_CALLABLE inline auto neon_mres_lbm_store_op(const NeonMultiresPartition<T>& pout,
+                                                 const NeonBlockIdx&             cell,
+                                                 const int8_t                    q,
+                                                 NeonNghIdx const&               qDir,
+                                                 const T                         cellVal) -> void
 {
 
-    auto uncleOffset =[](const auto& cell, const Neon::int8_3d& q)->Neon::int8_3d
-    {
-        //given a local index within a cell and a population direction (q)
-        //find the uncle's (the parent neighbor) offset from which the desired population (q) should be read
-        //this offset is wrt the cell containing the localID (i.e., the parent of localID)
+    auto uncleOffset = [](const auto& cell, const Neon::int8_3d& q) -> Neon::int8_3d {
+        // given a local index within a cell and a population direction (q)
+        // find the uncle's (the parent neighbor) offset from which the desired population (q) should be read
+        // this offset is wrt the cell containing the localID (i.e., the parent of localID)
         auto off = [](const int8_t i, const int8_t j) {
-            //0, -1 --> -1
-            //1, -1 --> 0
-            //0, 0 --> 0
-            //0, 1 --> 0
-            //1, 1 --> 1
+            // 0, -1 --> -1
+            // 1, -1 --> 0
+            // 0, 0 --> 0
+            // 0, 1 --> 0
+            // 1, 1 --> 1
             const int8_t s = i + j;
             return (s <= 0) ? s : s - 1;
         };
@@ -155,20 +170,20 @@ CUDA_CALLABLE inline auto neon_mres_lbm_store_op( const NeonMultiresPartition<T>
 
     const Neon::int8_3d uncleDir = uncleOffset(cell.mInDataBlockIdx, qDir);
 
-    //we try to access a cell on the same level (i.e., the refined level) along the same
-    //direction as the uncle and we use this a proxy to check if there is an unrefined uncle
+    // we try to access a cell on the same level (i.e., the refined level) along the same
+    // direction as the uncle and we use this a proxy to check if there is an unrefined uncle
     const auto cn = pout.helpGetNghIdx(cell, uncleDir);
 
-    //cn may not be active because 1. it is outside the domain, or 2. this location is occupied by a coarse cell
-    //we are interested in 2.
+    // cn may not be active because 1. it is outside the domain, or 2. this location is occupied by a coarse cell
+    // we are interested in 2.
     if (!pout.isActive(cn)) {
 
-        //now, we can get the uncle but we need to make sure it is active i.e.,
-        //it is not out side the domain boundary
+        // now, we can get the uncle but we need to make sure it is active i.e.,
+        // it is not out side the domain boundary
         const auto uncle = pout.getUncle(cell, uncleDir);
         if (uncle.isActive()) {
 
-            //locate the coarse cell where we should store this cell info
+            // locate the coarse cell where we should store this cell info
             const Neon::int8_3d CsDir = uncleDir - qDir;
 
             const auto cs = pout.getUncle(cell, CsDir);
@@ -313,20 +328,20 @@ CUDA_CALLABLE inline auto neon_write_parent(
     NeonMultiresPartition<T> const& p,
     const NeonBlockIdx&             cell,
     int                             card,
-    T value) -> void
+    T                               value) -> void
 {
     return p.parentVal(cell, card) = value;
 }
 
-//template <typename T>
-//CUDA_CALLABLE inline auto neon_parentVal_atomic_write(
-//    NeonMultiresPartition<T> const& p,
-//    const NeonBlockIdx&             cell,
-//    int                             card,
-//    T value) -> void
+// template <typename T>
+// CUDA_CALLABLE inline auto neon_parentVal_atomic_write(
+//     NeonMultiresPartition<T> const& p,
+//     const NeonBlockIdx&             cell,
+//     int                             card,
+//     T value) -> void
 //{
-//    atomicAdd(&p.parentVal(cell, card), value);
-//}
+//     atomicAdd(&p.parentVal(cell, card), value);
+// }
 
 template <typename T>
 CUDA_CALLABLE inline auto neon_has_parent(
@@ -371,22 +386,21 @@ CUDA_CALLABLE inline auto neon_read_coarser_ngh(
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_refinement_factor(    NeonMultiresPartition<T> const& p,
-int level) -> int
+CUDA_CALLABLE inline auto neon_refinement_factor(NeonMultiresPartition<T> const& p,
+                                                 int                             level) -> int
 {
     return p.getRefFactor(level);
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_spacing(    NeonMultiresPartition<T> const& p,
- int level) -> int
+CUDA_CALLABLE inline auto neon_spacing(NeonMultiresPartition<T> const& p,
+                                       int                             level) -> int
 {
     return p.getSpacing(level);
 }
 
 template <typename T>
-CUDA_CALLABLE inline auto neon_level(NeonMultiresPartition<T> const& p
-) -> int
+CUDA_CALLABLE inline auto neon_level(NeonMultiresPartition<T> const& p) -> int
 {
     return p.getLevel();
 }

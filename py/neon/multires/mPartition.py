@@ -183,6 +183,17 @@ def register_builtins():
         )
 
         wp.context.add_builtin(
+            "neon_write_ngh",
+            input_types={"partition": Partition,
+                         'idx': neon.block.bIndex,
+                         'ngh_idx': neon.Ngh_idx,
+                         "card": wp.int32,
+                         'value': Type},
+            value_type=wp.bool,
+            missing_grad=True,
+        )
+
+        wp.context.add_builtin(
             "neon_lbm_read_coarser_ngh",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
