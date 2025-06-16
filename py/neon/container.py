@@ -1,5 +1,9 @@
+import ast
 import copy
 import ctypes
+import functools
+import inspect
+import textwrap
 from enum import Enum
 
 import nvtx
@@ -398,6 +402,61 @@ class Container:
     def factory(name=None):
         def factory_decorator(loading_lambda_generator):
             def container_generator(*args, **kwargs):
+                loading_lambda = loading_lambda_generator(*args, **kwargs)
+                local_name = copy.deepcopy(name)
+                if local_name is None:
+                    local_name = f"{loading_lambda.__name__}_neon_container"
+                container = Container(loading_lambda=loading_lambda, name=local_name)
+                return container
+
+            return container_generator
+
+        return factory_decorator
+
+    @staticmethod
+    def factory_v2(name=None):
+        def factory_decorator(loading_lambda_generator):
+            @functools.wraps(loading_lambda_generator)
+            def container_generator(*args, **kwargs):
+                src = inspect.getsource(loading_lambda_generator)
+                print(f"--- Source of {loading_lambda_generator.__name__} ---")
+                print(src)
+                # 1) Grab the whole source of `fn`
+                src_lines, start_lineno = inspect.getsourcelines(loading_lambda_generator)
+                src = textwrap.dedent(''.join(src_lines))
+
+                # 2) Parse into an AST
+                module_ast = ast.parse(src)
+
+                # 3) Find the AST node for the outer function (e.g. get_AXPY)
+                top_fn = next(
+                    node for node in module_ast.body
+                    if isinstance(node, ast.FunctionDef) and node.name == loading_lambda_generator.__name__
+                )
+
+                # 4) Walk its body (including nested defs) looking for neon.Loader annotations
+                loader_funcs = []
+                for node in ast.walk(top_fn):
+                    if isinstance(node, ast.FunctionDef):
+                        for arg in node.args.args:
+                            ann = arg.annotation
+                            if (
+                                    isinstance(ann, ast.Attribute)
+                                    and isinstance(ann.value, ast.Name)
+                                    and ann.value.id == 'neon'
+                                    and ann.attr == 'Loader'
+                            ):
+                                loader_funcs.append((node.name, node.lineno))
+
+                # 5) Report what you found
+                if loader_funcs:
+                    print(f"Functions in `{fn.__name__}` taking neon.Loader:")
+                    for func_name, lineno in loader_funcs:
+                        print(f"  • {func_name} (defined at line {start_lineno + lineno - 1})")
+                else:
+                    print(f"No nested functions in `{fn.__name__}` take a neon.Loader.")
+
+                print("--- End source ---\n")
                 loading_lambda = loading_lambda_generator(*args, **kwargs)
                 local_name = copy.deepcopy(name)
                 if local_name is None:

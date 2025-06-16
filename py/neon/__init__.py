@@ -21,6 +21,8 @@ from .container import Container
 from .timer import Timer
 from .skeleton import Skeleton
 
+from .tool import report
+
 
 def init():
     # Get the path of the current script

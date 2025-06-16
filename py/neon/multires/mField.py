@@ -241,8 +241,8 @@ class mField(object):
 
     def fill_run(self, level, value, stream_idx):
         value = self.type_mapping['ctype'](value)
-        print(f"fill_run: value type: {type(value)}, expected ctype: {self.type_mapping['ctype']}")
-        print(f"fill_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
+        # print(f"fill_run: value type: {type(value)}, expected ctype: {self.type_mapping['ctype']}")
+        # print(f"fill_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
 
         self.api_fill(self.get_handle(),
                       level,
@@ -251,7 +251,7 @@ class mField(object):
                       )
 
     def zero_run(self, level, stream_idx):
-        print(f"zero_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
+        # print(f"zero_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
         self.fill_run(value=self.dtype(0), level=level, stream_idx=stream_idx)
 
     @property

@@ -16,9 +16,9 @@ extern "C" auto mGrid_new(
     -> int
 {
     NEON_PY_PRINT_BEGIN(*handle);
-    std::cout << "mGrid_new - BEGIN" << std::endl;
-    std::cout << "mGrid_new - gridHandle " << handle << std::endl;
-    std::cout << "mGrid_new - dim " << dim->to_string() << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_new - BEGIN" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_new - gridHandle " << handle << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_new - dim " << dim->to_string() << std::endl;
 
     Neon::init();
 
@@ -36,17 +36,17 @@ extern "C" auto mGrid_new(
         Neon::index_3d const level_mask_origin = origin_vec[i];
         int* const           level_sparsity = sparsity_pattern_vec[i];
         int const            dividend = 1 << i;
-        // std::cout << "Level " << i << " dividend " << dividend << std::endl;
-        // std::cout << "Pattern Dimension: " << level_mask_dim.to_string() << std::endl;
-        // std::cout << "Pattern Origin: " << level_mask_origin.to_string() << std::endl;
+        // // NEON_PY_DBG_COUT << "Level " << i << " dividend " << dividend << std::endl;
+        // // NEON_PY_DBG_COUT << "Pattern Dimension: " << level_mask_dim.to_string() << std::endl;
+        // // NEON_PY_DBG_COUT << "Pattern Origin: " << level_mask_origin.to_string() << std::endl;
 
         // if (i == 1) {
         //     for (int z = 0; z < level_mask_dim.z; z++) {
-        //         std::cout << "." << std::endl;
+        //         // NEON_PY_DBG_COUT << "." << std::endl;
         //         for (int y = 0; y < level_mask_dim.y; y++) {
         //             for (int x = 0; x < level_mask_dim.x; x++) {
         //                 int index = x * (level_mask_dim.y * level_mask_dim.z) + y * level_mask_dim.z + z;
-        //                 std::cout << "YESS " << level_sparsity[index] << " x->" << x << "  y->" << y << "  z->" << z << std::endl;
+        //                 // NEON_PY_DBG_COUT << "YESS " << level_sparsity[index] << " x->" << x << "  y->" << y << "  z->" << z << std::endl;
         //             }
         //         }
         //     }
@@ -58,18 +58,18 @@ extern "C" auto mGrid_new(
 
             if (mask_idx.x < 0 || mask_idx.y < 0 || mask_idx.z < 0) {
                 // if (i == 1) {
-                //     std::cout << "LINE 61 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << std::endl;
+                //     // NEON_PY_DBG_COUT << "LINE 61 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << std::endl;
                 // }
                 return false;
             }
             if (mask_idx.x >= level_mask_dim.x || mask_idx.y >= level_mask_dim.y || mask_idx.z >= level_mask_dim.z) {
                 // if (i == 1) {
-                //     std::cout << "LINE 67 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << " level_mask_dim " << level_mask_dim <<std::endl;
+                //     // NEON_PY_DBG_COUT << "LINE 67 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << " level_mask_dim " << level_mask_dim <<std::endl;
                 // }
                 return false;
             }
             // if (i == 1)
-            //     std::cout << "CHECK idx " << idx << " scaled_idx " << scaled_idx << " " << std::endl;
+            //     // NEON_PY_DBG_COUT << "CHECK idx " << idx << " scaled_idx " << scaled_idx << " " << std::endl;
             int index = mask_idx.x * (level_mask_dim.y * level_mask_dim.z) +
                         mask_idx.y * level_mask_dim.z +
                         mask_idx.z;
@@ -96,7 +96,7 @@ extern "C" auto mGrid_new(
         return -1;
     }
     *handle = (void*)gridPtr;
-    std::cout << "grid_new - END" << std::endl;
+    // NEON_PY_DBG_COUT << "grid_new - END" << std::endl;
 
     // g.ioDomainToVtk("");
     NEON_PY_PRINT_END(*handle);
@@ -109,8 +109,8 @@ extern "C" auto mGrid_delete(
     void** handle)
     -> int
 {
-    std::cout << "mGrid_delete - BEGIN" << std::endl;
-    std::cout << "mGrid_delete - gridHandle " << handle << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_delete - BEGIN" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_delete - gridHandle " << handle << std::endl;
 
     using Grid = Neon::domain::mGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(*handle);
@@ -120,7 +120,7 @@ extern "C" auto mGrid_delete(
     }
     *handle = nullptr;
 
-    std::cout << "mGrid_delete - END" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_delete - END" << std::endl;
     return 0;
 }
 
@@ -129,8 +129,8 @@ extern "C" auto mGrid_get_dimensions(
     Neon::index_3d* dim)
     -> int
 {
-    std::cout << "mGrid_get_dimension - BEGIN" << std::endl;
-    std::cout << "mGrid_get_dimension - gridHandle " << gridHandle << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_get_dimension - BEGIN" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_get_dimension - gridHandle " << gridHandle << std::endl;
 
 
     using Grid = Neon::domain::mGrid;
@@ -146,7 +146,7 @@ extern "C" auto mGrid_get_dimensions(
     dim->y = dimension.y;
     dim->z = dimension.z;
 
-    std::cout << "mGrid_get_dimension - END" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_get_dimension - END" << std::endl;
 
     // g.ioDomainToVtk("")
     return 0;
@@ -161,13 +161,13 @@ extern "C" auto mGrid_get_span(
     int                        data_view)
     -> int
 {
-    std::cout << "mGrid_get_span - BEGIN " << std::endl;
-    // std::cout << "mGrid_get_span - gridHandle " << gridHandle << std::endl;
-    // std::cout << "mGrid_get_span - grid_level " << grid_level << std::endl;
-    // std::cout << "mGrid_get_span - execution " << execution << std::endl;
-    // std::cout << "mGrid_get_span - device " << device << std::endl;
-    // std::cout << "mGrid_get_span - data_view " << data_view << std::endl;
-    // std::cout << "mGrid_get_span - Span size " << sizeof(*spanRes) << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_get_span - BEGIN " << std::endl;
+    // // NEON_PY_DBG_COUT << "mGrid_get_span - gridHandle " << gridHandle << std::endl;
+    // // NEON_PY_DBG_COUT << "mGrid_get_span - grid_level " << grid_level << std::endl;
+    // // NEON_PY_DBG_COUT << "mGrid_get_span - execution " << execution << std::endl;
+    // // NEON_PY_DBG_COUT << "mGrid_get_span - device " << device << std::endl;
+    // // NEON_PY_DBG_COUT << "mGrid_get_span - data_view " << data_view << std::endl;
+    // // NEON_PY_DBG_COUT << "mGrid_get_span - Span size " << sizeof(*spanRes) << std::endl;
 
     using Grid = Neon::domain::mGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
@@ -175,11 +175,11 @@ extern "C" auto mGrid_get_span(
 
     if (gridPtr != nullptr) {
         if (!(grid_level < int(grid.getLevelCount()))) {
-            std::cout << "grid_level out of range in mGrid_get_span LEVEL" << grid_level << " of " << grid.getLevelCount() << std::endl;
+            // NEON_PY_DBG_COUT << "grid_level out of range in mGrid_get_span LEVEL" << grid_level << " of " << grid.getLevelCount() << std::endl;
         }
         auto& gridSpan = grid(grid_level).getSpan(Neon::ExecutionUtils::fromInt(execution), device, Neon::DataViewUtil::fromInt(data_view));
         (*spanRes) = gridSpan;
-        std::cout << "mGrid_get_span - END" << &gridSpan << std::endl;
+        // NEON_PY_DBG_COUT << "mGrid_get_span - END" << &gridSpan << std::endl;
 
         return 0;
     }
@@ -195,9 +195,9 @@ auto mGrid_mField_new(
 {
     NEON_PY_PRINT_BEGIN(*fieldHandle);
 
-    std::cout << "mGrid_mField_new - BEGIN" << std::endl;
-    std::cout << "mGrid_mField_new - fieldHandle: " << fieldHandle << std::endl;
-    std::cout << "mGrid_mField_new - gridHandle: " << gridHandle << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_new - BEGIN" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_new - fieldHandle: " << fieldHandle << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_new - gridHandle: " << gridHandle << std::endl;
 
     using Grid = Neon::domain::mGrid;
     using Field = Grid::Field<T, 0>;
@@ -208,19 +208,19 @@ auto mGrid_mField_new(
         Field  field = grid.newField<T, 0>("test", cardinality, 0, Neon::DataUse::HOST_DEVICE);
         Field* fieldPtr = new (std::nothrow) Field(field);
         if (fieldPtr == nullptr) {
-            std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
+            // NEON_PY_DBG_COUT << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
             return -1;
         }
 
         // auto partition = fieldPtr->operator()(0).getPartition(Neon::Execution::device, 0, Neon::DataView::INTERNAL);
-        // std::cout << "mGrid_mField_new - partition cardinality " << partition.cardinality() << std::endl;
+        // // NEON_PY_DBG_COUT << "mGrid_mField_new - partition cardinality " << partition.cardinality() << std::endl;
 
         *fieldHandle = fieldPtr;
         NEON_PY_PRINT_END(*fieldHandle);
 
         return 0;
     }
-    std::cout << "mGrid_mField_new - ERROR (grid ptr " << gridPtr << ") " << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_new - ERROR (grid ptr " << gridPtr << ") " << std::endl;
 
     return -1;
 }
@@ -243,8 +243,8 @@ auto mGrid_mField_delete(
     void** handle)
     -> int
 {
-    std::cout << "mGrid_mField_delete - BEGIN" << std::endl;
-    std::cout << "mGrid_mField_delete - handle " << handle << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_delete - BEGIN" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_delete - handle " << handle << std::endl;
 
     using Grid = Neon::domain::mGrid;
     using Field = Grid::Field<T, 0>;
@@ -256,7 +256,7 @@ auto mGrid_mField_delete(
         AllocationCounter::Deallocation();
     }
     *handle = 0;
-    std::cout << "mGrid_mField_delete - END" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_delete - END" << std::endl;
 
     return 0;
 }
@@ -286,12 +286,12 @@ auto mGrid_mField_get_partition(
 {
     NEON_PY_PRINT_BEGIN(field_handle);
 
-    std::cout << "mGrid_mField_get_partition - BEGIN " << std::endl;
-    std::cout << "mGrid_mField_get_partition - field_handle " << field_handle << std::endl;
-    std::cout << "mGrid_mField_get_partition - execution " << Neon::ExecutionUtils::toString(execution) << std::endl;
-    std::cout << "mGrid_mField_get_partition - resolution_level " << resolution_level << std::endl;
-    std::cout << "mGrid_mField_get_partition - device " << device << std::endl;
-    std::cout << "mGrid_mField_get_partition - data_view " << Neon::DataViewUtil::toString(data_view) << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_get_partition - BEGIN " << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_get_partition - field_handle " << field_handle << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_get_partition - execution " << Neon::ExecutionUtils::toString(execution) << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_get_partition - resolution_level " << resolution_level << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_get_partition - device " << device << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_get_partition - data_view " << Neon::DataViewUtil::toString(data_view) << std::endl;
 
     using Grid = Neon::domain::mGrid;
     using Field = Grid::Field<T, 0>;
@@ -307,10 +307,10 @@ auto mGrid_mField_get_partition(
             return -1;
         }
         auto p = (*fieldPtr)(resolution_level).getPartition(execution, device, data_view);
-        std::cout << p.cardinality() << std::endl;
+        // NEON_PY_DBG_COUT << p.cardinality() << std::endl;
         *partitionPtr = p;
 
-        std::cout << "mGrid_mField_get_partition - END" << std::endl;
+        // NEON_PY_DBG_COUT << "mGrid_mField_get_partition - END" << std::endl;
         NEON_PY_PRINT_END(field_handle);
 
         return 0;
@@ -351,16 +351,16 @@ auto mGrid_mField_partition_size(
 //                           const Neon::index_3d* idx)
 //     -> int
 // {
-//     std::cout << "mGrid_get_properties begin" << std::endl;
+//     // NEON_PY_DBG_COUT << "mGrid_get_properties begin" << std::endl;
 //
 //     using Grid = Neon::domain::mGrid;
 //     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
 //     if (grid_level >= gridPtr->getGridCount()) {
-//         std::cout << "grid_level out of range in mGrid_get_properties" << std::endl;
+//         // NEON_PY_DBG_COUT << "grid_level out of range in mGrid_get_properties" << std::endl;
 //     }
 //
 //     int returnValue = int((*gridPtr)(grid_level).getProperties(*idx).getDataView());
-//     std::cout << "mGrid_get_properties end" << std::endl;
+//     // NEON_PY_DBG_COUT << "mGrid_get_properties end" << std::endl;
 //
 //     return returnValue;
 // }
@@ -371,14 +371,14 @@ extern "C" auto mGrid_is_inside_domain(
     const Neon::index_3d* idx)
     -> bool
 {
-    std::cout << "mGrid_is_inside_domain begin" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_is_inside_domain begin" << std::endl;
 
     using Grid = Neon::domain::mGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
 
     bool returnValue = gridPtr->isInsideDomain(*idx, grid_level);
 
-    std::cout << "mGrid_is_inside_domain end" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_is_inside_domain end" << std::endl;
 
     return returnValue;
 }
@@ -391,7 +391,7 @@ auto mGrid_mField_read(
     const int             cardinality)
     -> T
 {
-    std::cout << "mGrid_mField_read begin" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_read begin" << std::endl;
 
     using Grid = Neon::domain::mGrid;
     using Field = Grid::Field<T, 0>;
@@ -404,7 +404,7 @@ auto mGrid_mField_read(
 
     auto returnValue = (*fieldPtr)(*idx, cardinality, resolution_level);
 
-    std::cout << "mGrid_mField_read end" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_read end" << std::endl;
 
     return returnValue;
 }
@@ -433,7 +433,7 @@ auto mGrid_mField_write(
     T                     newValue)
     -> int
 {
-    std::cout << "mGrid_mField_write begin" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_write begin" << std::endl;
 
     using Grid = Neon::domain::mGrid;
     using Field = Grid::Field<T, 0>;
@@ -447,7 +447,7 @@ auto mGrid_mField_write(
 
     fieldPtr->getReference(*idx, cardinality, resolution_level) = newValue;
 
-    std::cout << "mGrid_mField_write end" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_write end" << std::endl;
     return 0;
 }
 
@@ -470,7 +470,7 @@ auto mGrid_mField_update_host_data(
     int   streamSetId)
     -> int
 {
-    std::cout << "mGrid_mField_update_host_data begin" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_update_host_data begin" << std::endl;
 
     using Grid = Neon::domain::mGrid;
     using Field = Grid::Field<T, 0>;
@@ -484,7 +484,7 @@ auto mGrid_mField_update_host_data(
 
     fieldPtr->updateHostData(streamSetId);
 
-    std::cout << "mGrid_mField_update_host_data end" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_update_host_data end" << std::endl;
     return 0;
 }
 
@@ -507,7 +507,7 @@ auto mGrid_mField_update_device_data(
     int   streamSetId)
     -> int
 {
-    std::cout << "mGrid_mField_update_device_data begin" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_update_device_data begin" << std::endl;
 
     using Grid = Neon::domain::mGrid;
     using Field = Grid::Field<T, 0>;
@@ -521,7 +521,7 @@ auto mGrid_mField_update_device_data(
 
     fieldPtr->updateDeviceData(streamSetId);
 
-    std::cout << "mGrid_mField_update_device_data end" << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_update_device_data end" << std::endl;
     return 0;
 }
 
@@ -543,7 +543,7 @@ template <typename T>
 auto mGrid_mField_to_vti(
     void*       fieldHandle,
     const char* fname,
-    const char* fieldName,
+    [[maybe_unused]] const char* fieldName,
     bool        outputLevels,
     bool        outputBlockID,
     bool        outputVoxelID,
@@ -566,7 +566,7 @@ auto mGrid_mField_to_vti(
         std::cout << "invalid field" << std::endl;
         return -1;
     }
-    std::cout << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
     fieldPtr->ioToVtk(fname, outputLevels, outputBlockID, outputVoxelID, filterOverlaps);
     //                      bool               includeDomain = false,
     //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
@@ -599,7 +599,7 @@ template <typename T>
 auto mGrid_mField_to_vti_debug(
     void*       fieldHandle,
     const char* fname,
-    const char* fieldName)
+    [[maybe_unused]] const char* fieldName)
     -> int
 {
 #ifdef NEON_USE_NVTX
@@ -617,7 +617,7 @@ auto mGrid_mField_to_vti_debug(
         std::cout << "invalid field" << std::endl;
         return -1;
     }
-    std::cout << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
+    // NEON_PY_DBG_COUT << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
     fieldPtr->ioToVtk(fname, true, true, true, false);
     //                      bool               includeDomain = false,
     //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
