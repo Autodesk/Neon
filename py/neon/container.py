@@ -73,6 +73,7 @@ class Container:
                 if self.grid_name == 'mGrid':
                     grid_level = container_parser.mres_level
                     # Get the kernel for the device and data view
+                    nvtx.push_range("_get_kernel_mgrid", color="yellow")
                     dev_kernel = self._get_kernel_mgrid(
                         grid_level=grid_level,
                         execution=execution,
@@ -80,6 +81,7 @@ class Container:
                         data_view=neon.DataView.from_int(dw_idx),
                         container_runtime=Container.ContainerRuntime.neon,
                     )
+                    nvtx.pop_range()
                 else:
                     # Get the kernel for the device and data view
                     dev_kernel = self._get_kernel(
@@ -418,50 +420,161 @@ class Container:
         def factory_decorator(loading_lambda_generator):
             @functools.wraps(loading_lambda_generator)
             def container_generator(*args, **kwargs):
-                src = inspect.getsource(loading_lambda_generator)
-                print(f"--- Source of {loading_lambda_generator.__name__} ---")
-                print(src)
-                # 1) Grab the whole source of `fn`
-                src_lines, start_lineno = inspect.getsourcelines(loading_lambda_generator)
-                src = textwrap.dedent(''.join(src_lines))
+                import ast
+                import inspect
+                import textwrap
+                from typing import Callable
 
-                # 2) Parse into an AST
-                module_ast = ast.parse(src)
+                new_line = "\n"
 
-                # 3) Find the AST node for the outer function (e.g. get_AXPY)
-                top_fn = next(
-                    node for node in module_ast.body
-                    if isinstance(node, ast.FunctionDef) and node.name == loading_lambda_generator.__name__
-                )
+                def get_captured_vars_from_ast(func_node: ast.FunctionDef) -> set:
+                    """
+                    Collects free variables in the AST FunctionDef node.
+                    """
 
-                # 4) Walk its body (including nested defs) looking for neon.Loader annotations
-                loader_funcs = []
-                for node in ast.walk(top_fn):
-                    if isinstance(node, ast.FunctionDef):
-                        for arg in node.args.args:
-                            ann = arg.annotation
-                            if (
-                                    isinstance(ann, ast.Attribute)
-                                    and isinstance(ann.value, ast.Name)
-                                    and ann.value.id == 'neon'
-                                    and ann.attr == 'Loader'
-                            ):
-                                loader_funcs.append((node.name, node.lineno))
+                    class NameCollector(ast.NodeVisitor):
+                        def __init__(self):
+                            self.read = set()
+                            self.assigned = set()
+                            self.params = set()
 
-                # 5) Report what you found
-                if loader_funcs:
-                    print(f"Functions in `{fn.__name__}` taking neon.Loader:")
-                    for func_name, lineno in loader_funcs:
-                        print(f"  • {func_name} (defined at line {start_lineno + lineno - 1})")
-                else:
-                    print(f"No nested functions in `{fn.__name__}` take a neon.Loader.")
+                        def visit_FunctionDef(self, node):
+                            for arg in node.args.args:
+                                self.params.add(arg.arg)
+                            self.generic_visit(node)
 
-                print("--- End source ---\n")
-                loading_lambda = loading_lambda_generator(*args, **kwargs)
+                        def visit_Name(self, node):
+                            if isinstance(node.ctx, ast.Load):
+                                self.read.add(node.id)
+                            elif isinstance(node.ctx, ast.Store):
+                                self.assigned.add(node.id)
+
+                    collector = NameCollector()
+                    collector.visit(func_node)
+                    return collector.read - collector.assigned - collector.params
+
+                def generate_full_factory(fn: Callable, kernel_name: str = "kernel") -> str:
+                    """
+                    Generates the loader function source for a given factory function.
+                    """
+                    source = textwrap.dedent(inspect.getsource(fn))
+                    tree = ast.parse(source)
+                    top_fn = tree.body[0]
+
+                    # Locate the inner loader function
+                    axpy_node = next(
+                        (n for n in ast.walk(top_fn)
+                         if isinstance(n, ast.FunctionDef) and n.name != fn.__name__),
+                        None
+                    )
+                    if axpy_node is None:
+                        raise ValueError("No inner loader function found")
+
+                    # Gather statements before @wp.func
+                    pre_lines = []
+                    handles = {}
+                    func_node = None
+                    for stmt in axpy_node.body:
+                        if isinstance(stmt, ast.FunctionDef) and any(
+                                isinstance(d, ast.Attribute) and d.attr == 'func'
+                                for d in stmt.decorator_list
+                        ):
+                            func_node = stmt
+                            break
+                        if (
+                                isinstance(stmt, ast.Assign) and
+                                isinstance(stmt.value, ast.Call) and
+                                isinstance(stmt.value.func, ast.Attribute) and
+                                stmt.value.func.attr in ("get_read_handle", "get_write_handle")
+                        ):
+                            handles[stmt.targets[0].id] = stmt.value.args[0].id
+                        else:
+                            pre_lines.append(source.splitlines()[stmt.lineno - 1].strip())
+
+                    if func_node is None:
+                        raise ValueError("No @wp.func found in loader function")
+
+                    # Extract foo block
+                    lines = source.splitlines()
+                    start = func_node.lineno - 1
+                    end = getattr(func_node, 'end_lineno', start + len(func_node.body))
+                    raw_foo = textwrap.dedent(new_line.join(lines[start:end]))
+                    foo_lines = raw_foo.split(new_line)
+
+                    # Identify captured variables
+                    captured = get_captured_vars_from_ast(func_node)
+
+                    # Build kernel parameters for neon handles
+                    params = []
+                    if handles:
+                        first = next(iter(handles.values()))
+                        params.append(f"span: {first}.get_span_type()")
+                    for var in sorted(captured):
+                        if var in handles:
+                            params.append(f"{var}: {handles[var]}.get_partition_type()")
+
+                    # Assemble code
+                    loader_name = fn.__name__ + "_loading"
+                    out = []
+                    out.append(f"def {loader_name}(loader: neon.Loader):")
+                    for line in pre_lines:
+                        out.append(f"    {line}")
+                    out.append("    @wp.kernel")
+                    out.append("    def kernel(")
+                    for p in params:
+                        out.append(f"        {p},")
+                    if params:
+                        out[-1] = out[-1].rstrip(',')
+                    out.append("    ):")
+                    out.append("        is_active = wp.bool(False)")
+                    out.append("        myIdx = wp.neon_set(span, is_active)")
+                    out.append("        @wp.func")
+                    for i, line in enumerate(foo_lines):
+                        prefix = '        ' if i == 0 else '            '
+                        out.append(f"{prefix}{line}")
+                    out.append("        if is_active:")
+                    out.append(f"            {func_node.name}(myIdx)")
+                    out.append("    loader.declare_warp_kernel_v2(kernel)")
+                    out.append(f"    return {loader_name}")
+
+                    return new_line.join(out)
+
+                def compile_full_factory(*, fn: Callable, factory_args: tuple = (), kernel_name: str = "kernel",
+                                         factory_kwargs: dict = None) -> tuple[Callable, str]:
+                    """
+                    Compiles and returns the generated loader and its source.
+                    """
+                    # Generate source
+                    code_str = generate_full_factory(fn, kernel_name)
+
+                    # Bind factory arguments into globals
+                    sig = inspect.signature(fn)
+                    bound = sig.bind_partial(*factory_args, **(factory_kwargs or {}))
+                    global_ns = fn.__globals__.copy()
+                    for k, v in bound.arguments.items():
+                        global_ns[k] = v
+
+                    # Execute
+                    exec(code_str, global_ns)
+
+                    loader_name = fn.__name__ + "_loading"
+                    return global_ns[loader_name], code_str
+
+
                 local_name = copy.deepcopy(name)
                 if local_name is None:
-                    local_name = f"{loading_lambda.__name__}_neon_container"
-                container = Container(loading_lambda=loading_lambda, name=local_name)
+                    local_name = f"unamed_neon_container"
+                loading_kernel, code_str = compile_full_factory(fn=loading_lambda_generator,
+                                                                factory_args=args,
+                                                                kernel_name="kernel",
+                                                                factory_kwargs=kwargs
+                                                                )
+                print(code_str)
+                l = Loader(execution=neon.Execution,
+                           gpu_id=0,
+                           data_view=neon.DataView.standard())
+                loading_kernel(l)
+                container = Container(loading_kernel=loading_kernel, name=local_name)
                 return container
 
             return container_generator
