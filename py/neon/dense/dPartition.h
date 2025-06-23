@@ -170,4 +170,14 @@ CUDA_CALLABLE inline auto neon_global_idx(
      return globalIdx;
 }
 
+template<typename T>
+CUDA_CALLABLE inline auto neon_shape(
+   NeonDensePartition<T>& p,
+   NeonDenseIdx const & idx)
+     -> Neon::index_3d
+{
+     Neon::index_3d dim = p.dim();
+     return dim;
+}
+
 }
