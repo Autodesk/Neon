@@ -3,3 +3,4 @@ from .mIndex import mIndex
 from .mGrid import mGrid
 from .mField import mField
 from .mSpan import mSpan
+from .mPartition import neon_get_type

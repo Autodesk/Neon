@@ -212,9 +212,3 @@ def register_builtins():
             missing_grad=True,
         )
 
-        wp.context.add_builtin(
-            "neon_shape",
-            input_types={"partition": Partition},
-            value_type=wp.tuple_type([int, int, int]),
-            missing_grad=True,
-        )

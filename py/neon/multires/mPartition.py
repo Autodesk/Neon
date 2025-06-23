@@ -1,4 +1,5 @@
 import ctypes
+import typing
 
 import neon
 import warp as wp
@@ -371,3 +372,27 @@ def register_builtins():
             value_type=None,
             missing_grad=True,
         )
+"""
+NOTE: for now this warp function is just in neon namespace, and not in wp.neon. 
+This will beed to be changed in the future to be consistent with other neon functions.
+"""
+@wp.func
+def neon_get_type(partition: typing.Any):
+    if wp.static(isinstance(partition, mPartition_int8)):
+            return wp.int8
+    elif wp.static(isinstance(partition, mPartition_uint8)):
+            return wp.uint8
+    elif wp.static(isinstance(partition, mPartition_bool)):
+            return wp.bool
+    elif wp.static(isinstance(partition, mPartition_int32)):
+            return wp.int32
+    elif wp.static(isinstance(partition, mPartition_uint32)):
+            return wp.uint32
+    elif wp.static(isinstance(partition, mPartition_int64)):
+            return wp.int64
+    elif wp.static(isinstance(partition, mPartition_uint64)):
+            return wp.uint64
+    elif wp.static(isinstance(partition, mPartition_float32)):
+            return wp.float32
+    elif wp.static(isinstance(partition, mPartition_float64)):
+            return wp.float64
