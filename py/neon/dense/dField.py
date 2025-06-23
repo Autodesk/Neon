@@ -146,6 +146,10 @@ class dField(object):
     def get_grid(self):
         return self.py_grid
 
+    def get_shape(self):
+        dim =  self.get_grid().get_dimensions()
+        return (dim.x, dim.y, dim.z)
+
     def get_partition(self,
                       execution: neon.Execution,
                       c: ctypes.c_int,
@@ -172,6 +176,9 @@ class dField(object):
         #
         # # print(f"Partition {partition}")
         return partition
+
+    def get_partition_type(self):
+        return self.Partition_type
 
     def read(self, idx: neon.Index_3d, cardinality: ctypes.c_int):
         return self.api_read(self.handle,

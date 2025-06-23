@@ -183,6 +183,9 @@ class dGrid(object):
 
         return span
 
+    def get_span_type(self):
+        return dSpan
+
     def get_properties(self, idx: Index_3d):
         return DataView(self.api_get_properties(ctypes.byref(self.grid_handle), idx))
 

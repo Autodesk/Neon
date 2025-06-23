@@ -156,6 +156,10 @@ class mField(object):
     def get_grid(self):
         return self.py_grid
 
+    def get_shape(self):
+        dim =  self.get_grid().get_dimensions()
+        return (dim.x, dim.y, dim.z)
+
     def get_partition(self,
                       level: ctypes.c_int,
                       execution: neon.Execution,

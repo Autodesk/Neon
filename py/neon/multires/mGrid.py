@@ -221,3 +221,6 @@ class mGrid(object):
 
     def get_num_levels(self):
         return self.num_levels
+
+    def get_dimensions(self):
+        return self.dim
