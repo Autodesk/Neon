@@ -18,11 +18,11 @@ mGrid<SBlock>::mGrid(
     [[maybe_unused]] const double_3d&                       origin)
 {
 
-    pid_t pid = getpid();
-    std::cout << "[pid = " << pid << "]" << std::endl;
-    printf("pid v3: %u\n", pid);
-    getchar();
-    std::cout << "[pid = " << pid << "]" << std::endl;
+    // pid_t pid = getpid();
+    // std::cout << "[pid = " << pid << "]" << std::endl;
+    // printf("pid v3: %u\n", pid);
+    // getchar();
+    // std::cout << "[pid = " << pid << "]" << std::endl;
 
     if (backend.devSet().setCardinality() > 1) {
         NeonException exp("mGrid");
