@@ -18,6 +18,12 @@ mGrid<SBlock>::mGrid(
     [[maybe_unused]] const double_3d&                       origin)
 {
 
+    pid_t pid = getpid();
+    std::cout << "[pid = " << pid << "]" << std::endl;
+    printf("pid v3: %u\n", pid);
+    getchar();
+    std::cout << "[pid = " << pid << "]" << std::endl;
+
     if (backend.devSet().setCardinality() > 1) {
         NeonException exp("mGrid");
         exp << "mGrid only supported on a single GPU";
@@ -82,17 +88,22 @@ mGrid<SBlock>::mGrid(
                                       NEON_DIVIDE_UP(domainSize.y, spacing),
                                       NEON_DIVIDE_UP(domainSize.z, spacing));
 
-        std::vector<uint32_t> msk(NEON_DIVIDE_UP(refFactor * refFactor * refFactor * mData->mTotalNumBlocks[i].rMul(), MaskSize),
+        std::vector<uint32_t> msk(NEON_DIVIDE_UP(static_cast<int64_t>(refFactor) *
+                                                     static_cast<int64_t>(refFactor) *
+                                                     static_cast<int64_t>(refFactor) *
+                                                     mData->mTotalNumBlocks[i].template rMulTyped<int64_t>(),
+                                                 static_cast<int64_t>(MaskSize)),
                                   0);
         mData->denseLevelsBitmask.push_back(msk);
     }
 
-    // Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
-    // If a block contain an active voxel, it activates itself as well
-    // This loop only sets the bitmask
+// Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
+// If a block contain an active voxel, it activates itself as well
+// This loop only sets the bitmask
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         const int refFactor = mData->mDescriptor.getRefFactor(l);
 
+        #pragma omp parallel for collapse(3)
         for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
             for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
                 for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
@@ -156,6 +167,7 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
+    std::cout << "Section 1 completed" << std::endl;
 
     // remove a coarse cell is
     if (mData->mCullOverlaps) {
@@ -207,7 +219,8 @@ mGrid<SBlock>::mGrid(
         for (int l = mData->mDescriptor.getDepth() - 1; l > 0; --l) {
             const int refFactor = mData->mDescriptor.getRefFactor(l);
 
-            // for every (user) block in this level
+// for every (user) block in this level
+#pragma omp parallel for collapse(3)
             for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
                 for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
                     for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
@@ -264,6 +277,7 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
+    std::cout << "Section mCullOverlaps completed" << std::endl;
 
     // Impose the strong balance condition
     if (mData->mStrongBalanced) {
@@ -274,7 +288,7 @@ mGrid<SBlock>::mGrid(
             for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
                 const int refFactor = mData->mDescriptor.getRefFactor(l);
                 const int childSpacing = mData->mDescriptor.getSpacing(l - 1);
-
+        #pragma omp parallel for collapse(3)
                 for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
                     for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
                         for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
@@ -357,6 +371,7 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
+    std::cout << "Section strong balance condition completed" << std::endl;
 
 
     mData->grids.resize(mData->mDescriptor.getDepth());
@@ -404,9 +419,9 @@ mGrid<SBlock>::mGrid(
     mData->mParentBlockID.resize(mData->mDescriptor.getDepth() - 1);
     for (int l = 0; l < mData->mDescriptor.getDepth() - 1; ++l) {
         mData->mParentBlockID[l] = backend.devSet().template newMemSet<typename Idx::DataBlockIdx>({Neon::DataUse::HOST_DEVICE},
-                                                                                          1,
-                                                                                          memOptionsAoS,
-                                                                                          mData->grids[l].getBlockViewGrid().getNumActiveCellsPerPartition());
+                                                                                                   1,
+                                                                                                   memOptionsAoS,
+                                                                                                   mData->grids[l].getBlockViewGrid().getNumActiveCellsPerPartition());
     }
 
     // child block ID
@@ -429,9 +444,9 @@ mGrid<SBlock>::mGrid(
     mData->mChildBlockID.resize(mData->mDescriptor.getDepth());
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         mData->mChildBlockID[l] = backend.devSet().template newMemSet<typename Idx::DataBlockIdx>({Neon::DataUse::HOST_DEVICE},
-                                                                                         1,
-                                                                                         memOptionsSoA,
-                                                                                         childAllocSize[l]);
+                                                                                                  1,
+                                                                                                  memOptionsSoA,
+                                                                                                  childAllocSize[l]);
         for (int32_t c = 0; c < childAllocSize[l].cardinality(); ++c) {
             SetIdx devID(c);
             for (size_t i = 0; i < childAllocSize[l][c]; ++i) {
@@ -556,7 +571,6 @@ mGrid<SBlock>::mGrid(
                 }
             }
 
-
             // set the parent info
             if (l < mData->mDescriptor.getDepth() - 1) {
                 Neon::index_3d parentOrigin = mData->mDescriptor.toBaseIndexSpace(mData->mDescriptor.childToParent(blockOrigin, l + 1), l + 2);
@@ -584,23 +598,24 @@ mGrid<SBlock>::mGrid(
         mData->mRefFactors.updateDeviceData(backend, 0);
         mData->mSpacing.updateDeviceData(backend, 0);
     }
+    std::cout << "mGrid End" << std::endl;
 }
 
 template <typename SBlock>
-auto mGrid<SBlock>::levelBitMaskIndex(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> std::pair<int, int>
+auto mGrid<SBlock>::levelBitMaskIndex(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> std::pair<int64_t, int>
 {
     constexpr uint32_t MaskSize = 32;
-    const int          index1D = mData->mDescriptor.flattened1DIndex(blockID, l, mData->mTotalNumBlocks[l], localChild);
-    const int          mask = index1D / MaskSize;
-    const int          bitPosition = index1D % MaskSize;
-    return std::pair<int, int>(mask, bitPosition);
+    const int64_t      index1D = mData->mDescriptor.flattened1DIndex(blockID, l, mData->mTotalNumBlocks[l], localChild);
+    const int64_t      mask = index1D / MaskSize;
+    const int          bitPosition = static_cast<int32_t>(index1D % MaskSize);
+    return std::pair<int64_t, int>(mask, bitPosition);
 };
 
 template <typename SBlock>
 auto mGrid<SBlock>::levelBitMaskIsSet(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> bool
 {
     auto id = levelBitMaskIndex(l, blockID, localChild);
-    return mData->denseLevelsBitmask[l][id.first] & (1 << id.second);
+    return mData->denseLevelsBitmask.at(l).at(id.first) & (1 << id.second);
 };
 
 
@@ -608,14 +623,14 @@ template <typename SBlock>
 auto mGrid<SBlock>::setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void
 {
     auto id = levelBitMaskIndex(l, blockID, localChild);
-    mData->denseLevelsBitmask[l][id.first] |= (1 << id.second);
+    mData->denseLevelsBitmask.at(l).at(id.first) |= (1 << id.second);
 };
 
 template <typename SBlock>
 auto mGrid<SBlock>::clearLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void
 {
     auto id = levelBitMaskIndex(l, blockID, localChild);
-    mData->denseLevelsBitmask[l][id.first] &= ~(1 << id.second);
+    mData->denseLevelsBitmask.at(l).at(id.first) &= ~(1 << id.second);
 };
 template <typename SBlock>
 auto mGrid<SBlock>::isInsideDomain(const Neon::index_3d& idx, int level) const -> bool

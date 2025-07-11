@@ -183,7 +183,7 @@ class mGrid
 
    private:
     // check if the bitmask is set assuming a dense domain
-    auto levelBitMaskIndex(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> std::pair<int, int>;
+    auto levelBitMaskIndex(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> std::pair<int64_t, int>;
 
     auto levelBitMaskIsSet(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> bool;
 
