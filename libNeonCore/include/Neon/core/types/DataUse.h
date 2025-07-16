@@ -17,7 +17,7 @@ namespace Neon {
  * HOST_DEVICE: both for IO_POSTPROCESSING and COMPUTE
  *
  */
-enum struct DataUse
+enum struct DataUse : char
 {
     HOST_DEVICE = 0,
     DEVICE = 1,
@@ -35,6 +35,10 @@ struct DataUseUtils
      * @return
      */
     static auto toString(Neon::DataUse option) -> const char*;
+
+    static auto fromInt(int val) -> DataUse;
+
+    static auto toInt(DataUse dataView) -> int;
 };
 
 /**

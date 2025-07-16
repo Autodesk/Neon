@@ -78,6 +78,8 @@ class SpanLayout
         Neon::int32_3d const& point)
         const -> std::pair<bool, int32_t>;
 
+    auto getPointOffset(const int32_3d& point) const -> std::tuple<bool, int32_t, int32_t, Neon::DataView>;
+
     auto findPossiblyLocalPointOffset(
         SetIdx          setIdx,
         const int32_3d& point)

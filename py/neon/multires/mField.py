@@ -8,6 +8,7 @@ class mField(object):
                  neon_gate: neon.Gate,
                  grid_handle: ctypes.c_void_p,
                  cardinality: ctypes.c_int,
+                 data_use:neon.DataUse,
                  dtype,
                  py_grid,
                  ):
@@ -20,6 +21,7 @@ class mField(object):
         self.handle: ctypes.c_uint64 = ctypes.c_void_p(0)
         self.grid_handle = grid_handle
         self.cardinality = ctypes.c_int(cardinality)
+        self.data_use = data_use
         self.py_grid = py_grid
         self._set_field_type()
         self._help_load_api()
@@ -42,7 +44,8 @@ class mField(object):
         self.api_new = getattr(lib_obj, f'mGrid_mField_new{self.suffix}')
         self.api_new.argtypes = [ctypes.POINTER(self.handle_type),
                                  self.handle_type,
-                                 ctypes.c_int]
+                                 ctypes.c_int,
+                                 neon.DataUse]
         self.api_new.restype = ctypes.c_int
 
         # ---------------------------------------------------------------------
@@ -142,7 +145,8 @@ class mField(object):
 
         res = self.api_new(ctypes.pointer(self.handle),
                            self.grid_handle,
-                           self.cardinality)
+                           self.cardinality,
+                           self.data_use)
         if res != 0:
             raise Exception('bGrid: Failed to initialize field')
 

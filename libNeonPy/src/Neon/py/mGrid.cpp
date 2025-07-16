@@ -190,7 +190,8 @@ template <typename T>
 auto mGrid_mField_new(
     void** fieldHandle,
     void*  gridHandle,
-    int    cardinality)
+    int    cardinality,
+    Neon::DataUse    dataUse)
     -> int
 {
     NEON_PY_PRINT_BEGIN(*fieldHandle);
@@ -205,7 +206,7 @@ auto mGrid_mField_new(
     Grid& grid = *gridPtr;
 
     if (gridPtr != nullptr) {
-        Field  field = grid.newField<T, 0>("test", cardinality, 0, Neon::DataUse::HOST_DEVICE);
+        Field  field = grid.newField<T, 0>("test", cardinality, 0, dataUse);
         Field* fieldPtr = new (std::nothrow) Field(field);
         if (fieldPtr == nullptr) {
             // NEON_PY_DBG_COUT << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
@@ -225,18 +226,18 @@ auto mGrid_mField_new(
     return -1;
 }
 
-DO_EXPORT(int8, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
-DO_EXPORT(uint8, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
-DO_EXPORT(bool, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(int8, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
+DO_EXPORT(uint8, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
+DO_EXPORT(bool, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
 
-DO_EXPORT(int32, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
-DO_EXPORT(uint32, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(int32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
+DO_EXPORT(uint32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
 
-DO_EXPORT(int64, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
-DO_EXPORT(uint64, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(int64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
+DO_EXPORT(uint64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
 
-DO_EXPORT(float32, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
-DO_EXPORT(float64, 3, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality);
+DO_EXPORT(float32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
+DO_EXPORT(float64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
 
 template <typename T>
 auto mGrid_mField_delete(
@@ -541,13 +542,13 @@ DO_EXPORT(float64, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, 
 
 template <typename T>
 auto mGrid_mField_to_vti(
-    void*       fieldHandle,
-    const char* fname,
+    void*                        fieldHandle,
+    const char*                  fname,
     [[maybe_unused]] const char* fieldName,
-    bool        outputLevels,
-    bool        outputBlockID,
-    bool        outputVoxelID,
-    bool        filterOverlaps)
+    bool                         outputLevels,
+    bool                         outputBlockID,
+    bool                         outputVoxelID,
+    bool                         filterOverlaps)
     -> int
 {
 
@@ -597,8 +598,8 @@ DO_EXPORT(float64, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*,
 
 template <typename T>
 auto mGrid_mField_to_vti_debug(
-    void*       fieldHandle,
-    const char* fname,
+    void*                        fieldHandle,
+    const char*                  fname,
     [[maybe_unused]] const char* fieldName)
     -> int
 {

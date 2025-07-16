@@ -189,6 +189,30 @@ auto SpanLayout::getLocalPointOffset(
     return {false, -1};
 }
 
+auto SpanLayout::getPointOffset(
+    const int32_3d& point) const -> std::tuple<bool, int32_t, int32_t, Neon::DataView>
+{
+    for (int i = 0; i < mCountXpu; i++) {
+        auto setIdx = Neon::SetIdx(i);
+        auto findings = findPossiblyLocalPointOffset(setIdx, point);
+        auto [isValid, index1D, byPartition, byDirection, byDomain] = findings;
+
+        if (isValid) {
+            auto classificationOffset = getClassificationOffset(setIdx,
+                                                                byPartition,
+                                                                byDirection,
+                                                                byDomain);
+            return {true,
+                    setIdx.idx(),
+                    std::get<1>(findings) + classificationOffset,
+                    byPartition == Neon::domain::tool::partitioning::ByPartition::boundary
+                        ? Neon::DataView::BOUNDARY
+                        : Neon::DataView::INTERNAL};
+        }
+    }
+    return {false, -1, -1, Neon::DataView::STANDARD};
+}
+
 
 auto SpanLayout::findPossiblyLocalPointOffset(
     SetIdx          setIdx,

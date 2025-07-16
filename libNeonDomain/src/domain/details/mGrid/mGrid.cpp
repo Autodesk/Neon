@@ -97,13 +97,13 @@ mGrid<SBlock>::mGrid(
         mData->denseLevelsBitmask.push_back(msk);
     }
 
-// Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
-// If a block contain an active voxel, it activates itself as well
-// This loop only sets the bitmask
+    // Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
+    // If a block contain an active voxel, it activates itself as well
+    // This loop only sets the bitmask
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         const int refFactor = mData->mDescriptor.getRefFactor(l);
 
-        #pragma omp parallel for collapse(3)
+#pragma omp parallel for collapse(3)
         for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
             for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
                 for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
@@ -288,7 +288,7 @@ mGrid<SBlock>::mGrid(
             for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
                 const int refFactor = mData->mDescriptor.getRefFactor(l);
                 const int childSpacing = mData->mDescriptor.getSpacing(l - 1);
-        #pragma omp parallel for collapse(3)
+#pragma omp parallel for collapse(3)
                 for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
                     for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
                         for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
@@ -375,7 +375,9 @@ mGrid<SBlock>::mGrid(
 
 
     mData->grids.resize(mData->mDescriptor.getDepth());
-    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
+    int const num_levels = mData->mDescriptor.getDepth();
+
+    for (int l = 0; l < num_levels; ++l) {
 
         int blockSize = mData->mDescriptor.getRefFactor(l);
         int voxelSpacing = mData->mDescriptor.getSpacing(l - 1);
@@ -383,7 +385,7 @@ mGrid<SBlock>::mGrid(
         Neon::int32_3d levelDomainSize(mData->mTotalNumBlocks[l].x * blockSize,
                                        mData->mTotalNumBlocks[l].y * blockSize,
                                        mData->mTotalNumBlocks[l].z * blockSize);
-
+        std::cout << "Building Grid" << std::endl;
         mData->grids[l] =
             InternalGrid(
                 backend,
@@ -401,6 +403,7 @@ mGrid<SBlock>::mGrid(
                 voxelSpacing,
                 spacingData,
                 origin);
+        std::cout << "Grid is up" << std::endl;
     }
 
     Neon::MemoryOptions memOptionsAoS(Neon::DeviceType::CPU,
@@ -493,7 +496,7 @@ mGrid<SBlock>::mGrid(
         int       voxelSpacing = mData->mDescriptor.getSpacing(l - 1);
 
 
-        mData->grids[l].helpGetPartitioner1D().forEachSeq(devID, [&](int blockIdx, Neon::index_3d memBlockOrigin, auto /*byPartition*/) {
+        mData->grids[l].helpGetPartitioner1D().forEachPar(devID, [&](int blockIdx, Neon::index_3d memBlockOrigin, auto /*byPartition*/) {
             Neon::index_3d blockOrigin = memBlockOrigin;
             blockOrigin.x *= SBlock::memBlockSizeX * voxelSpacing;
             blockOrigin.y *= SBlock::memBlockSizeY * voxelSpacing;

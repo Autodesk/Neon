@@ -4,7 +4,7 @@ import numpy as np
 from typing import List
 
 import neon
-from neon.dataview import DataView
+from neon.dataView import DataView
 from neon.execution import Execution
 from neon.index_3d import Index_3d
 from .dField import dField

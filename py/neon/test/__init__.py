@@ -3,7 +3,7 @@ import ctypes
 from enum import Enum
 
 from ..py_ne import Py_neon
-from ..dataview import DataView
+from ..dataView import DataView
 from ..execution import Execution
 from ..index_3d import Index_3d
 

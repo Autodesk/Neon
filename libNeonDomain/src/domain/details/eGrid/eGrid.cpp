@@ -32,12 +32,10 @@ eGrid::eGrid(const Backend&                     backend,
 
 
     mData->partitioner1D = partitioner;
-
     mData->mConnectivityAField = mData->partitioner1D.getConnectivity();
     mData->mGlobalMappingAField = mData->partitioner1D.getGlobalMapping();
     mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
     mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
-    // mData->partitioner1D.getDenseMeta(mData->denseMeta);
 
     const int32_t numDevices = getBackend().devSet().setCardinality();
 

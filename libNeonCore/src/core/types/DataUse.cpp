@@ -26,6 +26,32 @@ auto DataUseUtils::toString(Neon::DataUse option) -> const char*
     }
 }
 
+
+auto DataUseUtils::fromInt(int val) -> DataUse
+{
+    switch (val) {
+        case static_cast<int>(DataUse::HOST_DEVICE): {
+            return DataUse::HOST_DEVICE;
+        }
+        case static_cast<int>(DataUse::DEVICE): {
+            return DataUse::DEVICE;
+
+            case static_cast<int>(DataUse::HOST): {
+                return DataUse::HOST;
+            }
+            default: {
+                NEON_THROW_UNSUPPORTED_OPTION("DataViewUtil");
+            }
+        }
+    }
+}
+
+auto DataUseUtils::toInt(DataUse dataUse) -> int
+{
+    return static_cast<int>(dataUse);
+}
+
+
 std::ostream& operator<<(std::ostream& os, Neon::DataUse const& m)
 {
     return os << std::string(Neon::DataUseUtils::toString(m));

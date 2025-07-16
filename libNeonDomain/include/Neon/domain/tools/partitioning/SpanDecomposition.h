@@ -60,7 +60,7 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
                                      const Block3dIdxToBlockOrigin& block3dIdxToBlockOrigin,
                                      const GetVoxelAbsolute3DIdx&   getVoxelAbsolute3DIdx,
                                      const Neon::int32_3d&          block3DSpan,
-                                     const Neon::int32_3d&                 blockSize,
+                                     const Neon::int32_3d&          blockSize,
                                      const Neon::int32_3d&          domainSize,
                                      const int&                     discreteVoxelSpacing)
 {

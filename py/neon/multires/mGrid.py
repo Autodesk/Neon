@@ -3,7 +3,7 @@ import ctypes
 import neon
 from .mField import mField
 from neon.execution import Execution
-from neon.dataview import DataView
+from neon.dataView import DataView
 from ..block.bSpan import bSpan
 from neon.index_3d import Index_3d
 import numpy as np
@@ -171,10 +171,12 @@ class mGrid(object):
 
     def new_field(self,
                   cardinality: ctypes.c_int,
-                  dtype) -> mField:
+                  dtype,
+                  data_use:neon.DataUse) -> mField:
         field = mField(neon_gate=self.neon_gate,
                        grid_handle=self.handle,
                        cardinality=cardinality,
+                       data_use=data_use,
                        py_grid=self,
                        dtype=dtype
                        )

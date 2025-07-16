@@ -171,7 +171,7 @@ void launchLambdaOnSpanOMP(const Neon::Integer_3d<IndexType>& blockSize,
 {
 
     if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1b3) {
-        // #pragma omp parallel for schedule(guided)
+        #pragma omp parallel for
         for (IndexType bIdx = 0; bIdx < blockGridSize.x; bIdx++) {
             for (IndexType z = 0; z < blockSize.z; z++) {
                 for (IndexType y = 0; y < blockSize.y; y++) {

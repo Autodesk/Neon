@@ -28,7 +28,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
                      Neon::domain::tool::spaceCurves::EncoderType encoderType)
 {
 
-
+    NEON_TRACE("bGrid initialization" , "Begin");
     mData = std::make_shared<Data>();
     mData->init(backend);
 
@@ -60,6 +60,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
     }
 
     {  // Initialization of the partitioner
+        NEON_TRACE("Building bGrid - Partitioner" , "Begin");
 
         mData->partitioner1D = Neon::domain::tool::Partitioner1D(
             backend,
@@ -70,13 +71,15 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
             Neon::domain::Stencil::s27_t(false),
             encoderType,
             multiResDiscreteIdxSpacing);
-
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();
         mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
         mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
+
     }
 
     {  // BlockViewGrid
+        NEON_INFO("Building bGrid - BlockViewGrid" , "Begin");
+
         Neon::domain::details::eGrid::eGrid egrid(
             backend,
             mData->partitioner1D.getBlockSpan(),
@@ -256,6 +259,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
             });
         });
     }
+    NEON_TRACE("bGrid initialized" , "End");
 }
 
 template <typename SBlock>
@@ -309,11 +313,11 @@ auto bGrid<SBlock>::newContainer(const std::string& name,
 {
     const Neon::index_3d& defaultBlockSize = this->getDefaultBlock();
     Neon::set::Container  kContainer = Neon::set::Container::factory<execution>(name,
-                                                                               Neon::set::internal::ContainerAPI::DataViewSupport::on,
-                                                                               *this,
-                                                                               lambda,
-                                                                               defaultBlockSize,
-                                                                               [](const Neon::index_3d&) { return 0; });
+                                                                                Neon::set::internal::ContainerAPI::DataViewSupport::on,
+                                                                                *this,
+                                                                                lambda,
+                                                                                defaultBlockSize,
+                                                                                [](const Neon::index_3d&) { return 0; });
     return kContainer;
 }
 

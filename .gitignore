@@ -69,3 +69,5 @@ py/tests/Neon.log
 *.dot
 
 *.vtk
+
+py/neon/.idea/
