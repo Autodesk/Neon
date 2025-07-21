@@ -35,7 +35,8 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
         : m_cudaDriver(cuda_driver),
           m_gridPtr(grid),
           m_backendPtr(cuda_driver->get_bk_prt()),
-          m_execution(execution)
+          m_execution(execution),
+          python_name(name)
     {
         this->setName(name);
 
@@ -70,6 +71,14 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
                  DataView::STANDARD,
                  DataView::BOUNDARY,
                  DataView::INTERNAL}) {
+            Neon::set::LaunchParameters lp = grid.getLaunchParameters(dw, blockSize, sharedMem);
+            if (dw == DataView::STANDARD) {
+                if (lp[0].domainGrid().x == 0 && lp[0].domainGrid().y == 0 && lp[0].domainGrid().z == 0) {
+                    NeonException exp("initLaunchParameters");
+                    exp << "Detected a grid with size zero " << lp[0].domainGrid();
+                    NEON_THROW(exp);
+                }
+            }
             this->setLaunchParameters(dw) = grid.getLaunchParameters(dw, blockSize, sharedMem);
         }
     }
@@ -212,6 +221,7 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
     Neon::Backend*             m_backendPtr;
     Neon::Execution            m_execution;
     Neon::set::DataSet<kernel> m_kernels[Neon::DataViewUtil::nConfig];
+    std::string                python_name;
 };
 
 template <typename Grid>
