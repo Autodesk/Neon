@@ -172,11 +172,11 @@ class mGrid(object):
     def new_field(self,
                   cardinality: ctypes.c_int,
                   dtype,
-                  data_use:neon.DataUse) -> mField:
+                  memory_type: neon.MemoryType) -> mField:
         field = mField(neon_gate=self.neon_gate,
                        grid_handle=self.handle,
                        cardinality=cardinality,
-                       data_use=data_use,
+                       memory_type=memory_type,
                        py_grid=self,
                        dtype=dtype
                        )

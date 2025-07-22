@@ -749,6 +749,20 @@ auto mGrid<SBlock>::getBackend() -> Backend&
 {
     return mData->backend;
 }
+template <typename SBlock>
+
+auto mGrid<SBlock>::toString() const -> std::string
+{
+    std::stringstream ss;
+    ss<<"mGrid (level count:"<<getLevelCount()<<")";
+    for (int l=0; l<static_cast<int>(getLevelCount()); l++) {
+        auto& bGrid = this->operator()(l);
+        ss << "---\n";
+        ss << bGrid.toString()<<"\n";
+    }
+    return ss.str();
+}
+
 
 }  // namespace Neon::domain::details::mGrid
 

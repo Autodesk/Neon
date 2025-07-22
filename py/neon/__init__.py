@@ -7,7 +7,7 @@ import warp as wp
 # from .py_ne import neon
 from .gate import Gate
 from .dataView import DataView
-from .dataUse import DataUse
+from .memoryType import MemoryType
 from .execution import Execution
 from .index_3d import Index_3d
 from .ngh_idx import Ngh_idx

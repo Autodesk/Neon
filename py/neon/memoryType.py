@@ -2,7 +2,7 @@ import ctypes
 from enum import Enum
 
 
-class DataUse(ctypes.Structure):
+class MemoryType(ctypes.Structure):
     _fields_ = [("data_use", ctypes.c_char)]
 
     class Values(Enum):
@@ -11,12 +11,12 @@ class DataUse(ctypes.Structure):
         HOST = 2
 
 
-    def __init__(self, data_use: 'DataUse.Values'):
-        if data_use == DataUse.Values.HOST_DEVICE:
+    def __init__(self, data_use: 'MemoryType.Values'):
+        if data_use == MemoryType.Values.HOST_DEVICE:
             self.data_use = ctypes.c_char(b'\x00')
-        elif data_use == DataUse.Values.DEVICE:
+        elif data_use == MemoryType.Values.DEVICE:
             self.data_use = ctypes.c_char(b'\x01')
-        elif data_use == DataUse.Values.HOST:
+        elif data_use == MemoryType.Values.HOST:
             self.data_use = ctypes.c_char(b'\x02')
 
     def __str__(self):
@@ -39,30 +39,30 @@ class DataUse(ctypes.Structure):
 
     @staticmethod
     def host_device():
-        return DataUse(DataUse.Values.HOST_DEVICE)
+        return MemoryType(MemoryType.Values.HOST_DEVICE)
 
     @staticmethod
     def device():
-        return DataUse(DataUse.Values.DEVICE)
+        return MemoryType(MemoryType.Values.DEVICE)
 
     @staticmethod
     def host():
-        return DataUse(DataUse.Values.HOST_DEVICE)
+        return MemoryType(MemoryType.Values.HOST_DEVICE)
 
     @staticmethod
     def from_int(v: int):
         if v == 0:
-            return DataUse(DataUse.Values.HOST_DEVICE)
+            return MemoryType(MemoryType.Values.HOST_DEVICE)
         if v == 1:
-            return DataUse(DataUse.Values.DEVICE)
+            return MemoryType(MemoryType.Values.DEVICE)
         if v == 2:
-            return DataUse(DataUse.Values.HOST)
+            return MemoryType(MemoryType.Values.HOST)
         # rise exeption
         raise Exception('Invalid DataUse value')
 
 
     def __eq__(self, other):
-        if not isinstance(other, DataUse):
+        if not isinstance(other, MemoryType):
             return NotImplemented
         return self.data_use == other.data_use
 

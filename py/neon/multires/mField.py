@@ -2,13 +2,12 @@ import ctypes
 import neon
 import neon.multires.mPartition
 
-
 class mField(object):
     def __init__(self,
                  neon_gate: neon.Gate,
                  grid_handle: ctypes.c_void_p,
                  cardinality: ctypes.c_int,
-                 data_use:neon.DataUse,
+                 memory_type:neon.MemoryType,
                  dtype,
                  py_grid,
                  ):
@@ -21,7 +20,7 @@ class mField(object):
         self.handle: ctypes.c_uint64 = ctypes.c_void_p(0)
         self.grid_handle = grid_handle
         self.cardinality = ctypes.c_int(cardinality)
-        self.data_use = data_use
+        self.memory_type = memory_type
         self.py_grid = py_grid
         self._set_field_type()
         self._help_load_api()
@@ -45,7 +44,7 @@ class mField(object):
         self.api_new.argtypes = [ctypes.POINTER(self.handle_type),
                                  self.handle_type,
                                  ctypes.c_int,
-                                 neon.DataUse]
+                                 neon.MemoryType]
         self.api_new.restype = ctypes.c_int
 
         # ---------------------------------------------------------------------
@@ -146,7 +145,7 @@ class mField(object):
         res = self.api_new(ctypes.pointer(self.handle),
                            self.grid_handle,
                            self.cardinality,
-                           self.data_use)
+                           self.memory_type)
         if res != 0:
             raise Exception('bGrid: Failed to initialize field')
 

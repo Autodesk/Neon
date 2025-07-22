@@ -180,6 +180,8 @@ class mGrid
     auto getBackend() const -> const Backend&;
     auto getBackend() -> Backend&;
 
+    auto toString() const ->  std::string;
+
 
    private:
     // check if the bitmask is set assuming a dense domain

@@ -152,6 +152,16 @@ extern "C" auto mGrid_get_dimensions(
     return 0;
 }
 
+extern "C" auto mGrid_print_to_string(
+    void*                      gridHandle)
+    -> int
+{
+    using Grid = Neon::domain::mGrid;
+    Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
+    Grid& grid = *gridPtr;
+    std::cout << grid.toString() << std::endl;
+    return 0;
+}
 extern "C" auto mGrid_get_span(
     void*                      gridHandle,
     int32_t                    grid_level,
@@ -188,10 +198,10 @@ extern "C" auto mGrid_get_span(
 
 template <typename T>
 auto mGrid_mField_new(
-    void** fieldHandle,
-    void*  gridHandle,
-    int    cardinality,
-    Neon::DataUse    dataUse)
+    void**        fieldHandle,
+    void*         gridHandle,
+    int           cardinality,
+    Neon::DataUse dataUse)
     -> int
 {
     NEON_PY_PRINT_BEGIN(*fieldHandle);
@@ -226,18 +236,18 @@ auto mGrid_mField_new(
     return -1;
 }
 
-DO_EXPORT(int8, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
-DO_EXPORT(uint8, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
-DO_EXPORT(bool, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
+DO_EXPORT(int8, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
+DO_EXPORT(uint8, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
+DO_EXPORT(bool, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
 
-DO_EXPORT(int32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
-DO_EXPORT(uint32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
+DO_EXPORT(int32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
+DO_EXPORT(uint32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
 
-DO_EXPORT(int64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
-DO_EXPORT(uint64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
+DO_EXPORT(int64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
+DO_EXPORT(uint64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
 
-DO_EXPORT(float32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
-DO_EXPORT(float64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse ,dataUse);
+DO_EXPORT(float32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
+DO_EXPORT(float64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
 
 template <typename T>
 auto mGrid_mField_delete(
