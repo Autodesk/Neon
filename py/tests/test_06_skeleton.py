@@ -21,12 +21,13 @@ def get_solver_operator_container(field):
         @wp.func
         def foo(idx: typing.Any):
             wp.neon_print(idx)
+            global_idx = wp.neon_global_idx(f_read, idx)
             # wp.neon_print(f_read)
             value = wp.neon_read(f_read, idx, 0)
             value = (value +
-                     wp.neon_get_x(idx) +
-                     wp.neon_get_y(idx) +
-                     wp.neon_get_z(idx))
+                     wp.neon_get_x(global_idx) +
+                     wp.neon_get_y(global_idx) +
+                     wp.neon_get_z(global_idx))
             wp.print(value)
 
             # value = value + int(idx.x)
@@ -63,9 +64,9 @@ def test_container_int():
     neon.init()
 
     bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
-                    dev_idx_list=[0])
+                    dev_idx_list=[0,1])
 
-    dim = Index_3d(1, 1, 3)
+    dim = Index_3d(10, 10, 6)
     grid = neon.dense.dGrid(bk, dim)
     field = grid.new_field(cardinality=1, dtype=wp.int32)
 
@@ -101,7 +102,7 @@ def test_container_int():
 
     field.update_host(0)
     wp.synchronize()
-
+    error_detected = False
     for z in range(0, dim.z):
         for y in range(0, dim.y):
             for x in range(0, dim.x):
@@ -112,9 +113,15 @@ def test_container_int():
                 different = (newValue * 2) - newValueRead
                 if different != 0:
                     print(f"Error: {newValue} != {newValueRead}, {different}")
+                    error_detected = True
+                else:
+                    print(f"Success: {newValue} == {newValueRead}")
 
     pass
-
+    if error_detected:
+        raise Exception("Test failed: some values were not updated correctly")
+    else:
+        print("Test passed: all values were updated correctly")
 
 if __name__ == "__main__":
     test_container_int()
