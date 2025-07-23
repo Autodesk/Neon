@@ -83,6 +83,10 @@ class mGrid(object):
                                       ]
         self.api_get_span.restype = ctypes.c_int
 
+        self.api_print_to_string = lib.mGrid_print_to_string
+        self.api_print_to_string.argtypes = [self.handle_type]
+        self.api_print_to_string.restype = ctypes.c_int
+
         self.api_is_inside_domain = lib.mGrid_is_inside_domain
         self.api_is_inside_domain.argtypes = [self.handle_type,
                                               ctypes.c_int,
@@ -226,3 +230,9 @@ class mGrid(object):
 
     def get_dimensions(self):
         return self.dim
+
+    def print_info(self):
+        res = self.api_print_to_string(self.handle)
+        if res != 0:
+            raise Exception('mGrid: Failed to print grid info')
+        return res
