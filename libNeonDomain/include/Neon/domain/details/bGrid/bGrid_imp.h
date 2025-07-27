@@ -28,7 +28,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
                      Neon::domain::tool::spaceCurves::EncoderType encoderType)
 {
 
-    NEON_TRACE("bGrid initialization" , "Begin");
+    NEON_TRACE("bGrid initialization", "Begin");
     mData = std::make_shared<Data>();
     mData->init(backend);
 
@@ -60,7 +60,12 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
     }
 
     {  // Initialization of the partitioner
-        NEON_TRACE("Building bGrid - Partitioner" , "Begin");
+        std::stringstream gridNameStreamString;
+        gridNameStreamString << "Building bGrid [(block " << SBlock::memBlockSizeX << " x "
+                 << SBlock::memBlockSizeY << " x "
+                 << SBlock::memBlockSizeZ << ") level " << mData->mMultiResDiscreteIdxSpacing << "]";
+        NEON_TRACE("bGrid", gridNameStreamString.str());
+        NEON_TRACE("Building bGrid - Partitioner", "Begin");
 
         mData->partitioner1D = Neon::domain::tool::Partitioner1D(
             backend,
@@ -74,11 +79,10 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();
         mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
         mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
-
     }
 
     {  // BlockViewGrid
-        NEON_INFO("Building bGrid - BlockViewGrid" , "Begin");
+        NEON_INFO("Building bGrid - BlockViewGrid", "Begin");
 
         Neon::domain::details::eGrid::eGrid egrid(
             backend,
@@ -259,7 +263,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
             });
         });
     }
-    NEON_TRACE("bGrid initialized" , "End");
+    NEON_TRACE("bGrid initialized", "End");
 }
 
 template <typename SBlock>

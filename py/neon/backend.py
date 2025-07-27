@@ -76,12 +76,15 @@ class Backend(object):
         # ------------------------------------------------------------------
 
         # ------------------------------------------------------------------
-        # cuda_driver_delete
+        # backend_sync
         self.api_sync = lib_obj.backend_sync
         self.api_sync.argtypes = [self.neon_gate.handle_type]
         self.api_sync.restype = ctypes.c_int
         # ------------------------------------------------------------------
-
+        # cuda_driver_delete
+        self.api_info_print = lib_obj.backend_info_print
+        self.api_info_print.argtypes = [self.neon_gate.handle_type]
+        self.api_info_print.restype = ctypes.c_int
         # TODOMATT get num devices
         # TODOMATT get device type
 
@@ -153,3 +156,6 @@ class Backend(object):
         else:
             dev_id = self.dev_idx_list[dev_idx]
             return f"cpu:{dev_id}"
+
+    def info_print(self):
+        self.api_info_print(self.backend_handle)

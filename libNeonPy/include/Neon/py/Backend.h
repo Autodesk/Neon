@@ -22,3 +22,5 @@ extern "C" auto backend_delete(
 extern "C" auto backend_get_string(void* handle) -> const char*;
 
 extern "C" auto backend_sync(void* handle) -> int;
+
+extern "C" auto backend_info_print(void* handle) -> int;
