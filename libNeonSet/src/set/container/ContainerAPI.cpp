@@ -107,7 +107,7 @@ auto ContainerAPI::
         }
         listOfTokes << token.toString();
     }
-    NEON_INFO("Container {}: tokens = [{}]", uid, listOfTokes.str());
+    NEON_INFO("ContainerAPI", "{}: tokens = [{}]", uid, listOfTokes.str());
 }
 
 auto ContainerAPI::
@@ -197,7 +197,7 @@ auto ContainerAPI::
     NEON_THROW(exp);
 }
 
-    auto ContainerAPI::
+auto ContainerAPI::
     getWarpContainer()
         -> std::shared_ptr<ContainerAPI>
 {

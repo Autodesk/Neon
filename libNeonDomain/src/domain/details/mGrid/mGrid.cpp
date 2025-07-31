@@ -17,6 +17,10 @@ mGrid<SBlock>::mGrid(
     [[maybe_unused]] const double_3d&                       spacingData,
     [[maybe_unused]] const double_3d&                       origin)
 {
+    Neon::TimerManagerSec mgridTimeTracker;
+    mgridTimeTracker.start("mGrid");
+    NEON_TRACE("mGrid", "Begin");
+
 
     // pid_t pid = getpid();
     // std::cout << "[pid = " << pid << "]" << std::endl;
@@ -97,6 +101,7 @@ mGrid<SBlock>::mGrid(
         mData->denseLevelsBitmask.push_back(msk);
     }
 
+    mgridTimeTracker.start("Bitmask creation");
     // Each block loops over its voxels and check the lambda function and activate its voxels correspondingly
     // If a block contain an active voxel, it activates itself as well
     // This loop only sets the bitmask
@@ -167,8 +172,9 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
-    std::cout << "Section 1 completed" << std::endl;
+    NEON_TRACE("mGrid", "Bitmask creation: {} sec", mgridTimeTracker.stop("Bitmask creation"));
 
+    mgridTimeTracker.start("Cull Overlaps");
     // remove a coarse cell is
     if (mData->mCullOverlaps) {
 
@@ -277,7 +283,9 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
-    std::cout << "Section mCullOverlaps completed" << std::endl;
+
+    NEON_TRACE("mGrid", "Cull Overlaps: {} sec", mgridTimeTracker.stop("Cull Overlaps"));
+    mgridTimeTracker.start("Strong Balance");
 
     // Impose the strong balance condition
     if (mData->mStrongBalanced) {
@@ -371,12 +379,12 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
-    std::cout << "Section strong balance condition completed" << std::endl;
 
+    NEON_TRACE("mGrid", "Strong Balance: {} sec", mgridTimeTracker.stop("Strong Balance"));
+    mgridTimeTracker.start("bGrid initialization");
 
     mData->grids.resize(mData->mDescriptor.getDepth());
     int const num_levels = mData->mDescriptor.getDepth();
-
     for (int l = 0; l < num_levels; ++l) {
 
         int blockSize = mData->mDescriptor.getRefFactor(l);
@@ -385,7 +393,6 @@ mGrid<SBlock>::mGrid(
         Neon::int32_3d levelDomainSize(mData->mTotalNumBlocks[l].x * blockSize,
                                        mData->mTotalNumBlocks[l].y * blockSize,
                                        mData->mTotalNumBlocks[l].z * blockSize);
-        std::cout << "Building Grid" << std::endl;
         mData->grids[l] =
             InternalGrid(
                 backend,
@@ -403,7 +410,6 @@ mGrid<SBlock>::mGrid(
                 voxelSpacing,
                 spacingData,
                 origin);
-        std::cout << "Grid is up" << std::endl;
     }
 
     Neon::MemoryOptions memOptionsAoS(Neon::DeviceType::CPU,
@@ -417,6 +423,8 @@ mGrid<SBlock>::mGrid(
                                       ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                       Neon::MemoryLayout::structOfArrays);
 
+    NEON_TRACE("mGrid", "bGrid initialization: {} sec", mgridTimeTracker.stop("bGrid initialization"));
+    mgridTimeTracker.start("Linking bGrids");
 
     // parent block ID
     mData->mParentBlockID.resize(mData->mDescriptor.getDepth() - 1);
@@ -428,8 +436,6 @@ mGrid<SBlock>::mGrid(
     }
 
     // child block ID
-
-
     std::vector<Neon::set::DataSet<uint64_t>> childAllocSize(mData->mDescriptor.getDepth());
     for (int l = 0; l < descriptor.getDepth(); ++l) {
         childAllocSize[l] = backend.devSet().template newDataSet<uint64_t>();
@@ -601,7 +607,9 @@ mGrid<SBlock>::mGrid(
         mData->mRefFactors.updateDeviceData(backend, 0);
         mData->mSpacing.updateDeviceData(backend, 0);
     }
-    std::cout << "mGrid End" << std::endl;
+    NEON_TRACE("mGrid", "Linking bGrids: {} sec", mgridTimeTracker.stop("Linking bGrids"));
+    NEON_TRACE("mGrid", "Initialization completed in {} sec", mgridTimeTracker.stop("mGrid"));
+    NEON_INFO("mGrid", "Initialization performance summary: \n{}", mgridTimeTracker.toString("\t\t\t"));
 }
 
 template <typename SBlock>
@@ -754,11 +762,11 @@ template <typename SBlock>
 auto mGrid<SBlock>::toString() const -> std::string
 {
     std::stringstream ss;
-    ss<<"mGrid (level count:"<<getLevelCount()<<")";
-    for (int l=0; l<static_cast<int>(getLevelCount()); l++) {
+    ss << "mGrid (level count:" << getLevelCount() << ")";
+    for (int l = 0; l < static_cast<int>(getLevelCount()); l++) {
         auto& bGrid = this->operator()(l);
         ss << "---\n";
-        ss << bGrid.toString()<<"\n";
+        ss << bGrid.toString() << "\n";
     }
     return ss.str();
 }

@@ -461,7 +461,7 @@ auto TestData<G, T, C>::compare(FieldNames         name,
                         foundAnIssue = true;
                         std::stringstream s;
                         s << idx.to_string() << "Golden " << golden << " Computed " << computed << std::endl;
-                        NEON_INFO(s.str());
+                        NEON_INFO("TestData", "{}", s.str());
                     }
                 }
             }

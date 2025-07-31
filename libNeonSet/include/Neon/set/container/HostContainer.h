@@ -122,7 +122,7 @@ struct HostContainer : ContainerAPI
 #pragma omp critical
         {
             [[maybe_unused]] const int threadRank = omp_get_thread_num();
-            NEON_TRACE("TRACE HostContainer run rank {} setIdx {} stream {} dw {}",
+            NEON_TRACE("HostContainer", "TRACE HostContainer run rank {} setIdx {} stream {} dw {}",
                        threadRank, setIdx.idx(), kernelConfig.stream(), Neon::DataViewUtil::toString(kernelConfig.dataView()));
         };
 

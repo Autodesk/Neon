@@ -146,7 +146,7 @@ auto DevSet::getInfo(Neon::sys::DeviceID gpuIdx)
 {
     const Neon::sys::GpuDevice& gpuDev = Neon::sys::globalSpace::gpuSysObj().dev(m_devIds[gpuIdx.idx()]);
     auto                        info = gpuDev.tools.getDevInfo("   ");
-    NEON_INFO("DevSet {}", info);
+    NEON_INFO("DevSet","{}", info);
 }
 
 

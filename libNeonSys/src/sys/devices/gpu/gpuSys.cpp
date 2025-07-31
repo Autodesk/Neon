@@ -21,7 +21,7 @@ void GpuSys::init()
     if (res != cudaSuccess) {
         NeonException exc("GpuSys_t");
         exc << "CUDA error completing cudaGetNumDevices operation (ret code " << res << ").";
-        //NEON_THROW(exc);
+        // NEON_THROW(exc);
     }
     std::ostringstream msg;
 
@@ -43,7 +43,7 @@ void GpuSys::init()
         m_gpuDevVec[devId] = std::make_shared<GpuDevice>(devId);
         m_gpuMemVec[devId] = std::make_shared<GpuMem>(*(m_gpuDevVec[devId]));
     }
-    NEON_INFO("GpuSys_t: {}", msg.str());
+    NEON_INFO("GpuSys_t", "{}", msg.str());
 }
 
 const GpuDevice& GpuSys::dev(ComputeID gpuIdx) const

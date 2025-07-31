@@ -1,25 +1,15 @@
-/**
- * @file chrono.h
- *
- * Utilities to measure time for a set of samples.
- *
- * @author Massimiliano Meneghin <massimiliano.meneghin@autodesk.com>
- *
- * @version 0.1
- */
 #pragma once
 
 #if !defined(NEON_WARP_COMPILATION)
+
 #include <chrono>
-#include <cmath>
-#include <cstdint>
-#include <exception>
 #include <iostream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
+#include <string_view>
+#include <iomanip>
 #include <type_traits>
-#include <typeinfo>
+#include <unordered_map>
 #include <vector>
 
 #include "Neon/core/types/Exceptions.h"
@@ -27,105 +17,181 @@
 
 namespace Neon {
 
-// TODO@[Max](Have a look at http://www.cplusplus.com/forum/general/187899/ )
-//using clock_type = typename std::conditional< std::chrono::high_resolution_clock::is_steady,
-//        std::chrono::high_resolution_clock,
-//        std::chrono::steady_clock >::type ;
+/**
+ * @brief Helper function to obtain a string representation of a duration unit at compile time.
+ *
+ * @tparam Duration The std::chrono duration type.
+ * @return std::string_view A string literal representing the unit (e.g., "ms", "us").
+ */
+template <typename Duration>
+constexpr auto UnitStr() noexcept -> std::string_view {
+    if constexpr (std::is_same_v<Duration, std::chrono::hours>) return "h";
+    else if constexpr (std::is_same_v<Duration, std::chrono::minutes>) return "min";
+    else if constexpr (std::is_same_v<Duration, std::chrono::seconds>) return "s";
+    else if constexpr (std::is_same_v<Duration, std::chrono::milliseconds>) return "ms";
+    else if constexpr (std::is_same_v<Duration, std::chrono::microseconds>) return "us";
+    else if constexpr (std::is_same_v<Duration, std::chrono::nanoseconds>) return "ns";
+    else static_assert(sizeof(Duration) == 0, "Unsupported Duration type");
+}
 
+/**
+ * @brief Single-shot timer to measure elapsed time.
+ *
+ * @tparam Duration The time unit for elapsed calculations (e.g., std::chrono::microseconds).
+ * @tparam Clock The clock type to use (e.g., std::chrono::steady_clock).
+ */
+template <typename Duration = std::chrono::microseconds,
+          typename Clock = std::chrono::steady_clock>
+class Timer {
+public:
+    using DurationType = Duration;
+    using ClockType    = Clock;
+    using TimePoint    = typename Clock::time_point;
 
-template <typename TIME_UNIT_ta = std::chrono::microseconds,
-          typename CLOCK_TYPE_ta = std::chrono::high_resolution_clock>
-class Timer_t
-{
-   private:
-    std::chrono::time_point<CLOCK_TYPE_ta> m_start, m_end;
+    Timer() noexcept = default;
 
-   public:
-    using s = std::chrono::seconds;
-    using ms = std::chrono::milliseconds;
-    using us = std::chrono::microseconds;
-    using ns = std::chrono::nanoseconds;
+    auto start() noexcept -> void {
+        m_start = Clock::now();
+    }
 
-    Timer_t()
-    {
-        if (std::is_same<TIME_UNIT_ta, s>::value || std::is_same<TIME_UNIT_ta, ms>::value || std::is_same<TIME_UNIT_ta, us>::value) {
+    auto sample() noexcept -> void {
+        m_end = Clock::now();
+    }
 
+    [[nodiscard]] auto stop() noexcept -> double {
+        m_end = Clock::now();
+        return elapsed();
+    }
+
+    [[nodiscard]] auto elapsed() const noexcept -> double {
+        const auto diff = m_end - m_start;
+        if constexpr (std::is_same_v<Duration, std::chrono::nanoseconds>) {
+            return std::chrono::duration<double, std::nano>(diff).count();
+        } else if constexpr (std::is_same_v<Duration, std::chrono::microseconds>) {
+            return std::chrono::duration<double, std::micro>(diff).count();
+        } else if constexpr (std::is_same_v<Duration, std::chrono::milliseconds>) {
+            return std::chrono::duration<double, std::milli>(diff).count();
         } else {
-            Neon::NeonException e("Timer_t");
-            e << ("Unsupported Time Unit ");
-            NEON_THROW(e);
+            return std::chrono::duration<double, typename Duration::period>(diff).count();
         }
     }
 
-
-   public:
-    static const char* unit()
-    {
-        if (std::is_same<TIME_UNIT_ta, s>::value) {
-            return "s";
-        } else if (std::is_same<TIME_UNIT_ta, ms>::value) {
-            return "ms";
-        } else if (std::is_same<TIME_UNIT_ta, us>::value) {
-            return "us";
-        } else {
-            Neon::NeonException e("Timer_t");
-            e << ("Unsupported Time Unit");
-            NEON_THROW(e);
-        }
+    [[nodiscard]] auto elapsedStr() const -> std::string {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(2)
+            << elapsed() << ' ' << UnitStr<Duration>();
+        return oss.str();
     }
 
-
-    inline void start()
-    {
-        m_start = CLOCK_TYPE_ta::now();
-        return;
-    }
-
-    inline void sample()
-    {
-        m_end = CLOCK_TYPE_ta::now();
-        return;
-    }
-
-    inline void stop()
-    {
-        m_end = CLOCK_TYPE_ta::now();
-        return;
-    }
-
-    double time()
-    {
-        //std::chrono::duration<TIME_UNIT_ta> fp_ms = (m_end - m_start);
-        //auto enlapsedTime = std::chrono::duration_cast<TIME_UNIT_ta>(m_end - m_start);
-        if (std::is_same<TIME_UNIT_ta, s>::value) {
-            std::chrono::duration<double, std::milli> elapsedTime = m_end - m_start;
-            return elapsedTime.count() / 1000.0;
-        } else if (std::is_same<TIME_UNIT_ta, ms>::value) {
-            std::chrono::duration<double, std::milli> elapsedTime = m_end - m_start;
-            return elapsedTime.count();
-        } else if (std::is_same<TIME_UNIT_ta, us>::value) {
-            std::chrono::duration<double, std::micro> elapsedTime = m_end - m_start;
-            return elapsedTime.count();
-        } else {
-            Neon::NeonException e("Timer_t");
-            e << ("Unsupported Time Unit");
-            NEON_THROW(e);
-        }
-    }
-
-    std::string timeStr()
-    {
-        std::ostringstream msg;
-        msg << this->time() << " " << std::string() << this->unit();
-        return msg.str();
-    }
-    
+private:
+    TimePoint m_start{};
+    TimePoint m_end{};
 };
-using Timer_ns = Timer_t<std::chrono::nanoseconds, std::chrono::high_resolution_clock>;
-using Timer_us = Timer_t<std::chrono::microseconds, std::chrono::high_resolution_clock>;
-using Timer_ms = Timer_t<std::chrono::milliseconds, std::chrono::steady_clock>;
-using Timer_sec = Timer_t<std::chrono::seconds, std::chrono::steady_clock>;
 
-}  // namespace Neon
+// Aliases for common resolutions
+using TimerNS  = Timer<std::chrono::nanoseconds>;
+using TimerUS  = Timer<std::chrono::microseconds>;
+using TimerMS  = Timer<std::chrono::milliseconds>;
+using TimerSec = Timer<std::chrono::seconds>;
 
-#endif
+/**
+ * @brief Manager to track multiple named timers.
+ *
+ * @tparam Duration The time unit for elapsed calculations.
+ * @tparam Clock The clock type to use.
+ */
+template <typename Duration = std::chrono::microseconds,
+          typename Clock = std::chrono::steady_clock>
+class TimerManager {
+public:
+    using TimerType  = Timer<Duration, Clock>;
+    using StringView = std::string_view;
+
+    auto start(StringView name) -> void {
+        auto [it, inserted] = m_timers.try_emplace(std::string{name}, TimerType{});
+        it->second.start();
+    }
+
+    auto sample(StringView name) -> void {
+        getTimer(name).sample();
+    }
+
+    [[nodiscard]] auto stop(StringView name) -> double {
+        return getTimer(name).stop();
+    }
+
+    [[nodiscard]] auto elapsed(StringView name) const -> double {
+        return getTimer(name).elapsed();
+    }
+
+    [[nodiscard]] auto elapsedStr(StringView name) const -> std::string {
+        return getTimer(name).elapsedStr();
+    }
+
+    /**
+     * @brief Get a multi-line string listing all timers and their elapsed times, with an optional prefix per line.
+     *
+     * @param prefix A string to prepend to each line (default is empty).
+     * @return std::string Each line in the format "<prefix><name>: <time unit>", aligned in columns.
+     */
+    [[nodiscard]] auto toString(std::string_view prefix = "") const -> std::string {
+        // Compute maximum name length
+        std::size_t maxName = 0;
+        for (auto const& [name, _] : m_timers) {
+            maxName = std::max(maxName, name.size());
+        }
+
+        static constexpr auto newLine = "\n";
+        std::ostringstream oss;
+        for (auto const& [name, timer] : m_timers) {
+            oss << prefix << name
+                << std::string(maxName - name.size(), ' ')
+                << ": " << timer.elapsedStr()
+                << newLine;
+        }
+        return oss.str();
+    }
+
+    [[nodiscard]] auto list() const -> std::vector<std::string> {
+        std::vector<std::string> keys;
+        keys.reserve(m_timers.size());
+        for (auto const& [key, _] : m_timers) keys.push_back(key);
+        return keys;
+    }
+
+    auto reset(StringView name) -> void {
+        m_timers.erase(std::string{name});
+    }
+
+private:
+    auto getTimer(StringView name) -> TimerType& {
+        auto it = m_timers.find(std::string{name});
+        if (it == m_timers.end()) {
+            Neon::NeonException e("TimerManager");
+            e << "Timer '" << name << "' not found";
+            NEON_THROW(e);
+        }
+        return it->second;
+    }
+
+    auto getTimer(StringView name) const -> const TimerType& {
+        auto it = m_timers.find(std::string{name});
+        if (it == m_timers.end()) {
+            Neon::NeonException e("TimerManager");
+            e << "Timer '" << name << "' not found";
+            NEON_THROW(e);
+        }
+        return it->second;
+    }
+
+    std::unordered_map<std::string, TimerType> m_timers;
+};
+
+using TimerManagerNS  = TimerManager<std::chrono::nanoseconds>;
+using TimerManagerUS  = TimerManager<std::chrono::microseconds>;
+using TimerManagerMS  = TimerManager<std::chrono::milliseconds>;
+using TimerManagerSec = TimerManager<std::chrono::seconds>;
+
+} // namespace Neon
+
+#endif // NEON_WARP_COMPILATION

@@ -127,7 +127,7 @@ struct DeviceContainer : ContainerAPI
 #pragma omp critical
         {
             [[maybe_unused]] int const threadRank = omp_get_thread_num();
-            NEON_TRACE("TRACE DeviceContainer run rank {} setIdx {} stream {} dw {}",
+            NEON_TRACE("DeviceContainer", "TRACE DeviceContainer run rank {} setIdx {} stream {} dw {}",
                        threadRank, setIdx.idx(), kernelConfig.stream(), Neon::DataViewUtil::toString(kernelConfig.dataView()));
         };
 

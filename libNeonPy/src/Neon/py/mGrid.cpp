@@ -16,6 +16,10 @@ extern "C" auto mGrid_new(
     -> int
 {
     NEON_PY_PRINT_BEGIN(*handle);
+
+    Neon::TimerManagerSec mgridTimer;
+    mgridTimer.start("Python bindings mGrid_new");
+    NEON_TRACE("mGrid Python bindings", "mGrid_new Begin");
     // NEON_PY_DBG_COUT << "mGrid_new - BEGIN" << std::endl;
     // NEON_PY_DBG_COUT << "mGrid_new - gridHandle " << handle << std::endl;
     // NEON_PY_DBG_COUT << "mGrid_new - dim " << dim->to_string() << std::endl;
@@ -100,6 +104,9 @@ extern "C" auto mGrid_new(
 
     // g.ioDomainToVtk("");
     NEON_PY_PRINT_END(*handle);
+
+    NEON_TRACE("mGrid Python bindings", "mGrid_new: {} sec", mgridTimer.stop("Python bindings mGrid_new"));
+
 
     return 0;
 }

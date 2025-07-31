@@ -19,7 +19,7 @@ void CpuSys::init()
     this->m_cpuDevVec.emplace_back();
     this->m_cpuMemVec.emplace_back(this->m_cpuDevVec[0]);
 
-    NEON_INFO("CpuSys_t: Loading info on CPU subsystem");
+    NEON_INFO("CpuSys_t","Loading info on CPU subsystem");
 }
 
 const CpuDev& CpuSys::dev() const
