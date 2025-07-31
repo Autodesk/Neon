@@ -80,7 +80,7 @@ void launchLambdaOnSpanOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 {
     if constexpr (DataSetContainer::executionThreadSpan == ExecutionThreadSpan::d1) {
 #ifdef NEON_OS_WINDOWS
-// #pragma omp parallel for default(shared)
+#pragma omp parallel for default(shared)
 #else
 #pragma omp parallel for simd default(shared)
 #endif
@@ -97,7 +97,7 @@ void launchLambdaOnSpanOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 #ifdef NEON_OS_WINDOWS
 #pragma omp parallel for default(shared)
 #else
-        // #pragma omp parallel for simd collapse(2) default(shared)
+#pragma omp parallel for simd collapse(2) default(shared)
 #endif
         for (IndexType y = 0; y < gridDim.y; y++) {
             for (IndexType x = 0; x < gridDim.x; x++) {
@@ -113,7 +113,7 @@ void launchLambdaOnSpanOMP(Neon::Integer_3d<IndexType> const&     gridDim,
 #ifdef NEON_OS_WINDOWS
 #pragma omp parallel for default(shared)
 #else
-        // #pragma omp parallel for simd collapse(1) default(shared) schedule(guided)
+#pragma omp parallel for simd collapse(1) default(shared) schedule(guided)
 #endif
         for (IndexType z = 0; z < gridDim.z; z++) {
             for (IndexType y = 0; y < gridDim.y; y++) {
@@ -176,7 +176,7 @@ void launchLambdaOnSpanOMP(const Neon::Integer_3d<IndexType>& blockSize,
             for (IndexType z = 0; z < blockSize.z; z++) {
                 for (IndexType y = 0; y < blockSize.y; y++) {
 #ifndef NEON_OS_WINDOWS
-// #pragma omp simd
+#pragma omp simd
 #endif
                     for (IndexType x = 0; x < blockSize.x; x++) {
                         typename DataSetContainer::Idx e;
