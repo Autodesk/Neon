@@ -3,6 +3,26 @@
 #include "Neon/domain/Grids.h"
 #include "Neon/py/AllocationCounter.h"
 #include "Neon/py/macros.h"
+
+
+/**
+ * @brief Creates a new multi-resolution Grid (mGrid) object.
+ *
+ * This function initializes a new mGrid object using provided backend and grid
+ * dimensions, along with sparsity patterns, origin vectors, and stencil information.
+ *
+ * @param[out] handle Pointer to store the created mGrid object handle.
+ * @param[in] backendPtr Pointer to the backend object managing computation resources.
+ * @param[in] dim Pointer to the dimensions of the grid.
+ * @param[in] num_levels The number of resolution levels.
+ * @param[in] sparsity_pattern_vec Pointer to the sparsity pattern vectors for each level.
+ * @param[in] dim_vec Pointer to the dimensions for each resolution level.
+ * @param[in] origin_vec Pointer to the origin for each resolution level.
+ * @param[in] numStencilPoints The number of points in the stencil.
+ * @param[in] stencilPointFlatArray Pointer to the flat array describing stencil points.
+ *
+ * @return Returns an integer status code (0 for success, non-zero for error).
+ */
 extern "C" auto mGrid_new(
     void**                handle,
     void*                 backendPtr,
@@ -20,64 +40,44 @@ extern "C" auto mGrid_new(
     Neon::TimerManagerSec mgridTimer;
     mgridTimer.start("Python bindings mGrid_new");
     NEON_TRACE("mGrid Python bindings", "mGrid_new Begin");
-    // NEON_PY_DBG_COUT << "mGrid_new - BEGIN" << std::endl;
-    // NEON_PY_DBG_COUT << "mGrid_new - gridHandle " << handle << std::endl;
-    // NEON_PY_DBG_COUT << "mGrid_new - dim " << dim->to_string() << std::endl;
-
-    Neon::init();
 
     using Grid = Neon::domain::mGrid;
 
     Neon::Backend* backend = reinterpret_cast<Neon::Backend*>(backendPtr);
     if (backend == nullptr) {
-        std::cerr << "Invalid backend pointer" << std::endl;
+        NEON_CRITICAL("mGrid Python bindings", "Invalid backend pointer");
         return -1;
     }
 
-    std::vector<std::function<bool(const Neon::index_3d&)>> sparsity(num_levels);
+    std::vector<std::function<bool(Neon::index_3d const&)>> sparsity(num_levels);
     for (int i = 0; i < num_levels; i++) {
         Neon::index_3d const level_mask_dim = dim_vec[i];
         Neon::index_3d const level_mask_origin = origin_vec[i];
         int* const           level_sparsity = sparsity_pattern_vec[i];
         int const            dividend = 1 << i;
-        // // NEON_PY_DBG_COUT << "Level " << i << " dividend " << dividend << std::endl;
-        // // NEON_PY_DBG_COUT << "Pattern Dimension: " << level_mask_dim.to_string() << std::endl;
-        // // NEON_PY_DBG_COUT << "Pattern Origin: " << level_mask_origin.to_string() << std::endl;
-
-        // if (i == 1) {
-        //     for (int z = 0; z < level_mask_dim.z; z++) {
-        //         // NEON_PY_DBG_COUT << "." << std::endl;
-        //         for (int y = 0; y < level_mask_dim.y; y++) {
-        //             for (int x = 0; x < level_mask_dim.x; x++) {
-        //                 int index = x * (level_mask_dim.y * level_mask_dim.z) + y * level_mask_dim.z + z;
-        //                 // NEON_PY_DBG_COUT << "YESS " << level_sparsity[index] << " x->" << x << "  y->" << y << "  z->" << z << std::endl;
-        //             }
-        //         }
-        //     }
-        // }
 
         sparsity[i] = [=](Neon::index_3d const& idx) {
             auto const scaled_idx = idx / dividend;
             auto const mask_idx = scaled_idx - level_mask_origin;
 
             if (mask_idx.x < 0 || mask_idx.y < 0 || mask_idx.z < 0) {
-                // if (i == 1) {
-                //     // NEON_PY_DBG_COUT << "LINE 61 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << std::endl;
-                // }
+                // The point is below the origin of the mask.
+                // As it is outside the mask, the point is not active
                 return false;
             }
+
             if (mask_idx.x >= level_mask_dim.x || mask_idx.y >= level_mask_dim.y || mask_idx.z >= level_mask_dim.z) {
-                // if (i == 1) {
-                //     // NEON_PY_DBG_COUT << "LINE 67 idx " << idx << " scaled_idx " << scaled_idx << " mask_idx " << mask_idx << " level_mask_dim " << level_mask_dim <<std::endl;
-                // }
+                // The point is above the the mask bounding box.
+                // As it is outside the mask, the point is not active
                 return false;
             }
-            // if (i == 1)
-            //     // NEON_PY_DBG_COUT << "CHECK idx " << idx << " scaled_idx " << scaled_idx << " " << std::endl;
-            int index = mask_idx.x * (level_mask_dim.y * level_mask_dim.z) +
-                        mask_idx.y * level_mask_dim.z +
-                        mask_idx.z;
-            return level_sparsity[index] == 1;
+            size_t const jump = static_cast<size_t>(mask_idx.x) *
+                                    static_cast<size_t>(level_mask_dim.y) *
+                                    static_cast<size_t>(level_mask_dim.z) +
+                                static_cast<size_t>(mask_idx.y) *
+                                    static_cast<size_t>(level_mask_dim.z) +
+                                static_cast<size_t>(mask_idx.z);
+            return level_sparsity[jump] == 1;
         };
     }
 
@@ -160,7 +160,7 @@ extern "C" auto mGrid_get_dimensions(
 }
 
 extern "C" auto mGrid_print_to_string(
-    void*                      gridHandle)
+    void* gridHandle)
     -> int
 {
     using Grid = Neon::domain::mGrid;
