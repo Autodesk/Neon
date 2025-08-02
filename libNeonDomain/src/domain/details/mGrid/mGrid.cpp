@@ -7,11 +7,11 @@ namespace Neon::domain::details::mGrid {
 
 /**
  * @brief Constructs a multi-resolution grid by stacking multiple block sparse grids.
- * 
+ *
  * Creates a hierarchical multi-resolution grid system where each level represents a different
  * resolution/spacing. The levels are connected via parent-child relationships to form a unified
  * data structure for multi-scale computations.
- * 
+ *
  * Construction phases:
  * 1. Parameter validation and setup
  * 2. Bitmask creation for active cells per level
@@ -19,7 +19,7 @@ namespace Neon::domain::details::mGrid {
  * 4. Optional strong balancing (ensures smooth resolution transitions)
  * 5. Internal block sparse grid creation per level
  * 6. Parent-child relationship linking between levels
- * 
+ *
  * @param backend Computational backend (CPU/CUDA)
  * @param domainSize 3D dimensions of the computational domain
  * @param activeCellLambda Functions (one per level) determining which cells are active
@@ -43,8 +43,7 @@ mGrid<SBlock>::mGrid(
     [[maybe_unused]] const double_3d&                       origin)
 {
     Neon::TimerManagerSec mgridTimeTracker;
-    mgridTimeTracker.start("mGrid");
-    NEON_TRACE("mGrid", "Begin");
+    mgridTimeTracker.start_with_info("initialization","mGrid");
 
 
     // Debug code for process identification - commented out
@@ -80,7 +79,7 @@ mGrid<SBlock>::mGrid(
     mData->mStrongBalanced = isStrongBalanced;
     mData->mCullOverlaps = isCullOverlaps;
     mData->mDescriptor = descriptor;
-    
+
     // Calculate top-level spacing (coarsest grid resolution)
     int top_level_spacing = 1;
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
@@ -132,15 +131,15 @@ mGrid<SBlock>::mGrid(
     // ==============================================
     // PHASE 2: Bitmask Creation for Each Resolution Level
     // ==============================================
-    mgridTimeTracker.start("Bitmask creation");
-    
+    mgridTimeTracker.start_with_trace("Bitmask creation", "mGrid");
+
     // For each resolution level, determine which voxels are active based on the user-provided lambda functions.
     // Each level operates as an independent block sparse grid with its own resolution and spacing.
     // If a block contains any active voxels, the entire block is marked as active.
     // Parent-child relationships between levels are established to connect the stacked grids.
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         const int refFactor = mData->mDescriptor.getRefFactor(l);
-        
+
         // Process all blocks at current level in parallel
         // Two-pass algorithm:
         // 1st pass: Check which voxels should be active based on lambda functions
@@ -212,13 +211,13 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
-    NEON_TRACE("mGrid", "Bitmask creation: {} sec", mgridTimeTracker.stop("Bitmask creation"));
+    mgridTimeTracker.stop_with_trace("Bitmask creation", "mGrid");
 
     // ==============================================
     // PHASE 3: Overlap Culling (Optional)
     // ==============================================
-    mgridTimeTracker.start("Cull Overlaps");
-    
+    mgridTimeTracker.start_with_trace("Cull Overlaps", "mGrid");
+
     // Overlap culling removes coarse voxels that are fully covered by fine voxels
     // A coarse voxel is removed if:
     // 1. It is refined (has active children at finer level)
@@ -330,13 +329,12 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
+    mgridTimeTracker.stop_with_trace("Cull Overlaps", "mGrid");
 
-    NEON_TRACE("mGrid", "Cull Overlaps: {} sec", mgridTimeTracker.stop("Cull Overlaps"));
-    
     // ==============================================
     // PHASE 4: Strong Balancing Between Resolution Levels (Optional)
     // ==============================================
-    mgridTimeTracker.start("Strong Balance");
+    mgridTimeTracker.start_with_trace("Strong Balance", "mGrid");
 
     // Strong balancing ensures smooth transitions between the stacked grids by enforcing that
     // adjacent cells differ by at most one resolution level. This prevents sudden jumps in
@@ -352,7 +350,7 @@ mGrid<SBlock>::mGrid(
             for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
                 const int refFactor = mData->mDescriptor.getRefFactor(l);
                 const int childSpacing = mData->mDescriptor.getSpacing(l - 1);
-                
+
 #pragma omp parallel for collapse(3)
                 for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
                     for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
@@ -393,7 +391,7 @@ mGrid<SBlock>::mGrid(
 
                                                             // Store previous level information for potential activation
                                                             Neon::int32_3d prv_nVoxelBlockOrigin(0), prv_nVoxelLocalID(0);
-                                                            
+
                                                             // Search through all coarser levels to find neighbor
                                                             for (int l_n = l; l_n < mData->mDescriptor.getDepth(); ++l_n) {
                                                                 const int l_n_ref_factor = mData->mDescriptor.getRefFactor(l_n);
@@ -441,13 +439,11 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
-
-    NEON_TRACE("mGrid", "Strong Balance: {} sec", mgridTimeTracker.stop("Strong Balance"));
-    
+    mgridTimeTracker.stop_with_trace("Strong Balance", "mGrid");
     // ==============================================
     // PHASE 5: Internal Block Sparse Grid Creation
     // ==============================================
-    mgridTimeTracker.start("bGrid initialization");
+    mgridTimeTracker.start_with_trace("bGrid initialization", "mGrid");
 
     // Create individual block sparse grids for each resolution level
     // Each grid operates independently but they are connected via parent-child relationships
@@ -491,16 +487,16 @@ mGrid<SBlock>::mGrid(
                                       ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                       Neon::MemoryLayout::structOfArrays);
 
-    NEON_TRACE("mGrid", "bGrid initialization: {} sec", mgridTimeTracker.stop("bGrid initialization"));
-    
+    mgridTimeTracker.stop_with_trace("bGrid initialization", "mGrid");
+
     // ==============================================
     // PHASE 6: Linking Resolution Levels
     // ==============================================
-    mgridTimeTracker.start("Linking bGrids");
+    mgridTimeTracker.start_with_trace("Linking bGrids", "mGrid");
 
     // Establish parent-child relationships between different resolution levels
     // This creates the connections that allow traversal between the stacked grids
-    
+
     // Initialize parent block ID storage for each level (except the coarsest)
     mData->mParentBlockID.resize(mData->mDescriptor.getDepth() - 1);
     for (int l = 0; l < mData->mDescriptor.getDepth() - 1; ++l) {
@@ -683,17 +679,18 @@ mGrid<SBlock>::mGrid(
         mData->mRefFactors.updateDeviceData(backend, 0);
         mData->mSpacing.updateDeviceData(backend, 0);
     }
-    NEON_TRACE("mGrid", "Linking bGrids: {} sec", mgridTimeTracker.stop("Linking bGrids"));
-    NEON_TRACE("mGrid", "Initialization completed in {} sec", mgridTimeTracker.stop("mGrid"));
-    NEON_INFO("mGrid", "Initialization performance summary: \n{}", mgridTimeTracker.toString("\t\t\t"));
+    mgridTimeTracker.stop_with_trace("Linking bGrids", "mGrid");
+    mgridTimeTracker.stop("initialization");
+
+    mgridTimeTracker.infoAllStopped("Initialization Completed", "mGrid");
 }
 
 /**
  * @brief Calculate bitmask index for a voxel within a block at a specific resolution level.
- * 
+ *
  * Computes the flat array index and bit position within the bitmask for efficient voxel
  * status tracking across all resolution levels.
- * 
+ *
  * @param l Resolution level
  * @param blockID 3D block coordinates within the level
  * @param localChild Local position of voxel within the block
@@ -711,7 +708,7 @@ auto mGrid<SBlock>::levelBitMaskIndex(int l, const Neon::index_3d& blockID, cons
 
 /**
  * @brief Check if a voxel is active at a specific resolution level.
- * 
+ *
  * @param l Resolution level to query
  * @param blockID 3D block coordinates within the level
  * @param localChild Local position of voxel within the block
@@ -727,9 +724,9 @@ auto mGrid<SBlock>::levelBitMaskIsSet(int l, const Neon::index_3d& blockID, cons
 
 /**
  * @brief Activate a voxel at a specific resolution level.
- * 
+ *
  * Sets the corresponding bit in the bitmask to mark the voxel as active.
- * 
+ *
  * @param l Resolution level
  * @param blockID 3D block coordinates within the level
  * @param localChild Local position of voxel within the block
@@ -743,9 +740,9 @@ auto mGrid<SBlock>::setLevelBitMask(int l, const Neon::index_3d& blockID, const 
 
 /**
  * @brief Deactivate a voxel at a specific resolution level.
- * 
+ *
  * Clears the corresponding bit in the bitmask to mark the voxel as inactive.
- * 
+ *
  * @param l Resolution level
  * @param blockID 3D block coordinates within the level
  * @param localChild Local position of voxel within the block
@@ -759,7 +756,7 @@ auto mGrid<SBlock>::clearLevelBitMask(int l, const Neon::index_3d& blockID, cons
 
 /**
  * @brief Check if a given index is inside the domain at a specific resolution level.
- * 
+ *
  * @param idx 3D index to check
  * @param level Resolution level to query
  * @return true if index is within domain bounds, false otherwise
@@ -773,7 +770,7 @@ auto mGrid<SBlock>::isInsideDomain(const Neon::index_3d& idx, int level) const -
 
 /**
  * @brief Access the internal grid at a specific resolution level (non-const).
- * 
+ *
  * @param level Resolution level to access
  * @return Reference to the internal block sparse grid at the specified level
  */
@@ -785,7 +782,7 @@ auto mGrid<SBlock>::operator()(int level) -> InternalGrid&
 
 /**
  * @brief Access the internal grid at a specific resolution level (const).
- * 
+ *
  * @param level Resolution level to access
  * @return Const reference to the internal block sparse grid at the specified level
  */
@@ -798,10 +795,10 @@ auto mGrid<SBlock>::operator()(int level) const -> const InternalGrid&
 
 /**
  * @brief Get the origin block 3D index for a given voxel position at a specific resolution level.
- * 
+ *
  * Computes the block origin by rounding down the voxel coordinates to the nearest multiple
  * of the level's spacing, effectively finding which block contains the given voxel.
- * 
+ *
  * @param idx Voxel position in 3D space
  * @param level Resolution level for spacing calculation
  * @return 3D coordinates of the block origin that contains the voxel
@@ -822,9 +819,9 @@ auto mGrid<SBlock>::getOriginBlock3DIndex(const Neon::int32_3d idx, int level) c
 
 /**
  * @brief Set the reduction engine for computational operations.
- * 
+ *
  * Currently only supports CUB engine for reduction operations on multi-resolution grids.
- * 
+ *
  * @param eng Reduction engine to use (must be CUB)
  * @throws NeonException if engine is not CUB
  */
@@ -840,10 +837,10 @@ auto mGrid<SBlock>::setReduceEngine(Neon::sys::patterns::Engine eng) -> void
 
 /**
  * @brief Get parent block IDs for a specific resolution level.
- * 
+ *
  * Returns memory set containing parent block identifiers for connecting to the next
  * coarser resolution level. The coarsest level has no parent.
- * 
+ *
  * @param level Resolution level to query
  * @return Reference to memory set of parent block IDs
  * @throws NeonException if level has no parent (coarsest level)
@@ -862,10 +859,10 @@ auto mGrid<SBlock>::getParentsBlockID(int level) const -> Neon::set::MemSet<uint
 
 /**
  * @brief Get child block IDs for a specific resolution level.
- * 
+ *
  * Returns memory set containing child block identifiers for connecting to the next
  * finer resolution level. The finest level has no children.
- * 
+ *
  * @param level Resolution level to query
  * @return Const reference to memory set of child block IDs
  */
@@ -877,7 +874,7 @@ auto mGrid<SBlock>::getChildBlockID(int level) const -> const Neon::set::MemSet<
 
 /**
  * @brief Get refinement factors for all resolution levels.
- * 
+ *
  * @return Const reference to memory set containing refinement factors per level
  */
 template <typename SBlock>
@@ -888,7 +885,7 @@ auto mGrid<SBlock>::getRefFactors() const -> const Neon::set::MemSet<int>&
 
 /**
  * @brief Get spacing values for all resolution levels.
- * 
+ *
  * @return Const reference to memory set containing spacing values per level
  */
 template <typename SBlock>
@@ -899,7 +896,7 @@ auto mGrid<SBlock>::getLevelSpacing() const -> const Neon::set::MemSet<int>&
 
 /**
  * @brief Get the total number of resolution levels in the multi-resolution grid.
- * 
+ *
  * @return Number of resolution levels
  */
 template <typename SBlock>
@@ -910,7 +907,7 @@ auto mGrid<SBlock>::getLevelCount() const -> uint32_t
 
 /**
  * @brief Get the grid descriptor containing refinement structure information.
- * 
+ *
  * @return Const reference to the descriptor object
  */
 template <typename SBlock>
@@ -921,7 +918,7 @@ auto mGrid<SBlock>::getDescriptor() const -> const Descriptor&
 
 /**
  * @brief Get the 3D dimensions for a specific resolution level.
- * 
+ *
  * @param level Resolution level to query
  * @return 3D dimensions of the level
  */
@@ -933,7 +930,7 @@ auto mGrid<SBlock>::getDimension(int level) const -> const Neon::index_3d
 
 /**
  * @brief Get the overall domain dimensions.
- * 
+ *
  * @return 3D dimensions of the computational domain
  */
 template <typename SBlock>
@@ -944,7 +941,7 @@ auto mGrid<SBlock>::getDimension() const -> const Neon::index_3d
 
 /**
  * @brief Get the number of blocks for a specific resolution level.
- * 
+ *
  * @param level Resolution level to query
  * @return 3D block count for the level
  */
@@ -956,7 +953,7 @@ auto mGrid<SBlock>::getNumBlocks(int level) const -> const Neon::index_3d&
 
 /**
  * @brief Get the computational backend (const version).
- * 
+ *
  * @return Const reference to the backend object
  */
 template <typename SBlock>
@@ -967,7 +964,7 @@ auto mGrid<SBlock>::getBackend() const -> const Backend&
 
 /**
  * @brief Get the computational backend (non-const version).
- * 
+ *
  * @return Reference to the backend object
  */
 template <typename SBlock>
@@ -977,10 +974,10 @@ auto mGrid<SBlock>::getBackend() -> Backend&
 }
 /**
  * @brief Generate a string representation of the multi-resolution grid.
- * 
+ *
  * Creates a detailed string representation including information about all
  * resolution levels and their internal block sparse grids.
- * 
+ *
  * @return String representation of the grid structure
  */
 template <typename SBlock>
