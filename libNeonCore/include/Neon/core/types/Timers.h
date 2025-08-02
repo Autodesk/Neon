@@ -1,5 +1,5 @@
 /**
- * @file chrono.h
+ * @file Timers.h
  * @brief High-performance timer utilities with optional NVTX integration for CUDA profiling
  * 
  * This file provides Timer and TimerManager classes for high-precision timing measurements.
@@ -218,6 +218,13 @@ using TimerNS  = Timer<std::chrono::nanoseconds>;   ///< Nanosecond precision ti
 using TimerUS  = Timer<std::chrono::microseconds>;  ///< Microsecond precision timer (default)
 using TimerMS  = Timer<std::chrono::milliseconds>;  ///< Millisecond precision timer
 using TimerSec = Timer<std::chrono::seconds>;       ///< Second precision timer
+
+// Extern template declarations to prevent implicit instantiation
+// The explicit instantiations are provided in Timers.cpp
+extern template class Timer<std::chrono::nanoseconds>;
+extern template class Timer<std::chrono::microseconds>;
+extern template class Timer<std::chrono::milliseconds>;
+extern template class Timer<std::chrono::seconds>;
 
 /**
  * @brief Manager to track multiple named timers with optional NVTX range integration.
@@ -653,6 +660,13 @@ using TimerManagerNS  = TimerManager<std::chrono::nanoseconds>;   ///< Nanosecon
 using TimerManagerUS  = TimerManager<std::chrono::microseconds>;  ///< Microsecond precision timer manager (recommended)
 using TimerManagerMS  = TimerManager<std::chrono::milliseconds>;  ///< Millisecond precision timer manager  
 using TimerManagerSec = TimerManager<std::chrono::seconds>;       ///< Second precision timer manager
+
+// Extern template declarations to prevent implicit instantiation
+// The explicit instantiations are provided in Timers.cpp
+extern template class TimerManager<std::chrono::nanoseconds>;
+extern template class TimerManager<std::chrono::microseconds>;
+extern template class TimerManager<std::chrono::milliseconds>;
+extern template class TimerManager<std::chrono::seconds>;
 
 } // namespace Neon
 

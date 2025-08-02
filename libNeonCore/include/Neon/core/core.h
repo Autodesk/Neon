@@ -27,7 +27,7 @@
 #include "Neon/core/types/BasicTypes.h"
 #if !defined(NEON_WARP_COMPILATION)
 #include "Neon/core/types/Exceptions.h"
-#include "Neon/core/types/chrono.h"
+#include "Neon/core/types/Timers.h"
 #endif
 
 #include "Neon/core/types/DataUse.h"
