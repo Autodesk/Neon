@@ -106,7 +106,8 @@ class Partitioner1D
                   Neon::domain::tool::spaceCurves::EncoderType spaceFillingType,
                   const int&                                   multiResDiscreteIdxSpacing = 1)
     {
-        NEON_TRACE("Partitioner1D initialization", "Begin");
+        Neon::TimerManagerSec timeMamager("Partitioner1D");
+        timeMamager.start_with_trace("initialization");
 
         mData = std::make_shared<Data>();
 
@@ -138,7 +139,7 @@ class Partitioner1D
                                     blockOrigin.z + voxelRelative3DIdx.z * multiResDiscreteIdxSpacing);
             return id;
         };
-        NEON_TRACE("Partitioner1D - spanDecomposition", "Begin");
+        timeMamager.start_with_trace("SpanDecomposition");
         mData->spanDecomposition = std::make_shared<partitioning::SpanDecomposition>(
             backend,
             activeIndexLambda,
@@ -148,7 +149,9 @@ class Partitioner1D
             dataBlockSize,
             domainSize,
             multiResDiscreteIdxSpacing);
-        NEON_TRACE("Partitioner1D - SpanClassifier", "Begin");
+        timeMamager.stop_with_trace("SpanDecomposition");
+
+        timeMamager.start_with_trace("SpanClassifier");
         mData->mSpanClassifier = std::make_shared<partitioning::SpanClassifier>(
             backend,
             activeIndexLambda,
@@ -162,20 +165,25 @@ class Partitioner1D
             multiResDiscreteIdxSpacing,
             spaceFillingType,
             mData->spanDecomposition);
-        NEON_TRACE("Partitioner1D - SpanLayout", "Begin");
+        timeMamager.stop_with_trace("SpanClassifier");
+
+        timeMamager.start_with_trace("SpanLayout");
         mData->mSpanLayout = std::make_shared<partitioning::SpanLayout>(
             backend,
             mData->spanDecomposition,
             mData->mSpanClassifier);
-        NEON_TRACE("Partitioner1D - aGrid", "Begin");
+        timeMamager.stop_with_trace("SpanLayout");
 
         mData->mTopologyWithGhost = aGrid(backend,
                                           mData->mSpanLayout->getStandardAndGhostCount().typedClone<size_t>(),
                                           {251, 1, 1});
-        NEON_TRACE("Partitioner1D - setDenseMeta", "Begin");
 
+        timeMamager.start_with_trace("setDenseMeta");
         setDenseMeta();
-        NEON_TRACE("Partitioner1D has been initialized", "Begin");
+        timeMamager.stop_with_trace("setDenseMeta");
+
+        timeMamager.stop("initialization");
+        timeMamager.infoAllStopped("Partitioner Stats");
     }
 
     auto getBlockSpan() const

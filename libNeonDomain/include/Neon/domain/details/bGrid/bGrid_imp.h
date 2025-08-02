@@ -27,8 +27,8 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
                      const double_3d&                             origin,
                      Neon::domain::tool::spaceCurves::EncoderType encoderType)
 {
-
-    NEON_TRACE("bGrid", "Initialization starting");
+    Neon::TimerManagerSec timeMamager("bGrid");
+    timeMamager.start_with_info("initialization");
     mData = std::make_shared<Data>();
     mData->init(backend);
 
@@ -60,13 +60,12 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
     }
 
     {  // Initialization of the partitioner
+        timeMamager.start_with_trace("Partitioner1D");
         std::stringstream gridNameStreamString;
         gridNameStreamString << "[(block " << SBlock::memBlockSizeX << " x "
                              << SBlock::memBlockSizeY << " x "
                              << SBlock::memBlockSizeZ << ") level " << mData->mMultiResDiscreteIdxSpacing << "]";
         NEON_TRACE("bGrid", "{}", gridNameStreamString.str());
-        NEON_TRACE("bGrid", "Partitioner started");
-
         mData->partitioner1D = Neon::domain::tool::Partitioner1D(
             backend,
             activeCellLambda,
@@ -79,10 +78,11 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();
         mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
         mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
+        timeMamager.stop_with_trace("Partitioner1D");
     }
 
     {  // BlockViewGrid
-        NEON_TRACE("bGrid", "BlockViewGrid starting");
+        timeMamager.start_with_trace("BlockViewGrid");
 
         Neon::domain::details::eGrid::eGrid egrid(
             backend,
@@ -93,9 +93,11 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
             origin);
 
         mData->blockViewGrid = BlockView::Grid(egrid);
+        timeMamager.stop_with_trace("BlockViewGrid");
     }
 
-    {  // Active bitmask
+    {  // Active bitmask on device
+        timeMamager.start_with_trace("Active bitmask on device");
         mData->activeBitField = mData->blockViewGrid.template newField<typename SBlock::BitMask, 1>(
             "BlockViewBitMask",
             1,
@@ -151,10 +153,12 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
                                             Neon::set::TransferMode::put,
                                             Neon::Execution::device)
             .run(Neon::Backend::mainStreamIdx);
+        timeMamager.stop_with_trace("Active bitmask on device");
     }
 
 
     {  // Neighbor blocks
+        timeMamager.start_with_trace("Neighbor blocks");
         mData->blockConnectivity = mData->blockViewGrid.template newField<BlockIdx, 27>("blockConnectivity",
                                                                                         27,
                                                                                         Span::getInvalidBlockId(),
@@ -187,6 +191,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
                                               })
             .run(Neon::Backend::mainStreamIdx);
         mData->blockConnectivity.updateDeviceData(Neon::Backend::mainStreamIdx);
+        timeMamager.stop_with_trace("Neighbor blocks");
     }
 
     // Initialization of the SPAN table
@@ -263,7 +268,9 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
             });
         });
     }
-    NEON_TRACE("bGrid", "Initialization completed");
+    timeMamager.stop("initialization");
+
+    timeMamager.infoAllStopped("Initialization Completed", "bGrid");
 }
 
 template <typename SBlock>

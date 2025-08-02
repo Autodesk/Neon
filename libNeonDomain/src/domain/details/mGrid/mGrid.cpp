@@ -130,8 +130,8 @@ mGrid<SBlock>::mGrid(
     [[maybe_unused]] const double_3d&                       spacingData,
     [[maybe_unused]] const double_3d&                       origin)
 {
-    Neon::TimerManagerSec mgridTimeTracker;
-    mgridTimeTracker.start_with_info("initialization","mGrid");
+    Neon::TimerManagerSec timeTracker("mGrid");
+    timeTracker.start_with_info("initialization");
 
 
     // Debug code for process identification - commented out
@@ -219,7 +219,7 @@ mGrid<SBlock>::mGrid(
     // ==============================================
     // PHASE 2: Bitmask Creation for Each Resolution Level
     // ==============================================
-    mgridTimeTracker.start_with_trace("Bitmask creation", "mGrid");
+    timeTracker.start_with_trace("Bitmask creation");
 
     // For each resolution level, determine which voxels are active based on the user-provided lambda functions.
     // Each level operates as an independent block sparse grid with its own resolution and spacing.
@@ -299,12 +299,12 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
-    mgridTimeTracker.stop_with_trace("Bitmask creation", "mGrid");
+    timeTracker.stop_with_trace("Bitmask creation");
 
     // ==============================================
     // PHASE 3: Overlap Culling (Optional)
     // ==============================================
-    mgridTimeTracker.start_with_trace("Cull Overlaps", "mGrid");
+    timeTracker.start_with_trace("Cull Overlaps");
 
     /**
      * ## Overlap Culling Algorithm
@@ -445,12 +445,12 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
-    mgridTimeTracker.stop_with_trace("Cull Overlaps", "mGrid");
+    timeTracker.stop_with_trace("Cull Overlaps");
 
     // ==============================================
     // PHASE 4: Strong Balancing Between Resolution Levels (Optional)
     // ==============================================
-    mgridTimeTracker.start_with_trace("Strong Balance", "mGrid");
+    timeTracker.start_with_trace("Strong Balance");
 
     /**
      * ## Strong Balancing Algorithm
@@ -583,11 +583,11 @@ mGrid<SBlock>::mGrid(
             }
         }
     }
-    mgridTimeTracker.stop_with_trace("Strong Balance", "mGrid");
+    timeTracker.stop_with_trace("Strong Balance");
     // ==============================================
     // PHASE 5: Internal Block Sparse Grid Creation
     // ==============================================
-    mgridTimeTracker.start_with_trace("bGrid initialization", "mGrid");
+    timeTracker.start_with_trace("bGrid initialization");
 
     // Create individual block sparse grids for each resolution level
     // Each grid operates independently but they are connected via parent-child relationships
@@ -631,12 +631,12 @@ mGrid<SBlock>::mGrid(
                                       ((backend.devType() == Neon::DeviceType::CUDA) ? Neon::Allocator::CUDA_MEM_DEVICE : Neon::Allocator::NULL_MEM),
                                       Neon::MemoryLayout::structOfArrays);
 
-    mgridTimeTracker.stop_with_trace("bGrid initialization", "mGrid");
+    timeTracker.stop_with_trace("bGrid initialization");
 
     // ==============================================
     // PHASE 6: Hierarchical Linking Between Resolution Levels
     // ==============================================
-    mgridTimeTracker.start_with_trace("Linking bGrids", "mGrid");
+    timeTracker.start_with_trace("Linking bGrids");
 
     /**
      * ## Hierarchical Linking Algorithm
@@ -861,10 +861,10 @@ mGrid<SBlock>::mGrid(
         mData->mRefFactors.updateDeviceData(backend, 0);
         mData->mSpacing.updateDeviceData(backend, 0);
     }
-    mgridTimeTracker.stop_with_trace("Linking bGrids", "mGrid");
-    mgridTimeTracker.stop("initialization");
+    timeTracker.stop_with_trace("Linking bGrids");
+    timeTracker.stop("initialization");
 
-    mgridTimeTracker.infoAllStopped("Initialization Completed", "mGrid");
+    timeTracker.infoAllStopped("Initialization Completed");
 }
 
 /**
