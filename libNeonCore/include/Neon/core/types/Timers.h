@@ -280,9 +280,29 @@ class TimerManager
     using StringView = std::string_view;       ///< String view type for efficient string parameters
 
     /**
-     * @brief Default constructor creates an empty timer manager.
+     * @brief Constructor creates an empty timer manager with configurable default category.
+     *
+     * Creates a timer manager with a customizable default category that will be used
+     * for all logging operations when no explicit category is provided. This enables
+     * consistent categorization and organized log output across all timer operations.
+     *
+     * @param defaultCategory Default category name used for logging when empty string is specified
+     *                       in category parameters. Common examples include:
+     *                       - "Performance" - for general performance timing
+     *                       - "GPU" - for GPU-specific operations  
+     *                       - "Memory" - for memory allocation/deallocation timing
+     *                       - "Network" - for network operation timing
+     *                       - "Compute" - for computational kernels
+     *                       - "IO" - for input/output operations
+     *
+     * ## Example:
+     * ```cpp
+     * Neon::TimerManagerMS gpu_timers("GPU_Performance");
+     * gpu_timers.start_with_info("kernel_launch");     // Uses "GPU_Performance" category
+     * gpu_timers.log("memory_copy", "Memory");         // Uses explicit "Memory" category
+     * ```
      */
-    TimerManager() = default;
+    explicit TimerManager(std::string defaultCategory = "Timer") : m_defaultCategory(std::move(defaultCategory)) {}
 
     /**
      * @brief Destructor ensures proper cleanup of NVTX ranges.
@@ -361,7 +381,7 @@ class TimerManager
      * better visibility in performance analysis and debugging.
      *
      * @param name Unique identifier for the timer and NVTX range
-     * @param category Optional category/component name for the info message (default: "Timer")
+     * @param category Optional category/component name for the info message (default: uses constructor default)
      *
      * ## Example:
      * ```cpp
@@ -371,10 +391,10 @@ class TimerManager
      * manager.stop("gpu_kernel");
      * ```
      */
-    auto start_with_info(StringView name, StringView category = "Timer") -> void
+    auto start_with_info(StringView name, StringView category = "") -> void
     {
         start(name);
-        NEON_INFO(std::string{category}, "Starting {}", name);
+        NEON_INFO(getEffectiveCategory(category), "Starting {}", name);
     }
 
     /**
@@ -385,7 +405,7 @@ class TimerManager
      * detailed performance tracing during development and debugging.
      *
      * @param name Unique identifier for the timer and NVTX range
-     * @param category Optional category/component name for the trace message (default: "Timer")
+     * @param category Optional category/component name for the trace message (default: uses constructor default)
      *
      * ## Example:
      * ```cpp
@@ -395,10 +415,10 @@ class TimerManager
      * manager.stop("gpu_kernel");
      * ```
      */
-    auto start_with_trace(StringView name, StringView category = "Timer") -> void
+    auto start_with_trace(StringView name, StringView category = "") -> void
     {
         start(name);
-        NEON_TRACE(std::string{category}, "Starting {}", name);
+        NEON_TRACE(getEffectiveCategory(category), "Starting {}", name);
     }
 
     /**
@@ -461,7 +481,7 @@ class TimerManager
      * analysis and debugging.
      *
      * @param name Name of the timer to stop and log
-     * @param category Optional category/component name for the info message (default: "Timer")
+     * @param category Optional category/component name for the info message (default: uses constructor default)
      * @return double Elapsed time in the timer's configured duration units
      * @throws NeonException if the timer doesn't exist
      *
@@ -473,10 +493,10 @@ class TimerManager
      * auto elapsed2 = manager.stop_with_info("gpu_kernel", "Performance");    // Outputs: Performance: gpu_kernel elapsed 123.45 us
      * ```
      */
-    auto stop_with_info(StringView name, StringView category = "Timer") -> double
+    auto stop_with_info(StringView name, StringView category = "") -> double
     {
         auto result = stop(name);
-        NEON_INFO(std::string{category}, "{} elapsed {}", name, elapsedStr(name));
+        NEON_INFO(getEffectiveCategory(category), "{} elapsed {}", name, elapsedStr(name));
         return result;
     }
 
@@ -489,7 +509,7 @@ class TimerManager
      * during development and debugging.
      *
      * @param name Name of the timer to stop and log
-     * @param category Optional category/component name for the trace message (default: "Timer")
+     * @param category Optional category/component name for the trace message (default: uses constructor default)
      * @return double Elapsed time in the timer's configured duration units
      * @throws NeonException if the timer doesn't exist
      *
@@ -501,10 +521,10 @@ class TimerManager
      * auto elapsed2 = manager.stop_with_trace("gpu_debug", "GPU_Profiling");  // Outputs: GPU_Profiling: gpu_debug elapsed 567.89 ms
      * ```
      */
-    auto stop_with_trace(StringView name, StringView category = "Timer") -> double
+    auto stop_with_trace(StringView name, StringView category = "") -> double
     {
         auto result = stop(name);
-        NEON_TRACE(std::string{category}, "{} elapsed {}", name, elapsedStr(name));
+        NEON_TRACE(getEffectiveCategory(category), "{} elapsed {}", name, elapsedStr(name));
         return result;
     }
 
@@ -658,6 +678,26 @@ class TimerManager
     }
 
     /**
+     * @brief Get the default category used for logging operations.
+     *
+     * Returns the default category name that was set in the constructor and is used
+     * when empty string is passed as the category parameter in logging methods.
+     *
+     * @return const std::string& The default category name
+     *
+     * ## Example:
+     * ```cpp
+     * Neon::TimerManagerMS manager("Performance");
+     * std::cout << "Default category: " << manager.getDefaultCategory() << std::endl;
+     * // Output: Default category: Performance
+     * ```
+     */
+    auto getDefaultCategory() const -> const std::string&
+    {
+        return m_defaultCategory;
+    }
+
+    /**
      * @brief Get list of timers that currently have active NVTX ranges.
      *
      * When NEON_USE_NVTX is enabled, returns the names of timers that have
@@ -684,7 +724,7 @@ class TimerManager
      * during development and debugging.
      *
      * @param name Name of the timer to trace
-     * @param category Optional category/component name for the trace message (default: "Timer")
+     * @param category Optional category/component name for the trace message (default: uses constructor default)
      * @throws NeonException if the timer doesn't exist
      *
      * ## Example:
@@ -695,9 +735,9 @@ class TimerManager
      * manager.trace("gpu_kernel", "GPU_Performance"); // Outputs: GPU_Performance: gpu_kernel elapsed 123.45 us
      * ```
      */
-    auto trace(StringView name, StringView category = "Timer") const -> void
+    auto trace(StringView name, StringView category = "") const -> void
     {
-        NEON_TRACE(std::string{category}, "{} elapsed {}", name, elapsedStr(name));
+        NEON_TRACE(getEffectiveCategory(category), "{} elapsed {}", name, elapsedStr(name));
     }
 
     /**
@@ -708,7 +748,7 @@ class TimerManager
      * and general timing information.
      *
      * @param name Name of the timer to log
-     * @param category Optional category/component name for the info message (default: "Timer")
+     * @param category Optional category/component name for the info message (default: uses constructor default)
      * @throws NeonException if the timer doesn't exist
      *
      * ## Example:
@@ -719,9 +759,9 @@ class TimerManager
      * manager.log("computation", "Performance_Report");  // Outputs: Performance_Report: computation elapsed 567.89 ms
      * ```
      */
-    auto log(StringView name, StringView category = "Timer") const -> void
+    auto log(StringView name, StringView category = "") const -> void
     {
-        NEON_INFO(std::string{category}, "{} elapsed {}", name, elapsedStr(name));
+        NEON_INFO(getEffectiveCategory(category), "{} elapsed {}", name, elapsedStr(name));
     }
 
     /**
@@ -731,7 +771,7 @@ class TimerManager
      * in the order they were stopped, using NEON_TRACE for trace-level logging. Each timer is
      * printed on a separate line with a 3-tab prefix for consistent indentation.
      *
-     * @param category Optional category/component name for the trace messages (default: "Timer")
+     * @param category Optional category/component name for the trace messages (default: uses constructor default)
      *
      * ## Example output:
      * ```
@@ -751,10 +791,10 @@ class TimerManager
      * manager.traceAllStopped("Performance");  // Prints all stopped timers
      * ```
      */
-    auto traceAllStopped(StringView category = "Timer") const -> void
+    auto traceAllStopped(StringView category = "") const -> void
     {
         for (const auto& [name, elapsed_time] : m_stoppedTimers) {
-            NEON_TRACE(std::string{category}, "\t\t\t{} elapsed {:.2f} {}",
+            NEON_TRACE(getEffectiveCategory(category), "\t\t\t{} elapsed {:.2f} {}",
                        name, elapsed_time, UnitStr<Duration>());
         }
     }
@@ -766,7 +806,7 @@ class TimerManager
      * in the order they were stopped, using NEON_INFO for informational logging. Each timer is
      * printed on a separate line with a 3-tab prefix for consistent indentation.
      *
-     * @param category Optional category/component name for the info messages (default: "Timer")
+     * @param category Optional category/component name for the info messages (default: uses constructor default)
      *
      * ## Example output:
      * ```
@@ -786,16 +826,27 @@ class TimerManager
      * manager.infoAllStopped("Performance_Report");  // Prints all stopped timers
      * ```
      */
-    auto infoAllStopped(std::string openingLine, StringView category = "Timer") const -> void
+    auto infoAllStopped(std::string openingLine, StringView category = "") const -> void
     {
-        NEON_INFO(std::string{category}, "{}", openingLine);
+        auto effectiveCategory = getEffectiveCategory(category);
+        NEON_INFO(effectiveCategory, "{}", openingLine);
         for (const auto& [name, elapsed_time] : m_stoppedTimers) {
-            NEON_INFO(std::string{category}, "\t\t\t{} elapsed {:.2f} {}",
+            NEON_INFO(effectiveCategory, "\t\t\t{} elapsed {:.2f} {}",
                       name, elapsed_time, UnitStr<Duration>());
         }
     }
 
    private:
+    /**
+     * @brief Get the effective category name, using default if empty.
+     *
+     * @param category Category string to check
+     * @return std::string The default category if input is empty, otherwise the input category
+     */
+    auto getEffectiveCategory(StringView category) const -> std::string {
+        return category.empty() ? m_defaultCategory : std::string{category};
+    }
+
     /**
      * @brief Get a reference to a timer by name (non-const version).
      *
@@ -835,6 +886,7 @@ class TimerManager
     std::unordered_map<std::string, TimerType>  m_timers;            ///< Storage for named timers
     std::unordered_set<std::string>             m_activeNvtxRanges;  ///< Track active NVTX ranges for cleanup
     std::vector<std::pair<std::string, double>> m_stoppedTimers;     ///< Track stopped timers in order with their elapsed times
+    std::string                                 m_defaultCategory;   ///< Default category used when empty string is provided
 };
 
 // Convenient type aliases for common timer manager resolutions
