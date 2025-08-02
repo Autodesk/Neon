@@ -1,4 +1,51 @@
 
+/**
+ * @file mGrid.cpp
+ * @brief Implementation of the multi-resolution grid (mGrid) data structure for adaptive mesh refinement
+ *
+ * This file implements a hierarchical multi-resolution grid system that stacks multiple block sparse grids
+ * at different resolution levels to enable adaptive mesh refinement (AMR) computations. The mGrid is designed
+ * for high-performance computing on both CPU and GPU platforms with seamless integration between resolution levels.
+ *
+ * ## Architecture Overview
+ *
+ * The mGrid consists of multiple resolution levels (0 = finest, N-1 = coarsest) where each level is an
+ * independent block sparse grid with its own resolution and spacing. Levels are connected via parent-child
+ * relationships to form a unified hierarchical data structure.
+ *
+ * ### Key Components:
+ * - **Bitmask System**: Efficient tracking of active voxels using 32-bit bitmasks per block
+ * - **Hierarchical Linking**: Parent-child relationships between resolution levels
+ * - **Overlap Culling**: Removes redundant coarse cells that are fully covered by fine cells
+ * - **Strong Balancing**: Ensures smooth resolution transitions (max 1 level difference between neighbors)
+ * - **NVTX Integration**: Performance profiling with automatic range tracking
+ *
+ * ### Memory Layout:
+ * - Each level maintains its own block sparse grid with independent memory allocation
+ * - Bitmasks are stored contiguously for cache-efficient access patterns
+ * - Parent-child relationships are stored in device-accessible memory sets
+ *
+ * ### Performance Characteristics:
+ * - Construction: O(N * log(L)) where N = domain size, L = number of levels
+ * - Memory: O(A * R^3) where A = active blocks, R = refinement factor
+ * - Access: O(1) for same-level operations, O(log(L)) for cross-level operations
+ *
+ * ## Supported Operations:
+ * - Multi-level field storage and access
+ * - Hierarchical traversal between resolution levels
+ * - Adaptive refinement and coarsening
+ * - Parallel computation kernels across all levels
+ * - Reduction operations with automatic level aggregation
+ *
+ * ## Thread Safety:
+ * - Construction: Not thread-safe (single-threaded initialization required)
+ * - Access: Thread-safe for read operations, requires synchronization for writes
+ * - GPU Operations: Fully thread-safe within CUDA kernels
+ *
+ * @note This implementation is optimized for octree structures (2x2x2 refinement factor)
+ * @see mGrid.h for the complete class interface and template parameters
+ */
+
 #include "Neon/domain/details//mGrid/mGrid.h"
 #include "Neon/domain/details/mGrid/mPartition.h"
 
@@ -10,25 +57,66 @@ namespace Neon::domain::details::mGrid {
  *
  * Creates a hierarchical multi-resolution grid system where each level represents a different
  * resolution/spacing. The levels are connected via parent-child relationships to form a unified
- * data structure for multi-scale computations.
+ * data structure for multi-scale computations suitable for adaptive mesh refinement (AMR).
  *
- * Construction phases:
- * 1. Parameter validation and setup
- * 2. Bitmask creation for active cells per level
- * 3. Optional overlap culling (removes redundant coarse cells)
- * 4. Optional strong balancing (ensures smooth resolution transitions)
- * 5. Internal block sparse grid creation per level
- * 6. Parent-child relationship linking between levels
+ * ## Construction Algorithm (6 Phases):
  *
- * @param backend Computational backend (CPU/CUDA)
- * @param domainSize 3D dimensions of the computational domain
- * @param activeCellLambda Functions (one per level) determining which cells are active
- * @param stencil Computational stencil pattern (unused)
- * @param descriptor Refinement structure (depth, refinement factors, spacing)
- * @param isStrongBalanced Enable strong balancing for smooth resolution transitions
- * @param isCullOverlaps Enable overlap culling to remove redundant coarse cells
- * @param spacingData Physical spacing information (unused)
- * @param origin Physical origin of the domain (unused)
+ * ### Phase 1: Parameter Validation and Setup
+ * - Validates backend compatibility (single GPU only)
+ * - Ensures octree structure (2x2x2 refinement)
+ * - Validates refinement factor consistency
+ * - Calculates top-level spacing and domain compatibility
+ * - Initializes bitmask storage for all levels
+ *
+ * ### Phase 2: Bitmask Creation for Active Cells
+ * - Uses user-provided lambda functions to determine cell activity
+ * - Implements two-pass algorithm per block:
+ *   1. Check which voxels should be active based on lambda
+ *   2. If block contains active voxels, activate all voxels (block filling)
+ * - Propagates activation hierarchically to parent levels
+ *
+ * ### Phase 3: Overlap Culling (Optional)
+ * - Removes coarse voxels that are fully covered by fine voxels
+ * - Only removes voxels where ALL 26 neighbors are also refined
+ * - Prevents redundant multi-level representation
+ *
+ * ### Phase 4: Strong Balancing (Optional)
+ * - Ensures smooth resolution transitions (max 1 level difference)
+ * - Iteratively activates intermediate levels until constraint satisfied
+ * - Prevents numerical issues from sudden resolution jumps
+ *
+ * ### Phase 5: Internal Block Sparse Grid Creation
+ * - Creates independent block sparse grid for each level
+ * - Each grid has its own memory allocation and indexing
+ * - Enables parallel operations within and across levels
+ *
+ * ### Phase 6: Hierarchical Linking
+ * - Establishes parent-child relationships between levels
+ * - Creates device-accessible memory sets for GPU operations
+ * - Enables seamless traversal between resolution levels
+ *
+ *
+ * ## Performance Considerations:
+ * - Parallel construction using OpenMP for Phase 2-4
+ * - Memory-efficient bitmask representation
+ * - Cache-friendly sequential access patterns
+ *
+ * @param backend Computational backend (CPU/CUDA) - must be single GPU
+ * @param domainSize 3D dimensions of the computational domain (must be >= top-level spacing)
+ * @param activeCellLambda Functions (one per level) determining which cells are active at each resolution
+ * @param stencil Computational stencil pattern (parameter preserved for interface compatibility)
+ * @param descriptor Refinement structure defining depth, refinement factors, and spacing per level
+ * @param isStrongBalanced Enable strong balancing for smooth resolution transitions (recommended: true)
+ * @param isCullOverlaps Enable overlap culling to remove redundant coarse cells (recommended: true)
+ * @param spacingData Physical spacing information (parameter preserved for interface compatibility)
+ * @param origin Physical origin of the domain (parameter preserved for interface compatibility)
+ *
+ * @throws NeonException if backend has multiple GPUs
+ * @throws NeonException if refinement factors don't match block size requirements
+ * @throws NeonException if domain size is incompatible with top-level spacing
+ * @throws NeonException if refinement factors decrease from fine to coarse levels
+ *
+ * @note Timer integration provides detailed profiling of each construction phase
  */
 template <typename SBlock>
 mGrid<SBlock>::mGrid(
@@ -218,15 +306,43 @@ mGrid<SBlock>::mGrid(
     // ==============================================
     mgridTimeTracker.start_with_trace("Cull Overlaps", "mGrid");
 
-    // Overlap culling removes coarse voxels that are fully covered by fine voxels
-    // A coarse voxel is removed if:
-    // 1. It is refined (has active children at finer level)
-    // 2. ALL its neighbors at the same level are also refined
-    // This ensures we don't have redundant representation at multiple levels
+    /**
+     * ## Overlap Culling Algorithm
+     * 
+     * Overlap culling eliminates redundant coarse voxels that are fully covered by fine voxels,
+     * reducing memory usage and preventing duplicate computations across resolution levels.
+     * 
+     * ### Culling Criteria:
+     * A coarse voxel is removed if and only if:
+     * 1. **It is refined**: Has active children at the next finer level
+     * 2. **All neighbors are refined**: ALL 26 neighbors (3x3x3 - center) are also refined
+     *
+     *
+     * ### Conservative Approach:
+     * Only removes voxels when ALL neighbors are refined, ensuring:
+     * - Interface cells between levels are always preserved
+     * - Interpolation and restriction operations remain well-defined
+     * - No orphaned fine cells (every fine cell has a coarse parent available)
+     * 
+     */
     if (mData->mCullOverlaps) {
 
-        // Lambda function to check if a voxel at a given level is refined
-        // (i.e., has active children at the next finer level)
+        /**
+         * @brief Check if a voxel at a given level is refined (has active children).
+         * 
+         * Determines whether a coarse voxel has any active children at the next finer level.
+         * This is used to identify candidates for overlap culling.
+         * 
+         * @param level Resolution level of the voxel (must be > 0)
+         * @param voxel 3D coordinates of the voxel to check
+         * @return true if voxel has any active children, false otherwise
+         * 
+         * ### Algorithm:
+         * 1. Maps the coarse voxel to its fine-level child region
+         * 2. Iterates through all possible child positions (refFactor^3)
+         * 3. Checks if any child is active in the bitmask
+         * 4. Returns true on first active child found (early termination)
+         */
         auto isRefined = [&](int level, const Neon::int32_3d& voxel) {
             if (level < 1) {
                 NeonException exp("mGrid::mGrid");
@@ -336,10 +452,38 @@ mGrid<SBlock>::mGrid(
     // ==============================================
     mgridTimeTracker.start_with_trace("Strong Balance", "mGrid");
 
-    // Strong balancing ensures smooth transitions between the stacked grids by enforcing that
-    // adjacent cells differ by at most one resolution level. This prevents sudden jumps in
-    // resolution that could affect numerical accuracy when moving between the stacked grids.
-    // The algorithm iteratively activates intermediate resolution levels until the constraint is satisfied
+    /**
+     * ## Strong Balancing Algorithm
+     * 
+     * Strong balancing enforces smooth resolution transitions by ensuring that adjacent cells
+     * differ by at most one resolution level. This constraint is critical for:
+     * - Numerical stability in multi-scale computations
+     * - Well-conditioned interpolation/restriction operators
+     * - Preventing artificial discontinuities at level interfaces
+     * 
+     * ### Balancing Constraint:
+     * For any active voxel at level L, all 26 neighbors must exist at levels:
+     * - L (same level) - always acceptable
+     * - L+1 (one level coarser) - acceptable
+     * - L-1 (one level finer) - acceptable
+     * - L+2 or higher (multiple levels coarser) - **VIOLATION** → activate level L+1
+     * 
+     * ### Iterative Algorithm:
+     * 1. **Scan Phase**: Check all active voxels for constraint violations
+     * 2. **Activation Phase**: Activate intermediate levels to fix violations
+     * 3. **Repeat**: Continue until no new activations occur (convergence)
+     * 
+     * ### Algorithm Properties:
+     * - **Convergence**: Guaranteed in finite iterations (typically 2-3)
+     * - **Consistency**: Preserves user-specified finest-level refinement
+     *
+     * 
+     * ### Numerical Benefits:
+     * - Smooth interpolation between levels (no high-frequency artifacts)
+     * - Stable restriction/prolongation operators
+     * - Predictable convergence rates for iterative solvers
+     * - Reduced aliasing in multi-scale computations
+     */
     if (mData->mStrongBalanced) {
         // Iteratively refine grid until strong balance condition is satisfied
         bool again = true;
@@ -490,14 +634,52 @@ mGrid<SBlock>::mGrid(
     mgridTimeTracker.stop_with_trace("bGrid initialization", "mGrid");
 
     // ==============================================
-    // PHASE 6: Linking Resolution Levels
+    // PHASE 6: Hierarchical Linking Between Resolution Levels
     // ==============================================
     mgridTimeTracker.start_with_trace("Linking bGrids", "mGrid");
 
-    // Establish parent-child relationships between different resolution levels
-    // This creates the connections that allow traversal between the stacked grids
+    /**
+     * ## Hierarchical Linking Algorithm
+     * 
+     * Establishes bidirectional parent-child relationships between resolution levels,
+     * creating a unified hierarchical data structure that enables seamless traversal
+     * and communication between different resolution grids.
+     * 
+     * ### Data Structures Created:
+     * - **Parent Block IDs**: For each block, stores reference to parent at coarser level
+     * - **Child Block IDs**: For each voxel, stores references to children at finer level
+     * - **Refinement Factors**: Device-accessible array of refinement factors per level
+     * - **Spacing Arrays**: Device-accessible array of spacing values per level
+     * 
+     * ### Memory Layout Optimization:
+     * - **Structure of Arrays (SoA)**: Child references for cache-efficient access
+     * - **Array of Structures (AoS)**: Parent references for spatial locality
+     * - **Device Memory**: All data structures are GPU-accessible
+     * - **Host-Device Sync**: Automatic synchronization for CUDA backends
+     * 
+     * ### Linking Algorithm:
+     * 1. **Memory Allocation**: Size calculation based on active block counts
+     * 2. **Parent Mapping**: Each block finds its parent in the coarser level
+     * 3. **Child Mapping**: Each voxel maps to its children in the finer level
+     * 4. **Invalid References**: Use max value to indicate non-existent relationships
+     * 5. **GPU Transfer**: Upload all relationships to device memory
+     * 
+     * ### Performance Considerations:
+     * - **Block-aligned Access**: Memory layout optimized for block-wise operations
+     * - **Coalesced Reads**: GPU memory access patterns optimized for throughput
+     * - **Minimal Indirection**: Direct indexing without pointer chasing
+     * - **Cache Efficiency**: Related data stored contiguously
+     * 
+     * ### Use Cases Enabled:
+     * - **Interpolation**: Fine→Coarse data transfer using parent relationships
+     * - **Restriction**: Coarse→Fine data transfer using child relationships
+     * - **Ghost Exchange**: Communication between adjacent levels
+     * - **Adaptive Refinement**: Dynamic level activation/deactivation
+     * - **Parallel Traversal**: Concurrent operations across levels
+     */
 
     // Initialize parent block ID storage for each level (except the coarsest)
+    // Each fine block stores a reference to its parent block at the next coarser level
     mData->mParentBlockID.resize(mData->mDescriptor.getDepth() - 1);
     for (int l = 0; l < mData->mDescriptor.getDepth() - 1; ++l) {
         mData->mParentBlockID[l] = backend.devSet().template newMemSet<typename Idx::DataBlockIdx>({Neon::DataUse::HOST_DEVICE},
@@ -686,15 +868,29 @@ mGrid<SBlock>::mGrid(
 }
 
 /**
- * @brief Calculate bitmask index for a voxel within a block at a specific resolution level.
+ * @brief Calculate bitmask index for efficient voxel status tracking.
  *
- * Computes the flat array index and bit position within the bitmask for efficient voxel
- * status tracking across all resolution levels.
+ * Computes the flat array index and bit position within the 32-bit bitmask system
+ * for efficient voxel status tracking across all resolution levels. This function
+ * enables O(1) voxel activation/deactivation queries.
  *
- * @param l Resolution level
+ * ### Algorithm:
+ * 1. Convert 3D block+local coordinates to 1D flattened index
+ * 2. Divide by 32 to get array index (each element holds 32 bits)
+ * 3. Use modulo 32 to get bit position within the element
+ *
+ * ### Memory Layout:
+ * - Each bitmask element stores 32 voxel states as individual bits
+ * - Achieves 32x compression compared to boolean arrays
+ * - Cache-efficient sequential access patterns
+ *
+ * @param l Resolution level (0 = finest, depth-1 = coarsest)
  * @param blockID 3D block coordinates within the level
- * @param localChild Local position of voxel within the block
+ * @param localChild Local position of voxel within the block [0, refFactor)³
  * @return Pair of (array index, bit position) for the bitmask
+ *
+ * @note Bit position is in range [0, 31] for standard 32-bit integers
+ * @note Array index scales with total domain size and refinement factor
  */
 template <typename SBlock>
 auto mGrid<SBlock>::levelBitMaskIndex(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> std::pair<int64_t, int>
@@ -709,10 +905,18 @@ auto mGrid<SBlock>::levelBitMaskIndex(int l, const Neon::index_3d& blockID, cons
 /**
  * @brief Check if a voxel is active at a specific resolution level.
  *
- * @param l Resolution level to query
+ * Performs O(1) lookup in the compressed bitmask to determine voxel activation status.
+ * This is the primary query operation for the multi-resolution grid system.
+ *
+ *
+ * @param l Resolution level to query (0 = finest, depth-1 = coarsest)
  * @param blockID 3D block coordinates within the level
- * @param localChild Local position of voxel within the block
- * @return true if voxel is active, false otherwise
+ * @param localChild Local position of voxel within the block [0, refFactor)³
+ * @return true if voxel is active/refined, false if inactive
+ *
+ * @note Used extensively during grid traversal and computation phases
+ * @see setLevelBitMask() for voxel activation
+ * @see clearLevelBitMask() for voxel deactivation
  */
 template <typename SBlock>
 auto mGrid<SBlock>::levelBitMaskIsSet(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> bool
@@ -797,11 +1001,32 @@ auto mGrid<SBlock>::operator()(int level) const -> const InternalGrid&
  * @brief Get the origin block 3D index for a given voxel position at a specific resolution level.
  *
  * Computes the block origin by rounding down the voxel coordinates to the nearest multiple
- * of the level's spacing, effectively finding which block contains the given voxel.
+ * of the level's spacing, effectively finding which block contains the given voxel. This is
+ * a fundamental operation for mapping between global voxel coordinates and block-local coordinates.
  *
- * @param idx Voxel position in 3D space
- * @param level Resolution level for spacing calculation
+ * ### Algorithm:
+ * For each dimension: `block_origin = (voxel_coord / spacing) * spacing`
+ * This rounds down to the nearest multiple of spacing, giving the block's corner coordinate.
+ *
+ * ### Use Cases:
+ * - **Voxel-to-Block Mapping**: Find which block contains a specific voxel
+ * - **Interpolation Setup**: Identify blocks involved in multi-level operations
+ * - **Neighbor Finding**: Locate adjacent blocks for stencil operations
+ * - **Boundary Handling**: Determine block boundaries for domain decomposition
+ *
+ * ### Example:
+ * ```
+ * Level spacing = 4, voxel at (7, 9, 11)
+ * Block origin = (4, 8, 8)  // Rounded down to nearest multiple of 4
+ * Local coords = (3, 1, 3)  // Relative to block origin
+ * ```
+ *
+ * @param idx Voxel position in 3D global coordinate space
+ * @param level Resolution level for spacing calculation (0 = finest spacing)
  * @return 3D coordinates of the block origin that contains the voxel
+ *
+ * @note Block origins are always aligned to spacing boundaries
+ * @note Returns coordinates in the same global coordinate system as input
  */
 template <typename SBlock>
 auto mGrid<SBlock>::getOriginBlock3DIndex(const Neon::int32_3d idx, int level) const -> Neon::int32_3d
@@ -973,12 +1198,39 @@ auto mGrid<SBlock>::getBackend() -> Backend&
     return mData->backend;
 }
 /**
- * @brief Generate a string representation of the multi-resolution grid.
+ * @brief Generate a comprehensive string representation of the multi-resolution grid.
  *
- * Creates a detailed string representation including information about all
- * resolution levels and their internal block sparse grids.
+ * Creates a detailed string representation including hierarchical information about all
+ * resolution levels and their internal block sparse grids. This is primarily used for
+ * debugging, logging, and grid structure analysis.
  *
- * @return String representation of the grid structure
+ * ### Output Format:
+ * ```
+ * mGrid (level count: N)
+ * ---
+ * [Level 0 block sparse grid details]
+ * ---
+ * [Level 1 block sparse grid details]
+ * ...
+ * ```
+ *
+ * ### Information Included:
+ * - Total number of resolution levels
+ * - Per-level block sparse grid statistics
+ * - Memory usage and active cell counts
+ * - Spacing and refinement factor information
+ * - Backend and device configuration
+ *
+ * ### Use Cases:
+ * - **Debugging**: Verify grid construction correctness
+ * - **Performance Analysis**: Analyze memory usage and load balancing
+ * - **Logging**: Record grid configuration for reproducibility
+ * - **Validation**: Compare different grid configurations
+ *
+ * @return Multi-line string representation of the complete grid hierarchy
+ *
+ * @note Output can be large for grids with many levels or large domains
+ * @note Each level's block sparse grid provides its own detailed toString() output
  */
 template <typename SBlock>
 auto mGrid<SBlock>::toString() const -> std::string
@@ -996,6 +1248,25 @@ auto mGrid<SBlock>::toString() const -> std::string
 
 }  // namespace Neon::domain::details::mGrid
 
+/**
+ * ## Explicit Template Instantiations
+ * 
+ * Pre-instantiate common block sizes to reduce compilation time and ensure
+ * consistent behavior across different translation units.
+ * 
+ * ### Supported Block Configurations:
+ * - **8x8x8 blocks**: High memory efficiency for large-scale simulations
+ * - **4x4x4 blocks**: Balanced performance for general-purpose AMR
+ * - **2x2x2 blocks**: Minimal block size for fine-grained control
+ * 
+ * All configurations use:
+ * - **Memory block size**: Same as user block size for simplicity
+ * - **Refinement factor**: 2x2x2 (octree structure)
+ * - **Contiguous memory**: true for optimal cache performance
+ * 
+ * @note Additional block sizes can be instantiated by including the header
+ * @note All instantiations support the same multi-resolution grid interface
+ */
 template class Neon::domain::details::mGrid::mGrid<Neon::domain::details::StaticBlock<8, 8, 8, 2, 2, 2, true>>;
 template class Neon::domain::details::mGrid::mGrid<Neon::domain::details::StaticBlock<4, 4, 4, 2, 2, 2, true>>;
 template class Neon::domain::details::mGrid::mGrid<Neon::domain::details::StaticBlock<2, 2, 2, 2, 2, 2, true>>;
