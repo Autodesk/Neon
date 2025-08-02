@@ -232,10 +232,13 @@ mGrid<SBlock>::mGrid(
         // Two-pass algorithm:
         // 1st pass: Check which voxels should be active based on lambda functions
         // 2nd pass: If block contains active voxels, activate all voxels in block (fill block)
-#pragma omp parallel for collapse(3)
-        for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
-            for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
-                for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
+#pragma omp parallel for collapse(3) schedule(static)
+        for (size_t bzUint64 = 0; bzUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].z); bzUint64++) {
+            for (size_t byUint64 = 0; byUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].y); byUint64++) {
+                for (size_t bxUint64 = 0; bxUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].x); bxUint64++) {
+                    int const bz = static_cast<int>(bzUint64);
+                    int const by = static_cast<int>(byUint64);
+                    int const bx = static_cast<int>(bxUint64);
 
                     // Convert block indices to base index space coordinates
                     Neon::index_3d blockOrigin = mData->mDescriptor.toBaseIndexSpace({bx, by, bz}, l + 1);
@@ -256,7 +259,11 @@ mGrid<SBlock>::mGrid(
                                     } else {
                                         if (activeCellLambda[l](voxel)) {
                                             containVoxels = true;
-                                            setLevelBitMask(l, {bx, by, bz}, {x, y, z});
+#pragma omp critical
+                                            {
+                                                // Set the bitmask for this voxel if it is active
+                                                setLevelBitMask(l, {bx, by, bz}, {x, y, z});
+                                            }
                                         }
                                     }
                                 }
@@ -273,7 +280,10 @@ mGrid<SBlock>::mGrid(
                                     const Neon::int32_3d voxel = mData->mDescriptor.parentToChild(blockOrigin, l, {x, y, z});
 
                                     if (voxel < domainSize) {
-                                        setLevelBitMask(l, {bx, by, bz}, {x, y, z});
+#pragma omp critical
+                                        {
+                                            setLevelBitMask(l, {bx, by, bz}, {x, y, z});
+                                        }
                                     }
                                 }
                             }
@@ -290,9 +300,11 @@ mGrid<SBlock>::mGrid(
 
                             // Find local position within the parent block
                             Neon::int32_3d indexInParentBlock = mData->mDescriptor.toLocalIndex(blockOrigin, l + 1);
-
-                            // Activate the corresponding voxel in the parent block
-                            setLevelBitMask(l + 1, parentBlock, indexInParentBlock);
+#pragma omp critical
+                            {
+                                // Activate the corresponding voxel in the parent block
+                                setLevelBitMask(l + 1, parentBlock, indexInParentBlock);
+                            }
                         }
                     }
                 }
@@ -308,10 +320,10 @@ mGrid<SBlock>::mGrid(
 
     /**
      * ## Overlap Culling Algorithm
-     * 
+     *
      * Overlap culling eliminates redundant coarse voxels that are fully covered by fine voxels,
      * reducing memory usage and preventing duplicate computations across resolution levels.
-     * 
+     *
      * ### Culling Criteria:
      * A coarse voxel is removed if and only if:
      * 1. **It is refined**: Has active children at the next finer level
@@ -323,20 +335,20 @@ mGrid<SBlock>::mGrid(
      * - Interface cells between levels are always preserved
      * - Interpolation and restriction operations remain well-defined
      * - No orphaned fine cells (every fine cell has a coarse parent available)
-     * 
+     *
      */
     if (mData->mCullOverlaps) {
 
         /**
          * @brief Check if a voxel at a given level is refined (has active children).
-         * 
+         *
          * Determines whether a coarse voxel has any active children at the next finer level.
          * This is used to identify candidates for overlap culling.
-         * 
+         *
          * @param level Resolution level of the voxel (must be > 0)
          * @param voxel 3D coordinates of the voxel to check
          * @return true if voxel has any active children, false otherwise
-         * 
+         *
          * ### Algorithm:
          * 1. Maps the coarse voxel to its fine-level child region
          * 2. Iterates through all possible child positions (refFactor^3)
@@ -386,10 +398,13 @@ mGrid<SBlock>::mGrid(
             const int refFactor = mData->mDescriptor.getRefFactor(l);
 
             // Process all blocks at this level in parallel
-#pragma omp parallel for collapse(3)
-            for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
-                for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
-                    for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
+#pragma omp parallel for collapse(3) schedule(static)
+            for (size_t bzUint64 = 0; bzUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].z); bzUint64++) {
+                for (size_t byUint64 = 0; byUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].y); byUint64++) {
+                    for (size_t bxUint64 = 0; bxUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].x); bxUint64++) {
+                        int const bz = static_cast<int>(bzUint64);
+                        int const by = static_cast<int>(byUint64);
+                        int const bx = static_cast<int>(bxUint64);
 
                         const Neon::index_3d blockOrigin = mData->mDescriptor.toBaseIndexSpace({bx, by, bz}, l + 1);
 
@@ -432,7 +447,10 @@ mGrid<SBlock>::mGrid(
 
                                                 // Deactivate voxel if it and all neighbors are refined
                                                 if (deactivate) {
-                                                    clearLevelBitMask(l, {bx, by, bz}, {x, y, z});
+#pragma omp critical
+                                                    {
+                                                        clearLevelBitMask(l, {bx, by, bz}, {x, y, z});
+                                                    }
                                                 }
                                             }
                                         }
@@ -454,30 +472,30 @@ mGrid<SBlock>::mGrid(
 
     /**
      * ## Strong Balancing Algorithm
-     * 
+     *
      * Strong balancing enforces smooth resolution transitions by ensuring that adjacent cells
      * differ by at most one resolution level. This constraint is critical for:
      * - Numerical stability in multi-scale computations
      * - Well-conditioned interpolation/restriction operators
      * - Preventing artificial discontinuities at level interfaces
-     * 
+     *
      * ### Balancing Constraint:
      * For any active voxel at level L, all 26 neighbors must exist at levels:
      * - L (same level) - always acceptable
      * - L+1 (one level coarser) - acceptable
      * - L-1 (one level finer) - acceptable
      * - L+2 or higher (multiple levels coarser) - **VIOLATION** → activate level L+1
-     * 
+     *
      * ### Iterative Algorithm:
      * 1. **Scan Phase**: Check all active voxels for constraint violations
      * 2. **Activation Phase**: Activate intermediate levels to fix violations
      * 3. **Repeat**: Continue until no new activations occur (convergence)
-     * 
+     *
      * ### Algorithm Properties:
      * - **Convergence**: Guaranteed in finite iterations (typically 2-3)
      * - **Consistency**: Preserves user-specified finest-level refinement
      *
-     * 
+     *
      * ### Numerical Benefits:
      * - Smooth interpolation between levels (no high-frequency artifacts)
      * - Stable restriction/prolongation operators
@@ -495,10 +513,13 @@ mGrid<SBlock>::mGrid(
                 const int refFactor = mData->mDescriptor.getRefFactor(l);
                 const int childSpacing = mData->mDescriptor.getSpacing(l - 1);
 
-#pragma omp parallel for collapse(3)
-                for (int bz = 0; bz < mData->mTotalNumBlocks[l].z; bz++) {
-                    for (int by = 0; by < mData->mTotalNumBlocks[l].y; by++) {
-                        for (int bx = 0; bx < mData->mTotalNumBlocks[l].x; bx++) {
+#pragma omp parallel for collapse(3) schedule(static)
+                for (size_t bzUint64 = 0; bzUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].z); bzUint64++) {
+                    for (size_t byUint64 = 0; byUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].y); byUint64++) {
+                        for (size_t bxUint64 = 0; bxUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].x); bxUint64++) {
+                            int const bz = static_cast<int>(bzUint64);
+                            int const by = static_cast<int>(byUint64);
+                            int const bx = static_cast<int>(bxUint64);
 
                             // Check each voxel in the current block
                             for (int z = 0; z < refFactor; z++) {
@@ -556,9 +577,12 @@ mGrid<SBlock>::mGrid(
                                                                     if (l_n == l || l_n == l + 1) {
                                                                         break;  // Balance satisfied
                                                                     } else {
-                                                                        // Balance violation: activate intermediate level
-                                                                        setLevelBitMask(l_n - 1, prv_nVoxelBlockOrigin, prv_nVoxelLocalID);
-                                                                        again = true;  // Need another iteration
+#pragma omp critical
+                                                                        {
+                                                                            // Balance violation: activate intermediate level
+                                                                            setLevelBitMask(l_n - 1, prv_nVoxelBlockOrigin, prv_nVoxelLocalID);
+                                                                            again = true;  // Need another iteration
+                                                                        }
                                                                     }
                                                                 }
 
@@ -640,36 +664,36 @@ mGrid<SBlock>::mGrid(
 
     /**
      * ## Hierarchical Linking Algorithm
-     * 
+     *
      * Establishes bidirectional parent-child relationships between resolution levels,
      * creating a unified hierarchical data structure that enables seamless traversal
      * and communication between different resolution grids.
-     * 
+     *
      * ### Data Structures Created:
      * - **Parent Block IDs**: For each block, stores reference to parent at coarser level
      * - **Child Block IDs**: For each voxel, stores references to children at finer level
      * - **Refinement Factors**: Device-accessible array of refinement factors per level
      * - **Spacing Arrays**: Device-accessible array of spacing values per level
-     * 
+     *
      * ### Memory Layout Optimization:
      * - **Structure of Arrays (SoA)**: Child references for cache-efficient access
      * - **Array of Structures (AoS)**: Parent references for spatial locality
      * - **Device Memory**: All data structures are GPU-accessible
      * - **Host-Device Sync**: Automatic synchronization for CUDA backends
-     * 
+     *
      * ### Linking Algorithm:
      * 1. **Memory Allocation**: Size calculation based on active block counts
      * 2. **Parent Mapping**: Each block finds its parent in the coarser level
      * 3. **Child Mapping**: Each voxel maps to its children in the finer level
      * 4. **Invalid References**: Use max value to indicate non-existent relationships
      * 5. **GPU Transfer**: Upload all relationships to device memory
-     * 
+     *
      * ### Performance Considerations:
      * - **Block-aligned Access**: Memory layout optimized for block-wise operations
      * - **Coalesced Reads**: GPU memory access patterns optimized for throughput
      * - **Minimal Indirection**: Direct indexing without pointer chasing
      * - **Cache Efficiency**: Related data stored contiguously
-     * 
+     *
      * ### Use Cases Enabled:
      * - **Interpolation**: Fine→Coarse data transfer using parent relationships
      * - **Restriction**: Coarse→Fine data transfer using child relationships
@@ -1250,20 +1274,20 @@ auto mGrid<SBlock>::toString() const -> std::string
 
 /**
  * ## Explicit Template Instantiations
- * 
+ *
  * Pre-instantiate common block sizes to reduce compilation time and ensure
  * consistent behavior across different translation units.
- * 
+ *
  * ### Supported Block Configurations:
  * - **8x8x8 blocks**: High memory efficiency for large-scale simulations
  * - **4x4x4 blocks**: Balanced performance for general-purpose AMR
  * - **2x2x2 blocks**: Minimal block size for fine-grained control
- * 
+ *
  * All configurations use:
  * - **Memory block size**: Same as user block size for simplicity
  * - **Refinement factor**: 2x2x2 (octree structure)
  * - **Contiguous memory**: true for optimal cache performance
- * 
+ *
  * @note Additional block sizes can be instantiated by including the header
  * @note All instantiations support the same multi-resolution grid interface
  */
