@@ -28,9 +28,6 @@
  * auto time = manager.stop("computation");  // Ends NVTX range
  * ```
  * 
- * @author Neon Development Team
- * @date 2024
- * @copyright Copyright (c) 2024 Neon Project
  */
 #pragma once
 
@@ -329,6 +326,52 @@ public:
         // When NVTX is disabled, still track ranges for consistency
         m_activeNvtxRanges.insert(timerName);
 #endif
+    }
+
+    /**
+     * @brief Start a named timer with NEON_INFO logging.
+     * 
+     * Starts a timer and immediately logs the timer start using NEON_INFO.
+     * This combines timer start functionality with informational logging for
+     * better visibility in performance analysis and debugging.
+     * 
+     * @param name Unique identifier for the timer and NVTX range
+     * @param category Optional category/component name for the info message (default: "Timer")
+     * 
+     * ## Example:
+     * ```cpp
+     * manager.start_with_info("gpu_kernel");                    // Outputs: Timer: Starting gpu_kernel
+     * manager.start_with_info("computation", "Performance");   // Outputs: Performance: Starting computation
+     * // ... work ...
+     * manager.stop("gpu_kernel");
+     * ```
+     */
+    auto start_with_info(StringView name, StringView category = "Timer") -> void {
+        start(name);
+        NEON_INFO(std::string{category}, "Starting {}", name);
+    }
+
+    /**
+     * @brief Start a named timer with NEON_TRACE logging.
+     * 
+     * Starts a timer and immediately logs the timer start using NEON_TRACE.
+     * This combines timer start functionality with trace-level logging for
+     * detailed performance tracing during development and debugging.
+     * 
+     * @param name Unique identifier for the timer and NVTX range
+     * @param category Optional category/component name for the trace message (default: "Timer")
+     * 
+     * ## Example:
+     * ```cpp
+     * manager.start_with_trace("gpu_kernel");                   // Outputs: Timer: Starting gpu_kernel
+     * manager.start_with_trace("fine_detail", "GPU_Debug");    // Outputs: GPU_Debug: Starting fine_detail
+     * // ... work ...
+     * manager.stop("gpu_kernel");
+     * ```
+     */
+    auto start_with_trace(StringView name, StringView category = "Timer") -> void {
+        start(name);
+        NEON_TRACE(std::string{category}, "Starting {}", name);
     }
 
     /**
