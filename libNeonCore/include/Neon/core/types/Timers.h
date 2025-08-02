@@ -428,6 +428,60 @@ public:
     }
 
     /**
+     * @brief Stop a named timer and log the elapsed time using NEON_INFO.
+     * 
+     * Stops the specified timer, records the final time, logs the elapsed time
+     * using NEON_INFO, and returns the elapsed time. This combines timer stopping
+     * functionality with informational logging for better visibility in performance
+     * analysis and debugging.
+     * 
+     * @param name Name of the timer to stop and log
+     * @param category Optional category/component name for the info message (default: "Timer")
+     * @return double Elapsed time in the timer's configured duration units
+     * @throws NeonException if the timer doesn't exist
+     * 
+     * ## Example:
+     * ```cpp
+     * manager.start("computation");
+     * // ... work ...
+     * auto elapsed = manager.stop_with_info("computation");                    // Outputs: Timer: computation elapsed 567.89 ms
+     * auto elapsed2 = manager.stop_with_info("gpu_kernel", "Performance");    // Outputs: Performance: gpu_kernel elapsed 123.45 us
+     * ```
+     */
+    [[nodiscard]] auto stop_with_info(StringView name, StringView category = "Timer") -> double {
+        auto result = stop(name);
+        NEON_INFO(std::string{category}, "{} elapsed {}", name, elapsedStr(name));
+        return result;
+    }
+
+    /**
+     * @brief Stop a named timer and log the elapsed time using NEON_TRACE.
+     * 
+     * Stops the specified timer, records the final time, logs the elapsed time
+     * using NEON_TRACE, and returns the elapsed time. This combines timer stopping
+     * functionality with trace-level logging for detailed performance tracing
+     * during development and debugging.
+     * 
+     * @param name Name of the timer to stop and log
+     * @param category Optional category/component name for the trace message (default: "Timer")
+     * @return double Elapsed time in the timer's configured duration units
+     * @throws NeonException if the timer doesn't exist
+     * 
+     * ## Example:
+     * ```cpp
+     * manager.start("fine_detail");
+     * // ... work ...
+     * auto elapsed = manager.stop_with_trace("fine_detail");                  // Outputs: Timer: fine_detail elapsed 123.45 us
+     * auto elapsed2 = manager.stop_with_trace("gpu_debug", "GPU_Profiling");  // Outputs: GPU_Profiling: gpu_debug elapsed 567.89 ms
+     * ```
+     */
+    [[nodiscard]] auto stop_with_trace(StringView name, StringView category = "Timer") -> double {
+        auto result = stop(name);
+        NEON_TRACE(std::string{category}, "{} elapsed {}", name, elapsedStr(name));
+        return result;
+    }
+
+    /**
      * @brief Get elapsed time for a named timer without stopping it.
      * 
      * Returns the elapsed time for the specified timer without affecting
