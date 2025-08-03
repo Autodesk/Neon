@@ -49,7 +49,7 @@ class SpanDecomposition
     Neon::set::DataSet<int32_t> mZLastIdx;
     Neon::set::DataSet<int64_t> mNumBlocks;
 
-    int64_t mDomainBlocksCount;
+    size_t mDomainBlocksCount;
 };
 
 template <typename ActiveCellLambda,
@@ -66,26 +66,26 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
 {
     // Computing nBlockProjectedToZ and totalBlocks
     mDomainBlocksCount = 0;
-    std::vector<int> nBlockProjectedToZ(block3DSpan.z);
+    std::vector<size_t> nBlockProjectedToZ(block3DSpan.z);
 
     for (int bz = 0; bz < block3DSpan.z; bz++) {
-        nBlockProjectedToZ[bz] = 0;
-
-        for (int by = 0; by < block3DSpan.y; by++) {
-            for (int bx = 0; bx < block3DSpan.x; bx++) {
-
+        size_t count_on_bz = 0;
+#pragma omp parallel for reduction(+ : count_on_bz) schedule(static) collapse(2)
+        for (size_t by64 = 0; by64 < static_cast<size_t>(block3DSpan.y); by64++) {
+            for (size_t bx64 = 0; bx64 < static_cast<size_t>(block3DSpan.x); bx64++) {
+                int const      bx = static_cast<int>(bx64);
+                int const      by = static_cast<int>(by64);
                 Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
                 bool           doBreak = false;
                 for (int z = 0; (z < blockSize.z && !doBreak); z++) {
                     for (int y = 0; (y < blockSize.y && !doBreak); y++) {
                         for (int x = 0; (x < blockSize.x && !doBreak); x++) {
 
-                            const Neon::int32_3d id = getVoxelAbsolute3DIdx(blockOrigin, {x, y, z});
+                            Neon::int32_3d const id = getVoxelAbsolute3DIdx(blockOrigin, {x, y, z});
                             if (id < domainSize * discreteVoxelSpacing) {
                                 if (activeCellLambda(id)) {
                                     doBreak = true;
-                                    nBlockProjectedToZ[bz]++;
-                                    mDomainBlocksCount++;
+                                    count_on_bz++;
                                 }
                             }
                         }
@@ -93,6 +93,8 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
                 }
             }
         }
+        nBlockProjectedToZ[bz] += count_on_bz;
+        mDomainBlocksCount += count_on_bz;
     }
 
     const int64_t avgBlocksPerPartition = NEON_DIVIDE_UP(mDomainBlocksCount,

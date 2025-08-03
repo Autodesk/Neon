@@ -256,7 +256,11 @@ SpanClassifier::SpanClassifier(const Neon::Backend&                         back
                     }
                     if (isActiveBlock) {
                         Neon::int32_3d const point(bx, by, bz);
-                        addPoint(setIdx, point, byPartition, byDirection, byDomain);
+#pragma omp critical
+                        {
+                            // Add the point to the mapper
+                            addPoint(setIdx, point, byPartition, byDirection, byDomain);
+                        }
                     }
                 };
                 if (backend.deviceCount() > 1) {
@@ -295,10 +299,14 @@ SpanClassifier::SpanClassifier(const Neon::Backend&                         back
                         }
                     }
                 } else {
-                    // We are running in the inner partition blocks
-                    for (int bz = beginZ; bz <= lastZ; bz++) {
-                        for (int by = 0; by < block3DSpan.y; by++) {
-                            for (int bx = 0; bx < block3DSpan.x; bx++) {
+            // We are running in the inner partition blocks
+#pragma omp parallel for collapse(3) schedule(static)
+                    for (size_t bz64 = beginZ; bz64 <= static_cast<size_t>(lastZ); bz64++) {
+                        for (size_t by64 = 0; by64 < static_cast<size_t>(block3DSpan.y); by64++) {
+                            for (size_t bx64 = 0; bx64 < static_cast<size_t>(block3DSpan.x); bx64++) {
+                                int const bx = static_cast<int>(bx64);
+                                int const by = static_cast<int>(by64);
+                                int const bz = static_cast<int>(bz64);
                                 inspectBlock(bx, by, bz, ByPartition::internal, defaultForInternal);
                             }
                         }
