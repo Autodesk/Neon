@@ -415,7 +415,7 @@ class TimerManager
      * manager.stop("gpu_kernel");
      * ```
      */
-    auto start_with_trace(StringView name, StringView category = "") -> void
+    auto start_with_trace([[maybe_unused]] StringView name, [[maybe_unused]] StringView category = "") -> void
     {
         start(name);
         NEON_TRACE(getEffectiveCategory(category), "Starting {}", name);
@@ -521,7 +521,7 @@ class TimerManager
      * auto elapsed2 = manager.stop_with_trace("gpu_debug", "GPU_Profiling");  // Outputs: GPU_Profiling: gpu_debug elapsed 567.89 ms
      * ```
      */
-    auto stop_with_trace(StringView name, StringView category = "") -> double
+    auto stop_with_trace([[maybe_unused]] StringView name, [[maybe_unused]] StringView category = "") -> double
     {
         auto result = stop(name);
         NEON_TRACE(getEffectiveCategory(category), "{} elapsed {}", name, elapsedStr(name));
@@ -735,7 +735,7 @@ class TimerManager
      * manager.trace("gpu_kernel", "GPU_Performance"); // Outputs: GPU_Performance: gpu_kernel elapsed 123.45 us
      * ```
      */
-    auto trace(StringView name, StringView category = "") const -> void
+    auto trace([[maybe_unused]] StringView name, [[maybe_unused]] StringView category = "") const -> void
     {
         NEON_TRACE(getEffectiveCategory(category), "{} elapsed {}", name, elapsedStr(name));
     }
@@ -791,10 +791,10 @@ class TimerManager
      * manager.traceAllStopped("Performance");  // Prints all stopped timers
      * ```
      */
-    auto traceAllStopped(StringView category = "") const -> void
+    auto traceAllStopped([[maybe_unused]] StringView category = "") const -> void
     {
-        for (const auto& [name, elapsed_time] : m_stoppedTimers) {
-            NEON_TRACE(getEffectiveCategory(category), "\t\t\t{} elapsed {:.2f} {}",
+        for ([[maybe_unused]] const auto& [name, elapsed_time] : m_stoppedTimers) {
+	  NEON_TRACE(getEffectiveCategory(category), "\t\t\t{} elapsed {:.2f} {}",
                        name, elapsed_time, UnitStr<Duration>());
         }
     }
