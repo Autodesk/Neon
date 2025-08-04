@@ -621,12 +621,21 @@ auto eField<T, C>::initHaloUpdateTable()
         return res;
     };
 
+    auto dataUse = this->getDataUse();
     mData->soaHaloUpdateTable.forEachPutConfiguration(
-        bk, [&](Neon::SetIdx                                  setIdxSrc,
-                Execution                                     execution,
-                Neon::domain::tool::partitioning::ByDirection byDirection,
-                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
+        bk, [&, dataUse](Neon::SetIdx                                  setIdxSrc,
+                         Execution                                     execution,
+                         Neon::domain::tool::partitioning::ByDirection byDirection,
+                         std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
             {
+                if (dataUse == Neon::DataUse::DEVICE && execution == Neon::Execution::host) {
+                    // We don't need to transfer data from host to device
+                    return;
+                }
+                if (dataUse == Neon::DataUse::HOST && execution == Neon::Execution::device) {
+                    // We don't need to transfer data from host to device
+                    return;
+                }
                 using namespace Neon::domain::tool::partitioning;
 
                 Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
@@ -692,11 +701,19 @@ auto eField<T, C>::initHaloUpdateTable()
         });
 
     mData->aosHaloUpdateTable.forEachPutConfiguration(
-        bk, [&](Neon::SetIdx                                  setIdxSrc,
+        bk, [&, dataUse](Neon::SetIdx                                  setIdxSrc,
                 Execution                                     execution,
                 Neon::domain::tool::partitioning::ByDirection byDirection,
                 std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
             {
+                if (dataUse == Neon::DataUse::DEVICE && execution == Neon::Execution::host) {
+                    // We don't need to transfer data from host to device
+                    return;
+                }
+                if (dataUse == Neon::DataUse::HOST && execution == Neon::Execution::device) {
+                    // We don't need to transfer data from host to device
+                    return;
+                }
                 using namespace Neon::domain::tool::partitioning;
 
                 Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
