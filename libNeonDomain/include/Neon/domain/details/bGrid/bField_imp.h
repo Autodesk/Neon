@@ -261,13 +261,21 @@ auto bField<T, C, SBlock>::initHaloUpdateTable() -> void
         }
         return res;
     };
-
+    auto const& dataUse = this->getDataUse();
     mData->soaHaloUpdateTable.forEachPutConfiguration(
-        bk, [&](Neon::SetIdx                                  setIdxSrc,
-                Execution                                     execution,
-                Neon::domain::tool::partitioning::ByDirection byDirection,
-                std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
+        bk, [&, dataUse](Neon::SetIdx                                  setIdxSrc,
+                         Execution                                     execution,
+                         Neon::domain::tool::partitioning::ByDirection byDirection,
+                         std::vector<Neon::set::MemoryTransfer>&       transfersVec) {
             {
+                if (dataUse == Neon::DataUse::DEVICE && execution == Neon::Execution::host) {
+                    // We don't need to transfer data from host to device
+                    return;
+                }
+                if (dataUse == Neon::DataUse::HOST && execution == Neon::Execution::device) {
+                    // We don't need to transfer data from host to device
+                    return;
+                }
                 using namespace Neon::domain::tool::partitioning;
 
                 Neon::SetIdx setIdxDst = getNghSetIdx(setIdxSrc, byDirection);
@@ -315,7 +323,7 @@ auto bField<T, C, SBlock>::initHaloUpdateTable() -> void
                 Neon::size_4d dstGhostBuff(ghostZBeginIdx[Data::EndPoints::dst][static_cast<int>(ByDirectionUtils::invert(byDirection))], 0, 0, 0);
                 Neon::size_4d srcBoundaryBuff(boundaryZBeginIdx[Data::EndPoints::src][static_cast<int>(byDirection)], 0, 0, 0);
 
-                size_t        transferDataBlockCount = mData->grid->mData->partitioner1D.getSpanLayout().getBoundsBoundary(setIdxVec[Data::EndPoints::src], byDirection).count;
+                size_t transferDataBlockCount = mData->grid->mData->partitioner1D.getSpanLayout().getBoundsBoundary(setIdxVec[Data::EndPoints::src], byDirection).count;
 
                 //                std::cout << "To  " << dstGhostBuff << " prt " << blockViewPartitions[Data::EndPoints::dst]->prtID() << " From  " << srcBoundaryBuff << " prt " << blockViewPartitions[Data::EndPoints::src]->prtID() <<  std::endl;
                 //                std::cout << "dst mem " << blockViewPartitions[Data::EndPoints::dst]->mem() << " " << std::endl;

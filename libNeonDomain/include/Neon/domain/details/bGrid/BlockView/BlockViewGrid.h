@@ -81,11 +81,20 @@ struct GridTransformation
     static auto initFieldPartition(FoundationGrid::Field<T, C>&                         foundationField,
                                    Neon::domain::tool::PartitionTable<Partition<T, C>>& partitionTable) -> void
     {
+        auto const dataUse = foundationField.getDataUse();
         partitionTable.forEachConfiguration(
-            [&](Neon::Execution  execution,
-                Neon::SetIdx     setIdx,
-                Neon::DataView   dw,
-                Partition<T, C>& partition) {
+            [&, dataUse](Neon::Execution  execution,
+                         Neon::SetIdx     setIdx,
+                         Neon::DataView   dw,
+                         Partition<T, C>& partition) {
+                if (dataUse == Neon::DataUse::DEVICE && execution == Neon::Execution::host) {
+                    // We don't need to transfer data from host to device
+                    return;
+                }
+                if (dataUse == Neon::DataUse::HOST && execution == Neon::Execution::device) {
+                    // We don't need to transfer data from host to device
+                    return;
+                }
                 auto& foundationPartition = foundationField.getPartition(execution, setIdx, dw);
                 partition = Partition<T, C>(foundationPartition);
             });
