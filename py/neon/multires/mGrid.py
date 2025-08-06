@@ -6,10 +6,11 @@ hierarchical grid data structure for parallel computing applications. The grid
 supports adaptive mesh refinement patterns and enables efficient computation
 across multiple resolution levels.
 
-Author: Neon Team
 """
 
 import ctypes
+from typing import List, Optional, Union
+from enum import Enum
 
 import neon
 from .mField import mField
@@ -18,7 +19,49 @@ from neon.dataView import DataView
 from ..block.bSpan import bSpan
 from neon.index_3d import Index_3d
 import numpy as np
-from typing import List
+
+
+class ExecutionContext(Enum):
+    """Enumeration for execution contexts in parallel computing."""
+    HOST = "HOST"
+    DEVICE = "DEVICE"
+
+
+class GridError(Exception):
+    """Base exception for grid operations."""
+    pass
+
+
+class InvalidGridLevelError(GridError):
+    """Raised when grid level is out of bounds."""
+    
+    def __init__(self, level: int, max_levels: int):
+        self.level = level
+        self.max_levels = max_levels
+        super().__init__(f"Grid level {level} is out of bounds [0, {max_levels})")
+
+
+class DomainBoundsError(GridError):
+    """Raised when coordinates are outside domain boundaries."""
+    
+    def __init__(self, idx: Index_3d, message: str = "Coordinates outside domain"):
+        self.idx = idx
+        super().__init__(f"{message}: ({idx.x}, {idx.y}, {idx.z})")
+
+
+class GridInitializationError(GridError):
+    """Raised when grid initialization fails."""
+    pass
+
+
+class InvalidBackendError(GridError):
+    """Raised when backend configuration is invalid."""
+    pass
+
+
+class SparsityPatternError(GridError):
+    """Raised when sparsity patterns are invalid."""
+    pass
 
 
 class mGrid(object):
@@ -88,25 +131,16 @@ class mGrid(object):
         """
 
         # Validate required parameters
-        if backend is None:
-            raise Exception('mGrid: backend parameter is missing')
-
-        # Optional validation: Check if sparsity patterns match domain dimensions
-        # This is commented out to allow for flexible grid configurations
-        # for sparsity_pattern in sparsity_pattern_list:
-        #     if (sparsity_pattern.shape[0] != dim.x or
-        #             sparsity_pattern.shape[1] != dim.y or
-        #             sparsity_pattern.shape[2] != dim.z):
-        #         raise Exception('mGrid: sparsity_pattern\'s shape does not match the dim')
+        self._validate_construction_parameters(backend, dim, sparsity_pattern_list, 
+                                             sparsity_pattern_origins, stencil)
 
         # Initialize core grid attributes
-        self.handle: ctypes.c_void_p = ctypes.c_void_p(0)  # Will be set by C++ constructor
-        self.backend = backend
+        self._handle: ctypes.c_void_p = ctypes.c_void_p(0)  # Will be set by C++ constructor
+        self._backend = backend
         self.dim = dim
         self.sparsity_pattern_list = sparsity_pattern_list
         self.sparsity_pattern_origins = sparsity_pattern_origins
         self.stencil = stencil
-        self.num_levels = len(sparsity_pattern_list)
 
         # Initialize grid with C++ backend
         self._help_load_api()   # Load C++ API functions
@@ -114,9 +148,104 @@ class mGrid(object):
 
     def __del__(self):
         """Destructor - cleanup C++ resources when Python object is garbage collected."""
-        if self.handle == 0:
+        self.cleanup()
+
+    def __enter__(self) -> 'mGrid':
+        """Context manager entry point."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """Context manager exit point with automatic cleanup."""
+        self.cleanup()
+        return False  # Don't suppress exceptions
+
+    def cleanup(self) -> None:
+        """
+        Explicit cleanup method for C++ resources.
+        
+        This method is idempotent and can be called multiple times safely.
+        It's automatically called by the context manager and destructor.
+        """
+        if hasattr(self, '_cleaned') and self._cleaned:
             return
-        self._help_grid_delete()
+        
+        if hasattr(self, '_handle') and self._handle and self._handle != 0:
+            self._help_grid_delete()
+        
+        self._cleaned = True
+
+    def _validate_construction_parameters(self, 
+                                        backend: neon.Backend,
+                                        dim: neon.Index_3d,
+                                        sparsity_pattern_list: List[np.ndarray],
+                                        sparsity_pattern_origins: List[neon.Index_3d],
+                                        stencil: List[List[int]]) -> None:
+        """
+        Validate all construction parameters.
+        
+        Args:
+            backend: Neon backend configuration
+            dim: Base grid dimensions
+            sparsity_pattern_list: List of sparsity patterns
+            sparsity_pattern_origins: List of origin points
+            stencil: Stencil pattern definition
+            
+        Raises:
+            InvalidBackendError: If backend is invalid
+            SparsityPatternError: If sparsity patterns are invalid
+            ValueError: If other parameters are invalid
+        """
+        # Validate backend
+        if backend is None:
+            raise InvalidBackendError("Backend parameter is required")
+        
+        # Validate dimensions
+        if dim is None:
+            raise ValueError("Grid dimensions are required")
+        if dim.x <= 0 or dim.y <= 0 or dim.z <= 0:
+            raise ValueError(f"Grid dimensions must be positive: ({dim.x}, {dim.y}, {dim.z})")
+        
+        # Validate sparsity patterns
+        if not sparsity_pattern_list:
+            raise SparsityPatternError("At least one sparsity pattern is required")
+        
+        if len(sparsity_pattern_list) != len(sparsity_pattern_origins):
+            raise SparsityPatternError(
+                f"Number of sparsity patterns ({len(sparsity_pattern_list)}) "
+                f"must match number of origins ({len(sparsity_pattern_origins)})"
+            )
+        
+        for i, pattern in enumerate(sparsity_pattern_list):
+            if pattern is None:
+                raise SparsityPatternError(f"Sparsity pattern at level {i} is None")
+            if pattern.ndim != 3:
+                raise SparsityPatternError(f"Sparsity pattern at level {i} must be 3D, got {pattern.ndim}D")
+            if pattern.size == 0:
+                raise SparsityPatternError(f"Sparsity pattern at level {i} is empty")
+        
+        # Validate stencil
+        if not stencil:
+            raise ValueError("Stencil pattern is required")
+        
+        for i, point in enumerate(stencil):
+            if len(point) != 3:
+                raise ValueError(f"Stencil point {i} must have 3 coordinates, got {len(point)}")
+
+    def _validate_grid_level(self, level: int) -> None:
+        """
+        Validate grid level parameter.
+        
+        Args:
+            level: Grid level to validate
+            
+        Raises:
+            TypeError: If level is not an integer
+            InvalidGridLevelError: If level is out of bounds
+        """
+        if not isinstance(level, int):
+            raise TypeError(f"Grid level must be integer, got {type(level)}")
+        if not 0 <= level < self.num_levels:
+            raise InvalidGridLevelError(level, self.num_levels)
 
     def _help_load_api(self):
         """
@@ -131,7 +260,7 @@ class mGrid(object):
         """
         # Initialize Neon gateway and handle management
         self.neon_gate: neon.Gate = neon.Gate()
-        self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
+        self._handle: ctypes.c_void_p = ctypes.c_void_p(0)
         self.handle_type = ctypes.c_void_p
 
         lib = self.neon_gate.lib
@@ -248,10 +377,10 @@ class mGrid(object):
 
         # Validate prerequisites
         if self.backend.backend_handle.value == ctypes.c_void_p(0):
-            raise Exception('mGrid: Invalid backend handle')
+            raise InvalidBackendError('Backend handle is invalid')
 
-        if self.handle.value != None:
-            raise Exception('mGrid: Grid handle already initialized')
+        if self._handle.value != None:
+            raise GridInitializationError('Grid handle already initialized')
 
         # Prepare sparsity pattern data for C++ consumption
         num_arrays, c_arrays, dims, origins = prepare_int32_arrays_and_sizes(self.sparsity_pattern_list)
@@ -268,7 +397,7 @@ class mGrid(object):
             stencil_array[a_idx + 2] = s[2]  # dz offset
 
         # Call C++ grid constructor with all prepared data
-        res = self.api_new(ctypes.pointer(self.handle),    # Output: grid handle
+        res = self.api_new(ctypes.pointer(self._handle),   # Output: grid handle
                            self.backend.backend_handle,    # Input: backend handle
                            self.dim,                       # Input: base dimensions
                            self.depth,                     # Input: number of levels
@@ -276,8 +405,10 @@ class mGrid(object):
                            len(self.stencil),              # Input: stencil size
                            stencil_array)                  # Input: stencil data
         if res != 0:
-            raise Exception('mGrid: Failed to initialize grid')
-        print(f"mGrid initialized with handle {self.handle.value}")
+            raise GridInitializationError(f'Failed to initialize grid (error code: {res})')
+        
+        # Update public handle for backward compatibility
+        print(f"mGrid initialized with handle {self._handle.value}")
 
     def _help_grid_delete(self):
         """
@@ -289,11 +420,11 @@ class mGrid(object):
         Raises:
             Exception: If grid deletion fails in C++ backend
         """
-        res = self.api_delete(ctypes.pointer(self.handle))
+        res = self.api_delete(ctypes.pointer(self._handle))
         if res != 0:
-            raise Exception('Failed to delete grid')
+            raise GridError(f'Failed to delete grid (error code: {res})')
 
-    def get_python_dimensions(self):
+    def get_python_dimensions(self) -> neon.Index_3d:
         """
         Get the grid dimensions as stored in Python.
         
@@ -302,7 +433,7 @@ class mGrid(object):
         """
         return self.dim
 
-    def get_cpp_dimensions(self):
+    def get_cpp_dimensions(self) -> Index_3d:
         """
         Get the grid dimensions from the C++ backend.
         
@@ -316,14 +447,14 @@ class mGrid(object):
             Exception: If dimension query fails
         """
         cpp_dim = Index_3d(0, 0, 0)
-        res = self.neon.lib.mGrid_get_dimensions(self.handle, cpp_dim)
+        res = self.neon.lib.mGrid_get_dimensions(self._handle, cpp_dim)
         if res != 0:
-            raise Exception('mGrid: Failed to obtain grid dimension')
+            raise GridError(f'Failed to obtain grid dimensions (error code: {res})')
 
         return cpp_dim
 
     def new_field(self,
-                  cardinality: ctypes.c_int,
+                  cardinality: int,
                   dtype,
                   memory_type: neon.MemoryType) -> mField:
         """
@@ -334,7 +465,7 @@ class mGrid(object):
         components (cardinality > 1) and different data types.
         
         Args:
-            cardinality (ctypes.c_int): Number of components per grid point
+            cardinality (int): Number of components per grid point
                 (1 = scalar field, 3 = vector field, etc.)
             dtype: Python data type for field elements (float, int, etc.)
             memory_type (neon.MemoryType): Memory allocation strategy
@@ -348,7 +479,7 @@ class mGrid(object):
             >>> vector_field = grid.new_field(3, float, neon.MemoryType.DEVICE)
         """
         field = mField(neon_gate=self.neon_gate,
-                       grid_handle=self.handle,
+                       grid_handle=self._handle,
                        cardinality=cardinality,
                        memory_type=memory_type,
                        py_grid=self,
@@ -357,10 +488,10 @@ class mGrid(object):
         return field
 
     def get_span(self,
-                 grid_level: ctypes.c_int,
-                 execution: Execution,
-                 dev_idx: ctypes.c_int,
-                 data_view: DataView) -> bSpan:
+                 grid_level: int,
+                 execution: Union[Execution, ExecutionContext],
+                 dev_idx: int = 0,
+                 data_view: Optional[DataView] = None) -> bSpan:
         """
         Get an execution span for parallel processing at a specific grid level.
         
@@ -369,25 +500,39 @@ class mGrid(object):
         data parallelism across the multi-resolution hierarchy.
         
         Args:
-            grid_level (ctypes.c_int): Resolution level (0 = finest, higher = coarser)
-            execution (Execution): Execution context (HOST or DEVICE)
-            dev_idx (ctypes.c_int): Device identifier for GPU execution
-            data_view (DataView): Data access pattern (STANDARD or BOUNDARY)
+            grid_level (int): Resolution level (0 = finest, higher = coarser)
+            execution (Union[Execution, ExecutionContext]): Execution context (HOST or DEVICE)
+            dev_idx (int): Device identifier for GPU execution (default: 0)
+            data_view (Optional[DataView]): Data access pattern (default: None for STANDARD)
             
         Returns:
             bSpan: Span object defining the iteration space for parallel execution
             
         Raises:
-            Exception: If grid handle is invalid
-            Exception: If span creation fails
+            InvalidGridLevelError: If grid level is out of bounds
+            GridError: If grid handle is invalid or span creation fails
         """
-        if self.handle == 0:
-            raise Exception('mGrid: Invalid handle')
+        # Validate inputs
+        self._validate_grid_level(grid_level)
+        
+        if self._handle == 0:
+            raise GridError('Grid handle is invalid')
+        
+        # Handle execution context conversion if needed
+        if isinstance(execution, ExecutionContext):
+            # Convert our enum to the neon Execution type if needed
+            execution_value = execution.value
+        else:
+            execution_value = execution
+        
+        # Use default data view if not provided
+        if data_view is None:
+            data_view = DataView.STANDARD if hasattr(DataView, 'STANDARD') else data_view
 
         span = bSpan()
-        res = self.api_get_span(self.handle, grid_level, span, execution, dev_idx, data_view)
+        res = self.api_get_span(self._handle, grid_level, span, execution_value, dev_idx, data_view)
         if res != 0:
-            raise Exception('Failed to get span')
+            raise GridError(f'Failed to get span for level {grid_level} (error code: {res})')
 
         # Optional size validation (commented out for performance)
         # cpp_size = self.neon.lib.mGrid_span_size(span)
@@ -398,20 +543,26 @@ class mGrid(object):
 
         return span
 
-    def getProperties(self, grid_level: ctypes.c_int, idx: Index_3d):
+    def get_properties(self, grid_level: int, idx: Index_3d) -> DataView:
         """
         Get data view properties for a specific grid location.
         
         Args:
-            grid_level (ctypes.c_int): Resolution level to query
+            grid_level (int): Resolution level to query
             idx (Index_3d): 3D coordinate position
             
         Returns:
             DataView: Properties of the data at the specified location
+            
+        Raises:
+            InvalidGridLevelError: If grid level is out of bounds
         """
-        return DataView(self.neon.lib.mGrid_get_properties(self.handle, grid_level, idx))
+        # Validate inputs
+        self._validate_grid_level(grid_level)
+        
+        return DataView(self.neon.lib.mGrid_get_properties(self._handle, grid_level, idx))
 
-    def isInsideDomain(self, grid_level: ctypes.c_int, idx: Index_3d):
+    def is_inside_domain(self, grid_level: int, idx: Index_3d) -> bool:
         """
         Check if a 3D coordinate is within the computational domain.
         
@@ -419,65 +570,60 @@ class mGrid(object):
         active region of the grid at a specific resolution level.
         
         Args:
-            grid_level (ctypes.c_int): Resolution level to check against
+            grid_level (int): Resolution level to check against
             idx (Index_3d): 3D coordinate position to validate
             
         Returns:
             bool: True if the coordinate is within the domain, False otherwise
             
         Raises:
-            Exception: If any coordinate component is negative
+            InvalidGridLevelError: If grid level is out of bounds
+            DomainBoundsError: If any coordinate component is negative
         """
+        # Validate inputs
+        self._validate_grid_level(grid_level)
+        
         if idx.x < 0 or idx.y < 0 or idx.z < 0:
-            raise Exception('can\'t access negative indices in mGrid')
-        return self.neon.lib.mGrid_is_inside_domain(self.handle, grid_level, idx)
-
-    def get_backend(self):
-        """
-        Get the backend configuration used by this grid.
+            raise DomainBoundsError(idx, "Negative indices are not allowed")
         
-        Returns:
-            neon.Backend: Backend object managing execution context
-        """
-        return self.backend
+        return self.neon.lib.mGrid_is_inside_domain(self._handle, grid_level, idx)
 
-    def get_handle(self):
-        """
-        Get the C++ object handle.
-        
-        Returns:
-            ctypes.c_void_p: Handle to the underlying C++ grid object
-        """
-        return self.handle
+    @property
+    def backend(self) -> neon.Backend:
+        """Backend configuration used by this grid."""
+        return self._backend
 
-    def get_name(self):
-        """
-        Get the grid type name.
-        
-        Returns:
-            str: Grid type identifier ("mGrid")
-        """
+    @property
+    def handle(self) -> ctypes.c_void_p:
+        """C++ object handle (read-only)."""
+        return self._handle
+
+    @handle.setter
+    def handle(self, value: ctypes.c_void_p) -> None:
+        """Set the handle (for backward compatibility only)."""
+        self._handle = value
+
+    @property
+    def name(self) -> str:
+        """Grid type name identifier."""
         return "mGrid"
 
-    def get_num_levels(self):
-        """
-        Get the number of resolution levels in the hierarchy.
-        
-        Returns:
-            int: Number of levels (depth) in the multi-resolution structure
-        """
-        return self.num_levels
+    @property
+    def num_levels(self) -> int:
+        """Number of resolution levels in the hierarchy."""
+        return len(self.sparsity_pattern_list)
 
-    def get_dimensions(self):
-        """
-        Get the base grid dimensions.
-        
-        Returns:
-            neon.Index_3d: Base dimensions of the computational domain
-        """
+    @property
+    def dimensions(self) -> neon.Index_3d:
+        """Base grid dimensions."""
         return self.dim
 
-    def print_info(self):
+    @property
+    def stencil_pattern(self) -> List[List[int]]:
+        """Computational stencil pattern (read-only copy)."""
+        return [point.copy() for point in self.stencil]
+
+    def print_info(self) -> int:
         """
         Print grid information for debugging.
         
@@ -488,9 +634,175 @@ class mGrid(object):
             int: Status code (0 = success)
             
         Raises:
-            Exception: If printing fails
+            GridError: If printing fails
         """
-        res = self.api_print_to_string(self.handle)
+        res = self.api_print_to_string(self._handle)
         if res != 0:
-            raise Exception('mGrid: Failed to print grid info')
+            raise GridError(f'Failed to print grid info (error code: {res})')
         return res
+
+    # Enhanced Debugging and Introspection Methods
+    def __repr__(self) -> str:
+        """
+        Detailed string representation for debugging.
+        
+        Returns:
+            str: Comprehensive representation showing key grid properties
+        """
+        try:
+            backend_name = getattr(self._backend, 'get_name', lambda: 'Unknown')()
+        except:
+            backend_name = 'Unknown'
+        
+        return (f"mGrid(levels={self.num_levels}, "
+                f"dims=({self.dimensions.x}, {self.dimensions.y}, {self.dimensions.z}), "
+                f"backend={backend_name}, "
+                f"handle={hex(self._handle.value) if self._handle else 'None'})")
+
+    def __str__(self) -> str:
+        """
+        User-friendly string representation.
+        
+        Returns:
+            str: Human-readable description of the grid
+        """
+        return (f"Multi-resolution Grid: {self.num_levels} levels, "
+                f"dimensions ({self.dimensions.x}×{self.dimensions.y}×{self.dimensions.z})")
+
+    def get_memory_info(self) -> dict:
+        """
+        Get memory usage information for the grid.
+        
+        Returns:
+            dict: Dictionary containing memory usage statistics
+            
+        Note:
+            This provides estimates based on grid structure.
+            Actual C++ memory usage may differ.
+        """
+        info = {
+            'num_levels': self.num_levels,
+            'base_dimensions': (self.dimensions.x, self.dimensions.y, self.dimensions.z),
+            'stencil_size': len(self.stencil),
+            'estimated_pattern_memory_bytes': 0,
+            'patterns_per_level': []
+        }
+        
+        total_pattern_bytes = 0
+        for i, pattern in enumerate(self.sparsity_pattern_list):
+            pattern_bytes = pattern.nbytes
+            total_pattern_bytes += pattern_bytes
+            info['patterns_per_level'].append({
+                'level': i,
+                'shape': pattern.shape,
+                'dtype': str(pattern.dtype),
+                'size_bytes': pattern_bytes,
+                'active_elements': int(np.count_nonzero(pattern))
+            })
+        
+        info['estimated_pattern_memory_bytes'] = total_pattern_bytes
+        return info
+
+    def get_grid_statistics(self) -> dict:
+        """
+        Get statistical information about the grid structure.
+        
+        Returns:
+            dict: Dictionary containing grid statistics
+        """
+        stats = {
+            'num_levels': self.num_levels,
+            'total_stencil_points': len(self.stencil),
+            'levels_info': []
+        }
+        
+        for i, (pattern, origin) in enumerate(zip(self.sparsity_pattern_list, 
+                                                  self.sparsity_pattern_origins)):
+            active_count = int(np.count_nonzero(pattern))
+            total_count = int(pattern.size)
+            sparsity_ratio = active_count / total_count if total_count > 0 else 0.0
+            
+            level_info = {
+                'level': i,
+                'origin': (origin.x, origin.y, origin.z),
+                'shape': pattern.shape,
+                'total_elements': total_count,
+                'active_elements': active_count,
+                'sparsity_ratio': sparsity_ratio,
+                'compression_ratio': 1.0 - sparsity_ratio
+            }
+            stats['levels_info'].append(level_info)
+        
+        return stats
+
+    def validate_integrity(self) -> bool:
+        """
+        Validate the integrity of the grid structure.
+        
+        Returns:
+            bool: True if grid structure is valid, False otherwise
+            
+        Raises:
+            GridError: If critical integrity issues are found
+        """
+        try:
+            # Check basic structure
+            if self.num_levels == 0:
+                raise GridError("Grid must have at least one level")
+            
+            if len(self.sparsity_pattern_list) != len(self.sparsity_pattern_origins):
+                raise GridError("Mismatch between patterns and origins")
+            
+            if not self.stencil:
+                raise GridError("Grid must have a stencil pattern")
+            
+            # Check handle validity
+            if not self._handle or self._handle.value == 0:
+                raise GridError("Invalid C++ handle")
+            
+            # Check dimensions
+            if self.dimensions.x <= 0 or self.dimensions.y <= 0 or self.dimensions.z <= 0:
+                raise GridError("Invalid grid dimensions")
+            
+            # Check each pattern
+            for i, pattern in enumerate(self.sparsity_pattern_list):
+                if pattern is None:
+                    raise GridError(f"Pattern at level {i} is None")
+                if pattern.ndim != 3:
+                    raise GridError(f"Pattern at level {i} is not 3D")
+                if pattern.size == 0:
+                    raise GridError(f"Pattern at level {i} is empty")
+            
+            # Check stencil
+            for i, point in enumerate(self.stencil):
+                if len(point) != 3:
+                    raise GridError(f"Stencil point {i} does not have 3 coordinates")
+            
+            return True
+            
+        except GridError:
+            raise
+        except Exception as e:
+            raise GridError(f"Integrity validation failed: {e}")
+
+    def get_debug_info(self) -> dict:
+        """
+        Get comprehensive debugging information.
+        
+        Returns:
+            dict: Dictionary containing all available debug information
+        """
+        debug_info = {
+            'grid_type': self.name,
+            'handle_value': hex(self._handle.value) if self._handle else 'None',
+            'is_cleaned': getattr(self, '_cleaned', False),
+            'memory_info': self.get_memory_info(),
+            'statistics': self.get_grid_statistics(),
+            'stencil_pattern': self.stencil_pattern,
+            'backend_info': {
+                'type': type(self._backend).__name__,
+                'handle_value': hex(self._backend.backend_handle.value) if hasattr(self._backend, 'backend_handle') else 'Unknown'
+            }
+        }
+        
+        return debug_info

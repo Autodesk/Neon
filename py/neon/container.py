@@ -51,10 +51,10 @@ class Container:
         self.grid = container_parser._retrieve_grid()
 
         # We can load the C-API only after the grid is set
-        self.grid_name = self.grid.get_name()
+        self.grid_name = self.grid.name
         self.help_load_api(grid_name=self.grid_name)
 
-        self.backend = self.grid.get_backend()
+        self.backend = self.grid.backend
         # Setting up the information of the Neon container for Neon runtime
         n_devices = self.backend.get_num_devices()  # rows
         self.retained_executable_modules = [set() for _ in range(n_devices)]
@@ -114,7 +114,7 @@ class Container:
                          name_utf8_bytes,
                          execution,
                          self.backend.cuda_driver_handle,
-                         self.grid.get_handle(),
+                         self.grid.handle,
                          self.k_2Darray,
                          block_size)
         else:
@@ -123,7 +123,7 @@ class Container:
                               container_parser.mres_level,
                               execution,
                               self.backend.cuda_driver_handle,
-                              self.grid.get_handle(),
+                              self.grid.handle,
                               self.k_2Darray,
                               block_size)
 
@@ -138,14 +138,14 @@ class Container:
             operation = token.get_operation()
             discretization = token.get_discretization()
 
-            field_card = field.get_cardinality()
-            field_type = field.get_type()
+            field_card = field.cardinality
+            field_type = field.type
             field_type_name = ''
             try:
                 field_type_name = self.neon_gate.warp_type_to_string[field_type]
             except KeyError:
                 raise Exception(f'Unsupported field type {field_type}')
-            grid_name = field.get_grid().get_name()
+            grid_name = field.get_grid().name
 
             if grid_name == 'mGrid':
                 register_token = getattr(lib_obj,
@@ -159,7 +159,7 @@ class Container:
                 register_token.restype = ctypes.c_int
 
                 register_token(self.container_handle,
-                               field.get_handle(),
+                               field.handle,
                                parser.get_mres_level(),
                                access.value,
                                operation.value,
@@ -175,7 +175,7 @@ class Container:
                 register_token.restype = ctypes.c_int
 
                 register_token(self.container_handle,
-                               field.get_handle(),
+                               field.handle,
                                access.value,
                                operation.value,
                                discretization.value)
