@@ -256,7 +256,7 @@ class Container:
                     gpu_id: int,
                     data_view: neon.DataView):
         span = None
-        if self.grid.get_name() != "mGrid":
+        if self.grid.name != "mGrid":
             span = self.grid.get_span(execution=execution,
                                       dev_idx=gpu_id,
                                       data_view=data_view)
