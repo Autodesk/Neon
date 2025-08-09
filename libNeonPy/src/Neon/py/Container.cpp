@@ -130,20 +130,19 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
     }
 
     template <typename Field>
-    auto register_manual_loading_step(Field&                     f,
+    auto register_manual_loading_step(Field*                     f,
                                       Neon::Pattern              computeE,
                                       Neon::set::StencilSemantic stencilSemantic)
     {
         if constexpr (std::is_const_v<Field>) {
-            auto step = [=](Neon::set::Loader& loader) {
-                const Field& fConstView = f;
-                loader.load(fConstView, computeE, stencilSemantic);
+            auto step = [f, computeE, stencilSemantic](Neon::set::Loader& loader) {
+                loader.load(*f, computeE, stencilSemantic);
             };
             std::function<void(Neon::set::Loader&)> stepFunction = step;
             m_loadingLambdaSteps.push_back(stepFunction);
         } else {
-            auto step = [=](Neon::set::Loader& loader) mutable {
-                loader.load(f, computeE, stencilSemantic);
+            auto step = [f, computeE, stencilSemantic](Neon::set::Loader& loader) mutable {
+                loader.load(*f, computeE, stencilSemantic);
             };
             std::function<void(Neon::set::Loader&)> stepFunction = step;
             m_loadingLambdaSteps.push_back(stepFunction);
@@ -479,10 +478,10 @@ auto warp_container_add_parse_token(
     }
 
     if (access == Neon::set::dataDependency::AccessType::READ) {
-        const Field& parsingField = *field;
+        Field const* parsingField = field;
         data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
     } else {
-        Field& parsingField = *field;
+        Field* parsingField = field;
         data->m_warp_container_ptr->register_manual_loading_step(parsingField, pattern, stenSemantic);
     }
     return 0;
