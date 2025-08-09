@@ -557,3 +557,50 @@ extern "C" auto dGrid_dField_dPartition_get_member_field_offsets(size_t* offsets
 {
     Neon::domain::details::dGrid::dPartition<int, 0>::getOffsets(offsets, length);
 }
+
+template <typename T>
+auto dGrid_dField_halo_update(
+    void*       fieldHandle,
+    int        streamSetId)
+    -> int
+{
+#ifdef NEON_USE_NVTX
+    nvtxRangePush("dGrid_dField_to_vti");
+#endif
+
+    NEON_PY_PRINT_BEGIN(fieldHandle);
+
+    using Grid = Neon::dGrid;
+    using Field = Grid::Field<T, 0>;
+    Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
+    if (fieldPtr == nullptr) {
+        std::cout << "invalid field" << std::endl;
+        return -1;
+    }
+
+    auto container = fieldPtr->newHaloUpdate(Neon::set::StencilSemantic::standard,
+        Neon::set::TransferMode::get,
+        Neon::Execution::device);
+
+    container.run(streamSetId);
+
+#ifdef NEON_USE_NVTX
+    nvtxRangePop();
+#endif
+    NEON_PY_PRINT_END(fieldHandle);
+
+    return 0;
+}
+
+DO_EXPORT(int8, 2, dGrid_dField_halo_update, int, void*, fieldHandle, int, streamIdx);
+DO_EXPORT(uint8, 2, dGrid_dField_halo_update, int, void*, fieldHandle, int, streamIdx);
+DO_EXPORT(bool, 2, dGrid_dField_halo_update, int, void*, fieldHandle, int, streamIdx);
+
+DO_EXPORT(int32, 2, dGrid_dField_halo_update, int, void*, fieldHandle, int, streamIdx);
+DO_EXPORT(uint32, 2, dGrid_dField_halo_update, int, void*, fieldHandle, int, streamIdx);
+
+DO_EXPORT(int64, 2, dGrid_dField_halo_update, int, void*, fieldHandle, int, streamIdx);
+DO_EXPORT(uint64, 2, dGrid_dField_halo_update, int, void*, fieldHandle, int, streamIdx);
+
+DO_EXPORT(float32, 2, dGrid_dField_halo_update, int, void*, fieldHandle, int, streamIdx);
+DO_EXPORT(float64, 2, dGrid_dField_halo_update, int, void*, fieldHandle, int, streamIdx);

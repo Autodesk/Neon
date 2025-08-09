@@ -200,6 +200,12 @@ class dField(object):
                                          ctypes.c_int]
         self.api_copy.restype = ctypes.c_int
 
+        # field halo update
+        self.api_halo_update = getattr(lib_obj, f'dGrid_dField_halo_update{self.suffix}')
+        self.api_halo_update.argtypes = [self.handle_type,
+                                  ctypes.c_int]
+        self.api_halo_update.restype = ctypes.c_int
+
     def _help_field_new(self):
         """
         Create and initialize the underlying C++ field object.
@@ -342,6 +348,18 @@ class dField(object):
     def zero_run(self, stream_idx):
         # print(f"zero_run: stream_idx type: {type(stream_idx)}, expected ctype: {ctypes.c_int}")
         self.fill_run(value=self.dtype(0), stream_idx=stream_idx)
+
+    def halo_update_run(self, stream_idx):
+        """
+        Perform a halo update operation on the field.
+
+        This method synchronizes the field data across different partitions
+        to ensure consistency at the boundaries.
+
+        Args:
+            stream_idx (int): The index of the stream to use for the operation.
+        """
+        self.api_halo_update(self._handle, stream_idx)
 
     @property
     def type(self):
