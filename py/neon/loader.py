@@ -138,3 +138,6 @@ class Loader:
 
     def _get_tokens(self):
         return self.tokens
+
+    def get_device_id(self):
+        return self.gpu_id
