@@ -1,10 +1,39 @@
+"""
+Dense Field Implementation for Neon Computing Framework
+
+This module provides the dField class, which represents a multi-dimensional
+data field for dense grid structures. The field supports various data types
+and provides operations for data manipulation and parallel computing.
+"""
+
 import ctypes
+from typing import Optional, Union
+from enum import Enum
 
 import neon
 import warp as wp
 
-
 # from .dPartition import dPartitionInt as dPartitionInt
+
+
+class FieldError(Exception):
+    """Base exception for field operations."""
+    pass
+
+
+class InvalidFieldHandleError(FieldError):
+    """Raised when field handle operations fail."""
+    pass
+
+
+class FieldInitializationError(FieldError):
+    """Raised when field initialization fails."""
+    pass
+
+
+class DataTransferError(FieldError):
+    """Raised when data transfer operations fail."""
+    pass
 
 
 class dField(object):
@@ -16,33 +45,78 @@ class dField(object):
                  py_grid,
                  ):
 
+        # Store field configuration
         self.dtype = dtype
         if grid_handle == 0:
-            raise Exception('DField: Invalid handle')
+            raise InvalidFieldHandleError('Grid handle is invalid')
 
-        self.neon_gate:neon.Gate =  neon_gate
+        # Core field attributes
+        self._neon_gate: neon.Gate = neon_gate
         self.handle_type = ctypes.c_void_p
-        self.handle: ctypes.c_uint64 = ctypes.c_void_p(0)
-        self.grid_handle = grid_handle
-        self.cardinality = cardinality
-        self.py_grid = py_grid
-        self._set_field_type()
-        self._help_load_api()
-        self._help_field_new()
+        self._handle: ctypes.c_uint64 = ctypes.c_void_p(0)  # Will be set by C++ constructor
+        self._grid_handle = grid_handle
+        self._cardinality = cardinality
+        self._py_grid = py_grid
+        
+        # Initialize field with C++ backend
+        self._set_field_type()    # Determine C++ type mappings
+        self._help_load_api()     # Load C++ API functions
+        self._help_field_new()    # Create C++ field object
 
     def __del__(self):
-        self.help_delete()
-        pass
+        """Destructor - cleanup C++ resources when Python object is garbage collected."""
+        self.cleanup()
+
+    def __enter__(self) -> 'dField':
+        """Context manager entry point."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """Context manager exit point with automatic cleanup."""
+        self.cleanup()
+        return False  # Don't suppress exceptions
+
+    def cleanup(self) -> None:
+        """
+        Explicit cleanup method for C++ resources.
+        
+        This method is idempotent and can be called multiple times safely.
+        It's automatically called by the context manager and destructor.
+        """
+        if hasattr(self, '_cleaned') and self._cleaned:
+            return
+        
+        if hasattr(self, '_handle') and self._handle and self._handle != 0:
+            self.help_delete()
+        
+        self._cleaned = True
 
     def _set_field_type(self):
-        self.type_mapping = self.neon_gate.get_type_mapping(self.dtype)
+        """
+        Configure type-specific attributes based on the field's data type.
+        
+        Sets up:
+        - type_mapping: Dictionary containing C++ type information
+        - suffix: String suffix for C++ function names (e.g., '_f32', '_i32')
+        - Partition_type: Corresponding partition class for this field type
+        """
+        self.type_mapping = self._neon_gate.get_type_mapping(self.dtype)
         self.suffix = f'_{self.type_mapping["suffix"]}'
         self.Partition_type = getattr(neon.dense.dPartition, f'dPartition{self.suffix}')
 
     def _help_load_api(self):
-        # Importing new functions
-        ## new_field
-        lib_obj = self.neon_gate.lib
+        """
+        Load and configure C++ API function bindings for this field type.
+        
+        Sets up ctypes bindings for all field operations including:
+        - Field lifecycle management (new/delete)
+        - Partition management
+        - Data access operations
+        - Memory synchronization
+        - Fill and copy operations
+        """
+        # Get reference to the shared library
+        lib_obj = self._neon_gate.lib
 
         # ---------------------------------------------------------------------
         self.api_new = getattr(lib_obj, f'dGrid_dField_new{self.suffix}')
@@ -127,24 +201,37 @@ class dField(object):
         self.api_copy.restype = ctypes.c_int
 
     def _help_field_new(self):
-        if self.handle == 0:
-            raise Exception('dGrid: Invalid handle')
+        """
+        Create and initialize the underlying C++ field object.
+        
+        Raises:
+            FieldInitializationError: If field handle is invalid or creation fails.
+        """
+        if self._handle == 0:
+            raise FieldInitializationError('Invalid field handle')
 
-        res = self.api_new(ctypes.pointer(self.handle),
-                           self.grid_handle,
-                           self.cardinality)
+        res = self.api_new(ctypes.pointer(self._handle),
+                           self._grid_handle,
+                           self._cardinality)
         if res != 0:
-            raise Exception('dGrid: Failed to initialize field')
+            raise FieldInitializationError('Failed to initialize field')
 
     def help_delete(self):
-        if self.handle == 0:
+        """
+        Clean up and destroy the underlying C++ field object.
+        
+        Raises:
+            FieldError: If field deletion fails.
+        """
+        if self._handle == 0:
             return
-        res = self.api_delete(ctypes.pointer(self.handle))
+        res = self.api_delete(ctypes.pointer(self._handle))
         if res != 0:
-            raise Exception('Failed to delete field')
+            raise FieldError('Failed to delete field')
 
     def get_grid(self):
-        return self.py_grid
+        """Get the parent grid object."""
+        return self._py_grid
 
     def get_shape(self):
         dim =  self.get_grid().get_dimensions()
