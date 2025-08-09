@@ -369,41 +369,276 @@ class dGrid(object):
                  execution: Execution,
                  dev_idx: int,
                  data_view: DataView) -> dSpan:
-        if self.grid_handle == 0:
-            raise Exception('DGrid: Invalid handle')
+        """
+        Get a span object for iterating over grid cells.
+        
+        Spans define iteration patterns and provide access to grid cells
+        for computational kernels. They encapsulate domain decomposition,
+        ghost cells, and execution-specific optimizations.
+        
+        Args:
+            execution (Execution): Execution type (HOST, DEVICE, etc.).
+            dev_idx (int): Device index for multi-device scenarios.
+            data_view (DataView): View type (STANDARD, BOUNDARY, INTERNAL, etc.).
+            
+        Returns:
+            dSpan: Span object containing iteration bounds and metadata.
+            
+        Raises:
+            Exception: If grid handle is invalid.
+            Exception: If span creation fails.
+            Exception: If span size validation fails.
+        """
+        if self._handle == 0:
+            raise InvalidGridHandleError('Invalid grid handle')
 
         span = dSpan()
         dev_idx_ctypes = ctypes.c_int(dev_idx)
-        res = self.api_get_span(self.grid_handle,
-                                                span,
-                                                execution,
-                                                dev_idx_ctypes,
-                                                data_view)
+        res = self.api_get_span(self._handle,
+                                span,
+                                execution,
+                                dev_idx_ctypes,
+                                data_view)
         if res != 0:
-            raise Exception('Failed to get span')
+            raise GridError('Failed to get span')
 
+        # Validate span object integrity
         cpp_size = self.api_span_size(span)
         ctypes_size = ctypes.sizeof(span)
 
         if cpp_size != ctypes_size:
-            raise Exception(f'Failed to get span: cpp_size {cpp_size} != ctypes_size {ctypes_size}')
+            raise GridError(f'Failed to get span: cpp_size {cpp_size} != ctypes_size {ctypes_size}')
 
         return span
 
     def get_span_type(self):
+        """
+        Get the span type used by this grid.
+        
+        Returns:
+            type: The dSpan class type for this grid type.
+        """
         return dSpan
 
     def get_properties(self, idx: Index_3d):
-        return DataView(self.api_get_properties(ctypes.byref(self.grid_handle), idx))
+        """
+        Get the data view properties for a specific grid cell.
+        
+        Determines the type of cell (internal, boundary, ghost, etc.)
+        at the given grid coordinates.
+        
+        Args:
+            idx (Index_3d): Grid coordinates to query.
+            
+        Returns:
+            DataView: Properties of the cell at the given location.
+        """
+        return DataView(self.api_get_properties(ctypes.byref(self._handle), idx))
 
     def is_inside_domain(self, idx: Index_3d):
-        return self.api_is_inside_domain(ctypes.byref(self.grid_handle), idx)
+        """
+        Check if a grid coordinate is inside the computational domain.
+        
+        Tests whether the given coordinates correspond to an active
+        (non-sparse) cell within the grid boundaries.
+        
+        Args:
+            idx (Index_3d): Grid coordinates to test.
+            
+        Returns:
+            bool: True if the coordinate is inside the domain, False otherwise.
+        """
+        return self.api_is_inside_domain(ctypes.byref(self._handle), idx)
 
-    def get_backend(self):
-        return self.backend
 
-    def get_handle(self):
-        return self.grid_handle
+    # Properties for modern Python interface
+    @property
+    def backend(self) -> Backend:
+        """Backend configuration used by this grid."""
+        return self._backend
 
-    def get_name(self):
+    @property
+    def handle(self) -> ctypes.c_void_p:
+        """C++ object handle (read-only)."""
+        return self._handle
+
+    @handle.setter
+    def handle(self, value: ctypes.c_void_p) -> None:
+        """Set the handle (for backward compatibility only)."""
+        self._handle = value
+
+    @property
+    def name(self) -> str:
+        """Grid type name identifier."""
         return "dGrid"
+
+    @property
+    def dimensions(self) -> Index_3d:
+        """Grid dimensions."""
+        return self.dim
+
+    @property
+    def sparsity_pattern(self) -> np.ndarray:
+        """Sparsity pattern array (read-only copy)."""
+        return self.sparsity.copy()
+
+    @property
+    def stencil_pattern(self) -> List[List[int]]:
+        """Computational stencil pattern (read-only copy)."""
+        return [point.copy() if isinstance(point, list) else list(point) for point in self.stencil]
+
+    # Enhanced Debugging and Introspection Methods
+    def __repr__(self) -> str:
+        """
+        Detailed string representation for debugging.
+        
+        Returns:
+            str: Comprehensive representation showing key grid properties
+        """
+        try:
+            backend_name = getattr(self._backend, 'get_name', lambda: 'Unknown')()
+        except:
+            backend_name = 'Unknown'
+        
+        return (f"dGrid(dims=({self.dimensions.x}, {self.dimensions.y}, {self.dimensions.z}), "
+                f"backend={backend_name}, "
+                f"handle={hex(self._handle.value) if self._handle else 'None'})")
+
+    def __str__(self) -> str:
+        """
+        User-friendly string representation.
+        
+        Returns:
+            str: Human-readable description of the grid
+        """
+        return (f"Dense Grid: dimensions ({self.dimensions.x}×{self.dimensions.y}×{self.dimensions.z})")
+
+    def get_memory_info(self) -> dict:
+        """
+        Get memory usage information for the grid.
+        
+        Returns:
+            dict: Dictionary containing memory usage statistics
+            
+        Note:
+            This provides estimates based on grid structure.
+            Actual C++ memory usage may differ.
+        """
+        info = {
+            'grid_type': 'dGrid',
+            'dimensions': (self.dimensions.x, self.dimensions.y, self.dimensions.z),
+            'stencil_size': len(self.stencil),
+            'sparsity_pattern_memory_bytes': self.sparsity.nbytes,
+            'sparsity_info': {
+                'shape': self.sparsity.shape,
+                'dtype': str(self.sparsity.dtype),
+                'total_elements': int(self.sparsity.size),
+                'active_elements': int(np.count_nonzero(self.sparsity)),
+            }
+        }
+        
+        if info['sparsity_info']['total_elements'] > 0:
+            info['sparsity_info']['sparsity_ratio'] = (
+                info['sparsity_info']['active_elements'] / info['sparsity_info']['total_elements']
+            )
+            info['sparsity_info']['compression_ratio'] = 1.0 - info['sparsity_info']['sparsity_ratio']
+        
+        return info
+
+    def get_grid_statistics(self) -> dict:
+        """
+        Get statistical information about the grid structure.
+        
+        Returns:
+            dict: Dictionary containing grid statistics
+        """
+        stats = {
+            'grid_type': 'dGrid',
+            'dimensions': (self.dimensions.x, self.dimensions.y, self.dimensions.z),
+            'total_stencil_points': len(self.stencil),
+            'sparsity_statistics': {}
+        }
+        
+        active_count = int(np.count_nonzero(self.sparsity))
+        total_count = int(self.sparsity.size)
+        sparsity_ratio = active_count / total_count if total_count > 0 else 0.0
+        
+        stats['sparsity_statistics'] = {
+            'shape': self.sparsity.shape,
+            'total_elements': total_count,
+            'active_elements': active_count,
+            'sparsity_ratio': sparsity_ratio,
+            'compression_ratio': 1.0 - sparsity_ratio
+        }
+        
+        return stats
+
+    def validate_integrity(self) -> bool:
+        """
+        Validate the integrity of the grid structure.
+        
+        Returns:
+            bool: True if grid structure is valid, False otherwise
+            
+        Raises:
+            GridError: If critical integrity issues are found
+        """
+        try:
+            # Check handle validity
+            if not self._handle or self._handle.value == 0:
+                raise GridError("Invalid C++ handle")
+            
+            # Check dimensions
+            if self.dimensions.x <= 0 or self.dimensions.y <= 0 or self.dimensions.z <= 0:
+                raise GridError("Invalid grid dimensions")
+            
+            # Check sparsity pattern
+            if self.sparsity is None:
+                raise GridError("Sparsity pattern is None")
+            if self.sparsity.ndim != 3:
+                raise GridError("Sparsity pattern is not 3D")
+            if self.sparsity.size == 0:
+                raise GridError("Sparsity pattern is empty")
+            
+            # Check sparsity dimensions match grid dimensions
+            if (self.sparsity.shape[0] != self.dimensions.x or
+                self.sparsity.shape[1] != self.dimensions.y or
+                self.sparsity.shape[2] != self.dimensions.z):
+                raise GridError("Sparsity pattern dimensions don't match grid dimensions")
+            
+            # Check stencil
+            if not self.stencil:
+                raise GridError("Grid must have a stencil pattern")
+            
+            for i, point in enumerate(self.stencil):
+                if len(point) != 3:
+                    raise GridError(f"Stencil point {i} does not have 3 coordinates")
+            
+            return True
+            
+        except GridError:
+            raise
+        except Exception as e:
+            raise GridError(f"Integrity validation failed: {e}")
+
+    def get_debug_info(self) -> dict:
+        """
+        Get comprehensive debugging information.
+        
+        Returns:
+            dict: Dictionary containing all available debug information
+        """
+        debug_info = {
+            'grid_type': self.name,
+            'handle_value': hex(self._handle.value) if self._handle else 'None',
+            'is_cleaned': getattr(self, '_cleaned', False),
+            'memory_info': self.get_memory_info(),
+            'statistics': self.get_grid_statistics(),
+            'stencil_pattern': self.stencil_pattern,
+            'backend_info': {
+                'type': type(self._backend).__name__,
+                'handle_value': hex(self._backend.backend_handle.value) if hasattr(self._backend, 'backend_handle') else 'Unknown'
+            }
+        }
+        
+        return debug_info
