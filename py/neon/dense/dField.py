@@ -242,18 +242,18 @@ class dField(object):
                       c: ctypes.c_int,
                       data_view: neon.DataView
                       ):
-        if self.handle == 0:
-            raise Exception('dField: Invalid handle')
+        if self._handle == 0:
+            raise InvalidFieldHandleError('Invalid field handle')
 
         partition = self.Partition_type()
 
-        res = self.api_get_partition(self.handle,
+        res = self.api_get_partition(self._handle,
                                      partition,
                                      execution,
                                      c,
                                      data_view)
         if res != 0:
-            raise Exception('Failed to get partition')
+            raise FieldError('Failed to get partition')
 
         # ccp_size = self.neon.lib.dGrid_dField_partition_size(partition)
         # ctypes_size = ctypes.sizeof(partition)
@@ -268,39 +268,66 @@ class dField(object):
         return self.Partition_type
 
     def read(self, idx: neon.Index_3d, cardinality: ctypes.c_int):
-        return self.api_read(self.handle,
+        return self.api_read(self._handle,
                              idx,
                              cardinality)
 
     def write(self, idx: neon.Index_3d, cardinality: ctypes.c_int, newValue):
-        return self.api_write(self.handle,
+        return self.api_write(self._handle,
                               idx,
                               cardinality,
                               self.type_mapping['ctype'](newValue))
 
     def update_host(self, streamSetId: ctypes.c_int):
-        return self.api_update_host(self.handle,
+        return self.api_update_host(self._handle,
                                     streamSetId)
 
     def update_device(self, streamSetId: ctypes.c_int):
-        return self.api_update_device(self.handle,
+        return self.api_update_device(self._handle,
                                       streamSetId)
 
     def export_vti(self, filename: str,
                    field_name: str = "field"):
-        self.api_export_vti(self.handle, filename.encode('utf-8'), field_name.encode('utf-8'))
+        self.api_export_vti(self._handle, filename.encode('utf-8'), field_name.encode('utf-8'))
 
     def get_cardinality(self):
-        return self.cardinality.value
+        """
+        Get the field cardinality.
+        
+        Returns:
+            int: Number of components per field element
+            
+        Note:
+            Deprecated: Use the 'cardinality' property instead.
+        """
+        return self._cardinality.value
 
     def get_type(self):
+        """
+        Get the field data type.
+        
+        Returns:
+            type: Python data type of field elements
+            
+        Note:
+            Deprecated: Use the 'dtype' property instead.
+        """
         return self.dtype
 
     def get_handle(self):
-        return self.handle
+        """
+        Get the underlying C++ field handle.
+        
+        Returns:
+            ctypes.c_void_p: Opaque handle to the C++ field object
+            
+        Note:
+            Deprecated: Use the 'handle' property instead.
+        """
+        return self._handle
 
     def copy_from_run(self, src_field, stream_idx):
-        self.api_copy(self.handle, src_field.handle, stream_idx)
+        self.api_copy(self._handle, src_field._handle, stream_idx)
 
     def fill_run(self, value, stream_idx):
         value = self.type_mapping['ctype'](value)
@@ -319,3 +346,82 @@ class dField(object):
     @property
     def type(self):
         return self.dtype
+
+    @property
+    def shape(self):
+        dim =  self.get_grid().get_dimensions()
+        return (dim.x, dim.y, dim.z)
+
+    # Additional properties for modern Python interface
+    @property
+    def handle(self) -> ctypes.c_void_p:
+        """C++ object handle (read-only)."""
+        return self._handle
+
+    @handle.setter
+    def handle(self, value: ctypes.c_void_p) -> None:
+        """Set the handle (for backward compatibility only)."""
+        self._handle = value
+
+    @property
+    def cardinality(self) -> int:
+        """Number of components per field element."""
+        return self._cardinality.value
+
+    @property
+    def data_type(self) -> type:
+        """Python data type of field elements."""
+        return self.dtype
+
+    @property
+    def grid(self):
+        """Parent grid object."""
+        return self._py_grid
+
+    @property
+    def grid_handle(self) -> ctypes.c_void_p:
+        """Handle to the parent grid C++ object."""
+        return self._grid_handle
+
+    # Enhanced Debugging and Introspection Methods
+    def __repr__(self) -> str:
+        """
+        Detailed string representation for debugging.
+        
+        Returns:
+            str: Comprehensive representation showing key field properties
+        """
+        return (f"dField(cardinality={self.cardinality}, dtype={self.dtype.__name__}, "
+                f"shape={self.shape}, "
+                f"handle={hex(self._handle.value) if self._handle else 'None'})")
+
+    def __str__(self) -> str:
+        """
+        User-friendly string representation.
+        
+        Returns:
+            str: Human-readable description of the field
+        """
+        return (f"Dense Field: {self.dtype.__name__}[{self.cardinality}] "
+                f"shape {self.shape[0]}×{self.shape[1]}×{self.shape[2]}")
+
+    def get_debug_info(self) -> dict:
+        """
+        Get comprehensive debugging information.
+        
+        Returns:
+            dict: Dictionary containing all available debug information
+        """
+        debug_info = {
+            'field_type': 'dField',
+            'handle_value': hex(self._handle.value) if self._handle else 'None',
+            'grid_handle_value': hex(self._grid_handle.value) if self._grid_handle else 'None',
+            'is_cleaned': getattr(self, '_cleaned', False),
+            'cardinality': self.cardinality,
+            'dtype': self.dtype.__name__,
+            'shape': self.shape,
+            'type_mapping': self.type_mapping if hasattr(self, 'type_mapping') else 'Not available',
+            'suffix': self.suffix if hasattr(self, 'suffix') else 'Not available'
+        }
+        
+        return debug_info
