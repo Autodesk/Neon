@@ -244,7 +244,9 @@ void writeData(std::ofstream&                                                   
     } else if constexpr (std::is_same<real_tt, int>::value ||
                          std::is_same<real_tt, uint32_t>::value ||
                          std::is_same<real_tt, uint64_t>::value ||
-                         std::is_same<real_tt, int64_t>::value) {
+                         std::is_same<real_tt, int64_t>::value ||
+                         std::is_same<real_tt, int8_t>::value ||
+                         std::is_same<real_tt, uint8_t>::value) {
         out << "int ";
     } else if constexpr (std::is_same<real_tt, char>::value) {
         out << "short ";

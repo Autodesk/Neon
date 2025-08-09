@@ -512,13 +512,17 @@ auto dGrid_dField_to_vti(
         return -1;
     }
     std::cout << "dGrid_dField_to_vti - " << fname << " - " << fieldName << std::endl;
-    fieldPtr->ioToVtk(fname,
-                      fieldName, false, Neon::IoFileType::BINARY, true);
-    //                      bool               includeDomain = false,
-    //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
-    //                      bool               isNodeSpace = false
-    // fieldPtr->updateHostData(streamSetId);
-
+    if constexpr (std::is_same_v<T, uint8_t>) {
+        fieldPtr->template ioToVtk<int32_t>(fname,
+                                   fieldName, false, Neon::IoFileType::ASCII, true);
+    } else {
+        fieldPtr->ioToVtk(fname,
+                          fieldName, false, Neon::IoFileType::BINARY, true);
+        //                      bool               includeDomain = false,
+        //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
+        //                      bool               isNodeSpace = false
+        // fieldPtr->updateHostData(streamSetId);
+    }
 #ifdef NEON_USE_NVTX
     nvtxRangePop();
 #endif
