@@ -52,7 +52,7 @@ class SkeletonConfig():
             none = 3
 
 
-        def __init__(self, skeleton_config: 'OCC.Values'):
+        def __init__(self, occ_config: Values):
             """
             Initialize an OCC configuration instance.
             
@@ -62,14 +62,14 @@ class SkeletonConfig():
             Raises:
                 No explicit validation - relies on enum membership
             """
-            if skeleton_config == OCC.Values.standard:
-                self.skeleton_config = ctypes.c_int(0)
-            elif skeleton_config == OCC.Values.extended:
-                self.skeleton_config = ctypes.c_int(1)
-            elif skeleton_config == OCC.Values.twoWayExtended:
-                self.skeleton_config = ctypes.c_int(2)
-            elif skeleton_config == OCC.Values.none:
-                self.skeleton_config = ctypes.c_int(3)
+            if occ_config == self.__class__.Values.standard:
+                self.skeleton_occ = ctypes.c_int(0)
+            elif occ_config == self.__class__.Values.extended:
+                self.skeleton_occ = ctypes.c_int(1)
+            elif occ_config == self.__class__.Values.twoWayExtended:
+                self.skeleton_occ = ctypes.c_int(2)
+            elif occ_config == self.__class__.Values.none:
+                self.skeleton_occ = ctypes.c_int(3)
 
         def __str__(self):
             """
@@ -79,15 +79,32 @@ class SkeletonConfig():
                 str: A formatted string showing memory address, size, and current value
             """
             str_repr = "<OCC: addr=%ld, sizeof %ld>" % (ctypes.addressof(self), ctypes.sizeof(self))
-            if self.skeleton_config == ctypes.c_int(0):
+            if self.skeleton_occ == ctypes.c_int(0):
                 str_repr += f"\n\tOCC: {'standard'}"
-            elif self.skeleton_config == ctypes.c_int(1):
+            elif self.skeleton_occ == ctypes.c_int(1):
                 str_repr += f"\n\tOCC: {'extended'}"
-            elif self.skeleton_config == ctypes.c_int(2):
+            elif self.skeleton_occ == ctypes.c_int(2):
                 str_repr += f"\n\tOCC: {'twoWayExtended'}"
-            elif self.skeleton_config == ctypes.c_int(3):
+            elif self.skeleton_occ == ctypes.c_int(3):
                 str_repr += f"\n\tOCC: {'none'}"
             return str_repr
+
+        def to_string(self):
+            """
+            Return a string representation of the OCC configuration.
+            
+            Returns:
+                str: A formatted string showing memory address, size, and current value
+            """
+            if self.skeleton_occ == ctypes.c_int(0):
+                return 'standard'
+            elif self.skeleton_occ == ctypes.c_int(1):
+                return 'extended'
+            elif self.skeleton_occ == ctypes.c_int(2):
+                return 'twoWayExtended'
+            elif self.skeleton_occ == ctypes.c_int(3):
+                return 'none'
+            return 'unknown'
 
         @property
         def value(self):
@@ -97,17 +114,24 @@ class SkeletonConfig():
             Returns:
                 ctypes.c_int: The underlying C integer representation
             """
-            return self.skeleton_config
+            return self.skeleton_occ
 
         @value.setter
-        def value(self, skeleton_config: Values):
+        def value(self, occ_config: Values):
             """
             Set the OCC configuration value.
             
             Args:
-                skeleton_config (Values): The new OCC configuration value
+                occ_config (Values): The new OCC configuration value
             """
-            self.skeleton_config = skeleton_config
+            if occ_config == self.__class__.Values.standard:
+                self.skeleton_occ = ctypes.c_int(0)
+            elif occ_config == self.__class__.Values.extended:
+                self.skeleton_occ = ctypes.c_int(1)
+            elif occ_config == self.__class__.Values.twoWayExtended:
+                self.skeleton_occ = ctypes.c_int(2)
+            elif occ_config == self.__class__.Values.none:
+                self.skeleton_occ = ctypes.c_int(3)
 
         @staticmethod
         def standard():
@@ -117,7 +141,7 @@ class SkeletonConfig():
             Returns:
                 OCC: An OCC instance configured for standard overlap mode
             """
-            return OCC(OCC.Values.standard)
+            return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.standard)
 
         @staticmethod
         def extended():
@@ -127,7 +151,7 @@ class SkeletonConfig():
             Returns:
                 OCC: An OCC instance configured for extended overlap mode
             """
-            return OCC(OCC.Values.extended)
+            return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.extended)
 
         @staticmethod
         def twoWayExtended():
@@ -137,7 +161,7 @@ class SkeletonConfig():
             Returns:
                 OCC: An OCC instance configured for two-way extended overlap mode
             """
-            return OCC(OCC.Values.twoWayExtended)
+            return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.twoWayExtended)
 
         @staticmethod
         def none():
@@ -147,7 +171,7 @@ class SkeletonConfig():
             Returns:
                 OCC: An OCC instance configured for sequential execution (no overlap)
             """
-            return OCC(OCC.Values.none)
+            return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.none)
 
         @staticmethod
         def from_int(v: int):
@@ -164,13 +188,13 @@ class SkeletonConfig():
                 Exception: If the integer value is not in the valid range [0-3]
             """
             if v == 0:
-                return OCC(OCC.Values.standard)
+                return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.standard)
             if v == 1:
-                    return OCC(OCC.Values.extended)
+                    return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.extended)
             if v == 2:
-                return OCC(OCC.Values.twoWayExtended)
+                return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.twoWayExtended)
             if v == 3:
-                return OCC(OCC.Values.none)
+                return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.none)
             # raise exception
             raise Exception('Invalid OCC value')
 
@@ -188,13 +212,13 @@ class SkeletonConfig():
                 Exception: If the string value is not valid
             """
             if s == 'standard':
-                return OCC(OCC.Values.standard)
+                return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.standard)
             elif s == 'extended':
-                return OCC(OCC.Values.extended)
+                return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.extended)
             elif s == 'twoWayExtended':
-                return OCC(OCC.Values.twoWayExtended)
+                return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.twoWayExtended)
             elif s == 'none':
-                return OCC(OCC.Values.none)
+                return SkeletonConfig.OCC(SkeletonConfig.OCC.Values.none)
             else:
                 raise Exception(f'Invalid OCC string value: {s}. Valid options are: standard, extended, twoWayExtended, none')
 
@@ -210,7 +234,7 @@ class SkeletonConfig():
                 bool: True if both instances have the same configuration value
                 NotImplemented: If the other object is not an OCC instance
             """
-            if not isinstance(other, OCC):
+            if not isinstance(other, SkeletonConfig.OCC):
                 return NotImplemented
-            return self.skeleton_config == other.skeleton_config
+            return self.skeleton_occ == other.skeleton_occ
 

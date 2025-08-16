@@ -21,6 +21,22 @@ auto OccUtils::toString(Occ occ) -> std::string
     NEON_THROW_UNSUPPORTED_OPTION("");
 }
 
+auto OccUtils::fromInt(int occ) -> Occ
+{
+    auto options = OccUtils::getOptions();
+    for (auto a : options) {
+        if (OccUtils::toInt(a) == occ) {
+            return a;
+        }
+    }
+    NEON_THROW_UNSUPPORTED_OPTION("");
+}
+
+auto OccUtils::toInt(Occ occ) -> int
+{
+    return static_cast<int>(occ);
+}
+
 auto OccUtils::fromString(const std::string& occ) -> Occ
 {
     std::array<Occ, nOptions> occs{Occ::standard, Occ::extended, Occ::twoWayExtended, Occ::none};

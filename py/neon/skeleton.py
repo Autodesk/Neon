@@ -1,6 +1,6 @@
 import ctypes
 from typing import List
-
+from neon import SkeletonConfig
 # from neon import Backend
 # #from neon import neon
 # from neon import Container
@@ -47,7 +47,8 @@ class Skeleton(object):
         self.api_sequence.argtypes = [self.neon_gate.handle_type,
                                       ctypes.c_char_p,
                                       ctypes.c_int,
-                                      ctypes.POINTER(self.neon_gate.handle_type)]
+                                      ctypes.POINTER(self.neon_gate.handle_type),
+                                      ctypes.c_int]
         self.api_sequence.restype = ctypes.c_int
         # ------------------------------------------------------------------
         # neon_skeleton_run
@@ -80,7 +81,7 @@ class Skeleton(object):
         if res != 0:
             raise Exception('Failed to delete backend')
 
-    def sequence(self, name: str, containers: List[neon.Container]
+    def sequence(self, name: str, containers: List[neon.Container], occ: neon.SkeletonConfig.OCC = neon.SkeletonConfig.OCC.none()
     ):
         self.containers = containers
         self.handle_list = (ctypes.c_void_p * len(containers))()
@@ -91,7 +92,8 @@ class Skeleton(object):
         self.api_sequence(self.skeleton_handle,
                           name.encode('utf-8'),
                           len(self.handle_list),
-                          self.handle_list)
+                          self.handle_list,
+                          occ.value)
 
     def run(self):
         self.api_run(self.skeleton_handle)

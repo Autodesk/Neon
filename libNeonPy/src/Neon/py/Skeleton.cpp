@@ -48,24 +48,30 @@ extern "C" auto neon_skeleton_delete(
     }
 }
 
-extern "C" void neon_skeleton_sequence(
+extern "C" auto neon_skeleton_sequence(
     void*       handle,
     const char* graphName,
     int         numContainers,
-    void**      container_warp_data_array_ptr)
+    void**      container_warp_data_array_ptr,
+    int         occValue)->int
 {
-    NEON_PY_PRINT_BEGIN(handle);
-
-    Neon::skeleton::Skeleton*         skeleton = static_cast<Neon::skeleton::Skeleton*>(handle);
-    std::string                       name(graphName);
-    std::vector<Neon::set::Container> operations;
-    for (int i = 0; i < numContainers; i++) {
-        auto data_ptr = container_warp_data_array_ptr[i];
-        auto container_prt = Neon::py::container_warp_data_get_container_prt(data_ptr);
-        operations.push_back(*container_prt);
+    try {
+        NEON_PY_PRINT_BEGIN(handle);
+        Neon::skeleton::Skeleton*         skeleton = static_cast<Neon::skeleton::Skeleton*>(handle);
+        std::string                       name(graphName);
+        std::vector<Neon::set::Container> operations;
+        for (int i = 0; i < numContainers; i++) {
+            auto data_ptr = container_warp_data_array_ptr[i];
+            auto container_prt = Neon::py::container_warp_data_get_container_prt(data_ptr);
+            operations.push_back(*container_prt);
+        }
+        Neon::skeleton::Occ occ = Neon::skeleton::OccUtils::fromInt(occValue);
+        skeleton->sequence(operations, name, Neon::skeleton::Options(occ, Neon::set::TransferMode::get));
+        NEON_PY_PRINT_END(handle);
+        return 0;
+    } catch (...) {
+        return -1;
     }
-    skeleton->sequence(operations, name, Neon::skeleton::Options());
-    NEON_PY_PRINT_END(handle);
 }
 
 extern "C" auto neon_skeleton_run(
