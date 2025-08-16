@@ -21,6 +21,7 @@ from .loader import Loader
 from .container import Container
 from .timer import Timer
 from .skeleton import Skeleton
+from .skeletonConfig import SkeletonConfig
 
 from .tool import report
 

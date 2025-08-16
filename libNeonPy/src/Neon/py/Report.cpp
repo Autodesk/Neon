@@ -30,7 +30,7 @@
  * @param handle Pointer to void* that will receive the report object handle
  * @param name   C-string name for the report (used in output files)
  * 
- * @return 0 on success, 1 on failure (memory allocation error)
+ * @return 0 on success, -1 on failure (memory allocation error or exception)
  * 
  * @note This function calls Neon::init() to ensure proper initialization
  * @see report_delete()
@@ -40,13 +40,17 @@ extern "C" auto report_new(
     const char* name)
     -> int
 {
-    Neon::init();
-    auto reportPtr = new (std::nothrow) Neon::Report(name);
-    if (reportPtr != nullptr) {
-        *handle = reportPtr;
-        return 0;
+    try {
+        Neon::init();
+        auto reportPtr = new (std::nothrow) Neon::Report(name);
+        if (reportPtr != nullptr) {
+            *handle = reportPtr;
+            return 0;
+        }
+        return -1;
+    } catch (...) {
+        return -1;
     }
-    return 1;
 }
 
 /**
@@ -58,7 +62,7 @@ extern "C" auto report_new(
  * 
  * @param handle Pointer to void* containing the report object handle
  * 
- * @return 0 on success (always succeeds, even with null pointers)
+ * @return 0 on success, -1 on exception
  * 
  * @note After this call, the handle will be set to nullptr
  * @note Safe to call with null or already-deleted handles
@@ -68,16 +72,20 @@ extern "C" auto report_delete(
     void** handle)
     -> int
 {
-    NEON_PY_PRINT_BEGIN(*handle);
+    try {
+        NEON_PY_PRINT_BEGIN(*handle);
 
-    auto report = reinterpret_cast<Neon::Report*>(*handle);
+        auto report = reinterpret_cast<Neon::Report*>(*handle);
 
-    if (report != nullptr) {
-        delete report;
+        if (report != nullptr) {
+            delete report;
+        }
+        *handle = nullptr;
+        NEON_PY_PRINT_END(*handle);
+        return 0;
+    } catch (...) {
+        return -1;
     }
-    *handle = nullptr;
-    NEON_PY_PRINT_END(*handle);
-    return 0;
 }
 
 /**
@@ -91,7 +99,7 @@ extern "C" auto report_delete(
  * @param memberKey  C-string key name for the member
  * @param memberVal  C-string value to associate with the key
  * 
- * @return 0 on success
+ * @return 0 on success, -1 on exception
  * 
  * @note The strings are copied internally, so the caller retains ownership
  * @see report_new(), Neon::Report::addMember()
@@ -100,9 +108,13 @@ extern "C" auto report_add_member_string(void*       handle,
                        const char* memberKey,
                        const char*     memberVal) -> int
 {
-    auto report = reinterpret_cast<Neon::core::Report*>(handle);
-    report->addMember(memberKey, memberVal);
-    return 0;
+    try {
+        auto report = reinterpret_cast<Neon::core::Report*>(handle);
+        report->addMember(memberKey, memberVal);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
 }
 
 /**
@@ -116,7 +128,7 @@ extern "C" auto report_add_member_string(void*       handle,
  * @param memberKey  C-string key name for the member
  * @param memberVal  64-bit signed integer value
  * 
- * @return 0 on success
+ * @return 0 on success, -1 on exception
  * 
  * @see report_new(), Neon::Report::addMember()
  */
@@ -124,9 +136,13 @@ extern "C" auto report_add_member_int64(void*       handle,
                        const char* memberKey,
                        const int64_t     memberVal) -> int
 {
-    auto report = reinterpret_cast<Neon::core::Report*>(handle);
-    report->addMember(memberKey, memberVal);
-    return 0;
+    try {
+        auto report = reinterpret_cast<Neon::core::Report*>(handle);
+        report->addMember(memberKey, memberVal);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
 }
 
 
@@ -142,7 +158,7 @@ extern "C" auto report_add_member_int64(void*       handle,
  * @param vec_len    Length of the integer array
  * @param vec_val    Pointer to array of int64_t values to copy
  * 
- * @return 0 on success
+ * @return 0 on success, -1 on exception
  * 
  * @note The array data is copied, so the caller retains ownership of vec_val
  * @see report_new(), Neon::Report::addMember()
@@ -152,12 +168,16 @@ extern "C" auto report_add_member_vector_int64(void*       handle,
                               int         vec_len,
                               const int64_t*    vec_val) -> int
 {
-    auto           report = reinterpret_cast<Neon::core::Report*>(handle);
-// initialize an std::vector from the row pointer
+    try {
+        auto           report = reinterpret_cast<Neon::core::Report*>(handle);
+        // initialize an std::vector from the row pointer
 
-    std::vector<int64_t> vec(vec_val, vec_val+vec_len);
-    report->addMember(memberKey, vec);
-    return 0;
+        std::vector<int64_t> vec(vec_val, vec_val+vec_len);
+        report->addMember(memberKey, vec);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
 }
 
 /**
@@ -171,7 +191,7 @@ extern "C" auto report_add_member_vector_int64(void*       handle,
  * @param memberKey  C-string key name for the member
  * @param memberVal  Double-precision floating-point value
  * 
- * @return 0 on success
+ * @return 0 on success, -1 on exception
  * 
  * @see report_new(), Neon::Report::addMember()
  */
@@ -179,9 +199,13 @@ extern "C" auto report_add_member_double(void*       handle,
                        const char* memberKey,
                        const double     memberVal) -> int
 {
-    auto report = reinterpret_cast<Neon::core::Report*>(handle);
-    report->addMember(memberKey, memberVal);
-    return 0;
+    try {
+        auto report = reinterpret_cast<Neon::core::Report*>(handle);
+        report->addMember(memberKey, memberVal);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
 }
 
 
@@ -199,7 +223,7 @@ extern "C" auto report_add_member_double(void*       handle,
  * @param vec_len    Length of the double array
  * @param vec_val    Pointer to array of double values to copy
  * 
- * @return 0 on success
+ * @return 0 on success, -1 on exception
  * 
  * @note The array data is copied, so the caller retains ownership of vec_val
  * @see report_new(), Neon::Report::addMember()
@@ -209,12 +233,16 @@ extern "C" auto report_add_member_vector_double(void*       handle,
                               int           vec_len,
                               const double*    vec_val) -> int
 {
-    auto           report = reinterpret_cast<Neon::core::Report*>(handle);
-    // initialize an std::vector from the row pointer
+    try {
+        auto           report = reinterpret_cast<Neon::core::Report*>(handle);
+        // initialize an std::vector from the row pointer
 
-    std::vector<double> vec(vec_val, vec_val+vec_len);
-    report->addMember(memberKey, vec);
-    return 0;
+        std::vector<double> vec(vec_val, vec_val+vec_len);
+        report->addMember(memberKey, vec);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
 }
 
 /**
@@ -228,7 +256,7 @@ extern "C" auto report_add_member_vector_double(void*       handle,
  * @param fname               Base filename for the output file
  * @param append_time_to_file If true, appends timestamp to filename
  * 
- * @return 0 on success
+ * @return 0 on success, -1 on exception
  * 
  * @note The actual output format depends on the Neon::Report implementation
  * @note If append_time_to_file is true, the timestamp format is implementation-defined
@@ -238,7 +266,11 @@ extern "C" auto report_write(void*       handle,
                              const char* fname,
                              bool        append_time_to_file) -> int
 {
-    auto report = reinterpret_cast<Neon::core::Report*>(handle);
-    report->write(fname, append_time_to_file);
-    return 0;
+    try {
+        auto report = reinterpret_cast<Neon::core::Report*>(handle);
+        report->write(fname, append_time_to_file);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
 }
