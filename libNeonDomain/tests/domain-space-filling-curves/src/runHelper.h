@@ -89,7 +89,7 @@ void runAllTestConfigurations(std::function<void(TestData<G, T, C>&)> f)
                                                        memoryOptions,
                                                        geo);
 
-                            NEON_INFO(testData.toString());
+                            NEON_INFO("TEST", "{}", testData.toString());
                             f(testData);
                         }
                     }

@@ -11,7 +11,7 @@ TEST(cpuDev, memory)
 {
     Neon::sys::CpuDev   cpuDev;
     auto                res = cpuDev.info();
-    NEON_INFO("GoogleTest::cpuDev {}", res);
+    NEON_INFO("TEST", "GoogleTest::cpuDev {}", res);
 }
 
 

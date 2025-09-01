@@ -15,7 +15,7 @@ TEST(gpuDev, info)
 {
     Neon::sys::GpuDevice gpuDev;
     auto                 res = gpuDev.info();
-    NEON_INFO("GoogleTest::gpuDev {}", res);
+    NEON_INFO("TEST", "GoogleTest::gpuDev {}", res);
 }
 
 TEST(gpuDev, transferWithError)

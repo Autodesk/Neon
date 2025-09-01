@@ -84,7 +84,7 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
     data.getBackend().syncAll();
 
     data.resetValuesToRandom(1, 50);
-    Neon::Timer_sec timer;
+    Neon::TimerSec timer;
 
     {  // SKELETON
         auto& X = data.getField(FieldNames::X);

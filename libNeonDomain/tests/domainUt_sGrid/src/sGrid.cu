@@ -102,7 +102,7 @@ void sGridTestContainerRun(TestData<G, T, C>& data)
     using Type = typename TestData<G, T, C>::Type;
     auto& grid = data.getGrid();
 
-    NEON_INFO(grid.toString());
+    NEON_INFO("TEST", "{}", grid.toString());
 
     const std::string appName(testFilePrefix + "_" + grid.getImplementationName());
     data.resetValuesToLinear(1, 100);
@@ -210,7 +210,7 @@ void sGridTestSkeleton(TestData<G, T, C>& data)
     using Type = typename TestData<G, T, C>::Type;
     auto& grid = data.getGrid();
 
-    NEON_INFO(grid.toString());
+    NEON_INFO("TEST", "{}", grid.toString());
 
     const std::string appName(testFilePrefix + "_" + grid.getImplementationName());
     data.resetValuesToLinear(1, 100);
@@ -334,7 +334,7 @@ TEST(domainUnitTests, DISABLED_sGrid_eGrid)
 {
     Neon::init();
     int nGpus = getNGpus();
-    NEON_INFO("sGrid_eGrid");
+    NEON_INFO("TEST", "sGrid_eGrid");
     using Grid = Neon::eGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("sGrid", help::sGridTestContainerRun<Grid, Type, 0>, nGpus, 1);
@@ -344,7 +344,7 @@ TEST(domainUnitTests, DISABLED_sGrid_eGrid_skeleton)
 {
     Neon::init();
     int nGpus = getNGpus();
-    NEON_INFO("sGrid_eGrid");
+    NEON_INFO("TEST", "sGrid_eGrid");
     using Grid = Neon::eGrid;
     using Type = int32_t;
     runAllTestConfiguration<Grid, Type, 0>("sGrid", help::sGridTestSkeleton<Grid, Type, 0>, nGpus, 1);

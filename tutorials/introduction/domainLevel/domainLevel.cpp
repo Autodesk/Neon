@@ -72,7 +72,7 @@ int main(int, char**)
             gradStencil);  // <- Stencil that will be used during computations on the grid
 
         // Exporting some information
-        NEON_INFO(grid.toString());
+        NEON_INFO("TEST", "{}", grid.toString());
         grid.ioDomainToVtk("domain");
 
         return grid;

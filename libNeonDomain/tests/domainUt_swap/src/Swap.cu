@@ -49,7 +49,7 @@ void SwapContainerRun(TestData<G, T, C>& data)
     auto& grid = data.getGrid();
 
     const Type alpha = 11;
-    NEON_INFO(grid.toString());
+    NEON_INFO("TEST", "{}", grid.toString());
 
     const std::string appName(testFilePrefix + "_" + grid.getImplementationName());
     data.resetValuesToLinear(1, 100);

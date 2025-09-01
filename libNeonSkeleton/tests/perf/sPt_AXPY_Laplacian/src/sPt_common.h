@@ -314,7 +314,7 @@ struct TestConfigurations
 
     Neon::Backend  m_backend;
     bool           m_compare{false};
-    Neon::Timer_ms m_timer;
+    Neon::TimerMS m_timer;
     std::string    m_fnamePrefix{"NO_NAME"};
     DataType       m_dataType = {INT64_TYPE};
 

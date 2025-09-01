@@ -135,7 +135,7 @@ auto runNoTemplate(TestData<G, T, C>& data) -> void
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
     const int         maxIters = 1;
 
-    NEON_INFO(grid.toString());
+    NEON_INFO("TEST", "{}", grid.toString());
 
     // data.resetValuesToLinear(1, 100);
     data.resetValuesToMasked(1);
@@ -210,7 +210,7 @@ auto runTemplate(TestData<G, T, C>& data) -> void
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
     const int         maxIters = 1;
 
-    NEON_INFO(grid.toString());
+    NEON_INFO("TEST", "{}", grid.toString());
 
     // data.resetValuesToLinear(1, 100);
     data.resetValuesToMasked(1);

@@ -1,6 +1,7 @@
 #include "Neon/core/core.h"
 
 #include <cub/cub.cuh>
+#include <thrust/functional.h>
 
 namespace Neon::domain::details {
 
@@ -128,7 +129,7 @@ auto dotCUB(Neon::set::patterns::BlasSet<T>& blasSet,
 
         //gpuStream.sync();
 
-        blasSet.getBlas(idx).reducePhase2(output.getMemDev(idx), cub::Sum(), 0);
+        blasSet.getBlas(idx).reducePhase2(output.getMemDev(idx), thrust::plus<T>(), 0);
     }
 }
 
@@ -183,7 +184,7 @@ auto norm2CUB(Neon::set::patterns::BlasSet<T>& blasSet,
 
         //gpuStream.sync();
 
-        blasSet.getBlas(idx).reducePhase2(output.getMemDev(idx), cub::Sum(), 0);
+        blasSet.getBlas(idx).reducePhase2(output.getMemDev(idx), thrust::plus<T>(), 0);
     }
 }
 }  // namespace Neon::domain::details

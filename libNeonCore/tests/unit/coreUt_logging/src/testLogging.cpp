@@ -5,12 +5,12 @@
 
 TEST(logging, trace)
 {
-    NEON_TRACE("test trace message ...");
+    NEON_TRACE("TEST", "test trace message ...");
 }
 
 TEST(logging, info)
 {
-    NEON_INFO("test info message ...");
+    NEON_INFO("TEST", "test info message ...");
 }
 
 TEST(logging, warning)

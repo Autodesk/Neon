@@ -1,6 +1,7 @@
-#include "Neon/sys/patterns/Blas.h"
+    #include "Neon/sys/patterns/Blas.h"
 
 #include <cub/cub.cuh>
+#include <thrust/functional.h>
 
 namespace Neon::sys::patterns {
 
@@ -74,29 +75,30 @@ template class Blas<int64_t>;
 template class Blas<uint32_t>;
 template class Blas<uint64_t>;
 
-template void Blas<float>::template reducePhase2<decltype(cub::Sum())>(
+// Note: cub::Sum() was deprecated in CUDA 13.0, using thrust::plus instead
+template void Blas<float>::template reducePhase2<thrust::plus<float>>(
     MemDevice<float>&,
-    decltype(cub::Sum()),
+    thrust::plus<float>,
     float);
 
-template void Blas<double>::template reducePhase2<decltype(cub::Sum())>(
+template void Blas<double>::template reducePhase2<thrust::plus<double>>(
     MemDevice<double>&,
-    decltype(cub::Sum()),
+    thrust::plus<double>,
     double);
-template void Blas<int32_t>::template reducePhase2<decltype(cub::Sum())>(
+template void Blas<int32_t>::template reducePhase2<thrust::plus<int32_t>>(
     MemDevice<int32_t>&,
-    decltype(cub::Sum()),
+    thrust::plus<int32_t>,
     int32_t);
-template void Blas<int64_t>::template reducePhase2<decltype(cub::Sum())>(
+template void Blas<int64_t>::template reducePhase2<thrust::plus<int64_t>>(
     MemDevice<int64_t>&,
-    decltype(cub::Sum()),
+    thrust::plus<int64_t>,
     int64_t);
-template void Blas<uint32_t>::template reducePhase2<decltype(cub::Sum())>(
+template void Blas<uint32_t>::template reducePhase2<thrust::plus<uint32_t>>(
     MemDevice<uint32_t>&,
-    decltype(cub::Sum()),
+    thrust::plus<uint32_t>,
     uint32_t);
-template void Blas<uint64_t>::template reducePhase2<decltype(cub::Sum())>(
+template void Blas<uint64_t>::template reducePhase2<thrust::plus<uint64_t>>(
     MemDevice<uint64_t>&,
-    decltype(cub::Sum()),
+    thrust::plus<uint64_t>,
     uint64_t);
 }  // namespace Neon::sys::patterns

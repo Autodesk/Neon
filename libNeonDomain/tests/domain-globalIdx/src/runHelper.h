@@ -85,7 +85,7 @@ void runAllTestConfiguration(
                                                        memoryOptions,
                                                        geo);
 
-                            NEON_INFO(testData.toString());
+                            NEON_INFO("TEST", "{}", testData.toString());
                             f(testData);
                         }
                     }
@@ -135,7 +135,7 @@ void runOneTestConfiguration(const std::string&                      gname,
                                                    memoryOptions,
                                                    geo);
 
-                        NEON_INFO(testData.toString());
+                        NEON_INFO("TEST", "{}", testData.toString());
 
                         f(testData);
                     }

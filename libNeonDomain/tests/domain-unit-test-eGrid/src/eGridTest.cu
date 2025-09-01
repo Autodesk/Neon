@@ -20,7 +20,7 @@ auto run(TestData<G, T, C>& data) -> void
     Neon::Backend     backend = grid.getBackend();
     const std::string appName = TestInformation::fullName(grid.getImplementationName());
 
-    NEON_INFO(grid.toString());
+    NEON_INFO("TEST", "{}", grid.toString());
     const Neon::index_3d dim = grid.getDimension();
     bool                 testDetected = false;
 

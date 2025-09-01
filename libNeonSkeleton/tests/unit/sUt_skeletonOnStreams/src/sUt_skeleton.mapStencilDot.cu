@@ -49,7 +49,7 @@ void MapStencilDot(TestData<G, T, C>&      data,
 
     // skl.ioToDot(appName);
 
-    Neon::Timer_sec timer;
+    Neon::TimerSec timer;
     {  // SKELETON
         auto& X = data.getField(FieldNames::X);
         auto& Y = data.getField(FieldNames::Y);

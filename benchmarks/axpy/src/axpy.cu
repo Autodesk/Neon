@@ -99,7 +99,7 @@ auto axpy_repetition(Neon::index_3d dim,
         backend.syncAll();
         nvtxRangePush("iterations");
 
-        Neon::Timer_ms timer;
+        Neon::TimerMS timer;
         timer.start();
         for (int i = 0; i < iterations; i++) {
             odd.run(0);

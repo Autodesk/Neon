@@ -59,7 +59,7 @@ TEST(gUt_vtk, aGrid)
         Neon::Backend    bk(ids,
                          Neon::Runtime::stream);
 
-        NEON_INFO(bk.toString());
+        NEON_INFO("TEST", "{}", bk.toString());
         Neon::index_3d dimension(10, 1, 1);
         containersTest<Neon::aGrid>(dimension, bk);
     }
@@ -72,7 +72,7 @@ TEST(gUt_vtk, eGrid)
         Neon::Backend    bk(ids,
                          Neon::Runtime::stream);
 
-        NEON_INFO(bk.toString());
+        NEON_INFO("TEST", "{}", bk.toString());
         Neon::index_3d dimension(10, 10, 20);
         containersTest<Neon::domain::details::eGrid::eGrid>(dimension, bk);
     }
@@ -84,7 +84,7 @@ TEST(gUt_vtk, iovtkCPU)
     Neon::Backend    bk(ids,
                         Neon::Runtime::openmp);
 
-    NEON_INFO(bk.toString());
+    NEON_INFO("TEST", "{}", bk.toString());
     Neon::index_3d dimension(10, 1, 1);
     containersTest<Neon::aGrid>(dimension, bk);
 }

@@ -164,15 +164,8 @@ auto Report::device() -> void
                       &subdoc);
             addMember("Multiprocessors", prop.multiProcessorCount, &subdoc);
 
-            addMember(
-                "GPU Max Clock rate (GHz)", prop.clockRate * 1e-6f, &subdoc);
-            addMember(
-                "Memory Clock rate (GHz)", prop.memoryClockRate * 1e-6f, &subdoc);
+            // Note: clockRate and memoryClockRate properties were deprecated in CUDA 13.0
             addMember("Memory Bus Width (bit)", prop.memoryBusWidth, &subdoc);
-            addMember("Peak Memory Bandwidth (GB/s)",
-                      2.0 * prop.memoryClockRate *
-                          (prop.memoryBusWidth / 8.0) / 1.0E6,
-                      &subdoc);
 
             addSubdoc("GPU_" + std::to_string(d), subdoc);
         }

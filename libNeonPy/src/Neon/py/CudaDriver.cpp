@@ -1,4 +1,5 @@
 #include <dlfcn.h>
+#include <cstring>
 
 #include <cuda.h>
 #include <cudaTypedefs.h>
@@ -32,7 +33,10 @@ CudaDriver::CudaDriver(Neon::Backend* bk_prt)
         res = cuDeviceGet(&cu_devices[setIdx], cuda_dev_idx);
         check_cuda_res(res, std::string("cuDeviceGet (dev ") + std::to_string(cuda_dev_idx) + std::string(")"));
 
-        res = cuCtxCreate(&cu_contexts[setIdx], 0, cuda_dev_idx);
+        // CUDA 13.0 compatibility: create context with default parameters
+        CUctxCreateParams params;
+        memset(&params, 0, sizeof(params));
+        res = cuCtxCreate_v4(&cu_contexts[setIdx], &params, 0, cu_devices[setIdx]);
         check_cuda_res(res, std::string("cuCtxCreate (dev ") + std::to_string(cuda_dev_idx) + std::string(")"));
     }
 

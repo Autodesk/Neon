@@ -265,14 +265,10 @@ std::string GpuDevice::tools_t::getDevInfo(const std::string& prefix) const
     const std::string  newLineAndPrefix = "\n" + prefix;
     msg << prefix << "Device Number: " << gpuDev.getIdx();
     msg << newLineAndPrefix << "    Device name:                  " << prop.name;
-    std::vector<std::string> cudaComputeModeStrVec = {"Default", "Compute-exclusive-thread", "Compute-prohibited", "Compute-exclusive-process"};
-    msg << newLineAndPrefix << "    Compute Mode:                 " << cudaComputeModeStrVec[prop.computeMode];
+    // Note: computeMode, memoryClockRate, and clockRate properties were deprecated in CUDA 13.0
     msg << newLineAndPrefix << "    Unified addr space with host: " << std::boolalpha << (bool)prop.unifiedAddressing;
-
     msg << newLineAndPrefix << "    Support for managed mem:      " << std::boolalpha << (bool)prop.managedMemory;
-    msg << newLineAndPrefix << "    Memory Clock Rate (KHz):      " << prop.memoryClockRate;
     msg << newLineAndPrefix << "    Memory Bus Width (bits):      " << prop.memoryBusWidth;
-    msg << newLineAndPrefix << "    Peak Memory Bandwidth (GB/s): " << 2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6;
     msg << newLineAndPrefix << "    ECC enabled:                  " << std::boolalpha << (bool)prop.ECCEnabled;
     msg << newLineAndPrefix << "    Coherently accessing pageable mem without calling cudaHostRegister: " << std::boolalpha << (bool)prop.pageableMemoryAccess;
 

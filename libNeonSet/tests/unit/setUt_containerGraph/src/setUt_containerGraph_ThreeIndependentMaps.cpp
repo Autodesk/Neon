@@ -40,7 +40,7 @@ void ThreeIndependentMapsTest(TestData<G, T, C>& data)
 
     //data.resetValuesToRandom(1, 50);
     data.resetValuesToConst(1, 50);
-    Neon::Timer_sec timer;
+    Neon::TimerSec timer;
 
     {  // NEON
         auto& X = data.getField(FieldNames::X);

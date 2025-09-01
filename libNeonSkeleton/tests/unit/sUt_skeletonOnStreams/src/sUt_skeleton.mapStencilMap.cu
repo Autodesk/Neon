@@ -44,7 +44,7 @@ void MapStencilMap(TestData<G, T, C>&      data,
 
     //data.resetValuesToRandom(1, 50);
     data.resetValuesToMasked(1,1,3);
-    Neon::Timer_sec timer;
+    Neon::TimerSec timer;
 
     {  // SKELETON
         auto& X = data.getField(FieldNames::X);

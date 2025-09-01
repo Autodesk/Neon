@@ -11,25 +11,27 @@ if (NOT spdlog_POPULATED)
 	FetchContent_MakeAvailable(spdlog)
 endif ()
 
-FetchContent_GetProperties(googletest)
-if (NOT googletest_POPULATED)
-	# GoogleTest
-	FetchContent_Declare(
-			googletest
-			GIT_REPOSITORY https://github.com/google/googletest.git
-			GIT_TAG release-1.12.1  # Specify the desired version
-	)
-	# Rename the targets to avoid conflicts
-	#set_target_properties(gtest PROPERTIES OUTPUT_NAME "gtest_unique")
-	#set_target_properties(gtest_main PROPERTIES OUTPUT_NAME "gtest_main_unique")
+if (${BUILD_NEON_TESTING})
+	FetchContent_GetProperties(googletest)
+	if (NOT googletest_POPULATED)
+		# GoogleTest
+		FetchContent_Declare(
+				googletest
+				GIT_REPOSITORY https://github.com/google/googletest.git
+				GIT_TAG release-1.12.1  # Specify the desired version
+		)
+		# Rename the targets to avoid conflicts
+		#set_target_properties(gtest PROPERTIES OUTPUT_NAME "gtest_unique")
+		#set_target_properties(gtest_main PROPERTIES OUTPUT_NAME "gtest_main_unique")
 
-	# Enable testing
-	enable_testing()
+		# Enable testing
+		enable_testing()
 
-	# Include GoogleTest CMake functions
-	include(GoogleTest)
-	FetchContent_MakeAvailable(googletest)
+		# Include GoogleTest CMake functions
+		include(GoogleTest)
+		FetchContent_MakeAvailable(googletest)
 
+	endif ()
 endif ()
 
 # rapidjson

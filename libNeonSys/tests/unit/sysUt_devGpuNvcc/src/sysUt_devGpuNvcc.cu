@@ -94,7 +94,7 @@ TEST(gpuDev, cudaLaunchKernelIII)
             size_t      sharedMem = 0;
 
             ASSERT_ANY_THROW(gpuDev.kernel.cudaLaunchKernel<run_et::sync>(gpuStream, {Neon::sys::GpuLaunchInfo::domainGridMode, domainGrid, cudaBlock, sharedMem}, (void*)kernelRun::kernel, params));
-            NEON_INFO("UnitTest: An exception was expected before this message, don't panic everything is fine so far...");
+            NEON_INFO("TEST", "UnitTest: An exception was expected before this message, don't panic everything is fine so far...");
         }
     }
 }

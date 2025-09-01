@@ -23,61 +23,55 @@ bool isInRagnge(double A, double B)
 
 void testSecWithSleep(int sec)
 {
-    Neon::Timer_sec timer;
+    Neon::TimerSec timer;
     timer.start();
     std::this_thread::sleep_for(std::chrono::seconds(sec));
-    timer.stop();
-    auto time = timer.time();
+    auto time = timer.stop();
     ASSERT_TRUE(isInRagnge(sec, time)) << time << " vs " << sec << std::endl;
 }
 
 void testMsWithSleep(int sec)
 {
-    Neon::Timer_ms timer;
+    Neon::TimerMS timer;
     timer.start();
     std::this_thread::sleep_for(std::chrono::seconds(sec));
-    timer.stop();
-    auto time = (timer.time()) / 1000.0;
+    auto time = timer.stop() / 1000.0;
     ASSERT_TRUE(isInRagnge(sec, time)) << time << " vs " << sec << std::endl;
 }
 
 void testUsWithSleep(int sec)
 {
-    Neon::Timer_us timer;
+    Neon::TimerUS timer;
     timer.start();
     std::this_thread::sleep_for(std::chrono::seconds(sec));
-    timer.stop();
-    auto time = (timer.time()) / (1000.0 * 1000.0);
+    auto time = timer.stop() / (1000.0 * 1000.0);
     ASSERT_TRUE(isInRagnge(sec, time)) << time << " vs " << sec << std::endl;
 }
 
 void testSecWithUSleep(int usec)
 {
-    Neon::Timer_sec timer;
+    Neon::TimerSec timer;
     timer.start();
     std::this_thread::sleep_for(std::chrono::microseconds(usec));
-    timer.stop();
-    auto time = timer.time() * (1000.0 * 1000.0);
+    auto time = timer.stop() * (1000.0 * 1000.0);
     ASSERT_TRUE(isInRagnge(usec, time)) << time << " vs " << usec << std::endl;
 }
 
 void testMSecWithUSleep(int usec)
 {
-    Neon::Timer_ms timer;
+    Neon::TimerMS timer;
     timer.start();
     std::this_thread::sleep_for(std::chrono::microseconds(usec));
-    timer.stop();
-    auto time = timer.time() * (1000.0);
+    auto time = timer.stop() * (1000.0);
     ASSERT_TRUE(isInRagnge(usec, time)) << time << " vs " << usec << std::endl;
 }
 
 void testUSecWithUSleep(int usec)
 {
-    Neon::Timer_us timer;
+    Neon::TimerUS timer;
     timer.start();
     std::this_thread::sleep_for(std::chrono::microseconds(usec));
-    timer.stop();
-    auto time = timer.time();
+    auto time = timer.stop();
     ASSERT_TRUE(isInRagnge(usec, time)) << time << " vs " << usec << std::endl;
 }
 

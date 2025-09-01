@@ -66,8 +66,8 @@ SolverStatus CG_t<Grid_ta, Real_ta>::solve(std::shared_ptr<matVec_t>        A,
         exc << "Attempting to call solve() before calling init()";
         NEON_THROW(exc);
     }
-    Neon::Timer_ms timerSolution;
-    Neon::Timer_ms timerTotal;
+    Neon::TimerMS timerSolution;
+    Neon::TimerMS timerTotal;
 
     // Preparations before the solve loop
     result.solverName = this->name();

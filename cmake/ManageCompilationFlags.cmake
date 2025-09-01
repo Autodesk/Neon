@@ -53,6 +53,7 @@ set(NeonCUDAFlags
         $<$<CXX_COMPILER_ID:GNU>:-Xcompiler -fopenmp -std=c++17 $<$<CONFIG:Release>:-O3> $<$<CONFIG:Debug>:-O0> >
         $<$<CXX_COMPILER_ID:Clang>:-Xcompiler -fopenmp -std=c++17 $<$<CONFIG:Release>:-O3> $<$<CONFIG:Debug>:-O0>>
         $<$<CXX_COMPILER_ID:MSVC>:-Xcompiler ${MSVC_XCOMPILER_FLAGS}>
+
         #Disables warning
         #177-D "function XXX was declared but never referenced"
         -Xcudafe "--display_error_number --diag_suppress=177"
