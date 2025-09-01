@@ -45,6 +45,7 @@ void MapStencilMap(TestData<G, T, C>&      data,
     //data.resetValuesToRandom(1, 50);
     data.resetValuesToMasked(1,1,3);
     Neon::TimerSec timer;
+    double elapsed;
 
     {  // SKELETON
         auto& X = data.getField(FieldNames::X);
@@ -67,11 +68,11 @@ void MapStencilMap(TestData<G, T, C>&      data,
             data.getBackend().syncAll();
         }
         data.getBackend().syncAll();
-        timer.stop();
+        elapsed = timer.stop();
     }
 
     {  // Golden data
-        auto time = timer.time();
+        auto time = elapsed;
 
         Type  dR = scalarVal;
         auto& X = data.getIODomain(FieldNames::X);

@@ -108,8 +108,7 @@ auto axpy_repetition(Neon::index_3d dim,
         backend.syncAll();
         nvtxRangePop();
 
-        timer.stop();
-        double t = timer.time();
+        double t = timer.stop();
         t_vec.push_back(t);
         double mlups = (dim.x * dim.y * dim.z * iterations * 1.0) / t / 1000.0;
         mlups_vec.push_back(mlups);

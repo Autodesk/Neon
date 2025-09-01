@@ -106,10 +106,11 @@ struct PerformanceMetrics
 
     PerformanceMetrics(Cli::UserData&                                                  userData,
                        Neon::domain::tool::testing::TestData<Grid, Type, Cardinality>& testData,
-                       Neon::Timer_us&                                                 timerUs,
+                       Neon::TimerUS&                                                 timerUs,
                        int                                                             repId)
     {
-        elapsedUs = timerUs.time();
+        // Timer API: use stop() or elapsed(). Here timerUs has already been stopped by caller.
+        elapsedUs = timerUs.elapsed();
         iterationTimeUs = elapsedUs / userData.nIterations;
         nActiveCells = testData.getGrid().getNumActiveCells();
         MCPS = (elapsedUs / 1.0e6) / (nActiveCells / (1.0e6));
@@ -117,15 +118,15 @@ struct PerformanceMetrics
         repetitionId = repId;
         nGPUs = testData.getBackend().devSet().setCardinality();
 
-        NEON_INFO(
-            "Performance Repetition ID {} => [MCPSPD {}], [MCPS {}], [Elapsed Time {} us], [Iteration Time {} us], [Size {}], [Iterations]",
+        NEON_INFO("PERF",
+            "Performance Repetition ID {} => [MCPSPD {}], [MCPS {}], [Elapsed Time {} us], [Iteration Time {} us], [Size {}], [Iterations {}]",
             repetitionId, MCPSPD, MCPS, elapsedUs, iterationTimeUs, userData.dimensions.to_string(),
             userData.nIterations);
     }
 
     auto log(Neon::Report& report) -> void
     {  // Adding benchmarks metrics
-        NEON_INFO(
+        NEON_INFO("PERF",
             "Performance Repetition ID {} => [MCPSPD {}], [MCPS {}], [Iteration Time {} us], [Elapsed Time {} us]",
             repetitionId, MCPSPD, MCPS, iterationTimeUs, elapsedUs);
         auto subdoc = report.getSubdoc();
@@ -191,7 +192,8 @@ struct PerformanceMetrics
 
         report.addSubdoc(Cli::AppsUtils::toString(userData.targetApp.getOption())+"_Performance_Statistics", subdocSatistics);
 
-        NEON_INFO("Performance statistics => [MCPSPD {}], [MCPS {}],  [Iteration Time {} us], [Elapsed Time {} us]",
+        NEON_INFO("PERF",
+                  "Performance statistics => [MCPSPD {}], [MCPS {}],  [Iteration Time {} us], [Elapsed Time {} us]",
                   std::to_string(average.MCPSPD) + "+-" + std::to_string(stdDev.MCPSPD),
                   std::to_string(average.MCPS) + "+-" + std::to_string(stdDev.MCPS),
                   std::to_string(average.iterationTimeUs) + "+-" + std::to_string(stdDev.iterationTimeUs),
@@ -251,7 +253,7 @@ auto testTemplate(Cli::UserData& userData,
 
         testData.getBackend().syncAll();
 
-        Neon::Timer_us timerUs;
+        Neon::TimerUS timerUs;
         timerUs.start();
         for (int i = 0; i < userData.nIterations; i++) {
             skeleton.run();

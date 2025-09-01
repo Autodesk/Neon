@@ -66,7 +66,7 @@ void MapStencilDot(TestData<G, T, C>&      data,
             skl.run();
         }
         data.getBackend().syncAll();
-        timer.stop();
+        [[maybe_unused]] auto elapsed = timer.stop();
     }
 
     Type dR = scalarVal;

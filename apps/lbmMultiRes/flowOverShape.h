@@ -264,7 +264,7 @@ void flowOverMesh(const Neon::Backend backend,
     polyscopeAddMesh(params.meshFile, faces, vertices);
 #endif
 
-    NEON_INFO("AABB init");
+    NEON_INFO("LBM", "AABB init");
 
     //initialize the AABB that is used to speed up the inside/output calculation for the grid construction
     igl::AABB<Eigen::MatrixXd, 3> aabb;
@@ -333,7 +333,7 @@ void flowOverMesh(const Neon::Backend backend,
     //         }};
 
     //Pass everything to Neon to build the multi-resolution grid
-    NEON_INFO("Create mGrid");
+    NEON_INFO("LBM", "Create mGrid");
 
     const Neon::mGridDescriptor<1> descriptor(depth);
 
@@ -352,7 +352,7 @@ void flowOverMesh(const Neon::Backend backend,
     const Neon::double_3d inletVelocity(uin, 0., 0.);
 
 
-    NEON_INFO("Started populating inside field");
+    NEON_INFO("LBM", "Started populating inside field");
 
     //Populate the field that specifies which voxel is inside/outside the input geometry.
     //In this field, 1 means the voxel is inside the shape
@@ -393,26 +393,26 @@ void flowOverMesh(const Neon::Backend backend,
     }
     grid.getBackend().syncAll();
 
-    NEON_INFO("Finished populating inside field");
+    NEON_INFO("LBM", "Finished populating inside field");
 
     inside.updateDeviceData();
 
     //inside.ioToVtk("inside", true, true, true, true);
 
-    NEON_INFO("Start allocating fields");
+    NEON_INFO("LBM", "Start allocating fields");
     //allocate fields
     auto fin = grid.newField<T>("fin", Q, 0);
     auto fout = grid.newField<T>("fout", Q, 0);
     auto storeSum = grid.newField<float>("storeSum", Q, 0);
     auto cellType = grid.newField<CellType>("CellType", 1, CellType::bulk);
 
-    NEON_INFO("Finished allocating fields");
+    NEON_INFO("LBM", "Finished allocating fields");
 
     //init fields
 
-    NEON_INFO("Start initFlowOverShape");
+    NEON_INFO("LBM", "Start initFlowOverShape");
     initFlowOverShape<T, Q>(grid, storeSum, fin, fout, cellType, inletVelocity, inside);
-    NEON_INFO("Finished initFlowOverShape");
+    NEON_INFO("LBM", "Finished initFlowOverShape");
 
     //Finally run the simulation
     runNonUniformLBM<T, Q>(grid,

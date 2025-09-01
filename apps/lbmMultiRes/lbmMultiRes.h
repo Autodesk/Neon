@@ -336,31 +336,31 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
         }
     }
 
-    NEON_INFO("Re: {}", params.Re);
-    NEON_INFO("clength: {}", clength);
-    NEON_INFO("omega: {}", omega);
-    NEON_INFO("visclb: {}", visclb);
+    NEON_INFO("LBM", "Re: {}", params.Re);
+    NEON_INFO("LBM", "clength: {}", clength);
+    NEON_INFO("LBM", "omega: {}", omega);
+    NEON_INFO("LBM", "visclb: {}", visclb);
 #ifdef KBC
-    NEON_INFO("Collision: KBC");
+    NEON_INFO("LBM", "Collision: KBC");
 #endif
 #ifdef BGK
-    NEON_INFO("Collision: BGK");
+    NEON_INFO("LBM", "Collision: BGK");
 #endif
 
 
-    NEON_INFO("velocity: {}, {}, {}", velocity.x, velocity.y, velocity.z);
+    NEON_INFO("LBM", "velocity: {}, {}, {}", velocity.x, velocity.y, velocity.z);
 
 
     //execution
-    NEON_INFO("Domain Size {}, {}, {}", gridDim.x, gridDim.y, gridDim.z);
+    NEON_INFO("LBM", "Domain Size {}, {}, {}", gridDim.x, gridDim.y, gridDim.z);
     for (uint32_t l = 0; l < depth; ++l) {
-        NEON_INFO("numActiveVoxels [{}]: {}", l, numActiveVoxels[l]);
+        NEON_INFO("LBM", "numActiveVoxels [{}]: {}", l, numActiveVoxels[l]);
     }
-    NEON_INFO("sumActiveVoxels: {}", sumActiveVoxels);
+    NEON_INFO("LBM", "sumActiveVoxels: {}", sumActiveVoxels);
     auto start = std::chrono::high_resolution_clock::now();
     for (int t = 0; t < params.numIter; ++t) {
         if (t % 100 == 0) {
-            NEON_INFO("Non-uniform LBM Iteration: {}", t);
+            NEON_INFO("LBM", "Non-uniform LBM Iteration: {}", t);
         }
         skl.run();
         if (!params.benchmark && t % params.freq == 0) {
@@ -388,12 +388,12 @@ void runNonUniformLBM(Neon::domain::mGrid&                        grid,
         MLUPS += double(params.numIter) * std::pow(2, d) * double(numActiveVoxels[l]);
     }
     MLUPS /= double(duration.count());
-    NEON_INFO("MLUPS = {0:8.8f}", MLUPS);
-    NEON_INFO("Time = {0:8.8f} (microseconds)", double(duration.count()));
+    NEON_INFO("LBM", "MLUPS = {0:8.8f}", MLUPS);
+    NEON_INFO("LBM", "Time = {0:8.8f} (microseconds)", double(duration.count()));
 
     const double effNumIter = double(params.numIter) * double(1 << (depth - 1));
     const double effMLUPS = (effNumIter * double(gridDim.x) * double(gridDim.y) * double(gridDim.y)) / double(duration.count());
-    NEON_INFO("Effective MLUPS = {0:8.8f}, Effective numActiveVoxels = {1}", effMLUPS, gridDim.rMul());
+    NEON_INFO("LBM", "Effective MLUPS = {0:8.8f}, Effective numActiveVoxels = {1}", effMLUPS, gridDim.rMul());
 
     //Reporting
     auto algoName = [&]() {

@@ -69,7 +69,7 @@ void ThreeIndependentMapsTest(TestData<G, T, C>& data)
             exec.run(0);
         }
         data.getBackend().syncAll();
-        timer.stop();
+        [[maybe_unused]] [[maybe_unused]] auto elapsed = timer.stop();
     }
 
     {  // Golden data

@@ -60,6 +60,6 @@ int main(int argc, char** argv)
     testConfigurations.m_optSkelTransfer = Neon::set::TransferModeUtils::fromString(transfer);
     testConfigurations.m_dataType = DataTypeStr2Val(dataType);
 
-    NEON_INFO(testConfigurations.toString());
+    NEON_INFO("TEST", "{}", testConfigurations.toString());
     return RUN_ALL_TESTS();
 }

@@ -157,7 +157,7 @@ void sGridTestContainerRun(TestData<G, T, C>& data)
     //            skl.run();
     //        }
     //        data.getBackend().syncAll();
-    //        timer.stop();
+    //        [[maybe_unused]] auto elapsed = timer.stop();
     //    }
     //
     {  // Golden data
@@ -279,7 +279,7 @@ void sGridTestSkeleton(TestData<G, T, C>& data)
     //            skl.run();
     //        }
     //        data.getBackend().syncAll();
-    //        timer.stop();
+    //        [[maybe_unused]] auto elapsed = timer.stop();
     //    }
     //
     {  // Golden data

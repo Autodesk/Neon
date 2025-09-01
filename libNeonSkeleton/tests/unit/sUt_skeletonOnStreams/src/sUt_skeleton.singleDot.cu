@@ -102,7 +102,7 @@ void SingleStencilTestData(TestData<G, T, C>&      data,
         }
 
         data.getBackend().syncAll();
-        timer.stop();
+        [[maybe_unused]] auto elapsed = timer.stop();
     }
 
     {  // Golden data

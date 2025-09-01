@@ -25,12 +25,12 @@ struct UserData
     }
     auto log() -> void
     {
-        NEON_INFO("--- [GEOMETRY]");
-        NEON_INFO("Dimensions: {}", dimensions.to_string());
-        NEON_INFO("Geometry:   {}", Neon::domain::tool::GeometryUtils::toString(targetGeometry.getOption()));
-        NEON_INFO("--- [SYSTEM]");
-        NEON_INFO("DeviceType: {}", Neon::DeviceTypeUtil::toString(deviceType.getOption()));
-        NEON_INFO("DeviceIds:  {}", [&] {
+        NEON_INFO("GEOMETRY", "--- [GEOMETRY]");
+        NEON_INFO("GEOMETRY", "Dimensions: {}", dimensions.to_string());
+        NEON_INFO("GEOMETRY", "Geometry:   {}", Neon::domain::tool::GeometryUtils::toString(targetGeometry.getOption()));
+        NEON_INFO("SYSTEM", "--- [SYSTEM]");
+        NEON_INFO("SYSTEM", "DeviceType: {}", Neon::DeviceTypeUtil::toString(deviceType.getOption()));
+        NEON_INFO("SYSTEM", "DeviceIds:  {}", [&] {
             std::stringstream s;
             s << "[";
             bool first = true;
@@ -43,19 +43,19 @@ struct UserData
             s << "]";
             return s.str();
         }());
-        NEON_INFO("GridType:     {}", GridTypeUtils::toString(gridType.getOption()));
-        NEON_INFO("--- [SKELETON]");
-        NEON_INFO("Executor:     {}", Neon::skeleton::ExecutorUtils::toString(executorModel.getOption()));
-        NEON_INFO("Occ:          {}", Neon::skeleton::OccUtils::toString(occModel.getOption()));
-        NEON_INFO("--- [APPLICATION]");
-        NEON_INFO("App:          {}", Cli::AppsUtils::toString(targetApp.getOption()));
-        NEON_INFO("Type:         {}", Cli::TypeUtils::toString(runtimeType.getOption()));
-        NEON_INFO("Cardinality:  {}", Cli::CardinalityUtils::toString(cardinality.getOption()));
-        NEON_INFO("Iterations:   {}", std::to_string(nIterations));
-        NEON_INFO("Warmup:       {}", std::to_string(warmupIterations));
-        NEON_INFO("CheckResults: {}", Cli::CorrectnesssUtils::toString(correctness.getOption()));
-        NEON_INFO("--- [TEST]");
-        NEON_INFO("Prefix:      {}", testPrefix);
+        NEON_INFO("GRID", "GridType:     {}", GridTypeUtils::toString(gridType.getOption()));
+        NEON_INFO("SKELETON", "--- [SKELETON]");
+        NEON_INFO("SKELETON", "Executor:     {}", Neon::skeleton::ExecutorUtils::toString(executorModel.getOption()));
+        NEON_INFO("SKELETON", "Occ:          {}", Neon::skeleton::OccUtils::toString(occModel.getOption()));
+        NEON_INFO("APP", "--- [APPLICATION]");
+        NEON_INFO("APP", "App:          {}", Cli::AppsUtils::toString(targetApp.getOption()));
+        NEON_INFO("APP", "Type:         {}", Cli::TypeUtils::toString(runtimeType.getOption()));
+        NEON_INFO("APP", "Cardinality:  {}", Cli::CardinalityUtils::toString(cardinality.getOption()));
+        NEON_INFO("APP", "Iterations:   {}", std::to_string(nIterations));
+        NEON_INFO("APP", "Warmup:       {}", std::to_string(warmupIterations));
+        NEON_INFO("APP", "CheckResults: {}", Cli::CorrectnesssUtils::toString(correctness.getOption()));
+        NEON_INFO("APP", "--- [TEST]");
+        NEON_INFO("APP", "Prefix:      {}", testPrefix);
     }
 
     auto toReport(Neon::Report& report) -> void

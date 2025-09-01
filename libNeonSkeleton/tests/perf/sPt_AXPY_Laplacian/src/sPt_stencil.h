@@ -51,14 +51,16 @@ double filterAverage(TestConfigurations& config)
         config.m_backend.syncAll();
     }
 
+    double totalElapsed = 0.0;
     {  // TIMING
         {
             for (int i = 0; i < config.m_nIterations; i++) {
                 config.m_timer.start();
                 skl.run();
                 storage.m_backend.sync();
-                config.m_timer.stop();
-                NEON_INFO("Time per iteration {}", config.m_timer.time());
+                auto elapsed = config.m_timer.stop();
+                totalElapsed += elapsed;
+                NEON_INFO("TEST", "Time per iteration {}", elapsed);
             }
         }
         skl.ioToDot("test.dot");
@@ -81,10 +83,10 @@ double filterAverage(TestConfigurations& config)
             }
         }
     }
-    return config.m_timer.time();
+    return totalElapsed;
 }
 
-[[maybe_unused]] void runAllConfig(std::function<void(TestConfigurations&)> f,
+[[maybe_unused]] void runAllConfig(std::function<double(TestConfigurations&)> f,
                                    TestConfigurations                       config)
 {
     std::vector<int> nGpuTest;
@@ -140,8 +142,8 @@ double filterAverage(TestConfigurations& config)
 
             std::vector<double> times;
             for (int r = 0; r < config.m_nRepetitions; r++) {
-                f(config);
-                times.push_back(config.m_timer.time());
+                double elapsed = f(config);
+                times.push_back(elapsed);
             }
             report.addMember("timeToSolution_ms", times);
         }
