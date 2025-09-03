@@ -62,13 +62,13 @@ class SkeletonConfig():
             Raises:
                 No explicit validation - relies on enum membership
             """
-            if occ_config == self.__class__.Values.standard:
+            if occ_config == self.__class__.Values.standard.value:
                 self.skeleton_occ = ctypes.c_int(0)
-            elif occ_config == self.__class__.Values.extended:
+            elif occ_config == self.__class__.Values.extended.value:
                 self.skeleton_occ = ctypes.c_int(1)
-            elif occ_config == self.__class__.Values.twoWayExtended:
+            elif occ_config == self.__class__.Values.twoWayExtended.value:
                 self.skeleton_occ = ctypes.c_int(2)
-            elif occ_config == self.__class__.Values.none:
+            elif occ_config == self.__class__.Values.none.value:
                 self.skeleton_occ = ctypes.c_int(3)
 
         def __str__(self):
@@ -79,14 +79,14 @@ class SkeletonConfig():
                 str: A formatted string showing memory address, size, and current value
             """
             str_repr = "<OCC: addr=%ld, sizeof %ld>" % (ctypes.addressof(self), ctypes.sizeof(self))
-            if self.skeleton_occ == ctypes.c_int(0):
-                str_repr += f"\n\tOCC: {'standard'}"
-            elif self.skeleton_occ == ctypes.c_int(1):
-                str_repr += f"\n\tOCC: {'extended'}"
-            elif self.skeleton_occ == ctypes.c_int(2):
-                str_repr += f"\n\tOCC: {'twoWayExtended'}"
-            elif self.skeleton_occ == ctypes.c_int(3):
-                str_repr += f"\n\tOCC: {'none'}"
+            if self.skeleton_occ == self.__class__.Values.standard.value:
+                str_repr += f"\tOCC: {'standard'}"
+            elif self.skeleton_occ == self.__class__.Values.extended.value:
+                str_repr += f"\tOCC: {'extended'}"
+            elif self.skeleton_occ == self.__class__.Values.twoWayExtended.value:
+                str_repr += f"\tOCC: {'twoWayExtended'}"
+            elif self.skeleton_occ == self.__class__.Values.none.value:
+                str_repr += f"\tOCC: {'none'}"
             return str_repr
 
         def to_string(self):
@@ -96,13 +96,13 @@ class SkeletonConfig():
             Returns:
                 str: A formatted string showing memory address, size, and current value
             """
-            if self.skeleton_occ == ctypes.c_int(0):
+            if self.skeleton_occ == self.__class__.Values.standard.value:
                 return 'standard'
-            elif self.skeleton_occ == ctypes.c_int(1):
+            elif self.skeleton_occ == self.__class__.Values.extended.value:
                 return 'extended'
-            elif self.skeleton_occ == ctypes.c_int(2):
+            elif self.skeleton_occ == self.__class__.Values.twoWayExtended.value:
                 return 'twoWayExtended'
-            elif self.skeleton_occ == ctypes.c_int(3):
+            elif self.skeleton_occ == self.__class__.Values.none.value:
                 return 'none'
             return 'unknown'
 
