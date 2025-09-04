@@ -339,7 +339,7 @@ template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline Vec_4d<index_t> Vec_4d<IntegerType_ta, true, false>::idxMinMask() const
 {
     Vec_4d<index_t> mask(0);
-    const index_t   index = this->iOfMin();
+    const index_t   index = this->idxOfMin();
     mask.getVectorView()[index] = 1;
     return mask;
 }

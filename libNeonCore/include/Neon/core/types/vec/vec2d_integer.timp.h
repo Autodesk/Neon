@@ -264,7 +264,7 @@ template <typename IntegerType_ta>
 NEON_CUDA_HOST_DEVICE inline Vec_2d<index_t> Vec_2d<IntegerType_ta, true, false>::idxMinMask() const
 {
     Vec_2d<index_t> mask(0);
-    const index_t   index = this->iOfMin();
+    const index_t   index = this->idxOfMin();
     mask.v[index] = 1;
     return mask;
 }

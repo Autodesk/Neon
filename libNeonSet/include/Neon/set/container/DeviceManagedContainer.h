@@ -67,7 +67,7 @@ struct DeviceManagedContainer : ContainerAPI
         Neon::SetIdx setIdx(0);
         if (!this->mParsingDataUpdated) {
             auto parser = newParser();
-            this->m_loadingLambda(setIdx, parser);
+            this->mLoadingLambda(setIdx, parser);
             this->mParsingDataUpdated = true;
 
             this->setContainerPattern(this->getTokens());
@@ -105,7 +105,7 @@ struct DeviceManagedContainer : ContainerAPI
              int            streamIdx = 0,
              Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
     {
-        if (ContainerExecutionType::deviceManaged == this->getContainerType()) {
+        if (ContainerExecutionType::deviceManaged == this->getContainerExecutionType()) {
             const Neon::Backend& bk = mDataContainer.getBackend();
 
             Loader         loader = this->newLoader(bk.devType(), setIdx, dataView, LoadingMode_e::EXTRACT_LAMBDA);

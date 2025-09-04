@@ -94,6 +94,15 @@ class Vec_2d<notAnumber_eValue_ta, false, false>
         this->set(xyz);
     };
 
+    /**
+     * copy operator.
+     * @param xyz: element to be copied.
+     */
+    NEON_CUDA_HOST_DEVICE inline auto set(const self_t& xyz)-> void
+    {
+        this->x = xyz;
+        this->y = xyz;
+    };
 
     template <typename otherValue_ta>
     NEON_CUDA_HOST_DEVICE inline Vec_2d<otherValue_ta> newType() const

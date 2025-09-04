@@ -284,7 +284,7 @@ template <typename RealType_ta>
 NEON_CUDA_HOST_DEVICE inline Vec_3d<index_t> Vec_3d<RealType_ta, false, true>::idxMinMask() const
 {
     Vec_3d<index_t> mask(0);
-    const index_t   index = this->iOfMin();
+    const index_t   index = this->idxOfMin();
     mask.getVectorView()[index] = 1;
     return mask;
 }
