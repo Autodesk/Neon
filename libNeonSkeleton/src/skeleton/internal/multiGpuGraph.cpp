@@ -17,16 +17,17 @@ void MultiXpuGraph::init(Neon::Backend&                           bk,
     // We fix them manually after all redundant dependencies are cleaned.
     fixingDependenciesWithBeginNode();
 
-    ioToDot("t0_" + name + ".dot", "i", true);
+    // ioToDot("t0_" + name + ".dot", "i", true);
     optimizations(options);
-    ioToDot("t1_" + name + ".dot", "i", true);
+    //ioToDot("t1_" + name + ".dot", "i", true);
     communications(options);
     getGraph().removeRedundantDependencies();
 
 
-    ioToDot("t2_" + name + ".dot", "i", true);
+    // ioToDot("t2_" + name + ".dot", "i", true);
     this->computeScheduling();
-    ioToDot("final" + name + ".dot", "i", true);
+    ///ioToDot("final" + name + ".dot", "i", true);
+    mStorage->mName = name;
 }
 
 void MultiXpuGraph::parse(int                                       setCardinalty,
