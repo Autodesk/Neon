@@ -100,7 +100,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                 switch (dw) {
                     case Neon::DataView::STANDARD: {
                         // old structure [dv_id][c][i]
-                        if (grid.getBackend().devSet().setCardinality() == 1) {
+                        if (grid.getBackend().devSet().numDevs() == 1) {
                             // As the number of devices is 1, we don't have halos.
                             reductionInfo.startIDByView.push_back(0);
                             reductionInfo.nElementsByView.push_back(int(dims[setIdx.idx()].rMul()));
@@ -134,7 +134,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                         break;
                     }
                     case Neon::DataView::INTERNAL: {
-                        if (grid.getBackend().devSet().setCardinality() > 1) {
+                        if (grid.getBackend().devSet().numDevs() > 1) {
                             switch (mData->memoryOptions.getOrder()) {
                                 case MemoryLayout::structOfArrays: {
                                     for (int c = 0; c < mData->cardinality; ++c) {
@@ -165,7 +165,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                         break;
                     }
                     case Neon::DataView::BOUNDARY: {
-                        if (grid.getBackend().devSet().setCardinality() > 1) {
+                        if (grid.getBackend().devSet().numDevs() > 1) {
                             switch (mData->memoryOptions.getOrder()) {
                                 case MemoryLayout::structOfArrays: {
                                     for (int c = 0; c < mData->cardinality; ++c) {
@@ -734,22 +734,22 @@ auto dField<T, C>::helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
     Neon::index_3d result = index;
 
     // since we partition along the z-axis, only the z-component of index will change
-    const int32_t setCardinality = mData->grid->getBackend().devSet().setCardinality();
-    if (setCardinality == 1) {
+    const int32_t numDevs = mData->grid->getBackend().devSet().numDevs();
+    if (numDevs == 1) {
         return {result, 0};
     }
 
     Neon::set::DataSet<int> firstZindex = mData->grid->helpGetFirstZindex();
 
-    for (int i = 0; i < setCardinality - 1; i++) {
+    for (int i = 0; i < numDevs - 1; i++) {
         if (index.z < firstZindex[i + 1]) {
             result.z -= firstZindex[i];
             return {result, i};
         }
     }
     if (index.z < this->getGrid().getDimension().z) {
-        result.z -= firstZindex[setCardinality - 1];
-        return {result, setCardinality - 1};
+        result.z -= firstZindex[numDevs - 1];
+        return {result, numDevs - 1};
     }
 
     NeonException exc("dField");

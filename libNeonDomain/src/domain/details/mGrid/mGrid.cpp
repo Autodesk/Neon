@@ -139,7 +139,7 @@ mGrid<SBlock>::mGrid(
     // ==============================================
     // PHASE 1: Parameter Validation and Setup
     // ==============================================
-    if (backend.devSet().setCardinality() > 1) {
+    if (backend.devSet().numDevs() > 1) {
         NeonException exp("mGrid");
         exp << "mGrid only supported on a single GPU";
         NEON_THROW(exp);

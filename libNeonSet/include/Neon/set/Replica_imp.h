@@ -24,7 +24,7 @@ Replica<Obj>::Replica(Neon::Backend&      bk,
                                                       nEntryPerGPU);
 
 
-    const int nDev = bk.devSet().setCardinality();
+    const int nDev = bk.devSet().numDevs();
     for (auto target : {Neon::Execution::host, Neon::Execution::device}) {
         int targetIdx = Neon::ExecutionUtils::toInt(target);
         storage.partitionByView[targetIdx] = bk.devSet().template newDataSet<Self::Partition>();
@@ -198,7 +198,7 @@ auto Replica<Obj>::getLaunchParameters(Neon::DataView,
     }
 
     auto      newLaunchParameters = this->getBackend().devSet().newLaunchParameters();
-    const int nDevices = this->getBackend().devSet().setCardinality();
+    const int nDevices = this->getBackend().devSet().numDevs();
 
     for (int i = 0; i < nDevices; i++) {
 

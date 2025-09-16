@@ -107,7 +107,7 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
             NEON_THROW(exc);
         }
 
-        for (int i = 0; i < this->getDevSet().setCardinality(); i++) {
+        for (int i = 0; i < this->getDevSet().numDevs(); i++) {
             for (auto indexing : DataViewUtil::validOptions()) {
 
                 auto gridMode = Neon::sys::GpuLaunchInfo::mode_e::domainGridMode;
@@ -153,7 +153,7 @@ sGrid<OuterGridT>::sGrid(const OuterGridT&                  outerGrid,
         for (auto& dw : Neon::DataViewUtil::validOptions()) {
             mStorage->getPartitionIndexSpace(dw) = this->getDevSet().template newDataSet<sSpan>();
 
-            for (int gpuIdx = 0; gpuIdx < this->getDevSet().setCardinality(); gpuIdx++) {
+            for (int gpuIdx = 0; gpuIdx < this->getDevSet().numDevs(); gpuIdx++) {
 
                 mStorage->getPartitionIndexSpace(dw)[gpuIdx].helpGetBoundaryOffset() = mStorage->getCount(DataView::INTERNAL)[gpuIdx];
                 mStorage->getPartitionIndexSpace(dw)[gpuIdx].helpGetGhostOffset() = mStorage->getCount(DataView::STANDARD)[gpuIdx];
@@ -274,7 +274,7 @@ auto sGrid<OuterGridT>::getLaunchParameters(Neon::DataView  dataView,
 
     auto newLaunchParameters = this->getDevSet().newLaunchParameters();
 
-    for (int i = 0; i < this->getDevSet().setCardinality(); i++) {
+    for (int i = 0; i < this->getDevSet().numDevs(); i++) {
 
         auto    gridMode = Neon::sys::GpuLaunchInfo::mode_e::domainGridMode;
         int32_t gridDim = int32_t(mStorage->getCount(dataView)[i]);

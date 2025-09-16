@@ -52,7 +52,7 @@ void runAllTestConfiguration(const std::string&                                 
                 for (auto& geo : geos) {
                     for (const auto& ngpu : nGpuTest) {
                         for (const auto& runtime : runtimeE) {
-                            int maxnGPUs = Neon::set::DevSet::maxSet().setCardinality();
+                            int maxnGPUs = Neon::set::DevSet::maxSet().numDevs();
 
                             std::vector<int> ids;
                             for (int i = 0; i < ngpu; i++) {

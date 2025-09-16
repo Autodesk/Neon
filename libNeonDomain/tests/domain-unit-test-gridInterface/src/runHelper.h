@@ -61,7 +61,7 @@ void runAllTestConfiguration(
                     for (const auto& runtime : runtimeE) {
                         int maxnGPUs = [] {
                             if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-                                return Neon::set::DevSet::maxSet().setCardinality();
+                                return Neon::set::DevSet::maxSet().numDevs();
                             }
                             return 1;
                         }();
@@ -114,7 +114,7 @@ void runOneTestConfiguration(const std::string&                      gname,
             for (auto& geo : geos) {
                 for (const auto& ngpu : nGpuTest) {
                     for (const auto& runtime : runtimeE) {
-                        int maxnGPUs = Neon::set::DevSet::maxSet().setCardinality();
+                        int maxnGPUs = Neon::set::DevSet::maxSet().numDevs();
 
                         std::vector<int> ids;
                         for (int i = 0; i < ngpu; i++) {

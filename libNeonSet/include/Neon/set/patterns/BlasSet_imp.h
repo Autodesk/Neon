@@ -8,7 +8,7 @@ template <typename T>
 BlasSet<T>::BlasSet(const Neon::set::DevSet&          devSet,
                     const Neon::sys::patterns::Engine engine)
 {
-    mBlasVec = std::make_shared<std::vector<Neon::sys::patterns::template Blas<T>>>(devSet.setCardinality());
+    mBlasVec = std::make_shared<std::vector<Neon::sys::patterns::template Blas<T>>>(devSet.numDevs());
 
     devSet.forEachSetIdxSeq([&](Neon::SetIdx& setIdx) {
         const Neon::sys::ComputeID  gpuId = devSet.devId(setIdx.idx());

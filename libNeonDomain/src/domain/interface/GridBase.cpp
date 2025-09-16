@@ -89,7 +89,7 @@ auto GridBase::getNumActiveCells() const
     -> size_t
 {
     size_t count = 0;
-    for (int idx = 0; idx < mStorage->backend.devSet().setCardinality(); idx++) {
+    for (int idx = 0; idx < mStorage->backend.devSet().numDevs(); idx++) {
         count += mStorage->nPartitionElements[idx];
     }
     return count;

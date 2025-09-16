@@ -106,7 +106,7 @@ auto DevSet::set(const Neon::DeviceType&                  devType,
     }
     h_init_defaultStreamSet();
 
-    for (SetIdx setIdx = 0; setIdx < setCardinality(); setIdx++) {
+    for (SetIdx setIdx = 0; setIdx < numDevs(); setIdx++) {
         m_idxRange.push_back(setIdx);
     }
 }
@@ -127,7 +127,7 @@ auto DevSet::getRange()
     return m_idxRange;
 }
 
-auto DevSet::setCardinality()
+auto DevSet::numDevs()
     const
     -> int32_t
 {
@@ -260,7 +260,7 @@ auto DevSet::toString()
     -> std::string
 {
     std::ostringstream msg;
-    for (Neon::SetIdx idx = 0; idx < setCardinality(); idx++) {
+    for (Neon::SetIdx idx = 0; idx < numDevs(); idx++) {
         msg << "[" << idx.idx() << ": " << m_devIds[idx] << " -> " << getDevName(idx.idx()) << "] \n";
     }
     return msg.str();
@@ -271,7 +271,7 @@ auto DevSet::newStreamSet()
     -> StreamSet
 {
     if (m_devType == Neon::DeviceType::CUDA) {
-        StreamSet streamSet(this->setCardinality());
+        StreamSet streamSet(this->numDevs());
 
         this->forEachSetIdxPar(
             [&](const Neon::SetIdx& setIdx) {
@@ -304,7 +304,7 @@ auto DevSet::newEventSet(bool disableTiming)
 {
     if (m_devType == Neon::DeviceType::CUDA) {
 
-        GpuEventSet eventSet(this->setCardinality());
+        GpuEventSet eventSet(this->numDevs());
 
         this->forEachSetIdxPar([&](const Neon::SetIdx& setIdx) {
             const Neon::sys::ComputeID  gpuId = this->devId(setIdx.idx());
@@ -322,7 +322,7 @@ auto DevSet::newLaunchParameters()
     const
     -> LaunchParameters
 {
-    return LaunchParameters(this->setCardinality());
+    return LaunchParameters(this->numDevs());
 }
 
 auto DevSet::devSync()

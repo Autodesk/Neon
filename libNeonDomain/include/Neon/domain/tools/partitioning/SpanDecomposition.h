@@ -98,7 +98,7 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
     }
 
     const int64_t avgBlocksPerPartition = NEON_DIVIDE_UP(mDomainBlocksCount,
-                                                         backend.devSet().setCardinality());
+                                                         backend.devSet().numDevs());
 
     mZFirstIdx = backend.devSet().newDataSet<int32_t>(0);
     mZLastIdx = backend.devSet().newDataSet<int32_t>(0);
@@ -112,7 +112,7 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
                 return 0;
             return mZLastIdx[idx - 1] + 1;
         }();
-        if (idx != backend.devSet().setCardinality() - 1) {
+        if (idx != backend.devSet().numDevs() - 1) {
             for (int i = mZFirstIdx[idx]; i < block3DSpan.z; i++) {
                 mNumBlocks[idx] += nBlockProjectedToZ[i];
                 mZLastIdx[idx] = i;

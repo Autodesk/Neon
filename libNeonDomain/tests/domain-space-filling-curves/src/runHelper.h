@@ -59,7 +59,7 @@ void runAllTestConfigurations(std::function<void(TestData<G, T, C>&)> f)
 
                             int maxnGPUs = [] {
                                 if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-                                    return Neon::set::DevSet::maxSet().setCardinality();
+                                    return Neon::set::DevSet::maxSet().numDevs();
                                 }
                                 return 1;
                             }();

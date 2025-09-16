@@ -90,7 +90,7 @@ double filterAverage(TestConfigurations& config)
                                    TestConfigurations                       config)
 {
     std::vector<int> nGpuTest;
-    const int        maxnGPUs = Neon::set::DevSet::maxSet().setCardinality();
+    const int        maxnGPUs = Neon::set::DevSet::maxSet().numDevs();
     if (maxnGPUs < config.m_nGPUs) {
         //     NEON_THROW_UNSUPPORTED_OPERATION("Not enought GPUs");
     }

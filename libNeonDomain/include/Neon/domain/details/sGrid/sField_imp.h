@@ -76,7 +76,7 @@ auto sField<OuterGridT, T, C>::initPartitions(Neon::set::MemSet<typename OuterGr
         return pitch;
     };
 
-    for (int setIdx = 0; setIdx < self().getDevSet().setCardinality(); ++setIdx) {
+    for (int setIdx = 0; setIdx < self().getDevSet().numDevs(); ++setIdx) {
         for (auto execution : {Neon::Execution::device, Neon::Execution::host}) {
             for (auto& dw : DataViewUtil::validOptions()) {
 

@@ -82,7 +82,7 @@ auto aField<T, C>::initPartitions() -> void
         return pitch;
     };
 
-    for (int i = 0; i < self().getDevSet().setCardinality(); ++i) {
+    for (int i = 0; i < self().getDevSet().numDevs(); ++i) {
         for (auto execution : {Neon::Execution::device, Neon::Execution::host}) {
             auto& partition = self().getStorage().getPartition(execution, Neon::DataView::STANDARD, i);
             /**

@@ -121,7 +121,7 @@ class DevSet
     /**
      * Returns the number of devices managed by this object
      **/
-    auto setCardinality() const
+    auto numDevs() const
         -> int32_t;
 
     auto getRange()
@@ -160,7 +160,7 @@ class DevSet
     auto forEachSetIdxPar(const ta_Lambda& lambda) const
         -> void
     {
-        const int setCard = setCardinality();
+        const int setCard = numDevs();
 #pragma omp parallel for num_threads(setCard)
         for (int index = 0; index < setCard; index++) {
             Neon::SetIdx setIdx(index);
@@ -172,7 +172,7 @@ class DevSet
     auto forEachSetIdxSeq(const ta_Lambda& lambda) const
         -> void
     {
-        const int setCard = setCardinality();
+        const int setCard = numDevs();
         for (int index = 0; index < setCard; index++) {
             Neon::SetIdx setIdx(index);
             lambda(setIdx);
@@ -657,7 +657,7 @@ class DevSet
                                        nElementVec);
             }
             case Neon::DeviceType::CPU: {
-                std::vector<Neon::sys::DeviceID> idVec(this->setCardinality(), 0);
+                std::vector<Neon::sys::DeviceID> idVec(this->numDevs(), 0);
                 return MemDevSet<T_ta>(devType, idVec, allocType, nElementVec);
             }
             default: {
@@ -694,7 +694,7 @@ class DevSet
                                        nElementVec);
             }
             case Neon::DeviceType::CPU: {
-                std::vector<Neon::sys::DeviceID> idVec(this->setCardinality(), 0);
+                std::vector<Neon::sys::DeviceID> idVec(this->numDevs(), 0);
                 return MemDevSet<T_ta>(cardinality,
                                        order,
                                        devType,
@@ -719,7 +719,7 @@ class DevSet
     {
         memoryOptions = sanitizeMemoryOption(memoryOptions);
 
-        Neon::set::MemSet<T_ta> mirror(this->setCardinality());
+        Neon::set::MemSet<T_ta> mirror(this->numDevs());
 
         MemDevSet<T_ta> memCpu = newMemDevSet<T_ta>(cardinality, Neon::DeviceType::CPU, memoryOptions.getIOAllocator(dataUse), nElementVec, memoryOptions.getOrder());
         MemDevSet<T_ta> memGpu = newMemDevSet<T_ta>(cardinality, Neon::DeviceType::CUDA, memoryOptions.getDeviceAllocator(dataUse), nElementVec, memoryOptions.getOrder());
@@ -734,7 +734,7 @@ class DevSet
     auto newDataSet() const
         -> DataSet<T_ta>
     {
-        DataSet<T_ta> newData(setCardinality());
+        DataSet<T_ta> newData(numDevs());
         return newData;
     }
 
@@ -742,7 +742,7 @@ class DevSet
     auto newDataSet(const T_ta& dataReplicated) const
         -> DataSet<T_ta>
     {
-        DataSet<T_ta> newData(setCardinality(), dataReplicated);
+        DataSet<T_ta> newData(numDevs(), dataReplicated);
         return newData;
     }
 
@@ -750,9 +750,9 @@ class DevSet
     auto newDataSet(std::function<void(Neon::SetIdx idx, T_ta&)> f) const
         -> DataSet<T_ta>
     {
-        DataSet<T_ta> newData(setCardinality());
+        DataSet<T_ta> newData(numDevs());
 
-        for (int i = 0; i < setCardinality(); i++) {
+        for (int i = 0; i < numDevs(); i++) {
             f(i, newData[i]);
         }
         return newData;

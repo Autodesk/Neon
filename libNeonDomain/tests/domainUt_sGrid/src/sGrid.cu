@@ -321,7 +321,7 @@ void sGridTest(TestData<G, T, C>& data)
 namespace {
 int getNGpus()
 {
-    int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
+    int maxGPUs = Neon::set::DevSet::maxSet().numDevs();
     if (maxGPUs > 1) {
         return maxGPUs;
     } else {

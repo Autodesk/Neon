@@ -110,14 +110,14 @@ auto dGrid::getProperties(const index_3d& idx)
         return cellProperties;
     }
 
-    if (this->getDevSet().setCardinality() == 1) {
+    if (this->getDevSet().numDevs() == 1) {
         cellProperties.init(0, DataView::INTERNAL);
     } else {
         int            zCounter = 0;
         int            zCounterPrevious = 0;
         Neon::SetIdx   setIdx;
         Neon::DataView dataView = DataView::BOUNDARY;
-        for (int i = 0; i < this->getDevSet().setCardinality(); i++) {
+        for (int i = 0; i < this->getDevSet().numDevs(); i++) {
             zCounter += mData->partitionDims[i].z;
             if (idx.z < zCounter) {
                 setIdx = i;

@@ -36,7 +36,6 @@ struct DeviceManagedContainer : ContainerAPI
         setName(name);
 
         this->parse();
-
     }
 
     auto newLoader(Neon::DeviceType devE,
@@ -93,10 +92,10 @@ struct DeviceManagedContainer : ContainerAPI
     auto run(int streamIdx = 0, Neon::DataView dataView = Neon::DataView::STANDARD) -> void override
     {
         const Neon::Backend& bk = mDataContainer.getBackend();
-        const int            setCardinality = bk.devSet().setCardinality();
+        const int            numDevs = bk.devSet().numDevs();
 
-#pragma omp parallel for num_threads(setCardinality)
-        for (int i = 0; i < setCardinality; ++i) {
+#pragma omp parallel for num_threads(numDevs)
+        for (int i = 0; i < numDevs; ++i) {
             run(Neon::SetIdx(i), streamIdx, dataView);
         }
     }

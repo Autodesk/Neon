@@ -37,7 +37,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
                               {0, 0, 0});
     }
 
-    const int32_t numDevices = getBackend().devSet().setCardinality();
+    const int32_t numDevices = getBackend().devSet().numDevs();
     if (numDevices == 1) {
         // Single device
         mData->partitionDims[0] = getDimension();
@@ -85,7 +85,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
     }
 
     {  // Initialization of the span table
-        const int setCardinality = getDevSet().setCardinality();
+        const int setCardinality = getDevSet().numDevs();
         mData->spanTable.forEachConfiguration([&](Neon::Execution,
                                                   Neon::SetIdx   setIdx,
                                                   Neon::DataView dw,
@@ -150,7 +150,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
 
     {  // a Grid allocation
         auto haloStatus = Neon::domain::haloStatus_et::ON;
-        haloStatus = (backend.devSet().setCardinality() == 1) ? haloStatus_et::e::OFF : haloStatus;
+        haloStatus = (backend.devSet().numDevs() == 1) ? haloStatus_et::e::OFF : haloStatus;
         auto                       partitionMemoryDim = mData->partitionDims;
         Neon::set::DataSet<size_t> elementPerPartition = backend.devSet().template newDataSet<size_t>(
             [&](Neon::SetIdx setIdx, size_t& count) {
@@ -170,7 +170,7 @@ dGrid::dGrid(const Neon::Backend&  backend,
                                                                                   backend.getMemoryOptions(),
                                                                                   nPoints);
         for (int i = 0; i < stencil.nNeighbours(); ++i) {
-            for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
+            for (int devIdx = 0; devIdx < backend.devSet().numDevs(); devIdx++) {
                 index_3d      pLong = stencil.neighbours()[i];
                 Neon::int8_3d pShort = pLong.newType<int8_t>();
                 mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;

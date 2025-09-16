@@ -17,9 +17,9 @@ aGrid::aGrid(const Neon::Backend&  backend,
         NEON_THROW_UNSUPPORTED_OPTION("aGrid only support 1D grids.");
     }
     Neon::set::DataSet<size_t> lenghts = backend.devSet().newDataSet<size_t>();
-    for (int idx = 0; idx < backend.devSet().setCardinality(); idx++) {
-        size_t count = dimension.x / backend.devSet().setCardinality();
-        size_t reminder = dimension.x % backend.devSet().setCardinality();
+    for (int idx = 0; idx < backend.devSet().numDevs(); idx++) {
+        size_t count = dimension.x / backend.devSet().numDevs();
+        size_t reminder = dimension.x % backend.devSet().numDevs();
         if (reminder > static_cast<size_t>(idx)) {
             count++;
         }
@@ -38,7 +38,7 @@ aGrid::aGrid(const Neon::Backend&              backend,
 {
     Neon::int32_3d dimension(0, 0, 0);
 
-    for (int idx = 0; idx < backend.devSet().setCardinality(); idx++) {
+    for (int idx = 0; idx < backend.devSet().numDevs(); idx++) {
         dimension.x += int(lenghts[idx]);
     }
 
@@ -75,7 +75,7 @@ auto aGrid::init(const Neon::Backend&              backend,
             PartitionIndexSpace(int(getNumActiveCellsPerPartition()[setIdx]), Neon::DataView::STANDARD);
     }
 
-    for (int i = 0; i < getDevSet().setCardinality(); i++) {
+    for (int i = 0; i < getDevSet().numDevs(); i++) {
         for (auto indexing : {Neon::DataView::STANDARD}) {
             getDefaultLaunchParameters(indexing) = getLaunchParameters(indexing, blockDim, 0);
         }
@@ -84,7 +84,7 @@ auto aGrid::init(const Neon::Backend&              backend,
     mStorage->firstIdxPerPartition = newDataSet<size_t>();
     mStorage->firstIdxPerPartition[0] = 0;
     size_t tmpCount = 0;
-    for (int i = 1; i < getDevSet().setCardinality(); i++) {
+    for (int i = 1; i < getDevSet().numDevs(); i++) {
         tmpCount += this->getNumActiveCellsPerPartition()[i - 1];
         mStorage->firstIdxPerPartition[i] = tmpCount;
     }
@@ -105,7 +105,7 @@ auto aGrid::getLaunchParameters(Neon::DataView        dataView,
         NEON_WARNING("aGrid: Request of non standard view.");
     }
 
-    for (int i = 0; i < getDevSet().setCardinality(); i++) {
+    for (int i = 0; i < getDevSet().numDevs(); i++) {
 
         auto gridMode = Neon::sys::GpuLaunchInfo::mode_e::domainGridMode;
         auto grid1DLength = getNumActiveCellsPerPartition()[i];
@@ -183,7 +183,7 @@ auto aGrid::getProperties(const index_3d& cell3dIdx) const -> GridBaseTemplate::
     }
 
     Neon::SetIdx targetSetIdx;
-    for (int setIdx = 0; setIdx < this->getDevSet().setCardinality(); setIdx++) {
+    for (int setIdx = 0; setIdx < this->getDevSet().numDevs(); setIdx++) {
         auto firstId = mStorage->firstIdxPerPartition[setIdx];
         if (cell3dIdx.x >= int(firstId)) {
             targetSetIdx = setIdx;

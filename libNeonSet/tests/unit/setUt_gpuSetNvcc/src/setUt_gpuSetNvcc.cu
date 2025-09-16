@@ -120,24 +120,24 @@ class cudaLaunchKernel_test
         m_devSet = Neon::set::DevSet::maxSet();
         {
             // If there is only one GPU we oversubscribe the same GPU
-            if (m_devSet.setCardinality() == 1) {
+            if (m_devSet.numDevs() == 1) {
                 Neon::SetIdx gpuId = 0;
                 m_devSet = Neon::set::DevSet(Neon::DeviceType::CUDA, {gpuId, gpuId, gpuId});
             }
         }
         m_gpuStreamSet = m_devSet.newStreamSet();
-        m_testDataRedundancyVec = std::vector<testDataRedundancy_t<int>>(m_devSet.setCardinality());
+        m_testDataRedundancyVec = std::vector<testDataRedundancy_t<int>>(m_devSet.numDevs());
 
 
         // Defining the vector size for each GPU
-        m_domainGridVec = std::vector<int32_3d>(m_devSet.setCardinality());
-        for (int i = 0; i < m_devSet.setCardinality(); i++) {
+        m_domainGridVec = std::vector<int32_3d>(m_devSet.numDevs());
+        for (int i = 0; i < m_devSet.numDevs(); i++) {
             m_domainGridVec[i].set(1000 * (i + 1), 1, 1);
         }
 
         // Kernel Info
         m_kernelInfoSet = m_devSet.newLaunchParameters();
-        for (int i = 0; i < m_devSet.setCardinality(); i++) {
+        for (int i = 0; i < m_devSet.numDevs(); i++) {
             int32_3d cudaBlock(1024, 1, 1);
             size_t   sharedMem = 0;
             m_kernelInfoSet[i] = Neon::sys::GpuLaunchInfo(Neon::sys::GpuLaunchInfo::domainGridMode, m_domainGridVec[i], cudaBlock, sharedMem);
@@ -145,15 +145,15 @@ class cudaLaunchKernel_test
 
         // Creating some memory
         {
-            std::vector<uint64_t> eachGpuMemSize(m_devSet.setCardinality());
-            for (int i = 0; i < m_devSet.setCardinality(); i++) {
+            std::vector<uint64_t> eachGpuMemSize(m_devSet.numDevs());
+            for (int i = 0; i < m_devSet.numDevs(); i++) {
                 eachGpuMemSize[i] = m_domainGridVec[i].rMulTyped<size_t>();
             }
             m_mirror = m_devSet.newMemSet<int>(Neon::DataUse::HOST_DEVICE, int(1), {}, eachGpuMemSize);
         }
 
         // Set
-        for (int i = 0; i < m_devSet.setCardinality(); i++) {
+        for (int i = 0; i < m_devSet.numDevs(); i++) {
             int* cpuRawMem = (int*)m_mirror.rawMem(1, Neon::DeviceType::CPU);
             for (int j = 0; j < m_domainGridVec[i].rMulTyped<size_t>(); j++) {
                 cpuRawMem[j] = j;
@@ -164,7 +164,7 @@ class cudaLaunchKernel_test
         m_mirror.update<Neon::run_et::async>(m_devSet.defaultStreamSet(), Neon::DeviceType::CPU);
 
 
-        for (int i = 0; i < m_devSet.setCardinality(); i++) {
+        for (int i = 0; i < m_devSet.numDevs(); i++) {
             m_testDataRedundancyVec[i].nEl = m_domainGridVec[i].rMulTyped<int>();
             m_testDataRedundancyVec[i].val = valToBeAdded(i);
             m_testDataRedundancyVec[i].mem = (int*)m_mirror.rawMem(1, Neon::DeviceType::CUDA);
@@ -180,7 +180,7 @@ class cudaLaunchKernel_test
         m_gpuStreamSet.sync();
 
         // Check results
-        for (int i = 0; i < m_devSet.setCardinality(); i++) {
+        for (int i = 0; i < m_devSet.numDevs(); i++) {
             for (int j = 0; j < m_domainGridVec[i].rMulTyped<size_t>(); j++) {
                 int* cpuRawMem = (int*)m_mirror.rawMem(i, Neon::DeviceType::CPU);
                 ASSERT_EQ(cpuRawMem[j], j + j + valToBeAdded(i)) << cpuRawMem[j] + 5 << " .. " << i;

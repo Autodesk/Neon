@@ -53,7 +53,7 @@ eGrid::eGrid(const Neon::Backend&         backend,
     mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
     //mData->partitioner1D.getDenseMeta(mData->denseMeta);
 
-    const int32_t numDevices = getBackend().devSet().setCardinality();
+    const int32_t numDevices = getBackend().devSet().numDevs();
 
     if (numDevices > 1 && getDimension().z < numDevices) {
         NeonException exc("dGrid_t");

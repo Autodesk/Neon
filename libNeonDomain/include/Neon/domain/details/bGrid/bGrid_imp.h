@@ -234,7 +234,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
                                                                                   backend.getMemoryOptions(),
                                                                                   nPoints);
         for (int i = 0; i < stencil.nNeighbours(); ++i) {
-            for (int devIdx = 0; devIdx < backend.devSet().setCardinality(); devIdx++) {
+            for (int devIdx = 0; devIdx < backend.devSet().numDevs(); devIdx++) {
                 index_3d      pLong = stencil.neighbours()[i];
                 Neon::int8_3d pShort = pLong.newType<int8_t>();
                 mData->stencilIdTo3dOffset.eRef(devIdx, i) = pShort;
@@ -448,7 +448,7 @@ auto bGrid<SBlock>::getProperties(const index_3d& idx)
         return cellProperties;
     }
 
-    if (this->getDevSet().setCardinality() == 1) {
+    if (this->getDevSet().numDevs() == 1) {
         cellProperties.init(0, DataView::INTERNAL);
     } else {
         const index_3d blockIdx3d = idx / SBlock::memBlockSize3D.template newType<int32_t>();

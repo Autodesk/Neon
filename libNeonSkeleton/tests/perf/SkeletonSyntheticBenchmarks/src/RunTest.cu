@@ -114,9 +114,9 @@ struct PerformanceMetrics
         iterationTimeUs = elapsedUs / userData.nIterations;
         nActiveCells = testData.getGrid().getNumActiveCells();
         MCPS = (elapsedUs / 1.0e6) / (nActiveCells / (1.0e6));
-        MCPSPD = MCPS / testData.getBackend().devSet().setCardinality();
+        MCPSPD = MCPS / testData.getBackend().devSet().numDevs();
         repetitionId = repId;
-        nGPUs = testData.getBackend().devSet().setCardinality();
+        nGPUs = testData.getBackend().devSet().numDevs();
 
         NEON_INFO("PERF",
             "Performance Repetition ID {} => [MCPSPD {}], [MCPS {}], [Elapsed Time {} us], [Iteration Time {} us], [Size {}], [Iterations {}]",

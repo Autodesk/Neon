@@ -493,17 +493,17 @@ std::string Backend::toString(Neon::Runtime e)
 std::string Backend::toString() const
 {
     std::ostringstream msg;
-    msg << "Backend (" << this << ") - [runtime:" << toString(selfData().runtime) << "] [nDev:" << selfData().devSet->setCardinality() << "] ";
+    msg << "Backend (" << this << ") - [runtime:" << toString(selfData().runtime) << "] [nDev:" << selfData().devSet->numDevs() << "] ";
     switch (selfData().devSet->type()) {
         case Neon::DeviceType::OMP:
         case Neon::DeviceType::CPU: {
-            for (int i = 0; i < selfData().devSet->setCardinality(); i++) {
+            for (int i = 0; i < selfData().devSet->numDevs(); i++) {
                 msg << "[dev" << i << ":" << selfData().devSet->devId(i) << "] ";
             }
             break;
         }
         case Neon::DeviceType::CUDA: {
-            for (int i = 0; i < selfData().devSet->setCardinality(); i++) {
+            for (int i = 0; i < selfData().devSet->numDevs(); i++) {
                 msg << "[dev" << i << ":" << selfData().devSet->devId(i) << " " << selfData().devSet->getDevName(i) << "] ";
             }
             break;
@@ -557,7 +557,7 @@ auto Backend::toReport(Neon::Report& report, Report::SubBlock* subdocAPI) const 
 
     report.addMember("Runtime", Neon::RuntimeUtils::toString(runtime()), targetSubDoc);
     report.addMember("DeviceType", Neon::DeviceTypeUtil::toString(devType()), targetSubDoc);
-    report.addMember("NumberOfDevices", devSet().setCardinality(), targetSubDoc);
+    report.addMember("NumberOfDevices", devSet().numDevs(), targetSubDoc);
     report.addMember(
         "Devices", [&] {
             std::vector<int> idsList;
@@ -575,7 +575,7 @@ auto Backend::toReport(Neon::Report& report, Report::SubBlock* subdocAPI) const 
 
 auto Backend::getDeviceCount() const -> int
 {
-    return m_data->devSet->setCardinality();
+    return m_data->devSet->numDevs();
 }
 
 auto Backend::helpDeviceToDeviceTransferByte(int                     streamId,
@@ -603,7 +603,7 @@ auto Backend::helpDeviceToDeviceTransferByte(int                     streamId,
 
 auto Backend::deviceCount() const -> int
 {
-    return devSet().setCardinality();
+    return devSet().numDevs();
 }
 
 auto Backend::isFirstDevice(Neon::SetIdx id) const -> bool

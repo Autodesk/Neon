@@ -92,7 +92,7 @@ SpanSparseTopology::SpanSparseTopology(const Neon::Backend&           backend,
     }
 
     const int64_t avgBlocksPerPartition = NEON_DIVIDE_UP(mDomainBlocksCount,
-                                                         backend.devSet().setCardinality());
+                                                         backend.devSet().numDevs());
 
     mZFirstIdx = backend.devSet().newDataSet<int32_t>(0);
     mZLastIdx = backend.devSet().newDataSet<int32_t>(0);

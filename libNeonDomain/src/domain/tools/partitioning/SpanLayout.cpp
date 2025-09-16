@@ -12,7 +12,7 @@ SpanLayout::SpanLayout(Neon::Backend const&               backend,
     mSpanDecompositionPrt = spanPartitionerPtr;
     mSpanClassifierPtr = spanClassifierPtr;
 
-    mCountXpu = backend.devSet().setCardinality();
+    mCountXpu = backend.devSet().numDevs();
     mDataByPartition = backend.devSet().newDataSet<InfoByPartition>();
     // Setting up internal and boudary indexes
     auto lastFreeIndex = backend.devSet().newDataSet<int>();

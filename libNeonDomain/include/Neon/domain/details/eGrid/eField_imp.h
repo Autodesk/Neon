@@ -84,7 +84,7 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                 switch (dw) {
                     case Neon::DataView::STANDARD: {
                         // old structure [dv_id][c][i]
-                        if (grid.getBackend().devSet().setCardinality() == 1) {
+                        if (grid.getBackend().devSet().numDevs() == 1) {
                             // As the number of devices is 1, we don't have halos.
                             reductionInfo.startIDByView.push_back(0);
                             reductionInfo.nElementsByView.push_back(int(dims[setIdx.idx()].rMul()));
@@ -118,7 +118,7 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                         break;
                     }
                     case Neon::DataView::INTERNAL: {
-                        if (grid.getBackend().devSet().setCardinality() > 1) {
+                        if (grid.getBackend().devSet().numDevs() > 1) {
                             switch (mData->memoryOptions.getOrder()) {
                                 case MemoryLayout::structOfArrays: {
                                     for (int c = 0; c < mData->cardinality; ++c) {
@@ -149,7 +149,7 @@ eField<T, C>::eField(const std::string&         fieldUserName,
                         break;
                     }
                     case Neon::DataView::BOUNDARY: {
-                        if (grid.getBackend().devSet().setCardinality() > 1) {
+                        if (grid.getBackend().devSet().numDevs() > 1) {
                             switch (mData->memoryOptions.getOrder()) {
                                 case MemoryLayout::structOfArrays: {
                                     for (int c = 0; c < mData->cardinality; ++c) {

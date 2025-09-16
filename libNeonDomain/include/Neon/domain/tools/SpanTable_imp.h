@@ -22,7 +22,7 @@ auto SpanTable<IndexSpace>::init(const Neon::Backend& bk) -> void
                 bk.devSet().template newDataSet<IndexSpace>();
         }
     }
-    mSetSize = bk.devSet().setCardinality();
+    mSetSize = bk.devSet().numDevs();
 }
 
 template <typename IndexSpace>

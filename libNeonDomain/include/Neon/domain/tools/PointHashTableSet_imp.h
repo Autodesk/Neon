@@ -12,7 +12,7 @@ PointHashTableSet<IntegerT, MetaT>::PointHashTableSet()
 
 template <typename IntegerT, typename MetaT>
 PointHashTableSet<IntegerT, MetaT>::PointHashTableSet(const Neon::domain::interface::GridBase& baseGrid)
-    : mNumDevices(baseGrid.getDevSet().setCardinality()),
+    : mNumDevices(baseGrid.getDevSet().numDevs()),
       mBbox(baseGrid.getDimension())
 {
     mTablesSetDw = baseGrid.getDevSet().template newDataSet<std::array<HashTable, HelpNumOptions>>();

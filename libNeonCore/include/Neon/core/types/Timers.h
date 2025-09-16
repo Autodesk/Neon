@@ -173,7 +173,7 @@ class Timer
      *
      * @return double The elapsed time in the timer's configured duration units
      */
-    [[nodiscard]] auto stop() noexcept -> double
+    auto stop() noexcept -> double
     {
         m_end = Clock::now();
         return elapsed();

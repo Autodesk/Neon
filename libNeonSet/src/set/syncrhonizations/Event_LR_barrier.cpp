@@ -7,7 +7,7 @@ auto Event_LR_barrier::h_begin(const Neon::set::DevSet& devSet,
                                Neon::set::StreamSet&    s,
                                Neon::set::GpuEventSet&  e) -> void
 {
-    const int card = devSet.setCardinality();
+    const int card = devSet.numDevs();
     if (card == 1) {
         // Nothing to do when cardinality is 1
         return;
@@ -19,7 +19,7 @@ auto Event_LR_barrier::h_end(const Neon::set::DevSet& devSet,
                              Neon::set::StreamSet&    s,
                              Neon::set::GpuEventSet&  e) -> void
 {
-    const int card = devSet.setCardinality();
+    const int card = devSet.numDevs();
     if (card == 1) {
         // Nothing to do when cardinality is 1
         return;

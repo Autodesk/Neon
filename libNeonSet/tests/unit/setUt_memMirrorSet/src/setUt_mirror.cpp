@@ -65,15 +65,15 @@ void mirrorTest(int nElements)
 
     //Test on just two gpus
     Neon::set::DevSet devSet = DevSet::maxSet(Neon::DeviceType::CUDA);
-    if (devSet.setCardinality() > 2) {
+    if (devSet.numDevs() > 2) {
         devSet = Neon::set::DevSet(Neon::DeviceType::CUDA, {0, 1});
     }
 
-    Neon::set::DataSet<size_t> mirrorSize(devSet.setCardinality(), nElements);
+    Neon::set::DataSet<size_t> mirrorSize(devSet.numDevs(), nElements);
     auto                       mirrorSetA = devSet.template newMemSet<T_ta>(Neon::DataUse::HOST_DEVICE, 1, {}, mirrorSize);
     auto                       mirrorSetB = devSet.template newMemSet<T_ta>(Neon::DataUse::HOST, 1, {}, mirrorSize);
 
-    for (int i = 0; i < devSet.setCardinality(); i++) {
+    for (int i = 0; i < devSet.numDevs(); i++) {
         Neon::sys::MemMirror cpuMem = mirrorSetA.get(i);
         T_ta*                rawCpu = cpuMem.rawMem(Neon::DeviceType::CPU);
         ::tools::setVal_Phase_1(i, rawCpu, nElements);

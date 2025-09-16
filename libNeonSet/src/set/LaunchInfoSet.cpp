@@ -6,7 +6,7 @@ namespace set {
 
 
 LaunchParameters::LaunchParameters(const Neon::set::DevSet& gpuSet)
-    : LaunchParameters(gpuSet.setCardinality())
+    : LaunchParameters(gpuSet.numDevs())
 {
     //
 }

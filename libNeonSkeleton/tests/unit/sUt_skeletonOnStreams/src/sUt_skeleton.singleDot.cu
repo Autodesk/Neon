@@ -149,7 +149,7 @@ void runSingleStencilTestData(TestData<G, T, C>& data)
 int getNGpus()
 {
     if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
-        int maxGPUs = Neon::set::DevSet::maxSet().setCardinality();
+        int maxGPUs = Neon::set::DevSet::maxSet().numDevs();
         if (maxGPUs > 1) {
             return maxGPUs;
         } else {

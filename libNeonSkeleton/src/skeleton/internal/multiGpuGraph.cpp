@@ -9,7 +9,7 @@ void MultiXpuGraph::init(Neon::Backend&                           bk,
                          Options                                  options)
 {
     getGraph() = Neon::set::container::Graph(bk);
-    parse(bk.devSet().setCardinality(),
+    parse(bk.devSet().numDevs(),
           std::forward<const std::vector<Neon::set::Container>&&>(operations));
     getGraph().removeRedundantDependencies();
 
@@ -19,22 +19,21 @@ void MultiXpuGraph::init(Neon::Backend&                           bk,
 
     // ioToDot("t0_" + name + ".dot", "i", true);
     optimizations(options);
-    //ioToDot("t1_" + name + ".dot", "i", true);
+    // ioToDot("t1_" + name + ".dot", "i", true);
     communications(options);
     getGraph().removeRedundantDependencies();
 
 
     // ioToDot("t2_" + name + ".dot", "i", true);
     this->computeScheduling();
-    ///ioToDot("final" + name + ".dot", "i", true);
+    /// ioToDot("final" + name + ".dot", "i", true);
     mStorage->mName = name;
 }
 
-void MultiXpuGraph::parse(int                                       setCardinalty,
+void MultiXpuGraph::parse(int                                       numDevs,
                           const std::vector<Neon::set::Container>&& operations)
 {
-    getSetCardinality() = setCardinalty;
-
+    this->setNumDevs(numDevs);
     for (auto&& k : operations) {
         helpParseNewContainer(k);
     }
@@ -50,11 +49,10 @@ void MultiXpuGraph::
     graphNodeUid = helpAddNewContainerToGraph(inContainer);
 
     // Parsing all the data toke used by the kernel container
-    std::vector<Neon::set::dataDependency::Token> tokens;
-    tokens = helpParseContainer(getGraph().helpGetGraphNode(graphNodeUid).getContainer());
+    auto tokens = helpExtractTokesFromContainer(getGraph().helpGetGraphNode(graphNodeUid).getContainer());
 
     // Tokens are based on the multi-GPU data loaded by Containers
-    for (auto& token : tokens) {
+    for (Neon::set::dataDependency::Token& token : tokens) {
         // update the dependency state machine with the new token.
         // newDependencies are the detected dependencies
 
@@ -71,7 +69,7 @@ void MultiXpuGraph::
 }
 
 auto MultiXpuGraph::
-    helpParseContainer(Neon::set::Container& container)
+    helpExtractTokesFromContainer(Neon::set::Container& container)
         -> std::vector<Neon::set::dataDependency::Token>
 {
     auto& containerAPI = container.getContainerInterface();
@@ -304,7 +302,7 @@ auto MultiXpuGraph::optimizeTwoWayExtendedOCC(const Neon::skeleton::Options&) ->
 
 auto MultiXpuGraph::communications(const Neon::skeleton::Options& skeletonOptions) -> void
 {
-    if (getSetCardinality() == 1) {
+    if (getNumDevs() == 1) {
         return;
     }
 

@@ -98,9 +98,9 @@ struct HostManagedContainer : ContainerAPI
         -> void override
     {
         const Neon::Backend& bk = mDataContainer.getBackend();
-        int const            nDevs = bk.devSet().setCardinality();
-#pragma omp parallel for num_threads(nDevs)
-        for (int i = 0; i < nDevs; i++) {
+        int const            numDevs = bk.devSet().numDevs();
+#pragma omp parallel for num_threads(numDevs)
+        for (int i = 0; i < numDevs; i++) {
             run(i, streamIdx, dataView);
         }
     }

@@ -37,7 +37,7 @@ eGrid::eGrid(const Backend&                     backend,
     mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
     mData->memoryGrid = mData->partitioner1D.getMemoryGrid();
 
-    const int32_t numDevices = getBackend().devSet().setCardinality();
+    const int32_t numDevices = getBackend().devSet().numDevs();
 
     if (numDevices > 1 && getDimension().z < numDevices) {
         NeonException exc("dGrid_t");
@@ -224,7 +224,7 @@ auto eGrid::getProperties(const index_3d& idx) const -> GridBaseTemplate::CellPr
         return cellProperties;
     }
 
-    if (this->getDevSet().setCardinality() == 1) {
+    if (this->getDevSet().numDevs() == 1) {
         cellProperties.init(0, DataView::INTERNAL);
     } else {
         // auto const& metaInfo = mData->denseMeta.get(idx);
