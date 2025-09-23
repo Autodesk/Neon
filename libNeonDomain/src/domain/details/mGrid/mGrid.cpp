@@ -48,6 +48,7 @@
 
 #include "Neon/domain/details//mGrid/mGrid.h"
 #include "Neon/domain/details/mGrid/mPartition.h"
+#include "Neon/domain/details/mGrid/sparseBitMask.h"
 
 
 namespace Neon::domain::details::mGrid {
@@ -196,7 +197,7 @@ mGrid<SBlock>::mGrid(
 
     // Initialize block count arrays and bitmasks for each level
     mData->mTotalNumBlocks.resize(mData->mDescriptor.getDepth());
-    constexpr uint32_t MaskSize = 32;  // Size of each bitmask element (32-bit integers)
+    // constexpr uint32_t MaskSize = 32;  // Size of each bitmask element (32-bit integers)
     for (int i = 0; i < mData->mDescriptor.getDepth(); ++i) {
         const int refFactor = mData->mDescriptor.getRefFactor(i);
         const int spacing = mData->mDescriptor.getSpacing(i);
@@ -206,14 +207,15 @@ mGrid<SBlock>::mGrid(
                                       NEON_DIVIDE_UP(domainSize.y, spacing),
                                       NEON_DIVIDE_UP(domainSize.z, spacing));
 
-        // Create bitmask for tracking active voxels (refFactor^3 voxels per block)
-        std::vector<uint32_t> msk(NEON_DIVIDE_UP(static_cast<int64_t>(refFactor) *
-                                                     static_cast<int64_t>(refFactor) *
-                                                     static_cast<int64_t>(refFactor) *
-                                                     mData->mTotalNumBlocks[i].template rMulTyped<int64_t>(),
-                                                 static_cast<int64_t>(MaskSize)),
-                                  0);
-        mData->denseLevelsBitmask.push_back(msk);
+        // // Create bitmask for tracking active voxels (refFactor^3 voxels per block)
+        // std::vector<uint32_t> msk(NEON_DIVIDE_UP(static_cast<int64_t>(refFactor) *
+        //                                              static_cast<int64_t>(refFactor) *
+        //                                              static_cast<int64_t>(refFactor) *
+        //                                              mData->mTotalNumBlocks[i].template rMulTyped<int64_t>(),
+        //                                          static_cast<int64_t>(MaskSize)),
+        //                           0);
+        auto const bbox = mData->mTotalNumBlocks[i] * refFactor;
+        mData->sparseLevelsBitmask.emplace_back(bbox);
     }
 
     // ==============================================
@@ -227,7 +229,6 @@ mGrid<SBlock>::mGrid(
     // Parent-child relationships between levels are established to connect the stacked grids.
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         const int refFactor = mData->mDescriptor.getRefFactor(l);
-
         // Process all blocks at current level in parallel
         // Two-pass algorithm:
         // 1st pass: Check which voxels should be active based on lambda functions
@@ -254,9 +255,9 @@ mGrid<SBlock>::mGrid(
 
                                 if (voxel < domainSize) {
                                     // Check if voxel is already active or should be activated by lambda
-                                    if (levelBitMaskIsSet(l, {bx, by, bz}, {x, y, z})) {
-                                        containVoxels = true;
-                                    } else {
+                                    // if (levelBitMaskIsSet(l, {bx, by, bz}, {x, y, z})) {
+                                    //     containVoxels = true;
+                                    // } else {
                                         if (activeCellLambda[l](voxel)) {
                                             containVoxels = true;
 #pragma omp critical
@@ -265,7 +266,7 @@ mGrid<SBlock>::mGrid(
                                                 setLevelBitMask(l, {bx, by, bz}, {x, y, z});
                                             }
                                         }
-                                    }
+                                    //}
                                 }
                             }
                         }
@@ -945,8 +946,12 @@ auto mGrid<SBlock>::levelBitMaskIndex(int l, const Neon::index_3d& blockID, cons
 template <typename SBlock>
 auto mGrid<SBlock>::levelBitMaskIsSet(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> bool
 {
-    auto id = levelBitMaskIndex(l, blockID, localChild);
-    return mData->denseLevelsBitmask.at(l).at(id.first) & (1 << id.second);
+    auto bxyz =
+        blockID * 2 +
+        localChild;
+    // auto id = levelBitMaskIndex(l, blockID, localChild);
+    // return mData->denseLevelsBitmask.at(l).at(id.first) & (1 << id.second);
+    return mData->sparseLevelsBitmask.at(l).isActivePoint(bxyz);
 };
 
 
@@ -960,10 +965,12 @@ auto mGrid<SBlock>::levelBitMaskIsSet(int l, const Neon::index_3d& blockID, cons
  * @param localChild Local position of voxel within the block
  */
 template <typename SBlock>
-auto mGrid<SBlock>::setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void
+auto mGrid<SBlock>::    setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void
 {
-    auto id = levelBitMaskIndex(l, blockID, localChild);
-    mData->denseLevelsBitmask.at(l).at(id.first) |= (1 << id.second);
+    auto const bxyz =
+        blockID * 2 +
+        localChild;
+    return mData->sparseLevelsBitmask.at(l).template activatePoint<false>(bxyz);
 };
 
 /**
@@ -978,8 +985,10 @@ auto mGrid<SBlock>::setLevelBitMask(int l, const Neon::index_3d& blockID, const 
 template <typename SBlock>
 auto mGrid<SBlock>::clearLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void
 {
-    auto id = levelBitMaskIndex(l, blockID, localChild);
-    mData->denseLevelsBitmask.at(l).at(id.first) &= ~(1 << id.second);
+    auto const bxyz =
+        blockID * 2 +
+        localChild;
+    return mData->sparseLevelsBitmask.at(l).template removePoint<false>(bxyz);
 };
 
 /**
