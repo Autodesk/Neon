@@ -32,7 +32,7 @@ def AXPY_neon(f_X, f_Y, alpha):
 
         #f_x = f_X.read_handle(loader)
 
-        @neon.kernel
+        @neon.kernel(loader)
         def foo(idx: typing.Any):
             for c in range(wp.neon_cardinality(f_x)):
                 x = wp.neon_read(f_x, idx, c)
@@ -40,9 +40,8 @@ def AXPY_neon(f_X, f_Y, alpha):
                 axpy_res = x + (alpha) * y
                 # wp.print(alpha)
                 wp.neon_write(f_y, idx, c, axpy_res)
-
-        loader.declare_kernel(foo)
-
+                
+    # No loader.declare_kernel(foo) call needed! It's automatic!
     return loading
 
 

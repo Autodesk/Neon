@@ -637,5 +637,24 @@ def container(name_or_func=None, *, name=None):
         
         return wrapper
 
-# Create an alias for wp.func
-kernel = wp.func
+# Create a decorator that takes a loader and automatically declares kernels
+def kernel(loader):
+    """
+    Neon kernel decorator that applies wp.func and automatically declares the kernel.
+    
+    Usage:
+        @neon.kernel(loader)
+        def my_func(idx):
+            # ... kernel code ...
+    """
+    def decorator(func):
+        # Apply wp.func to the function
+        func_decorated = wp.func(func)
+        
+        # Automatically declare the kernel with the loader
+        loader.declare_kernel(func_decorated)
+        
+        # Return the decorated function
+        return func_decorated
+    
+    return decorator
