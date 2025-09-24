@@ -580,3 +580,62 @@ class Container:
             return container_generator
 
         return factory_decorator
+
+def container(name_or_func=None, *, name=None):
+    """
+    Neon kernel decorator that can be used with or without parentheses.
+    
+    Usage:
+        @neon.kernel()
+        def my_kernel(...): ...
+        
+        @neon.kernel
+        def my_kernel(...): ...
+        
+        @neon.kernel(name="custom_name")
+        def my_kernel(...): ...
+    """
+    def factory_decorator(loading_lambda_generator):
+        # get the name of the decorated function
+        name_decorated = loading_lambda_generator.__name__
+            
+        def container_generator(*args, **kwargs):
+            loading_lambda = loading_lambda_generator(*args, **kwargs)
+            local_name = copy.deepcopy(name)
+            if local_name is None:
+                local_name = f"{name_decorated}_neon_container"
+            container = Container(loading_lambda=loading_lambda, name=local_name)
+            return container
+
+        return container_generator
+
+    # Case 1: @neon.kernel (without parentheses)
+    # name_or_func will be the function being decorated
+    if callable(name_or_func):
+        return factory_decorator(name_or_func)
+    
+    # Case 2: @neon.kernel() or @neon.kernel(name="...")
+    # name_or_func will be None or a string, name parameter takes precedence
+    else:
+        # If name is provided as keyword argument, use it
+        # Otherwise use name_or_func if it's a string
+        effective_name = name if name is not None else name_or_func
+        
+        def wrapper(loading_lambda_generator):
+            # get the name of the decorated function
+            name_decorated = loading_lambda_generator.__name__
+                
+            def container_generator(*args, **kwargs):
+                loading_lambda = loading_lambda_generator(*args, **kwargs)
+                local_name = copy.deepcopy(effective_name)
+                if local_name is None:
+                    local_name = f"{name_decorated}_neon_container"
+                container = Container(loading_lambda=loading_lambda, name=local_name)
+                return container
+
+            return container_generator
+        
+        return wrapper
+
+# Create an alias for wp.func
+kernel = wp.func

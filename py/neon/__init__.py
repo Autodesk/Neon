@@ -19,6 +19,8 @@ from .multires.__init__ import *
 
 from .loader import Loader
 from .container import Container
+from .container import container
+from .container import kernel
 from .timer import Timer
 from .skeletonConfig import SkeletonConfig
 from .skeleton import Skeleton

@@ -4,9 +4,10 @@ update_pythonpath()
 
 import os
 import warp as wp
-import neon 
+import neon
 import typing
 from typing import Any
+
 
 # wp.config.print_launches = True
 
@@ -20,27 +21,31 @@ def warp_AXPY(
         y[c, k, j, i] = x[c, k, j, i] + alpha * y[c, k, j, i]
 
 
-@neon.Container.factory(name = 'AXPY')
-def get_AXPY(f_X, f_Y, alpha: Any):
-    def axpy(loader: neon.Loader):
+@neon.container
+def AXPY_neon(f_X, f_Y, alpha):
+    def loading(loader: neon.Loader):
+
         loader.set_grid(f_Y.get_grid())
+
         f_x = loader.get_read_handle(f_X)
         f_y = loader.get_write_handle(f_Y)
 
-        @wp.func
+        #f_x = f_X.read_handle(loader)
+
+        @neon.kernel
         def foo(idx: typing.Any):
-            #            wp.neon_print(idx)
-            # wp.neon_print(f_read)
-            #for c in range(wp.neon_cardinality(f_x)):
-            c = 0
-            x = wp.neon_read(f_x, idx, c)
-            y = wp.neon_read(f_y, idx, c)
-            axpy_res = x + (alpha) * y
-            # wp.print(alpha)
-            wp.neon_write(f_y, idx, c, axpy_res)
+            for c in range(wp.neon_cardinality(f_x)):
+                x = wp.neon_read(f_x, idx, c)
+                y = wp.neon_read(f_y, idx, c)
+                axpy_res = x + (alpha) * y
+                # wp.print(alpha)
+                wp.neon_write(f_y, idx, c, axpy_res)
+
         loader.declare_kernel(foo)
 
-    return axpy
+    return loading
+
+
 # def get_AXPY(f_X, f_Y, alpha: Any):
 #     def axpy(loader: neon.Loader):
 #
@@ -103,7 +108,7 @@ def execution(nun_devs: int,
 
     dev_idx_list = list(range(nun_devs))
     bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
-                    dev_idx_list=dev_idx_list)
+                      dev_idx_list=dev_idx_list)
 
     grid = neon.dense.dGrid(bk, dim, sparsity=None, stencil=[[0, 0, 0]])
     field_X = grid.new_field(cardinality=num_card, dtype=dtype)
@@ -161,14 +166,11 @@ def execution(nun_devs: int,
     gpu_warp_Y = wp.array4d(cpu_warp_Y, dtype=dtype, device="cuda")
     wp.synchronize()
 
-    axpy = get_AXPY(f_X=field_X, f_Y=field_Y, alpha=alpha)
+    axpy = AXPY_neon(f_X=field_X, f_Y=field_Y, alpha=alpha)
 
-    axpy.run(
-        stream_idx=0,
-        data_view=neon.DataView.standard(),
-        container_runtime=container_runtime)
+    axpy.run(stream_idx=0)
 
-    sk =neon.Skeleton(bk)
+    sk = neon.Skeleton(bk)
     sk.sequence('AXPY', [axpy])
     sk.ioToDot('axpy.dot', 'axpy')
 
@@ -211,14 +213,12 @@ def execution(nun_devs: int,
     print("Test Passed")
 
 
-
-
-def gpu1_int(dimx, neon_ngpus: int = 1):
+def int_apxpy(dimx, neon_ngpus: int = 1):
     execution(nun_devs=neon_ngpus, num_card=1, dim=neon.Index_3d(1, 1, dimx), dtype=wp.int32,
               container_runtime=neon.Container.ContainerRuntime.neon)
 
 
-def gpu1_float(dimx, neon_ngpus: int = 1):
+def float_apxpy(dimx, neon_ngpus: int = 1):
     execution(nun_devs=neon_ngpus, num_card=1, dim=neon.Index_3d(dimx, dimx, dimx), dtype=wp.float32,
               container_runtime=neon.Container.ContainerRuntime.neon)
 
@@ -230,4 +230,4 @@ def gpu1_float(dimx, neon_ngpus: int = 1):
 if __name__ == "__main__":
     # gpu1_int()
     # gpu1_int()
-    gpu1_int(100, 2)
+    int_apxpy(100, 1)
