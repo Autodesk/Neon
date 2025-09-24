@@ -1,6 +1,7 @@
 
 #pragma once
 #include "Neon/core/core.h"
+#include "sparseBitMask.h"
 
 #include "Neon/set/memory/memSet.h"
 
@@ -224,7 +225,7 @@ class mGrid
         bool mCullOverlaps;
 
         // bitmask of the active cells at each level and works as if the grid is dense at each level
-        std::vector<std::vector<uint32_t>> denseLevelsBitmask;
+        std::vector<SparseBitBlocks<300>> sparseLevelsBitmask;
 
         // collection of bGrids that make up the multi-resolution grid
         std::vector<InternalGrid> grids;
