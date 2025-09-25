@@ -299,6 +299,8 @@ DataSetInput_t<funVectorInputType_ta...> dataSetInput(Neon::set::DataSet<funVect
     return DataSetInput_t<funVectorInputType_ta...>(args...);
 }
 
+template <typename T_ta>
+using RankData = DataSet<T_ta>;
 
 }  // namespace set
 }  // namespace Neon
