@@ -91,7 +91,7 @@ auto DevSet::set(const Neon::DeviceType&                  devType,
                     }
                     const Neon::sys::GpuDevice& gpuDev = Neon::sys::globalSpace::gpuSysObj().dev(gpuIdx);
                     try {
-                        gpuDev.memory.enablePeerAccsessWith(peerId);
+                        gpuDev.memory.enablePeerAccessWith(peerId);
                     } catch (...) {
                         errors[gpuIdx.idx()].push_back(peerId);
                         continue;
@@ -172,7 +172,6 @@ auto DevSet::validateIds()
     if (m_devType == Neon::DeviceType::CUDA) {
         for (auto&& gpuId : this->m_devIds) {
             if (gpuId.idx() >= Neon::sys::globalSpace::gpuSysObj().numDevs()) {
-                std:: cout << "Neon::sys::globalSpace::gpuSysObj().numDevs() "<< Neon::sys::globalSpace::gpuSysObj().numDevs()<<std::endl;
                 invalidIds.push_back(gpuId);
             }
         }

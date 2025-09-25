@@ -36,6 +36,7 @@ struct DeviceManagedContainer : ContainerAPI
         setName(name);
 
         this->parse();
+
     }
 
     auto newLoader(Neon::DeviceType devE,

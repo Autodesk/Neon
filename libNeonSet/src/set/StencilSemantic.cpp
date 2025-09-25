@@ -1,6 +1,7 @@
 #include "Neon/set/StencilSemantic.h"
 
 namespace Neon::set {
+
 auto StencilSemanticUtils::toString(StencilSemantic option) -> std::string
 {
     switch (option) {

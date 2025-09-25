@@ -1,6 +1,7 @@
 #include "Neon/set/dependency/AccessType.h"
 
 namespace Neon::set::dataDependency {
+
 auto AccessTypeUtils::toString(AccessType val) -> std::string
 {
     switch (val) {
