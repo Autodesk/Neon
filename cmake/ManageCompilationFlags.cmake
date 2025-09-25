@@ -36,7 +36,7 @@ set(NeonCXXFlags
         #Add GCC specific compiler flags here
 		#-Wno-class-memaccess for "writing to an object of type XXX with no trivial copy-assignment; use copy-assignment or copy-initialization instead"
         $<$<CXX_COMPILER_ID:GNU>:-m64 -Wall -Wextra -Werror -Wno-unused-function -Wno-deprecated-declarations -Wno-class-memaccess -Wno-deprecated-declarations -Wno-maybe-uninitialized>
-
+        # $<$<CXX_COMPILER_ID:GNU>:-m64 -Wall -Wextra -Werror -Wno-unused-function -Wno-deprecated-declarations -Wno-class-memaccess -Wno-deprecated-declarations>
         #Add Clang specific compiler flags here
         $<$<CXX_COMPILER_ID:Clang>:-m64 -Wall -Wextra -Werror -Wno-unused-function -Wno-deprecated-declarations -Wno-deprecated-copy -Wno-unused-parameter -Wno-unused-private-field -Wno-braced-scalar-init -Wno-unused-variable -Wno-unused-but-set-variable -Wno-deprecated-declarations >
         )

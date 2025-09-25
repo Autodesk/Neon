@@ -35,7 +35,6 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # - spdlog, rapidjson, GoogleTest (only if tests are enabled)
 include("${PROJECT_SOURCE_DIR}/cmake/LoadingExternalGitRepositories.cmake")
 
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
@@ -57,6 +56,8 @@ endif ()
 # Link with CUDA runtime (cudart)
 find_package(CUDAToolkit REQUIRED)
 target_link_libraries(NeonDeveloperLib INTERFACE CUDA::cudart)
+include("${PROJECT_SOURCE_DIR}/cmake/nccl.cmake")
+target_link_libraries(NeonDeveloperLib INTERFACE nccl::nccl)
 
 include("${PROJECT_SOURCE_DIR}/cmake/ManageCompilationFlags.cmake")
 
@@ -84,6 +85,7 @@ find_package(OpenMP)
 if (NOT OpenMP_CXX_FOUND)
     message(FATAL_ERROR "Neon could not find OpenMP")
 endif ()
+
 target_link_libraries(NeonDeveloperLib INTERFACE OpenMP::OpenMP_CXX)
 
 #target_link_libraries(libNeonXXX INTERFACE $<BUILD_INTERFACE:NeonDeveloperLib>)

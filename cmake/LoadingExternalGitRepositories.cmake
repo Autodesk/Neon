@@ -12,6 +12,7 @@ if (NOT spdlog_POPULATED)
 endif ()
 
 if (${BUILD_NEON_TESTING})
+	message(STATUS "Fetching googletest...")
 	FetchContent_GetProperties(googletest)
 	if (NOT googletest_POPULATED)
 		# GoogleTest
@@ -35,9 +36,9 @@ if (${BUILD_NEON_TESTING})
 endif ()
 
 # rapidjson
+message(STATUS "Fetching rapidjson...")
 FetchContent_GetProperties(rapidjson)
 if (NOT rapidjson_POPULATED)
-	message(STATUS "Fetching rapidjson...")
 	FetchContent_Declare(rapidjson
 			GIT_REPOSITORY https://github.com/Tencent/rapidjson.git
 			GIT_TAG 24b5e7a8b27f42fa16b96fc70aade9106cf7102f
