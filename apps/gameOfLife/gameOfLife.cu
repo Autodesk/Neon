@@ -11,10 +11,10 @@
 #include "Neon/domain/dGrid.h"
 #include "Neon/skeleton/Skeleton.h"
 
-template <typename FieldT>
-inline void exportVTI(FieldT& voxel_1, FieldT& voxel_2, int frame_id)
+template <typename Field>
+inline void exportVTI(Field& voxel_1, Field& voxel_2, int frame_id)
 {
-    auto io = [&](int f, FieldT& voxel) {
+    auto io = [&](int f, Field& voxel) {
         printf("\n Exporting Frame =%d", f);
         int precision = 4;
         voxel.updateHostData(0);
@@ -39,63 +39,64 @@ Neon::domain::Stencil createStencil()
     return Neon::domain::Stencil(stencil);
 }
 
-template <typename FieldT>
-inline Neon::set::Container GoLContainer(const FieldT&         in_cells,
-                                         FieldT&               out_cells,
-                                         typename FieldT::Type length)
+template <typename Field>
+inline Neon::set::Container GoLContainer(const Field&         in_cells,
+                                         Field&               out_cells,
+                                         typename Field::Type length)
 {
-    using T = typename FieldT::Type;
-    return in_cells.getGrid().getContainer(
+    using T = typename Field::Type;
+    return in_cells.getGrid().newContainer(
         "GoLContainer", [&, length](Neon::set::Loader& L) {
-            const auto& ins = L.load(in_cells, Neon::Compute::STENCIL);
+			const auto& ins = L.load(in_cells, Neon::Pattern::STENCIL);
+            //const auto& ins = L.load(in_cells, Neon::Compute::STENCIL);
             auto&       out = L.load(out_cells);
 
             return [=] NEON_CUDA_HOST_DEVICE(
-                       const typename FieldT::Cell& idx) mutable {
-                typename FieldT::ngh_idx ngh(0, 0, 0);
+                       const typename Field::Idx& idx) mutable {
+                typename Field::ngh_idx ngh(0, 0, 0);
                 const T                  default_value = 0;
                 int                      alive = 0;
                 T                        value = 0;
-                T                        status = ins.nghVal(idx, ngh, 0, default_value).value;
+                T                        status = ins.nghVal(idx, ngh, 0, default_value).value();
 
                 //+x
                 ngh.x = 1;
                 ngh.y = 0;
                 ngh.z = 0;
-                value = ins.nghVal(idx, ngh, 0, default_value).value;
+                value = ins.nghVal(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
                 ngh.y = 1;
-                value = ins.nghVal(idx, ngh, 0, default_value).value;
+                value = ins.nghVal(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
 
                 //-x
                 ngh.x = -1;
                 ngh.y = 0;
                 ngh.z = 0;
-                value = ins.nghVal(idx, ngh, 0, default_value).value;
+                value = ins.nghVal(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
                 ngh.y = -1;
-                value = ins.nghVal(idx, ngh, 0, default_value).value;
+                value = ins.nghVal(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
 
                 //+y
                 ngh.x = 0;
                 ngh.y = 1;
                 ngh.z = 0;
-                value = ins.nghVal(idx, ngh, 0, default_value).value;
+                value = ins.nghVal(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
                 ngh.x = -1;
-                value = ins.nghVal(idx, ngh, 0, default_value).value;
+                value = ins.nghVal(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
 
                 //-y
                 ngh.x = 0;
                 ngh.y = -1;
                 ngh.z = 0;
-                value = ins.nghVal(idx, ngh, 0, default_value).value;
+                value = ins.nghVal(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
                 ngh.x = 1;
-                value = ins.nghVal(idx, ngh, 0, default_value).value;
+                value = ins.nghVal(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
 
                 auto id_global = ins.mapToGlobal(idx);

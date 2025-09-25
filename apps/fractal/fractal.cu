@@ -59,7 +59,7 @@ inline Neon::set::Container FractalsContainer(Field&  pixels,
 int main(int argc, char** argv)
 {
     Neon::init();
-    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+    if ( Neon::Backend::countAvailableGpus() > 0) {
         int32_t          n = 320;
         Neon::index_3d   dim(2 * n, n, 1);
         std::vector<int> gpu_ids{0};

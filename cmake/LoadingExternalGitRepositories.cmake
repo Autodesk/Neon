@@ -5,8 +5,8 @@ FetchContent_GetProperties(spdlog)
 if (NOT spdlog_POPULATED)
 	message(STATUS "Fetching spdlog...")
 	FetchContent_Declare(spdlog
-			GIT_REPOSITORY https://github.com/gabime/spdlog.git
-			GIT_TAG v1.15.1
+			GIT_REPOSITORY https://github.com/massimim/spdlog.git
+			GIT_TAG neon
 	)
 	FetchContent_MakeAvailable(spdlog)
 endif ()

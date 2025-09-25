@@ -4,6 +4,7 @@
 #include "Neon/domain/details/bGrid/bSpan.h"
 #include "Neon/domain/details/eGrid/eIndex.h"
 #include "Neon/domain/interface/NghData.h"
+
 #include "Neon/sys/memory/CUDASharedMemoryUtil.h"
 
 namespace Neon::domain::details::bGrid {
@@ -157,6 +158,7 @@ class bPartition
     NEON_CUDA_HOST_DEVICE inline auto
     isActive(const Idx&   cell,
              const NghIdx nghDir) const -> bool;
+
 
     NEON_CUDA_HOST_DEVICE inline auto
     getDomainSize()

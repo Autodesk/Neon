@@ -139,20 +139,21 @@ class dPartition
         return NghData(val, isValidNeighbour);
     }
 
-    NEON_CUDA_HOST_DEVICE inline auto
-    getNghData(const Idx& gidx,
-               NghIdx     nghOffset,
-               int        card)
-        const -> NghData
-    {
-        Idx        gidxNgh;
-        const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
-        T          val;
-        if (isValidNeighbour) {
-            val = operator()(gidxNgh, card);
-        }
-        return NghData(val, isValidNeighbour);
-    }
+    // NEON_CUDA_HOST_DEVICE inline auto
+    // getNghData(const Idx& gidx,
+    //            NghIdx     nghOffset,
+    //            int        card,
+    //            T const&   alternative)
+    //     const -> NghData
+    // {
+    //     Idx        gidxNgh;
+    //     const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
+    //     T          val = alternative;
+    //     if (isValidNeighbour) {
+    //         val = operator()(gidxNgh, card);
+    //     }
+    //     return NghData(val, isValidNeighbour);
+    // }
 
 #if !defined(NEON_WARP_COMPILATION)
     template <int xOff, int yOff, int zOff, typename LambdaVALID, typename LambdaNOTValid = void*>
@@ -488,7 +489,8 @@ class dPartition
     }
 
 #if !defined(NEON_WARP_COMPILATION)
-    inline static void getOffsets(size_t* offsets, size_t* length) {
+    inline static void getOffsets(size_t* offsets, size_t* length)
+    {
         // std::cout << "dGrid_dField_dPartition cpp offsets: " << offsetof(dSpan, mDataView) << " " << offsetof(dSpan, mZghostRadius) << " " << offsetof(dSpan, mZboundaryRadius) << " " << offsetof(dSpan, mMaxZInDomain) << " " << offsetof(dSpan, mSpanDim) << " " <<  std::endl;
         static std::vector<size_t> cpp_offsets = {
             offsetof(dPartition, mDataView),
@@ -507,7 +509,7 @@ class dPartition
             offsetof(dPartition, mPeriodicZ),
             offsetof(dPartition, mStencil),
         };
-        
+
         *length = cpp_offsets.size();
         for (size_t i = 0; i < cpp_offsets.size(); ++i) {
             offsets[i] = cpp_offsets[i];

@@ -125,6 +125,8 @@ struct MultiXpuGraph
         -> void;
 
    private:
+
+
     /**
      * @brief Get mutable reference to the container operations
      *
@@ -274,6 +276,7 @@ struct MultiXpuGraph
      */
     auto computeScheduling()
         -> void;
+
 
 
    private:

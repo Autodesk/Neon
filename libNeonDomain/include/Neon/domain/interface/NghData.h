@@ -42,6 +42,11 @@ struct NghData
         return mData;
     }
 
+    NEON_CUDA_HOST_DEVICE auto value() const -> const Type&
+    {
+        return mData;
+    }
+
     NEON_CUDA_HOST_DEVICE auto operator()() const -> const Type&
     {
         return mData;

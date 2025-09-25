@@ -203,6 +203,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
                   const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx
 {
+    if (offset.x == 0 && offset.y == 0 && offset.z == 0) {
+        return idx;
+    }
 
     typename Idx::InDataBlockIdx ngh(idx.mInDataBlockIdx.x + offset.x,
                                      idx.mInDataBlockIdx.y + offset.y,
@@ -282,6 +285,9 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
     helpGetNghIdx(const Idx& idx, const typename Idx::DataBlockIdx* blockConnectivity)
         const -> Idx
 {
+    if constexpr (xOff == 0 && yOff == 0 && zOff == 0) {
+        return idx;
+    }
 
     typename Idx::InDataBlockIdx ngh(idx.mInDataBlockIdx.x + xOff,
                                      idx.mInDataBlockIdx.y + yOff,
@@ -461,6 +467,7 @@ NEON_CUDA_HOST_DEVICE inline auto bPartition<T, C, SBlock>::
 #if !defined(NEON_WARP_COMPILATION)
 
 template <typename T, int C, typename SBlock>
+
 template <int xOff,
           int yOff,
           int zOff,

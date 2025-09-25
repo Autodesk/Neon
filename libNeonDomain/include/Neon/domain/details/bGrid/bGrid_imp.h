@@ -75,6 +75,7 @@ bGrid<SBlock>::bGrid(const Neon::Backend&                         backend,
             Neon::domain::Stencil::s27_t(false),
             encoderType,
             multiResDiscreteIdxSpacing);
+
         mData->mDataBlockOriginField = mData->partitioner1D.getGlobalMapping();
         mData->mStencil3dTo1dOffset = mData->partitioner1D.getStencil3dTo1dOffset();
         mData->memoryGrid = mData->partitioner1D.getMemoryGrid();

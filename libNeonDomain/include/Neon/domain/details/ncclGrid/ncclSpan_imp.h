@@ -1,0 +1,108 @@
+#pragma once
+
+namespace Neon::domain::details::ncclGrid {
+
+NEON_CUDA_HOST_DEVICE inline auto
+ncclSpan::setAndValidate(Idx&            idx,
+                      const uint32_t& x,
+                      const uint32_t& y,
+                      const uint32_t& z)
+    const -> bool
+{
+    bool res = false;
+    idx.setLocation().x = int(x);
+    idx.setLocation().y = int(y);
+    idx.setLocation().z = int(z);
+
+    if (idx.getLocation() < mSpanDim) {
+        res = true;
+    }
+
+    switch (mDataView) {
+        case Neon::DataView::STANDARD: {
+            idx.setLocation().z += mZghostRadius;
+            return res;
+        }
+        case Neon::DataView::INTERNAL: {
+            idx.setLocation().z += mZghostRadius + mZboundaryRadius;
+            return res;
+        }
+        case Neon::DataView::BOUNDARY: {
+
+            idx.setLocation().z += idx.getLocation().z < mZboundaryRadius
+                                       ? 0
+                                       : (mMaxZInDomain - 1) + (-1 * mZboundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
+            idx.setLocation().z += mZghostRadius;
+
+            return res;
+        }
+        default: {
+        }
+    }
+    return false;
+}
+
+NEON_CUDA_HOST_DEVICE inline auto ncclSpan::helpGetDataView()
+    const -> Neon::DataView const&
+{
+    return mDataView;
+}
+
+NEON_CUDA_HOST_DEVICE inline auto ncclSpan::helpGetZHaloRadius()
+    const -> int const&
+{
+    return mZghostRadius;
+}
+
+NEON_CUDA_HOST_DEVICE inline auto ncclSpan::helpGetZBoundaryRadius()
+    const -> int const&
+{
+    return mZboundaryRadius;
+}
+
+NEON_CUDA_HOST_DEVICE inline auto ncclSpan::helpGetDim()
+    const -> Neon::index_3d const&
+{
+    return mSpanDim;
+}
+
+/** function to help set the pointer for the nccl halo update */
+NEON_CUDA_HOST_DEVICE inline auto
+ncclSpan::helpHalosetAndValidate(
+                      const int32_t& x,
+                      const int32_t& y,
+                      const int32_t& z)
+    const -> Idx
+{
+    Idx            idx;
+    idx.setLocation().x = int(x);
+    idx.setLocation().y = int(y);
+    idx.setLocation().z = int(z);
+
+
+    switch (mDataView) {
+        case Neon::DataView::STANDARD: {
+            idx.setLocation().z += mZghostRadius;
+            return idx;
+        }
+        case Neon::DataView::INTERNAL: {
+            idx.setLocation().z += mZghostRadius + mZboundaryRadius;
+            return idx;
+        }
+        case Neon::DataView::BOUNDARY: {
+
+            idx.setLocation().z += idx.getLocation().z < mZboundaryRadius
+                                       ? 0
+                                       : (mMaxZInDomain - 1) + (-1 * mZboundaryRadius /* we remove zBoundaryRadius as the first zBoundaryRadius will manage the lower slices */);
+            idx.setLocation().z += mZghostRadius;
+
+            return idx;
+        }
+        default: {
+        }
+    }
+    return idx;
+}
+
+
+}  // namespace Neon::domain::details::ncclGrid

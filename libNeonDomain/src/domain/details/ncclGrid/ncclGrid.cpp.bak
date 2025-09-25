@@ -1,0 +1,136 @@
+#include "Neon/domain/details/ncclGrid/ncclGrid.h"
+
+namespace Neon::domain::details::ncclGrid {
+
+ncclGrid::ncclGrid()
+{
+    mData = std::make_shared<Data>();
+}
+
+ncclGrid::Data::Data(const Neon::Backend& backend)
+{
+    world.partitionDims = backend.newRankData<index_3d>(index_3d{0, 0, 0});
+    world.firstZIndex = backend.newRankData<index_t>(0);
+    spanTable = Neon::domain::tool::SpanTable<ncclSpan>(backend);
+    elementsPerPartition = Neon::domain::tool::SpanTable<int>(backend);
+    
+    halo = index_3d(0, 0, 0);
+    reduceEngine = Neon::sys::patterns::Engine::cuBlas;
+}
+
+auto ncclGrid::helpFieldMemoryAllocator()
+    const -> const Neon::aGrid&
+{
+    return mData->memoryGrid;
+}
+
+auto ncclGrid::getSpan(Neon::Execution execution,
+                       SetIdx          setIdx,
+                       Neon::DataView  dataView)
+    const -> const Span&
+{
+    return mData->spanTable.getSpan(execution, setIdx, dataView);
+}
+
+auto ncclGrid::getLaunchParameters(const Neon::DataView  dataView,
+                                   const Neon::index_3d& blockSize,
+                                   const size_t&         shareMem) const -> Neon::set::LaunchParameters
+{
+    Neon::set::LaunchParameters ret = getBackend().devSet().newLaunchParameters();
+
+    auto dimsByDataView = getBackend().devSet().newDataSet<index_3d>([&](Neon::SetIdx const& setIdx,
+                                                                         auto&               value) {
+        value = getSpan(Neon::Execution::host, setIdx, dataView).mSpanDim;
+    });
+
+    ret.set(Neon::sys::GpuLaunchInfo::domainGridMode,
+            dimsByDataView,
+            blockSize,
+            shareMem);
+    return ret;
+}
+
+auto ncclGrid::isInsideDomain(const index_3d& idx) const -> bool
+{
+    bool isPositive = idx >= 0;
+    bool isLower = idx < this->getDimension();
+    return isLower && isPositive;
+}
+
+auto ncclGrid::helpGetFirstZindex()
+    const -> const Neon::set::DataSet<int32_t>&
+{
+    return mData->world.firstZIndex;
+}
+
+auto ncclGrid::helpGetPartitionDim()
+    const -> const Neon::set::DataSet<index_3d>
+{
+    return mData->world.partitionDims;
+}
+
+auto ncclGrid::setReduceEngine(Neon::sys::patterns::Engine eng)
+    -> void
+{
+    mData->reduceEngine = eng;
+}
+
+auto ncclGrid::convertToNghIdx(const std::vector<Neon::index_3d>& stencilOffsets)
+    const -> std::vector<NghIdx>
+{
+    std::vector<NghIdx> res;
+    for (const auto& offset : stencilOffsets) {
+        res.push_back(offset.template newType<int8_t>());
+    }
+    return res;
+}
+
+auto ncclGrid::convertToNghIdx(Neon::index_3d const& stencilOffsets)
+    const -> NghIdx
+{
+    return stencilOffsets.template newType<int8_t>();
+}
+
+auto ncclGrid::getSetIdx(const Neon::index_3d& idx)
+    const -> int32_t
+{
+    auto prop = getProperties(idx);
+    if (!prop.isInside()) {
+        return -1;
+    }
+    return prop.getSetIdx();
+}
+
+auto ncclGrid::getProperties(const index_3d& idx)
+    const -> GridBaseTemplate::CellProperties
+{
+    GridBaseTemplate::CellProperties cellProperties;
+    cellProperties.setIsInside(isInsideDomain(idx));
+    if (!cellProperties.isInside()) {
+        return cellProperties;
+    }
+
+    if (this->getDevSet().numDevs() == 1) {
+        cellProperties.init(0, DataView::INTERNAL);
+    } else {
+        int            zCounter = 0;
+        int            zCounterPrevious = 0;
+        Neon::SetIdx   setIdx;
+        Neon::DataView dataView = DataView::BOUNDARY;
+        for (int i = 0; i < this->getDevSet().numDevs(); i++) {
+            zCounter += mData->world.partitionDims[i].z;
+            if (idx.z < zCounter) {
+                setIdx = i;
+            }
+            if ((zCounterPrevious + mData->halo.z <= idx.z) &&
+                (zCounter - mData->halo.z > idx.z)) {
+                dataView = Neon::DataView::INTERNAL;
+            }
+            zCounterPrevious = zCounter;
+        }
+        cellProperties.init(setIdx, dataView);
+    }
+    return cellProperties;
+}
+
+}  // namespace Neon::domain::details::ncclGrid
