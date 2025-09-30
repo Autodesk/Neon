@@ -53,53 +53,53 @@ inline Neon::set::Container GoLContainer(const Field&         in_cells,
 
             return [=] NEON_CUDA_HOST_DEVICE(
                        const typename Field::Idx& idx) mutable {
-                typename Field::ngh_idx ngh(0, 0, 0);
+                typename Field::NghIdx ngh(0, 0, 0);
                 const T                  default_value = 0;
                 int                      alive = 0;
                 T                        value = 0;
-                T                        status = ins.nghVal(idx, ngh, 0, default_value).value();
+                T                        status = ins.getNghData(idx, ngh, 0, default_value).value();
 
                 //+x
                 ngh.x = 1;
                 ngh.y = 0;
                 ngh.z = 0;
-                value = ins.nghVal(idx, ngh, 0, default_value).value();
+                value = ins.getNghData(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
                 ngh.y = 1;
-                value = ins.nghVal(idx, ngh, 0, default_value).value();
+                value = ins.getNghData(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
 
                 //-x
                 ngh.x = -1;
                 ngh.y = 0;
                 ngh.z = 0;
-                value = ins.nghVal(idx, ngh, 0, default_value).value();
+                value = ins.getNghData(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
                 ngh.y = -1;
-                value = ins.nghVal(idx, ngh, 0, default_value).value();
+                value = ins.getNghData(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
 
                 //+y
                 ngh.x = 0;
                 ngh.y = 1;
                 ngh.z = 0;
-                value = ins.nghVal(idx, ngh, 0, default_value).value();
+                value = ins.getNghData(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
                 ngh.x = -1;
-                value = ins.nghVal(idx, ngh, 0, default_value).value();
+                value = ins.getNghData(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
 
                 //-y
                 ngh.x = 0;
                 ngh.y = -1;
                 ngh.z = 0;
-                value = ins.nghVal(idx, ngh, 0, default_value).value();
+                value = ins.getNghData(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
                 ngh.x = 1;
-                value = ins.nghVal(idx, ngh, 0, default_value).value();
+                value = ins.getNghData(idx, ngh, 0, default_value).value();
                 alive += (value > 0.0 ? 1 : 0);
 
-                auto id_global = ins.mapToGlobal(idx);
+                auto id_global = ins.getGlobalIndex(idx);
                 out(idx, 0) = ((T)id_global.x / length) * (T)((alive == 3 || (alive == 2 && status) ? 1 : 0));
             };
         });

@@ -234,7 +234,7 @@ bGridDisgMgpu<SBlock>::bGridDisgMgpu(const Neon::Backend&                       
     bGridDisgMgpu::GridBase::init(gridName.str(),
                           backend,
                           domainSize,
-                          Neon::domain::Stencil(),
+                          mData->stencil,
                           mData->mNumActiveVoxel,
                           SBlock::memBlockSize3D.template newType<int32_t>(),
                           spacingData,

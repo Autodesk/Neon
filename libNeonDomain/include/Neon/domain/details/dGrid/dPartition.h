@@ -126,34 +126,33 @@ class dPartition
     NEON_CUDA_HOST_DEVICE inline auto
     getNghData(const Idx& gidx,
                NghIdx     nghOffset,
-               int        card,
-               const T&   alternativeVal)
+               int        card)
         const -> NghData
     {
         Idx        gidxNgh;
         const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
-        T          val = alternativeVal;
+        Type val;
         if (isValidNeighbour) {
             val = operator()(gidxNgh, card);
         }
         return NghData(val, isValidNeighbour);
     }
 
-    // NEON_CUDA_HOST_DEVICE inline auto
-    // getNghData(const Idx& gidx,
-    //            NghIdx     nghOffset,
-    //            int        card,
-    //            T const&   alternative)
-    //     const -> NghData
-    // {
-    //     Idx        gidxNgh;
-    //     const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
-    //     T          val = alternative;
-    //     if (isValidNeighbour) {
-    //         val = operator()(gidxNgh, card);
-    //     }
-    //     return NghData(val, isValidNeighbour);
-    // }
+    NEON_CUDA_HOST_DEVICE inline auto
+    getNghData(const Idx& gidx,
+               NghIdx     nghOffset,
+               int        card,
+               T const&   alternative)
+        const -> NghData
+    {
+        Idx        gidxNgh;
+        const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
+        T          val = alternative;
+        if (isValidNeighbour) {
+            val = operator()(gidxNgh, card);
+        }
+        return NghData(val, isValidNeighbour);
+    }
 
 #if !defined(NEON_WARP_COMPILATION)
     template <int xOff, int yOff, int zOff, typename LambdaVALID, typename LambdaNOTValid = void*>

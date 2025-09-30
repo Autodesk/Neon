@@ -441,7 +441,8 @@ auto bDisgMgpuField<T, C, SBlock>::initHaloUpdateTable() -> void
                 bool canBeFusedWithPrevious = false;
 
                 for (int c = 0; c < this->getCardinality(); c++) {
-                    auto const& stencil = this->getGrid().getStencil();
+                    auto& grid  = this->getGrid();
+                    auto const& stencil = grid.getStencil();
 
                     auto const recvPitch = [&] {
                         Idx                          idx;
@@ -490,12 +491,10 @@ auto bDisgMgpuField<T, C, SBlock>::initHaloUpdateTable() -> void
                                                        sizeof(T) * msgSizePerCardinality);
 
                     if (ByDirection::up == sendDirection && !(stencil.points()[c].z > 0)) {
-                        std::cout << "c " << c << " " << stencil.points()[c] << "skipped" << std::endl;
                         canBeFusedWithPrevious = false;
                         continue;
                     }
                     if (ByDirection::down == sendDirection && !(stencil.points()[c].z < 0)) {
-                        std::cout << "c " << c << " " << stencil.points()[c] << "skipped" << std::endl;
                         canBeFusedWithPrevious = false;
                         continue;
                     }
@@ -507,11 +506,8 @@ auto bDisgMgpuField<T, C, SBlock>::initHaloUpdateTable() -> void
                             NEON_THROW_UNSUPPORTED_OPTION("begin != transfersVec[transfersVec.size() - 1].dst");
                         }
                         transfersVec[transfersVec.size() - 1].size += sizeof(T) * msgSizePerCardinality;
-                        std::cout << "c " << c << " " << stencil.points()[c] << "fused" << std::endl
-                                  << "new size = " << transfersVec[transfersVec.size() - 1].size << std::endl;
                     } else {
                         transfersVec.push_back(transfer);
-                        std::cout << "c " << c << " " << stencil.points()[c] << "added " << transfer.toString() << std::endl;
                         canBeFusedWithPrevious = false;
                     }
                 }
