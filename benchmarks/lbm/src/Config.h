@@ -52,7 +52,7 @@ struct Config
     std::string              lattice = latticeOptions[0];
 
     std::vector<std::string> streamingMethodOption = {"push", "pull"};
-    std::string              streamingMethod = "push";
+    std::string              streamingMethod = "pull";
 
     LbmParameters<double> mLbmParameters;
 

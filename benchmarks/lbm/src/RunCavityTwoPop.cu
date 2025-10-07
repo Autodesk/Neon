@@ -103,24 +103,24 @@ auto runFilterMethod(Config&            config,
                      std::stringstream& testCode) -> void
 {
     // feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);  // Enable all floating point exceptions but FE_INEXACT
-    //    if (config.streamingMethod == "push") {
-    //        if (config.devices.size() != 1) {
-    //            NEON_THROW_UNSUPPORTED_OPERATION("We only support PUSH in a single device configuration for now.")
-    //        }
-    //        testCode << "_push";
-    //        return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
-    //    }
+    if (config.streamingMethod == "push") {
+        if (config.devices.size() != 1) {
+            NEON_THROW_UNSUPPORTED_OPERATION("We only support PUSH in a single device configuration for now.")
+        }
+        testCode << "_push";
+        return run<lbm::Method::push, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
+    }
     if (config.streamingMethod == "pull") {
         testCode << "_pull";
         return run<lbm::Method::pull, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
     }
-    //    if (config.streamingMethod == "aa") {
-    //        if (config.devices.size() != 1) {
-    //            NEON_THROW_UNSUPPORTED_OPERATION("We only support AA in a single device configuration for now.")
-    //        }
-    //        testCode << "_aa";
-    //        return run<lbm::Method::aa, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
-    //    }
+    // if (config.streamingMethod == "aa") {
+    //     if (config.devices.size() != 1) {
+    //         NEON_THROW_UNSUPPORTED_OPERATION("We only support AA in a single device configuration for now.")
+    //     }
+    //     testCode << "_aa";
+    //     return run<lbm::Method::aa, CollisionType, Lattice, Grid, Storage, Compute>(config, report, testCode);
+    // }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
@@ -224,12 +224,12 @@ auto run(Config&            config,
         testCode << "_dGridDisg";
         return details::runFilterStoreType<Neon::domain::details::disaggregated::dGrid::dGrid>(config, report, testCode);
     }
-    // if (config.gridType == "bGrid_4_4_4") {
-    //     testCode << "_bGrid_4_4_4";
-    //     using Block = Neon::domain::details::StaticBlock<4, 4, 4>;
-    //     using Grid = Neon::domain::details::bGrid::bGrid<Block>;
-    //     return details::runFilterStoreType<Grid>(config, report, testCode);
-    // }
+    if (config.gridType == "bGrid_4_4_4") {
+        testCode << "_bGrid_4_4_4";
+        using Block = Neon::domain::details::StaticBlock<4, 4, 4>;
+        using Grid = Neon::domain::details::bGrid::bGrid<Block>;
+        return details::runFilterStoreType<Grid>(config, report, testCode);
+    }
     // if (config.gridType == "bGridMgpu_4_4_4") {
     //     testCode << "_bGridMgpu_4_4_4";
     //     using Block = Neon::domain::details::StaticBlock<4, 4, 4>;
