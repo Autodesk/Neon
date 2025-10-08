@@ -2,6 +2,8 @@
 
 #include "Neon/domain/interface/FieldBase.h"
 #include "Neon/domain/tools/IOGridVTK.h"
+#include "Neon/core/tools/io/ioToNanoVDB.h"
+#include "Neon/core/tools/io/ioToHDF5.h"
 
 namespace Neon::domain::interface {
 
@@ -315,6 +317,80 @@ auto FieldBase<T, C>::ioToVtk(const std::string& fileName,
         iovtk.addIODenseField(domain, "Domain");
     }
     iovtk.flushAndClear();
+    return;
+}
+
+template <typename T, int C>
+template <typename NanoVDBExportType>
+auto FieldBase<T, C>::ioToNanoVDB(const std::string& fileName) const -> void
+{
+    Neon::ioToNanoVDB<int, NanoVDBExportType> io(fileName,
+                            this->getDimension(),
+                            [&](Neon::Integer_3d<int> idx, int card) -> NanoVDBExportType {
+                                return (*this)(idx, card);
+                            },
+                            this->getCardinality(),
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+
+    io.flush();
+    return;
+}
+
+template <typename T, int C>
+template <typename NanoVDBExportType>
+auto FieldBase<T, C>::ioDomainToNanoVDB(const std::string& fileName) const -> void
+{
+    Neon::ioToNanoVDB<int32_t, NanoVDBExportType> io(fileName,
+                            this->getDimension(),
+                            [&](const Neon::index_3d& idx, int) {
+                                NanoVDBExportType setIdx = NanoVDBExportType(getBaseGridTool().getSetIdx(idx));
+                                return setIdx;
+                            },
+                            1,
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+
+    io.flush();
+    return;
+}
+
+template <typename T, int C>
+template <typename HDF5ExportType>
+auto FieldBase<T, C>::ioToHDF5(const std::string& fileName) const -> void
+{
+    Neon::ioToHDF5<int, HDF5ExportType> io(fileName,
+                            this->getDimension(),
+                            [&](Neon::Integer_3d<int> idx, int card) -> HDF5ExportType {
+                                return (*this)(idx, card);
+                            },
+                            this->getCardinality(),
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+
+    io.flush();
+    return;
+}
+
+template <typename T, int C>
+template <typename HDF5ExportType>
+auto FieldBase<T, C>::ioDomainToHDF5(const std::string& fileName) const -> void
+{
+    Neon::ioToHDF5<int32_t, HDF5ExportType> io(fileName,
+                            this->getDimension(),
+                            [&](const Neon::index_3d& idx, int) {
+                                HDF5ExportType setIdx = HDF5ExportType(getBaseGridTool().getSetIdx(idx));
+                                return setIdx;
+                            },
+                            1,
+                            1.0,
+                            Neon::Integer_3d<int>(0, 0, 0));
+
+
+    io.flush();
     return;
 }
 
