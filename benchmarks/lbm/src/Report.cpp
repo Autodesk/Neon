@@ -26,6 +26,7 @@ Report::Report(const Config& c)
     mReport.addMember("devices", c.devices);
     mReport.addMember("reportFile", c.reportFile);
     mReport.addMember("gridType", c.gridType);
+    mReport.addMember("multiStreamHaloUpdate", c.multiStreamHaloUpdate);
 
 
     c.occCli.addToReport(mReport);

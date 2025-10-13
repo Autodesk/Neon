@@ -128,6 +128,8 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
     static auto swap(Field& A, Field& B)
         -> void;
 
+    auto optionMultiStreamHaloUpdate(bool) -> void;
+
    private:
     auto initHaloUpdateTable()
         -> void;
@@ -145,7 +147,8 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
            int                                       zHaloRadius,
            Neon::domain::haloStatus_et::e            haloStatus,
            int                                       cardinality,
-           Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset);
+           Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset,
+           bool                                      multiStreamHaloUpdate = true);
 
     struct Data
     {
@@ -178,6 +181,7 @@ class dField : public Neon::domain::interface::FieldBaseTemplate<T,
         Neon::domain::tool::HaloTable1DPartitioning                         soaHaloUpdateTable;
         Neon::domain::tool::HaloTable1DPartitioning                         aosHaloUpdateTable;
         Neon::aGrid::Field<T, C>                                            memoryField;
+        bool                                                                multiStreamHaloUpdate;
 
         Neon::DataUse                     dataUse;
         Neon::MemoryOptions               memoryOptions;

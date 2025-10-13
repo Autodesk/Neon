@@ -25,7 +25,7 @@ int main(int argc, char** argv)
                               //    config.devices = {0};
                               //    config.gridType = "dGrid";
                               //    config.occ = Neon::skeleton::Options_t::Occ::none
-
+    config.multiStreamHaloUpdate = true;
 
     if (config.parseArgs(argc, argv) != 0) {
         return -1;

@@ -18,7 +18,8 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
                      int                                       zHaloRadius,
                      Neon::domain::haloStatus_et::e            haloStatus,
                      int                                       cardinality,
-                     Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset)
+                     Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset,
+                     bool                                      multiStreamHaloUpdate)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "dField",
@@ -42,6 +43,7 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
 
     mData = std::make_shared<Data>(grid.getBackend());
     mData->dataUse = dataUse;
+    mData->multiStreamHaloUpdate = multiStreamHaloUpdate;
     mData->memoryOptions = memoryOptions;
     mData->cardinality = cardinality;
     mData->memoryOptions = memoryOptions;
@@ -627,9 +629,9 @@ auto dField<T, C>::
         const -> Neon::set::Container
 {
     auto getHaloTable = [this](Neon::set::StencilSemantic      stencilSemantic,
-                           Neon::set::TransferMode         transferMode,
-                           Neon::Execution                 execution,
-                           tool::partitioning::ByDirection byDirection) -> auto {
+                               Neon::set::TransferMode         transferMode,
+                               Neon::Execution                 execution,
+                               tool::partitioning::ByDirection byDirection) -> auto {
         if (stencilSemantic == Neon::set::StencilSemantic::standard) {
             if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::structOfArrays) {
                 return mData->soaHaloUpdateTable.get(transferMode, execution, byDirection);
@@ -679,10 +681,8 @@ auto dField<T, C>::
 
     const auto& syncNode = graph.addNode(SyncContainer);
 
-
-    bool multiStream = true;
     std::vector<Neon::set::container::GraphNode> parallelTransferNodes;
-    if (multiStream) {
+    if (this->mData->multiStreamHaloUpdate) {
         std::vector<Neon::set::Container> containerList;
 
         int numTranfers = transfers[Neon::SetIdx(0)].size();
@@ -692,12 +692,12 @@ auto dField<T, C>::
                 transferVec.push_back(transfers[setIdx][i]);
             });
             auto singleDataTransferContainer =
-              Neon::set::Container::factoryDataTransfer(
-                  *this,
-                  transferMode,
-                  stencilSemantic,
-                  singleTransfer,
-                  execution);
+                Neon::set::Container::factoryDataTransfer(
+                    *this,
+                    transferMode,
+                    stencilSemantic,
+                    singleTransfer,
+                    execution);
             const auto& dataTransferNode = graph.addNode(singleDataTransferContainer);
             parallelTransferNodes.push_back(dataTransferNode);
         }
@@ -713,7 +713,6 @@ auto dField<T, C>::
                 execution);
         const auto& dataTransferNode = graph.addNode(dataTransferContainer);
         parallelTransferNodes.push_back(dataTransferNode);
-
     }
 
     for (auto const& dataTransferNode : parallelTransferNodes) {
@@ -764,6 +763,11 @@ auto dField<T, C>::swap(dField::Field& A, dField::Field& B) -> void
     std::swap(A, B);
 }
 
+template <typename T, int C>
+auto dField<T, C>::optionMultiStreamHaloUpdate(bool status) -> void
+{
+    this->mData->multiStreamHaloUpdate = status;
+}
 
 template <typename T, int C>
 auto dField<T, C>::getData()

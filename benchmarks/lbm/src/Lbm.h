@@ -80,6 +80,11 @@ struct Lbm
                                                 Lattice::Q>(name.str(),
                                                             Lattice::Q,
                                                             Storage(0.0));
+             if constexpr (std::is_same_v<Grid, Neon::dGrid>) {
+                 field.optionMultiStreamHaloUpdate(config.multiStreamHaloUpdate);
+             }else {
+                 NEON_WARNING("LBM", "The grid does not support optionMultiStreamHaloUpdate ");
+             }
             pFieldList.push_back(field);
             NEON_INFO("TEST", "{}", field.toString());
 

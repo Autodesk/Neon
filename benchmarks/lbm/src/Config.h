@@ -26,6 +26,7 @@ struct Config
     int            benchIniIter = 1000;      // Benchmark mode: Number of warmup iterations
     int            benchMaxIter = 2000;      // Benchmark mode: Total number of iterations
     int            repetitions = 1;          // Benchmark mode: number of time the test is run
+    bool           multiStreamHaloUpdate = true;
 
     std::string      deviceType = "gpu";
     std::vector<int> devices = std::vector<int>(0);              // Devices for the execution

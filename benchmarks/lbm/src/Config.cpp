@@ -32,6 +32,8 @@ auto Config::toString() const -> std::string
     s << "................. occ " << c.occCli.getStringOption() << std::endl;
     s << "........ transferMode " << c.transferModeCli.getStringOption() << std::endl;
     s << "..... stencilSemantic " << c.stencilSemanticCli.getStringOption() << std::endl;
+    s << "..... stencilSemantic " << c.stencilSemanticCli.getStringOption() << std::endl;
+    s << "..... multiStreamHaloUpdate " << c.multiStreamHaloUpdate << std::endl;
 
     s << "\n==>[LBM Implementation]" << std::endl;
     s << "............. lattice " << c.lattice << std::endl;
@@ -87,6 +89,17 @@ auto Config::parseArgs(const int argc, char* argv[])
 
             clipp::option("--streamingMethod") & clipp::value("streamingMethod", config.streamingMethod) % Config::getOptionList(config.streamingMethodOption, config.streamingMethod),
             clipp::option("--lattice") & clipp::value("lattice", config.lattice) % Config::getOptionList(config.latticeOptions, config.lattice),
+            
+            clipp::option("--multiStreamHaloUpdate") & clipp::value("multiStreamHaloUpdate")([&config](const std::string& s) {
+                if (s == "on") {
+                    config.multiStreamHaloUpdate = true;
+                } else if (s == "off") {
+                    config.multiStreamHaloUpdate = false;
+                } else {
+                    throw std::runtime_error("multiStreamHaloUpdate must be 'on' or 'off', got: " + s);
+                }
+            }) % "Multi-stream halo update: on, off (default: on)",
+            
             (
                 (
                     clipp::option("--benchmark").set(config.benchmark, true) % "Run benchmark mode",
@@ -123,6 +136,7 @@ auto Config::parseArgs(const int argc, char* argv[])
                      "     --collision bgk\\\n"
                      "     --streamingMethod pull\\\n"
                      "     --lattice d3q19\\\n"
+                     "     --multiStreamHaloUpdate on\\\n"
                      "     --vti 10";
 
         return -1;
