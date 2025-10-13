@@ -133,18 +133,18 @@ auto runFilterCollision(Config&            config,
         testCode << "_bgk";
         return runFilterMethod<Collision::bgk, Lattice, Grid, Storage, Compute>(config, report, testCode);
     }
-    if (config.collisionCli.getOption() == Collision::kbc) {
-        if (config.lattice != "d3q27" && config.lattice != "D3Q27") {
-            Neon::NeonException e("runFilterCollision");
-            e << "LBM kbc collision model only supports d3q27 lattice";
-            NEON_THROW(e);
-        }
-        testCode << "_kbc";
-        using L = D3Q27<Precision<Storage, Compute>>;
-        if constexpr (std::is_same_v<Lattice, L>) {
-            return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, Compute>(config, report, testCode);
-        }
-    }
+    // if (config.collisionCli.getOption() == Collision::kbc) {
+    //     if (config.lattice != "d3q27" && config.lattice != "D3Q27") {
+    //         Neon::NeonException e("runFilterCollision");
+    //         e << "LBM kbc collision model only supports d3q27 lattice";
+    //         NEON_THROW(e);
+    //     }
+    //     testCode << "_kbc";
+    //     using L = D3Q27<Precision<Storage, Compute>>;
+    //     if constexpr (std::is_same_v<Lattice, L>) {
+    //         return runFilterMethod<Collision::kbc, Lattice, Grid, Storage, Compute>(config, report, testCode);
+    //     }
+    // }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
@@ -160,11 +160,11 @@ auto runFilterLattice(Config&            config,
         using L = D3Q19<P>;
         return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
     }
-    if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
-        testCode << "_D3Q27";
-        using L = D3Q27<P>;
-        return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
-    }
+    // if (config.lattice == "d3q27" || config.lattice == "D3Q27") {
+    //     testCode << "_D3Q27";
+    //     using L = D3Q27<P>;
+    //     return runFilterCollision<L, Grid, Storage, Compute>(config, report, testCode);
+    // }
     NEON_DEV_UNDER_CONSTRUCTION("Lattice type not supported. Available options: D3Q19 and D3Q27");
 }
 
@@ -178,10 +178,10 @@ auto runFilterComputeType(Config&            config,
         testCode << "_Sdouble";
         return runFilterLattice<Grid, Storage, double>(config, report, testCode);
     }
-    if (config.computeTypeStr == "float") {
-        testCode << "_Sfloat";
-        return runFilterLattice<Grid, Storage, float>(config, report, testCode);
-    }
+    // if (config.computeTypeStr == "float") {
+    //     testCode << "_Sfloat";
+    //     return runFilterLattice<Grid, Storage, float>(config, report, testCode);
+    // }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 
@@ -195,10 +195,10 @@ auto runFilterStoreType(Config&            config,
         testCode << "_Cdouble";
         return runFilterComputeType<Grid, double>(config, report, testCode);
     }
-    if (config.storeTypeStr == "float") {
-        testCode << "_Cfloat";
-        return runFilterComputeType<Grid, float>(config, report, testCode);
-    }
+    // if (config.storeTypeStr == "float") {
+    //     testCode << "_Cfloat";
+    //     return runFilterComputeType<Grid, float>(config, report, testCode);
+    // }
     NEON_DEV_UNDER_CONSTRUCTION("");
 }
 }  // namespace details

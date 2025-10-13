@@ -408,11 +408,11 @@ auto dField<T, C>::initHaloUpdateTable()
                                                            partitions[Data::EndPoints::src]->dim().x *
                                                            partitions[Data::EndPoints::src]->dim().y);
                     if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                        return;
+                        transfer.size = 0;
                     }
 
                     if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                        return;
+                        transfer.size = 0;
                     }
 
                     // std::cout << transfer.toString() << std::endl;
@@ -474,11 +474,11 @@ auto dField<T, C>::initHaloUpdateTable()
                                                        partitions[Data::EndPoints::src]->dim().x *
                                                        partitions[Data::EndPoints::src]->dim().y);
                 if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                    return;
+                    transfer.size = 0;
                 }
 
                 if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                    return;
+                    transfer.size = 0;
                 }
 
                 // std::cout << transfer.toString() << std::endl;
@@ -543,11 +543,11 @@ auto dField<T, C>::initHaloUpdateTable()
                                                            partitions[Data::EndPoints::src]->dim().x *
                                                            partitions[Data::EndPoints::src]->dim().y);
                     if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                        return;
+                        transfer.size = 0;
                     }
 
                     if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                        return;
+                        transfer.size = 0;
                     }
                     if (ByDirection::up == byDirection && !(stencil.points()[j].z > 0)) {
                         continue;
@@ -626,6 +626,27 @@ auto dField<T, C>::
                   Neon::Execution            execution)
         const -> Neon::set::Container
 {
+    auto getHaloTable = [this](Neon::set::StencilSemantic      stencilSemantic,
+                           Neon::set::TransferMode         transferMode,
+                           Neon::Execution                 execution,
+                           tool::partitioning::ByDirection byDirection) -> auto {
+        if (stencilSemantic == Neon::set::StencilSemantic::standard) {
+            if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::structOfArrays) {
+                return mData->soaHaloUpdateTable.get(transferMode, execution, byDirection);
+            }
+            if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::arrayOfStructs) {
+                return mData->aosHaloUpdateTable.get(transferMode, execution, byDirection);
+            }
+            NEON_THROW_UNSUPPORTED_OPTION();
+        }
+        if (stencilSemantic == Neon::set::StencilSemantic::lattice) {
+            if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::structOfArrays) {
+                return mData->latticeHaloUpdateTable.get(transferMode, execution, byDirection);
+            }
+            NEON_THROW_UNSUPPORTED_OPTION();
+        }
+        NEON_THROW_UNSUPPORTED_OPTION();
+    };
 
 
     // We need to define a graph of Containers
@@ -635,102 +656,78 @@ auto dField<T, C>::
     Neon::set::Container dataTransferContainer;
     auto const&          bk = this->getGrid().getBackend();
 
-    if (stencilSemantic == Neon::set::StencilSemantic::standard) {
-        auto transfers = bk.template newDataSet<std::vector<Neon::set::MemoryTransfer>>();
+    auto transfers = bk.template newDataSet<std::vector<Neon::set::MemoryTransfer>>();
+    auto memoryOrder = this->getMemoryOptions().getOrder();
+    for (auto byDirection : {tool::partitioning::ByDirection::up,
+                             tool::partitioning::ByDirection::down}) {
 
-        if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::structOfArrays) {
-            for (auto byDirection : {tool::partitioning::ByDirection::up,
-                                     tool::partitioning::ByDirection::down}) {
+        auto const& tableEntryByDir = getHaloTable(stencilSemantic,
+                                                   transferMode, execution, byDirection);
 
-                auto const& tableEntryByDir = mData->soaHaloUpdateTable.get(transferMode,
-                                                                            execution,
-                                                                            byDirection);
-
-                tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
-                    transfers[setIdx].insert(std::end(transfers[setIdx]),
-                                             std::begin(tableEntryByDirBySetIdx),
-                                             std::end(tableEntryByDirBySetIdx));
-                });
-            }
-            dataTransferContainer =
-                Neon::set::Container::factoryDataTransfer(
-                    *this,
-                    transferMode,
-                    stencilSemantic,
-                    transfers,
-                    execution);
-
-
-        } else {
-            for (auto byDirection : {tool::partitioning::ByDirection::up,
-                                     tool::partitioning::ByDirection::down}) {
-
-                auto const& tableEntryByDir = mData->aosHaloUpdateTable.get(transferMode,
-                                                                            execution,
-                                                                            byDirection);
-
-                tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
-                    transfers[setIdx].insert(std::end(transfers[setIdx]),
-                                             std::begin(tableEntryByDirBySetIdx),
-                                             std::end(tableEntryByDirBySetIdx));
-                });
-            }
-            dataTransferContainer =
-                Neon::set::Container::factoryDataTransfer(
-                    *this,
-                    transferMode,
-                    stencilSemantic,
-                    transfers,
-                    execution);
-        }
-    } else {
-        auto transfers = bk.template newDataSet<std::vector<Neon::set::MemoryTransfer>>();
-        if (this->getMemoryOptions().getOrder() == Neon::MemoryLayout::structOfArrays) {
-            for (auto byDirection : {tool::partitioning::ByDirection::up,
-                                     tool::partitioning::ByDirection::down}) {
-
-                auto const& tableEntryByDir = mData->latticeHaloUpdateTable.get(transferMode,
-                                                                                execution,
-                                                                                byDirection);
-
-                tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
-                    transfers[setIdx].insert(std::end(transfers[setIdx]),
-                                             std::begin(tableEntryByDirBySetIdx),
-                                             std::end(tableEntryByDirBySetIdx));
-                });
-            }
-            dataTransferContainer =
-                Neon::set::Container::factoryDataTransfer(
-                    *this,
-                    transferMode,
-                    stencilSemantic,
-                    transfers,
-                    execution);
-
-
-        } else {
-            NEON_DEV_UNDER_CONSTRUCTION("");
-        }
+        tableEntryByDir.forEachSeq([&](SetIdx setIdx, auto const& tableEntryByDirBySetIdx) {
+            transfers[setIdx].insert(std::end(transfers[setIdx]),
+                                     std::begin(tableEntryByDirBySetIdx),
+                                     std::end(tableEntryByDirBySetIdx));
+        });
     }
-    Neon::set::Container SyncContainer =
+
+    Neon::set::container::Graph graph(this->getBackend());
+    Neon::set::Container        SyncContainer =
         Neon::set::Container::factorySynchronization(
             *this,
             Neon::set::SynchronizationContainerType::hostOmpBarrier);
 
-    Neon::set::container::Graph graph(this->getBackend());
-    const auto&                 dataTransferNode = graph.addNode(dataTransferContainer);
-    const auto&                 syncNode = graph.addNode(SyncContainer);
+    const auto& syncNode = graph.addNode(SyncContainer);
 
-    switch (transferMode) {
-        case Neon::set::TransferMode::put:
-            graph.addDependency(dataTransferNode, syncNode, Neon::GraphDependencyType::data);
-            break;
-        case Neon::set::TransferMode::get:
-            graph.addDependency(syncNode, dataTransferNode, Neon::GraphDependencyType::data);
-            break;
-        default:
-            NEON_THROW_UNSUPPORTED_OPTION();
-            break;
+
+    bool multiStream = true;
+    std::vector<Neon::set::container::GraphNode> parallelTransferNodes;
+    if (multiStream) {
+        std::vector<Neon::set::Container> containerList;
+
+        int numTranfers = transfers[Neon::SetIdx(0)].size();
+        for (int i = 0; i < numTranfers; i++) {
+            auto singleTransfer = bk.template newDataSet<std::vector<Neon::set::MemoryTransfer>>();
+            singleTransfer.forEachSeq([&](Neon::SetIdx setIdx, auto& transferVec) {
+                transferVec.push_back(transfers[setIdx][i]);
+            });
+            auto singleDataTransferContainer =
+              Neon::set::Container::factoryDataTransfer(
+                  *this,
+                  transferMode,
+                  stencilSemantic,
+                  singleTransfer,
+                  execution);
+            const auto& dataTransferNode = graph.addNode(singleDataTransferContainer);
+            parallelTransferNodes.push_back(dataTransferNode);
+        }
+
+
+    } else {
+        dataTransferContainer =
+            Neon::set::Container::factoryDataTransfer(
+                *this,
+                transferMode,
+                stencilSemantic,
+                transfers,
+                execution);
+        const auto& dataTransferNode = graph.addNode(dataTransferContainer);
+        parallelTransferNodes.push_back(dataTransferNode);
+
+    }
+
+    for (auto const& dataTransferNode : parallelTransferNodes) {
+        switch (transferMode) {
+            case Neon::set::TransferMode::put:
+                graph.addDependency(dataTransferNode, syncNode, Neon::GraphDependencyType::data);
+                break;
+            case Neon::set::TransferMode::get:
+                graph.addDependency(syncNode, dataTransferNode, Neon::GraphDependencyType::data);
+                break;
+            default:
+                NEON_THROW_UNSUPPORTED_OPTION();
+                break;
+        }
     }
 
     graph.removeRedundantDependencies();
