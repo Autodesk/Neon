@@ -8,44 +8,55 @@
 #if !defined(NEON_WARP_COMPILATION)
 #include "cuda_fp16.h"
 #endif
-#include "dIndex.h"
-namespace Neon::domain::details::dGrid {
+#include "Layout.h"
+#include "Neon/core/tools/io/ioToVTK.h"
+#include "Neon/domain/details/Dense/Idx.h"
+#include "Neon/domain/interface/GridConcept.h"
+
+namespace Neon::domain::details::Dense {
+
+// Forward declarations
+template <int Layout>
+class Span;
 
 /**
- * Local representation for the dField for one device
- * works as a wrapper for the mem3d which represent the allocated memory on a
- * single device.
+ * Dense Grid Partition type - satisfies the Neon::Partition concept
+ * Local representation for the Dense field for one device
+ * Works as a wrapper for the allocated memory on a single device
+ * Provides access to partition data, indexing, and neighbor operations
  **/
 
-template <typename T, int C = 0>
-class dPartition
+template <int Layout, typename T, int C = 0>
+class Partition
 {
    public:
-    using PartitionIndexSpace = dSpan;
-    using Span = dSpan;
-    using Self = dPartition<T, C>;
-    using Idx = dIndex;
+    using Span = Neon::domain::details::Dense::Span<Layout>;
+    using Self = Partition<Layout, T, C>;
+    using Idx = Neon::domain::details::Dense::Idx;
     using NghIdx = int8_3d;
     using NghData = Neon::domain::NghData<T>;
     using Type = T;
     using Pitch = Neon::size_4d;
 
+    // Required by Neon::Partition concept
+    static constexpr int Cardinality = C;
+
    public:
-    dPartition() = default;
+    Partition() = default;
 
-    ~dPartition() = default;
+    ~Partition() = default;
 
-    explicit dPartition(Neon::DataView dataView,
-                        T*             mem,
-                        Neon::index_3d dim,
-                        int            zHaloRadius,
-                        int            zBoundaryRadius,
-                        Pitch          pitch,
-                        int            prtID,
-                        Neon::index_3d origin,
-                        int            cardinality,
-                        Neon::index_3d fullGridSize,
-                        NghIdx*        stencil = nullptr)
+    explicit Partition(Neon::DataView dataView,
+                       T*             mem,
+                       Neon::index_3d dim,
+                       int            zHaloRadius,
+                       int            zBoundaryRadius,
+                       Pitch          pitch,
+                       int            prtID,
+                       Neon::index_3d origin,
+                       int            cardinality,
+                       Neon::index_3d fullGridSize,
+                       NghIdx*        stencil = nullptr)
         : mDataView(dataView),
           mDim(dim),
           mMem(mem),
@@ -78,28 +89,31 @@ class dPartition
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
-    cardinality()
+    numComponents()
         const -> int
     {
         return mCardinality;
     }
 
-    inline NEON_CUDA_HOST_DEVICE auto
-    getPitchData()
-        const -> const Pitch&
-    {
-        return mPitch;
-    }
+    // inline NEON_CUDA_HOST_DEVICE auto
+    // getPitchData()
+    //     const -> const Pitch&
+    // {
+    //     return mPitch;
+    // }
 
     inline NEON_CUDA_HOST_DEVICE auto
-    getPitch(const Idx& idx,
-             int        cardinalityIdx = 0)
+    helpPitch(const Idx& idx,
+              int        componentIdx)
         const -> int64_t
     {
+        if constexpr (Layout == int(Neon::domain::details::Dense::Layout::ArrayOfStructs)) {
+
+        }
         return idx.getLocation().x * int64_t(mPitch.x) +
                idx.getLocation().y * int64_t(mPitch.y) +
                idx.getLocation().z * int64_t(mPitch.z) +
-               cardinalityIdx * int64_t(mPitch.w);
+               componentIdx * int64_t(mPitch.w);
     }
 
     inline NEON_CUDA_HOST_DEVICE auto
@@ -131,7 +145,7 @@ class dPartition
     {
         Idx        gidxNgh;
         const bool isValidNeighbour = helpGetNghIdx(gidx, nghOffset, gidxNgh);
-        Type val;
+        Type       val;
         if (isValidNeighbour) {
             val = operator()(gidxNgh, card);
         }
@@ -403,6 +417,13 @@ class dPartition
     NEON_CUDA_HOST_DEVICE inline auto
     getGlobalIndex(const Idx& local) const -> Neon::index_3d
     {
+        //        assert(local.mLocation.x >= 0 &&
+        //               local.mLocation.y >= 0 &&
+        //               local.mLocation.z >= m_zHaloRadius &&
+        //               local.mLocation.x < m_dim.x &&
+        //               local.mLocation.y < m_dim.y &&
+        //               local.mLocation.z < m_dim.z + m_zHaloRadius);
+
         Neon::index_3d result = local.mLocation;
         result.z = result.z + mOrigin.z - mZHaloRadius;
         return result;
@@ -433,15 +454,15 @@ class dPartition
         auto haloOrigin = Vec_3d<double>(mOrigin.x, mOrigin.y, mOrigin.z - mZHaloRadius);
         auto haloDim = mDim + Neon::index_3d(0, 0, 2 * mZHaloRadius) + 1;
 
-        IoToVTK<int, int64_t> io(fnameCommplete,
-                                 haloDim,
-                                 Vec_3d<double>(1, 1, 1),
-                                 haloOrigin,
-                                 Neon::IoFileType::ASCII);
+        Neon::IoToVTK<int, int64_t> io(fnameCommplete,
+                                       haloDim,
+                                       Vec_3d<double>(1, 1, 1),
+                                       haloOrigin,
+                                       Neon::IoFileType::ASCII);
 
 
         io.addField([&](const Neon::index_3d& idx, int i) {
-            return operator()(dIndex(idx), i);
+            return operator()(Self::Idx(idx), i);
         },
                     mCardinality, "Partition", ioToVTKns::VtiDataType_e::voxel);
 
@@ -480,34 +501,6 @@ class dPartition
         return s.str();
     }
 
-#if !defined(NEON_WARP_COMPILATION)
-    inline static void getOffsets(size_t* offsets, size_t* length)
-    {
-        // std::cout << "dGrid_dField_dPartition cpp offsets: " << offsetof(dSpan, mDataView) << " " << offsetof(dSpan, mZghostRadius) << " " << offsetof(dSpan, mZboundaryRadius) << " " << offsetof(dSpan, mMaxZInDomain) << " " << offsetof(dSpan, mSpanDim) << " " <<  std::endl;
-        static std::vector<size_t> cpp_offsets = {
-            offsetof(dPartition, mDataView),
-            offsetof(dPartition, mDim),
-            offsetof(dPartition, mMem),
-            offsetof(dPartition, mZHaloRadius),
-            offsetof(dPartition, mZBoundaryRadius),
-            offsetof(dPartition, mPitch.x),
-            offsetof(dPartition, mPitch.y),
-            offsetof(dPartition, mPitch.z),
-            offsetof(dPartition, mPitch.w),
-            offsetof(dPartition, mPrtID),
-            offsetof(dPartition, mOrigin),
-            offsetof(dPartition, mCardinality),
-            offsetof(dPartition, mFullGridSize),
-            offsetof(dPartition, mPeriodicZ),
-            offsetof(dPartition, mStencil),
-        };
-
-        *length = cpp_offsets.size();
-        for (size_t i = 0; i < cpp_offsets.size(); ++i) {
-            offsets[i] = cpp_offsets[i];
-        }
-    }
-#endif
 
    private:
     Neon::DataView        mDataView;
@@ -524,5 +517,6 @@ class dPartition
     NghIdx* NEON_RESTRICT mStencil;
 };
 
+// Note: Static assertion for concept compliance moved to avoid incomplete type issues
 
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::details::Dense

@@ -1,25 +1,25 @@
 #pragma once
-#include "dField.h"
+#include "Neon/domain/details/Dense/Field.h"
 
-namespace Neon::domain::details::dGrid {
+namespace Neon::domain::details::Dense {
 
-template <typename T, int C>
-dField<T, C>::dField()
+template <int Layout, typename T, int C>
+Field<Layout, T, C>::Field()
 {
     mData = std::make_shared<Data>();
 }
 
-template <typename T, int C>
-dField<T, C>::dField(const std::string&                        fieldUserName,
-                     Neon::DataUse                             dataUse,
-                     const Neon::MemoryOptions&                memoryOptions,
-                     const Grid&                               grid,
-                     const Neon::set::DataSet<Neon::index_3d>& dims,
-                     int                                       zHaloRadius,
-                     Neon::domain::haloStatus_et::e            haloStatus,
-                     int                                       cardinality,
-                     Neon::set::MemSet<Neon::int8_3d>&         stencilIdTo3dOffset,
-                     bool                                      multiStreamHaloUpdate)
+template <int Layout, typename T, int C>
+Field<Layout, T, C>::Field(const std::string&                                fieldUserName,
+                           Neon::DataUse                                     dataUse,
+                           const Neon::MemoryOptions&                        memoryOptions,
+                           const Neon::domain::details::Dense::Grid<Layout>& grid,
+                           const Neon::set::DataSet<Neon::index_3d>&         dims,
+                           int                                               zHaloRadius,
+                           Neon::domain::haloStatus_et::e                    haloStatus,
+                           int                                               cardinality,
+                           Neon::set::MemSet<Neon::int8_3d>&                 stencilIdTo3dOffset,
+                           bool                                              multiStreamHaloUpdate)
     : Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>(&grid,
                                                                              fieldUserName,
                                                                              "dField",
@@ -72,7 +72,8 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
             [&](Neon::SetIdx setIdx, Neon::size_4d& pitch) {
                 switch (mData->memoryOptions.getOrder()) {
                     case MemoryLayout::structOfArrays: {
-                        pitch.template operator[]<0> = pitch.x * dims[setIdx.idx()].x;
+                        pitch.x = 1;
+                        pitch.y = pitch.x * dims[setIdx.idx()].x;
                         pitch.z = pitch.y * dims[setIdx.idx()].y;
                         pitch.w = pitch.z * (dims[setIdx.idx()].z + 2 * haloRadius);
                         break;
@@ -250,24 +251,24 @@ dField<T, C>::dField(const std::string&                        fieldUserName,
 }
 
 
-template <typename T, int C>
-auto dField<T, C>::updateDeviceData(int streamSetId)
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::updateDeviceData(int streamSetId)
     -> void
 {
     mData->memoryField.updateDeviceData(streamSetId);
 }
 
-template <typename T, int C>
-auto dField<T, C>::updateHostData(int streamSetId)
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::updateHostData(int streamSetId)
     -> void
 {
     mData->memoryField.updateHostData(streamSetId);
 }
 
-template <typename T, int C>
-auto dField<T, C>::getPartition(Neon::Execution       execution,
-                                Neon::SetIdx          setIdx,
-                                const Neon::DataView& dataView)
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::getPartition(Neon::Execution       execution,
+                                       Neon::SetIdx          setIdx,
+                                       const Neon::DataView& dataView)
     const
     -> const Partition&
 {
@@ -282,10 +283,10 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
-template <typename T, int C>
-auto dField<T, C>::getPartition(Neon::Execution       execution,
-                                Neon::SetIdx          setIdx,
-                                const Neon::DataView& dataView)
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::getPartition(Neon::Execution       execution,
+                                       Neon::SetIdx          setIdx,
+                                       const Neon::DataView& dataView)
     -> Partition&
 {
     const auto dataUse = this->getDataUse();
@@ -299,9 +300,9 @@ auto dField<T, C>::getPartition(Neon::Execution       execution,
     NEON_THROW_UNSUPPORTED_OPERATION(message.str());
 }
 
-template <typename T, int C>
-auto dField<T, C>::operator()(const Neon::index_3d& idxGlobal,
-                              const int&            cardinality) const
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::operator()(const Neon::index_3d& idxGlobal,
+                                     const int&            cardinality) const
     -> Type
 {
     auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
@@ -319,9 +320,9 @@ auto dField<T, C>::operator()(const Neon::index_3d& idxGlobal,
     return result;
 }
 
-template <typename T, int C>
-auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
-                                const int&            cardinality)
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::getReference(const Neon::index_3d& idxGlobal,
+                                       const int&            cardinality)
     -> Type&
 {
     auto [localIDx, partitionIdx] = helpGlobalIdxToPartitionIdx(idxGlobal);
@@ -339,8 +340,8 @@ auto dField<T, C>::getReference(const Neon::index_3d& idxGlobal,
     return result;
 }
 
-template <typename T, int C>
-auto dField<T, C>::initHaloUpdateTable()
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::initHaloUpdateTable()
     -> void
 {
     auto& grid = this->getGrid();
@@ -610,8 +611,8 @@ auto dField<T, C>::initHaloUpdateTable()
 }
 
 
-template <typename T, int C>
-auto dField<T, C>::ioToVtiPartitions(std::string const& fname) const -> void
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::ioToVtiPartitions(std::string const& fname) const -> void
 {
     auto bk = mData->grid->getBackend();
     bk.forEachDeviceSeq([&](Neon::SetIdx setIdx) {
@@ -620,8 +621,8 @@ auto dField<T, C>::ioToVtiPartitions(std::string const& fname) const -> void
     });
 }
 
-template <typename T, int C>
-auto dField<T, C>::
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::
     newHaloUpdate(Neon::set::StencilSemantic stencilSemantic,
                   Neon::set::TransferMode    transferMode,
                   Neon::Execution            execution)
@@ -737,46 +738,46 @@ auto dField<T, C>::
     return output;
 }
 
-template <typename T, int C>
-auto dField<T, C>::self() -> dField::Self&
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::self() -> Field::Self&
 {
     return *this;
 }
 
-template <typename T, int C>
-auto dField<T, C>::self() const -> const dField::Self&
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::self() const -> const Field::Self&
 {
     return *this;
 }
 
-template <typename T, int C>
-auto dField<T, C>::constSelf() const -> const dField::Self&
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::constSelf() const -> const Field::Self&
 {
     return *this;
 }
 
-template <typename T, int C>
-auto dField<T, C>::swap(dField::Field& A, dField::Field& B) -> void
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::swap(Field& A, Field& B) -> void
 {
     Neon::domain::interface::FieldBaseTemplate<T, C, Grid, Partition, int>::swapUIDBeforeFullSwap(A, B);
     std::swap(A, B);
 }
 
-template <typename T, int C>
-auto dField<T, C>::optionMultiStreamHaloUpdate(bool status) -> void
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::optionMultiStreamHaloUpdate(bool status) -> void
 {
     this->mData->multiStreamHaloUpdate = status;
 }
 
-template <typename T, int C>
-auto dField<T, C>::getData()
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::getData()
     -> Data&
 {
     return *(mData.get());
 }
 
-template <typename T, int C>
-auto dField<T, C>::helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
+template <int Layout, typename T, int C>
+auto Field<Layout, T, C>::helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
     const -> std::pair<Neon::index_3d, int>
 {
     Neon::index_3d result = index;
@@ -805,4 +806,4 @@ auto dField<T, C>::helpGlobalIdxToPartitionIdx(Neon::index_3d const& index)
     NEON_THROW(exc);
 }
 
-}  // namespace Neon::domain::details::dGrid
+}  // namespace Neon::domain::details::Dense

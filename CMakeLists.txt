@@ -36,8 +36,8 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 include("${PROJECT_SOURCE_DIR}/cmake/LoadingExternalGitRepositories.cmake")
 
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -48,7 +48,7 @@ option(NEON_ACTIVATE_TRACING
 
 # Definition of the target interface NeonDeveloperLib
 add_library(NeonDeveloperLib INTERFACE)
-target_compile_features(NeonDeveloperLib INTERFACE cxx_std_17)
+target_compile_features(NeonDeveloperLib INTERFACE cxx_std_20)
 
 if (NEON_ACTIVATE_TRACING)
     target_compile_definitions(NeonDeveloperLib INTERFACE NEON_ACTIVATE_TRACING)

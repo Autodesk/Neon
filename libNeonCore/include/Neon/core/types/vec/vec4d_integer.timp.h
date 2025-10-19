@@ -144,6 +144,21 @@ NEON_CUDA_HOST_DEVICE inline constexpr auto Vec_4d<IntegerType_ta, true, false>:
     return &x;
 }
 
+template <typename IntegerType_ta>
+NEON_CUDA_HOST_DEVICE inline constexpr auto Vec_4d<IntegerType_ta, true, false>::
+    operator[](int idx)
+        const -> IntegerType_ta
+{
+    return (&x)[idx];
+}
+
+template <typename IntegerType_ta>
+NEON_CUDA_HOST_DEVICE inline constexpr auto Vec_4d<IntegerType_ta, true, false>::
+        operator[](int idx)-> IntegerType_ta&
+{
+    return (&x)[idx];
+}
+
 //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
 //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
 //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------

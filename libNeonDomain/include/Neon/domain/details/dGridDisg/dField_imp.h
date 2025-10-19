@@ -387,11 +387,11 @@ auto dField<T, C>::initHaloUpdateTable()
                                                    {setIdxSrc, srcMem + beginBoundary[Data::EndPoints::src][static_cast<int>(byDirection)]},
                                                    sizeof(T) * transferSize);
                 if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                    return;
+                    transfer.size = 0;
                 }
 
                 if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                    return;
+                    transfer.size = 0;
                 }
 
                 // std::cout << transfer.toString() << std::endl;
@@ -454,11 +454,11 @@ auto dField<T, C>::initHaloUpdateTable()
                                                    {setIdxSrc, srcMem + beginBoundary[Data::EndPoints::src][static_cast<int>(byDirection)]},
                                                    sizeof(T) * transferSize);
                 if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                    return;
+                    transfer.size = 0;
                 }
 
                 if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                    return;
+                    transfer.size = 0;
                 }
 
                 // std::cout << transfer.toString() << std::endl;
@@ -482,6 +482,13 @@ auto dField<T, C>::initHaloUpdateTable()
                 partitions[Data::EndPoints::src] = &this->getPartition(execution, setIdxSrc, Neon::DataView::STANDARD);
 
                 size_t const transferByteOneCardinality = [&] {
+                    if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
+                        return size_t(0);
+                    }
+
+                    if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
+                        return size_t(0);
+                    }
                     typename Data::EndPoints anyEndPoint = Data::EndPoints::dst;
                     size_t                   res =
                         partitions[anyEndPoint]->dim().x *
@@ -514,14 +521,6 @@ auto dField<T, C>::initHaloUpdateTable()
                     size_t(partitions[Data::EndPoints::dst]->dim().z + 1) *
                     this->getCardinality();
 
-                if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
-                    return;
-                }
-
-                if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
-                    return;
-                }
-
                 bool canBeFusedWithPrevious = false;
                 for (int j = 0; j < this->getCardinality(); j++) {
                     auto const& stencil = this->getGrid().getStencil();
@@ -538,22 +537,37 @@ auto dField<T, C>::initHaloUpdateTable()
                                                                        size_t(partitions[Data::EndPoints::dst]->dim().x) * size_t(partitions[Data::EndPoints::dst]->dim().y) * size_t(j)},
                                                        transferByteOneCardinality);
 
+                    if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
+                        transfer.size = 0;
+                    }
+
+                    if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
+                        transfer.size = 0;
+                    }
+
                     if (ByDirection::up == byDirection && !(stencil.points()[j].z > 0)) {
-                        std::cout << "j " << j << " " << stencil.points()[j] << "skipped" << std::endl;
+                        // std::cout << "j " << j << " " << stencil.points()[j] << "skipped" << std::endl;
                         canBeFusedWithPrevious = false;
                         continue;
                     }
                     if (ByDirection::down == byDirection && !(stencil.points()[j].z < 0)) {
-                        std::cout << "j " << j << " " << stencil.points()[j] << "skipped" << std::endl;
+                        // std::cout << "j " << j << " " << stencil.points()[j] << "skipped" << std::endl;
                         canBeFusedWithPrevious = false;
                         continue;
                     }
                     if (canBeFusedWithPrevious) {
-                        transfersVec[transfersVec.size()-1].size += transferByteOneCardinality;
-                        std::cout << "j " << j << " " << stencil.points()[j] << "fused" << std::endl;
+                        if (ByDirection::up == byDirection && bk.isLastDevice(setIdxSrc)) {
+                            continue;
+                        }
+
+                        if (ByDirection::down == byDirection && bk.isFirstDevice(setIdxSrc)) {
+                            continue;
+                        }
+                        transfersVec[transfersVec.size() - 1].size += transferByteOneCardinality;
+                        // std::cout << "j " << j << " " << stencil.points()[j] << "fused" << std::endl;
                     } else {
                         transfersVec.push_back(transfer);
-                        std::cout << "j " << j << " " << stencil.points()[j] << "added " << transfer.toString() << std::endl;
+                        // std::cout << "j " << j << " " << stencil.points()[j] << "added " << transfer.toString() << std::endl;
                         canBeFusedWithPrevious = true;
                     }
                 }

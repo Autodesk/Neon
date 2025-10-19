@@ -1,0 +1,104 @@
+#pragma once
+#include "Neon/set/DevSet.h"
+#include "Neon/domain/details/Dense/Idx.h"
+#include "Neon/set/ExecutionThreadSpan.h"
+#include "Neon/domain/interface/GridConcept.h"
+#include <vector>
+
+#include "Layout.h"
+
+namespace Neon::domain::details::Dense
+{
+    // Forward declaration
+    template <int Layout>
+    struct  Grid;
+    /**
+     * Dense Grid Span type - satisfies the Neon::Span concept
+     * Abstraction that represents the Cell space of a partition
+     * This abstraction is used by the neon lambda executor to
+     * run a containers on Dense grids
+     */
+    template <int Layout>
+    struct Span
+    {
+    public:
+        friend struct  Neon::domain::details::Dense::Grid<Layout>;
+
+    
+        using Idx = Neon::domain::details::Dense::Idx;
+        using Grid = Neon::domain::details::Dense::Grid<Layout>;
+
+        // Required by Neon::Span concept
+        static constexpr Neon::set::details::ExecutionThreadSpan executionThreadSpan =
+            Neon::set::details::ExecutionThreadSpan::d3;
+        using ExecutionThreadSpanIndexType = uint32_t;
+
+        // Default constructor (required by Neon::Span concept)
+        Span() = default;
+        
+        // Copy constructor (required by Neon::Span concept)  
+        Span(const Span&) = default;
+        
+        // Assignment operator
+        Span& operator=(const Span&) = default;
+
+
+        NEON_CUDA_HOST_DEVICE inline auto
+        setAndValidate(Idx& idx,
+                       const ExecutionThreadSpanIndexType& x,
+                       const ExecutionThreadSpanIndexType& y,
+                       const ExecutionThreadSpanIndexType& z) const
+            -> bool;
+
+        NEON_CUDA_HOST_DEVICE inline auto
+        setAndValidate_warp(Idx& idx,
+                            const ExecutionThreadSpanIndexType& x,
+                            const ExecutionThreadSpanIndexType& y,
+                            const ExecutionThreadSpanIndexType& z) const
+            -> void;
+
+        /**
+         * Funcion to be called by the C++ via the Neon-warp runtime
+         * @tparam DataSetContainer
+         * @param idx
+         * @return
+         */
+        template<typename DataSetContainer>
+        NEON_CUDA_HOST_DEVICE inline auto
+        setAndValidate_warp(Idx& idx) const
+        -> bool;
+
+        NEON_CUDA_HOST_DEVICE inline auto
+        helpGetDataView()
+        const -> Neon::DataView const&;
+
+        NEON_CUDA_HOST_DEVICE inline auto
+        helpGetZHaloRadius()
+        const -> int const&;
+
+        NEON_CUDA_HOST_DEVICE inline auto
+        helpGetZBoundaryRadius()
+        const -> int const&;
+
+        NEON_CUDA_HOST_DEVICE inline auto
+        helpGetDim()
+        const -> Neon::index_3d const&;
+
+#if !defined(NEON_WARP_COMPILATION)
+        // Function to get offsets of member variables
+        static void getOffsets(size_t* offsets, size_t* length);
+#endif
+
+    private:
+        Neon::DataView mDataView;
+        int mZghostRadius;
+        int mZboundaryRadius;
+        int mMaxZInDomain;
+        Neon::index_3d mSpanDim /** Dimension of the span, its values depends on the mDataView*/;
+    };
+
+    // Note: Static assertion for concept compliance moved to avoid incomplete type issues
+
+} // namespace Neon::domain::details::Dense
+
+#include "Span.imp.h"

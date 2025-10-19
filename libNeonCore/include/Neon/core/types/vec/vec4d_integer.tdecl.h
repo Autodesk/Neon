@@ -126,6 +126,15 @@ class Vec_4d<IntegerType_ta, true, false>
 
     NEON_CUDA_HOST_DEVICE inline auto constexpr getVectorView() const -> const Integer*;
 
+    NEON_CUDA_HOST_DEVICE inline auto constexpr operator[](int) const -> Integer;
+    NEON_CUDA_HOST_DEVICE inline auto constexpr operator[](int)  -> Integer&;
+
+    template<int Idx>
+    NEON_CUDA_HOST_DEVICE inline auto constexpr get() const -> Integer;
+
+    template<int Idx>
+    NEON_CUDA_HOST_DEVICE inline auto constexpr get()  -> Integer&;
+
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
     //---- [REDUCE SECTION] --------------------------------------------------------------------------------------------
