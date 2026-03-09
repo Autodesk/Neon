@@ -73,6 +73,9 @@ target_include_directories(NeonDeveloperLib INTERFACE ${CMAKE_CUDA_TOOLKIT_INCLU
 if (${BUILD_NEON_SHARED_LIBS})
     set_property(TARGET NeonDeveloperLib PROPERTY POSITION_INDEPENDENT_CODE ON)
     set_property(TARGET NeonDeveloperLib PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+    # Set RPATH to $ORIGIN so shared libraries can find each other in the same directory
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif ()
 
 if (${NEON_USE_NVTX})

@@ -1,0 +1,72 @@
+[build-system]
+requires = ["scikit-build-core>=0.8"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "neon-gpu"
+version = "0.3.3"
+description = "Neon: A GPU computing library with Python bindings (includes bundled Warp)"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Neon Authors"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "numpy>=1.20.0",
+    "nvtx>=0.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+
+[project.urls]
+Homepage = "https://github.com/neon-project/neon"
+Repository = "https://github.com/neon-project/neon"
+
+[tool.scikit-build]
+cmake.version = ">=3.19"
+cmake.build-type = "Release"
+build.verbose = true
+ninja.version = ">=1.10"
+
+# Include both neon and warp packages
+wheel.packages = ["py/neon", "extern/warp/warp"]
+
+# Include Warp's binary .so files
+wheel.exclude = []
+
+# CMake configuration
+cmake.args = [
+    "-DBUILD_NEON_SHARED_LIBS=ON",
+    "-DBUILD_NEON_TESTING=OFF",
+    "-DNEON_BUILD_FOR_ALL_GPUS=ON",
+]
+
+[tool.scikit-build.cmake.define]
+BUILD_NEON_SHARED_LIBS = "ON"
+BUILD_NEON_TESTING = "OFF"
+NEON_BUILD_FOR_ALL_GPUS = "ON"
+
+# Ensure all files in warp package are included (including .so files)
+[tool.setuptools.package-data]
+warp = ["bin/*.so", "native/*.h", "native/**/*.h"]

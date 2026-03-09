@@ -64,4 +64,6 @@ set(NeonCUDAFlags
         -Xptxas -warn-spills -res-usage
         --ptxas-options=-v
         --relocatable-device-code=true
+        # CUDA 12.x compatibility: include cuda/std headers to fix '::cuda' not declared errors
+        -include cuda/std/tuple
         )

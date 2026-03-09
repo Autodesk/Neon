@@ -1,0 +1,30 @@
+# Include CMake files
+include CMakeLists.txt
+recursive-include cmake *.cmake
+
+# Include C++ source and headers
+recursive-include libNeonCore *.cpp *.h *.hpp *.cu *.cuh
+recursive-include libNeonSys *.cpp *.h *.hpp *.cu *.cuh
+recursive-include libNeonSet *.cpp *.h *.hpp *.cu *.cuh
+recursive-include libNeonDomain *.cpp *.h *.hpp *.cu *.cuh
+recursive-include libNeonSkeleton *.cpp *.h *.hpp *.cu *.cuh
+recursive-include libNeonPy *.cpp *.h *.hpp *.cu *.cuh
+recursive-include libNeonPy CMakeLists.txt
+
+# Include Python source
+recursive-include py/neon *.py *.h
+
+# Include documentation
+include README.md
+include LICENSE
+
+# Exclude build artifacts
+global-exclude __pycache__
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.so
+global-exclude *.dylib
+global-exclude *.dll
+prune build
+prune build2
+prune .git

@@ -7,6 +7,10 @@
 #include "Neon/py/macros.h"
 #include "Neon/set/Backend.h"
 
+#if __CUDACC_VER_MAJOR__ >= 12
+#include <cuda/std/tuple>
+#endif
+
 #include "Neon/domain/operator.h"
 
 // Workaround for CUDA 12.8+ namespace issue

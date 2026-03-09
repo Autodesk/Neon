@@ -1,19 +1,49 @@
 import ctypes
 import os
+import sys
 import warp as wp
+
+
+def _find_neon_library():
+    """Find the libNeonPy shared library in various locations."""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    if sys.platform == "win32":
+        lib_name = "liblibNeonPy.dll"
+    elif sys.platform == "darwin":
+        lib_name = "liblibNeonPy.dylib"
+    else:
+        lib_name = "liblibNeonPy.so"
+    
+    search_paths = [
+        os.path.join(current_dir, lib_name),
+        os.path.join(current_dir, "..", "..", "build", "libNeonPy", lib_name),
+        os.path.join(current_dir, "..", "..", "build2", "libNeonPy", lib_name),
+    ]
+    
+    env_path = os.environ.get("NEON_LIB_PATH")
+    if env_path:
+        search_paths.insert(0, os.path.join(env_path, lib_name))
+        search_paths.insert(0, env_path)
+    
+    for path in search_paths:
+        if os.path.isfile(path):
+            return path
+    
+    raise FileNotFoundError(
+        f"Could not find {lib_name}. Searched paths:\n" +
+        "\n".join(f"  - {p}" for p in search_paths) +
+        "\n\nSet NEON_LIB_PATH environment variable to the directory containing the library."
+    )
 
 
 class Gate(object):
     def __init__(self):
         self.handle_type = ctypes.c_void_p
-        # get the path of this python file
-        current_file_path = os.path.abspath(__file__)
-        # get the directory containing the script
-        lib_path = os.path.dirname(current_file_path) + "/../../build/libNeonPy/liblibNeonPy.so"
-        # move up two folders with respec to script_dir
+        lib_path = _find_neon_library()
 
         try:
-            self.lib =    ctypes.CDLL(lib_path)
+            self.lib = ctypes.CDLL(lib_path)
         except Exception as e:
             print(f"Failed to load library: {lib_path}")
             raise e

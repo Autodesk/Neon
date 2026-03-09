@@ -1,0 +1,6 @@
+numpy>=1.20.0
+nvtx>=0.2.0
+
+# Note: Warp is bundled in the neon-gpu wheel, so no separate warp installation is needed.
+# If building from source, you need to build Warp first:
+#   cd extern/warp && python build_lib.py && cd ../..

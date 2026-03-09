@@ -71,3 +71,11 @@ py/tests/Neon.log
 *.vtk
 
 py/neon/.idea/
+
+# Ignore extern except for warp submodule
+extern/*
+!extern/warp
+
+dist/
+
+*.log

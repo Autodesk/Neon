@@ -43,3 +43,22 @@ endif()
 target_include_directories(libNeonPy PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} PREFIX "libNeonPy" FILES ${libNeonPyFiles})
+
+# Install all shared libraries for Python packaging
+install(TARGETS libNeonPy libNeonCore libNeonSys libNeonSet libNeonDomain libNeonSkeleton
+    LIBRARY DESTINATION neon
+    RUNTIME DESTINATION neon
+)
+
+# Install Warp's pre-built shared libraries
+set(WARP_BIN_DIR "${PROJECT_SOURCE_DIR}/extern/warp/warp/bin")
+if(EXISTS "${WARP_BIN_DIR}/warp.so")
+    install(FILES 
+        "${WARP_BIN_DIR}/warp.so"
+        "${WARP_BIN_DIR}/warp-clang.so"
+        DESTINATION warp/bin
+    )
+    message(STATUS "Including Warp binaries from ${WARP_BIN_DIR}")
+else()
+    message(WARNING "Warp binaries not found at ${WARP_BIN_DIR}. Run 'python build_lib.py' in extern/warp first.")
+endif()
