@@ -9,11 +9,12 @@
 
 #include "Neon/domain/operator.h"
 
-// Workaround for CUDA 12.8 namespace issue
-#if defined(__CUDACC__) && CUDA_VERSION >= 12080 && CUDA_VERSION < 13000
+// Workaround for CUDA 12.8+ namespace issue
+#if defined(__CUDACC__) && CUDA_VERSION >= 12080
 #define THRUST_IGNORE_DEPRECATED_CPP_DIALECT
 #include <cuda/std/functional>
 #include <cuda/std/utility>
+#include <cuda/std/iterator>
 #endif
 template <typename T>
 auto mGrid_mField_fill(
