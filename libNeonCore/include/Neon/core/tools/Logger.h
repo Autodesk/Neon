@@ -44,8 +44,25 @@ public:
         mLogger->flush_on(level);
     }
 
+    /**
+     * @brief Enable or disable INFO level logging at runtime.
+     * @param enabled If true, NEON_INFO messages are logged; if false, they are suppressed.
+     */
+    inline void setInfoEnabled(bool enabled) { mInfoEnabled = enabled; }
+
+    /**
+     * @brief Check if INFO level logging is enabled.
+     * @return true if NEON_INFO messages are logged, false otherwise.
+     */
+    inline bool isInfoEnabled() const { return mInfoEnabled; }
+
 private:
     std::shared_ptr<spdlog::logger> mLogger;    ///< Underlying spdlog logger.
+#if defined(NEON_INFO_DEFAULT_OFF)
+    bool mInfoEnabled = false;                  ///< Runtime flag to enable/disable INFO logging (default: OFF).
+#else
+    bool mInfoEnabled = true;                   ///< Runtime flag to enable/disable INFO logging (default: ON).
+#endif
 };
 
 namespace globalSpace {
@@ -85,10 +102,15 @@ LIBNEONCORE_EXPORT extern Logger LoggerObj;
  * @param ... Format arguments.
  *
  * Logs an info message with category prepended.
+ * Can be disabled at runtime via Neon::globalSpace::LoggerObj.setInfoEnabled(false).
  */
 #define NEON_INFO(cat, fmt, ...)                                      \
-    ::Neon::globalSpace::LoggerObj.getLogger()                       \
-        ->info("[{}] " fmt, cat, ##__VA_ARGS__)
+    do {                                                              \
+        if (::Neon::globalSpace::LoggerObj.isInfoEnabled()) {         \
+            ::Neon::globalSpace::LoggerObj.getLogger()                \
+                ->info("[{}] " fmt, cat, ##__VA_ARGS__);              \
+        }                                                             \
+    } while(0)
 
 /**
  * @brief Warning-level logging macro.

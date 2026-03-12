@@ -7,7 +7,7 @@ import warp as wp
 __version__ = "0.5.2a1"
 
 # from .py_ne import neon
-from .gate import Gate
+from .gate import Gate, _find_neon_library
 from .dataView import DataView
 from .memoryType import MemoryType
 from .execution import Execution
@@ -28,6 +28,53 @@ from .skeletonConfig import SkeletonConfig
 from .skeleton import Skeleton
 
 from .tool import report
+
+
+# Lazy-loaded library reference for logging control
+_neon_lib = None
+
+
+def _get_neon_lib():
+    """Get the loaded Neon library (lazy initialization)."""
+    global _neon_lib
+    if _neon_lib is None:
+        lib_path = _find_neon_library()
+        _neon_lib = ctypes.CDLL(lib_path)
+    return _neon_lib
+
+
+def set_info_logging(enabled: bool) -> None:
+    """
+    Enable or disable Neon INFO level logging at runtime.
+    
+    Args:
+        enabled: If True, INFO messages will be logged. If False, they will be suppressed.
+    
+    Example:
+        >>> import neon
+        >>> neon.set_info_logging(False)  # Disable INFO logging
+        >>> # ... run some Neon code quietly ...
+        >>> neon.set_info_logging(True)   # Re-enable INFO logging
+    """
+    lib = _get_neon_lib()
+    lib.neon_set_info_enabled(ctypes.c_int(1 if enabled else 0))
+
+
+def is_info_logging_enabled() -> bool:
+    """
+    Check if Neon INFO level logging is currently enabled.
+    
+    Returns:
+        True if INFO logging is enabled, False otherwise.
+    
+    Example:
+        >>> import neon
+        >>> neon.is_info_logging_enabled()
+        True
+    """
+    lib = _get_neon_lib()
+    lib.neon_is_info_enabled.restype = ctypes.c_int
+    return lib.neon_is_info_enabled() != 0
 
 
 def init():

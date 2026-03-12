@@ -49,12 +49,20 @@ option(NEON_ACTIVATE_TRACING
         "Enable NEON active tracing (defines NEON_ACTIVATE_TRACING)"
         OFF)
 
+option(NEON_INFO_DEFAULT_OFF
+        "Set default for INFO logging to OFF (can still be enabled at runtime)"
+        OFF)
+
 # Definition of the target interface NeonDeveloperLib
 add_library(NeonDeveloperLib INTERFACE)
 target_compile_features(NeonDeveloperLib INTERFACE cxx_std_17)
 
 if (NEON_ACTIVATE_TRACING)
     target_compile_definitions(NeonDeveloperLib INTERFACE NEON_ACTIVATE_TRACING)
+endif ()
+
+if (NEON_INFO_DEFAULT_OFF)
+    target_compile_definitions(NeonDeveloperLib INTERFACE NEON_INFO_DEFAULT_OFF)
 endif ()
 
 # Link with CUDA runtime (cudart)
@@ -132,6 +140,7 @@ message("||  CUDA Compile flags     : ${CMAKE_CUDA_FLAGS}")
 message("||  CUDA ARCHS             : ${CMAKE_CUDA_ARCHITECTURES}")
 message("||  NEON_USE_NVTX          : ${NEON_USE_NVTX}")
 message("||  NEON_ACTIVATE_TRACING  : ${NEON_ACTIVATE_TRACING}")
+message("||  NEON_INFO_DEFAULT_OFF  : ${NEON_INFO_DEFAULT_OFF}")
 #message("||  NeonCXXFlags           : ${NeonCXXFlags}")
 #message("||  NeonCUDAFlags          : ${NeonCUDAFlags}")
 message("\\===================================================")
