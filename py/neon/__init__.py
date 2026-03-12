@@ -4,7 +4,7 @@ from enum import Enum
 import os
 import warp as wp
 
-__version__ = "0.3.3"
+__version__ = "0.5.2a1"
 
 # from .py_ne import neon
 from .gate import Gate

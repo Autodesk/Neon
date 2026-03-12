@@ -5,8 +5,11 @@ set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
 
 #Project name 
 project(Neon
-        VERSION 0.3.3
+        VERSION 0.5.2
         LANGUAGES CXX C CUDA)
+
+# Full version including pre-release tag (for display purposes)
+set(NEON_VERSION_FULL "0.5.2a1")
 
 #Default build type is Release if no build type is passed by the user
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
@@ -108,7 +111,7 @@ add_subdirectory("libNeonPy")
 #-------------------------------------------------------------------#
 message("//===================================================")
 message("|| ${PROJECT_NAME} build configuration:")
-message("|| ${PROJECT_NAME} version : ${PROJECT_VERSION}")
+message("|| ${PROJECT_NAME} version : ${NEON_VERSION_FULL}")
 message("||===================================================")
 message("||  CMake version          : ${CMAKE_VERSION}")
 if (NOT CMAKE_BUILD_TYPE)

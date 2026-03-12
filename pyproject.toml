@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "neon-gpu"
-version = "0.3.3"
+version = "0.5.2a1"
 description = "Neon: A GPU computing library with Python bindings (includes bundled Warp)"
 readme = "README.md"
 license = {text = "BSD-3-Clause"}
