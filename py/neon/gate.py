@@ -1,11 +1,37 @@
+"""
+Gate Module for Neon Computing Framework
+
+This module provides the Gate class and library loading utilities that serve
+as the bridge between Python and the C++ Neon library.
+"""
+
 import ctypes
 import os
 import sys
 import warp as wp
 
 
-def _find_neon_library():
-    """Find the libNeonPy shared library in various locations."""
+def _find_neon_library() -> str:
+    """
+    Find the libNeonPy shared library.
+    
+    Searches for the native library in several locations:
+    1. Environment variable NEON_LIB_PATH (if set)
+    2. Same directory as this Python module (for wheel installs)
+    3. Build directories (for development)
+    
+    Returns:
+        str: Absolute path to the library file.
+    
+    Raises:
+        FileNotFoundError: If the library cannot be found in any location.
+    
+    Note:
+        The library name varies by platform:
+        - Linux: liblibNeonPy.so
+        - macOS: liblibNeonPy.dylib
+        - Windows: liblibNeonPy.dll
+    """
     current_dir = os.path.dirname(os.path.abspath(__file__))
     
     if sys.platform == "win32":
@@ -38,7 +64,42 @@ def _find_neon_library():
 
 
 class Gate(object):
+    """
+    Interface to the Neon C++ library via ctypes.
+    
+    The Gate class loads the libNeonPy shared library and provides type
+    mappings between Python/Warp types and C++ types. It serves as the
+    foundation for all Python-to-C++ communication in Neon.
+    
+    Attributes:
+        handle_type: The ctypes type used for C++ object handles (c_void_p).
+        lib: The loaded ctypes CDLL library object.
+        to_warp_types (dict): Mapping from type name strings to Warp types.
+        warp_type_to_string (dict): Mapping from Warp types to type name strings.
+        warp_type_to_cpp_type_string (dict): Mapping from Warp types to C++ type strings.
+        to_ctypes (dict): Mapping from type name strings to ctypes types.
+    
+    Example:
+        >>> gate = neon.Gate()
+        >>> gate.lib.backend_new(...)  # Call C++ function
+        >>> 
+        >>> # Get type mappings
+        >>> mapping = gate.get_type_mapping(wp.float32)
+        >>> print(mapping['ctype'])  # ctypes.c_float
+    
+    Note:
+        Most users don't need to interact with Gate directly. It is used
+        internally by Backend, Grid, Field, and other Neon classes.
+    """
+    
     def __init__(self):
+        """
+        Load the Neon library and initialize type mappings.
+        
+        Raises:
+            FileNotFoundError: If the Neon library cannot be found.
+            OSError: If the library fails to load (e.g., missing dependencies).
+        """
         self.handle_type = ctypes.c_void_p
         lib_path = _find_neon_library()
 
@@ -111,21 +172,43 @@ class Gate(object):
         }
 
 
-    def get_type_mapping(self, warp_type):
-        # returns the corresponding ctypes type
+    def get_type_mapping(self, warp_type) -> dict:
+        """
+        Get type mapping information for a Warp type.
+        
+        Returns a dictionary containing type information needed for C++ interop.
+        
+        Args:
+            warp_type: A Warp type (e.g., wp.float32, wp.int32).
+        
+        Returns:
+            dict: Type mapping with keys:
+                - 'suffix': Type name string (e.g., 'float32')
+                - 'ctype': Corresponding ctypes type
+                - 'warp': The original Warp type
+        
+        Raises:
+            Exception: If the Warp type is not supported.
+        
+        Example:
+            >>> gate = neon.Gate()
+            >>> mapping = gate.get_type_mapping(wp.float32)
+            >>> print(mapping['suffix'])  # 'float32'
+            >>> print(mapping['ctype'])   # <class 'ctypes.c_float'>
+        """
         ret = {}
         try:
-            ret['suffix']= self._get_suffix(warp_type)
-            ret['ctype']= self.to_ctypes[ret['suffix']]
+            ret['suffix'] = self._get_suffix(warp_type)
+            ret['ctype'] = self.to_ctypes[ret['suffix']]
             ret['warp'] = warp_type
             return ret
         except Exception as e:
             raise Exception(f"Unsupported warp type. {warp_type}: {str(e)}")
 
-
-    def _get_supported_wp_types(self):
-        # returns all values from the to_warp_types dictionary
+    def _get_supported_wp_types(self) -> list:
+        """Internal: Get list of all supported Warp types."""
         return list(self.to_warp_types.values())
 
-    def _get_suffix(self, wpType):
+    def _get_suffix(self, wpType) -> str:
+        """Internal: Get type name suffix for a Warp type."""
         return self.warp_type_to_string[wpType]

@@ -1,3 +1,11 @@
+"""
+Container Module for Neon Computing Framework
+
+This module provides the Container class and related decorators for defining
+and managing computational kernels in the Neon framework. Containers encapsulate
+GPU/CPU kernels with their data dependencies and execution configurations.
+"""
+
 import ast
 import copy
 import ctypes
@@ -14,19 +22,75 @@ import neon
 
 
 class Container:
-    # define an enum class
+    """
+    Encapsulates a computational kernel with its data dependencies.
+    
+    A Container wraps a Warp kernel along with metadata about which fields it
+    reads and writes. This information is used by the Skeleton to automatically
+    analyze dependencies and optimize execution order.
+    
+    Containers are typically created using the ``@neon.container`` decorator
+    rather than instantiating this class directly.
+    
+    Attributes:
+        name (str): The container's identifier.
+        execution (neon.Execution): Execution context (device or host).
+        grid (Grid): The grid this container operates on.
+        backend (Backend): The computational backend.
+        container_handle (ctypes.c_void_p): Handle to the C++ container object.
+    
+    Example:
+        Using the decorator (recommended):
+        
+        >>> @neon.container
+        ... def my_kernel_factory(field_a, field_b):
+        ...     def loader(l: neon.Loader):
+        ...         a = l.get_read_handle(field_a)
+        ...         b = l.get_write_handle(field_b)
+        ...         
+        ...         @neon.kernel(l)
+        ...         def compute(idx):
+        ...             b[idx, 0] = a[idx, 0] * 2.0
+        ...     return loader
+        >>> 
+        >>> container = my_kernel_factory(field_a, field_b)
+    
+    Note:
+        The loading lambda pattern allows field references to be captured at
+        container creation time while deferring kernel compilation.
+    """
+    
     class ContainerRuntime(Enum):
+        """
+        Runtime execution modes for containers.
+        
+        Attributes:
+            warp: Execute using Warp's native launcher (experimental).
+            neon: Execute using Neon's optimized runtime (default).
+        """
         warp = 1
         neon = 2
-
-    # This is a set of compiled executable modules loaded by Warp.
-    # When getting kernel hooks, we can retain the module references here
-    # to prevent them from being unloaded prematurely.
 
     def __init__(self,
                  name,
                  loading_lambda=None,
                  execution: neon.Execution = neon.Execution.device()):
+        """
+        Initialize a Container with a kernel loading function.
+        
+        Args:
+            name (str): Identifier for this container.
+            loading_lambda (callable): A function that takes a Loader and sets up
+                the kernel by declaring field handles and the compute function.
+            execution (neon.Execution, optional): Where to execute the kernel.
+                Defaults to device (GPU) execution.
+        
+        Raises:
+            Exception: If loading_lambda is None.
+        
+        Note:
+            Use the ``@neon.container`` decorator instead of instantiating directly.
+        """
 
         if loading_lambda is None:
             raise Exception('Container: Invalid loading lambda')
@@ -389,10 +453,29 @@ class Container:
                      data_view)
         nvtx.pop_range()
 
-    def run(self,
-            stream_idx: int,
-            data_view: neon.DataView = neon.DataView.standard(),
-            container_runtime: ContainerRuntime = ContainerRuntime.neon):
+    def run(
+        self,
+        stream_idx: int,
+        data_view: neon.DataView = neon.DataView.standard(),
+        container_runtime: ContainerRuntime = ContainerRuntime.neon
+    ) -> None:
+        """
+        Execute this container's kernel.
+        
+        Runs the encapsulated kernel on all devices managed by the backend.
+        Usually called indirectly through a Skeleton, but can be invoked
+        directly for simple single-kernel executions.
+        
+        Args:
+            stream_idx (int): CUDA stream index to use for execution.
+            data_view (neon.DataView, optional): Which subset of data to process.
+                Defaults to DataView.standard() (all active cells).
+            container_runtime (ContainerRuntime, optional): Execution mode.
+                Defaults to ContainerRuntime.neon.
+        
+        Example:
+            >>> container.run(stream_idx=0)
+        """
         if container_runtime == Container.ContainerRuntime.warp:
             self._run_warp(stream_idx=stream_idx,
                            data_view=data_view)
@@ -584,17 +667,42 @@ class Container:
 
 def container(name_or_func=None, *, name=None):
     """
-    Neon kernel decorator that can be used with or without parentheses.
+    Decorator to create a Neon container from a kernel factory function.
     
-    Usage:
-        @neon.kernel()
-        def my_kernel(...): ...
+    The decorated function should be a factory that returns a loader function.
+    The loader function receives a ``neon.Loader`` and uses it to declare
+    field handles and the kernel computation.
+    
+    Can be used with or without parentheses:
+    
+    Example:
+        Basic usage without arguments::
         
-        @neon.kernel
-        def my_kernel(...): ...
+            @neon.container
+            def my_kernel(field_a, field_b):
+                def loader(l: neon.Loader):
+                    a = l.get_read_handle(field_a)
+                    b = l.get_write_handle(field_b)
+                    
+                    @neon.kernel(l)
+                    def compute(idx):
+                        b[idx, 0] = a[idx, 0] * 2.0
+                return loader
         
-        @neon.kernel(name="custom_name")
-        def my_kernel(...): ...
+        With custom name::
+        
+            @neon.container(name="ScaleField")
+            def my_kernel(field_a, field_b):
+                ...
+    
+    Args:
+        name_or_func: Either the decorated function (when used without parens)
+            or None (when used with parens).
+        name (str, optional): Custom name for the container. If not provided,
+            the function name is used with '_neon_container' suffix.
+    
+    Returns:
+        A function that, when called with field arguments, returns a Container.
     """
     def factory_decorator(loading_lambda_generator):
         # get the name of the decorated function
@@ -638,15 +746,34 @@ def container(name_or_func=None, *, name=None):
         
         return wrapper
 
-# Create a decorator that takes a loader and automatically declares kernels
 def kernel(loader):
     """
-    Neon kernel decorator that applies wp.func and automatically declares the kernel.
+    Decorator to define a Neon kernel function within a container.
     
-    Usage:
-        @neon.kernel(loader)
-        def my_func(idx):
-            # ... kernel code ...
+    This decorator should be used inside a loader function to mark the
+    computational kernel. It applies ``@wp.func`` and automatically registers
+    the kernel with the loader.
+    
+    Args:
+        loader (neon.Loader): The loader instance from the enclosing loader function.
+    
+    Returns:
+        A decorator that transforms the function into a Warp kernel function.
+    
+    Example:
+        >>> def my_loader(l: neon.Loader):
+        ...     a = l.get_read_handle(field_a)
+        ...     b = l.get_write_handle(field_b)
+        ...     
+        ...     @neon.kernel(l)
+        ...     def compute(idx):
+        ...         # idx is the grid cell index
+        ...         val = a[idx, 0]
+        ...         b[idx, 0] = val * 2.0
+    
+    Note:
+        The kernel function receives a grid index (idx) as its first argument.
+        This index should be used to access field partitions via bracket notation.
     """
     def decorator(func):
         # Apply wp.func to the function

@@ -1,3 +1,10 @@
+"""
+Timer Module for Neon Computing Framework
+
+This module provides the Timer class for measuring execution time of
+Neon operations with high precision.
+"""
+
 import ctypes
 from enum import Enum
 from typing import List
@@ -9,13 +16,62 @@ import neon
 
 
 class Timer(object):
+    """
+    High-precision timer for measuring Neon operation execution times.
+    
+    The Timer class provides start/stop functionality for measuring elapsed
+    time, useful for benchmarking and performance analysis of Neon computations.
+    
+    Attributes:
+        handle (ctypes.c_void_p): Handle to the C++ timer object.
+        nunit (Unit): Time unit for measurements (currently milliseconds).
+        neon_gate (neon.Gate): Interface to the C++ Neon library.
+    
+    Example:
+        >>> import neon
+        >>> import time
+        >>> 
+        >>> timer = neon.Timer()
+        >>> timer.start()
+        >>> 
+        >>> # Perform some computation
+        >>> time.sleep(0.5)
+        >>> 
+        >>> elapsed = timer.stop()
+        >>> print(f"Elapsed: {elapsed} ms")
+        Elapsed: 500.123 ms
+        >>> 
+        >>> # Can also get time without stopping
+        >>> print(timer)  # Uses __str__ method
+    """
+    
     class Unit(Enum):
+        """
+        Time unit enumeration.
+        
+        Attributes:
+            sec: Seconds.
+            ms: Milliseconds (default).
+            us: Microseconds.
+        """
         sec = 0
         ms = 0
         us = 1
 
-    def __init__(self,
-                 nunit: Unit = Unit.ms):
+    def __init__(self, nunit: Unit = Unit.ms):
+        """
+        Initialize a Timer.
+        
+        Args:
+            nunit (Unit, optional): Time unit for measurements.
+                Defaults to Unit.ms (milliseconds).
+        
+        Raises:
+            Exception: If timer initialization fails.
+        
+        Example:
+            >>> timer = neon.Timer()
+        """
 
         self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
         self.nunit = nunit
@@ -76,28 +132,62 @@ class Timer(object):
         if res != 0:
             raise Exception('Failed to delete backend')
 
-    def start(self):
+    def start(self) -> None:
+        """
+        Start the timer.
+        
+        Begins measuring elapsed time. Call ``stop()`` to get the elapsed duration.
+        
+        Raises:
+            Exception: If the timer fails to start.
+        
+        Example:
+            >>> timer.start()
+        """
         res = self.api_start(self.handle)
         if res != 0:
             raise Exception('Failed to start timer')
 
-    def stop(self):
+    def stop(self) -> float:
+        """
+        Stop the timer and return the elapsed time.
+        
+        Returns:
+            float: Elapsed time in milliseconds since ``start()`` was called.
+        
+        Example:
+            >>> timer.start()
+            >>> # ... do work ...
+            >>> elapsed_ms = timer.stop()
+        """
         res = self.api_stop(self.handle)
         return res
 
-    def time(self):
+    def time(self) -> float:
+        """
+        Get the current elapsed time without stopping the timer.
+        
+        Returns:
+            float: Current elapsed time in milliseconds.
+        
+        Example:
+            >>> timer.start()
+            >>> # ... do some work ...
+            >>> current_ms = timer.time()  # Timer keeps running
+            >>> # ... do more work ...
+            >>> total_ms = timer.stop()
+        """
         res = self.api_time(self.handle)
         return res
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return string representation of elapsed time."""
         return f"{self.time()} ms"
 
 
 if __name__ == '__main__':
-    # Create a timer
     timer = Timer()
     timer.start()
-    # Do something (i.e. sleep for 2 seconds)
     import time
     time.sleep(2)
     timer.stop()

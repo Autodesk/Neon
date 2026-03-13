@@ -1,14 +1,73 @@
+"""
+Skeleton Module for Neon Computing Framework
+
+This module provides the Skeleton class, which manages the orchestration and
+execution of sequences of computational containers (kernels) in the Neon framework.
+"""
+
 import ctypes
 from typing import List
 from neon import SkeletonConfig
-# from neon import Backend
-# #from neon import neon
-# from neon import Container
 import neon
 
+
 class Skeleton(object):
-    def __init__(self,
-                 backend: neon.Backend):
+    """
+    Orchestrates execution of computational container sequences.
+    
+    The Skeleton class manages the scheduling, dependency analysis, and execution
+    of sequences of Neon containers (computational kernels). It provides automatic
+    optimization of execution order based on data dependencies and supports
+    visualization of the execution graph.
+    
+    Key features:
+        - Automatic dependency analysis between containers
+        - Optimized execution scheduling
+        - Support for overlap computation and communication (OCC)
+        - DOT graph export for visualization
+    
+    Attributes:
+        skeleton_handle (ctypes.c_void_p): Handle to the C++ skeleton object.
+        backend (neon.Backend): The computational backend for execution.
+        neon_gate (neon.Gate): Interface to the C++ Neon library.
+        containers (List[neon.Container]): List of containers in the current sequence.
+    
+    Example:
+        >>> import neon
+        >>> 
+        >>> # Create backend and grid
+        >>> backend = neon.Backend(runtime=neon.Backend.Runtime.stream)
+        >>> grid = neon.dGrid(backend=backend, dim=neon.Index_3d(64, 64, 64))
+        >>> 
+        >>> # Create some containers (kernels)
+        >>> container1 = create_my_kernel(grid)
+        >>> container2 = create_another_kernel(grid)
+        >>> 
+        >>> # Create skeleton and define sequence
+        >>> skeleton = neon.Skeleton(backend=backend)
+        >>> skeleton.sequence("my_computation", [container1, container2])
+        >>> 
+        >>> # Execute the sequence
+        >>> skeleton.run()
+        >>> 
+        >>> # Export execution graph for visualization
+        >>> skeleton.ioToDot("graph.dot", "MyComputation")
+    """
+    
+    def __init__(self, backend: neon.Backend):
+        """
+        Initialize a Skeleton for orchestrating container execution.
+        
+        Args:
+            backend (neon.Backend): The computational backend to use for execution.
+        
+        Raises:
+            Exception: If skeleton initialization fails.
+        
+        Example:
+            >>> backend = neon.Backend()
+            >>> skeleton = neon.Skeleton(backend=backend)
+        """
 
         self.skeleton_handle: ctypes.c_void_p = ctypes.c_void_p(0)
         self.backend = backend
@@ -81,8 +140,37 @@ class Skeleton(object):
         if res != 0:
             raise Exception('Failed to delete backend')
 
-    def sequence(self, name: str, containers: List[neon.Container], occ: neon.SkeletonConfig.OCC = neon.SkeletonConfig.OCC.none()
-    ):
+    def sequence(
+        self,
+        name: str,
+        containers: List[neon.Container],
+        occ: neon.SkeletonConfig.OCC = neon.SkeletonConfig.OCC.none()
+    ) -> None:
+        """
+        Define a named sequence of containers to execute.
+        
+        Analyzes the data dependencies between containers and creates an optimized
+        execution plan. Multiple sequences can be defined on the same skeleton.
+        
+        Args:
+            name (str): A unique name for this sequence.
+            containers (List[neon.Container]): Ordered list of containers (kernels)
+                to execute. The skeleton will analyze dependencies and may reorder
+                or parallelize execution where safe.
+            occ (SkeletonConfig.OCC, optional): Overlap computation and communication
+                strategy. Defaults to OCC.none() (no overlap).
+        
+        Example:
+            >>> skeleton.sequence("timestep", [
+            ...     compute_forces,
+            ...     update_velocities,
+            ...     update_positions
+            ... ])
+        
+        Note:
+            Container dependencies are automatically inferred from field read/write
+            patterns specified during container creation.
+        """
         self.containers = containers
         self.handle_list = (ctypes.c_void_p * len(containers))()
         for i in range(len(self.handle_list)):
@@ -96,16 +184,37 @@ class Skeleton(object):
                           self.handle_list,
                           occ.value)
 
-    def run(self):
+    def run(self) -> None:
+        """
+        Execute the defined container sequence.
+        
+        Runs all containers in the sequence according to the optimized execution
+        plan. This method blocks until all operations complete.
+        
+        Example:
+            >>> skeleton.run()  # Execute the computation
+        
+        Note:
+            A sequence must be defined via ``sequence()`` before calling ``run()``.
+        """
         self.api_run(self.skeleton_handle)
 
-    def ioToDot(
-            self,
-            filename: str,
-            graph_name: str
-    ):
+    def ioToDot(self, filename: str, graph_name: str) -> None:
+        """
+        Export the execution graph to a DOT file for visualization.
+        
+        Creates a DOT format file representing the container dependency graph,
+        which can be visualized using Graphviz or similar tools.
+        
+        Args:
+            filename (str): Path to the output DOT file.
+            graph_name (str): Name to use for the graph in the DOT file.
+        
+        Example:
+            >>> skeleton.ioToDot("execution_graph.dot", "MySimulation")
+            >>> # Then visualize with: dot -Tpng execution_graph.dot -o graph.png
+        """
         self.api_ioToDot(self.skeleton_handle,
                          filename.encode('utf-8'),
                          graph_name.encode('utf-8'),
-                         0
-                         )
+                         0)
