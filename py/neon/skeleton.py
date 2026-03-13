@@ -87,8 +87,9 @@ class Skeleton(object):
         self.handle_list = (ctypes.c_void_p * len(containers))()
         for i in range(len(self.handle_list)):
             self.handle_list[i] = containers[i].container_handle
-        print(f"PYTHON handle_list {self.handle_list}")
-        print(f"PYTHON handle_list[0] {hex(self.handle_list[0])}")
+        from .logging import logger
+        logger.debug(f"handle_list {self.handle_list}")
+        logger.debug(f"handle_list[0] {hex(self.handle_list[0])}")
         self.api_sequence(self.skeleton_handle,
                           name.encode('utf-8'),
                           len(self.handle_list),

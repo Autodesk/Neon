@@ -1,5 +1,6 @@
 #include "Neon/py/mGrid.h"
 #include <nvtx3/nvToolsExt.h>
+#include "Neon/core/tools/Logger.h"
 #include "Neon/domain/Grids.h"
 #include "Neon/py/AllocationCounter.h"
 #include "Neon/py/macros.h"
@@ -95,7 +96,7 @@ extern "C" auto mGrid_new(
              Grid::Descriptor(num_levels));
 
     if (gridPtr == nullptr) {
-        std::cout << "NeonPy: Initialization error. Unable to allocage grid " << std::endl;
+        NEON_ERROR("mGrid Python bindings: Initialization error. Unable to allocate grid");
         return -1;
     }
     *handle = (void*)gridPtr;
@@ -142,7 +143,7 @@ extern "C" auto mGrid_get_dimensions(
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
 
     if (gridPtr == nullptr) {
-        std::cout << "NeonPy: gridHandle is invalid " << std::endl;
+        NEON_ERROR("mGrid Python bindings: gridHandle is invalid");
         return -1;
     }
 
@@ -164,7 +165,7 @@ extern "C" auto mGrid_print_to_string(
     using Grid = Neon::domain::mGrid;
     Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
     Grid& grid = *gridPtr;
-    std::cout << grid.toString() << std::endl;
+    NEON_INFO("mGrid", "{}", grid.toString());
     return 0;
 }
 extern "C" auto mGrid_get_span(
@@ -319,7 +320,7 @@ auto mGrid_mField_get_partition(
 
         // check to make sure that the given field level is within bounds. The first clause is to allow a cast in the second clause.
         if (descriptor.getDepth() < 0 || resolution_level >= descriptor.getDepth()) {
-            std::cout << "field index out of bounds" << std::endl;
+            NEON_ERROR("mGrid Python bindings: field index out of bounds");
             return -1;
         }
         auto p = (*fieldPtr)(resolution_level).getPartition(execution, device, data_view);
@@ -415,7 +416,7 @@ auto mGrid_mField_read(
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 
     if (fieldPtr == nullptr) {
-        std::cout << "invalid field" << std::endl;
+        NEON_ERROR("mGrid Python bindings: invalid field handle in mField_read");
     }
 
     auto returnValue = (*fieldPtr)(*idx, cardinality, resolution_level);
@@ -457,7 +458,7 @@ auto mGrid_mField_write(
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 
     if (fieldPtr == nullptr) {
-        std::cout << "invalid field" << std::endl;
+        NEON_ERROR("mGrid Python bindings: invalid field handle in mField_write");
         return -1;
     }
 
@@ -494,7 +495,7 @@ auto mGrid_mField_update_host_data(
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 
     if (fieldPtr == nullptr) {
-        std::cout << "invalid field" << std::endl;
+        NEON_ERROR("mGrid Python bindings: invalid field handle in mField_update_host_data");
         return -1;
     }
 
@@ -531,7 +532,7 @@ auto mGrid_mField_update_device_data(
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 
     if (fieldPtr == nullptr) {
-        std::cout << "invalid field" << std::endl;
+        NEON_ERROR("mGrid Python bindings: invalid field handle in mField_update_device_data");
         return -1;
     }
 
@@ -579,10 +580,9 @@ auto mGrid_mField_to_vti(
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 
     if (fieldPtr == nullptr) {
-        std::cout << "invalid field" << std::endl;
+        NEON_ERROR("mGrid Python bindings: invalid field handle in mField_to_vti");
         return -1;
     }
-    // NEON_PY_DBG_COUT << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
     fieldPtr->ioToVtk(fname, outputLevels, outputBlockID, outputVoxelID, filterOverlaps);
     //                      bool               includeDomain = false,
     //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,
@@ -630,10 +630,9 @@ auto mGrid_mField_to_vti_debug(
     Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
 
     if (fieldPtr == nullptr) {
-        std::cout << "invalid field" << std::endl;
+        NEON_ERROR("mGrid Python bindings: invalid field handle in mField_to_vti_debug");
         return -1;
     }
-    // NEON_PY_DBG_COUT << "mGrid_mField_to_vti - " << fname << " - " << fieldName << std::endl;
     fieldPtr->ioToVtk(fname, true, true, true, false);
     //                      bool               includeDomain = false,
     //                      Neon::IoFileType   ioFileType = Neon::IoFileType::ASCII,

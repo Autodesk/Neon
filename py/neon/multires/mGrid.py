@@ -408,7 +408,8 @@ class mGrid(object):
             raise GridInitializationError(f'Failed to initialize grid (error code: {res})')
         
         # Update public handle for backward compatibility
-        print(f"mGrid initialized with handle {self._handle.value}")
+        from ..logging import logger
+        logger.debug(f"mGrid initialized with handle {self._handle.value}")
 
     def _help_grid_delete(self):
         """

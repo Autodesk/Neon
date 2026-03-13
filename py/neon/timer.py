@@ -97,8 +97,9 @@ if __name__ == '__main__':
     # Create a timer
     timer = Timer()
     timer.start()
-    # Do something (i.e. sleep for 33 seconds)
+    # Do something (i.e. sleep for 2 seconds)
     import time
     time.sleep(2)
     timer.stop()
-    print(timer)
+    from .logging import logger
+    logger.info(str(timer))

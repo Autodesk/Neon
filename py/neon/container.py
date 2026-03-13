@@ -569,7 +569,8 @@ class Container:
                                                                 kernel_name="kernel",
                                                                 factory_kwargs=kwargs
                                                                 )
-                print(code_str)
+                from .logging import logger
+                logger.debug(f"Generated kernel code:\n{code_str}")
                 l = Loader(execution=neon.Execution,
                            gpu_id=0,
                            data_view=neon.DataView.standard())

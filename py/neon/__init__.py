@@ -29,6 +29,9 @@ from .skeleton import Skeleton
 
 from .tool import report
 
+# Import logging module
+from . import logging as _logging
+from .logging import logger
 
 # Lazy-loaded library reference for logging control
 _neon_lib = None
@@ -45,16 +48,19 @@ def _get_neon_lib():
 
 def set_info_logging(enabled: bool) -> None:
     """
-    Enable or disable Neon INFO level logging at runtime.
+    Enable or disable Neon C++ INFO level logging at runtime.
+    
+    This controls the C++ NEON_INFO macro output.
+    For Python logging, use set_python_logging() or set_log_level().
     
     Args:
-        enabled: If True, INFO messages will be logged. If False, they will be suppressed.
+        enabled: If True, C++ INFO messages will be logged. If False, they will be suppressed.
     
     Example:
         >>> import neon
-        >>> neon.set_info_logging(False)  # Disable INFO logging
+        >>> neon.set_info_logging(False)  # Disable C++ INFO logging
         >>> # ... run some Neon code quietly ...
-        >>> neon.set_info_logging(True)   # Re-enable INFO logging
+        >>> neon.set_info_logging(True)   # Re-enable C++ INFO logging
     """
     lib = _get_neon_lib()
     lib.neon_set_info_enabled(ctypes.c_int(1 if enabled else 0))
@@ -62,10 +68,10 @@ def set_info_logging(enabled: bool) -> None:
 
 def is_info_logging_enabled() -> bool:
     """
-    Check if Neon INFO level logging is currently enabled.
+    Check if Neon C++ INFO level logging is currently enabled.
     
     Returns:
-        True if INFO logging is enabled, False otherwise.
+        True if C++ INFO logging is enabled, False otherwise.
     
     Example:
         >>> import neon
@@ -77,6 +83,51 @@ def is_info_logging_enabled() -> bool:
     return lib.neon_is_info_enabled() != 0
 
 
+def set_log_level(level: str) -> None:
+    """
+    Set the Python logging level for Neon.
+    
+    Args:
+        level: One of "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+    
+    Example:
+        >>> import neon
+        >>> neon.set_log_level("DEBUG")   # Show all messages including debug
+        >>> neon.set_log_level("WARNING") # Only show warnings and above
+    """
+    _logging.set_level(level)
+
+
+def set_python_logging(enabled: bool) -> None:
+    """
+    Enable or disable Neon Python logging.
+    
+    Args:
+        enabled: If True, Python log messages are shown. If False, they are suppressed.
+    
+    Example:
+        >>> import neon
+        >>> neon.set_python_logging(False)  # Disable Python logging
+    """
+    _logging.set_enabled(enabled)
+
+
+def set_quiet(quiet: bool = True) -> None:
+    """
+    Convenience function to enable/disable all Neon logging (both C++ and Python).
+    
+    Args:
+        quiet: If True, suppress all logging. If False, enable all logging.
+    
+    Example:
+        >>> import neon
+        >>> neon.set_quiet(True)   # Suppress all output
+        >>> neon.set_quiet(False)  # Re-enable all output
+    """
+    set_info_logging(not quiet)
+    set_python_logging(not quiet)
+
+
 def init():
     # Get the path of the current script
     script_path = __file__
@@ -84,7 +135,7 @@ def init():
     # Get the directory containing the script
     script_dir = os.path.dirname(os.path.abspath(script_path))
 
-    print(f"Directory containing the script: {script_dir}")
+    logger.info(f"Initializing Neon from {script_dir}")
 
     wp.build.set_cpp_standard("c++17")
     wp.build.add_include_directory(script_dir)

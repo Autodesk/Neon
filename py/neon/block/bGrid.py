@@ -110,7 +110,8 @@ class bGrid(object):
                                stencil_array        )
         if res != 0:
             raise Exception('bGrid: Failed to initialize grid')
-        print(f"bGrid initialized with handle {self.handle.value}")
+        from ..logging import logger
+        logger.debug(f"bGrid initialized with handle {self.handle.value}")
 
     def _help_grid_delete(self):
         if self.api_delete(ctypes.pointer(self.handle)) != 0:

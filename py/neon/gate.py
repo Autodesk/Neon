@@ -45,7 +45,8 @@ class Gate(object):
         try:
             self.lib = ctypes.CDLL(lib_path)
         except Exception as e:
-            print(f"Failed to load library: {lib_path}")
+            from .logging import logger
+            logger.error(f"Failed to load library: {lib_path}")
             raise e
 
         self.to_warp_types = {
