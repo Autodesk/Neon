@@ -1,0 +1,77 @@
+# Dockerfile for building Warp and Neon Python wheels with CUDA 13.x
+# Use this if you specifically need CUDA 13.x features
+# Note: Requires the CUDA 13.x workarounds we implemented
+
+# Base: NVIDIA CUDA 13.1 with Ubuntu 22.04
+FROM nvidia/cuda:13.1.1-devel-ubuntu22.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+
+# Install system dependencies (include sudo for non-root user)
+RUN apt-get update && apt-get install -y \
+    # Build tools
+    build-essential \
+    cmake \
+    git \
+    ninja-build \
+    # Python and pip
+    python3.10 \
+    python3.10-dev \
+    python3-pip \
+    # Compiler (GCC 11 for better CUDA compatibility)
+    gcc-11 \
+    g++-11 \
+    # Additional dependencies
+    libomp-dev \
+    pkg-config \
+    wget \
+    curl \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create standard user with sudo access (no password required)
+RUN groupadd --gid 1000 builder \
+    && useradd --uid 1000 --gid builder --shell /bin/bash --create-home builder \
+    && usermod -aG sudo builder \
+    && echo 'builder ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/builder \
+    && chmod 0440 /etc/sudoers.d/builder
+
+# Set GCC 11 as default compiler
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 \
+    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100 \
+    && update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-11 100 \
+    && update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-11 100
+
+# Verify compiler versions
+RUN gcc --version && g++ --version && nvcc --version
+
+# Make `python` and `pip` available (wheel.sh and Warp's build_lib.py expect them)
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 \
+    && ln -sf /usr/bin/python3.10 /usr/bin/python 2>/dev/null || true
+RUN python3.10 -m pip install --upgrade pip setuptools wheel build \
+    && (ln -sf /usr/local/bin/pip /usr/bin/pip 2>/dev/null || true)
+
+# Install Warp dependencies
+RUN python3.10 -m pip install \
+    numpy \
+    pytest \
+    pybind11
+
+# Set working directory and ensure builder can use it
+WORKDIR /workspace
+RUN chown builder:builder /workspace 2>/dev/null || true
+
+# Run as standard user (use sudo when you need root)
+USER builder
+
+# Default command
+CMD ["/bin/bash"]
+
+
+
+

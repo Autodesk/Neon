@@ -79,3 +79,4 @@ extern/*
 dist/
 
 *.log
+dist-multi/*

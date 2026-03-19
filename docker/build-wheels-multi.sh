@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# Build Neon wheels for Python 3.11, 3.12, 3.13, and 3.14.
+# Run this script from the Neon repo root (e.g. /workspace inside the container).
+#
+# Usage:
+#   ./docker/build-wheels-multi.sh [--clean] [--local]
+#
+# Options:
+#   --clean   Remove build/ and dist/ before building (clean build).
+#   --local   Build only for the current GPU arch (faster; see wheel.sh).
+#
+# Requires: multi-Python Docker image (Dockerfile.wheel-builder.multi).
+# Example (from host, neon repo root):
+#   cd docker && ./build-run-docker-multi.sh
+#   # inside container:
+#   ./docker/build-wheels-multi.sh
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NEON_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$NEON_ROOT"
+
+# Defaults
+CLEAN=false
+BUILD_FOR_ALL_GPUS="ON"
+CMAKE_CUDA_ARCH=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --clean)
+            CLEAN=true
+            shift
+            ;;
+        --local)
+            BUILD_FOR_ALL_GPUS="OFF"
+            shift
+            ;;
+        --help|-h)
+            head -22 "$0" | tail -18
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+export _BUILDING_NEON_WHEEL=1
+
+# Use all CPU cores for CMake/Ninja (override with CMAKE_BUILD_PARALLEL_LEVEL if set)
+export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-$(nproc)}"
+
+PYVERSIONS=(3.11 3.12 3.13 3.14)
+DIST_MULTI="$NEON_ROOT/dist-multi"
+mkdir -p "$DIST_MULTI"
+# Start with empty list; we'll only keep the last dist/ per version
+rm -rf "$NEON_ROOT/dist"
+
+# Check how many Pythons are available
+AVAILABLE=()
+MISSING=()
+for py in "${PYVERSIONS[@]}"; do
+    if command -v "python${py}" &>/dev/null; then
+        AVAILABLE+=("$py")
+    else
+        MISSING+=("$py")
+    fi
+done
+
+if [[ ${#MISSING[@]} -gt 0 ]]; then
+    echo "=========================================="
+    echo "NOTE: Not all Python versions are in this container."
+    echo "      Available: ${AVAILABLE[*]:-none}"
+    echo "      Missing: ${MISSING[*]}"
+    echo ""
+    echo "To build wheels for all of 3.11–3.14, use the multi-Python image:"
+    echo "  1. Exit this container (exit)"
+    echo "  2. From host, in docker/:  ./build-run-docker-multi.sh"
+    echo "  3. Inside the new container:  ./docker/build-wheels-multi.sh"
+    echo "=========================================="
+    echo ""
+fi
+
+echo "=========================================="
+echo "Neon multi-Python wheel build"
+echo "=========================================="
+echo "Python versions to try: ${PYVERSIONS[*]}"
+echo "Output directory: $DIST_MULTI"
+echo ""
+
+if $CLEAN; then
+    echo "==> Cleaning build artifacts..."
+    rm -rf "$NEON_ROOT/build" "$NEON_ROOT/dist" "$NEON_ROOT/dist-multi"/*.whl
+    mkdir -p "$DIST_MULTI"
+fi
+
+echo "==> Initializing submodules..."
+git submodule update --init --recursive
+
+if [[ ! -d "extern/warp" ]] || [[ -z "$(ls -A extern/warp 2>/dev/null)" ]]; then
+    echo "ERROR: Warp submodule missing or empty at extern/warp"
+    exit 1
+fi
+
+for py in "${PYVERSIONS[@]}"; do
+    if ! command -v "python${py}" &>/dev/null; then
+        echo "==> Skipping Python ${py} (not installed)"
+        continue
+    fi
+    echo ""
+    echo "=========================================="
+    echo "Building for Python ${py}"
+    echo "=========================================="
+    rm -rf "$NEON_ROOT/build" "$NEON_ROOT/dist"
+    mkdir -p "$NEON_ROOT/build"
+
+    echo "==> Building Warp native libs (python${py})..."
+    (cd extern/warp && "python${py}" -m pip install numpy --quiet && "python${py}" build_lib.py)
+    echo "==> Installing build deps (python${py})..."
+    "python${py}" -m pip install build scikit-build-core --quiet
+    echo "==> Building wheel (python${py})..."
+    if [[ "$BUILD_FOR_ALL_GPUS" == "ON" ]]; then
+        "python${py}" -m build --wheel \
+            --config-setting=cmake.define.NEON_BUILD_FOR_ALL_GPUS=ON \
+            --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON
+    else
+        "python${py}" -m build --wheel \
+            --config-setting=cmake.define.NEON_BUILD_FOR_ALL_GPUS=OFF \
+            --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON
+    fi
+    if [[ -d "$NEON_ROOT/dist" ]]; then
+        cp -v "$NEON_ROOT"/dist/*.whl "$DIST_MULTI/"
+    fi
+done
+
+echo ""
+echo "=========================================="
+echo "Done. Wheels in: $DIST_MULTI"
+echo "=========================================="
+ls -la "$DIST_MULTI"/*.whl 2>/dev/null || echo "No wheels produced."

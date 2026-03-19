@@ -95,6 +95,9 @@ echo "==> Building Neon wheel..."
 # Set flag to skip library loading during wheel build
 export _BUILDING_NEON_WHEEL=1
 
+# Use all CPU cores for CMake/Ninja (override with CMAKE_BUILD_PARALLEL_LEVEL if set)
+export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-$(nproc)}"
+
 if [[ -n "$CUSTOM_ARCH" ]]; then
     echo "    GPU architectures: $CUSTOM_ARCH"
     echo "    INFO logging default: OFF (can be enabled at runtime)"

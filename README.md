@@ -86,7 +86,7 @@ If you need to build from source:
    python -m build --wheel
    ```
 
-   The wheel will be in `dist/`.
+   The wheel will be in `dist/`. The Neon (CMake) portion is built with **Ninja**, which parallelizes automatically; `wheel.sh` sets `CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)` so all cores are used (override by setting `CMAKE_BUILD_PARALLEL_LEVEL`).
 
 4. **Customizing GPU Architectures**:
 
@@ -121,6 +121,9 @@ If you need to build from source:
    ```bash
    pip install -e . --no-build-isolation
    ```
+
+6. **Wheels for multiple Python versions (CI)**  
+   The repo uses a GitHub Actions workflow (`.github/workflows/wheels.yml`) to build wheels for Python 3.8–3.12 on Linux with CUDA. [cibuildwheel](https://cibuildwheel.readthedocs.io/) is configured in `pyproject.toml` (`[tool.cibuildwheel]`); Linux builds run via the matrix workflow because the default cibuildwheel images don’t include CUDA.
 
 #### Environment Variables
 

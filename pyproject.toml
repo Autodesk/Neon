@@ -48,6 +48,8 @@ cmake.version = ">=3.19"
 cmake.build-type = "Release"
 build.verbose = true
 ninja.version = ">=1.10"
+# Use Ninja only (no Make fallback); Ninja handles parallel compilation automatically
+ninja.make-fallback = false
 
 # Include both neon and warp packages
 wheel.packages = ["py/neon", "extern/warp/warp"]
@@ -70,3 +72,14 @@ NEON_BUILD_FOR_ALL_GPUS = "ON"
 # Ensure all files in warp package are included (including .so files)
 [tool.setuptools.package-data]
 warp = ["bin/*.so", "native/*.h", "native/**/*.h"]
+
+# cibuildwheel: multi-Python wheel builds (e.g. for release or local with custom image)
+# Linux builds need CUDA; default manylinux images don't have it, so we use a separate
+# matrix workflow (.github/workflows/wheels.yml) for Linux. This config is used if you
+# run cibuildwheel with a custom CUDA image or for non-Linux platforms.
+[tool.cibuildwheel]
+build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*"]
+skip = "*-musllinux_*"  # manylinux only
+before-all = "git submodule update --init --recursive"
+before-build = "cd extern/warp && pip install numpy && python build_lib.py && cd ../.."
+environment = { _BUILDING_NEON_WHEEL = "1" }
