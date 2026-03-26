@@ -25,6 +25,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
 NEON_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$NEON_ROOT"
 
@@ -57,7 +58,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            head -26 "$0" | tail -22
+            head -26 "$SCRIPT_PATH" | tail -22
             exit 0
             ;;
         *)
