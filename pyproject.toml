@@ -61,7 +61,6 @@ wheel.exclude = []
 cmake.args = [
     "-DBUILD_NEON_SHARED_LIBS=ON",
     "-DBUILD_NEON_TESTING=OFF",
-    "-DNEON_BUILD_FOR_ALL_GPUS=ON",
 ]
 
 [tool.scikit-build.cmake.define]
