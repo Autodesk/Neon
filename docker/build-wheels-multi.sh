@@ -7,7 +7,14 @@
 #
 # Options:
 #   --clean   Remove build/ and dist/ before building (clean build).
-#   --local   Build only for the current GPU arch (faster; see wheel.sh).
+#   --local   Build only for the current GPU arch (faster; auto-detects via CMake).
+#
+# Environment:
+#   NEON_CUDA_ARCH   Override GPU architectures (e.g. "80;87;90")
+#
+# GPU architectures (when not using --local):
+#   x86_64:  70 75 80 86 89 90  (Volta through Hopper)
+#   aarch64: 72 87              (Jetson Xavier, Jetson Orin)
 #
 # Requires: multi-Python Docker image (Dockerfile.wheel-builder.multi).
 # Example (from host, neon repo root):
@@ -21,10 +28,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NEON_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$NEON_ROOT"
 
+# ---------------------------------------------------------------------------
+# GPU architecture lists (by host CPU)
+# ---------------------------------------------------------------------------
+GPU_ARCHS_X86="70;75;80;86;89;90"
+GPU_ARCHS_ARM="72;87"
+
+HOST_ARCH="$(uname -m)"
+if [[ "$HOST_ARCH" == "aarch64" ]]; then
+    DEFAULT_GPU_ARCHS="$GPU_ARCHS_ARM"
+else
+    DEFAULT_GPU_ARCHS="$GPU_ARCHS_X86"
+fi
+
 # Defaults
 CLEAN=false
-BUILD_FOR_ALL_GPUS="ON"
-CMAKE_CUDA_ARCH=""
+USE_ALL_ARCHS=true
+GPU_ARCHS="${NEON_CUDA_ARCH:-$DEFAULT_GPU_ARCHS}"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -33,11 +53,11 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --local)
-            BUILD_FOR_ALL_GPUS="OFF"
+            USE_ALL_ARCHS=false
             shift
             ;;
         --help|-h)
-            head -22 "$0" | tail -18
+            head -26 "$0" | tail -22
             exit 0
             ;;
         *)
@@ -49,8 +69,16 @@ done
 
 export _BUILDING_NEON_WHEEL=1
 
-# Use all CPU cores for CMake/Ninja (override with CMAKE_BUILD_PARALLEL_LEVEL if set)
-export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-$(nproc)}"
+# On aarch64 (Jetson), CUDA compilation is very memory-intensive and the
+# OOM killer will terminate nvcc if too many compile jobs run in parallel.
+# Default to 2 parallel jobs on ARM (8 GB shared memory), full parallelism on x86.
+if [[ -z "$CMAKE_BUILD_PARALLEL_LEVEL" ]]; then
+    if [[ "$HOST_ARCH" == "aarch64" ]]; then
+        export CMAKE_BUILD_PARALLEL_LEVEL=2
+    else
+        export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)"
+    fi
+fi
 
 PYVERSIONS=(3.11 3.12 3.13 3.14)
 DIST_MULTI="$NEON_ROOT/dist-multi"
@@ -86,6 +114,12 @@ fi
 echo "=========================================="
 echo "Neon multi-Python wheel build"
 echo "=========================================="
+echo "Host architecture: $HOST_ARCH"
+if $USE_ALL_ARCHS; then
+    echo "GPU architectures: $GPU_ARCHS"
+else
+    echo "GPU architectures: auto-detect (--local)"
+fi
 echo "Python versions to try: ${PYVERSIONS[*]}"
 echo "Output directory: $DIST_MULTI"
 echo ""
@@ -121,9 +155,11 @@ for py in "${PYVERSIONS[@]}"; do
     echo "==> Installing build deps (python${py})..."
     "python${py}" -m pip install build scikit-build-core --quiet
     echo "==> Building wheel (python${py})..."
-    if [[ "$BUILD_FOR_ALL_GPUS" == "ON" ]]; then
+    if $USE_ALL_ARCHS; then
         "python${py}" -m build --wheel \
-            --config-setting=cmake.define.NEON_BUILD_FOR_ALL_GPUS=ON \
+            "--config-setting=cmake.define.CMAKE_CUDA_ARCHITECTURES=$GPU_ARCHS" \
+            --config-setting=cmake.define.NEON_BUILD_FOR_ALL_GPUS=OFF \
+            --config-setting=cmake.define.NEON_BUILD_ONLY_FOR_INSTALLED_GPU=OFF \
             --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON
     else
         "python${py}" -m build --wheel \

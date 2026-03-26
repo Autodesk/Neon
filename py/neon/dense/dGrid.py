@@ -231,9 +231,9 @@ class dGrid(object):
         self.api_get_span = getattr(lib_obj, 'dGrid_get_span')
         self.api_get_span.argtypes = [self.neon_gate.handle_type,
                                       ctypes.POINTER(dSpan),  # output span object
-                                      neon.Execution,         # execution type (host/device)
+                                      ctypes.c_int,           # execution type (host/device)
                                       ctypes.c_int,           # device id
-                                      neon.DataView]          # data view (standard/boundary/etc)
+                                      ctypes.c_int]           # data view (standard/boundary/etc)
         self.api_get_span.restype = ctypes.c_int
         
         self.api_span_size = getattr(lib_obj, 'dGrid_span_size')
@@ -396,9 +396,9 @@ class dGrid(object):
         dev_idx_ctypes = ctypes.c_int(dev_idx)
         res = self.api_get_span(self._handle,
                                 span,
-                                execution,
+                                int(execution),
                                 dev_idx_ctypes,
-                                data_view)
+                                int(data_view))
         if res != 0:
             raise GridError('Failed to get span')
 

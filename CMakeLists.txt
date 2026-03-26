@@ -53,6 +53,9 @@ option(NEON_INFO_DEFAULT_OFF
         "Set default for INFO logging to OFF (can still be enabled at runtime)"
         OFF)
 
+set(NEON_DEBUG_PREFIX_MAP "" CACHE STRING
+    "Remap DWARF source paths, e.g. /workspace=/home/user/repos/neon")
+
 # Definition of the target interface NeonDeveloperLib
 add_library(NeonDeveloperLib INTERFACE)
 target_compile_features(NeonDeveloperLib INTERFACE cxx_std_17)

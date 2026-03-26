@@ -65,9 +65,9 @@ class bGrid(object):
         self.api_get_span= lib.bGrid_get_span
         self.api_get_span.argtypes = [self.neon_gate.handle_type,
                                       ctypes.POINTER(bSpan),  # the span object
-                                      neon.Execution,  # the execution type
+                                      ctypes.c_int,  # the execution type
                                       ctypes.c_int,  # the device id
-                                      neon.DataView,  # the data view
+                                      ctypes.c_int,  # the data view
                                       ]
         self.api_get_span.restype = ctypes.c_int
 
@@ -148,9 +148,9 @@ class bGrid(object):
         span = bSpan()
         res = self.api_get_span(self.handle,
                                 span,
-                                execution,
+                                int(execution),
                                 dev_idx,
-                                data_view)
+                                int(data_view))
         if res != 0:
             raise Exception('Failed to get span')
         #

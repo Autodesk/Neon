@@ -135,9 +135,9 @@ class dField(object):
         self.api_get_partition.argtypes = [
             self.handle_type,
             ctypes.POINTER(self.Partition_type),  # the span object
-            neon.Execution,  # the execution type
+            ctypes.c_int,  # the execution type
             ctypes.c_int,  # the device id
-            neon.DataView,  # the data view
+            ctypes.c_int,  # the data view
         ]
         self.api_get_partition.restype = ctypes.c_int
 
@@ -255,9 +255,9 @@ class dField(object):
 
         res = self.api_get_partition(self._handle,
                                      partition,
-                                     execution,
+                                     int(execution),
                                      c,
-                                     data_view)
+                                     int(data_view))
         if res != 0:
             raise FieldError('Failed to get partition')
 

@@ -296,9 +296,9 @@ class mGrid(object):
         self.api_get_span.argtypes = [self.handle_type,                         # Input: grid handle
                                       ctypes.c_int,                             # Input: grid level
                                       ctypes.POINTER(bSpan),                    # Output: span object
-                                      neon.Execution,                           # Input: execution type
+                                      ctypes.c_int,                             # Input: execution type
                                       ctypes.c_int,                             # Input: device ID
-                                      neon.DataView,                            # Input: data view
+                                      ctypes.c_int,                             # Input: data view
                                       ]
         self.api_get_span.restype = ctypes.c_int
 
@@ -521,17 +521,16 @@ class mGrid(object):
         
         # Handle execution context conversion if needed
         if isinstance(execution, ExecutionContext):
-            # Convert our enum to the neon Execution type if needed
-            execution_value = execution.value
+            execution_value = 0 if execution == ExecutionContext.DEVICE else 1
         else:
-            execution_value = execution
+            execution_value = int(execution)
         
         # Use default data view if not provided
         if data_view is None:
-            data_view = DataView.STANDARD if hasattr(DataView, 'STANDARD') else data_view
+            data_view = DataView.standard()
 
         span = bSpan()
-        res = self.api_get_span(self._handle, grid_level, span, execution_value, dev_idx, data_view)
+        res = self.api_get_span(self._handle, grid_level, span, execution_value, dev_idx, int(data_view))
         if res != 0:
             raise GridError(f'Failed to get span for level {grid_level} (error code: {res})')
 

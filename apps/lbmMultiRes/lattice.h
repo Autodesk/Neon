@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "Neon/core/types/Macros.h"
 
 enum CellType : int
@@ -12,7 +13,7 @@ enum CellType : int
 };
 
 #ifdef KBC
-NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity[27][3] = {
+NEON_CUDA_DEVICE_ONLY static constexpr int8_t latticeVelocity[27][3] = {
     {0, 0, 0},
     {0, 0, -1},
     {0, 0, 1},
@@ -41,7 +42,7 @@ NEON_CUDA_DEVICE_ONLY static constexpr char latticeVelocity[27][3] = {
     {1, 1, -1},
     {1, 1, 1}};
 
-NEON_CUDA_DEVICE_ONLY static constexpr char latticeOppositeID[27] = {
+NEON_CUDA_DEVICE_ONLY static constexpr int8_t latticeOppositeID[27] = {
     0, 2, 1, 6, 8, 7, 3, 5, 4, 18, 20, 19, 24, 26, 25, 21, 23, 22, 9, 11, 10, 15, 17, 16, 12, 14, 13};
 
 NEON_CUDA_DEVICE_ONLY static constexpr double latticeWeights[27] = {
@@ -76,7 +77,7 @@ NEON_CUDA_DEVICE_ONLY static constexpr double latticeWeights[27] = {
 };
 #endif
 
-NEON_CUDA_DEVICE_ONLY static constexpr char latticeMoment[27][6] = {
+NEON_CUDA_DEVICE_ONLY static constexpr int8_t latticeMoment[27][6] = {
     {0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 1},
     {0, 0, 0, 0, 0, 1},

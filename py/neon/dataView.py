@@ -74,6 +74,10 @@ class DataView(ctypes.Structure):
         elif data_view == DataView.Values.boundary:
             self.data_view = ctypes.c_char(b'\x02')
 
+    def __int__(self) -> int:
+        """Return the integer value of this data view."""
+        return int.from_bytes(self.data_view, byteorder='little')
+
     def __str__(self):
         str_repr = "<DDDData_view: addr=%ld, sizeof %ld>" % (ctypes.addressof(self), ctypes.sizeof(self))
         if self.data_view == ctypes.c_char(b'\x00'):

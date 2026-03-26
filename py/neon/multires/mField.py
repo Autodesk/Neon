@@ -183,9 +183,9 @@ class mField(object):
             self.handle_type,                       # Input: field handle
             ctypes.POINTER(self.Partition_type),    # Output: partition object
             ctypes.c_int,                          # Input: resolution level
-            neon.Execution,                        # Input: execution type (HOST/DEVICE)
+            ctypes.c_int,                          # Input: execution type (HOST/DEVICE)
             ctypes.c_int,                          # Input: device ID
-            neon.DataView,                         # Input: data view (STANDARD/BOUNDARY)
+            ctypes.c_int,                          # Input: data view (STANDARD/BOUNDARY)
         ]
         self.api_get_partition.restype = ctypes.c_int
 
@@ -349,9 +349,9 @@ class mField(object):
         res = self.api_get_partition(self._handle,
                                      partition,
                                      level,
-                                     execution,
+                                     int(execution),
                                      device_id,
-                                     data_view)
+                                     int(data_view))
         if res != 0:
             raise PartitionError(f'Failed to get partition (error code: {res})')
 

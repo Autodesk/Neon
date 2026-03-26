@@ -176,7 +176,7 @@ class Container:
         if container_parser.mres_level is None:
             self.api_new(ctypes.pointer(self.container_handle),
                          name_utf8_bytes,
-                         execution,
+                         int(execution),
                          self.backend.cuda_driver_handle,
                          self.grid.handle,
                          self.k_2Darray,
@@ -185,7 +185,7 @@ class Container:
             self.api_mres_new(ctypes.pointer(self.container_handle),
                               name_utf8_bytes,
                               container_parser.mres_level,
-                              execution,
+                              int(execution),
                               self.backend.cuda_driver_handle,
                               self.grid.handle,
                               self.k_2Darray,
@@ -279,7 +279,7 @@ class Container:
             self.api_new = getattr(self.neon_gate.lib, f'warp_{grid_name}_container_new')
             self.api_new.argtypes = [ctypes.POINTER(self.neon_gate.handle_type),
                                      ctypes.c_char_p,
-                                     neon.Execution,
+                                     ctypes.c_int,
                                      self.neon_gate.handle_type,
                                      self.neon_gate.handle_type,
                                      ctypes.POINTER(ctypes.c_void_p),
@@ -290,7 +290,7 @@ class Container:
             self.api_mres_new.argtypes = [ctypes.POINTER(self.neon_gate.handle_type),
                                           ctypes.c_char_p,
                                           ctypes.c_int32,  # Level
-                                          neon.Execution,
+                                          ctypes.c_int,
                                           self.neon_gate.handle_type,
                                           self.neon_gate.handle_type,
                                           ctypes.POINTER(ctypes.c_void_p),
@@ -306,7 +306,7 @@ class Container:
         self.api_run = getattr(self.neon_gate.lib, f'warp_container_run_{grid_name}')
         self.api_run.argtypes = [self.neon_gate.handle_type,
                                  ctypes.c_int,
-                                 neon.DataView]
+                                 ctypes.c_int]
         self.api_run.restype = None
         # ------------------------------------------------------------------
         # parse_token
@@ -450,7 +450,7 @@ class Container:
         nvtx.push_range(f"{self.name}_neon", color="green")
         self.api_run(self.container_handle,
                      stream_idx,
-                     data_view)
+                     int(data_view))
         nvtx.pop_range()
 
     def run(
