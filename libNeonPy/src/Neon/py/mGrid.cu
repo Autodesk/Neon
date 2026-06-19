@@ -12,6 +12,9 @@
 #endif
 
 #include "Neon/domain/operator.h"
+#include "cuda_fp16.h"
+
+using float16 = __half;
 
 // Workaround for CUDA 12.8+ namespace issue
 #if defined(__CUDACC__) && CUDA_VERSION >= 12080
@@ -58,6 +61,7 @@ DO_EXPORT(uint64, 4, mGrid_mField_fill, int, void*, fieldHandle,int, level, uint
 
 DO_EXPORT(float32, 4, mGrid_mField_fill, int, void*, fieldHandle,int, level, float32, value, int, streamIdx);
 DO_EXPORT(float64, 4, mGrid_mField_fill, int, void*, fieldHandle,int, level, float64, value, int, streamIdx);
+DO_EXPORT(float16, 4, mGrid_mField_fill, int, void*, fieldHandle,int, level, float16, value, int, streamIdx);
 
 template <typename T>
 auto mGrid_mField_copy(
@@ -100,3 +104,4 @@ DO_EXPORT(uint64, 4, mGrid_mField_copy, int, void*, fhA, void*, fhB,int, level, 
 
 DO_EXPORT(float32, 4, mGrid_mField_copy, int, void*, fhA, void*, fhB, int, level,int, streamIdx);
 DO_EXPORT(float64, 4, mGrid_mField_copy, int, void*, fhA, void*, fhB, int, level,int, streamIdx);
+DO_EXPORT(float16, 4, mGrid_mField_copy, int, void*, fhA, void*, fhB, int, level,int, streamIdx);
