@@ -1,52 +1,50 @@
+import unittest
+
 from env_setup import update_pythonpath
+
 update_pythonpath()
 
-import os
-
 import warp as wp
-
 import neon
-# from neon import Index_3d
-# from neon.dense import dSpan
+
+from neon_test_utils import init_warp_neon, require_gpu
 
 
-wp.config.mode = "debug"
-wp.config.llvm_cuda = False
-wp.config.verbose = True
-wp.verbose_warnings = True
+@require_gpu
+class TestSpan(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        init_warp_neon()
 
-wp.init()
-neon.init()
+        @wp.func
+        def user_foo(idx: neon.dense.dIndex):
+            wp.neon_print(idx)
 
-# import typing
+        @wp.kernel
+        def neon_kernel_test(span: neon.dense.dSpan):
+            is_valid = wp.bool(True)
+            my_idx = wp.neon_set(span, is_valid)
+            if is_valid:
+                user_foo(my_idx)
 
-@wp.func
-def user_foo(idx: neon.dense.dIndex):
-    wp.neon_print(idx)
+        cls.neon_kernel_test = neon_kernel_test
 
-
-@wp.kernel
-def neon_kernel_test(span: neon.dense.dSpan):
-    # this is a Warp array which wraps the image data
-    is_valid = wp.bool(True)
-    myIdx = wp.neon_set(span, is_valid)
-    if is_valid:
-        user_foo(myIdx)
-
-def test_00_index3d():
-    with wp.ScopedDevice("cuda:0"):
-        bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
-                        n_dev=1)
-        print("done")
-        grid = neon.dense.dGrid(bk)
-        span_device_id0_standard = grid.get_span(neon.Execution.device(),
-                                                 0,
-                                                 neon.DataView.standard())
-        print(span_device_id0_standard)
-        wp.launch(neon_kernel_test, dim=10, inputs=[span_device_id0_standard])
-        wp.synchronize_device()
-
+    def test_launch_over_span(self):
+        with wp.ScopedDevice("cuda:0"):
+            backend = neon.Backend(
+                runtime=neon.Backend.Runtime.stream,
+                dev_idx_list=[0],
+            )
+            grid = neon.dense.dGrid(backend)
+            span = grid.get_span(
+                neon.Execution.device(),
+                0,
+                neon.DataView.standard(),
+            )
+            self.assertIsNotNone(span)
+            wp.launch(self.neon_kernel_test, dim=10, inputs=[span])
+            wp.synchronize_device()
 
 
 if __name__ == "__main__":
-    test_00_index3d()
+    unittest.main()

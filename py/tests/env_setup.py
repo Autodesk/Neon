@@ -1,31 +1,38 @@
+import logging
 import os
 import sys
-import logging
+
 logging.basicConfig(level=logging.DEBUG)
 
+
 def update_pythonpath():
-    """Update PYTHONPATH for development mode only.
-    
-    If neon is already installed (e.g., from a wheel), don't modify the path.
-    This allows tests to run against either the installed package or the source.
-    """
+    """Prefer an installed neon wheel; otherwise use the source tree."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    source_py = os.path.join(script_dir, "..")
+
+    if os.environ.get("NEON_USE_SOURCE_PY"):
+        sys.path.insert(0, source_py)
+        if os.environ.get("NEON_TEST_VERBOSE"):
+            print(f"Using source neon Python from: {source_py}")
+        logging.debug("Using source neon Python from: %s", source_py)
+        return
+
     try:
         import neon
-        # neon is already importable, check if it has the native library
-        if hasattr(neon, '__file__') and neon.__file__:
+
+        if hasattr(neon, "__file__") and neon.__file__:
             neon_dir = os.path.dirname(neon.__file__)
-            lib_path = os.path.join(neon_dir, 'liblibNeonPy.so')
+            lib_path = os.path.join(neon_dir, "liblibNeonPy.so")
             if os.path.exists(lib_path):
-                # Installed package with native library - don't modify path
-                print(f"Using installed neon from: {neon_dir}")
-                logging.debug(f"Using installed neon from: {neon_dir}")
+                if os.environ.get("NEON_TEST_VERBOSE"):
+                    print(f"Using installed neon from: {neon_dir}")
+                logging.debug("Using installed neon from: %s", neon_dir)
                 return
     except ImportError:
         pass
-    
-    # Development mode: add source directory to path
-    script_path = os.path.abspath(__file__)
-    script_dir = os.path.dirname(script_path)
-    sys.path.insert(0, script_dir+'/../')
-    print(f"PYTHONPATH (dev mode): {sys.path}")
-    logging.debug(f"PYTHONPATH (dev mode): {sys.path}")
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.join(script_dir, ".."))
+    if os.environ.get("NEON_TEST_VERBOSE"):
+        print(f"PYTHONPATH (dev mode): {sys.path}")
+    logging.debug("PYTHONPATH (dev mode): %s", sys.path)

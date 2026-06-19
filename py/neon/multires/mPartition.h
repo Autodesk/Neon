@@ -2,6 +2,7 @@
 
 #include "../Index_3d.h"
 #include "Neon/domain/details/mGrid/mPartition.h"
+#include "builtin.h"
 // #include "./bIndex.h"
 #include "../ngh_idx.h"
 
@@ -39,6 +40,7 @@ using NeonMultiresPartition_uint64 = NeonMultiresPartition<uint64_t>;
 
 using NeonMultiresPartition_float32 = NeonMultiresPartition<float>;
 using NeonMultiresPartition_float64 = NeonMultiresPartition<double>;
+using NeonMultiresPartition_float16 = NeonMultiresPartition<half>;
 
 
 template <typename T>

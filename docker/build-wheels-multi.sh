@@ -3,11 +3,13 @@
 # Run this script from the Neon repo root (e.g. /workspace inside the container).
 #
 # Usage:
-#   ./docker/build-wheels-multi.sh [--clean] [--local]
+#   ./docker/build-wheels-multi.sh [--clean] [--local] [--python VERSION]
 #
 # Options:
-#   --clean   Remove build/ and dist/ before building (clean build).
-#   --local   Build only for the current GPU arch (faster; auto-detects via CMake).
+#   --clean            Remove build/ and dist/ before building (clean build).
+#   --local            Build only for the current GPU arch (faster; auto-detects via CMake).
+#   --python VERSION   Build only for one Python version (3.11, 3.12, 3.13, or 3.14).
+#   -p VERSION         Short form of --python.
 #
 # Environment:
 #   NEON_CUDA_ARCH   Override GPU architectures (e.g. "80;87;90")
@@ -21,13 +23,36 @@
 #   cd docker && ./build-run-docker-multi.sh
 #   # inside container:
 #   ./docker/build-wheels-multi.sh
+#   ./docker/build-wheels-multi.sh --clean --local --python 3.11
 
 set -e
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_PATH="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
 NEON_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$NEON_ROOT"
+
+python_wheel_tag() {
+    local version="$1"
+    echo "cp${version//./}"
+}
+
+report_build_failure() {
+    local py="$1"
+    local log_file="$2"
+    echo ""
+    echo "=========================================="
+    echo "BUILD FAILED for Python ${py}"
+    echo "=========================================="
+    if [[ -f "$log_file" ]]; then
+        echo "Full log: $log_file"
+        echo ""
+        echo "Last matching error lines:"
+        grep -iE 'error:|fatal error|FAILED:|killed|ninja: build stopped|CMake Error' "$log_file" | tail -40 || true
+    fi
+    exit 1
+}
 
 # ---------------------------------------------------------------------------
 # GPU architecture lists (by host CPU)
@@ -46,6 +71,20 @@ fi
 CLEAN=false
 USE_ALL_ARCHS=true
 GPU_ARCHS="${NEON_CUDA_ARCH:-$DEFAULT_GPU_ARCHS}"
+SELECTED_PY=""
+
+SUPPORTED_PYVERSIONS=(3.11 3.12 3.13 3.14)
+
+is_supported_python() {
+    local version="$1"
+    local py
+    for py in "${SUPPORTED_PYVERSIONS[@]}"; do
+        if [[ "$py" == "$version" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -57,8 +96,16 @@ while [[ $# -gt 0 ]]; do
             USE_ALL_ARCHS=false
             shift
             ;;
+        --python|-p)
+            if [[ -z "${2:-}" ]]; then
+                echo "ERROR: $1 requires a version (e.g. 3.11)"
+                exit 1
+            fi
+            SELECTED_PY="$2"
+            shift 2
+            ;;
         --help|-h)
-            head -26 "$SCRIPT_PATH" | tail -22
+            head -30 "$SCRIPT_PATH" | tail -26
             exit 0
             ;;
         *)
@@ -67,6 +114,17 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ -n "$SELECTED_PY" ]]; then
+    if ! is_supported_python "$SELECTED_PY"; then
+        echo "ERROR: Unsupported Python version: $SELECTED_PY"
+        echo "       Supported versions: ${SUPPORTED_PYVERSIONS[*]}"
+        exit 1
+    fi
+    PYVERSIONS=("$SELECTED_PY")
+else
+    PYVERSIONS=("${SUPPORTED_PYVERSIONS[@]}")
+fi
 
 export _BUILDING_NEON_WHEEL=1
 
@@ -81,7 +139,6 @@ if [[ -z "$CMAKE_BUILD_PARALLEL_LEVEL" ]]; then
     fi
 fi
 
-PYVERSIONS=(3.11 3.12 3.13 3.14)
 DIST_MULTI="$NEON_ROOT/dist-multi"
 mkdir -p "$DIST_MULTI"
 # Start with empty list; we'll only keep the last dist/ per version
@@ -97,6 +154,11 @@ for py in "${PYVERSIONS[@]}"; do
         MISSING+=("$py")
     fi
 done
+
+if [[ -n "$SELECTED_PY" ]] && ! command -v "python${SELECTED_PY}" &>/dev/null; then
+    echo "ERROR: python${SELECTED_PY} is not installed in this container."
+    exit 1
+fi
 
 if [[ ${#MISSING[@]} -gt 0 ]]; then
     echo "=========================================="
@@ -127,7 +189,14 @@ echo ""
 
 if $CLEAN; then
     echo "==> Cleaning build artifacts..."
-    rm -rf "$NEON_ROOT/build" "$NEON_ROOT/dist" "$NEON_ROOT/dist-multi"/*.whl
+    rm -rf "$NEON_ROOT/build" "$NEON_ROOT/dist"
+    if [[ -n "$SELECTED_PY" ]]; then
+        wheel_tag="$(python_wheel_tag "$SELECTED_PY")"
+        echo "==> Removing existing wheels for ${wheel_tag} in dist-multi/"
+        rm -f "$DIST_MULTI"/*-"${wheel_tag}"-*.whl
+    else
+        rm -f "$DIST_MULTI"/*.whl
+    fi
     mkdir -p "$DIST_MULTI"
 fi
 
@@ -156,16 +225,19 @@ for py in "${PYVERSIONS[@]}"; do
     echo "==> Installing build deps (python${py})..."
     "python${py}" -m pip install build scikit-build-core --quiet
     echo "==> Building wheel (python${py})..."
+    LOG_FILE="$NEON_ROOT/build-wheel-py${py//./}.log"
     if $USE_ALL_ARCHS; then
         "python${py}" -m build --wheel \
             "--config-setting=cmake.define.CMAKE_CUDA_ARCHITECTURES=$GPU_ARCHS" \
             --config-setting=cmake.define.NEON_BUILD_FOR_ALL_GPUS=OFF \
             --config-setting=cmake.define.NEON_BUILD_ONLY_FOR_INSTALLED_GPU=OFF \
-            --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON
+            --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON \
+            2>&1 | tee "$LOG_FILE" || report_build_failure "$py" "$LOG_FILE"
     else
         "python${py}" -m build --wheel \
             --config-setting=cmake.define.NEON_BUILD_FOR_ALL_GPUS=OFF \
-            --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON
+            --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON \
+            2>&1 | tee "$LOG_FILE" || report_build_failure "$py" "$LOG_FILE"
     fi
     if [[ -d "$NEON_ROOT/dist" ]]; then
         cp -v "$NEON_ROOT"/dist/*.whl "$DIST_MULTI/"

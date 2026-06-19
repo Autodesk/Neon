@@ -557,3 +557,4 @@ DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid
 DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, uint64, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
 DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, float32, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
 DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, float64, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)
+DO_EXPORT_PARSER(warp_container_mres_add_parse_token, mGrid, Neon::domain::mGrid, float16, 0, 6, int, void*, handle, void*, field_handle, int, level, int, access_int, int, pattern_int, int, stencilSemantic_int)

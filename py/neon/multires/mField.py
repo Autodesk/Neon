@@ -11,6 +11,7 @@ import ctypes
 import warnings
 from typing import Any, Optional, Dict, Union
 import numpy as np
+import warp as wp
 
 import neon
 import neon.multires.mPartition
@@ -135,6 +136,17 @@ class mField(object):
         
         self._cleaned = True
 
+    def _to_ctype_value(self, value):
+        if self.dtype == wp.float16:
+            bits = int(np.float16(value).view(np.uint16))
+            return ctypes.c_uint16(bits)
+        return self.type_mapping['ctype'](value)
+
+    def _from_ctype_value(self, value):
+        if self.dtype == wp.float16:
+            return float(np.uint16(value & 0xFFFF).view(np.float16))
+        return value
+
     def _set_field_type(self):
         """
         Configure type-specific attributes based on the field's data type.
@@ -162,103 +174,118 @@ class mField(object):
         # Get reference to the shared library
         lib_obj = self._neon_gate.lib
 
+        def bind_api(name, argtypes, restype, required=True):
+            try:
+                fn = getattr(lib_obj, f'{name}{self.suffix}')
+            except AttributeError as exc:
+                if required:
+                    raise exc
+                return None
+            fn.argtypes = argtypes
+            fn.restype = restype
+            return fn
+
         # === Field Lifecycle Management ===
         # Field creation API
-        self.api_new = getattr(lib_obj, f'mGrid_mField_new{self.suffix}')
-        self.api_new.argtypes = [ctypes.POINTER(self.handle_type),  # Output: field handle
-                                 self.handle_type,                  # Input: grid handle
-                                 ctypes.c_int,                      # Input: cardinality
-                                 neon.MemoryType]                   # Input: memory type
-        self.api_new.restype = ctypes.c_int
+        self.api_new = bind_api(
+            'mGrid_mField_new',
+            [ctypes.POINTER(self.handle_type),
+             self.handle_type,
+             ctypes.c_int,
+             neon.MemoryType],
+            ctypes.c_int,
+        )
 
         # Field deletion API
-        self.api_delete = getattr(lib_obj, f'mGrid_mField_delete{self.suffix}')
-        self.api_delete.argtypes = [ctypes.POINTER(self.handle_type)]  # Input: field handle pointer
-        self.api_delete.restype = ctypes.c_int
+        self.api_delete = bind_api(
+            'mGrid_mField_delete',
+            [ctypes.POINTER(self.handle_type)],
+            ctypes.c_int,
+        )
 
         # === Partition Management ===
-        # Get field partition for specific execution context
-        self.api_get_partition = getattr(lib_obj, f'mGrid_mField_get_partition{self.suffix}')
-        self.api_get_partition.argtypes = [
-            self.handle_type,                       # Input: field handle
-            ctypes.POINTER(self.Partition_type),    # Output: partition object
-            ctypes.c_int,                          # Input: resolution level
-            ctypes.c_int,                          # Input: execution type (HOST/DEVICE)
-            ctypes.c_int,                          # Input: device ID
-            ctypes.c_int,                          # Input: data view (STANDARD/BOUNDARY)
-        ]
-        self.api_get_partition.restype = ctypes.c_int
-
-        # # size partition
-        # self.neon.lib.mGrid_mField_partition_size.argtypes = [
-        #     ctypes.POINTER(self.Partition_type)]
-        # self.neon.lib.mGrid_mField_partition_size.restype = ctypes.c_int
+        self.api_get_partition = bind_api(
+            'mGrid_mField_get_partition',
+            [
+                self.handle_type,
+                ctypes.POINTER(self.Partition_type),
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_int,
+            ],
+            ctypes.c_int,
+        )
 
         # === Data Access Operations ===
-        # Read field value at specific location
-        self.api_read = getattr(lib_obj, f'mGrid_mField_read{self.suffix}')
-        self.api_read.argtypes = [self.handle_type,                    # Input: field handle
-                                  ctypes.c_int32,                      # Input: resolution level
-                                  ctypes.POINTER(neon.Index_3d),       # Input: 3D index position
-                                  ctypes.c_int32]                      # Input: cardinality component
-        self.api_read.restype = self.type_mapping["ctype"]
+        self.api_read = bind_api(
+            'mGrid_mField_read',
+            [self.handle_type,
+             ctypes.c_int32,
+             ctypes.POINTER(neon.Index_3d),
+             ctypes.c_int32],
+            self.type_mapping["ctype"],
+        )
 
-        # Write field value at specific location
-        self.api_write = getattr(lib_obj, f'mGrid_mField_write{self.suffix}')
-        self.api_write.argtypes = [self.handle_type,                   # Input: field handle
-                                   ctypes.c_int32,                     # Input: resolution level
-                                   ctypes.POINTER(neon.Index_3d),      # Input: 3D index position
-                                   ctypes.c_int32,                     # Input: cardinality component
-                                   self.type_mapping["ctype"]]         # Input: value to write
-        self.api_write.restype = ctypes.c_int
+        self.api_write = bind_api(
+            'mGrid_mField_write',
+            [self.handle_type,
+             ctypes.c_int32,
+             ctypes.POINTER(neon.Index_3d),
+             ctypes.c_int32,
+             self.type_mapping["ctype"]],
+            ctypes.c_int,
+        )
 
         # === Memory Management ===
-        # Transfer data from device to host memory
-        self.api_update_host = getattr(lib_obj, f'mGrid_mField_update_host_data{self.suffix}')
-        self.api_update_host.argtypes = [self.handle_type,             # Input: field handle
-                                         ctypes.c_int32]               # Input: stream ID
-        self.api_update_host.restype = ctypes.c_int32
+        self.api_update_host = bind_api(
+            'mGrid_mField_update_host_data',
+            [self.handle_type, ctypes.c_int32],
+            ctypes.c_int32,
+        )
 
-        # Transfer data from host to device memory
-        self.api_update_device = getattr(lib_obj, f'mGrid_mField_update_device_data{self.suffix}')
-        self.api_update_device.argtypes = [self.handle_type,           # Input: field handle
-                                           ctypes.c_int32]             # Input: stream ID
-        self.api_update_device.restype = ctypes.c_int32
+        self.api_update_device = bind_api(
+            'mGrid_mField_update_device_data',
+            [self.handle_type, ctypes.c_int32],
+            ctypes.c_int32,
+        )
 
-        # === Data Export ===
-        # Export field data to VTI format for visualization
-        self.api_export_vti = getattr(lib_obj, f'mGrid_mField_to_vti{self.suffix}')
-        self.api_export_vti.argtypes = [self.handle_type,              # Input: field handle
-                                        ctypes.c_char_p,               # Input: filename
-                                        ctypes.c_char_p,               # Input: field name
-                                        ctypes.c_bool,                 # Input: output levels flag
-                                        ctypes.c_bool,                 # Input: output block ID flag
-                                        ctypes.c_bool]                 # Input: output voxel ID flag
-        self.api_export_vti.restype = ctypes.c_int32
+        # === Data Export (optional for some dtypes such as float16) ===
+        self.api_export_vti = bind_api(
+            'mGrid_mField_to_vti',
+            [self.handle_type,
+             ctypes.c_char_p,
+             ctypes.c_char_p,
+             ctypes.c_bool,
+             ctypes.c_bool,
+             ctypes.c_bool,
+             ctypes.c_bool],
+            ctypes.c_int32,
+            required=False,
+        )
 
-        # Export field data to VTI format (debug version)
-        self.api_export_vti_debug = getattr(lib_obj, f'mGrid_mField_to_vti_debug{self.suffix}')
-        self.api_export_vti_debug.argtypes = [self.handle_type,        # Input: field handle
-                                              ctypes.c_char_p,         # Input: filename
-                                              ctypes.c_char_p]         # Input: field name
-        self.api_export_vti_debug.restype = ctypes.c_int32
+        self.api_export_vti_debug = bind_api(
+            'mGrid_mField_to_vti_debug',
+            [self.handle_type, ctypes.c_char_p, ctypes.c_char_p],
+            ctypes.c_int32,
+            required=False,
+        )
 
         # === Field Operations ===
-        # Fill field with a constant value
-        self.api_fill = getattr(lib_obj, f'mGrid_mField_fill{self.suffix}')
-        self.api_fill.argtypes = [self.handle_type,                    # Input: field handle
-                                  ctypes.c_int32,                      # Input: resolution level
-                                  self.type_mapping["ctype"],          # Input: fill value
-                                  ctypes.c_int]                        # Input: stream ID
-        self.api_fill.restype = ctypes.c_int
+        self.api_fill = bind_api(
+            'mGrid_mField_fill',
+            [self.handle_type,
+             ctypes.c_int32,
+             self.type_mapping["ctype"],
+             ctypes.c_int],
+            ctypes.c_int,
+        )
 
-        # Copy data between fields
-        self.api_copy = getattr(lib_obj, f'mGrid_mField_copy{self.suffix}')
-        self.api_copy.argtypes = [self.handle_type,                    # Input: destination field handle
-                                  self.handle_type,                    # Input: source field handle
-                                  ctypes.c_int,                        # Input: resolution level
-                                  ctypes.c_int]                        # Input: stream ID
-        self.api_copy.restype = ctypes.c_int
+        self.api_copy = bind_api(
+            'mGrid_mField_copy',
+            [self.handle_type, self.handle_type, ctypes.c_int, ctypes.c_int],
+            ctypes.c_int,
+        )
 
     def _help_field_new(self):
         """
@@ -379,10 +406,10 @@ class mField(object):
         Returns:
             Field value at the specified location (type depends on field dtype)
         """
-        return self.api_read(self._handle,
-                             level,
-                             idx,
-                             cardinality)
+        return self._from_ctype_value(self.api_read(self._handle,
+                                                    level,
+                                                    idx,
+                                                    cardinality))
 
     def write(self,
               level: ctypes.c_int,
@@ -405,7 +432,7 @@ class mField(object):
                               level,
                               idx,
                               cardinality,
-                              self.type_mapping['ctype'](newValue))
+                              self._to_ctype_value(newValue))
 
     def update_host(self,
                     stream: ctypes.c_int):
@@ -460,6 +487,10 @@ class mField(object):
             outputVoxelID (bool): Include voxel identifier data
             filterOverlaps (bool): Remove overlapping regions between levels
         """
+        if self.api_export_vti is None:
+            raise NotImplementedError(
+                f"VTI export is not available for dtype {self.dtype}"
+            )
         self.api_export_vti(self._handle, filename.encode('utf-8'), field_name.encode('utf-8'),
                             outputLevels,
                             outputBlockID,
@@ -533,10 +564,10 @@ class mField(object):
             value: Constant value to fill with (converted to field's dtype)
             stream_idx (int): CUDA stream index for asynchronous execution
         """
-        value = self.type_mapping['ctype'](value)
+        value = self._to_ctype_value(value)
         self.api_fill(self.handle,
                       level,
-                      value.value,
+                      value,
                       stream_idx
                       )
 

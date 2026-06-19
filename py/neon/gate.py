@@ -120,7 +120,7 @@ class Gate(object):
             "uint32": wp.uint32,
             "int64": wp.int64,
             "uint64": wp.uint64,
-            # "float16": wp.float16,
+            "float16": wp.float16,
             "float32": wp.float32,  # alias: float
             "float64": wp.float64,  # alias: double
             "float": wp.float32,  # alias for float32
@@ -150,6 +150,7 @@ class Gate(object):
             wp.uint32: "uint32_t",
             wp.int64: "int64_t",
             wp.uint64: "uint64_t",
+            wp.float16: "__half",
             wp.float32: "float",
             wp.float64: "double",
         }
@@ -164,7 +165,7 @@ class Gate(object):
             "uint32": ctypes.c_uint32,
             "int64": ctypes.c_int64,
             "uint64": ctypes.c_uint64,
-            "float16": None,  # ctypes has no built-in half-precision float type
+            "float16": ctypes.c_uint16,
             "float32": ctypes.c_float,  # single-precision
             "float64": ctypes.c_double,  # double-precision
             "float": ctypes.c_float,  # alias for float32

@@ -1,3 +1,5 @@
+"""Manual demo: multi-level skeleton pipeline. Not run by unittest discover."""
+
 import numpy as np
 
 from env_setup import update_pythonpath
@@ -202,9 +204,4 @@ def block_grid_try():
 
 
 if __name__ == "__main__":
-    # block until getting an input from keyboard
-    pid = os.getpid()
-    print(f"Process PID: {pid}")
-    print("Press any key to continue...")
-    # input()
     block_grid_try()

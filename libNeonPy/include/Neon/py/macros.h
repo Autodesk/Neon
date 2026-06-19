@@ -1,6 +1,8 @@
-#include <iostream>
-
 #pragma once
+
+#include <cuda_fp16.h>
+#include <cstdint>
+#include <iostream>
 
 #if 0
 #define NEON_PY_PRINT_BEGIN(handel) \
@@ -112,3 +114,4 @@ using uint64 = uint64_t;
 
 using float32 = float;
 using float64 = double;
+using float16 = __half;

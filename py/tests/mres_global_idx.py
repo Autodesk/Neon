@@ -1,128 +1,104 @@
+"""Manual demo: write per-level global indices and export VTI. Not run by unittest discover."""
+
 import numpy as np
 
 from env_setup import update_pythonpath
 
 update_pythonpath()
 
-import os
-import warp as wp
-import neon
 import typing
 
+import warp as wp
+import neon
 
-@neon.Container.factory(name='test')
-def test(field, level):
-    def kernel(loader: neon.Loader):
+from neon_test_utils import export_vti_if_requested, init_warp_neon, run_container
+
+
+@neon.Container.factory(name="GlobalIdxOperator")
+def global_idx_operator(field, level):
+    def setup(loader: neon.Loader):
         loader.set_mres_grid(field.get_grid(), level=level)
-
         f = loader.get_mres_write_handle(field)
 
         @wp.func
         def device(cell: typing.Any):
-            # wp.neon_print(f_read)
-            # get cell global idx
             cartesian_idx = wp.neon_global_idx(f, cell)
             for c in range(wp.neon_cardinality(f)):
-                # add the level to each index component
-                val = wp.neon_get_component(cartesian_idx, c)
-                val = val + level
+                val = wp.neon_get_component(cartesian_idx, c) + level
                 wp.neon_write(f, cell, c, val)
 
         loader.declare_kernel(device)
 
-    return kernel
+    return setup
 
 
-def block_grid_try():
-    # Get the path of the current script
-    script_path = __file__
-    # Get the directory containing the script
-    script_dir = os.path.dirname(os.path.abspath(script_path))
+def get_peeled_mask(dim, level, width):
+    def peel(grid_dim, idx, peel_level, outwards):
+        if outwards:
+            return (idx.x <= peel_level or idx.x >= grid_dim.x - 1 - peel_level or
+                    idx.y <= peel_level or idx.y >= grid_dim.y - 1 - peel_level or
+                    idx.z <= peel_level or idx.z >= grid_dim.z - 1 - peel_level)
+        return (peel_level <= idx.x <= grid_dim.x - 1 - peel_level and
+                peel_level <= idx.y <= grid_dim.y - 1 - peel_level and
+                peel_level <= idx.z <= grid_dim.z - 1 - peel_level)
 
-    # wp.config.mode = "debug"
-    # wp.config.llvm_cuda = False
-    # wp.config.verbose = True
-    # wp.verbose_warnings = True
+    divider = 2 ** level
+    grid_dim = dim if level == 0 else neon.Index_3d(
+        dim.x // divider,
+        dim.y // divider,
+        dim.z // divider,
+    )
+    mask = np.zeros((grid_dim.x, grid_dim.y, grid_dim.z), dtype=np.int32)
+    peel_level = grid_dim.x / width
+    for i in range(grid_dim.x):
+        for j in range(grid_dim.y):
+            for k in range(grid_dim.z):
+                idx = neon.Index_3d(i, j, k)
+                if peel(grid_dim, idx, peel_level, True):
+                    mask[i, j, k] = 1
+    return np.ascontiguousarray(mask, dtype=np.int32)
 
-    wp.init()
-    neon.init()
 
-    grid_shape = (64, 64, 64)
-    dim = neon.Index_3d(grid_shape[0],
-                        grid_shape[1],
-                        grid_shape[2])
+def main():
+    init_warp_neon(verbose=False)
 
-    def get_peeled_np(level, width):
-        def peel(dim, idx, peel_level, outwards):
-            if outwards:
-                xIn = idx.x <= peel_level or idx.x >= dim.x - 1 - peel_level
-                yIn = idx.y <= peel_level or idx.y >= dim.y - 1 - peel_level
-                zIn = idx.z <= peel_level or idx.z >= dim.z - 1 - peel_level
-                return xIn or yIn or zIn
-            else:
-                xIn = idx.x >= peel_level and idx.x <= dim.x - 1 - peel_level
-                yIn = idx.y >= peel_level and idx.y <= dim.y - 1 - peel_level
-                zIn = idx.z >= peel_level and idx.z <= dim.z - 1 - peel_level
-                return xIn and yIn and zIn
-
-        divider = 2 ** level
-        m = neon.Index_3d(dim.x // divider, dim.y // divider, dim.z // divider)
-        if level == 0:
-            m = dim
-
-        mask = np.zeros((m.x, m.y, m.z), dtype=int)
-        mask = np.ascontiguousarray(mask, dtype=np.int32)
-        # loop over all the elements in mask and set to one any that have x=0 or y=0 or z=0
-        for i in range(m.x):
-            for j in range(m.y):
-                for k in range(m.z):
-                    idx = neon.Index_3d(i, j, k)
-                    val = 0
-                    if peel(m, idx, m.x / width, True):
-                        val = 1
-                    mask[i, j, k] = val
-        return mask
-
+    dim = neon.Index_3d(64, 64, 64)
     num_levels = 4
-    levels = []
+    divider = 2 ** (num_levels - 1)
+    coarse_dim = neon.Index_3d(
+        dim.x // divider + 1,
+        dim.y // divider + 1,
+        dim.z // divider + 1,
+    )
+    levels = [
+        get_peeled_mask(dim, 0, 17),
+        get_peeled_mask(dim, 1, 7),
+        get_peeled_mask(dim, 2, 4),
+        np.ascontiguousarray(np.ones((coarse_dim.x, coarse_dim.y, coarse_dim.z), dtype=np.int32)),
+    ]
 
-    l0 = get_peeled_np(0, 17)
-    l1 = get_peeled_np(1, 7)
-    l2 = get_peeled_np(2, 4)
-    lastLevel = num_levels - 1
-    divider = 2 ** lastLevel
-    m = neon.Index_3d(dim.x // divider + 1, dim.y // divider + 1, dim.z // divider + 1)
-    lastLevel = np.ones((m.x, m.y, m.z), dtype=int)
-    lastLevel = np.ascontiguousarray(lastLevel, dtype=np.int32)
-    levels = [l0, l1, l2, lastLevel]
+    backend = neon.Backend(
+        runtime=neon.Backend.Runtime.stream,
+        dev_idx_list=[0],
+    )
+    grid = neon.mGrid(
+        backend,
+        dim,
+        sparsity_pattern_list=levels,
+        sparsity_pattern_origins=[neon.Index_3d(0, 0, 0)] * len(levels),
+        stencil=[[0, 0, 0], [1, 0, 0]],
+    )
+    field = grid.new_field(
+        cardinality=3,
+        dtype=wp.int32,
+        memory_type=neon.MemoryType.host_device(),
+    )
 
-    bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
-                      dev_idx_list=[0])
-
-    grid = neon.mGrid(bk, dim,
-                      sparsity_pattern_list=levels,
-                      sparsity_pattern_origins=[neon.Index_3d(0, 0, 0)] * len(levels),
-                      stencil=[[0, 0, 0], [1, 0, 0]], )
-
-    print(grid)
-    field = grid.new_field(cardinality=3, dtype=wp.int32)
-    print("Field created")
-
-    wp.synchronize()
-    test(field, level=0).run(0)
-    test(field, level=1).run(0)
-
-    wp.synchronize()
-    field.update_host(stream=0)
-    wp.synchronize()
-
-    field.export_vti("mres_global_idx", "test")
+    run_container(global_idx_operator(field, level=0))
+    run_container(global_idx_operator(field, level=1))
+    field.update_host(0)
+    export_vti_if_requested(field, "mres_global_idx", field_name="test")
 
 
 if __name__ == "__main__":
-    # block until getting an input from keyboard
-    pid = os.getpid()
-    print(f"Process PID: {pid}")
-    print("Press any key to continue...")
-    # input()
-    block_grid_try()
+    main()

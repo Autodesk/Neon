@@ -4,6 +4,9 @@
 #include "Neon/domain/Grids.h"
 #include "Neon/py/AllocationCounter.h"
 #include "Neon/py/macros.h"
+#include <cuda_fp16.h>
+
+using float16 = __half;
 
 
 /**
@@ -254,6 +257,7 @@ DO_EXPORT(uint64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, i
 
 DO_EXPORT(float32, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
 DO_EXPORT(float64, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
+DO_EXPORT(float16, 4, mGrid_mField_new, int, void**, handle, void*, gridHandle, int, cardinality, Neon::DataUse, dataUse);
 
 template <typename T>
 auto mGrid_mField_delete(
@@ -290,6 +294,7 @@ DO_EXPORT(uint64, 1, mGrid_mField_delete, int, void**, handle);
 
 DO_EXPORT(float32, 1, mGrid_mField_delete, int, void**, handle);
 DO_EXPORT(float64, 1, mGrid_mField_delete, int, void**, handle);
+DO_EXPORT(float16, 1, mGrid_mField_delete, int, void**, handle);
 
 template <typename T>
 auto mGrid_mField_get_partition(
@@ -346,6 +351,7 @@ DO_EXPORT(uint64, 6, mGrid_mField_get_partition, int, void*, field_handle, declt
 
 DO_EXPORT(float32, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<float32, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
 DO_EXPORT(float64, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<float64, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
+DO_EXPORT(float16, 6, mGrid_mField_get_partition, int, void*, field_handle, decltype(Neon::domain::mGrid::Partition<float16, 0>())*, partitionPtr, int, resolution_level, Neon::Execution, execution, int, device, Neon::DataView, data_view);
 
 auto mGrid_span_size(
     Neon::domain::mGrid::Span* spanRes)
@@ -439,6 +445,7 @@ DO_EXPORT(uint64, 4, mGrid_mField_read, uint64, void*, fieldHandle, int, resolut
 
 DO_EXPORT(float32, 4, mGrid_mField_read, float32, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
 DO_EXPORT(float64, 4, mGrid_mField_read, float64, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
+DO_EXPORT(float16, 4, mGrid_mField_read, float16, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality);
 
 
 template <typename T>
@@ -480,6 +487,7 @@ DO_EXPORT(uint64, 5, mGrid_mField_write, uint64, void*, fieldHandle, int, resolu
 
 DO_EXPORT(float32, 5, mGrid_mField_write, float32, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, float32, newValue);
 DO_EXPORT(float64, 5, mGrid_mField_write, float64, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, float64, newValue);
+DO_EXPORT(float16, 5, mGrid_mField_write, float16, void*, fieldHandle, int, resolution_level, const Neon::index_3d*, idx, const int, cardinality, float16, newValue);
 
 template <typename T>
 auto mGrid_mField_update_host_data(
@@ -517,6 +525,7 @@ DO_EXPORT(uint64, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int
 
 DO_EXPORT(float32, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
 DO_EXPORT(float64, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(float16, 2, mGrid_mField_update_host_data, int, void*, fieldHandle, int, streamSetId);
 
 template <typename T>
 auto mGrid_mField_update_device_data(
@@ -554,6 +563,7 @@ DO_EXPORT(uint64, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, i
 
 DO_EXPORT(float32, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
 DO_EXPORT(float64, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
+DO_EXPORT(float16, 2, mGrid_mField_update_device_data, int, void*, fieldHandle, int, streamSetId);
 
 
 template <typename T>
@@ -609,6 +619,7 @@ DO_EXPORT(uint64, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, 
 
 DO_EXPORT(float32, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
 DO_EXPORT(float64, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
+DO_EXPORT(float16, 7, mGrid_mField_to_vti, int, void*, fieldHandle, const char*, fname, const char*, fieldName, bool, outputLevels, bool, outputBlockID, bool, outputVoxelID, bool, filterOverlaps);
 
 
 template <typename T>
@@ -659,6 +670,7 @@ DO_EXPORT(uint64, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const c
 
 DO_EXPORT(float32, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
 DO_EXPORT(float64, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
+DO_EXPORT(float16, 3, mGrid_mField_to_vti_debug, int, void*, fieldHandle, const char*, fname, const char*, fieldName);
 
 extern "C" auto mGrid_mField_mPartition_get_member_field_offsets(size_t* offsets, size_t* length)
     -> void

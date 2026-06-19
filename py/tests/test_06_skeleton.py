@@ -1,127 +1,79 @@
+import unittest
+
 from env_setup import update_pythonpath
 
 update_pythonpath()
 
-import os
+import typing
+
 import warp as wp
 import neon
 from neon import Index_3d
-from neon.dense import dSpan
 from neon.skeleton import Skeleton
-import typing
+
+from neon_test_utils import coord_sum, gpu_count, init_warp_neon
 
 
-@neon.Container.factory(name='solver')
-def get_solver_operator_container(field):
+@neon.Container.factory(name="SkeletonAddOperator")
+def add_operator(field):
     def setup(loader: neon.Loader):
         loader.set_grid(field.get_grid())
-
-        f_read = loader.get_read_handle(field)
+        f = loader.get_read_handle(field)
 
         @wp.func
-        def foo(idx: typing.Any):
-            wp.neon_print(idx)
-            global_idx = wp.neon_global_idx(f_read, idx)
-            # wp.neon_print(f_read)
-            value = wp.neon_read(f_read, idx, 0)
+        def add_kernel(idx: typing.Any):
+            value = wp.neon_read(f, idx, 0)
+            global_idx = wp.neon_global_idx(f, idx)
             value = (value +
                      wp.neon_get_x(global_idx) +
                      wp.neon_get_y(global_idx) +
                      wp.neon_get_z(global_idx))
-            wp.print(value)
+            wp.neon_write(f, idx, 0, value)
 
-            # value = value + int(idx.x)
-            wp.neon_write(f_read, idx, 0, value)
-
-            # print(value)
-
-        loader.declare_kernel(foo)
+        loader.declare_kernel(add_kernel)
 
     return setup
 
 
-def test_container_int():
-    # Get the path of the current script
-    script_path = __file__
-    # Get the directory containing the script
-    script_dir = os.path.dirname(os.path.abspath(script_path))
+@unittest.skipUnless(gpu_count() >= 1, "CUDA GPU not available")
+class TestSkeleton(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        init_warp_neon()
 
-    wp.config.mode = "debug"
-    wp.config.llvm_cuda = False
-    wp.config.verbose = True
-    wp.verbose_warnings = True
+    def test_skeleton_sequence_updates_field(self):
+        device_count = max(1, min(2, gpu_count()))
+        backend = neon.Backend(
+            runtime=neon.Backend.Runtime.stream,
+            dev_idx_list=list(range(device_count)),
+        )
+        dim = Index_3d(10, 10, 6)
+        grid = neon.dense.dGrid(backend, dim)
+        field = grid.new_field(cardinality=1, dtype=wp.int32)
 
-    wp.init()
+        for z in range(dim.z):
+            for y in range(dim.y):
+                for x in range(dim.x):
+                    idx = Index_3d(x, y, z)
+                    field.write(idx=idx, cardinality=0, newValue=coord_sum(idx))
 
-    wp.build.set_cpp_standard("c++17")
-    wp.build.add_include_directory(script_dir)
-    wp.build.add_preprocessor_macro_definition('NEON_WARP_COMPILATION')
+        field.update_device(0)
+        wp.synchronize()
 
-    # It's a good idea to always clear the kernel cache when developing new native or codegen features
-    wp.build.clear_kernel_cache()
+        skeleton = Skeleton(backend=backend)
+        skeleton.sequence("skeletonTest", [add_operator(field)])
+        skeleton.run()
+        field.update_host(0)
+        wp.synchronize()
 
-    # !!! DO THIS BEFORE DEFINING/USING ANY KERNELS WITH CUSTOM TYPES
-    neon.init()
+        for z in range(dim.z):
+            for y in range(dim.y):
+                for x in range(dim.x):
+                    idx = Index_3d(x, y, z)
+                    expected = coord_sum(idx) * 2
+                    read_value = field.read(idx=idx, cardinality=0)
+                    self.assertEqual(expected, read_value)
 
-    bk = neon.Backend(runtime=neon.Backend.Runtime.stream,
-                    dev_idx_list=[0,1])
-
-    dim = Index_3d(10, 10, 6)
-    grid = neon.dense.dGrid(bk, dim)
-    field = grid.new_field(cardinality=1, dtype=wp.int32)
-
-    def set_value(idx: Index_3d):
-        return idx.x + idx.y + idx.z
-
-    for z in range(0, dim.z):
-        for y in range(0, dim.y):
-            for x in range(0, dim.x):
-                idx = Index_3d(x, y, z)
-                newValue = set_value(idx)
-                field.write(idx=idx,
-                            cardinality=0,
-                            newValue=newValue)
-
-    field.update_device(0)
-    wp.synchronize()
-
-    solver_operator = get_solver_operator_container(field)
-    # solver_operator.run(
-    #     stream_idx=0,
-    #     data_view=neon.DataView.standard(),
-    #     container_runtime=neon.Container.ContainerRuntime.neon)
-    print('=====================')
-    # solver_operator.run(
-    #     stream_idx=0,
-    #     data_view=neon.DataView.standard(),
-    #     container_runtime=neon.Container.ContainerRuntime.neon)
-
-    sk = Skeleton(backend=bk)
-    sk.sequence("skeletonTest", [solver_operator])
-    sk.run()
-
-    field.update_host(0)
-    wp.synchronize()
-    error_detected = False
-    for z in range(0, dim.z):
-        for y in range(0, dim.y):
-            for x in range(0, dim.x):
-                idx = Index_3d(x, y, z)
-                newValue = set_value(idx)
-                newValueRead = field.read(idx=idx,
-                                          cardinality=0)
-                different = (newValue * 2) - newValueRead
-                if different != 0:
-                    print(f"Error: {newValue} != {newValueRead}, {different}")
-                    error_detected = True
-                else:
-                    print(f"Success: {newValue} == {newValueRead}")
-
-    pass
-    if error_detected:
-        raise Exception("Test failed: some values were not updated correctly")
-    else:
-        print("Test passed: all values were updated correctly")
 
 if __name__ == "__main__":
-    test_container_int()
+    unittest.main()

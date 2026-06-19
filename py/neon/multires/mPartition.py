@@ -206,6 +206,7 @@ mPartition_uint64 = factory_mPartition(wp.uint64)  # 64-bit unsigned integer par
 # Floating-point types
 mPartition_float32 = factory_mPartition(wp.float32) # 32-bit floating-point partitions
 mPartition_float64 = factory_mPartition(wp.float64) # 64-bit floating-point partitions
+mPartition_float16 = factory_mPartition(wp.float16) # 16-bit floating-point partitions
 
 
 def register_builtins() -> None:
@@ -248,7 +249,8 @@ def register_builtins() -> None:
                        (mPartition_uint64, 'uint64', wp.uint64),
 
                        (mPartition_float32, 'float32', wp.float32),
-                       (mPartition_float64, 'float64', wp.float64)]
+                       (mPartition_float64, 'float64', wp.float64),
+                       (mPartition_float16, 'float16', wp.float16)]
 
     for Partition, suffix, Type in supported_types:
         # Register partition type with Warp's type system
@@ -553,3 +555,5 @@ def neon_get_type(partition: typing.Any) -> typing.Any:
         return wp.float32
     elif wp.static(isinstance(partition, mPartition_float64)):
         return wp.float64
+    elif wp.static(isinstance(partition, mPartition_float16)):
+        return wp.float16
