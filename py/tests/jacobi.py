@@ -5,7 +5,6 @@ update_pythonpath()
 
 import os
 import warp as wp
-import wpne
 import neon as ne
 from neon import Index_3d
 from neon import Ngh_idx
@@ -38,9 +37,9 @@ def warp_jacobi(
     y[k, j, i] = tmp / wp.float(6)
 
 
-@wpne.Container.factory
+@ne.Container.factory()
 def get_jacobi(f_X, f_Y):
-    def axpy(loader: wpne.Loader):
+    def axpy(loader: ne.Loader):
         loader.set_grid(f_Y.get_grid())
 
         f_x = loader.get_read_handle(f_X)
@@ -63,7 +62,7 @@ def get_jacobi(f_X, f_Y):
                                                  wp.int8(dj),
                                                  wp.int8(dk))
                         unused_is_valid = wp.bool(False)
-                        tmp = tmp + wp.neon_ngh_data(f_x,
+                        tmp = tmp + wp.neon_read_ngh(f_x,
                                                      idx,
                                                      ngh,
                                                      wp.int32(0),
@@ -79,7 +78,7 @@ def get_jacobi(f_X, f_Y):
 def execution(nun_devs: int,
               dim: ne.Index_3d,
               dtype,
-              container_runtime: wpne.Container.ContainerRuntime):
+              container_runtime: ne.Container.ContainerRuntime):
     num_card = 1
     # Get the path of the current script
     script_path = __file__
@@ -101,7 +100,7 @@ def execution(nun_devs: int,
     wp.build.clear_kernel_cache()
 
     # !!! DO THIS BEFORE DEFINING/USING ANY KERNELS WITH CUSTOM TYPES
-    wpne.init()
+    ne.init()
 
     dev_idx_list = list(range(nun_devs))
     bk = ne.Backend(runtime=ne.Backend.Runtime.stream,
@@ -218,17 +217,17 @@ def execution(nun_devs: int,
 
 def gpu1_int(dimx, neon_ngpus: int = 1):
     execution(nun_devs=neon_ngpus, dim=ne.Index_3d(dimx, dimx, dimx), dtype=int,
-              container_runtime=wpne.Container.ContainerRuntime.neon)
+              container_runtime=ne.Container.ContainerRuntime.neon)
 
 
 def gpu1_float(dimx, neon_ngpus: int = 1):
     execution(nun_devs=neon_ngpus, dim=ne.Index_3d(dimx, dimx, dimx), dtype=wp.float32,
-              container_runtime=wpne.Container.ContainerRuntime.neon)
+              container_runtime=ne.Container.ContainerRuntime.neon)
 
 
 # def gpu1_float():
 #     execution(nun_devs=1, num_card=1, dim=ne.Index_3d(10, 10, 10), dtype=ctypes.c_float,
-#               container_runtime=wpne.Container.ContainerRuntime.neon)
+#               container_runtime=ne.Container.ContainerRuntime.neon)
 
 if __name__ == "__main__":
     # gpu1_int()

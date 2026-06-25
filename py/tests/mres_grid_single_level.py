@@ -97,6 +97,8 @@ def main():
     for z in range(GRID_DIM):
         for y in range(GRID_DIM):
             for x in range(GRID_DIM):
+                if level_zero_mask[x, y, z] == 0:
+                    continue
                 idx = neon.Index_3d(x, y, z)
                 field.write(level=0, idx=idx, cardinality=0, newValue=coord_sum(idx))
 
@@ -104,6 +106,8 @@ def main():
     for z in range(coarse):
         for y in range(coarse):
             for x in range(coarse):
+                if level_one_mask[x, y, z] == 0:
+                    continue
                 idx = neon.Index_3d(x * 2, y * 2, z * 2)
                 field.write(level=1, idx=idx, cardinality=0, newValue=coord_sum(idx))
 

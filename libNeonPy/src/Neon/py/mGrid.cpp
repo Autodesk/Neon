@@ -469,7 +469,12 @@ auto mGrid_mField_write(
         return -1;
     }
 
-    fieldPtr->getReference(*idx, cardinality, resolution_level) = newValue;
+    try {
+        fieldPtr->getReference(*idx, cardinality, resolution_level) = newValue;
+    } catch (const std::exception& e) {
+        NEON_ERROR("mGrid Python bindings: mField_write failed (writing to an inactive/invalid cell?): {}", e.what());
+        return -1;
+    }
 
     // NEON_PY_DBG_COUT << "mGrid_mField_write end" << std::endl;
     return 0;

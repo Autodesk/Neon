@@ -384,6 +384,7 @@ extern "C" auto warp_mGrid_container_new(
 
 using dGrid = Neon::domain::details::dGrid::dGrid;
 using mGrid = Neon::domain::mGrid;
+using bGrid = Neon::bGrid;
 
 template <typename Grid>
 auto warp_container_delete(
@@ -409,6 +410,7 @@ auto warp_container_delete(
 
 DO_EXPORT(dGrid, 1, warp_container_delete, int, void**, handle);
 DO_EXPORT(mGrid, 1, warp_container_delete, int, void**, handle);
+DO_EXPORT(bGrid, 1, warp_container_delete, int, void**, handle);
 
 template <typename Grid>
 auto warp_container_parse(
@@ -428,6 +430,7 @@ auto warp_container_parse(
 
 DO_EXPORT(dGrid, 1, warp_container_parse, int, void*, handle);
 DO_EXPORT(mGrid, 1, warp_container_parse, int, void*, handle);
+DO_EXPORT(bGrid, 1, warp_container_parse, int, void*, handle);
 
 
 template <typename Grid>
@@ -451,6 +454,7 @@ auto warp_container_run(
 
 DO_EXPORT(dGrid, 3, warp_container_run, int, void*, handle, int, streamIdx, Neon::DataView, dataView);
 DO_EXPORT(mGrid, 3, warp_container_run, int, void*, handle, int, streamIdx, Neon::DataView, dataView);
+DO_EXPORT(bGrid, 3, warp_container_run, int, void*, handle, int, streamIdx, Neon::DataView, dataView);
 
 
 template <typename Grid, typename Type, int Card>

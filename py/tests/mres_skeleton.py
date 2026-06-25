@@ -174,8 +174,8 @@ def block_grid_try():
                       stencil=[[0, 0, 0], [1, 0, 0]], )
 
     print(grid)
-    field_a = grid.new_field(cardinality=3, dtype=wp.int32)
-    field_b = grid.new_field(cardinality=3, dtype=wp.int32)
+    field_a = grid.new_field(cardinality=3, dtype=wp.int32, memory_type=neon.MemoryType.host_device())
+    field_b = grid.new_field(cardinality=3, dtype=wp.int32, memory_type=neon.MemoryType.host_device())
 
     print("Field created")
 
