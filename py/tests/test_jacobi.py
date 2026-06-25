@@ -229,7 +229,16 @@ def gpu1_float(dimx, neon_ngpus: int = 1):
 #     execution(nun_devs=1, num_card=1, dim=ne.Index_3d(10, 10, 10), dtype=ctypes.c_float,
 #               container_runtime=ne.Container.ContainerRuntime.neon)
 
+
+import unittest
+from neon_test_utils import require_gpu
+
+
+@require_gpu
+class TestJacobi(unittest.TestCase):
+    def test_run(self):
+        gpu1_float(10, 1)
+
+
 if __name__ == "__main__":
-    # gpu1_int()
-    # gpu1_int()
-    gpu1_float(10, 1)
+    unittest.main()

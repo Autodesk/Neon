@@ -149,5 +149,15 @@ def block_grid_try():
     A.export_vti("mres_finer_ngh","test")
 
 
+import unittest
+from neon_test_utils import require_gpu
+
+
+@require_gpu
+class TestMresFinerNgh(unittest.TestCase):
+    def test_run(self):
+        block_grid_try()
+
+
 if __name__ == "__main__":
-    block_grid_try()
+    unittest.main()

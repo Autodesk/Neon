@@ -212,5 +212,15 @@ def block_grid_try():
     field.export_vti("export_test_after_has_parent_operator","has_parent_operator")
 
 
+import unittest
+from neon_test_utils import require_gpu
+
+
+@require_gpu
+class TestMresGridExport(unittest.TestCase):
+    def test_run(self):
+        block_grid_try()
+
+
 if __name__ == "__main__":
-    block_grid_try()
+    unittest.main()

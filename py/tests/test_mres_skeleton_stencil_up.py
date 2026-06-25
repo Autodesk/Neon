@@ -206,5 +206,15 @@ def block_grid_try():
     field_a.export_vti("mres_skeleton_field_a", "test")
 
 
+import unittest
+from neon_test_utils import require_gpu
+
+
+@require_gpu
+class TestMresSkeletonStencilUp(unittest.TestCase):
+    def test_run(self):
+        block_grid_try()
+
+
 if __name__ == "__main__":
-    block_grid_try()
+    unittest.main()
