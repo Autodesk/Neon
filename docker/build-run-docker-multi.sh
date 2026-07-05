@@ -29,6 +29,18 @@ NEON_ROOT="$(dirname "$SCRIPT_DIR")"
 DOCKERFILE="Dockerfile.wheel-builder.multi"
 IMAGE_TAG="neon-warp-builder:multi"
 HOST_ARCH="$(uname -m)"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+HOST_USER="${USER:-host}"
+
+# When Neon is checked out as a git submodule, .git is a file pointing at the
+# parent repo's .git/modules/Neon. Mount the parent so git submodule works.
+MOUNT_ROOT="$NEON_ROOT"
+CONTAINER_WORKDIR="/workspace"
+if [[ -f "$NEON_ROOT/.git" ]] && grep -q '^gitdir:' "$NEON_ROOT/.git"; then
+    MOUNT_ROOT="$(dirname "$NEON_ROOT")"
+    CONTAINER_WORKDIR="/workspace/$(basename "$NEON_ROOT")"
+fi
 
 if [[ ! -f "$SCRIPT_DIR/$DOCKERFILE" ]]; then
     echo "Error: $DOCKERFILE not found in $SCRIPT_DIR"
@@ -81,6 +93,9 @@ echo "  Platform : $PLATFORM_LABEL"
 echo "  CUDA base: $BASE_IMAGE"
 echo "  Image tag: $IMAGE_TAG"
 echo "  Neon root: $NEON_ROOT"
+echo "  Mount    : $MOUNT_ROOT -> /workspace"
+echo "  Workdir  : $CONTAINER_WORKDIR"
+echo "  Run as   : ${HOST_USER} (uid=${HOST_UID} gid=${HOST_GID})"
 echo ""
 
 cd "$SCRIPT_DIR"
@@ -88,10 +103,19 @@ echo "Building Docker image..."
 docker build -f "$DOCKERFILE" --build-arg BASE_IMAGE="$BASE_IMAGE" -t "$IMAGE_TAG" .
 
 echo ""
-echo "✓ Image built. Running container (mounting $NEON_ROOT as /workspace)..."
+echo "✓ Image built. Running container..."
 echo "  Inside container, run: ./docker/build-wheels-multi.sh"
 echo ""
 
+# Start as root briefly to register the host user in /etc/passwd, then drop to that
+# user so bind-mounted files are owned by the host user with a normal shell prompt.
 docker run $GPU_FLAG -it --rm \
-    -v "$NEON_ROOT:/workspace" \
+    --user root \
+    -e HOST_UID="${HOST_UID}" \
+    -e HOST_GID="${HOST_GID}" \
+    -e HOST_USER="${HOST_USER}" \
+    -e CONTAINER_WORKDIR="${CONTAINER_WORKDIR}" \
+    -v "$MOUNT_ROOT:/workspace" \
+    -v "$SCRIPT_DIR/entrypoint-host-user.sh:/entrypoint-host-user.sh:ro" \
+    --entrypoint /entrypoint-host-user.sh \
     "$IMAGE_TAG"

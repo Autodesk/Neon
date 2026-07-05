@@ -193,7 +193,11 @@ CUDA_CALLABLE inline auto neon_mres_lbm_store_op(const NeonMultiresPartition<T>&
             const auto csChild = pout.helpGetNghIdx(cell, CsDir);
 
             if (cs.isActive() && pout.isActive(csChild)) {
+#if defined(NEON_WARP_COMPILATION)
+                wp::atomic_add(&pout.uncleVal(cell, CsDir, q), cellVal);
+#else
                 atomicAdd(&pout.uncleVal(cell, CsDir, q), cellVal);
+#endif
             }
         }
     }
