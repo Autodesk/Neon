@@ -100,12 +100,22 @@ auto bField<T, C, SBlock>::getReference(const Neon::index_3d& cartesianIdx,
             NEON_THROW(exp);
         }
         auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(uniformCartesianIdx);
+        if (setIdx.idx() == -1) {
+            NeonException exp("bField::getReference");
+            exp << "Cannot get a writable reference to an inactive cell. Index = " << cartesianIdx;
+            NEON_THROW(exp);
+        }
         auto& partition = getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
         auto& result = partition(bIdx, cardinality);
         return result;
     } else {
         auto& grid = this->getGrid();
         auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
+        if (setIdx.idx() == -1) {
+            NeonException exp("bField::getReference");
+            exp << "Cannot get a writable reference to an inactive cell. Index = " << cartesianIdx;
+            NEON_THROW(exp);
+        }
         auto& partition = getPartition(Neon::Execution::host, setIdx, Neon::DataView::STANDARD);
         auto& result = partition(bIdx, cardinality);
         return result;

@@ -1,4 +1,3 @@
-import os
 import unittest
 
 from env_setup import update_pythonpath
@@ -11,27 +10,19 @@ from neon import DataView, Index_3d
 from neon.dense import dSpan
 from neon.dense.dPartition import dPartition_int32
 
-from neon_test_utils import gpu_available, init_warp_neon, require_gpu, require_wpne, setup_wpne_build
-
-try:
-    import wpne
-    HAS_WPNE = True
-except ImportError:
-    HAS_WPNE = False
+from neon_test_utils import init_warp_neon, require_gpu
 
 
 @require_gpu
-@require_wpne
 class TestClosure(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         init_warp_neon(verbose=False)
-        setup_wpne_build(os.path.dirname(os.path.abspath(__file__)))
 
     def test_kernel_without_closure(self):
         @wp.kernel
         def kernel():
-            wp.neon_print(wp.NeonDenseIdx_create(11, 22, 33))
+            wp.neon_print(wp.neon_idx_3d(11, 22, 33))
 
         with wp.ScopedDevice("cuda:0"):
             wp.launch(kernel, dim=1, inputs=[])
@@ -56,8 +47,8 @@ class TestClosure(unittest.TestCase):
             def kernel():
                 wp.neon_print(idx)
                 wp.NeonDataView_print(data_view)
-                wp.NeonDenseSpan_print(span)
-                wp.neon_print(partition)
+                wp.neon_print(span)
+                wp.neon_print_dbg(partition)
 
             return kernel
 

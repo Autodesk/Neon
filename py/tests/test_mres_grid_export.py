@@ -166,8 +166,8 @@ def block_grid_try():
                                                 ],
                       stencil=[[0, 0, 0], [1, 0, 0]], )
     print(grid)
-    field = grid.new_field(cardinality=1, dtype=wp.int32)
-    c3_field = grid.new_field(cardinality=3, dtype=wp.float32)
+    field = grid.new_field(cardinality=1, dtype=wp.int32, memory_type=neon.MemoryType.host_device())
+    c3_field = grid.new_field(cardinality=3, dtype=wp.float32, memory_type=neon.MemoryType.host_device())
 
     print("Field created")
     field.export_vti("export_test","ut")
@@ -212,5 +212,15 @@ def block_grid_try():
     field.export_vti("export_test_after_has_parent_operator","has_parent_operator")
 
 
+import unittest
+from neon_test_utils import require_gpu
+
+
+@require_gpu
+class TestMresGridExport(unittest.TestCase):
+    def test_run(self):
+        block_grid_try()
+
+
 if __name__ == "__main__":
-    block_grid_try()
+    unittest.main()

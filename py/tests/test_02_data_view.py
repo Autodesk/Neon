@@ -1,4 +1,3 @@
-import os
 import unittest
 
 from env_setup import update_pythonpath
@@ -7,25 +6,15 @@ update_pythonpath()
 
 import warp as wp
 
-from neon_test_utils import gpu_available, init_warp_neon, require_gpu, require_wpne, setup_wpne_build
-
-try:
-    import wpne
-    HAS_WPNE = True
-except ImportError:
-    HAS_WPNE = False
-
-if HAS_WPNE:
-    from neon import DataView
+from neon import DataView
+from neon_test_utils import init_warp_neon, require_gpu
 
 
 @require_gpu
-@require_wpne
 class TestDataView(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         init_warp_neon(verbose=False)
-        setup_wpne_build(os.path.dirname(os.path.abspath(__file__)))
 
     def test_print_data_views(self):
         @wp.kernel

@@ -41,7 +41,7 @@ class DataView(ctypes.Structure):
         Use the static factory methods to create instances.
     """
     
-    _fields_ = [("data_view", ctypes.c_char)]
+    _fields_ = [("data_view", ctypes.c_int8)]
 
     class Values(Enum):
         """
@@ -68,23 +68,23 @@ class DataView(ctypes.Structure):
             or ``DataView.boundary()`` factory methods.
         """
         if data_view == DataView.Values.standard:
-            self.data_view = ctypes.c_char(b'\x00')
+            self.data_view = 0
         elif data_view == DataView.Values.internal:
-            self.data_view = ctypes.c_char(b'\x01')
+            self.data_view = 1
         elif data_view == DataView.Values.boundary:
-            self.data_view = ctypes.c_char(b'\x02')
+            self.data_view = 2
 
     def __int__(self) -> int:
         """Return the integer value of this data view."""
-        return int.from_bytes(self.data_view, byteorder='little')
+        return int(self.data_view)
 
     def __str__(self):
         str_repr = "<DDDData_view: addr=%ld, sizeof %ld>" % (ctypes.addressof(self), ctypes.sizeof(self))
-        if self.data_view == ctypes.c_char(b'\x00'):
+        if self.data_view == 0:
             str_repr += f"\n\tdataView: {'standard'}"
-        elif self.data_view == ctypes.c_char(b'\x01'):
+        elif self.data_view == 1:
             str_repr += f"\n\tdataView: {'internal'}"
-        elif self.data_view == ctypes.c_char(b'\x02'):
+        elif self.data_view == 2:
             str_repr += f"\n\tdataView: {'boundary'}"
         return str_repr
 

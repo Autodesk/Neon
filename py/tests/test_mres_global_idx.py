@@ -100,5 +100,15 @@ def main():
     export_vti_if_requested(field, "mres_global_idx", field_name="test")
 
 
+import unittest
+from neon_test_utils import require_gpu
+
+
+@require_gpu
+class TestMresGlobalIdx(unittest.TestCase):
+    def test_run(self):
+        main()
+
+
 if __name__ == "__main__":
-    main()
+    unittest.main()

@@ -133,8 +133,8 @@ def block_grid_try():
                                                 ],
                       stencil=[[0, 0, 0], [1, 0, 0]], )
     print(grid)
-    A = grid.new_field(cardinality=1, dtype=wp.int32)
-    # B = grid.new_field(cardinality=1, dtype=wp.int32)
+    A = grid.new_field(cardinality=1, dtype=wp.int32, memory_type=neon.MemoryType.host_device())
+    # B = grid.new_field(cardinality=1, dtype=wp.int32, memory_type=neon.MemoryType.host_device())
 
     print("Field created")
 
@@ -149,5 +149,15 @@ def block_grid_try():
     A.export_vti("mres_finer_ngh","test")
 
 
+import unittest
+from neon_test_utils import require_gpu
+
+
+@require_gpu
+class TestMresFinerNgh(unittest.TestCase):
+    def test_run(self):
+        block_grid_try()
+
+
 if __name__ == "__main__":
-    block_grid_try()
+    unittest.main()
