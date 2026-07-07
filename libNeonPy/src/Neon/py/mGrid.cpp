@@ -5,6 +5,9 @@
 #include "Neon/py/AllocationCounter.h"
 #include "Neon/py/macros.h"
 #include <cuda_fp16.h>
+#include <functional>
+#include <memory>
+#include <unordered_set>
 
 using float16 = __half;
 
@@ -109,6 +112,148 @@ extern "C" auto mGrid_new(
     NEON_PY_PRINT_END(*handle);
 
     mgridTimer.stop_with_info("Python bindings mGrid_new", "mGrid_new");
+
+    return 0;
+}
+
+
+namespace {
+/**
+ * @brief A 3D integer coordinate usable as an unordered_set key.
+ *
+ * Used by mGrid_new_sparse to store the set of active voxel coordinates for a
+ * single resolution level. Coordinates are expressed in that level's local
+ * (scaled) index space, i.e. the same space as the indices of the dense
+ * sparsity arrays consumed by mGrid_new.
+ */
+struct SparseCoord
+{
+    int32_t x;
+    int32_t y;
+    int32_t z;
+
+    auto operator==(SparseCoord const& other) const -> bool
+    {
+        return x == other.x && y == other.y && z == other.z;
+    }
+};
+
+struct SparseCoordHash
+{
+    auto operator()(SparseCoord const& c) const -> std::size_t
+    {
+        // 64-bit hash combine (splitmix-style mixing) of the three components.
+        std::size_t seed = std::hash<int32_t>()(c.x);
+        seed ^= std::hash<int32_t>()(c.y) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<int32_t>()(c.z) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+
+using SparseCoordSet = std::unordered_set<SparseCoord, SparseCoordHash>;
+}  // namespace
+
+/**
+ * @brief Creates a new multi-resolution Grid (mGrid) from sparse per-level active voxels.
+ *
+ * This is the sparse counterpart of mGrid_new. Instead of a dense int mask per
+ * level, the caller passes, for each level, a flat array of active voxel
+ * coordinates ([x0, y0, z0, x1, y1, z1, ...]) expressed in that level's local
+ * (scaled) index space. This avoids allocating a dense array per level on the
+ * Python side (which is prohibitive for large, sparse domains).
+ *
+ * The activation predicate handed to the native mGrid constructor is backed by
+ * a per-level hash set of coordinates, reproducing exactly the semantics of the
+ * dense path: a base-index-space voxel `idx` is active at level `l` iff
+ * `(idx >> l) - origin[l]` is a registered coordinate for that level.
+ *
+ * @param[out] handle Pointer to store the created mGrid object handle.
+ * @param[in] backendPtr Pointer to the backend object managing computation resources.
+ * @param[in] dim Pointer to the dimensions of the grid (finest level).
+ * @param[in] num_levels The number of resolution levels.
+ * @param[in] active_coords_vec Array (one per level) of flat int32 coordinate arrays.
+ * @param[in] num_active_per_level Array (one per level) with the voxel count of each level.
+ * @param[in] origin_vec Array (one per level) with the origin offset of each level.
+ * @param[in] numStencilPoints The number of points in the stencil.
+ * @param[in] stencilPointFlatArray Pointer to the flat array describing stencil points.
+ *
+ * @return Returns an integer status code (0 for success, non-zero for error).
+ */
+extern "C" auto mGrid_new_sparse(
+    void**                handle,
+    void*                 backendPtr,
+    const Neon::index_3d* dim,
+    int32_t               num_levels,
+    int32_t const* const* active_coords_vec,
+    int32_t const*        num_active_per_level,
+    Neon::index_3d*       origin_vec,
+    int                   numStencilPoints,
+    int const*            stencilPointFlatArray)
+    -> int
+{
+    NEON_PY_PRINT_BEGIN(*handle);
+
+    Neon::TimerManagerSec mgridTimer;
+    mgridTimer.start_with_info("Python bindings mGrid_new_sparse");
+
+    using Grid = Neon::domain::mGrid;
+
+    Neon::Backend* backend = reinterpret_cast<Neon::Backend*>(backendPtr);
+    if (backend == nullptr) {
+        NEON_CRITICAL("mGrid Python bindings", "Invalid backend pointer");
+        return -1;
+    }
+
+    std::vector<std::function<bool(Neon::index_3d const&)>> sparsity(num_levels);
+    for (int i = 0; i < num_levels; i++) {
+        Neon::index_3d const level_mask_origin = origin_vec[i];
+        int const            dividend = 1 << i;
+
+        // Build the per-level active-voxel set from the flat coordinate array.
+        // Ownership is shared into the predicate lambda so it outlives this scope.
+        auto           active = std::make_shared<SparseCoordSet>();
+        int32_t const  count = num_active_per_level[i];
+        int32_t const* coords = active_coords_vec[i];
+        if (count > 0 && coords != nullptr) {
+            active->reserve(static_cast<size_t>(count));
+            for (int32_t c = 0; c < count; c++) {
+                active->insert(SparseCoord{coords[c * 3], coords[c * 3 + 1], coords[c * 3 + 2]});
+            }
+        }
+
+        sparsity[i] = [active, dividend, level_mask_origin](Neon::index_3d const& idx) {
+            auto const scaled_idx = idx / dividend;
+            auto const mask_idx = scaled_idx - level_mask_origin;
+            // A coordinate below the origin can never be in the set (only
+            // non-negative coordinates are registered), so no explicit bounds
+            // check is needed: membership fully defines activity.
+            return active->find(SparseCoord{mask_idx.x, mask_idx.y, mask_idx.z}) != active->end();
+        };
+    }
+
+    std::vector<Neon::index_3d> points(numStencilPoints);
+    for (int sId = 0; sId < numStencilPoints; sId++) {
+        points[sId].x = stencilPointFlatArray[sId * 3];
+        points[sId].y = stencilPointFlatArray[sId * 3 + 1];
+        points[sId].z = stencilPointFlatArray[sId * 3 + 2];
+    }
+    Neon::domain::Stencil stencil(points);
+    auto                  gridPtr = new (std::nothrow)
+        Grid(*backend,
+             *dim,
+             sparsity,
+             stencil,
+             Grid::Descriptor(num_levels));
+
+    if (gridPtr == nullptr) {
+        NEON_ERROR("mGrid Python bindings: Initialization error. Unable to allocate grid");
+        return -1;
+    }
+    *handle = (void*)gridPtr;
+
+    NEON_PY_PRINT_END(*handle);
+
+    mgridTimer.stop_with_info("Python bindings mGrid_new_sparse", "mGrid_new_sparse");
 
     return 0;
 }
