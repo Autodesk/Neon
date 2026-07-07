@@ -1,4 +1,3 @@
-
 #pragma once
 #include "Neon/domain/tools/PointHashTable.h"
 
@@ -466,9 +465,11 @@ class SparseBitBlocks
      * @see isActivePoint() To query point states
      */
     SparseBitBlocks(const Neon::index_3d& bbox)
-        : mBBox(bbox)
+        : mBBox( (bbox.x + BitBlock::blockSize.x - 1) / BitBlock::blockSize.x,
+                 (bbox.y + BitBlock::blockSize.y - 1) / BitBlock::blockSize.y,
+                 (bbox.z + BitBlock::blockSize.z - 1) / BitBlock::blockSize.z )
     {
-        mHashTable = Neon::domain::tool::PointHashTable<int32_t, BitBlock*>(bbox);
+        mHashTable = Neon::domain::tool::PointHashTable<int32_t, BitBlock*>(mBBox);
         auto newPoolPtr = new Pool{};
         memoryPool.emplace_back(newPoolPtr);
         firstFreeIndex = 0;
@@ -534,50 +535,52 @@ class SparseBitBlocks
     template <bool ThreadSafe>
     auto activatePoint(const Neon::index_3d& point) -> void
     {
-        if (!(point < mBBox)) {
-            std::cout << "Error -> point outside of valid range" << std::endl;
+        Neon::index_3d block_coord(point.x / BitBlock::blockSize.x,
+                                   point.y / BitBlock::blockSize.y,
+                                   point.z / BitBlock::blockSize.z);
+        Neon::index_3d local(point.x % BitBlock::blockSize.x,
+                             point.y % BitBlock::blockSize.y,
+                             point.z % BitBlock::blockSize.z);
+
+        if (!(block_coord < mBBox)) {
+            std::cout << "Error -> block outside of valid range" << std::endl;
             std::exit(1);
         }
-        BitBlock* bitBlock = getBitBlockPrt(point);
+
+        BitBlock* bitBlock = getBitBlockPrt(block_coord);
         if (bitBlock != nullptr) {
-            bitBlock->setON<ThreadSafe>(point);
+            bitBlock->setON<ThreadSafe>(local);
+            return;
         }
+
         if constexpr (ThreadSafe == true) {
 #pragma omp critical(SparseBitBlocks_addPoint)
             {
-                bitBlock = getBitBlockPrt(point);
+                bitBlock = getBitBlockPrt(block_coord);
                 if (bitBlock == nullptr) {
-                    if (firstFreeIndex > memoryPoolGranularity) {
-                        std::cout << "Error -> firstFreeIndex == memoryPoolGranularity" << std::endl;
-                        std::exit(1);
-                    }
                     if (firstFreeIndex == memoryPoolGranularity) {
-                        //auto new_pool = Pool{};
-                        memoryPool.emplace_back({});
+                        auto new_pool_ptr = new Pool{};
+                        memoryPool.emplace_back(new_pool_ptr);
                         firstFreeIndex = 0;
                     }
-                    bitBlock = &memoryPool[memoryPool.size() - 1][firstFreeIndex];
+                    bitBlock = &((*memoryPool.back())[firstFreeIndex]);
                     firstFreeIndex++;
-                    mHashTable.addPoint(point, bitBlock);
+                    mHashTable.addPoint(block_coord, bitBlock);
                 }
-                bitBlock->setON<false>(point);
+                bitBlock->setON<false>(local);
             }
 
         } else {
             // We are in a critical section managed by the calling
-            if (firstFreeIndex > memoryPoolGranularity) {
-                std::cout << "Error -> firstFreeIndex == memoryPoolGranularity" << std::endl;
-                std::exit(1);
-            }
             if (firstFreeIndex == memoryPoolGranularity) {
                 auto new_pool_ptr = new Pool{};
                 memoryPool.emplace_back(new_pool_ptr);
                 firstFreeIndex = 0;
             }
-            bitBlock = &(memoryPool[memoryPool.size() - 1]->at(firstFreeIndex));
+            bitBlock = &((*memoryPool.back())[firstFreeIndex]);
             firstFreeIndex++;
-            mHashTable.addPoint(point, bitBlock);
-            bitBlock->setON<true>(point);
+            mHashTable.addPoint(block_coord, bitBlock);
+            bitBlock->setON<ThreadSafe>(local);
             return;
         }
     }
@@ -630,20 +633,27 @@ class SparseBitBlocks
     template <bool ThreadSafe = true>
     auto removePoint(const Neon::index_3d& point) -> void
     {
-        BitBlock* bitBlock = getBitBlockPrt(point);
+        Neon::index_3d block_coord(point.x / BitBlock::blockSize.x,
+                                   point.y / BitBlock::blockSize.y,
+                                   point.z / BitBlock::blockSize.z);
+        Neon::index_3d local(point.x % BitBlock::blockSize.x,
+                             point.y % BitBlock::blockSize.y,
+                             point.z % BitBlock::blockSize.z);
+
+        BitBlock* bitBlock = getBitBlockPrt(block_coord);
         if (bitBlock == nullptr) {
-            std::cout << "Error -> " << std::endl;
+            return;
         }
-        bitBlock->setOFF<ThreadSafe>(point);
+        bitBlock->setOFF<ThreadSafe>(local);
     }
 
-    auto getBitBlockPrt(const Neon::index_3d& point) const -> BitBlock*
+    auto getBitBlockPrt(const Neon::index_3d& coord) const -> BitBlock*
     {
-        if (!(point < mBBox)) {
-            std::cout << "Error -> point outside of valid range" << std::endl;
+        if (!(coord < mBBox)) {
+            std::cout << "Error -> coord outside of valid range" << std::endl;
             std::exit(1);
         }
-        BitBlock* const* tmp = mHashTable.getMetadata(point);
+        BitBlock* const* tmp = mHashTable.getMetadata(coord);
         if (tmp == nullptr) {
             return nullptr;
         }
@@ -704,11 +714,18 @@ class SparseBitBlocks
      */
     auto isActivePoint(const Neon::index_3d& point) const -> bool
     {
-        BitBlock* bitBlock = getBitBlockPrt(point);
+        Neon::index_3d block_coord(point.x / BitBlock::blockSize.x,
+                                   point.y / BitBlock::blockSize.y,
+                                   point.z / BitBlock::blockSize.z);
+        Neon::index_3d local(point.x % BitBlock::blockSize.x,
+                             point.y % BitBlock::blockSize.y,
+                             point.z % BitBlock::blockSize.z);
+
+        BitBlock* bitBlock = getBitBlockPrt(block_coord);
         if (bitBlock == nullptr) {
             return false;
         }
-        return bitBlock->isON(point);
+        return bitBlock->isON(local);
     };
 };
 }  // namespace Neon::domain::details::mGrid
