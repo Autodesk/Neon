@@ -141,10 +141,81 @@ class mGrid(object):
         self.sparsity_pattern_list = sparsity_pattern_list
         self.sparsity_pattern_origins = sparsity_pattern_origins
         self.stencil = stencil
+        # Dense construction path: no sparse active-voxel coordinate lists.
+        self.active_voxels_list = None
+        self._num_levels = len(sparsity_pattern_list)
 
         # Initialize grid with C++ backend
         self._help_load_api()   # Load C++ API functions
         self._help_grid_new()   # Create C++ grid object
+
+    @classmethod
+    def from_active_voxels(cls,
+                           backend: neon.Backend,
+                           dim,
+                           active_voxels_list: List[np.ndarray],
+                           sparsity_pattern_origins: List[neon.Index_3d],
+                           stencil: List[List[int]]) -> 'mGrid':
+        """
+        Create a multi-resolution grid from sparse per-level active voxels.
+
+        This is the sparse counterpart of the (dense) constructor. Instead of a
+        dense 3D mask per level it takes, for each level, an (N, 3) array of the
+        coordinates of the active voxels. This avoids materialising a dense
+        array per level, which is prohibitive for large sparse domains (the
+        level-0 dense mask alone can be terabytes).
+
+        Coordinates are expressed in each level's local (scaled) index space,
+        i.e. the same space as the indices of the dense ``sparsity_pattern_list``
+        arrays. Concretely, a base-index-space voxel ``idx`` is active at level
+        ``l`` iff ``(idx >> l) - origin[l]`` is a registered coordinate. With the
+        default origin of (0, 0, 0) this is simply the level-``l`` grid
+        coordinate of the voxel. The resulting grid is identical to the one the
+        dense path would build from equivalent masks.
+
+        Args:
+            backend (neon.Backend): Neon backend configuration.
+            dim (neon.Index_3d): Base dimensions of the computational domain.
+            active_voxels_list (List[np.ndarray]): One (N_l, 3) integer array per
+                level listing the active voxel coordinates for that level. An
+                empty (0, 3) array denotes a level with no active voxels.
+            sparsity_pattern_origins (List[neon.Index_3d]): One origin per level.
+            stencil (List[List[int]]): Stencil offsets, each [dx, dy, dz].
+
+        Returns:
+            mGrid: A new grid constructed via the sparse ingestion path.
+
+        Example:
+            >>> coords0 = np.array([[0, 0, 0], [1, 0, 0]], dtype=np.int32)
+            >>> coords1 = np.array([[0, 0, 0]], dtype=np.int32)
+            >>> grid = mGrid.from_active_voxels(
+            ...     backend, neon.Index_3d(64, 64, 64),
+            ...     [coords0, coords1],
+            ...     [neon.Index_3d(0, 0, 0), neon.Index_3d(0, 0, 0)],
+            ...     [[0, 0, 0], [1, 0, 0]])
+        """
+        self = cls.__new__(cls)
+
+        # Normalise each level to a contiguous (N, 3) int32 array.
+        normalized = [np.ascontiguousarray(np.asarray(a, dtype=np.int32)).reshape(-1, 3)
+                      for a in active_voxels_list]
+
+        self._validate_sparse_construction_parameters(
+            backend, dim, normalized, sparsity_pattern_origins, stencil)
+
+        self._handle: ctypes.c_void_p = ctypes.c_void_p(0)
+        self._backend = backend
+        self.dim = dim
+        # Sparse construction path: no dense masks are retained.
+        self.sparsity_pattern_list = None
+        self.active_voxels_list = normalized
+        self.sparsity_pattern_origins = sparsity_pattern_origins
+        self.stencil = stencil
+        self._num_levels = len(normalized)
+
+        self._help_load_api()
+        self._help_grid_new_sparse()
+        return self
 
     def __del__(self):
         """Destructor - cleanup C++ resources when Python object is garbage collected."""
@@ -231,6 +302,63 @@ class mGrid(object):
             if len(point) != 3:
                 raise ValueError(f"Stencil point {i} must have 3 coordinates, got {len(point)}")
 
+    def _validate_sparse_construction_parameters(self,
+                                                 backend: neon.Backend,
+                                                 dim: neon.Index_3d,
+                                                 active_voxels_list: List[np.ndarray],
+                                                 sparsity_pattern_origins: List[neon.Index_3d],
+                                                 stencil: List[List[int]]) -> None:
+        """
+        Validate parameters for the sparse (active-voxel) construction path.
+
+        Args:
+            backend: Neon backend configuration.
+            dim: Base grid dimensions.
+            active_voxels_list: List of (N_l, 3) integer coordinate arrays.
+            sparsity_pattern_origins: List of origin points.
+            stencil: Stencil pattern definition.
+
+        Raises:
+            InvalidBackendError: If backend is invalid.
+            SparsityPatternError: If the coordinate arrays are invalid.
+            ValueError: If other parameters are invalid.
+        """
+        if backend is None:
+            raise InvalidBackendError("Backend parameter is required")
+
+        if dim is None:
+            raise ValueError("Grid dimensions are required")
+        if dim.x <= 0 or dim.y <= 0 or dim.z <= 0:
+            raise ValueError(f"Grid dimensions must be positive: ({dim.x}, {dim.y}, {dim.z})")
+
+        if not active_voxels_list:
+            raise SparsityPatternError("At least one level of active voxels is required")
+
+        if len(active_voxels_list) != len(sparsity_pattern_origins):
+            raise SparsityPatternError(
+                f"Number of active-voxel levels ({len(active_voxels_list)}) "
+                f"must match number of origins ({len(sparsity_pattern_origins)})"
+            )
+
+        for i, coords in enumerate(active_voxels_list):
+            if coords is None:
+                raise SparsityPatternError(f"Active voxels at level {i} is None")
+            if coords.ndim != 2 or coords.shape[1] != 3:
+                raise SparsityPatternError(
+                    f"Active voxels at level {i} must have shape (N, 3), got {coords.shape}")
+            if coords.size and coords.min() < 0:
+                # Only non-negative coordinates can ever match a base-index-space
+                # voxel, so negative coordinates almost certainly indicate a bug.
+                raise SparsityPatternError(
+                    f"Active voxels at level {i} contain negative coordinates")
+
+        if not stencil:
+            raise ValueError("Stencil pattern is required")
+
+        for i, point in enumerate(stencil):
+            if len(point) != 3:
+                raise ValueError(f"Stencil point {i} must have 3 coordinates, got {len(point)}")
+
     def _validate_grid_level(self, level: int) -> None:
         """
         Validate grid level parameter.
@@ -278,6 +406,19 @@ class mGrid(object):
                                  ctypes.c_int,                                  # Input: stencil size
                                  ctypes.POINTER(ctypes.c_int)]                  # Input: stencil data
         self.api_new.restype = ctypes.c_int
+
+        # Sparse grid creation API - accepts per-level active-voxel coordinate lists
+        self.api_new_sparse = lib.mGrid_new_sparse
+        self.api_new_sparse.argtypes = [ctypes.POINTER(self.handle_type),                # Output: grid handle
+                                        self.handle_type,                                # Input: backend handle
+                                        ctypes.POINTER(neon.Index_3d),                   # Input: base dimensions
+                                        ctypes.c_int,                                    # Input: number of levels
+                                        ctypes.POINTER(ctypes.POINTER(ctypes.c_int32)),  # Input: per-level coord arrays
+                                        ctypes.POINTER(ctypes.c_int32),                  # Input: per-level voxel counts
+                                        ctypes.POINTER(Index_3d),                        # Input: per-level origins
+                                        ctypes.c_int,                                    # Input: stencil size
+                                        ctypes.POINTER(ctypes.c_int)]                    # Input: stencil data
+        self.api_new_sparse.restype = ctypes.c_int
 
         # Grid deletion API
         self.api_delete = lib.mGrid_delete
@@ -410,6 +551,68 @@ class mGrid(object):
         # Update public handle for backward compatibility
         from ..logging import logger
         logger.debug(f"mGrid initialized with handle {self._handle.value}")
+
+    def _help_grid_new_sparse(self):
+        """
+        Create the C++ grid object from sparse per-level active voxels.
+
+        This is the sparse counterpart of :meth:`_help_grid_new`. It passes, for
+        each level, a flat int32 coordinate array plus the number of voxels to
+        the ``mGrid_new_sparse`` C entry point, which builds a set-backed
+        activation predicate per level. No dense mask is allocated.
+
+        Raises:
+            InvalidBackendError: If the backend handle is invalid.
+            GridInitializationError: If the grid handle is already initialized or
+                C++ grid creation fails.
+        """
+        if self.backend.backend_handle.value == ctypes.c_void_p(0):
+            raise InvalidBackendError('Backend handle is invalid')
+
+        if self._handle.value != None:
+            raise GridInitializationError('Grid handle already initialized')
+
+        num_levels = len(self.active_voxels_list)
+
+        # Keep references to the contiguous arrays alive for the duration of the
+        # C call so their data pointers remain valid.
+        self._coord_buffers = [np.ascontiguousarray(arr, dtype=np.int32).reshape(-1, 3)
+                               for arr in self.active_voxels_list]
+
+        Int32P = ctypes.POINTER(ctypes.c_int32)
+        ArrayOfPointers = Int32P * num_levels
+        c_arrays = ArrayOfPointers(*(arr.ctypes.data_as(Int32P) for arr in self._coord_buffers))
+
+        counts_type = ctypes.c_int32 * num_levels
+        counts = counts_type(*(arr.shape[0] for arr in self._coord_buffers))
+
+        origin_array_type = Index_3d * len(self.sparsity_pattern_origins)
+        origins = origin_array_type()
+        for idx, origin in enumerate(self.sparsity_pattern_origins):
+            origins[idx] = origin
+
+        self.depth = num_levels
+
+        stencil_type = ctypes.c_int * (3 * len(self.stencil))
+        stencil_array = stencil_type()
+        for s_idx, s in enumerate(self.stencil):
+            a_idx = s_idx * 3
+            stencil_array[a_idx] = s[0]
+            stencil_array[a_idx + 1] = s[1]
+            stencil_array[a_idx + 2] = s[2]
+
+        res = self.api_new_sparse(ctypes.pointer(self._handle),
+                                  self.backend.backend_handle,
+                                  self.dim,
+                                  self.depth,
+                                  c_arrays, counts, origins,
+                                  len(self.stencil),
+                                  stencil_array)
+        if res != 0:
+            raise GridInitializationError(f'Failed to initialize sparse grid (error code: {res})')
+
+        from ..logging import logger
+        logger.debug(f"mGrid (sparse) initialized with handle {self._handle.value}")
 
     def _help_grid_delete(self):
         """
@@ -585,8 +788,8 @@ class mGrid(object):
         
         if idx.x < 0 or idx.y < 0 or idx.z < 0:
             raise DomainBoundsError(idx, "Negative indices are not allowed")
-        
-        return self.neon.lib.mGrid_is_inside_domain(self._handle, grid_level, idx)
+
+        return self.api_is_inside_domain(self._handle, grid_level, idx)
 
     @property
     def backend(self) -> neon.Backend:
@@ -611,7 +814,12 @@ class mGrid(object):
     @property
     def num_levels(self) -> int:
         """Number of resolution levels in the hierarchy."""
-        return len(self.sparsity_pattern_list)
+        return self._num_levels
+
+    @property
+    def is_sparse(self) -> bool:
+        """True if this grid was built from sparse active-voxel coordinate lists."""
+        return self.sparsity_pattern_list is None
 
     @property
     def dimensions(self) -> neon.Index_3d:
@@ -687,19 +895,33 @@ class mGrid(object):
             'estimated_pattern_memory_bytes': 0,
             'patterns_per_level': []
         }
-        
+
         total_pattern_bytes = 0
-        for i, pattern in enumerate(self.sparsity_pattern_list):
-            pattern_bytes = pattern.nbytes
-            total_pattern_bytes += pattern_bytes
-            info['patterns_per_level'].append({
-                'level': i,
-                'shape': pattern.shape,
-                'dtype': str(pattern.dtype),
-                'size_bytes': pattern_bytes,
-                'active_elements': int(np.count_nonzero(pattern))
-            })
-        
+        if self.is_sparse:
+            for i, coords in enumerate(self.active_voxels_list):
+                pattern_bytes = coords.nbytes
+                total_pattern_bytes += pattern_bytes
+                info['patterns_per_level'].append({
+                    'level': i,
+                    'shape': coords.shape,
+                    'dtype': str(coords.dtype),
+                    'size_bytes': pattern_bytes,
+                    'active_elements': int(coords.shape[0]),
+                    'representation': 'sparse'
+                })
+        else:
+            for i, pattern in enumerate(self.sparsity_pattern_list):
+                pattern_bytes = pattern.nbytes
+                total_pattern_bytes += pattern_bytes
+                info['patterns_per_level'].append({
+                    'level': i,
+                    'shape': pattern.shape,
+                    'dtype': str(pattern.dtype),
+                    'size_bytes': pattern_bytes,
+                    'active_elements': int(np.count_nonzero(pattern)),
+                    'representation': 'dense'
+                })
+
         info['estimated_pattern_memory_bytes'] = total_pattern_bytes
         return info
 
@@ -715,13 +937,26 @@ class mGrid(object):
             'total_stencil_points': len(self.stencil),
             'levels_info': []
         }
-        
-        for i, (pattern, origin) in enumerate(zip(self.sparsity_pattern_list, 
+
+        if self.is_sparse:
+            for i, (coords, origin) in enumerate(zip(self.active_voxels_list,
+                                                     self.sparsity_pattern_origins)):
+                level_info = {
+                    'level': i,
+                    'origin': (origin.x, origin.y, origin.z),
+                    'shape': coords.shape,
+                    'active_elements': int(coords.shape[0]),
+                    'representation': 'sparse'
+                }
+                stats['levels_info'].append(level_info)
+            return stats
+
+        for i, (pattern, origin) in enumerate(zip(self.sparsity_pattern_list,
                                                   self.sparsity_pattern_origins)):
             active_count = int(np.count_nonzero(pattern))
             total_count = int(pattern.size)
             sparsity_ratio = active_count / total_count if total_count > 0 else 0.0
-            
+
             level_info = {
                 'level': i,
                 'origin': (origin.x, origin.y, origin.z),
@@ -729,10 +964,11 @@ class mGrid(object):
                 'total_elements': total_count,
                 'active_elements': active_count,
                 'sparsity_ratio': sparsity_ratio,
-                'compression_ratio': 1.0 - sparsity_ratio
+                'compression_ratio': 1.0 - sparsity_ratio,
+                'representation': 'dense'
             }
             stats['levels_info'].append(level_info)
-        
+
         return stats
 
     def validate_integrity(self) -> bool:
@@ -749,8 +985,9 @@ class mGrid(object):
             # Check basic structure
             if self.num_levels == 0:
                 raise GridError("Grid must have at least one level")
-            
-            if len(self.sparsity_pattern_list) != len(self.sparsity_pattern_origins):
+
+            levels = self.active_voxels_list if self.is_sparse else self.sparsity_pattern_list
+            if len(levels) != len(self.sparsity_pattern_origins):
                 raise GridError("Mismatch between patterns and origins")
             
             if not self.stencil:
@@ -763,15 +1000,22 @@ class mGrid(object):
             # Check dimensions
             if self.dimensions.x <= 0 or self.dimensions.y <= 0 or self.dimensions.z <= 0:
                 raise GridError("Invalid grid dimensions")
-            
-            # Check each pattern
-            for i, pattern in enumerate(self.sparsity_pattern_list):
-                if pattern is None:
-                    raise GridError(f"Pattern at level {i} is None")
-                if pattern.ndim != 3:
-                    raise GridError(f"Pattern at level {i} is not 3D")
-                if pattern.size == 0:
-                    raise GridError(f"Pattern at level {i} is empty")
+
+            # Check each level's sparsity representation
+            if self.is_sparse:
+                for i, coords in enumerate(self.active_voxels_list):
+                    if coords is None:
+                        raise GridError(f"Active voxels at level {i} is None")
+                    if coords.ndim != 2 or coords.shape[1] != 3:
+                        raise GridError(f"Active voxels at level {i} is not (N, 3)")
+            else:
+                for i, pattern in enumerate(self.sparsity_pattern_list):
+                    if pattern is None:
+                        raise GridError(f"Pattern at level {i} is None")
+                    if pattern.ndim != 3:
+                        raise GridError(f"Pattern at level {i} is not 3D")
+                    if pattern.size == 0:
+                        raise GridError(f"Pattern at level {i} is empty")
             
             # Check stencil
             for i, point in enumerate(self.stencil):
@@ -806,3 +1050,110 @@ class mGrid(object):
         }
         
         return debug_info
+
+
+class mGridSparseBuilder(object):
+    """
+    Incremental builder for a sparse multi-resolution :class:`mGrid`.
+
+    This lets callers register active voxels level by level - either one at a
+    time via :meth:`register_voxel` or in bulk via :meth:`register_voxels` - and
+    then materialise the grid with :meth:`build`. Registered coordinates are
+    accumulated on the Python side and flushed to Neon in a single call, so the
+    dense per-level mask is never allocated.
+
+    Coordinates use the same convention as :meth:`mGrid.from_active_voxels`:
+    each voxel is given in its level's local (scaled) index space (with the
+    default origin of (0, 0, 0) this is simply the level's grid coordinate).
+
+    Example:
+        >>> b = mGridSparseBuilder(backend, neon.Index_3d(64, 64, 64),
+        ...                        num_levels=2, stencil=[[0, 0, 0], [1, 0, 0]])
+        >>> b.register_voxel(0, 0, 0, 0)
+        >>> b.register_voxels(1, np.array([[0, 0, 0], [1, 0, 0]]))
+        >>> grid = b.build()
+    """
+
+    def __init__(self,
+                 backend: neon.Backend,
+                 dim,
+                 num_levels: int,
+                 stencil: List[List[int]],
+                 origins: Optional[List[neon.Index_3d]] = None):
+        """
+        Args:
+            backend (neon.Backend): Neon backend configuration.
+            dim (neon.Index_3d): Base dimensions of the computational domain.
+            num_levels (int): Number of resolution levels.
+            stencil (List[List[int]]): Stencil offsets, each [dx, dy, dz].
+            origins (Optional[List[neon.Index_3d]]): One origin per level.
+                Defaults to (0, 0, 0) for every level.
+        """
+        if num_levels <= 0:
+            raise ValueError(f"num_levels must be positive, got {num_levels}")
+
+        self.backend = backend
+        self.dim = dim
+        self.num_levels = num_levels
+        self.stencil = stencil
+        self.origins = origins if origins is not None else [Index_3d(0, 0, 0)] * num_levels
+        # Per-level accumulators; entries may be (x, y, z) tuples or (N, 3) arrays.
+        self._levels: List[list] = [[] for _ in range(num_levels)]
+
+    def _check_level(self, level: int) -> None:
+        if not isinstance(level, int):
+            raise TypeError(f"level must be an integer, got {type(level)}")
+        if not 0 <= level < self.num_levels:
+            raise InvalidGridLevelError(level, self.num_levels)
+
+    def register_voxel(self, level: int, x: int, y: int, z: int) -> 'mGridSparseBuilder':
+        """Register a single active voxel at ``level``. Returns self for chaining."""
+        self._check_level(level)
+        self._levels[level].append((int(x), int(y), int(z)))
+        return self
+
+    def register_voxels(self, level: int, coords) -> 'mGridSparseBuilder':
+        """
+        Register many active voxels at ``level``.
+
+        Args:
+            level (int): Resolution level.
+            coords: Array-like of shape (N, 3) of integer coordinates.
+        """
+        self._check_level(level)
+        arr = np.ascontiguousarray(np.asarray(coords, dtype=np.int32)).reshape(-1, 3)
+        self._levels[level].append(arr)
+        return self
+
+    def num_registered(self, level: int) -> int:
+        """Number of voxels registered so far at ``level``."""
+        self._check_level(level)
+        total = 0
+        for chunk in self._levels[level]:
+            total += 1 if isinstance(chunk, tuple) else chunk.shape[0]
+        return total
+
+    def _collect_level(self, entries: list) -> np.ndarray:
+        if not entries:
+            return np.empty((0, 3), dtype=np.int32)
+        arrays = []
+        tuples = []
+        for chunk in entries:
+            if isinstance(chunk, tuple):
+                tuples.append(chunk)
+            else:
+                arrays.append(chunk)
+        if tuples:
+            arrays.append(np.asarray(tuples, dtype=np.int32).reshape(-1, 3))
+        return np.ascontiguousarray(np.vstack(arrays)).astype(np.int32, copy=False)
+
+    def build(self) -> mGrid:
+        """Materialise the accumulated active voxels into an :class:`mGrid`."""
+        active_voxels_list = [self._collect_level(level) for level in self._levels]
+        return mGrid.from_active_voxels(
+            self.backend,
+            self.dim,
+            active_voxels_list,
+            self.origins,
+            self.stencil,
+        )
