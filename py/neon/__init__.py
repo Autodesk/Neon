@@ -142,7 +142,7 @@ def init():
     wp.build.add_preprocessor_macro_definition('NEON_WARP_COMPILATION')
 
     # It's a good idea to always clear the kernel cache when developing new native or codegen features
-    wp.build.clear_kernel_cache()
+    wp.clear_kernel_cache()
 
     from .warp_builtins import register_neon_warp_type
     register_neon_warp_type()

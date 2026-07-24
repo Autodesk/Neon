@@ -22,10 +22,8 @@ from .skeleton import Skeleton
 
 
 def _add_header(path):
-    include_directive = f"#include \"{path}\"\n"
     # add this header for all native modules
-    wp.codegen.cpu_module_header += include_directive
-    wp.codegen.cuda_module_header += include_directive
+    wp.build.add_header(path)
 
 
 def _register_base_builtins():

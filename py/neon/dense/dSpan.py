@@ -58,26 +58,26 @@ class dSpan(ctypes.Structure):
     @staticmethod
     def register_builtins():
         # register type
-        wp.types.add_type(dSpan, native_name="NeonDenseSpan", has_binary_ctor=True)
+        wp.build.add_type(dSpan, native_name="NeonDenseSpan", has_binary_ctor=True)
 
         # print
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_print",
             input_types={"a": dSpan},
             value_type=None,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_set",
             input_types={"span": dSpan, "is_valid": wp.bool},
             value_type=dIndex,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_set",
             input_types={"span": dSpan, 'x': int, 'y': int, 'z': int},
             value_type=dIndex,
-            missing_grad=True,
+            is_differentiable=False,
         )

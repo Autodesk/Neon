@@ -94,43 +94,43 @@ def register_builtins():
 
     for Partition, suffix, Type in supported_types:
         # register type
-        wp.types.add_type(Partition, native_name=f"NeonBlockPartition_{suffix}", has_binary_ctor=True)
+        wp.build.add_type(Partition, native_name=f"NeonBlockPartition_{suffix}", has_binary_ctor=True)
 
         # # print
-        # wp.context.add_builtin(
+        # wp.build.add_builtin(
         #     "neon_print_dbg",
         #     input_types={"p": Partition},
         #     value_type=None,
-        #     missing_grad=True,
+        #     is_differentiable=False,
         # )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_read",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          "card": int},
             value_type=Type,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_write",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
                          "card": int,
                          "value": Type},
             value_type=None,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_cardinality",
             input_types={"partition": Partition},
             value_type=int,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_ngh_data",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex,
@@ -139,26 +139,26 @@ def register_builtins():
                          "alternative": Type,
                          'is_valid': wp.bool},
             value_type=Type,
-            missing_grad=True,
+            is_differentiable=False,
         )
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_partition_id",
             input_types={"partition": Partition},
             value_type=int,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_device_id",
             input_types={"partition": Partition},
             value_type=int,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_global_idx",
             input_types={"partition": Partition,
                          'idx': neon.block.bIndex},
             value_type=neon.Index_3d,
-            missing_grad=True,
+            is_differentiable=False,
         )

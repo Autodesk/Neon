@@ -115,49 +115,49 @@ class Ngh_idx(ctypes.Structure):
     def warp_register_builtins():
         import warp as wp
         # register type
-        wp.types.add_type(Ngh_idx, native_name="NeonNghIdx")
+        wp.build.add_type(Ngh_idx, native_name="NeonNghIdx")
 
         # create dense index
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_ngh_idx",
             input_types={"x": wp.int8, "y": wp.int8, "z": wp.int8},
             value_type=Ngh_idx,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
         # create dense index
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_ngh_idx",
             input_types={"idx": Ngh_idx, "x": wp.int8, "y": wp.int8, "z": wp.int8},
             value_type=None,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_ngh_idx",
             input_types={"idx": Ngh_idx},
             value_type=wp.int8,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_get_y",
             input_types={"idx": Ngh_idx},
             value_type=wp.int8,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_get_z",
             input_types={"idx": Ngh_idx},
             value_type=wp.int8,
-            missing_grad=True,
+            is_differentiable=False,
         )
 
         # print dense index
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_print",
             input_types={"a": Ngh_idx},
             value_type=None,
-            missing_grad=True,
+            is_differentiable=False,
         )

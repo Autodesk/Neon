@@ -169,12 +169,12 @@ class DataView(ctypes.Structure):
         import warp as wp
 
         # register type
-        wp.types.add_type(DataView, native_name="NeonDataView")
+        wp.build.add_type(DataView, native_name="NeonDataView")
 
         # print
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "NeonDataView_print",
             input_types={"a": DataView},
             value_type=None,
-            missing_grad=True,
+            is_differentiable=False,
         )
