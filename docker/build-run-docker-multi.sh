@@ -107,6 +107,20 @@ echo "✓ Image built. Running container..."
 echo "  Inside container, run: ./docker/build-wheels-multi.sh"
 echo ""
 
+# Behind a TLS-intercepting corporate proxy (e.g. Autodesk/Zscaler), the fresh
+# container lacks the corporate root CA, so pip's PyPI fetches fail with
+# "CERTIFICATE_VERIFY_FAILED". Forward pip index/CA settings into the container
+# so builds resolve packages via the internal Artifactory mirror instead. Set
+# these on the host before running (e.g. PIP_INDEX_URL to the Artifactory
+# .../simple URL); they are optional and passed through only when defined.
+PIP_ENV_ARGS=()
+for var in PIP_INDEX_URL PIP_EXTRA_INDEX_URL PIP_TRUSTED_HOST \
+           UV_INDEX_URL UV_DEFAULT_INDEX PIP_CERT REQUESTS_CA_BUNDLE SSL_CERT_FILE; do
+    if [[ -n "${!var:-}" ]]; then
+        PIP_ENV_ARGS+=("-e" "${var}=${!var}")
+    fi
+done
+
 # Start as root briefly to register the host user in /etc/passwd, then drop to that
 # user so bind-mounted files are owned by the host user with a normal shell prompt.
 docker run $GPU_FLAG -it --rm \
@@ -115,6 +129,7 @@ docker run $GPU_FLAG -it --rm \
     -e HOST_GID="${HOST_GID}" \
     -e HOST_USER="${HOST_USER}" \
     -e CONTAINER_WORKDIR="${CONTAINER_WORKDIR}" \
+    "${PIP_ENV_ARGS[@]}" \
     -v "$MOUNT_ROOT:/workspace" \
     -v "$SCRIPT_DIR/entrypoint-host-user.sh:/entrypoint-host-user.sh:ro" \
     --entrypoint /entrypoint-host-user.sh \

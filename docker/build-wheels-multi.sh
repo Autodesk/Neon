@@ -15,8 +15,8 @@
 #   NEON_CUDA_ARCH   Override GPU architectures (e.g. "80;87;90")
 #
 # GPU architectures (when not using --local):
-#   x86_64:  70 75 80 86 89 90  (Volta through Hopper)
-#   aarch64: 72 87              (Jetson Xavier, Jetson Orin)
+#   x86_64:  70 75 80 86 89 90 100 120  (Volta through Blackwell; 100/120 need CUDA >= 12.8)
+#   aarch64: 72 87                       (Jetson Xavier, Jetson Orin)
 #
 # Requires: multi-Python Docker image (Dockerfile.wheel-builder.multi).
 # Example (from host, neon repo root):
@@ -57,7 +57,7 @@ report_build_failure() {
 # ---------------------------------------------------------------------------
 # GPU architecture lists (by host CPU)
 # ---------------------------------------------------------------------------
-GPU_ARCHS_X86="70;75;80;86;89;90"
+GPU_ARCHS_X86="70;75;80;86;89;90;100;120"
 GPU_ARCHS_ARM="72;87"
 
 HOST_ARCH="$(uname -m)"
