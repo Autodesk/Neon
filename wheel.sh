@@ -72,7 +72,7 @@ if [[ ! -d "extern/warp" ]] || [[ -z "$(ls -A extern/warp 2>/dev/null)" ]]; then
     echo "ERROR: Warp submodule not found or empty at extern/warp"
     echo ""
     echo "To set up the Warp submodule, run:"
-    echo "  git submodule add -b external-source-support-update2 https://github.com/nvlukasz/warp.git extern/warp"
+    echo "  git submodule add -b external-source-support-update4 https://github.com/massimim/warp.git extern/warp"
     echo "  git submodule update --init --recursive"
     echo ""
     exit 1

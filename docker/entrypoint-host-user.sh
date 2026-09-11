@@ -15,7 +15,15 @@ if ! getent group "${HOST_GID}" >/dev/null; then
 fi
 GROUP_NAME="$(getent group "${HOST_GID}" | cut -d: -f1)"
 
-if ! getent passwd "${HOST_UID}" >/dev/null; then
+# If a user already owns HOST_UID (e.g. the image's built-in "builder" user at
+# uid 1000), reuse it instead of trying to create HOST_USER. Creating a second
+# name for an existing uid is skipped by getent, which previously left runuser
+# to fail with "user <HOST_USER> does not exist". Since the uid matches the host
+# user, bind-mounted files are still owned correctly.
+EXISTING_USER="$(getent passwd "${HOST_UID}" | cut -d: -f1 || true)"
+if [ -n "${EXISTING_USER}" ]; then
+    HOST_USER="${EXISTING_USER}"
+else
     useradd -o -u "${HOST_UID}" -g "${GROUP_NAME}" -d "${CONTAINER_WORKDIR}" -s /bin/bash -M "${HOST_USER}" 2>/dev/null || \
         useradd -u "${HOST_UID}" -g "${GROUP_NAME}" -d "${CONTAINER_WORKDIR}" -s /bin/bash -M "${HOST_USER}"
 fi
