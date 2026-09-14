@@ -20,7 +20,7 @@ set -euo pipefail
 # =============================================================================
 
 # --- Configuration ----------------------------------------------------------
-VERSION="0.5.2a2"
+VERSION="0.5.2a3"
 TAG="v${VERSION}"
 # All wheels for this version (multi-Python build output).
 ASSET_PATTERN="dist-multi/neon_gpu-${VERSION}-*.whl"

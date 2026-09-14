@@ -177,5 +177,10 @@ class bGrid(object):
     def get_handle(self):
         return self.handle
 
+    @property
+    def name(self) -> str:
+        """Grid type name identifier."""
+        return "bGrid"
+
     def get_name(self):
         return "bGrid"

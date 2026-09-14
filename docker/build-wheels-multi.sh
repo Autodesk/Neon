@@ -201,10 +201,15 @@ if $CLEAN; then
 fi
 
 echo "==> Initializing submodules..."
-git submodule update --init --recursive
+# When Neon is built from a git submodule checkout, the parent repo's .git may
+# not resolve inside the container; tolerate a failed submodule update as long
+# as extern/warp was already populated on the host
+# (run: git submodule update --init extern/warp before launching the build).
+git submodule update --init --recursive || echo "==> submodule update skipped (using pre-populated extern/warp)"
 
 if [[ ! -d "extern/warp" ]] || [[ -z "$(ls -A extern/warp 2>/dev/null)" ]]; then
     echo "ERROR: Warp submodule missing or empty at extern/warp"
+    echo "       Populate it on the host first: git submodule update --init extern/warp"
     exit 1
 fi
 

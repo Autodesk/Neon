@@ -16,7 +16,7 @@ import typing
 def set(field, level):
     def kernel(loader: neon.Loader):
         loader.set_mres_grid(field.get_grid(), level=level)
-        if level + 1 < field.get_grid().get_num_levels():
+        if level + 1 < field.get_grid().num_levels:
             f = loader.get_mres_write_handle(field, operation=neon.Loader.Operation.stencil_up)
         else:
             f = loader.get_mres_write_handle(field, operation=neon.Loader.Operation.map )
@@ -177,8 +177,8 @@ def block_grid_try():
                       stencil=[[0, 0, 0], [1, 0, 0]], )
 
     print(grid)
-    field_a = grid.new_field(cardinality=3, dtype=wp.int32)
-    field_b = grid.new_field(cardinality=3, dtype=wp.int32)
+    field_a = grid.new_field(cardinality=3, dtype=wp.int32, memory_type=neon.MemoryType.host_device())
+    field_b = grid.new_field(cardinality=3, dtype=wp.int32, memory_type=neon.MemoryType.host_device())
 
     print("Field created")
 
@@ -206,5 +206,15 @@ def block_grid_try():
     field_a.export_vti("mres_skeleton_field_a", "test")
 
 
+import unittest
+from neon_test_utils import require_gpu
+
+
+@require_gpu
+class TestMresSkeletonStencilUp(unittest.TestCase):
+    def test_run(self):
+        block_grid_try()
+
+
 if __name__ == "__main__":
-    block_grid_try()
+    unittest.main()

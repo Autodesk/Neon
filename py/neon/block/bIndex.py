@@ -39,11 +39,11 @@ class bIndex(ctypes.Structure):
     def register_builtins():
 
         # register type
-        wp.types.add_type(bIndex, native_name="NeonBlockIdx")
+        wp.build.add_type(bIndex, native_name="NeonBlockIdx")
 
-        wp.context.add_builtin(
+        wp.build.add_builtin(
             "neon_print",
             input_types={"idx":bIndex},
             value_type=None,
-            missing_grad=True,
+            is_differentiable=False,
         )

@@ -87,12 +87,12 @@ auto CudaDriver::run_kernel(
         //std::cout << "Current CUDA context ID (handle): " << (cu_contexts[setIdx]) << std::endl;
         // int64_t pywarp_size = 1;
         // std::cout << "pywarp_size" << pywarp_size << std::endl;
-        const int LAUNCH_MAX_DIMS = 4;  // should match types.py
+        // should match warp's launch_bounds_t<1> (types.py / builtin.h)
         struct launch_bounds_t
         {
-            int    shape[LAUNCH_MAX_DIMS];  // size of each dimension
-            int    ndim;                    // number of valid dimension
-            size_t size;                    // total number of threads
+            int    shape[1];    // size of each dimension
+            size_t size;        // total number of threads
+            size_t coord_mult;  // threads sharing each coord tuple
         };
         auto cuda_block = launch_info.cudaBlock();
         auto cuda_grid = launch_info.cudaGrid();
@@ -100,10 +100,10 @@ auto CudaDriver::run_kernel(
 
         // static_cast<size_t>(blockDim.x) * static_cast<size_t>(blockIdx.x) + static_cast<size_t>(threadIdx.x);
         launch_bounds_t bounds{};
-        bounds.ndim = 1;
-        bounds.shape[0] = n;;
+        bounds.shape[0] = n;
         //std::cout << "launch_info.domainGrid().rMul() " << launch_info.domainGrid().rMul() << std::endl;
         bounds.size = n;
+        bounds.coord_mult = 1;
 
 
         std::vector<void*> args;

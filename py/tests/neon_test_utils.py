@@ -65,14 +65,6 @@ def gpu_available():
     return gpu_count() > 0
 
 
-def wpne_available():
-    try:
-        import wpne  # noqa: F401
-        return True
-    except ImportError:
-        return False
-
-
 MRES_FP16_REQUIRED_SYMBOLS = (
     "mGrid_mField_new_float16",
     "mGrid_mField_delete_float16",
@@ -108,16 +100,6 @@ def mres_fp16_container_available() -> bool:
         return True
     except AttributeError:
         return False
-
-
-def setup_wpne_build(script_dir):
-    import wpne
-
-    wp.build.set_cpp_standard("c++17")
-    wp.build.add_include_directory(script_dir)
-    wp.build.add_preprocessor_macro_definition("NEON_WARP_COMPILATION")
-    wp.build.clear_kernel_cache()
-    wpne.init()
 
 
 def make_shell_mask(dim, shell_depth):
@@ -173,7 +155,3 @@ def export_vti_if_requested(field, filename, **kwargs):
 
 def require_gpu(test_item):
     return unittest.skipUnless(gpu_available(), "CUDA GPU not available")(test_item)
-
-
-def require_wpne(test_item):
-    return unittest.skipUnless(wpne_available(), "wpne module not available")(test_item)

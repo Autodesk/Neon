@@ -47,10 +47,10 @@ class bSpan(ctypes.Structure):
     @staticmethod
     def register_builtins():
         # register type
-        wp.types.add_type(bSpan, native_name="NeonBlockSpan", has_binary_ctor=True)
-        wp.context.add_builtin(
+        wp.build.add_type(bSpan, native_name="NeonBlockSpan", has_binary_ctor=True)
+        wp.build.add_builtin(
             "neon_set",
             input_types={"span": neon.block.bSpan, "is_valid": wp.bool},
             value_type=neon.block.bIndex,
-            missing_grad=True,
+            is_differentiable=False,
         )
