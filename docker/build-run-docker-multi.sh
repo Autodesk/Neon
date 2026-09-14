@@ -30,6 +30,16 @@ DOCKERFILE="Dockerfile.wheel-builder.multi"
 IMAGE_TAG="neon-warp-builder:multi"
 HOST_ARCH="$(uname -m)"
 
+# When Neon is checked out as a git submodule, its .git is a file pointing at
+# the parent repo's .git/modules/... Mount the parent so `git submodule update`
+# (for extern/warp) resolves inside the container.
+MOUNT_ROOT="$NEON_ROOT"
+CONTAINER_WORKDIR="/workspace"
+if [[ -f "$NEON_ROOT/.git" ]] && grep -q '^gitdir:' "$NEON_ROOT/.git"; then
+    MOUNT_ROOT="$(dirname "$NEON_ROOT")"
+    CONTAINER_WORKDIR="/workspace/$(basename "$NEON_ROOT")"
+fi
+
 if [[ ! -f "$SCRIPT_DIR/$DOCKERFILE" ]]; then
     echo "Error: $DOCKERFILE not found in $SCRIPT_DIR"
     exit 1
@@ -88,10 +98,24 @@ echo "Building Docker image..."
 docker build -f "$DOCKERFILE" --build-arg BASE_IMAGE="$BASE_IMAGE" -t "$IMAGE_TAG" .
 
 echo ""
-echo "✓ Image built. Running container (mounting $NEON_ROOT as /workspace)..."
-echo "  Inside container, run: ./docker/build-wheels-multi.sh"
+echo "✓ Image built. Running container (mounting $MOUNT_ROOT as /workspace)..."
+echo "  Inside container, run: cd $CONTAINER_WORKDIR && ./docker/build-wheels-multi.sh"
 echo ""
 
+# Behind a TLS-intercepting corporate proxy, the container lacks the corporate
+# root CA and pip's PyPI fetches fail (CERTIFICATE_VERIFY_FAILED). Forward pip
+# index/CA settings when defined on the host so builds can use an internal
+# mirror (e.g. export PIP_INDEX_URL=<artifactory .../simple>).
+PIP_ENV_ARGS=()
+for var in PIP_INDEX_URL PIP_EXTRA_INDEX_URL PIP_TRUSTED_HOST \
+           UV_INDEX_URL UV_DEFAULT_INDEX PIP_CERT REQUESTS_CA_BUNDLE SSL_CERT_FILE; do
+    if [[ -n "${!var:-}" ]]; then
+        PIP_ENV_ARGS+=("-e" "${var}=${!var}")
+    fi
+done
+
 docker run $GPU_FLAG -it --rm \
-    -v "$NEON_ROOT:/workspace" \
+    -w "$CONTAINER_WORKDIR" \
+    "${PIP_ENV_ARGS[@]}" \
+    -v "$MOUNT_ROOT:/workspace" \
     "$IMAGE_TAG"

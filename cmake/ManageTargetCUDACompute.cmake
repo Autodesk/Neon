@@ -11,7 +11,9 @@ set(NEON_BUILD_FOR_ALL_GPUS "OFF" CACHE BOOL "Build for all common GPU architect
 # - 86: Ampere (RTX 30xx, A40, A10, A4000, A5000, A6000)
 # - 89: Ada Lovelace (RTX 40xx, L40, L4)
 # - 90: Hopper (H100, H200, GH100)
-set(NEON_ALL_GPU_ARCHITECTURES "70;75;80;86;89;90" CACHE STRING "GPU architectures to build for when NEON_BUILD_FOR_ALL_GPUS is ON")
+# - 100: Blackwell data-center (B100, B200, GB200) [requires CUDA >= 12.8]
+# - 120: Blackwell consumer (RTX 50xx, GB202/203/205/206) [requires CUDA >= 12.8]
+set(NEON_ALL_GPU_ARCHITECTURES "70;75;80;86;89;90;100;120" CACHE STRING "GPU architectures to build for when NEON_BUILD_FOR_ALL_GPUS is ON")
 
 if (${NEON_BUILD_FOR_ALL_GPUS})
     # Build for all common architectures (for distributable wheels)
