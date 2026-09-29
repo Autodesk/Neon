@@ -5,14 +5,21 @@ on:
   pull_request_target:
     types: [opened,closed,synchronize]
 
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
 jobs:
   CLA-Assistant:
     runs-on: ubuntu-latest
     steps:
       - name: "CLA Assistant"
         if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
-        # Beta Release
-        uses: contributor-assistant/github-action@v2.1.3-beta
+        # Upstream is archived; v2.6.1 is the final release. Pinned by commit SHA
+        # because the tag is mutable and no longer maintained.
+        uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # the below token should have repo scope and must be manually added by you in the repository's secret
@@ -21,7 +28,7 @@ jobs:
           remote-repository-name: 'CLA-Signatures'
           remote-organization-name: 'Autodesk'
           path-to-signatures: 'signatures/Autodesk/Individual/unique.json'
-          path-to-document: 'https://github.com/Autodesk/CLA-Assistant-Test-Signatures/blob/master/CLA.md' # e.g. a CLA or a DCO document
+          path-to-document: 'https://github.com/Autodesk/autodesk.github.io/releases/download/1.0/ADSK.Form.Ind.Contrib.Agmt.for.Open.Source.docx'
           # branch should not be protected
           branch: 'master'
           allowlist: user1,bot*
