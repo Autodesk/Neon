@@ -260,11 +260,10 @@ mGrid<SBlock>::mGrid(
                                     // } else {
                                         if (activeCellLambda[l](voxel)) {
                                             containVoxels = true;
-#pragma omp critical
-                                            {
-                                                // Set the bitmask for this voxel if it is active
-                                                setLevelBitMask(l, {bx, by, bz}, {x, y, z});
-                                            }
+                                            // Set the bitmask for this voxel if it is active.
+                                            // setLevelBitMask is thread safe: the bit write is
+                                            // atomic and only block allocation takes a lock.
+                                            setLevelBitMask(l, {bx, by, bz}, {x, y, z});
                                         }
                                     //}
                                 }
@@ -281,10 +280,7 @@ mGrid<SBlock>::mGrid(
                                     const Neon::int32_3d voxel = mData->mDescriptor.parentToChild(blockOrigin, l, {x, y, z});
 
                                     if (voxel < domainSize) {
-#pragma omp critical
-                                        {
-                                            setLevelBitMask(l, {bx, by, bz}, {x, y, z});
-                                        }
+                                        setLevelBitMask(l, {bx, by, bz}, {x, y, z});
                                     }
                                 }
                             }
@@ -301,11 +297,9 @@ mGrid<SBlock>::mGrid(
 
                             // Find local position within the parent block
                             Neon::int32_3d indexInParentBlock = mData->mDescriptor.toLocalIndex(blockOrigin, l + 1);
-#pragma omp critical
-                            {
-                                // Activate the corresponding voxel in the parent block
-                                setLevelBitMask(l + 1, parentBlock, indexInParentBlock);
-                            }
+
+                            // Activate the corresponding voxel in the parent block
+                            setLevelBitMask(l + 1, parentBlock, indexInParentBlock);
                         }
                     }
                 }
@@ -396,71 +390,69 @@ mGrid<SBlock>::mGrid(
 
         // Process levels from coarsest to finest (skip level 0 which has no children)
         for (int l = mData->mDescriptor.getDepth() - 1; l > 0; --l) {
-            const int refFactor = mData->mDescriptor.getRefFactor(l);
 
-            // Process all blocks at this level in parallel
-#pragma omp parallel for collapse(3) schedule(static)
-            for (size_t bzUint64 = 0; bzUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].z); bzUint64++) {
-                for (size_t byUint64 = 0; byUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].y); byUint64++) {
-                    for (size_t bxUint64 = 0; bxUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].x); bxUint64++) {
-                        int const bz = static_cast<int>(bzUint64);
-                        int const by = static_cast<int>(byUint64);
-                        int const bx = static_cast<int>(bxUint64);
+            // A voxel's position in the base index space is its bitmask coordinate
+            // scaled by the level's voxel spacing:
+            //   blockOrigin + localChild * spacing(l-1)
+            //     = (blockID * 2 + localChild) * spacing(l-1)
+            //     = bxyz * spacing(l-1)
+            const int voxelSpacing = mData->mDescriptor.getSpacing(l - 1);
 
-                        const Neon::index_3d blockOrigin = mData->mDescriptor.toBaseIndexSpace({bx, by, bz}, l + 1);
+            // Only an allocated bitmask region can hold an active voxel, and this pass
+            // does nothing to inactive ones. Walking the allocated regions instead of
+            // the dense block space turns hundreds of millions of block visits into a
+            // few tens of thousands of region visits.
+            std::vector<Neon::index_3d> const activeRegions =
+                mData->sparseLevelsBitmask.at(l).getAllocatedBlockCoords();
 
-                        // Check each voxel in this block for potential culling
-                        for (int z = 0; z < refFactor; z++) {
-                            for (int y = 0; y < refFactor; y++) {
-                                for (int x = 0; x < refFactor; x++) {
+#pragma omp parallel for schedule(dynamic, 8)
+            for (int64_t r = 0; r < static_cast<int64_t>(activeRegions.size()); r++) {
+                mData->sparseLevelsBitmask.at(l).forEachActivePointInBlock(
+                    activeRegions[r],
+                    [&](const Neon::index_3d& bxyz) {
+                        // Another thread may have culled this voxel after its brick was read
+                        if (!levelBitMaskIsSetAt(l, bxyz)) {
+                            return;
+                        }
 
-                                    // Only consider active voxels
-                                    if (levelBitMaskIsSet(l, {bx, by, bz}, {x, y, z})) {
+                        const Neon::int32_3d voxel = bxyz * voxelSpacing;
 
-                                        const Neon::int32_3d voxel = mData->mDescriptor.parentToChild(blockOrigin, l, {x, y, z});
+                        // Only cull if voxel is within domain and is refined
+                        if (!(voxel < domainSize)) {
+                            return;
+                        }
+                        if (!isRefined(l, voxel)) {
+                            return;
+                        }
 
-                                        // Only cull if voxel is within domain and is refined
-                                        if (voxel < domainSize) {
-                                            if (isRefined(l, voxel)) {
+                        // Check all 26 neighbors in 3D
+                        // Deactivate only if ALL neighbors are also refined
+                        bool deactivate = true;
+                        for (int k = -1; k < 2 && deactivate; k++) {
+                            for (int j = -1; j < 2 && deactivate; j++) {
+                                for (int i = -1; i < 2 && deactivate; i++) {
+                                    if (i == 0 && j == 0 && k == 0) {
+                                        continue;  // Skip center voxel
+                                    }
 
-                                                // Check all 26 neighbors in 3D
-                                                // Deactivate only if ALL neighbors are also refined
-                                                bool deactivate = true;
-                                                for (int k = -1; k < 2; k++) {
-                                                    for (int j = -1; j < 2; j++) {
-                                                        for (int i = -1; i < 2; i++) {
-                                                            if (i == 0 && j == 0 && k == 0) {
-                                                                continue;  // Skip center voxel
-                                                            }
+                                    const Neon::int32_3d neighborVoxel = mData->mDescriptor.neighbourBlock(voxel, l, {i, j, k});
 
-                                                            const Neon::int32_3d neighborVoxel = mData->mDescriptor.neighbourBlock(voxel, l, {i, j, k});
-
-                                                            // Check if neighbor is within domain bounds
-                                                            if (neighborVoxel.x >= 0 && neighborVoxel.y >= 0 && neighborVoxel.z >= 0 && neighborVoxel < domainSize) {
-                                                                // If any neighbor is not refined, don't deactivate
-                                                                if (!isRefined(l, neighborVoxel)) {
-                                                                    deactivate = false;
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-
-                                                // Deactivate voxel if it and all neighbors are refined
-                                                if (deactivate) {
-#pragma omp critical
-                                                    {
-                                                        clearLevelBitMask(l, {bx, by, bz}, {x, y, z});
-                                                    }
-                                                }
-                                            }
+                                    // Check if neighbor is within domain bounds
+                                    if (neighborVoxel.x >= 0 && neighborVoxel.y >= 0 && neighborVoxel.z >= 0 && neighborVoxel < domainSize) {
+                                        // If any neighbor is not refined, don't deactivate
+                                        if (!isRefined(l, neighborVoxel)) {
+                                            deactivate = false;
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                }
+
+                        // Deactivate voxel if it and all neighbors are refined
+                        if (deactivate) {
+                            clearLevelBitMaskAt(l, bxyz);
+                        }
+                    });
             }
         }
     }
@@ -504,106 +496,98 @@ mGrid<SBlock>::mGrid(
      * - Reduced aliasing in multi-scale computations
      */
     if (mData->mStrongBalanced) {
-        // Iteratively refine grid until strong balance condition is satisfied
-        bool again = true;
-        while (again) {
-            again = false;
+        // Iteratively refine grid until strong balance condition is satisfied.
+        // An int rather than a bool so that the worker threads can flag "converged = no"
+        // with an omp atomic write instead of a critical section.
+        int again = 1;
+        while (again != 0) {
+            again = 0;
 
             // Check all levels for balance violations
             for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
-                const int refFactor = mData->mDescriptor.getRefFactor(l);
                 const int childSpacing = mData->mDescriptor.getSpacing(l - 1);
 
-#pragma omp parallel for collapse(3) schedule(static)
-                for (size_t bzUint64 = 0; bzUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].z); bzUint64++) {
-                    for (size_t byUint64 = 0; byUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].y); byUint64++) {
-                        for (size_t bxUint64 = 0; bxUint64 < static_cast<size_t>(mData->mTotalNumBlocks[l].x); bxUint64++) {
-                            int const bz = static_cast<int>(bzUint64);
-                            int const by = static_cast<int>(byUint64);
-                            int const bx = static_cast<int>(bxUint64);
+                // This pass only ever reads from and writes around *active* voxels, so
+                // walk the allocated bitmask regions rather than the dense block space.
+                //
+                // Taking a snapshot of the coordinates is deliberate: a balance violation
+                // activates voxels at coarser levels, which can allocate new regions
+                // there. Those levels are visited later in this same sweep (l ascending,
+                // and a violation at level l only ever writes to levels > l), so the list
+                // being iterated right now is never the one being appended to.
+                std::vector<Neon::index_3d> const activeRegions =
+                    mData->sparseLevelsBitmask.at(l).getAllocatedBlockCoords();
 
-                            // Check each voxel in the current block
-                            for (int z = 0; z < refFactor; z++) {
-                                for (int y = 0; y < refFactor; y++) {
-                                    for (int x = 0; x < refFactor; x++) {
+#pragma omp parallel for schedule(dynamic, 8)
+                for (int64_t r = 0; r < static_cast<int64_t>(activeRegions.size()); r++) {
+                    mData->sparseLevelsBitmask.at(l).forEachActivePointInBlock(
+                        activeRegions[r],
+                        // The bitmask coordinate is exactly the voxel position this pass
+                        // works in: blockID * refFactor + localChild.
+                        [&](const Neon::index_3d& voxel) {
+                            // Check all 26 neighbors for balance violations
+                            for (int k = -1; k < 2; k++) {
+                                for (int j = -1; j < 2; j++) {
+                                    for (int i = -1; i < 2; i++) {
+                                        if (i == 0 && j == 0 && k == 0) {
+                                            continue;  // Skip center voxel
+                                        }
 
-                                        // Only process active voxels
-                                        if (levelBitMaskIsSet(l, {bx, by, bz}, {x, y, z})) {
+                                        // Calculate neighbor position
+                                        Neon::int32_3d proxyVoxel(voxel.x + i,
+                                                                  voxel.y + j,
+                                                                  voxel.z + k);
 
-                                            // Calculate global position of this voxel
-                                            const Neon::int32_3d voxel(bx * refFactor + x,
-                                                                       by * refFactor + y,
-                                                                       bz * refFactor + z);
+                                        // Convert to physical coordinates
+                                        const Neon::int32_3d proxyVoxelLocation(proxyVoxel.x * childSpacing,
+                                                                                proxyVoxel.y * childSpacing,
+                                                                                proxyVoxel.z * childSpacing);
 
-                                            // Check all 26 neighbors for balance violations
-                                            for (int k = -1; k < 2; k++) {
-                                                for (int j = -1; j < 2; j++) {
-                                                    for (int i = -1; i < 2; i++) {
-                                                        if (i == 0 && j == 0 && k == 0) {
-                                                            continue;  // Skip center voxel
-                                                        }
+                                        if (proxyVoxelLocation < domainSize && proxyVoxelLocation >= 0) {
 
-                                                        // Calculate neighbor position
-                                                        Neon::int32_3d proxyVoxel(voxel.x + i,
-                                                                                  voxel.y + j,
-                                                                                  voxel.z + k);
+                                            // Store previous level information for potential activation
+                                            Neon::int32_3d prv_nVoxelBlockOrigin(0), prv_nVoxelLocalID(0);
 
-                                                        // Convert to physical coordinates
-                                                        const Neon::int32_3d proxyVoxelLocation(proxyVoxel.x * childSpacing,
-                                                                                                proxyVoxel.y * childSpacing,
-                                                                                                proxyVoxel.z * childSpacing);
+                                            // Search through all coarser levels to find neighbor
+                                            for (int l_n = l; l_n < mData->mDescriptor.getDepth(); ++l_n) {
+                                                const int l_n_ref_factor = mData->mDescriptor.getRefFactor(l_n);
 
-                                                        if (proxyVoxelLocation < domainSize && proxyVoxelLocation >= 0) {
+                                                // Calculate block and local indices at level l_n
+                                                const Neon::int32_3d nVoxelBlockOrigin(proxyVoxel.x / l_n_ref_factor,
+                                                                                       proxyVoxel.y / l_n_ref_factor,
+                                                                                       proxyVoxel.z / l_n_ref_factor);
 
-                                                            // Store previous level information for potential activation
-                                                            Neon::int32_3d prv_nVoxelBlockOrigin(0), prv_nVoxelLocalID(0);
+                                                const Neon::int32_3d nVoxelLocalID(proxyVoxel.x % l_n_ref_factor,
+                                                                                   proxyVoxel.y % l_n_ref_factor,
+                                                                                   proxyVoxel.z % l_n_ref_factor);
 
-                                                            // Search through all coarser levels to find neighbor
-                                                            for (int l_n = l; l_n < mData->mDescriptor.getDepth(); ++l_n) {
-                                                                const int l_n_ref_factor = mData->mDescriptor.getRefFactor(l_n);
+                                                // Check if neighbor exists at this level
+                                                if (levelBitMaskIsSet(l_n, nVoxelBlockOrigin, nVoxelLocalID)) {
 
-                                                                // Calculate block and local indices at level l_n
-                                                                const Neon::int32_3d nVoxelBlockOrigin(proxyVoxel.x / l_n_ref_factor,
-                                                                                                       proxyVoxel.y / l_n_ref_factor,
-                                                                                                       proxyVoxel.z / l_n_ref_factor);
-
-                                                                const Neon::int32_3d nVoxelLocalID(proxyVoxel.x % l_n_ref_factor,
-                                                                                                   proxyVoxel.y % l_n_ref_factor,
-                                                                                                   proxyVoxel.z % l_n_ref_factor);
-
-                                                                // Check if neighbor exists at this level
-                                                                if (levelBitMaskIsSet(l_n, nVoxelBlockOrigin, nVoxelLocalID)) {
-
-                                                                    // Strong balance: neighbors can differ by at most 1 level
-                                                                    if (l_n == l || l_n == l + 1) {
-                                                                        break;  // Balance satisfied
-                                                                    } else {
-#pragma omp critical
-                                                                        {
-                                                                            // Balance violation: activate intermediate level
-                                                                            setLevelBitMask(l_n - 1, prv_nVoxelBlockOrigin, prv_nVoxelLocalID);
-                                                                            again = true;  // Need another iteration
-                                                                        }
-                                                                    }
-                                                                }
-
-                                                                // Move to next coarser level
-                                                                proxyVoxel = nVoxelBlockOrigin;
-
-                                                                // Cache current level info for potential activation
-                                                                prv_nVoxelBlockOrigin = nVoxelBlockOrigin;
-                                                                prv_nVoxelLocalID = nVoxelLocalID;
-                                                            }
-                                                        }
+                                                    // Strong balance: neighbors can differ by at most 1 level
+                                                    if (l_n == l || l_n == l + 1) {
+                                                        break;  // Balance satisfied
+                                                    } else {
+                                                        // Balance violation: activate intermediate level
+                                                        setLevelBitMask(l_n - 1, prv_nVoxelBlockOrigin, prv_nVoxelLocalID);
+                                                        // Need another iteration
+#pragma omp atomic write
+                                                        again = 1;
                                                     }
                                                 }
+
+                                                // Move to next coarser level
+                                                proxyVoxel = nVoxelBlockOrigin;
+
+                                                // Cache current level info for potential activation
+                                                prv_nVoxelBlockOrigin = nVoxelBlockOrigin;
+                                                prv_nVoxelLocalID = nVoxelLocalID;
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
-                    }
+                        });
                 }
             }
         }
@@ -626,15 +610,49 @@ mGrid<SBlock>::mGrid(
         Neon::int32_3d levelDomainSize(mData->mTotalNumBlocks[l].x * blockSize,
                                        mData->mTotalNumBlocks[l].y * blockSize,
                                        mData->mTotalNumBlocks[l].z * blockSize);
+
+        /**
+         * The bitmask coordinate of a voxel reduces to a single shift:
+         *
+         *     blockID = id / getSpacing(l)                 = id / (2 * voxelSpacing)
+         *     localID = (id / getSpacing(l-1)) % refFactor = (id / voxelSpacing) % 2
+         *     bxyz    = blockID * 2 + localID
+         *
+         * mGrid is always an octree (refFactor == 2 at every level, enforced by the
+         * static_assert and the descriptor validation at the top of this constructor),
+         * so writing q = id / voxelSpacing gives bxyz = (q / 2) * 2 + q % 2, which is
+         * just q. Since voxelSpacing is a power of two, that is id >> levelShift.
+         *
+         * This matters because the partitioner evaluates this lambda roughly 1.6
+         * billion times for level 0, and the childToParent/toLocalIndex form costs
+         * nine integer divisions per call with a divisor the compiler cannot see.
+         */
+        if ((voxelSpacing & (voxelSpacing - 1)) != 0) {
+            NeonException exp("mGrid::mGrid");
+            exp << "Level spacing is expected to be a power of two. Level = " << l
+                << " spacing = " << voxelSpacing;
+            NEON_THROW(exp);
+        }
+        int const levelShift = [voxelSpacing] {
+            int s = 0;
+            while ((1 << s) < voxelSpacing) {
+                ++s;
+            }
+            return s;
+        }();
+
         mData->grids[l] =
             InternalGrid(
                 backend,
                 levelDomainSize,
-                [&](Neon::int32_3d id) {
+                [this, l, levelShift, domainSize](Neon::int32_3d id) {
+                    if (id.x < 0 || id.y < 0 || id.z < 0) {
+                        return false;
+                    }
                     if (id < domainSize) {
-                        Neon::index_3d blockID = mData->mDescriptor.childToParent(id, l);
-                        Neon::index_3d localID = mData->mDescriptor.toLocalIndex(id, l);
-                        return levelBitMaskIsSet(l, blockID, localID);
+                        return levelBitMaskIsSetAt(l, Neon::index_3d(id.x >> levelShift,
+                                                                     id.y >> levelShift,
+                                                                     id.z >> levelShift));
                     } else {
                         return false;
                     }
@@ -954,6 +972,20 @@ auto mGrid<SBlock>::levelBitMaskIsSet(int l, const Neon::index_3d& blockID, cons
     return mData->sparseLevelsBitmask.at(l).isActivePoint(bxyz);
 };
 
+/**
+ * @brief Check if a voxel is active, given its bitmask coordinate directly.
+ *
+ * Same query as levelBitMaskIsSet(), but for callers that have already reduced
+ * (blockID, localChild) to the single bitmask coordinate blockID * 2 + localChild.
+ * See the InternalGrid activation lambda for why that reduction is worth doing
+ * outside this function.
+ */
+template <typename SBlock>
+auto mGrid<SBlock>::levelBitMaskIsSetAt(int l, const Neon::index_3d& bxyz) const -> bool
+{
+    return mData->sparseLevelsBitmask.at(l).isActivePoint(bxyz);
+};
+
 
 /**
  * @brief Activate a voxel at a specific resolution level.
@@ -970,7 +1002,7 @@ auto mGrid<SBlock>::    setLevelBitMask(int l, const Neon::index_3d& blockID, co
     auto const bxyz =
         blockID * 2 +
         localChild;
-    return mData->sparseLevelsBitmask.at(l).template activatePoint<false>(bxyz);
+    return mData->sparseLevelsBitmask.at(l).template activatePoint<true>(bxyz);
 };
 
 /**
@@ -988,7 +1020,19 @@ auto mGrid<SBlock>::clearLevelBitMask(int l, const Neon::index_3d& blockID, cons
     auto const bxyz =
         blockID * 2 +
         localChild;
-    return mData->sparseLevelsBitmask.at(l).template removePoint<false>(bxyz);
+    return mData->sparseLevelsBitmask.at(l).template removePoint<true>(bxyz);
+};
+
+/**
+ * @brief Deactivate a voxel, given its bitmask coordinate directly.
+ *
+ * Counterpart of levelBitMaskIsSetAt() for the sweeps that already work in bitmask
+ * coordinates rather than in (blockID, localChild) pairs.
+ */
+template <typename SBlock>
+auto mGrid<SBlock>::clearLevelBitMaskAt(int l, const Neon::index_3d& bxyz) -> void
+{
+    return mData->sparseLevelsBitmask.at(l).template removePoint<true>(bxyz);
 };
 
 /**

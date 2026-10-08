@@ -1,4 +1,3 @@
-
 #pragma once
 #include "Neon/domain/tools/PointHashTable.h"
 
@@ -237,17 +236,19 @@ struct BitBlock
     template <bool ThreadSafe = true>
     auto setON(Neon::index_3d const& point) -> void
     {
-        auto   blockLocalPoint = point % BitBlock::blockSize;
-        size_t pitch = blockLocalPoint.mPitch(blockSize);
-        auto   brickID = pitch / widthBrick;
-        auto   localBit = pitch % widthBrick;
+        auto        blockLocalPoint = point % BitBlock::blockSize;
+        size_t      pitch = blockLocalPoint.mPitch(blockSize);
+        auto        brickID = pitch / widthBrick;
+        auto        localBit = pitch % widthBrick;
+        Brick const mask = Brick(1) << localBit;
         if constexpr (ThreadSafe) {
-#pragma omp critical(settingBitOp)
-            {
-                bits[brickID] |= (1 << localBit);
-            }
+            // An atomic read-modify-write on a single brick. This replaces a named
+            // critical section, which was a *global* lock shared by every BitBlock in
+            // the process and serialized all bitmask writes during mGrid construction.
+#pragma omp atomic update
+            bits[brickID] |= mask;
         } else {
-            bits[brickID] |= (1 << localBit);
+            bits[brickID] |= mask;
         }
     }
 
@@ -292,17 +293,17 @@ struct BitBlock
     template <bool ThreadSafe = true>
     auto setOFF(Neon::index_3d const& point) -> void
     {
-        auto   blockLocalPoint = point % BitBlock::blockSize;
-        size_t pitch = blockLocalPoint.mPitch(blockSize);
-        auto   brickID = pitch / widthBrick;
-        auto   localBit = pitch % widthBrick;
+        auto        blockLocalPoint = point % BitBlock::blockSize;
+        size_t      pitch = blockLocalPoint.mPitch(blockSize);
+        auto        brickID = pitch / widthBrick;
+        auto        localBit = pitch % widthBrick;
+        Brick const mask = ~(Brick(1) << localBit);
         if constexpr (ThreadSafe) {
-#pragma omp critical(settingBitOp)
-            {
-                bits[brickID] &= ~(1 << localBit);
-            }
+            // See setON: an atomic update instead of a process-wide critical section.
+#pragma omp atomic update
+            bits[brickID] &= mask;
         } else {
-            bits[brickID] &= ~(1 << localBit);
+            bits[brickID] &= mask;
         }
     }
 };
@@ -421,11 +422,20 @@ struct BitBlock
 template <int memoryPoolGranularity = 100>
 class SparseBitBlocks
 {
-    Neon::domain::tool::PointHashTable<int32_t, BitBlock*> mHashTable; /**< Spatial hash table mapping block coordinates to BitBlock pointers */
+    Neon::domain::tool::PointHashTable<int32_t, BitBlock*> mHashTable; /**< Spatial hash table mapping block coordinates to BitBlock pointers (fallback for huge coordinate spaces) */
+    std::vector<BitBlock*>                                 mDenseLookup; /**< Flat block-coordinate -> BitBlock* table; empty when the fallback hash table is in use */
     Neon::index_3d                                         mBBox;      /**< Bounding box defining the valid coordinate space */
     using Pool = std::array<BitBlock, memoryPoolGranularity>;          /**< Type alias for memory pool arrays */
     std::vector<Pool*> memoryPool;                                      /**< Dynamic memory pool for BitBlock allocation */
     size_t            firstFreeIndex;                                  /**< Index of the first free BitBlock in the current memory pool */
+    std::vector<Neon::index_3d> mAllocatedBlocks;                      /**< Coordinate of every BitBlock handed out, in allocation order */
+
+    /**
+     * Above this many block slots the flat lookup table is abandoned in favour of the
+     * hash table. 64M slots is 512MB of pointers, which is already well past the point
+     * where a domain of this shape is practical.
+     */
+    static constexpr size_t denseLookupMaxEntries = 64ull * 1024ull * 1024ull;
 
    public:
     /**
@@ -466,9 +476,23 @@ class SparseBitBlocks
      * @see isActivePoint() To query point states
      */
     SparseBitBlocks(const Neon::index_3d& bbox)
-        : mBBox(bbox)
+        : mBBox( (bbox.x + BitBlock::blockSize.x - 1) / BitBlock::blockSize.x,
+                 (bbox.y + BitBlock::blockSize.y - 1) / BitBlock::blockSize.y,
+                 (bbox.z + BitBlock::blockSize.z - 1) / BitBlock::blockSize.z )
     {
-        mHashTable = Neon::domain::tool::PointHashTable<int32_t, BitBlock*>(bbox);
+        // The block-coordinate space is small enough (one slot per 8^3 region) that a
+        // flat table almost always fits: it costs 8 bytes per slot and turns every
+        // isActivePoint() from a hash probe into a single indexed load. Only fall back
+        // to the hash table for coordinate spaces where that would be unreasonable.
+        const size_t numBlockSlots = static_cast<size_t>(mBBox.x) *
+                                     static_cast<size_t>(mBBox.y) *
+                                     static_cast<size_t>(mBBox.z);
+        if (numBlockSlots <= denseLookupMaxEntries) {
+            mDenseLookup.assign(numBlockSlots, nullptr);
+        } else {
+            mHashTable = Neon::domain::tool::PointHashTable<int32_t, BitBlock*>(mBBox);
+        }
+
         auto newPoolPtr = new Pool{};
         memoryPool.emplace_back(newPoolPtr);
         firstFreeIndex = 0;
@@ -534,50 +558,57 @@ class SparseBitBlocks
     template <bool ThreadSafe>
     auto activatePoint(const Neon::index_3d& point) -> void
     {
-        if (!(point < mBBox)) {
-            std::cout << "Error -> point outside of valid range" << std::endl;
+        Neon::index_3d block_coord(point.x / BitBlock::blockSize.x,
+                                   point.y / BitBlock::blockSize.y,
+                                   point.z / BitBlock::blockSize.z);
+        Neon::index_3d local(point.x % BitBlock::blockSize.x,
+                             point.y % BitBlock::blockSize.y,
+                             point.z % BitBlock::blockSize.z);
+
+        if (!(block_coord < mBBox)) {
+            std::cout << "Error -> block outside of valid range" << std::endl;
             std::exit(1);
         }
-        BitBlock* bitBlock = getBitBlockPrt(point);
+
+        BitBlock* bitBlock = getBitBlockPrt(block_coord);
         if (bitBlock != nullptr) {
-            bitBlock->setON<ThreadSafe>(point);
+            bitBlock->setON<ThreadSafe>(local);
+            return;
         }
+
         if constexpr (ThreadSafe == true) {
 #pragma omp critical(SparseBitBlocks_addPoint)
             {
-                bitBlock = getBitBlockPrt(point);
+                bitBlock = getBitBlockPrt(block_coord);
                 if (bitBlock == nullptr) {
-                    if (firstFreeIndex > memoryPoolGranularity) {
-                        std::cout << "Error -> firstFreeIndex == memoryPoolGranularity" << std::endl;
-                        std::exit(1);
-                    }
                     if (firstFreeIndex == memoryPoolGranularity) {
-                        //auto new_pool = Pool{};
-                        memoryPool.emplace_back({});
+                        auto new_pool_ptr = new Pool{};
+                        memoryPool.emplace_back(new_pool_ptr);
                         firstFreeIndex = 0;
                     }
-                    bitBlock = &memoryPool[memoryPool.size() - 1][firstFreeIndex];
+                    bitBlock = &((*memoryPool.back())[firstFreeIndex]);
                     firstFreeIndex++;
-                    mHashTable.addPoint(point, bitBlock);
+                    // Set the bit *before* publishing the pointer. Readers do not take
+                    // this lock, so a block must never become reachable in a state where
+                    // its first bit is still being written non-atomically.
+                    bitBlock->setON<false>(local);
+                    publishBitBlockPtr(block_coord, bitBlock);
+                } else {
+                    bitBlock->setON<true>(local);
                 }
-                bitBlock->setON<false>(point);
             }
 
         } else {
             // We are in a critical section managed by the calling
-            if (firstFreeIndex > memoryPoolGranularity) {
-                std::cout << "Error -> firstFreeIndex == memoryPoolGranularity" << std::endl;
-                std::exit(1);
-            }
             if (firstFreeIndex == memoryPoolGranularity) {
                 auto new_pool_ptr = new Pool{};
                 memoryPool.emplace_back(new_pool_ptr);
                 firstFreeIndex = 0;
             }
-            bitBlock = &(memoryPool[memoryPool.size() - 1]->at(firstFreeIndex));
+            bitBlock = &((*memoryPool.back())[firstFreeIndex]);
             firstFreeIndex++;
-            mHashTable.addPoint(point, bitBlock);
-            bitBlock->setON<true>(point);
+            bitBlock->setON<ThreadSafe>(local);
+            publishBitBlockPtr(block_coord, bitBlock);
             return;
         }
     }
@@ -630,20 +661,109 @@ class SparseBitBlocks
     template <bool ThreadSafe = true>
     auto removePoint(const Neon::index_3d& point) -> void
     {
-        BitBlock* bitBlock = getBitBlockPrt(point);
+        Neon::index_3d block_coord(point.x / BitBlock::blockSize.x,
+                                   point.y / BitBlock::blockSize.y,
+                                   point.z / BitBlock::blockSize.z);
+        Neon::index_3d local(point.x % BitBlock::blockSize.x,
+                             point.y % BitBlock::blockSize.y,
+                             point.z % BitBlock::blockSize.z);
+
+        BitBlock* bitBlock = getBitBlockPrt(block_coord);
         if (bitBlock == nullptr) {
-            std::cout << "Error -> " << std::endl;
+            return;
         }
-        bitBlock->setOFF<ThreadSafe>(point);
+        bitBlock->setOFF<ThreadSafe>(local);
     }
 
-    auto getBitBlockPrt(const Neon::index_3d& point) const -> BitBlock*
+    /**
+     * @brief Makes a freshly allocated BitBlock reachable from the given block coordinate.
+     *
+     * Must only be called while holding the SparseBitBlocks_addPoint critical section.
+     */
+    auto publishBitBlockPtr(const Neon::index_3d& coord, BitBlock* bitBlock) -> void
     {
-        if (!(point < mBBox)) {
-            std::cout << "Error -> point outside of valid range" << std::endl;
+        mAllocatedBlocks.push_back(coord);
+        if (!mDenseLookup.empty()) {
+            mDenseLookup[coord.mPitch(mBBox)] = bitBlock;
+            return;
+        }
+        mHashTable.addPoint(coord, bitBlock);
+    }
+
+    /**
+     * @brief Coordinates of every BitBlock that has been allocated.
+     *
+     * That is, every 8^3 region that has held at least one active point at some point.
+     * A caller that needs to visit the active set can iterate these instead of sweeping
+     * the whole coordinate space: for a sparse domain that is orders of magnitude less
+     * work, and any point outside an allocated block is inactive by construction.
+     *
+     * Blocks are never freed, so a block whose bits have all since been cleared still
+     * appears here. Returned by value because callers commonly mutate the collection
+     * while iterating.
+     */
+    auto getAllocatedBlockCoords() const -> std::vector<Neon::index_3d>
+    {
+        return mAllocatedBlocks;
+    }
+
+    /**
+     * @brief Invokes f(point) for every active point inside one allocated BitBlock.
+     *
+     * The point handed to the lambda is in this collection's coordinate space, not
+     * block-local. Bricks holding nothing are skipped, so an allocated block that is
+     * mostly empty costs far less than its 512 bits suggest.
+     *
+     * Bits are read as the traversal proceeds. A concurrent update may or may not be
+     * observed, so a caller that mutates while iterating must re-check the points it
+     * cares about with isActivePoint().
+     */
+    template <typename UserLambda>
+    auto forEachActivePointInBlock(const Neon::index_3d& blockCoord,
+                                   const UserLambda&     f) const -> void
+    {
+        BitBlock* bitBlock = getBitBlockPrt(blockCoord);
+        if (bitBlock == nullptr) {
+            return;
+        }
+
+        constexpr int edge = BitBlock::blockEdge;
+        const int     baseX = blockCoord.x * edge;
+        const int     baseY = blockCoord.y * edge;
+        const int     baseZ = blockCoord.z * edge;
+
+        for (int brickID = 0; brickID < BitBlock::numBricks; ++brickID) {
+            const BitBlock::Brick brick = bitBlock->bits[brickID];
+            if (brick == 0) {
+                continue;
+            }
+            for (int bit = 0; bit < BitBlock::widthBrick; ++bit) {
+                if ((brick & (BitBlock::Brick(1) << bit)) == 0) {
+                    continue;
+                }
+                // Matches Integer_3d::mPitch: pitch = x + y * edge + z * edge * edge
+                const int pitch = brickID * BitBlock::widthBrick + bit;
+                f(Neon::index_3d(baseX + pitch % edge,
+                                 baseY + (pitch / edge) % edge,
+                                 baseZ + pitch / (edge * edge)));
+            }
+        }
+    }
+
+    auto getBitBlockPrt(const Neon::index_3d& coord) const -> BitBlock*
+    {
+        if (!(coord < mBBox)) {
+            std::cout << "Error -> coord outside of valid range" << std::endl;
             std::exit(1);
         }
-        BitBlock* const* tmp = mHashTable.getMetadata(point);
+        if (!mDenseLookup.empty()) {
+            if (coord.x < 0 || coord.y < 0 || coord.z < 0) {
+                return nullptr;
+            }
+            return mDenseLookup[coord.mPitch(mBBox)];
+        }
+
+        BitBlock* const* tmp = mHashTable.getMetadata(coord);
         if (tmp == nullptr) {
             return nullptr;
         }
@@ -704,11 +824,18 @@ class SparseBitBlocks
      */
     auto isActivePoint(const Neon::index_3d& point) const -> bool
     {
-        BitBlock* bitBlock = getBitBlockPrt(point);
+        Neon::index_3d block_coord(point.x / BitBlock::blockSize.x,
+                                   point.y / BitBlock::blockSize.y,
+                                   point.z / BitBlock::blockSize.z);
+        Neon::index_3d local(point.x % BitBlock::blockSize.x,
+                             point.y % BitBlock::blockSize.y,
+                             point.z % BitBlock::blockSize.z);
+
+        BitBlock* bitBlock = getBitBlockPrt(block_coord);
         if (bitBlock == nullptr) {
             return false;
         }
-        return bitBlock->isON(point);
+        return bitBlock->isON(local);
     };
 };
 }  // namespace Neon::domain::details::mGrid

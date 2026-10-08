@@ -16,6 +16,16 @@ auto SpanDecomposition::getLastZSliceIdx() const -> const Neon::set::DataSet<int
 {
     return mZLastIdx;
 }
+auto SpanDecomposition::getBlockActiveMask() const -> const std::vector<uint8_t>&
+{
+    return mBlockActive;
+}
+
+auto SpanDecomposition::releaseBlockActiveMask() -> void
+{
+    std::vector<uint8_t>().swap(mBlockActive);
+}
+
 auto SpanDecomposition::toString(Neon::Backend const& bk) const -> std::string
 {
     std::stringstream s;

@@ -193,6 +193,19 @@ SpanClassifier::SpanClassifier(const Neon::Backend&                         back
         return maxRadius;
     }();
 
+    // SpanDecomposition has already swept this exact block space with this exact
+    // activation lambda. Reuse its verdict rather than paying for it twice: for a
+    // large finest level the sweep is billions of lambda evaluations.
+    auto const& blockActive = mSpanDecomposition->getBlockActiveMask();
+    bool const  hasBlockActive = !blockActive.empty();
+
+    auto const blockPitch = [block3DSpan](int bx, int by, int bz) -> size_t {
+        return static_cast<size_t>(bx) +
+               static_cast<size_t>(by) * static_cast<size_t>(block3DSpan.x) +
+               static_cast<size_t>(bz) * static_cast<size_t>(block3DSpan.x) *
+                   static_cast<size_t>(block3DSpan.y);
+    };
+
     // For each Partition
     backend.devSet()
         .forEachSetIdxSeq(
@@ -218,35 +231,52 @@ SpanClassifier::SpanClassifier(const Neon::Backend&                         back
 
                 auto inspectBlock = [&](int bx, int by, int bz, ByPartition byPartition,
                                         ByDirection byDirection) {
-                    Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
-
-                    bool     doBreak = false;
                     bool     isActiveBlock = false;
                     ByDomain byDomain = ByDomain::bulk;
-                    for (int z = 0; (z < dataBlockSize3D.z && !doBreak); z++) {
-                        for (int y = 0; (y < dataBlockSize3D.y && !doBreak); y++) {
-                            for (int x = 0; (x < dataBlockSize3D.x && !doBreak); x++) {
 
-                                const Neon::int32_3d globalId = getVoxelAbsolute3DIdx(blockOrigin,
-                                                                                      {x, y, z});
-                                if (globalId < domainSize * discreteVoxelSpacing) {
+                    // Whether the block holds anything at all is already known.
+                    bool needsVoxelSweep = !hasBlockActive;
+                    if (hasBlockActive) {
+                        if (blockActive[blockPitch(bx, by, bz)] == 0) {
+                            return;
+                        }
+                        isActiveBlock = true;
+                    }
+                    // The bc classification, however, is not something the
+                    // decomposition sweep computes, so it still needs the voxels.
+                    if constexpr (!std::is_same_v<BcLambda, nullptr_t>) {
+                        needsVoxelSweep = true;
+                    }
 
-                                    if constexpr (std::is_same_v<BcLambda, nullptr_t>) {
-                                        if (activeCellLambda(globalId)) {
-                                            byDomain = ByDomain::bulk;
-                                            isActiveBlock = true;
-                                            doBreak = true;
-                                            break;
-                                        }
-                                    } else if constexpr (std::is_same_v<typename std::invoke_result<BcLambda, Neon::index_3d>::type, bool>) {
-                                        NEON_THROW_UNSUPPORTED_OPERATION("bool");
-                                    } else if constexpr (std::is_same_v<typename std::invoke_result<BcLambda, Neon::index_3d>::type, ByDomain>) {
-                                        auto whatdomain = bcLambda(globalId);
-                                        if (activeCellLambda(globalId)) {
-                                            isActiveBlock = true;
-                                            if (whatdomain == ByDomain::bc) {
-                                                byDomain = ByDomain::bc;
+                    if (needsVoxelSweep) {
+                        Neon::int32_3d blockOrigin = block3dIdxToBlockOrigin({bx, by, bz});
+
+                        bool doBreak = false;
+                        for (int z = 0; (z < dataBlockSize3D.z && !doBreak); z++) {
+                            for (int y = 0; (y < dataBlockSize3D.y && !doBreak); y++) {
+                                for (int x = 0; (x < dataBlockSize3D.x && !doBreak); x++) {
+
+                                    const Neon::int32_3d globalId = getVoxelAbsolute3DIdx(blockOrigin,
+                                                                                          {x, y, z});
+                                    if (globalId < domainSize * discreteVoxelSpacing) {
+
+                                        if constexpr (std::is_same_v<BcLambda, nullptr_t>) {
+                                            if (activeCellLambda(globalId)) {
+                                                byDomain = ByDomain::bulk;
+                                                isActiveBlock = true;
                                                 doBreak = true;
+                                                break;
+                                            }
+                                        } else if constexpr (std::is_same_v<typename std::invoke_result<BcLambda, Neon::index_3d>::type, bool>) {
+                                            NEON_THROW_UNSUPPORTED_OPERATION("bool");
+                                        } else if constexpr (std::is_same_v<typename std::invoke_result<BcLambda, Neon::index_3d>::type, ByDomain>) {
+                                            auto whatdomain = bcLambda(globalId);
+                                            if (activeCellLambda(globalId)) {
+                                                isActiveBlock = true;
+                                                if (whatdomain == ByDomain::bc) {
+                                                    byDomain = ByDomain::bc;
+                                                    doBreak = true;
+                                                }
                                             }
                                         }
                                     }
