@@ -167,6 +167,9 @@ class Partitioner1D
             mData->spanDecomposition);
         timeMamager.stop_with_trace("SpanClassifier");
 
+        // The classifier was the only consumer of the block activity mask.
+        mData->spanDecomposition->releaseBlockActiveMask();
+
         timeMamager.start_with_trace("SpanLayout");
         mData->mSpanLayout = std::make_shared<partitioning::SpanLayout>(
             backend,
