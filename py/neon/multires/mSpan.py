@@ -1,1 +1,0 @@
-from ..block.bSpan import bSpan as mSpan
