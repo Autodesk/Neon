@@ -190,11 +190,18 @@ class mGrid
 
     auto levelBitMaskIsSet(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> bool;
 
+    // check if the bitmask is set, addressing the bitmask directly by its own
+    // coordinate (i.e. blockID * 2 + localChild, already combined by the caller)
+    auto levelBitMaskIsSetAt(int l, const Neon::index_3d& bxyz) const -> bool;
+
     // set the bitmask assuming a dense domain
     auto setLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void;
 
     // clear the bitmask assuming a dense domain
     auto clearLevelBitMask(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) -> void;
+
+    // clear the bitmask, addressing it directly by its own coordinate
+    auto clearLevelBitMaskAt(int l, const Neon::index_3d& bxyz) -> void;
 
     struct Data
     {

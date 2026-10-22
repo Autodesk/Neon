@@ -1,4 +1,8 @@
 #pragma once
+
+#include <cstdint>
+#include <vector>
+
 #include "Neon/core/core.h"
 
 #include "Neon/set/Containter.h"
@@ -41,6 +45,27 @@ class SpanDecomposition
     auto getLastZSliceIdx() const
         -> const Neon::set::DataSet<int32_t>&;
 
+    /**
+     * Per-block activity flags over the full block3DSpan, laid out with bx varying
+     * fastest. A block is flagged when it holds at least one active voxel.
+     *
+     * Deciding this is the only thing the decomposition sweep does, and it is exactly
+     * the test SpanClassifier would otherwise run a second time over the same block
+     * space. Publishing it lets the classifier skip that repeat.
+     *
+     * An empty vector means the mask is not available (it has been released); callers
+     * must fall back to evaluating the activation lambda themselves.
+     */
+    auto getBlockActiveMask() const
+        -> const std::vector<uint8_t>&;
+
+    /**
+     * Frees the block activity mask. For a large finest level it is tens of MB that
+     * would otherwise be retained for the lifetime of the grid.
+     */
+    auto releaseBlockActiveMask()
+        -> void;
+
     auto toString(Neon::Backend const&) const
         -> std::string;
 
@@ -48,6 +73,7 @@ class SpanDecomposition
     Neon::set::DataSet<int32_t> mZFirstIdx;
     Neon::set::DataSet<int32_t> mZLastIdx;
     Neon::set::DataSet<int64_t> mNumBlocks;
+    std::vector<uint8_t>        mBlockActive;
 
     size_t mDomainBlocksCount;
 };
@@ -68,6 +94,13 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
     mDomainBlocksCount = 0;
     std::vector<size_t> nBlockProjectedToZ(block3DSpan.z);
 
+    // Record which blocks turned out to be active so that SpanClassifier does not have
+    // to rediscover it. One byte per block rather than one bit, so that neighbouring
+    // blocks handled by different threads never touch the same location.
+    size_t const sliceStride = static_cast<size_t>(block3DSpan.x) *
+                               static_cast<size_t>(block3DSpan.y);
+    mBlockActive.assign(sliceStride * static_cast<size_t>(block3DSpan.z), uint8_t(0));
+
     for (int bz = 0; bz < block3DSpan.z; bz++) {
         size_t count_on_bz = 0;
 #pragma omp parallel for reduction(+ : count_on_bz) schedule(static) collapse(2)
@@ -86,6 +119,9 @@ SpanDecomposition::SpanDecomposition(const Neon::Backend&           backend,
                                 if (activeCellLambda(id)) {
                                     doBreak = true;
                                     count_on_bz++;
+                                    mBlockActive[bx64 +
+                                                 by64 * static_cast<size_t>(block3DSpan.x) +
+                                                 static_cast<size_t>(bz) * sliceStride] = 1;
                                 }
                             }
                         }
