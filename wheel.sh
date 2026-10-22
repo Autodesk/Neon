@@ -23,6 +23,11 @@ cd "$SCRIPT_DIR"
 PYTHON="${PYTHON:-python3}"
 PIP="${PIP:-${PYTHON} -m pip}"
 
+CUDA_PATH="${CUDA_PATH:-/usr/local/cuda}"
+export CUDA_PATH
+export PATH="${CUDA_PATH}/bin:${PATH}"
+export CUDACXX="${CUDACXX:-${CUDA_PATH}/bin/nvcc}"
+
 # Default settings
 BUILD_FOR_ALL_GPUS="ON"
 CUSTOM_ARCH=""
@@ -104,20 +109,20 @@ export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-$(nproc)}"
 if [[ -n "$CUSTOM_ARCH" ]]; then
     echo "    GPU architectures: $CUSTOM_ARCH"
     echo "    INFO logging default: OFF (can be enabled at runtime)"
-    python -m build --wheel \
+    ${PYTHON} -m build --wheel \
         --config-setting=cmake.define.NEON_BUILD_FOR_ALL_GPUS=OFF \
         --config-setting=cmake.define.CMAKE_CUDA_ARCHITECTURES="$CUSTOM_ARCH" \
         --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON
 elif [[ "$BUILD_FOR_ALL_GPUS" == "ON" ]]; then
     echo "    GPU architectures: all common (70, 75, 80, 86, 89, 90, 100, 120)"
     echo "    INFO logging default: OFF (can be enabled at runtime)"
-    python -m build --wheel \
+    ${PYTHON} -m build --wheel \
         --config-setting=cmake.define.NEON_BUILD_FOR_ALL_GPUS=ON \
         --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON
 else
     echo "    GPU architectures: auto-detect installed GPU"
     echo "    INFO logging default: OFF (can be enabled at runtime)"
-    python -m build --wheel \
+    ${PYTHON} -m build --wheel \
         --config-setting=cmake.define.NEON_BUILD_FOR_ALL_GPUS=OFF \
         --config-setting=cmake.define.NEON_INFO_DEFAULT_OFF=ON
 fi

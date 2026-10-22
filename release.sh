@@ -20,7 +20,7 @@ set -euo pipefail
 # =============================================================================
 
 # --- Configuration ----------------------------------------------------------
-VERSION="0.5.2a3"
+VERSION="0.5.2a5"
 TAG="v${VERSION}"
 # All wheels for this version (multi-Python build output).
 ASSET_PATTERN="dist-multi/neon_gpu-${VERSION}-*.whl"
@@ -28,13 +28,12 @@ GITHUB_REPO="Autodesk/Neon"
 
 RELEASE_NOTES="## Release ${VERSION}
 
-Pre-release of the \`neon_gpu\` wheels built against the update4 Warp stack.
+Pre-release of the \`neon_gpu\` wheels built against the Warp update5 stack.
 
 ### Highlights
-- Built against Warp (external-source-support-update4) with the BVH shared-stack
-  fix for Neon's 3D thread blocks (correct mesh boundary masks / force coeffs).
-- Adds Blackwell GPU support (sm_100 data-center, sm_120 consumer) in addition to
-  Volta–Hopper (70, 75, 80, 86, 89, 90).
+- Bundled Warp: \`external-source-support-update5\` (1.19.0.dev0), merge of
+  external-source support onto current Warp main.
+- Same GPU coverage as 0.5.2a3: Volta through Blackwell (70–90, 100, 120).
 
 ### Supported GPU architectures
 - sm_70 (Volta), sm_75 (Turing), sm_80/sm_86 (Ampere), sm_89 (Ada),
