@@ -1,0 +1,93 @@
+# syntax=docker/dockerfile:1
+#
+# HIP-on-NVIDIA build image for carbon.
+#
+# Covers the "hip-nvidia" configuration: CARBON_BACKEND=Hip with
+# CMAKE_HIP_PLATFORM=nvidia. HIP can target NVIDIA GPUs as well as AMD — on the
+# nvidia platform the HIP language is compiled by nvcc, <hip/hip_runtime.h>
+# forwards every hipXxx call to the matching cudaXxx, and hipcub maps onto cub.
+# This image therefore lets the *exact same* native-HIP source tree be compiled
+# and run for real on an NVIDIA card, which is what makes runtime validation of
+# the HIP backend possible on an NVIDIA host.
+#
+# Base = the same CUDA devel image as Dockerfile.cuda (nvcc + libcudart). On top
+# we install HIP's NVIDIA-platform runtime + dev packages (headers, the
+# hip-config cmake glue, hipcub) from the ROCm apt repo. No AMD GPU or driver is
+# needed — the HIP layer is a thin shim over the already-present CUDA toolkit.
+
+FROM nvidia/cuda:12.6.3-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --allow-change-held-packages \
+    build-essential \
+    git \
+    ninja-build \
+    ca-certificates \
+    gnupg wget curl \
+    libomp-dev \
+    openmpi-bin libopenmpi-dev \
+    libnccl2 libnccl-dev \
+    python3 \
+ && rm -rf /var/lib/apt/lists/*
+
+# CMAKE_HIP_PLATFORM is only honoured by CMake >= 3.28; clang-format >= 20 for
+# the .clang-format `AlwaysOnePerLine` option (matches the other carbon images).
+#
+# Both come from upstream rather than pip. pip is avoided deliberately: on a network that
+# intercepts TLS to files.pythonhosted.org, every pip layer fails and cannot be repaired by
+# pointing pip at a different trust store (see docs/CHANGELOG.md 2026-07). github.com and
+# apt.llvm.org serve their genuine certificates, so these two sources verify normally.
+ARG CMAKE_VERSION=3.31.6
+RUN curl -fsSL "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
+      | tar xz --strip-components=1 -C /usr/local
+
+# The key is ASCII-armored, which apt >= 2.4 accepts directly as a signed-by target.
+RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
+      -o /usr/share/keyrings/llvm-archive-keyring.asc \
+ && echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.asc] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" \
+      > /etc/apt/sources.list.d/llvm-20.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends clang-format-20 \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/bin/clang-format-20 /usr/local/bin/clang-format
+
+# ROCm apt repo → HIP headers + cmake glue. With CMAKE_HIP_PLATFORM=nvidia, CMake
+# compiles the HIP language with *nvcc* directly (already in the base image) and the HIP
+# headers forward hipXxx→cudaXxx based on the __HIP_PLATFORM_NVIDIA__ define — so we only
+# need the headers and the find_package(hip) cmake config, NOT a HIP runtime package.
+#
+# We deliberately install just `hip-dev` (HIP headers + /opt/rocm/lib/cmake/hip) and
+# `hipcub-dev` (header-only hipcub, wraps cub on the NVIDIA backend). We do NOT install
+# `hip-runtime-nvidia`: it Depends on the full `cuda` meta (~2 GB of CUDA 13.x dev libs,
+# version-skewed against this 12.6 base) and pulls `hipcc-nvidia`, which collides with
+# `hipcc` on /opt/rocm/bin/hipcc. `--force-overwrite` is kept as a belt-and-suspenders
+# guard in case hip-dev's own dependency closure still trips the hipcc file conflict.
+ARG ROCM_VERSION=6.4.4
+RUN mkdir -p /etc/apt/keyrings \
+ && wget -qO - https://repo.radeon.com/rocm/rocm.gpg.key \
+      | gpg --dearmor -o /etc/apt/keyrings/rocm.gpg \
+ && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_VERSION} jammy main" \
+      > /etc/apt/sources.list.d/rocm.list \
+ && printf 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600\n' \
+      > /etc/apt/preferences.d/rocm-pin-600 \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+      -o Dpkg::Options::="--force-overwrite" \
+    hip-dev \
+    hipcub-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV ROCM_PATH=/opt/rocm
+ENV PATH=/usr/local/cuda/bin:/opt/rocm/bin:${PATH}
+ENV LD_LIBRARY_PATH=/opt/rocm/lib:${LD_LIBRARY_PATH:-}
+# Force the NVIDIA platform for hipconfig / HIP headers regardless of how the
+# packaging guesses (the box has CUDA, not an AMD GPU).
+ENV HIP_PLATFORM=nvidia
+
+# The dist_* tests invoke `mpiexec`; OpenMPI refuses to run as root by default.
+ENV OMPI_ALLOW_RUN_AS_ROOT=1 \
+    OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+WORKDIR /work

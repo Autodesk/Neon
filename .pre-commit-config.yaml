@@ -1,0 +1,36 @@
+# pre-commit hooks for carbon. Install with:
+#
+#     pip install --user pre-commit
+#     pre-commit install
+#
+# After install, every `git commit` runs the hooks below over staged
+# files. To run them on the entire tree on demand:
+#
+#     pre-commit run --all-files
+#
+# clang-format must be on PATH; carbon's `.clang-format` is the source
+# of truth and is enforced both here and via the CMake `format-check`
+# target / the `carbon_format_check` CTest entry.
+
+repos:
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v18.1.8
+    hooks:
+      - id: clang-format
+        # Match the file globs the CMake `format` target rewrites.
+        files: ^(include|src|tests|examples|benchmarks)/.*\.(h|hpp|inl|cpp|cu|cuh)$
+        # Neon/ and third_party/ are vendored read-only and live outside
+        # the repo (or under third_party/) — explicit excludes keep this
+        # hook in lockstep with .clang-format-ignore.
+        exclude: ^(Neon|Neon-nccl|third_party|build.*)/
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(Neon|Neon-nccl|third_party|build.*)/
+      - id: end-of-file-fixer
+        exclude: ^(Neon|Neon-nccl|third_party|build.*)/
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=1024]

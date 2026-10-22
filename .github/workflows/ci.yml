@@ -1,0 +1,158 @@
+name: ci
+
+# CPU-only fast lane. Validates the full configure / build / link cycle on
+# every push, runs the host-only test subset, and enforces clang-format.
+# GPU-required configurations are validated by `scripts/docker-build-all.sh`
+# locally (which also covers SYCL+RCCL); GitHub-hosted runners don't have
+# CUDA / NCCL / AMD GPUs, so we only stand up what works without a GPU here.
+#
+# What runs on every push / PR:
+#   1. cuda-cpu-only:  CUDA backend, CPU-only host build (CARBON_BACKEND=Cuda
+#                      with no GPU available — exercises the configure +
+#                      compile path; tests that need a GPU skip themselves
+#                      gracefully).
+#   2. sycl-cpu-only:  SYCL via AdaptiveCpp with `omp` target only — fully
+#                      runnable on a CPU runner, locks the SYCL host path.
+#   3. format-check:   `clang-format --dry-run --Werror` over the formatted
+#                      file globs.
+#
+# Each job is independent (matrix-style); a regression in one doesn't block
+# the others.
+
+on:
+  push:
+    branches: [main, master, sycl-cuda]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  format-check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          # .clang-format uses BinPackParameters: AlwaysOnePerLine, which
+          # requires clang-format >= 20 (matches the docker/ images).
+          python -m pip install --user "clang-format>=20"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
+      - name: Run format-check
+        run: |
+          # Mirror the CMake `format-check` target: glob the formatted
+          # source tree, run clang-format --dry-run --Werror.
+          mapfile -t FILES < <(find include src tests examples benchmarks \
+            -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.inl' \
+                      -o -name '*.cpp' -o -name '*.cu' -o -name '*.cuh' \) \
+            ! -path '*/Neon/*' ! -path '*/third_party/*')
+          clang-format --dry-run --Werror "${FILES[@]}"
+
+  cuda-cpu-only:
+    # CUDA backend + host-only validation. We install the CUDA toolkit so
+    # the configure step succeeds (find_package(CUDAToolkit)), but the test
+    # binaries stay unlaunched — `device_count() == 0` makes every device
+    # test return cleanly.
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build libomp-dev
+
+      - name: Install CUDA toolkit (network installer)
+        # Just the runtime + driver headers; we never run CUDA code in CI,
+        # but the build needs nvcc to compile .cu translation units.
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            nvidia-cuda-toolkit
+
+      - name: Configure
+        run: |
+          # CARBON_WERROR promotes host (CXX) warnings to errors on the carbon
+          # library target. The hosted runner's g++ (Ubuntu 22.04 / gcc 11)
+          # matches the CUDA container's host compiler, so this fast lane is the
+          # cheapest place to keep the libcarbon compile warning-clean on every
+          # PR (no GPU needed — it's a pure compile gate).
+          cmake -S . -B build -G Ninja \
+            -DCARBON_BACKEND=Cuda \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCARBON_BUILD_BENCHMARKS=OFF \
+            -DCARBON_WERROR=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test (host-only subset)
+        run: |
+          # Select the `cpu` label rather than denylisting by name. The previous
+          # regex exclusion was written against a smaller suite and had gone stale:
+          # measured 2026-07 under CUDA_VISIBLE_DEVICES="", 26 registered tests fail
+          # outright with no device (carbon_gpu, carbon_dense_kernel, carbon_skeleton,
+          # ...) and none of them matched the six excluded patterns, so this step could
+          # not have been passing. A further 50 "passed" only by reaching their own
+          # device-count self-skip, contributing no coverage.
+          #
+          # The `cpu` label marks the tests verified to do real work with zero visible
+          # devices. GPU-requiring tests are the gpu-ci.yml lane's job — this lane's
+          # value is the configure/build/link gate plus -Werror, not test breadth.
+          ctest --test-dir build --output-on-failure -L cpu
+
+  sycl-cpu-only:
+    # AdaptiveCpp SYCL backend with the OpenMP host target only. Fully
+    # runnable on a CPU runner: every kernel lowers to OMP loops; the
+    # cross-device peer-copy paths are tested via the host-fallback dispatch.
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build libomp-dev libboost-dev \
+            clang-19 clang-tools-19 lld-19 llvm-19-dev libclang-19-dev
+
+      - name: Install AdaptiveCpp via conda-forge (CPU-only build)
+        run: |
+          curl -L -o /tmp/miniforge.sh \
+            https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+          bash /tmp/miniforge.sh -b -p "${HOME}/miniforge"
+          source "${HOME}/miniforge/etc/profile.d/conda.sh"
+          conda create -y -n acpp -c conda-forge \
+            adaptivecpp=25.02 boost-cpp clang=19
+          echo "ACPP_PREFIX=${HOME}/miniforge/envs/acpp" >> "${GITHUB_ENV}"
+
+      - name: Configure (omp target only)
+        run: |
+          source "${HOME}/miniforge/etc/profile.d/conda.sh"
+          conda activate acpp
+          cmake -S . -B build-sycl -G Ninja \
+            -DCARBON_BACKEND=Sycl \
+            -DCARBON_SYCL_TARGETS="omp" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER="${ACPP_PREFIX}/bin/clang++-19" \
+            -DAdaptiveCpp_DIR="${ACPP_PREFIX}/lib/cmake/AdaptiveCpp" \
+            -DCARBON_BUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: |
+          source "${HOME}/miniforge/etc/profile.d/conda.sh"
+          conda activate acpp
+          cmake --build build-sycl --parallel
+
+      - name: Test (omp host runtime)
+        run: |
+          source "${HOME}/miniforge/etc/profile.d/conda.sh"
+          conda activate acpp
+          # No label filter here, unlike the CUDA lane above: with the omp target the
+          # OpenMP host *is* an AdaptiveCpp device, so device_count() >= 1 and the
+          # `gpu`-labelled tests run for real. The labels describe "needs a device",
+          # which on this backend the CPU satisfies.
+          ctest --test-dir build-sycl --output-on-failure

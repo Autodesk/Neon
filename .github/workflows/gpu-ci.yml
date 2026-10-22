@@ -1,0 +1,127 @@
+name: gpu-ci
+
+# GPU-bound validation lane. Complements the CPU-only `ci.yml` fast lane
+# (which runs on every push / PR) with a real-GPU pass that exercises the
+# code paths the CPU runners can only configure + compile. Closes P1.γ from
+# `docs/audit_2026_05_followup.md`: at least one GPU runner per PR so the
+# two silent-correctness classes the audit flagged (Block cross-rank
+# connectivity, DenseDisg cross-rank halo) cannot regress without a red
+# check.
+#
+# This workflow runs on a **self-hosted** runner labelled
+# `[self-hosted, linux, gpu, cuda]`. Each forking organisation registers
+# their own GPU-equipped runner; the workflow stays a no-op on a fork that
+# has not. See `AGENTS.md` ("GPU CI runner") for the runner-side setup
+# (Docker + nvidia-container-toolkit + a CUDA-capable NVIDIA GPU + an
+# MPI-capable userspace are the only requirements; `scripts/docker-build-all.sh`
+# does the rest inside containers, so the runner host does not need clang /
+# CUDA / MPI / NCCL / HDF5 installed natively).
+#
+# Triggers:
+#   - `gpu-ci` label applied (or PR opened/synced while the label is on);
+#     keeps the GPU minutes off PRs that don't need it. The label-based
+#     trigger also lets a maintainer flip GPU validation on/off for a
+#     drive-by docs PR vs. a code change with a real correctness risk.
+#   - `workflow_dispatch` (manual): on-demand re-run from the Actions tab.
+#   - Pushes to `main` / `master` so the post-merge state is always
+#     validated.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      configs:
+        description: 'Comma-separated configs to run (cuda,cuda-mpi). Defaults to both.'
+        required: false
+        default: 'cuda,cuda-mpi'
+
+jobs:
+  gpu-matrix:
+    # Skip labelled-PR events that don't carry the gpu-ci label. The
+    # `labeled` activity type fires for *every* label add; the conditional
+    # filters down to the one that opts into GPU validation.
+    if: >
+      github.event_name != 'pull_request'
+      || contains(github.event.pull_request.labels.*.name, 'gpu-ci')
+    runs-on: [self-hosted, linux, gpu, cuda]
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # `cuda` runs the CUDA backend + every default test (no MPI).
+        # `cuda-mpi` adds the CARBON_ENABLE_MPI=ON build and exercises
+        # every `distributed`-labelled test (carbon_block_neighbour_dist,
+        # carbon_halo_disg_dist, dist_transfer, dense_dist, halo_dist,
+        # halo_dist_periodic_z, native_io_dist, dist_reduce). Together
+        # the two cells cover both audit-flagged silent-bug classes.
+        config: [cuda, cuda-mpi]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Preflight (docker + GPU)
+        run: |
+          set -euo pipefail
+          command -v docker >/dev/null || { echo "docker not on PATH"; exit 1; }
+          nvidia-smi -L
+          # Surface the visible GPU count so the log makes it explicit whether
+          # the multi-GPU correctness tests (which need >=2 devices — e.g.
+          # carbon_skeleton_cuda_graph_multi, the cross-device halo + graph
+          # tests, and every *_multi_gpu test) actually ran or skipped
+          # themselves. A single-GPU runner still validates the full build +
+          # single-GPU suite; a >=2-GPU runner additionally locks the
+          # cross-device paths.
+          GPU_COUNT="$(nvidia-smi -L | wc -l)"
+          echo "gpu-ci: ${GPU_COUNT} visible GPU(s)"
+          if [ "${GPU_COUNT}" -lt 2 ]; then
+            echo "::warning::gpu-ci runner exposes ${GPU_COUNT} GPU; the ${GPU_COUNT}-device run cannot substantiate any cross-device claim. Set CARBON_TEST_STRICT=1 on a >=2-GPU runner to make that a hard failure (see tests/test_multi_gpu_gate.cpp)."
+          else
+            # >= 2 GPUs: assert the multi-device coverage actually runs. carbon_multi_gpu_gate
+            # turns a mis-provisioned runner (driver hides a card, MIG partitioning, a stale
+            # CUDA_VISIBLE_DEVICES) into a red run instead of ~28 tests quietly self-skipping
+            # to a pass. Enumerate the affected set with `ctest -L needs_multi_device`.
+            echo "CARBON_TEST_STRICT=1" >> "${GITHUB_ENV}"
+          fi
+          # Probe that `docker --gpus all` actually works on this runner
+          # (nvidia-container-toolkit configured + daemon restarted). A
+          # cheap dry run with the base CUDA image; failure here is the
+          # only fatal preflight (every config below needs --gpus all).
+          docker run --rm --gpus all --entrypoint /bin/true \
+            nvidia/cuda:12.6.3-base-ubuntu22.04
+
+      - name: Run docker matrix (${{ matrix.config }})
+        env:
+          # Forwarded to scripts/docker-build-all.sh; override per-runner via
+          # repo / org Actions variables if a runner has a different SM arch.
+          # sm_80 (A100) is the safest default — Ampere covers >= sm_80
+          # forward; older cards need the var override.
+          SM_ARCH: ${{ vars.GPU_CI_SM_ARCH || 'sm_80' }}
+        run: |
+          set -euo pipefail
+          # `--only cuda` / `--only cuda-mpi` builds the image (cached on the
+          # runner across runs) and runs ctest --output-on-failure inside the
+          # container with --gpus all wired in. format-check rides the `cuda`
+          # config (the orchestrator runs it once on the first container).
+          # `--werror` gates the libcarbon host compile warning-clean on the
+          # container's g++ (a no-op for the cuda-mpi cell — the flag only
+          # applies to the `cuda` config inside the orchestrator).
+          scripts/docker-build-all.sh \
+            --only ${{ matrix.config }} \
+            --sm-arch "${SM_ARCH}" \
+            --werror
+
+      - name: Upload build + test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-ci-${{ matrix.config }}-logs
+          path: |
+            docker-logs/run-${{ matrix.config }}.log
+            docker-logs/${{ matrix.config }}/build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+          retention-days: 14

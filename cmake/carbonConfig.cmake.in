@@ -1,0 +1,49 @@
+@PACKAGE_INIT@
+
+# carbonConfig.cmake — package config for the carbon multi-GPU grid library.
+#
+# Imports the carbon::carbon target plus the bundled rapidjson INTERFACE target. carbon's
+# transitive PUBLIC dependencies are resolved here via find_dependency(); MPI and NCCL stay
+# PRIVATE-linked into libcarbon.so (when carbon was built with CARBON_ENABLE_MPI=ON), so
+# consumer projects do not need them on their search path to use the public API.
+#
+# Backend-specific dependency: carbon's CUDA backend PUBLIC-links CUDA::cudart; the SYCL
+# backend (AdaptiveCpp) is header-driven (the runtime is linked privately by
+# add_sycl_to_target) but consumers still need AdaptiveCpp's CMake find module on their
+# search path so add_sycl_to_target() resolves for any consumer TU that exposes SYCL types.
+
+include(CMakeFindDependencyMacro)
+
+set(carbon_BACKEND "@CARBON_BACKEND@")
+
+find_dependency(OpenMP)
+if(carbon_BACKEND STREQUAL "Cuda")
+  find_dependency(CUDAToolkit)
+elseif(carbon_BACKEND STREQUAL "Sycl")
+  find_dependency(AdaptiveCpp CONFIG)
+elseif(carbon_BACKEND STREQUAL "Hip")
+  # The native HIP backend PUBLIC-links its runtime, so consumers must resolve it.
+  # Two platforms:
+  #   - AMD (default): carbon PUBLIC-links hip::host and exports interface include dirs
+  #     that reference hip::hipcub (+ roc::rocprim when present), so both imported targets
+  #     must exist at consumer-configure time. Consumers need ROCm's cmake configs on
+  #     CMAKE_PREFIX_PATH (e.g. -DCMAKE_PREFIX_PATH=/opt/rocm).
+  #   - NVIDIA (CMAKE_HIP_PLATFORM=nvidia): the HIP runtime is a shim over CUDA, so carbon
+  #     PUBLIC-links CUDA::cudart instead and bakes __HIP_PLATFORM_NVIDIA__ + the ROCm
+  #     header dir as a plain path (no imported-target dependency).
+  if("@CARBON_HIP_NVCC@")
+    find_dependency(CUDAToolkit)
+  else()
+    find_dependency(hip)
+    find_dependency(hipcub)
+  endif()
+endif()
+
+# spdlog comes from the same install prefix when carbon was built with SPDLOG_INSTALL=ON
+# (the default in cmake/CarbonSpdlog.cmake). The version pin matches what carbon was built
+# against; bump in lockstep.
+find_dependency(spdlog 1.15)
+
+include("${CMAKE_CURRENT_LIST_DIR}/carbonTargets.cmake")
+
+check_required_components(carbon)

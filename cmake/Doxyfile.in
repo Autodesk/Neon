@@ -1,0 +1,100 @@
+# Doxyfile for carbon — populated by CMake's configure_file at carbon-
+# configure time. Renders include/carbon/ + the markdown docs into a
+# self-contained HTML site under @CARBON_DOXYGEN_OUTPUT_DIR@.
+#
+# Generated; do not edit the placeholder values manually. To tweak, edit
+# cmake/Doxyfile.in and re-configure.
+
+# --------------------------------------------------------------------------
+# Project metadata
+# --------------------------------------------------------------------------
+PROJECT_NAME            = "carbon"
+PROJECT_NUMBER          = "@CARBON_VERSION_STRING@"
+PROJECT_BRIEF           = "Multi-GPU grid computation library (Neon-inspired)."
+OUTPUT_DIRECTORY        = "@CARBON_DOXYGEN_OUTPUT_DIR@"
+
+# --------------------------------------------------------------------------
+# Inputs
+# --------------------------------------------------------------------------
+INPUT                   = "@CMAKE_SOURCE_DIR@/include" \
+                          "@CMAKE_SOURCE_DIR@/README.md" \
+                          "@CMAKE_SOURCE_DIR@/AGENTS.md" \
+                          "@CMAKE_SOURCE_DIR@/docs"
+RECURSIVE               = YES
+FILE_PATTERNS           = *.h *.hpp *.inl *.md
+EXCLUDE_PATTERNS        = */detail/skeleton/*_inl.h \
+                          */third_party/* \
+                          */_deps/*
+USE_MDFILE_AS_MAINPAGE  = "@CMAKE_SOURCE_DIR@/README.md"
+
+# --------------------------------------------------------------------------
+# Build (what to extract)
+# --------------------------------------------------------------------------
+EXTRACT_ALL             = NO
+EXTRACT_PRIVATE         = NO
+EXTRACT_STATIC          = NO
+EXTRACT_LOCAL_CLASSES   = NO
+HIDE_UNDOC_MEMBERS      = NO
+HIDE_UNDOC_CLASSES      = NO
+INTERNAL_DOCS           = NO
+JAVADOC_AUTOBRIEF       = YES
+QT_AUTOBRIEF            = YES
+MARKDOWN_SUPPORT        = YES
+AUTOLINK_SUPPORT        = YES
+BUILTIN_STL_SUPPORT     = YES
+
+# --------------------------------------------------------------------------
+# Output formats
+# --------------------------------------------------------------------------
+GENERATE_HTML           = YES
+GENERATE_LATEX          = NO
+GENERATE_MAN            = NO
+GENERATE_TREEVIEW       = YES
+HTML_OUTPUT             = html
+HTML_TIMESTAMP          = NO
+DISABLE_INDEX           = NO
+FULL_SIDEBAR            = NO
+
+# --------------------------------------------------------------------------
+# Diagrams (require Graphviz; doxygen falls back to text when absent)
+# --------------------------------------------------------------------------
+HAVE_DOT                = YES
+DOT_GRAPH_MAX_NODES     = 80
+UML_LOOK                = NO
+CLASS_GRAPH             = YES
+COLLABORATION_GRAPH     = NO
+INCLUDE_GRAPH           = NO
+INCLUDED_BY_GRAPH       = NO
+CALL_GRAPH              = NO
+CALLER_GRAPH            = NO
+
+# --------------------------------------------------------------------------
+# Preprocessor (so CARBON_API / CARBON_HD don't confuse the parser)
+# --------------------------------------------------------------------------
+ENABLE_PREPROCESSING    = YES
+MACRO_EXPANSION         = YES
+EXPAND_ONLY_PREDEF      = YES
+PREDEFINED              = CARBON_API= \
+                          CARBON_HD= \
+                          CARBON_HOST_DEVICE= \
+                          CARBON_BUILD_SHARED \
+                          CARBON_HAVE_MPI_NCCL \
+                          CARBON_HAVE_HDF5 \
+                          CARBON_HAVE_NANOVDB \
+                          __CUDACC__ \
+                          __cplusplus=202302L
+
+# --------------------------------------------------------------------------
+# Cosmetics
+# --------------------------------------------------------------------------
+QUIET                   = YES
+WARNINGS                = YES
+WARN_IF_UNDOCUMENTED    = NO
+WARN_IF_DOC_ERROR       = YES
+WARN_NO_PARAMDOC        = NO
+
+GENERATE_TODOLIST       = NO
+GENERATE_TESTLIST       = NO
+GENERATE_BUGLIST        = NO
+SHOW_USED_FILES         = YES
+SHOW_FILES              = YES

@@ -1,0 +1,84 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Linker files
+*.ilk
+
+# Debugger Files
+*.pdb
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# debug information files
+*.dwo
+
+# CMake build trees (default + flag-suffixed variants like build-mpi/, build_nvdb/, build-install/, ...)
+build*/
+
+# Outputs from scripts/docker-build-all.sh (per-config logs + mirrored build trees).
+docker-logs/
+
+*.json
+
+# Stray render outputs from examples/CLIs; the bundled test image is kept explicitly.
+*.pgm
+!examples/data/*.pgm
+*.ppm
+*.vti
+
+# One-off archives
+*.tar
+*.tar.*
+*.tgz
+*.zip
+
+# Local reference clones of upstream Neon (browsed for design comparisons; not part of carbon).
+/Neon/
+/Neon-nccl/
+/Neon-disg/
+/neon-main/
+
+# Generated libcarbonpy copy for in-tree Python tests (see libcarbonpy/CMakeLists.txt).
+/py/carbon/lib/
+
+# Generated benchmark reports / plots (sweep_and_plot.py default output).
+/reports/
+
+# Python bytecode caches (e.g. from running scripts/sweep_and_plot.py).
+__pycache__/
+*.pyc
+
+# Local Python virtual environments.
+.venv/
+venv/
+
+# Dear ImGui runtime layout file emitted by the interactive viewer examples.
+imgui.ini

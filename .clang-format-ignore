@@ -1,0 +1,13 @@
+# Upstream reference sources — do not reformat.
+Neon/**
+
+# Build artifacts and third-party code pulled in via FetchContent / ExternalProject.
+build/**
+build-*/**
+**/_deps/**
+
+# Vendored third-party headers (clipp etc.) — kept verbatim, do not reformat.
+third_party/**
+
+# Generated headers (e.g. export macros produced by CMake).
+**/carbon/export.h

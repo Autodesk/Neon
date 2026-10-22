@@ -1,0 +1,23 @@
+#pragma once
+
+/** Semantic version string exposed by carbon::info(), e.g. "0.1". */
+#define CARBON_VERSION_STRING "@CARBON_VERSION_STRING@"
+
+/**
+ * Git-describe of the working tree at carbon-configure time. Carries the
+ * tag (when present), the commit count since the tag, and the short hash
+ * — e.g. "v0.1.2-37-gabcdef0", or just "abcdef0" when no tag has been
+ * applied yet. Empty string when the build was not performed inside a
+ * git checkout (e.g. unpacked source tarball).
+ *
+ * Useful for stamping log lines and JSON benchmark reports so a bug
+ * report's "what version is this?" answer is unambiguous.
+ */
+#define CARBON_GIT_DESCRIBE "@CARBON_GIT_DESCRIBE@"
+
+/**
+ * Combined version string: @c CARBON_VERSION_STRING when @c
+ * CARBON_GIT_DESCRIBE is empty (unpacked tarball), or
+ * @c "<version> (<git-describe>)" otherwise.
+ */
+#define CARBON_VERSION_FULL "@CARBON_VERSION_FULL@"

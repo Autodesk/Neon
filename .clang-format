@@ -1,0 +1,75 @@
+---
+# Carbon project clang-format config.
+#
+# Known side effects of `BinPackParameters: AlwaysOnePerLine` below:
+#   - Multi-argument template instantiations in function return types (e.g.
+#     `-> std::array<T, 3>`) get split across lines. Work-around: hoist such
+#     types into a `using alias = ...;` and return the alias.
+#   - Braced-init-lists at call/declaration sites get split one-per-line even
+#     when they'd fit. This is visible mostly in `static_assert(Type{a,b,c}...)`
+#     compile-time checks and is benign — the C++ meaning is unchanged.
+Language: Cpp
+BasedOnStyle: Google
+Standard: c++17
+
+ColumnLimit: 100
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+ContinuationIndentWidth: 4
+# Access modifiers flush with the class body (no Google 1-space negative indent).
+AccessModifierOffset: -2
+
+# Core of the "divided" signature style: return type / qualifiers on their own
+# line, function name starts the next line. Applies to both declarations and
+# definitions so inline accessor decls are split the same way.
+BreakAfterReturnType: All
+PenaltyReturnTypeOnItsOwnLine: 0
+
+# Parameter stacking: any multi-parameter signature always puts every parameter on its
+# own line, even if they'd fit. Known side effects at the top of the file.
+BinPackParameters: AlwaysOnePerLine
+AllowAllParametersOfDeclarationOnNextLine: false
+# Function-call arguments pack normally and only wrap when they exceed ColumnLimit
+# (keeps `cudaMemcpy(a, b, c, d)` readable instead of one-per-line).
+BinPackArguments: true
+AllowAllArgumentsOnNextLine: true
+
+# Keep function bodies off the signature line, but allow `{}` on empty bodies
+# (defaulted / trivial ctors etc.) to stay inline.
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortEnumsOnASingleLine: false
+
+# Do not rewrap existing doc/block comments — they are curated for readability.
+ReflowComments: Never
+
+# Stack constructor member-initializer lists vertically (matches our ctors).
+PackConstructorInitializers: Never
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerIndentWidth: 4
+
+# Cosmetic defaults aligned with existing code.
+PointerAlignment: Left
+ReferenceAlignment: Left
+AlignAfterOpenBracket: Align
+DerivePointerAlignment: false
+IncludeBlocks: Preserve
+NamespaceIndentation: None
+FixNamespaceComments: true
+SortIncludes: CaseSensitive
+
+# Treat our project macros so clang-format doesn't mistake them for statements
+# or misalign them next to types.
+AttributeMacros:
+  - CARBON_HD
+  - CARBON_API
+StatementMacros:
+  - CARBON_LOG_ERROR
+  - CARBON_LOG_INFO
+  - CARBON_LOG_WARN
+  - CARBON_LOG_DEBUG

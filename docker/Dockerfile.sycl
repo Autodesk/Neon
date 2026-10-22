@@ -1,0 +1,89 @@
+# syntax=docker/dockerfile:1
+#
+# SYCL (AdaptiveCpp, NVIDIA target) + (optional) MPI/NCCL build image for carbon.
+#
+# Covers two of the five carbon configurations:
+#   - "sycl"      : CARBON_BACKEND=Sycl, CARBON_SYCL_TARGETS="cuda:sm_80;omp"
+#   - "sycl-mpi"  : same + CARBON_ENABLE_MPI=ON   (NCCL transport via SYCL/CUDA interop)
+#
+# AdaptiveCpp is installed from conda-forge into /opt/conda/envs/acpp; the env
+# also pins clang-19, lld-19, llvm-tools-19 so the AdaptiveCpp toolchain can
+# offload-bundle CUDA fatbins. The image still needs a real CUDA toolkit on
+# disk for sm-specific PTX assembly, hence the nvidia/cuda base.
+
+FROM nvidia/cuda:12.6.3-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --allow-change-held-packages \
+    build-essential \
+    git \
+    ninja-build \
+    ca-certificates \
+    curl bzip2 \
+    libomp-dev \
+    libnccl2 libnccl-dev \
+    openmpi-bin libopenmpi-dev \
+    python3 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Ubuntu 22.04 apt ships cmake 3.22 (no CUDA20 dialect support, carbon needs
+# CMAKE_CUDA_STANDARD 20 → requires cmake >= 3.25) and no clang-format at all.
+# `BinPackParameters: AlwaysOnePerLine` in .clang-format needs clang-format >= 20.
+#
+# Both come from upstream rather than pip. pip is avoided deliberately: on a network that
+# intercepts TLS to files.pythonhosted.org, every pip layer fails and cannot be repaired by
+# pointing pip at a different trust store (see docs/CHANGELOG.md 2026-07). github.com,
+# conda-forge and apt.llvm.org serve their genuine certificates, so every source this image
+# uses verifies normally.
+ARG CMAKE_VERSION=3.31.6
+RUN curl -fsSL "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
+      | tar xz --strip-components=1 -C /usr/local
+
+# The key is ASCII-armored, which apt >= 2.4 accepts directly as a signed-by target, so no
+# gnupg in the image just to dearmor it.
+RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
+      -o /usr/share/keyrings/llvm-archive-keyring.asc \
+ && echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.asc] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" \
+      > /etc/apt/sources.list.d/llvm-20.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends clang-format-20 \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/bin/clang-format-20 /usr/local/bin/clang-format
+
+ENV CONDA_DIR=/opt/conda
+RUN curl -fsSL "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh" -o /tmp/mf.sh \
+ && bash /tmp/mf.sh -b -p ${CONDA_DIR} \
+ && rm /tmp/mf.sh
+ENV PATH=${CONDA_DIR}/bin:${PATH}
+
+# AdaptiveCpp 25.02 (LLVM 19 / CUDA 12.9 build) ships its own clang-19, lld-19
+# and llvm-tools-19, plus cuda-cudart and hip-runtime-amd. One env services
+# both the cuda-target SYCL builds (this image) and could in theory target
+# AMD, but for SYCL+RCCL we use a dedicated rocm-base image instead.
+RUN mamba create -y -n acpp -c conda-forge \
+        "adaptivecpp=25.02.0=cuda*llvm19*" \
+        clang=19 clangxx=19 lld=19 llvm-tools=19 \
+        libboost-devel \
+ && mamba clean -afy
+
+ENV ACPP_ENV=${CONDA_DIR}/envs/acpp
+ENV PATH=${ACPP_ENV}/bin:/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH=${ACPP_ENV}/lib:${LD_LIBRARY_PATH:-}
+
+ENV AdaptiveCpp_DIR=${ACPP_ENV}/lib/cmake/AdaptiveCpp
+ENV CARBON_SYCL_CXX=${ACPP_ENV}/bin/clang++-19
+
+# Make `mpicxx` route through clang-19 (same compiler cmake binds as CMAKE_CXX_COMPILER)
+# so OpenMPI's C++ compile probes in FindMPI succeed under the conda clang toolchain
+# instead of silently trying the distro g++ and producing an ABI mismatch.
+ENV OMPI_CXX=${ACPP_ENV}/bin/clang++-19
+
+# OpenMPI refuses to run as root by default; containers are an isolated namespace
+# so the usual rationale doesn't apply. Set both vars so the dist_* ctest invocations
+# can spawn MPI ranks.
+ENV OMPI_ALLOW_RUN_AS_ROOT=1 \
+    OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+WORKDIR /work

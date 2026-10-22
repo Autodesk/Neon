@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1
+#
+# CUDA + (optional) MPI/NCCL build image for carbon.
+#
+# Covers two of the five carbon configurations:
+#   - "cuda"      : CARBON_BACKEND=Cuda, CARBON_ENABLE_MPI=OFF
+#   - "cuda-mpi"  : CARBON_BACKEND=Cuda, CARBON_ENABLE_MPI=ON   (NCCL transport)
+#
+# The image bundles everything both configs need (nvcc, NCCL, OpenMPI, cmake,
+# clang-format >= 18, OpenMP). The cmake invocation is left to the orchestrator
+# script (`scripts/docker-build-all.sh`) so a single image services both builds.
+
+FROM nvidia/cuda:12.6.3-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --allow-change-held-packages \
+    build-essential \
+    git \
+    ninja-build \
+    ca-certificates \
+    curl \
+    libomp-dev \
+    libnccl2 libnccl-dev \
+    openmpi-bin libopenmpi-dev \
+    python3 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Ubuntu 22.04 apt ships cmake 3.22 (no CUDA20 dialect support, carbon needs
+# CMAKE_CUDA_STANDARD 20 → requires cmake >= 3.25) and no clang-format at all.
+# `BinPackParameters: AlwaysOnePerLine` in .clang-format needs clang-format >= 20.
+#
+# Both come from upstream rather than pip. pip is avoided deliberately: on a network that
+# intercepts TLS to files.pythonhosted.org, every pip layer fails and cannot be repaired by
+# pointing pip at a different trust store (see docs/CHANGELOG.md 2026-07). github.com and
+# apt.llvm.org serve their genuine certificates, so these two sources verify normally.
+ARG CMAKE_VERSION=3.31.6
+RUN curl -fsSL "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
+      | tar xz --strip-components=1 -C /usr/local
+
+# The key is ASCII-armored, which apt >= 2.4 accepts directly as a signed-by target, so no
+# gnupg in the image just to dearmor it.
+RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
+      -o /usr/share/keyrings/llvm-archive-keyring.asc \
+ && echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.asc] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" \
+      > /etc/apt/sources.list.d/llvm-20.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends clang-format-20 \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/bin/clang-format-20 /usr/local/bin/clang-format
+
+ENV PATH=/usr/local/cuda/bin:${PATH}
+
+# The dist_* tests invoke `mpiexec` inside the container. OpenMPI refuses to
+# run as root by default; set both env vars so ctest proceeds. Containers run
+# in an isolated namespace so the usual rationale for blocking root doesn't
+# apply here.
+ENV OMPI_ALLOW_RUN_AS_ROOT=1 \
+    OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+WORKDIR /work

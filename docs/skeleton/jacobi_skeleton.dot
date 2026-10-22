@@ -1,0 +1,20 @@
+digraph jacobi_skeleton {
+  rankdir=TB;
+  node [shape=box, style="rounded,filled", fontname="Helvetica"];
+  edge [fontname="Helvetica", fontsize=10];
+  subgraph cluster_stream_0 {
+    label="stream 0";
+    style="rounded,dashed";
+    color="#888888";
+    bgcolor="#cfe2f3";
+    k0 [label="halo_u\n[halo]", tooltip="halo_u tokens: u:RW"];
+    k1 [label="step_ab\n[compute]", tooltip="step_ab tokens: u:R, u_next:W"];
+    k2 [label="halo_u_next\n[halo]", tooltip="halo_u_next tokens: u_next:RW"];
+    k3 [label="step_ba\n[compute]", tooltip="step_ba tokens: u_next:R, u:W"];
+  }
+  k0 -> k1 [label="u (RW→R)", tooltip="u RW->R"];
+  k0 -> k3 [label="u (RW→W)", tooltip="u RW->W"];
+  k1 -> k2 [label="u_next (W→RW)", tooltip="u_next W->RW"];
+  k1 -> k3 [label="u (R→W)\nu_next (W→R)", tooltip="u R->W; u_next W->R"];
+  k2 -> k3 [label="u_next (RW→R)", tooltip="u_next RW->R"];
+}

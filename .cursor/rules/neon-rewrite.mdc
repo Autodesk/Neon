@@ -1,0 +1,46 @@
+---
+description: Carbon = clean-room rewrite of Neon. Project context and style.
+alwaysApply: true
+---
+
+# Carbon (Neon rewrite)
+
+`carbon/` is a step-by-step, clean-architecture rewrite of the Neon multi-GPU grid library. Read
+`AGENTS.md` at the repo root for the full brief, status, and gap analysis. Key invariants:
+
+- `Neon/` is vendored **read-only** reference. Do not modify it. The rewrite lives in the
+  `carbon::` namespace under `include/carbon/`, `src/`, `tests/`.
+- Current focus: port Neon's `dGrid` data plane. Foundations in place: `DataView`,
+  `Integer3d<T>` / `Floating3d<T>` and aliases (`int32_3d`, `int64_3d`, `float32_3d`,
+  `float64_3d`), `Idx`, `Span` (owns `z_offset` and `linear_offset` math), `Partition<T, N>`
+  with `read(span, idx, component_id)`.
+
+## Style (enforced by `.clang-format`)
+
+- **Divided signature style**, applied to *every* function:
+  ```cpp
+  [[nodiscard]] CARBON_HD constexpr auto
+  name(Arg1 a,
+       Arg2 b) const noexcept -> RetType;
+  ```
+  Return type + qualifiers on line 1, function name on line 2, one parameter per line stacked
+  under the first. Applies even to 2-param functions. `BinPackParameters: AlwaysOnePerLine`,
+  `BreakAfterReturnType: All`.
+- Types PascalCase; functions / members snake_case; enum enumerators PascalCase; enum string forms
+  lowercase.
+- Prefer bare `int64_t` over `std::int64_t`.
+- Constructor init lists always stacked; access modifiers flush with class body; no comment
+  reflow; no narration comments.
+
+## Workflow
+
+After any substantive edit, run all three and do not stop until they're clean:
+
+```bash
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+cmake --build build --target format-check
+```
+
+`clang-format` 20+ must be on PATH (`pip install --user "clang-format>=20"` works; then
+`export PATH="$HOME/.local/bin:$PATH"`). Use `... --target format` to rewrite in place.
