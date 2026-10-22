@@ -149,7 +149,15 @@ The script will:
 
 1. Initialize submodules (Warp).
 2. For each Python 3.11–3.14: build Warp native libs with that Python, then build the Neon wheel.
-3. Put all wheels in **`dist-multi/`** (e.g. `dist-multi/neon_gpu-0.5.2a1-cp311-cp311-linux_x86_64.whl`, etc.).
+3. Put all wheels in **`dist-multi/`** (e.g. `dist-multi/neon_gpu-0.5.2a5-cp311-cp311-linux_x86_64.whl`, etc.).
+
+**Warp update5 (ai-neon-warp superproject):** When Neon is checked out as a nested
+git submodule, populate **`extern/warp` on the host** before building (container
+`git submodule update` may not resolve the parent `.git` path). From the
+superproject root run `./scripts/sync_neon_py_local_src.sh`, then verify
+`extern/warp` is at **`external-source-support-update5`** (pin **`db9e453fd`**, Warp
+**1.19.0.dev0**). Use `./scripts/build_update5_wheels_docker.sh` for the full prep
+checklist.
 
 ### 3. One-off run from the host (no interactive shell)
 
