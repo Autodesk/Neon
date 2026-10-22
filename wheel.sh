@@ -20,6 +20,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+PYTHON="${PYTHON:-python3}"
+PIP="${PIP:-${PYTHON} -m pip}"
+
 # Default settings
 BUILD_FOR_ALL_GPUS="ON"
 CUSTOM_ARCH=""
@@ -81,13 +84,13 @@ fi
 # Step 2: Build Warp's native libraries
 echo "==> Building Warp native libraries..."
 cd extern/warp
-pip install numpy --quiet
-python build_lib.py
+${PIP} install numpy --quiet
+${PYTHON} build_lib.py
 cd "$SCRIPT_DIR"
 
 # Step 3: Install build dependencies
 echo "==> Installing build dependencies..."
-pip install build scikit-build-core --quiet
+${PIP} install build scikit-build-core --quiet
 
 # Step 4: Build the wheel with appropriate GPU architecture settings
 echo "==> Building Neon wheel..."
