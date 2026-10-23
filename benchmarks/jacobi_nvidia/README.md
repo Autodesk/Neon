@@ -2,6 +2,10 @@
 
 Ports the [NVIDIA multi-gpu-programming-models](https://github.com/NVIDIA/multi-gpu-programming-models) 2D Laplace Jacobi solver onto `carbon::Dense` with extent `{nx, 1, ny - 2}` and `BoundaryMode::PeriodicZ`.
 
+The kernels only write owned cells. Periodicity in z comes entirely from the grid's halo update, which the Skeleton auto-inserts before each stencil read; on a single GPU that halo is the slab's self-wrap copy. The `--dump` / validation layout fills NVIDIA's rows `0` and `ny - 1` as the periodic images of the last and first owned rows.
+
+Stencil reads use `Partition::cursor()` trusted pulls (one centre offset, constant-strided neighbours) instead of per-call `neighbour()` bounds checks.
+
 ## Build
 
 ```bash

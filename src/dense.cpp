@@ -176,6 +176,15 @@ Dense::Dense(System system,
                                origin_, spacing_);
   });
 
+  for (const detail::dense::Span& sp : spans_) {
+    if (sp.haloed_extent().x > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
+        sp.xy_slab_elements() > static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
+      log::throw_with_log<std::invalid_argument>(
+          "Dense: haloed x extent or xy_slab_elements exceeds int32_t; Partition::cursor strides "
+          "cannot represent this layout");
+    }
+  }
+
   // The Internal / Boundary split partitions the owned z-extent into a lower halo-thick band,
   // an interior of (Lz - 2*halo_z) layers, and an upper halo-thick band. If any local slab is
   // thinner than 2*halo_z those bands would overlap, so reject the configuration up front

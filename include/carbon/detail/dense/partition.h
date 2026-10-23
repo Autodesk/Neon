@@ -8,8 +8,85 @@
 #include <carbon/neighbour_value.h>
 
 #include <stdint.h>
+#include <cassert>
 
 namespace carbon::detail::dense {
+
+/**
+ * Trusted cell accessor: one @ref Span::linear_offset for the centre, then neighbour reads via
+ * constant strides (same contract as @ref Partition::read_pull ). User code never constructs an
+ * @ref Idx for neighbours.
+ */
+template <typename T, int Components>
+class Cursor {
+public:
+  CARBON_HD constexpr Cursor(T* base,
+                             int32_t y_stride,
+                             int32_t z_stride,
+                             int64_t component_stride
+#ifndef NDEBUG
+                             ,
+                             int64_3d centre,
+                             int64_3d haloed
+#endif
+                             ) noexcept
+      : base_(base),
+        y_stride_(y_stride),
+        z_stride_(z_stride),
+        component_stride_(component_stride)
+#ifndef NDEBUG
+        ,
+        centre_(centre),
+        haloed_(haloed)
+#endif
+  {
+  }
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  value(int component_id = 0) const noexcept -> const T& {
+    return base_[component_offset_(component_id)];
+  }
+
+  CARBON_HD constexpr auto
+  write(T value,
+        int component_id = 0) const noexcept -> void {
+    base_[component_offset_(component_id)] = value;
+  }
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  pull(int8_3d offset,
+       int component_id = 0) const noexcept -> const T& {
+#ifndef NDEBUG
+    const int64_t bx = centre_.x + static_cast<int64_t>(offset.x);
+    const int64_t by = centre_.y + static_cast<int64_t>(offset.y);
+    const int64_t bz = centre_.z + static_cast<int64_t>(offset.z);
+    assert(bx >= 0 && bx < haloed_.x && by >= 0 && by < haloed_.y && bz >= 0 && bz < haloed_.z);
+#endif
+    const int64_t delta = static_cast<int64_t>(offset.x) +
+                          static_cast<int64_t>(offset.y) * static_cast<int64_t>(y_stride_) +
+                          static_cast<int64_t>(offset.z) * static_cast<int64_t>(z_stride_);
+    return base_[component_offset_(component_id) + delta];
+  }
+
+private:
+  [[nodiscard]] CARBON_HD constexpr auto
+  component_offset_(int component_id) const noexcept -> int64_t {
+    if constexpr (Components == 1) {
+      (void)component_id;
+      return 0;
+    }
+    return static_cast<int64_t>(component_id) * component_stride_;
+  }
+
+  T* base_{};
+  int32_t y_stride_{};
+  int32_t z_stride_{};
+  int64_t component_stride_{};
+#ifndef NDEBUG
+  int64_3d centre_{};
+  int64_3d haloed_{};
+#endif
+};
 
 /**
  * Lightweight view of a partitioned slab: a raw pointer to elements of type @p T tagged with the
@@ -184,6 +261,28 @@ public:
                       cell.y + static_cast<int64_t>(offset.y),
                       cell.z + static_cast<int64_t>(offset.z));
     return ptr_[span.linear_offset(shifted, component_id)];
+  }
+
+  /**
+   * @brief Trusted cell cursor at @p idx : one linear_offset for the centre, then @ref Cursor::pull
+   *        for neighbours. Same in-buffer contract as @ref read_pull .
+   */
+  [[nodiscard]] CARBON_HD constexpr auto
+  cursor(const Span& span,
+         const Idx& idx) const noexcept -> Cursor<T,
+                                                  Components> {
+#ifndef NDEBUG
+    return Cursor<T, Components>{ptr_ + span.linear_offset(idx, 0),
+                                 static_cast<int32_t>(span.haloed_extent().x),
+                                 static_cast<int32_t>(span.xy_slab_elements()),
+                                 span.linear_storage_elements(),
+                                 idx.cell(),
+                                 span.haloed_extent()};
+#else
+    return Cursor<T, Components>{
+        ptr_ + span.linear_offset(idx, 0), static_cast<int32_t>(span.haloed_extent().x),
+        static_cast<int32_t>(span.xy_slab_elements()), span.linear_storage_elements()};
+#endif
   }
 
   constexpr void

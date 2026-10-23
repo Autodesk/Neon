@@ -12,6 +12,9 @@
 
 namespace carbon::detail::dense_disg {
 
+template <typename T, int Components>
+class Cursor;
+
 /**
  * Lightweight view of a @b disaggregated partitioned slab. Mirrors carbon's aggregated
  * @c carbon::detail::dense::Partition but drives its offset math through the disg pitch
@@ -177,6 +180,13 @@ public:
     return ptr_[span.linear_offset(pull_idx(span, idx, offset), Components, component_id)];
   }
 
+  [[nodiscard]] CARBON_HD constexpr auto
+  cursor(const Span& span,
+         const Idx& idx) const noexcept -> Cursor<T,
+                                                  Components> {
+    return Cursor<T, Components>{*this, span, idx};
+  }
+
   constexpr void
   reset(T* p = nullptr,
         carbon::DataView view = carbon::DataView::Standard,
@@ -193,6 +203,41 @@ private:
   carbon::DataView data_view_{carbon::DataView::Standard};
   float32_3d origin_{};
   float spacing_{1.0F};
+};
+
+/** Forwards to @ref Partition::read_pull / read / write ; same trusted contract as dense. */
+template <typename T, int Components>
+class Cursor {
+public:
+  CARBON_HD constexpr Cursor(const Partition<T,
+                                             Components>& part,
+                             Span span,
+                             Idx idx) noexcept
+      : part_(part),
+        span_(span),
+        idx_(idx) {}
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  value(int component_id = 0) const noexcept -> const T& {
+    return part_.read(span_, idx_, component_id);
+  }
+
+  CARBON_HD constexpr auto
+  write(T value,
+        int component_id = 0) const noexcept -> void {
+    part_.write(span_, idx_, component_id, value);
+  }
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  pull(int8_3d offset,
+       int component_id = 0) const noexcept -> const T& {
+    return part_.read_pull(span_, idx_, offset, component_id);
+  }
+
+private:
+  Partition<T, Components> part_{};
+  Span span_{};
+  Idx idx_{};
 };
 
 }  // namespace carbon::detail::dense_disg

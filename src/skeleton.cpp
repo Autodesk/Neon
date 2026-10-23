@@ -371,8 +371,11 @@ Skeleton::compile_auto_insert_halos_() -> void {
   // dedup the redundant initial halo: when compile() walks the manual
   // halo first, it cleans the field before the subsequent stencil read
   // sees it (see test_skeleton subtest B' for the dedup contract). For
-  // single-GPU layouts the inserted Halo is a no-op (pair_count==0), so
-  // the conservative pre-dirty has zero runtime cost there.
+  // single-slab BoundaryMode::Open layouts the inserted Halo is a no-op
+  // (pair_count==0), so the conservative pre-dirty costs nothing there.
+  // Under BoundaryMode::PeriodicZ a single slab still gets the self-wrap
+  // pair (0, 0): the halo copies the slab's first/last owned z rows into
+  // its upper/lower halo rows, and periodic stencil reads depend on it.
   std::vector<std::uint64_t> dirty_fields;
   auto is_dirty = [&dirty_fields](std::uint64_t uid) {
     return std::find(dirty_fields.begin(), dirty_fields.end(), uid) != dirty_fields.end();

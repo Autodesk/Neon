@@ -283,39 +283,27 @@ build_fused_jacobi_step(DenseGrid& grid,
                         FieldT& fout,
                         carbon::ReductionResult<float>& sumsq,
                         int64_t nx_global,
-                        bool mirror_periodic_z,
                         carbon::reduce::ReduceOptions reduce_opts,
                         std::string name) -> carbon::Kernel {
   return carbon::Kernel::reduce<float>(
       grid,
-      [&fin, &fout, nx_global, mirror_periodic_z](carbon::KernelLoader& loader) {
+      [&fin, &fout, nx_global](carbon::KernelLoader& loader) {
         const auto in = loader.read_stencil(fin);
-        const auto old_p = loader.read(fin);
         const auto out = loader.write(fout);
-        return [in, old_p, out, nx_global, mirror_periodic_z] CARBON_HD(Span s, Idx idx) -> float {
+        return [in, out, nx_global] CARBON_HD(Span s, Idx idx) -> float {
           const auto g = s.global_location(idx);
           if (g.x <= 0 || g.x >= nx_global - 1) {
             return 0.0F;
           }
-          const float xp = in.neighbour(s, idx, carbon::int8_3d{1, 0, 0}, 0).value;
-          const float xm = in.neighbour(s, idx, carbon::int8_3d{-1, 0, 0}, 0).value;
-          const float zp = in.neighbour(s, idx, carbon::int8_3d{0, 0, 1}, 0).value;
-          const float zm = in.neighbour(s, idx, carbon::int8_3d{0, 0, -1}, 0).value;
-          const float old = old_p.read(s, idx, 0);
+          // Trusted cursor pulls: x guard above; z±1 is in the PeriodicZ halo refreshed before step.
+          const auto c = in.cursor(s, idx);
+          const float xp = c.pull(carbon::int8_3d{1, 0, 0});
+          const float xm = c.pull(carbon::int8_3d{-1, 0, 0});
+          const float zp = c.pull(carbon::int8_3d{0, 0, 1});
+          const float zm = c.pull(carbon::int8_3d{0, 0, -1});
+          const float old = c.value();
           const float next = 0.25F * (xp + xm + zp + zm);
           out.write(s, idx, 0, next);
-          if (mirror_periodic_z) {
-            const int64_t gz_max = s.global_extent().z - 1;
-            const int ix = static_cast<int>(g.x);
-            if (g.z == 0) {
-              const Idx top{ix, 0, static_cast<int>(s.haloed_extent().z - 1)};
-              out.write(s, top, 0, next);
-            }
-            if (g.z == gz_max) {
-              const Idx bot{ix, 0, 0};
-              out.write(s, bot, 0, next);
-            }
-          }
           const float d = next - old;
           return d * d;
         };
@@ -323,46 +311,29 @@ build_fused_jacobi_step(DenseGrid& grid,
       sumsq, carbon::reduce::Sum<float>{}, std::move(name), /*shared_mem=*/0U, reduce_opts);
 }
 
-// Unfused variant used when an OverlapMode is requested. The fused step above is a
-// KernelKind::Reduction, which the Skeleton's OCC rewrite never splits, so it can never overlap
-// with the halo. Here the stencil is a plain Compute kernel (splittable into Internal/Boundary)
-// and the norm is a separate Map-pattern reduction that runs after it. Costs one extra pass over
-// u / u_next, which is what buys the halo overlap.
+// Unfused variant (--unfused): the stencil is a plain Compute kernel and the norm is a separate
+// Map-pattern reduction that runs after it. Costs one extra pass over u / u_next.
 [[nodiscard]] auto
 build_stencil_step(DenseGrid& grid,
                    FieldT& fin,
                    FieldT& fout,
                    int64_t nx_global,
-                   bool mirror_periodic_z,
                    std::string name) -> carbon::Kernel {
   return carbon::Kernel::compute(
       grid,
-      [&fin, &fout, nx_global, mirror_periodic_z](carbon::KernelLoader& loader) {
+      [&fin, &fout, nx_global](carbon::KernelLoader& loader) {
         const auto in = loader.read_stencil(fin);
         const auto out = loader.write(fout);
-        return [in, out, nx_global, mirror_periodic_z] CARBON_HD(Span s, Idx idx) -> void {
+        return [in, out, nx_global] CARBON_HD(Span s, Idx idx) -> void {
           const auto g = s.global_location(idx);
           if (g.x <= 0 || g.x >= nx_global - 1) {
             return;
           }
-          const float xp = in.neighbour(s, idx, carbon::int8_3d{1, 0, 0}, 0).value;
-          const float xm = in.neighbour(s, idx, carbon::int8_3d{-1, 0, 0}, 0).value;
-          const float zp = in.neighbour(s, idx, carbon::int8_3d{0, 0, 1}, 0).value;
-          const float zm = in.neighbour(s, idx, carbon::int8_3d{0, 0, -1}, 0).value;
-          const float next = 0.25F * (xp + xm + zp + zm);
+          const auto c = in.cursor(s, idx);
+          const float next =
+              0.25F * (c.pull(carbon::int8_3d{1, 0, 0}) + c.pull(carbon::int8_3d{-1, 0, 0}) +
+                       c.pull(carbon::int8_3d{0, 0, 1}) + c.pull(carbon::int8_3d{0, 0, -1}));
           out.write(s, idx, 0, next);
-          if (mirror_periodic_z) {
-            const int64_t gz_max = s.global_extent().z - 1;
-            const int ix = static_cast<int>(g.x);
-            if (g.z == 0) {
-              const Idx top{ix, 0, static_cast<int>(s.haloed_extent().z - 1)};
-              out.write(s, top, 0, next);
-            }
-            if (g.z == gz_max) {
-              const Idx bot{ix, 0, 0};
-              out.write(s, bot, 0, next);
-            }
-          }
         };
       },
       std::move(name));
@@ -477,15 +448,13 @@ run_solver(DenseGrid& grid,
     reduce_opts.host_copy = carbon::reduce::ReduceHostCopy::Deferred;
   }
   const int64_t nx64 = grid.global_extent().x;
-  const bool mirror_periodic = (grid.global_slab_count() == 1U);
   const auto add_step = [&](carbon::Skeleton& sk, FieldT& fin, FieldT& fout, const char* name) {
     if (unfused) {
-      sk.add(build_stencil_step(grid, fin, fout, nx64, mirror_periodic, name));
+      sk.add(build_stencil_step(grid, fin, fout, nx64, name));
       sk.add(
           build_norm_step(grid, fin, fout, sumsq, nx64, reduce_opts, std::string{name} + "_norm"));
     } else {
-      sk.add(build_fused_jacobi_step(grid, fin, fout, sumsq, nx64, mirror_periodic, reduce_opts,
-                                     name));
+      sk.add(build_fused_jacobi_step(grid, fin, fout, sumsq, nx64, reduce_opts, name));
     }
   };
 
@@ -610,14 +579,13 @@ download_reference_layout(const DenseGrid& grid,
             host[off];
       }
     }
-    // Reference rows iy=0 and iy=ny-1 live in z halos (buffer rows 0 and haloed.z-1).
-    for (int ix = 1; ix < nx - 1; ++ix) {
-      const Idx bot{ix, 0, 0};
-      const Idx top{ix, 0, static_cast<int>(span.haloed_extent().z - 1)};
-      out[static_cast<size_t>(ix)] = host[span.linear_offset(bot, 0)];
-      out[static_cast<size_t>(ny - 1) * static_cast<size_t>(nx) + static_cast<size_t>(ix)] =
-          host[span.linear_offset(top, 0)];
-    }
+  }
+  // Reference rows iy = 0 and iy = ny - 1 are the periodic images of the last / first owned rows.
+  const size_t row = static_cast<size_t>(nx);
+  for (int ix = 1; ix < nx - 1; ++ix) {
+    const auto x = static_cast<size_t>(ix);
+    out[x] = out[static_cast<size_t>(ny - 2) * row + x];
+    out[static_cast<size_t>(ny - 1) * row + x] = out[row + x];
   }
 }
 
