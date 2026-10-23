@@ -94,6 +94,7 @@
 #include <carbon/export.h>
 #include <carbon/kernel.h>
 #include <carbon/logging.h>
+#include <carbon/reduce.h>
 #include <carbon/system.h>
 
 #include <algorithm>
@@ -217,13 +218,16 @@ public:
     // the eager launch path is used transparently. Safe to leave on — it never
     // changes results, only how the launches are issued.
     bool use_cuda_graph;
+    /** When @c High, streams carrying @c KernelKind::Halo steps use greatest driver priority. */
+    StreamPriority halo_stream_priority{StreamPriority::Normal};
 
     constexpr Options() noexcept
         : overlap_mode(OverlapMode::None),
           strict_halo(false),
           max_streams(0U),
           log_dot_on_compile(false),
-          use_cuda_graph(false) {}
+          use_cuda_graph(false),
+          halo_stream_priority(StreamPriority::Normal) {}
     constexpr Options(OverlapMode mode,
                       bool strict = false,
                       size_t max_streams_cap = 0U,
@@ -662,6 +666,61 @@ public:
                  std::string graph_name = "carbon_skeleton") -> bool;
 
   /**
+   * @brief Text listing of every operation @ref run issues for one iteration.
+   *
+   * Mirrors the eager @ref run path (and the CUDA/HIP graph capture sequence when
+   * @ref Options::use_cuda_graph is engaged): anchor fork record/waits, per-step
+   * event waits, kernel launches (including auto-inserted halos), event records,
+   * and anchor join record/waits. Lazy-compiles before rendering.
+   */
+  [[nodiscard]] auto
+  export_launch_order() -> std::string;
+
+  /**
+   * @brief Write @ref export_launch_order to @p path.
+   * @return @c false if the file could not be opened.
+   */
+  [[nodiscard]] auto
+  export_launch_order_file(std::string path) -> bool;
+
+  /**
+   * @brief GraphViz "launch matrix" of one @ref run iteration: one column per
+   *        stream, one row per operation from @ref export_launch_order (anchor
+   *        syncs, event waits, launches, event records). Dashed arrows connect
+   *        each event record to its waits (red for step events, blue for the
+   *        anchor fork/join). Lazy-compiles before rendering.
+   */
+  [[nodiscard]] auto
+  export_launch_matrix_dot(std::string graph_name = "carbon_launch_matrix") -> std::string;
+
+  /**
+   * @brief Write @ref export_launch_matrix_dot to @p path.
+   * @return @c false if the file could not be opened.
+   */
+  [[nodiscard]] auto
+  export_launch_matrix_dot_file(std::string path,
+                                std::string graph_name = "carbon_launch_matrix") -> bool;
+
+  /**
+   * @brief GraphViz "kernel list" in the style of @ref export_launch_matrix_dot :
+   *        one row per scheduled kernel in user-add order (auto-inserted halos
+   *        included, dashed), one column per accessed resource showing the
+   *        access mode (R / W / RW, stencil flagged), the reduced data
+   *        dependencies, and the launches each kernel lowers to (run() sequence
+   *        number, stream, view). Lazy-compiles before rendering.
+   */
+  [[nodiscard]] auto
+  export_kernel_list_dot(std::string graph_name = "carbon_kernel_list") -> std::string;
+
+  /**
+   * @brief Write @ref export_kernel_list_dot to @p path.
+   * @return @c false if the file could not be opened.
+   */
+  [[nodiscard]] auto
+  export_kernel_list_dot_file(std::string path,
+                              std::string graph_name = "carbon_kernel_list") -> bool;
+
+  /**
    * @brief Primary execution stream (stream index 0). Matches the @ref Stream
    *        passed to the constructor (when given) or @c sys.stream() at
    *        construction time.
@@ -707,6 +766,7 @@ private:
     std::vector<size_t> wait_events{};
     size_t record_event_idx{kNoEvent_};
     DataView view{DataView::Standard};
+    reduce::ReduceLaunchMode reduce_launch_mode{reduce::ReduceLaunchMode::Full};
   };
 
   /**
@@ -727,6 +787,36 @@ private:
     size_t stencil;
     std::vector<std::uint64_t> stencil_fields;
   };
+
+  enum class LaunchOrderOpKind : unsigned char {
+    AnchorStartRecord,
+    AnchorStartWait,
+    EventWait,
+    Launch,
+    EventRecord,
+    AnchorJoinRecord,
+    AnchorJoinWait,
+  };
+
+  struct LaunchOrderOp {
+    size_t seq{0U};
+    LaunchOrderOpKind kind{};
+    size_t stream_idx{0U};
+    size_t step_idx{kNoKernel_};
+    size_t event_idx{kNoEvent_};
+  };
+
+  [[nodiscard]] auto
+  build_launch_order_ops_() const -> std::vector<LaunchOrderOp>;
+
+  [[nodiscard]] auto
+  format_launch_order_line_(const LaunchOrderOp& op) const -> std::string;
+
+  [[nodiscard]] auto
+  step_display_label_(size_t step_idx) const -> std::string;
+
+  [[nodiscard]] auto
+  event_annotation_(size_t event_idx) const -> std::string;
 
   /**
    * @brief Test whether any token in @p a conflicts with any token in @p b on
@@ -760,6 +850,13 @@ private:
   // Definition lives in src/skeleton.cpp (compile_allocate_anchor_events_).
   auto
   compile_allocate_anchor_events_() -> void;
+
+  /**
+   * @brief Drop redundant cross-stream waits, unused event records, and covered
+   *        anchor joins after the schedule is fully lowered.
+   */
+  auto
+  compile_prune_syncs_() -> void;
 
   /**
    * @brief Apply the @c OverlapMode::{Standard,Extended,TwoWayExtended}
@@ -889,6 +986,13 @@ private:
   auto
   compile_assign_streams_and_events_(const std::vector<std::vector<size_t>>& direct_preds_of)
       -> void;
+
+  /**
+   * @brief Neon-style step graph build, OCC edge rewrite, and generic lowering
+   *        to @ref schedule_ (Standard overlap and @c OverlapMode::None).
+   */
+  auto
+  compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& direct_preds_of) -> void;
 
   /**
    * @brief OCC rewrite phase 1: collect every (halo, stencil) candidate
@@ -1149,7 +1253,8 @@ private:
 }  // namespace carbon
 
 // Out-of-class member definitions for compile() / run() / apply_occ_() /
-// compile_allocate_anchor_events_() / export_dot() live in src/skeleton.cpp .
+// compile_allocate_anchor_events_() / export_dot() / export_launch_order() live in
+// src/skeleton.cpp .
 // User code only needs <carbon/skeleton.h>; the .cpp is statically linked
 // into libcarbon. The Skeleton class above is non-template, so moving the
 // large bodies out of the public header trims ~700 lines of parse work

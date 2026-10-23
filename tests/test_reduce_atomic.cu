@@ -83,7 +83,8 @@ main() {
     };
   };
 
-  auto dev_kernel = dense.make_reduce_kernel<int64_t>(loader, dev_result, carbon::reduce::Sum<int64_t>{});
+  auto dev_kernel =
+      dense.make_reduce_kernel<int64_t>(loader, dev_result, carbon::reduce::Sum<int64_t>{});
   carbon::reduce::ReduceOptions atomic_opts{};
   atomic_opts.finalize = carbon::reduce::ReduceFinalize::BlockAtomic;
   auto atomic_kernel =
@@ -109,8 +110,8 @@ main() {
     return EXIT_FAILURE;
   }
   if (atomic_result.host_value() != expected) {
-    CARBON_LOG_ERROR("test_reduce_atomic: atomic path got {} expected {}", atomic_result.host_value(),
-                     expected);
+    CARBON_LOG_ERROR("test_reduce_atomic: atomic path got {} expected {}",
+                     atomic_result.host_value(), expected);
     return EXIT_FAILURE;
   }
 
@@ -136,8 +137,8 @@ main() {
     };
   };
   auto f_dev_k = dense.make_reduce_kernel<float>(f_loader, f_dev);
-  auto f_atomic_k = dense.make_reduce_kernel<float>(f_loader, f_atomic, carbon::reduce::Sum<float>{},
-                                                    0U, atomic_opts);
+  auto f_atomic_k = dense.make_reduce_kernel<float>(f_loader, f_atomic,
+                                                    carbon::reduce::Sum<float>{}, 0U, atomic_opts);
   try {
     f_dev_k.launch(st);
     f_dev.sync(st);
@@ -148,9 +149,8 @@ main() {
     CARBON_LOG_ERROR("test_reduce_atomic: float launch failed: {}", ex.what());
     return EXIT_FAILURE;
   }
-  const float rel =
-      std::fabs(f_dev.host_value() - f_atomic.host_value()) /
-      std::fmax(1.0F, std::fabs(f_dev.host_value()));
+  const float rel = std::fabs(f_dev.host_value() - f_atomic.host_value()) /
+                    std::fmax(1.0F, std::fabs(f_dev.host_value()));
   if (rel > 1.0e-5F) {
     CARBON_LOG_ERROR("test_reduce_atomic: float atomic vs device rel err {}", rel);
     return EXIT_FAILURE;
@@ -160,8 +160,8 @@ main() {
   carbon::ReductionResult<int64_t> bad_dst(sys);
   bool threw = false;
   try {
-    (void)dense.make_reduce_kernel<int64_t>(
-        loader, bad_dst, carbon::reduce::Min<int64_t>{}, 0U, atomic_opts);
+    (void)dense.make_reduce_kernel<int64_t>(loader, bad_dst, carbon::reduce::Min<int64_t>{}, 0U,
+                                            atomic_opts);
   } catch (const std::invalid_argument&) {
     threw = true;
   }
@@ -174,8 +174,8 @@ main() {
     carbon::ReductionResult<int64_t> mg_dev(sys);
     carbon::ReductionResult<int64_t> mg_atomic(sys);
     auto mg_dev_k = dense.make_reduce_kernel<int64_t>(loader, mg_dev);
-    auto mg_atomic_k = dense.make_reduce_kernel<int64_t>(loader, mg_atomic, carbon::reduce::Sum<int64_t>{},
-                                                         0U, atomic_opts);
+    auto mg_atomic_k = dense.make_reduce_kernel<int64_t>(
+        loader, mg_atomic, carbon::reduce::Sum<int64_t>{}, 0U, atomic_opts);
     try {
       mg_dev_k.launch(st);
       mg_dev.sync(st);

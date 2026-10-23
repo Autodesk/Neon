@@ -34,9 +34,9 @@ launch_dense_grid_reduce_kernel(int block_threads,
                                 T identity,
                                 T* partials,
                                 int64_t total_cells) -> gpu_error_t {
-#define CARBON_LAUNCH_DENSE_REDUCE(BT)                                                       \
-  return gpu.template typed_launch<&dense_grid_reduce_kernel_t<BT, F, T, Op>>(               \
-      dim3(static_cast<unsigned>(blocks), 1U, 1U), dim3(static_cast<unsigned>(BT), 1U, 1U),  \
+#define CARBON_LAUNCH_DENSE_REDUCE(BT)                                                      \
+  return gpu.template typed_launch<&dense_grid_reduce_kernel_t<BT, F, T, Op>>(              \
+      dim3(static_cast<unsigned>(blocks), 1U, 1U), dim3(static_cast<unsigned>(BT), 1U, 1U), \
       shared_mem, stream, span, view, fn, op, identity, partials, total_cells)
 
   switch (block_threads) {
@@ -76,8 +76,8 @@ launch_dense_grid_reduce_block_atomic_kernel(int block_threads,
                                              T identity,
                                              T* global_out,
                                              int64_t total_cells) -> gpu_error_t {
-#define CARBON_LAUNCH_DENSE_REDUCE_ATOMIC(BT)                                                \
-  return gpu.template typed_launch<&dense_grid_reduce_block_atomic_kernel_t<BT, F, T, Op>>(  \
+#define CARBON_LAUNCH_DENSE_REDUCE_ATOMIC(BT)                                               \
+  return gpu.template typed_launch<&dense_grid_reduce_block_atomic_kernel_t<BT, F, T, Op>>( \
       dim3(static_cast<unsigned>(blocks), 1U, 1U), dim3(static_cast<unsigned>(BT), 1U, 1U), \
       shared_mem, stream, span, view, fn, op, identity, global_out, total_cells)
 
@@ -120,20 +120,16 @@ launch_dense_grid_reduce_kernel_2d(int block_dim_x,
                                    T* partials,
                                    int64_t total_cells) -> gpu_error_t {
   const ::carbon::int64_3d ext = span.iter_extent(view);
-  const unsigned grid_x =
-      static_cast<unsigned>((ext.x + block_dim_x - 1) / block_dim_x);
-  const unsigned grid_y =
-      static_cast<unsigned>((ext.z + block_dim_y - 1) / block_dim_y);
+  const unsigned grid_x = static_cast<unsigned>((ext.x + block_dim_x - 1) / block_dim_x);
+  const unsigned grid_y = static_cast<unsigned>((ext.z + block_dim_y - 1) / block_dim_y);
   if (static_cast<int64_t>(grid_x) * static_cast<int64_t>(grid_y) != blocks) {
     log::throw_with_log<std::invalid_argument>(
-        "Kernel::reduce: 2D launch grid {}x{} != expected block count {}", grid_x, grid_y,
-        blocks);
+        "Kernel::reduce: 2D launch grid {}x{} != expected block count {}", grid_x, grid_y, blocks);
   }
 
-#define CARBON_LAUNCH_DENSE_REDUCE_2D(BX, BY)                                                \
-  return gpu.template typed_launch<&dense_grid_reduce_kernel_2d_t<BX, BY, F, T, Op>>(        \
-      dim3(grid_x, grid_y, 1U), dim3(static_cast<unsigned>(BX), static_cast<unsigned>(BY),  \
-           1U),                                                                              \
+#define CARBON_LAUNCH_DENSE_REDUCE_2D(BX, BY)                                                   \
+  return gpu.template typed_launch<&dense_grid_reduce_kernel_2d_t<BX, BY, F, T, Op>>(           \
+      dim3(grid_x, grid_y, 1U), dim3(static_cast<unsigned>(BX), static_cast<unsigned>(BY), 1U), \
       shared_mem, stream, span, view, fn, op, identity, partials, total_cells)
 
   if (block_dim_x == 32 && block_dim_y == 32) {
@@ -165,34 +161,29 @@ template <typename F,
           typename Op>
 auto
 launch_dense_grid_reduce_block_atomic_kernel_2d(int block_dim_x,
-                                              int block_dim_y,
-                                              const ::carbon::detail::Gpu& gpu,
-                                              int64_t blocks,
-                                              size_t shared_mem,
-                                              gpu_stream_t stream,
-                                              Span span,
-                                              ::carbon::DataView view,
-                                              F& fn,
-                                              Op& op,
-                                              T identity,
-                                              T* global_out,
-                                              int64_t total_cells) -> gpu_error_t {
+                                                int block_dim_y,
+                                                const ::carbon::detail::Gpu& gpu,
+                                                int64_t blocks,
+                                                size_t shared_mem,
+                                                gpu_stream_t stream,
+                                                Span span,
+                                                ::carbon::DataView view,
+                                                F& fn,
+                                                Op& op,
+                                                T identity,
+                                                T* global_out,
+                                                int64_t total_cells) -> gpu_error_t {
   const ::carbon::int64_3d ext = span.iter_extent(view);
-  const unsigned grid_x =
-      static_cast<unsigned>((ext.x + block_dim_x - 1) / block_dim_x);
-  const unsigned grid_y =
-      static_cast<unsigned>((ext.z + block_dim_y - 1) / block_dim_y);
+  const unsigned grid_x = static_cast<unsigned>((ext.x + block_dim_x - 1) / block_dim_x);
+  const unsigned grid_y = static_cast<unsigned>((ext.z + block_dim_y - 1) / block_dim_y);
   if (static_cast<int64_t>(grid_x) * static_cast<int64_t>(grid_y) != blocks) {
     log::throw_with_log<std::invalid_argument>(
-        "Kernel::reduce: 2D launch grid {}x{} != expected block count {}", grid_x, grid_y,
-        blocks);
+        "Kernel::reduce: 2D launch grid {}x{} != expected block count {}", grid_x, grid_y, blocks);
   }
 
-#define CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(BX, BY)                                         \
-  return gpu.template typed_launch<                                                          \
-      &dense_grid_reduce_block_atomic_kernel_2d_t<BX, BY, F, T, Op>>(                        \
-      dim3(grid_x, grid_y, 1U), dim3(static_cast<unsigned>(BX), static_cast<unsigned>(BY),  \
-           1U),                                                                              \
+#define CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(BX, BY)                                               \
+  return gpu.template typed_launch<&dense_grid_reduce_block_atomic_kernel_2d_t<BX, BY, F, T, Op>>( \
+      dim3(grid_x, grid_y, 1U), dim3(static_cast<unsigned>(BX), static_cast<unsigned>(BY), 1U),    \
       shared_mem, stream, span, view, fn, op, identity, global_out, total_cells)
 
   if (block_dim_x == 32 && block_dim_y == 32) {

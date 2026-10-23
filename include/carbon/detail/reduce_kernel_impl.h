@@ -49,9 +49,9 @@
 #include <carbon/detail/gpu.h>
 #include <carbon/detail/kernel_impl.h>
 #include <carbon/detail/launch_traits.h>
+#include <carbon/detail/reduce_scalar_tokens.h>
 #include <carbon/detail/reduce_stages.h>
 #include <carbon/logging.h>
-#include <carbon/detail/reduce_scalar_tokens.h>
 #include <carbon/reduce.h>
 #include <carbon/reduce_dist.h>
 #include <carbon/system.h>
@@ -256,6 +256,10 @@ public:
       cub_temp_storage_[g_idx] =
           gpu.template buffer<std::byte>(temp_bytes, /*relative_gpu_id=*/static_cast<int>(g_idx));
     }
+    {
+      const detail::Gpu& root = grid_.system().gpu_group().devices()[0U];
+      merge_pair_scratch_ = root.template buffer<T>(2U, /*relative_gpu_id=*/0);
+    }
 #elif CARBON_BACKEND_IS_SYCL
     // SYCL: nothing to allocate up front — sycl::reduction owns its own per-work-group
     // scratch. The per-GPU total/block counts above are still computed for parity with
@@ -296,6 +300,21 @@ public:
     this->launch_on_device(stream, view);
   }
 
+  auto
+  launch_reduction_phase(const ::carbon::Stream& stream,
+                         DataView view,
+                         reduce::ReduceLaunchMode mode) -> void override {
+    if (mode == reduce::ReduceLaunchMode::Partial) {
+      launch_on_device_impl(stream, view, /*defer_host_copy=*/true);
+      return;
+    }
+    if (mode == reduce::ReduceLaunchMode::Merge) {
+      launch_merge_on_device(stream);
+      return;
+    }
+    launch(stream, view);
+  }
+
   /**
    * @brief Run stage 1 (fused map + block-reduce) and stage 2 (cub::DeviceReduce::Reduce)
    *        for the requested @p view on every local GPU, then async-D→H copy the
@@ -309,6 +328,13 @@ public:
   auto
   launch_on_device(const ::carbon::Stream& stream,
                    DataView view) -> void override {
+    launch_on_device_impl(stream, view, /*defer_host_copy=*/false);
+  }
+
+  auto
+  launch_on_device_impl(const ::carbon::Stream& stream,
+                        DataView view,
+                        bool defer_host_copy) -> void {
     if (stream.size() != grid_.gpu_count()) {
       log::throw_with_log<std::invalid_argument>(
           "Kernel::reduce::launch: stream-group size ({}) does not match the grid's GPU "
@@ -323,8 +349,7 @@ public:
     using Traits [[maybe_unused]] = ReduceLaunchTraits<Grid>;
 
 #if CARBON_BACKEND_IS_CUDALIKE && CARBON_CUDALIKE_DEVICE_TU
-    const bool block_atomic =
-        reduce_options_.finalize == reduce::ReduceFinalize::BlockAtomic;
+    const bool block_atomic = reduce_options_.finalize == reduce::ReduceFinalize::BlockAtomic;
     // Per-GPU stage-1 outcome captured inside the OpenMP region so exceptions
     // never cross the parallel boundary; the diagnostics are raised serially
     // after the fan-out. `stage` names the first failing step for the message.
@@ -344,7 +369,7 @@ public:
     for (size_t g_idx = 0; g_idx < gpu_count; ++g_idx) {
       const auto span = grid_.spans()[g_idx];
       const int64_t blocks = Traits::stage1_unit_count(grid_, g_idx, view, dense_stage1_threads_,
-                                                         dense_stage1_threads_y_);
+                                                       dense_stage1_threads_y_);
       const int64_t iter_cells = Traits::iter_cell_count(grid_, g_idx, view);
       if (blocks > block_count_per_gpu_[g_idx]) {
         // Sanity check: Standard-view sizing in the ctor must dominate every other view's
@@ -474,13 +499,15 @@ public:
     if (gpu_count > 1U) {
       reduce_stages::run_stage2_combine<T, Op>(grid_.system(), stream, dst, view, op_);
     }
-    reduce_stages::run_stage3_cross_rank<T, Op>(grid_.system(), stream, dst, view);
-    if (reduce_options_.host_copy == reduce::ReduceHostCopy::Inline) {
-      const size_t slot = dst.active_slot();
-      grid_.system().async_copy(dst.device_allocation(view, slot), dst.host_allocation(view, slot),
-                                sizeof(T), stream);
-      dst.record_readback_done(view, slot, stream);
-      dst.mark_fresh(view);
+    if (!defer_host_copy) {
+      reduce_stages::run_stage3_cross_rank<T, Op>(grid_.system(), stream, dst, view);
+      if (reduce_options_.host_copy == reduce::ReduceHostCopy::Inline) {
+        const size_t slot = dst.active_slot();
+        grid_.system().async_copy(dst.device_allocation(view, slot),
+                                  dst.host_allocation(view, slot), sizeof(T), stream);
+        dst.record_readback_done(view, slot, stream);
+        dst.mark_fresh(view);
+      }
     }
 #elif CARBON_BACKEND_IS_SYCL
     for (size_t g_idx = 0; g_idx < gpu_count; ++g_idx) {
@@ -501,13 +528,15 @@ public:
     if (gpu_count > 1U) {
       reduce_stages::run_stage2_combine<T, Op>(grid_.system(), stream, dst, view, op_);
     }
-    reduce_stages::run_stage3_cross_rank<T, Op>(grid_.system(), stream, dst, view);
-    if (reduce_options_.host_copy == reduce::ReduceHostCopy::Inline) {
-      const size_t slot = dst.active_slot();
-      grid_.system().async_copy(dst.device_allocation(view, slot), dst.host_allocation(view, slot),
-                                sizeof(T), stream);
-      dst.record_readback_done(view, slot, stream);
-      dst.mark_fresh(view);
+    if (!defer_host_copy) {
+      reduce_stages::run_stage3_cross_rank<T, Op>(grid_.system(), stream, dst, view);
+      if (reduce_options_.host_copy == reduce::ReduceHostCopy::Inline) {
+        const size_t slot = dst.active_slot();
+        grid_.system().async_copy(dst.device_allocation(view, slot),
+                                  dst.host_allocation(view, slot), sizeof(T), stream);
+        dst.record_readback_done(view, slot, stream);
+        dst.mark_fresh(view);
+      }
     }
 #else
     static_assert(reduce_kernel_launch_requires_cudacc_<LoadingFn>,
@@ -516,6 +545,50 @@ public:
                   "nvcc) and include <carbon/kernel.h> from there.");
     (void)stream;
     (void)view;
+    (void)defer_host_copy;
+#endif
+  }
+
+  auto
+  launch_merge_on_device(const ::carbon::Stream& stream) -> void {
+#if CARBON_BACKEND_IS_CUDALIKE && CARBON_CUDALIKE_DEVICE_TU
+    if (stream.size() != grid_.gpu_count()) {
+      log::throw_with_log<std::invalid_argument>(
+          "Kernel::reduce::launch_merge: stream-group size ({}) != gpu_count ({})", stream.size(),
+          grid_.gpu_count());
+    }
+    ReductionResult<T>& dst = *dst_;
+    (void)dst.begin_launch_slot(DataView::Standard, stream);
+    const int root_gpu_idx = 0;
+    const detail::Gpu& root_gpu =
+        grid_.system().gpu_group().devices()[static_cast<size_t>(root_gpu_idx)];
+    const gpu_error_t set_err = gpu_set_device(root_gpu.device_id());
+    if (set_err != gpu_success) {
+      log::throw_with_log<std::runtime_error>(
+          "Kernel::reduce::launch_merge: gpu_set_device failed");
+    }
+    T* staging = dst.gpu_count() > 1U ? dst.stage2_staging().data() : merge_pair_scratch_.data();
+    T* const out = dst.device_data(DataView::Standard);
+    const T* const internal = dst.device_data(DataView::Internal);
+    const T* const boundary = dst.device_data(DataView::Boundary);
+    const gpu_stream_t cuda_stream = stream[static_cast<size_t>(root_gpu_idx)].get();
+    const gpu_error_t c0 = gpu_memcpy_async_default(staging, internal, sizeof(T), cuda_stream);
+    const gpu_error_t c1 = gpu_memcpy_async_default(staging + 1, boundary, sizeof(T), cuda_stream);
+    if (c0 != gpu_success || c1 != gpu_success) {
+      log::throw_with_log<std::runtime_error>("Kernel::reduce::launch_merge: D2D copy failed");
+    }
+    dense::launch_combine_partials<T, Op>(root_gpu.device_id(), cuda_stream, staging, out, 2, op_);
+    reduce_stages::run_stage3_cross_rank<T, Op>(grid_.system(), stream, dst, DataView::Standard);
+    if (reduce_options_.host_copy == reduce::ReduceHostCopy::Inline) {
+      const size_t slot = dst.active_slot();
+      grid_.system().async_copy(dst.device_allocation(DataView::Standard, slot),
+                                dst.host_allocation(DataView::Standard, slot), sizeof(T), stream);
+      dst.record_readback_done(DataView::Standard, slot, stream);
+      dst.mark_fresh(DataView::Standard);
+    }
+#else
+    log::throw_with_log<std::logic_error>(
+        "Kernel::reduce::launch_merge requires a CUDA/HIP device translation unit");
 #endif
   }
 
@@ -587,6 +660,7 @@ private:
   int dense_stage1_threads_y_{0};
 #if CARBON_BACKEND_IS_CUDALIKE && CARBON_CUDALIKE_DEVICE_TU
   std::vector<detail::Allocation<T>> partials_{};
+  detail::Allocation<T> merge_pair_scratch_{};
   std::vector<size_t> cub_temp_bytes_{};
   std::vector<detail::Allocation<std::byte>> cub_temp_storage_{};
 #endif

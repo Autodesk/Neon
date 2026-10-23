@@ -1,5 +1,9 @@
 #pragma once
 
+#include <carbon/detail/backend/select.h>
+#if CARBON_BACKEND_IS_CUDALIKE
+#include <carbon/detail/backend/cuda_like.h>
+#endif
 #include <carbon/logging.h>
 
 #include <cstddef>
@@ -74,6 +78,28 @@ GpuGroup::stream() const -> StreamGroup {
   vec->reserve(gpus_.size());
   for (const auto& g : gpus_) {
     vec->push_back(g.stream());
+  }
+  return StreamGroup(vec);
+}
+
+inline auto
+GpuGroup::stream(StreamPriority priority) const -> StreamGroup {
+  auto vec = std::make_shared<std::vector<CudaStream>>();
+  vec->reserve(gpus_.size());
+  if (priority == StreamPriority::High && !gpus_.empty()) {
+    int least = 0;
+    int greatest = 0;
+    gpus_[0].set_device();
+#if CARBON_BACKEND_IS_CUDALIKE
+    (void)detail::gpu_stream_priority_range(&least, &greatest);
+#endif
+    for (const auto& g : gpus_) {
+      vec->push_back(g.stream_with_priority(greatest));
+    }
+  } else {
+    for (const auto& g : gpus_) {
+      vec->push_back(g.stream());
+    }
   }
   return StreamGroup(vec);
 }

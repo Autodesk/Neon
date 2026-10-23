@@ -62,8 +62,8 @@ public:
       const detail::gpu_error_t err = detail::gpu_host_alloc(
           reinterpret_cast<void**>(&ptr), size_bytes, detail::gpu_host_alloc_default);
       if (err != detail::gpu_success || ptr == nullptr) {
-        log::throw_with_log<std::bad_alloc>(
-            "Cpu::pinned_buffer: gpu_host_alloc failed ({} bytes)", size_bytes);
+        log::throw_with_log<std::bad_alloc>("Cpu::pinned_buffer: gpu_host_alloc failed ({} bytes)",
+                                            size_bytes);
       }
 #elif CARBON_BACKEND_IS_SYCL
       try {

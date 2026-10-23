@@ -18,7 +18,8 @@ namespace {
 
 [[nodiscard]] auto
 make_sum_reduce(carbon::Dense& grid,
-                carbon::Dense::Field<float, 1>& f,
+                carbon::Dense::Field<float,
+                                     1>& f,
                 carbon::ReductionResult<float>& dst,
                 carbon::reduce::ReduceOptions opts) -> carbon::Kernel {
   return grid.make_reduce_kernel<float>(
@@ -45,9 +46,10 @@ main() {
     carbon::System sys(std::vector<carbon::detail::Gpu>{std::move(gpus.front())});
     const carbon::int64_3d global{4, 4, 4};
     carbon::Dense grid(sys, global, carbon::Stencil{});
-    carbon::Dense::Field<float, 1> f =
-        grid.newField<float, 1>(carbon::MemorySide::HostDevice, "f");
-    f.fill_owned_host([](carbon::int64_3d, int) { return 1.0F; });
+    carbon::Dense::Field<float, 1> f = grid.newField<float, 1>(carbon::MemorySide::HostDevice, "f");
+    f.fill_owned_host([](carbon::int64_3d, int) {
+      return 1.0F;
+    });
     carbon::Stream up = sys.stream();
     carbon::Transfer<float>(sys, f.cpu_buffers(), f.gpu_buffers())(up);
     up.wait();
@@ -105,11 +107,15 @@ main() {
     }
 
     // Ping-pong lag: two back-to-back runs with different field values, one slot ring.
-    f.fill_owned_host([](carbon::int64_3d, int) { return 2.0F; });
+    f.fill_owned_host([](carbon::int64_3d, int) {
+      return 2.0F;
+    });
     carbon::Transfer<float>(sys, f.cpu_buffers(), f.gpu_buffers())(up);
     up.wait();
     sk.run();
-    f.fill_owned_host([](carbon::int64_3d, int) { return 3.0F; });
+    f.fill_owned_host([](carbon::int64_3d, int) {
+      return 3.0F;
+    });
     carbon::Transfer<float>(sys, f.cpu_buffers(), f.gpu_buffers())(up);
     up.wait();
     sk.run();
@@ -129,8 +135,8 @@ main() {
     }
 
     // Alternating skeleton ping-pong on the shared anchor (fresh result — prior launches consumed).
-    carbon::ReductionResult<float> dst_ping(
-        sys, carbon::reduce::ReductionResultOptions{.slots = 2U});
+    carbon::ReductionResult<float> dst_ping(sys,
+                                            carbon::reduce::ReductionResultOptions{.slots = 2U});
     carbon::Skeleton sk_a(sys);
     carbon::Skeleton sk_b(sys);
     sk_a.add(make_sum_reduce(grid, f, dst_ping, opts));
@@ -138,10 +144,13 @@ main() {
     sk_a.compile();
     sk_b.compile();
     if (sk_a.uses_anchor_fork_join() || sk_b.uses_anchor_fork_join()) {
-      CARBON_LOG_ERROR("test_skeleton_scalar_pattern: ping-pong skeletons must not use anchor events");
+      CARBON_LOG_ERROR(
+          "test_skeleton_scalar_pattern: ping-pong skeletons must not use anchor events");
       return EXIT_FAILURE;
     }
-    f.fill_owned_host([](carbon::int64_3d, int) { return 4.0F; });
+    f.fill_owned_host([](carbon::int64_3d, int) {
+      return 4.0F;
+    });
     carbon::Transfer<float>(sys, f.cpu_buffers(), f.gpu_buffers())(up);
     up.wait();
     for (int i = 0; i < 4; ++i) {

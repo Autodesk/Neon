@@ -184,6 +184,29 @@ gpu_stream_create(gpu_stream_t* stream) noexcept -> gpu_error_t {
 }
 
 inline auto
+gpu_stream_create_with_priority(gpu_stream_t* stream,
+                                int least_priority,
+                                int greatest_priority) noexcept -> gpu_error_t {
+#if CARBON_BACKEND_IS_HIP
+  (void)least_priority;
+  return hipStreamCreateWithPriority(stream, hipStreamDefault, greatest_priority);
+#else
+  (void)least_priority;
+  return cudaStreamCreateWithPriority(stream, cudaStreamDefault, greatest_priority);
+#endif
+}
+
+inline auto
+gpu_stream_priority_range(int* least_priority,
+                          int* greatest_priority) noexcept -> gpu_error_t {
+#if CARBON_BACKEND_IS_HIP
+  return hipDeviceGetStreamPriorityRange(least_priority, greatest_priority);
+#else
+  return cudaDeviceGetStreamPriorityRange(least_priority, greatest_priority);
+#endif
+}
+
+inline auto
 gpu_stream_destroy(gpu_stream_t stream) noexcept -> gpu_error_t {
 #if CARBON_BACKEND_IS_HIP
   return hipStreamDestroy(stream);

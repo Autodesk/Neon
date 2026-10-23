@@ -18,7 +18,8 @@ namespace detail {
 template <typename T>
 class ScalarReadbackKernelImpl final : public KernelImpl {
 public:
-  ScalarReadbackKernelImpl(ReductionResult<T>& dst, std::string name = {})
+  ScalarReadbackKernelImpl(ReductionResult<T>& dst,
+                           std::string name = {})
       : KernelImpl(std::move(name)),
         dst_(&dst) {
     tokens_.push_back(AccessToken{dst.device_uid(),
@@ -53,12 +54,14 @@ public:
   }
 
   auto
-  launch(const Stream& stream, DataView view) -> void override {
+  launch(const Stream& stream,
+         DataView view) -> void override {
     launch_on_device(stream, view);
   }
 
   auto
-  launch_on_device(const Stream& stream, DataView view) -> void override {
+  launch_on_device(const Stream& stream,
+                   DataView view) -> void override {
     ReductionResult<T>& dst = *dst_;
     if (dst.launch_cursor() == 0U) {
       log::throw_with_log<std::runtime_error>(

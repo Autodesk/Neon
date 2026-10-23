@@ -27,7 +27,9 @@ main() {
     carbon::Dense grid(sys, global, carbon::Stencil{});
 
     auto field = grid.newField<float, 1>(carbon::MemorySide::HostDevice, "f");
-    field.fill_owned_host([](carbon::int64_3d, int) { return 1.0F; });
+    field.fill_owned_host([](carbon::int64_3d, int) {
+      return 1.0F;
+    });
     carbon::Stream up = sys.stream();
     carbon::Transfer<float>(sys, field.cpu_buffers(), field.gpu_buffers())(up);
     up.wait();

@@ -51,3 +51,47 @@ share no fields and land on distinct streams; the resulting DOT has two
 event-mediated dependency. That test does not currently dump the DOT to disk
 — if you want to see the multi-stream rendering, add an `export_dot` call to
 the subtest's `sk` instance and pipe through `dot` the same way.
+
+## Standard overlap scheduling (Neon-style)
+
+For `OverlapMode::None` and `OverlapMode::Standard`, `compile()` lowers a **step
+graph** (data dependencies plus **hint** edges for launch order). Standard OCC
+splits each `(halo, stencil-read compute|reduction)` pair into Internal and
+Boundary steps; reductions add a merge step (`ReduceLaunchMode::Partial` then
+`Merge`). Internal is ordered before the halo; Boundary runs on the halo stream
+right after the halo. A final `compile_prune_syncs_()` pass removes redundant
+same-stream waits, unused event records, and anchor joins already covered by an
+earlier cross-stream wait.
+
+Extended / TwoWayExtended modes still use the legacy in-place `apply_occ_`
+rewrite until their rules are ported to the step graph.
+
+## Launch order listing
+
+`Skeleton::export_launch_order()` prints one line per operation issued during a
+single `run()` — anchor fork record/waits, per-step event waits, kernel launches
+(including auto-inserted halos), event records, and anchor join record/waits.
+The same sequence is what the CUDA/HIP graph capture path records when
+`Options::use_cuda_graph` is enabled.
+
+`export_dot()` prefixes each schedule node with `#N` (the launch line number) and
+annotates dashed sync edges with `(rec #R -> wait #W)`. When anchor fork/join is
+active, extra dashed blue edges show the bracket ops.
+
+`export_launch_matrix_dot()` renders the same sequence as a grid: one column per
+stream, one row per operation (anchor syncs, event waits, launches, event
+records). Dashed arrows connect each event record to its waits — red for step
+events, blue for the anchor fork/join — so cross-stream hand-offs read as
+diagonal arrows between columns.
+
+`export_kernel_list_dot()` is the matching table of what was added: one row per
+kernel in add order (auto-inserted halos dashed), one column per accessed
+resource with its access mode (R / W / RW, stencil reads flagged), the reduced
+data dependencies, and the launches each kernel lowers to (`run()` sequence
+number, stream, view) so rows cross-reference the launch matrix.
+
+`benchmarks/jacobi_nvidia` accepts `--dot prefix`, which writes `prefix_ab.dot`,
+`prefix_ba.dot`, and matching `.txt` launch-order files; add `--dot-matrix` for
+`prefix_ab_matrix.dot` / `prefix_ba_matrix.dot` and the kernel lists
+`prefix_ab_kernels.dot` / `prefix_ba_kernels.dot`. See
+`tests/test_skeleton_launch_order.cu`.

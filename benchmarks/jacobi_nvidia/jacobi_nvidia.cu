@@ -67,7 +67,11 @@ struct Args {
   std::string reduce_block{};
   std::string norm_sync = "blocking";
   std::string dump_path{};
+  std::string dot_path{};
   std::string report_path{};
+  bool unfused = false;
+  bool hp_halo = false;
+  bool dot_matrix = false;
 };
 
 using DenseGrid = carbon::Dense;
@@ -129,10 +133,12 @@ parse_args(int argc,
   a.repeats = get_argval_int(argv, argv + argc, "-repeats", kDefaultRepeats);
   a.warmup = get_argval_int(argv, argv + argc, "--warmup", kWarmupIters);
   a.csv = has_flag(argv, argv + argc, "-csv");
-  a.skip_validation =
-      has_flag(argv, argv + argc, "--skip-validation") ||
-      has_flag(argv, argv + argc, "-skip-validation");
+  a.skip_validation = has_flag(argv, argv + argc, "--skip-validation") ||
+                      has_flag(argv, argv + argc, "-skip-validation");
   a.fixed_iters = has_flag(argv, argv + argc, "--fixed-iters");
+  a.unfused = has_flag(argv, argv + argc, "--unfused");
+  a.hp_halo = has_flag(argv, argv + argc, "--hp-halo");
+  a.dot_matrix = has_flag(argv, argv + argc, "--dot-matrix");
   const std::string overlap = get_argval_string(argv, argv + argc, "--overlap");
   if (!overlap.empty()) {
     a.overlap = overlap;
@@ -142,9 +148,9 @@ parse_args(int argc,
     a.block = block;
   }
   a.dump_path = get_argval_string(argv, argv + argc, "--dump");
+  a.dot_path = get_argval_string(argv, argv + argc, "--dot");
   a.report_path = get_argval_string(argv, argv + argc, "--report");
-  const std::string reduce_finalize =
-      get_argval_string(argv, argv + argc, "--reduce-finalize");
+  const std::string reduce_finalize = get_argval_string(argv, argv + argc, "--reduce-finalize");
   if (!reduce_finalize.empty()) {
     a.reduce_finalize = reduce_finalize;
   }
@@ -161,7 +167,10 @@ parse_args(int argc,
   return a;
 }
 
-enum class NormSyncMode { Blocking, Pipelined };
+enum class NormSyncMode {
+  Blocking,
+  Pipelined
+};
 
 [[nodiscard]] auto
 parse_norm_sync(std::string_view s) -> std::optional<NormSyncMode> {
@@ -283,8 +292,7 @@ build_fused_jacobi_step(DenseGrid& grid,
         const auto in = loader.read_stencil(fin);
         const auto old_p = loader.read(fin);
         const auto out = loader.write(fout);
-        return [in, old_p, out, nx_global,
-                mirror_periodic_z] CARBON_HD(Span s, Idx idx) -> float {
+        return [in, old_p, out, nx_global, mirror_periodic_z] CARBON_HD(Span s, Idx idx) -> float {
           const auto g = s.global_location(idx);
           if (g.x <= 0 || g.x >= nx_global - 1) {
             return 0.0F;
@@ -309,6 +317,76 @@ build_fused_jacobi_step(DenseGrid& grid,
             }
           }
           const float d = next - old;
+          return d * d;
+        };
+      },
+      sumsq, carbon::reduce::Sum<float>{}, std::move(name), /*shared_mem=*/0U, reduce_opts);
+}
+
+// Unfused variant used when an OverlapMode is requested. The fused step above is a
+// KernelKind::Reduction, which the Skeleton's OCC rewrite never splits, so it can never overlap
+// with the halo. Here the stencil is a plain Compute kernel (splittable into Internal/Boundary)
+// and the norm is a separate Map-pattern reduction that runs after it. Costs one extra pass over
+// u / u_next, which is what buys the halo overlap.
+[[nodiscard]] auto
+build_stencil_step(DenseGrid& grid,
+                   FieldT& fin,
+                   FieldT& fout,
+                   int64_t nx_global,
+                   bool mirror_periodic_z,
+                   std::string name) -> carbon::Kernel {
+  return carbon::Kernel::compute(
+      grid,
+      [&fin, &fout, nx_global, mirror_periodic_z](carbon::KernelLoader& loader) {
+        const auto in = loader.read_stencil(fin);
+        const auto out = loader.write(fout);
+        return [in, out, nx_global, mirror_periodic_z] CARBON_HD(Span s, Idx idx) -> void {
+          const auto g = s.global_location(idx);
+          if (g.x <= 0 || g.x >= nx_global - 1) {
+            return;
+          }
+          const float xp = in.neighbour(s, idx, carbon::int8_3d{1, 0, 0}, 0).value;
+          const float xm = in.neighbour(s, idx, carbon::int8_3d{-1, 0, 0}, 0).value;
+          const float zp = in.neighbour(s, idx, carbon::int8_3d{0, 0, 1}, 0).value;
+          const float zm = in.neighbour(s, idx, carbon::int8_3d{0, 0, -1}, 0).value;
+          const float next = 0.25F * (xp + xm + zp + zm);
+          out.write(s, idx, 0, next);
+          if (mirror_periodic_z) {
+            const int64_t gz_max = s.global_extent().z - 1;
+            const int ix = static_cast<int>(g.x);
+            if (g.z == 0) {
+              const Idx top{ix, 0, static_cast<int>(s.haloed_extent().z - 1)};
+              out.write(s, top, 0, next);
+            }
+            if (g.z == gz_max) {
+              const Idx bot{ix, 0, 0};
+              out.write(s, bot, 0, next);
+            }
+          }
+        };
+      },
+      std::move(name));
+}
+
+[[nodiscard]] auto
+build_norm_step(DenseGrid& grid,
+                FieldT& fold,
+                FieldT& fnew,
+                carbon::ReductionResult<float>& sumsq,
+                int64_t nx_global,
+                carbon::reduce::ReduceOptions reduce_opts,
+                std::string name) -> carbon::Kernel {
+  return carbon::Kernel::reduce<float>(
+      grid,
+      [&fold, &fnew, nx_global](carbon::KernelLoader& loader) {
+        const auto old_p = loader.read(fold);
+        const auto new_p = loader.read(fnew);
+        return [old_p, new_p, nx_global] CARBON_HD(Span s, Idx idx) -> float {
+          const auto g = s.global_location(idx);
+          if (g.x <= 0 || g.x >= nx_global - 1) {
+            return 0.0F;
+          }
+          const float d = new_p.read(s, idx, 0) - old_p.read(s, idx, 0);
           return d * d;
         };
       },
@@ -371,7 +449,11 @@ run_solver(DenseGrid& grid,
            int warmup_iters,
            bool fixed_iterations,
            carbon::reduce::ReduceOptions reduce_opts,
-           NormSyncMode norm_sync) -> SolveRun {
+           NormSyncMode norm_sync,
+           const std::string& dot_prefix = {},
+           bool unfused = false,
+           bool hp_halo = false,
+           bool dot_matrix = false) -> SolveRun {
   SolveRun run{};
   run.u = grid.newField<float, 1>(carbon::MemorySide::HostDevice, "u");
   run.u_next = grid.newField<float, 1>(carbon::MemorySide::HostDevice, "u_next");
@@ -387,27 +469,58 @@ run_solver(DenseGrid& grid,
     sys.stream().wait();
   }
 
-  carbon::ReductionResult<float> sumsq(
-      sys, norm_sync == NormSyncMode::Pipelined
-               ? carbon::reduce::ReductionResultOptions{.slots = 2U}
-               : carbon::reduce::ReductionResultOptions{});
+  carbon::ReductionResult<float> sumsq(sys,
+                                       norm_sync == NormSyncMode::Pipelined
+                                           ? carbon::reduce::ReductionResultOptions{.slots = 2U}
+                                           : carbon::reduce::ReductionResultOptions{});
   if (norm_sync == NormSyncMode::Pipelined) {
     reduce_opts.host_copy = carbon::reduce::ReduceHostCopy::Deferred;
   }
   const int64_t nx64 = grid.global_extent().x;
   const bool mirror_periodic = (grid.global_slab_count() == 1U);
-  auto step_ab = build_fused_jacobi_step(grid, run.u, run.u_next, sumsq, nx64, mirror_periodic,
-                                         reduce_opts, "step_ab");
-  auto step_ba = build_fused_jacobi_step(grid, run.u_next, run.u, sumsq, nx64, mirror_periodic,
-                                         reduce_opts, "step_ba");
+  const auto add_step = [&](carbon::Skeleton& sk, FieldT& fin, FieldT& fout, const char* name) {
+    if (unfused) {
+      sk.add(build_stencil_step(grid, fin, fout, nx64, mirror_periodic, name));
+      sk.add(
+          build_norm_step(grid, fin, fout, sumsq, nx64, reduce_opts, std::string{name} + "_norm"));
+    } else {
+      sk.add(build_fused_jacobi_step(grid, fin, fout, sumsq, nx64, mirror_periodic, reduce_opts,
+                                     name));
+    }
+  };
 
-  carbon::Skeleton sk_ab(sys, carbon::Skeleton::Options{overlap_mode});
-  sk_ab.add(std::move(step_ab));
+  carbon::Skeleton::Options sk_opts{overlap_mode};
+  sk_opts.halo_stream_priority =
+      hp_halo ? carbon::StreamPriority::High : carbon::StreamPriority::Normal;
+  carbon::Skeleton sk_ab(sys, sk_opts);
+  add_step(sk_ab, run.u, run.u_next, "step_ab");
   sk_ab.compile();
 
-  carbon::Skeleton sk_ba(sys, carbon::Skeleton::Options{overlap_mode});
-  sk_ba.add(std::move(step_ba));
+  carbon::Skeleton sk_ba(sys, sk_opts);
+  add_step(sk_ba, run.u_next, run.u, "step_ba");
   sk_ba.compile();
+
+  if (!dot_prefix.empty()) {
+    for (auto [sk, tag] : {std::pair<carbon::Skeleton*, const char*>{&sk_ab, "_ab"},
+                           std::pair<carbon::Skeleton*, const char*>{&sk_ba, "_ba"}}) {
+      if (!sk->export_dot_file(dot_prefix + tag + ".dot")) {
+        std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s.dot\n", dot_prefix.c_str(), tag);
+      }
+      if (!sk->export_launch_order_file(dot_prefix + tag + ".txt")) {
+        std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s.txt\n", dot_prefix.c_str(), tag);
+      }
+      if (dot_matrix && !sk->export_launch_matrix_dot_file(dot_prefix + tag + "_matrix.dot",
+                                                           std::string{"jacobi"} + tag)) {
+        std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s_matrix.dot\n", dot_prefix.c_str(),
+                     tag);
+      }
+      if (dot_matrix && !sk->export_kernel_list_dot_file(dot_prefix + tag + "_kernels.dot",
+                                                         std::string{"jacobi"} + tag)) {
+        std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s_kernels.dot\n",
+                     dot_prefix.c_str(), tag);
+      }
+    }
+  }
 
   auto one_iter = [&](int iter) -> float {
     if ((iter % 2) == 0) {
@@ -415,8 +528,7 @@ run_solver(DenseGrid& grid,
     } else {
       sk_ba.run();
     }
-    const bool need_norm =
-        (iter % nccheck) == 0 || csv || (iter % 100) == 0;
+    const bool need_norm = (iter % nccheck) == 0 || csv || (iter % 100) == 0;
     if (!need_norm) {
       return 0.0F;
     }
@@ -475,8 +587,8 @@ download_reference_layout(const DenseGrid& grid,
     for (int ix = 0; ix < nx; ++ix) {
       if (ix == 0 || ix == nx - 1) {
         out[static_cast<size_t>(iy) * static_cast<size_t>(nx) + static_cast<size_t>(ix)] =
-            static_cast<float>(std::sin(2.0 * p * static_cast<double>(iy) /
-                                        static_cast<double>(ny - 1)));
+            static_cast<float>(
+                std::sin(2.0 * p * static_cast<double>(iy) / static_cast<double>(ny - 1)));
       }
     }
   }
@@ -529,11 +641,11 @@ validate_interior(const std::vector<float>& got,
   bool ok = true;
   for (int iy = 1; ok && iy < ny - 1; ++iy) {
     for (int ix = 1; ix < nx - 1; ++ix) {
-      const size_t off = static_cast<size_t>(iy) * static_cast<size_t>(nx) + static_cast<size_t>(ix);
+      const size_t off =
+          static_cast<size_t>(iy) * static_cast<size_t>(nx) + static_cast<size_t>(ix);
       if (std::fabs(got[off] - ref[off]) > kTol) {
-        std::fprintf(stderr,
-                     "ERROR: mismatch at iy=%d ix=%d got=%f ref=%f\n",
-                     iy, ix, static_cast<double>(got[off]), static_cast<double>(ref[off]));
+        std::fprintf(stderr, "ERROR: mismatch at iy=%d ix=%d got=%f ref=%f\n", iy, ix,
+                     static_cast<double>(got[off]), static_cast<double>(ref[off]));
         ok = false;
         break;
       }
@@ -562,10 +674,9 @@ run_reference_single_gpu(int nx,
   const carbon::LaunchShape block{64U, 1U, 8U};
   DenseGrid ref_grid(ref_sys, global, make_stencil(), carbon::BoundaryMode::PeriodicZ,
                      carbon::float32_3d{}, 1.0F, block);
-  SolveRun ref_run =
-      run_solver(ref_grid, ref_sys, carbon::OverlapMode::None, niter, nccheck, true, true,
-                 warmup_iters, fixed_iterations, carbon::reduce::ReduceOptions{},
-                 NormSyncMode::Blocking);
+  SolveRun ref_run = run_solver(ref_grid, ref_sys, carbon::OverlapMode::None, niter, nccheck, true,
+                                true, warmup_iters, fixed_iterations,
+                                carbon::reduce::ReduceOptions{}, NormSyncMode::Blocking);
   download_reference_layout(ref_grid, ref_sys, final_solution_field(ref_run), nx, ny, ref_out);
   return ref_run.stats.seconds;
 }
@@ -649,17 +760,15 @@ main(int argc,
     }
     const auto norm_sync = parse_norm_sync(args.norm_sync);
     if (!norm_sync) {
-      std::fprintf(stderr,
-                   "jacobi_nvidia: unknown --norm-sync '%s' (use blocking or pipelined)\n",
+      std::fprintf(stderr, "jacobi_nvidia: unknown --norm-sync '%s' (use blocking or pipelined)\n",
                    args.norm_sync.c_str());
       return EXIT_FAILURE;
     }
 
     BenchContext ctx = make_context(args);
     const size_t num_devices_local = ctx.sys.gpu_group().size();
-    const size_t num_devices = (ctx.world_size > 1)
-                                   ? static_cast<size_t>(ctx.world_size)
-                                   : num_devices_local;
+    const size_t num_devices =
+        (ctx.world_size > 1) ? static_cast<size_t>(ctx.world_size) : num_devices_local;
 
     if (ctx.rank == 0 && !args.csv) {
       std::printf(
@@ -689,10 +798,13 @@ main(int argc,
     SolveRun last_run{};
     for (int r = 0; r < args.repeats; ++r) {
       last_run = run_solver(ctx.grid, ctx.sys, *overlap, args.niter, args.nccheck, args.csv, true,
-                            args.warmup, args.fixed_iters, *reduce_opts, *norm_sync);
+                            args.warmup, args.fixed_iters, *reduce_opts, *norm_sync,
+                            (r == 0 && ctx.rank == 0) ? args.dot_path : std::string{}, args.unfused,
+                            args.hp_halo, args.dot_matrix);
       samples.push_back(last_run.stats.seconds);
     }
-    const carbon::bench::TimingStats stats = carbon::bench::compute_timing_stats(std::move(samples));
+    const carbon::bench::TimingStats stats =
+        carbon::bench::compute_timing_stats(std::move(samples));
 
     if (ctx.rank == 0 && ctx.world_size == 1) {
       if (!args.dump_path.empty()) {

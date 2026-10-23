@@ -429,14 +429,15 @@ run_parallel_sibling_subtest(carbon::System& sys,
 
   for (std::string_view needle :
        {"digraph sibling_pipeline {", "subgraph cluster_stream_0", "subgraph cluster_stream_1",
-        "label=\"uv", "label=\"xy", "label=\"combine", "label=\"order\"", "s0 -> s1", "s1 -> s2"}) {
+        " uv\\n[compute/standard]", " xy\\n[compute/standard]", " combine\\n[compute/standard]",
+        "label=\"order\"", "s0 -> s1", "s1 -> s2"}) {
     if (!contains(needle)) {
       CARBON_LOG_ERROR("test_skeleton: DOT export missing expected substring [{}]; got:\n{}",
                        needle, dot);
       return false;
     }
   }
-  if (dot.find("style=dashed") == std::string::npos || !contains("label=\"wait\"")) {
+  if (dot.find("style=dashed") == std::string::npos || !contains("-> wait #")) {
     CARBON_LOG_ERROR("test_skeleton: DOT export missing cross-stream wait edge styling; got:\n{}",
                      dot);
     return false;

@@ -40,6 +40,11 @@ Gpu::stream() const -> CudaStream {
 }
 
 inline auto
+Gpu::stream_with_priority(int /*greatest_priority*/) const -> CudaStream {
+  return stream();
+}
+
+inline auto
 Gpu::event() const -> Event {
   // sycl::event has no "create empty" form like cudaEventCreate — events are produced
   // by submissions. We allocate a default-constructed sycl::event (representing "nothing

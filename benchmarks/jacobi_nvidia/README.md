@@ -17,6 +17,10 @@ cmake --build build --target carbon_benchmark_jacobi_nvidia
 - `--block 64x1x8` — dense **compute/halo** launch block (default `64x1x8`; does not tune the fused Jacobi reduce step)
 - `--reduce-block N` or `--reduce-block BxY` — fused Jacobi **reduce** launch: 1D (`256`, `512`, …) or **2D** (`32x32` matches NVIDIA `jacobi_kernel`; also `16x16`, `64x64`, …). Default 1D @ 256 threads.
 - `--dump path` — write row-major `float32` field (`ny * nx`) after the solve
+- `--dot prefix` — export the compiled Skeleton DAGs as GraphViz files `prefix_ab.dot` and `prefix_ba.dot` plus launch-order listings `prefix_ab.txt` / `prefix_ba.txt` (one line per anchor sync, event wait, kernel/halo launch, and event record in `run()` order); render PNG with `dot -Tpng prefix_ab.dot -o prefix_ab.png`
+- `--dot-matrix` — with `--dot`, also write `prefix_ab_matrix.dot` / `prefix_ba_matrix.dot`: the launch order as a grid (columns = streams, rows = operations, dashed arrows from each event record to its waits), and `prefix_ab_kernels.dot` / `prefix_ba_kernels.dot`: the added kernels as a table (access mode per field, dependencies, and the launches each kernel lowers to)
+- `--unfused` — split the fused stencil+norm step into separate stencil and norm kernels
+- `--hp-halo` — create halo streams with the highest driver priority
 - `--skip-validation` — skip single-GPU reference check
 - `--report path` — JSON timing report (via `bench_report.h`)
 

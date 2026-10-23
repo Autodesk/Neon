@@ -66,8 +66,7 @@ reduce_atomic_accumulate(T* dst,
     atomicAdd(dst, value);
   } else if constexpr (std::is_same_v<T, int64_t>) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
-    atomicAdd(reinterpret_cast<unsigned long long*>(dst),
-              static_cast<unsigned long long>(value));
+    atomicAdd(reinterpret_cast<unsigned long long*>(dst), static_cast<unsigned long long>(value));
 #else
     (void)dst;
     (void)value;
@@ -171,19 +170,21 @@ template <int BlockDimX,
           typename Op>
 __global__ void
 dense_grid_reduce_kernel_2d_t(Span span,
-                                ::carbon::DataView view,
-                                F fn,
-                                Op op,
-                                T init,
-                                T* partials,
-                                int64_t /*total_cells*/) {
+                              ::carbon::DataView view,
+                              F fn,
+                              Op op,
+                              T init,
+                              T* partials,
+                              int64_t /*total_cells*/) {
   using BlockReduceT =
       gpucub::BlockReduce<T, BlockDimX, gpucub::BLOCK_REDUCE_WARP_REDUCTIONS, BlockDimY>;
   __shared__ typename BlockReduceT::TempStorage temp_storage;
 
   const ::carbon::int64_3d ext = span.iter_extent(view);
-  const int64_t ix = static_cast<int64_t>(blockIdx.x) * BlockDimX + static_cast<int64_t>(threadIdx.x);
-  const int64_t iz = static_cast<int64_t>(blockIdx.y) * BlockDimY + static_cast<int64_t>(threadIdx.y);
+  const int64_t ix =
+      static_cast<int64_t>(blockIdx.x) * BlockDimX + static_cast<int64_t>(threadIdx.x);
+  const int64_t iz =
+      static_cast<int64_t>(blockIdx.y) * BlockDimY + static_cast<int64_t>(threadIdx.y);
 
   T thread_val = init;
   if (ix < ext.x && iz < ext.z) {
@@ -195,9 +196,8 @@ dense_grid_reduce_kernel_2d_t(Span span,
 
   const T block_val = BlockReduceT(temp_storage).Reduce(thread_val, op);
   if (threadIdx.x == 0 && threadIdx.y == 0) {
-    const size_t block_linear =
-        static_cast<size_t>(blockIdx.y) * static_cast<size_t>(gridDim.x) +
-        static_cast<size_t>(blockIdx.x);
+    const size_t block_linear = static_cast<size_t>(blockIdx.y) * static_cast<size_t>(gridDim.x) +
+                                static_cast<size_t>(blockIdx.x);
     partials[block_linear] = block_val;
   }
 }
@@ -220,8 +220,10 @@ dense_grid_reduce_block_atomic_kernel_2d_t(Span span,
   __shared__ typename BlockReduceT::TempStorage temp_storage;
 
   const ::carbon::int64_3d ext = span.iter_extent(view);
-  const int64_t ix = static_cast<int64_t>(blockIdx.x) * BlockDimX + static_cast<int64_t>(threadIdx.x);
-  const int64_t iz = static_cast<int64_t>(blockIdx.y) * BlockDimY + static_cast<int64_t>(threadIdx.y);
+  const int64_t ix =
+      static_cast<int64_t>(blockIdx.x) * BlockDimX + static_cast<int64_t>(threadIdx.x);
+  const int64_t iz =
+      static_cast<int64_t>(blockIdx.y) * BlockDimY + static_cast<int64_t>(threadIdx.y);
 
   T thread_val = init;
   if (ix < ext.x && iz < ext.z) {
@@ -238,6 +240,5 @@ dense_grid_reduce_block_atomic_kernel_2d_t(Span span,
 }
 
 #endif  // CARBON_CUDALIKE_DEVICE_TU
-
 
 }  // namespace carbon::detail::dense
