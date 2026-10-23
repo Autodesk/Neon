@@ -453,6 +453,20 @@ Skeleton + OCC behaviour on a real stencil pipeline.
 Build target: `carbon_benchmark_halo_scalability`. See also
 `benchmarks/halo_scalability/scripts/run_local.sh` and `plot.py`.
 
+## Single-node strong-scaling (carbon-nvidia-jacobi)
+
+For one-machine sweeps over GPU count (Jacobi + LBM + micro-benchmarks + halo), use the
+orchestrator in the parent **carbon-nvidia-jacobi** repo:
+
+- Script: `single_node_benchmark.py` (repo root)
+- Doc: [benchmarks/single_node_benchmark.md](single_node_benchmark.md)
+
+Quick example from that repo root after building targets under `build/`:
+
+```bash
+python3 single_node_benchmark.py --quick --no-mpi
+```
+
 ## Unified harness
 
 Run the three micro-benchmarks with median aggregation and JSON reports:

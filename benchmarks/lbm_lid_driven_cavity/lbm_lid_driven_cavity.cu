@@ -129,6 +129,8 @@ struct Options {
   // same hot kernel; only the storage layout + halo family differ).
   bool checksum = false;
   bool show_help = false;
+  /** Limit to first N visible CUDA devices (-1 = all visible). Same as jacobi_nvidia -gpus. */
+  int n_gpus = -1;
 };
 
 [[nodiscard]] auto
@@ -154,6 +156,9 @@ build_cli(Options& opts) -> clipp::group {
       (option("--grid") & value("dense|disg", opts.grid)) %
           "Grid family: dense (carbon::Dense, default) or disg (carbon::DenseDisg, "
           "the disaggregated five-region LBM layout). Same hot kernel on both.",
+      (option("-gpus", "--gpus") & integer("n", opts.n_gpus)) %
+          "Use the first N visible CUDA devices (-1 = all visible; default -1). "
+          "Combine with CUDA_VISIBLE_DEVICES to pick physical GPUs.",
       (option("--report-every") & integer("n", opts.report_every)) %
           "Log progress every N iterations (default 100; 0 silences)",
       (option("--report") & value("path", opts.report_path)) %
@@ -383,6 +388,25 @@ make_lbm_stencil() -> carbon::Stencil {
 // code. This keeps all the instantiation cost on configurations the user
 // actually exercises (the dispatch only calls one of the three
 // instantiations for a given run).
+[[nodiscard]] auto
+make_single_process_system(int n_gpus_limit) -> carbon::System {
+  std::vector<carbon::detail::Gpu> devices = carbon::get_all_devices();
+  if (devices.empty()) {
+    carbon::log::throw_with_log<std::runtime_error>(
+        "lbm_lid_driven_cavity: no CUDA devices visible");
+  }
+  if (n_gpus_limit > 0 && static_cast<size_t>(n_gpus_limit) < devices.size()) {
+    devices.erase(devices.begin() + static_cast<std::ptrdiff_t>(n_gpus_limit), devices.end());
+  }
+  if (n_gpus_limit > 0 && static_cast<size_t>(n_gpus_limit) > devices.size()) {
+    CARBON_LOG_WARN(
+        "lbm_lid_driven_cavity: --gpus {} requested but only {} CUDA device(s) visible "
+        "(check CUDA_VISIBLE_DEVICES)",
+        n_gpus_limit, devices.size());
+  }
+  return carbon::System(std::move(devices));
+}
+
 template <typename Grid,
           typename Lattice,
           typename Collision>
@@ -404,9 +428,9 @@ run_benchmark(const Options& opts,
   auto distributed = std::make_shared<const carbon::Distributed>();
   const bool use_mpi = distributed->world_size() > 1;
   carbon::System sys =
-      use_mpi ? carbon::System(distributed) : carbon::System(carbon::get_all_devices());
+      use_mpi ? carbon::System(distributed) : make_single_process_system(opts.n_gpus);
 #else
-  carbon::System sys(carbon::get_all_devices());
+  carbon::System sys = make_single_process_system(opts.n_gpus);
 #endif
   const size_t n_gpus = sys.gpu_group().size();
 
