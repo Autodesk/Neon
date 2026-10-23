@@ -6023,3 +6023,16 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `ReduceOptions`). Inline D→H records `slotDone` for `wait_value`. Tests:
   `test_reduce_scalar_ring`, `test_skeleton_scalar_pattern`,
   `test_skeleton_scalar_pattern_multi_gpu`. Jacobi adds `--norm-sync blocking|pipelined`.
+
+- **2026-10 — Neon-style Skeleton scheduling (Standard overlap).** `compile_step_graph_and_lower_`
+  builds a step graph (data + hint edges), applies Standard OCC splits (compute and
+  reduction with partial + merge launches), assigns streams (Boundary on the halo stream,
+  Internal before halo via hint edges), emits cross-stream events, then
+  `compile_prune_syncs_()` drops redundant waits/records and covered anchor joins.
+  `OverlapMode::Extended` / `TwoWayExtended` still use the legacy `apply_occ_` path.
+  Reduction splits use `reduce::ReduceLaunchMode::{Partial,Merge}`; Jacobi defaults to the
+  fused stencil+norm kernel (`--unfused` for the old split pipeline). Optional high-priority
+  halo streams: `Skeleton::Options::halo_stream_priority`, `System::stream(StreamPriority)`,
+  benchmark `--hp-halo`. `Skeleton::export_launch_matrix_dot()` (benchmark `--dot-matrix`)
+  renders the launch order as a streams × operations grid; `Skeleton::export_kernel_list_dot()`
+  renders the added kernels as a table (per-resource access, dependencies, launches).

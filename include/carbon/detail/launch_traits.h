@@ -460,7 +460,8 @@ struct ReduceLaunchTraits {
     const auto span = grid.spans()[g_idx];
     const ::carbon::int64_3d ext = span.iter_extent(view);
     const int64_t cells = static_cast<int64_t>(ext.volume());
-    if constexpr (!requires { typename Grid::DisgPolicy; } && !requires { typename Grid::SBlock; }) {
+    if constexpr (
+        !requires { typename Grid::DisgPolicy; } && !requires { typename Grid::SBlock; }) {
       if (dense_stage1_threads_y > 0) {
         const int bx = dense_stage1_threads > 0 ? dense_stage1_threads : 32;
         const int by = dense_stage1_threads_y;
@@ -473,7 +474,8 @@ struct ReduceLaunchTraits {
       }
     }
     int bt = stage1_block_threads();
-    if constexpr (!requires { typename Grid::DisgPolicy; } && !requires { typename Grid::SBlock; }) {
+    if constexpr (
+        !requires { typename Grid::DisgPolicy; } && !requires { typename Grid::SBlock; }) {
       if (dense_stage1_threads > 0) {
         bt = dense_stage1_threads;
       }

@@ -46,6 +46,29 @@ Gpu::stream() const -> CudaStream {
 }
 
 inline auto
+Gpu::stream_with_priority(int greatest_priority) const -> CudaStream {
+  set_device();
+  gpu_stream_t s = nullptr;
+  int least = 0;
+  int greatest = 0;
+  (void)gpu_stream_priority_range(&least, &greatest);
+  const gpu_error_t err = gpu_stream_create_with_priority(&s, least, greatest_priority);
+  if (err != gpu_success) {
+    ::carbon::log::throw_with_log<std::runtime_error>("gpu_stream_create_with_priority: {}",
+                                                      gpu_error_string(err));
+  }
+  const int dev = device_id_;
+  auto deleter = [dev](void* p) {
+    if (p == nullptr) {
+      return;
+    }
+    (void)gpu_set_device(dev);
+    (void)gpu_stream_destroy(static_cast<gpu_stream_t>(p));
+  };
+  return CudaStream(std::shared_ptr<void>(static_cast<void*>(s), std::move(deleter)));
+}
+
+inline auto
 Gpu::event() const -> Event {
   set_device();
   gpu_event_t e = nullptr;

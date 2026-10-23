@@ -32,9 +32,10 @@ main() {
     const carbon::int64_3d global{kW, kH, kD};
     carbon::Dense grid(sys, global, carbon::Stencil{});
 
-    carbon::Dense::Field<float, 1> f =
-        grid.newField<float, 1>(carbon::MemorySide::HostDevice, "f");
-    f.fill_owned_host([](carbon::int64_3d, int) { return 1.0F; });
+    carbon::Dense::Field<float, 1> f = grid.newField<float, 1>(carbon::MemorySide::HostDevice, "f");
+    f.fill_owned_host([](carbon::int64_3d, int) {
+      return 1.0F;
+    });
     carbon::Stream up = sys.stream();
     carbon::Transfer<float>(sys, f.cpu_buffers(), f.gpu_buffers())(up);
     up.wait();
@@ -60,7 +61,9 @@ main() {
       return EXIT_FAILURE;
     }
 
-    f.fill_owned_host([](carbon::int64_3d, int) { return 2.0F; });
+    f.fill_owned_host([](carbon::int64_3d, int) {
+      return 2.0F;
+    });
     carbon::Transfer<float>(sys, f.cpu_buffers(), f.gpu_buffers())(up);
     up.wait();
     reduce_k.launch(compute);

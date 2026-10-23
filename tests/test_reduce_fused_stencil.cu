@@ -25,8 +25,9 @@ constexpr int64_t kDepth = 10;
 
 [[nodiscard]] auto
 make_stencil() -> carbon::Stencil {
-  return carbon::Stencil(std::vector<carbon::int32_3d>{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}},
-                         /*remove_center=*/true);
+  return carbon::Stencil(
+      std::vector<carbon::int32_3d>{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}},
+      /*remove_center=*/true);
 }
 
 using Dense = carbon::Dense;
@@ -90,7 +91,8 @@ build_fused(Dense& dense,
 build_reference(Dense& dense,
                 Field& u,
                 Field& u_next,
-                carbon::ReductionResult<float>& ref_sum) -> std::pair<carbon::Kernel, carbon::Kernel> {
+                carbon::ReductionResult<float>& ref_sum) -> std::pair<carbon::Kernel,
+                                                                      carbon::Kernel> {
   auto compute = carbon::Kernel::compute(
       dense,
       [&u, &u_next](carbon::KernelLoader& loader) {
@@ -199,7 +201,8 @@ main() {
   }
 
   if (!fields_match(dense, u_next, u_next_ref)) {
-    CARBON_LOG_ERROR("test_reduce_fused_stencil: u_next field mismatch vs compute+reduce reference");
+    CARBON_LOG_ERROR(
+        "test_reduce_fused_stencil: u_next field mismatch vs compute+reduce reference");
     return EXIT_FAILURE;
   }
 

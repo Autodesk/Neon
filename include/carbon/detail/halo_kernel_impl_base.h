@@ -100,10 +100,8 @@ public:
     // token suffices for dependency analysis: any kernel that touches this
     // field will be sequenced behind the halo, which is the contract halos
     // serve in a stencil pipeline.
-    tokens_.push_back(AccessToken{Traits::field_uid(halo_),
-                                  ResourceKind::Field,
-                                  AccessMode::ReadWrite,
-                                  AccessPattern::Map,
+    tokens_.push_back(AccessToken{Traits::field_uid(halo_), ResourceKind::Field,
+                                  AccessMode::ReadWrite, AccessPattern::Map,
                                   Traits::field_name(halo_),
                                   /*halo_factory=*/nullptr});
   }

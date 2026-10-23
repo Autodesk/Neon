@@ -330,8 +330,7 @@ main() {
   }
 
   CARBON_EXPECT_THROW(carbon::Dense(sys, global, carbon::Stencil{}, carbon::BoundaryMode::Open,
-                                    carbon::float32_3d{}, 1.0F,
-                                    carbon::LaunchShape{2048U, 1U, 1U}),
+                                    carbon::float32_3d{}, 1.0F, carbon::LaunchShape{2048U, 1U, 1U}),
                       std::runtime_error);
 
   return 0;

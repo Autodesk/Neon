@@ -87,8 +87,7 @@ disg_reduce_atomic_accumulate(T* dst,
     atomicAdd(dst, value);
   } else if constexpr (std::is_same_v<T, int64_t>) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
-    atomicAdd(reinterpret_cast<unsigned long long*>(dst),
-              static_cast<unsigned long long>(value));
+    atomicAdd(reinterpret_cast<unsigned long long*>(dst), static_cast<unsigned long long>(value));
 #else
     (void)dst;
     (void)value;

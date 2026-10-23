@@ -14,6 +14,7 @@
 #include <carbon/access_token.h>
 #include <carbon/data_view.h>
 #include <carbon/logging.h>
+#include <carbon/reduce.h>
 #include <carbon/system.h>
 
 #include <stdexcept>
@@ -131,6 +132,22 @@ public:
   virtual auto
   launch(const ::carbon::Stream& stream,
          DataView view) -> void = 0;
+
+  /**
+   * @brief Reduction-only phased launch (@ref reduce::ReduceLaunchMode ). Default throws.
+   */
+  virtual auto
+  launch_reduction_phase(const ::carbon::Stream& stream,
+                         DataView view,
+                         reduce::ReduceLaunchMode mode) -> void {
+    if (mode == reduce::ReduceLaunchMode::Full) {
+      launch(stream, view);
+      return;
+    }
+    log::throw_with_log<std::logic_error>(
+        "KernelImpl::launch_reduction_phase: kernel '{}' does not support ReduceLaunchMode",
+        name());
+  }
 
   /**
    * @brief Run this kernel on the device side via @p stream.

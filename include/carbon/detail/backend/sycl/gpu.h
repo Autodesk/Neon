@@ -154,6 +154,9 @@ public:
   [[nodiscard]] auto
   stream() const -> CudaStream;
 
+  [[nodiscard]] auto
+  stream_with_priority(int /*greatest_priority*/) const -> CudaStream;
+
   /** Construct an empty @c sycl::event sized to this device. */
   [[nodiscard]] auto
   event() const -> Event;

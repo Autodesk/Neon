@@ -15,14 +15,15 @@
  *   - @c compile_allocate_anchor_events_ — start / join events for the
  *                                          per-run bracket on the anchor.
  *   - @c export_dot  — GraphViz DOT renderer for the inferred DAG.
+ *   - @c export_launch_order — text listing of one @c run iteration's ops.
  *
  * Splitting these out trims @c <carbon/skeleton.h> by ~700 lines of body
  * and removes ~thousand lines of parse work from every consumer TU.
  */
 
 #include <carbon/access_token.h>
-#include <carbon/detail/scalar_readback_factory.h>
 #include <carbon/data_view.h>
+#include <carbon/detail/scalar_readback_factory.h>
 #include <carbon/kernel.h>
 #include <carbon/logging.h>
 #include <carbon/skeleton.h>
@@ -34,6 +35,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <iterator>
 #include <set>
 #include <sstream>
@@ -42,6 +44,203 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+namespace {
+
+constexpr std::array<std::string_view, 8> kStreamColors = {
+    "#cfe2f3", "#fce5cd", "#d9ead3", "#f4cccc", "#ead1dc", "#fff2cc", "#d0e0e3", "#e6e6e6"};
+
+auto
+html_escape(std::string_view s) -> std::string {
+  std::string out;
+  out.reserve(s.size());
+  for (const char c : s) {
+    switch (c) {
+      case '&':
+        out += "&amp;";
+        break;
+      case '<':
+        out += "&lt;";
+        break;
+      case '>':
+        out += "&gt;";
+        break;
+      case '"':
+        out += "&quot;";
+        break;
+      default:
+        out += c;
+    }
+  }
+  return out;
+}
+
+// Shared look of the HTML-label exports (launch matrix, kernel list).
+struct Palette {
+  std::string_view fill;
+  std::string_view border;
+};
+constexpr std::string_view kHeaderBg = "#2f3b4c";
+constexpr std::string_view kHeaderSubtitle = "#c9d1dc";
+constexpr std::array<std::string_view, 2> kRowBg = {"#ffffff", "#f2f4f7"};
+constexpr std::string_view kMuted = "#5f6b7a";
+constexpr std::string_view kSyncColor = "#c0392b";
+constexpr std::string_view kAnchorColor = "#2e6da4";
+constexpr Palette kHaloPal{"#fde3c4", "#d97b0f"};
+constexpr Palette kInternalPal{"#d6e6f7", "#2e6da4"};
+constexpr Palette kBoundaryPal{"#e4dcf3", "#6a4fb0"};
+constexpr Palette kStandardPal{"#dcefd6", "#4c9a3a"};
+constexpr Palette kReductionPal{"#d4efed", "#1f8a85"};
+constexpr Palette kCopyPal{"#eceff3", "#7b8794"};
+
+auto
+launch_palette(carbon::KernelKind kind,
+               carbon::DataView view) -> Palette {
+  if (kind == carbon::KernelKind::Halo) {
+    return kHaloPal;
+  }
+  if (kind == carbon::KernelKind::ScalarReadback) {
+    return kCopyPal;
+  }
+  if (view == carbon::DataView::Internal) {
+    return kInternalPal;
+  }
+  if (view == carbon::DataView::Boundary) {
+    return kBoundaryPal;
+  }
+  return kStandardPal;
+}
+
+auto
+kind_palette(carbon::KernelKind kind) -> Palette {
+  switch (kind) {
+    case carbon::KernelKind::Halo:
+      return kHaloPal;
+    case carbon::KernelKind::Reduction:
+    case carbon::KernelKind::ReductionHost:
+    case carbon::KernelKind::UniversalReduction:
+      return kReductionPal;
+    case carbon::KernelKind::Anchor:
+    case carbon::KernelKind::ScalarReadback:
+      return kCopyPal;
+    default:
+      return kStandardPal;
+  }
+}
+
+auto
+font(int point_size,
+     std::string_view color,
+     const std::string& text) -> std::string {
+  std::string out = "<FONT POINT-SIZE=\"" + std::to_string(point_size) + "\"";
+  if (!color.empty()) {
+    out += " COLOR=\"" + std::string{color} + "\"";
+  }
+  return out + ">" + text + "</FONT>";
+}
+
+// Fixed-size bordered box with centred @p body. FIXEDSIZE on both the table and the
+// cell is required: otherwise GraphViz stretches nested tables to the parent cell and
+// pins the text to the top-left corner.
+auto
+html_box(Palette p,
+         std::string_view style,
+         int width,
+         int height,
+         const std::string& body,
+         std::string_view port = {}) -> std::string {
+  std::ostringstream b;
+  b << "<TABLE";
+  if (!port.empty()) {
+    b << " PORT=\"" << port << "\"";
+  }
+  b << " FIXEDSIZE=\"TRUE\" WIDTH=\"" << width << "\" HEIGHT=\"" << height
+    << "\" BORDER=\"1\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"0\" STYLE=\"" << style
+    << "\" COLOR=\"" << p.border << "\" BGCOLOR=\"" << p.fill
+    << "\"><TR><TD FIXEDSIZE=\"TRUE\" WIDTH=\"" << (width - 2) << "\" HEIGHT=\"" << (height - 2)
+    << "\">" << body << "</TD></TR></TABLE>";
+  return b.str();
+}
+
+// Legend entry: a small swatch followed by its caption.
+auto
+legend_swatch(Palette p,
+              std::string_view style,
+              std::string_view text) -> std::string {
+  return "<TD BGCOLOR=\"" + std::string{p.fill} + "\" COLOR=\"" + std::string{p.border} +
+         "\" BORDER=\"1\" STYLE=\"" + std::string{style} +
+         "\" WIDTH=\"16\" HEIGHT=\"10\"></TD><TD ALIGN=\"LEFT\">" + font(9, {}, std::string{text}) +
+         "</TD>";
+}
+
+auto
+plural(size_t n,
+       std::string_view word) -> std::string {
+  return std::to_string(n) + " " + std::string{word} + (n == 1U ? "" : "s");
+}
+
+struct StepGraphNode {
+  size_t kernel_idx{0U};
+  carbon::DataView view{carbon::DataView::Standard};
+  carbon::reduce::ReduceLaunchMode reduce_mode{carbon::reduce::ReduceLaunchMode::Full};
+  bool active{true};
+  std::vector<size_t> data_succs{};
+  std::vector<size_t> hint_succs{};
+};
+
+auto
+step_graph_hint_preds(const std::vector<StepGraphNode>& nodes,
+                      size_t nid) -> std::vector<size_t> {
+  std::vector<size_t> preds;
+  for (size_t i = 0; i < nodes.size(); ++i) {
+    if (!nodes[i].active) {
+      continue;
+    }
+    for (size_t s : nodes[i].hint_succs) {
+      if (s == nid) {
+        preds.push_back(i);
+      }
+    }
+  }
+  return preds;
+}
+
+auto
+step_graph_data_preds(const std::vector<StepGraphNode>& nodes,
+                      size_t nid) -> std::vector<size_t> {
+  std::vector<size_t> preds;
+  for (size_t i = 0; i < nodes.size(); ++i) {
+    if (!nodes[i].active) {
+      continue;
+    }
+    for (size_t s : nodes[i].data_succs) {
+      if (s == nid) {
+        preds.push_back(i);
+      }
+    }
+  }
+  return preds;
+}
+
+auto
+step_graph_replace_succ(std::vector<size_t>& succs,
+                        size_t from,
+                        size_t to_a,
+                        size_t to_b,
+                        bool both_halves) -> void {
+  auto it = std::find(succs.begin(), succs.end(), from);
+  if (it == succs.end()) {
+    return;
+  }
+  if (both_halves) {
+    *it = to_a;
+    succs.push_back(to_b);
+  } else {
+    *it = to_b;
+  }
+}
+
+}  // namespace
 
 namespace carbon {
 
@@ -94,16 +293,11 @@ Skeleton::compile() -> void {
     }
   }
 
-  // Phase 2 + 3: greedy stream assignment + cross-stream event allocation.
-  compile_assign_streams_and_events_(direct_preds_of);
-
-  // Phase 4: OCC graph rewrite (only for non-None modes). The rewrite
-  // mutates schedule_ + kernel_stream_ + streams_ + events_ in place;
-  // None is the identity (the schedule above already runs every kernel
-  // with view=Standard). All four modes route through apply_occ_
-  // (Standard / Extended / TwoWayExtended differ only in how far they
-  // propagate the Internal/Boundary split through the DAG).
-  if (options_.overlap_mode != OverlapMode::None) {
+  if (options_.overlap_mode == OverlapMode::None ||
+      options_.overlap_mode == OverlapMode::Standard) {
+    compile_step_graph_and_lower_(direct_preds_of);
+  } else {
+    compile_assign_streams_and_events_(direct_preds_of);
     apply_occ_(direct_preds_of);
   }
 
@@ -112,6 +306,8 @@ Skeleton::compile() -> void {
   // streams), and after every other phase that appends to events_ so the
   // indices stashed here stay valid.
   compile_allocate_anchor_events_();
+
+  compile_prune_syncs_();
 
   compiled_ = true;
 
@@ -412,6 +608,281 @@ Skeleton::compile_assign_streams_and_events_(
 }
 
 auto
+Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& direct_preds_of)
+    -> void {
+  const size_t n = effective_kernels_.size();
+  std::vector<StepGraphNode> nodes(n);
+  for (size_t i = 0; i < n; ++i) {
+    nodes[i].kernel_idx = i;
+  }
+  for (size_t i = 0; i < n; ++i) {
+    nodes[i].data_succs = min_edges_[i];
+  }
+
+  if (options_.overlap_mode == OverlapMode::Standard) {
+    const std::vector<OccPair> candidates = occ_collect_candidates_(direct_preds_of);
+    for (const OccPair& pair : candidates) {
+      const size_t h = pair.halo;
+      const size_t s = pair.stencil;
+      if (!nodes[s].active || nodes[s].view != DataView::Standard) {
+        continue;
+      }
+      const bool is_reduction = effective_kernels_[s].kind() == KernelKind::Reduction;
+      const size_t si = nodes.size();
+      nodes.push_back(StepGraphNode{.kernel_idx = s,
+                                    .view = DataView::Internal,
+                                    .reduce_mode = is_reduction ? reduce::ReduceLaunchMode::Partial
+                                                                : reduce::ReduceLaunchMode::Full,
+                                    .active = true,
+                                    .data_succs = {},
+                                    .hint_succs = {}});
+      const size_t sb = nodes.size();
+      nodes.push_back(StepGraphNode{.kernel_idx = s,
+                                    .view = DataView::Boundary,
+                                    .reduce_mode = is_reduction ? reduce::ReduceLaunchMode::Partial
+                                                                : reduce::ReduceLaunchMode::Full,
+                                    .active = true,
+                                    .data_succs = {},
+                                    .hint_succs = {}});
+
+      const std::vector<size_t> succs_s = nodes[s].data_succs;
+      // min_edges_ is transitively reduced, so orderings that reach s only through h
+      // (e.g. the previous stencil's writes) would be lost once h no longer precedes s_I.
+      const std::vector<size_t> preds_h = step_graph_data_preds(nodes, h);
+      for (size_t p = 0; p < nodes.size(); ++p) {
+        if (!nodes[p].active) {
+          continue;
+        }
+        const bool both = (p != h);
+        step_graph_replace_succ(nodes[p].data_succs, s, si, sb, both);
+      }
+      if (is_reduction) {
+        const size_t sm = nodes.size();
+        nodes.push_back(StepGraphNode{.kernel_idx = s,
+                                      .view = DataView::Standard,
+                                      .reduce_mode = reduce::ReduceLaunchMode::Merge,
+                                      .active = true,
+                                      .data_succs = succs_s,
+                                      .hint_succs = {}});
+        nodes[si].data_succs = {sm};
+        nodes[sb].data_succs = {sm};
+      } else {
+        nodes[si].data_succs = succs_s;
+        nodes[sb].data_succs = succs_s;
+      }
+      for (size_t p : preds_h) {
+        if (std::find(nodes[p].data_succs.begin(), nodes[p].data_succs.end(), si) ==
+            nodes[p].data_succs.end()) {
+          nodes[p].data_succs.push_back(si);
+        }
+      }
+      nodes[si].hint_succs.push_back(h);
+      nodes[s].active = false;
+    }
+  }
+
+  std::vector<size_t> active_ids;
+  active_ids.reserve(nodes.size());
+  for (size_t i = 0; i < nodes.size(); ++i) {
+    if (nodes[i].active) {
+      active_ids.push_back(i);
+    }
+  }
+
+  std::vector<size_t> indeg(nodes.size(), 0U);
+  for (size_t id : active_ids) {
+    for (size_t s : nodes[id].data_succs) {
+      if (nodes[s].active) {
+        ++indeg[s];
+      }
+    }
+    for (size_t s : nodes[id].hint_succs) {
+      if (nodes[s].active) {
+        ++indeg[s];
+      }
+    }
+  }
+
+  std::vector<size_t> topo;
+  topo.reserve(active_ids.size());
+  std::vector<size_t> ready;
+  for (size_t id : active_ids) {
+    if (indeg[id] == 0U) {
+      ready.push_back(id);
+    }
+  }
+  std::sort(ready.begin(), ready.end());
+  while (!ready.empty()) {
+    const size_t id = ready.front();
+    ready.erase(ready.begin());
+    topo.push_back(id);
+    auto relax = [&](const std::vector<size_t>& succs) {
+      for (size_t s : succs) {
+        if (!nodes[s].active) {
+          continue;
+        }
+        if (--indeg[s] == 0U) {
+          ready.push_back(s);
+        }
+      }
+    };
+    relax(nodes[id].data_succs);
+    relax(nodes[id].hint_succs);
+    std::sort(ready.begin(), ready.end());
+  }
+  if (topo.size() != active_ids.size()) {
+    log::throw_with_log<std::logic_error>(
+        "Skeleton::compile_step_graph_and_lower_: step graph cycle detected");
+  }
+
+  std::vector<size_t> node_stream(nodes.size(), kNoStream_);
+  std::vector<size_t> stream_tail(streams_.size(), kNoKernel_);
+  std::vector<size_t> node_record_event(nodes.size(), kNoEvent_);
+  std::vector<std::vector<size_t>> node_waits(nodes.size());
+
+  auto alloc_stream = [&](bool prefer_high_priority) -> size_t {
+    Stream st = (prefer_high_priority && options_.halo_stream_priority == StreamPriority::High)
+                    ? sys_.stream(StreamPriority::High)
+                    : sys_.stream();
+    streams_.push_back(std::move(st));
+    stream_tail.push_back(kNoKernel_);
+    return streams_.size() - 1U;
+  };
+
+  auto pick_stream = [&](size_t nid, const std::vector<size_t>& data_preds) -> size_t {
+    const KernelKind k_kind = effective_kernels_[nodes[nid].kernel_idx].kind();
+    if (k_kind == KernelKind::ScalarReadback) {
+      if (copy_stream_idx_ == kNoStream_) {
+        copy_stream_idx_ = alloc_stream(false);
+        has_detached_stream_ = true;
+      }
+      return copy_stream_idx_;
+    }
+
+    size_t chosen = kNoStream_;
+    for (size_t p : data_preds) {
+      if (node_stream[p] == kNoStream_) {
+        continue;
+      }
+      if (effective_kernels_[nodes[p].kernel_idx].kind() == KernelKind::Halo &&
+          nodes[nid].view == DataView::Boundary) {
+        chosen = node_stream[p];
+        break;
+      }
+    }
+    if (chosen == kNoStream_) {
+      for (size_t s = 0; s < stream_tail.size(); ++s) {
+        const size_t tail = stream_tail[s];
+        if (tail == kNoKernel_) {
+          continue;
+        }
+        for (size_t p : data_preds) {
+          if (p == tail) {
+            chosen = s;
+            break;
+          }
+        }
+        if (chosen != kNoStream_) {
+          break;
+        }
+      }
+    }
+    if (chosen == kNoStream_) {
+      for (size_t s = 0; s < stream_tail.size(); ++s) {
+        if (stream_tail[s] == kNoKernel_) {
+          chosen = s;
+          break;
+        }
+      }
+    }
+    if (chosen == kNoStream_) {
+      if (options_.max_streams != 0U && streams_.size() >= options_.max_streams) {
+        chosen = 0U;
+      } else {
+        chosen = alloc_stream(false);
+      }
+    }
+    const std::vector<size_t> hint_preds = step_graph_hint_preds(nodes, nid);
+    if (k_kind == KernelKind::Halo && !hint_preds.empty() &&
+        options_.overlap_mode == OverlapMode::Standard) {
+      if (options_.max_streams != 0U && streams_.size() >= options_.max_streams) {
+        chosen = 0U;
+      } else if (chosen == 0U && stream_tail.size() > 1U) {
+        for (size_t s = 1U; s < stream_tail.size(); ++s) {
+          if (stream_tail[s] == kNoKernel_) {
+            chosen = s;
+            break;
+          }
+        }
+      }
+      if (chosen == 0U && (options_.max_streams == 0U || streams_.size() < options_.max_streams)) {
+        chosen = alloc_stream(true);
+      }
+    }
+    return chosen;
+  };
+
+  for (size_t nid : topo) {
+    const std::vector<size_t> data_preds = step_graph_data_preds(nodes, nid);
+    const size_t chosen = pick_stream(nid, data_preds);
+    node_stream[nid] = chosen;
+    stream_tail[chosen] = nid;
+
+    for (size_t p : data_preds) {
+      if (node_stream[p] != chosen) {
+        if (node_record_event[p] == kNoEvent_) {
+          events_.push_back(sys_.event());
+          node_record_event[p] = events_.size() - 1U;
+        }
+        node_waits[nid].push_back(node_record_event[p]);
+      }
+    }
+  }
+
+  for (size_t nid : topo) {
+    bool needs_record = false;
+    for (size_t s : nodes[nid].data_succs) {
+      if (!nodes[s].active) {
+        continue;
+      }
+      if (node_stream[nid] != node_stream[s]) {
+        needs_record = true;
+        break;
+      }
+    }
+    if (needs_record && node_record_event[nid] == kNoEvent_) {
+      events_.push_back(sys_.event());
+      node_record_event[nid] = events_.size() - 1U;
+    }
+  }
+
+  schedule_.clear();
+  schedule_.reserve(topo.size());
+  kernel_stream_.assign(n, 0U);
+  record_event_per_kernel_.assign(n, kNoEvent_);
+  // A split kernel reports the stream of its first-issued (Internal) half.
+  std::vector<bool> kernel_stream_set(n, false);
+
+  for (size_t nid : topo) {
+    Step step{};
+    step.kernel_idx = nodes[nid].kernel_idx;
+    step.view = nodes[nid].view;
+    step.reduce_launch_mode = nodes[nid].reduce_mode;
+    step.stream_idx = node_stream[nid];
+    step.wait_events = std::move(node_waits[nid]);
+    step.record_event_idx = node_record_event[nid];
+    schedule_.push_back(step);
+    if (!kernel_stream_set[step.kernel_idx]) {
+      kernel_stream_[step.kernel_idx] = step.stream_idx;
+      kernel_stream_set[step.kernel_idx] = true;
+    }
+    if (step.record_event_idx != kNoEvent_) {
+      record_event_per_kernel_[step.kernel_idx] = step.record_event_idx;
+    }
+  }
+}
+
+auto
 Skeleton::run(DataView view) -> void {
   compile();
 
@@ -442,7 +913,12 @@ Skeleton::issue_schedule_(DataView view) -> void {
     // forced to Internal / Boundary by the OCC rewrite and overrides the
     // user's @p view.
     const DataView effective_view = (step.view == DataView::Standard) ? view : step.view;
-    effective_kernels_[step.kernel_idx].launch(s, effective_view);
+    Kernel& k = effective_kernels_[step.kernel_idx];
+    if (step.reduce_launch_mode != reduce::ReduceLaunchMode::Full) {
+      k.launch_reduction_phase(s, effective_view, step.reduce_launch_mode);
+    } else {
+      k.launch(s, effective_view);
+    }
     if (step.record_event_idx != kNoEvent_) {
       events_[step.record_event_idx].record(s);
     }
@@ -593,6 +1069,151 @@ Skeleton::run_graph_(DataView view) -> void {
 }
 
 auto
+Skeleton::compile_prune_syncs_() -> void {
+  if (schedule_.empty()) {
+    return;
+  }
+
+  const auto rec_stream_for_events = [&]() -> std::vector<size_t> {
+    std::vector<size_t> rec_stream(events_.size(), kNoStream_);
+    for (size_t si = 0; si < schedule_.size(); ++si) {
+      const size_t evt = schedule_[si].record_event_idx;
+      if (evt != kNoEvent_ && evt < rec_stream.size()) {
+        rec_stream[evt] = schedule_[si].stream_idx;
+      }
+    }
+    if (anchor_start_event_ != kNoEvent_ && anchor_start_event_ < rec_stream.size()) {
+      rec_stream[anchor_start_event_] = 0U;
+    }
+    for (size_t s = 1U; s < anchor_join_events_.size(); ++s) {
+      const size_t evt = anchor_join_events_[s];
+      if (evt != kNoEvent_ && evt < rec_stream.size()) {
+        rec_stream[evt] = s;
+      }
+    }
+    return rec_stream;
+  };
+
+  const size_t num_streams = streams_.size();
+  const std::vector<size_t> rec_stream = rec_stream_for_events();
+
+  auto simulate_and_prune_waits = [&]() -> void {
+    std::vector<std::vector<size_t>> known_seq(num_streams, std::vector<size_t>(num_streams, 0U));
+    std::vector<size_t> event_record_op_seq(events_.size(), 0U);
+    std::vector<size_t> last_op_seq_on_stream(num_streams, 0U);
+
+    auto redundant_wait = [&](size_t wait_stream, size_t evt) -> bool {
+      if (evt >= rec_stream.size() || rec_stream[evt] == kNoStream_) {
+        return false;
+      }
+      const size_t rec_s = rec_stream[evt];
+      const size_t rec_seq = event_record_op_seq[evt];
+      if (wait_stream == rec_s) {
+        return true;
+      }
+      return known_seq[wait_stream][rec_s] >= rec_seq;
+    };
+
+    auto apply_wait = [&](size_t wait_stream, size_t evt) {
+      if (evt >= rec_stream.size() || rec_stream[evt] == kNoStream_) {
+        return;
+      }
+      const size_t rec_s = rec_stream[evt];
+      const size_t rec_seq = event_record_op_seq[evt];
+      if (wait_stream != rec_s && known_seq[wait_stream][rec_s] < rec_seq) {
+        known_seq[wait_stream][rec_s] = rec_seq;
+      }
+    };
+
+    std::vector<std::pair<size_t, size_t>> drop_step_waits;
+    const std::vector<LaunchOrderOp> ops = build_launch_order_ops_();
+    for (const LaunchOrderOp& op : ops) {
+      if (op.kind == LaunchOrderOpKind::AnchorJoinRecord ||
+          op.kind == LaunchOrderOpKind::AnchorJoinWait) {
+        continue;
+      }
+      if (op.kind == LaunchOrderOpKind::EventWait ||
+          op.kind == LaunchOrderOpKind::AnchorStartWait) {
+        if (redundant_wait(op.stream_idx, op.event_idx)) {
+          if (op.kind == LaunchOrderOpKind::EventWait && op.step_idx < schedule_.size()) {
+            drop_step_waits.push_back({op.step_idx, op.event_idx});
+          }
+        } else {
+          apply_wait(op.stream_idx, op.event_idx);
+        }
+        continue;
+      }
+      if (op.kind == LaunchOrderOpKind::Launch) {
+        last_op_seq_on_stream[op.stream_idx] = op.seq;
+        continue;
+      }
+      if (op.kind == LaunchOrderOpKind::EventRecord ||
+          op.kind == LaunchOrderOpKind::AnchorStartRecord ||
+          op.kind == LaunchOrderOpKind::AnchorJoinRecord) {
+        if (op.event_idx < event_record_op_seq.size()) {
+          event_record_op_seq[op.event_idx] = op.seq;
+        }
+        last_op_seq_on_stream[op.stream_idx] = op.seq;
+      }
+    }
+
+    for (const auto& [step_idx, evt] : drop_step_waits) {
+      Step& step = schedule_[step_idx];
+      step.wait_events.erase(std::remove_if(step.wait_events.begin(), step.wait_events.end(),
+                                            [evt](size_t e) {
+                                              return e == evt;
+                                            }),
+                             step.wait_events.end());
+    }
+
+    for (size_t s = 1U; s < streams_.size(); ++s) {
+      if (s == copy_stream_idx_ || s >= anchor_join_events_.size()) {
+        continue;
+      }
+      const size_t join_evt = anchor_join_events_[s];
+      if (join_evt == kNoEvent_) {
+        continue;
+      }
+      const size_t last_on_s = last_op_seq_on_stream[s];
+      if (last_on_s == 0U || known_seq[0U][s] >= last_on_s) {
+        anchor_join_events_[s] = kNoEvent_;
+      }
+    }
+  };
+
+  simulate_and_prune_waits();
+
+  std::vector<bool> event_used(events_.size(), false);
+  for (const Step& step : schedule_) {
+    for (size_t evt : step.wait_events) {
+      if (evt < event_used.size()) {
+        event_used[evt] = true;
+      }
+    }
+  }
+  if (anchor_start_event_ != kNoEvent_ && anchor_start_event_ < event_used.size()) {
+    for (size_t s = 1U; s < streams_.size(); ++s) {
+      if (s != copy_stream_idx_) {
+        event_used[anchor_start_event_] = true;
+        break;
+      }
+    }
+  }
+  for (size_t s = 1U; s < anchor_join_events_.size(); ++s) {
+    const size_t evt = anchor_join_events_[s];
+    if (evt != kNoEvent_ && evt < event_used.size()) {
+      event_used[evt] = true;
+    }
+  }
+  for (Step& step : schedule_) {
+    if (step.record_event_idx != kNoEvent_ && step.record_event_idx < event_used.size() &&
+        !event_used[step.record_event_idx]) {
+      step.record_event_idx = kNoEvent_;
+    }
+  }
+}
+
+auto
 Skeleton::compile_allocate_anchor_events_() -> void {
   // compile() clears events_ , so any indices from a previous compile are stale.
   anchor_start_event_ = kNoEvent_;
@@ -706,7 +1327,7 @@ Skeleton::occ_collect_candidates_(const std::vector<std::vector<size_t>>& direct
   std::vector<OccPair> candidates;
   for (size_t s = 0; s < n; ++s) {
     const Kernel& ks = effective_kernels_[s];
-    if (ks.kind() != KernelKind::Compute) {
+    if (ks.kind() != KernelKind::Compute && ks.kind() != KernelKind::Reduction) {
       continue;
     }
     std::vector<std::uint64_t> stencil_fields;
@@ -1059,8 +1680,655 @@ Skeleton::occ_apply_two_way_forward_walk_(const OccPair& pair,
 }
 
 auto
+Skeleton::build_launch_order_ops_() const -> std::vector<LaunchOrderOp> {
+  std::vector<LaunchOrderOp> ops;
+  ops.reserve(schedule_.size() * 3U + streams_.size() * 2U + 4U);
+
+  if (streams_.size() > 1U && anchor_start_event_ != kNoEvent_) {
+    ops.push_back({0U, LaunchOrderOpKind::AnchorStartRecord, 0U, kNoKernel_, anchor_start_event_});
+    for (size_t s = 1U; s < streams_.size(); ++s) {
+      if (s == copy_stream_idx_) {
+        continue;
+      }
+      ops.push_back({0U, LaunchOrderOpKind::AnchorStartWait, s, kNoKernel_, anchor_start_event_});
+    }
+  }
+
+  for (size_t si = 0; si < schedule_.size(); ++si) {
+    const Step& step = schedule_[si];
+    for (size_t evt : step.wait_events) {
+      ops.push_back({0U, LaunchOrderOpKind::EventWait, step.stream_idx, si, evt});
+    }
+    ops.push_back({0U, LaunchOrderOpKind::Launch, step.stream_idx, si, kNoEvent_});
+    if (step.record_event_idx != kNoEvent_) {
+      ops.push_back(
+          {0U, LaunchOrderOpKind::EventRecord, step.stream_idx, si, step.record_event_idx});
+    }
+  }
+
+  if (streams_.size() > 1U) {
+    for (size_t s = 1U; s < streams_.size(); ++s) {
+      if (s == copy_stream_idx_) {
+        continue;
+      }
+      if (s < anchor_join_events_.size() && anchor_join_events_[s] != kNoEvent_) {
+        ops.push_back(
+            {0U, LaunchOrderOpKind::AnchorJoinRecord, s, kNoKernel_, anchor_join_events_[s]});
+        ops.push_back(
+            {0U, LaunchOrderOpKind::AnchorJoinWait, 0U, kNoKernel_, anchor_join_events_[s]});
+      }
+    }
+  }
+
+  for (size_t i = 0; i < ops.size(); ++i) {
+    ops[i].seq = i + 1U;
+  }
+  return ops;
+}
+
+auto
+Skeleton::step_display_label_(size_t step_idx) const -> std::string {
+  const Step& step = schedule_[step_idx];
+  const Kernel& kernel = effective_kernels_[step.kernel_idx];
+  const std::string_view raw_name = kernel.name();
+  std::string name = raw_name.empty() ? (std::string{"k"} + std::to_string(step.kernel_idx))
+                                      : std::string{raw_name};
+  name += " [";
+  switch (kernel.kind()) {
+    case KernelKind::Compute:
+      name += "compute";
+      break;
+    case KernelKind::Reduction:
+      name += "reduction";
+      break;
+    case KernelKind::Halo:
+      name += "halo";
+      break;
+    case KernelKind::Anchor:
+      name += "anchor";
+      break;
+    case KernelKind::ComputeHost:
+      name += "compute_host";
+      break;
+    case KernelKind::ReductionHost:
+      name += "reduction_host";
+      break;
+    case KernelKind::Universal:
+      name += "universal";
+      break;
+    case KernelKind::UniversalReduction:
+      name += "universal_reduction";
+      break;
+    case KernelKind::ScalarReadback:
+      name += "scalar_readback";
+      break;
+  }
+  name += "/";
+  name += to_string(step.view);
+  name += "]";
+  return name;
+}
+
+auto
+Skeleton::event_annotation_(size_t event_idx) const -> std::string {
+  if (event_idx == anchor_start_event_) {
+    return "anchor start";
+  }
+  for (size_t s = 1U; s < streams_.size(); ++s) {
+    if (s < anchor_join_events_.size() && anchor_join_events_[s] == event_idx) {
+      return "anchor join (stream " + std::to_string(s) + ")";
+    }
+  }
+  for (size_t si = 0; si < schedule_.size(); ++si) {
+    if (schedule_[si].record_event_idx == event_idx) {
+      return step_display_label_(si);
+    }
+  }
+  return "?";
+}
+
+auto
+Skeleton::format_launch_order_line_(const LaunchOrderOp& op) const -> std::string {
+  const char* kind_name = "?";
+  switch (op.kind) {
+    case LaunchOrderOpKind::AnchorStartRecord:
+    case LaunchOrderOpKind::EventRecord:
+    case LaunchOrderOpKind::AnchorJoinRecord:
+      kind_name = "record";
+      break;
+    case LaunchOrderOpKind::AnchorStartWait:
+    case LaunchOrderOpKind::EventWait:
+    case LaunchOrderOpKind::AnchorJoinWait:
+      kind_name = "wait";
+      break;
+    case LaunchOrderOpKind::Launch:
+      kind_name = "launch";
+      break;
+  }
+  std::ostringstream os;
+  os << std::setw(3) << op.seq << "  stream " << op.stream_idx << "  " << kind_name << "  ";
+  if (op.kind == LaunchOrderOpKind::Launch) {
+    os << step_display_label_(op.step_idx);
+    return os.str();
+  }
+  if (op.event_idx != kNoEvent_) {
+    os << 'E' << op.event_idx;
+    const std::string note = event_annotation_(op.event_idx);
+    if (!note.empty()) {
+      os << " (" << note << ')';
+    }
+  }
+  return os.str();
+}
+
+auto
+Skeleton::export_launch_order() -> std::string {
+  compile();
+  const std::vector<LaunchOrderOp> ops = build_launch_order_ops_();
+  std::ostringstream os;
+  for (const LaunchOrderOp& op : ops) {
+    os << format_launch_order_line_(op) << '\n';
+  }
+  return os.str();
+}
+
+auto
+Skeleton::export_launch_order_file(std::string path) -> bool {
+  std::ofstream out(path, std::ios::out | std::ios::trunc);
+  if (!out) {
+    return false;
+  }
+  out << export_launch_order();
+  return out.good();
+}
+
+auto
+Skeleton::export_launch_matrix_dot(std::string graph_name) -> std::string {
+  compile();
+  const std::vector<LaunchOrderOp> ops = build_launch_order_ops_();
+  const size_t num_streams = streams_.size();
+
+  // Fixed cell geometry (points) so rows and columns line up like a table.
+  constexpr int kCellW = 200;
+  constexpr int kCellH = 40;
+  constexpr int kSeqW = 30;
+
+  std::ostringstream os;
+  os << "digraph " << graph_name << " {\n";
+  os << "  graph [rankdir=TB, nodesep=0.04, ranksep=0.04, pad=0.3, bgcolor=\"white\", "
+        "fontname=\"Helvetica\", labelloc=t, labeljust=l];\n";
+  os << "  node [shape=none, margin=0, fontname=\"Helvetica\"];\n";
+  os << "  edge [fontname=\"Helvetica\", fontsize=8, penwidth=1.4, arrowsize=0.7];\n";
+
+  // Title + legend as the graph label, so it never disturbs the grid layout.
+  auto swatch = [&](Palette p, std::string_view style, std::string_view text) {
+    os << legend_swatch(p, style, text);
+  };
+  os << "  label=<<TABLE BORDER=\"0\" CELLSPACING=\"4\" CELLPADDING=\"1\">"
+     << "<TR><TD COLSPAN=\"16\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"15\"><B>"
+     << html_escape(graph_name) << "</B></FONT><FONT POINT-SIZE=\"10\" COLOR=\"" << kMuted
+     << "\">   launch matrix &#183; " << num_streams << " stream" << (num_streams == 1U ? "" : "s")
+     << " &#183; " << ops.size() << " ops in run() order</FONT></TD></TR><TR>";
+  swatch(kHaloPal, "rounded", "halo");
+  swatch(kInternalPal, "rounded", "internal");
+  swatch(kBoundaryPal, "rounded", "boundary");
+  swatch(kStandardPal, "rounded", "standard / merge");
+  swatch({"#ffffff", kSyncColor}, "rounded", "event record");
+  swatch({"#ffffff", kSyncColor}, "dashed", "event wait");
+  os << "<TD><FONT COLOR=\"" << kSyncColor << "\" POINT-SIZE=\"11\"><B>&#8594;</B></FONT></TD>"
+     << "<TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"9\">cross-stream sync</FONT></TD>"
+     << "<TD><FONT COLOR=\"" << kAnchorColor << "\" POINT-SIZE=\"11\"><B>&#8594;</B></FONT></TD>"
+     << "<TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"9\">anchor fork / join</FONT></TD>"
+     << "</TR></TABLE>>;\n";
+
+  auto emit_cell = [&](const std::string& id, std::string_view bg, int width,
+                       const std::string& inner) {
+    os << "  " << id << " [label=<<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" "
+       << "CELLPADDING=\"0\" BGCOLOR=\"" << bg << "\"><TR><TD FIXEDSIZE=\"TRUE\" WIDTH=\"" << width
+       << "\" HEIGHT=\"" << kCellH << "\">" << inner << "</TD></TR></TABLE>>];\n";
+  };
+
+  // Header row: launch number column, then one column per stream.
+  emit_cell("h_seq", kRowBg[0], kSeqW,
+            "<FONT POINT-SIZE=\"9\" COLOR=\"" + std::string{kMuted} + "\"><B>#</B></FONT>");
+  for (size_t s = 0; s < num_streams; ++s) {
+    std::string role;
+    if (s == 0U) {
+      role = "anchor";
+    } else if (s == copy_stream_idx_) {
+      role = "copy (detached)";
+    }
+    std::string inner =
+        "<FONT POINT-SIZE=\"11\" COLOR=\"white\"><B>stream " + std::to_string(s) + "</B></FONT>";
+    if (!role.empty()) {
+      inner += "<BR/>" + font(8, kHeaderSubtitle, role);
+    }
+    emit_cell("h_c" + std::to_string(s), kHeaderBg, kCellW, inner);
+  }
+
+  auto is_record = [](LaunchOrderOpKind k) {
+    return k == LaunchOrderOpKind::AnchorStartRecord || k == LaunchOrderOpKind::EventRecord ||
+           k == LaunchOrderOpKind::AnchorJoinRecord;
+  };
+  auto is_anchor = [](LaunchOrderOpKind k) {
+    return k == LaunchOrderOpKind::AnchorStartRecord || k == LaunchOrderOpKind::AnchorStartWait ||
+           k == LaunchOrderOpKind::AnchorJoinRecord || k == LaunchOrderOpKind::AnchorJoinWait;
+  };
+  auto cell_id = [](size_t seq, size_t s) {
+    return "r" + std::to_string(seq) + "_c" + std::to_string(s);
+  };
+
+  // PORT="op" lets sync arrows attach to the box, not the whole cell.
+  auto op_box = [](Palette p, std::string_view style, int width, int height,
+                   const std::string& body) {
+    return html_box(p, style, width, height, body, "op");
+  };
+  constexpr int kKernelBoxW = kCellW - 16;
+  constexpr int kKernelBoxH = kCellH - 10;
+  constexpr int kEventBoxW = 120;
+  constexpr int kEventBoxH = 20;
+  constexpr int kAnchorBoxH = 26;
+
+  for (const LaunchOrderOp& op : ops) {
+    const std::string_view bg = kRowBg[op.seq % 2U];
+    emit_cell("r" + std::to_string(op.seq) + "_seq", bg, kSeqW,
+              "<FONT POINT-SIZE=\"9\" COLOR=\"" + std::string{kMuted} + "\">" +
+                  std::to_string(op.seq) + "</FONT>");
+    for (size_t s = 0; s < num_streams; ++s) {
+      const std::string id = cell_id(op.seq, s);
+      if (s != op.stream_idx) {
+        emit_cell(id, bg, kCellW, "");
+        continue;
+      }
+      if (op.kind == LaunchOrderOpKind::Launch) {
+        const Step& step = schedule_[op.step_idx];
+        // step_display_label_ is "name [kind/view]"; split it into title + subtitle.
+        const std::string label = step_display_label_(op.step_idx);
+        const size_t bracket = label.rfind(" [");
+        std::string name = label.substr(0, bracket);
+        std::string tag = bracket == std::string::npos
+                              ? ""
+                              : label.substr(bracket + 2U, label.size() - bracket - 3U);
+        const size_t slash = tag.find('/');
+        if (slash != std::string::npos) {
+          tag.replace(slash, 1U, " &#183; ");
+        }
+        const std::string body = "<FONT POINT-SIZE=\"10\"><B>" + html_escape(name) +
+                                 "</B></FONT><BR/><FONT POINT-SIZE=\"8\" COLOR=\"" +
+                                 std::string{kMuted} + "\">" + tag + "</FONT>";
+        emit_cell(id, bg, kCellW,
+                  op_box(launch_palette(effective_kernels_[step.kernel_idx].kind(), step.view),
+                         "rounded", kKernelBoxW, kKernelBoxH, body));
+        continue;
+      }
+      const std::string_view color = is_anchor(op.kind) ? kAnchorColor : kSyncColor;
+      std::string body = "<FONT POINT-SIZE=\"9\" COLOR=\"" + std::string{color} + "\"><B>" +
+                         std::string{is_record(op.kind) ? "record" : "wait"} + "</B> E" +
+                         std::to_string(op.event_idx) + "</FONT>";
+      if (is_anchor(op.kind)) {
+        body += "<BR/><FONT POINT-SIZE=\"7\" COLOR=\"" + std::string{kMuted} + "\">" +
+                html_escape(event_annotation_(op.event_idx)) + "</FONT>";
+      }
+      emit_cell(id, bg, kCellW,
+                op_box({"#ffffff", color}, is_record(op.kind) ? "rounded" : "dashed", kEventBoxW,
+                       is_anchor(op.kind) ? kAnchorBoxH : kEventBoxH, body));
+    }
+  }
+
+  // Rows: keep each launch on one rank, columns ordered left to right.
+  auto emit_row = [&](const std::string& seq_id, auto&& col_id) {
+    os << "  { rank=same; " << seq_id;
+    for (size_t s = 0; s < num_streams; ++s) {
+      os << " -> " << col_id(s);
+    }
+    os << " [style=invis]; }\n";
+  };
+  emit_row("h_seq", [](size_t s) {
+    return "h_c" + std::to_string(s);
+  });
+  for (const LaunchOrderOp& op : ops) {
+    emit_row("r" + std::to_string(op.seq) + "_seq", [&](size_t s) {
+      return cell_id(op.seq, s);
+    });
+  }
+
+  // Columns: heavy invisible edges stack each column vertically in launch order.
+  std::string prev_seq = "h_seq";
+  std::vector<std::string> prev_col(num_streams);
+  for (size_t s = 0; s < num_streams; ++s) {
+    prev_col[s] = "h_c" + std::to_string(s);
+  }
+  for (const LaunchOrderOp& op : ops) {
+    const std::string seq_id = "r" + std::to_string(op.seq) + "_seq";
+    os << "  " << prev_seq << " -> " << seq_id << " [style=invis, weight=100];\n";
+    prev_seq = seq_id;
+    for (size_t s = 0; s < num_streams; ++s) {
+      const std::string id = cell_id(op.seq, s);
+      os << "  " << prev_col[s] << " -> " << id << " [style=invis, weight=100];\n";
+      prev_col[s] = id;
+    }
+  }
+
+  // Sync arrows: each event record points at every wait on that event.
+  std::unordered_map<size_t, const LaunchOrderOp*> record_by_event;
+  for (const LaunchOrderOp& op : ops) {
+    if (is_record(op.kind) && op.event_idx != kNoEvent_) {
+      record_by_event[op.event_idx] = &op;
+    }
+  }
+  for (const LaunchOrderOp& op : ops) {
+    if (is_record(op.kind) || op.kind == LaunchOrderOpKind::Launch) {
+      continue;
+    }
+    const auto it = record_by_event.find(op.event_idx);
+    if (it == record_by_event.end()) {
+      continue;
+    }
+    const LaunchOrderOp& rec = *it->second;
+    const bool anchor = is_anchor(op.kind);
+    const std::string_view color = anchor ? kAnchorColor : kSyncColor;
+    os << "  " << cell_id(rec.seq, rec.stream_idx) << ":op -> " << cell_id(op.seq, op.stream_idx)
+       << ":op [color=\"" << color << "\", fontcolor=\"" << color
+       << "\", style=" << (anchor ? "dashed" : "solid") << ", label=\" E" << op.event_idx
+       << " \", constraint=false];\n";
+  }
+
+  os << "}\n";
+  return os.str();
+}
+
+auto
+Skeleton::export_launch_matrix_dot_file(std::string path,
+                                        std::string graph_name) -> bool {
+  std::ofstream out(path, std::ios::out | std::ios::trunc);
+  if (!out) {
+    return false;
+  }
+  out << export_launch_matrix_dot(std::move(graph_name));
+  return out.good();
+}
+
+auto
+Skeleton::export_kernel_list_dot(std::string graph_name) -> std::string {
+  compile();
+  const size_t n = effective_kernels_.size();
+
+  std::unordered_map<std::uint64_t, std::string> uid_to_label;
+  for (const Kernel& k : effective_kernels_) {
+    for (const AccessToken& t : k.impl()->tokens()) {
+      if (!t.field_name.empty()) {
+        uid_to_label[t.field_uid] = t.field_name;
+      }
+    }
+  }
+  for (const auto& [uid, label] : field_label_overrides_) {
+    uid_to_label[uid] = label;
+  }
+
+  // Resource columns in first-use order; per-kernel access merged over its tokens.
+  struct Resource {
+    std::uint64_t uid;
+    ResourceKind kind;
+  };
+  struct Access {
+    bool read{false};
+    bool write{false};
+    bool stencil{false};
+  };
+  std::vector<Resource> resources;
+  std::unordered_map<std::uint64_t, size_t> resource_col;
+  std::vector<std::unordered_map<size_t, Access>> access(n);
+  for (size_t i = 0; i < n; ++i) {
+    for (const AccessToken& t : effective_kernels_[i].impl()->tokens()) {
+      auto [it, inserted] = resource_col.try_emplace(t.field_uid, resources.size());
+      if (inserted) {
+        resources.push_back({t.field_uid, t.resource});
+      }
+      Access& a = access[i][it->second];
+      a.read = a.read || t.mode != AccessMode::Write;
+      a.write = a.write || t.mode != AccessMode::Read;
+      a.stencil = a.stencil || t.pattern == AccessPattern::Stencil;
+    }
+  }
+
+  std::vector<std::vector<size_t>> preds(n);
+  for (size_t i = 0; i < min_edges_.size() && i < n; ++i) {
+    for (size_t j : min_edges_[i]) {
+      if (j < n) {
+        preds[j].push_back(i);
+      }
+    }
+  }
+  for (auto& p : preds) {
+    std::sort(p.begin(), p.end());
+  }
+
+  std::vector<std::vector<LaunchOrderOp>> launches(n);
+  for (const LaunchOrderOp& op : build_launch_order_ops_()) {
+    if (op.kind == LaunchOrderOpKind::Launch) {
+      launches[schedule_[op.step_idx].kernel_idx].push_back(op);
+    }
+  }
+
+  size_t num_auto = 0;
+  for (size_t i = 0; i < n; ++i) {
+    num_auto += effective_to_user_[i] == kNoKernel_ ? 1U : 0U;
+  }
+
+  constexpr int kIdW = 34;
+  constexpr int kKernelW = 184;
+  constexpr int kResourceW = 92;
+  constexpr int kDepsW = 104;
+  constexpr int kLaunchW = 176;
+  constexpr int kRowH = 40;
+  constexpr Palette kReadChip{"#ffffff", "#7b8794"};
+  constexpr Palette kWriteChip{"#2f3b4c", "#2f3b4c"};
+  constexpr Palette kReadWriteChip{"#6a7a8f", "#2f3b4c"};
+  constexpr std::string_view kStencilColor = "#d97b0f";
+
+  auto kind_name = [](KernelKind k) -> std::string {
+    switch (k) {
+      case KernelKind::Compute:
+        return "compute";
+      case KernelKind::Reduction:
+        return "reduction";
+      case KernelKind::Halo:
+        return "halo";
+      case KernelKind::Anchor:
+        return "anchor";
+      case KernelKind::ComputeHost:
+        return "compute (host)";
+      case KernelKind::ReductionHost:
+        return "reduction (host)";
+      case KernelKind::Universal:
+        return "universal";
+      case KernelKind::UniversalReduction:
+        return "universal reduction";
+      case KernelKind::ScalarReadback:
+        return "scalar readback";
+    }
+    return "?";
+  };
+  auto resource_label = [&](const Resource& r) -> std::string {
+    const auto it = uid_to_label.find(r.uid);
+    return it != uid_to_label.end() && !it->second.empty() ? html_escape(it->second)
+                                                           : "uid " + std::to_string(r.uid);
+  };
+  auto resource_kind = [](ResourceKind k) -> std::string {
+    switch (k) {
+      case ResourceKind::Field:
+        return "field";
+      case ResourceKind::ScalarDevice:
+        return "scalar &#183; device";
+      case ResourceKind::ScalarHost:
+        return "scalar &#183; host";
+    }
+    return "?";
+  };
+  auto access_chip = [&](const Access& a) -> std::string {
+    const bool rw = a.read && a.write;
+    const Palette p = rw ? kReadWriteChip : (a.write ? kWriteChip : kReadChip);
+    const std::string text = rw ? "RW" : (a.write ? "W" : "R");
+    std::string body = font(9, a.write ? "white" : kMuted, "<B>" + text + "</B>");
+    if (!a.stencil) {
+      return html_box(p, "rounded", 34, 18, body);
+    }
+    body += "  " + font(7, a.write ? "#f8c471" : kStencilColor, "<B>stencil</B>");
+    return html_box({p.fill, kStencilColor}, "rounded", 70, 18, body);
+  };
+  auto kernel_id = [](size_t i) {
+    return "K" + std::to_string(i + 1U);
+  };
+  auto header = [&](int width, const std::string& title, const std::string& subtitle) {
+    return "<TD BGCOLOR=\"" + std::string{kHeaderBg} + "\" WIDTH=\"" + std::to_string(width) +
+           "\" HEIGHT=\"" + std::to_string(kRowH) + "\">" +
+           font(11, "white", "<B>" + title + "</B>") + "<BR/>" +
+           font(8, kHeaderSubtitle, subtitle) + "</TD>";
+  };
+  auto cell = [&](std::string_view bg, int width, const std::string& inner) {
+    return "<TD BGCOLOR=\"" + std::string{bg} + "\" WIDTH=\"" + std::to_string(width) +
+           "\" HEIGHT=\"" + std::to_string(kRowH) + "\">" + inner + "</TD>";
+  };
+
+  std::ostringstream os;
+  os << "digraph " << graph_name << " {\n";
+  os << "  graph [pad=0.3, bgcolor=\"white\", fontname=\"Helvetica\", labelloc=t, "
+        "labeljust=l];\n";
+  os << "  node [shape=none, margin=0, fontname=\"Helvetica\"];\n";
+
+  const size_t legend_cols = 24;
+  os << "  label=<<TABLE BORDER=\"0\" CELLSPACING=\"4\" CELLPADDING=\"1\">"
+     << "<TR><TD COLSPAN=\"" << legend_cols << "\" ALIGN=\"LEFT\">"
+     << font(15, {}, "<B>" + html_escape(graph_name) + "</B>")
+     << font(10, kMuted,
+             "   kernel list &#183; " + plural(n, "kernel") + " (" + std::to_string(num_auto) +
+                 " auto-inserted) &#183; " + plural(resources.size(), "resource") +
+                 " &#183; add order")
+     << "</TD></TR><TR>";
+  os << legend_swatch(kStandardPal, "rounded", "compute");
+  os << legend_swatch(kReductionPal, "rounded", "reduction");
+  os << legend_swatch(kHaloPal, "rounded", "halo");
+  os << legend_swatch(kCopyPal, "rounded", "readback / anchor");
+  os << legend_swatch({"#ffffff", kMuted}, "dashed", "auto-inserted");
+  for (const auto& [a, text] : {std::pair<Access, const char*>{{true, false, false}, "read"},
+                                {{false, true, false}, "write"},
+                                {{true, true, false}, "read-write"}}) {
+    os << "<TD>" << access_chip(a) << "</TD><TD ALIGN=\"LEFT\">" << font(9, {}, text) << "</TD>";
+  }
+  os << "<TD>" << access_chip({true, false, true}) << "</TD><TD ALIGN=\"LEFT\">"
+     << font(9, {}, "stencil read (needs halo)") << "</TD>";
+  os << "</TR></TABLE>>;\n";
+
+  os << "  kernels [label=<<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"3\" "
+        "CELLPADDING=\"4\">\n";
+  os << "    <TR><TD WIDTH=\"" << kIdW << "\" HEIGHT=\"" << kRowH << "\">"
+     << font(9, kMuted, "<B>#</B>") << "</TD>" << header(kKernelW, "kernel", "user add order");
+  for (const Resource& r : resources) {
+    os << header(kResourceW, resource_label(r), resource_kind(r.kind));
+  }
+  os << header(kDepsW, "depends on", "reduced data deps")
+     << header(kLaunchW, "launches", "# in run() &#183; stream &#183; view") << "</TR>\n";
+
+  if (n == 0U) {
+    os << "    <TR><TD COLSPAN=\"" << (4U + resources.size()) << "\" HEIGHT=\"" << kRowH << "\">"
+       << font(9, kMuted, "<I>no kernels</I>") << "</TD></TR>\n";
+  }
+  for (size_t i = 0; i < n; ++i) {
+    const std::string_view bg = kRowBg[(i + 1U) % 2U];
+    const Kernel& k = effective_kernels_[i];
+    const bool is_auto = effective_to_user_[i] == kNoKernel_;
+    const std::string name =
+        k.name().empty() ? "k" + std::to_string(i) : html_escape(std::string{k.name()});
+
+    os << "    <TR>" << cell(bg, kIdW, font(9, kMuted, kernel_id(i)));
+    os << cell(
+        bg, kKernelW,
+        html_box(
+            kind_palette(k.kind()), is_auto ? "rounded,dashed" : "rounded", kKernelW - 16, 30,
+            font(10, {}, "<B>" + name + "</B>") + "<BR/>" +
+                font(8, kMuted, kind_name(k.kind()) + (is_auto ? " &#183; auto-inserted" : ""))));
+
+    for (size_t c = 0; c < resources.size(); ++c) {
+      const auto it = access[i].find(c);
+      std::string inner;
+      if (it != access[i].end()) {
+        inner = access_chip(it->second);
+      }
+      os << cell(bg, kResourceW, inner);
+    }
+
+    std::string deps = font(10, kMuted, "&#8212;");
+    if (!preds[i].empty()) {
+      deps = "<TABLE BORDER=\"0\" CELLSPACING=\"3\" CELLPADDING=\"0\"><TR>";
+      for (size_t p : preds[i]) {
+        deps += "<TD>" +
+                html_box(kind_palette(effective_kernels_[p].kind()), "rounded", 28, 16,
+                         font(8, {}, "<B>" + kernel_id(p) + "</B>")) +
+                "</TD>";
+      }
+      deps += "</TR></TABLE>";
+    }
+    os << cell(bg, kDepsW, deps);
+
+    std::string launch_cell = font(10, kMuted, "&#8212;");
+    if (!launches[i].empty()) {
+      launch_cell = "<TABLE BORDER=\"0\" CELLSPACING=\"2\" CELLPADDING=\"0\">";
+      for (const LaunchOrderOp& op : launches[i]) {
+        const Step& step = schedule_[op.step_idx];
+        const std::string view = step.reduce_launch_mode == reduce::ReduceLaunchMode::Merge
+                                     ? "merge"
+                                     : std::string{to_string(step.view)};
+        launch_cell += "<TR><TD>" +
+                       html_box(launch_palette(k.kind(), step.view), "rounded", kLaunchW - 24, 18,
+                                font(8, {},
+                                     "<B>#" + std::to_string(op.seq) + "</B> &#183; stream " +
+                                         std::to_string(op.stream_idx) + " &#183; " + view)) +
+                       "</TD></TR>";
+      }
+      launch_cell += "</TABLE>";
+    }
+    os << cell(bg, kLaunchW, launch_cell) << "</TR>\n";
+  }
+  os << "  </TABLE>>];\n";
+  os << "}\n";
+  return os.str();
+}
+
+auto
+Skeleton::export_kernel_list_dot_file(std::string path,
+                                      std::string graph_name) -> bool {
+  std::ofstream out(path, std::ios::out | std::ios::trunc);
+  if (!out) {
+    return false;
+  }
+  out << export_kernel_list_dot(std::move(graph_name));
+  return out.good();
+}
+
+auto
 Skeleton::export_dot(std::string graph_name) -> std::string {
   compile();
+  const std::vector<LaunchOrderOp> launch_ops = build_launch_order_ops_();
+  std::unordered_map<size_t, size_t> launch_seq_by_step;
+  std::unordered_map<size_t, size_t> record_seq_by_event;
+  std::unordered_map<size_t, std::unordered_map<size_t, size_t>> wait_seq_by_event_step;
+  for (const LaunchOrderOp& op : launch_ops) {
+    switch (op.kind) {
+      case LaunchOrderOpKind::Launch:
+        launch_seq_by_step[op.step_idx] = op.seq;
+        break;
+      case LaunchOrderOpKind::EventRecord:
+      case LaunchOrderOpKind::AnchorStartRecord:
+      case LaunchOrderOpKind::AnchorJoinRecord:
+        record_seq_by_event[op.event_idx] = op.seq;
+        break;
+      case LaunchOrderOpKind::EventWait:
+      case LaunchOrderOpKind::AnchorStartWait:
+      case LaunchOrderOpKind::AnchorJoinWait:
+        wait_seq_by_event_step[op.event_idx][op.step_idx] = op.seq;
+        break;
+    }
+  }
 
   auto fmt_mode = [](AccessMode m) -> const char* {
     switch (m) {
@@ -1138,9 +2406,6 @@ Skeleton::export_dot(std::string graph_name) -> std::string {
     return os.str();
   }
 
-  static constexpr std::array<std::string_view, 8> kStreamColors = {
-      "#cfe2f3", "#fce5cd", "#d9ead3", "#f4cccc", "#ead1dc", "#fff2cc", "#d0e0e3", "#e6e6e6"};
-
   std::vector<std::vector<size_t>> steps_by_stream(streams_.size());
   for (size_t si = 0; si < schedule_.size(); ++si) {
     const size_t stream_idx = schedule_[si].stream_idx;
@@ -1172,8 +2437,14 @@ Skeleton::export_dot(std::string graph_name) -> std::string {
       const std::string label = raw_name.empty()
                                     ? (std::string{"k"} + std::to_string(step.kernel_idx))
                                     : std::string{raw_name};
-      os << "    s" << si << " [label=\"" << escape(label) << "\\n[" << fmt_kind(kernel.kind())
-         << "/" << to_string(step.view) << "]\"";
+      const auto launch_it = launch_seq_by_step.find(si);
+      const size_t launch_seq = launch_it != launch_seq_by_step.end() ? launch_it->second : 0U;
+      os << "    s" << si << " [label=\"";
+      if (launch_seq != 0U) {
+        os << '#' << launch_seq << ' ';
+      }
+      os << escape(label) << "\\n[" << fmt_kind(kernel.kind()) << "/" << to_string(step.view)
+         << "]\"";
       const auto& tokens = kernel.impl()->tokens();
       if (!tokens.empty()) {
         os << ", tooltip=\"";
@@ -1218,8 +2489,80 @@ Skeleton::export_dot(std::string graph_name) -> std::string {
     for (size_t evt : schedule_[sj].wait_events) {
       if (evt < event_recorder.size() && event_recorder[evt] != kNoKernel_) {
         const size_t si = event_recorder[evt];
-        os << "  s" << si << " -> s" << sj << " [label=\"" << escape(dep_label(si, sj))
+        std::string edge_label = dep_label(si, sj);
+        const auto rec_it = record_seq_by_event.find(evt);
+        const auto wait_outer = wait_seq_by_event_step.find(evt);
+        if (rec_it != record_seq_by_event.end() && wait_outer != wait_seq_by_event_step.end()) {
+          const auto wait_it = wait_outer->second.find(sj);
+          if (wait_it != wait_outer->second.end()) {
+            edge_label += " (rec #" + std::to_string(rec_it->second) + " -> wait #" +
+                          std::to_string(wait_it->second) + ')';
+          }
+        }
+        os << "  s" << si << " -> s" << sj << " [label=\"" << escape(edge_label)
            << "\", style=dashed, color=\"#aa3333\"];\n";
+      }
+    }
+  }
+
+  if (uses_anchor_fork_join()) {
+    std::vector<size_t> first_step_on_stream(streams_.size(), kNoKernel_);
+    std::vector<size_t> last_step_on_stream(streams_.size(), kNoKernel_);
+    for (size_t si = 0; si < schedule_.size(); ++si) {
+      const size_t st = schedule_[si].stream_idx;
+      if (st >= first_step_on_stream.size()) {
+        continue;
+      }
+      if (first_step_on_stream[st] == kNoKernel_) {
+        first_step_on_stream[st] = si;
+      }
+      last_step_on_stream[st] = si;
+    }
+
+    os << "  anchor_start [shape=point, width=0.01, label=\"\", fixedsize=true];\n";
+    os << "  anchor_join [shape=point, width=0.01, label=\"\", fixedsize=true];\n";
+
+    if (anchor_start_event_ != kNoEvent_) {
+      const auto rec_it = record_seq_by_event.find(anchor_start_event_);
+      const size_t rec_seq = rec_it != record_seq_by_event.end() ? rec_it->second : 0U;
+      for (size_t s = 1U; s < streams_.size(); ++s) {
+        if (s == copy_stream_idx_) {
+          continue;
+        }
+        size_t wait_seq = 0U;
+        for (const LaunchOrderOp& wop : launch_ops) {
+          if (wop.kind == LaunchOrderOpKind::AnchorStartWait && wop.stream_idx == s) {
+            wait_seq = wop.seq;
+            break;
+          }
+        }
+        if (first_step_on_stream[s] != kNoKernel_ && wait_seq != 0U) {
+          os << "  anchor_start -> s" << first_step_on_stream[s] << " [label=\"anchor start (rec #"
+             << rec_seq << " -> wait #" << wait_seq << ")\", style=dashed, color=\"#336699\"];\n";
+        }
+      }
+    }
+
+    for (size_t s = 1U; s < streams_.size(); ++s) {
+      if (s == copy_stream_idx_ || s >= anchor_join_events_.size()) {
+        continue;
+      }
+      const size_t join_evt = anchor_join_events_[s];
+      if (join_evt == kNoEvent_) {
+        continue;
+      }
+      const auto rec_it = record_seq_by_event.find(join_evt);
+      size_t wait_seq = 0U;
+      for (const LaunchOrderOp& wop : launch_ops) {
+        if (wop.kind == LaunchOrderOpKind::AnchorJoinWait && wop.event_idx == join_evt) {
+          wait_seq = wop.seq;
+          break;
+        }
+      }
+      const size_t rec_seq = rec_it != record_seq_by_event.end() ? rec_it->second : 0U;
+      if (last_step_on_stream[s] != kNoKernel_ && rec_seq != 0U && wait_seq != 0U) {
+        os << "  s" << last_step_on_stream[s] << " -> anchor_join [label=\"anchor join (rec #"
+           << rec_seq << " -> wait #" << wait_seq << ")\", style=dashed, color=\"#336699\"];\n";
       }
     }
   }

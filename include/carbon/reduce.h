@@ -64,9 +64,9 @@
 #endif
 #include <carbon/detail/event.h>
 #include <carbon/detail/event_group.h>
-#include <carbon/detail/stream.h>
 #include <carbon/detail/gpu.h>
 #include <carbon/detail/gpu_group.h>
+#include <carbon/detail/stream.h>
 #include <carbon/logging.h>
 #include <carbon/system.h>
 
@@ -210,6 +210,13 @@ enum class ReduceHostCopy : unsigned char {
   Deferred = 1,
 };
 
+/** Skeleton OCC split: full launch, view partial (no D→H), or merge Internal+Boundary. */
+enum class ReduceLaunchMode : unsigned char {
+  Full = 0,
+  Partial = 1,
+  Merge = 2,
+};
+
 /**
  * Optional knobs on @c Kernel::reduce / @c Dense::make_reduce_kernel .
  */
@@ -260,7 +267,8 @@ normalize_dense_stage1_threads(unsigned requested) -> int {
 /** Validates a 2D block (@c bx × @c by , product ≤ 1024). */
 [[nodiscard]] inline auto
 normalize_dense_stage1_block_2d(unsigned bx,
-                                unsigned by) -> std::pair<int, int> {
+                                unsigned by) -> std::pair<int,
+                                                          int> {
   if (bx == 0U) {
     bx = 32U;
   }
@@ -269,8 +277,7 @@ normalize_dense_stage1_block_2d(unsigned bx,
         "reduce::normalize_dense_stage1_block_2d: bx/by must be powers-of-two in 32–1024");
   }
   if (static_cast<unsigned>(bx) * static_cast<unsigned>(by) > 1024U) {
-    throw std::invalid_argument(
-        "reduce::normalize_dense_stage1_block_2d: bx*by must be <= 1024");
+    throw std::invalid_argument("reduce::normalize_dense_stage1_block_2d: bx*by must be <= 1024");
   }
   return {static_cast<int>(bx), static_cast<int>(by)};
 }
@@ -348,7 +355,6 @@ private:
   };
 
 public:
-
   /**
    * Allocate the per-GPU partials ( @c gpu_count scalars, one on each local GPU), the
    * per-view final slots ( @c 3 @c × @c slot_count scalars on the rank-local root GPU),
@@ -357,9 +363,11 @@ public:
    * @throws std::runtime_error when @c sys.gpu_group() is empty.
    */
   explicit ReductionResult(const System& sys)
-      : ReductionResult(sys, reduce::ReductionResultOptions{}) {}
+      : ReductionResult(sys,
+                        reduce::ReductionResultOptions{}) {}
 
-  explicit ReductionResult(const System& sys, reduce::ReductionResultOptions options) {
+  explicit ReductionResult(const System& sys,
+                           reduce::ReductionResultOptions options) {
     const auto& gpu_group = sys.gpu_group();
     const size_t gpu_count = gpu_group.size();
     if (gpu_count == 0U) {
@@ -457,8 +465,8 @@ public:
 
   /** Host mirror for @p view in @p slot (default: active slot). */
   [[nodiscard]] auto
-  host_data(DataView view = DataView::Standard, size_t slot = static_cast<size_t>(-1)) const
-      noexcept -> T* {
+  host_data(DataView view = DataView::Standard,
+            size_t slot = static_cast<size_t>(-1)) const noexcept -> T* {
     const size_t s = (slot == static_cast<size_t>(-1)) ? active_slot() : slot;
     return state_->host_slots_[index_(view)][s].data();
   }
@@ -471,20 +479,23 @@ public:
   }
 
   [[nodiscard]] auto
-  device_allocation(DataView view, size_t slot) const noexcept -> const detail::Allocation<T>& {
+  device_allocation(DataView view,
+                    size_t slot) const noexcept -> const detail::Allocation<T>& {
     return state_->device_slots_[index_(view)][slot];
   }
 
   /** Host allocation for @p view in @p slot (default: active slot). */
   [[nodiscard]] auto
-  host_allocation(DataView view = DataView::Standard, size_t slot = static_cast<size_t>(-1)) const
-      noexcept -> const detail::Allocation<T>& {
+  host_allocation(DataView view = DataView::Standard,
+                  size_t slot = static_cast<size_t>(-1)) const noexcept
+      -> const detail::Allocation<T>& {
     const size_t s = (slot == static_cast<size_t>(-1)) ? active_slot() : slot;
     return state_->host_slots_[index_(view)][s];
   }
 
   [[nodiscard]] auto
-  slot_done_event(DataView view, size_t slot) const noexcept -> const detail::Event& {
+  slot_done_event(DataView view,
+                  size_t slot) const noexcept -> const detail::Event& {
     return state_->slot_done_[index_(view)][slot];
   }
 
@@ -504,7 +515,8 @@ public:
    * (pipelined convergence checks).
    */
   [[nodiscard]] auto
-  wait_value(DataView view = DataView::Standard, size_t lag = 0U) const -> T {
+  wait_value(DataView view = DataView::Standard,
+             size_t lag = 0U) const -> T {
     if (state_->launch_cursor == 0U) {
       log::throw_with_log<std::runtime_error>(
           "ReductionResult::wait_value: no reduction launch has started yet");
@@ -523,7 +535,8 @@ public:
 
   /** Non-blocking: @c true when @ref wait_value would not block for the same @p lag . */
   [[nodiscard]] auto
-  ready(DataView view = DataView::Standard, size_t lag = 0U) const -> bool {
+  ready(DataView view = DataView::Standard,
+        size_t lag = 0U) const -> bool {
     if (state_->launch_cursor == 0U || lag >= state_->launch_cursor) {
       return false;
     }
@@ -597,7 +610,8 @@ public:
    * Called from reduce @c KernelImpl launch paths only.
    */
   auto
-  begin_launch_slot(DataView view, const Stream& stream) -> size_t {
+  begin_launch_slot(DataView view,
+                    const Stream& stream) -> size_t {
     const size_t slot = state_->launch_cursor % state_->slot_count;
     if (state_->launch_cursor >= state_->slot_count) {
       wait_slot_done_on_stream_(view, slot, stream);
@@ -607,7 +621,9 @@ public:
   }
 
   auto
-  record_readback_done(DataView view, size_t slot, const Stream& stream) -> void {
+  record_readback_done(DataView view,
+                       size_t slot,
+                       const Stream& stream) -> void {
 #ifndef NDEBUG
     if (state_->launch_cursor > 0U && state_->slot_count > 1U) {
       const size_t launch_idx = state_->launch_cursor - 1U;
@@ -671,7 +687,8 @@ public:
 
   /** Device scalar for @p view at @p slot (readback source). */
   [[nodiscard]] auto
-  device_data_at(DataView view, size_t slot) const noexcept -> T* {
+  device_data_at(DataView view,
+                 size_t slot) const noexcept -> T* {
     return state_->device_slots_[index_(view)][slot].data();
   }
 
@@ -684,7 +701,9 @@ private:
   std::shared_ptr<SharedState> state_{};
 
   auto
-  wait_slot_done_on_stream_(DataView view, size_t slot, const Stream& stream) const -> void {
+  wait_slot_done_on_stream_(DataView view,
+                            size_t slot,
+                            const Stream& stream) const -> void {
     const size_t root = static_cast<size_t>(state_->root_local_gpu);
     if (root >= stream.size()) {
       log::throw_with_log<std::invalid_argument>(
@@ -700,7 +719,9 @@ private:
     }
 #elif CARBON_BACKEND_IS_SYCL
     sycl::queue& q = stream[root].queue();
-    q.submit([&](sycl::handler& h) { h.depends_on(evt.event()); });
+    q.submit([&](sycl::handler& h) {
+      h.depends_on(evt.event());
+    });
 #else
     (void)view;
     (void)slot;
@@ -709,7 +730,9 @@ private:
   }
 
   auto
-  record_slot_done_on_stream_(DataView view, size_t slot, const Stream& stream) const -> void {
+  record_slot_done_on_stream_(DataView view,
+                              size_t slot,
+                              const Stream& stream) const -> void {
     const size_t root = static_cast<size_t>(state_->root_local_gpu);
     if (root >= stream.size()) {
       log::throw_with_log<std::invalid_argument>(
@@ -718,15 +741,15 @@ private:
     }
     const detail::Event& evt = state_->slot_done_[index_(view)][slot];
 #if CARBON_BACKEND_IS_CUDALIKE
-    const detail::gpu_error_t err =
-        detail::gpu_event_record(evt.get(), stream[root].get());
+    const detail::gpu_error_t err = detail::gpu_event_record(evt.get(), stream[root].get());
     if (err != detail::gpu_success) {
       log::throw_with_log<std::runtime_error>("ReductionResult: gpu_event_record failed: {}",
                                               detail::gpu_error_string(err));
     }
 #elif CARBON_BACKEND_IS_SYCL
     sycl::queue& q = stream[root].queue();
-    auto e = q.submit([](sycl::handler& h) {});
+    auto e = q.submit([](sycl::handler& h) {
+    });
     *const_cast<detail::Event*>(&evt) = detail::Event(std::make_shared<sycl::event>(e));
 #else
     (void)view;

@@ -14,6 +14,11 @@
 
 namespace carbon {
 
+enum class StreamPriority : unsigned char {
+  Normal = 0,
+  High = 1,
+};
+
 class Report;
 
 namespace detail {
@@ -98,6 +103,10 @@ public:
   /** One CUDA stream per GPU (index @p i matches devices()[i]). */
   [[nodiscard]] auto
   stream() const -> StreamGroup;
+
+  /** One stream per GPU with optional high driver priority on every device. */
+  [[nodiscard]] auto
+  stream(StreamPriority priority) const -> StreamGroup;
 
   /** One CUDA event per GPU (index @p i matches devices()[i]). */
   [[nodiscard]] auto

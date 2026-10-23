@@ -278,6 +278,10 @@ public:
   [[nodiscard]] auto
   stream() -> Stream;
 
+  /** Allocates a stream group; @c StreamPriority::High uses greatest driver priority. */
+  [[nodiscard]] auto
+  stream(StreamPriority priority) -> Stream;
+
   /**
    * The System's **main (anchor) stream** — carbon's equivalent of "stream 0": one
    * conceptual stream that every consumer on this System can share.
@@ -388,6 +392,13 @@ inline System::System(std::vector<detail::Gpu> devices)
 inline auto
 System::stream() -> Stream {
   Stream s = state_->gpu_group.stream();
+  state_->stored_streams.push_back(s);
+  return s;
+}
+
+inline auto
+System::stream(StreamPriority priority) -> Stream {
+  Stream s = state_->gpu_group.stream(priority);
   state_->stored_streams.push_back(s);
   return s;
 }

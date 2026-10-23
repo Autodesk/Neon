@@ -145,6 +145,10 @@ public:
   [[nodiscard]] auto
   stream() const -> CudaStream;
 
+  /** Stream with explicit driver priority (@p greatest_priority wins over lower values). */
+  [[nodiscard]] auto
+  stream_with_priority(int greatest_priority) const -> CudaStream;
+
   /** Creates a CUDA event on this device (refcounted; copies share the handle). */
   [[nodiscard]] auto
   event() const -> Event;

@@ -384,12 +384,8 @@ private:
     // (the kernel keeps the field alive through the captures in its loading lambda,
     // but the name is read during construction-time discovery and snapshotted —
     // a later set_name does not retroactively rewrite already-recorded tokens).
-    tokens_.push_back(AccessToken{field.gpu_buffers().get_uid(),
-                                  ResourceKind::Field,
-                                  mode,
-                                  pattern,
-                                  field.name(),
-                                  std::move(halo_factory)});
+    tokens_.push_back(AccessToken{field.gpu_buffers().get_uid(), ResourceKind::Field, mode, pattern,
+                                  field.name(), std::move(halo_factory)});
   }
 
   size_t relative_gpu_id_{};
@@ -440,6 +436,19 @@ public:
     }
     detail::NvtxPushPopScope nvtx_scope(name());
     impl_->launch(stream, view);
+  }
+
+  /** Phased reduce launch for skeleton OCC splits (@ref reduce::ReduceLaunchMode ). */
+  auto
+  launch_reduction_phase(const Stream& stream,
+                         DataView view,
+                         reduce::ReduceLaunchMode mode) const -> void {
+    if (!impl_) {
+      log::throw_with_log<std::logic_error>(
+          "Kernel::launch_reduction_phase: kernel is empty (default-constructed)");
+    }
+    detail::NvtxPushPopScope nvtx_scope(name());
+    impl_->launch_reduction_phase(stream, view, mode);
   }
 
   /**
@@ -614,7 +623,8 @@ public:
    */
   template <typename T>
   [[nodiscard]] static auto
-  scalar_readback(ReductionResult<T>& dst, std::string name = {}) -> Kernel;
+  scalar_readback(ReductionResult<T>& dst,
+                  std::string name = {}) -> Kernel;
 
   /**
    * @brief Wrap an existing @ref Halo<T, Components> as a @c Kernel.
@@ -873,7 +883,8 @@ Kernel::reduce(const Grid& grid,
 
 template <typename T>
 auto
-Kernel::scalar_readback(ReductionResult<T>& dst, std::string name) -> Kernel {
+Kernel::scalar_readback(ReductionResult<T>& dst,
+                        std::string name) -> Kernel {
   using Impl = detail::ScalarReadbackKernelImpl<T>;
   return Kernel(std::make_shared<Impl>(dst, std::move(name)));
 }
