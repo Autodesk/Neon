@@ -6036,3 +6036,13 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   benchmark `--hp-halo`. `Skeleton::export_launch_matrix_dot()` (benchmark `--dot-matrix`)
   renders the launch order as a streams × operations grid; `Skeleton::export_kernel_list_dot()`
   renders the added kernels as a table (per-resource access, dependencies, launches).
+- **2026-10 — Periodic z is halo-only.** The Jacobi benchmark no longer writes wrapped halo
+  rows from user kernels (no user-built `Idx`); single-GPU `BoundaryMode::PeriodicZ` relies on
+  the auto-inserted halo's self-wrap pair `(0, 0)`. The `--dump` layout derives NVIDIA's rows
+  `0` / `ny - 1` from owned data, so 1-GPU and multi-GPU dumps now match exactly (previously
+  the multi-GPU boundary rows came from an interior halo). New test
+  `test_skeleton_periodic_z_single`.
+- **2026-10 — Partition cursor + trusted stencil reads.** `detail::dense::Partition::cursor()`
+  (and DenseDisg forwarding) compute one centre offset then constant-strided `pull()` neighbours;
+  Jacobi uses it instead of `neighbour()` + a redundant `read()` partition. `Dense` rejects layouts
+  whose `xy_slab_elements` or haloed x extent exceed `int32_t`. New test `test_partition_cursor`.
