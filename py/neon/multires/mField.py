@@ -273,7 +273,7 @@ class mField(object):
 
         self.api_checkpoint_save = bind_api(
             'mGrid_mField_checkpoint_save',
-            [self.handle_type, ctypes.c_char_p, ctypes.c_char_p],
+            [self.handle_type, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p],
             ctypes.c_int32,
             required=False,
         )
@@ -510,10 +510,24 @@ class mField(object):
                             outputVoxelID,
                             filterOverlaps)
 
-    def save(self, base_path: str, name: str = "field") -> None:
-        """Save field values (.bin) and metadata (.json); syncs host memory first."""
+    CHECKPOINT_FORMATS = ("bin", "npy", "npz")
+
+    def save(self, base_path: str, name: str = "field", file_format: str = "bin") -> None:
+        """
+        Save field values and metadata (<base_path>.json); syncs host memory first.
+
+        Args:
+            base_path: Path without extension.
+            name: Field name stored in the metadata.
+            file_format: "bin" writes <base_path>.bin (raw array); "npy" writes <base_path>.npy, one
+                array of shape (total_blocks, Z, Y, X, cardinality); "npz" writes <base_path>.npz with
+                one array per level ("level_0", ...) of shape (num_blocks, Z, Y, X, cardinality).
+                load() reads the format back from the metadata.
+        """
         import warp as wp
 
+        if file_format not in self.CHECKPOINT_FORMATS:
+            raise ValueError(f"file_format must be one of {self.CHECKPOINT_FORMATS}, got {file_format!r}")
         if self.api_checkpoint_save is None:
             raise NotImplementedError(f"Checkpoint save not available for dtype {self.dtype}")
         self.update_host(0)
@@ -522,6 +536,7 @@ class mField(object):
             self._handle,
             base_path.encode("utf-8"),
             name.encode("utf-8"),
+            file_format.encode("utf-8"),
         )
         if res != 0:
             raise FieldError(f"Checkpoint save failed (error code: {res})")

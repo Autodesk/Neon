@@ -33,6 +33,19 @@ struct MultiResComputeUtils
 
 namespace Neon::domain::details::mGrid {
 
+/**
+ * File format of the value array of a field checkpoint (the .json metadata is always written).
+ * - bin: raw little-endian array, <base>.bin
+ * - npy: one NumPy array of shape (total_blocks, Z, Y, X, cardinality), <base>.npy
+ * - npz: one NumPy array per level ("level_0", "level_1", ...) of shape (num_blocks, Z, Y, X, cardinality), <base>.npz
+ */
+enum class CheckpointFormat
+{
+    bin,
+    npy,
+    npz,
+};
+
 template <typename SBlock>
 class mGrid;
 
@@ -133,7 +146,9 @@ class mField
         return *mData->grid;
     }
 
-    auto ioToCheckpoint(const std::string& basePath, const std::string& name) const -> void;
+    auto ioToCheckpoint(const std::string& basePath,
+                        const std::string& name,
+                        CheckpointFormat   format = CheckpointFormat::bin) const -> void;
 
     auto ioFromCheckpoint(const std::string& basePath) -> void;
 

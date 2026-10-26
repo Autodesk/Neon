@@ -246,7 +246,7 @@ auto mGrid<SBlock>::ioToTopologyFile(const std::string& path) const -> void
     doc.AddMember(
         "field_layout",
         rapidjson::Value(
-            "SoA per level: block order = Partitioner1D forEachSeq; pitch = (blockIdx * cardinality + card) * 64 + x + 4*y + 16*z; inactive bitmask slots zeroed in .bin",
+            "levels concatenated; blocks in Partitioner1D forEachSeq order; index = (((block * Z + z) * Y + y) * X + x) * cardinality + component (components interleaved per voxel); field_offset_per_card counts voxel slots, multiply by cardinality; inactive slots zeroed",
             alloc),
         alloc);
 

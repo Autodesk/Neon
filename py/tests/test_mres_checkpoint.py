@@ -13,7 +13,7 @@ update_pythonpath()
 
 import warp as wp
 import neon
-from neon.multires.mField import FieldError
+from neon.multires.mField import FieldError, mField
 
 DIM = 16
 STENCIL = [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
@@ -71,7 +71,17 @@ class TestMresCheckpoint(unittest.TestCase):
         field.update_device(0)
         wp.synchronize()
 
-    def _roundtrip(self, cardinality):
+    def _check_values(self, grid, field, cardinality, scale=1.0):
+        for level in range(grid.num_levels):
+            voxels = _active_voxels(grid, level)
+            self.assertGreater(len(voxels), 0)
+            for (x, y, z) in voxels:
+                for c in range(cardinality):
+                    got = field.read(level, _host_idx(level, x, y, z), c)
+                    self.assertEqual(got, scale * _value(level, x, y, z, c),
+                                     f"level={level} idx=({x},{y},{z}) c={c}")
+
+    def _roundtrip(self, cardinality, file_format):
         grid = _make_grid(self.backend, fine_extent=8)
         field = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
         self._fill(grid, field, cardinality)
@@ -80,35 +90,107 @@ class TestMresCheckpoint(unittest.TestCase):
             topo = os.path.join(tmp, "grid.ngrid")
             base = os.path.join(tmp, "rho")
             grid.save_topology(topo)
-            field.save(base, name="rho")
+            field.save(base, name="rho", file_format=file_format)
 
             with open(base + ".json", "r", encoding="utf-8") as f:
                 meta = json.load(f)
             self.assertEqual(meta["name"], "rho")
             self.assertEqual(meta["dtype"], "float32")
             self.assertEqual(meta["cardinality"], cardinality)
-            self.assertEqual(os.path.getsize(base + ".bin"), meta["num_elements"] * 4)
+            self.assertEqual(meta["format"], file_format)
+            self.assertTrue(os.path.exists(base + "." + file_format))
+            for other in set(mField.CHECKPOINT_FORMATS) - {file_format}:
+                self.assertFalse(os.path.exists(base + "." + other))
+            if file_format == "bin":
+                self.assertEqual(os.path.getsize(base + ".bin"), meta["num_elements"] * 4)
 
             grid2 = neon.mGrid.from_topology(self.backend, topo)
             self.assertEqual(grid2.num_levels, grid.num_levels)
+            for level in range(grid.num_levels):
+                self.assertEqual(_active_voxels(grid2, level), _active_voxels(grid, level))
             field2 = grid2.load_field(base)
             self.assertEqual(field2.cardinality, cardinality)
-
-            for level in range(grid.num_levels):
-                voxels = _active_voxels(grid, level)
-                self.assertGreater(len(voxels), 0)
-                self.assertEqual(_active_voxels(grid2, level), voxels)
-                for (x, y, z) in voxels:
-                    for c in range(cardinality):
-                        got = field2.read(level, _host_idx(level, x, y, z), c)
-                        self.assertEqual(got, _value(level, x, y, z, c),
-                                         f"level={level} idx=({x},{y},{z}) c={c}")
+            self._check_values(grid, field2, cardinality)
 
     def test_float32_cardinality1_roundtrip(self):
-        self._roundtrip(cardinality=1)
+        for file_format in mField.CHECKPOINT_FORMATS:
+            with self.subTest(file_format=file_format):
+                self._roundtrip(cardinality=1, file_format=file_format)
 
     def test_float32_cardinality3_roundtrip(self):
-        self._roundtrip(cardinality=3)
+        for file_format in mField.CHECKPOINT_FORMATS:
+            with self.subTest(file_format=file_format):
+                self._roundtrip(cardinality=3, file_format=file_format)
+
+    def test_numpy_files_match_bin(self):
+        cardinality = 3
+        grid = _make_grid(self.backend, fine_extent=8)
+        field = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+        self._fill(grid, field, cardinality)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            for file_format in mField.CHECKPOINT_FORMATS:
+                field.save(os.path.join(tmp, file_format), name="v", file_format=file_format)
+            with open(os.path.join(tmp, "npz.json"), "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            z, y, x = meta["block_shape_zyx"]
+            blocks = meta["num_blocks_per_level"]
+            self.assertEqual(len(blocks), grid.num_levels)
+            self.assertEqual(meta["layout"], "block, z, y, x, component")
+
+            raw = np.fromfile(os.path.join(tmp, "bin.bin"), dtype="<f4")
+            self.assertEqual(raw.size, sum(blocks) * z * y * x * cardinality)
+
+            npy = np.load(os.path.join(tmp, "npy.npy"), allow_pickle=False)
+            self.assertEqual(npy.dtype, np.float32)
+            self.assertEqual(npy.shape, (sum(blocks), z, y, x, cardinality))
+            np.testing.assert_array_equal(npy.reshape(-1), raw)
+
+            with np.load(os.path.join(tmp, "npz.npz"), allow_pickle=False) as npz:
+                self.assertEqual(sorted(npz.files), [f"level_{l}" for l in range(grid.num_levels)])
+                levels = [npz[f"level_{l}"] for l in range(grid.num_levels)]
+            for l, arr in enumerate(levels):
+                self.assertEqual(arr.shape, (blocks[l], z, y, x, cardinality))
+            np.testing.assert_array_equal(np.concatenate(levels), npy)
+
+    def test_load_files_written_by_numpy(self):
+        cardinality = 3
+        grid = _make_grid(self.backend, fine_extent=8)
+        field = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+        self._fill(grid, field, cardinality)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            npy_base = os.path.join(tmp, "a")
+            npz_base = os.path.join(tmp, "b")
+            field.save(npy_base, name="v", file_format="npy")
+            field.save(npz_base, name="v", file_format="npz")
+
+            np.save(npy_base + ".npy", 2.0 * np.load(npy_base + ".npy"))
+            with np.load(npz_base + ".npz") as npz:
+                doubled = {k: 2.0 * npz[k] for k in npz.files}
+            np.savez(npz_base + ".npz", **doubled)
+
+            for base in (npy_base, npz_base):
+                with self.subTest(base=os.path.basename(base)):
+                    restored = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+                    restored.load(base)
+                    self._check_values(grid, restored, cardinality, scale=2.0)
+
+            np.savez_compressed(npz_base + ".npz", **doubled)
+            restored = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+            with self.assertRaises(FieldError):
+                restored.load(npz_base)
+
+            np.save(npy_base + ".npy", np.load(npy_base + ".npy").astype(np.float64))
+            with self.assertRaises(FieldError):
+                restored.load(npy_base)
+
+    def test_invalid_format_rejected(self):
+        grid = _make_grid(self.backend, fine_extent=8)
+        field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                field.save(os.path.join(tmp, "rho"), file_format="hdf5")
 
     def test_topology_id_mismatch_rejected(self):
         grid = _make_grid(self.backend, fine_extent=8)

@@ -81,26 +81,33 @@ TEST(mGrid, checkpoint_roundtrip)
         }
 
         const std::string topoPath = "gUt_mGrid_topology.ngrid";
-        const std::string fieldBase = "gUt_mGrid_rho";
         grid.ioToTopologyFile(topoPath);
-        field.ioToCheckpoint(fieldBase, "rho");
-
         auto restored = Neon::domain::mGrid::fromTopologyFile(bk, topoPath);
-        auto restoredField = restored.newField<float>("rho", 1, 0.f);
-        restoredField.ioFromCheckpoint(fieldBase);
 
-        for (int l = 0; l < descr.getDepth(); ++l) {
-            field.forEachActiveCell(
-                l,
-                [&](const Neon::int32_3d idx, const int card, float& val) {
-                    (void)card;
-                    const float expected = static_cast<float>(idx.x + idx.y + idx.z + l * 100);
-                    EXPECT_FLOAT_EQ(val, expected);
-                    const float restoredVal = restoredField(idx, 0, l);
-                    EXPECT_FLOAT_EQ(restoredVal, expected);
-                },
-                true,
-                Neon::computeMode_t::computeMode_e::seq);
+        using Neon::domain::details::mGrid::CheckpointFormat;
+        for (auto [format, suffix] : {std::pair{CheckpointFormat::bin, "bin"},
+                                      std::pair{CheckpointFormat::npy, "npy"},
+                                      std::pair{CheckpointFormat::npz, "npz"}}) {
+            SCOPED_TRACE(suffix);
+            const std::string fieldBase = std::string("gUt_mGrid_rho_") + suffix;
+            field.ioToCheckpoint(fieldBase, "rho", format);
+
+            auto restoredField = restored.newField<float>("rho", 1, 0.f);
+            restoredField.ioFromCheckpoint(fieldBase);
+
+            for (int l = 0; l < descr.getDepth(); ++l) {
+                field.forEachActiveCell(
+                    l,
+                    [&](const Neon::int32_3d idx, const int card, float& val) {
+                        (void)card;
+                        const float expected = static_cast<float>(idx.x + idx.y + idx.z + l * 100);
+                        EXPECT_FLOAT_EQ(val, expected);
+                        const float restoredVal = restoredField(idx, 0, l);
+                        EXPECT_FLOAT_EQ(restoredVal, expected);
+                    },
+                    true,
+                    Neon::computeMode_t::computeMode_e::seq);
+            }
         }
     }
 }
