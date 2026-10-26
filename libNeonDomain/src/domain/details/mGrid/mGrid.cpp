@@ -131,6 +131,19 @@ mGrid<SBlock>::mGrid(
     [[maybe_unused]] const double_3d&                       spacingData,
     [[maybe_unused]] const double_3d&                       origin)
 {
+    helpInit(backend, domainSize, descriptor, isStrongBalanced, isCullOverlaps);
+    helpBuildBitmasks(std::move(activeCellLambda));
+    helpBuildGrids(stencil, spacingData, origin);
+}
+
+template <typename SBlock>
+auto mGrid<SBlock>::helpInit(
+    const Neon::Backend& backend,
+    const Neon::int32_3d& domainSize,
+    const Descriptor& descriptor,
+    bool isStrongBalanced,
+    bool isCullOverlaps) -> void
+{
     Neon::TimerManagerSec timeTracker("mGrid");
     timeTracker.start_with_info("initialization");
 
@@ -219,6 +232,14 @@ mGrid<SBlock>::mGrid(
     }
 
     // ==============================================
+}
+
+template <typename SBlock>
+auto mGrid<SBlock>::helpBuildBitmasks(
+    std::vector<std::function<bool(const Neon::index_3d&)>> activeCellLambda) -> void
+{
+    const Neon::int32_3d& domainSize = mData->domainSize;
+    Neon::TimerManagerSec timeTracker("mGrid");
     // PHASE 2: Bitmask Creation for Each Resolution Level
     // ==============================================
     timeTracker.start_with_trace("Bitmask creation");
@@ -594,6 +615,22 @@ mGrid<SBlock>::mGrid(
     }
     timeTracker.stop_with_trace("Strong Balance");
     // ==============================================
+}
+
+template <typename SBlock>
+auto mGrid<SBlock>::helpBuildGrids(
+    const Neon::domain::Stencil& stencil,
+    const double_3d& spacingData,
+    const double_3d& origin) -> void
+{
+    Neon::Backend& backend = mData->backend;
+    const Descriptor& descriptor = mData->mDescriptor;
+    const Neon::int32_3d& domainSize = mData->domainSize;
+    mData->mStencil = stencil;
+    mData->mSpacingData = spacingData;
+    mData->mOrigin = origin;
+    Neon::TimerManagerSec timeTracker("mGrid");
+    timeTracker.start_with_info("initialization");
     // PHASE 5: Internal Block Sparse Grid Creation
     // ==============================================
     timeTracker.start_with_trace("bGrid initialization");
@@ -733,7 +770,7 @@ mGrid<SBlock>::mGrid(
 
     // Initialize child block ID storage to link each level to its finer resolution children
     std::vector<Neon::set::DataSet<uint64_t>> childAllocSize(mData->mDescriptor.getDepth());
-    for (int l = 0; l < descriptor.getDepth(); ++l) {
+    for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         childAllocSize[l] = backend.devSet().template newDataSet<uint64_t>();
         for (int64_t i = 0; i < childAllocSize[l].size(); ++i) {
             if (l > 0) {

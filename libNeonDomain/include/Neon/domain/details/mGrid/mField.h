@@ -133,6 +133,10 @@ class mField
         return *mData->grid;
     }
 
+    auto ioToCheckpoint(const std::string& basePath, const std::string& name) const -> void;
+
+    auto ioFromCheckpoint(const std::string& basePath) -> void;
+
    private:
     mField(const std::string&         name,
            const mGrid<SBlock>&       grid,

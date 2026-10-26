@@ -14,6 +14,7 @@
 #include "Neon/domain/details/mGrid/mPartition.h"
 
 #include "Neon/domain/interface/Representation.h"
+#include "Neon/domain/interface/Stencil.h"
 #include "Neon/set/Containter.h"
 
 
@@ -183,8 +184,35 @@ class mGrid
 
     auto toString() const ->  std::string;
 
+    auto ioToTopologyFile(const std::string& path) const -> void;
+
+    static auto fromTopologyFile(const Neon::Backend& backend, const std::string& path) -> mGrid;
+
+    auto getTopologyId() const -> uint64_t;
+
+    auto getCheckpointFieldNumElementsPerCard() const -> uint64_t;
 
    private:
+    void helpInit(const Neon::Backend&     backend,
+                  const Neon::int32_3d&    domainSize,
+                  const Descriptor&        descriptor,
+                  bool                     isStrongBalanced,
+                  bool                     isCullOverlaps);
+
+    void helpBuildBitmasks(std::vector<std::function<bool(const Neon::index_3d&)>> activeCellLambda);
+
+    void helpBuildGrids(const Neon::domain::Stencil& stencil,
+                        const double_3d&             spacingData,
+                        const double_3d&             origin);
+
+    void helpRestoreBitmasksFromTopology(
+        const std::vector<std::vector<Neon::index_3d>>&              blockOriginsPerLevel,
+        const std::vector<std::vector<typename SBlock::BitMask>>& activeMasksPerLevel);
+
+    void helpVerifyTopologyBlockLayout(
+        const std::vector<std::vector<Neon::index_3d>>&              blockOriginsPerLevel,
+        const std::vector<std::vector<typename SBlock::BitMask>>& activeMasksPerLevel) const;
+
     // check if the bitmask is set assuming a dense domain
     auto levelBitMaskIndex(int l, const Neon::index_3d& blockID, const Neon::index_3d& localChild) const -> std::pair<int64_t, int>;
 
@@ -238,6 +266,11 @@ class mGrid
         std::vector<InternalGrid> grids;
 
         Neon::Backend backend;
+
+        double_3d              mSpacingData{1, 1, 1};
+        double_3d              mOrigin{0, 0, 0};
+        Neon::domain::Stencil  mStencil;
+        mutable uint64_t       mTopologyId{0};
     };
     std::shared_ptr<Data> mData;
 };

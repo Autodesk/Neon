@@ -456,6 +456,82 @@ class mGrid(object):
                                               ctypes.POINTER(neon.Index_3d)]    # Input: 3D position
         self.api_is_inside_domain.restype = ctypes.c_bool
 
+        self.api_save_topology = lib.mGrid_save_topology
+        self.api_save_topology.argtypes = [self.handle_type, ctypes.c_char_p]
+        self.api_save_topology.restype = ctypes.c_int
+
+        self.api_new_from_topology = lib.mGrid_new_from_topology
+        self.api_new_from_topology.argtypes = [
+            ctypes.POINTER(self.handle_type),
+            self.handle_type,
+            ctypes.c_char_p,
+        ]
+        self.api_new_from_topology.restype = ctypes.c_int
+
+    def save_topology(self, path: str) -> None:
+        """Write grid topology checkpoint (.ngrid) for later field restore."""
+        res = self.api_save_topology(self._handle, path.encode("utf-8"))
+        if res != 0:
+            raise GridError(f"Failed to save topology to {path} (error code: {res})")
+
+    @classmethod
+    def from_topology(cls, backend: neon.Backend, path: str) -> "mGrid":
+        """Restore an mGrid from a topology checkpoint file."""
+        gate = neon.Gate()
+        handle = ctypes.c_void_p(0)
+        res = gate.lib.mGrid_new_from_topology(
+            ctypes.byref(handle),
+            backend.backend_handle,
+            path.encode("utf-8"),
+        )
+        if res != 0:
+            raise GridError(f"Failed to load topology from {path} (error code: {res})")
+        grid = cls.__new__(cls)
+        grid.neon_gate = gate
+        grid._handle = handle
+        grid.handle_type = ctypes.c_void_p
+        grid._cleaned = False
+        grid._help_load_api()
+        grid.backend = backend
+        import json
+        import struct
+
+        with open(path, "rb") as f:
+            f.read(8)
+            hdr_len = struct.unpack("<Q", f.read(8))[0]
+            header = json.loads(f.read(hdr_len))
+        grid._num_levels = int(header["num_levels"])
+        ds = header["domain_size"]
+        grid.dim = neon.Index_3d(ds[0], ds[1], ds[2])
+        return grid
+
+    def load_field(self, base_path: str) -> mField:
+        """Create and load a field from checkpoint JSON/BIN pair (reads JSON for metadata)."""
+        import json
+        import warp as wp
+
+        json_path = base_path + ".json"
+        with open(json_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        dtype_map = {
+            "float32": float,
+            "float64": float,
+            "float16": wp.float16,
+            "int32": int,
+            "int64": int,
+            "uint32": int,
+            "uint64": int,
+            "int8": int,
+            "uint8": int,
+            "bool": bool,
+        }
+        dtype = dtype_map.get(meta["dtype"])
+        if dtype is None:
+            raise GridError(f"Unsupported checkpoint dtype {meta['dtype']}")
+        field = self.new_field(meta["cardinality"], dtype, neon.MemoryType.HOST_DEVICE)
+        field.load(base_path)
+        return field
+
     def _help_grid_new(self):
         """
         Create the C++ grid object and initialize the handle.

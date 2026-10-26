@@ -271,6 +271,19 @@ class mField(object):
             required=False,
         )
 
+        self.api_checkpoint_save = bind_api(
+            'mGrid_mField_checkpoint_save',
+            [self.handle_type, ctypes.c_char_p, ctypes.c_char_p],
+            ctypes.c_int32,
+            required=False,
+        )
+        self.api_checkpoint_load = bind_api(
+            'mGrid_mField_checkpoint_load',
+            [self.handle_type, ctypes.c_char_p],
+            ctypes.c_int32,
+            required=False,
+        )
+
         # === Field Operations ===
         self.api_fill = bind_api(
             'mGrid_mField_fill',
@@ -496,6 +509,34 @@ class mField(object):
                             outputBlockID,
                             outputVoxelID,
                             filterOverlaps)
+
+    def save(self, base_path: str, name: str = "field") -> None:
+        """Save field values (.bin) and metadata (.json); syncs host memory first."""
+        import warp as wp
+
+        if self.api_checkpoint_save is None:
+            raise NotImplementedError(f"Checkpoint save not available for dtype {self.dtype}")
+        self.update_host(0)
+        wp.synchronize()
+        res = self.api_checkpoint_save(
+            self._handle,
+            base_path.encode("utf-8"),
+            name.encode("utf-8"),
+        )
+        if res != 0:
+            raise FieldError(f"Checkpoint save failed (error code: {res})")
+
+    def load(self, base_path: str) -> None:
+        """Load field values from checkpoint; uploads to device after load."""
+        import warp as wp
+
+        if self.api_checkpoint_load is None:
+            raise NotImplementedError(f"Checkpoint load not available for dtype {self.dtype}")
+        res = self.api_checkpoint_load(self._handle, base_path.encode("utf-8"))
+        if res != 0:
+            raise FieldError(f"Checkpoint load failed (error code: {res})")
+        self.update_device(0)
+        wp.synchronize()
 
     @property
     def cardinality(self) -> int:

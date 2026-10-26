@@ -827,3 +827,108 @@ extern "C" auto mGrid_mField_mPartition_get_member_field_offsets(size_t* offsets
 {
     Neon::domain::mGrid::Partition<int, 0>::getOffsets(offsets, length);
 }
+
+extern "C" auto mGrid_save_topology(
+    void*       gridHandle,
+    const char* path)
+    -> int
+{
+    using Grid = Neon::domain::mGrid;
+    Grid* gridPtr = reinterpret_cast<Grid*>(gridHandle);
+    if (gridPtr == nullptr || path == nullptr) {
+        return -1;
+    }
+    try {
+        gridPtr->ioToTopologyFile(path);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
+}
+
+extern "C" auto mGrid_new_from_topology(
+    void**      handle,
+    void*       backendPtr,
+    const char* path)
+    -> int
+{
+    using Grid = Neon::domain::mGrid;
+    Neon::Backend* backend = reinterpret_cast<Neon::Backend*>(backendPtr);
+    if (handle == nullptr || backend == nullptr || path == nullptr) {
+        return -1;
+    }
+    try {
+        Grid  grid = Grid::fromTopologyFile(*backend, path);
+        Grid* gridPtr = new (std::nothrow) Grid(std::move(grid));
+        if (gridPtr == nullptr) {
+            return -1;
+        }
+        *handle = gridPtr;
+        return 0;
+    } catch (...) {
+        return -1;
+    }
+}
+
+template <typename T>
+auto mGrid_mField_checkpoint_save(
+    void*       fieldHandle,
+    const char* basePath,
+    const char* name)
+    -> int
+{
+    using Grid = Neon::domain::mGrid;
+    using Field = Grid::Field<T, 0>;
+    Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
+    if (fieldPtr == nullptr || basePath == nullptr || name == nullptr) {
+        return -1;
+    }
+    try {
+        fieldPtr->ioToCheckpoint(basePath, name);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
+}
+
+template <typename T>
+auto mGrid_mField_checkpoint_load(
+    void*       fieldHandle,
+    const char* basePath)
+    -> int
+{
+    using Grid = Neon::domain::mGrid;
+    using Field = Grid::Field<T, 0>;
+    Field* fieldPtr = reinterpret_cast<Field*>(fieldHandle);
+    if (fieldPtr == nullptr || basePath == nullptr) {
+        return -1;
+    }
+    try {
+        fieldPtr->ioFromCheckpoint(basePath);
+        return 0;
+    } catch (...) {
+        return -1;
+    }
+}
+
+DO_EXPORT(int8, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+DO_EXPORT(uint8, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+DO_EXPORT(bool, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+DO_EXPORT(int32, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+DO_EXPORT(uint32, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+DO_EXPORT(int64, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+DO_EXPORT(uint64, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+DO_EXPORT(float32, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+DO_EXPORT(float64, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+DO_EXPORT(float16, 3, mGrid_mField_checkpoint_save, int, void*, fieldHandle, const char*, basePath, const char*, name);
+
+DO_EXPORT(int8, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
+DO_EXPORT(uint8, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
+DO_EXPORT(bool, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
+DO_EXPORT(int32, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
+DO_EXPORT(uint32, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
+DO_EXPORT(int64, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
+DO_EXPORT(uint64, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
+DO_EXPORT(float32, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
+DO_EXPORT(float64, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
+DO_EXPORT(float16, 2, mGrid_mField_checkpoint_load, int, void*, fieldHandle, const char*, basePath);
