@@ -477,22 +477,6 @@ class mGrid(object):
     @classmethod
     def from_topology(cls, backend: neon.Backend, path: str) -> "mGrid":
         """Restore an mGrid from a topology checkpoint file."""
-        gate = neon.Gate()
-        handle = ctypes.c_void_p(0)
-        res = gate.lib.mGrid_new_from_topology(
-            ctypes.byref(handle),
-            backend.backend_handle,
-            path.encode("utf-8"),
-        )
-        if res != 0:
-            raise GridError(f"Failed to load topology from {path} (error code: {res})")
-        grid = cls.__new__(cls)
-        grid.neon_gate = gate
-        grid._handle = handle
-        grid.handle_type = ctypes.c_void_p
-        grid._cleaned = False
-        grid._help_load_api()
-        grid.backend = backend
         import json
         import struct
 
@@ -500,9 +484,27 @@ class mGrid(object):
             f.read(8)
             hdr_len = struct.unpack("<Q", f.read(8))[0]
             header = json.loads(f.read(hdr_len))
-        grid._num_levels = int(header["num_levels"])
+
+        grid = cls.__new__(cls)
+        grid._help_load_api()
+        handle = ctypes.c_void_p(0)
+        res = grid.api_new_from_topology(
+            ctypes.byref(handle),
+            backend.backend_handle,
+            path.encode("utf-8"),
+        )
+        if res != 0:
+            raise GridError(f"Failed to load topology from {path} (error code: {res})")
+        grid._handle = handle
+        grid._cleaned = False
+        grid._backend = backend
         ds = header["domain_size"]
         grid.dim = neon.Index_3d(ds[0], ds[1], ds[2])
+        grid.sparsity_pattern_list = None
+        grid.active_voxels_list = None
+        grid.sparsity_pattern_origins = [neon.Index_3d(0, 0, 0)] * int(header["num_levels"])
+        grid.stencil = [list(p) for p in header["stencil"]]
+        grid._num_levels = int(header["num_levels"])
         return grid
 
     def load_field(self, base_path: str) -> mField:
@@ -514,21 +516,21 @@ class mGrid(object):
         with open(json_path, "r", encoding="utf-8") as f:
             meta = json.load(f)
         dtype_map = {
-            "float32": float,
-            "float64": float,
+            "float32": wp.float32,
+            "float64": wp.float64,
             "float16": wp.float16,
-            "int32": int,
-            "int64": int,
-            "uint32": int,
-            "uint64": int,
-            "int8": int,
-            "uint8": int,
-            "bool": bool,
+            "int32": wp.int32,
+            "int64": wp.int64,
+            "uint32": wp.uint32,
+            "uint64": wp.uint64,
+            "int8": wp.int8,
+            "uint8": wp.uint8,
+            "bool": wp.bool,
         }
         dtype = dtype_map.get(meta["dtype"])
         if dtype is None:
             raise GridError(f"Unsupported checkpoint dtype {meta['dtype']}")
-        field = self.new_field(meta["cardinality"], dtype, neon.MemoryType.HOST_DEVICE)
+        field = self.new_field(meta["cardinality"], dtype, neon.MemoryType.host_device())
         field.load(base_path)
         return field
 

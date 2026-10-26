@@ -1,11 +1,13 @@
-#include "Neon/domain/details/mGrid/mField.h"
+#include "Neon/domain/details/mGrid/mGrid.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -57,6 +59,20 @@ auto parseDtype(const char* name) -> bool
     return std::strcmp(name, checkpointDtypeName<T>()) == 0;
 }
 
+auto topologyIdToJson(uint64_t topologyId, rapidjson::Document::AllocatorType& alloc) -> rapidjson::Value
+{
+    const std::string asString = std::to_string(topologyId);
+    return rapidjson::Value(asString.c_str(), alloc);
+}
+
+auto topologyIdFromJson(const rapidjson::Value& value) -> uint64_t
+{
+    if (value.IsString()) {
+        return std::strtoull(value.GetString(), nullptr, 10);
+    }
+    return value.GetUint64();
+}
+
 }  // namespace
 
 template <typename T, int C, typename SBlock>
@@ -74,7 +90,6 @@ auto mField<T, C, SBlock>::ioToCheckpoint(const std::string& basePath, const std
         const int voxelSpacing = grid.getDescriptor().getSpacing(l - 1);
         auto&     bgrid = (*mData->grid)(l);
         auto& xfld = const_cast<Self*>(this)->operator()(l);
-        xfld.updateHostData(0);
         const auto& part = xfld.getPartition(Neon::Execution::host, SetIdx(0), Neon::DataView::STANDARD);
         SetIdx      devID(0);
 
@@ -84,14 +99,14 @@ auto mField<T, C, SBlock>::ioToCheckpoint(const std::string& basePath, const std
             blockOrigin.y *= SBlock::memBlockSizeY * voxelSpacing;
             blockOrigin.z *= SBlock::memBlockSizeZ * voxelSpacing;
 
-            for (int z = 0; z < SBlock::memBlockSizeZ; ++z) {
-                for (int y = 0; y < SBlock::memBlockSizeY; ++y) {
-                    for (int x = 0; x < SBlock::memBlockSizeX; ++x) {
-                        const Neon::index_3d voxelGlobalID(x * voxelSpacing + blockOrigin.x,
-                                                           y * voxelSpacing + blockOrigin.y,
-                                                           z * voxelSpacing + blockOrigin.z);
-                        const bool           active = bgrid.isInsideDomain(voxelGlobalID);
-                        Idx                  idx(blockIdx, static_cast<int8_t>(x), static_cast<int8_t>(y), static_cast<int8_t>(z));
+            for (uint32_t z = 0; z < SBlock::memBlockSizeZ; ++z) {
+                for (uint32_t y = 0; y < SBlock::memBlockSizeY; ++y) {
+                    for (uint32_t x = 0; x < SBlock::memBlockSizeX; ++x) {
+                        const Neon::index_3d voxelGlobalID(static_cast<int>(x * static_cast<uint32_t>(voxelSpacing) + blockOrigin.x),
+                                                           static_cast<int>(y * static_cast<uint32_t>(voxelSpacing) + blockOrigin.y),
+                                                           static_cast<int>(z * static_cast<uint32_t>(voxelSpacing) + blockOrigin.z));
+                        const bool active = bgrid.isInsideDomain(voxelGlobalID);
+                        Idx        idx(blockIdx, static_cast<int8_t>(x), static_cast<int8_t>(y), static_cast<int8_t>(z));
                         for (int c = 0; c < card; ++c) {
                             if (active) {
                                 buffer[writeIdx] = part(idx, c);
@@ -113,7 +128,15 @@ auto mField<T, C, SBlock>::ioToCheckpoint(const std::string& basePath, const std
         exp << "Unable to open " << binPath;
         NEON_THROW(exp);
     }
-    bout.write(reinterpret_cast<const char*>(buffer.data()), static_cast<std::streamsize>(buffer.size() * sizeof(T)));
+    if constexpr (std::is_same_v<T, bool>) {
+        std::vector<uint8_t> bytes(numElements);
+        for (uint64_t i = 0; i < numElements; ++i) {
+            bytes[i] = buffer[i] ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0);
+        }
+        bout.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    } else {
+        bout.write(reinterpret_cast<const char*>(buffer.data()), static_cast<std::streamsize>(buffer.size() * sizeof(T)));
+    }
 
     rapidjson::Document doc;
     doc.SetObject();
@@ -122,7 +145,7 @@ auto mField<T, C, SBlock>::ioToCheckpoint(const std::string& basePath, const std
     doc.AddMember("cardinality", card, alloc);
     doc.AddMember("dtype", rapidjson::Value(checkpointDtypeName<T>(), alloc), alloc);
     doc.AddMember("num_elements", numElements, alloc);
-    doc.AddMember("topology_id", rapidjson::Value().SetUint64(grid.getTopologyId()), alloc);
+    doc.AddMember("topology_id", topologyIdToJson(grid.getTopologyId(), alloc), alloc);
 
     rapidjson::StringBuffer                    sb;
     rapidjson::Writer<rapidjson::StringBuffer> wr(sb);
@@ -172,7 +195,7 @@ auto mField<T, C, SBlock>::ioFromCheckpoint(const std::string& basePath) -> void
     }
 
     auto& grid = *mData->grid;
-    if (doc["topology_id"].GetUint64() != grid.getTopologyId()) {
+    if (topologyIdFromJson(doc["topology_id"]) != grid.getTopologyId()) {
         NeonException exp("mField::ioFromCheckpoint");
         exp << "topology_id mismatch";
         NEON_THROW(exp);
@@ -193,7 +216,15 @@ auto mField<T, C, SBlock>::ioFromCheckpoint(const std::string& basePath) -> void
         exp << "Unable to open " << binPath;
         NEON_THROW(exp);
     }
-    bin.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(buffer.size() * sizeof(T)));
+    if constexpr (std::is_same_v<T, bool>) {
+        std::vector<uint8_t> bytes(numElements);
+        bin.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        for (uint64_t i = 0; i < numElements; ++i) {
+            buffer[i] = bytes[i] != 0;
+        }
+    } else {
+        bin.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(buffer.size() * sizeof(T)));
+    }
 
     uint64_t readIdx = 0;
     for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
@@ -209,14 +240,14 @@ auto mField<T, C, SBlock>::ioFromCheckpoint(const std::string& basePath) -> void
             blockOrigin.y *= SBlock::memBlockSizeY * voxelSpacing;
             blockOrigin.z *= SBlock::memBlockSizeZ * voxelSpacing;
 
-            for (int z = 0; z < SBlock::memBlockSizeZ; ++z) {
-                for (int y = 0; y < SBlock::memBlockSizeY; ++y) {
-                    for (int x = 0; x < SBlock::memBlockSizeX; ++x) {
-                        const Neon::index_3d voxelGlobalID(x * voxelSpacing + blockOrigin.x,
-                                                           y * voxelSpacing + blockOrigin.y,
-                                                           z * voxelSpacing + blockOrigin.z);
-                        const bool           active = bgrid.isInsideDomain(voxelGlobalID);
-                        Idx                  idx(blockIdx, static_cast<int8_t>(x), static_cast<int8_t>(y), static_cast<int8_t>(z));
+            for (uint32_t z = 0; z < SBlock::memBlockSizeZ; ++z) {
+                for (uint32_t y = 0; y < SBlock::memBlockSizeY; ++y) {
+                    for (uint32_t x = 0; x < SBlock::memBlockSizeX; ++x) {
+                        const Neon::index_3d voxelGlobalID(static_cast<int>(x * static_cast<uint32_t>(voxelSpacing) + blockOrigin.x),
+                                                           static_cast<int>(y * static_cast<uint32_t>(voxelSpacing) + blockOrigin.y),
+                                                           static_cast<int>(z * static_cast<uint32_t>(voxelSpacing) + blockOrigin.z));
+                        const bool active = bgrid.isInsideDomain(voxelGlobalID);
+                        Idx        idx(blockIdx, static_cast<int8_t>(x), static_cast<int8_t>(y), static_cast<int8_t>(z));
                         for (int c = 0; c < card; ++c) {
                             if (active) {
                                 part(idx, c) = buffer[readIdx];

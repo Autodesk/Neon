@@ -7,7 +7,9 @@
 #include <rapidjson/writer.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <string>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -17,6 +19,20 @@ namespace {
 
 constexpr char     kMagic[8] = {'N', 'E', 'O', 'N', 'M', 'G', 'R', 'D'};
 constexpr uint32_t kFormatVersion = 1;
+
+auto topologyIdToJson(uint64_t topologyId, rapidjson::Document::AllocatorType& alloc) -> rapidjson::Value
+{
+    const std::string asString = std::to_string(topologyId);
+    return rapidjson::Value(asString.c_str(), alloc);
+}
+
+auto topologyIdFromJson(const rapidjson::Value& value) -> uint64_t
+{
+    if (value.IsString()) {
+        return std::strtoull(value.GetString(), nullptr, 10);
+    }
+    return value.GetUint64();
+}
 
 auto fnv1a64(const uint8_t* data, size_t len, uint64_t hash = 14695981039346656037ULL) -> uint64_t
 {
@@ -72,12 +88,12 @@ auto collectBlockOriginsAndMasks(const mGrid<SBlock>& grid, int level)
 
         BitMask bm;
         bm.reset();
-        for (int z = 0; z < SBlock::memBlockSizeZ; ++z) {
-            for (int y = 0; y < SBlock::memBlockSizeY; ++y) {
-                for (int x = 0; x < SBlock::memBlockSizeX; ++x) {
-                    const Neon::index_3d voxelGlobalID(x * voxelSpacing + blockOrigin.x,
-                                                       y * voxelSpacing + blockOrigin.y,
-                                                       z * voxelSpacing + blockOrigin.z);
+        for (uint32_t z = 0; z < SBlock::memBlockSizeZ; ++z) {
+            for (uint32_t y = 0; y < SBlock::memBlockSizeY; ++y) {
+                for (uint32_t x = 0; x < SBlock::memBlockSizeX; ++x) {
+                    const Neon::index_3d voxelGlobalID(static_cast<int>(x * static_cast<uint32_t>(voxelSpacing) + blockOrigin.x),
+                                                       static_cast<int>(y * static_cast<uint32_t>(voxelSpacing) + blockOrigin.y),
+                                                       static_cast<int>(z * static_cast<uint32_t>(voxelSpacing) + blockOrigin.z));
                     if (bgrid.isInsideDomain(voxelGlobalID)) {
                         bm.setActive(x, y, z);
                     }
@@ -93,9 +109,8 @@ auto collectBlockOriginsAndMasks(const mGrid<SBlock>& grid, int level)
 template <typename SBlock>
 auto fieldElementsPerLevel(const mGrid<SBlock>& grid, int level) -> uint64_t
 {
-    auto [origins, /*masks*/] = collectBlockOriginsAndMasks(grid, level);
-    (void)origins;
-    return static_cast<uint64_t>(origins.size()) * SBlock::memBlockCountElements;
+    auto collected = collectBlockOriginsAndMasks(grid, level);
+    return static_cast<uint64_t>(collected.first.size()) * SBlock::memBlockCountElements;
 }
 
 }  // namespace
@@ -163,11 +178,13 @@ auto mGrid<SBlock>::ioToTopologyFile(const std::string& path) const -> void
 
     doc.AddMember("format_version", kFormatVersion, alloc);
     doc.AddMember("neon_git_sha1", rapidjson::Value(g_GIT_SHA1, alloc), alloc);
-    doc.AddMember("topology_id", rapidjson::Value().SetUint64(topologyId), alloc);
+    doc.AddMember("topology_id", topologyIdToJson(topologyId, alloc), alloc);
 
     {
         rapidjson::Value ds(rapidjson::kArrayType);
-        ds.PushBack(mData->domainSize.x, alloc).PushBack(mData->domainSize.y, alloc).PushBack(mData->domainSize.z, alloc);
+        ds.PushBack(mData->domainSize.x, alloc);
+        ds.PushBack(mData->domainSize.y, alloc);
+        ds.PushBack(mData->domainSize.z, alloc);
         doc.AddMember("domain_size", ds, alloc);
     }
     doc.AddMember("num_levels", mData->mDescriptor.getDepth(), alloc);
@@ -176,12 +193,16 @@ auto mGrid<SBlock>::ioToTopologyFile(const std::string& path) const -> void
 
     {
         rapidjson::Value spacing(rapidjson::kArrayType);
-        spacing.PushBack(mData->mSpacingData.x, alloc).PushBack(mData->mSpacingData.y, alloc).PushBack(mData->mSpacingData.z, alloc);
+        spacing.PushBack(mData->mSpacingData.x, alloc);
+        spacing.PushBack(mData->mSpacingData.y, alloc);
+        spacing.PushBack(mData->mSpacingData.z, alloc);
         doc.AddMember("spacing_data", spacing, alloc);
     }
     {
         rapidjson::Value origin(rapidjson::kArrayType);
-        origin.PushBack(mData->mOrigin.x, alloc).PushBack(mData->mOrigin.y, alloc).PushBack(mData->mOrigin.z, alloc);
+        origin.PushBack(mData->mOrigin.x, alloc);
+        origin.PushBack(mData->mOrigin.y, alloc);
+        origin.PushBack(mData->mOrigin.z, alloc);
         doc.AddMember("origin", origin, alloc);
     }
 
@@ -200,7 +221,9 @@ auto mGrid<SBlock>::ioToTopologyFile(const std::string& path) const -> void
         rapidjson::Value stencilPts(rapidjson::kArrayType);
         for (auto const& p : mData->mStencil.points()) {
             rapidjson::Value pt(rapidjson::kArrayType);
-            pt.PushBack(p.x, alloc).PushBack(p.y, alloc).PushBack(p.z, alloc);
+            pt.PushBack(p.x, alloc);
+            pt.PushBack(p.y, alloc);
+            pt.PushBack(p.z, alloc);
             stencilPts.PushBack(pt, alloc);
         }
         doc.AddMember("stencil", stencilPts, alloc);
@@ -208,12 +231,16 @@ auto mGrid<SBlock>::ioToTopologyFile(const std::string& path) const -> void
 
     {
         rapidjson::Value mbs(rapidjson::kArrayType);
-        mbs.PushBack(SBlock::memBlockSizeX, alloc).PushBack(SBlock::memBlockSizeY, alloc).PushBack(SBlock::memBlockSizeZ, alloc);
+        mbs.PushBack(SBlock::memBlockSizeX, alloc);
+        mbs.PushBack(SBlock::memBlockSizeY, alloc);
+        mbs.PushBack(SBlock::memBlockSizeZ, alloc);
         doc.AddMember("mem_block_size", mbs, alloc);
     }
     {
         rapidjson::Value ubs(rapidjson::kArrayType);
-        ubs.PushBack(SBlock::userBlockSizeX, alloc).PushBack(SBlock::userBlockSizeY, alloc).PushBack(SBlock::userBlockSizeZ, alloc);
+        ubs.PushBack(SBlock::userBlockSizeX, alloc);
+        ubs.PushBack(SBlock::userBlockSizeY, alloc);
+        ubs.PushBack(SBlock::userBlockSizeZ, alloc);
         doc.AddMember("user_block_size", ubs, alloc);
     }
     doc.AddMember(
@@ -229,7 +256,9 @@ auto mGrid<SBlock>::ioToTopologyFile(const std::string& path) const -> void
         rapidjson::Value lvl(rapidjson::kObjectType);
         const auto       ld = getDimension(l);
         rapidjson::Value lds(rapidjson::kArrayType);
-        lds.PushBack(ld.x, alloc).PushBack(ld.y, alloc).PushBack(ld.z, alloc);
+        lds.PushBack(ld.x, alloc);
+        lds.PushBack(ld.y, alloc);
+        lds.PushBack(ld.z, alloc);
         lvl.AddMember("level_domain_size", lds, alloc);
         lvl.AddMember("voxel_spacing", mData->mDescriptor.getSpacing(l - 1), alloc);
         lvl.AddMember("num_blocks", static_cast<uint64_t>(originsPerLevel[l].size()), alloc);
@@ -243,7 +272,8 @@ auto mGrid<SBlock>::ioToTopologyFile(const std::string& path) const -> void
         bo.AddMember("bytes", originsBytes, alloc);
         bo.AddMember("dtype", "int32", alloc);
         rapidjson::Value boShape(rapidjson::kArrayType);
-        boShape.PushBack(static_cast<uint64_t>(originsPerLevel[l].size()), alloc).PushBack(3, alloc);
+        boShape.PushBack(static_cast<uint64_t>(originsPerLevel[l].size()), alloc);
+        boShape.PushBack(3, alloc);
         bo.AddMember("shape", boShape, alloc);
         lvl.AddMember("block_origins", bo, alloc);
         binaryOffset += originsBytes;
@@ -253,8 +283,8 @@ auto mGrid<SBlock>::ioToTopologyFile(const std::string& path) const -> void
         am.AddMember("bytes", masksBytes, alloc);
         am.AddMember("dtype", "uint32", alloc);
         rapidjson::Value amShape(rapidjson::kArrayType);
-        amShape.PushBack(static_cast<uint64_t>(activeMasksPerLevel[l].size()), alloc)
-            .PushBack(static_cast<uint64_t>(SBlock::BitMask::nWords), alloc);
+        amShape.PushBack(static_cast<uint64_t>(activeMasksPerLevel[l].size()), alloc);
+        amShape.PushBack(static_cast<uint64_t>(SBlock::BitMask::nWords), alloc);
         am.AddMember("shape", amShape, alloc);
         lvl.AddMember("active_masks", am, alloc);
         binaryOffset += masksBytes;
@@ -290,20 +320,20 @@ auto mGrid<SBlock>::helpRestoreBitmasksFromTopology(
     const Neon::int32_3d& domainSize = mData->domainSize;
     for (int l = 0; l < mData->mDescriptor.getDepth(); ++l) {
         const int voxelSpacing = mData->mDescriptor.getSpacing(l - 1);
-        const int levelShift = levelShiftForSpacing(voxelSpacing);
+        const int refFactor = mData->mDescriptor.getRefFactor(l);
 
         for (size_t b = 0; b < blockOriginsPerLevel[l].size(); ++b) {
             const Neon::index_3d& blockOrigin = blockOriginsPerLevel[l][b];
             const auto&           mask = activeMasksPerLevel[l][b];
-            for (int z = 0; z < SBlock::memBlockSizeZ; ++z) {
-                for (int y = 0; y < SBlock::memBlockSizeY; ++y) {
-                    for (int x = 0; x < SBlock::memBlockSizeX; ++x) {
+            for (uint32_t z = 0; z < SBlock::memBlockSizeZ; ++z) {
+                for (uint32_t y = 0; y < SBlock::memBlockSizeY; ++y) {
+                    for (uint32_t x = 0; x < SBlock::memBlockSizeX; ++x) {
                         if (!mask.isActive(x, y, z)) {
                             continue;
                         }
-                        const Neon::index_3d voxelGlobalID(x * voxelSpacing + blockOrigin.x,
-                                                           y * voxelSpacing + blockOrigin.y,
-                                                           z * voxelSpacing + blockOrigin.z);
+                        const Neon::index_3d voxelGlobalID(static_cast<int>(x * static_cast<uint32_t>(voxelSpacing) + blockOrigin.x),
+                                                           static_cast<int>(y * static_cast<uint32_t>(voxelSpacing) + blockOrigin.y),
+                                                           static_cast<int>(z * static_cast<uint32_t>(voxelSpacing) + blockOrigin.z));
                         if (voxelGlobalID.x < 0 || voxelGlobalID.y < 0 || voxelGlobalID.z < 0) {
                             continue;
                         }
@@ -311,12 +341,15 @@ auto mGrid<SBlock>::helpRestoreBitmasksFromTopology(
                             continue;
                         }
                         const Neon::index_3d levelCoord(voxelGlobalID.x / voxelSpacing,
-                                                      voxelGlobalID.y / voxelSpacing,
-                                                      voxelGlobalID.z / voxelSpacing);
-                        const Neon::index_3d bxyz(levelCoord.x >> levelShift,
-                                                  levelCoord.y >> levelShift,
-                                                  levelCoord.z >> levelShift);
-                        mData->sparseLevelsBitmask.at(l).template activatePoint<true>(bxyz);
+                                                        voxelGlobalID.y / voxelSpacing,
+                                                        voxelGlobalID.z / voxelSpacing);
+                        const Neon::index_3d blockID(levelCoord.x / refFactor,
+                                                     levelCoord.y / refFactor,
+                                                     levelCoord.z / refFactor);
+                        const Neon::index_3d localChild(levelCoord.x % refFactor,
+                                                        levelCoord.y % refFactor,
+                                                        levelCoord.z % refFactor);
+                        setLevelBitMask(l, blockID, localChild);
                     }
                 }
             }
@@ -432,34 +465,39 @@ auto mGrid<SBlock>::fromTopologyFile(const Neon::Backend& backend, const std::st
     std::vector<std::vector<Neon::index_3d>>              blockOriginsPerLevel(depth);
     std::vector<std::vector<typename SBlock::BitMask>> activeMasksPerLevel(depth);
 
+    const std::streamoff binaryBase = static_cast<std::streamoff>(16 + headerLen);
+
     for (int l = 0; l < depth; ++l) {
         const auto& lvl = doc["levels"][l];
         const auto  numBlocks = lvl["num_blocks"].GetUint64();
-        const auto  bo = lvl["block_origins"];
-        const auto  am = lvl["active_masks"];
+        const auto& bo = lvl["block_origins"];
+        const auto& am = lvl["active_masks"];
 
         blockOriginsPerLevel[l].resize(numBlocks);
-        in.seekg(static_cast<std::streamoff>(bo["offset"].GetUint64()) + static_cast<std::streamoff>(8 + headerLen), std::ios::beg);
+        in.seekg(static_cast<std::streamoff>(bo["offset"].GetUint64()) + binaryBase, std::ios::beg);
         for (uint64_t i = 0; i < numBlocks; ++i) {
             in.read(reinterpret_cast<char*>(&blockOriginsPerLevel[l][i].x), 12);
         }
 
         activeMasksPerLevel[l].resize(numBlocks);
-        in.seekg(static_cast<std::streamoff>(am["offset"].GetUint64()) + static_cast<std::streamoff>(8 + headerLen), std::ios::beg);
+        in.seekg(static_cast<std::streamoff>(am["offset"].GetUint64()) + binaryBase, std::ios::beg);
         for (uint64_t i = 0; i < numBlocks; ++i) {
             in.read(reinterpret_cast<char*>(activeMasksPerLevel[l][i].bits), sizeof(typename SBlock::BitMask));
         }
     }
 
+    in.clear();
     std::vector<uint8_t> binary;
     in.seekg(0, std::ios::end);
     const auto fileEnd = in.tellg();
-    in.seekg(static_cast<std::streamoff>(8 + headerLen), std::ios::beg);
-    const auto binSize = static_cast<size_t>(fileEnd - in.tellg());
+    in.seekg(binaryBase, std::ios::beg);
+    const auto binStart = in.tellg();
+    const auto binSize = static_cast<size_t>(fileEnd - binStart);
     binary.resize(binSize);
     in.read(reinterpret_cast<char*>(binary.data()), static_cast<std::streamsize>(binSize));
     const uint64_t topologyId = fnv1a64(binary.data(), binary.size());
-    if (topologyId != doc["topology_id"].GetUint64()) {
+    const uint64_t expectedTopologyId = topologyIdFromJson(doc["topology_id"]);
+    if (topologyId != expectedTopologyId) {
         NeonException exp("mGrid::fromTopologyFile");
         exp << "topology_id mismatch";
         NEON_THROW(exp);
@@ -490,5 +528,17 @@ template auto mGrid<SB2>::getTopologyId() const -> uint64_t;
 template auto mGrid<SB8>::getCheckpointFieldNumElementsPerCard() const -> uint64_t;
 template auto mGrid<SB4>::getCheckpointFieldNumElementsPerCard() const -> uint64_t;
 template auto mGrid<SB2>::getCheckpointFieldNumElementsPerCard() const -> uint64_t;
+
+#define INST_TOPOLOGY_HELPERS(SB)                                                                                                \
+    template void mGrid<SB>::helpRestoreBitmasksFromTopology(                                                                  \
+        const std::vector<std::vector<Neon::index_3d>>&, const std::vector<std::vector<typename SB::BitMask>>&);                \
+    template void mGrid<SB>::helpVerifyTopologyBlockLayout(                                                                    \
+        const std::vector<std::vector<Neon::index_3d>>&, const std::vector<std::vector<typename SB::BitMask>>&) const;
+
+INST_TOPOLOGY_HELPERS(SB8)
+INST_TOPOLOGY_HELPERS(SB4)
+INST_TOPOLOGY_HELPERS(SB2)
+
+#undef INST_TOPOLOGY_HELPERS
 
 }  // namespace Neon::domain::details::mGrid

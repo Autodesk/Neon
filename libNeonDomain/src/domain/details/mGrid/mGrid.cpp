@@ -624,7 +624,6 @@ auto mGrid<SBlock>::helpBuildGrids(
     const double_3d& origin) -> void
 {
     Neon::Backend& backend = mData->backend;
-    const Descriptor& descriptor = mData->mDescriptor;
     const Neon::int32_3d& domainSize = mData->domainSize;
     mData->mStencil = stencil;
     mData->mSpacingData = spacingData;
