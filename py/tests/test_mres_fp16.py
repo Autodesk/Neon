@@ -155,7 +155,7 @@ class TestMresFp16Host(unittest.TestCase):
     def test_level1_fill_and_host_read(self):
         self.field.fill_run(1, np.float16(2.0), 0)
         self.field.update_host(0)
-        value = self.field.read(1, neon.Index_3d(4, 4, 4), 0)
+        value = self.field.read(1, neon.Index_3d(2, 2, 2), 0)
         assert_fp16_close(self, value, 2.0)
 
 

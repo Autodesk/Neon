@@ -63,8 +63,8 @@ TEST(mGrid, checkpoint_roundtrip)
             {[&](Neon::index_3d id) -> bool {
                  return id.x < 16 && id.y < 16 && id.z < 8;
              },
-             [&](Neon::index_3d id) -> bool {
-                 return id.x < 8 && id.y < 8 && id.z < 4;
+             [&](Neon::index_3d) -> bool {
+                 return true;
              }},
             Neon::domain::Stencil::s7_Laplace_t(),
             descr);
@@ -108,6 +108,71 @@ TEST(mGrid, checkpoint_roundtrip)
                     true,
                     Neon::computeMode_t::computeMode_e::seq);
             }
+        }
+    }
+}
+
+TEST(mGrid, host_access_by_coordinate)
+{
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        int              nGPUs = 1;
+        Neon::int32_3d   dim(32, 32, 32);
+        std::vector<int> gpusIds(nGPUs, 0);
+        auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
+
+        Neon::mGridDescriptor<1> descr(3);
+
+        Neon::domain::mGrid grid(
+            bk,
+            dim,
+            {[&](Neon::index_3d id) -> bool {
+                 return id.x < 8 && id.y < 8 && id.z < 8;
+             },
+             [&](Neon::index_3d id) -> bool {
+                 return id.x < 16 && id.y < 16 && id.z < 16;
+             },
+             [&](Neon::index_3d) -> bool {
+                 return true;
+             }},
+            Neon::domain::Stencil::s7_Laplace_t(),
+            descr);
+
+        auto field = grid.newField<float>("f", 2, 0.f);
+        auto value = [](const Neon::index_3d& idx, int c, int l, float offset) {
+            return static_cast<float>(idx.x + 32 * idx.y + 1024 * idx.z + 100000 * l + 0.5 * c) + offset;
+        };
+
+        for (int l = 0; l < descr.getDepth(); ++l) {
+            SCOPED_TRACE(l);
+            int numCells = 0;
+            field.forEachActiveCell(
+                l,
+                [&](const Neon::int32_3d idx, const int c, float& val) {
+                    val = value(idx, c, l, 0.f);
+                    ++numCells;
+                },
+                true,
+                Neon::computeMode_t::computeMode_e::seq);
+            ASSERT_GT(numCells, 0);
+
+            const auto& constField = field;
+            field.forEachActiveCell(
+                l,
+                [&](const Neon::int32_3d idx, const int c, float&) {
+                    EXPECT_FLOAT_EQ(field(idx, c, l), value(idx, c, l, 0.f)) << idx;
+                    EXPECT_FLOAT_EQ(constField(idx, c, l), value(idx, c, l, 0.f)) << idx;
+                    field(idx, c, l) = value(idx, c, l, 0.25f);
+                },
+                true,
+                Neon::computeMode_t::computeMode_e::seq);
+
+            field.forEachActiveCell(
+                l,
+                [&](const Neon::int32_3d idx, const int c, float& val) {
+                    EXPECT_FLOAT_EQ(val, value(idx, c, l, 0.25f)) << idx;
+                },
+                true,
+                Neon::computeMode_t::computeMode_e::seq);
         }
     }
 }

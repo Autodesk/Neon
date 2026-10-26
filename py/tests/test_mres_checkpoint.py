@@ -2,6 +2,7 @@
 
 import json
 import os
+import struct
 import tempfile
 import unittest
 
@@ -45,13 +46,6 @@ def _active_voxels(grid, level):
     return voxels
 
 
-def _host_idx(level, x, y, z):
-    # bField::getReference divides by the level spacing twice, so per-voxel host
-    # read/write at level l needs the base-space coordinate scaled by 2**l.
-    s = 1 << level
-    return neon.Index_3d(x * s, y * s, z * s)
-
-
 def _value(level, x, y, z, c):
     return float(x + 10 * y + 100 * z + 1000 * level + 0.5 * c)
 
@@ -66,7 +60,7 @@ class TestMresCheckpoint(unittest.TestCase):
         for level in range(grid.num_levels):
             for (x, y, z) in _active_voxels(grid, level):
                 for c in range(cardinality):
-                    res = field.write(level, _host_idx(level, x, y, z), c, _value(level, x, y, z, c))
+                    res = field.write(level, neon.Index_3d(x, y, z), c, _value(level, x, y, z, c))
                     self.assertEqual(res, 0)
         field.update_device(0)
         wp.synchronize()
@@ -77,7 +71,7 @@ class TestMresCheckpoint(unittest.TestCase):
             self.assertGreater(len(voxels), 0)
             for (x, y, z) in voxels:
                 for c in range(cardinality):
-                    got = field.read(level, _host_idx(level, x, y, z), c)
+                    got = field.read(level, neon.Index_3d(x, y, z), c)
                     self.assertEqual(got, scale * _value(level, x, y, z, c),
                                      f"level={level} idx=({x},{y},{z}) c={c}")
 
@@ -184,6 +178,48 @@ class TestMresCheckpoint(unittest.TestCase):
             np.save(npy_base + ".npy", np.load(npy_base + ".npy").astype(np.float64))
             with self.assertRaises(FieldError):
                 restored.load(npy_base)
+
+    def test_host_write_lands_at_coordinate(self):
+        grid = _make_grid(self.backend, fine_extent=8)
+        field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())
+
+        def encode(x, y, z):
+            return float(1 + x + 100 * y + 10000 * z)
+
+        for level in range(grid.num_levels):
+            for (x, y, z) in _active_voxels(grid, level):
+                self.assertEqual(field.write(level, neon.Index_3d(x, y, z), 0, encode(x, y, z)), 0)
+        field.update_device(0)
+        wp.synchronize()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            topo = os.path.join(tmp, "grid.ngrid")
+            grid.save_topology(topo)
+            field.save(os.path.join(tmp, "f"), file_format="npz")
+            with open(topo, "rb") as f:
+                raw = f.read()
+            header_len = struct.unpack("<Q", raw[8:16])[0]
+            header = json.loads(raw[16:16 + header_len])
+            with np.load(os.path.join(tmp, "f.npz"), allow_pickle=False) as npz:
+                levels = [npz[f"level_{l}"] for l in range(grid.num_levels)]
+
+        for level, arr in enumerate(levels):
+            meta = header["levels"][level]
+            section = meta["block_origins"]
+            start = 16 + header_len + section["offset"]
+            origins = np.frombuffer(raw[start:start + section["bytes"]], dtype="<i4").reshape(section["shape"])
+            spacing = meta["voxel_spacing"]
+            slot_value = {}
+            for b, origin in enumerate(origins):
+                for zz in range(arr.shape[1]):
+                    for yy in range(arr.shape[2]):
+                        for xx in range(arr.shape[3]):
+                            coord = (int(origin[0]) + xx * spacing,
+                                     int(origin[1]) + yy * spacing,
+                                     int(origin[2]) + zz * spacing)
+                            slot_value[coord] = float(arr[b, zz, yy, xx, 0])
+            for (x, y, z) in _active_voxels(grid, level):
+                self.assertEqual(slot_value.get((x, y, z)), encode(x, y, z), f"level={level} idx=({x},{y},{z})")
 
     def test_invalid_format_rejected(self):
         grid = _make_grid(self.backend, fine_extent=8)

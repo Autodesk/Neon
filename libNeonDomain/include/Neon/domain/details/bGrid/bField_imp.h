@@ -89,7 +89,6 @@ auto bField<T, C, SBlock>::getReference(const Neon::index_3d& cartesianIdx,
 {
     if constexpr (SBlock::isMultiResMode) {
         auto& grid = this->getGrid();
-        auto  uniformCartesianIdx = cartesianIdx / grid.helGetMultiResDiscreteIdxSpacing();
 
         if (cartesianIdx.x % grid.helGetMultiResDiscreteIdxSpacing() != 0 ||
             cartesianIdx.y % grid.helGetMultiResDiscreteIdxSpacing() != 0 ||
@@ -99,7 +98,8 @@ auto bField<T, C, SBlock>::getReference(const Neon::index_3d& cartesianIdx,
             exp << "Index = " << cartesianIdx;
             NEON_THROW(exp);
         }
-        auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(uniformCartesianIdx);
+        // helpGetSetIdxAndGridIdx expects a base-space index and applies the level spacing itself.
+        auto [setIdx, bIdx] = grid.helpGetSetIdxAndGridIdx(cartesianIdx);
         if (setIdx.idx() == -1) {
             NeonException exp("bField::getReference");
             exp << "Cannot get a writable reference to an inactive cell. Index = " << cartesianIdx;
