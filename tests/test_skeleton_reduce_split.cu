@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <string_view>
 
 namespace {
 
@@ -28,6 +29,46 @@ build_sum_kernel(carbon::Dense& dense,
       out, carbon::reduce::Sum<float>{}, std::move(name));
 }
 
+[[nodiscard]] auto
+build_scale_kernel(carbon::Dense& dense,
+                   carbon::Dense::Field<float,
+                                        1>& src,
+                   carbon::Dense::Field<float,
+                                        1>& dst,
+                   std::string name) -> carbon::Kernel {
+  return carbon::Kernel::compute(
+      dense,
+      [&src, &dst](carbon::KernelLoader& loader) {
+        const auto in = loader.read(src);
+        const auto out = loader.write(dst);
+        return [in, out] CARBON_HOST_DEVICE(carbon::Dense::Span s, carbon::Dense::Idx idx) {
+          out.write(s, idx, 0, 2.0F * in.read(s, idx, 0));
+        };
+      },
+      std::move(name), /*shared_mem=*/0U);
+}
+
+[[nodiscard]] auto
+mode_name(carbon::OverlapMode mode) -> std::string_view {
+  switch (mode) {
+    case carbon::OverlapMode::None:
+      return "None";
+    case carbon::OverlapMode::Standard:
+      return "Standard";
+    case carbon::OverlapMode::Extended:
+      return "Extended";
+    case carbon::OverlapMode::TwoWayExtended:
+      return "TwoWayExtended";
+  }
+  return "?";
+}
+
+[[nodiscard]] auto
+matches(float got,
+        float ref) -> bool {
+  return std::fabs(got - ref) <= 1e-3F * std::fabs(ref);
+}
+
 }  // namespace
 
 int
@@ -42,19 +83,10 @@ main() {
   u.fill_owned_host([](carbon::int64_3d, int) {
     return 1.0F;
   });
+  auto v = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "v");
   carbon::Stream s_up = sys.stream();
   carbon::Transfer<float>(sys, u.cpu_buffers(), u.gpu_buffers())(s_up);
   s_up.wait();
-
-  carbon::ReductionResult<float> sum(sys);
-  carbon::Skeleton sk(sys, carbon::Skeleton::Options{carbon::OverlapMode::Standard});
-  sk.add(u.make_halo_kernel("halo_u"));
-  sk.add(build_sum_kernel(dense, u, sum, "sum_u"));
-  sk.compile();
-  sk.run();
-  sk.wait();
-  sum.sync(sys.stream());
-  const float split_val = sum.host_value();
 
   carbon::ReductionResult<float> sum_ref(sys);
   carbon::Kernel whole = build_sum_kernel(dense, u, sum_ref, "sum_whole");
@@ -63,9 +95,42 @@ main() {
   sum_ref.sync(sys.stream());
   const float ref_val = sum_ref.host_value();
 
-  if (std::fabs(split_val - ref_val) > 1e-3F * std::fabs(ref_val)) {
-    CARBON_LOG_ERROR("test_skeleton_reduce_split: split {} != ref {}", split_val, ref_val);
-    return EXIT_FAILURE;
+  bool ok = true;
+  for (const carbon::OverlapMode mode :
+       {carbon::OverlapMode::Standard, carbon::OverlapMode::Extended,
+        carbon::OverlapMode::TwoWayExtended}) {
+    // Stencil reduction straight off a halo: the split must merge its partials.
+    {
+      carbon::ReductionResult<float> sum(sys);
+      carbon::Skeleton sk(sys, carbon::Skeleton::Options{mode});
+      sk.add(u.make_halo_kernel("halo_u"));
+      sk.add(build_sum_kernel(dense, u, sum, "sum_u"));
+      sk.compile();
+      sk.run();
+      sk.wait();
+      sum.sync(sys.stream());
+      if (!matches(sum.host_value(), ref_val)) {
+        CARBON_LOG_ERROR("test_skeleton_reduce_split[{}]: split {} != ref {}", mode_name(mode),
+                         sum.host_value(), ref_val);
+        ok = false;
+      }
+    }
+    // Map producer feeding the stencil reduction: Extended splits the producer too.
+    {
+      carbon::ReductionResult<float> sum(sys);
+      carbon::Skeleton sk(sys, carbon::Skeleton::Options{mode});
+      sk.add(build_scale_kernel(dense, u, v, "scale_u_v"));
+      sk.add(build_sum_kernel(dense, v, sum, "sum_v"));
+      sk.compile();
+      sk.run();
+      sk.wait();
+      sum.sync(sys.stream());
+      if (!matches(sum.host_value(), 2.0F * ref_val)) {
+        CARBON_LOG_ERROR("test_skeleton_reduce_split[{} + producer]: split {} != ref {}",
+                         mode_name(mode), sum.host_value(), 2.0F * ref_val);
+        ok = false;
+      }
+    }
   }
-  return EXIT_SUCCESS;
+  return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

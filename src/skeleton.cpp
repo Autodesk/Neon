@@ -10,8 +10,8 @@
  *                      stream assignment, cross-stream event allocation,
  *                      OCC dispatch, anchor fork-join event allocation.
  *   - @c run         — replay the static schedule for one iteration.
- *   - @c apply_occ_  — Standard / Extended / TwoWayExtended graph rewrite
- *                      around (halo, stencil) pairs.
+ *   - @c compile_step_graph_occ_ — Standard / Extended / TwoWayExtended
+ *                      step-graph rewrite around (halo, stencil) pairs.
  *   - @c compile_allocate_anchor_events_ — start / join events for the
  *                                          per-run bracket on the anchor.
  *   - @c export_dot  — GraphViz DOT renderer for the inferred DAG.
@@ -179,6 +179,10 @@ plural(size_t n,
   return std::to_string(n) + " " + std::string{word} + (n == 1U ? "" : "s");
 }
 
+}  // namespace
+
+namespace carbon::detail {
+
 struct StepGraphNode {
   size_t kernel_idx{0U};
   carbon::DataView view{carbon::DataView::Standard};
@@ -187,6 +191,31 @@ struct StepGraphNode {
   std::vector<size_t> data_succs{};
   std::vector<size_t> hint_succs{};
 };
+
+}  // namespace carbon::detail
+
+namespace {
+
+using carbon::detail::StepGraphNode;
+
+auto
+step_graph_add_succ(std::vector<size_t>& succs,
+                    size_t to) -> void {
+  if (std::find(succs.begin(), succs.end(), to) == succs.end()) {
+    succs.push_back(to);
+  }
+}
+
+auto
+step_graph_erase_succ(std::vector<size_t>& succs,
+                      size_t to) -> bool {
+  auto it = std::find(succs.begin(), succs.end(), to);
+  if (it == succs.end()) {
+    return false;
+  }
+  succs.erase(it);
+  return true;
+}
 
 auto
 step_graph_hint_preds(const std::vector<StepGraphNode>& nodes,
@@ -293,13 +322,7 @@ Skeleton::compile() -> void {
     }
   }
 
-  if (options_.overlap_mode == OverlapMode::None ||
-      options_.overlap_mode == OverlapMode::Standard) {
-    compile_step_graph_and_lower_(direct_preds_of);
-  } else {
-    compile_assign_streams_and_events_(direct_preds_of);
-    apply_occ_(direct_preds_of);
-  }
+  compile_step_graph_and_lower_(direct_preds_of);
 
   // Phase 5: anchor fork-join events. Allocated AFTER the OCC rewrite so the
   // stream count is final (the rewrite may have moved halos to fresh halo
@@ -524,93 +547,6 @@ Skeleton::compile_build_conflict_dag_() -> void {
 }
 
 auto
-Skeleton::compile_assign_streams_and_events_(
-    const std::vector<std::vector<size_t>>& direct_preds_of) -> void {
-  const size_t n = effective_kernels_.size();
-
-  // stream_tail_[s] = index of the most-recently assigned kernel on stream s,
-  // or kNoKernel_ when the stream is empty. Stream 0 always exists (allocated
-  // at construction); higher streams are allocated lazily below.
-  std::vector<size_t> stream_tail(streams_.size(), kNoKernel_);
-
-  for (size_t k_idx = 0; k_idx < n; ++k_idx) {
-    const std::vector<size_t>& preds = direct_preds_of[k_idx];
-    const KernelKind k_kind = effective_kernels_[k_idx].kind();
-
-    // Pick a stream:
-    //   - first preference: extend a stream whose tail is a direct predecessor
-    //     of k (FIFO covers the dep, no event needed for that endpoint);
-    //   - second preference: claim the lowest-indexed empty stream;
-    //   - else: allocate a fresh stream (no compile-time cap).
-    size_t chosen = kNoStream_;
-    for (size_t s = 0; s < stream_tail.size(); ++s) {
-      const size_t tail = stream_tail[s];
-      if (tail != kNoKernel_) {
-        for (size_t p : preds) {
-          if (p == tail) {
-            chosen = s;
-            break;
-          }
-        }
-        if (chosen != kNoStream_) {
-          break;
-        }
-      }
-    }
-    if (chosen == kNoStream_) {
-      for (size_t s = 0; s < stream_tail.size(); ++s) {
-        if (stream_tail[s] == kNoKernel_) {
-          chosen = s;
-          break;
-        }
-      }
-    }
-    if (k_kind == KernelKind::ScalarReadback) {
-      if (copy_stream_idx_ == kNoStream_) {
-        streams_.push_back(sys_.stream());
-        copy_stream_idx_ = streams_.size() - 1U;
-        has_detached_stream_ = true;
-        stream_tail.push_back(kNoKernel_);
-      }
-      chosen = copy_stream_idx_;
-    } else if (chosen == kNoStream_) {
-      // Allocate a fresh stream unless the user asked us to cap.
-      // When capped, fall back to stream 0 (and pay the cross-stream
-      // event below for any non-FIFO predecessor) — same behaviour as
-      // the pre-multi-stream skeleton, so a cap of 1 reproduces v1
-      // single-stream serial scheduling exactly.
-      if (options_.max_streams != 0U && streams_.size() >= options_.max_streams) {
-        chosen = 0U;
-      } else {
-        streams_.push_back(sys_.stream());
-        stream_tail.push_back(kNoKernel_);
-        chosen = streams_.size() - 1U;
-      }
-    }
-
-    kernel_stream_[k_idx] = chosen;
-    stream_tail[chosen] = k_idx;
-
-    // Cross-stream waits: for every direct predecessor on a different stream,
-    // ensure the predecessor records an event after its launch and that this
-    // step waits for that event before launching.
-    Step& step = schedule_[k_idx];
-    step.kernel_idx = k_idx;
-    step.stream_idx = chosen;
-    for (size_t p : preds) {
-      if (kernel_stream_[p] != chosen) {
-        if (record_event_per_kernel_[p] == kNoEvent_) {
-          events_.push_back(sys_.event());
-          record_event_per_kernel_[p] = events_.size() - 1U;
-          schedule_[p].record_event_idx = record_event_per_kernel_[p];
-        }
-        step.wait_events.push_back(record_event_per_kernel_[p]);
-      }
-    }
-  }
-}
-
-auto
 Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& direct_preds_of)
     -> void {
   const size_t n = effective_kernels_.size();
@@ -622,66 +558,8 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
     nodes[i].data_succs = min_edges_[i];
   }
 
-  if (options_.overlap_mode == OverlapMode::Standard) {
-    const std::vector<OccPair> candidates = occ_collect_candidates_(direct_preds_of);
-    for (const OccPair& pair : candidates) {
-      const size_t h = pair.halo;
-      const size_t s = pair.stencil;
-      if (!nodes[s].active || nodes[s].view != DataView::Standard) {
-        continue;
-      }
-      const bool is_reduction = effective_kernels_[s].kind() == KernelKind::Reduction;
-      const size_t si = nodes.size();
-      nodes.push_back(StepGraphNode{.kernel_idx = s,
-                                    .view = DataView::Internal,
-                                    .reduce_mode = is_reduction ? reduce::ReduceLaunchMode::Partial
-                                                                : reduce::ReduceLaunchMode::Full,
-                                    .active = true,
-                                    .data_succs = {},
-                                    .hint_succs = {}});
-      const size_t sb = nodes.size();
-      nodes.push_back(StepGraphNode{.kernel_idx = s,
-                                    .view = DataView::Boundary,
-                                    .reduce_mode = is_reduction ? reduce::ReduceLaunchMode::Partial
-                                                                : reduce::ReduceLaunchMode::Full,
-                                    .active = true,
-                                    .data_succs = {},
-                                    .hint_succs = {}});
-
-      const std::vector<size_t> succs_s = nodes[s].data_succs;
-      // min_edges_ is transitively reduced, so orderings that reach s only through h
-      // (e.g. the previous stencil's writes) would be lost once h no longer precedes s_I.
-      const std::vector<size_t> preds_h = step_graph_data_preds(nodes, h);
-      for (size_t p = 0; p < nodes.size(); ++p) {
-        if (!nodes[p].active) {
-          continue;
-        }
-        const bool both = (p != h);
-        step_graph_replace_succ(nodes[p].data_succs, s, si, sb, both);
-      }
-      if (is_reduction) {
-        const size_t sm = nodes.size();
-        nodes.push_back(StepGraphNode{.kernel_idx = s,
-                                      .view = DataView::Standard,
-                                      .reduce_mode = reduce::ReduceLaunchMode::Merge,
-                                      .active = true,
-                                      .data_succs = succs_s,
-                                      .hint_succs = {}});
-        nodes[si].data_succs = {sm};
-        nodes[sb].data_succs = {sm};
-      } else {
-        nodes[si].data_succs = succs_s;
-        nodes[sb].data_succs = succs_s;
-      }
-      for (size_t p : preds_h) {
-        if (std::find(nodes[p].data_succs.begin(), nodes[p].data_succs.end(), si) ==
-            nodes[p].data_succs.end()) {
-          nodes[p].data_succs.push_back(si);
-        }
-      }
-      nodes[si].hint_succs.push_back(h);
-      nodes[s].active = false;
-    }
+  if (options_.overlap_mode != OverlapMode::None) {
+    compile_step_graph_occ_(direct_preds_of, nodes);
   }
 
   std::vector<size_t> active_ids;
@@ -807,7 +685,7 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
     }
     const std::vector<size_t> hint_preds = step_graph_hint_preds(nodes, nid);
     if (k_kind == KernelKind::Halo && !hint_preds.empty() &&
-        options_.overlap_mode == OverlapMode::Standard) {
+        options_.overlap_mode != OverlapMode::None) {
       if (options_.max_streams != 0U && streams_.size() >= options_.max_streams) {
         chosen = 0U;
       } else if (chosen == 0U && stream_tail.size() > 1U) {
@@ -881,6 +759,232 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
     }
     if (step.record_event_idx != kNoEvent_) {
       record_event_per_kernel_[step.kernel_idx] = step.record_event_idx;
+    }
+  }
+}
+
+auto
+Skeleton::compile_step_graph_occ_(const std::vector<std::vector<size_t>>& direct_preds_of,
+                                  std::vector<StepGraphNode>& nodes) -> void {
+  const std::vector<OccPair> candidates = occ_collect_candidates_(direct_preds_of);
+  if (candidates.empty()) {
+    return;
+  }
+  const size_t n = effective_kernels_.size();
+  const bool extended = options_.overlap_mode == OverlapMode::Extended ||
+                        options_.overlap_mode == OverlapMode::TwoWayExtended;
+  const bool two_way = options_.overlap_mode == OverlapMode::TwoWayExtended;
+
+  std::vector<std::vector<size_t>> direct_succs_of;
+  if (two_way) {
+    direct_succs_of.assign(n, {});
+    for (size_t k = 0; k < n; ++k) {
+      for (size_t pred : direct_preds_of[k]) {
+        direct_succs_of[pred].push_back(k);
+      }
+    }
+  }
+
+  std::vector<size_t> internal_node(n, kNoKernel_);
+  std::vector<size_t> boundary_node(n, kNoKernel_);
+
+  // Replaces kernel k's node by an Internal and a Boundary node that both inherit all its edges.
+  auto split = [&](size_t k, reduce::ReduceLaunchMode mode) {
+    const size_t ki = nodes.size();
+    nodes.push_back(StepGraphNode{.kernel_idx = k,
+                                  .view = DataView::Internal,
+                                  .reduce_mode = mode,
+                                  .active = true,
+                                  .data_succs = nodes[k].data_succs,
+                                  .hint_succs = nodes[k].hint_succs});
+    const size_t kb = nodes.size();
+    nodes.push_back(StepGraphNode{.kernel_idx = k,
+                                  .view = DataView::Boundary,
+                                  .reduce_mode = mode,
+                                  .active = true,
+                                  .data_succs = nodes[k].data_succs,
+                                  .hint_succs = nodes[k].hint_succs});
+    for (size_t p = 0; p < ki; ++p) {
+      if (!nodes[p].active) {
+        continue;
+      }
+      step_graph_replace_succ(nodes[p].data_succs, k, ki, kb, /*both_halves=*/true);
+      step_graph_replace_succ(nodes[p].hint_succs, k, ki, kb, /*both_halves=*/true);
+    }
+    nodes[k].active = false;
+    internal_node[k] = ki;
+    boundary_node[k] = kb;
+  };
+
+  // True when consumer writes nothing producer touches: the only hazard between them is
+  // consumer reading producer's output cell-by-cell, so matching halves order each other.
+  auto consumes_only = [&](size_t producer, size_t consumer) {
+    for (const AccessToken& tc : effective_kernels_[consumer].impl()->tokens()) {
+      if (tc.mode != AccessMode::Write && tc.mode != AccessMode::ReadWrite) {
+        continue;
+      }
+      for (const AccessToken& tp : effective_kernels_[producer].impl()->tokens()) {
+        if (tp.field_uid == tc.field_uid) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  for (const OccPair& pair : candidates) {
+    const size_t h = pair.halo;
+    const size_t s = pair.stencil;
+    if (!nodes[s].active) {
+      continue;
+    }
+
+    const bool is_reduction = effective_kernels_[s].kind() == KernelKind::Reduction;
+    // min_edges_ is transitively reduced, so orderings that reach s only through h
+    // (e.g. the previous stencil's writes) would be lost once h no longer precedes s_I.
+    const std::vector<size_t> preds_h = step_graph_data_preds(nodes, h);
+    split(s, is_reduction ? reduce::ReduceLaunchMode::Partial : reduce::ReduceLaunchMode::Full);
+    const size_t si = internal_node[s];
+    const size_t sb = boundary_node[s];
+    step_graph_erase_succ(nodes[h].data_succs, si);
+    if (is_reduction) {
+      const size_t sm = nodes.size();
+      nodes.push_back(StepGraphNode{.kernel_idx = s,
+                                    .view = DataView::Standard,
+                                    .reduce_mode = reduce::ReduceLaunchMode::Merge,
+                                    .active = true,
+                                    .data_succs = nodes[si].data_succs,
+                                    .hint_succs = {}});
+      nodes[si].data_succs = {sm};
+      nodes[sb].data_succs = {sm};
+    }
+    for (size_t p : preds_h) {
+      step_graph_add_succ(nodes[p].data_succs, si);
+    }
+    nodes[si].hint_succs.push_back(h);
+
+    if (extended) {
+      // Compute predecessors reachable through Compute kernels that write a stencil-read field.
+      // The walk passes through h itself: min_edges_ usually reaches s from a producer only
+      // via h (producer -> h -> s), so stopping at h would never find any producer.
+      std::vector<bool> visited(n, false);
+      visited[s] = true;
+      visited[h] = true;
+      std::vector<size_t> stack{s, h};
+      std::vector<size_t> map_back;
+      while (!stack.empty()) {
+        const size_t k = stack.back();
+        stack.pop_back();
+        for (size_t p : direct_preds_of[k]) {
+          if (visited[p]) {
+            continue;
+          }
+          visited[p] = true;
+          const Kernel& kp = effective_kernels_[p];
+          if (kp.kind() != KernelKind::Compute) {
+            continue;
+          }
+          for (const AccessToken& tp : kp.impl()->tokens()) {
+            if ((tp.mode == AccessMode::Write || tp.mode == AccessMode::ReadWrite) &&
+                std::find(pair.stencil_fields.begin(), pair.stencil_fields.end(), tp.field_uid) !=
+                    pair.stencil_fields.end()) {
+              map_back.push_back(p);
+              break;
+            }
+          }
+          stack.push_back(p);
+        }
+      }
+
+      for (size_t p : map_back) {
+        if (internal_node[p] == kNoKernel_) {
+          if (!nodes[p].active) {
+            continue;
+          }
+          split(p, reduce::ReduceLaunchMode::Full);
+          step_graph_add_succ(nodes[boundary_node[p]].data_succs, internal_node[p]);
+        }
+        const size_t pi = internal_node[p];
+        // The halo only sends p's boundary band, so it overlaps p_I instead of waiting on it.
+        if (step_graph_erase_succ(nodes[pi].data_succs, h)) {
+          for (size_t x : nodes[h].data_succs) {
+            if (x != pi) {
+              step_graph_add_succ(nodes[pi].data_succs, x);
+            }
+          }
+          step_graph_add_succ(nodes[boundary_node[p]].data_succs, h);
+        }
+      }
+    }
+
+    if (two_way) {
+      // Map-only Compute successors reading what s (or an earlier such successor) wrote.
+      std::vector<std::uint64_t> tainted_fields;
+      for (const AccessToken& ts : effective_kernels_[s].impl()->tokens()) {
+        if (ts.mode == AccessMode::Write || ts.mode == AccessMode::ReadWrite) {
+          tainted_fields.push_back(ts.field_uid);
+        }
+      }
+      std::vector<bool> visited(n, false);
+      visited[s] = true;
+      std::vector<size_t> queue{s};
+      std::vector<size_t> map_forward;
+      for (size_t qi = 0; qi < queue.size(); ++qi) {
+        for (size_t c : direct_succs_of[queue[qi]]) {
+          if (visited[c]) {
+            continue;
+          }
+          visited[c] = true;
+          const Kernel& kc = effective_kernels_[c];
+          if (kc.kind() != KernelKind::Compute) {
+            continue;
+          }
+          const auto& toks = kc.impl()->tokens();
+          if (std::any_of(toks.begin(), toks.end(), [](const AccessToken& t) {
+                return t.pattern == AccessPattern::Stencil;
+              })) {
+            continue;
+          }
+          const bool reads_tainted =
+              std::any_of(toks.begin(), toks.end(), [&tainted_fields](const AccessToken& t) {
+                return (t.mode == AccessMode::Read || t.mode == AccessMode::ReadWrite) &&
+                       std::find(tainted_fields.begin(), tainted_fields.end(), t.field_uid) !=
+                           tainted_fields.end();
+              });
+          if (!reads_tainted) {
+            continue;
+          }
+          map_forward.push_back(c);
+          for (const AccessToken& t : toks) {
+            if ((t.mode == AccessMode::Write || t.mode == AccessMode::ReadWrite) &&
+                std::find(tainted_fields.begin(), tainted_fields.end(), t.field_uid) ==
+                    tainted_fields.end()) {
+              tainted_fields.push_back(t.field_uid);
+            }
+          }
+          queue.push_back(c);
+        }
+      }
+
+      for (size_t c : map_forward) {
+        if (internal_node[c] != kNoKernel_ || !nodes[c].active) {
+          continue;
+        }
+        split(c, reduce::ReduceLaunchMode::Full);
+        const size_t ci = internal_node[c];
+        const size_t cb = boundary_node[c];
+        for (size_t q : step_graph_data_preds(nodes, ci)) {
+          const size_t kq = nodes[q].kernel_idx;
+          if (internal_node[kq] == kNoKernel_ || !consumes_only(kq, c)) {
+            continue;
+          }
+          if (q == internal_node[kq]) {
+            step_graph_erase_succ(nodes[q].data_succs, cb);
+          } else if (q == boundary_node[kq]) {
+            step_graph_erase_succ(nodes[q].data_succs, ci);
+          }
+        }
+      }
     }
   }
 }
@@ -1251,79 +1355,6 @@ Skeleton::compile_allocate_anchor_events_() -> void {
 }
 
 auto
-Skeleton::apply_occ_(const std::vector<std::vector<size_t>>& direct_preds_of) -> void {
-  if (effective_kernels_.empty()) {
-    return;
-  }
-  const size_t n = effective_kernels_.size();
-
-  // Phase 1: candidate (halo, stencil) pair collection.
-  const std::vector<OccPair> candidates = occ_collect_candidates_(direct_preds_of);
-  if (candidates.empty()) {
-    return;
-  }
-
-  // Initial step_for_kernel index — schedule_'s entries are 1-to-1 with
-  // effective_kernels_ at this point (the per-pair Standard split below
-  // is the first thing that grows the schedule, and it bumps the index
-  // for every kernel after the pivot via occ_bump_step_for_kernel_after_).
-  std::vector<size_t> step_for_kernel(n, kNoKernel_);
-  for (size_t i = 0; i < schedule_.size(); ++i) {
-    const size_t k = schedule_[i].kernel_idx;
-    if (step_for_kernel[k] == kNoKernel_) {
-      step_for_kernel[k] = i;
-    }
-  }
-  // Which step *finishes* each kernel. Identical to step_for_kernel until a split moves one
-  // half of a kernel into a new slot; from then on the two disagree and cross-stream fences
-  // must use this one.
-  std::vector<size_t> completion_step_for_kernel = step_for_kernel;
-
-  // Map-back state shared across pairs (a single Compute predecessor that
-  // writes to multiple stencil fields is split exactly once).
-  std::vector<bool> already_split_map_back(n, false);
-  std::vector<size_t> map_back_boundary_event(n, kNoEvent_);
-  std::vector<bool> already_split_forward(n, false);
-
-  // Build direct_succs_of once if any TwoWayExtended forward walk needs
-  // it; otherwise it stays empty and the helper is never invoked.
-  std::vector<std::vector<size_t>> direct_succs_of;
-  if (options_.overlap_mode == OverlapMode::TwoWayExtended) {
-    direct_succs_of.assign(n, {});
-    for (size_t k = 0; k < n; ++k) {
-      for (size_t pred : direct_preds_of[k]) {
-        direct_succs_of[pred].push_back(k);
-      }
-    }
-  }
-
-  for (const OccPair& pair : candidates) {
-    // Phase 2: per-pair Standard split (move halo to fresh stream if
-    // needed; split stencil into Internal + Boundary halves). Always
-    // runs for non-None modes — Extended / TwoWayExtended widen the
-    // rewrite further but build on the Standard split.
-    occ_apply_standard_split_(pair, direct_preds_of, step_for_kernel, completion_step_for_kernel);
-
-    if (options_.overlap_mode == OverlapMode::Standard) {
-      continue;
-    }
-
-    // Phase 3: Extended / TwoWayExtended Map-back walk.
-    occ_apply_extended_back_walk_(pair, direct_preds_of, step_for_kernel,
-                                  completion_step_for_kernel, already_split_map_back,
-                                  map_back_boundary_event);
-
-    if (options_.overlap_mode != OverlapMode::TwoWayExtended) {
-      continue;
-    }
-
-    // Phase 4: TwoWayExtended forward walk.
-    occ_apply_two_way_forward_walk_(pair, direct_succs_of, step_for_kernel,
-                                    completion_step_for_kernel, already_split_forward);
-  }
-}
-
-auto
 Skeleton::occ_collect_candidates_(const std::vector<std::vector<size_t>>& direct_preds_of) const
     -> std::vector<OccPair> {
   const size_t n = effective_kernels_.size();
@@ -1363,323 +1394,6 @@ Skeleton::occ_collect_candidates_(const std::vector<std::vector<size_t>>& direct
     }
   }
   return candidates;
-}
-
-auto
-Skeleton::occ_allocate_record_event_for_(size_t k_idx,
-                                         const std::vector<size_t>& completion_step_for_kernel)
-    -> size_t {
-  if (record_event_per_kernel_[k_idx] != kNoEvent_) {
-    return record_event_per_kernel_[k_idx];
-  }
-  Step& completion = schedule_[completion_step_for_kernel[k_idx]];
-  if (completion.record_event_idx != kNoEvent_) {
-    record_event_per_kernel_[k_idx] = completion.record_event_idx;
-    return completion.record_event_idx;
-  }
-  events_.push_back(sys_.event());
-  const size_t evt = events_.size() - 1U;
-  record_event_per_kernel_[k_idx] = evt;
-  completion.record_event_idx = evt;
-  return evt;
-}
-
-auto
-Skeleton::occ_bump_step_for_kernel_after_(size_t pivot,
-                                          std::vector<size_t>& step_for_kernel) -> void {
-  for (size_t k = 0; k < step_for_kernel.size(); ++k) {
-    if (step_for_kernel[k] != kNoKernel_ && step_for_kernel[k] > pivot) {
-      step_for_kernel[k] += 1U;
-    }
-  }
-}
-
-auto
-Skeleton::occ_apply_standard_split_(const OccPair& pair,
-                                    const std::vector<std::vector<size_t>>& direct_preds_of,
-                                    std::vector<size_t>& step_for_kernel,
-                                    std::vector<size_t>& completion_step_for_kernel) -> void {
-  const size_t h = pair.halo;
-  const size_t s = pair.stencil;
-
-  const size_t step_h_idx = step_for_kernel[h];
-  const size_t step_s_idx = step_for_kernel[s];
-
-  Step& step_h = schedule_[step_h_idx];
-  Step& step_s = schedule_[step_s_idx];
-
-  // If halo currently shares a stream with stencil, move it to a fresh
-  // (unused) stream so the halo and the Internal-view stencil step can
-  // overlap. Reuse an empty stream when one exists; otherwise allocate.
-  if (step_h.stream_idx == step_s.stream_idx) {
-    size_t halo_stream_idx;
-    {
-      std::vector<bool> used(streams_.size(), false);
-      for (size_t s_used : kernel_stream_) {
-        if (s_used < used.size()) {
-          used[s_used] = true;
-        }
-      }
-      size_t reuse = kNoStream_;
-      for (size_t s_idx = 0; s_idx < streams_.size(); ++s_idx) {
-        if (!used[s_idx]) {
-          reuse = s_idx;
-          break;
-        }
-      }
-      if (reuse == kNoStream_) {
-        streams_.push_back(sys_.stream());
-        halo_stream_idx = streams_.size() - 1U;
-      } else {
-        halo_stream_idx = reuse;
-      }
-    }
-    const size_t old_h_stream = step_h.stream_idx;
-    step_h.stream_idx = halo_stream_idx;
-    kernel_stream_[h] = halo_stream_idx;
-
-    // Predecessors of halo that previously rode FIFO with it on the old
-    // stream now need explicit cross-stream events to enforce the same
-    // ordering on the new halo stream.
-    for (size_t p : direct_preds_of[h]) {
-      if (kernel_stream_[p] == old_h_stream) {
-        const size_t evt = occ_allocate_record_event_for_(p, completion_step_for_kernel);
-        if (std::find(step_h.wait_events.begin(), step_h.wait_events.end(), evt) ==
-            step_h.wait_events.end()) {
-          step_h.wait_events.push_back(evt);
-        }
-      }
-    }
-  }
-
-  const size_t halo_event = occ_allocate_record_event_for_(h, completion_step_for_kernel);
-
-  events_.push_back(sys_.event());
-  const size_t s_internal_event = events_.size() - 1U;
-
-  // Boundary half: waits on halo + on Internal half's record event,
-  // inherits the original stencil step's downstream consumers via the
-  // record_event slot below.
-  Step boundary_step = step_s;
-  boundary_step.view = DataView::Boundary;
-  boundary_step.wait_events.clear();
-  boundary_step.wait_events.push_back(halo_event);
-  boundary_step.wait_events.push_back(s_internal_event);
-
-  // Internal half: drops the halo wait (it doesn't need haloed cells),
-  // records the s_internal_event so Boundary can wait on it.
-  step_s.view = DataView::Internal;
-  step_s.wait_events.erase(
-      std::remove(step_s.wait_events.begin(), step_s.wait_events.end(), halo_event),
-      step_s.wait_events.end());
-  step_s.record_event_idx = s_internal_event;
-
-  schedule_.insert(schedule_.begin() + static_cast<std::ptrdiff_t>(step_s_idx) + 1, boundary_step);
-  occ_bump_step_for_kernel_after_(step_s_idx, step_for_kernel);
-  occ_bump_step_for_kernel_after_(step_s_idx, completion_step_for_kernel);
-  // The Boundary half runs last, so it is what "kernel s finished" means to anything fencing
-  // against s from another stream.
-  completion_step_for_kernel[s] = step_s_idx + 1U;
-}
-
-auto
-Skeleton::occ_apply_extended_back_walk_(const OccPair& pair,
-                                        const std::vector<std::vector<size_t>>& direct_preds_of,
-                                        std::vector<size_t>& step_for_kernel,
-                                        std::vector<size_t>& completion_step_for_kernel,
-                                        std::vector<bool>& already_split_map_back,
-                                        std::vector<size_t>& map_back_boundary_event) -> void {
-  const size_t n = effective_kernels_.size();
-  const size_t h = pair.halo;
-  const size_t s = pair.stencil;
-
-  // BFS-back from stencil through direct_preds_of collecting Compute
-  // predecessors that write any of the stencil's Stencil-read fields.
-  // Halo / non-Compute predecessors halt the recursion (the chain-stop
-  // rule documented on @ref OverlapMode ).
-  std::vector<bool> visited(n, false);
-  visited[s] = true;
-  visited[h] = true;
-  std::vector<size_t> stack{s};
-  std::vector<size_t> map_back_set;
-  while (!stack.empty()) {
-    const size_t k = stack.back();
-    stack.pop_back();
-    for (size_t p : direct_preds_of[k]) {
-      if (visited[p]) {
-        continue;
-      }
-      visited[p] = true;
-      const Kernel& kp = effective_kernels_[p];
-      if (kp.kind() != KernelKind::Compute) {
-        continue;
-      }
-      bool writes_stencil_field = false;
-      for (const AccessToken& tp : kp.impl()->tokens()) {
-        if (tp.mode != AccessMode::Write && tp.mode != AccessMode::ReadWrite) {
-          continue;
-        }
-        if (std::find(pair.stencil_fields.begin(), pair.stencil_fields.end(), tp.field_uid) !=
-            pair.stencil_fields.end()) {
-          writes_stencil_field = true;
-          break;
-        }
-      }
-      if (writes_stencil_field) {
-        map_back_set.push_back(p);
-      }
-      stack.push_back(p);
-    }
-  }
-
-  for (size_t p : map_back_set) {
-    size_t p_boundary_event = map_back_boundary_event[p];
-    if (!already_split_map_back[p]) {
-      const size_t step_p_idx = step_for_kernel[p];
-      Step& step_p = schedule_[step_p_idx];
-
-      events_.push_back(sys_.event());
-      p_boundary_event = events_.size() - 1U;
-      map_back_boundary_event[p] = p_boundary_event;
-
-      // Internal half: inherits the original record event so downstream
-      // consumers transparently wait on the full completion.
-      Step internal_step = step_p;
-      internal_step.view = DataView::Internal;
-      internal_step.wait_events.clear();
-      internal_step.wait_events.push_back(p_boundary_event);
-      internal_step.record_event_idx = step_p.record_event_idx;
-
-      // Boundary half (existing slot): records the new event used by halo.
-      step_p.view = DataView::Boundary;
-      step_p.record_event_idx = p_boundary_event;
-
-      schedule_.insert(schedule_.begin() + static_cast<std::ptrdiff_t>(step_p_idx) + 1,
-                       internal_step);
-      occ_bump_step_for_kernel_after_(step_p_idx, step_for_kernel);
-      occ_bump_step_for_kernel_after_(step_p_idx, completion_step_for_kernel);
-      // This split is the mirror of the Standard one: the existing slot becomes the Boundary
-      // half and the Internal half is what runs last.
-      completion_step_for_kernel[p] = step_p_idx + 1U;
-
-      already_split_map_back[p] = true;
-    }
-
-    Step& step_h_post = schedule_[step_for_kernel[h]];
-
-    const size_t old_p_event = record_event_per_kernel_[p];
-    if (old_p_event != kNoEvent_) {
-      step_h_post.wait_events.erase(
-          std::remove(step_h_post.wait_events.begin(), step_h_post.wait_events.end(), old_p_event),
-          step_h_post.wait_events.end());
-    }
-    if (std::find(step_h_post.wait_events.begin(), step_h_post.wait_events.end(),
-                  p_boundary_event) == step_h_post.wait_events.end()) {
-      step_h_post.wait_events.push_back(p_boundary_event);
-    }
-  }
-}
-
-auto
-Skeleton::occ_apply_two_way_forward_walk_(const OccPair& pair,
-                                          const std::vector<std::vector<size_t>>& direct_succs_of,
-                                          std::vector<size_t>& step_for_kernel,
-                                          std::vector<size_t>& completion_step_for_kernel,
-                                          std::vector<bool>& already_split_forward) -> void {
-  const size_t n = effective_kernels_.size();
-  const size_t s = pair.stencil;
-
-  std::vector<std::uint64_t> tainted_fields;
-  for (const AccessToken& ts : effective_kernels_[s].impl()->tokens()) {
-    if (ts.mode == AccessMode::Write || ts.mode == AccessMode::ReadWrite) {
-      tainted_fields.push_back(ts.field_uid);
-    }
-  }
-
-  // BFS-forward from stencil through direct_succs_of collecting Compute
-  // successors that read tainted fields. Two chain-stop rules apply:
-  //   * any successor with a Stencil-pattern read halts that branch (its
-  //     own halo-bracketed pair will be handled separately);
-  //   * non-Compute successors (Halo / Reduction / Anchor / Universal*)
-  //     halt the recursion.
-  std::vector<bool> fwd_visited(n, false);
-  fwd_visited[s] = true;
-  std::vector<size_t> fwd_queue{s};
-  std::vector<size_t> map_forward_set;
-  while (!fwd_queue.empty()) {
-    const size_t k = fwd_queue.front();
-    fwd_queue.erase(fwd_queue.begin());
-    for (size_t c : direct_succs_of[k]) {
-      if (fwd_visited[c]) {
-        continue;
-      }
-      fwd_visited[c] = true;
-      const Kernel& kc = effective_kernels_[c];
-      if (kc.kind() != KernelKind::Compute) {
-        continue;
-      }
-      bool has_stencil_read = false;
-      bool reads_tainted = false;
-      for (const AccessToken& tc : kc.impl()->tokens()) {
-        if (tc.pattern == AccessPattern::Stencil) {
-          has_stencil_read = true;
-          break;
-        }
-      }
-      if (has_stencil_read) {
-        continue;
-      }
-      for (const AccessToken& tc : kc.impl()->tokens()) {
-        if (tc.mode == AccessMode::Read || tc.mode == AccessMode::ReadWrite) {
-          if (std::find(tainted_fields.begin(), tainted_fields.end(), tc.field_uid) !=
-              tainted_fields.end()) {
-            reads_tainted = true;
-            break;
-          }
-        }
-      }
-      if (!reads_tainted) {
-        continue;
-      }
-      map_forward_set.push_back(c);
-      // Propagate the taint: c's writes are now downstream of stencil's
-      // writes, so any successor reading c's outputs is also tainted.
-      for (const AccessToken& tc : kc.impl()->tokens()) {
-        if ((tc.mode == AccessMode::Write || tc.mode == AccessMode::ReadWrite) &&
-            std::find(tainted_fields.begin(), tainted_fields.end(), tc.field_uid) ==
-                tainted_fields.end()) {
-          tainted_fields.push_back(tc.field_uid);
-        }
-      }
-      fwd_queue.push_back(c);
-    }
-  }
-
-  for (size_t c : map_forward_set) {
-    if (already_split_forward[c]) {
-      continue;
-    }
-    const size_t step_c_idx = step_for_kernel[c];
-    Step& step_c = schedule_[step_c_idx];
-
-    events_.push_back(sys_.event());
-    const size_t c_internal_event = events_.size() - 1U;
-
-    Step boundary_c = step_c;
-    boundary_c.view = DataView::Boundary;
-    boundary_c.wait_events.push_back(c_internal_event);
-
-    step_c.view = DataView::Internal;
-    step_c.record_event_idx = c_internal_event;
-    step_c.wait_events.clear();
-
-    schedule_.insert(schedule_.begin() + static_cast<std::ptrdiff_t>(step_c_idx) + 1, boundary_c);
-    occ_bump_step_for_kernel_after_(step_c_idx, step_for_kernel);
-    occ_bump_step_for_kernel_after_(step_c_idx, completion_step_for_kernel);
-    completion_step_for_kernel[c] = step_c_idx + 1U;
-
-    already_split_forward[c] = true;
-  }
 }
 
 auto
