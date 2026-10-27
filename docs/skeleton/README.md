@@ -63,8 +63,14 @@ right after the halo. A final `compile_prune_syncs_()` pass removes redundant
 same-stream waits, unused event records, and anchor joins already covered by an
 earlier cross-stream wait.
 
-Extended / TwoWayExtended modes still use the legacy in-place `apply_occ_`
-rewrite until their rules are ported to the step graph.
+Extended and TwoWayExtended are further rewrites of the same step graph
+(`compile_step_graph_occ_`). Extended splits each Compute producer of a
+stencil-read field into Boundary then Internal, and the halo waits on the
+Boundary half only, so it overlaps the producer's Internal half. TwoWayExtended
+also splits the Map-only Compute consumers of the stencil's output into
+Internal + Boundary; when a consumer only reads what a split producer wrote,
+each half waits on the matching half alone. A stencil reduction gets the same
+partial + merge launches in every mode.
 
 ## Launch order listing
 

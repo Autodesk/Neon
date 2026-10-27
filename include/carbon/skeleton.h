@@ -112,6 +112,10 @@
 
 namespace carbon {
 
+namespace detail {
+struct StepGraphNode;
+}  // namespace detail
+
 /**
  * @brief Overlap-of-Compute-and-Communication strategy applied by
  *        @ref Skeleton::compile around stencil reads.
@@ -139,9 +143,7 @@ namespace carbon {
  *     every @c Map node whose output transitively feeds the stencil's
  *     input. Each such node runs Boundary first (so its boundary cells are
  *     ready for the halo to send) then Internal (in parallel with the halo).
- *     Reduce nodes stop the backward propagation in this carbon release —
- *     splitting a reduction requires a partial-merge primitive on
- *     @c ReductionResult that has not landed yet.
+ *     Reduce nodes stop the backward propagation.
  *   - @c TwoWayExtended — Extended plus a forward propagation: every @c Map
  *     node whose input transitively reads from the stencil's output is also
  *     split. Each such node runs Internal first (consuming the stencil's
@@ -775,12 +777,8 @@ private:
    *        @c KernelKind::Compute kernel with at least one
    *        @c AccessPattern::Stencil read of a field @c halo halos).
    *        @c stencil_fields lists the field UIDs of those Stencil reads —
-   *        consumed by @ref occ_apply_extended_back_walk_ to discover
-   *        Map-pattern predecessors that write any of them.
-   *
-   * Lives at class scope (not as a local in @ref apply_occ_ ) so the four
-   * OCC-phase helpers can share the same shape — see @c P1.α closure of
-   * @c docs/audit_2026_05_third_pass.md .
+   *        consumed by the Extended back-walk in @ref compile_step_graph_occ_ to
+   *        discover Map-pattern predecessors that write any of them.
    */
   struct OccPair {
     size_t halo;
@@ -859,61 +857,6 @@ private:
   compile_prune_syncs_() -> void;
 
   /**
-   * @brief Apply the @c OverlapMode::{Standard,Extended,TwoWayExtended}
-   *        graph rewrite in place.
-   *
-   * For every direct (halo H, stencil S) edge in @ref min_edges_ where
-   *   - H is a @c KernelKind::Halo kernel,
-   *   - S is a @c KernelKind::Compute kernel with at least one
-   *     @c AccessPattern::Stencil read of a field H halos,
-   * the rewrite:
-   *   1. Moves @c H to its own dedicated halo stream (fresh allocation)
-   *      if H currently shares a stream with S, fixing up cross-stream
-   *      events for H's predecessors that previously rode FIFO with H.
-   *   2. Allocates H's record event if not already done.
-   *   3. Splits S's @c Step into two halves on the original compute
-   *      stream:
-   *      - **S-Internal** (existing slot, view=Internal, no halo wait)
-   *      - **S-Boundary** (newly inserted right after, view=Boundary,
-   *        waits on H's record event, inherits S's record event)
-   *      so downstream consumers of S transparently wait on
-   *      S-Boundary's completion (the same record event slot S's
-   *      original schedule entry held).
-   *   4. **(Extended only)** BFS-back from S along @ref min_edges_
-   *      collecting Compute predecessors that write any field S
-   *      Stencil-reads (recurse through them; halt at non-Compute).
-   *      Each such predecessor @c P is split:
-   *      - **P-Boundary** (existing slot, view=Boundary, gets a fresh
-   *        record event @c E_p_boundary used by @c H instead of @c P 's
-   *        original event slot)
-   *      - **P-Internal** (newly inserted right after, view=Internal,
-   *        inherits @c P 's original record event so downstream
-   *        consumers of @c P transparently wait on the full
-   *        completion)
-   *      and @c H 's wait list is rewired so it waits on
-   *      @c E_p_boundary instead of @c P 's original event. A Map
-   *      predecessor split once per (P, H) pair is enough — repeat
-   *      candidates are deduped via @c already_split .
-   *
-   * Other non-Standard kernels are untouched, preserving the
-   * @c OverlapMode::None schedule shape for them. Universal / Host /
-   * Reduce kernels are not split (chain-stop rule documented on
-   * @ref OverlapMode ); a Compute stencil whose only preceding halo is
-   * already on a different stream is left alone for the move step
-   * (split still applies). The anchor fork-join events are allocated by
-   * @ref compile_allocate_anchor_events_ after this pass so they see the
-   * final stream count (this rewrite can add a halo stream).
-   *
-   * @param direct_preds_of  Inverse adjacency over @ref min_edges_ (entry
-   *                         @c [k] is the list of irreducible
-   *                         predecessors of kernel @c k ). Computed
-   *                         once in @ref compile and reused here.
-   */
-  // Definition lives in src/skeleton.cpp (apply_occ_ and the OCC helpers it calls).
-  auto
-  apply_occ_(const std::vector<std::vector<size_t>>& direct_preds_of) -> void;
-
-  /**
    * @brief Phase pre-0 of @ref compile : reject any Stencil-pattern WRITE
    *        with a single named diagnostic, before the auto-halo bootstrap
    *        builds @ref effective_kernels_ . carbon (mirroring Neon) requires
@@ -970,29 +913,33 @@ private:
   compile_build_conflict_dag_() -> void;
 
   /**
-   * @brief Phase 2 + 3 of @ref compile (fused): greedy stream assignment
-   *        per @ref kernel_stream_ + cross-stream event allocation per
-   *        @ref schedule_ + @ref record_event_per_kernel_ . Walks
-   *        @ref effective_kernels_ in user-add order and prefers
-   *        FIFO-extending an existing stream whose tail is a direct
-   *        predecessor of the current kernel; falls back to claiming
-   *        the lowest empty stream, allocating a fresh one, or (under a
-   *        @c max_streams cap) collapsing onto stream 0.
-   *
-   * Split out of @ref compile under P1.α of
-   * @c docs/audit_2026_05_third_pass.md . Takes @p direct_preds_of by
-   * reference so it can be reused by the OCC rewrite without rebuilding.
-   */
-  auto
-  compile_assign_streams_and_events_(const std::vector<std::vector<size_t>>& direct_preds_of)
-      -> void;
-
-  /**
    * @brief Neon-style step graph build, OCC edge rewrite, and generic lowering
-   *        to @ref schedule_ (Standard overlap and @c OverlapMode::None).
+   *        to @ref schedule_ (every @ref OverlapMode ).
    */
   auto
   compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& direct_preds_of) -> void;
+
+  /**
+   * @brief OCC rewrite of the step graph for every non-@c None @ref OverlapMode .
+   *
+   * For each (halo H, stencil S) candidate:
+   *   - @b Standard : S becomes S-Internal + S-Boundary. S-Internal does not wait on H and is
+   *     issued before it; S-Boundary waits on H. A reduction S launches both halves as
+   *     @c ReduceLaunchMode::Partial and gains a @c Merge step that its consumers wait on.
+   *   - @b Extended : every Compute predecessor P reachable back from S through Compute kernels
+   *     that writes a field S stencil-reads becomes P-Boundary then P-Internal; H waits on
+   *     P-Boundary only, so the halo overlaps P-Internal.
+   *   - @b TwoWayExtended : every Compute successor C reachable forward from S through Map-only
+   *     Compute kernels that reads a field S (or an earlier such C) writes becomes C-Internal +
+   *     C-Boundary. When C only reads what a split producer wrote, each half waits on the
+   *     matching half of the producer only.
+   *
+   * A kernel is split at most once; a later pair that reaches an already split kernel only
+   * rewires its own halo edge.
+   */
+  auto
+  compile_step_graph_occ_(const std::vector<std::vector<size_t>>& direct_preds_of,
+                          std::vector<detail::StepGraphNode>& nodes) -> void;
 
   /**
    * @brief OCC rewrite phase 1: collect every (halo, stencil) candidate
@@ -1001,110 +948,13 @@ private:
    *        is @c KernelKind::Compute , and @p stencil has a Stencil-read
    *        of a field @p halo halos.
    *
-   * Split out of @ref apply_occ_ under P1.α of
-   * @c docs/audit_2026_05_third_pass.md . Returns by value because the
-   * candidate set is typically tiny (a handful of pairs in a real
-   * pipeline) and the simple shape outweighs an out-param.
+   * Returns by value because the candidate set is typically tiny (a
+   * handful of pairs in a real pipeline) and the simple shape outweighs
+   * an out-param.
    */
   [[nodiscard]] auto
   occ_collect_candidates_(const std::vector<std::vector<size_t>>& direct_preds_of) const
       -> std::vector<OccPair>;
-
-  /**
-   * @brief OCC rewrite phase 2: per-pair Standard split — move @c halo to
-   *        a fresh dedicated halo stream if it currently shares a stream
-   *        with @c stencil (fixing up cross-stream events for halo's
-   *        predecessors that previously rode FIFO with it), then split
-   *        @c stencil 's @ref Step into Internal (existing slot) and
-   *        Boundary (newly inserted right after) halves.
-   *
-   * Split out of @ref apply_occ_ under P1.α of
-   * @c docs/audit_2026_05_third_pass.md . @p step_for_kernel is updated
-   * in place so subsequent OCC phases see the post-insert layout.
-   */
-  auto
-  occ_apply_standard_split_(const OccPair& pair,
-                            const std::vector<std::vector<size_t>>& direct_preds_of,
-                            std::vector<size_t>& step_for_kernel,
-                            std::vector<size_t>& completion_step_for_kernel) -> void;
-
-  /**
-   * @brief OCC rewrite phase 3 ( @c OverlapMode::Extended +
-   *        @c OverlapMode::TwoWayExtended ): BFS-back from @c stencil
-   *        through @ref min_edges_ collecting Compute predecessors that
-   *        write any of @c stencil 's Stencil-read fields, splitting
-   *        each into Boundary (existing slot, fresh event) + Internal
-   *        (newly inserted right after) halves and rewiring @c halo 's
-   *        wait list to the per-predecessor Boundary event instead of
-   *        the predecessor's original event.
-   *
-   * Split out of @ref apply_occ_ under P1.α of
-   * @c docs/audit_2026_05_third_pass.md . Per-predecessor split state
-   * is shared across all pairs in the apply_occ_ call via the two
-   * passed-by-ref vectors.
-   */
-  auto
-  occ_apply_extended_back_walk_(const OccPair& pair,
-                                const std::vector<std::vector<size_t>>& direct_preds_of,
-                                std::vector<size_t>& step_for_kernel,
-                                std::vector<size_t>& completion_step_for_kernel,
-                                std::vector<bool>& already_split_map_back,
-                                std::vector<size_t>& map_back_boundary_event) -> void;
-
-  /**
-   * @brief OCC rewrite phase 4 ( @c OverlapMode::TwoWayExtended only):
-   *        BFS-forward from @c stencil through @p direct_succs_of
-   *        collecting Compute successors that read fields tainted by
-   *        @c stencil 's writes (transitively, through chained Map
-   *        successors); splits each into Internal + Boundary halves.
-   *        Compute kernels with any Stencil read are intentionally
-   *        skipped — that's a chain-stop rule (see the docstring on
-   *        @ref OverlapMode and the @c has_stencil_read early-continue
-   *        below).
-   *
-   * Split out of @ref apply_occ_ under P1.α of
-   * @c docs/audit_2026_05_third_pass.md . The skip-stencil-consumers
-   * rule was previously asserted only by integration tests through the
-   * Jacobi pipeline; the named helper makes it inspectable in isolation.
-   */
-  auto
-  occ_apply_two_way_forward_walk_(const OccPair& pair,
-                                  const std::vector<std::vector<size_t>>& direct_succs_of,
-                                  std::vector<size_t>& step_for_kernel,
-                                  std::vector<size_t>& completion_step_for_kernel,
-                                  std::vector<bool>& already_split_forward) -> void;
-
-  /**
-   * @brief Helper used by every OCC phase: allocate (or reuse) the
-   *        record-event slot for kernel @p k_idx and stamp it onto the
-   *        kernel's @ref Step entry. Returns the event index.
-   *
-   * Split out under P1.α of @c docs/audit_2026_05_third_pass.md so the
-   * three OCC sub-phases can share the same allocation path without
-   * each recomputing the @c step_for_kernel index.
-   *
-   * Takes @p completion_step_for_kernel — the step that *finishes* the
-   * kernel — rather than @c step_for_kernel , which names the half that
-   * keeps the original slot and is the Internal half for two of the
-   * three split shapes. Waiting on an event recorded by the Internal
-   * half does not order against the Boundary half, so a halo fenced
-   * that way can read boundary planes the split kernel is still
-   * writing. An event already stamped on the completion step is reused
-   * rather than overwritten, so a split's internal fence cannot be
-   * clobbered.
-   */
-  [[nodiscard]] auto
-  occ_allocate_record_event_for_(size_t k_idx,
-                                 const std::vector<size_t>& completion_step_for_kernel) -> size_t;
-
-  /**
-   * @brief Helper used by every OCC phase: bump @p step_for_kernel
-   *        entries that point to a step strictly after @p pivot up by
-   *        one to account for an insert at @c pivot + 1 .
-   */
-  static auto
-  occ_bump_step_for_kernel_after_(size_t pivot,
-                                  std::vector<size_t>& step_for_kernel) -> void;
 
   /**
    * @brief Compute the transitive reduction of a forward-only adjacency list.
@@ -1252,7 +1102,7 @@ private:
 
 }  // namespace carbon
 
-// Out-of-class member definitions for compile() / run() / apply_occ_() /
+// Out-of-class member definitions for compile() / run() / compile_step_graph_occ_() /
 // compile_allocate_anchor_events_() / export_dot() / export_launch_order() live in
 // src/skeleton.cpp .
 // User code only needs <carbon/skeleton.h>; the .cpp is statically linked

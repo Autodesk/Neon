@@ -6046,3 +6046,20 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   (and DenseDisg forwarding) compute one centre offset then constant-strided `pull()` neighbours;
   Jacobi uses it instead of `neighbour()` + a redundant `read()` partition. `Dense` rejects layouts
   whose `xy_slab_elements` or haloed x extent exceed `int32_t`. New test `test_partition_cursor`.
+- **2026-10 — Extended / TwoWayExtended on the step graph.** Every `OverlapMode` now lowers
+  through `compile_step_graph_and_lower_`; the legacy in-place `apply_occ_` rewrite and
+  `compile_assign_streams_and_events_` are gone. `compile_step_graph_occ_` applies the Standard
+  split, then (Extended) splits Compute producers of stencil-read fields into Boundary → Internal
+  with the halo waiting on the Boundary half only, then (TwoWayExtended) splits Map-only consumers
+  into Internal + Boundary, pairing each half with the matching producer half when the consumer
+  writes nothing the producer touches. Two bugs fixed by the move:
+  - A stencil **reduction** under Extended / TwoWayExtended launched both halves as full
+    reductions with no merge, so `ReductionResult`'s Standard slot was never written. The Jacobi
+    benchmark (fused stencil+norm) read `l2 = 0` and stopped after one iteration, failing
+    validation on 1 GPU. It now gets the same Partial + Merge launches as Standard.
+  - The legacy Map-back walk marked the pair's own halo visited and never walked through it; since
+    the transitive reduction usually leaves `producer → halo → stencil` as the only path, the
+    producer was never split and Extended degenerated to Standard. The walk now passes through
+    the halo.
+  `test_skeleton_reduce_split` covers Standard / Extended / TwoWayExtended with and without a Map
+  producer feeding the stencil reduction.
