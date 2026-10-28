@@ -1301,8 +1301,122 @@ Skeleton::compile_prune_syncs_() -> void {
     };
 
     std::vector<std::pair<size_t, size_t>> drop_step_waits;
+    bool saw_anchor_start_wait = false;
+    bool kept_anchor_start_wait = false;
     const std::vector<LaunchOrderOp> ops = build_launch_order_ops_();
+
+    // Fill record seqs first so forward dominance can compare event strengths.
     for (const LaunchOrderOp& op : ops) {
+      if ((op.kind == LaunchOrderOpKind::EventRecord ||
+           op.kind == LaunchOrderOpKind::AnchorStartRecord ||
+           op.kind == LaunchOrderOpKind::AnchorJoinRecord) &&
+          op.event_idx < event_record_op_seq.size()) {
+        event_record_op_seq[op.event_idx] = op.seq;
+      }
+    }
+
+    // Forward dominance: before the next Launch on a stream, keep only the strongest
+    // wait per recorder stream. Weaker earlier waits (e.g. anchor start before a later
+    // stream-0 data event) add no ordering and are dropped — including AnchorStartWait.
+    {
+      struct PendingWait {
+        size_t evt{kNoEvent_};
+        size_t rec_s{kNoStream_};
+        size_t rec_seq{0U};
+        LaunchOrderOpKind kind{};
+        size_t step_idx{kNoKernel_};
+      };
+      std::vector<std::vector<PendingWait>> pending(num_streams);
+
+      auto flush_pending = [&](size_t stream_idx) {
+        auto& group = pending[stream_idx];
+        if (group.empty()) {
+          return;
+        }
+        // Per recorder stream: index of the strongest wait (max rec_seq; last wins ties).
+        std::vector<size_t> best_idx(num_streams, static_cast<size_t>(-1));
+        for (size_t i = 0; i < group.size(); ++i) {
+          const PendingWait& w = group[i];
+          if (w.rec_s >= num_streams) {
+            continue;
+          }
+          if (best_idx[w.rec_s] == static_cast<size_t>(-1) ||
+              w.rec_seq >= group[best_idx[w.rec_s]].rec_seq) {
+            best_idx[w.rec_s] = i;
+          }
+        }
+        std::vector<bool> keep(group.size(), false);
+        for (size_t rec_s = 0; rec_s < num_streams; ++rec_s) {
+          if (best_idx[rec_s] != static_cast<size_t>(-1)) {
+            keep[best_idx[rec_s]] = true;
+          }
+        }
+        for (size_t i = 0; i < group.size(); ++i) {
+          const PendingWait& w = group[i];
+          if (w.kind == LaunchOrderOpKind::AnchorStartWait) {
+            saw_anchor_start_wait = true;
+            if (keep[i]) {
+              kept_anchor_start_wait = true;
+            }
+          }
+          if (keep[i]) {
+            continue;
+          }
+          if (w.kind == LaunchOrderOpKind::EventWait && w.step_idx < schedule_.size()) {
+            drop_step_waits.push_back({w.step_idx, w.evt});
+          }
+        }
+        group.clear();
+      };
+
+      for (const LaunchOrderOp& op : ops) {
+        if (op.kind == LaunchOrderOpKind::AnchorJoinRecord ||
+            op.kind == LaunchOrderOpKind::AnchorJoinWait) {
+          continue;
+        }
+        if (op.stream_idx >= num_streams) {
+          continue;
+        }
+        if (op.kind == LaunchOrderOpKind::EventWait ||
+            op.kind == LaunchOrderOpKind::AnchorStartWait) {
+          if (op.event_idx >= rec_stream.size() || rec_stream[op.event_idx] == kNoStream_) {
+            continue;
+          }
+          pending[op.stream_idx].push_back(PendingWait{op.event_idx, rec_stream[op.event_idx],
+                                                       event_record_op_seq[op.event_idx], op.kind,
+                                                       op.step_idx});
+          continue;
+        }
+        if (op.kind == LaunchOrderOpKind::Launch) {
+          flush_pending(op.stream_idx);
+        }
+      }
+      for (size_t s = 0; s < num_streams; ++s) {
+        flush_pending(s);
+      }
+    }
+
+    // Global fork: clear only when every secondary's AnchorStartWait was dominated.
+    if (saw_anchor_start_wait && !kept_anchor_start_wait) {
+      anchor_start_event_ = kNoEvent_;
+    }
+
+    // Apply forward-dominated step-wait drops before the backward coverage pass so
+    // known_seq reflects the pruned schedule.
+    for (const auto& [step_idx, evt] : drop_step_waits) {
+      Step& step = schedule_[step_idx];
+      step.wait_events.erase(std::remove_if(step.wait_events.begin(), step.wait_events.end(),
+                                            [evt](size_t e) {
+                                              return e == evt;
+                                            }),
+                             step.wait_events.end());
+    }
+    drop_step_waits.clear();
+
+    // Rebuild ops after forward drops (anchor start / step waits) for coverage + joins.
+    const std::vector<LaunchOrderOp> ops_pruned = build_launch_order_ops_();
+    event_record_op_seq.assign(events_.size(), 0U);
+    for (const LaunchOrderOp& op : ops_pruned) {
       if (op.kind == LaunchOrderOpKind::AnchorJoinRecord ||
           op.kind == LaunchOrderOpKind::AnchorJoinWait) {
         continue;
@@ -1367,12 +1481,7 @@ Skeleton::compile_prune_syncs_() -> void {
     }
   }
   if (anchor_start_event_ != kNoEvent_ && anchor_start_event_ < event_used.size()) {
-    for (size_t s = 1U; s < streams_.size(); ++s) {
-      if (s != copy_stream_idx_) {
-        event_used[anchor_start_event_] = true;
-        break;
-      }
-    }
+    event_used[anchor_start_event_] = true;
   }
   for (size_t s = 1U; s < anchor_join_events_.size(); ++s) {
     const size_t evt = anchor_join_events_[s];

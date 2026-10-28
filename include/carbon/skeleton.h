@@ -529,14 +529,23 @@ public:
   }
 
   /**
-   * @brief Whether @ref compile allocated anchor fork/join events for this schedule.
+   * @brief Whether this schedule still uses an anchor start and/or join after prune.
    *
-   * @c false for single-stream pipelines and for schedules whose only secondary
-   * stream is the detached scalar readback copy stream (PatternScalar overlap path).
+   * @c false for single-stream pipelines, copy-only secondary schedules, and multi-stream
+   * schedules where @ref compile_prune_syncs_ removed every anchor fork/join (e.g. start
+   * dominated by a later stream-0 wait before the first secondary launch).
    */
   [[nodiscard]] auto
   uses_anchor_fork_join() const noexcept -> bool {
-    return anchor_start_event_ != kNoEvent_;
+    if (anchor_start_event_ != kNoEvent_) {
+      return true;
+    }
+    for (size_t s = 1U; s < anchor_join_events_.size(); ++s) {
+      if (anchor_join_events_[s] != kNoEvent_) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -853,7 +862,12 @@ private:
 
   /**
    * @brief Drop redundant cross-stream waits, unused event records, and covered
-   *        anchor joins after the schedule is fully lowered.
+   *        anchor fork/joins after the schedule is fully lowered.
+   *
+   * Removes (1) waits already covered by a prior wait on the same recorder stream,
+   * (2) waits dominated by a later, stronger wait on the same waiting stream before
+   * the next launch (e.g. anchor start before a data-event wait), (3) unused records,
+   * and (4) anchor joins already implied by an earlier stream-0 wait.
    */
   auto
   compile_prune_syncs_() -> void;

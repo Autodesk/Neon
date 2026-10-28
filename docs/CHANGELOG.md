@@ -6071,6 +6071,12 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   the reduce only reads what the stencil wrote. Extended is unchanged (no forward reduce split).
   `test_skeleton_reduce_split` asserts TwoWay parity + launch-order shape and that Extended leaves
   a trailing Map reduce as a single `reduction/standard` launch.
+- **2026-10 — Prune forward-dominated waits (anchor start vs later data sync).**
+  `compile_prune_syncs_()` already dropped waits covered by a *prior* sync on the same
+  recorder stream. It now also drops waits dominated by a *later*, stronger wait on the
+  same waiting stream before the next launch — so an anchor-start wait that is followed
+  (with no intervening work) by a wait on a later stream-0 event is removed, and the
+  global anchor-start fork is cleared when every secondary's start wait was dominated.
 - **2026-10 — Per-view reduce scratch for concurrent Partial Internal/Boundary.** TwoWay's
   trailing Map-reduce split launches Partial Internal concurrent with Boundary work (and often
   still overlapping Partial Boundary). Stage-1 used a single per-GPU `partials_` / CUB temp

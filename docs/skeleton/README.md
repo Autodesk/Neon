@@ -60,8 +60,10 @@ splits each `(halo, stencil-read compute|reduction)` pair into Internal and
 Boundary steps; reductions add a merge step (`ReduceLaunchMode::Partial` then
 `Merge`). Internal is ordered before the halo; Boundary runs on the halo stream
 right after the halo. A final `compile_prune_syncs_()` pass removes redundant
-same-stream waits, unused event records, and anchor joins already covered by an
-earlier cross-stream wait.
+waits (already covered by a prior wait, or dominated by a later stronger wait on
+the same stream before the next launch — e.g. an anchor-start wait before a
+stream-0 data-event wait), unused event records, and anchor joins already covered
+by an earlier cross-stream wait.
 
 Extended and TwoWayExtended are further rewrites of the same step graph
 (`compile_step_graph_occ_`). Extended splits each Compute producer of a
