@@ -238,7 +238,8 @@ public:
       // Size CUB temp once from the Standard-view scratch shape; every view reuses that
       // byte count (Internal/Boundary launch <= Standard blocks).
       {
-        auto probe = gpu.template buffer<T>(partial_count, /*relative_gpu_id=*/static_cast<int>(g_idx));
+        auto probe =
+            gpu.template buffer<T>(partial_count, /*relative_gpu_id=*/static_cast<int>(g_idx));
         size_t temp_bytes = 0;
         const gpu_error_t err = gpucub::DeviceReduce::Reduce(
             /*d_temp_storage=*/nullptr, temp_bytes,
@@ -428,10 +429,10 @@ public:
           // Empty domain: write the identity into stage2_out. DeviceReduce::Reduce
           // with num_items=0 writes init verbatim.
           size_t temp_bytes = cub_temp_bytes_[g_idx];
-          const gpu_error_t err = gpucub::DeviceReduce::Reduce(
-              cub_temp_storage_[view_idx][g_idx].data(), temp_bytes,
-              partials_[view_idx][g_idx].data(), stage2_out,
-              /*num_items=*/0, op_, op_.identity(), cuda_stream);
+          const gpu_error_t err =
+              gpucub::DeviceReduce::Reduce(cub_temp_storage_[view_idx][g_idx].data(), temp_bytes,
+                                           partials_[view_idx][g_idx].data(), stage2_out,
+                                           /*num_items=*/0, op_, op_.identity(), cuda_stream);
           if (err != gpu_success) {
             outcomes[g_idx] = {err, "empty-domain DeviceReduce::Reduce", 0, 0, 0};
           }
@@ -475,9 +476,8 @@ public:
       // Stage 1.5: DeviceReduce over the per-block partials into stage2_out.
       size_t temp_bytes = cub_temp_bytes_[g_idx];
       const gpu_error_t reduce_err = gpucub::DeviceReduce::Reduce(
-          cub_temp_storage_[view_idx][g_idx].data(), temp_bytes,
-          partials_[view_idx][g_idx].data(), stage2_out, static_cast<int>(blocks), op_,
-          op_.identity(), cuda_stream);
+          cub_temp_storage_[view_idx][g_idx].data(), temp_bytes, partials_[view_idx][g_idx].data(),
+          stage2_out, static_cast<int>(blocks), op_, op_.identity(), cuda_stream);
       if (reduce_err != gpu_success) {
         outcomes[g_idx] = {reduce_err, "stage-1.5 DeviceReduce::Reduce", 0, 0, 0};
       }

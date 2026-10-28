@@ -68,7 +68,11 @@ by an earlier cross-stream wait.
 Extended and TwoWayExtended are further rewrites of the same step graph
 (`compile_step_graph_occ_`). Extended splits each Compute producer of a
 stencil-read field into Boundary then Internal, and the halo waits on the
-Boundary half only, so it overlaps the producer's Internal half. TwoWayExtended
+Boundary half only, so it overlaps the producer's Internal half. The halves
+write disjoint cells, so Boundary-before-Internal is a hint edge (Neon's
+`scheduling` dependency): it fixes issue order but adds no event. The Boundary
+half runs on the halo stream, so the halo follows it in FIFO order without a
+wait, while the Internal half runs concurrently on stream 0. TwoWayExtended
 also splits Map-only Compute consumers of the stencil's output into Internal +
 Boundary, and Map-pattern Reduction consumers into Partial Internal + Partial
 Boundary + Merge (Neon Two-way Extended OCC), so an Internal reduce can overlap

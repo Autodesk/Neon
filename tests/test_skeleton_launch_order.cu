@@ -171,8 +171,9 @@ main() {
     }
   }
 
-  // Extended: Map producer Boundary→record, then halo waits that event. The later stream-0
-  // wait dominates anchor start, so prune must drop the fork.
+  // Extended: the producer's Boundary half runs on the halo stream (Neon scheduling edge to
+  // its Internal half), so the halo follows it in FIFO order without a wait while the Internal
+  // half overlaps on stream 0. The Boundary half opens stream 1, so anchor start stays.
   {
     auto fill = carbon::Kernel::compute(
         dense,
@@ -192,15 +193,34 @@ main() {
       return EXIT_FAILURE;
     }
     const std::string order = sk_ext.export_launch_order();
-    if (order.find("anchor start") != std::string::npos) {
+    if (order.find("anchor start") == std::string::npos) {
       CARBON_LOG_ERROR(
-          "test_skeleton_launch_order: Extended producer→halo wait should prune anchor start\n{}",
+          "test_skeleton_launch_order: Extended producer Boundary opens stream 1 and needs "
+          "anchor start\n{}",
           order);
       return EXIT_FAILURE;
     }
-    if (order.find("wait") == std::string::npos || order.find("[halo/") == std::string::npos) {
+    const std::size_t fill_b = line_index_of(order, "stream 1  launch  fill_u [compute/boundary]");
+    const std::size_t fill_i = line_index_of(order, "stream 0  launch  fill_u [compute/internal]");
+    const std::size_t halo = line_index_of(order, "stream 1  launch  auto_halo_u [halo/");
+    const std::size_t step_b =
+        line_index_of(order, "stream 1  launch  step_ext [compute/boundary]");
+    constexpr auto kMissing = static_cast<std::size_t>(-1);
+    if (fill_b == kMissing || fill_i == kMissing || halo == kMissing || step_b == kMissing ||
+        !(fill_b < fill_i && fill_b < halo && halo < step_b)) {
       CARBON_LOG_ERROR(
-          "test_skeleton_launch_order: Extended schedule missing halo wait\n{}", order);
+          "test_skeleton_launch_order: Extended producer Boundary must share the halo stream, "
+          "Internal must run on stream 0\n{}",
+          order);
+      return EXIT_FAILURE;
+    }
+    const std::size_t fill_b_pos = order.find("stream 1  launch  fill_u [compute/boundary]");
+    const std::size_t halo_pos = order.find("stream 1  launch  auto_halo_u [halo/");
+    if (order.substr(fill_b_pos, halo_pos - fill_b_pos).find("stream 1  wait") !=
+        std::string::npos) {
+      CARBON_LOG_ERROR(
+          "test_skeleton_launch_order: halo must follow producer Boundary without a wait\n{}",
+          order);
       return EXIT_FAILURE;
     }
   }
