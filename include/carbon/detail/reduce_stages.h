@@ -33,12 +33,12 @@ namespace carbon::detail::reduce_stages {
 
 /**
  * Stage 2 (intra-process combine, multi-GPU only): peer-copy each
- * @c dst.gpu_partial(g) into @c dst.stage2_staging()[g] on the rank-local
- * root GPU, fence the root stream behind every non-root stream, then
- * fold the staging buffer into @c dst.device_data(view) via @p op on the
+ * @c dst.gpu_partial(view, g) into @c dst.stage2_staging(view)[g] on the
+ * rank-local root GPU, fence the root stream behind every non-root stream,
+ * then fold the staging buffer into @c dst.device_data(view) via @p op on the
  * root GPU.
  *
- * Caller must have already written every @c dst.gpu_partial(g) (stage 1 +
+ * Caller must have already written every @c dst.gpu_partial(view, g) (stage 1 +
  * the per-GPU final cub::DeviceReduce::Reduce / sycl::reduction).
  *
  * No-op when @c sys.gpu_count() == 1 (single-GPU short-circuits stage 1
@@ -57,18 +57,18 @@ run_stage2_combine(const ::carbon::System& sys,
 
   // Fan-in: root stream waits until every other per-GPU stream has finished
   // stage 1's per-GPU final cub::DeviceReduce::Reduce write into
-  // @c dst.gpu_partial(g) .
+  // @c dst.gpu_partial(view, g) .
   ::carbon::detail::dense::sync_root_after_nonroot(sys, stream, static_cast<size_t>(root));
 
-  // Peer-copy each per-GPU partial into stage2_staging[g] on the root GPU.
+  // Peer-copy each per-GPU partial into stage2_staging(view)[g] on the root GPU.
   // System::async_copy picks the destination's stream slot — i.e. the root
   // GPU's stream — exactly where the combine kernel runs next.
-  const ::carbon::detail::Allocation<T>& staging = dst.stage2_staging();
+  const ::carbon::detail::Allocation<T>& staging = dst.stage2_staging(view);
   for (size_t g = 0; g < gpu_count; ++g) {
     ::carbon::detail::Allocation<T> staging_slot = ::carbon::detail::Allocation<T>::unmanaged(
         ::carbon::detail::AllocationLocation::Cuda, staging.data() + g, /*count=*/1U,
         staging.gpu_id(), staging.relative_gpu_id());
-    sys.async_copy(dst.gpu_partial(g), staging_slot, sizeof(T), stream);
+    sys.async_copy(dst.gpu_partial(view, g), staging_slot, sizeof(T), stream);
   }
 
   // Combine on the root GPU. CUDA's <<<>>> launch dispatches to the current

@@ -72,6 +72,12 @@
 //                                in-iteration pipelines (default: none).
 //   --dot                        Dump the inferred main-loop DAGs as GraphViz
 //                                DOT on stdout (one block per Skeleton).
+//   --dot-out prefix             Write GraphViz DOT + launch-order listings
+//                                for init / iter_pre / iter_post as
+//                                prefix_<tag>.dot and prefix_<tag>.txt.
+//   --dot-matrix                 With --dot-out, also write launch-matrix and
+//                                kernel-list DOT
+//                                (prefix_<tag>_matrix.dot / _kernels.dot).
 //   --help                       Print this help and exit.
 //
 // Build + run
@@ -108,6 +114,7 @@
 #include <clipp.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -138,6 +145,8 @@ struct Options {
   int report_every = 25;
   std::string overlap_raw;
   bool dump_dot = false;
+  std::string dot_out_prefix;
+  bool dot_matrix = false;
   bool show_help = false;
 };
 
@@ -172,7 +181,12 @@ build_cli(Options& opts) -> clipp::group {
       (option("--overlap") & value("mode", opts.overlap_raw)) %
           "Skeleton overlap mode: none | standard | extended | two-way-extended (default: none)",
       (option("--dot").set(opts.dump_dot) %
-       "Dump inferred main-loop Skeleton DAGs as GraphViz DOT on stdout"));
+       "Dump inferred main-loop Skeleton DAGs as GraphViz DOT on stdout"),
+      (option("--dot-out") & value("prefix", opts.dot_out_prefix)) %
+          "Write DOT + launch-order files as prefix_<tag>.dot / .txt "
+          "(tag = init | iter_pre | iter_post)",
+      (option("--dot-matrix").set(opts.dot_matrix) %
+       "With --dot-out, also write launch-matrix and kernel-list DOT files"));
 }
 
 [[nodiscard]] auto
@@ -638,6 +652,30 @@ run_cg(Grid& grid,
       CARBON_LOG_INFO("cg_poisson_unified[{}]: --- iter_post DAG ---\n{}", grid_tag,
                       iter_post.export_dot("cg_iter_post"));
     }
+    if (!opts.dot_out_prefix.empty()) {
+      const auto export_one = [&](carbon::Skeleton& sk, const char* tag) {
+        const std::string base = opts.dot_out_prefix + "_" + tag;
+        if (!sk.export_dot_file(base + ".dot", std::string{"cg_"} + tag)) {
+          CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}.dot", base);
+        }
+        if (!sk.export_launch_order_file(base + ".txt")) {
+          CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}.txt", base);
+        }
+        if (opts.dot_matrix) {
+          if (!sk.export_launch_matrix_dot_file(base + "_matrix.dot", std::string{"cg_"} + tag)) {
+            CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}_matrix.dot", base);
+          }
+          if (!sk.export_kernel_list_dot_file(base + "_kernels.dot", std::string{"cg_"} + tag)) {
+            CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}_kernels.dot", base);
+          }
+        }
+      };
+      export_one(init, "init");
+      export_one(iter_pre, "iter_pre");
+      export_one(iter_post, "iter_post");
+      CARBON_LOG_INFO("cg_poisson_unified[{}]: wrote Skeleton exports under prefix '{}'", grid_tag,
+                      opts.dot_out_prefix);
+    }
   }
 
   init.run();
@@ -658,6 +696,7 @@ run_cg(Grid& grid,
   size_t iter = 0;
   bool converged = (r0_norm <= abs_target);
 
+  const auto t0 = std::chrono::steady_clock::now();
   for (; iter < opts.max_iter && !converged; ++iter) {
     beta_host = (delta_old_h > 0.0) ? (delta_new_h / delta_old_h) : 0.0;
 
@@ -695,9 +734,15 @@ run_cg(Grid& grid,
       converged = true;
     }
   }
+  const auto t1 = std::chrono::steady_clock::now();
+  const double solve_s = std::chrono::duration<double>(t1 - t0).count();
 
   const double final_r_norm = std::sqrt(std::max(0.0, delta_new_h));
   if (world_rank == 0) {
+    const double ms_per_iter = (iter > 0U) ? (1.0e3 * solve_s / static_cast<double>(iter)) : 0.0;
+    CARBON_LOG_INFO(
+        "cg_poisson_unified[{}]: TIMING overlap={} iters={} solve_s={:.6f} ms_per_iter={:.4f}",
+        grid_tag, overlap_mode_name(overlap_mode), iter, solve_s, ms_per_iter);
     if (converged) {
       CARBON_LOG_INFO("cg_poisson_unified[{}]: CONVERGED at iter {}  ||r||={:.6e}", grid_tag, iter,
                       final_r_norm);

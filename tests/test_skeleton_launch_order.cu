@@ -102,7 +102,9 @@ main() {
     }
   }
 
-  // Standard overlap: halo on a secondary stream, anchor bracket, internal before boundary.
+  // Standard overlap: halo on a secondary stream, internal before boundary.
+  // Anchor start is load-bearing here — halo's first stream-1 op has no later stream-0
+  // data wait to dominate it — so the fork must remain.
   {
     carbon::Skeleton sk_occ(sys, carbon::Skeleton::Options{carbon::OverlapMode::Standard});
     sk_occ.add(build_jacobi(dense, u, v, "step_occ"));
@@ -112,23 +114,19 @@ main() {
       return EXIT_FAILURE;
     }
     const std::string order = sk_occ.export_launch_order();
-    if (!sk_occ.uses_anchor_fork_join()) {
-      CARBON_LOG_ERROR("test_skeleton_launch_order: expected anchor fork/join");
-      return EXIT_FAILURE;
-    }
-    if (order.find("anchor start") == std::string::npos ||
-        order.find("anchor join") == std::string::npos) {
-      CARBON_LOG_ERROR("test_skeleton_launch_order: missing anchor listing\n{}", order);
+    if (order.find("anchor start") == std::string::npos) {
+      CARBON_LOG_ERROR(
+          "test_skeleton_launch_order: Standard Jacobi needs anchor start (no dominating "
+          "stream-0 wait before halo)\n{}",
+          order);
       return EXIT_FAILURE;
     }
     const std::size_t halo_line = line_index_of(order, "[halo/");
     const std::size_t internal_line = line_index_of(order, "[compute/internal]");
     const std::size_t boundary_line = line_index_of(order, "[compute/boundary]");
-    const std::size_t anchor_join_line = line_index_of(order, "anchor join");
     if (halo_line == static_cast<std::size_t>(-1) ||
         internal_line == static_cast<std::size_t>(-1) ||
-        boundary_line == static_cast<std::size_t>(-1) ||
-        anchor_join_line == static_cast<std::size_t>(-1)) {
+        boundary_line == static_cast<std::size_t>(-1)) {
       CARBON_LOG_ERROR("test_skeleton_launch_order: incomplete overlap listing\n{}", order);
       return EXIT_FAILURE;
     }
@@ -169,6 +167,40 @@ main() {
         list.find("stream 1 &#183; boundary") == std::string::npos ||
         list.find("stream 0 &#183; internal") == std::string::npos) {
       CARBON_LOG_ERROR("test_skeleton_launch_order: bad kernel list\n{}", list);
+      return EXIT_FAILURE;
+    }
+  }
+
+  // Extended: Map producer Boundary→record, then halo waits that event. The later stream-0
+  // wait dominates anchor start, so prune must drop the fork.
+  {
+    auto fill = carbon::Kernel::compute(
+        dense,
+        [&u](carbon::KernelLoader& loader) {
+          const auto out = loader.write(u);
+          return [out] CARBON_HOST_DEVICE(carbon::Dense::Span s, carbon::Dense::Idx idx) {
+            out.write(s, idx, 0, 1.0F);
+          };
+        },
+        "fill_u", /*shared_mem=*/0U);
+    carbon::Skeleton sk_ext(sys, carbon::Skeleton::Options{carbon::OverlapMode::Extended});
+    sk_ext.add(std::move(fill));
+    sk_ext.add(build_jacobi(dense, u, v, "step_ext"));
+    sk_ext.compile();
+    if (sk_ext.num_streams() < 2U) {
+      CARBON_LOG_ERROR("test_skeleton_launch_order: expected >=2 streams under Extended");
+      return EXIT_FAILURE;
+    }
+    const std::string order = sk_ext.export_launch_order();
+    if (order.find("anchor start") != std::string::npos) {
+      CARBON_LOG_ERROR(
+          "test_skeleton_launch_order: Extended producer→halo wait should prune anchor start\n{}",
+          order);
+      return EXIT_FAILURE;
+    }
+    if (order.find("wait") == std::string::npos || order.find("[halo/") == std::string::npos) {
+      CARBON_LOG_ERROR(
+          "test_skeleton_launch_order: Extended schedule missing halo wait\n{}", order);
       return EXIT_FAILURE;
     }
   }

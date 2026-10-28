@@ -215,7 +215,8 @@ public:
             ::carbon::to_string(view), blocks, g_idx, block_count_per_gpu_[g_idx]);
       }
 
-      T* const stage2_out = gpu_count == 1U ? dst.device_data(view) : dst.gpu_partial(g_idx).data();
+      T* const stage2_out =
+          gpu_count == 1U ? dst.device_data(view) : dst.gpu_partial(view, g_idx).data();
       const gpu_stream_t cuda_stream = stream[g_idx].get();
 
       // Pin the current CUDA device to this slab's GPU before any direct CUDA / CUB
@@ -290,7 +291,8 @@ public:
       const auto span = grid_.spans()[g_idx];
       const int64_t iter_cells = Traits::iter_cell_count(grid_, g_idx, view);
 
-      T* const stage2_out = gpu_count == 1U ? dst.device_data(view) : dst.gpu_partial(g_idx).data();
+      T* const stage2_out =
+          gpu_count == 1U ? dst.device_data(view) : dst.gpu_partial(view, g_idx).data();
 
       sycl::queue& q = stream[g_idx].queue();
       KernelLoader ctx{static_cast<unsigned>(g_idx), KernelTarget::Device,

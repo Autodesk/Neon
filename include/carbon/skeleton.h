@@ -145,16 +145,18 @@ struct StepGraphNode;
  *     ready for the halo to send) then Internal (in parallel with the halo).
  *     Reduce nodes stop the backward propagation.
  *   - @c TwoWayExtended — Extended plus a forward propagation: every @c Map
- *     node whose input transitively reads from the stencil's output is also
- *     split. Each such node runs Internal first (consuming the stencil's
- *     internal-cell writes in parallel with the halo) then Boundary (after
- *     the stencil's boundary write completes). Reduce nodes likewise stop
- *     forward propagation.
+ *     Compute node whose input transitively reads from the stencil's output is
+ *     also split (Internal first, then Boundary). Map-pattern @c Reduction
+ *     successors are split into Partial Internal + Partial Boundary + Merge so
+ *     the Internal reduce can overlap the halo (Neon Two-way Extended OCC).
+ *     Stencil-pattern reductions are their own OCC pairs and stop this walk;
+ *     other non-Compute kinds likewise halt forward propagation.
  *
  * Universal (dual-target) and Host (OpenMP) compute kernels are not
- * split today — only @c KernelKind::Compute participates. A non-Compute
- * kernel encountered during the chain walk halts the propagation at that
- * boundary; the rest of the OCC rewrite still applies.
+ * split today — only @c KernelKind::Compute (and Map @c Reduction under
+ * TwoWayExtended) participate. A non-Compute non-Reduction kernel
+ * encountered during the chain walk halts the propagation at that boundary;
+ * the rest of the OCC rewrite still applies.
  */
 enum class OverlapMode : unsigned char {
   None = 0,
@@ -527,14 +529,23 @@ public:
   }
 
   /**
-   * @brief Whether @ref compile allocated anchor fork/join events for this schedule.
+   * @brief Whether this schedule still uses an anchor start and/or join after prune.
    *
-   * @c false for single-stream pipelines and for schedules whose only secondary
-   * stream is the detached scalar readback copy stream (PatternScalar overlap path).
+   * @c false for single-stream pipelines, copy-only secondary schedules, and multi-stream
+   * schedules where @ref compile_prune_syncs_ removed every anchor fork/join (e.g. start
+   * dominated by a later stream-0 wait before the first secondary launch).
    */
   [[nodiscard]] auto
   uses_anchor_fork_join() const noexcept -> bool {
-    return anchor_start_event_ != kNoEvent_;
+    if (anchor_start_event_ != kNoEvent_) {
+      return true;
+    }
+    for (size_t s = 1U; s < anchor_join_events_.size(); ++s) {
+      if (anchor_join_events_[s] != kNoEvent_) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -851,7 +862,12 @@ private:
 
   /**
    * @brief Drop redundant cross-stream waits, unused event records, and covered
-   *        anchor joins after the schedule is fully lowered.
+   *        anchor fork/joins after the schedule is fully lowered.
+   *
+   * Removes (1) waits already covered by a prior wait on the same recorder stream,
+   * (2) waits dominated by a later, stronger wait on the same waiting stream before
+   * the next launch (e.g. anchor start before a data-event wait), (3) unused records,
+   * and (4) anchor joins already implied by an earlier stream-0 wait.
    */
   auto
   compile_prune_syncs_() -> void;
@@ -929,10 +945,11 @@ private:
    *   - @b Extended : every Compute predecessor P reachable back from S through Compute kernels
    *     that writes a field S stencil-reads becomes P-Boundary then P-Internal; H waits on
    *     P-Boundary only, so the halo overlaps P-Internal.
-   *   - @b TwoWayExtended : every Compute successor C reachable forward from S through Map-only
-   *     Compute kernels that reads a field S (or an earlier such C) writes becomes C-Internal +
-   *     C-Boundary. When C only reads what a split producer wrote, each half waits on the
-   *     matching half of the producer only.
+   *   - @b TwoWayExtended : every Map Compute successor C reachable forward from S that reads a
+   *     field S (or an earlier such C) wrote becomes C-Internal + C-Boundary; Map-pattern
+   *     Reduction successors become Partial Internal + Partial Boundary + Merge. When C only
+   *     reads what a split producer wrote, each half waits on the matching half of the producer
+   *     only.
    *
    * A kernel is split at most once; a later pair that reaches an already split kernel only
    * rewires its own halo edge.

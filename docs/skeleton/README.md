@@ -60,17 +60,21 @@ splits each `(halo, stencil-read compute|reduction)` pair into Internal and
 Boundary steps; reductions add a merge step (`ReduceLaunchMode::Partial` then
 `Merge`). Internal is ordered before the halo; Boundary runs on the halo stream
 right after the halo. A final `compile_prune_syncs_()` pass removes redundant
-same-stream waits, unused event records, and anchor joins already covered by an
-earlier cross-stream wait.
+waits (already covered by a prior wait, or dominated by a later stronger wait on
+the same stream before the next launch — e.g. an anchor-start wait before a
+stream-0 data-event wait), unused event records, and anchor joins already covered
+by an earlier cross-stream wait.
 
 Extended and TwoWayExtended are further rewrites of the same step graph
 (`compile_step_graph_occ_`). Extended splits each Compute producer of a
 stencil-read field into Boundary then Internal, and the halo waits on the
 Boundary half only, so it overlaps the producer's Internal half. TwoWayExtended
-also splits the Map-only Compute consumers of the stencil's output into
-Internal + Boundary; when a consumer only reads what a split producer wrote,
-each half waits on the matching half alone. A stencil reduction gets the same
-partial + merge launches in every mode.
+also splits Map-only Compute consumers of the stencil's output into Internal +
+Boundary, and Map-pattern Reduction consumers into Partial Internal + Partial
+Boundary + Merge (Neon Two-way Extended OCC), so an Internal reduce can overlap
+the halo. When a consumer only reads what a split producer wrote, each half
+waits on the matching half alone. A stencil reduction gets the same partial +
+merge launches in every mode.
 
 ## Launch order listing
 

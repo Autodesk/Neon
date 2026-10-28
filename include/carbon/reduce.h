@@ -12,13 +12,15 @@
  *
  * Storage layout (one @c T scalar each, except the per-GPU partial vector):
  *
- * - One @c T per local GPU as the @b stage-1 output ( @ref gpu_partial ).
+ * - One @c T per local GPU per @ref DataView as the @b stage-1 output
+ *   ( @ref gpu_partial ). Per-view copies let Partial Internal and Partial Boundary
+ *   run concurrently (TwoWay OCC) without racing the same scratch.
  * - One @c T per @ref DataView slot, on the rank-local root GPU, as the @b stage-2/3
  *   final ( @ref device_data ).
  * - One @c T per @ref DataView slot on the host, mirroring the device view ( @ref host_data ).
- * - One @c T-per-local-GPU @b stage-2 staging buffer on the rank-local root GPU; only
- *   allocated when @c gpu_count > 1 (the combine kernel reads it back into the per-view
- *   final slot).
+ * - One @c T-per-local-GPU @b stage-2 staging buffer per @ref DataView on the rank-local
+ *   root GPU; only allocated when @c gpu_count > 1 (the combine kernel reads it back
+ *   into the matching per-view final slot).
  *
  * The no-arg accessors ( @c device_data() , @c host_data() , @c sync() , ...) all default
  * to @ref DataView::Standard , so call sites that only ever launch a Standard-view
@@ -31,15 +33,15 @@
  *
  * 1. @b Stage-1 (per-GPU map+reduce). Each local GPU runs the user's per-cell device
  *    lambda over @c span.iter_extent(view) and collapses to one @c T into
- *    @c gpu_partial(g) . The loading lambda may also perform stencil reads and field
+ *    @c gpu_partial(view, g) . The loading lambda may also perform stencil reads and field
  *    writes in the same launch (fused map/stencil + reduce). Backed by NVIDIA CUB
  *    (CUDA) or @c sycl::reduction (SYCL). With @ref ReduceFinalize::BlockAtomic , each
  *    CUDA block @c atomicAdd s into the per-GPU scalar and stage-1.5 @c DeviceReduce is
  *    skipped (floating-point sums may differ run-to-run vs the default path).
  * 2. @b Stage-2 (intra-process combine). Per-GPU partials are peer-copied into the
- *    rank-local root GPU's stage-2 staging buffer and combined via the user's @c Op into
- *    @c device_data(view) . Skipped when @c gpu_count == 1 (the per-GPU partial is
- *    transferred straight into the per-view final).
+ *    rank-local root GPU's per-view stage-2 staging buffer and combined via the user's
+ *    @c Op into @c device_data(view) . Skipped when @c gpu_count == 1 (the per-GPU
+ *    partial is transferred straight into the per-view final).
  * 3. @b Stage-3 (cross-rank allreduce). When @c System::distributed() is set, an in-place
  *    @c ncclAllReduce on @c device_data(view) replicates the result on every rank's root
  *    GPU. Gated on @c CARBON_HAVE_MPI_NCCL ; mapping the user's @c Op to the matching
@@ -344,8 +346,11 @@ private:
     size_t last_host_consumed_launch{0U};
     std::uint64_t device_uid{0U};
     std::uint64_t host_uid{0U};
-    std::vector<detail::Allocation<T>> gpu_partials{};
-    detail::Allocation<T> stage2_staging_{};
+    /** Per-view, per-GPU stage-1 outputs — concurrent Partial Internal/Boundary safe. */
+    std::array<std::vector<detail::Allocation<T>>, kViewCount> gpu_partials_{};
+    /** Per-view stage-2 staging on root (empty when @c gpu_count == 1). */
+    std::array<detail::Allocation<T>, kViewCount> stage2_staging_{};
+    size_t gpu_count_{0U};
     std::array<std::vector<detail::Allocation<T>>, kViewCount> device_slots_{};
     std::array<std::vector<detail::Allocation<T>>, kViewCount> host_slots_{};
     std::array<std::vector<detail::Event>, kViewCount> slot_done_{};
@@ -356,9 +361,9 @@ private:
 
 public:
   /**
-   * Allocate the per-GPU partials ( @c gpu_count scalars, one on each local GPU), the
-   * per-view final slots ( @c 3 @c × @c slot_count scalars on the rank-local root GPU),
-   * pinned host mirrors per slot, and (when @c gpu_count > 1 ) the stage-2 staging buffer.
+   * Allocate per-view per-GPU partials ( @c 3 @c × @c gpu_count scalars), the per-view
+   * final slots ( @c 3 @c × @c slot_count scalars on the rank-local root GPU), pinned
+   * host mirrors per slot, and (when @c gpu_count > 1 ) a per-view stage-2 staging buffer.
    *
    * @throws std::runtime_error when @c sys.gpu_group() is empty.
    */
@@ -383,15 +388,15 @@ public:
     state->device_uid = reinterpret_cast<std::uint64_t>(&state->device_uid);
     state->host_uid = reinterpret_cast<std::uint64_t>(&state->host_uid);
 
-    state->gpu_partials.reserve(gpu_count);
-    for (size_t g = 0; g < gpu_count; ++g) {
-      const detail::Gpu& gpu = gpu_group.devices()[g];
-      state->gpu_partials.push_back(
-          gpu.template buffer<T>(1U, /*relative_gpu_id=*/static_cast<int>(g)));
-    }
-
+    state->gpu_count_ = gpu_count;
     const detail::Gpu& root = gpu_group.devices()[state->root_local_gpu];
     for (size_t v = 0; v < kViewCount; ++v) {
+      state->gpu_partials_[v].reserve(gpu_count);
+      for (size_t g = 0; g < gpu_count; ++g) {
+        const detail::Gpu& gpu = gpu_group.devices()[g];
+        state->gpu_partials_[v].push_back(
+            gpu.template buffer<T>(1U, /*relative_gpu_id=*/static_cast<int>(g)));
+      }
       state->device_slots_[v].reserve(state->slot_count);
       state->host_slots_[v].reserve(state->slot_count);
       for (size_t s = 0; s < state->slot_count; ++s) {
@@ -401,11 +406,10 @@ public:
         state->slot_done_[v].push_back(root.event());
       }
       state->fresh_[v] = false;
-    }
-
-    if (gpu_count > 1U) {
-      state->stage2_staging_ =
-          root.template buffer<T>(gpu_count, /*relative_gpu_id=*/state->root_local_gpu);
+      if (gpu_count > 1U) {
+        state->stage2_staging_[v] =
+            root.template buffer<T>(gpu_count, /*relative_gpu_id=*/state->root_local_gpu);
+      }
     }
     state->sys = &sys;
     state_ = std::move(state);
@@ -651,32 +655,42 @@ public:
   // user-facing surface. Treat as detail::-grade API.
 
   /**
-   * Per-GPU partial scalar; each local GPU's stage-1 output lands here. Indexed by
-   * @c relative_gpu_id (0..gpu_count-1).
+   * Per-view, per-GPU partial scalar; each local GPU's stage-1 output for @p view lands
+   * here. Indexed by @c relative_gpu_id (0..gpu_count-1). Separate buffers per view so
+   * concurrent Partial Internal / Partial Boundary launches do not race.
    */
   [[nodiscard]] auto
-  gpu_partial(size_t local_gpu) const -> const detail::Allocation<T>& {
-    if (local_gpu >= state_->gpu_partials.size()) {
+  gpu_partial(DataView view,
+              size_t local_gpu) const -> const detail::Allocation<T>& {
+    if (local_gpu >= state_->gpu_count_) {
       log::throw_with_log<std::out_of_range>(
           "ReductionResult::gpu_partial: local_gpu {} >= gpu_count {}", local_gpu,
-          state_->gpu_partials.size());
+          state_->gpu_count_);
     }
-    return state_->gpu_partials[local_gpu];
+    return state_->gpu_partials_[index_(view)][local_gpu];
+  }
+
+  /** @overload Defaults to @ref DataView::Standard . */
+  [[nodiscard]] auto
+  gpu_partial(size_t local_gpu) const -> const detail::Allocation<T>& {
+    return gpu_partial(DataView::Standard, local_gpu);
   }
 
   /**
-   * Stage-2 staging buffer on the rank-local root GPU; size @c gpu_count . Empty (no
-   * underlying allocation) when @c gpu_count == 1 because no peer copies are needed.
+   * Per-view stage-2 staging buffer on the rank-local root GPU; size @c gpu_count .
+   * Empty (no underlying allocation) when @c gpu_count == 1 because no peer copies are
+   * needed.
    */
   [[nodiscard]] auto
-  stage2_staging() const noexcept -> const detail::Allocation<T>& {
-    return state_->stage2_staging_;
+  stage2_staging(DataView view = DataView::Standard) const noexcept
+      -> const detail::Allocation<T>& {
+    return state_->stage2_staging_[index_(view)];
   }
 
   /** Number of local GPUs this destination spans (== @c sys.gpu_group().size() ). */
   [[nodiscard]] auto
   gpu_count() const noexcept -> size_t {
-    return state_->gpu_partials.size();
+    return state_->gpu_count_;
   }
 
   /** Logical root GPU for stage-2/3 writes (currently always 0). */

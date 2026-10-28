@@ -179,6 +179,40 @@ plural(size_t n,
   return std::to_string(n) + " " + std::string{word} + (n == 1U ? "" : "s");
 }
 
+[[nodiscard]] auto
+overlap_mode_label(carbon::OverlapMode mode) -> std::string_view {
+  switch (mode) {
+    case carbon::OverlapMode::None:
+      return "none";
+    case carbon::OverlapMode::Standard:
+      return "standard";
+    case carbon::OverlapMode::Extended:
+      return "extended";
+    case carbon::OverlapMode::TwoWayExtended:
+      return "two-way-extended";
+  }
+  return "?";
+}
+
+// Compact Options line for DOT titles (launch matrix / kernel list).
+[[nodiscard]] auto
+skeleton_options_summary(const carbon::Skeleton::Options& opts) -> std::string {
+  std::string out = "overlap=" + std::string{overlap_mode_label(opts.overlap_mode)};
+  if (opts.halo_stream_priority == carbon::StreamPriority::High) {
+    out += " &#183; halo_priority=high";
+  }
+  if (opts.max_streams != 0U) {
+    out += " &#183; max_streams=" + std::to_string(opts.max_streams);
+  }
+  if (opts.use_cuda_graph) {
+    out += " &#183; cuda_graph=on";
+  }
+  if (opts.strict_halo) {
+    out += " &#183; strict_halo";
+  }
+  return out;
+}
+
 }  // namespace
 
 namespace carbon::detail {
@@ -918,17 +952,32 @@ Skeleton::compile_step_graph_occ_(const std::vector<std::vector<size_t>>& direct
     }
 
     if (two_way) {
-      // Map-only Compute successors reading what s (or an earlier such successor) wrote.
+      // Map Compute / Map Reduction successors reading what s (or an earlier Map Compute) wrote.
+      // Neon Two-way Extended OCC splits both; stencil-pattern reductions are their own OCC pairs.
       std::vector<std::uint64_t> tainted_fields;
       for (const AccessToken& ts : effective_kernels_[s].impl()->tokens()) {
         if (ts.mode == AccessMode::Write || ts.mode == AccessMode::ReadWrite) {
           tainted_fields.push_back(ts.field_uid);
         }
       }
+      auto reads_tainted = [&tainted_fields](const std::vector<AccessToken>& toks) {
+        return std::any_of(toks.begin(), toks.end(), [&tainted_fields](const AccessToken& t) {
+          return (t.mode == AccessMode::Read || t.mode == AccessMode::ReadWrite) &&
+                 std::find(tainted_fields.begin(), tainted_fields.end(), t.field_uid) !=
+                     tainted_fields.end();
+        });
+      };
+      auto has_stencil = [](const std::vector<AccessToken>& toks) {
+        return std::any_of(toks.begin(), toks.end(), [](const AccessToken& t) {
+          return t.pattern == AccessPattern::Stencil;
+        });
+      };
+
       std::vector<bool> visited(n, false);
       visited[s] = true;
       std::vector<size_t> queue{s};
       std::vector<size_t> map_forward;
+      std::vector<size_t> reduce_forward;
       for (size_t qi = 0; qi < queue.size(); ++qi) {
         for (size_t c : direct_succs_of[queue[qi]]) {
           if (visited[c]) {
@@ -936,22 +985,18 @@ Skeleton::compile_step_graph_occ_(const std::vector<std::vector<size_t>>& direct
           }
           visited[c] = true;
           const Kernel& kc = effective_kernels_[c];
+          const auto& toks = kc.impl()->tokens();
+          if (kc.kind() == KernelKind::Reduction) {
+            // Map-pattern only; do not enqueue (scalar write ends the Neon chain).
+            if (!has_stencil(toks) && reads_tainted(toks)) {
+              reduce_forward.push_back(c);
+            }
+            continue;
+          }
           if (kc.kind() != KernelKind::Compute) {
             continue;
           }
-          const auto& toks = kc.impl()->tokens();
-          if (std::any_of(toks.begin(), toks.end(), [](const AccessToken& t) {
-                return t.pattern == AccessPattern::Stencil;
-              })) {
-            continue;
-          }
-          const bool reads_tainted =
-              std::any_of(toks.begin(), toks.end(), [&tainted_fields](const AccessToken& t) {
-                return (t.mode == AccessMode::Read || t.mode == AccessMode::ReadWrite) &&
-                       std::find(tainted_fields.begin(), tainted_fields.end(), t.field_uid) !=
-                           tainted_fields.end();
-              });
-          if (!reads_tainted) {
+          if (has_stencil(toks) || !reads_tainted(toks)) {
             continue;
           }
           map_forward.push_back(c);
@@ -966,11 +1011,7 @@ Skeleton::compile_step_graph_occ_(const std::vector<std::vector<size_t>>& direct
         }
       }
 
-      for (size_t c : map_forward) {
-        if (internal_node[c] != kNoKernel_ || !nodes[c].active) {
-          continue;
-        }
-        split(c, reduce::ReduceLaunchMode::Full);
+      auto half_pair = [&](size_t c) {
         const size_t ci = internal_node[c];
         const size_t cb = boundary_node[c];
         for (size_t q : step_graph_data_preds(nodes, ci)) {
@@ -984,6 +1025,33 @@ Skeleton::compile_step_graph_occ_(const std::vector<std::vector<size_t>>& direct
             step_graph_erase_succ(nodes[q].data_succs, ci);
           }
         }
+      };
+
+      for (size_t c : map_forward) {
+        if (internal_node[c] != kNoKernel_ || !nodes[c].active) {
+          continue;
+        }
+        split(c, reduce::ReduceLaunchMode::Full);
+        half_pair(c);
+      }
+
+      for (size_t c : reduce_forward) {
+        if (internal_node[c] != kNoKernel_ || !nodes[c].active) {
+          continue;
+        }
+        split(c, reduce::ReduceLaunchMode::Partial);
+        const size_t ci = internal_node[c];
+        const size_t cb = boundary_node[c];
+        const size_t cm = nodes.size();
+        nodes.push_back(StepGraphNode{.kernel_idx = c,
+                                      .view = DataView::Standard,
+                                      .reduce_mode = reduce::ReduceLaunchMode::Merge,
+                                      .active = true,
+                                      .data_succs = nodes[ci].data_succs,
+                                      .hint_succs = {}});
+        nodes[ci].data_succs = {cm};
+        nodes[cb].data_succs = {cm};
+        half_pair(c);
       }
     }
   }
@@ -1233,8 +1301,122 @@ Skeleton::compile_prune_syncs_() -> void {
     };
 
     std::vector<std::pair<size_t, size_t>> drop_step_waits;
+    bool saw_anchor_start_wait = false;
+    bool kept_anchor_start_wait = false;
     const std::vector<LaunchOrderOp> ops = build_launch_order_ops_();
+
+    // Fill record seqs first so forward dominance can compare event strengths.
     for (const LaunchOrderOp& op : ops) {
+      if ((op.kind == LaunchOrderOpKind::EventRecord ||
+           op.kind == LaunchOrderOpKind::AnchorStartRecord ||
+           op.kind == LaunchOrderOpKind::AnchorJoinRecord) &&
+          op.event_idx < event_record_op_seq.size()) {
+        event_record_op_seq[op.event_idx] = op.seq;
+      }
+    }
+
+    // Forward dominance: before the next Launch on a stream, keep only the strongest
+    // wait per recorder stream. Weaker earlier waits (e.g. anchor start before a later
+    // stream-0 data event) add no ordering and are dropped — including AnchorStartWait.
+    {
+      struct PendingWait {
+        size_t evt{kNoEvent_};
+        size_t rec_s{kNoStream_};
+        size_t rec_seq{0U};
+        LaunchOrderOpKind kind{};
+        size_t step_idx{kNoKernel_};
+      };
+      std::vector<std::vector<PendingWait>> pending(num_streams);
+
+      auto flush_pending = [&](size_t stream_idx) {
+        auto& group = pending[stream_idx];
+        if (group.empty()) {
+          return;
+        }
+        // Per recorder stream: index of the strongest wait (max rec_seq; last wins ties).
+        std::vector<size_t> best_idx(num_streams, static_cast<size_t>(-1));
+        for (size_t i = 0; i < group.size(); ++i) {
+          const PendingWait& w = group[i];
+          if (w.rec_s >= num_streams) {
+            continue;
+          }
+          if (best_idx[w.rec_s] == static_cast<size_t>(-1) ||
+              w.rec_seq >= group[best_idx[w.rec_s]].rec_seq) {
+            best_idx[w.rec_s] = i;
+          }
+        }
+        std::vector<bool> keep(group.size(), false);
+        for (size_t rec_s = 0; rec_s < num_streams; ++rec_s) {
+          if (best_idx[rec_s] != static_cast<size_t>(-1)) {
+            keep[best_idx[rec_s]] = true;
+          }
+        }
+        for (size_t i = 0; i < group.size(); ++i) {
+          const PendingWait& w = group[i];
+          if (w.kind == LaunchOrderOpKind::AnchorStartWait) {
+            saw_anchor_start_wait = true;
+            if (keep[i]) {
+              kept_anchor_start_wait = true;
+            }
+          }
+          if (keep[i]) {
+            continue;
+          }
+          if (w.kind == LaunchOrderOpKind::EventWait && w.step_idx < schedule_.size()) {
+            drop_step_waits.push_back({w.step_idx, w.evt});
+          }
+        }
+        group.clear();
+      };
+
+      for (const LaunchOrderOp& op : ops) {
+        if (op.kind == LaunchOrderOpKind::AnchorJoinRecord ||
+            op.kind == LaunchOrderOpKind::AnchorJoinWait) {
+          continue;
+        }
+        if (op.stream_idx >= num_streams) {
+          continue;
+        }
+        if (op.kind == LaunchOrderOpKind::EventWait ||
+            op.kind == LaunchOrderOpKind::AnchorStartWait) {
+          if (op.event_idx >= rec_stream.size() || rec_stream[op.event_idx] == kNoStream_) {
+            continue;
+          }
+          pending[op.stream_idx].push_back(PendingWait{op.event_idx, rec_stream[op.event_idx],
+                                                       event_record_op_seq[op.event_idx], op.kind,
+                                                       op.step_idx});
+          continue;
+        }
+        if (op.kind == LaunchOrderOpKind::Launch) {
+          flush_pending(op.stream_idx);
+        }
+      }
+      for (size_t s = 0; s < num_streams; ++s) {
+        flush_pending(s);
+      }
+    }
+
+    // Global fork: clear only when every secondary's AnchorStartWait was dominated.
+    if (saw_anchor_start_wait && !kept_anchor_start_wait) {
+      anchor_start_event_ = kNoEvent_;
+    }
+
+    // Apply forward-dominated step-wait drops before the backward coverage pass so
+    // known_seq reflects the pruned schedule.
+    for (const auto& [step_idx, evt] : drop_step_waits) {
+      Step& step = schedule_[step_idx];
+      step.wait_events.erase(std::remove_if(step.wait_events.begin(), step.wait_events.end(),
+                                            [evt](size_t e) {
+                                              return e == evt;
+                                            }),
+                             step.wait_events.end());
+    }
+    drop_step_waits.clear();
+
+    // Rebuild ops after forward drops (anchor start / step waits) for coverage + joins.
+    const std::vector<LaunchOrderOp> ops_pruned = build_launch_order_ops_();
+    event_record_op_seq.assign(events_.size(), 0U);
+    for (const LaunchOrderOp& op : ops_pruned) {
       if (op.kind == LaunchOrderOpKind::AnchorJoinRecord ||
           op.kind == LaunchOrderOpKind::AnchorJoinWait) {
         continue;
@@ -1299,12 +1481,7 @@ Skeleton::compile_prune_syncs_() -> void {
     }
   }
   if (anchor_start_event_ != kNoEvent_ && anchor_start_event_ < event_used.size()) {
-    for (size_t s = 1U; s < streams_.size(); ++s) {
-      if (s != copy_stream_idx_) {
-        event_used[anchor_start_event_] = true;
-        break;
-      }
-    }
+    event_used[anchor_start_event_] = true;
   }
   for (size_t s = 1U; s < anchor_join_events_.size(); ++s) {
     const size_t evt = anchor_join_events_[s];
@@ -1585,7 +1762,9 @@ Skeleton::export_launch_matrix_dot(std::string graph_name) -> std::string {
      << "<TR><TD COLSPAN=\"16\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"15\"><B>"
      << html_escape(graph_name) << "</B></FONT><FONT POINT-SIZE=\"10\" COLOR=\"" << kMuted
      << "\">   launch matrix &#183; " << num_streams << " stream" << (num_streams == 1U ? "" : "s")
-     << " &#183; " << ops.size() << " ops in run() order</FONT></TD></TR><TR>";
+     << " &#183; " << ops.size() << " ops in run() order</FONT></TD></TR>"
+     << "<TR><TD COLSPAN=\"16\" ALIGN=\"LEFT\">"
+     << font(10, kMuted, skeleton_options_summary(options_)) << "</TD></TR><TR>";
   swatch(kHaloPal, "rounded", "halo");
   swatch(kInternalPal, "rounded", "internal");
   swatch(kBoundaryPal, "rounded", "boundary");
@@ -1921,7 +2100,9 @@ Skeleton::export_kernel_list_dot(std::string graph_name) -> std::string {
              "   kernel list &#183; " + plural(n, "kernel") + " (" + std::to_string(num_auto) +
                  " auto-inserted) &#183; " + plural(resources.size(), "resource") +
                  " &#183; add order")
-     << "</TD></TR><TR>";
+     << "</TD></TR>"
+     << "<TR><TD COLSPAN=\"" << legend_cols << "\" ALIGN=\"LEFT\">"
+     << font(10, kMuted, skeleton_options_summary(options_)) << "</TD></TR><TR>";
   os << legend_swatch(kStandardPal, "rounded", "compute");
   os << legend_swatch(kReductionPal, "rounded", "reduction");
   os << legend_swatch(kHaloPal, "rounded", "halo");
