@@ -6085,3 +6085,13 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `pAp=0` on multi-GPU). Scratch is now per-`DataView`: kernel `partials_[view][g]` /
   `cub_temp_storage_[view][g]`, and `ReductionResult::gpu_partial(view, g)` /
   `stage2_staging(view)`.
+- **2026-10 — Extended producer split uses a scheduling (hint) edge.** Extended used to add
+  a data edge from a split Map producer's Boundary half to its Internal half, so both halves
+  ran back to back on stream 0 and the halo needed an event on the Boundary half. Like Neon
+  (`multiGpuGraph.cpp` adds `boundary_map -> internal_map` as `GraphDependencyType::scheduling`,
+  which `Graph.cpp` uses for execution order only, not for stream mapping or events), the
+  edge is now a `hint_succs` entry: the halves write disjoint cells. `pick_stream` places the
+  Boundary half on the halo's reserved secondary stream (`reserve_halo_stream`), so the halo
+  follows it in FIFO order and the Internal half overlaps on stream 0. The stencil's Internal
+  half still waits on the producer's Boundary half (it reads boundary-band cells), and the
+  anchor-start fork is load-bearing again because the Boundary half opens the halo stream.

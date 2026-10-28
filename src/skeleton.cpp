@@ -664,6 +664,35 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
     return streams_.size() - 1U;
   };
 
+  // Overlapped halos run on a secondary stream; a split producer's Boundary half shares it so
+  // the halo follows that half in FIFO order without an event.
+  std::vector<size_t> halo_stream_for(nodes.size(), kNoStream_);
+  auto reserve_halo_stream = [&](size_t halo_nid, size_t chosen) -> size_t {
+    if (halo_stream_for[halo_nid] != kNoStream_) {
+      return halo_stream_for[halo_nid];
+    }
+    if (options_.max_streams != 0U && streams_.size() >= options_.max_streams) {
+      chosen = 0U;
+    } else if (chosen == 0U && stream_tail.size() > 1U) {
+      for (size_t s = 1U; s < stream_tail.size(); ++s) {
+        if (stream_tail[s] == kNoKernel_) {
+          chosen = s;
+          break;
+        }
+      }
+    }
+    if (chosen == 0U && (options_.max_streams == 0U || streams_.size() < options_.max_streams)) {
+      chosen = alloc_stream(true);
+    }
+    halo_stream_for[halo_nid] = chosen;
+    return chosen;
+  };
+  auto is_overlapped_halo = [&](size_t nid) -> bool {
+    return options_.overlap_mode != OverlapMode::None &&
+           effective_kernels_[nodes[nid].kernel_idx].kind() == KernelKind::Halo &&
+           !step_graph_hint_preds(nodes, nid).empty();
+  };
+
   auto pick_stream = [&](size_t nid, const std::vector<size_t>& data_preds) -> size_t {
     const KernelKind k_kind = effective_kernels_[nodes[nid].kernel_idx].kind();
     if (k_kind == KernelKind::ScalarReadback) {
@@ -683,6 +712,15 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
           nodes[nid].view == DataView::Boundary) {
         chosen = node_stream[p];
         break;
+      }
+    }
+    if (chosen == kNoStream_ && nodes[nid].view == DataView::Boundary &&
+        k_kind != KernelKind::Halo) {
+      for (size_t s : nodes[nid].data_succs) {
+        if (nodes[s].active && is_overlapped_halo(s)) {
+          chosen = reserve_halo_stream(s, 0U);
+          break;
+        }
       }
     }
     if (chosen == kNoStream_) {
@@ -717,22 +755,8 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
         chosen = alloc_stream(false);
       }
     }
-    const std::vector<size_t> hint_preds = step_graph_hint_preds(nodes, nid);
-    if (k_kind == KernelKind::Halo && !hint_preds.empty() &&
-        options_.overlap_mode != OverlapMode::None) {
-      if (options_.max_streams != 0U && streams_.size() >= options_.max_streams) {
-        chosen = 0U;
-      } else if (chosen == 0U && stream_tail.size() > 1U) {
-        for (size_t s = 1U; s < stream_tail.size(); ++s) {
-          if (stream_tail[s] == kNoKernel_) {
-            chosen = s;
-            break;
-          }
-        }
-      }
-      if (chosen == 0U && (options_.max_streams == 0U || streams_.size() < options_.max_streams)) {
-        chosen = alloc_stream(true);
-      }
+    if (is_overlapped_halo(nid)) {
+      chosen = reserve_halo_stream(nid, chosen);
     }
     return chosen;
   };
@@ -775,7 +799,7 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
   schedule_.reserve(topo.size());
   kernel_stream_.assign(n, 0U);
   record_event_per_kernel_.assign(n, kNoEvent_);
-  // A split kernel reports the stream of its first-issued (Internal) half.
+  // A split kernel reports the stream of its first-issued half.
   std::vector<bool> kernel_stream_set(n, false);
 
   for (size_t nid : topo) {
@@ -936,7 +960,9 @@ Skeleton::compile_step_graph_occ_(const std::vector<std::vector<size_t>>& direct
             continue;
           }
           split(p, reduce::ReduceLaunchMode::Full);
-          step_graph_add_succ(nodes[boundary_node[p]].data_succs, internal_node[p]);
+          // Halves write disjoint cells: issue Boundary first (Neon scheduling edge) so the
+          // halo starts early, without serializing the halves on one stream.
+          step_graph_add_succ(nodes[boundary_node[p]].hint_succs, internal_node[p]);
         }
         const size_t pi = internal_node[p];
         // The halo only sends p's boundary band, so it overlaps p_I instead of waiting on it.
