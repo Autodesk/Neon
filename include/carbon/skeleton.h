@@ -145,16 +145,18 @@ struct StepGraphNode;
  *     ready for the halo to send) then Internal (in parallel with the halo).
  *     Reduce nodes stop the backward propagation.
  *   - @c TwoWayExtended — Extended plus a forward propagation: every @c Map
- *     node whose input transitively reads from the stencil's output is also
- *     split. Each such node runs Internal first (consuming the stencil's
- *     internal-cell writes in parallel with the halo) then Boundary (after
- *     the stencil's boundary write completes). Reduce nodes likewise stop
- *     forward propagation.
+ *     Compute node whose input transitively reads from the stencil's output is
+ *     also split (Internal first, then Boundary). Map-pattern @c Reduction
+ *     successors are split into Partial Internal + Partial Boundary + Merge so
+ *     the Internal reduce can overlap the halo (Neon Two-way Extended OCC).
+ *     Stencil-pattern reductions are their own OCC pairs and stop this walk;
+ *     other non-Compute kinds likewise halt forward propagation.
  *
  * Universal (dual-target) and Host (OpenMP) compute kernels are not
- * split today — only @c KernelKind::Compute participates. A non-Compute
- * kernel encountered during the chain walk halts the propagation at that
- * boundary; the rest of the OCC rewrite still applies.
+ * split today — only @c KernelKind::Compute (and Map @c Reduction under
+ * TwoWayExtended) participate. A non-Compute non-Reduction kernel
+ * encountered during the chain walk halts the propagation at that boundary;
+ * the rest of the OCC rewrite still applies.
  */
 enum class OverlapMode : unsigned char {
   None = 0,
@@ -929,10 +931,11 @@ private:
    *   - @b Extended : every Compute predecessor P reachable back from S through Compute kernels
    *     that writes a field S stencil-reads becomes P-Boundary then P-Internal; H waits on
    *     P-Boundary only, so the halo overlaps P-Internal.
-   *   - @b TwoWayExtended : every Compute successor C reachable forward from S through Map-only
-   *     Compute kernels that reads a field S (or an earlier such C) writes becomes C-Internal +
-   *     C-Boundary. When C only reads what a split producer wrote, each half waits on the
-   *     matching half of the producer only.
+   *   - @b TwoWayExtended : every Map Compute successor C reachable forward from S that reads a
+   *     field S (or an earlier such C) wrote becomes C-Internal + C-Boundary; Map-pattern
+   *     Reduction successors become Partial Internal + Partial Boundary + Merge. When C only
+   *     reads what a split producer wrote, each half waits on the matching half of the producer
+   *     only.
    *
    * A kernel is split at most once; a later pair that reaches an already split kernel only
    * rewires its own halo edge.

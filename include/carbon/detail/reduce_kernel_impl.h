@@ -25,17 +25,18 @@
  * @c System ):
  *   1. @c carbon::detail::dense::dense_grid_reduce_kernel — fused "map + block-reduce";
  *      each block produces one @c T partial via @c cub::BlockReduce . Writes into the
- *      per-GPU @c partials_[g] scratch (sized once in the ctor for the largest view).
+ *      per-view per-GPU @c partials_[view][g] scratch (sized once in the ctor for the
+ *      largest view; separate views allow concurrent Partial Internal/Boundary).
  *   2. @c cub::DeviceReduce::Reduce — collapses the per-block partials to a single @c T
  *      written into @c dst.device_data(view) (single-GPU short-circuit) or into
- *      @c dst.gpu_partial(g) (multi-GPU; consumed by step 3's stage-2 combine).
+ *      @c dst.gpu_partial(view, g) (multi-GPU; consumed by step 3's stage-2 combine).
  *   3. @c System::async_copy — copies the device scalar into @c dst.host_data(view) on
  *      the same stream so that @c dst.sync(stream); dst.host_value(view); is enough on
  *      the user side.
  *
- * Per-block scratch and CUB device-reduce temp storage are pre-allocated per local GPU
- * in the constructor, sized from the @c Standard -view iteration extent of each slab
- * (the largest of the three views — every Internal / Boundary launch uses
+ * Per-block scratch and CUB device-reduce temp storage are pre-allocated per @ref DataView
+ * per local GPU in the constructor, sized from the @c Standard -view iteration extent of
+ * each slab (the largest of the three views — every Internal / Boundary launch uses
  * @c <= block_count_per_gpu_[g] blocks, so neither buffer ever needs to grow).
  *
  * Include from @c .cu translation units (or any TU compiled with nvcc) when the factory
@@ -65,6 +66,7 @@
 // shape) lives in @c detail::ReduceLaunchTraits<Grid> from launch_traits.h above.
 #include <carbon/detail/dense/reduce_combine.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -221,40 +223,48 @@ public:
       discover_tokens_();  // includes scalar tokens
       return;
     }
-    partials_.resize(gpu_count);
-    cub_temp_storage_.resize(gpu_count);
     cub_temp_bytes_.assign(gpu_count, 0);
+    for (size_t v = 0; v < ReductionResult<T>::kViewCount; ++v) {
+      partials_[v].resize(gpu_count);
+      cub_temp_storage_[v].resize(gpu_count);
+    }
     for (size_t g_idx = 0; g_idx < gpu_count; ++g_idx) {
       const detail::Gpu& gpu = grid_.system().gpu_group().devices()[g_idx];
       const int64_t blocks = block_count_per_gpu_[g_idx];
-      // Always allocate at least one element so partials_[g].data() is non-null and the
+      // Always allocate at least one element so partials_[v][g].data() is non-null and the
       // empty-domain branch in launch() can pass it as the d_in for cub::DeviceReduce
       // with num_items=0 (which writes init verbatim). Same trick the v1 code used.
       const size_t partial_count = static_cast<size_t>(blocks > 0 ? blocks : 1);
-      partials_[g_idx] =
-          gpu.template buffer<T>(partial_count, /*relative_gpu_id=*/static_cast<int>(g_idx));
-
-      size_t temp_bytes = 0;
-      const gpu_error_t err = gpucub::DeviceReduce::Reduce(
-          /*d_temp_storage=*/nullptr, temp_bytes,
-          /*d_in=*/partials_[g_idx].data(),
-          /*d_out=*/static_cast<T*>(nullptr),
-          /*num_items=*/static_cast<int>(blocks > 0 ? blocks : 1), op_, op_.identity(),
-          /*stream=*/gpu_stream_t{0});
-      if (err != gpu_success) {
-        log::throw_with_log<std::runtime_error>(
-            "Kernel::reduce: DeviceReduce::Reduce sizing query failed on local GPU {}: "
-            "{} (gpu error {})",
-            g_idx, gpu_error_string(err), static_cast<int>(err));
+      // Size CUB temp once from the Standard-view scratch shape; every view reuses that
+      // byte count (Internal/Boundary launch <= Standard blocks).
+      {
+        auto probe = gpu.template buffer<T>(partial_count, /*relative_gpu_id=*/static_cast<int>(g_idx));
+        size_t temp_bytes = 0;
+        const gpu_error_t err = gpucub::DeviceReduce::Reduce(
+            /*d_temp_storage=*/nullptr, temp_bytes,
+            /*d_in=*/probe.data(),
+            /*d_out=*/static_cast<T*>(nullptr),
+            /*num_items=*/static_cast<int>(blocks > 0 ? blocks : 1), op_, op_.identity(),
+            /*stream=*/gpu_stream_t{0});
+        if (err != gpu_success) {
+          log::throw_with_log<std::runtime_error>(
+              "Kernel::reduce: DeviceReduce::Reduce sizing query failed on local GPU {}: "
+              "{} (gpu error {})",
+              g_idx, gpu_error_string(err), static_cast<int>(err));
+        }
+        if (temp_bytes == 0U) {
+          // CUB never returns 0 in practice but the contract allows it; allocate a single
+          // byte so cub_temp_storage_.data() is non-null and the second call is unambiguous.
+          temp_bytes = 1U;
+        }
+        cub_temp_bytes_[g_idx] = temp_bytes;
       }
-      if (temp_bytes == 0U) {
-        // CUB never returns 0 in practice but the contract allows it; allocate a single
-        // byte so cub_temp_storage_.data() is non-null and the second call is unambiguous.
-        temp_bytes = 1U;
+      for (size_t v = 0; v < ReductionResult<T>::kViewCount; ++v) {
+        partials_[v][g_idx] =
+            gpu.template buffer<T>(partial_count, /*relative_gpu_id=*/static_cast<int>(g_idx));
+        cub_temp_storage_[v][g_idx] = gpu.template buffer<std::byte>(
+            cub_temp_bytes_[g_idx], /*relative_gpu_id=*/static_cast<int>(g_idx));
       }
-      cub_temp_bytes_[g_idx] = temp_bytes;
-      cub_temp_storage_[g_idx] =
-          gpu.template buffer<std::byte>(temp_bytes, /*relative_gpu_id=*/static_cast<int>(g_idx));
     }
     {
       const detail::Gpu& root = grid_.system().gpu_group().devices()[0U];
@@ -344,6 +354,7 @@ public:
     ReductionResult<T>& dst = *dst_;
     (void)dst.begin_launch_slot(view, stream);
     const size_t gpu_count = grid_.gpu_count();
+    const size_t view_idx = static_cast<size_t>(view);
     // Used only in the CUDALIKE device branch below; a host-compiled TU (or the
     // SYCL branch) leaves it unreferenced, so silence the unused-alias warning.
     using Traits [[maybe_unused]] = ReduceLaunchTraits<Grid>;
@@ -381,9 +392,10 @@ public:
 
       // Single-GPU short-circuit: stage 2 writes the per-GPU result straight into the
       // destination's per-view final slot, since there are no other GPUs to combine
-      // with. Multi-GPU writes into dst.gpu_partial(g_idx) and then the stage-2
+      // with. Multi-GPU writes into dst.gpu_partial(view, g_idx) and then the stage-2
       // combine kernel folds those into device_view_[view] on the root GPU.
-      T* const stage2_out = gpu_count == 1U ? dst.device_data(view) : dst.gpu_partial(g_idx).data();
+      T* const stage2_out =
+          gpu_count == 1U ? dst.device_data(view) : dst.gpu_partial(view, g_idx).data();
 
       const gpu_stream_t cuda_stream = stream[g_idx].get();
 
@@ -403,7 +415,7 @@ public:
       }
 
       const detail::Allocation<T>& stage2_alloc =
-          gpu_count == 1U ? dst.device_allocation(view) : dst.gpu_partial(g_idx);
+          gpu_count == 1U ? dst.device_allocation(view) : dst.gpu_partial(view, g_idx);
 
       if (Traits::is_empty_domain(grid_, g_idx, view)) {
         if (block_atomic) {
@@ -417,7 +429,8 @@ public:
           // with num_items=0 writes init verbatim.
           size_t temp_bytes = cub_temp_bytes_[g_idx];
           const gpu_error_t err = gpucub::DeviceReduce::Reduce(
-              cub_temp_storage_[g_idx].data(), temp_bytes, partials_[g_idx].data(), stage2_out,
+              cub_temp_storage_[view_idx][g_idx].data(), temp_bytes,
+              partials_[view_idx][g_idx].data(), stage2_out,
               /*num_items=*/0, op_, op_.identity(), cuda_stream);
           if (err != gpu_success) {
             outcomes[g_idx] = {err, "empty-domain DeviceReduce::Reduce", 0, 0, 0};
@@ -452,7 +465,8 @@ public:
 
       const gpu_error_t launch_err = Traits::template cuda_stage1<F, T, Op>(
           gpu, blocks, shared_mem_, cuda_stream, span, view, device_fn, op_, op_.identity(),
-          partials_[g_idx].data(), iter_cells, dense_stage1_threads_, dense_stage1_threads_y_);
+          partials_[view_idx][g_idx].data(), iter_cells, dense_stage1_threads_,
+          dense_stage1_threads_y_);
       if (launch_err != gpu_success) {
         outcomes[g_idx] = {launch_err, "stage-1 grid_reduce_kernel launch", 0, 0, 0};
         continue;
@@ -461,8 +475,9 @@ public:
       // Stage 1.5: DeviceReduce over the per-block partials into stage2_out.
       size_t temp_bytes = cub_temp_bytes_[g_idx];
       const gpu_error_t reduce_err = gpucub::DeviceReduce::Reduce(
-          cub_temp_storage_[g_idx].data(), temp_bytes, partials_[g_idx].data(), stage2_out,
-          static_cast<int>(blocks), op_, op_.identity(), cuda_stream);
+          cub_temp_storage_[view_idx][g_idx].data(), temp_bytes,
+          partials_[view_idx][g_idx].data(), stage2_out, static_cast<int>(blocks), op_,
+          op_.identity(), cuda_stream);
       if (reduce_err != gpu_success) {
         outcomes[g_idx] = {reduce_err, "stage-1.5 DeviceReduce::Reduce", 0, 0, 0};
       }
@@ -514,7 +529,8 @@ public:
       const auto span = grid_.spans()[g_idx];
       const int64_t iter_cells = Traits::iter_cell_count(grid_, g_idx, view);
 
-      T* const stage2_out = gpu_count == 1U ? dst.device_data(view) : dst.gpu_partial(g_idx).data();
+      T* const stage2_out =
+          gpu_count == 1U ? dst.device_data(view) : dst.gpu_partial(view, g_idx).data();
 
       sycl::queue& q = stream[g_idx].queue();
       KernelLoader ctx{static_cast<unsigned>(g_idx), KernelTarget::Device,
@@ -567,7 +583,10 @@ public:
       log::throw_with_log<std::runtime_error>(
           "Kernel::reduce::launch_merge: gpu_set_device failed");
     }
-    T* staging = dst.gpu_count() > 1U ? dst.stage2_staging().data() : merge_pair_scratch_.data();
+    // Merge runs after both Partials; reuse Standard stage-2 staging (gpu_count>=2) or
+    // the dedicated 2-element scratch (single-GPU).
+    T* staging = dst.gpu_count() > 1U ? dst.stage2_staging(DataView::Standard).data()
+                                      : merge_pair_scratch_.data();
     T* const out = dst.device_data(DataView::Standard);
     const T* const internal = dst.device_data(DataView::Internal);
     const T* const boundary = dst.device_data(DataView::Boundary);
@@ -659,10 +678,12 @@ private:
   /** @c 0 = 1D flat tiling; @c >0 = 2D block height ( @c z axis ). */
   int dense_stage1_threads_y_{0};
 #if CARBON_BACKEND_IS_CUDALIKE && CARBON_CUDALIKE_DEVICE_TU
-  std::vector<detail::Allocation<T>> partials_{};
+  /** Per-view per-GPU stage-1 block partials (concurrent Partial I/B safe). */
+  std::array<std::vector<detail::Allocation<T>>, ReductionResult<T>::kViewCount> partials_{};
   detail::Allocation<T> merge_pair_scratch_{};
   std::vector<size_t> cub_temp_bytes_{};
-  std::vector<detail::Allocation<std::byte>> cub_temp_storage_{};
+  std::array<std::vector<detail::Allocation<std::byte>>, ReductionResult<T>::kViewCount>
+      cub_temp_storage_{};
 #endif
 };
 

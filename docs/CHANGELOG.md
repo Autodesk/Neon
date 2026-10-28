@@ -6063,3 +6063,19 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
     the halo.
   `test_skeleton_reduce_split` covers Standard / Extended / TwoWayExtended with and without a Map
   producer feeding the stencil reduction.
+- **2026-10 — TwoWayExtended splits trailing Map reductions.** Neon Sec. V.B Two-way Extended OCC
+  splits map *or reduce* nodes after the stencil so Internal reduce can overlap the halo. Carbon's
+  forward walk in `compile_step_graph_occ_` now collects Map-pattern `KernelKind::Reduction`
+  successors (stencil-pattern reductions remain their own OCC pairs and stop the walk), splits them
+  into Partial Internal + Partial Boundary + Merge, and half-pairs them with a split stencil when
+  the reduce only reads what the stencil wrote. Extended is unchanged (no forward reduce split).
+  `test_skeleton_reduce_split` asserts TwoWay parity + launch-order shape and that Extended leaves
+  a trailing Map reduce as a single `reduction/standard` launch.
+- **2026-10 — Per-view reduce scratch for concurrent Partial Internal/Boundary.** TwoWay's
+  trailing Map-reduce split launches Partial Internal concurrent with Boundary work (and often
+  still overlapping Partial Boundary). Stage-1 used a single per-GPU `partials_` / CUB temp
+  buffer, and `ReductionResult` shared one `gpu_partial(g)` + `stage2_staging` across views —
+  concurrent Partials raced and CG `<p,Ap>` / residuals became nondeterministic (wrong α, or
+  `pAp=0` on multi-GPU). Scratch is now per-`DataView`: kernel `partials_[view][g]` /
+  `cub_temp_storage_[view][g]`, and `ReductionResult::gpu_partial(view, g)` /
+  `stage2_staging(view)`.

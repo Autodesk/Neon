@@ -67,10 +67,12 @@ Extended and TwoWayExtended are further rewrites of the same step graph
 (`compile_step_graph_occ_`). Extended splits each Compute producer of a
 stencil-read field into Boundary then Internal, and the halo waits on the
 Boundary half only, so it overlaps the producer's Internal half. TwoWayExtended
-also splits the Map-only Compute consumers of the stencil's output into
-Internal + Boundary; when a consumer only reads what a split producer wrote,
-each half waits on the matching half alone. A stencil reduction gets the same
-partial + merge launches in every mode.
+also splits Map-only Compute consumers of the stencil's output into Internal +
+Boundary, and Map-pattern Reduction consumers into Partial Internal + Partial
+Boundary + Merge (Neon Two-way Extended OCC), so an Internal reduce can overlap
+the halo. When a consumer only reads what a split producer wrote, each half
+waits on the matching half alone. A stencil reduction gets the same partial +
+merge launches in every mode.
 
 ## Launch order listing
 
