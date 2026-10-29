@@ -1,10 +1,15 @@
 import copy
 import ctypes
 from enum import Enum
+from importlib.metadata import PackageNotFoundError, version as _dist_version
 import os
 import warp as wp
 
-__version__ = "0.5.2a1"
+try:
+    __version__ = _dist_version("neon_gpu")
+except PackageNotFoundError:
+    # Running from a source tree without an installed neon_gpu distribution.
+    __version__ = "0.0.0+local"
 
 # from .py_ne import neon
 from .gate import Gate, _find_neon_library

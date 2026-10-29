@@ -9,7 +9,7 @@ project(Neon
         LANGUAGES CXX C CUDA)
 
 # Full version including pre-release tag (for display purposes)
-set(NEON_VERSION_FULL "0.5.2a1")
+set(NEON_VERSION_FULL "0.5.2a5")
 
 #Default build type is Release if no build type is passed by the user
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
