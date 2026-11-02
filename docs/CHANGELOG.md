@@ -6046,6 +6046,31 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   (and DenseDisg forwarding) compute one centre offset then constant-strided `pull()` neighbours;
   Jacobi uses it instead of `neighbour()` + a redundant `read()` partition. `Dense` rejects layouts
   whose `xy_slab_elements` or haloed x extent exceed `int32_t`. New test `test_partition_cursor`.
+- **2026-10 — `DenseDistributed`: slab / pencil / brick split out of `Dense`.** `Dense` is back to
+  its original Z-slab-only implementation (`dense.h`, `dense.cpp`, `detail/dense/{span,field,
+  partition}.h`, `halo.h`, `detail/halo_build.h` and `boundary_mode.h` are unchanged from before
+  the decomposition work; `BoundaryMode::PeriodicZ` is `1` again, so `DenseDisg`, `libcarbonpy`
+  and the Python bindings are untouched). The process-grid decomposition now lives in a sibling
+  grid family: `carbon::DenseDistributed` (+ `HaloDistributed<T, C>`, and the per-axis
+  `BoundaryModeDistributed`, whose `PeriodicX | PeriodicY | PeriodicZ` bits are independent; it
+  is a separate type so a per-axis mask can never reach a grid that only understands a Z wrap).
+  It takes a `ProcessGrid` / `DecompositionMode` (default slab) and exposes the same `Span` /
+  `Partition` / `Field` / kernel / reduce surface as `Dense`, wired through a
+  `DenseDistributedPolicy` marker in `launch_traits.h` (same mechanism as `DisgPolicy`) and
+  `Kernel::halo_distributed`; `Idx` is shared with `Dense`. The split / halo-thickness / per-rank
+  chunk arithmetic is a pure host function set in `detail/dense_distributed/layout.h`, so tests
+  can exercise the production decomposition without a GPU. The cross-rank NCCL pairing key still
+  ends with the run index: X/Y halo faces are non-contiguous in the x-fastest buffer, so one face
+  fans out into many runs sharing the same `(axis, source, dest, side, component)` key, and an
+  unordered sort could permute them differently on the two ranks. Tests: the nine multi-axis
+  tests and `test_halo_decomp_common.h` are replaced by `dense_distributed_host` (host-only:
+  geometry of every rank for slab / pencil / brick, Span views, open vs periodic neighbours, and
+  the packed X→Y→Z exchange on an emulated world) and `dense_distributed_dist` (4 ranks: raw halo
+  exchange byte-checked on slab `(1,1,4)`, pencil `(1,2,2)` and bricks `(2,2,1)` / `(2,1,2)`,
+  packed and run-based, plus a Skeleton stencil kernel with and without overlap; launched with
+  `mpiexec -n 8` it covers the full `(2,2,2)` brick, so `CARBON_TEST_BRICK_8GPU` is gone).
+  `benchmarks_giulio`: CG gains `--grid dense_distributed` (`--grid dense` is the original
+  slab-only grid and rejects pencil / brick); LDC and Jacobi run on `DenseDistributed`.
 - **2026-10 — Extended / TwoWayExtended on the step graph.** Every `OverlapMode` now lowers
   through `compile_step_graph_and_lower_`; the legacy in-place `apply_occ_` rewrite and
   `compile_assign_streams_and_events_` are gone. `compile_step_graph_occ_` applies the Standard

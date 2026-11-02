@@ -280,8 +280,8 @@ public:
           }
 
 #ifdef CARBON_HAVE_MPI_NCCL
-          // Host-blocking barrier between axis passes. Kept ON by default (historical
-          // behaviour); CARBON_HALO_PASS_BARRIER=0 removes it. It should not be needed for
+          // Host-blocking barrier between axis passes. OFF by default; set
+          // CARBON_HALO_PASS_BARRIER=1 to enable it. It should not be needed for
           // correctness (every pass is ordered on `stream`; intra copies are fenced above) and it
           // serialises the host against the GPU, which defeats overlap with interior compute.
           if (pass_barrier_) {
@@ -494,8 +494,8 @@ private:
   // in the constructor so no allocation can land inside graph capture or a timed region.
   Buffer<T> stage_{};
 #endif
-  // See operator(): host barrier between axis passes. CARBON_HALO_PASS_BARRIER=0 disables it.
-  bool pass_barrier_{true};
+  // See operator(): host barrier between axis passes. CARBON_HALO_PASS_BARRIER=1 enables it.
+  bool pass_barrier_{false};
   Stencil stencil_{};
   StencilSemantic semantic_{StencilSemantic::Standard};
   // Number of cross-rank slab pairs that the host pipeline would need to handle.
@@ -852,7 +852,7 @@ HaloDistributed<T,
     return side == AxisSide::Upper ? v < 0 : v > 0;
   };
 
-  pass_barrier_ = detail::halo_pack::env_flag("CARBON_HALO_PASS_BARRIER", true);
+  pass_barrier_ = detail::halo_pack::env_flag("CARBON_HALO_PASS_BARRIER", false);
 
 #if CARBON_BACKEND_IS_CUDALIKE
   // Packed X/Y faces: one message per side instead of one per contiguous row. Needs exactly one
