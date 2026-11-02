@@ -17,6 +17,8 @@
 //                           D3Q27 — the moment matrix and shear-decomposition
 //                           table needed by the entropic step are only
 //                           defined for the full 27-velocity lattice.
+//   --precision {fp32,fp64}: float (default) or double populations and
+//                           collision arithmetic.
 //
 // Headline metric is MLUPS — Million Lattice Updates Per Second — computed
 // over the post-warmup iterations only:
@@ -53,6 +55,7 @@
 
 #include <clipp.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -86,6 +89,7 @@ struct Options {
   int64_t n = 128;
   int64_t iters = 1000;
   int64_t warmup = 100;
+  int64_t reps = 1;
   double re = 100.0;
   double ulb = 0.05;
   bool ulb_set = false;
@@ -93,6 +97,9 @@ struct Options {
   bool no_warmup_skip = false;
   std::string lattice = "q19";
   std::string collision = "bgk";
+  // Floating-point type of the populations and of the collision arithmetic:
+  // "fp32" (float, default) or "fp64" (double, 2x the memory and traffic).
+  std::string precision = "fp32";
   // Grid family the benchmark runs on. "dense" is carbon::Dense (aggregated
   // Cartesian z-slabs); "disg" is carbon::DenseDisg (the disaggregated,
   // five-region-per-slab lattice-Boltzmann layout). Both run the identical hot
@@ -146,6 +153,10 @@ build_cli(Options& opts) -> clipp::group {
           "Total iterations including warmup (default 1000)",
       (option("--warmup") & integer("warmup", opts.warmup)) %
           "Warmup iterations excluded from timing (default 100)",
+      (option("--reps") & integer("reps", opts.reps)) %
+          "Split the timed iterations into N equal repetitions, each synced and "
+          "timed separately; the report carries per-repetition MLUPS and their "
+          "mean/min/max/stddev (default 1). Timed iterations must divide by N.",
       (option("--re") & number("re", opts.re)) % "Reynolds number (default 1e2)",
       (option("--ulb") & number("ulb", opts.ulb).set(opts.ulb_set)) %
           "Override lid velocity in lattice units (default 0.05)",
@@ -153,6 +164,8 @@ build_cli(Options& opts) -> clipp::group {
           "Lattice stencil: q19 (D3Q19, default) or q27 (D3Q27)",
       (option("--collision") & value("bgk|kbc", opts.collision)) %
           "Collision model: bgk (default) or kbc (entropic; D3Q27 only)",
+      (option("--precision") & value("fp32|fp64", opts.precision)) %
+          "Population / arithmetic precision: fp32 (float, default) or fp64 (double)",
       (option("--grid") & value("dense|disg", opts.grid)) %
           "Grid family: dense (carbon::Dense, default) or disg (carbon::DenseDisg, "
           "the disaggregated five-region LBM layout). Same hot kernel on both.",
@@ -218,6 +231,12 @@ parse_cli(int argc,
               << " for iters=" << opts.iters << ")\n";
     return false;
   }
+  const int64_t timed_iters = opts.no_warmup_skip ? opts.iters : opts.iters - opts.warmup;
+  if (opts.reps < 1 || timed_iters % opts.reps != 0) {
+    std::cerr << "lbm_lid_driven_cavity: --reps must be >= 1 and divide the " << timed_iters
+              << " timed iterations (got " << opts.reps << ")\n";
+    return false;
+  }
   if (opts.lattice != "q19" && opts.lattice != "q27") {
     std::cerr << "lbm_lid_driven_cavity: --lattice must be q19 or q27 (got '" << opts.lattice
               << "')\n";
@@ -226,6 +245,11 @@ parse_cli(int argc,
   if (opts.collision != "bgk" && opts.collision != "kbc") {
     std::cerr << "lbm_lid_driven_cavity: --collision must be bgk or kbc (got '" << opts.collision
               << "')\n";
+    return false;
+  }
+  if (opts.precision != "fp32" && opts.precision != "fp64") {
+    std::cerr << "lbm_lid_driven_cavity: --precision must be fp32 or fp64 (got '"
+              << opts.precision << "')\n";
     return false;
   }
   if (opts.collision == "kbc" && opts.lattice != "q27") {
@@ -326,13 +350,14 @@ json_escape(const std::string& s) -> std::string {
 // sees a reasonable approximation of the steady state instead of having to
 // spin up from rest. Templated on Lattice so the same init logic feeds
 // either D3Q19 or D3Q27.
-template <typename Lattice>
+template <typename Lattice,
+          typename Real>
 [[nodiscard]] auto
 init_population_value(const carbon::int64_3d& gc,
                       const carbon::int64_3d& global,
                       int q,
-                      double ulb) -> float {
-  const float w = Lattice::w(q);
+                      double ulb) -> Real {
+  const Real w = Lattice::template w<Real>(q);
   const bool on_boundary = (gc.x == 0 || gc.x == global.x - 1 || gc.y == 0 ||
                             gc.y == global.y - 1 || gc.z == 0 || gc.z == global.z - 1);
   if (!on_boundary) {
@@ -342,10 +367,10 @@ init_population_value(const carbon::int64_3d& gc,
     // Moving lid. Mirrors Neon's init: -6 * w_q * ulb * (c_q . ulid),
     // where ulid = (1, 0, 0). c_q.x carries the sign.
     const auto cq = Lattice::c(q);
-    const float dot = static_cast<float>(cq.x) * 1.0F;
-    return static_cast<float>(-6.0F * w * static_cast<float>(ulb) * dot);
+    const Real dot = static_cast<Real>(cq.x) * 1.0F;
+    return static_cast<Real>(-6.0F * w * static_cast<Real>(ulb) * dot);
   }
-  return 0.0F;
+  return Real(0);
 }
 
 [[nodiscard]] auto
@@ -409,7 +434,8 @@ make_single_process_system(int n_gpus_limit) -> carbon::System {
 
 template <typename Grid,
           typename Lattice,
-          typename Collision>
+          typename Collision,
+          typename Real>
 [[nodiscard]] auto
 run_benchmark(const Options& opts,
               const std::string& lattice_name,
@@ -455,24 +481,24 @@ run_benchmark(const Options& opts,
   // nu = (1/omega - 1/2) / 3.
   const double nu_lb = ulb * static_cast<double>(opts.n - 1) / opts.re;
   const double omega = 1.0 / (3.0 * nu_lb + 0.5);
-  const LbmParameters params{static_cast<float>(ulb), static_cast<float>(omega)};
+  const LbmParameters<Real> params{static_cast<Real>(ulb), static_cast<Real>(omega)};
 
   CARBON_LOG_INFO(
-      "lbm_lid_driven_cavity: lattice={} collision={} N={} iters={} warmup={} "
+      "lbm_lid_driven_cavity: lattice={} collision={} precision={} N={} iters={} warmup={} "
       "Re={:.3g} ulb={:.4g} omega={:.4g} GPUs={} Q={}",
-      lattice_name, collision_name, opts.n, opts.iters, opts.warmup, opts.re, ulb, omega, n_gpus,
-      Lattice::Q);
+      lattice_name, collision_name, opts.precision, opts.n, opts.iters, opts.warmup, opts.re, ulb,
+      omega, n_gpus, Lattice::Q);
 
   // Two ping-pong populations + a cell-type field. HostDevice so we can
   // seed them from the CPU via fill_owned_host then upload once.
-  auto pop_a = grid.template newField<float, Lattice::Q>(carbon::MemorySide::HostDevice, "pop_a");
-  auto pop_b = grid.template newField<float, Lattice::Q>(carbon::MemorySide::HostDevice, "pop_b");
+  auto pop_a = grid.template newField<Real, Lattice::Q>(carbon::MemorySide::HostDevice, "pop_a");
+  auto pop_b = grid.template newField<Real, Lattice::Q>(carbon::MemorySide::HostDevice, "pop_b");
   auto cells = grid.template newField<int32_t, 1>(carbon::MemorySide::HostDevice, "cells");
   auto cells_scratch =
       grid.template newField<int32_t, 1>(carbon::MemorySide::HostDevice, "cells_scratch");
 
-  auto pop_filler = [&global, ulb](carbon::int64_3d gc, int q) -> float {
-    return init_population_value<Lattice>(gc, global, q, ulb);
+  auto pop_filler = [&global, ulb](carbon::int64_3d gc, int q) -> Real {
+    return init_population_value<Lattice, Real>(gc, global, q, ulb);
   };
   pop_a.fill_owned_host(pop_filler);
   pop_b.fill_owned_host(pop_filler);
@@ -485,8 +511,8 @@ run_benchmark(const Options& opts,
 
   carbon::Stream upload_stream = sys.stream();
   try {
-    carbon::Transfer<float>(sys, pop_a.cpu_buffers(), pop_a.gpu_buffers())(upload_stream);
-    carbon::Transfer<float>(sys, pop_b.cpu_buffers(), pop_b.gpu_buffers())(upload_stream);
+    carbon::Transfer<Real>(sys, pop_a.cpu_buffers(), pop_a.gpu_buffers())(upload_stream);
+    carbon::Transfer<Real>(sys, pop_b.cpu_buffers(), pop_b.gpu_buffers())(upload_stream);
     carbon::Transfer<int32_t>(sys, cells.cpu_buffers(), cells.gpu_buffers())(upload_stream);
     carbon::Transfer<int32_t>(sys, cells_scratch.cpu_buffers(),
                               cells_scratch.gpu_buffers())(upload_stream);
@@ -526,14 +552,14 @@ run_benchmark(const Options& opts,
   // otherwise fall through to the lattice-generic body that also covers
   // (D3Q27, BGK) and (D3Q27, KBC). Selected at compile time so the two
   // ping-pong skeletons each instantiate exactly one kernel.
-  auto build_iter = [&](typename Grid::template Field<float, Lattice::Q>& fIn,
-                        typename Grid::template Field<float, Lattice::Q>& fOut, std::string name) {
+  auto build_iter = [&](typename Grid::template Field<Real, Lattice::Q>& fIn,
+                        typename Grid::template Field<Real, Lattice::Q>& fOut, std::string name) {
     if constexpr (std::is_same_v<Lattice, D3Q19> && std::is_same_v<Collision, BgkCollision>) {
-      return make_iteration_kernel_d3q19_bgk_fast<Grid>(grid, fIn, fOut, cells, params,
-                                                        std::move(name));
+      return make_iteration_kernel_d3q19_bgk_fast<Grid, Real>(grid, fIn, fOut, cells, params,
+                                                              std::move(name));
     } else {
-      return make_iteration_kernel<Grid, Lattice, Collision>(grid, fIn, fOut, cells, params,
-                                                             std::move(name));
+      return make_iteration_kernel<Grid, Lattice, Collision, Real>(grid, fIn, fOut, cells, params,
+                                                                   std::move(name));
     }
   };
 
@@ -577,12 +603,29 @@ run_benchmark(const Options& opts,
   using Clock = std::chrono::steady_clock;
   using Seconds = std::chrono::duration<double>;
   const int64_t timed_start = opts.no_warmup_skip ? 0 : opts.warmup;
+  const int64_t iters_per_rep = (opts.iters - timed_start) / opts.reps;
 
   Clock::time_point timing_started{};
+  Clock::time_point rep_started{};
   Clock::time_point overall_started = Clock::now();
   bool timing_running = false;
+  std::vector<double> rep_seconds;
+  rep_seconds.reserve(static_cast<size_t>(opts.reps));
 
   for (int64_t it = 0; it < opts.iters; ++it) {
+    if (it > timed_start && (it - timed_start) % iters_per_rep == 0) {
+      try {
+        sk_ab.wait();
+        sk_ba.wait();
+      } catch (const std::exception& e) {
+        CARBON_LOG_ERROR("lbm_lid_driven_cavity: repetition drain failed at iter {}: {}", it,
+                         e.what());
+        return EXIT_FAILURE;
+      }
+      const auto now = Clock::now();
+      rep_seconds.push_back(Seconds(now - rep_started).count());
+      rep_started = now;
+    }
     if (it == timed_start) {
       try {
         sk_ab.wait();
@@ -593,6 +636,7 @@ run_benchmark(const Options& opts,
         return EXIT_FAILURE;
       }
       timing_started = Clock::now();
+      rep_started = timing_started;
       timing_running = true;
       if (!opts.no_warmup_skip) {
         CARBON_LOG_INFO("lbm_lid_driven_cavity: warmup complete ({} iters), starting timing window",
@@ -644,6 +688,29 @@ run_benchmark(const Options& opts,
   const double mlups =
       (cells_per_iter * static_cast<double>(timed_iters)) / (1.0e6 * timing_seconds);
   const double overall_seconds = Seconds(timing_ended - overall_started).count();
+  rep_seconds.push_back(Seconds(timing_ended - rep_started).count());
+
+  std::vector<double> rep_mlups;
+  rep_mlups.reserve(rep_seconds.size());
+  for (const double s : rep_seconds) {
+    rep_mlups.push_back((cells_per_iter * static_cast<double>(iters_per_rep)) / (1.0e6 * s));
+  }
+  double rep_mlups_mean = 0.0;
+  double rep_mlups_min = rep_mlups.front();
+  double rep_mlups_max = rep_mlups.front();
+  for (const double m : rep_mlups) {
+    rep_mlups_mean += m;
+    rep_mlups_min = std::min(rep_mlups_min, m);
+    rep_mlups_max = std::max(rep_mlups_max, m);
+  }
+  rep_mlups_mean /= static_cast<double>(rep_mlups.size());
+  double rep_mlups_var = 0.0;
+  for (const double m : rep_mlups) {
+    rep_mlups_var += (m - rep_mlups_mean) * (m - rep_mlups_mean);
+  }
+  const double rep_mlups_stddev =
+      rep_mlups.size() > 1 ? std::sqrt(rep_mlups_var / static_cast<double>(rep_mlups.size() - 1))
+                           : 0.0;
 
 #ifdef CARBON_HAVE_MPI_NCCL
   // Under MPI all ranks measure the same `cells_per_iter` (= global N^3) and
@@ -676,6 +743,12 @@ run_benchmark(const Options& opts,
             << " gpus=" << n_gpus << " lattice=" << lattice_name << " collision=" << collision_name
             << ")" << '\n';
 #endif
+  if (opts.reps > 1) {
+    CARBON_LOG_INFO(
+        "lbm_lid_driven_cavity: {} repetitions x {} iters  =>  MLUPS mean={:.2f} min={:.2f} "
+        "max={:.2f} stddev={:.2f}",
+        opts.reps, iters_per_rep, rep_mlups_mean, rep_mlups_min, rep_mlups_max, rep_mlups_stddev);
+  }
 
   // Optional grid-family parity checksum: Sum-reduce the whole final population
   // field. sum_q pop_q == rho per cell, so this equals the total mass in the
@@ -741,12 +814,12 @@ run_benchmark(const Options& opts,
       // "rho" and "u" — that's what shows up in ParaView's Pipeline Browser
       // (rather than the legacy ordinal "field_0" / "field_1") and keeps the
       // dump self-describing.
-      auto rho_field = grid.template newField<float, 1>(carbon::MemorySide::HostDevice, "rho");
-      auto u_field = grid.template newField<float, 3>(carbon::MemorySide::HostDevice, "u");
+      auto rho_field = grid.template newField<Real, 1>(carbon::MemorySide::HostDevice, "rho");
+      auto u_field = grid.template newField<Real, 3>(carbon::MemorySide::HostDevice, "u");
 
       carbon::Skeleton macro_sk(sys);
-      macro_sk.add(make_macroscopic_kernel<Grid, Lattice>(grid, latest_pop, cells, rho_field,
-                                                          u_field, params));
+      macro_sk.add(make_macroscopic_kernel<Grid, Lattice, Real>(grid, latest_pop, cells, rho_field,
+                                                                u_field, params));
       try {
         macro_sk.compile();
         macro_sk.run();
@@ -758,8 +831,8 @@ run_benchmark(const Options& opts,
 
       carbon::Stream dl_stream = sys.stream();
       try {
-        carbon::Transfer<float>(sys, rho_field.gpu_buffers(), rho_field.cpu_buffers())(dl_stream);
-        carbon::Transfer<float>(sys, u_field.gpu_buffers(), u_field.cpu_buffers())(dl_stream);
+        carbon::Transfer<Real>(sys, rho_field.gpu_buffers(), rho_field.cpu_buffers())(dl_stream);
+        carbon::Transfer<Real>(sys, u_field.gpu_buffers(), u_field.cpu_buffers())(dl_stream);
         dl_stream.wait();
       } catch (const std::exception& e) {
         CARBON_LOG_ERROR("lbm_lid_driven_cavity: VTK download failed: {}", e.what());
@@ -790,7 +863,7 @@ run_benchmark(const Options& opts,
   // schema string below and the parser there in lockstep when extending.
   // Effective bandwidth assumes a pull-stream + ping-pong layout: each cell
   // update reads Q populations from fIn and writes Q populations to fOut,
-  // so the dominant traffic is 2 * Q * sizeof(float) bytes per update.
+  // so the dominant traffic is 2 * Q * sizeof(Real) bytes per update.
   // Only rank 0 writes the report: under MPI every rank runs this block, and
   // if they all open the same --report path the writes interleave and produce
   // corrupt JSON (e.g. a duplicated trailing brace). MLUPS is a global figure
@@ -802,7 +875,7 @@ run_benchmark(const Options& opts,
 #endif
   if (!opts.report_path.empty() && report_rank == 0) {
     const double bytes_per_update =
-        2.0 * static_cast<double>(Lattice::Q) * static_cast<double>(sizeof(float));
+        2.0 * static_cast<double>(Lattice::Q) * static_cast<double>(sizeof(Real));
     const double effective_bandwidth_gb_s = (mlups * 1.0e6 * bytes_per_update) / 1.0e9;
     std::ofstream out(opts.report_path);
     if (!out.is_open()) {
@@ -819,8 +892,10 @@ run_benchmark(const Options& opts,
     out << "    \"n\": " << opts.n << ",\n";
     out << "    \"iters\": " << opts.iters << ",\n";
     out << "    \"warmup\": " << opts.warmup << ",\n";
+    out << "    \"reps\": " << opts.reps << ",\n";
     out << "    \"lattice\": \"" << json_escape(lattice_name) << "\",\n";
     out << "    \"collision\": \"" << json_escape(collision_name) << "\",\n";
+    out << "    \"precision\": \"" << json_escape(opts.precision) << "\",\n";
     out << "    \"grid\": \"" << json_escape(opts.grid) << "\",\n";
     out << "    \"q\": " << Lattice::Q << ",\n";
     out << "    \"re\": " << opts.re << ",\n";
@@ -870,7 +945,25 @@ run_benchmark(const Options& opts,
     out << "    \"cells_per_iter\": " << static_cast<int64_t>(cells_per_iter) << ",\n";
     out << "    \"mlups\": " << mlups << ",\n";
     out << "    \"mlups_per_gpu\": " << (mlups / static_cast<double>(n_gpus)) << ",\n";
-    out << "    \"effective_bandwidth_gb_s\": " << effective_bandwidth_gb_s << "\n";
+    out << "    \"effective_bandwidth_gb_s\": " << effective_bandwidth_gb_s << ",\n";
+    out << "    \"repetitions\": {\n";
+    out << "      \"count\": " << opts.reps << ",\n";
+    out << "      \"iters_per_rep\": " << iters_per_rep << ",\n";
+    out << "      \"seconds\": [";
+    for (size_t i = 0; i < rep_seconds.size(); ++i) {
+      out << (i == 0 ? "" : ", ") << rep_seconds[i];
+    }
+    out << "],\n";
+    out << "      \"mlups\": [";
+    for (size_t i = 0; i < rep_mlups.size(); ++i) {
+      out << (i == 0 ? "" : ", ") << rep_mlups[i];
+    }
+    out << "],\n";
+    out << "      \"mlups_mean\": " << rep_mlups_mean << ",\n";
+    out << "      \"mlups_min\": " << rep_mlups_min << ",\n";
+    out << "      \"mlups_max\": " << rep_mlups_max << ",\n";
+    out << "      \"mlups_stddev\": " << rep_mlups_stddev << "\n";
+    out << "    }\n";
     out << "  }\n";
     out << "}\n";
     out.close();
@@ -901,27 +994,35 @@ main(int argc,
   }
 
   // Dispatch to the matching template instantiation. The runtime knobs
-  // --grid {dense,disg} x --lattice {q19,q27} x --collision {bgk,kbc} select
-  // one compile-time run_benchmark<Grid, Lattice, Collision>. Three valid
-  // (lattice, collision) combos: (q19, bgk), (q27, bgk), (q27, kbc) — (q19,
-  // kbc) is rejected upstream in parse_cli because KBC's moment basis is
+  // --grid {dense,disg} x --precision {fp32,fp64} x --lattice {q19,q27} x
+  // --collision {bgk,kbc} select one compile-time
+  // run_benchmark<Grid, Lattice, Collision, Real>. Three valid (lattice,
+  // collision) combos: (q19, bgk), (q27, bgk), (q27, kbc) — (q19, kbc) is
+  // rejected upstream in parse_cli because KBC's moment basis is
   // D3Q27-specific. Each grid family runs the identical hot kernel.
-  auto dispatch_grid = [&](auto grid_tag) -> int {
+  auto dispatch_config = [&](auto grid_tag, auto real_tag) -> int {
     using GridT = typename decltype(grid_tag)::type;
+    using RealT = typename decltype(real_tag)::type;
     if (opts.lattice == "q19" && opts.collision == "bgk") {
-      return run_benchmark<GridT, D3Q19, BgkCollision>(opts, "q19", "bgk");
+      return run_benchmark<GridT, D3Q19, BgkCollision, RealT>(opts, "q19", "bgk");
     }
     if (opts.lattice == "q27" && opts.collision == "bgk") {
-      return run_benchmark<GridT, D3Q27, BgkCollision>(opts, "q27", "bgk");
+      return run_benchmark<GridT, D3Q27, BgkCollision, RealT>(opts, "q27", "bgk");
     }
     if (opts.lattice == "q27" && opts.collision == "kbc") {
-      return run_benchmark<GridT, D3Q27, KbcCollision>(opts, "q27", "kbc");
+      return run_benchmark<GridT, D3Q27, KbcCollision, RealT>(opts, "q27", "kbc");
     }
     CARBON_LOG_ERROR(
         "lbm_lid_driven_cavity: unsupported (lattice='{}', collision='{}') combination — "
         "KBC requires D3Q27.",
         opts.lattice, opts.collision);
     return EXIT_FAILURE;
+  };
+  auto dispatch_grid = [&](auto grid_tag) -> int {
+    if (opts.precision == "fp64") {
+      return dispatch_config(grid_tag, std::type_identity<double>{});
+    }
+    return dispatch_config(grid_tag, std::type_identity<float>{});
   };
 
   if (opts.grid == "disg") {

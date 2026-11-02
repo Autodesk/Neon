@@ -120,21 +120,22 @@ struct D3Q27 {
   //   8/27 (center), 2/27 (axial, 1 nonzero), 1/54 (face, 2 nonzero),
   //   1/216 (corner, 3 nonzero).
   // Derived from |c(q)|_0 (the count of nonzero components) so the table
-  // stays correct under any reordering.
+  // stays correct under any reordering. Computed in the caller's precision.
+  template <typename Real = float>
   [[nodiscard]] CARBON_HD static constexpr auto
-  w(int q) noexcept -> float {
+  w(int q) noexcept -> Real {
     if (q == kCenter) {
-      return 8.0F / 27.0F;
+      return Real(8) / Real(27);
     }
     const auto cq = c(q);
     const int nz = (cq.x != 0 ? 1 : 0) + (cq.y != 0 ? 1 : 0) + (cq.z != 0 ? 1 : 0);
     if (nz == 1) {
-      return 2.0F / 27.0F;
+      return Real(2) / Real(27);
     }
     if (nz == 2) {
-      return 1.0F / 54.0F;
+      return Real(1) / Real(54);
     }
-    return 1.0F / 216.0F;
+    return Real(1) / Real(216);
   }
 
   // Moment-projection matrix Mq[6] for the second-order non-equilibrium
@@ -174,32 +175,33 @@ struct D3Q27 {
   // Mirrors Neon's fdecompose_shear lambda in lbmMultiRes/collide.h byte-for-
   // byte under the legacy ordering; expressed via c(q) here so it stays
   // correct under any reordering.
+  template <typename Real>
   [[nodiscard]] CARBON_HD static constexpr auto
   shear_decompose(int q,
-                  const float Pi[6]) noexcept -> float {
+                  const Real Pi[6]) noexcept -> Real {
     const auto cq = c(q);
     const int nz = (cq.x != 0 ? 1 : 0) + (cq.y != 0 ? 1 : 0) + (cq.z != 0 ? 1 : 0);
     if (nz == 1) {
-      const float Nxz = Pi[0] - Pi[5];
-      const float Nyz = Pi[3] - Pi[5];
+      const Real Nxz = Pi[0] - Pi[5];
+      const Real Nyz = Pi[3] - Pi[5];
       if (cq.x != 0) {
-        return (2.0F * Nxz - Nyz) / 6.0F;
+        return (Real(2) * Nxz - Nyz) / Real(6);
       }
       if (cq.y != 0) {
-        return (-Nxz + 2.0F * Nyz) / 6.0F;
+        return (-Nxz + Real(2) * Nyz) / Real(6);
       }
-      return (-Nxz - Nyz) / 6.0F;  // cq.z != 0
+      return (-Nxz - Nyz) / Real(6);  // cq.z != 0
     }
     if (nz == 2) {
       if (cq.z == 0) {
-        return static_cast<float>(cq.x * cq.y) * Pi[1] / 4.0F;
+        return static_cast<Real>(cq.x * cq.y) * Pi[1] / Real(4);
       }
       if (cq.y == 0) {
-        return static_cast<float>(cq.x * cq.z) * Pi[2] / 4.0F;
+        return static_cast<Real>(cq.x * cq.z) * Pi[2] / Real(4);
       }
-      return static_cast<float>(cq.y * cq.z) * Pi[4] / 4.0F;  // cq.x == 0
+      return static_cast<Real>(cq.y * cq.z) * Pi[4] / Real(4);  // cq.x == 0
     }
-    return 0.0F;  // corners (3 nonzero) and center.
+    return Real(0);  // corners (3 nonzero) and center.
   }
 };
 
