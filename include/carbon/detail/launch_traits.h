@@ -41,6 +41,8 @@
 #include <carbon/detail/dense/reduce_kernel.h>
 #include <carbon/detail/dense_disg/launch.h>
 #include <carbon/detail/dense_disg/reduce_kernel.h>
+#include <carbon/detail/dense_distributed/launch.h>
+#include <carbon/detail/dense_distributed/reduce_kernel.h>
 #include <carbon/detail/gpu.h>
 #include <carbon/integer3d.h>
 #include <carbon/logging.h>
@@ -49,6 +51,7 @@
 #include <carbon/detail/backend/cudalike/block_reduce_kernel.h>
 #if CARBON_CUDALIKE_DEVICE_TU
 #include <carbon/detail/backend/cudalike/dense_reduce_launch.h>
+#include <carbon/detail/backend/cudalike/dense_distributed_reduce_launch.h>
 #endif
 #elif CARBON_BACKEND_IS_SYCL
 #include <carbon/detail/backend/sycl/block_reduce_kernel.h>
@@ -116,6 +119,9 @@ struct DeviceLaunchTraits {
     if constexpr (requires { typename Grid::DisgPolicy; }) {
       return ::carbon::detail::dense_disg::launch_disg_grid(grid, gpu_grid[i], gpu_block[i], i,
                                                             shared_mem, stream, view, fn);
+    } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      return ::carbon::detail::dense_distributed::launch_dense_grid(
+          grid, gpu_grid[i], gpu_block[i], i, shared_mem, stream, view, fn);
     } else {
       return ::carbon::detail::dense::launch_dense_grid(grid, gpu_grid[i], gpu_block[i], i,
                                                         shared_mem, stream, view, fn);
@@ -138,6 +144,9 @@ struct DeviceLaunchTraits {
     if constexpr (requires { typename Grid::DisgPolicy; }) {
       ::carbon::detail::dense_disg::launch_disg_grid(grid, gpu_grid[i], gpu_block[i], i, shared_mem,
                                                      q, view, fn);
+    } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      ::carbon::detail::dense_distributed::launch_dense_grid(grid, gpu_grid[i], gpu_block[i], i,
+                                                             shared_mem, q, view, fn);
     } else {
       ::carbon::detail::dense::launch_dense_grid(grid, gpu_grid[i], gpu_block[i], i, shared_mem, q,
                                                  view, fn);
@@ -446,6 +455,8 @@ struct ReduceLaunchTraits {
   stage1_block_threads() noexcept -> int {
     if constexpr (requires { typename Grid::DisgPolicy; }) {
       return ::carbon::detail::dense_disg::kDisgReduceBlockThreads;
+    } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      return ::carbon::detail::dense_distributed::kReduceBlockThreads;
     } else {
       return ::carbon::detail::dense::kReduceBlockThreads;
     }
@@ -507,6 +518,11 @@ struct ReduceLaunchTraits {
       static_assert(::carbon::detail::dense_disg::disg_reduce_fn<F, T>,
                     "Kernel::reduce::launch (DenseDisg): the device callable returned by the "
                     "loading function must be invocable as fn(DisgSpan, DisgIdx) -> T.");
+    } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      static_assert(::carbon::detail::dense_distributed::dense_reduce_fn<F, T>,
+                    "Kernel::reduce::launch (DenseDistributed): the device callable returned by "
+                    "the loading function must be invocable as fn(Span, Idx) -> T and trivially "
+                    "copyable.");
     } else {
       static_assert(::carbon::detail::dense::dense_reduce_fn<F, T>,
                     "Kernel::reduce::launch (Dense): the device callable returned by the loading "
@@ -537,6 +553,18 @@ struct ReduceLaunchTraits {
               dim3(static_cast<unsigned>(blocks), 1U, 1U),
               dim3(static_cast<unsigned>(stage1_block_threads()), 1U, 1U), shared_mem, stream, span,
               view, fn, op, identity, partials, iter_cells);
+    } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      if (dense_stage1_threads_y > 0) {
+        const int bx = dense_stage1_threads > 0 ? dense_stage1_threads : 32;
+        const int by = dense_stage1_threads_y;
+        return ::carbon::detail::dense_distributed::launch_dense_grid_reduce_kernel_2d<F, T, Op>(
+            bx, by, gpu, blocks, shared_mem, stream, span, view, fn, op, identity, partials,
+            iter_cells);
+      }
+      const int bt = dense_stage1_threads > 0 ? dense_stage1_threads
+                                              : ::carbon::detail::dense_distributed::kReduceBlockThreads;
+      return ::carbon::detail::dense_distributed::launch_dense_grid_reduce_kernel<F, T, Op>(
+          bt, gpu, blocks, shared_mem, stream, span, view, fn, op, identity, partials, iter_cells);
     } else {
       if (dense_stage1_threads_y > 0) {
         const int bx = dense_stage1_threads > 0 ? dense_stage1_threads : 32;
@@ -575,6 +603,21 @@ struct ReduceLaunchTraits {
           dim3(static_cast<unsigned>(blocks), 1U, 1U),
           dim3(static_cast<unsigned>(stage1_block_threads()), 1U, 1U), shared_mem, stream, span,
           view, fn, op, identity, global_out, iter_cells);
+    } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      if (dense_stage1_threads_y > 0) {
+        const int bx = dense_stage1_threads > 0 ? dense_stage1_threads : 32;
+        const int by = dense_stage1_threads_y;
+        return ::carbon::detail::dense_distributed::
+            launch_dense_grid_reduce_block_atomic_kernel_2d<F, T, Op>(
+                bx, by, gpu, blocks, shared_mem, stream, span, view, fn, op, identity, global_out,
+                iter_cells);
+      }
+      const int bt = dense_stage1_threads > 0 ? dense_stage1_threads
+                                              : ::carbon::detail::dense_distributed::kReduceBlockThreads;
+      return ::carbon::detail::dense_distributed::launch_dense_grid_reduce_block_atomic_kernel<F, T,
+                                                                                               Op>(
+          bt, gpu, blocks, shared_mem, stream, span, view, fn, op, identity, global_out,
+          iter_cells);
     } else {
       if (dense_stage1_threads_y > 0) {
         const int bx = dense_stage1_threads > 0 ? dense_stage1_threads : 32;
@@ -608,6 +651,9 @@ struct ReduceLaunchTraits {
     if constexpr (requires { typename Grid::DisgPolicy; }) {
       ::carbon::detail::dense_disg::launch_disg_reduce<F, T, Op>(q, span, view, fn, op, identity,
                                                                  out, iter_cells);
+    } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      ::carbon::detail::dense_distributed::launch_dense_reduce<F, T, Op>(q, span, view, fn, op,
+                                                                         identity, out, iter_cells);
     } else {
       ::carbon::detail::dense::launch_dense_reduce<F, T, Op>(q, span, view, fn, op, identity, out,
                                                              iter_cells);

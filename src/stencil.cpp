@@ -40,6 +40,7 @@ Stencil::Stencil(const std::vector<int32_3d>& points,
                   points_.end());
   }
   radius_ = compute_radius_(points_);
+  radius3_ = compute_radius3_(points_);
 }
 
 auto
@@ -60,6 +61,11 @@ Stencil::empty() const noexcept -> bool {
 auto
 Stencil::radius() const noexcept -> std::int32_t {
   return radius_;
+}
+
+auto
+Stencil::radius3() const noexcept -> int32_3d {
+  return radius3_;
 }
 
 auto
@@ -153,6 +159,19 @@ Stencil::compute_radius_(const std::vector<int8_3d>& points) noexcept -> std::in
     r = std::max(r, std::abs(static_cast<std::int32_t>(p.z)));
   }
   return r;
+}
+
+auto
+Stencil::compute_radius3_(const std::vector<int8_3d>& points) noexcept -> int32_3d {
+  std::int32_t rx = 0;
+  std::int32_t ry = 0;
+  std::int32_t rz = 0;
+  for (const int8_3d& p : points) {
+    rx = std::max(rx, std::abs(static_cast<std::int32_t>(p.x)));
+    ry = std::max(ry, std::abs(static_cast<std::int32_t>(p.y)));
+    rz = std::max(rz, std::abs(static_cast<std::int32_t>(p.z)));
+  }
+  return int32_3d{rx, ry, rz};
 }
 
 }  // namespace carbon

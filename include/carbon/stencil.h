@@ -122,6 +122,13 @@ public:
   radius() const noexcept -> std::int32_t;
 
   /**
+   * Per-axis Chebyshev radius: max(|p.x|), max(|p.y|), max(|p.z|).
+   * Cached at construction. Empty stencil returns {0,0,0}.
+   */
+  [[nodiscard]] auto
+  radius3() const noexcept -> int32_3d;
+
+  /**
    * Bucket the stored points by @c c.z sign and report run-length statistics — the
    * input the lattice-halo descriptor uses to count fused transfers (one per maximal
    * run of consecutive same-sign-z entries on a disg layout, one per kept entry on
@@ -187,8 +194,12 @@ private:
   static auto
   compute_radius_(const std::vector<int8_3d>& points) noexcept -> std::int32_t;
 
+  static auto
+  compute_radius3_(const std::vector<int8_3d>& points) noexcept -> int32_3d;
+
   std::vector<int8_3d> points_{};
   std::int32_t radius_{0};
+  int32_3d radius3_{};
 };
 
 }  // namespace carbon
