@@ -53,3 +53,5 @@ add_subdirectory(reduce_throughput)
 add_subdirectory(skeleton_overlap)
 add_subdirectory(block_sparse)
 add_subdirectory(jacobi_nvidia)
+add_subdirectory(cg)
+
