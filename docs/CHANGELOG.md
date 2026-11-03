@@ -6046,31 +6046,64 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   (and DenseDisg forwarding) compute one centre offset then constant-strided `pull()` neighbours;
   Jacobi uses it instead of `neighbour()` + a redundant `read()` partition. `Dense` rejects layouts
   whose `xy_slab_elements` or haloed x extent exceed `int32_t`. New test `test_partition_cursor`.
-- **2026-10 — `DenseDistributed`: slab / pencil / brick split out of `Dense`.** `Dense` is back to
-  its original Z-slab-only implementation (`dense.h`, `dense.cpp`, `detail/dense/{span,field,
-  partition}.h`, `halo.h`, `detail/halo_build.h` and `boundary_mode.h` are unchanged from before
-  the decomposition work; `BoundaryMode::PeriodicZ` is `1` again, so `DenseDisg`, `libcarbonpy`
-  and the Python bindings are untouched). The process-grid decomposition now lives in a sibling
-  grid family: `carbon::DenseDistributed` (+ `HaloDistributed<T, C>`, and the per-axis
-  `BoundaryModeDistributed`, whose `PeriodicX | PeriodicY | PeriodicZ` bits are independent; it
-  is a separate type so a per-axis mask can never reach a grid that only understands a Z wrap).
-  It takes a `ProcessGrid` / `DecompositionMode` (default slab) and exposes the same `Span` /
-  `Partition` / `Field` / kernel / reduce surface as `Dense`, wired through a
-  `DenseDistributedPolicy` marker in `launch_traits.h` (same mechanism as `DisgPolicy`) and
-  `Kernel::halo_distributed`; `Idx` is shared with `Dense`. The split / halo-thickness / per-rank
-  chunk arithmetic is a pure host function set in `detail/dense_distributed/layout.h`, so tests
-  can exercise the production decomposition without a GPU. The cross-rank NCCL pairing key still
-  ends with the run index: X/Y halo faces are non-contiguous in the x-fastest buffer, so one face
-  fans out into many runs sharing the same `(axis, source, dest, side, component)` key, and an
-  unordered sort could permute them differently on the two ranks. Tests: the nine multi-axis
-  tests and `test_halo_decomp_common.h` are replaced by `dense_distributed_host` (host-only:
-  geometry of every rank for slab / pencil / brick, Span views, open vs periodic neighbours, and
-  the packed X→Y→Z exchange on an emulated world) and `dense_distributed_dist` (4 ranks: raw halo
-  exchange byte-checked on slab `(1,1,4)`, pencil `(1,2,2)` and bricks `(2,2,1)` / `(2,1,2)`,
-  packed and run-based, plus a Skeleton stencil kernel with and without overlap; launched with
-  `mpiexec -n 8` it covers the full `(2,2,2)` brick, so `CARBON_TEST_BRICK_8GPU` is gone).
-  `benchmarks_giulio`: CG gains `--grid dense_distributed` (`--grid dense` is the original
-  slab-only grid and rejects pencil / brick); LDC and Jacobi run on `DenseDistributed`.
+- **2026-10 — `DenseDistributed`: slab / pencil / brick decomposition as a sibling of `Dense`.**
+  `Dense` is untouched (still the Z-slab-only grid: one slab per GPU/rank). The per-axis
+  decomposition lives in a new grid family, `carbon::DenseDistributed`, so the original code path
+  keeps its exact geometry, halo builder and generated code. It takes a `ProcessGrid` /
+  `DecompositionMode` (slab by default), uses its own `Span` / `Partition` / `Field` under
+  `detail/dense_distributed/` (`Idx` is shared with `Dense`), and exposes the same kernel, reduce
+  and Skeleton surface through a `DenseDistributedPolicy` marker in `launch_traits.h` (the
+  mechanism `DisgPolicy` already uses) plus `Kernel::halo_distributed`. Halo exchange is
+  `HaloDistributed<T, C>`: a staged X→Y→Z exchange (so edges and corners travel without diagonal
+  messages) with a packed fast path (`halo_pack*.h`, `src/halo_pack.cu`; `CARBON_HALO_PACK=0`
+  selects the run-based path). Per-axis periodicity is a separate type,
+  `BoundaryModeDistributed` (`PeriodicX | PeriodicY | PeriodicZ` are independent bits), so
+  `BoundaryMode` and its numeric values stay as they were for `Dense`, `DenseDisg`, `libcarbonpy`
+  and the Python bindings. The split / halo-thickness / per-rank chunk arithmetic is a pure host
+  function set in `detail/dense_distributed/layout.h`, so tests exercise the production
+  decomposition without a GPU. The cross-rank NCCL pairing key ends with the run index: X/Y halo
+  faces are non-contiguous in the x-fastest buffer, so one face fans out into many runs sharing
+  the same `(axis, source, dest, side, component)` key, and an unordered sort could permute them
+  differently on the two ranks. Supporting additions: `ProcessGrid` / `DecompositionMode`
+  (`process_grid.h`, balanced prime factorisation over the free axes, plus explicit
+  `ProcessGrid::custom`) and `Stencil::radius3()` (per-axis Chebyshev radius). Tests:
+  `test_process_grid`; `dense_distributed_host` (host-only: geometry of every rank for slab /
+  pencil / brick, Span views, open vs periodic neighbours, and the packed exchange on an emulated
+  world); `dense_distributed_dist` (4 ranks: raw halo exchange byte-checked on slab `(1,1,4)`,
+  pencil `(1,2,2)` and bricks `(2,2,1)` / `(2,1,2)`, packed and run-based, plus a Skeleton stencil
+  kernel with and without overlap; launched with `mpiexec -n 8` it covers the full `(2,2,2)`
+  brick).
+- **2026-11 — Compact `Boundary` view for pencil / brick.** For multi-axis chunks
+  `DenseDistributed::Span::iter_extent(Boundary)` returned the full owned extent and
+  `set_and_validate` rejected the interior threads, so every Boundary launch (Standard overlap, and
+  the Boundary half of Extended / TwoWayExtended producers, which runs before the halo can start)
+  spawned one thread per owned cell for a shell of about `6·h·n²` cells (roughly 30-40x more
+  threads than needed for a 256³ chunk with halo 1). The view now iterates the shell directly: six
+  non-overlapping slabs (Z faces over the full XY extent, Y faces over the middle Z range, X faces
+  over the middle Y/Z range), launched as a 2-D `(128, ceil(S/128), 1)` box whose padded tail is
+  `valid = false`. Slab layouts keep the existing two-band domain. `Internal + Boundary ==
+  Standard` still holds, including chunks thinner than `2·halo` (band thickness is clamped so the
+  bands never overlap). Contract change, documented on `Span`: consecutive Boundary threads are no
+  longer spatial neighbours. `dense_distributed_host` additionally asserts that the launch box is
+  less than one 128-wide row larger than the shell.
+- **2026-11 — VTK I/O for `DenseDistributed`.** `io::write_vtk(path, grid, fields...)`,
+  `io::read_vtk(path, grid, fields...)` and `io::write_vtk_multiblock_index(base, grid)` accept a
+  `DenseDistributed` (slab / pencil / brick). The format is the Dense one (legacy BINARY
+  `STRUCTURED_POINTS`, one `.rank<N>` shard per rank, `.vtm` index written by rank 0); a shard is
+  the rank's owned bounding box (`DIMENSIONS` = owned extent, `ORIGIN` = its global cell offset,
+  `SPACING 1`, halo excluded) and rows are streamed with the real haloed row stride in 4 MiB
+  blocks, where the Dense writer assumes full-width XY planes. A rank that owns no cells writes a
+  placeholder shard (`DIMENSIONS 0 0 0`, no payload) and is not listed in the `.vtm`. The `Dense`
+  path is untouched (`src/io_vtk_distributed.cpp`, `detail/io_vtk_distributed.inl`). Tests:
+  `dense_distributed_host` round-trips shards for slab / pencil / brick / thin / empty-rank layouts
+  through the byte-level writer, decoding the payload with an independent big-endian parser and
+  checking that the shard boxes tile the domain; `dense_distributed_dist` writes, indexes and reads
+  back real GPU fields.
+- **2026-11 — `HaloDistributed` pass barrier is off by default.** The host `stream.wait()` +
+  `MPI_Barrier` between axis passes is now opt-in (`CARBON_HALO_PASS_BARRIER=1`). Every pass is
+  ordered on the exchange stream and intra copies are fenced, so it should not be needed for
+  correctness, and it serialised the host against the GPU, which defeats overlap with interior
+  compute.
 - **2026-10 — Extended / TwoWayExtended on the step graph.** Every `OverlapMode` now lowers
   through `compile_step_graph_and_lower_`; the legacy in-place `apply_occ_` rewrite and
   `compile_assign_streams_and_events_` are gone. `compile_step_graph_occ_` applies the Standard

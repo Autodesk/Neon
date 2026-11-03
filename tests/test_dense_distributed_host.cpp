@@ -7,6 +7,10 @@
 //         hand-written expectations, the owned boxes must tile the global domain exactly once, and
 //         the resulting Span must iterate (Standard, Internal + Boundary) and resolve
 //         neighbours (open vs periodic) correctly.
+// Part D  VTK shard I/O (io::detail stream-level writer/reader behind write_vtk / read_vtk for
+//         DenseDistributed): byte-level check of the legacy BINARY payload with an independent
+//         decoder, library round trip that must leave halo cells untouched, shard boxes that tile
+//         the domain exactly once, and the placeholder shard of a rank that owns no cells.
 // Part C  correctness of the full X -> Y -> Z staged halo exchange on an emulated multi-rank world
 //         (corners/edges, periodic wraps, uneven splits, self-wrap), driven by the production
 //         plan builder and checked against the run-based builder (kept as the oracle) and against
@@ -20,16 +24,22 @@
 #include <carbon/detail/dense_distributed/span.h>
 #include <carbon/detail/halo_distributed_build.h>
 #include <carbon/detail/halo_pack_plan.h>
+#include <carbon/io.h>
+#include <carbon/logging.h>
 #include <carbon/process_grid.h>
 #include <carbon/stencil.h>
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <map>
 #include <set>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -704,6 +714,23 @@ check_geometry(const GeomCase& c,
       std::vector<int> mark(static_cast<size_t>(ch.owned.x * ch.owned.y * ch.owned.z), 0);
       for (const carbon::DataView view : {carbon::DataView::Internal, carbon::DataView::Boundary}) {
         const int64_3d e = span.iter_extent(view);
+        if (view == carbon::DataView::Boundary && !legacy_slab) {
+          // Compact shell: the launch box holds the shell cells plus less than one 128-wide row
+          // of padding (a full-owned-extent launch would fail this by a wide margin), and the
+          // padded tail is exactly the invalid threads.
+          const auto pos = [](int64_t v) {
+            return v > 0 ? v : 0;
+          };
+          const int64_t owned_cells = ch.owned.x * ch.owned.y * ch.owned.z;
+          const int64_t internal_cells = pos(ch.owned.x - 2 * halo.x) *
+                                         pos(ch.owned.y - 2 * halo.y) *
+                                         pos(ch.owned.z - 2 * halo.z);
+          const int64_t shell = owned_cells - internal_cells;
+          CHECK(e.z == 1 || shell == 0);
+          CHECK(e.x * e.y * e.z >= shell);
+          CHECK(e.x * e.y * e.z < shell + 128);
+        }
+        int64_t valid_threads = 0;
         for (int64_t iz = 0; iz < e.z; ++iz) {
           for (int64_t iy = 0; iy < e.y; ++iy) {
             for (int64_t ix = 0; ix < e.x; ++ix) {
@@ -711,6 +738,7 @@ check_geometry(const GeomCase& c,
               if (!v.valid) {
                 continue;
               }
+              ++valid_threads;
               const int64_3d cell = v.idx.cell();
               const int64_t lx = cell.x - halo.x;
               const int64_t ly = cell.y - halo.y;
@@ -720,6 +748,15 @@ check_geometry(const GeomCase& c,
               mark[static_cast<size_t>((lz * ch.owned.y + ly) * ch.owned.x + lx)] += 1;
             }
           }
+        }
+        if (view == carbon::DataView::Boundary && !legacy_slab) {
+          // Every valid Boundary thread is a distinct shell cell; the rest of the box is padding.
+          const auto pos = [](int64_t v) {
+            return v > 0 ? v : 0;
+          };
+          CHECK(valid_threads == ch.owned.x * ch.owned.y * ch.owned.z -
+                                     pos(ch.owned.x - 2 * halo.x) * pos(ch.owned.y - 2 * halo.y) *
+                                         pos(ch.owned.z - 2 * halo.z));
         }
       }
       for (const int m : mark) {
@@ -820,6 +857,269 @@ part_b_geometry(size_t& cells,
   return cases.size();
 }
 
+// ------------------------------------------------------------------------------------------------
+// Part D: VTK shard I/O for DenseDistributed.
+// ------------------------------------------------------------------------------------------------
+
+namespace vtk = carbon::io::detail;
+
+// Injective for extents < 16 and up to 3 components, and it fits in int16.
+auto
+vtk_value(int64_t x,
+          int64_t y,
+          int64_t z,
+          int c) -> int {
+  return static_cast<int>(x + 16 * y + 256 * z + 4096 * c);
+}
+
+// Independent big-endian decoder (does not use the library's swap code).
+template <typename T>
+auto
+decode_be(const unsigned char* p) -> T {
+  unsigned char b[sizeof(T)];
+  for (size_t i = 0; i < sizeof(T); ++i) {
+    b[i] = p[sizeof(T) - 1 - i];  // BE on the wire -> LE host (this test runs on LE hosts)
+  }
+  T v;
+  std::memcpy(&v, b, sizeof(T));
+  return v;
+}
+
+struct VtkCase {
+  const char* name;
+  int px, py, pz;
+  BoundaryModeDistributed bm;
+  int64_t gx, gy, gz;
+};
+
+template <typename T>
+auto
+vtk_roundtrip_case(const VtkCase& c,
+                   int comps,
+                   std::vector<int>& cover,
+                   size_t& shards,
+                   size_t& empty_shards,
+                   size_t& points) -> void {
+  g_ctx = std::string("part D ") + c.name + " T" + std::to_string(sizeof(T)) + " c" +
+          std::to_string(comps);
+  static_assert(std::endian::native == std::endian::little, "decoder assumes a little-endian host");
+  const ProcessGrid pg = ProcessGrid::custom(c.px * c.py * c.pz, c.px, c.py, c.pz);
+  const carbon::Stencil stencil(
+      std::vector<int32_3d>{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}},
+      /*remove_center=*/true);
+  const int64_3d global{c.gx, c.gy, c.gz};
+  const int64_3d halo = dd::halo_extent(pg, c.bm, stencil);
+  const char* tag =
+      sizeof(T) == 2 ? "i16\0\0\0\0" : (sizeof(T) == 4 ? "i32\0\0\0\0" : "f64\0\0\0\0");
+  const char* kw = sizeof(T) == 2 ? "short" : (sizeof(T) == 4 ? "int" : "double");
+
+  for (int32_t r = 0; r < pg.world_size(); ++r) {
+    const dd::RankChunk ch = dd::rank_chunk(global, pg, pg.coords_of(r), halo);
+    const int64_t per_comp = ch.xy_pitch * ch.haloed.z;
+    const T sentinel = static_cast<T>(-777);
+    std::vector<T> buf(static_cast<size_t>(per_comp) * static_cast<size_t>(comps), sentinel);
+    const int64_3d own0{ch.offset.x + halo.x, ch.offset.y + halo.y, ch.offset.z + halo.z};
+    for (int64_t z = 0; z < ch.owned.z; ++z) {
+      for (int64_t y = 0; y < ch.owned.y; ++y) {
+        for (int64_t x = 0; x < ch.owned.x; ++x) {
+          for (int k = 0; k < comps; ++k) {
+            const int64_t off =
+                (halo.z + z) * ch.xy_pitch + (halo.y + y) * ch.haloed.x + halo.x + x;
+            buf[static_cast<size_t>(k * per_comp + off)] =
+                static_cast<T>(vtk_value(own0.x + x, own0.y + y, own0.z + z, k));
+          }
+        }
+      }
+    }
+
+    vtk::VtkBox box;
+    box.origin[0] = own0.x;
+    box.origin[1] = own0.y;
+    box.origin[2] = own0.z;
+    const bool owns = ch.owned.x > 0 && ch.owned.y > 0 && ch.owned.z > 0;
+    if (owns) {
+      box.dims[0] = ch.owned.x;
+      box.dims[1] = ch.owned.y;
+      box.dims[2] = ch.owned.z;
+    }
+    std::vector<vtk::VtkBoxPiece> pieces;
+    if (owns) {
+      vtk::VtkBoxPiece p;
+      p.start = buf.data() + halo.z * ch.xy_pitch + halo.y * ch.haloed.x + halo.x;
+      p.nx = ch.owned.x;
+      p.ny = ch.owned.y;
+      p.nz = ch.owned.z;
+      p.row_stride = ch.haloed.x;
+      p.plane_pitch = ch.xy_pitch;
+      p.comp_stride = per_comp;
+      pieces.push_back(p);
+    }
+
+    std::ostringstream os;
+    vtk::write_vtk_box_header(os, box);
+    vtk::write_vtk_box_field(os, "my field", tag, sizeof(T), comps, box, pieces);
+    const std::string bytes = os.str();
+    ++shards;
+
+    // --- independent parse of the text header -------------------------------------------------
+    std::istringstream hs(bytes);
+    std::string line;
+    int64_t dims[3] = {-1, -1, -1};
+    int64_t org[3] = {-1, -1, -1};
+    int64_t npts = -1;
+    std::string scal_name;
+    std::string scal_type;
+    int scal_comps = -1;
+    size_t payload_at = 0;
+    while (std::getline(hs, line)) {
+      std::istringstream ls(line);
+      std::string head;
+      ls >> head;
+      if (head == "DIMENSIONS") {
+        ls >> dims[0] >> dims[1] >> dims[2];
+      } else if (head == "ORIGIN") {
+        ls >> org[0] >> org[1] >> org[2];
+      } else if (head == "POINT_DATA") {
+        ls >> npts;
+      } else if (head == "SCALARS") {
+        ls >> scal_name >> scal_type >> scal_comps;
+      } else if (head == "LOOKUP_TABLE") {
+        payload_at = static_cast<size_t>(hs.tellg());
+        break;
+      }
+    }
+    CHECK(scal_name == "my_field");  // whitespace in the label is made a single token
+    CHECK(scal_type == kw);
+    CHECK(scal_comps == comps);
+    if (!owns) {
+      // Placeholder shard: valid header, no payload, flagged as empty in the title.
+      ++empty_shards;
+      CHECK(dims[0] == 0 && dims[1] == 0 && dims[2] == 0 && npts == 0);
+      CHECK(bytes.size() == payload_at + 1U);  // just the newline that ends the SCALARS block
+      CHECK(bytes.find("empty") != std::string::npos);
+    } else {
+      CHECK(dims[0] == ch.owned.x && dims[1] == ch.owned.y && dims[2] == ch.owned.z);
+      CHECK(org[0] == own0.x && org[1] == own0.y && org[2] == own0.z);
+      CHECK(npts == ch.owned.x * ch.owned.y * ch.owned.z);
+      const size_t payload_bytes =
+          static_cast<size_t>(npts) * static_cast<size_t>(comps) * sizeof(T);
+      CHECK(bytes.size() == payload_at + payload_bytes + 1U);
+      const auto* raw = reinterpret_cast<const unsigned char*>(bytes.data()) + payload_at;
+      for (int64_t z = 0; z < dims[2]; ++z) {
+        for (int64_t y = 0; y < dims[1]; ++y) {
+          for (int64_t x = 0; x < dims[0]; ++x) {
+            const int64_t pt = (z * dims[1] + y) * dims[0] + x;
+            for (int k = 0; k < comps; ++k) {
+              const T got =
+                  decode_be<T>(raw + (static_cast<size_t>(pt) * static_cast<size_t>(comps) +
+                                      static_cast<size_t>(k)) *
+                                         sizeof(T));
+              CHECK(got == static_cast<T>(vtk_value(org[0] + x, org[1] + y, org[2] + z, k)));
+            }
+          }
+        }
+        // tiling bookkeeping (uses only what the header says)
+      }
+      for (int64_t z = 0; z < dims[2]; ++z) {
+        for (int64_t y = 0; y < dims[1]; ++y) {
+          for (int64_t x = 0; x < dims[0]; ++x) {
+            cover[static_cast<size_t>(((org[2] + z) * c.gy + (org[1] + y)) * c.gx + org[0] + x)] +=
+                1;
+          }
+        }
+      }
+      points += static_cast<size_t>(npts);
+    }
+
+    // --- library round trip: owned cells restored, halo cells untouched ------------------------
+    std::istringstream in(bytes);
+    std::vector<vtk::VtkBoxFieldRecord> recs;
+    vtk::parse_vtk_box_header(in, "mem", box, recs);
+    CHECK(recs.size() == 1U);
+    CHECK(recs[0].components == comps && recs[0].vtk_dtype == kw);
+    const T sentinel2 = static_cast<T>(-555);
+    std::vector<T> back(buf.size(), sentinel2);
+    std::vector<vtk::VtkBoxPieceMut> mut;
+    if (owns) {
+      vtk::VtkBoxPieceMut m;
+      m.start = back.data() + halo.z * ch.xy_pitch + halo.y * ch.haloed.x + halo.x;
+      m.nx = ch.owned.x;
+      m.ny = ch.owned.y;
+      m.nz = ch.owned.z;
+      m.row_stride = ch.haloed.x;
+      m.plane_pitch = ch.xy_pitch;
+      m.comp_stride = per_comp;
+      mut.push_back(m);
+    }
+    in.clear();
+    in.seekg(recs[0].payload_offset);
+    vtk::read_vtk_box_field_payload(in, sizeof(T), comps, box, mut);
+    for (int64_t z = 0; z < ch.haloed.z; ++z) {
+      for (int64_t y = 0; y < ch.haloed.y; ++y) {
+        for (int64_t x = 0; x < ch.haloed.x; ++x) {
+          const bool in_owned = x >= halo.x && x < halo.x + ch.owned.x && y >= halo.y &&
+                                y < halo.y + ch.owned.y && z >= halo.z && z < halo.z + ch.owned.z;
+          for (int k = 0; k < comps; ++k) {
+            const size_t i =
+                static_cast<size_t>(k * per_comp + z * ch.xy_pitch + y * ch.haloed.x + x);
+            CHECK(in_owned ? back[i] == buf[i] : back[i] == sentinel2);
+          }
+        }
+      }
+    }
+
+    // --- a shard from a different box must be rejected -----------------------------------------
+    if (owns) {
+      vtk::VtkBox other = box;
+      other.origin[0] += 1;
+      std::istringstream in2(bytes);
+      std::vector<vtk::VtkBoxFieldRecord> recs2;
+      bool threw = false;
+      carbon::log::set_level(spdlog::level::off);  // the library logs the (expected) rejection
+      try {
+        vtk::parse_vtk_box_header(in2, "mem", other, recs2);
+      } catch (const std::invalid_argument&) {
+        threw = true;
+      }
+      carbon::log::set_level(spdlog::level::info);
+      CHECK(threw);
+    }
+  }
+}
+
+auto
+part_d_vtk(size_t& shards,
+           size_t& empty_shards,
+           size_t& points) -> size_t {
+  constexpr auto kO = BoundaryModeDistributed::Open;
+  constexpr auto kX = BoundaryModeDistributed::PeriodicX;
+  constexpr auto kZ = BoundaryModeDistributed::PeriodicZ;
+  const std::vector<VtkCase> cases = {
+      {"slab", 1, 1, 4, kO, 6, 5, 9},
+      {"slab-periodicZ", 1, 1, 3, kZ, 5, 4, 7},
+      {"pencil", 1, 2, 2, kO, 6, 7, 8},
+      {"pencil-periodicX", 1, 2, 2, kX, 5, 6, 4},
+      {"brick-uneven", 3, 2, 2, kO, 8, 5, 6},
+      {"brick-thin", 2, 2, 2, kX | kZ, 3, 3, 3},
+      // 2 layers over 4 z-parts and 1 over 2 y-parts: half of the ranks own no cells.
+      {"brick-empty-ranks", 2, 2, 4, kO, 3, 1, 2},
+  };
+  for (const VtkCase& c : cases) {
+    std::vector<int> cover(static_cast<size_t>(c.gx * c.gy * c.gz), 0);
+    vtk_roundtrip_case<int16_t>(c, 2, cover, shards, empty_shards, points);
+    for (const int m : cover) {
+      CHECK(m == 1);  // shard boxes tile the global domain exactly once
+    }
+    // Other element sizes / component counts (tiling already shown above; reuse a scratch map).
+    std::vector<int> scratch32(cover.size(), 0);
+    vtk_roundtrip_case<int32_t>(c, 3, scratch32, shards, empty_shards, points);
+    std::vector<int> scratch64(cover.size(), 0);
+    vtk_roundtrip_case<double>(c, 1, scratch64, shards, empty_shards, points);
+  }
+  CHECK(empty_shards > 0U);  // the placeholder path must actually be exercised
+  return cases.size();
+}
+
 struct Scenario {
   const char* name;
   int px, py, pz;
@@ -899,6 +1199,13 @@ main() {
   const size_t geom_cases = part_b_geometry(geom_cells, geom_neighbours);
   std::printf("geometry cases=%zu  owned cells checked=%zu  neighbour reads checked=%zu\n",
               geom_cases, geom_cells, geom_neighbours);
+
+  size_t vtk_shards = 0;
+  size_t vtk_empty = 0;
+  size_t vtk_points = 0;
+  const size_t vtk_cases = part_d_vtk(vtk_shards, vtk_empty, vtk_points);
+  std::printf("vtk cases=%zu  shards=%zu (placeholders=%zu)  points verified=%zu\n", vtk_cases,
+              vtk_shards, vtk_empty, vtk_points);
 
   std::vector<Scenario> sc;
   const BoundaryModeDistributed modes[] = {

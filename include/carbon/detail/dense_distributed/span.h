@@ -153,9 +153,18 @@ public:
    * - @c Standard: @c logic_extent(). Covers every owned cell exactly once.
    * - @c Internal: @c max(owned - 2 * halo(), 0) component-wise. Covers the inner region that
    *   does not depend on data outside the chunk. Zero halo on an axis leaves that axis whole.
-   * - @c Boundary: legacy z-only chunks ( @c halo.x == halo.y == 0 ) use the compact
-   *   @c 2 * halo.z z-band domain; multi-axis chunks iterate the full owned extent and
-   *   @ref set_and_validate rejects interior cells.
+   * - @c Boundary: the owned cells that are not in @c Internal (the shell of thickness
+   *   @c halo() ). Legacy z-only chunks ( @c halo.x == halo.y == 0 ) use the compact
+   *   @c 2 * halo.z z-band domain. Multi-axis chunks (pencil / brick) use a @b compact shell
+   *   domain: the shell is split into six non-overlapping slabs (Z faces over the full XY
+   *   extent, then Y faces over the middle Z range, then X faces over the middle Y and Z
+   *   ranges), and @c iter_extent is a 2-D @c (W, ceil(S / W), 1) launch box over the @c S
+   *   shell cells. @ref set_and_validate maps the linear thread index to its cell and returns
+   *   @c valid=false only for the padded tail ( @c < W trailing threads), so a Boundary launch
+   *   runs ~ @c S threads instead of one per owned cell. Because of that mapping, consecutive
+   *   Boundary threads are @b not spatial neighbours: a kernel must not assume that thread
+   *   @c (ix, iy, iz) addresses cell @c (ix, iy, iz) on this view (Standard and Internal keep
+   *   that property).
    *
    * The ranges are non-overlapping, so dispatching Internal and Boundary back-to-back
    * (in any order) writes every owned cell exactly once — same coverage as a single
@@ -175,11 +184,17 @@ public:
         return int64_3d{ix > 0 ? ix : 0, iy > 0 ? iy : 0, iz > 0 ? iz : 0};
       }
 
-      case ::carbon::DataView::Boundary:
+      case ::carbon::DataView::Boundary: {
         if (halo_.x == 0 && halo_.y == 0) {
           return int64_3d{owned.x, owned.y, halo_.z > 0 ? 2 * halo_.z : 0};
         }
-        return owned;
+        const int64_t shell = shell_bands_().total;
+        if (shell == 0) {
+          return int64_3d{0, 0, 0};
+        }
+        const int64_t w = shell >= kShellRowWidth ? kShellRowWidth : shell;
+        return int64_3d{w, (shell + w - 1) / w, 1};
+      }
     }
     return owned;
   }
@@ -326,7 +341,8 @@ public:
    * - @c Standard: @c b = halo() + i.
    * - @c Internal: @c b = 2 * halo() + i (skip past the halo plus the boundary band).
    * - @c Boundary: legacy z-only chunks use the compact lower/upper z bands; multi-axis chunks
-   *   pass the owned index through and return @c valid=false for interior cells.
+   *   decode the linear shell index @c t = iy * iter_extent.x + ix into an owned cell (see
+   *   @ref iter_extent ) and return @c valid=false for the padded tail.
    *
    * The @c valid flag in the returned @ref ValidatedIdx is @c true iff every component of
    * @c (ix, iy, iz) is within @c iter_extent(view); kernels should early-out on a @c false
@@ -337,6 +353,95 @@ public:
                    int64_t ix,
                    int64_t iy,
                    int64_t iz) const noexcept -> ValidatedIdx;
+
+private:
+  /** Row width of the 2-D Boundary launch box (two full 64-wide blocks per row). */
+  static constexpr int64_t kShellRowWidth = 128;
+
+  /**
+   * The Boundary shell as six disjoint boxes over the owned extent. Per axis the low / high band
+   * thickness is clamped so the two never overlap (a chunk thinner than @c 2 * halo is shell
+   * entirely and @c Internal is empty). Box order: Z-low, Z-high (full XY); Y-low, Y-high
+   * (full X, middle Z); X-low, X-high (middle Y, middle Z).
+   */
+  struct ShellBands {
+    int64_3d lo{};
+    int64_3d hi{};
+    int64_t vol[6]{};
+    int64_t total{0};
+  };
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  shell_bands_() const noexcept -> ShellBands {
+    const int64_3d n = logic_extent();
+    ShellBands b;
+    b.lo = int64_3d{halo_.x < n.x ? halo_.x : n.x, halo_.y < n.y ? halo_.y : n.y,
+                    halo_.z < n.z ? halo_.z : n.z};
+    const int64_t rx = n.x - b.lo.x;
+    const int64_t ry = n.y - b.lo.y;
+    const int64_t rz = n.z - b.lo.z;
+    b.hi = int64_3d{halo_.x < rx ? halo_.x : rx, halo_.y < ry ? halo_.y : ry,
+                    halo_.z < rz ? halo_.z : rz};
+    const int64_t mz = n.z - b.lo.z - b.hi.z;  // middle extents (>= 0 by the clamps)
+    const int64_t my = n.y - b.lo.y - b.hi.y;
+    b.vol[0] = n.x * n.y * b.lo.z;
+    b.vol[1] = n.x * n.y * b.hi.z;
+    b.vol[2] = n.x * b.lo.y * mz;
+    b.vol[3] = n.x * b.hi.y * mz;
+    b.vol[4] = b.lo.x * my * mz;
+    b.vol[5] = b.hi.x * my * mz;
+    b.total = b.vol[0] + b.vol[1] + b.vol[2] + b.vol[3] + b.vol[4] + b.vol[5];
+    return b;
+  }
+
+  /** Owned-local cell of linear shell index @p t in [0, bands.total); x varies fastest. */
+  [[nodiscard]] CARBON_HD constexpr auto
+  shell_cell_(const ShellBands& b,
+              int64_t t) const noexcept -> int64_3d {
+    const int64_3d n = logic_extent();
+    int box = 0;
+    while (box < 5 && t >= b.vol[box]) {
+      t -= b.vol[box];
+      ++box;
+    }
+    int64_t bx = 0;  // box origin
+    int64_t by = 0;
+    int64_t bz = 0;
+    int64_t w = n.x;  // box XY footprint
+    int64_t h = n.y;
+    switch (box) {
+      case 0:
+        break;
+      case 1:
+        bz = n.z - b.hi.z;
+        break;
+      case 2:
+        bz = b.lo.z;
+        h = b.lo.y;
+        break;
+      case 3:
+        by = n.y - b.hi.y;
+        bz = b.lo.z;
+        h = b.hi.y;
+        break;
+      case 4:
+        by = b.lo.y;
+        bz = b.lo.z;
+        w = b.lo.x;
+        h = n.y - b.lo.y - b.hi.y;
+        break;
+      default:
+        bx = n.x - b.hi.x;
+        by = b.lo.y;
+        bz = b.lo.z;
+        w = b.hi.x;
+        h = n.y - b.lo.y - b.hi.y;
+        break;
+    }
+    const int64_t x = t % w;
+    const int64_t r = t / w;
+    return int64_3d{bx + x, by + r % h, bz + r / h};
+  }
 };
 
 [[nodiscard]] CARBON_HD constexpr auto
@@ -389,13 +494,15 @@ Span::set_and_validate(::carbon::DataView view,
         return ValidatedIdx{Idx(ix, iy, bz), true};
       }
 
-      const int64_3d owned = logic_extent();
-      const bool internal = ix >= halo_.x && ix < owned.x - halo_.x && iy >= halo_.y &&
-                            iy < owned.y - halo_.y && iz >= halo_.z && iz < owned.z - halo_.z;
-      if (internal) {
+      // Compact shell: thread (ix, iy) is the linear shell index t (iz is 0 by the range check
+      // above); the padded tail of the last row is invalid.
+      const ShellBands bands = shell_bands_();
+      const int64_t t = iy * ext.x + ix;
+      if (t >= bands.total) {
         return ValidatedIdx{Idx{}, false};
       }
-      return ValidatedIdx{Idx(halo_.x + ix, halo_.y + iy, halo_.z + iz), true};
+      const int64_3d c = shell_cell_(bands, t);
+      return ValidatedIdx{Idx(halo_.x + c.x, halo_.y + c.y, halo_.z + c.z), true};
     }
   }
   return ValidatedIdx{Idx{}, false};

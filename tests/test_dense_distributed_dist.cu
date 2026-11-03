@@ -25,7 +25,15 @@
 //     neighbour is outside an open boundary) is compiled into a Skeleton, so the halo kernel is
 //     auto-inserted from read_stencil and DenseDistributed::Span / Partition run on the device.
 //     Run once without overlap and once with OverlapMode::Standard, which splits the kernel into
-//     Internal + Boundary launches and therefore exercises those Span views for real.
+//     Internal + Boundary launches and therefore exercises those Span views for real. (For pencil
+//     and brick the Boundary launch is the compact shell, not the full owned extent.)
+//
+//  3. VTK shard I/O. A 3-component float field goes host -> device -> host, is written with
+//     io::write_vtk (one `.rank<N>` shard per rank) plus the `.vtm` index, and read back with
+//     io::read_vtk into a second field. Each rank checks its own shard header against its owned box
+//     (DIMENSIONS / ORIGIN), every owned cell after the round trip, that halo cells were not
+//     touched, and rank 0 checks that the index lists every rank. Files are written to the
+//     working directory (like test_io_dist) and removed afterwards.
 
 #include <carbon/boundary_mode_distributed.h>
 #include <carbon/carbon.h>
@@ -34,6 +42,7 @@
 #include <carbon/distributed.h>
 #include <carbon/halo_distributed.h>
 #include <carbon/integer3d.h>
+#include <carbon/io.h>
 #include <carbon/kernel.h>
 #include <carbon/logging.h>
 #include <carbon/memory_side.h>
@@ -47,7 +56,10 @@
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
+#include <fstream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -470,6 +482,164 @@ run_stencil(carbon::System& sys,
   return true;
 }
 
+// ------------------------------------------------------------------------------------------------
+// Check 3: VTK shard I/O for DenseDistributed (write_vtk / read_vtk / multiblock index).
+// ------------------------------------------------------------------------------------------------
+
+[[nodiscard]] auto
+run_vtk(carbon::System& sys,
+        int rank,
+        int world,
+        const ProcessGrid& pg,
+        BoundaryModeDistributed mode,
+        const std::string& label,
+        const int64_3d& global) -> bool {
+  const std::string base = "carbon_test_dense_distributed_vtk_" + label;
+  const std::string shard = base + ".rank" + std::to_string(rank);
+  const std::string index = base + ".vtm";
+  bool ok = true;
+  try {
+    DenseDistributed grid(sys, global, pg, six_point(), mode);
+    const auto& span = grid.spans()[0];
+    const int64_3d halo = span.halo();
+    const int64_3d owned = span.logic_extent();
+    const int64_3d haloed = span.haloed_extent();
+    const int64_t pitch = span.xy_slab_elements();
+    const int64_t per_comp = span.linear_storage_elements();
+    constexpr int kComps = 3;
+    constexpr float kSentinelIn = -1.0F;
+    constexpr float kSentinelOut = -2.0F;
+
+    auto f = grid.template newField<float, kComps>(carbon::MemorySide::HostDevice, "pop");
+    auto g = grid.template newField<float, kComps>(carbon::MemorySide::HostDevice, "pop_in");
+    const auto is_owned_cell = [&](int64_t x, int64_t y, int64_t z) -> bool {
+      return x >= halo.x && x < halo.x + owned.x && y >= halo.y && y < halo.y + owned.y &&
+             z >= halo.z && z < halo.z + owned.z;
+    };
+    {
+      float* hf = f.cpu_buffers()[0].data();
+      float* hg = g.cpu_buffers()[0].data();
+      for (int64_t z = 0; z < haloed.z; ++z) {
+        for (int64_t y = 0; y < haloed.y; ++y) {
+          for (int64_t x = 0; x < haloed.x; ++x) {
+            const int64_3d gl = span.global_location(span.make_idx(x, y, z));
+            const int64_t off = z * pitch + y * haloed.x + x;
+            for (int c = 0; c < kComps; ++c) {
+              hf[c * per_comp + off] = is_owned_cell(x, y, z)
+                                           ? static_cast<float>(encode(gl.x, gl.y, gl.z, c))
+                                           : kSentinelIn;
+              hg[c * per_comp + off] = kSentinelOut;
+            }
+          }
+        }
+      }
+    }
+    // host -> device -> host, so the field written is what a real run would download
+    carbon::Stream stream = sys.stream();
+    carbon::Transfer<float>(sys, f.cpu_buffers(), f.gpu_buffers())(stream);
+    if (!sync_all(stream, "vtk upload")) {
+      return false;
+    }
+    {
+      float* hf = f.cpu_buffers()[0].data();
+      for (size_t i = 0; i < f.cpu_buffers()[0].size(); ++i) {
+        hf[i] = 0.0F;
+      }
+    }
+    carbon::Transfer<float>(sys, f.gpu_buffers(), f.cpu_buffers())(stream);
+    if (!sync_all(stream, "vtk download")) {
+      return false;
+    }
+
+    carbon::io::write_vtk(base, grid, f);
+    carbon::io::write_vtk_multiblock_index(base, grid);
+
+    // --- this rank's shard header must describe its owned box ----------------------------------
+    {
+      std::ifstream in(shard, std::ios::binary);
+      std::string line;
+      int64_t dims[3] = {-1, -1, -1};
+      int64_t org[3] = {-1, -1, -1};
+      while (std::getline(in, line)) {
+        std::istringstream ls(line);
+        std::string head;
+        ls >> head;
+        if (head == "DIMENSIONS") {
+          ls >> dims[0] >> dims[1] >> dims[2];
+        } else if (head == "ORIGIN") {
+          ls >> org[0] >> org[1] >> org[2];
+        } else if (head == "SCALARS") {
+          break;
+        }
+      }
+      const int64_3d o0 = span.global_location(span.make_idx(halo.x, halo.y, halo.z));
+      if (dims[0] != owned.x || dims[1] != owned.y || dims[2] != owned.z || org[0] != o0.x ||
+          org[1] != o0.y || org[2] != o0.z) {
+        CARBON_LOG_ERROR(
+            "test_dense_distributed_dist[{}]: rank {} shard header DIMENSIONS=({},{},{}) "
+            "ORIGIN=({},{},{}) want owned=({},{},{}) origin=({},{},{})",
+            label, rank, dims[0], dims[1], dims[2], org[0], org[1], org[2], owned.x, owned.y,
+            owned.z, o0.x, o0.y, o0.z);
+        ok = false;
+      }
+    }
+
+    // --- rank 0's index lists every rank (all own cells for this extent) -------------------------
+    if (rank == 0) {
+      std::ifstream in(index);
+      const std::string text((std::istreambuf_iterator<char>(in)),
+                             std::istreambuf_iterator<char>());
+      if (text.find("vtkMultiBlockDataSet") == std::string::npos) {
+        CARBON_LOG_ERROR("test_dense_distributed_dist[{}]: missing/invalid {}", label, index);
+        ok = false;
+      }
+      for (int r = 0; r < world; ++r) {
+        if (text.find("name=\"rank" + std::to_string(r) + "\"") == std::string::npos) {
+          CARBON_LOG_ERROR("test_dense_distributed_dist[{}]: index does not list rank {}", label,
+                           r);
+          ok = false;
+        }
+      }
+    }
+
+    // --- read back into a fresh field: owned == written, halo untouched ----------------------------
+    carbon::io::read_vtk(base, grid, g);
+    size_t mismatches = 0;
+    const float* hg = g.cpu_buffers()[0].data();
+    for (int64_t z = 0; z < haloed.z; ++z) {
+      for (int64_t y = 0; y < haloed.y; ++y) {
+        for (int64_t x = 0; x < haloed.x; ++x) {
+          const int64_3d gl = span.global_location(span.make_idx(x, y, z));
+          const int64_t off = z * pitch + y * haloed.x + x;
+          for (int c = 0; c < kComps; ++c) {
+            const float want = is_owned_cell(x, y, z)
+                                   ? static_cast<float>(encode(gl.x, gl.y, gl.z, c))
+                                   : kSentinelOut;
+            if (hg[c * per_comp + off] != want) {
+              ++mismatches;
+            }
+          }
+        }
+      }
+    }
+    if (mismatches != 0U) {
+      CARBON_LOG_ERROR(
+          "test_dense_distributed_dist[{}]: rank {} VTK round trip has {} wrong values", label,
+          rank, mismatches);
+      ok = false;
+    }
+  } catch (const std::exception& e) {
+    CARBON_LOG_ERROR("test_dense_distributed_dist[{}]: VTK I/O failed: {}", label, e.what());
+    ok = false;
+  }
+  std::error_code ec;
+  std::filesystem::remove(shard, ec);
+  if (rank == 0) {
+    std::filesystem::remove(index, ec);
+  }
+  return ok;
+}
+
 struct Case {
   ProcessGrid pg;
   BoundaryModeDistributed mode;
@@ -540,7 +710,8 @@ main() {
         !run_stencil(sys, rank, c.pg, c.mode, carbon::OverlapMode::None,
                      std::string(c.label) + "/stencil", global) ||
         !run_stencil(sys, rank, c.pg, c.mode, carbon::OverlapMode::Standard,
-                     std::string(c.label) + "/stencil-overlap", global)) {
+                     std::string(c.label) + "/stencil-overlap", global) ||
+        !run_vtk(sys, rank, world, c.pg, c.mode, c.label, global)) {
       return 1;
     }
   }

@@ -286,6 +286,7 @@ add_library(carbon SHARED
   src/dist_render.cpp
   src/io.cpp
   src/io_vtk.cpp
+  src/io_vtk_distributed.cpp
   src/logging.cpp
   src/memory_side.cpp
   src/process_grid.cpp
@@ -402,6 +403,7 @@ elseif(CARBON_BACKEND STREQUAL "Sycl")
     src/dist_reduce.cpp
     src/io.cpp
     src/io_vtk.cpp
+    src/io_vtk_distributed.cpp
     src/logging.cpp
     src/memory_side.cpp
     src/process_grid.cpp
