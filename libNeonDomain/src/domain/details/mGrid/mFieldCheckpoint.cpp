@@ -10,6 +10,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -592,61 +593,91 @@ auto arrayShape(uint64_t numBlocks, int cardinality) -> std::vector<uint64_t>
     return {numBlocks, SBlock::memBlockSizeZ, SBlock::memBlockSizeY, SBlock::memBlockSizeX, static_cast<uint64_t>(cardinality)};
 }
 
+/** Levels stored by a checkpoint: -1 means all of them. */
+auto checkpointLevels(int level, int depth, const char* where) -> std::vector<int>
+{
+    if (level == -1) {
+        std::vector<int> all;
+        for (int l = 0; l < depth; ++l) {
+            all.push_back(l);
+        }
+        return all;
+    }
+    if (level < 0 || level >= depth) {
+        fail(where, "level " + std::to_string(level) + " is out of range [0, " + std::to_string(depth) + ")");
+    }
+    return {level};
+}
+
+/** Calls fn(slot, active) for every slot of one level in checkpoint order: block, z, y, x, component. */
+template <typename T, int C, typename SBlock, typename Fn>
+auto forEachLevelSlot(mField<T, C, SBlock>& field, int level, Fn&& fn) -> void
+{
+    using Idx = typename mField<T, C, SBlock>::Idx;
+
+    auto&     grid = field.getGrid();
+    auto&     bgrid = grid(level);
+    auto&     xfld = field(level);
+    auto&     part = xfld.getPartition(Neon::Execution::host, SetIdx(0), Neon::DataView::STANDARD);
+    const int card = xfld.getCardinality();
+    const int voxelSpacing = grid.getDescriptor().getSpacing(level - 1);
+
+    bgrid.helpGetPartitioner1D().forEachSeq(SetIdx(0), [&](const uint32_t blockIdx, const Neon::int32_3d memBlockOrigin, auto /*byPartition*/) {
+        Neon::index_3d blockOrigin = memBlockOrigin;
+        blockOrigin.x *= SBlock::memBlockSizeX * voxelSpacing;
+        blockOrigin.y *= SBlock::memBlockSizeY * voxelSpacing;
+        blockOrigin.z *= SBlock::memBlockSizeZ * voxelSpacing;
+
+        for (uint32_t z = 0; z < SBlock::memBlockSizeZ; ++z) {
+            for (uint32_t y = 0; y < SBlock::memBlockSizeY; ++y) {
+                for (uint32_t x = 0; x < SBlock::memBlockSizeX; ++x) {
+                    const Neon::index_3d voxelGlobalID(static_cast<int>(x * static_cast<uint32_t>(voxelSpacing) + blockOrigin.x),
+                                                       static_cast<int>(y * static_cast<uint32_t>(voxelSpacing) + blockOrigin.y),
+                                                       static_cast<int>(z * static_cast<uint32_t>(voxelSpacing) + blockOrigin.z));
+                    const bool active = bgrid.isInsideDomain(voxelGlobalID);
+                    Idx        idx(blockIdx, static_cast<int8_t>(x), static_cast<int8_t>(y), static_cast<int8_t>(z));
+                    for (int c = 0; c < card; ++c) {
+                        fn(part(idx, c), active);
+                    }
+                }
+            }
+        }
+    });
+}
+
 }  // namespace
 
 template <typename T, int C, typename SBlock>
 auto mField<T, C, SBlock>::ioToCheckpoint(const std::string& basePath,
                                           const std::string& name,
-                                          CheckpointFormat   format) const -> void
+                                          CheckpointFormat   format,
+                                          int                level) const -> void
 {
     constexpr const char* kWhere = "mField::ioToCheckpoint";
     auto&                 grid = *mData->grid;
+    auto&                 self = const_cast<Self&>(*this);
 
     const int                   card = (*this)(0).getCardinality();
+    const std::vector<int>      levels = checkpointLevels(level, grid.getDescriptor().getDepth(), kWhere);
     const std::vector<uint64_t> blocksPerLevel = checkpointBlocksPerLevel(grid);
-    const uint64_t              numElements = grid.getCheckpointFieldNumElementsPerCard() * static_cast<uint64_t>(card);
-    std::vector<Storage<T>>     buffer(numElements, Storage<T>(0));
+    const uint64_t              elementsPerBlock = SBlock::memBlockCountElements * static_cast<uint64_t>(card);
 
-    uint64_t writeIdx = 0;
-    for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
-        const int   voxelSpacing = grid.getDescriptor().getSpacing(l - 1);
-        auto&       bgrid = (*mData->grid)(l);
-        auto&       xfld = const_cast<Self*>(this)->operator()(l);
-        const auto& part = xfld.getPartition(Neon::Execution::host, SetIdx(0), Neon::DataView::STANDARD);
-        SetIdx      devID(0);
-
-        bgrid.helpGetPartitioner1D().forEachSeq(devID, [&](const uint32_t blockIdx, const Neon::int32_3d memBlockOrigin, auto /*byPartition*/) {
-            Neon::index_3d blockOrigin = memBlockOrigin;
-            blockOrigin.x *= SBlock::memBlockSizeX * voxelSpacing;
-            blockOrigin.y *= SBlock::memBlockSizeY * voxelSpacing;
-            blockOrigin.z *= SBlock::memBlockSizeZ * voxelSpacing;
-
-            for (uint32_t z = 0; z < SBlock::memBlockSizeZ; ++z) {
-                for (uint32_t y = 0; y < SBlock::memBlockSizeY; ++y) {
-                    for (uint32_t x = 0; x < SBlock::memBlockSizeX; ++x) {
-                        const Neon::index_3d voxelGlobalID(static_cast<int>(x * static_cast<uint32_t>(voxelSpacing) + blockOrigin.x),
-                                                           static_cast<int>(y * static_cast<uint32_t>(voxelSpacing) + blockOrigin.y),
-                                                           static_cast<int>(z * static_cast<uint32_t>(voxelSpacing) + blockOrigin.z));
-                        const bool active = bgrid.isInsideDomain(voxelGlobalID);
-                        Idx        idx(blockIdx, static_cast<int8_t>(x), static_cast<int8_t>(y), static_cast<int8_t>(z));
-                        for (int c = 0; c < card; ++c) {
-                            if (active) {
-                                buffer[writeIdx] = part(idx, c);
-                            } else {
-                                buffer[writeIdx] = Storage<T>(0);
-                            }
-                            ++writeIdx;
-                        }
-                    }
-                }
-            }
+    uint64_t totalBlocks = 0;
+    for (int l : levels) {
+        totalBlocks += blocksPerLevel[l];
+    }
+    const uint64_t          numElements = totalBlocks * elementsPerBlock;
+    std::vector<Storage<T>> buffer;
+    buffer.reserve(numElements);
+    for (int l : levels) {
+        forEachLevelSlot(self, l, [&](T& slot, bool active) {
+            buffer.push_back(active ? Storage<T>(slot) : Storage<T>(0));
         });
     }
 
     const char*    bytes = reinterpret_cast<const char*>(buffer.data());
     const uint64_t numBytes = numElements * sizeof(Storage<T>);
-    const uint64_t bytesPerBlock = SBlock::memBlockCountElements * static_cast<uint64_t>(card) * sizeof(Storage<T>);
-    const uint64_t totalBlocks = numElements / (SBlock::memBlockCountElements * static_cast<uint64_t>(card));
+    const uint64_t bytesPerBlock = elementsPerBlock * sizeof(Storage<T>);
 
     if (format == CheckpointFormat::bin || format == CheckpointFormat::npy) {
         const std::string dataPath = basePath + "." + formatName(format);
@@ -665,7 +696,7 @@ auto mField<T, C, SBlock>::ioToCheckpoint(const std::string& basePath,
     } else {
         std::vector<NpzEntry> entries;
         uint64_t              offset = 0;
-        for (size_t l = 0; l < blocksPerLevel.size(); ++l) {
+        for (int l : levels) {
             const uint64_t levelBytes = blocksPerLevel[l] * bytesPerBlock;
             entries.push_back({"level_" + std::to_string(l) + ".npy",
                                npyHeader(npyDescr<T>(), arrayShape<SBlock>(blocksPerLevel[l], card)),
@@ -685,6 +716,9 @@ auto mField<T, C, SBlock>::ioToCheckpoint(const std::string& basePath,
     doc.AddMember("num_elements", numElements, alloc);
     doc.AddMember("topology_id", topologyIdToJson(grid.getTopologyId(), alloc), alloc);
     doc.AddMember("format", rapidjson::Value(formatName(format), alloc), alloc);
+    if (level != -1) {
+        doc.AddMember("level", level, alloc);
+    }
     doc.AddMember("layout", "block, z, y, x, component", alloc);
     {
         rapidjson::Value blockShape(rapidjson::kArrayType);
@@ -714,7 +748,8 @@ auto mField<T, C, SBlock>::ioToCheckpoint(const std::string& basePath,
 }
 
 template <typename T, int C, typename SBlock>
-auto mField<T, C, SBlock>::ioFromCheckpoint(const std::string& basePath) -> void
+auto mField<T, C, SBlock>::ioFromCheckpoint(const std::string& basePath,
+                                            std::optional<T>   defaultValue) -> void
 {
     constexpr const char* kWhere = "mField::ioFromCheckpoint";
     const std::string     jsonPath = basePath + ".json";
@@ -744,19 +779,37 @@ auto mField<T, C, SBlock>::ioFromCheckpoint(const std::string& basePath) -> void
         fail(kWhere, "topology_id mismatch");
     }
 
-    const uint64_t numElements = doc["num_elements"].GetUint64();
-    if (numElements != grid.getCheckpointFieldNumElementsPerCard() * static_cast<uint64_t>(card)) {
+    const int depth = grid.getDescriptor().getDepth();
+    int       savedLevel = -1;
+    if (doc.HasMember("level")) {
+        if (!doc["level"].IsInt() || doc["level"].GetInt() < 0) {
+            fail(kWhere, "Invalid level in " + jsonPath);
+        }
+        savedLevel = doc["level"].GetInt();
+    }
+    const std::vector<int> levels = checkpointLevels(savedLevel, depth, kWhere);
+    if (savedLevel != -1 && !defaultValue.has_value()) {
+        fail(kWhere, jsonPath + " holds only level " + std::to_string(savedLevel) +
+                         "; a default value for the other levels is required");
+    }
+
+    const std::vector<uint64_t> blocksPerLevel = checkpointBlocksPerLevel(grid);
+    const uint64_t              elementsPerBlock = SBlock::memBlockCountElements * static_cast<uint64_t>(card);
+    uint64_t                    totalBlocks = 0;
+    for (int l : levels) {
+        totalBlocks += blocksPerLevel[l];
+    }
+    const uint64_t numElements = totalBlocks * elementsPerBlock;
+    if (doc["num_elements"].GetUint64() != numElements) {
         fail(kWhere, "num_elements mismatch");
     }
 
     const CheckpointFormat format = doc.HasMember("format") ? formatFromName(doc["format"].GetString(), kWhere)
                                                             : CheckpointFormat::bin;
-    const std::vector<uint64_t> blocksPerLevel = checkpointBlocksPerLevel(grid);
-    std::vector<Storage<T>>     buffer(numElements);
-    char*                       bytes = reinterpret_cast<char*>(buffer.data());
-    const uint64_t              numBytes = numElements * sizeof(Storage<T>);
-    const uint64_t              bytesPerBlock = SBlock::memBlockCountElements * static_cast<uint64_t>(card) * sizeof(Storage<T>);
-    const uint64_t              totalBlocks = numElements / (SBlock::memBlockCountElements * static_cast<uint64_t>(card));
+    std::vector<Storage<T>> buffer(numElements);
+    char*                   bytes = reinterpret_cast<char*>(buffer.data());
+    const uint64_t          numBytes = numElements * sizeof(Storage<T>);
+    const uint64_t          bytesPerBlock = elementsPerBlock * sizeof(Storage<T>);
 
     const std::string dataPath = basePath + "." + formatName(format);
     std::ifstream     in(dataPath, std::ios::binary);
@@ -777,7 +830,7 @@ auto mField<T, C, SBlock>::ioFromCheckpoint(const std::string& basePath) -> void
     } else {
         const auto entries = readZipDirectory(in, dataPath, kWhere);
         uint64_t   offset = 0;
-        for (size_t l = 0; l < blocksPerLevel.size(); ++l) {
+        for (int l : levels) {
             const std::string entryName = "level_" + std::to_string(l) + ".npy";
             const std::string what = dataPath + ":" + entryName;
             auto              it = entries.find(entryName);
@@ -811,46 +864,27 @@ auto mField<T, C, SBlock>::ioFromCheckpoint(const std::string& basePath) -> void
     }
 
     uint64_t readIdx = 0;
-    for (int l = 0; l < grid.getDescriptor().getDepth(); ++l) {
-        const int voxelSpacing = grid.getDescriptor().getSpacing(l - 1);
-        auto&     bgrid = (*mData->grid)(l);
-        auto&     xfld = (*this)(l);
-        auto&     part = xfld.getPartition(Neon::Execution::host, SetIdx(0), Neon::DataView::STANDARD);
-        SetIdx    devID(0);
-
-        bgrid.helpGetPartitioner1D().forEachSeq(devID, [&](const uint32_t blockIdx, const Neon::int32_3d memBlockOrigin, auto /*byPartition*/) {
-            Neon::index_3d blockOrigin = memBlockOrigin;
-            blockOrigin.x *= SBlock::memBlockSizeX * voxelSpacing;
-            blockOrigin.y *= SBlock::memBlockSizeY * voxelSpacing;
-            blockOrigin.z *= SBlock::memBlockSizeZ * voxelSpacing;
-
-            for (uint32_t z = 0; z < SBlock::memBlockSizeZ; ++z) {
-                for (uint32_t y = 0; y < SBlock::memBlockSizeY; ++y) {
-                    for (uint32_t x = 0; x < SBlock::memBlockSizeX; ++x) {
-                        const Neon::index_3d voxelGlobalID(static_cast<int>(x * static_cast<uint32_t>(voxelSpacing) + blockOrigin.x),
-                                                           static_cast<int>(y * static_cast<uint32_t>(voxelSpacing) + blockOrigin.y),
-                                                           static_cast<int>(z * static_cast<uint32_t>(voxelSpacing) + blockOrigin.z));
-                        const bool active = bgrid.isInsideDomain(voxelGlobalID);
-                        Idx        idx(blockIdx, static_cast<int8_t>(x), static_cast<int8_t>(y), static_cast<int8_t>(z));
-                        for (int c = 0; c < card; ++c) {
-                            if (active) {
-                                part(idx, c) = static_cast<T>(buffer[readIdx]);
-                            }
-                            ++readIdx;
-                        }
-                    }
+    for (int l = 0; l < depth; ++l) {
+        if (std::find(levels.begin(), levels.end(), l) != levels.end()) {
+            forEachLevelSlot(*this, l, [&](T& slot, bool active) {
+                if (active) {
+                    slot = static_cast<T>(buffer[readIdx]);
                 }
-            }
-        });
-        xfld.updateDeviceData(0);
+                ++readIdx;
+            });
+        } else {
+            const T value = *defaultValue;
+            forEachLevelSlot(*this, l, [&](T& slot, bool /*active*/) { slot = value; });
+        }
+        (*this)(l).updateDeviceData(0);
     }
 }
 
 using SB = Neon::domain::details::StaticBlockDefault;
 
 #define INST_FIELD(T)                                                                                                          \
-    template auto mField<T, 0, SB>::ioToCheckpoint(const std::string&, const std::string&, CheckpointFormat) const -> void;    \
-    template auto mField<T, 0, SB>::ioFromCheckpoint(const std::string&) -> void;
+    template auto mField<T, 0, SB>::ioToCheckpoint(const std::string&, const std::string&, CheckpointFormat, int) const -> void; \
+    template auto mField<T, 0, SB>::ioFromCheckpoint(const std::string&, std::optional<T>) -> void;
 
 INST_FIELD(int8_t)
 INST_FIELD(uint8_t)
