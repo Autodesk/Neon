@@ -1,4 +1,6 @@
 #pragma once
+#include <optional>
+
 #include "Neon/set/container/Loader.h"
 
 
@@ -38,6 +40,7 @@ namespace Neon::domain::details::mGrid {
  * - bin: raw little-endian array, <base>.bin
  * - npy: one NumPy array of shape (total_blocks, Z, Y, X, cardinality), <base>.npy
  * - npz: one NumPy array per level ("level_0", "level_1", ...) of shape (num_blocks, Z, Y, X, cardinality), <base>.npz
+ * A single-level checkpoint stores only that level: total_blocks becomes num_blocks[level] and the npz holds one array.
  */
 enum class CheckpointFormat
 {
@@ -146,11 +149,17 @@ class mField
         return *mData->grid;
     }
 
+    /** Save the field values (<basePath>.json + data file). level = -1 saves every level; level = l saves only
+     * level l (the data then has num_blocks[l] blocks and the npz holds only "level_<l>"). */
     auto ioToCheckpoint(const std::string& basePath,
                         const std::string& name,
-                        CheckpointFormat   format = CheckpointFormat::bin) const -> void;
+                        CheckpointFormat   format = CheckpointFormat::bin,
+                        int                level = -1) const -> void;
 
-    auto ioFromCheckpoint(const std::string& basePath) -> void;
+    /** Load a checkpoint written by ioToCheckpoint on the same grid. For a single-level checkpoint every slot of
+     * the other levels is set to defaultValue, which is then required. */
+    auto ioFromCheckpoint(const std::string& basePath,
+                          std::optional<T>   defaultValue = std::nullopt) -> void;
 
    private:
     mField(const std::string&         name,

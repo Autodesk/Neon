@@ -273,13 +273,13 @@ class mField(object):
 
         self.api_checkpoint_save = bind_api(
             'mGrid_mField_checkpoint_save',
-            [self.handle_type, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p],
+            [self.handle_type, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int],
             ctypes.c_int32,
             required=False,
         )
         self.api_checkpoint_load = bind_api(
             'mGrid_mField_checkpoint_load',
-            [self.handle_type, ctypes.c_char_p],
+            [self.handle_type, ctypes.c_char_p, ctypes.c_void_p],
             ctypes.c_int32,
             required=False,
         )
@@ -512,7 +512,7 @@ class mField(object):
 
     CHECKPOINT_FORMATS = ("bin", "npy", "npz")
 
-    def save(self, base_path: str, name: str = "field", file_format: str = "bin") -> None:
+    def save(self, base_path: str, name: str = "field", file_format: str = "bin", level=None) -> None:
         """
         Save field values and metadata (<base_path>.json); syncs host memory first.
 
@@ -523,11 +523,19 @@ class mField(object):
                 array of shape (total_blocks, Z, Y, X, cardinality); "npz" writes <base_path>.npz with
                 one array per level ("level_0", ...) of shape (num_blocks, Z, Y, X, cardinality).
                 load() reads the format back from the metadata.
+            level: None saves every level; an int saves only that level (total_blocks is then that
+                level's block count and the npz holds only "level_<level>"). Loading such a checkpoint
+                requires a default_value for the other levels.
         """
         import warp as wp
 
         if file_format not in self.CHECKPOINT_FORMATS:
             raise ValueError(f"file_format must be one of {self.CHECKPOINT_FORMATS}, got {file_format!r}")
+        if level is not None:
+            num_levels = getattr(self._py_grid, "num_levels", None)
+            if isinstance(level, bool) or not isinstance(level, int) or level < 0 or (
+                    num_levels is not None and level >= num_levels):
+                raise ValueError(f"level must be None or an int in [0, {num_levels}), got {level!r}")
         if self.api_checkpoint_save is None:
             raise NotImplementedError(f"Checkpoint save not available for dtype {self.dtype}")
         self.update_host(0)
@@ -537,17 +545,30 @@ class mField(object):
             base_path.encode("utf-8"),
             name.encode("utf-8"),
             file_format.encode("utf-8"),
+            -1 if level is None else level,
         )
         if res != 0:
             raise FieldError(f"Checkpoint save failed (error code: {res})")
 
-    def load(self, base_path: str) -> None:
-        """Load field values from checkpoint; uploads to device after load."""
+    def load(self, base_path: str, default_value=None) -> None:
+        """
+        Load field values from a checkpoint written on the same grid; uploads to device after load.
+
+        Args:
+            base_path: Path without extension.
+            default_value: Value for every level not stored in the checkpoint (all components). Required
+                for single-level checkpoints, ignored for full ones.
+        """
         import warp as wp
 
         if self.api_checkpoint_load is None:
             raise NotImplementedError(f"Checkpoint load not available for dtype {self.dtype}")
-        res = self.api_checkpoint_load(self._handle, base_path.encode("utf-8"))
+        fill = None
+        if default_value is not None:
+            fill = self._to_ctype_value(default_value)
+        res = self.api_checkpoint_load(self._handle,
+                                       base_path.encode("utf-8"),
+                                       None if fill is None else ctypes.addressof(fill))
         if res != 0:
             raise FieldError(f"Checkpoint load failed (error code: {res})")
         self.update_device(0)

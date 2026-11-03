@@ -507,8 +507,11 @@ class mGrid(object):
         grid._num_levels = int(header["num_levels"])
         return grid
 
-    def load_field(self, base_path: str) -> mField:
-        """Create and load a field from checkpoint JSON/BIN pair (reads JSON for metadata)."""
+    def load_field(self, base_path: str, default_value=None) -> mField:
+        """
+        Create a field from a checkpoint (dtype and cardinality come from <base_path>.json) and load it.
+        default_value fills the levels a single-level checkpoint does not store.
+        """
         import json
         import warp as wp
 
@@ -531,7 +534,7 @@ class mGrid(object):
         if dtype is None:
             raise GridError(f"Unsupported checkpoint dtype {meta['dtype']}")
         field = self.new_field(meta["cardinality"], dtype, neon.MemoryType.host_device())
-        field.load(base_path)
+        field.load(base_path, default_value=default_value)
         return field
 
     def _help_grid_new(self):

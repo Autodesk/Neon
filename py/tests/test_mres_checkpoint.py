@@ -221,6 +221,72 @@ class TestMresCheckpoint(unittest.TestCase):
             for (x, y, z) in _active_voxels(grid, level):
                 self.assertEqual(slot_value.get((x, y, z)), encode(x, y, z), f"level={level} idx=({x},{y},{z})")
 
+    def test_single_level_roundtrip(self):
+        cardinality = 3
+        default = -3.0
+        grid = _make_grid(self.backend, fine_extent=8)
+        field = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+        self._fill(grid, field, cardinality)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            topo = os.path.join(tmp, "grid.ngrid")
+            grid.save_topology(topo)
+            for file_format in mField.CHECKPOINT_FORMATS:
+                for saved in range(grid.num_levels):
+                    with self.subTest(file_format=file_format, level=saved):
+                        base = os.path.join(tmp, f"v_{file_format}_{saved}")
+                        field.save(base, name="v", file_format=file_format, level=saved)
+
+                        with open(base + ".json", "r", encoding="utf-8") as f:
+                            meta = json.load(f)
+                        self.assertEqual(meta["level"], saved)
+                        z, y, x = meta["block_shape_zyx"]
+                        shape = (meta["num_blocks_per_level"][saved], z, y, x, cardinality)
+                        self.assertEqual(meta["num_elements"], int(np.prod(shape)))
+                        if file_format == "npy":
+                            self.assertEqual(np.load(base + ".npy", allow_pickle=False).shape, shape)
+                        elif file_format == "npz":
+                            with np.load(base + ".npz", allow_pickle=False) as npz:
+                                self.assertEqual(npz.files, [f"level_{saved}"])
+                                self.assertEqual(npz[f"level_{saved}"].shape, shape)
+
+                        restored = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+                        with self.assertRaises(FieldError):
+                            restored.load(base)
+                        restored.load(base, default_value=default)
+
+                        grid2 = neon.mGrid.from_topology(self.backend, topo)
+                        loaded = grid2.load_field(base, default_value=default)
+
+                        for level in range(grid.num_levels):
+                            for (vx, vy, vz) in _active_voxels(grid, level):
+                                for c in range(cardinality):
+                                    expected = _value(level, vx, vy, vz, c) if level == saved else default
+                                    idx = neon.Index_3d(vx, vy, vz)
+                                    self.assertEqual(restored.read(level, idx, c), expected,
+                                                     f"level={level} idx=({vx},{vy},{vz}) c={c}")
+                                    self.assertEqual(loaded.read(level, idx, c), expected)
+
+    def test_single_level_invalid_level_rejected(self):
+        grid = _make_grid(self.backend, fine_extent=8)
+        field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())
+        with tempfile.TemporaryDirectory() as tmp:
+            for level in (-1, grid.num_levels, True, 0.5):
+                with self.subTest(level=level):
+                    with self.assertRaises(ValueError):
+                        field.save(os.path.join(tmp, "rho"), level=level)
+
+    def test_single_level_topology_mismatch_rejected(self):
+        grid = _make_grid(self.backend, fine_extent=8)
+        field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())
+        with tempfile.TemporaryDirectory() as tmp:
+            base = os.path.join(tmp, "rho")
+            field.save(base, name="rho", level=1)
+            other = _make_grid(self.backend, fine_extent=12)
+            other_field = other.new_field(1, wp.float32, neon.MemoryType.host_device())
+            with self.assertRaises(FieldError):
+                other_field.load(base, default_value=0.0)
+
     def test_invalid_format_rejected(self):
         grid = _make_grid(self.backend, fine_extent=8)
         field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())

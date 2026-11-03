@@ -177,6 +177,78 @@ TEST(mGrid, host_access_by_coordinate)
     }
 }
 
+TEST(mGrid, checkpoint_single_level)
+{
+    if (Neon::sys::globalSpace::gpuSysObjStorage.numDevs() > 0) {
+        int              nGPUs = 1;
+        Neon::int32_3d   dim(32, 32, 32);
+        std::vector<int> gpusIds(nGPUs, 0);
+        auto             bk = Neon::Backend(gpusIds, Neon::Runtime::stream);
+
+        Neon::mGridDescriptor<1> descr(3);
+
+        Neon::domain::mGrid grid(
+            bk,
+            dim,
+            {[&](Neon::index_3d id) -> bool {
+                 return id.x < 8 && id.y < 8 && id.z < 8;
+             },
+             [&](Neon::index_3d id) -> bool {
+                 return id.x < 16 && id.y < 16 && id.z < 16;
+             },
+             [&](Neon::index_3d) -> bool {
+                 return true;
+             }},
+            Neon::domain::Stencil::s7_Laplace_t(),
+            descr);
+
+        constexpr float kDefault = -7.f;
+        auto            value = [](const Neon::index_3d& idx, int c, int l) {
+            return static_cast<float>(idx.x + 32 * idx.y + 1024 * idx.z + 100000 * l + 0.5 * c);
+        };
+
+        auto field = grid.newField<float>("f", 2, 0.f);
+        for (int l = 0; l < descr.getDepth(); ++l) {
+            field.forEachActiveCell(
+                l,
+                [&](const Neon::int32_3d idx, const int c, float& val) { val = value(idx, c, l); },
+                true,
+                Neon::computeMode_t::computeMode_e::seq);
+        }
+
+        using Neon::domain::details::mGrid::CheckpointFormat;
+        for (auto [format, suffix] : {std::pair{CheckpointFormat::bin, "bin"},
+                                      std::pair{CheckpointFormat::npy, "npy"},
+                                      std::pair{CheckpointFormat::npz, "npz"}}) {
+            for (int saved = 0; saved < descr.getDepth(); ++saved) {
+                SCOPED_TRACE(std::string(suffix) + " level " + std::to_string(saved));
+                const std::string base = std::string("gUt_mGrid_level") + std::to_string(saved) + "_" + suffix;
+                field.ioToCheckpoint(base, "f", format, saved);
+
+                auto restored = grid.newField<float>("f", 2, 0.f);
+                EXPECT_ANY_THROW(restored.ioFromCheckpoint(base));
+                restored.ioFromCheckpoint(base, kDefault);
+
+                for (int l = 0; l < descr.getDepth(); ++l) {
+                    int numCells = 0;
+                    restored.forEachActiveCell(
+                        l,
+                        [&](const Neon::int32_3d idx, const int c, float& val) {
+                            EXPECT_FLOAT_EQ(val, l == saved ? value(idx, c, l) : kDefault) << "level " << l << " " << idx;
+                            ++numCells;
+                        },
+                        true,
+                        Neon::computeMode_t::computeMode_e::seq);
+                    EXPECT_GT(numCells, 0);
+                }
+            }
+        }
+
+        EXPECT_ANY_THROW(field.ioToCheckpoint("gUt_mGrid_bad_level", "f", CheckpointFormat::bin, descr.getDepth()));
+        EXPECT_ANY_THROW(field.ioToCheckpoint("gUt_mGrid_bad_level", "f", CheckpointFormat::bin, -2));
+    }
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
