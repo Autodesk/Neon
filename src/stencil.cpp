@@ -146,6 +146,8 @@ to_string(StencilSemantic semantic) noexcept -> std::string_view {
       return "standard";
     case StencilSemantic::Lattice:
       return "lattice";
+    case StencilSemantic::LatticeDistributed:
+      return "lattice-distributed";
   }
   return "unknown";
 }

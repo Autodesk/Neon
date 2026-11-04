@@ -29,11 +29,11 @@
 //     and brick the Boundary launch is the compact shell, not the full owned extent.)
 //
 //  3. VTK shard I/O. A 3-component float field goes host -> device -> host, is written with
-//     io::write_vtk (one `.rank<N>` shard per rank) plus the `.vtm` index, and read back with
-//     io::read_vtk into a second field. Each rank checks its own shard header against its owned box
-//     (DIMENSIONS / ORIGIN), every owned cell after the round trip, that halo cells were not
-//     touched, and rank 0 checks that the index lists every rank. Files are written to the
-//     working directory (like test_io_dist) and removed afterwards.
+//     io::write_vtk (one XML `.rank<N>.vti` shard per rank) plus the `.vtm` index, and read back
+//     with io::read_vtk into a second field. Each rank checks its own shard WholeExtent / Origin
+//     against its owned box, every owned cell after the round trip, that halo cells were not
+//     touched, and rank 0 checks that the index lists every rank. Files are written to the working
+//     directory (like test_io_dist) and removed afterwards.
 
 #include <carbon/boundary_mode_distributed.h>
 #include <carbon/carbon.h>
@@ -121,6 +121,22 @@ six_point() -> carbon::Stencil {
       /*remove_center=*/true);
 }
 
+[[nodiscard]] auto
+xml_attribute(std::string_view tag,
+              std::string_view key) -> std::string {
+  const std::string needle = std::string(key) + "=\"";
+  const size_t begin = tag.find(needle);
+  if (begin == std::string_view::npos) {
+    return {};
+  }
+  const size_t value_begin = begin + needle.size();
+  const size_t end = tag.find('"', value_begin);
+  if (end == std::string_view::npos) {
+    return {};
+  }
+  return std::string(tag.substr(value_begin, end - value_begin));
+}
+
 /** Wrap @p v into [0, n) if @p periodic; return false when it is outside an open axis. */
 [[nodiscard]] auto
 wrap_axis(int64_t v,
@@ -149,7 +165,8 @@ run_halo_once(carbon::System& sys,
               const ProcessGrid& pg,
               BoundaryModeDistributed mode,
               const char* label,
-              const int64_3d& global) -> bool {
+              const int64_3d& global,
+              carbon::StencilSemantic semantic = carbon::StencilSemantic::Standard) -> bool {
   const int32_3d dims = pg.dims();
   const int32_3d coords = pg.coords_of(rank);
   const carbon::Stencil stencil = six_point();
@@ -236,7 +253,7 @@ run_halo_once(carbon::System& sys,
     return false;
   }
 
-  carbon::HaloDistributed<int, Components> exchange(field);
+  carbon::HaloDistributed<int, Components> exchange(field, stencil, semantic);
   // A multi-rank layout always needs cross-rank transfers (X/Y faces fan out into several runs, so
   // the exact count is geometry dependent; correctness is enforced by the cell comparison below).
   if (exchange.pair_count() != 0U || exchange.dist_entry_count() == 0U ||
@@ -287,10 +304,37 @@ run_halo_once(carbon::System& sys,
                             wrap_axis(g.y, global.y, carbon::is_periodic(mode, Axis::Y), wy) &&
                             wrap_axis(g.z, global.z, carbon::is_periodic(mode, Axis::Z), wz);
         const bool owned_cell = is_owned_cell(x, y, z);
+        const bool halo_x = x < halo.x || x >= halo.x + owned.x;
+        const bool halo_y = y < halo.y || y >= halo.y + owned.y;
+        const bool halo_z = z < halo.z || z >= halo.z + owned.z;
+        const int halo_axes = static_cast<int>(halo_x) + static_cast<int>(halo_y) +
+                              static_cast<int>(halo_z);
+        const Axis halo_axis = halo_x ? Axis::X : (halo_y ? Axis::Y : Axis::Z);
         const int64_t off = z * pitch + y * haloed.x + x;
         for (int c = 0; c < Components; ++c) {
-          const int want =
-              owned_cell ? encode(g.x, g.y, g.z, c) : (inside ? encode(wx, wy, wz, c) : kSentinel);
+          bool check = true;
+          int want = kSentinel;
+          if (owned_cell) {
+            want = encode(g.x, g.y, g.z, c);
+          } else if (!inside) {
+            want = kSentinel;
+          } else if (semantic == carbon::StencilSemantic::LatticeDistributed) {
+            // Corners are written by more than one face pass; only face-interior
+            // halo cells have an unambiguous source for every active component.
+            if (halo_axes != 1) {
+              check = false;
+            } else {
+              const auto& p = stencil.points()[static_cast<size_t>(c)];
+              const int64_t v =
+                  halo_axis == Axis::X ? p.x : (halo_axis == Axis::Y ? p.y : p.z);
+              want = v != 0 ? encode(wx, wy, wz, c) : kSentinel;
+            }
+          } else {
+            want = encode(wx, wy, wz, c);
+          }
+          if (!check) {
+            continue;
+          }
           const int got = h[c * per_comp + off];
           if (got != want) {
             if (mismatches < 4U) {
@@ -325,16 +369,20 @@ run_halo(carbon::System& sys,
          const ProcessGrid& pg,
          BoundaryModeDistributed mode,
          const std::string& label,
-         const int64_3d& global) -> bool {
+         const int64_3d& global,
+         carbon::StencilSemantic semantic = carbon::StencilSemantic::Standard) -> bool {
   const char* saved = std::getenv("CARBON_HALO_PACK");
   const bool had = saved != nullptr;
   const std::string previous = had ? saved : "";
   bool ok = true;
   for (const bool pack : {true, false}) {
     ::setenv("CARBON_HALO_PACK", pack ? "1" : "0", 1);
-    const std::string tagged =
-        label + "/c" + std::to_string(Components) + (pack ? "/packed" : "/runs");
-    ok = run_halo_once<Components>(sys, rank, pg, mode, tagged.c_str(), global);
+    const std::string tagged = label + "/c" + std::to_string(Components) +
+                               (pack ? "/packed" : "/runs") +
+                               (semantic == carbon::StencilSemantic::LatticeDistributed
+                                    ? "/lattice-distributed"
+                                    : "");
+    ok = run_halo_once<Components>(sys, rank, pg, mode, tagged.c_str(), global, semantic);
     if (!ok) {
       break;
     }
@@ -495,7 +543,7 @@ run_vtk(carbon::System& sys,
         const std::string& label,
         const int64_3d& global) -> bool {
   const std::string base = "carbon_test_dense_distributed_vtk_" + label;
-  const std::string shard = base + ".rank" + std::to_string(rank);
+  const std::string shard = base + ".rank" + std::to_string(rank) + ".vti";
   const std::string index = base + ".vtm";
   bool ok = true;
   try {
@@ -558,28 +606,38 @@ run_vtk(carbon::System& sys,
     {
       std::ifstream in(shard, std::ios::binary);
       std::string line;
-      int64_t dims[3] = {-1, -1, -1};
+      int64_t whole[6] = {-1, -1, -1, -1, -1, -1};
       int64_t org[3] = {-1, -1, -1};
       while (std::getline(in, line)) {
-        std::istringstream ls(line);
-        std::string head;
-        ls >> head;
-        if (head == "DIMENSIONS") {
-          ls >> dims[0] >> dims[1] >> dims[2];
-        } else if (head == "ORIGIN") {
-          ls >> org[0] >> org[1] >> org[2];
-        } else if (head == "SCALARS") {
+        if (line.find("<ImageData") != std::string::npos) {
+          const std::string extent = xml_attribute(line, "WholeExtent");
+          std::istringstream es(extent);
+          es >> whole[0] >> whole[1] >> whole[2] >> whole[3] >> whole[4] >> whole[5];
+          const std::string origin = xml_attribute(line, "Origin");
+          std::istringstream os(origin);
+          os >> org[0] >> org[1] >> org[2];
           break;
         }
       }
       const int64_3d o0 = span.global_location(span.make_idx(halo.x, halo.y, halo.z));
-      if (dims[0] != owned.x || dims[1] != owned.y || dims[2] != owned.z || org[0] != o0.x ||
-          org[1] != o0.y || org[2] != o0.z) {
+      if (whole[0] != 0 || whole[1] != owned.x - 1 || whole[2] != 0 ||
+          whole[3] != owned.y - 1 || whole[4] != 0 || whole[5] != owned.z - 1 ||
+          org[0] != o0.x || org[1] != o0.y || org[2] != o0.z) {
         CARBON_LOG_ERROR(
-            "test_dense_distributed_dist[{}]: rank {} shard header DIMENSIONS=({},{},{}) "
-            "ORIGIN=({},{},{}) want owned=({},{},{}) origin=({},{},{})",
-            label, rank, dims[0], dims[1], dims[2], org[0], org[1], org[2], owned.x, owned.y,
-            owned.z, o0.x, o0.y, o0.z);
+            "test_dense_distributed_dist[{}]: rank {} shard WholeExtent=({},{},{},{},{},{}) "
+            "Origin=({},{},{}) want owned=({},{},{}) origin=({},{},{})",
+            label, rank, whole[0], whole[1], whole[2], whole[3], whole[4], whole[5], org[0],
+            org[1], org[2], owned.x, owned.y, owned.z, o0.x, o0.y, o0.z);
+        ok = false;
+      }
+      std::ifstream raw(shard, std::ios::binary);
+      const std::string text((std::istreambuf_iterator<char>(raw)),
+                             std::istreambuf_iterator<char>());
+      if (text.find("format=\"binary\"") == std::string::npos ||
+          text.find("<AppendedData") != std::string::npos) {
+        CARBON_LOG_ERROR(
+            "test_dense_distributed_dist[{}]: rank {} shard is not inline-binary VTK XML", label,
+            rank);
         ok = false;
       }
     }
@@ -594,7 +652,8 @@ run_vtk(carbon::System& sys,
         ok = false;
       }
       for (int r = 0; r < world; ++r) {
-        if (text.find("name=\"rank" + std::to_string(r) + "\"") == std::string::npos) {
+        if (text.find("name=\"rank" + std::to_string(r) + "\"") == std::string::npos ||
+            text.find(".rank" + std::to_string(r) + ".vti") == std::string::npos) {
           CARBON_LOG_ERROR("test_dense_distributed_dist[{}]: index does not list rank {}", label,
                            r);
           ok = false;
@@ -707,6 +766,8 @@ main() {
   for (const Case& c : cases) {
     if (!run_halo<1>(sys, rank, c.pg, c.mode, c.label, global) ||
         (c.multi_component && !run_halo<3>(sys, rank, c.pg, c.mode, c.label, global)) ||
+        !run_halo<6>(sys, rank, c.pg, c.mode, std::string(c.label) + "/lattice", global,
+                     carbon::StencilSemantic::LatticeDistributed) ||
         !run_stencil(sys, rank, c.pg, c.mode, carbon::OverlapMode::None,
                      std::string(c.label) + "/stencil", global) ||
         !run_stencil(sys, rank, c.pg, c.mode, carbon::OverlapMode::Standard,

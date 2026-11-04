@@ -1,10 +1,10 @@
-// VTK legacy backend for carbon::DenseDistributed (slab / pencil / brick). See
+// VTK XML backend for carbon::DenseDistributed (slab / pencil / brick). See
 // include/carbon/detail/io_vtk_distributed.inl for the on-disk format and the public surface.
 //
 // The helpers below (byte order, dtype keywords, header parsing) intentionally mirror the Dense
 // backend in io_vtk.cpp instead of sharing it, so the Dense path stays byte-for-byte untouched.
-// What differs is the geometry: a shard is the rank's owned *box* (DIMENSIONS = owned extent,
-// ORIGIN = global index of its first cell) and rows are read/written with the real haloed row
+// What differs is the geometry: a shard is the rank's owned *box* (WholeExtent = owned extent,
+// Origin = global index of its first cell) and rows are read/written with the real haloed row
 // stride instead of assuming full-width XY planes.
 
 #include <carbon/dense_distributed.h>
@@ -17,7 +17,9 @@
 #endif
 
 #include <algorithm>
+#include <array>
 #include <bit>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -29,6 +31,7 @@
 #include <ostream>
 #include <sstream>
 #include <stdexcept>
+#include <streambuf>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -118,6 +121,43 @@ element_size_of_keyword(const std::string& kw) noexcept -> size_t {
   return 0;
 }
 
+/** Map a carbon native dtype tag to the VTK XML keyword; null if unknown. */
+[[nodiscard]] auto
+vtk_xml_keyword_from_native_tag(const char* tag) noexcept -> const char* {
+  const std::string_view t(tag, 8);
+  if (t.starts_with("f32")) {
+    return "Float32";
+  }
+  if (t.starts_with("f64")) {
+    return "Float64";
+  }
+  if (t.starts_with("i8")) {
+    return "Int8";
+  }
+  if (t.starts_with("u8")) {
+    return "UInt8";
+  }
+  if (t.starts_with("i16")) {
+    return "Int16";
+  }
+  if (t.starts_with("u16")) {
+    return "UInt16";
+  }
+  if (t.starts_with("i32")) {
+    return "Int32";
+  }
+  if (t.starts_with("u32")) {
+    return "UInt32";
+  }
+  if (t.starts_with("i64")) {
+    return "Int64";
+  }
+  if (t.starts_with("u64")) {
+    return "UInt64";
+  }
+  return nullptr;
+}
+
 void
 rtrim_inplace(std::string& s) noexcept {
   while (!s.empty() && (s.back() == '\r' || s.back() == ' ' || s.back() == '\t')) {
@@ -138,18 +178,63 @@ sanitize_name(std::string_view name) -> std::string {
 }
 
 [[nodiscard]] auto
+xml_escape(std::string_view value) -> std::string {
+  std::string out;
+  out.reserve(value.size());
+  for (const char c : value) {
+    switch (c) {
+      case '&':
+        out += "&amp;";
+        break;
+      case '<':
+        out += "&lt;";
+        break;
+      case '>':
+        out += "&gt;";
+        break;
+      case '"':
+        out += "&quot;";
+        break;
+      case '\'':
+        out += "&apos;";
+        break;
+      default:
+        out.push_back(c);
+        break;
+    }
+  }
+  return out;
+}
+
+[[nodiscard]] auto
+xml_attribute(std::string_view tag,
+              std::string_view key) -> std::string {
+  const std::string needle = std::string(key) + "=\"";
+  const size_t begin = tag.find(needle);
+  if (begin == std::string_view::npos) {
+    return {};
+  }
+  const size_t value_begin = begin + needle.size();
+  const size_t end = tag.find('"', value_begin);
+  if (end == std::string_view::npos) {
+    return {};
+  }
+  return std::string(tag.substr(value_begin, end - value_begin));
+}
+
+[[nodiscard]] auto
 shard_path_of(std::string_view base,
               const DenseDistributed& grid) -> std::string {
 #ifdef CARBON_HAVE_MPI_NCCL
   if (grid.system().distributed() != nullptr) {
     std::ostringstream oss;
-    oss << base << ".rank" << grid.system().distributed()->world_rank()<<".vtk";
+    oss << base << ".rank" << grid.system().distributed()->world_rank() << ".vti";
     return oss.str();
   }
 #else
   (void)grid;
 #endif
-  return std::string(base);
+  return std::string(base) + ".vti";
 }
 
 [[nodiscard]] auto
@@ -307,6 +392,316 @@ read_payload(std::istream& in,
     }
   }
 }
+
+template <size_t ES>
+void
+write_payload_le(std::ostream& out,
+                 int comps,
+                 const std::vector<VtkBoxPiece>& pieces) {
+  size_t total_bytes = 0;
+  size_t max_row_bytes = 0;
+  for (const auto& p : pieces) {
+    const size_t row = static_cast<size_t>(p.nx) * static_cast<size_t>(comps) * ES;
+    total_bytes += row * static_cast<size_t>(p.ny) * static_cast<size_t>(p.nz);
+    max_row_bytes = std::max(max_row_bytes, row);
+  }
+  if (total_bytes == 0) {
+    return;
+  }
+  std::vector<std::uint8_t> block(std::max(std::min(total_bytes, kBlockBytes), max_row_bytes));
+  size_t used = 0;
+  const auto flush = [&] {
+    if (used == 0) {
+      return;
+    }
+    if (!host_is_little_endian()) {
+      swap_run<ES>(block.data(), used / ES);
+    }
+    out.write(reinterpret_cast<const char*>(block.data()), static_cast<std::streamsize>(used));
+    used = 0;
+  };
+  for (const auto& p : pieces) {
+    const size_t row_bytes = static_cast<size_t>(p.nx) * static_cast<size_t>(comps) * ES;
+    for (int64_t z = 0; z < p.nz; ++z) {
+      for (int64_t y = 0; y < p.ny; ++y) {
+        if (used + row_bytes > block.size()) {
+          flush();
+        }
+        gather_row<ES>(block.data() + used, row_ptr(p, ES, z, y), p.nx, comps, p.comp_stride);
+        used += row_bytes;
+      }
+    }
+  }
+  flush();
+}
+
+template <size_t ES>
+void
+read_payload_le(std::istream& in,
+                int comps,
+                const std::vector<VtkBoxPieceMut>& pieces) {
+  size_t max_row_bytes = 0;
+  size_t total_bytes = 0;
+  for (const auto& p : pieces) {
+    const size_t row = static_cast<size_t>(p.nx) * static_cast<size_t>(comps) * ES;
+    max_row_bytes = std::max(max_row_bytes, row);
+    total_bytes += row * static_cast<size_t>(p.ny) * static_cast<size_t>(p.nz);
+  }
+  if (total_bytes == 0) {
+    return;
+  }
+  std::vector<std::uint8_t> block(std::max(std::min(total_bytes, kBlockBytes), max_row_bytes));
+  for (const auto& p : pieces) {
+    const size_t row_bytes = static_cast<size_t>(p.nx) * static_cast<size_t>(comps) * ES;
+    const int64_t rows_total = p.ny * p.nz;
+    const int64_t rows_per_block = static_cast<int64_t>(block.size() / row_bytes);
+    for (int64_t r0 = 0; r0 < rows_total; r0 += rows_per_block) {
+      const int64_t rows = std::min(rows_per_block, rows_total - r0);
+      const size_t bytes = static_cast<size_t>(rows) * row_bytes;
+      in.read(reinterpret_cast<char*>(block.data()), static_cast<std::streamsize>(bytes));
+      if (!in.good()) {
+        log::throw_with_log<std::runtime_error>(
+            "io::read_vtk: short read in inline binary payload (row {} of {})", r0, rows_total);
+      }
+      if (!host_is_little_endian()) {
+        swap_run<ES>(block.data(), bytes / ES);
+      }
+      for (int64_t i = 0; i < rows; ++i) {
+        const int64_t r = r0 + i;
+        scatter_row<ES>(row_ptr(p, ES, r / p.ny, r % p.ny),
+                        block.data() + static_cast<size_t>(i) * row_bytes, p.nx, comps,
+                        p.comp_stride);
+      }
+    }
+  }
+}
+
+void
+write_u64_le(std::ostream& out,
+             std::uint64_t value) {
+  std::uint8_t bytes[8];
+  if (host_is_little_endian()) {
+    std::memcpy(bytes, &value, sizeof(value));
+  } else {
+    for (size_t i = 0; i < 8U; ++i) {
+      bytes[i] = static_cast<std::uint8_t>(value >> (8U * i));
+    }
+  }
+  out.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
+}
+
+[[nodiscard]] auto
+read_u64_le(std::istream& in,
+            std::string_view path) -> std::uint64_t {
+  std::uint8_t bytes[8];
+  in.read(reinterpret_cast<char*>(bytes), sizeof(bytes));
+  if (!in.good()) {
+    log::throw_with_log<std::runtime_error>(
+        "io::read_vtk: short read while reading the inline binary block size in '{}'", path);
+  }
+  std::uint64_t value = 0;
+  if (host_is_little_endian()) {
+    std::memcpy(&value, bytes, sizeof(value));
+  } else {
+    for (size_t i = 0; i < 8U; ++i) {
+      value |= static_cast<std::uint64_t>(bytes[i]) << (8U * i);
+    }
+  }
+  return value;
+}
+
+/** Stream buffer that base64-encodes bytes into @p out as one unwrapped line. */
+class Base64EncodeBuf final : public std::streambuf {
+public:
+  explicit Base64EncodeBuf(std::ostream& out) noexcept
+      : out_(out) {}
+
+protected:
+  auto
+  xsputn(const char* s,
+         std::streamsize n) -> std::streamsize override {
+    for (std::streamsize i = 0; i < n; ++i) {
+      in_[in_len_++] = static_cast<std::uint8_t>(s[i]);
+      if (in_len_ == in_.size()) {
+        emit(in_.size());
+        in_len_ = 0;
+      }
+    }
+    return n;
+  }
+
+  auto
+  overflow(int_type ch) -> int_type override {
+    if (!traits_type::eq_int_type(ch, traits_type::eof())) {
+      const char c = traits_type::to_char_type(ch);
+      (void)xsputn(&c, 1);
+    }
+    return traits_type::not_eof(ch);
+  }
+
+  auto
+  sync() -> int override {
+    if (in_len_ != 0) {
+      emit(in_len_);
+      in_len_ = 0;
+    }
+    return out_.good() ? 0 : -1;
+  }
+
+private:
+  void
+  emit(size_t n) {
+    static constexpr char kTable[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const std::uint8_t b0 = in_[0];
+    const std::uint8_t b1 = n > 1 ? in_[1] : 0;
+    const std::uint8_t b2 = n > 2 ? in_[2] : 0;
+    char quad[4];
+    quad[0] = kTable[b0 >> 2];
+    quad[1] = kTable[((b0 & 0x03U) << 4U) | (b1 >> 4U)];
+    quad[2] = n > 1 ? kTable[((b1 & 0x0fU) << 2U) | (b2 >> 6U)] : '=';
+    quad[3] = n > 2 ? kTable[b2 & 0x3fU] : '=';
+    out_.write(quad, 4);
+  }
+
+  std::ostream& out_;
+  std::array<std::uint8_t, 3> in_{};
+  size_t in_len_ = 0;
+};
+
+/** Stream buffer that base64-decodes the inline DataArray body from @p in. */
+class Base64DecodeBuf final : public std::streambuf {
+public:
+  explicit Base64DecodeBuf(std::istream& in)
+      : in_(in) {
+    setg(nullptr, nullptr, nullptr);
+  }
+
+protected:
+  auto
+  underflow() -> int_type override {
+    if (gptr() < egptr()) {
+      return traits_type::to_int_type(*gptr());
+    }
+    out_len_ = 0;
+    while (out_len_ == 0) {
+      const int v = next_value();
+      if (v < 0) {
+        return traits_type::eof();
+      }
+      quad_[quad_len_++] = v;
+      if (quad_len_ == quad_.size()) {
+        decode_quad();
+        quad_len_ = 0;
+      }
+    }
+    setg(reinterpret_cast<char*>(out_.data()), reinterpret_cast<char*>(out_.data()),
+         reinterpret_cast<char*>(out_.data() + out_len_));
+    return traits_type::to_int_type(out_[0]);
+  }
+
+private:
+  static constexpr int kPad = 64;
+  static constexpr int kEnd = -1;
+
+  auto
+  next_value() -> int {
+    if (!error_.empty()) {
+      return kEnd;
+    }
+    for (;;) {
+      char c = 0;
+      if (!in_.get(c)) {
+        if (quad_len_ != 0) {
+          fail("truncated base64 quartet");
+        }
+        return kEnd;
+      }
+      const auto u = static_cast<unsigned char>(c);
+      if (std::isspace(u) != 0) {
+        continue;
+      }
+      if (c == '<') {
+        if (quad_len_ != 0) {
+          fail("truncated base64 quartet");
+        }
+        return kEnd;
+      }
+      if (c == '=') {
+        if (quad_len_ < 2) {
+          fail("misplaced base64 padding");
+        }
+        return kPad;
+      }
+      const int v = decode_char(u);
+      if (v < 0) {
+        fail("invalid base64 character");
+        return kEnd;
+      }
+      return v;
+    }
+  }
+
+  static auto
+  decode_char(unsigned char c) noexcept -> int {
+    if (c >= 'A' && c <= 'Z') {
+      return static_cast<int>(c - 'A');
+    }
+    if (c >= 'a' && c <= 'z') {
+      return static_cast<int>(c - 'a') + 26;
+    }
+    if (c >= '0' && c <= '9') {
+      return static_cast<int>(c - '0') + 52;
+    }
+    if (c == '+') {
+      return 62;
+    }
+    if (c == '/') {
+      return 63;
+    }
+    return -1;
+  }
+
+  void
+  decode_quad() {
+    const bool pad2 = quad_[2] == kPad;
+    const bool pad3 = quad_[3] == kPad;
+    if (quad_[0] == kPad || quad_[1] == kPad || (pad2 && !pad3)) {
+      fail("misplaced base64 padding");
+      return;
+    }
+    out_[0] = static_cast<std::uint8_t>((quad_[0] << 2) | (quad_[1] >> 4));
+    out_len_ = 1;
+    if (!pad2) {
+      out_[1] = static_cast<std::uint8_t>(((quad_[1] & 0x0f) << 4) | (quad_[2] >> 2));
+      out_len_ = 2;
+      if (!pad3) {
+        out_[2] = static_cast<std::uint8_t>(((quad_[2] & 0x03) << 6) | quad_[3]);
+        out_len_ = 3;
+      }
+    }
+    if (pad2 || pad3) {
+      padded_ = true;
+    } else if (padded_) {
+      fail("base64 data after padding");
+    }
+  }
+
+  void
+  fail(const char* what) {
+    if (error_.empty()) {
+      error_ = std::string(what);
+    }
+  }
+
+  std::istream& in_;
+  std::array<int, 4> quad_{};
+  size_t quad_len_ = 0;
+  std::array<std::uint8_t, 3> out_{};
+  size_t out_len_ = 0;
+  bool padded_ = false;
+  std::string error_;
+};
 
 }  // namespace
 
@@ -646,6 +1041,280 @@ read_vtk_box_field_payload(std::istream& in,
   }
 }
 
+// ---- XML ImageData + inline-binary building blocks -----------------------------------------
+
+void
+validate_pieces_for_box(std::string_view name,
+                        int64_t cells,
+                        int components,
+                        const VtkBox& box,
+                        const std::vector<VtkBoxPiece>& pieces) {
+  if (components < 1 || components > 4) {
+    log::throw_with_log<std::invalid_argument>(
+        "io::write_vtk: field '{}' has {} components (VTK XML supports 1..4 here)", name,
+        components);
+  }
+  if (!box.empty()) {
+    if (cells != box.points()) {
+      log::throw_with_log<std::invalid_argument>(
+          "io::write_vtk: field '{}' pieces hold {} cells but the shard box has {}", name, cells,
+          box.points());
+    }
+    for (const auto& p : pieces) {
+      if (p.nx != box.dims[0] || p.ny != box.dims[1]) {
+        log::throw_with_log<std::invalid_argument>(
+            "io::write_vtk: field '{}' piece ({}x{}) does not match the shard box ({}x{})", name,
+            p.nx, p.ny, box.dims[0], box.dims[1]);
+      }
+    }
+  }
+}
+
+void
+write_vti_box_header(std::ostream& out,
+                     const VtkBox& box) {
+  const bool empty = box.empty();
+  const int64_t nx = empty ? 0 : box.dims[0];
+  const int64_t ny = empty ? 0 : box.dims[1];
+  const int64_t nz = empty ? 0 : box.dims[2];
+  out << "<?xml version=\"1.0\"?>\n";
+  out << "<VTKFile type=\"ImageData\" version=\"1.0\" byte_order=\"LittleEndian\" "
+         "header_type=\"UInt64\">\n";
+  out << "  <ImageData WholeExtent=\"0 " << (empty ? 0 : nx - 1) << " 0 "
+      << (empty ? 0 : ny - 1) << " 0 " << (empty ? 0 : nz - 1) << "\" Origin=\""
+      << box.origin[0] << ' ' << box.origin[1] << ' ' << box.origin[2]
+      << "\" Spacing=\"1 1 1\">\n";
+  out << "    <Piece Extent=\"0 " << (empty ? 0 : nx - 1) << " 0 " << (empty ? 0 : ny - 1)
+      << " 0 " << (empty ? 0 : nz - 1) << "\">\n";
+  out << "      <PointData>\n";
+  if (!out.good()) {
+    log::throw_with_log<std::runtime_error>("io::write_vtk: failed to write the shard header");
+  }
+}
+
+void
+write_vti_box_field_begin(std::ostream& out,
+                          std::string_view name,
+                          const char* dtype_tag,
+                          int components) {
+  const char* kw = vtk_xml_keyword_from_native_tag(dtype_tag);
+  if (kw == nullptr) {
+    log::throw_with_log<std::invalid_argument>(
+        "io::write_vtk: field '{}' has a dtype VTK XML cannot express", name);
+  }
+  out << "        <DataArray type=\"" << kw << "\" Name=\"" << xml_escape(sanitize_name(name))
+      << "\" NumberOfComponents=\"" << components << "\" format=\"binary\">\n";
+  if (!out.good()) {
+    log::throw_with_log<std::runtime_error>("io::write_vtk: failed to write field metadata");
+  }
+}
+
+void
+write_vti_box_footer(std::ostream& out) {
+  out << "      </PointData>\n";
+  out << "    </Piece>\n";
+  out << "  </ImageData>\n";
+  out << "</VTKFile>\n";
+  if (!out.good()) {
+    log::throw_with_log<std::runtime_error>("io::write_vtk: failed to write the shard footer");
+  }
+}
+
+[[nodiscard]] auto
+parse_u64_attribute(std::string_view tag,
+                    std::string_view key,
+                    std::string_view path) -> std::uint64_t {
+  const std::string text = xml_attribute(tag, key);
+  if (text.empty()) {
+    log::throw_with_log<std::invalid_argument>("io::read_vtk: '{}' is missing attribute '{}'",
+                                               path, key);
+  }
+  try {
+    size_t used = 0;
+    const auto value = std::stoull(text, &used);
+    if (used != text.size()) {
+      throw std::invalid_argument("trailing characters");
+    }
+    return value;
+  } catch (const std::exception&) {
+    log::throw_with_log<std::invalid_argument>(
+        "io::read_vtk: '{}' has a non-numeric '{}' attribute ('{}')", path, key, text);
+  }
+}
+
+void
+parse_vti_box_header(std::istream& in,
+                     std::string_view path,
+                     const VtkBox& expected,
+                     std::vector<VtkBoxFieldRecord>& out_fields) {
+  int64_t whole[6] = {0, -1, 0, -1, 0, -1};
+  int64_t origin[3] = {0, 0, 0};
+  double spacing[3] = {1.0, 1.0, 1.0};
+  bool saw_vtk_file = false;
+  bool saw_image_data = false;
+  bool saw_point_data = false;
+  bool in_point_data = false;
+
+  std::string line;
+  while (std::getline(in, line)) {
+    rtrim_inplace(line);
+    if (line.find("<VTKFile") != std::string::npos) {
+      saw_vtk_file = true;
+      if (xml_attribute(line, "type") != "ImageData") {
+        log::throw_with_log<std::invalid_argument>(
+            "io::read_vtk: '{}' is not a VTK XML ImageData file", path);
+      }
+      if (xml_attribute(line, "byte_order") != "LittleEndian") {
+        log::throw_with_log<std::invalid_argument>(
+            "io::read_vtk: '{}' must use little-endian byte order", path);
+      }
+      if (xml_attribute(line, "header_type") != "UInt64") {
+        log::throw_with_log<std::invalid_argument>(
+            "io::read_vtk: '{}' must use UInt64 inline-binary headers", path);
+      }
+    } else if (line.find("<ImageData") != std::string::npos) {
+      saw_image_data = true;
+      const std::string extent = xml_attribute(line, "WholeExtent");
+      std::istringstream es(extent);
+      if (!(es >> whole[0] >> whole[1] >> whole[2] >> whole[3] >> whole[4] >> whole[5])) {
+        log::throw_with_log<std::invalid_argument>(
+            "io::read_vtk: '{}' has a bad WholeExtent attribute ('{}')", path, extent);
+      }
+      const std::string org = xml_attribute(line, "Origin");
+      std::istringstream os(org);
+      if (!(os >> origin[0] >> origin[1] >> origin[2])) {
+        log::throw_with_log<std::invalid_argument>(
+            "io::read_vtk: '{}' has a bad Origin attribute ('{}')", path, org);
+      }
+      const std::string sp = xml_attribute(line, "Spacing");
+      std::istringstream ss(sp);
+      if (!(ss >> spacing[0] >> spacing[1] >> spacing[2])) {
+        log::throw_with_log<std::invalid_argument>(
+            "io::read_vtk: '{}' has a bad Spacing attribute ('{}')", path, sp);
+      }
+    } else if (line.find("<PointData") != std::string::npos) {
+      saw_point_data = true;
+      in_point_data = true;
+    } else if (line.find("</PointData>") != std::string::npos) {
+      in_point_data = false;
+      break;
+    } else if (in_point_data && line.find("<DataArray") != std::string::npos) {
+      if (xml_attribute(line, "format") != "binary") {
+        log::throw_with_log<std::invalid_argument>(
+            "io::read_vtk: '{}' contains a DataArray that is not inline binary", path);
+      }
+      VtkBoxFieldRecord rec;
+      rec.name = xml_attribute(line, "Name");
+      rec.vtk_dtype = xml_attribute(line, "type");
+      rec.components = static_cast<int>(parse_u64_attribute(line, "NumberOfComponents", path));
+      rec.payload_offset = in.tellg();
+      if (rec.payload_offset == std::streampos(-1)) {
+        log::throw_with_log<std::runtime_error>(
+            "io::read_vtk: failed to locate the inline payload of '{}' in '{}'", rec.name, path);
+      }
+      if (rec.components < 1 || rec.components > 4) {
+        log::throw_with_log<std::invalid_argument>(
+            "io::read_vtk: DataArray '{}' has components={} (supported: 1..4)", rec.name,
+            rec.components);
+      }
+      out_fields.push_back(std::move(rec));
+    } else if (line.find("<AppendedData") != std::string::npos) {
+      log::throw_with_log<std::invalid_argument>(
+          "io::read_vtk: '{}' uses appended data; carbon reads inline binary only", path);
+    }
+  }
+  if (!saw_vtk_file || !saw_image_data || !saw_point_data) {
+    log::throw_with_log<std::invalid_argument>(
+        "io::read_vtk: '{}' is missing VTKFile/ImageData/PointData", path);
+  }
+
+  const bool want_empty = expected.empty();
+  if (!want_empty) {
+    if (whole[0] != 0 || whole[1] != expected.dims[0] - 1 || whole[2] != 0 ||
+        whole[3] != expected.dims[1] - 1 || whole[4] != 0 ||
+        whole[5] != expected.dims[2] - 1) {
+      log::throw_with_log<std::invalid_argument>(
+          "io::read_vtk: '{}' WholeExtent ({}, {}, {}, {}, {}, {}) does not match this rank's "
+          "owned box ({}, {}, {})",
+          path, whole[0], whole[1], whole[2], whole[3], whole[4], whole[5], expected.dims[0],
+          expected.dims[1], expected.dims[2]);
+    }
+  }
+  if (origin[0] != expected.origin[0] || origin[1] != expected.origin[1] ||
+      origin[2] != expected.origin[2]) {
+    log::throw_with_log<std::invalid_argument>(
+        "io::read_vtk: '{}' Origin ({}, {}, {}) does not match this rank's box origin ({}, {}, {})",
+        path, origin[0], origin[1], origin[2], expected.origin[0], expected.origin[1],
+        expected.origin[2]);
+  }
+  if (spacing[0] != 1.0 || spacing[1] != 1.0 || spacing[2] != 1.0) {
+    log::throw_with_log<std::invalid_argument>(
+        "io::read_vtk: '{}' Spacing ({}, {}, {}) is non-unit; carbon uses integer voxel "
+        "coordinates",
+        path, spacing[0], spacing[1], spacing[2]);
+  }
+}
+
+void
+read_vti_box_field_payload(std::istream& in,
+                           std::string_view path,
+                           const VtkBoxFieldRecord& record,
+                           size_t element_size,
+                           int components,
+                           const VtkBox& box,
+                           const std::vector<VtkBoxPieceMut>& pieces) {
+  if (box.empty()) {
+    return;
+  }
+  int64_t cells = 0;
+  for (const auto& p : pieces) {
+    cells += p.nx * p.ny * p.nz;
+    if (p.nx != box.dims[0] || p.ny != box.dims[1]) {
+      log::throw_with_log<std::invalid_argument>(
+          "io::read_vtk: piece ({}x{}) does not match the shard box ({}x{})", p.nx, p.ny,
+          box.dims[0], box.dims[1]);
+    }
+  }
+  if (cells != box.points()) {
+    log::throw_with_log<std::invalid_argument>(
+        "io::read_vtk: pieces hold {} cells but the shard box has {}", cells, box.points());
+  }
+  in.clear();
+  in.seekg(record.payload_offset);
+  if (!in.good()) {
+    log::throw_with_log<std::runtime_error>(
+        "io::read_vtk: seek to the inline payload of '{}' failed in '{}'", record.name, path);
+  }
+  Base64DecodeBuf decoded(in);
+  std::istream encoded(&decoded);
+  const auto expected_bytes = static_cast<std::uint64_t>(cells) *
+                              static_cast<std::uint64_t>(components) *
+                              static_cast<std::uint64_t>(element_size);
+  const auto got_bytes = read_u64_le(encoded, path);
+  if (got_bytes != expected_bytes) {
+    log::throw_with_log<std::invalid_argument>(
+        "io::read_vtk: inline block for '{}' is {} bytes, expected {} in '{}'", record.name,
+        got_bytes, expected_bytes, path);
+  }
+  switch (element_size) {
+    case 1:
+      read_payload_le<1>(encoded, components, pieces);
+      break;
+    case 2:
+      read_payload_le<2>(encoded, components, pieces);
+      break;
+    case 4:
+      read_payload_le<4>(encoded, components, pieces);
+      break;
+    case 8:
+      read_payload_le<8>(encoded, components, pieces);
+      break;
+    default:
+      log::throw_with_log<std::invalid_argument>("io::read_vtk: unsupported element size {}",
+                                                 element_size);
+  }
+}
+
 // ================================================================================================
 // Session
 // ================================================================================================
@@ -657,12 +1326,19 @@ struct VtkBoxSession::Impl {
   VtkBox box;
   std::ofstream writer;
   std::ifstream reader;
+  bool finalized = false;
   std::vector<VtkBoxFieldRecord> read_fields;
   size_t read_fields_cursor = 0;
 };
 
 VtkBoxSession::VtkBoxSession() noexcept = default;
-VtkBoxSession::~VtkBoxSession() = default;
+VtkBoxSession::~VtkBoxSession() {
+  try {
+    finalize();
+  } catch (...) {
+    // Destructors must not throw; write_vtk calls finalize() explicitly to surface I/O failures.
+  }
+}
 VtkBoxSession::VtkBoxSession(VtkBoxSession&&) noexcept = default;
 auto
 VtkBoxSession::operator=(VtkBoxSession&&) noexcept -> VtkBoxSession& = default;
@@ -686,7 +1362,7 @@ VtkBoxSession::open_for_write(std::string_view path,
     log::throw_with_log<std::runtime_error>("io::write_vtk: failed to open '{}' for writing",
                                             impl_->path);
   }
-  write_vtk_box_header(impl_->writer, impl_->box);
+  write_vti_box_header(impl_->writer, impl_->box);
 }
 
 void
@@ -698,8 +1374,50 @@ VtkBoxSession::write_field(std::string_view name,
   if (impl_ == nullptr || !impl_->for_write) {
     log::throw_with_log<std::runtime_error>("io::write_vtk: session is not in a writable state");
   }
-  write_vtk_box_field(impl_->writer, name, dtype_tag, element_size, components, impl_->box, pieces);
+  int64_t cells = 0;
+  for (const auto& p : pieces) {
+    cells += p.nx * p.ny * p.nz;
+  }
+  validate_pieces_for_box(name, cells, components, impl_->box, pieces);
+  write_vti_box_field_begin(impl_->writer, name, dtype_tag, components);
+  const auto bytes = static_cast<std::uint64_t>(cells) *
+                     static_cast<std::uint64_t>(components) *
+                     static_cast<std::uint64_t>(element_size);
+  Base64EncodeBuf encoded_buf(impl_->writer);
+  std::ostream encoded(&encoded_buf);
+  write_u64_le(encoded, bytes);
+  switch (element_size) {
+    case 1:
+      write_payload_le<1>(encoded, components, pieces);
+      break;
+    case 2:
+      write_payload_le<2>(encoded, components, pieces);
+      break;
+    case 4:
+      write_payload_le<4>(encoded, components, pieces);
+      break;
+    case 8:
+      write_payload_le<8>(encoded, components, pieces);
+      break;
+    default:
+      log::throw_with_log<std::invalid_argument>("io::write_vtk: unsupported element size {}",
+                                                 element_size);
+  }
+  encoded.flush();
+  impl_->writer << "\n        </DataArray>\n";
+  if (!impl_->writer.good()) {
+    log::throw_with_log<std::runtime_error>("io::write_vtk: failed to write field payload");
+  }
   ++impl_->num_fields_recorded;
+}
+
+void
+VtkBoxSession::finalize() {
+  if (impl_ == nullptr || !impl_->for_write || impl_->finalized) {
+    return;
+  }
+  write_vti_box_footer(impl_->writer);
+  impl_->finalized = true;
 }
 
 void
@@ -714,7 +1432,7 @@ VtkBoxSession::open_for_read(std::string_view path,
     log::throw_with_log<std::runtime_error>("io::read_vtk: failed to open '{}' for reading",
                                             impl_->path);
   }
-  parse_vtk_box_header(impl_->reader, impl_->path, impl_->box, impl_->read_fields);
+  parse_vti_box_header(impl_->reader, impl_->path, impl_->box, impl_->read_fields);
 }
 
 void
@@ -732,7 +1450,7 @@ VtkBoxSession::read_field(std::string_view /*name*/,
   }
   // Fields bind by ordinal (names differ between writers).
   const auto& rec = impl_->read_fields[impl_->read_fields_cursor++];
-  const char* expected_kw = vtk_keyword_from_native_tag(dtype_tag);
+  const char* expected_kw = vtk_xml_keyword_from_native_tag(dtype_tag);
   if (expected_kw == nullptr || rec.vtk_dtype != expected_kw) {
     log::throw_with_log<std::invalid_argument>(
         "io::read_vtk: field {} dtype '{}' does not match bound carbon dtype '{}' in '{}'",
@@ -743,13 +1461,8 @@ VtkBoxSession::read_field(std::string_view /*name*/,
         "io::read_vtk: field {} has {} components but the bound Field has {}", rec.name,
         rec.components, components);
   }
-  impl_->reader.clear();
-  impl_->reader.seekg(rec.payload_offset);
-  if (!impl_->reader.good()) {
-    log::throw_with_log<std::runtime_error>(
-        "io::read_vtk: seek to the payload of '{}' failed in '{}'", rec.name, impl_->path);
-  }
-  read_vtk_box_field_payload(impl_->reader, element_size, components, impl_->box, pieces);
+  read_vti_box_field_payload(impl_->reader, impl_->path, rec, element_size, components,
+                             impl_->box, pieces);
 }
 
 auto
@@ -813,8 +1526,8 @@ write_vtk_multiblock_index(std::string_view base,
   int block = 0;
   for (const int r : listed) {
     out << "    <Block index=\"" << block++ << "\" name=\"rank" << r << "\">\n";
-    out << "      <DataSet index=\"0\" file=\"" << base_filename.string() << ".rank" << r << ".vtk"
-        << "\"/>\n";
+    out << "      <DataSet index=\"0\" file=\"" << detail::xml_escape(base_filename.string())
+        << ".rank" << r << ".vti\"/>\n";
     out << "    </Block>\n";
   }
   out << "  </vtkMultiBlockDataSet>\n";

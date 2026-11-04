@@ -73,6 +73,23 @@
 #include <type_traits>
 #include <vector>
 
+
+
+#if __has_include(<nvtx3/nvToolsExt.h>)
+#  include <nvtx3/nvToolsExt.h>
+#  define CARBON_HALO_NVTX_PUSH(name) ::nvtxRangePushA(name)
+#  define CARBON_HALO_NVTX_POP()      ::nvtxRangePop()
+#elif __has_include(<nvToolsExt.h>)
+#  include <nvToolsExt.h>
+#  define CARBON_HALO_NVTX_PUSH(name) ::nvtxRangePushA(name)
+#  define CARBON_HALO_NVTX_POP()      ::nvtxRangePop()
+#else
+#  define CARBON_HALO_NVTX_PUSH(name) ((void)0)
+#  define CARBON_HALO_NVTX_POP()      ((void)0)
+#endif
+
+
+
 namespace {
 
 using carbon::bench::lbm::BgkCollision;
@@ -675,6 +692,7 @@ run_benchmark(const Options& opts,
                         opts.warmup);
       }
     }
+    CARBON_HALO_NVTX_PUSH("Iteration step");
     carbon::Skeleton& sk = (it % 2 == 0) ? sk_ab : sk_ba;
     try {
       sk.run();
@@ -696,6 +714,8 @@ run_benchmark(const Options& opts,
       CARBON_LOG_INFO("lbm_lid_driven_cavity: iter {}/{} elapsed={:.3f}s", it + 1, opts.iters,
                       elapsed_overall);
     }
+    CARBON_HALO_NVTX_POP();
+
   }
 
   try {

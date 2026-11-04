@@ -1,31 +1,38 @@
-// io_vtk_distributed.inl — VTK legacy backend for carbon::DenseDistributed, split out of
+// io_vtk_distributed.inl — VTK XML backend for carbon::DenseDistributed, split out of
 // <carbon/io.h>. Tail include of io.h (see io_vtk.inl for the include-context contract); not a
 // standalone header.
 //
-// Same on-disk format as the Dense backend (legacy BINARY STRUCTURED_POINTS, one `.rank<N>` shard
-// per rank under MPI, `.vtm` multiblock index written by rank 0), generalised from "full XY
-// planes, z-slab" to "the rank's owned bounding box":
+// One XML ImageData `.vti` shard per rank under MPI, plus a `.vtm` multiblock index written by
+// rank 0. Geometry is the rank's owned bounding box, generalised from "full XY planes, z-slab":
 //
-//   # vtk DataFile Version 3.0
-//   carbon dense field shard
-//   BINARY
-//   DATASET STRUCTURED_POINTS
-//   DIMENSIONS <owned.x> <owned.y> <owned.z>            // the rank's owned box (halo excluded)
-//   ORIGIN <x0> <y0> <z0>                                // global index of the box's first cell
-//   SPACING 1 1 1                                        // index space, same as the Dense writer
-//   POINT_DATA <product of DIMENSIONS>
-//   SCALARS <name> <vtk dtype> <Components>
-//   LOOKUP_TABLE default
-//   <binary payload, big-endian, component-fastest interleaving, x fastest, then y, then z>
+//   <VTKFile type="ImageData" byte_order="LittleEndian" header_type="UInt64">
+//     <ImageData WholeExtent="0 nx-1 0 ny-1 0 nz-1"
+//                Origin="x0 y0 z0" Spacing="1 1 1">
+//       <Piece Extent="0 nx-1 0 ny-1 0 nz-1">
+//         <PointData>
+//           <DataArray type="Float32" Name="rho" NumberOfComponents="1"
+//                      format="binary">
+//             <base64 block>
+//           </DataArray>
+//         </PointData>
+//       </Piece>
+//     </ImageData>
+//   </VTKFile>
 //
-// A rank that owns no cells (global extent smaller than the process grid on some axis) writes a
-// placeholder shard: valid header with `DIMENSIONS 0 0 0` / `POINT_DATA 0` and each SCALARS
-// header without payload, so every rank leaves exactly one file. The `.vtm` index lists only the
-// non-empty shards (there is nothing to display for the others).
+// Each inline block is base64-encoded and starts with an 8-byte little-endian byte count,
+// followed by the little-endian component-fastest payload (x fastest, then y, then z). The
+// base64 is written as one line: VTK's inline reader mishandles wrapped blocks once the payload
+// grows past a few MiB. Inline binary avoids the VTK 9.2 XML parser's raw-appended-data buffer
+// limit while remaining a normal VTK XML file. A rank
+// that owns no cells writes a valid empty shard; the `.vtm` index lists only the non-empty
+// shards.
 //
-// Index space (SPACING 1, ORIGIN in cells) is deliberate: it is what the Dense writer/reader use,
+// Index space (Spacing 1, Origin in cells) is deliberate: it is what the Dense writer/reader use,
 // costs nothing extra to write, and keeps shards of both grid families interchangeable in
 // ParaView. The span's physical origin/spacing are not applied.
+//
+// The legacy stream-level helpers below are retained for the host VTK tests. The session itself
+// uses the XML helpers in io_vtk_distributed.cpp.
 namespace detail {
 
 /** Pointer-parametrised block of owned cells inside a haloed per-GPU buffer. */
@@ -62,7 +69,7 @@ struct VtkBox {
   }
 };
 
-/** Per-SCALARS record found while parsing a shard header. */
+/** Per-DataArray record found while parsing a shard header. */
 struct VtkBoxFieldRecord {
   std::string name;
   std::string vtk_dtype;
@@ -143,6 +150,11 @@ public:
               size_t element_size,
               int components,
               const std::vector<VtkBoxPiece>& pieces);
+
+  /** Finish a writable session: close PointData/ImageData/VTKFile. Idempotent. */
+  void
+  finalize();
+
   void
   read_field(std::string_view name,
              const char* dtype_tag,
@@ -241,8 +253,8 @@ collect_vtk_pieces_mut(const DenseDistributed& grid,
 }  // namespace detail
 
 /**
- * Write @p fields (host mirrors, halo excluded) of @p grid as one legacy BINARY VTK shard per
- * rank (`<path>.rank<N>` under MPI, `<path>` otherwise). Works for every decomposition
+ * Write @p fields (host mirrors, halo excluded) of @p grid as one XML ImageData `.vti` shard per
+ * rank (`<path>.rank<N>.vti` under MPI, `<path>.vti` otherwise). Works for every decomposition
  * (slab / pencil / brick). Download device data to the host mirror first. Call
  * @ref write_vtk_multiblock_index afterwards (any rank may call it; rank 0 writes) to get a
  * single `<path>.vtm` that ParaView opens as one multiblock dataset.
@@ -269,11 +281,12 @@ write_vtk(std::string_view path,
         ++i;
       }(),
       ...);
+  sess.finalize();
 }
 
 /**
- * Read @p fields of @p grid from the shard @ref write_vtk wrote for this rank. DIMENSIONS and
- * ORIGIN must match this rank's owned box; fields bind by ordinal. Only owned cells are touched
+ * Read @p fields of @p grid from the shard @ref write_vtk wrote for this rank. WholeExtent and
+ * Origin must match this rank's owned box; fields bind by ordinal. Only owned cells are touched
  * (halo cells keep their contents).
  */
 template <typename... Fields>

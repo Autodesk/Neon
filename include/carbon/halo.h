@@ -145,7 +145,7 @@ public:
    *
    * - @c stencil.size() must equal @c Components .
    * - @c stencil.radius() must be @c <= halo_z (the available halo thickness).
-   * - @p semantic must be one of @c Standard / @c Lattice .
+   * - @p semantic must be one of @c Standard / @c Lattice / @c LatticeDistributed .
    *
    * @throws std::invalid_argument on any of the above failing.
    */
@@ -387,7 +387,7 @@ Halo<T,
     return;
   }
 
-  if (semantic_ == StencilSemantic::Lattice) {
+  if (is_lattice_semantic(semantic_)) {
     if (stencil_.size() != static_cast<size_t>(Components)) {
       log::throw_with_log<std::invalid_argument>(
           "Halo(lattice): stencil.size() = {} but Components = {}; the lattice halo pairs "
@@ -404,17 +404,22 @@ Halo<T,
 
   // Cardinality activity filter: the only direction-relevant axis on a z-partitioned grid
   // is z (mirroring Neon's lattice halo). Standard semantic keeps every cardinality.
+  // LatticeDistributed sends both nonzero z signs in both directions so a wall
+  // bounce-back can read opp(q) across a z-split rank boundary.
+  const bool bidirectional_z = semantic_ == StencilSemantic::LatticeDistributed;
   auto active_up = [&](int c) noexcept -> bool {
     if (semantic_ == StencilSemantic::Standard) {
       return true;
     }
-    return stencil_.points()[static_cast<size_t>(c)].z > 0;
+    const int64_t z = stencil_.points()[static_cast<size_t>(c)].z;
+    return bidirectional_z ? z != 0 : z > 0;
   };
   auto active_down = [&](int c) noexcept -> bool {
     if (semantic_ == StencilSemantic::Standard) {
       return true;
     }
-    return stencil_.points()[static_cast<size_t>(c)].z < 0;
+    const int64_t z = stencil_.points()[static_cast<size_t>(c)].z;
+    return bidirectional_z ? z != 0 : z < 0;
   };
 
   // Host-only fields (MemorySide::Host) carry no GPU buffers; the host_intra_

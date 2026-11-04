@@ -161,10 +161,11 @@ write_vtk(std::string_view path,
  *               distributed handle this function uses to enumerate world
  *               size on rank 0.
  *
- * Note: ParaView's @c .pvti format would offer spatial merging across
- * pieces but requires the shards to be in the XML @c .vti format which
- * carbon does not currently emit; @c .vtm is the next-best generic
- * "load all pieces in one go" wrapper and works with the legacy shards.
+ * Note: this Dense path still writes legacy @c .vtk shards. The
+ * @c DenseDistributed path emits XML ImageData @c .vti shards and wraps
+ * them in the same @c .vtm index. ParaView's @c .pvti format would offer
+ * spatial merging across pieces, but @c .vtm is the generic wrapper that
+ * works with both shard families.
  */
 CARBON_API auto
 write_vtk_multiblock_index(std::string_view base,

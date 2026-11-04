@@ -22,11 +22,30 @@ namespace carbon {
  * z-slab boundary — for D3Q19 that's 5/19, for D3Q27 9/27. Carries an additional
  * pre-condition: @c stencil.size() must equal the field's @c Components and entries are
  * paired by index @c (population q ↔ stencil.points()[q]) .
+ *
+ * @c LatticeDistributed is the multi-axis / distributed variant: every decomposed face
+ * exchanges both nonzero signs of its normal velocity component, so a wall bounce-back
+ * that reads @c opp(q) from a wall cell across a rank boundary still finds it. Components
+ * with zero normal velocity cannot cross the face and are not exchanged. On a z-only
+ * layout this degenerates to bidirectional z. It is more expensive than @c Lattice but
+ * still cheaper than @c Standard for D3Q19 / D3Q27 cubic decompositions. Carries the same
+ * stencil-size pre-condition as @c Lattice .
  */
 enum struct StencilSemantic : int {
   Standard = 0,
-  Lattice = 1
+  Lattice = 1,
+  LatticeDistributed = 2
 };
+
+/**
+ * @return @c true for either lattice-population semantic (@c Lattice or
+ *         @c LatticeDistributed). Used by halo constructors to apply the common
+ *         stencil-size / radius validation.
+ */
+[[nodiscard]] constexpr auto
+is_lattice_semantic(StencilSemantic semantic) noexcept -> bool {
+  return semantic == StencilSemantic::Lattice || semantic == StencilSemantic::LatticeDistributed;
+}
 
 [[nodiscard]] CARBON_API auto
 to_string(StencilSemantic semantic) noexcept -> std::string_view;

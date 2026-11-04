@@ -312,7 +312,8 @@ struct KernelLoader {
   /**
    * @brief Stencil read with explicit halo semantic — same as @ref read_stencil but
    *        the auto-inserted halo uses @p stencil and @p semantic (e.g.
-   *        @c StencilSemantic::Lattice for LBM populations). Mirrors Neon's
+   *        @c StencilSemantic::Lattice for LBM populations; use @c LatticeDistributed on
+   *        multi-axis decompositions). Mirrors Neon's
    *        @c Loader::load(field, Pattern::STENCIL, stencilSemantic) .
    *
    * @p stencil must be index-aligned with the field's @c Components when

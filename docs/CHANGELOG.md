@@ -6153,3 +6153,16 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   follows it in FIFO order and the Internal half overlaps on stream 0. The stencil's Internal
   half still waits on the producer's Boundary half (it reads boundary-band cells), and the
   anchor-start fork is load-bearing again because the Boundary half opens the halo stream.
+- **2026-11 — `LatticeDistributed` halo semantic and XML `.vti` shards.**
+  `StencilSemantic::LatticeDistributed` exchanges both nonzero signs of a face-normal
+  velocity on every decomposed face (zero-normal components still excluded). This keeps
+  wall bounce-back reads of `opp(q)` valid across rank boundaries on brick/pencil grids;
+  `Lattice` remains the cheaper one-sided semantic. `Halo` / `HaloDisg` treat it as
+  bidirectional Z. The distributed LBM benchmark selects it only when the
+  `DenseDistributed` process grid is split on X or Y, so slab layouts keep `Lattice`.
+  The distributed VTK writer now emits XML ImageData `.vti` shards with inline
+  base64 little-endian binary payloads and a `.vtm` index that references them; the
+  legacy stream-level helpers stay for the host tests. Inline binary is used because
+  VTK 9.2's XML parser rejects raw appended blocks above its small line buffer. The
+  base64 is emitted as one line: VTK's inline reader truncates large line-wrapped
+  blocks. The old experimental `io_vtk_distributed_wrong.cpp` was removed.

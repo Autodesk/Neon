@@ -251,6 +251,21 @@ make_lattice_population_stencil() -> ::carbon::Stencil {
   return ::carbon::Stencil(pts);
 }
 
+// Distributed brick / pencil decompositions need both nonzero signs of the
+// face-normal population so a wall bounce-back can read opp(q) across a rank
+// boundary. Slab layouts keep the cheaper one-sided lattice semantic.
+template <typename Grid>
+[[nodiscard]] inline auto
+population_halo_semantic(const Grid& grid) -> ::carbon::StencilSemantic {
+  if constexpr (requires { grid.process_grid(); }) {
+    const auto dims = grid.process_grid().dims();
+    if (dims.x > 1 || dims.y > 1) {
+      return ::carbon::StencilSemantic::LatticeDistributed;
+    }
+  }
+  return ::carbon::StencilSemantic::Lattice;
+}
+
 // Pull-stream source offset for direction q: under pull streaming the cell
 // reads its q population from the neighbour at -c[q]. Returned as an
 // int8_3d so it can feed Partition::read_pull, the grid-generic @b trusted
@@ -298,11 +313,12 @@ make_iteration_kernel(Grid& grid,
                       std::string name) -> ::carbon::Kernel {
   using Span = typename Grid::Span;
   using Idx = typename Grid::Idx;
+  const auto semantic = population_halo_semantic(grid);
   return ::carbon::Kernel::compute(
       grid,
-      [&f_in, &f_out, &cell_field, params](::carbon::KernelLoader& loader) {
-        const auto fin = loader.read_stencil(f_in, make_lattice_population_stencil<Lattice>(),
-                                             ::carbon::StencilSemantic::Lattice);
+      [&f_in, &f_out, &cell_field, params, semantic](::carbon::KernelLoader& loader) {
+        const auto fin =
+            loader.read_stencil(f_in, make_lattice_population_stencil<Lattice>(), semantic);
         const auto fout = loader.write(f_out);
         const auto cell = loader.read(cell_field);
         const float omega = params.omega;
@@ -411,11 +427,12 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
                                      std::string name) -> ::carbon::Kernel {
   using Span = typename Grid::Span;
   using Idx = typename Grid::Idx;
+  const auto semantic = population_halo_semantic(grid);
   return ::carbon::Kernel::compute(
       grid,
-      [&f_in, &f_out, &cell_field, params](::carbon::KernelLoader& loader) {
-        const auto fin = loader.read_stencil(f_in, make_lattice_population_stencil<D3Q19>(),
-                                             ::carbon::StencilSemantic::Lattice);
+      [&f_in, &f_out, &cell_field, params, semantic](::carbon::KernelLoader& loader) {
+        const auto fin =
+            loader.read_stencil(f_in, make_lattice_population_stencil<D3Q19>(), semantic);
         const auto fout = loader.write(f_out);
         const auto cell = loader.read(cell_field);
         const float omega = params.omega;

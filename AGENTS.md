@@ -44,15 +44,17 @@ Optional HDF5 build adds `-DCARBON_ENABLE_HDF5=ON`; HDF5 is PRIVATE-linked and t
 is also set and the discovered HDF5 was compiled with MPI support, `CARBON_HAVE_PHDF5` is
 defined and `write_hdf5` / `read_hdf5` use collective MPI-IO writes against a single file.
 
-VTK legacy I/O is always available — no external dependency, pure stdlib.
-`carbon::io::write_vtk` / `read_vtk` write `DATASET STRUCTURED_POINTS` BINARY files
-with one `SCALARS name dtype N` block per field under a shared `POINT_DATA`
-section, big-endian payload (legacy spec mandates network byte order), component-
-fastest interleaving. Multi-rank uses one file per rank with `.rank<N>` suffix —
-each shard is a self-contained VTK that ParaView/VTK can open independently.
-Reader is strict (rejects XML VTK / non-BINARY / non-STRUCTURED_POINTS / non-unit
-spacing / mismatched DIMENSIONS) so a wrong file fails fast rather than scrambling
-field data.
+VTK I/O is always available — no external dependency, pure stdlib. The `Dense` /
+`DenseDisg` path writes legacy `DATASET STRUCTURED_POINTS` BINARY files with one
+`SCALARS name dtype N` block per field under a shared `POINT_DATA` section,
+big-endian payload (legacy spec mandates network byte order), component-fastest
+interleaving. Multi-rank uses one file per rank with `.rank<N>` suffix. The
+`DenseDistributed` path writes XML ImageData `.vti` shards (unwrapped inline
+base64 little-endian binary, `UInt64` block headers) named `.rank<N>.vti` under MPI, plus
+a `.vtm` multiblock index that references them. Both readers are strict (the legacy
+reader rejects XML / non-BINARY / non-STRUCTURED_POINTS / non-unit spacing /
+mismatched DIMENSIONS; the XML reader validates WholeExtent / Origin / Spacing and
+inline block sizes) so a wrong file fails fast rather than scrambling field data.
 
 Optional nanoVDB build adds `-DCARBON_ENABLE_NANOVDB=ON`. Discovery order: first
 `-DCARBON_NANOVDB_INCLUDE_DIR=/path/to/nanovdb/headers` if the user already has
@@ -449,10 +451,11 @@ how a feature behaves at the edges, grep the changelog for the section name
   include dir → `find_package(nanovdb)` → `FetchContent` OpenVDB
   `v11.0.0` (populate-only, skips TBB/Boost/blosc). Multi-rank writes
   one file per rank. Float / double / int32 today.
-- **VTK legacy** — always-on, pure stdlib. `STRUCTURED_POINTS` BINARY
-  with one `SCALARS name dtype N` block per field; one file per rank
-  with `.rank<N>` suffix. Strict reader (rejects XML / non-BINARY /
-  non-unit spacing / mismatched DIMENSIONS).
+- **VTK** — always-on, pure stdlib. `Dense` / `DenseDisg` write legacy
+  `STRUCTURED_POINTS` BINARY with one `SCALARS name dtype N` block per
+  field; one file per rank with `.rank<N>` suffix. `DenseDistributed`
+  writes XML ImageData `.vti` shards (inline base64 little-endian binary)
+  and a `.vtm` multiblock index. Strict readers on both paths.
 - **`carbon::io::write_native / read_native`** — multi-field per-rank
   binary format with explicit field metadata; the default for round-trip
   tests. Templated on Grid and shipping for both `Dense` and `DenseDisg`

@@ -115,7 +115,7 @@ public:
    * - @c stencil.radius() must be @c <= 1 (the disg layout pins ghost / boundary radius
    *   to 1; lattices like Q39 / Q125 with radius @c >= 2 need extending the disg
    *   region count first).
-   * - @p semantic must be one of @c Standard / @c Lattice .
+   * - @p semantic must be one of @c Standard / @c Lattice / @c LatticeDistributed .
    *
    * @throws std::invalid_argument on any of the above failing.
    */
@@ -284,6 +284,8 @@ enum class TransferDir : int {
  * direction of a lattice halo. Standard semantic always returns the single run
  * @c [0, Components) ; lattice semantic walks @c stencil.points() and emits one
  * @c CardinalityRun per maximal run of consecutive same-sign-z populations.
+ * LatticeDistributed treats both directions as bidirectional z and emits runs
+ * over every population with @c c_z != 0 .
  */
 template <int Components>
 [[nodiscard]] inline auto
@@ -295,6 +297,7 @@ runs_for_direction(StencilSemantic semantic,
     runs.push_back({0, Components});
     return runs;
   }
+  const bool bidirectional_z = semantic == StencilSemantic::LatticeDistributed;
   // Lattice: walk cardinalities and emit one run per maximal active stretch.
   int j_start = -1;
   int j_len = 0;
@@ -306,7 +309,8 @@ runs_for_direction(StencilSemantic semantic,
   };
   for (int j = 0; j < Components; ++j) {
     const auto& s = stencil.points()[static_cast<size_t>(j)];
-    const bool active = (dir == TransferDir::Up) ? (s.z > 0) : (s.z < 0);
+    const bool active =
+        bidirectional_z ? (s.z != 0) : ((dir == TransferDir::Up) ? (s.z > 0) : (s.z < 0));
     if (active) {
       if (j_len == 0) {
         j_start = j;
@@ -343,7 +347,7 @@ HaloDisg<T,
       semantic_(semantic) {
   // ---------- Phase 1: validate semantic + lattice radius (boundary mode comes after geometry) ----------
   detail::halo_build::validate_stencil_semantic(semantic_, "HaloDisg");
-  if (semantic_ == StencilSemantic::Lattice) {
+  if (is_lattice_semantic(semantic_)) {
     if (stencil_.size() != static_cast<size_t>(Components)) {
       log::throw_with_log<std::invalid_argument>(
           "HaloDisg(lattice): stencil.size() = {} but Components = {}; the lattice halo pairs "
@@ -401,7 +405,8 @@ HaloDisg<T,
   //
   // The disg layout's whole point is that one contiguous block per direction covers every
   // component plane: each pair contributes one entry per active run (one run total under
-  // Standard semantic; one or more under Lattice depending on the stencil's z-sign profile).
+  // Standard semantic; one or more under Lattice depending on the stencil's z-sign profile;
+  // LatticeDistributed always covers both z signs).
   // Cross-rank pairs iterate runs_up first then runs_down on every rank — the per-peer
   // NCCL FIFO matches Sends ↔ Recvs by call order alone.
   detail::halo_build::IntraTransferBuilder<T> intra;
