@@ -799,7 +799,8 @@ run_benchmark(const Options& opts,
     // DenseDisg and DenseDistributed have no VTK writer today, so the dump is
     // Dense-only; those runs still report MLUPS, they just skip the optional
     // VTK export.
-    if constexpr (std::is_same_v<Grid, carbon::Dense>) {
+
+    if constexpr (std::is_same_v<Grid, carbon::Dense> || std::is_same_v<Grid, carbon::DenseDistributed>) {
       // The hot loop alternates sk_ab (reads pop_a, writes pop_b) on even iters
       // with sk_ba (reads pop_b, writes pop_a) on odd. After `iters` iterations
       // the freshest output buffer is therefore pop_b when iters is odd and

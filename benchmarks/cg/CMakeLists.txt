@@ -1,2 +1,3 @@
 _carbon_benchmark_add(carbon_benchmark_cg_poisson cg_poisson.cu)
-target_link_libraries(carbon_benchmark_cg_poisson PRIVATE carbon::carbon carbon_benchmark_common)
+target_link_libraries(carbon_benchmark_cg_poisson PRIVATE carbon::carbon carbon::third_party::clipp carbon_benchmark_common)
+

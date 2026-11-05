@@ -143,7 +143,7 @@ shard_path_of(std::string_view base,
 #ifdef CARBON_HAVE_MPI_NCCL
   if (grid.system().distributed() != nullptr) {
     std::ostringstream oss;
-    oss << base << ".rank" << grid.system().distributed()->world_rank();
+    oss << base << ".rank" << grid.system().distributed()->world_rank()<<".vtk";
     return oss.str();
   }
 #else
@@ -813,7 +813,7 @@ write_vtk_multiblock_index(std::string_view base,
   int block = 0;
   for (const int r : listed) {
     out << "    <Block index=\"" << block++ << "\" name=\"rank" << r << "\">\n";
-    out << "      <DataSet index=\"0\" file=\"" << base_filename.string() << ".rank" << r
+    out << "      <DataSet index=\"0\" file=\"" << base_filename.string() << ".rank" << r << ".vtk"
         << "\"/>\n";
     out << "    </Block>\n";
   }

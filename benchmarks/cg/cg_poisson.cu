@@ -113,6 +113,7 @@
 #include <carbon/detail/backend/select.h>
 #include <carbon/devices.h>
 #include <carbon/integer3d.h>
+#include <carbon/io.h>              // NEW: write_vtk / write_vtk_multiblock_index
 #include <carbon/kernel.h>
 #include <carbon/logging.h>
 #include <carbon/memory_side.h>
@@ -121,6 +122,7 @@
 #include <carbon/skeleton.h>
 #include <carbon/stencil.h>
 #include <carbon/system.h>
+
 
 #ifdef CARBON_HAVE_MPI_NCCL
 #include <carbon/distributed.h>
@@ -143,6 +145,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <type_traits>               // NEW: std::is_same_v
 
 #if __has_include(<nvtx3/nvToolsExt.h>)
 #  include <nvtx3/nvToolsExt.h>
@@ -219,6 +222,7 @@ struct Options {
   std::string dec;
   std::string dot_out_prefix;
   bool dot_matrix = false;
+  std::string vtk_path = "";      // NEW
 };
 
 // Build a clipp parser bound directly to @p opts. Mirrors the structure of the
@@ -260,6 +264,10 @@ build_cli(Options& opts) -> clipp::group {
           "(tag = init | iter_pre | iter_post)",
       (option("--dot-matrix").set(opts.dot_matrix)) %
           "With --dot-out, also write launch-matrix and kernel-list DOT files",
+      (option("--vtk-out") & value("path", opts.vtk_path)) %
+          "After the solve, dump the solution u and its gradient as a VTK "
+          "legacy STRUCTURED_POINTS file at PATH (appends .rankN under MPI; "
+          "Dense and DenseDistributed only). Off by default.",
       (option("--decomposition") & value("mode", opts.dec)) %
           "MPI decomposition: slab | pencil | brick (default: slab, only relevant for distributed runs)";
 
@@ -675,6 +683,74 @@ build_reduce_pAp(const Grid& grid,
       dst, carbon::reduce::Sum<double>{}, std::move(name), /*shared_mem=*/0U);
 }
 
+
+
+// Convert the (double) solution to a (float) HostDevice field for VTK export.
+template <typename Grid>
+[[nodiscard]] auto
+build_solution_to_float(const Grid& grid,
+                       typename Grid::template Field<double, 1>& u,
+                       typename Grid::template Field<float, 1>& u_out,
+                       std::string name) -> carbon::Kernel {
+  using Span = typename Grid::Span;
+  using Idx = typename Grid::Idx;
+  return carbon::Kernel::compute(
+      grid,
+      [&u, &u_out](carbon::KernelLoader& loader) {
+        const auto u_p = loader.read(u);
+        auto out_p = loader.write(u_out);
+        return [u_p, out_p] CARBON_HOST_DEVICE(Span s, Idx idx) -> void {
+          out_p.write(s, idx, 0, static_cast<float>(u_p.read(s, idx, 0)));
+        };
+      },
+      std::move(name));
+}
+
+// Central-difference gradient of the solution (for the VTK vector field).
+// Dirichlet rows (zm or zp missing) -> zero vector: their u is the prescribed
+// boundary value, so an interior-difference there is not meaningful.
+template <typename Grid>
+[[nodiscard]] auto
+build_gradient(const Grid& grid,
+               typename Grid::template Field<double, 1>& u,
+               typename Grid::template Field<float, 3>& grad,
+               double inv2h,
+               std::string name) -> carbon::Kernel {
+  using Span = typename Grid::Span;
+  using Idx = typename Grid::Idx;
+  return carbon::Kernel::compute(
+      grid,
+      [&u, &grad, inv2h](carbon::KernelLoader& loader) {
+        const auto u_p = loader.read_stencil(u);
+        auto g_p = loader.write(grad);
+        return [u_p, g_p, inv2h] CARBON_HOST_DEVICE(Span s, Idx idx) -> void {
+          const auto zm = u_p.neighbour(s, idx, carbon::int8_3d{0, 0, -1}, 0);
+          const auto zp = u_p.neighbour(s, idx, carbon::int8_3d{0, 0, 1}, 0);
+          if (!zm.valid || !zp.valid) {
+            g_p.write(s, idx, 0, 0.0F);
+            g_p.write(s, idx, 1, 0.0F);
+            g_p.write(s, idx, 2, 0.0F);
+            return;
+          }
+          const auto xp = u_p.neighbour(s, idx, carbon::int8_3d{1, 0, 0}, 0);
+          const auto xm = u_p.neighbour(s, idx, carbon::int8_3d{-1, 0, 0}, 0);
+          const auto yp = u_p.neighbour(s, idx, carbon::int8_3d{0, 1, 0}, 0);
+          const auto ym = u_p.neighbour(s, idx, carbon::int8_3d{0, -1, 0}, 0);
+          const float gx = (xp.valid && xm.valid)
+                               ? static_cast<float>((xp.value - xm.value) * inv2h)
+                               : 0.0F;
+          const float gy = (yp.valid && ym.valid)
+                               ? static_cast<float>((yp.value - ym.value) * inv2h)
+                               : 0.0F;
+          const float gz = static_cast<float>((zp.value - zm.value) * inv2h);
+          g_p.write(s, idx, 0, gx);
+          g_p.write(s, idx, 1, gy);
+          g_p.write(s, idx, 2, gz);
+        };
+      },
+      std::move(name));
+}
+
 // ---- Solver ----
 
 template <typename Grid>
@@ -875,9 +951,74 @@ run_cg(Grid& grid,
     }
   }
 
+
+
+  // ---- Optional VTK dump ------------------------------------------------
+  // Same pattern as benchmarks/lbm_lid_driven_cavity: build a small
+  // Skeleton that materialises the solution (and a gradient) into
+  // HostDevice fields, download them, then write via carbon::io::write_vtk.
+  // Only carbon::Dense and carbon::DenseDistributed have a VTK writer;
+  // DenseDisg and Block are skipped with a warning (matching LBM).
+  if (!opts.vtk_path.empty()) {
+    if constexpr (std::is_same_v<Grid, carbon::Dense> ||
+                  std::is_same_v<Grid, carbon::DenseDistributed>) {
+      auto u_scalar =
+          grid.template newField<float, 1>(carbon::MemorySide::HostDevice, "u");
+      auto grad_field =
+          grid.template newField<float, 3>(carbon::MemorySide::HostDevice, "grad_u");
+
+      carbon::Skeleton vtk_sk(sys);
+      vtk_sk.add(build_solution_to_float(grid, u, u_scalar, "vtk_u"));
+      vtk_sk.add(build_gradient(grid, u, grad_field, /*inv2h=*/invh2 * 0.5,
+                                "vtk_grad"));
+      try {
+        vtk_sk.compile();
+        vtk_sk.run();
+        vtk_sk.wait();
+      } catch (const std::exception& e) {
+        CARBON_LOG_ERROR("cg_poisson_unified: VTK kernel failed: {}", e.what());
+        return EXIT_FAILURE;
+      }
+
+      carbon::Stream dl_stream = sys.stream();
+      try {
+        carbon::Transfer<float>(sys, u_scalar.gpu_buffers(),
+                                u_scalar.cpu_buffers())(dl_stream);
+        carbon::Transfer<float>(sys, grad_field.gpu_buffers(),
+                                grad_field.cpu_buffers())(dl_stream);
+        dl_stream.wait();
+      } catch (const std::exception& e) {
+        CARBON_LOG_ERROR("cg_poisson_unified: VTK download failed: {}", e.what());
+        return EXIT_FAILURE;
+      }
+
+      try {
+        carbon::io::write_vtk(opts.vtk_path, grid, u_scalar, grad_field);
+        // Master .vtm alongside the per-rank shards (no-op on single rank).
+        carbon::io::write_vtk_multiblock_index(opts.vtk_path, grid);
+      } catch (const std::exception& e) {
+        CARBON_LOG_ERROR("cg_poisson_unified: write_vtk('{}') failed: {}",
+                          opts.vtk_path, e.what());
+        return EXIT_FAILURE;
+      }
+      if (world_rank == 0) {
+        CARBON_LOG_INFO("cg_poisson_unified[{}]: wrote VTK (u + grad_u) to {}",
+                        grid_tag, opts.vtk_path);
+      }
+    } else {
+      if (world_rank == 0) {
+        CARBON_LOG_WARN(
+            "cg_poisson_unified[{}]: --vtk-out is only supported for --grid dense "
+            "and --grid dense_distributed (no VTK writer for {}); skipping dump.",
+            grid_tag, grid_tag);
+      }
+    }
+  }
+  // ---- end VTK dump -----------------------------------------------------
+
   if (iter == opts.max_iter && world_rank == 0) {
       CARBON_LOG_INFO("cg_poisson_unified[{}]: halted at max_iter={}, convergence status: {}", 
-                      grid_tag, opts.max_iter, is_true(converged));
+                      grid_tag, opts.max_iter, converged);
       return EXIT_SUCCESS;
   }
 
