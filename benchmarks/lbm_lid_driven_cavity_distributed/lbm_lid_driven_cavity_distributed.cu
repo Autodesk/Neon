@@ -139,6 +139,11 @@ struct Options {
   // the LBM iteration there is only one stencil node so they degenerate to
   // "standard" but are exposed here for symmetry with carbon::OverlapMode.
   std::string overlap = "none";
+  // Create the OCC halo stream with the greatest driver priority
+  // (carbon::Skeleton::Options::halo_stream_priority = High). The halo's gather /
+  // NCCL / scatter kernels and the Boundary half inherit it, so they get SMs ahead of
+  // the Internal half's pending blocks. Only meaningful with --overlap != none.
+  bool hp_halo = false;
   std::string export_dot_path = "";
   std::string export_dot_png_path = "";
   // Opt in to carbon::Skeleton CUDA-graph capture + replay of each ping-pong
@@ -206,6 +211,11 @@ build_cli(Options& opts) -> clipp::group {
           "node into Internal + Boundary so the halo overlaps with Internal on "
           "a second stream — improves multi-GPU significantly on PCIe-only "
           "hosts where halo otherwise blocks compute.",
+      option("--hp-halo").set(opts.hp_halo) %
+          "Create the OCC halo stream with the highest driver priority (Skeleton "
+          "Options::halo_stream_priority = High) so the halo gather / NCCL / scatter and "
+          "Boundary kernels get SMs before Internal's pending blocks. Only meaningful with "
+          "--overlap != none.",
       (option("--export-dot") & value("path", opts.export_dot_path)) %
           "Write the compiled Skeleton schedule graph (GraphViz .dot) for the "
           "AB ping-pong skeleton to PATH after compile.",
@@ -630,10 +640,12 @@ run_benchmark(const Options& opts,
     }
   };
 
-  const carbon::Skeleton::Options sk_opts(overlap_mode_from_string(opts.overlap),
-                                          /*strict_halo=*/false, /*max_streams=*/0U,
-                                          /*log_dot_on_compile=*/false,
-                                          /*use_cuda_graph=*/opts.cuda_graph);
+  const carbon::Skeleton::Options sk_opts(
+      overlap_mode_from_string(opts.overlap),
+      /*strict_halo=*/false, /*max_streams=*/0U,
+      /*log_dot_on_compile=*/false,
+      /*use_cuda_graph=*/opts.cuda_graph,
+      opts.hp_halo ? carbon::StreamPriority::High : carbon::StreamPriority::Normal);
   carbon::Skeleton sk_ab(sys, sk_opts);
   sk_ab.add(build_iter(pop_a, pop_b, "lbm_step_ab"));
   carbon::Skeleton sk_ba(sys, sk_opts);
@@ -647,8 +659,9 @@ run_benchmark(const Options& opts,
   }
   CARBON_LOG_INFO(
       "lbm_lid_driven_cavity: skeletons compiled — sk_ab.effective_kernels={} "
-      "sk_ba.effective_kernels={} (auto-halos included)",
-      sk_ab.effective_kernels().size(), sk_ba.effective_kernels().size());
+      "sk_ba.effective_kernels={} (auto-halos included) streams={} overlap={} hp_halo={}",
+      sk_ab.effective_kernels().size(), sk_ba.effective_kernels().size(), sk_ab.num_streams(),
+      opts.overlap, opts.hp_halo);
 
   if (!opts.export_dot_path.empty()) {
     if (!sk_ab.export_dot_file(opts.export_dot_path, "lbm_sk_ab")) {
@@ -922,6 +935,7 @@ run_benchmark(const Options& opts,
     out << "    \"omega\": " << omega << ",\n";
     out << "    \"no_warmup_skip\": " << (opts.no_warmup_skip ? "true" : "false") << ",\n";
     out << "    \"overlap\": \"" << json_escape(opts.overlap) << "\",\n";
+    out << "    \"hp_halo\": " << (opts.hp_halo ? "true" : "false") << ",\n";
     out << "    \"cuda_graph\": " << (opts.cuda_graph ? "true" : "false") << ",\n";
     out << "    \"label\": \"" << json_escape(opts.label) << "\"\n";
     out << "  },\n";
