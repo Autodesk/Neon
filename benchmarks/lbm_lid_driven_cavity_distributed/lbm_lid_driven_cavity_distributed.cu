@@ -711,8 +711,9 @@ run_benchmark(const Options& opts,
       }
       const auto now = Clock::now();
       const double elapsed_overall = Seconds(now - overall_started).count();
-      CARBON_LOG_INFO("lbm_lid_driven_cavity: iter {}/{} elapsed={:.3f}s", it + 1, opts.iters,
-                      elapsed_overall);
+      if (world_rank == 0) { 
+        CARBON_LOG_INFO("lbm_lid_driven_cavity: iter {}/{} elapsed={:.3f}s", it + 1, opts.iters,elapsed_overall);
+      }
     }
     CARBON_HALO_NVTX_POP();
 
