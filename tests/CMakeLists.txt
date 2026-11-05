@@ -140,6 +140,7 @@ carbon_add_unit_test(logging)
 carbon_add_unit_test(gpu)
 carbon_add_unit_test(gpu_group_all_devices)
 carbon_add_unit_test(data_view)
+carbon_add_unit_test(process_grid)
 carbon_add_unit_test(dense)
 carbon_add_unit_test(dense_disg)
 carbon_add_unit_test(block_static)
@@ -152,6 +153,10 @@ carbon_add_unit_test(stencil)
 carbon_add_unit_test(system_default_stream)
 carbon_add_unit_test(transfer)
 carbon_add_unit_test(halo_coalesce)
+# DenseDistributed (slab / pencil / brick), host half: decomposition geometry for every rank,
+# Span views and neighbour resolution (open + periodic), and the packed X->Y->Z halo exchange on an
+# emulated multi-rank world. No GPU and no MPI, so it stays on the cpu lane.
+carbon_add_unit_test(dense_distributed_host)
 # Environment gate for the needs_multi_device class — see tests/test_multi_gpu_gate.cpp.
 # Labelled cpu because it only reads the device count (never launches), so it runs on
 # every lane and reports honestly on each.
@@ -442,6 +447,11 @@ if(CARBON_ENABLE_MPI AND MPI_FOUND)
   carbon_add_mpi_cuda_test(dense_dist 2)
   carbon_add_mpi_cuda_test(halo_dist 2)
   carbon_add_mpi_cuda_test(halo_dist_periodic_z 2)
+  # DenseDistributed (slab / pencil / brick), device half: the real HaloDistributed exchange and a
+  # Skeleton stencil kernel on 4 ranks (one GPU each). Covers slab (1,1,4), pencil (1,2,2) and the
+  # pairwise bricks (2,2,1) / (2,1,2), open and periodic, single- and multi-component. Launched
+  # with 8 ranks it additionally covers the full brick (2,2,2); it self-skips for other sizes.
+  carbon_add_mpi_cuda_test(dense_distributed_dist 4)
   carbon_add_mpi_cuda_test(halo_block_dist 2)
   # Host-side cross-rank HaloBlock::launch_on_host (MPI_Isend/Irecv via run_host).
   carbon_add_mpi_cuda_test(halo_block_host_dist 2)

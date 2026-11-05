@@ -46,11 +46,13 @@
 #include <carbon/data_view.h>
 #include <carbon/dense.h>
 #include <carbon/dense_disg.h>
+#include <carbon/dense_distributed.h>
 #include <carbon/detail/kernel_impl.h>
 #include <carbon/detail/nvtx_scope.h>
 #include <carbon/halo.h>
 #include <carbon/halo_block.h>
 #include <carbon/halo_disg.h>
+#include <carbon/halo_distributed.h>
 #include <carbon/logging.h>
 #include <carbon/mgrid.h>
 #include <carbon/reduce.h>
@@ -310,7 +312,8 @@ struct KernelLoader {
   /**
    * @brief Stencil read with explicit halo semantic — same as @ref read_stencil but
    *        the auto-inserted halo uses @p stencil and @p semantic (e.g.
-   *        @c StencilSemantic::Lattice for LBM populations). Mirrors Neon's
+   *        @c StencilSemantic::Lattice for LBM populations; use @c LatticeDistributed on
+   *        multi-axis decompositions). Mirrors Neon's
    *        @c Loader::load(field, Pattern::STENCIL, stencilSemantic) .
    *
    * @p stencil must be index-aligned with the field's @c Components when
@@ -671,6 +674,19 @@ public:
             std::string name = {}) -> Kernel;
 
   /**
+   * @brief Wrap a @c HaloDistributed<T, Components> into a @c Kernel . The multi-axis
+   *        (slab / pencil / brick) twin of @ref halo above: forwards @ref launch to the halo's
+   *        @c operator()(stream) ; the @c DataView argument is ignored. Used by
+   *        @c DenseDistributed::Field::make_halo_kernel .
+   */
+  template <typename T,
+            int Components>
+  [[nodiscard]] static auto
+  halo_distributed(HaloDistributed<T,
+                                   Components> h,
+                   std::string name = {}) -> Kernel;
+
+  /**
    * @brief Build a dual-target (universal) compute kernel.
    *
    * The same loading lambda compiles into BOTH a device launch path (CUDA / SYCL) and a
@@ -831,6 +847,7 @@ private:
 #include <carbon/detail/dense_host_kernel_impl.h>
 #include <carbon/detail/dense_kernel_impl.h>
 #include <carbon/detail/halo_disg_kernel_impl.h>
+#include <carbon/detail/halo_distributed_kernel_impl.h>
 #include <carbon/detail/halo_kernel_impl.h>
 #include <carbon/detail/reduce_host_kernel_impl.h>
 #include <carbon/detail/reduce_kernel_impl.h>
@@ -927,6 +944,16 @@ Kernel::halo_disg(HaloDisg<T,
   return Kernel(std::make_shared<Impl>(std::move(h), std::move(name)));
 }
 
+template <typename T,
+          int Components>
+auto
+Kernel::halo_distributed(HaloDistributed<T,
+                                         Components> h,
+                         std::string name) -> Kernel {
+  using Impl = detail::HaloDistributedKernelImpl<T, Components>;
+  return Kernel(std::make_shared<Impl>(std::move(h), std::move(name)));
+}
+
 inline auto
 Kernel::anchor(std::string name) -> Kernel {
   return Kernel(std::make_shared<detail::AnchorKernelImpl>(std::move(name)));
@@ -1012,6 +1039,7 @@ Kernel::host_reduce(const Grid& grid,
 #include <carbon/detail/kernel_block.inl>
 #include <carbon/detail/kernel_dense.inl>
 #include <carbon/detail/kernel_dense_disg.inl>
+#include <carbon/detail/kernel_dense_distributed.inl>
 #include <carbon/detail/kernel_mgrid.inl>
 
 // ----- HaloFactoryBase + TypedHaloFactory<FieldT> -----

@@ -23,12 +23,15 @@ device_count() noexcept -> int;
 }  // namespace carbon
 
 #include <carbon/boundary_mode.h>
+#include <carbon/boundary_mode_distributed.h>
 #include <carbon/checkpoint.h>
 #include <carbon/data_view.h>
 #include <carbon/dense.h>
+#include <carbon/dense_distributed.h>
 #include <carbon/devices.h>
 #include <carbon/floating3d.h>
 #include <carbon/halo.h>
+#include <carbon/halo_distributed.h>
 #include <carbon/integer3d.h>
 #include <carbon/kernel.h>
 #include <carbon/logging.h>
@@ -43,6 +46,8 @@ device_count() noexcept -> int;
 #include <carbon/stencil.h>
 #include <carbon/system.h>
 #include <carbon/transfer.h>
+
+#include <carbon/process_grid.h>
 
 #ifdef CARBON_HAVE_MPI_NCCL
 #include <carbon/dist_transfer.h>

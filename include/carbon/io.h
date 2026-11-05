@@ -2,8 +2,10 @@
 
 #include <carbon/dense.h>
 #include <carbon/dense_disg.h>
+#include <carbon/dense_distributed.h>
 #include <carbon/detail/dense/field.h>
 #include <carbon/detail/dense_disg/field.h>
+#include <carbon/detail/dense_distributed/field.h>
 #include <carbon/export.h>
 #include <carbon/logging.h>
 
@@ -11,7 +13,9 @@
 #include <cstdint>
 #include <fstream>
 #include <ios>
+#include <istream>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -29,7 +33,9 @@
  * @code
  *   carbon::io::write_native(path, grid, field_a, field_b, ...);
  *   carbon::io::read_native (path, grid, field_a, field_b, ...);
- *   // VTK / HDF5 / nanoVDB are Dense-only today.
+ *   // VTK / HDF5 / nanoVDB are Dense-only today, except VTK, which also accepts a
+ *   // DenseDistributed (slab / pencil / brick): write_vtk / read_vtk /
+ *   // write_vtk_multiblock_index overloads in detail/io_vtk_distributed.inl.
  * @endcode
  *
  * Both @c Dense and @c DenseDisg share the same on-disk file format: the file header
@@ -579,6 +585,7 @@ collect_field_views_mut(const Dense& dense,
 #include <carbon/detail/io_hdf5.inl>
 #include <carbon/detail/io_nanovdb.inl>
 #include <carbon/detail/io_vtk.inl>
+#include <carbon/detail/io_vtk_distributed.inl>
 
 namespace detail {
 

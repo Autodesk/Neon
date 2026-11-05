@@ -280,13 +280,16 @@ add_library(carbon SHARED
   src/data_view.cpp
   src/dense.cpp
   src/dense_disg.cpp
+  src/dense_distributed.cpp
   src/dense_launch_shape.cpp
   src/dist_reduce.cpp
   src/dist_render.cpp
   src/io.cpp
   src/io_vtk.cpp
+  src/io_vtk_distributed.cpp
   src/logging.cpp
   src/memory_side.cpp
+  src/process_grid.cpp
   src/report.cpp
   src/skeleton.cpp
   src/stencil.cpp
@@ -297,6 +300,7 @@ target_link_libraries(carbon PUBLIC spdlog::spdlog rapidjson OpenMP::OpenMP_CXX)
 if(CARBON_BACKEND STREQUAL "Cuda")
   target_sources(carbon PRIVATE
     src/cuda_stub.cu
+    src/halo_pack.cu
     src/gpu.cpp)
   target_link_libraries(carbon PUBLIC CUDA::cudart)
   target_compile_definitions(carbon PUBLIC CARBON_HAVE_NVTX=1)
@@ -320,11 +324,12 @@ if(CARBON_BACKEND STREQUAL "Cuda")
 elseif(CARBON_BACKEND STREQUAL "Hip")
   target_sources(carbon PRIVATE
     src/hip_stub.cu
+    src/halo_pack.cu
     src/gpu_hip.cpp)
   # The .cu stub is HIP device code; tell CMake to feed it to the HIP compiler (the .cu
   # suffix would otherwise be treated as CUDA). The .cpp host source stays on the C++
   # compiler. Consumer .cu TUs do the same via set_source_files_properties in tests/.
-  set_source_files_properties(src/hip_stub.cu PROPERTIES LANGUAGE HIP)
+  set_source_files_properties(src/hip_stub.cu src/halo_pack.cu PROPERTIES LANGUAGE HIP)
   if(CARBON_HIP_NVCC)
     # HIP-on-NVIDIA (nvcc backs the HIP language). The HIP runtime is a thin shim over
     # CUDA, so host .cpp TUs that include <hip/hip_runtime.h> pull in <cuda_runtime.h> and
@@ -394,11 +399,14 @@ elseif(CARBON_BACKEND STREQUAL "Sycl")
     src/data_view.cpp
     src/dense.cpp
     src/dense_disg.cpp
+    src/dense_distributed.cpp
     src/dist_reduce.cpp
     src/io.cpp
     src/io_vtk.cpp
+    src/io_vtk_distributed.cpp
     src/logging.cpp
     src/memory_side.cpp
+    src/process_grid.cpp
     src/report.cpp
     src/skeleton.cpp
     src/stencil.cpp

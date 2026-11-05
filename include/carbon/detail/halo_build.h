@@ -68,19 +68,21 @@ namespace carbon::detail::halo_build {
 /**
  * Phase 1 (semantic): reject unrecognised @c StencilSemantic values.
  *
- * Both halo families accept @c Standard and @c Lattice ; any other
- * enum value indicates a memory-corruption-style misuse and gets a
- * pointed diagnostic. @p family_tag is prepended to the log message
- * so the user sees @c "Halo:" or @c "HaloDisg:" depending on the
- * caller — same shape as the original inline checks.
+ * Both halo families accept @c Standard , @c Lattice , and
+ * @c LatticeDistributed ; any other enum value indicates a
+ * memory-corruption-style misuse and gets a pointed diagnostic.
+ * @p family_tag is prepended to the log message so the user sees
+ * @c "Halo:" or @c "HaloDisg:" depending on the caller — same shape as
+ * the original inline checks.
  *
- * @throws std::invalid_argument when @p semantic is neither
- *         @c Standard nor @c Lattice .
+ * @throws std::invalid_argument when @p semantic is not one of the three
+ *         supported values.
  */
 inline auto
 validate_stencil_semantic(StencilSemantic semantic,
                           const char* family_tag) -> void {
-  if (semantic != StencilSemantic::Standard && semantic != StencilSemantic::Lattice) {
+  if (semantic != StencilSemantic::Standard && semantic != StencilSemantic::Lattice &&
+      semantic != StencilSemantic::LatticeDistributed) {
     log::throw_with_log<std::invalid_argument>("{}: unrecognised StencilSemantic (got {})",
                                                family_tag, static_cast<int>(semantic));
   }
