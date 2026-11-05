@@ -10,6 +10,7 @@
 namespace carbon {
 namespace detail {
 
+/*
 [[nodiscard]] CARBON_HD constexpr auto
 ray_inf() noexcept -> float {
 #ifdef __CUDA_ARCH__
@@ -20,6 +21,19 @@ ray_inf() noexcept -> float {
   return std::numeric_limits<float>::infinity();
 #endif
 }
+*/
+
+[[nodiscard]] CARBON_HD constexpr auto
+ray_inf() noexcept -> float {
+#ifdef __CUDA_ARCH__
+  return __int_as_float(0x7f800000);
+#elif defined(__HIP_DEVICE_COMPILE__)
+  return std::numeric_limits<float>::infinity();
+#else
+  return std::numeric_limits<float>::infinity();
+#endif
+}
+
 
 struct RayMarchSegment {
   float color_r{0.0F};
