@@ -1080,12 +1080,12 @@ write_vti_box_header(std::ostream& out,
   out << "<?xml version=\"1.0\"?>\n";
   out << "<VTKFile type=\"ImageData\" version=\"1.0\" byte_order=\"LittleEndian\" "
          "header_type=\"UInt64\">\n";
-  out << "  <ImageData WholeExtent=\"0 " << (empty ? 0 : nx - 1) << " 0 "
-      << (empty ? 0 : ny - 1) << " 0 " << (empty ? 0 : nz - 1) << "\" Origin=\""
+  out << "  <ImageData WholeExtent=\"0 " << (empty ? -1 : nx - 1) << " 0 "
+      << (empty ? -1 : ny - 1) << " 0 " << (empty ? -1 : nz - 1) << "\" Origin=\""
       << box.origin[0] << ' ' << box.origin[1] << ' ' << box.origin[2]
       << "\" Spacing=\"1 1 1\">\n";
-  out << "    <Piece Extent=\"0 " << (empty ? 0 : nx - 1) << " 0 " << (empty ? 0 : ny - 1)
-      << " 0 " << (empty ? 0 : nz - 1) << "\">\n";
+  out << "    <Piece Extent=\"0 " << (empty ? -1 : nx - 1) << " 0 " << (empty ? -1 : ny - 1)
+      << " 0 " << (empty ? -1 : nz - 1) << "\">\n";
   out << "      <PointData>\n";
   if (!out.good()) {
     log::throw_with_log<std::runtime_error>("io::write_vtk: failed to write the shard header");
@@ -1229,16 +1229,14 @@ parse_vti_box_header(std::istream& in,
   }
 
   const bool want_empty = expected.empty();
-  if (!want_empty) {
-    if (whole[0] != 0 || whole[1] != expected.dims[0] - 1 || whole[2] != 0 ||
-        whole[3] != expected.dims[1] - 1 || whole[4] != 0 ||
-        whole[5] != expected.dims[2] - 1) {
-      log::throw_with_log<std::invalid_argument>(
-          "io::read_vtk: '{}' WholeExtent ({}, {}, {}, {}, {}, {}) does not match this rank's "
-          "owned box ({}, {}, {})",
-          path, whole[0], whole[1], whole[2], whole[3], whole[4], whole[5], expected.dims[0],
-          expected.dims[1], expected.dims[2]);
-    }
+  if (whole[0] != 0 || whole[1] != (want_empty ? -1 : expected.dims[0] - 1) || whole[2] != 0 ||
+      whole[3] != (want_empty ? -1 : expected.dims[1] - 1) || whole[4] != 0 ||
+      whole[5] != (want_empty ? -1 : expected.dims[2] - 1)) {
+    log::throw_with_log<std::invalid_argument>(
+        "io::read_vtk: '{}' WholeExtent ({}, {}, {}, {}, {}, {}) does not match this rank's "
+        "owned box ({}, {}, {})",
+        path, whole[0], whole[1], whole[2], whole[3], whole[4], whole[5], expected.dims[0],
+        expected.dims[1], expected.dims[2]);
   }
   if (origin[0] != expected.origin[0] || origin[1] != expected.origin[1] ||
       origin[2] != expected.origin[2]) {

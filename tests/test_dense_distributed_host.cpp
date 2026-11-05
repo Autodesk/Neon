@@ -14,7 +14,8 @@
 // Part C  correctness of the full X -> Y -> Z staged halo exchange on an emulated multi-rank world
 //         (corners/edges, periodic wraps, uneven splits, self-wrap), driven by the production
 //         plan builder and checked against the run-based builder (kept as the oracle) and against
-//         ground truth.
+//         ground truth. Also covers `LatticeDistributed` face-interior halo components in both
+//         directions, so the brick/pencil wall-bounce-back fix is exercised without GPUs.
 //
 // What it does NOT cover: stream ordering, NCCL/MPI transport and real kernel launches. That is the
 // job of the dense_distributed_dist test, which runs the real exchange on GPUs.
@@ -122,13 +123,15 @@ struct Rank {
   std::vector<uint64_t> stage;
 };
 
+enum class Semantic { Standard, Lattice, LatticeDistributed };
+
 struct World {
   ProcessGrid pg = ProcessGrid::custom(1, 1, 1, 1);
   BoundaryModeDistributed bm{BoundaryModeDistributed::Open};
   int64_3d global{};
   int64_3d halo{};
   int comps{1};
-  bool lat{false};
+  Semantic semantic{Semantic::Standard};
   std::vector<Vel> vel;
   std::vector<Rank> ranks;
 
@@ -136,10 +139,13 @@ struct World {
   active_send(int c,
               Axis axis,
               AxisSide side) const -> bool {
-    if (!lat) {
+    if (semantic == Semantic::Standard) {
       return true;
     }
     const int v = axis_of(vel[static_cast<size_t>(c)], axis);
+    if (semantic == Semantic::LatticeDistributed) {
+      return v != 0;
+    }
     return side == AxisSide::Upper ? v > 0 : v < 0;
   }
 
@@ -147,10 +153,13 @@ struct World {
   active_recv(int c,
               Axis axis,
               AxisSide side) const -> bool {
-    if (!lat) {
+    if (semantic == Semantic::Standard) {
       return true;
     }
     const int v = axis_of(vel[static_cast<size_t>(c)], axis);
+    if (semantic == Semantic::LatticeDistributed) {
+      return v != 0;
+    }
     return side == AxisSide::Upper ? v < 0 : v > 0;
   }
 };
@@ -190,15 +199,18 @@ make_world(const ProcessGrid& pg,
            int64_3d halo,
            int comps,
            int lattice_q,
+           bool lattice_distributed,
            int64_t pitch_pad) -> World {
   World w;
   w.pg = pg;
   w.bm = bm;
   w.global = global;
   w.halo = halo;
-  w.lat = lattice_q != 0;
+  w.semantic = lattice_q == 0
+                   ? Semantic::Standard
+                   : (lattice_distributed ? Semantic::LatticeDistributed : Semantic::Lattice);
   w.vel = lattice(lattice_q);
-  w.comps = w.lat ? static_cast<int>(w.vel.size()) : comps;
+  w.comps = w.semantic == Semantic::Standard ? comps : static_cast<int>(w.vel.size());
   const int64_3d hh = dd::halo_extent(pg, bm, stencil_from_halo(halo));
   for (int32_t r = 0; r < pg.world_size(); ++r) {
     Rank rk;
@@ -386,7 +398,7 @@ needed(const World& w,
        int64_t lx,
        int64_t ly,
        int64_t lz) -> bool {
-  if (!w.lat) {
+  if (w.semantic == Semantic::Standard) {
     return true;
   }
   const Vel& v = w.vel[static_cast<size_t>(c)];
@@ -449,6 +461,56 @@ verify(const World& w,
             CHECK(got == encode(gw[0], gw[1], gw[2], c));
             if (other != nullptr) {
               CHECK(other->ranks[i].buf[idx] == got);  // packed == run-based, bit for bit
+            }
+            ++checked;
+          }
+        }
+      }
+    }
+  }
+  return checked;
+}
+
+// For LatticeDistributed, face-interior halo cells must carry every component whose velocity is
+// nonzero on that face, and must leave zero-normal components untouched. Corners are skipped:
+// several face passes may write them, so their source is not unique.
+auto
+verify_lattice_distributed_faces(const World& w) -> size_t {
+  size_t checked = 0;
+  for (size_t i = 0; i < w.ranks.size(); ++i) {
+    const Rank& rk = w.ranks[i];
+    for (int c = 0; c < w.comps; ++c) {
+      for (int64_t z = 0; z < rk.g.haloed.z; ++z) {
+        for (int64_t y = 0; y < rk.g.haloed.y; ++y) {
+          for (int64_t x = 0; x < rk.g.haloed.x; ++x) {
+            const bool owned = x >= rk.g.halo.x && x < rk.g.halo.x + rk.g.owned.x &&
+                               y >= rk.g.halo.y && y < rk.g.halo.y + rk.g.owned.y &&
+                               z >= rk.g.halo.z && z < rk.g.halo.z + rk.g.owned.z;
+            if (owned) {
+              continue;
+            }
+            const bool halo_x = x < rk.g.halo.x || x >= rk.g.halo.x + rk.g.owned.x;
+            const bool halo_y = y < rk.g.halo.y || y >= rk.g.halo.y + rk.g.owned.y;
+            const bool halo_z = z < rk.g.halo.z || z >= rk.g.halo.z + rk.g.owned.z;
+            if (static_cast<int>(halo_x) + static_cast<int>(halo_y) + static_cast<int>(halo_z) != 1) {
+              continue;
+            }
+            const Axis axis = halo_x ? Axis::X : (halo_y ? Axis::Y : Axis::Z);
+            const size_t idx = static_cast<size_t>(c * rk.comp_stride + z * rk.g.pitch +
+                                                   y * rk.g.haloed.x + x);
+            const uint64_t marker =
+                kMarker ^ (static_cast<uint64_t>(i + 1) << 40) ^ static_cast<uint64_t>(idx);
+            std::array<int64_t, 3> gw{};
+            const bool valid =
+                wrap_global(w, rk.offset.x + x - rk.g.halo.x, rk.offset.y + y - rk.g.halo.y,
+                            rk.offset.z + z - rk.g.halo.z, gw);
+            const uint64_t got = rk.buf[idx];
+            if (!valid) {
+              CHECK(got == marker);
+            } else if (axis_of(w.vel[static_cast<size_t>(c)], axis) != 0) {
+              CHECK(got == encode(gw[0], gw[1], gw[2], c));
+            } else {
+              CHECK(got == marker);
             }
             ++checked;
           }
@@ -1129,6 +1191,7 @@ struct Scenario {
   int comps;
   int lattice_q;
   int64_t pad;
+  bool lattice_distributed = false;
 };
 
 constexpr BoundaryModeDistributed kOpen = BoundaryModeDistributed::Open;
@@ -1149,10 +1212,12 @@ run_scenario(const Scenario& s,
              size_t& z_msgs) -> void {
   g_ctx = std::string(s.name) + " grid=" + std::to_string(s.px) + "x" + std::to_string(s.py) + "x" +
           std::to_string(s.pz) + " bm=" + std::to_string(static_cast<int>(s.bm)) +
-          " lat=" + std::to_string(s.lattice_q) + " pad=" + std::to_string(s.pad);
+          " lat=" + std::to_string(s.lattice_q) +
+          " semantic=" + (s.lattice_distributed ? "lattice-distributed" : "lattice-or-standard") +
+          " pad=" + std::to_string(s.pad);
   const ProcessGrid pg = ProcessGrid::custom(s.px * s.py * s.pz, s.px, s.py, s.pz);
-  World packed =
-      make_world(pg, s.bm, {s.gx, s.gy, s.gz}, {s.hx, s.hy, s.hz}, s.comps, s.lattice_q, s.pad);
+  World packed = make_world(pg, s.bm, {s.gx, s.gy, s.gz}, {s.hx, s.hy, s.hz}, s.comps,
+                            s.lattice_q, s.lattice_distributed, s.pad);
   World oracle = packed;  // identical start state
 
   // Old path: run-based X, Y, Z.
@@ -1181,6 +1246,12 @@ run_scenario(const Scenario& s,
              false);  // oracle: right on needed cells (it clobbers exterior halos, by design)...
   total_checked +=
       verify(packed, &oracle, true, pack_z);  // ...and the packed result must match it bit for bit
+  if (packed.semantic == Semantic::LatticeDistributed) {
+    const size_t face_checked = verify_lattice_distributed_faces(oracle) +
+                                verify_lattice_distributed_faces(packed);
+    CHECK(face_checked > 0U);
+    total_checked += face_checked;
+  }
 }
 
 }  // namespace
@@ -1228,6 +1299,8 @@ main() {
       // Lattice direction filtering (per-axis send/recv component lists).
       sc.push_back({"d3q19", g.x, g.y, g.z, bm, 11, 9, 10, 1, 1, 1, 0, 19, 0});
       sc.push_back({"d3q27", g.x, g.y, g.z, bm, 11, 9, 10, 1, 1, 1, 0, 27, 5});
+      sc.push_back({"d3q19-dist", g.x, g.y, g.z, bm, 11, 9, 10, 1, 1, 1, 0, 19, 0, true});
+      sc.push_back({"d3q27-dist-pad", g.x, g.y, g.z, bm, 11, 9, 10, 1, 1, 1, 0, 27, 5, true});
     }
   }
 

@@ -23,9 +23,9 @@
 // followed by the little-endian component-fastest payload (x fastest, then y, then z). The
 // base64 is written as one line: VTK's inline reader mishandles wrapped blocks once the payload
 // grows past a few MiB. Inline binary avoids the VTK 9.2 XML parser's raw-appended-data buffer
-// limit while remaining a normal VTK XML file. A rank
-// that owns no cells writes a valid empty shard; the `.vtm` index lists only the non-empty
-// shards.
+// limit while remaining a normal VTK XML file. A rank that owns no cells writes a valid empty
+// shard (`WholeExtent` / `Piece Extent` are `0 -1` on every axis); the `.vtm` index lists only
+// the non-empty shards.
 //
 // Index space (Spacing 1, Origin in cells) is deliberate: it is what the Dense writer/reader use,
 // costs nothing extra to write, and keeps shards of both grid families interchangeable in

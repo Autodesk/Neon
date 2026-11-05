@@ -6165,4 +6165,8 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   legacy stream-level helpers stay for the host tests. Inline binary is used because
   VTK 9.2's XML parser rejects raw appended blocks above its small line buffer. The
   base64 is emitted as one line: VTK's inline reader truncates large line-wrapped
-  blocks. The old experimental `io_vtk_distributed_wrong.cpp` was removed.
+  blocks. Empty shards use `0 -1` extents so VTK reads them as zero-point images.
+  `dense_distributed_host` now also drives the staged X -> Y -> Z planner with
+  `LatticeDistributed` on emulated slab / pencil / brick worlds and checks face-interior
+  halo components in both directions. The old experimental
+  `io_vtk_distributed_wrong.cpp` was removed.
