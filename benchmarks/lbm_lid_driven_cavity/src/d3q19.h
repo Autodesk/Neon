@@ -102,19 +102,20 @@ struct D3Q19 {
   }
 
   // Lattice weights w_q. Standard D3Q19: 1/3 (center), 1/18 (axial),
-  // 1/36 (face-diagonal). Returned as float so the BGK arithmetic stays on a
-  // single precision and does not promote.
+  // 1/36 (face-diagonal). Computed in the caller's precision (Real) so the
+  // BGK arithmetic neither promotes (float) nor truncates the weights (double).
   //
   // Axial = exactly one component nonzero; face-diagonal = exactly two
   // nonzero components (D3Q19 has no corner / 3-component directions).
+  template <typename Real = float>
   [[nodiscard]] CARBON_HD static constexpr auto
-  w(int q) noexcept -> float {
+  w(int q) noexcept -> Real {
     if (q == kCenter) {
-      return 1.0F / 3.0F;
+      return Real(1) / Real(3);
     }
     const auto cq = c(q);
     const int nz = (cq.x != 0 ? 1 : 0) + (cq.y != 0 ? 1 : 0) + (cq.z != 0 ? 1 : 0);
-    return (nz == 1) ? (1.0F / 18.0F) : (1.0F / 36.0F);
+    return (nz == 1) ? (Real(1) / Real(18)) : (Real(1) / Real(36));
   }
 
   // KBC is not supported on D3Q19 in this benchmark — the standard KBC

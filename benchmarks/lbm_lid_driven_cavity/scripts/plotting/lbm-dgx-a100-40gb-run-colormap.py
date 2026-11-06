@@ -31,7 +31,7 @@ family reports are drawn as neutral grey.
 
 Example::
 
-    python3 benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-a100-40gb-run-colormap.py
+    python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/lbm-dgx-a100-40gb-run-colormap.py
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ SCHEMA = "carbon-lbm-report-v1"
 PREFIX = "lbm-dgx-a100-40gb"
 
 HERE = Path(__file__).resolve().parent
-ROOT_DIR = HERE.parent / "data" / PREFIX
+ROOT_DIR = HERE.parents[1] / "data" / PREFIX
 DEFAULT_INPUT = ROOT_DIR / "json"
 DEFAULT_OUTPUT = ROOT_DIR / f"{PREFIX}-run-colormap.png"
 

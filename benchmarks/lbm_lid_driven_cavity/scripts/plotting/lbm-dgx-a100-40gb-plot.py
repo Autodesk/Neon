@@ -10,7 +10,7 @@ Peeraccess-vs-NCCL figure into ``data/lbm-dgx-a100-40gb/lbm-dgx-a100-40gb.png``
 Call the two back to back::
 
     ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-a100-40gb-run.sh
-    python3 benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-a100-40gb-plot.py
+    python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/lbm-dgx-a100-40gb-plot.py
 
 The actual plotting is delegated to ``plot_neon_fig7.py`` (same directory) so
 there is a single source of truth for the efficiency normalisation and axis
@@ -26,7 +26,7 @@ from pathlib import Path
 
 PREFIX = "lbm-dgx-a100-40gb"
 HERE = Path(__file__).resolve().parent
-ROOT_DIR = HERE.parent / "data" / PREFIX
+ROOT_DIR = HERE.parents[1] / "data" / PREFIX
 DATA_DIR = ROOT_DIR / "json"
 DEFAULT_OUT = ROOT_DIR / f"{PREFIX}.png"
 

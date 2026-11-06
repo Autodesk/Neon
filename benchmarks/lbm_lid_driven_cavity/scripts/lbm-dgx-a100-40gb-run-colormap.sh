@@ -10,7 +10,7 @@
 #   disg-mpi     (DenseDisg   grid, NCCL)
 #
 # This is the data producer for the discrete "best-family" colormap rendered
-# by lbm-dgx-a100-40gb-run-colormap.py.  The JSON reports use the *shared*
+# by plotting/lbm-dgx-a100-40gb-run-colormap.py.  The JSON reports use the *shared*
 # lbm-dgx-a100-40gb naming/format (identical to lbm-dgx-a100-40gb-run.sh) and
 # land in the same data/lbm-dgx-a100-40gb/json/ folder, so the g8 reports the
 # Fig.7 sweep already produced are reused as-is and only the missing GPU-count
@@ -18,7 +18,7 @@
 # JSON is skipped unless FORCE=1.
 #
 #   ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-a100-40gb-run-colormap.sh
-#   python3 benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-a100-40gb-run-colormap.py
+#   python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/lbm-dgx-a100-40gb-run-colormap.py
 #
 # N=640+ is excluded: the Q=19 ping-pong fields do not fit a single 40 GB A100
 # (OOM at N=640; N=608 is the largest size that fits on one GPU).
@@ -177,4 +177,4 @@ docker_run "${IMAGE_INTRA}" "chmod -R a+rw /src/${rel_data}"
 echo
 echo "==> done. JSON reports in ${rel_data}/ (prefix ${PREFIX}-*.json)"
 echo "    now render ${rel_root}/${PREFIX}-run-colormap.png with:"
-echo "      python3 benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-a100-40gb-run-colormap.py"
+echo "      python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/lbm-dgx-a100-40gb-run-colormap.py"

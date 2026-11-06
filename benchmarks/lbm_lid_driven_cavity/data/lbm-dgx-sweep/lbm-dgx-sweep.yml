@@ -1,0 +1,79 @@
+# Frozen copy of the sweep configuration that produced the reports in json/
+# and the PNGs in this folder (8x A100-SXM4-40GB, driver 535.161.08). Do not
+# edit it to run new sweeps; edit scripts/lbm-dgx-sweep.yml instead.
+#
+# Reproduce the runs and the plots with ./reproduce.sh (next to this file).
+#
+# Every key is optional; omitted keys use the script defaults, and an env var
+# of the same name in upper case (CONFIGS, SIZES, GPUS_LIST, ...) overrides
+# the file.
+
+# Lattice:collision pairs, each swept over everything below:
+#   q19:bgk  D3Q19 + BGK
+#   q27:bgk  D3Q27 + BGK
+#   q27:kbc  D3Q27 + KBC (KBC is only implemented for D3Q27)
+# e.g. configs: [q19:bgk, q27:bgk, q27:kbc]
+# Known limitation: q27:kbc with fp64 does not launch yet ("too many resources
+# requested for launch": the kernel needs more registers than the library's
+# 512-thread blocks allow); those runs are logged in failed-*.txt.
+configs: [q19:bgk]
+
+# Floating-point precision of the populations and the collision arithmetic:
+# fp32 and/or fp64. fp64 moves twice the bytes per lattice node, so expect
+# roughly half the MLUPS of fp32 and twice the memory. On a 40 GB A100 the
+# 1-GPU run at N=512 does not fit in fp64 (q19 or q27; N=448 does): it fails
+# out of memory, so that fp64 series has no efficiency baseline at N=512.
+# e.g. precisions: [fp32, fp64]
+precisions: [fp32]
+
+# Domain edge lengths N: a list, or an inclusive {start, stop, step} range.
+sizes: {start: 256, stop: 512, step: 64}
+# GPU counts. NCCL and MPI (P2P) are skipped at 1 GPU.
+gpus: {start: 1, stop: 8, step: 1}
+grids: [dense, disg]
+transports: [intra, mpi, mpip2p]
+
+# Timing: warmup untimed solver steps, then reps repetitions of
+# iters_per_rep solver steps, each timed separately.
+warmup: 400
+iters_per_rep: 1000
+reps: 5
+
+# CUDA compute capability the binaries are compiled for
+# (CMAKE_CUDA_ARCHITECTURES). auto detects it from the GPUs via nvidia-smi
+# (8.0 -> 80 on this A100 node, 9.0 -> 90 on H100). Set a number, or a list
+# like [80, 90], to build for other GPUs. Changing it needs a rebuild, so keep
+# skip_build: false for that run.
+sm_arch: auto
+
+# Docker image (built from docker/Dockerfile.cuda) that compiles both build
+# trees and does the Peeraccess (intra) runs.
+image_intra: carbon-cuda:local
+
+# Docker image for the NCCL and MPI (P2P) runs; it uses the build-mpi/ binary
+# compiled in image_intra. Its NCCL is pinned to match this host's driver:
+# with plain carbon-cuda:local, ncclCommInitRank fails on this DGX.
+image_mpi: carbon-cuda-nccl-pinned:local
+
+# Reports go to benchmarks/lbm_lid_driven_cavity/data/<prefix>/json/ as
+# <prefix>-<lattice>-<collision>-<precision>-<grid>-<transport>-n<N>-g<G>.json
+# (e.g. lbm-dgx-sweep-q27-kbc-fp64-dense-mpi-n384-g4.json). The plotters take
+# this file too (--config) and write one set of PNGs per series into
+# data/<prefix>/. Use a new prefix per sweep to keep results apart; it must be
+# a plain name (letters, digits, . _ -), as it is also the folder name.
+prefix: lbm-dgx-sweep
+
+# true reuses the existing build/ and build-mpi/ trees; false (re)configures
+# and builds both inside image_intra before running (incremental, so cheap
+# when nothing changed). Set false after changing the benchmark or library.
+skip_build: false
+
+# false skips every run whose report already exists, so an interrupted sweep
+# resumes where it stopped and extending sizes/gpus only does the new runs.
+# true redoes and overwrites every run.
+force: true
+
+# Seconds before a single run is killed (guards against NCCL/MPI hangs). The
+# run is logged in json/failed-{intra,mpi}.txt and the sweep continues.
+# The longest default run (N=512, 1 GPU) takes ~30 s of solver steps plus setup.
+run_timeout: 1800

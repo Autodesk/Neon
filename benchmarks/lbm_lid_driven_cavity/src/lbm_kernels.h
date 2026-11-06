@@ -8,10 +8,16 @@
 //   - static constexpr int kCenter
 //   - constexpr static auto c(int q)   -> ::carbon::int8_3d
 //   - constexpr static auto opp(int q) -> int
-//   - constexpr static auto w(int q)   -> float
+//   - template <typename Real> constexpr static auto w(int q) -> Real
 // and additionally, for KBC support:
 //   - struct Moment { int8_t v[6]; };  static constexpr auto moment(int q) -> Moment;
-//   - constexpr static auto shear_decompose(int q, const float Pi[6]) -> float
+//   - template <typename Real> constexpr static auto shear_decompose(int q, const Real Pi[6]) -> Real
+//
+// Every kernel is also templated on the floating-point type Real (float or
+// double) of the populations and of all per-cell arithmetic. The float
+// literals below (0.5F, 1.5F, 3.0F, 4.5F, 6.0F, ...) are exactly
+// representable, so they stay exact when promoted under Real = double; ratios
+// such as 1/18 are formed as Real(1) / Real(18) instead.
 //
 // Three carbon::Kernel factories live here, all templated on Lattice (and
 // CollisionPolicy for the iteration kernel):
@@ -64,9 +70,10 @@ namespace carbon::bench::lbm {
 // by KBC: beta = omega/2). Carried through both the iteration kernel and
 // the macroscopic-extraction kernel as a single value-typed struct so the
 // loading lambda only captures one POD.
+template <typename Real>
 struct LbmParameters {
-  float ulb;
-  float omega;
+  Real ulb;
+  Real omega;
 };
 
 // ---------------------------------------------------------------------------
@@ -78,22 +85,24 @@ struct LbmParameters {
 // expansion: f_q^eq = w_q * rho * (1 + 3 c.u + 4.5 (c.u)^2 - 1.5 |u|^2).
 // Lattice-agnostic — works for D3Q19, D3Q27, or any future Q.
 struct BgkCollision {
-  template <typename Lattice>
+  template <typename Lattice,
+            typename Real>
   CARBON_HD static auto
-  apply(float omega,
-        float rho,
-        float ux,
-        float uy,
-        float uz,
-        float pop[Lattice::Q]) noexcept -> void {
-    const float usqr = 1.5F * (ux * ux + uy * uy + uz * uz);
-    const float one_minus_omega = 1.0F - omega;
+  apply(Real omega,
+        Real rho,
+        Real ux,
+        Real uy,
+        Real uz,
+        Real pop[Lattice::Q]) noexcept -> void {
+    const Real usqr = 1.5F * (ux * ux + uy * uy + uz * uz);
+    const Real one_minus_omega = 1.0F - omega;
 #pragma unroll
     for (int q = 0; q < Lattice::Q; ++q) {
       const auto cq = Lattice::c(q);
-      const float cu = 3.0F * (static_cast<float>(cq.x) * ux + static_cast<float>(cq.y) * uy +
-                               static_cast<float>(cq.z) * uz);
-      const float feq = rho * Lattice::w(q) * (1.0F + cu + 0.5F * cu * cu - usqr);
+      const Real cu = 3.0F * (static_cast<Real>(cq.x) * ux + static_cast<Real>(cq.y) * uy +
+                              static_cast<Real>(cq.z) * uz);
+      const Real feq =
+          rho * Lattice::template w<Real>(q) * (1.0F + cu + 0.5F * cu * cu - usqr);
       pop[q] = one_minus_omega * pop[q] + omega * feq;
     }
   }
@@ -117,62 +126,63 @@ struct BgkCollision {
 // Lattice traits to expose @c moment(q) and @c shear_decompose — D3Q27
 // in this benchmark.
 struct KbcCollision {
-  template <typename Lattice>
+  template <typename Lattice,
+            typename Real>
   CARBON_HD static auto
-  apply(float omega,
-        float rho,
-        float ux,
-        float uy,
-        float uz,
-        float pop[Lattice::Q]) noexcept -> void {
+  apply(Real omega,
+        Real rho,
+        Real ux,
+        Real uy,
+        Real uz,
+        Real pop[Lattice::Q]) noexcept -> void {
     constexpr int Q = Lattice::Q;
-    const float beta = omega * 0.5F;
-    const float inv_beta = 1.0F / beta;
-    const float usqr = 1.5F * (ux * ux + uy * uy + uz * uz);
+    const Real beta = omega * 0.5F;
+    const Real inv_beta = 1.0F / beta;
+    const Real usqr = 1.5F * (ux * ux + uy * uy + uz * uz);
 
     // ---- equilibrium + non-equilibrium ----
-    float feq[Q];
-    float fneq[Q];
+    Real feq[Q];
+    Real fneq[Q];
 #pragma unroll
     for (int q = 0; q < Q; ++q) {
       const auto cq = Lattice::c(q);
-      const float cu = 3.0F * (static_cast<float>(cq.x) * ux + static_cast<float>(cq.y) * uy +
-                               static_cast<float>(cq.z) * uz);
-      feq[q] = rho * Lattice::w(q) * (1.0F + cu + 0.5F * cu * cu - usqr);
+      const Real cu = 3.0F * (static_cast<Real>(cq.x) * ux + static_cast<Real>(cq.y) * uy +
+                              static_cast<Real>(cq.z) * uz);
+      feq[q] = rho * Lattice::template w<Real>(q) * (1.0F + cu + 0.5F * cu * cu - usqr);
       fneq[q] = pop[q] - feq[q];
     }
 
     // ---- second-moment stress Pi[6] = sum_q fneq_q * Mq[i] ----
-    float Pi[6] = {0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F};
+    Real Pi[6] = {0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F};
 #pragma unroll
     for (int q = 0; q < Q; ++q) {
       const auto m = Lattice::moment(q);
 #pragma unroll
       for (int i = 0; i < 6; ++i) {
-        Pi[i] += fneq[q] * static_cast<float>(m.v[i]);
+        Pi[i] += fneq[q] * static_cast<Real>(m.v[i]);
       }
     }
 
     // ---- shear component deltaS_q + entropic ratio e0 / e1 ----
-    float deltaS[Q];
-    float e0 = 0.0F;
-    float e1 = 0.0F;
-    constexpr float tiny = 1.0e-7F;  // guards 1/feq when feq -> 0 (rare).
+    Real deltaS[Q];
+    Real e0 = 0.0F;
+    Real e1 = 0.0F;
+    constexpr Real tiny = static_cast<Real>(1.0e-7);  // guards 1/feq when feq -> 0 (rare).
 #pragma unroll
     for (int q = 0; q < Q; ++q) {
       deltaS[q] = rho * Lattice::shear_decompose(q, Pi);
-      const float deltaH = fneq[q] - deltaS[q];
+      const Real deltaH = fneq[q] - deltaS[q];
       // Entropic inner products <S, H>_feq and <H, H>_feq.
-      const float inv_feq = 1.0F / (feq[q] + tiny);
+      const Real inv_feq = 1.0F / (feq[q] + tiny);
       e0 += deltaS[q] * deltaH * inv_feq;
       e1 += deltaH * deltaH * inv_feq;
     }
 
     // ---- per-cell gamma + collision write-back ----
-    const float gamma = inv_beta - (2.0F - inv_beta) * e0 / (tiny + e1);
+    const Real gamma = inv_beta - (2.0F - inv_beta) * e0 / (tiny + e1);
 #pragma unroll
     for (int q = 0; q < Q; ++q) {
-      const float deltaH = fneq[q] - deltaS[q];
+      const Real deltaH = fneq[q] - deltaS[q];
       pop[q] = pop[q] - beta * (2.0F * deltaS[q] + gamma * deltaH);
     }
   }
@@ -285,16 +295,17 @@ pull_offset(int q) noexcept -> ::carbon::int8_3d {
 // kernel — multi-GPU correctness without manual halo plumbing.
 template <typename Grid,
           typename Lattice,
-          typename Collision>
+          typename Collision,
+          typename Real>
 [[nodiscard]] inline auto
 make_iteration_kernel(Grid& grid,
-                      typename Grid::template Field<float,
+                      typename Grid::template Field<Real,
                                                     Lattice::Q>& f_in,
-                      typename Grid::template Field<float,
+                      typename Grid::template Field<Real,
                                                     Lattice::Q>& f_out,
                       typename Grid::template Field<int32_t,
                                                     1>& cell_field,
-                      LbmParameters params,
+                      LbmParameters<Real> params,
                       std::string name) -> ::carbon::Kernel {
   using Span = typename Grid::Span;
   using Idx = typename Grid::Idx;
@@ -305,7 +316,7 @@ make_iteration_kernel(Grid& grid,
                                              ::carbon::StencilSemantic::Lattice);
         const auto fout = loader.write(f_out);
         const auto cell = loader.read(cell_field);
-        const float omega = params.omega;
+        const Real omega = params.omega;
         return [fin, fout, cell, omega] CARBON_HOST_DEVICE(Span s, Idx idx) {
           const int32_t packed = cell.read(s, idx, 0);
           if (classification_of(packed) != Classification::Bulk) {
@@ -332,7 +343,7 @@ make_iteration_kernel(Grid& grid,
           // and non-Bulk neighbours into wall_bits, so the non-wall branch
           // is provably safe to read through raw offset arithmetic — no
           // per-direction validity check needed.
-          float pop[Lattice::Q];
+          Real pop[Lattice::Q];
 #pragma unroll
           for (int q = 0; q < Lattice::Q; ++q) {
             if (q == Lattice::kCenter) {
@@ -349,22 +360,22 @@ make_iteration_kernel(Grid& grid,
           }
 
           // ---- 2. Macroscopic rho, u (sum over q with c[q] weighting) ----
-          float rho = 0.0F;
-          float mx = 0.0F;
-          float my = 0.0F;
-          float mz = 0.0F;
+          Real rho = 0.0F;
+          Real mx = 0.0F;
+          Real my = 0.0F;
+          Real mz = 0.0F;
 #pragma unroll
           for (int q = 0; q < Lattice::Q; ++q) {
             const auto cq = Lattice::c(q);
             rho += pop[q];
-            mx += static_cast<float>(cq.x) * pop[q];
-            my += static_cast<float>(cq.y) * pop[q];
-            mz += static_cast<float>(cq.z) * pop[q];
+            mx += static_cast<Real>(cq.x) * pop[q];
+            my += static_cast<Real>(cq.y) * pop[q];
+            mz += static_cast<Real>(cq.z) * pop[q];
           }
-          const float inv_rho = 1.0F / rho;
-          const float ux = mx * inv_rho;
-          const float uy = my * inv_rho;
-          const float uz = mz * inv_rho;
+          const Real inv_rho = 1.0F / rho;
+          const Real ux = mx * inv_rho;
+          const Real uy = my * inv_rho;
+          const Real uz = mz * inv_rho;
 
           // ---- 3. Collision (BGK or KBC) in-place on pop[] ----
           Collision::template apply<Lattice>(omega, rho, ux, uy, uz, pop);
@@ -398,16 +409,17 @@ make_iteration_kernel(Grid& grid,
 // (D3Q19, BGK) combo — D3Q27 and KBC stay on the lattice-generic path
 // because their symmetry tables are different (D3Q27) or the collision step
 // itself is not symmetry-factorisable (KBC).
-template <typename Grid>
+template <typename Grid,
+          typename Real>
 [[nodiscard]] inline auto
 make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
-                                     typename Grid::template Field<float,
+                                     typename Grid::template Field<Real,
                                                                    D3Q19::Q>& f_in,
-                                     typename Grid::template Field<float,
+                                     typename Grid::template Field<Real,
                                                                    D3Q19::Q>& f_out,
                                      typename Grid::template Field<int32_t,
                                                                    1>& cell_field,
-                                     LbmParameters params,
+                                     LbmParameters<Real> params,
                                      std::string name) -> ::carbon::Kernel {
   using Span = typename Grid::Span;
   using Idx = typename Grid::Idx;
@@ -418,7 +430,7 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
                                              ::carbon::StencilSemantic::Lattice);
         const auto fout = loader.write(f_out);
         const auto cell = loader.read(cell_field);
-        const float omega = params.omega;
+        const Real omega = params.omega;
         return [fin, fout, cell, omega] CARBON_HOST_DEVICE(Span s, Idx idx) {
           const int32_t packed = cell.read(s, idx, 0);
           if (classification_of(packed) != Classification::Bulk) {
@@ -430,7 +442,7 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
           // See the matching comment in make_iteration_kernel: bounce-back
           // adds the wall neighbour's pre-seeded opp(q) population so the
           // moving lid's -6*w*ulb*(c.u_lid) correction actually feeds in.
-          float pop[D3Q19::Q];
+          Real pop[D3Q19::Q];
 #pragma unroll
           for (int q = 0; q < D3Q19::Q; ++q) {
             if (q == D3Q19::kCenter) {
@@ -457,22 +469,22 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
           //   c.z = +1 : {14, 15, 16, 17, 18} (entire bucket [14, 19))
           // The c.z sums are now full contiguous-bucket scans, mirroring
           // the disg lattice halo's per-bucket fused transfers.
-          const float X_M1 = pop[1] + pop[5] + pop[7] + pop[8] + pop[16];
-          const float X_P1 = pop[2] + pop[10] + pop[11] + pop[13] + pop[17];
-          const float Y_M1 = pop[3] + pop[6] + pop[7] + pop[10] + pop[14];
-          const float Y_P1 = pop[4] + pop[8] + pop[11] + pop[12] + pop[15];
-          const float Z_M1 = pop[0] + pop[1] + pop[2] + pop[3] + pop[4];
-          const float Z_P1 = pop[14] + pop[15] + pop[16] + pop[17] + pop[18];
+          const Real X_M1 = pop[1] + pop[5] + pop[7] + pop[8] + pop[16];
+          const Real X_P1 = pop[2] + pop[10] + pop[11] + pop[13] + pop[17];
+          const Real Y_M1 = pop[3] + pop[6] + pop[7] + pop[10] + pop[14];
+          const Real Y_P1 = pop[4] + pop[8] + pop[11] + pop[12] + pop[15];
+          const Real Z_M1 = pop[0] + pop[1] + pop[2] + pop[3] + pop[4];
+          const Real Z_P1 = pop[14] + pop[15] + pop[16] + pop[17] + pop[18];
 
           // rho = sum over all q. Cheaper to add up the three z-buckets.
-          const float Z_0 =
+          const Real Z_0 =
               pop[5] + pop[6] + pop[7] + pop[8] + pop[9] + pop[10] + pop[11] + pop[12] + pop[13];
-          const float rho = Z_M1 + Z_0 + Z_P1;
-          const float inv_rho = 1.0F / rho;
-          const float ux = (X_P1 - X_M1) * inv_rho;
-          const float uy = (Y_P1 - Y_M1) * inv_rho;
-          const float uz = (Z_P1 - Z_M1) * inv_rho;
-          const float usqr = 1.5F * (ux * ux + uy * uy + uz * uz);
+          const Real rho = Z_M1 + Z_0 + Z_P1;
+          const Real inv_rho = 1.0F / rho;
+          const Real ux = (X_P1 - X_M1) * inv_rho;
+          const Real uy = (Y_P1 - Y_M1) * inv_rho;
+          const Real uz = (Z_P1 - Z_M1) * inv_rho;
+          const Real usqr = 1.5F * (ux * ux + uy * uy + uz * uz);
 
           // ---- 3. Symmetric BGK collision ----
           // Compute equilibria for q in [0, 9] (the "first half" + center)
@@ -481,17 +493,17 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
           // Under the new palindromic ordering c(18 - q) = -c(q), so
           //   eq_(18 - q) = eq_q + 6 * rho * w_q * c(18 - q).u .
           // (c.u for the BK velocity of each pair is filled in below.)
-          constexpr float c1over18 = 1.0F / 18.0F;
-          constexpr float c1over36 = 1.0F / 36.0F;
-          constexpr float c1over3 = 1.0F / 3.0F;
+          constexpr Real c1over18 = Real(1) / Real(18);
+          constexpr Real c1over36 = Real(1) / Real(36);
+          constexpr Real c1over3 = Real(1) / Real(3);
 
           // Off-axial projections used by the face-diagonal pairs.
-          const float ck_xy = ux + uy;  // (1, 1, 0) / (-1, -1, 0)
-          const float ck_xz = ux + uz;  // (1, 0, 1) / (-1, 0, -1)
-          const float ck_yz = uy + uz;  // (0, 1, 1) / (0, -1, -1)
-          const float dk_xy = ux - uy;  // (1, -1, 0) / (-1, 1, 0)
-          const float dk_xz = ux - uz;  // (1, 0, -1) / (-1, 0, 1)
-          const float dk_yz = uy - uz;  // (0, 1, -1) / (0, -1, 1)
+          const Real ck_xy = ux + uy;  // (1, 1, 0) / (-1, -1, 0)
+          const Real ck_xz = ux + uz;  // (1, 0, 1) / (-1, 0, -1)
+          const Real ck_yz = uy + uz;  // (0, 1, 1) / (0, -1, -1)
+          const Real dk_xy = ux - uy;  // (1, -1, 0) / (-1, 1, 0)
+          const Real dk_xz = ux - uz;  // (1, 0, -1) / (-1, 0, 1)
+          const Real dk_yz = uy - uz;  // (0, 1, -1) / (0, -1, 1)
 
           // First-half equilibria. c.u for q in [0, 9]:
           //   q=0  c=(0,0,-1)   c.u = -uz
@@ -504,16 +516,16 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
           //   q=7  c=(-1,-1,0)  c.u = -ck_xy
           //   q=8  c=(-1,1,0)   c.u = -dk_xy
           //   q=9  center       c.u = 0
-          const float eq_0 = rho * c1over18 * (1.0F - 3.0F * uz + 4.5F * uz * uz - usqr);
-          const float eq_1 = rho * c1over36 * (1.0F - 3.0F * ck_xz + 4.5F * ck_xz * ck_xz - usqr);
-          const float eq_2 = rho * c1over36 * (1.0F + 3.0F * dk_xz + 4.5F * dk_xz * dk_xz - usqr);
-          const float eq_3 = rho * c1over36 * (1.0F - 3.0F * ck_yz + 4.5F * ck_yz * ck_yz - usqr);
-          const float eq_4 = rho * c1over36 * (1.0F + 3.0F * dk_yz + 4.5F * dk_yz * dk_yz - usqr);
-          const float eq_5 = rho * c1over18 * (1.0F - 3.0F * ux + 4.5F * ux * ux - usqr);
-          const float eq_6 = rho * c1over18 * (1.0F - 3.0F * uy + 4.5F * uy * uy - usqr);
-          const float eq_7 = rho * c1over36 * (1.0F - 3.0F * ck_xy + 4.5F * ck_xy * ck_xy - usqr);
-          const float eq_8 = rho * c1over36 * (1.0F - 3.0F * dk_xy + 4.5F * dk_xy * dk_xy - usqr);
-          const float eq_9 = rho * c1over3 * (1.0F - usqr);
+          const Real eq_0 = rho * c1over18 * (1.0F - 3.0F * uz + 4.5F * uz * uz - usqr);
+          const Real eq_1 = rho * c1over36 * (1.0F - 3.0F * ck_xz + 4.5F * ck_xz * ck_xz - usqr);
+          const Real eq_2 = rho * c1over36 * (1.0F + 3.0F * dk_xz + 4.5F * dk_xz * dk_xz - usqr);
+          const Real eq_3 = rho * c1over36 * (1.0F - 3.0F * ck_yz + 4.5F * ck_yz * ck_yz - usqr);
+          const Real eq_4 = rho * c1over36 * (1.0F + 3.0F * dk_yz + 4.5F * dk_yz * dk_yz - usqr);
+          const Real eq_5 = rho * c1over18 * (1.0F - 3.0F * ux + 4.5F * ux * ux - usqr);
+          const Real eq_6 = rho * c1over18 * (1.0F - 3.0F * uy + 4.5F * uy * uy - usqr);
+          const Real eq_7 = rho * c1over36 * (1.0F - 3.0F * ck_xy + 4.5F * ck_xy * ck_xy - usqr);
+          const Real eq_8 = rho * c1over36 * (1.0F - 3.0F * dk_xy + 4.5F * dk_xy * dk_xy - usqr);
+          const Real eq_9 = rho * c1over3 * (1.0F - usqr);
 
           // Second-half equilibria via the symmetry. c.u for q in [10, 18]:
           //   q=10 c=(1,-1,0)   c.u = +dk_xy
@@ -525,17 +537,17 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
           //   q=16 c=(-1,0,1)   c.u = -dk_xz
           //   q=17 c=(1,0,1)    c.u = +ck_xz
           //   q=18 c=(0,0,1)    c.u = +uz
-          const float eq_10 = eq_8 + rho * c1over36 * 6.0F * dk_xy;
-          const float eq_11 = eq_7 + rho * c1over36 * 6.0F * ck_xy;
-          const float eq_12 = eq_6 + rho * c1over18 * 6.0F * uy;
-          const float eq_13 = eq_5 + rho * c1over18 * 6.0F * ux;
-          const float eq_14 = eq_4 - rho * c1over36 * 6.0F * dk_yz;
-          const float eq_15 = eq_3 + rho * c1over36 * 6.0F * ck_yz;
-          const float eq_16 = eq_2 - rho * c1over36 * 6.0F * dk_xz;
-          const float eq_17 = eq_1 + rho * c1over36 * 6.0F * ck_xz;
-          const float eq_18 = eq_0 + rho * c1over18 * 6.0F * uz;
+          const Real eq_10 = eq_8 + rho * c1over36 * 6.0F * dk_xy;
+          const Real eq_11 = eq_7 + rho * c1over36 * 6.0F * ck_xy;
+          const Real eq_12 = eq_6 + rho * c1over18 * 6.0F * uy;
+          const Real eq_13 = eq_5 + rho * c1over18 * 6.0F * ux;
+          const Real eq_14 = eq_4 - rho * c1over36 * 6.0F * dk_yz;
+          const Real eq_15 = eq_3 + rho * c1over36 * 6.0F * ck_yz;
+          const Real eq_16 = eq_2 - rho * c1over36 * 6.0F * dk_xz;
+          const Real eq_17 = eq_1 + rho * c1over36 * 6.0F * ck_xz;
+          const Real eq_18 = eq_0 + rho * c1over18 * 6.0F * uz;
 
-          const float one_minus_omega = 1.0F - omega;
+          const Real one_minus_omega = 1.0F - omega;
 
           // ---- 4. Write back ----
           fout.write(s, idx, 0, one_minus_omega * pop[0] + omega * eq_0);
@@ -572,18 +584,19 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
 // VTK / probe profiles between benchmark runs. Same generic Q-loop the
 // iteration kernel uses for the moment computation.
 template <typename Grid,
-          typename Lattice>
+          typename Lattice,
+          typename Real>
 [[nodiscard]] inline auto
 make_macroscopic_kernel(Grid& grid,
-                        typename Grid::template Field<float,
+                        typename Grid::template Field<Real,
                                                       Lattice::Q>& f_in,
                         typename Grid::template Field<int32_t,
                                                       1>& cell_field,
-                        typename Grid::template Field<float,
+                        typename Grid::template Field<Real,
                                                       1>& rho_field,
-                        typename Grid::template Field<float,
+                        typename Grid::template Field<Real,
                                                       3>& u_field,
-                        LbmParameters params) -> ::carbon::Kernel {
+                        LbmParameters<Real> params) -> ::carbon::Kernel {
   using Span = typename Grid::Span;
   using Idx = typename Grid::Idx;
   return ::carbon::Kernel::compute(
@@ -593,25 +606,25 @@ make_macroscopic_kernel(Grid& grid,
         const auto cell = loader.read(cell_field);
         const auto rho_w = loader.write(rho_field);
         const auto u_w = loader.write(u_field);
-        const float ulb = params.ulb;
+        const Real ulb = params.ulb;
         return [fin, cell, rho_w, u_w, ulb] CARBON_HOST_DEVICE(Span s, Idx idx) {
           const int32_t packed = cell.read(s, idx, 0);
           const Classification cls = classification_of(packed);
           if (cls == Classification::Bulk) {
-            float rho = 0.0F;
-            float mx = 0.0F;
-            float my = 0.0F;
-            float mz = 0.0F;
+            Real rho = 0.0F;
+            Real mx = 0.0F;
+            Real my = 0.0F;
+            Real mz = 0.0F;
 #pragma unroll
             for (int q = 0; q < Lattice::Q; ++q) {
               const auto cq = Lattice::c(q);
-              const float fq = fin.read(s, idx, q);
+              const Real fq = fin.read(s, idx, q);
               rho += fq;
-              mx += static_cast<float>(cq.x) * fq;
-              my += static_cast<float>(cq.y) * fq;
-              mz += static_cast<float>(cq.z) * fq;
+              mx += static_cast<Real>(cq.x) * fq;
+              my += static_cast<Real>(cq.y) * fq;
+              mz += static_cast<Real>(cq.z) * fq;
             }
-            const float inv_rho = 1.0F / rho;
+            const Real inv_rho = 1.0F / rho;
             rho_w.write(s, idx, 0, rho);
             u_w.write(s, idx, 0, mx * inv_rho);
             u_w.write(s, idx, 1, my * inv_rho);

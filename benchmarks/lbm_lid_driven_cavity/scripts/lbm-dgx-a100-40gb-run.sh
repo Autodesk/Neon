@@ -15,11 +15,11 @@
 # every series to the peak single-GPU dense throughput x 8).
 #
 # All JSON reports land in data/lbm-dgx-a100-40gb/json/ so the companion
-# plotter (lbm-dgx-a100-40gb-plot.py) can render straight from there. Call
+# plotter (plotting/lbm-dgx-a100-40gb-plot.py) can render straight from there. Call
 # the two back to back:
 #
 #   ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-a100-40gb-run.sh
-#   python3 benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-a100-40gb-plot.py
+#   python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/lbm-dgx-a100-40gb-plot.py
 #
 # N=640+ is intentionally excluded: the Q=19 ping-pong population fields do not
 # fit a single 40 GB A100 (OOM at N=640; N=608 is the largest size that fits).
@@ -198,4 +198,4 @@ docker_run "${IMAGE_INTRA}" "chmod -R a+rw /src/${rel_data}"
 echo
 echo "==> done. JSON reports in ${rel_data}/ (prefix ${PREFIX}-*.json)"
 echo "    now render ${rel_root}/${PREFIX}.png with:"
-echo "      python3 benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-a100-40gb-plot.py"
+echo "      python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/lbm-dgx-a100-40gb-plot.py"

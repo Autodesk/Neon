@@ -207,6 +207,16 @@ gpu_stream_priority_range(int* least_priority,
 }
 
 inline auto
+gpu_stream_get_priority(gpu_stream_t stream,
+                        int* priority) noexcept -> gpu_error_t {
+#if CARBON_BACKEND_IS_HIP
+  return hipStreamGetPriority(stream, priority);
+#else
+  return cudaStreamGetPriority(stream, priority);
+#endif
+}
+
+inline auto
 gpu_stream_destroy(gpu_stream_t stream) noexcept -> gpu_error_t {
 #if CARBON_BACKEND_IS_HIP
   return hipStreamDestroy(stream);
