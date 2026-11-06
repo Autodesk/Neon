@@ -85,6 +85,42 @@ halo_extent(const ProcessGrid& pg,
   };
 }
 
+/**
+ * Validate that every global chunk is thick enough for its halo. Throws on the first offending
+ * chunk in the same deterministic order on every rank, so a bad decomposition cannot throw on
+ * only some ranks and leave the others waiting in the first collective.
+ */
+inline void
+validate_global_halo_fit(const int64_3d& global,
+                         const ProcessGrid& pg,
+                         const int64_3d& halo,
+                         bool legacy_slab,
+                         const Stencil& stencil) {
+  const int32_3d dims = pg.dims();
+  for (const size_t nx : split_extent(global.x, static_cast<size_t>(dims.x))) {
+    for (const size_t ny : split_extent(global.y, static_cast<size_t>(dims.y))) {
+      for (const size_t nz : split_extent(global.z, static_cast<size_t>(dims.z))) {
+        if (legacy_slab && halo.z > 0 && nz < static_cast<size_t>(2 * halo.z)) {
+          carbon::log::throw_with_log<std::invalid_argument>(
+              "DenseDistributed: global slab z-extent {} is smaller than 2 * halo_z = {} (stencil "
+              "radius {}); the Internal / Boundary DataView split would overlap. Either grow "
+              "the slab or shrink the stencil",
+              nz, 2 * halo.z, stencil.radius());
+        }
+        if (!legacy_slab &&
+            ((halo.x > 0 && nx < static_cast<size_t>(halo.x)) ||
+             (halo.y > 0 && ny < static_cast<size_t>(halo.y)) ||
+             (halo.z > 0 && nz < static_cast<size_t>(halo.z)))) {
+          carbon::log::throw_with_log<std::invalid_argument>(
+              "DenseDistributed: global owned extent ({}, {}, {}) is smaller than halo ({}, {}, "
+              "{}) on a multi-axis decomposition; the halo would overlap the owned region",
+              nx, ny, nz, halo.x, halo.y, halo.z);
+        }
+      }
+    }
+  }
+}
+
 /** Geometry of the chunk owned by one process-grid coordinate. */
 struct RankChunk {
   /** Owned (non-halo) extent. */

@@ -919,6 +919,67 @@ part_b_geometry(size_t& cells,
   return cases.size();
 }
 
+auto
+part_b_global_validation() -> size_t {
+  g_ctx = "part B global validation";
+  const carbon::Stencil stencil(six(), /*remove_center=*/true);
+  const auto throws_invalid_argument = [](auto&& fn) -> bool {
+    try {
+      fn();
+    } catch (const std::invalid_argument&) {
+      return true;
+    } catch (...) {
+      return false;
+    }
+    return false;
+  };
+
+  size_t cases = 0;
+  {
+    // z = 7 over 4 slabs -> [2,2,2,1]; the last rank is too thin for halo_z = 1. Every rank
+    // must reject the global decomposition, not just the rank that owns the thin chunk.
+    const ProcessGrid pg = ProcessGrid::custom(4, 1, 1, 4);
+    const int64_3d global{9, 8, 7};
+    const int64_3d halo = dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
+    CHECK(dd::is_legacy_slab(pg, BoundaryModeDistributed::Open));
+    CHECK(throws_invalid_argument([&] {
+      dd::validate_global_halo_fit(global, pg, halo, /*legacy_slab=*/true, stencil);
+    }));
+    ++cases;
+  }
+  {
+    // x = 1 over 2 bricks -> [1,0]; a zero-owned chunk cannot host the X halo. Again the
+    // decision is global, so ranks with a non-thin chunk throw as well.
+    const ProcessGrid pg = ProcessGrid::custom(8, 2, 2, 2);
+    const int64_3d global{1, 5, 7};
+    const int64_3d halo = dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
+    CHECK(!dd::is_legacy_slab(pg, BoundaryModeDistributed::Open));
+    CHECK(throws_invalid_argument([&] {
+      dd::validate_global_halo_fit(global, pg, halo, /*legacy_slab=*/false, stencil);
+    }));
+    ++cases;
+  }
+  {
+    const ProcessGrid pg = ProcessGrid::custom(4, 1, 1, 4);
+    const int64_3d global{9, 8, 11};
+    const int64_3d halo = dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
+    CHECK(!throws_invalid_argument([&] {
+      dd::validate_global_halo_fit(global, pg, halo, /*legacy_slab=*/true, stencil);
+    }));
+    ++cases;
+  }
+  {
+    const ProcessGrid pg = ProcessGrid::custom(8, 2, 2, 2);
+    const int64_3d global{9, 8, 11};
+    const int64_3d halo = dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
+    CHECK(!throws_invalid_argument([&] {
+      dd::validate_global_halo_fit(global, pg, halo, /*legacy_slab=*/false, stencil);
+    }));
+    ++cases;
+  }
+  return cases;
+}
+
 // ------------------------------------------------------------------------------------------------
 // Part D: VTK shard I/O for DenseDistributed.
 // ------------------------------------------------------------------------------------------------
@@ -1268,8 +1329,10 @@ main() {
   size_t geom_cells = 0;
   size_t geom_neighbours = 0;
   const size_t geom_cases = part_b_geometry(geom_cells, geom_neighbours);
-  std::printf("geometry cases=%zu  owned cells checked=%zu  neighbour reads checked=%zu\n",
-              geom_cases, geom_cells, geom_neighbours);
+  const size_t validation_cases = part_b_global_validation();
+  std::printf("geometry cases=%zu  owned cells checked=%zu  neighbour reads checked=%zu  "
+              "global-validation cases=%zu\n",
+              geom_cases, geom_cells, geom_neighbours, validation_cases);
 
   size_t vtk_shards = 0;
   size_t vtk_empty = 0;

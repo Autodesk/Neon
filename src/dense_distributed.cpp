@@ -170,7 +170,14 @@ DenseDistributed::init_common_(System system,
   global_slab_count_ = static_cast<size_t>(dims.z);
   local_slab_offset_ = distributed ? static_cast<size_t>(coords.z) : 0U;
 
-  // Validate every global chunk's owned-element count before allocating fields.
+  const bool legacy_slab = detail::dense_distributed::is_legacy_slab(process_grid_, boundary_mode_);
+  const int64_3d halo =
+      detail::dense_distributed::halo_extent(process_grid_, boundary_mode_, stencil_);
+
+  // Validate every global chunk's owned-element count and halo fit before allocating fields.
+  // These checks must run against the global decomposition on every rank: with one rank per
+  // GPU, validating only local spans lets a rank with a thin chunk throw while the others
+  // proceed to the first collective and hang.
   for (const size_t nx : split_extent(global_.x, static_cast<size_t>(dims.x))) {
     for (const size_t ny : split_extent(global_.y, static_cast<size_t>(dims.y))) {
       for (const size_t nz : split_extent(global_.z, static_cast<size_t>(dims.z))) {
@@ -178,10 +185,8 @@ DenseDistributed::init_common_(System system,
       }
     }
   }
-
-  const bool legacy_slab = detail::dense_distributed::is_legacy_slab(process_grid_, boundary_mode_);
-  const int64_3d halo =
-      detail::dense_distributed::halo_extent(process_grid_, boundary_mode_, stencil_);
+  detail::dense_distributed::validate_global_halo_fit(global_, process_grid_, halo, legacy_slab,
+                                                      stencil_);
 
   spans_ = system_.make_vector([&](size_t i) {
     const int32_3d gpu_coords =
@@ -192,37 +197,6 @@ DenseDistributed::init_common_(System system,
     return detail::dense_distributed::Span(chunk.haloed, global_, chunk.xy_pitch, chunk.offset,
                                            chunk.halo, boundary_mode_, origin_, spacing_);
   });
-
-  // The legacy Slab Boundary is still two z-bands; keep its old overlap guard.
-  // Multi-axis Stage-A Boundary is full-owned and rejects internal cells instead.
-  if (legacy_slab && halo.z > 0) {
-    for (size_t i = 0; i < local_n; ++i) {
-      const int64_t lz = spans_[i].logic_extent().z;
-      if (lz < 2 * halo.z) {
-        log::throw_with_log<std::invalid_argument>(
-            "DenseDistributed: local slab z-extent {} is smaller than 2 * halo_z {} (stencil "
-            "radius {}); "
-            "the Internal / Boundary DataView split would overlap. Either grow the slab or "
-            "shrink the stencil",
-            lz, 2 * halo.z, stencil_.radius());
-      }
-    }
-  }
-
-  if (!legacy_slab) {
-    for (size_t i = 0; i < local_n; ++i) {
-      const int64_3d owned = spans_[i].logic_extent();
-      const int64_3d h = spans_[i].halo();
-
-      if ((h.x > 0 && owned.x < h.x) || (h.y > 0 && owned.y < h.y) || (h.z > 0 && owned.z < h.z)) {
-        log::throw_with_log<std::invalid_argument>(
-            "DenseDistributed: local owned extent ({}, {}, {}) is smaller than halo ({}, {}, {}) "
-            "on a "
-            "multi-axis decomposition; the halo would overlap the owned region",
-            owned.x, owned.y, owned.z, h.x, h.y, h.z);
-      }
-    }
-  }
 
   for (auto view : data_view_options()) {
     const auto vi = static_cast<size_t>(view);

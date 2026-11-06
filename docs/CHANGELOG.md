@@ -6185,3 +6185,13 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `OverlapMode::None`, and the distributed LBM benchmark gains `--hp-halo` (`hp_halo` in
   the JSON report). `test_skeleton_halo_priority` checks the native priority of the halo
   stream for Standard / Extended, a ping-pong pair, a recompile, and `None`.
+- **2026-11 — Global chunk validation for `Dense` / `DenseDisg` / `DenseDistributed`.**
+  The thickness guards used to inspect only the local `spans_`. Under MPI (one rank per GPU)
+  `local_n == 1`, so a rank whose chunk was too thin threw while the other ranks continued to
+  the first halo collective and hung. The checks now run against the global decomposition on
+  every rank, in the same chunk order, before any field allocation or collective. `Dense` and
+  `DenseDisg` validate every `z_counts_global` slab; `DenseDistributed` uses the shared
+  `detail::dense_distributed::validate_global_halo_fit` helper for both the legacy-slab
+  `2 * halo_z` rule and the multi-axis `owned >= halo` rule. The host test adds four
+  global-validation cases (`z=7` over 4 slabs and `x=1` over a 2x2x2 brick must throw; the
+  existing valid slab/brick layouts must not).
