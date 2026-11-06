@@ -3,18 +3,21 @@
 # benchmarks/lbm_lid_driven_cavity_distributed/scripts/lbm-dist-sweep-run.sh
 #
 # Strong-scaling sweep of the distributed LBM benchmark on one multi-GPU node:
-# lattice/collision x domain size x GPU count x decomposition x transport x
-# halo priority. Builds the CUDA+MPI Release tree inside Docker and does one
+# lattice/collision x domain size x decomposition x its GPU counts x transport
+# x halo priority. Builds the CUDA+MPI Release tree inside Docker and does one
 # `mpiexec -n G` run per combination (one rank per GPU, --grid
 # dense_distributed, --overlap OVERLAP).
 #
-#   decompositions  slab (split z), pencil (y, z), brick (x, y, z)
+#   decompositions  slab (split z), pencil (y, z), brick (x, y, z), each with its
+#                   own GPU counts (GPUS_SLAB / GPUS_PENCIL / GPUS_BRICK, all >= 2)
 #   transports      mpi = NCCL; mpip2p = MPI point-to-point (CARBON_DIST_TRANSPORT=mpi)
 #   hp_halo         off = normal halo stream; on = --hp-halo (high-priority halo stream)
 #
-# At G=1 every decomposition is 1x1x1 and there is no halo exchange, so each
-# (series, N) gets a single `ref` run instead (mpiexec -n 1, hp-halo off): it
-# is the efficiency baseline and the 1-GPU point of every curve.
+# No 1-GPU run is done: the efficiency baseline of size N is the 1-GPU report
+# of another sweep, by default the Dense Peeraccess run of the single-process
+# DGX sweep,
+#   <REFERENCE_DIR>/<REFERENCE_PREFIX>-<lattice>-<collision>-fp32-<REFERENCE_LABEL>-n<N>-g1.json
+# The script warns before the runs if one of them is missing.
 #
 # Timing: after WARMUP solver steps, each run times REPS repetitions of
 # ITERS_PER_REP solver steps (binary --reps); every repetition ends with a GPU
@@ -24,24 +27,29 @@
 # rank grid ProcessGrid actually chose.
 #
 # Reports are named
-#   <PREFIX>-<lattice>-<collision>-fp32-<label>-n<N>-g<G>.json
-# with <label> = ref (G=1) or <decomposition>-<transport>-hp<off|on>, in
-# benchmarks/lbm_lid_driven_cavity_distributed/data/<PREFIX>/json/. A failing
+#   <PREFIX>-<lattice>-<collision>-fp32-<decomposition>-<transport>-hp<off|on>-n<N>-g<G>.json
+# in benchmarks/lbm_lid_driven_cavity_distributed/data/<PREFIX>/json/. A failing
 # or hung run (RUN_TIMEOUT) is logged to failed.txt there and the sweep moves on.
 #
 # Usage:
 #   ./benchmarks/lbm_lid_driven_cavity_distributed/scripts/lbm-dist-sweep-run.sh [CONFIG.yml]
 #
 # CONFIG.yml (see lbm-dist-sweep.yml) sets the knobs below by their lowercase
-# name. List-valued keys take a list or a space-separated string; sizes / gpus
-# also accept {start, stop, step} (inclusive). Precedence: env var >
+# name. List-valued keys take a list or a space-separated string; sizes and
+# gpus_* also accept {start, stop, step} (inclusive). Precedence: env var >
 # CONFIG.yml > default.
 #
 # Knobs (env vars, all optional):
 #   CONFIGS="q19:bgk"                     lattice:collision pairs (q19:bgk q27:bgk q27:kbc)
 #   SIZES="256 320 384 448 512"           domain edge lengths
-#   GPUS_LIST="1 2 3 4 5 6 7 8"           GPU counts (= MPI ranks)
 #   DECOMPOSITIONS="slab pencil brick"    process decompositions
+#   GPUS_SLAB="2 3 4 5 6 7 8"             GPU counts (= MPI ranks) of the slab runs
+#   GPUS_PENCIL="4 8"                     ... of the pencil runs
+#   GPUS_BRICK="8"                        ... of the brick runs
+#   REFERENCE_DIR=benchmarks/lbm_lid_driven_cavity/data/lbm-dgx-sweep/json
+#                                         1-GPU baseline reports, relative to the repo root
+#   REFERENCE_PREFIX=lbm-dgx-sweep        their report prefix
+#   REFERENCE_LABEL=dense-intra           their grid-transport label
 #   TRANSPORTS="mpi"                      mpi (NCCL) and/or mpip2p
 #   HP_HALO="off on"                      halo stream priority variants
 #   OVERLAP=standard                      Skeleton OCC mode of every run
@@ -107,15 +115,29 @@ check_words DECOMPOSITIONS "slab pencil brick"
 check_words TRANSPORTS "mpi mpip2p"
 check_words HP_HALO "off on"
 check_words OVERLAP "none standard extended twoway-extended"
-for v in SIZES GPUS_LIST WARMUP ITERS_PER_REP REPS RUN_TIMEOUT; do
+for v in SIZES GPUS_SLAB GPUS_PENCIL GPUS_BRICK WARMUP ITERS_PER_REP REPS RUN_TIMEOUT; do
   if [[ ! "${!v}" =~ ^[0-9]+( [0-9]+)*$ ]]; then
     echo "error: ${v} must be non-negative integers (got '${!v}')" >&2
     exit 1
   fi
 done
-if [[ ! "${BUILD_DIR}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ||
-      ! "${PREFIX}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-  echo "error: BUILD_DIR and PREFIX must be a single path component" >&2
+for v in GPUS_SLAB GPUS_PENCIL GPUS_BRICK; do
+  for g in ${!v}; do
+    if [[ "${g}" -lt 2 ]]; then
+      echo "error: ${v} entries must be >= 2 (the 1-GPU point is the reference run)" >&2
+      exit 1
+    fi
+  done
+done
+for v in BUILD_DIR PREFIX REFERENCE_PREFIX REFERENCE_LABEL; do
+  if [[ ! "${!v}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+    echo "error: ${v} must be a single path component (got '${!v}')" >&2
+    exit 1
+  fi
+done
+if [[ ! "${REFERENCE_DIR}" =~ ^[A-Za-z0-9._/-]+$ || "${REFERENCE_DIR}" == /* ||
+      "/${REFERENCE_DIR}/" == */../* ]]; then
+  echo "error: REFERENCE_DIR must be a path inside the repo (got '${REFERENCE_DIR}')" >&2
   exit 1
 fi
 if [[ "${SM_ARCH}" == "auto" ]]; then
@@ -133,9 +155,18 @@ if [[ ! "${SM_ARCH}" =~ ^[0-9]+(\;[0-9]+)*$ ]]; then
 fi
 
 echo "==> sweep config${config_path:+ (${config_path##*/})}:"
-for v in CONFIGS SIZES GPUS_LIST DECOMPOSITIONS TRANSPORTS HP_HALO OVERLAP WARMUP ITERS_PER_REP \
+for v in CONFIGS SIZES DECOMPOSITIONS GPUS_SLAB GPUS_PENCIL GPUS_BRICK REFERENCE_DIR \
+         REFERENCE_PREFIX REFERENCE_LABEL TRANSPORTS HP_HALO OVERLAP WARMUP ITERS_PER_REP \
          REPS SM_ARCH IMAGE BUILD_DIR PREFIX SKIP_BUILD FORCE RUN_TIMEOUT; do
-  printf '    %-15s %s\n' "${v}" "${!v}"
+  printf '    %-16s %s\n' "${v}" "${!v}"
+done
+for cfg in ${CONFIGS}; do
+  for n in ${SIZES}; do
+    ref="${REFERENCE_DIR}/${REFERENCE_PREFIX}-${cfg%%:*}-${cfg##*:}-fp32-${REFERENCE_LABEL}-n${n}-g1.json"
+    if [[ ! -f "${repo_root}/${ref}" ]]; then
+      echo "warning: missing 1-GPU reference ${ref}; N=${n} gets no efficiency plots" >&2
+    fi
+  done
 done
 if [[ "${DRY_RUN:-0}" -eq 1 ]]; then
   exit 0
@@ -149,7 +180,8 @@ docker_run() {
   shift
   docker run --rm --gpus all --ipc=host --shm-size=8g \
     -v "${repo_root}:/src:rw" -w /src \
-    -e CONFIGS -e SIZES -e GPUS_LIST -e DECOMPOSITIONS -e TRANSPORTS -e HP_HALO -e OVERLAP \
+    -e CONFIGS -e SIZES -e DECOMPOSITIONS -e GPUS_SLAB -e GPUS_PENCIL -e GPUS_BRICK \
+    -e TRANSPORTS -e HP_HALO -e OVERLAP \
     -e WARMUP -e ITERS_PER_REP -e REPS -e BUILD_DIR \
     -e FORCE -e RUN_TIMEOUT -e PREFIX -e OUT_DIR="/src/${rel_data}" \
     "${IMAGE}" /bin/bash -lc "${script}" sweep "$@"
@@ -196,7 +228,6 @@ run() {
   fi
   local launch=(mpiexec --bind-to none -n "${g}")
   [[ "${t}" == "mpip2p" ]] && launch+=(-x CARBON_DIST_TRANSPORT=mpi)
-  [[ "${g}" -eq 1 ]] && launch=(env CUDA_VISIBLE_DEVICES=0 "${launch[@]}")
   local extra=()
   [[ "${hp}" == "on" ]] && extra+=(--hp-halo)
   echo "==> ${lattice}/${collision} ${label} N=${n} gpus=${g} -> ${report##*/}"
@@ -216,14 +247,10 @@ for cfg in ${CONFIGS}; do
   lattice="${cfg%%:*}"
   collision="${cfg##*:}"
   series="${PREFIX}-${lattice}-${collision}-fp32"
-  for g in ${GPUS_LIST}; do
-    for n in ${SIZES}; do
-      if [[ "${g}" -eq 1 ]]; then
-        run "${OUT_DIR}/${series}-ref-n${n}-g1.json" 1 slab mpi off \
-            "${lattice}" "${collision}" "${n}" ref
-        continue
-      fi
-      for decomp in ${DECOMPOSITIONS}; do
+  for decomp in ${DECOMPOSITIONS}; do
+    gpus_var="GPUS_${decomp^^}"
+    for g in ${!gpus_var}; do
+      for n in ${SIZES}; do
         for t in ${TRANSPORTS}; do
           for hp in ${HP_HALO}; do
             label="${decomp}-${t}-hp${hp}"

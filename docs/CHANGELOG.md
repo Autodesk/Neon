@@ -6188,9 +6188,12 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
 - **2026-11 — Distributed LBM strong-scaling sweep.**
   `benchmarks/lbm_lid_driven_cavity_distributed/scripts/lbm-dist-sweep-run.sh` is the
   distributed counterpart of `lbm-dgx-sweep-run.sh`. It is driven by `lbm-dist-sweep.yml`
-  and sweeps lattice/collision x N x GPU count x decomposition (slab / pencil / brick) x
-  transport (NCCL / MPI P2P) x `--hp-halo` off/on. It does one `mpiexec -n G` run per
-  combination and one 1-GPU `ref` run per N, which is the efficiency baseline.
+  and sweeps lattice/collision x N x decomposition (slab / pencil / brick) x transport
+  (NCCL / MPI P2P) x `--hp-halo` off/on. It does one `mpiexec -n G` run per combination.
+  Each decomposition has its own GPU counts, by default slab 2..8, pencil 4 and 8, brick 8;
+  only those counts give a process grid that differs from a slab. There is no 1-GPU run:
+  the efficiency baseline of each N is the 1-GPU Dense Peeraccess report of the
+  single-process DGX sweep (`reference_dir` / `reference_prefix` / `reference_label`).
   `plotting/plot_dist_scaling.py` draws one panel per decomposition: efficiency and MLUPS
   vs GPUs per N, efficiency vs N at the largest G, and the hp-halo speedup. Building and
   running both happen in one image (`carbon-cuda-nccl-pinned:local`), in their own

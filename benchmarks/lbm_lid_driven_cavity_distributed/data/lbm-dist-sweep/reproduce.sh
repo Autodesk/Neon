@@ -6,15 +6,17 @@
 # (the frozen copy next to this script) and renders every plot in this folder.
 #
 #   D3Q19 + BGK, fp32, --grid dense_distributed, --overlap standard;
-#   N = 256..512 step 64; 1..8 GPUs (one MPI rank each); slab, pencil and
-#   brick decompositions; NCCL halos with --hp-halo off and on;
+#   N = 256..512 step 64; one MPI rank per GPU; slab on 2..8 GPUs, pencil on
+#   4 and 8, brick on 8; NCCL halos with --hp-halo off and on;
 #   400 warmup steps, then 5 timed repetitions of 1000 solver steps.
+#   Efficiency is relative to the 1-GPU Dense Peeraccess runs of
+#   benchmarks/lbm_lid_driven_cavity/data/lbm-dgx-sweep/json (no 1-GPU run here).
 #
 # Usage:
 #   ./benchmarks/lbm_lid_driven_cavity_distributed/data/lbm-dist-sweep/reproduce.sh [--plot-only]
 #
 #   (no flag)    build build-dist/ in Docker, redo every run (force: true
-#                overwrites json/), then plot; takes about two hours on 8 GPUs
+#                overwrites json/), then plot; takes about an hour on 8 GPUs
 #   --plot-only  only re-render the PNGs from the reports already in json/
 #
 # Needs docker with the NVIDIA container toolkit, the image named in the yml,

@@ -19,18 +19,28 @@ configs: [q19:bgk]
 # Domain edge lengths N: a list, or an inclusive {start, stop, step} range.
 sizes: {start: 256, stop: 512, step: 64}
 
-# GPU counts (= MPI ranks). The 1-GPU point is a single "ref" run per size
-# (every decomposition is 1x1x1 there) and is the efficiency baseline.
-# ProcessGrid factorises the rank count, so for prime counts (2, 3, 5, 7)
-# pencil and brick fall back to a slab, and brick at 4 is a pencil; the
-# plots print the process grid under each GPU count.
-gpus: {start: 1, stop: 8, step: 1}
-
 # Process decompositions, one plot panel each:
 #   slab    split z
 #   pencil  split y and z
 #   brick   split x, y and z
 decompositions: [slab, pencil, brick]
+
+# GPU counts (= MPI ranks, all >= 2) of each decomposition. ProcessGrid
+# factorises the rank count, so pencil only differs from a slab at 4 (1x2x2)
+# and 8 (1x2x4), and brick only at 8 (2x2x2); the plots print the process
+# grid under each GPU count.
+gpus_slab: {start: 2, stop: 8, step: 1}
+gpus_pencil: [4, 8]
+gpus_brick: [8]
+
+# 1-GPU efficiency baseline: no 1-GPU run is done here. For size N the
+# plotter reads
+#   <reference_dir>/<reference_prefix>-<lattice>-<collision>-fp32-<reference_label>-n<N>-g1.json
+# (reference_dir relative to the carbon repo root), by default the Dense
+# Peeraccess run of the single-process DGX sweep.
+reference_dir: benchmarks/lbm_lid_driven_cavity/data/lbm-dgx-sweep/json
+reference_prefix: lbm-dgx-sweep
+reference_label: dense-intra
 
 # Halo transports, one curve each:
 #   mpi     NCCL (default)

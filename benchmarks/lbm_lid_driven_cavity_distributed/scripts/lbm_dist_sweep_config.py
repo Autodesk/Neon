@@ -30,11 +30,17 @@ PRECISION = "fp32"
 KEYS: dict[str, tuple[str, str, object]] = {
     "configs": ("CONFIGS", "words", ["q19:bgk"]),
     "sizes": ("SIZES", "ints", list(range(256, 513, 64))),
-    "gpus": ("GPUS_LIST", "ints", list(range(1, 9))),
     "decompositions": ("DECOMPOSITIONS", "words", ["slab", "pencil", "brick"]),
+    "gpus_slab": ("GPUS_SLAB", "ints", list(range(2, 9))),
+    "gpus_pencil": ("GPUS_PENCIL", "ints", [4, 8]),
+    "gpus_brick": ("GPUS_BRICK", "ints", [8]),
     "transports": ("TRANSPORTS", "words", ["mpi"]),
     "hp_halo": ("HP_HALO", "words", ["off", "on"]),
     "overlap": ("OVERLAP", "word", "standard"),
+    "reference_dir": ("REFERENCE_DIR", "word",
+                      "benchmarks/lbm_lid_driven_cavity/data/lbm-dgx-sweep/json"),
+    "reference_prefix": ("REFERENCE_PREFIX", "name", "lbm-dgx-sweep"),
+    "reference_label": ("REFERENCE_LABEL", "name", "dense-intra"),
     "warmup": ("WARMUP", "int", 400),
     "iters_per_rep": ("ITERS_PER_REP", "int", 400),
     "reps": ("REPS", "int", 4),
@@ -57,20 +63,33 @@ CHOICES = {
 
 def read_sweep_config(path: Path) -> dict[str, object]:
     """Load a distributed sweep YAML file; the path must be an existing ``.yml`` / ``.yaml``."""
-    return lbm_sweep_config.read_sweep_config(path, KEYS, CHOICES)
+    cfg = lbm_sweep_config.read_sweep_config(path, KEYS, CHOICES)
+    for d in CHOICES["decompositions"]:
+        if any(g < 2 for g in cfg[f"gpus_{d}"]):
+            raise SweepConfigError(f"gpus_{d} entries must be >= 2 (the 1-GPU point is the "
+                                   "reference run)")
+    return cfg
 
 
-def series_prefixes(cfg: dict[str, object]) -> list[tuple[str, str, str]]:
-    """``(series_prefix, lattice, collision)`` for every configs entry.
+def gpus_of(cfg: dict[str, object], decomposition: str) -> list[int]:
+    return cfg[f"gpus_{decomposition}"]
+
+
+def series_prefixes(cfg: dict[str, object]) -> list[tuple[str, str, str, str]]:
+    """``(series_prefix, reference_series, lattice, collision)`` for every configs entry.
 
     A series prefix (``<prefix>-<lattice>-<collision>-fp32``) is what the run script puts
-    in front of ``<label>-n<N>-g<G>.json``, where ``<label>`` is ``ref`` for the 1-GPU
-    baseline and ``<decomposition>-<transport>-hp<off|on>`` otherwise.
+    in front of ``<decomposition>-<transport>-hp<off|on>-n<N>-g<G>.json``. The efficiency
+    baseline of size N is ``<reference_dir>/<reference_series>-<reference_label>-n<N>-g1.json``
+    with ``reference_series = <reference_prefix>-<lattice>-<collision>-fp32``, by default the
+    1-GPU Dense run of the single-process DGX sweep.
     """
     out = []
     for c in cfg["configs"]:
         lattice, collision = c.split(":")
-        out.append((f"{cfg['prefix']}-{lattice}-{collision}-{PRECISION}", lattice, collision))
+        tail = f"{lattice}-{collision}-{PRECISION}"
+        out.append((f"{cfg['prefix']}-{tail}", f"{cfg['reference_prefix']}-{tail}", lattice,
+                    collision))
     return out
 
 
