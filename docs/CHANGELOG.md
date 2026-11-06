@@ -6185,6 +6185,24 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `OverlapMode::None`, and the distributed LBM benchmark gains `--hp-halo` (`hp_halo` in
   the JSON report). `test_skeleton_halo_priority` checks the native priority of the halo
   stream for Standard / Extended, a ping-pong pair, a recompile, and `None`.
+- **2026-11 — Distributed LBM strong-scaling sweep.**
+  `benchmarks/lbm_lid_driven_cavity_distributed/scripts/lbm-dist-sweep-run.sh` is the
+  distributed counterpart of `lbm-dgx-sweep-run.sh`. It is driven by `lbm-dist-sweep.yml`
+  and sweeps lattice/collision x N x GPU count x decomposition (slab / pencil / brick) x
+  transport (NCCL / MPI P2P) x `--hp-halo` off/on. It does one `mpiexec -n G` run per
+  combination and one 1-GPU `ref` run per N, which is the efficiency baseline.
+  `plotting/plot_dist_scaling.py` draws one panel per decomposition: efficiency and MLUPS
+  vs GPUs per N, efficiency vs N at the largest G, and the hp-halo speedup. Building and
+  running both happen in one image (`carbon-cuda-nccl-pinned:local`), in their own
+  `build-dist/` tree. The YAML parsing reuses `lbm_sweep_config.py`, whose loaders now take
+  the key and choice tables as optional arguments.
+  The benchmark changes with it, so that its numbers can be compared:
+  - It gains `--reps`, with the single-process benchmark's `results.repetitions` block.
+  - Every timing mark is taken after a GPU drain plus `Distributed::barrier()`. Rank 0's
+    window therefore spans the slowest rank; before, each rank timed itself and rank 0
+    reported its own clock.
+  - The report records `config.process_grid`, the rank grid `ProcessGrid::make` chose,
+    which shows where pencil / brick collapse to a slab for prime rank counts.
 - **2026-11 — Global chunk validation for `Dense` / `DenseDisg` / `DenseDistributed`.**
   The thickness guards used to inspect only the local `spans_`. Under MPI (one rank per GPU)
   `local_n == 1`, so a rank whose chunk was too thin threw while the other ranks continued to

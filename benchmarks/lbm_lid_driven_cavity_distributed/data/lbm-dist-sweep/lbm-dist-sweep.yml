@@ -1,0 +1,76 @@
+# Sweep configuration for lbm-dist-sweep-run.sh and its plotter.
+#
+#   ./benchmarks/lbm_lid_driven_cavity_distributed/scripts/lbm-dist-sweep-run.sh \
+#       benchmarks/lbm_lid_driven_cavity_distributed/scripts/lbm-dist-sweep.yml
+#   python3 benchmarks/lbm_lid_driven_cavity_distributed/scripts/plotting/plot_dist_scaling.py \
+#       --config benchmarks/lbm_lid_driven_cavity_distributed/scripts/lbm-dist-sweep.yml
+#
+# Every run uses --grid dense_distributed under mpiexec, one rank per GPU.
+# Every key is optional; omitted keys use the script defaults, and an env var
+# of the same name in upper case (CONFIGS, SIZES, GPUS_LIST, ...) overrides
+# the file.
+
+# Lattice:collision pairs, each its own series (populations are always fp32):
+#   q19:bgk  D3Q19 + BGK
+#   q27:bgk  D3Q27 + BGK
+#   q27:kbc  D3Q27 + KBC (KBC is only implemented for D3Q27)
+configs: [q19:bgk]
+
+# Domain edge lengths N: a list, or an inclusive {start, stop, step} range.
+sizes: {start: 256, stop: 512, step: 64}
+
+# GPU counts (= MPI ranks). The 1-GPU point is a single "ref" run per size
+# (every decomposition is 1x1x1 there) and is the efficiency baseline.
+# ProcessGrid factorises the rank count, so for prime counts (2, 3, 5, 7)
+# pencil and brick fall back to a slab, and brick at 4 is a pencil; the
+# plots print the process grid under each GPU count.
+gpus: {start: 1, stop: 8, step: 1}
+
+# Process decompositions, one plot panel each:
+#   slab    split z
+#   pencil  split y and z
+#   brick   split x, y and z
+decompositions: [slab, pencil, brick]
+
+# Halo transports, one curve each:
+#   mpi     NCCL (default)
+#   mpip2p  MPI point-to-point (CARBON_DIST_TRANSPORT=mpi)
+transports: [mpi]
+
+# Halo stream priority, one curve each: off = normal priority, on = --hp-halo
+# (Skeleton halo_stream_priority = High). Only meaningful with overlap != none.
+hp_halo: ["off", "on"]
+
+# Skeleton OCC mode of every run: none, standard, extended, twoway-extended.
+overlap: standard
+
+# Timing: warmup untimed solver steps, then reps repetitions of
+# iters_per_rep solver steps, each closed by a GPU drain and an MPI barrier.
+warmup: 400
+iters_per_rep: 1000
+reps: 5
+
+# CUDA compute capability the binary is compiled for
+# (CMAKE_CUDA_ARCHITECTURES). auto detects it from the GPUs via nvidia-smi.
+# Changing it needs a rebuild, so keep skip_build: false for that run.
+sm_arch: auto
+
+# Docker image that builds the binary and does every run. Its NCCL must match
+# the host driver: carbon-cuda:local ships an NCCL that needs driver >= 580,
+# carbon-cuda-nccl-pinned:local pins NCCL 2.27.7 (CUDA 12.2).
+image: carbon-cuda-nccl-pinned:local
+
+# CUDA+MPI build tree, relative to the carbon repo root. Kept apart from the
+# single-process sweep's build-mpi/, which is configured in another image.
+build_dir: build-dist
+
+# Report prefix and output folder:
+# benchmarks/lbm_lid_driven_cavity_distributed/data/<prefix>/json/
+prefix: lbm-dist-sweep
+
+# true reuses the existing build tree; false (re)builds it first.
+skip_build: false
+# true redoes runs whose JSON already exists; false skips them (resume).
+force: true
+# Per-run timeout in seconds; a hung run is logged in failed.txt.
+run_timeout: 1800

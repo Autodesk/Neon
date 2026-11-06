@@ -55,6 +55,7 @@
 
 #include <clipp.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -108,6 +109,7 @@ struct Options {
   int64_t n = 128;
   int64_t iters = 1000;
   int64_t warmup = 100;
+  int64_t reps = 1;
   double re = 100.0;
   double ulb = 0.05;
   bool ulb_set = false;
@@ -175,6 +177,10 @@ build_cli(Options& opts) -> clipp::group {
           "Total iterations including warmup (default 1000)",
       (option("--warmup") & integer("warmup", opts.warmup)) %
           "Warmup iterations excluded from timing (default 100)",
+      (option("--reps") & integer("reps", opts.reps)) %
+          "Split the timed iterations into N equal repetitions, each closed by a GPU drain "
+          "and (under MPI) a barrier, and report per-repetition MLUPS plus "
+          "mean/min/max/stddev (default 1). Timed iterations must divide by N.",
       (option("--re") & number("re", opts.re)) % "Reynolds number (default 1e2)",
       (option("--ulb") & number("ulb", opts.ulb).set(opts.ulb_set)) %
           "Override lid velocity in lattice units (default 0.05)",
@@ -255,6 +261,12 @@ parse_cli(int argc,
   if (opts.warmup < 0 || opts.warmup >= opts.iters) {
     std::cerr << "lbm_lid_driven_cavity: --warmup must be in [0, iters) (got " << opts.warmup
               << " for iters=" << opts.iters << ")\n";
+    return false;
+  }
+  const int64_t timed_iters = opts.no_warmup_skip ? opts.iters : opts.iters - opts.warmup;
+  if (opts.reps < 1 || timed_iters % opts.reps != 0) {
+    std::cerr << "lbm_lid_driven_cavity: --reps must be >= 1 and divide the " << timed_iters
+              << " timed iterations (got " << opts.reps << ")\n";
     return false;
   }
   if (opts.lattice != "q19" && opts.lattice != "q27") {
@@ -683,22 +695,50 @@ run_benchmark(const Options& opts,
   using Clock = std::chrono::steady_clock;
   using Seconds = std::chrono::duration<double>;
   const int64_t timed_start = opts.no_warmup_skip ? 0 : opts.warmup;
+  const int64_t iters_per_rep = (opts.iters - timed_start) / opts.reps;
+
+  // Every timing mark is taken after all ranks drained, so rank 0's window spans the
+  // slowest rank and the reported MLUPS is a true global figure.
+  auto drain_all_ranks = [&]() {
+    sk_ab.wait();
+    sk_ba.wait();
+#ifdef CARBON_HAVE_MPI_NCCL
+    if (use_mpi) {
+      distributed->barrier();
+    }
+#endif
+  };
 
   Clock::time_point timing_started{};
+  Clock::time_point rep_started{};
   Clock::time_point overall_started = Clock::now();
   bool timing_running = false;
+  std::vector<double> rep_seconds;
+  rep_seconds.reserve(static_cast<size_t>(opts.reps));
 
   for (int64_t it = 0; it < opts.iters; ++it) {
+    if (it > timed_start && (it - timed_start) % iters_per_rep == 0) {
+      try {
+        drain_all_ranks();
+      } catch (const std::exception& e) {
+        CARBON_LOG_ERROR("lbm_lid_driven_cavity: repetition drain failed at iter {}: {}", it,
+                         e.what());
+        return EXIT_FAILURE;
+      }
+      const auto now = Clock::now();
+      rep_seconds.push_back(Seconds(now - rep_started).count());
+      rep_started = now;
+    }
     if (it == timed_start) {
       try {
-        sk_ab.wait();
-        sk_ba.wait();
+        drain_all_ranks();
       } catch (const std::exception& e) {
         CARBON_LOG_ERROR("lbm_lid_driven_cavity: pre-timing drain failed at iter {}: {}", it,
                          e.what());
         return EXIT_FAILURE;
       }
       timing_started = Clock::now();
+      rep_started = timing_started;
       timing_running = true;
       if (!opts.no_warmup_skip) {
         CARBON_LOG_INFO("lbm_lid_driven_cavity: warmup complete ({} iters), starting timing window",
@@ -733,8 +773,7 @@ run_benchmark(const Options& opts,
   }
 
   try {
-    sk_ab.wait();
-    sk_ba.wait();
+    drain_all_ranks();
   } catch (const std::exception& e) {
     CARBON_LOG_ERROR("lbm_lid_driven_cavity: final sync failed: {}", e.what());
     return EXIT_FAILURE;
@@ -754,10 +793,32 @@ run_benchmark(const Options& opts,
   const double mlups =
       (cells_per_iter * static_cast<double>(timed_iters)) / (1.0e6 * timing_seconds);
   const double overall_seconds = Seconds(timing_ended - overall_started).count();
+  rep_seconds.push_back(Seconds(timing_ended - rep_started).count());
 
-  // Under MPI all ranks measure the same `cells_per_iter` (= global N^3) and
-  // run lock-step (halo exchanges synchronise them), so each rank's `mlups`
-  // is the global throughput up to small per-rank timing noise. Print only on
+  std::vector<double> rep_mlups;
+  rep_mlups.reserve(rep_seconds.size());
+  for (const double s : rep_seconds) {
+    rep_mlups.push_back((cells_per_iter * static_cast<double>(iters_per_rep)) / (1.0e6 * s));
+  }
+  double rep_mlups_mean = 0.0;
+  double rep_mlups_min = rep_mlups.front();
+  double rep_mlups_max = rep_mlups.front();
+  for (const double m : rep_mlups) {
+    rep_mlups_mean += m;
+    rep_mlups_min = std::min(rep_mlups_min, m);
+    rep_mlups_max = std::max(rep_mlups_max, m);
+  }
+  rep_mlups_mean /= static_cast<double>(rep_mlups.size());
+  double rep_mlups_var = 0.0;
+  for (const double m : rep_mlups) {
+    rep_mlups_var += (m - rep_mlups_mean) * (m - rep_mlups_mean);
+  }
+  const double rep_mlups_stddev =
+      rep_mlups.size() > 1 ? std::sqrt(rep_mlups_var / static_cast<double>(rep_mlups.size() - 1))
+                           : 0.0;
+
+  // Under MPI all ranks measure the same `cells_per_iter` (= global N^3) between the
+  // same barriers, so each rank's `mlups` is the global throughput. Print only on
   // rank 0 to keep the scrape-friendly headline single-shot. `total_gpu_count`
   // is the world size under MPI (one rank per GPU) and the local GPU count
   // otherwise; `local_gpu_count` stays useful on multi-GPU single-process runs.
@@ -774,6 +835,12 @@ run_benchmark(const Options& opts,
               << " ranks=" << world_size << " decomposition=" << decomposition_mode_name(dec_mode)
               << " lattice=" << lattice_name << " collision=" << collision_name
               << (use_mpi ? " transport=mpi+nccl" : "") << ")" << '\n';
+    if (opts.reps > 1) {
+      CARBON_LOG_INFO(
+          "lbm_lid_driven_cavity: {} repetitions x {} iters  =>  MLUPS mean={:.2f} min={:.2f} "
+          "max={:.2f} stddev={:.2f}",
+          opts.reps, iters_per_rep, rep_mlups_mean, rep_mlups_min, rep_mlups_max, rep_mlups_stddev);
+    }
   }
 
   // Optional grid-family parity checksum: Sum-reduce the whole final population
@@ -924,10 +991,17 @@ run_benchmark(const Options& opts,
     out << "    \"n\": " << opts.n << ",\n";
     out << "    \"iters\": " << opts.iters << ",\n";
     out << "    \"warmup\": " << opts.warmup << ",\n";
+    out << "    \"reps\": " << opts.reps << ",\n";
     out << "    \"lattice\": \"" << json_escape(lattice_name) << "\",\n";
     out << "    \"collision\": \"" << json_escape(collision_name) << "\",\n";
     out << "    \"grid\": \"" << json_escape(opts.grid) << "\",\n";
     out << "    \"decomposition\": \"" << decomposition_mode_name(dec_mode) << "\",\n";
+    if (pg) {
+      const carbon::int32_3d dims = pg->dims();
+      out << "    \"process_grid\": [" << dims.x << ", " << dims.y << ", " << dims.z << "],\n";
+    } else {
+      out << "    \"process_grid\": null,\n";
+    }
     out << "    \"q\": " << Lattice::Q << ",\n";
     out << "    \"re\": " << opts.re << ",\n";
     out << "    \"ulb\": " << ulb << ",\n";
@@ -980,7 +1054,25 @@ run_benchmark(const Options& opts,
     out << "    \"cells_per_iter\": " << static_cast<int64_t>(cells_per_iter) << ",\n";
     out << "    \"mlups\": " << mlups << ",\n";
     out << "    \"mlups_per_gpu\": " << (mlups / static_cast<double>(total_gpu_count)) << ",\n";
-    out << "    \"effective_bandwidth_gb_s\": " << effective_bandwidth_gb_s << "\n";
+    out << "    \"effective_bandwidth_gb_s\": " << effective_bandwidth_gb_s << ",\n";
+    out << "    \"repetitions\": {\n";
+    out << "      \"count\": " << opts.reps << ",\n";
+    out << "      \"iters_per_rep\": " << iters_per_rep << ",\n";
+    out << "      \"seconds\": [";
+    for (size_t i = 0; i < rep_seconds.size(); ++i) {
+      out << (i == 0 ? "" : ", ") << rep_seconds[i];
+    }
+    out << "],\n";
+    out << "      \"mlups\": [";
+    for (size_t i = 0; i < rep_mlups.size(); ++i) {
+      out << (i == 0 ? "" : ", ") << rep_mlups[i];
+    }
+    out << "],\n";
+    out << "      \"mlups_mean\": " << rep_mlups_mean << ",\n";
+    out << "      \"mlups_min\": " << rep_mlups_min << ",\n";
+    out << "      \"mlups_max\": " << rep_mlups_max << ",\n";
+    out << "      \"mlups_stddev\": " << rep_mlups_stddev << "\n";
+    out << "    }\n";
     out << "  }\n";
     out << "}\n";
     out.close();
