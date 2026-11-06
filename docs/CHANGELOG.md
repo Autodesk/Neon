@@ -6170,3 +6170,18 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `LatticeDistributed` on emulated slab / pencil / brick worlds and checks face-interior
   halo components in both directions. The old experimental
   `io_vtk_distributed_wrong.cpp` was removed.
+- **2026-11 — `halo_stream_priority = High` actually reaches the halo stream.** Before,
+  `pick_stream` fell through to `alloc_stream(false)` for an overlapped halo whose producer
+  was not on a secondary stream (the usual case: Internal holds stream 0), and
+  `reserve_halo_stream` kept that normal-priority stream, so `High` (and jacobi
+  `--hp-halo`) had no effect. The Skeleton now records each stream's creation priority
+  (`stream_priority_`, parallel to `streams_`): an overlapped halo never takes the generic
+  allocation, `reserve_halo_stream` only reuses a stream whose priority matches
+  `Options::halo_stream_priority`, and the generic empty-stream reuse only hands out
+  normal-priority streams (streams survive recompiles, so an empty high-priority halo
+  stream must not absorb ordinary kernels). With `Normal` the assignment is unchanged.
+  `Options(OverlapMode, StreamPriority)` sets both in one call, the positional constructor
+  takes the priority as a trailing argument, `compile()` logs when `High` is combined with
+  `OverlapMode::None`, and the distributed LBM benchmark gains `--hp-halo` (`hp_halo` in
+  the JSON report). `test_skeleton_halo_priority` checks the native priority of the halo
+  stream for Standard / Extended, a ping-pong pair, a recompile, and `None`.

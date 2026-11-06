@@ -206,6 +206,15 @@ public:
    *   @c CARBON_LOG_INFO right after every successful @ref compile . Cheap
    *   debug aid for "did the schedule come out as I expected" checks
    *   without having to call @ref export_dot from user code.
+   * - @ref halo_stream_priority selects the driver priority of the stream(s) the
+   *   OCC rewrite dedicates to halo exchanges. Every kernel issued on such a stream
+   *   inherits it: the halo's pack (gather) / transfer (NCCL) / unpack (scatter)
+   *   kernels and the stencil's Boundary half, which shares the halo stream. With
+   *   @c High, their pending blocks are dispatched ahead of the Internal half's as
+   *   SMs free up, so the exchange runs while Internal is still in flight instead of
+   *   in its last wave. No effect under @c OverlapMode::None (no halo stream exists).
+   *   Set it together with the overlap mode via
+   *   @c Options(OverlapMode, StreamPriority) .
    */
   struct Options {
     OverlapMode overlap_mode;
@@ -236,12 +245,22 @@ public:
                       bool strict = false,
                       size_t max_streams_cap = 0U,
                       bool dot_on_compile = false,
-                      bool cuda_graph = false) noexcept
+                      bool cuda_graph = false,
+                      StreamPriority halo_priority = StreamPriority::Normal) noexcept
         : overlap_mode(mode),
           strict_halo(strict),
           max_streams(max_streams_cap),
           log_dot_on_compile(dot_on_compile),
-          use_cuda_graph(cuda_graph) {}
+          use_cuda_graph(cuda_graph),
+          halo_stream_priority(halo_priority) {}
+    constexpr Options(OverlapMode mode,
+                      StreamPriority halo_priority) noexcept
+        : overlap_mode(mode),
+          strict_halo(false),
+          max_streams(0U),
+          log_dot_on_compile(false),
+          use_cuda_graph(false),
+          halo_stream_priority(halo_priority) {}
   };
 
   /**
@@ -263,6 +282,7 @@ public:
       : sys_(std::move(sys)),
         options_(options) {
     streams_.push_back(sys_.default_stream());
+    stream_priority_.push_back(StreamPriority::Normal);
   }
 
   /**
@@ -279,6 +299,7 @@ public:
       : sys_(std::move(sys)),
         options_(options) {
     streams_.push_back(std::move(stream));
+    stream_priority_.push_back(StreamPriority::Normal);
   }
 
   /**
@@ -1044,6 +1065,9 @@ private:
   System sys_{};
   Options options_{};
   std::vector<Stream> streams_{};
+  // Parallel to streams_: the priority each stream was created with. The halo stream
+  // reservation only reuses a stream whose priority matches Options::halo_stream_priority.
+  std::vector<StreamPriority> stream_priority_{};
   std::vector<Event> events_{};
   std::vector<Kernel> kernels_{};
   // The kernels actually scheduled = kernels_ plus auto-inserted halos. Built

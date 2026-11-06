@@ -356,6 +356,13 @@ Skeleton::compile() -> void {
     }
   }
 
+  if (options_.halo_stream_priority == StreamPriority::High &&
+      options_.overlap_mode == OverlapMode::None) {
+    CARBON_LOG_INFO(
+        "Skeleton::compile: halo_stream_priority=High has no effect with OverlapMode::None "
+        "(halos run on the anchor stream; no dedicated halo stream is created)");
+  }
+
   compile_step_graph_and_lower_(direct_preds_of);
 
   // Phase 5: anchor fork-join events. Allocated AFTER the OCC rewrite so the
@@ -656,10 +663,11 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
   std::vector<std::vector<size_t>> node_waits(nodes.size());
 
   auto alloc_stream = [&](bool prefer_high_priority) -> size_t {
-    Stream st = (prefer_high_priority && options_.halo_stream_priority == StreamPriority::High)
-                    ? sys_.stream(StreamPriority::High)
-                    : sys_.stream();
-    streams_.push_back(std::move(st));
+    const StreamPriority prio =
+        prefer_high_priority ? options_.halo_stream_priority : StreamPriority::Normal;
+    streams_.push_back(prio == StreamPriority::High ? sys_.stream(StreamPriority::High)
+                                                    : sys_.stream());
+    stream_priority_.push_back(prio);
     stream_tail.push_back(kNoKernel_);
     return streams_.size() - 1U;
   };
@@ -671,11 +679,17 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
     if (halo_stream_for[halo_nid] != kNoStream_) {
       return halo_stream_for[halo_nid];
     }
+    const auto halo_priority_ok = [&](size_t s) -> bool {
+      return stream_priority_[s] == options_.halo_stream_priority;
+    };
+    if (chosen != 0U && !halo_priority_ok(chosen)) {
+      chosen = 0U;
+    }
     if (options_.max_streams != 0U && streams_.size() >= options_.max_streams) {
       chosen = 0U;
     } else if (chosen == 0U && stream_tail.size() > 1U) {
       for (size_t s = 1U; s < stream_tail.size(); ++s) {
-        if (stream_tail[s] == kNoKernel_) {
+        if (stream_tail[s] == kNoKernel_ && halo_priority_ok(s)) {
           chosen = s;
           break;
         }
@@ -742,14 +756,15 @@ Skeleton::compile_step_graph_and_lower_(const std::vector<std::vector<size_t>>& 
     }
     if (chosen == kNoStream_) {
       for (size_t s = 0; s < stream_tail.size(); ++s) {
-        if (stream_tail[s] == kNoKernel_) {
+        if (stream_tail[s] == kNoKernel_ && stream_priority_[s] == StreamPriority::Normal) {
           chosen = s;
           break;
         }
       }
     }
     if (chosen == kNoStream_) {
-      if (options_.max_streams != 0U && streams_.size() >= options_.max_streams) {
+      if (is_overlapped_halo(nid) ||
+          (options_.max_streams != 0U && streams_.size() >= options_.max_streams)) {
         chosen = 0U;
       } else {
         chosen = alloc_stream(false);
