@@ -12,6 +12,9 @@
 #   Efficiency is relative to the 1-GPU Dense Peeraccess runs of
 #   benchmarks/lbm_lid_driven_cavity/data/lbm-dgx-sweep/json (no 1-GPU run here).
 #
+# Original run: 8x A100-SXM4-40GB (NVLink), driver 535.161.08, carbon commit
+# 0d504c5, image carbon-cuda-nccl-pinned:local (NCCL 2.27.7, CUDA 12.2).
+#
 # Usage:
 #   ./benchmarks/lbm_lid_driven_cavity_distributed/data/lbm-dist-sweep/reproduce.sh [--plot-only]
 #
