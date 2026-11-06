@@ -23,6 +23,7 @@
 
 #if CARBON_CUDALIKE_DEVICE_TU
 #include <carbon/detail/backend/cuda_like.h>
+#include <carbon/detail/backend/cudalike/reduce_atomic.h>
 #endif
 
 namespace carbon::detail::dense_distributed {
@@ -48,34 +49,6 @@ concept dense_reduce_fn = std::is_invocable_r_v<T, F, Span, Idx>;
 constexpr int kReduceBlockThreads = 256;
 
 #if CARBON_CUDALIKE_DEVICE_TU
-
-template <typename T>
-CARBON_HD inline auto
-reduce_atomic_accumulate(T* dst,
-                         T value) -> void {
-  if constexpr (std::is_same_v<T, float>) {
-    atomicAdd(dst, value);
-  } else if constexpr (std::is_same_v<T, double>) {
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
-    atomicAdd(dst, value);
-#else
-    (void)dst;
-    (void)value;
-#endif
-  } else if constexpr (std::is_same_v<T, int32_t>) {
-    atomicAdd(dst, value);
-  } else if constexpr (std::is_same_v<T, int64_t>) {
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
-    atomicAdd(reinterpret_cast<unsigned long long*>(dst), static_cast<unsigned long long>(value));
-#else
-    (void)dst;
-    (void)value;
-#endif
-  } else {
-    (void)dst;
-    (void)value;
-  }
-}
 
 /**
  * Fused "map + block-reduce" kernel for a @c DenseDistributed slab under any @ref DataView .

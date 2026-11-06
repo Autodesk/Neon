@@ -1,4 +1,4 @@
-// ReduceFinalize::BlockAtomic vs default DeviceReduce on Dense sum reductions.
+// ReduceFinalize::BlockAtomic vs default DeviceReduce on Dense float/int64/double sums.
 
 #include <carbon/carbon.h>
 #include <carbon/cuda_annotation.h>
@@ -37,6 +37,28 @@ host_reference_sum(int64_t W,
     for (int64_t y = 0; y < H; ++y) {
       for (int64_t x = 0; x < W; ++x) {
         s += encode(x, y, z);
+      }
+    }
+  }
+  return s;
+}
+
+[[nodiscard]] CARBON_HD auto
+encode_double(int64_t x,
+              int64_t y,
+              int64_t z) -> double {
+  return 0.5 * static_cast<double>(encode(x, y, z)) + 0.25;
+}
+
+[[nodiscard]] auto
+host_reference_sum_double(int64_t W,
+                          int64_t H,
+                          int64_t D) -> double {
+  double s = 0.0;
+  for (int64_t z = 0; z < D; ++z) {
+    for (int64_t y = 0; y < H; ++y) {
+      for (int64_t x = 0; x < W; ++x) {
+        s += encode_double(x, y, z);
       }
     }
   }
@@ -153,6 +175,54 @@ main() {
                     std::fmax(1.0F, std::fabs(f_dev.host_value()));
   if (rel > 1.0e-5F) {
     CARBON_LOG_ERROR("test_reduce_atomic: float atomic vs device rel err {}", rel);
+    return EXIT_FAILURE;
+  }
+
+  // Double: exercise the HIP __HIP_DEVICE_COMPILE__ atomic path as well as CUDA's sm_60+
+  // native double atomicAdd. Compare against the default DeviceReduce path and the host sum.
+  auto d_field = dense.newField<double, 1>(carbon::MemorySide::HostDevice, "df");
+  d_field.fill_owned_host([](carbon::int64_3d g, int) {
+    return encode_double(g.x, g.y, g.z);
+  });
+  try {
+    carbon::Transfer<double>(sys, d_field.cpu_buffers(), d_field.gpu_buffers())(upload);
+    upload.wait();
+  } catch (const std::exception& ex) {
+    CARBON_LOG_ERROR("test_reduce_atomic: double upload failed: {}", ex.what());
+    return EXIT_FAILURE;
+  }
+
+  carbon::ReductionResult<double> d_dev(sys);
+  carbon::ReductionResult<double> d_atomic(sys);
+  auto d_loader = [&d_field](carbon::KernelLoader& kl) {
+    const auto in = kl.read(d_field);
+    return [in] CARBON_HOST_DEVICE(carbon::Dense::Span s, carbon::Dense::Idx idx) -> double {
+      return in.read(s, idx, 0);
+    };
+  };
+  auto d_dev_k = dense.make_reduce_kernel<double>(d_loader, d_dev);
+  auto d_atomic_k = dense.make_reduce_kernel<double>(
+      d_loader, d_atomic, carbon::reduce::Sum<double>{}, 0U, atomic_opts);
+  try {
+    d_dev_k.launch(st);
+    d_dev.sync(st);
+    d_atomic_k.launch(st);
+    d_atomic.sync(st);
+    st.wait();
+  } catch (const std::exception& ex) {
+    CARBON_LOG_ERROR("test_reduce_atomic: double launch failed: {}", ex.what());
+    return EXIT_FAILURE;
+  }
+  const double expected_double = host_reference_sum_double(kWidth, kHeight, kDepth);
+  const double rel_dev = std::fabs(d_dev.host_value() - expected_double) /
+                         std::fmax(1.0, std::fabs(expected_double));
+  const double rel_atomic = std::fabs(d_atomic.host_value() - expected_double) /
+                            std::fmax(1.0, std::fabs(expected_double));
+  if (rel_dev > 1.0e-9 || rel_atomic > 1.0e-9) {
+    CARBON_LOG_ERROR("test_reduce_atomic: double mismatch dev={} atomic={} expected={} "
+                     "(rel dev={}, atomic={})",
+                     d_dev.host_value(), d_atomic.host_value(), expected_double, rel_dev,
+                     rel_atomic);
     return EXIT_FAILURE;
   }
 

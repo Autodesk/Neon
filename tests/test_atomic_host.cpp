@@ -1,6 +1,7 @@
 #include <carbon/detail/atomic.h>
 
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <thread>
 #include <vector>
@@ -25,7 +26,9 @@
  *
  * Counts are chosen so the running float sum stays integral and exactly representable
  * (8 threads x 4096 increments of 1.0f peaks at 32768, well inside the 2^24 exact-integer
- * range of binary32), so a mismatch means a lost update rather than rounding.
+ * range of binary32), so a mismatch means a lost update rather than rounding. The
+ * CUDA/HIP-only double and int64_t cases cover the overloads used by
+ * @c ReduceFinalize::BlockAtomic.
  */
 
 namespace {
@@ -61,6 +64,61 @@ test_atomic_add_loses_nothing() {
   }
 }
 
+#if CARBON_BACKEND_IS_CUDALIKE
+void
+test_atomic_add_double_loses_nothing() {
+  double counter = 0.0;
+
+  std::vector<std::thread> workers;
+  workers.reserve(kThreads);
+  for (int t = 0; t < kThreads; ++t) {
+    workers.emplace_back([&counter] {
+      for (int i = 0; i < kIterations; ++i) {
+        (void)carbon::detail::atomic_add(&counter, 1.0);
+      }
+    });
+  }
+  for (std::thread& w : workers) {
+    w.join();
+  }
+
+  const double expected = static_cast<double>(kThreads) * static_cast<double>(kIterations);
+  if (counter != expected) {
+    std::fprintf(stderr,
+                 "test_atomic_host: double atomic_add lost updates: got %.1f, expected %.1f\n",
+                 counter, expected);
+    assert(false && "detail::atomic_add(double) host branch is not atomic");
+  }
+}
+
+void
+test_atomic_add_int64_loses_nothing() {
+  std::int64_t counter = 0;
+
+  std::vector<std::thread> workers;
+  workers.reserve(kThreads);
+  for (int t = 0; t < kThreads; ++t) {
+    workers.emplace_back([&counter] {
+      for (int i = 0; i < kIterations; ++i) {
+        (void)carbon::detail::atomic_add(&counter, std::int64_t{1});
+      }
+    });
+  }
+  for (std::thread& w : workers) {
+    w.join();
+  }
+
+  const std::int64_t expected =
+      static_cast<std::int64_t>(kThreads) * static_cast<std::int64_t>(kIterations);
+  if (counter != expected) {
+    std::fprintf(stderr,
+                 "test_atomic_host: int64_t atomic_add lost updates: got %lld, expected %lld\n",
+                 static_cast<long long>(counter), static_cast<long long>(expected));
+    assert(false && "detail::atomic_add(int64_t) host branch is not atomic");
+  }
+}
+#endif
+
 void
 test_atomic_min_reaches_true_minimum() {
   // Each thread walks a descending sequence offset by its id, so the threads interleave and
@@ -95,6 +153,10 @@ test_atomic_min_reaches_true_minimum() {
 int
 main() {
   test_atomic_add_loses_nothing();
+#if CARBON_BACKEND_IS_CUDALIKE
+  test_atomic_add_double_loses_nothing();
+  test_atomic_add_int64_loses_nothing();
+#endif
   test_atomic_min_reaches_true_minimum();
   std::printf("test_atomic_host: OK (%d threads x %d iterations per helper)\n", kThreads,
               kIterations);

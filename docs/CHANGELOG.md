@@ -6201,3 +6201,14 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   the compact shell path, so `owned.z < 2 * halo.z` no longer visits Boundary cells twice.
   The host test adds thin z-only pencil/brick/periodic-X cases and asserts legacy slabs still
   use the `2 * halo.z` z-band extent.
+- **2026-11 — HIP `BlockAtomic` double / int64 sums are no longer dropped.** The four
+  CUDA/HIP reduce-kernel headers duplicated a `__CUDA_ARCH__ >= 600` guard whose `#else`
+  silently discarded `double` and `int64_t` block partials. AMD HIP defines
+  `__HIP_DEVICE_COMPILE__` but not `__CUDA_ARCH__`, so `ReduceFinalize::BlockAtomic`
+  produced zero on that backend. The atomic dispatch now lives in `cudalike/atomic.h`
+  (`double`, `int32_t`, `int64_t` overloads, with a CUDA pre-sm_60 CAS fallback and the
+  existing host `std::atomic_ref` path), and one shared `reduce_atomic_accumulate` helper is
+  used by the Dense, DenseDistributed, DenseDisg and Block kernels. Unsupported element
+  types now fail with a dependent `static_assert` instead of compiling to a no-op. The
+  `test_reduce_atomic` suite adds a `double` BlockAtomic case and `test_atomic_host` covers
+  the new host overloads.

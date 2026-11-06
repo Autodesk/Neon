@@ -164,7 +164,7 @@ public:
       }
 #if CARBON_BACKEND_IS_SYCL
       log::throw_with_log<std::invalid_argument>(
-          "Kernel::reduce: ReduceFinalize::BlockAtomic is supported only on the CUDA backend");
+          "Kernel::reduce: ReduceFinalize::BlockAtomic is supported only on the CUDA/HIP backend");
 #endif
     }
     if (reduce_options_.host_copy == reduce::ReduceHostCopy::Deferred) {

@@ -24,6 +24,7 @@
 
 #if CARBON_CUDALIKE_DEVICE_TU
 #include <carbon/detail/backend/cuda_like.h>
+#include <carbon/detail/backend/cudalike/reduce_atomic.h>
 #endif
 
 namespace carbon::detail::block {
@@ -116,34 +117,6 @@ block_grid_reduce_kernel(Span<SBlock> span,
   }
 }
 
-template <typename T>
-CARBON_HD inline auto
-block_reduce_atomic_accumulate(T* dst,
-                               T value) -> void {
-  if constexpr (std::is_same_v<T, float>) {
-    atomicAdd(dst, value);
-  } else if constexpr (std::is_same_v<T, double>) {
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
-    atomicAdd(dst, value);
-#else
-    (void)dst;
-    (void)value;
-#endif
-  } else if constexpr (std::is_same_v<T, int32_t>) {
-    atomicAdd(dst, value);
-  } else if constexpr (std::is_same_v<T, int64_t>) {
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
-    atomicAdd(reinterpret_cast<unsigned long long*>(dst), static_cast<unsigned long long>(value));
-#else
-    (void)dst;
-    (void)value;
-#endif
-  } else {
-    (void)dst;
-    (void)value;
-  }
-}
-
 /**
  * Block-grid reduce with block partials merged via atomics into @p global_out
  * ( @ref ReduceFinalize::BlockAtomic ), analogous to @ref dense_grid_reduce_block_atomic_kernel .
@@ -180,7 +153,7 @@ block_grid_reduce_block_atomic_kernel(Span<SBlock> span,
 
   const T brick_val = BlockReduceT(temp_storage).Reduce(thread_val, op);
   if (threadIdx.x == 0U) {
-    block_reduce_atomic_accumulate(global_out, brick_val);
+    reduce_atomic_accumulate(global_out, brick_val);
   }
 }
 
