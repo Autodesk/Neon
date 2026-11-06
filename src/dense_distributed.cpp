@@ -195,7 +195,8 @@ DenseDistributed::init_common_(System system,
         detail::dense_distributed::rank_chunk(global_, process_grid_, gpu_coords, halo);
 
     return detail::dense_distributed::Span(chunk.haloed, global_, chunk.xy_pitch, chunk.offset,
-                                           chunk.halo, boundary_mode_, origin_, spacing_);
+                                           chunk.halo, boundary_mode_, legacy_slab, origin_,
+                                           spacing_);
   });
 
   for (auto view : data_view_options()) {

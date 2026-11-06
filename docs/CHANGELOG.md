@@ -6195,3 +6195,9 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `2 * halo_z` rule and the multi-axis `owned >= halo` rule. The host test adds four
   global-validation cases (`z=7` over 4 slabs and `x=1` over a 2x2x2 brick must throw; the
   existing valid slab/brick layouts must not).
+- **2026-11 — Legacy z-band Boundary path is now opt-in.** `DenseDistributed::Span` carries a
+  `legacy_slab` flag; only spans marked legacy use the two-band z-only Boundary mapping.
+  Non-legacy z-only chunks (pencil/brick or periodic-X/Y slab with a z-only stencil) now use
+  the compact shell path, so `owned.z < 2 * halo.z` no longer visits Boundary cells twice.
+  The host test adds thin z-only pencil/brick/periodic-X cases and asserts legacy slabs still
+  use the `2 * halo.z` z-band extent.

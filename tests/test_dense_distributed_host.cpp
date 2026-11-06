@@ -743,7 +743,8 @@ check_geometry(const GeomCase& c,
               {ch.owned.x + 2 * halo.x, ch.owned.y + 2 * halo.y, ch.owned.z + 2 * halo.z}));
     CHECK(ch.xy_pitch == ch.haloed.x * ch.haloed.y);
 
-    const dd::Span span(ch.haloed, global, ch.xy_pitch, ch.offset, ch.halo, bm);
+    const dd::Span span(ch.haloed, global, ch.xy_pitch, ch.offset, ch.halo, bm,
+                        /*legacy_slab=*/legacy_slab);
     CHECK(eq3(span.logic_extent(), ch.owned));
     CHECK(eq3(span.haloed_extent(), ch.haloed));
     CHECK(eq3(span.halo(), halo));
@@ -776,6 +777,9 @@ check_geometry(const GeomCase& c,
       std::vector<int> mark(static_cast<size_t>(ch.owned.x * ch.owned.y * ch.owned.z), 0);
       for (const carbon::DataView view : {carbon::DataView::Internal, carbon::DataView::Boundary}) {
         const int64_3d e = span.iter_extent(view);
+        if (view == carbon::DataView::Boundary && legacy_slab) {
+          CHECK(e.z == 2 * halo.z);
+        }
         if (view == carbon::DataView::Boundary && !legacy_slab) {
           // Compact shell: the launch box holds the shell cells plus less than one 128-wide row
           // of padding (a full-owned-extent launch would fail this by a wide margin), and the
@@ -881,6 +885,7 @@ part_b_geometry(size_t& cells,
                                        {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
   const std::vector<int32_3d> r2 = {{2, 0, 0},  {-2, 0, 0}, {0, 1, 0},
                                     {0, -1, 0}, {0, 0, 2},  {0, 0, -2}};
+  const std::vector<int32_3d> zonly = {{0, 0, 1}, {0, 0, -1}};
   std::vector<int32_3d> d3q19;
   for (int z = -1; z <= 1; ++z) {
     for (int y = -1; y <= 1; ++y) {
@@ -912,6 +917,12 @@ part_b_geometry(size_t& cells,
       {"brick/221-aniso", 2, 2, 1, kO, 8, 6, 5, aniso, {2, 1, 0}},
       {"brick/221-aniso-periodicZ", 2, 2, 1, kZ, 8, 6, 5, aniso, {2, 1, 1}},
       {"brick/212-d3q19-periodicXZ", 2, 1, 2, kX | kZ, 6, 5, 6, d3q19, {1, 0, 1}},
+      // Non-legacy z-only stencils: halo.x == halo.y == 0, but the layout is not a legacy slab.
+      // The Boundary view must use the compact shell path; with owned.z == 1 the two-band path
+      // would visit the same cell twice.
+      {"pencil/zonly-thin", 1, 2, 2, kO, 4, 4, 2, zonly, {0, 0, 1}},
+      {"brick/zonly-thin", 2, 2, 2, kO, 4, 4, 2, zonly, {0, 0, 1}},
+      {"slab/zonly-thin-periodicX", 1, 1, 1, kX, 4, 4, 1, zonly, {0, 0, 1}},
   };
   for (const GeomCase& c : cases) {
     check_geometry(c, cells, neighbour_reads);
