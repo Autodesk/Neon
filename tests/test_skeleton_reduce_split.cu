@@ -147,9 +147,9 @@ main() {
 
   carbon::ReductionResult<float> sum_ref(sys);
   carbon::Kernel whole = build_stencil_sum_kernel(dense, u, sum_ref, "sum_whole");
-  whole.launch(sys.stream(), carbon::DataView::Standard);
-  sys.stream().wait();
-  sum_ref.sync(sys.stream());
+  whole.launch(s_up, carbon::DataView::Standard);
+  s_up.wait();
+  sum_ref.sync(s_up);
   const float ref_val = sum_ref.host_value();
 
   bool ok = true;
@@ -165,7 +165,7 @@ main() {
       sk.compile();
       sk.run();
       sk.wait();
-      sum.sync(sys.stream());
+      sum.sync(s_up);
       if (!matches(sum.host_value(), ref_val)) {
         CARBON_LOG_ERROR("test_skeleton_reduce_split[{}]: split {} != ref {}", mode_name(mode),
                          sum.host_value(), ref_val);
@@ -181,7 +181,7 @@ main() {
       sk.compile();
       sk.run();
       sk.wait();
-      sum.sync(sys.stream());
+      sum.sync(s_up);
       if (!matches(sum.host_value(), 2.0F * ref_val)) {
         CARBON_LOG_ERROR("test_skeleton_reduce_split[{} + producer]: split {} != ref {}",
                          mode_name(mode), sum.host_value(), 2.0F * ref_val);
@@ -200,7 +200,7 @@ main() {
     sk_none.compile();
     sk_none.run();
     sk_none.wait();
-    sum_none.sync(sys.stream());
+    sum_none.sync(s_up);
     const float none_val = sum_none.host_value();
 
     carbon::ReductionResult<float> sum_ext(sys);
@@ -212,7 +212,7 @@ main() {
     const std::string order_ext = sk_ext.export_launch_order();
     sk_ext.run();
     sk_ext.wait();
-    sum_ext.sync(sys.stream());
+    sum_ext.sync(s_up);
     if (!matches(sum_ext.host_value(), none_val)) {
       CARBON_LOG_ERROR("test_skeleton_reduce_split[Extended trailing Map reduce]: {} != None {}",
                        sum_ext.host_value(), none_val);
@@ -236,7 +236,7 @@ main() {
     const std::string order_tw = sk_tw.export_launch_order();
     sk_tw.run();
     sk_tw.wait();
-    sum_tw.sync(sys.stream());
+    sum_tw.sync(s_up);
     if (!matches(sum_tw.host_value(), none_val)) {
       CARBON_LOG_ERROR(
           "test_skeleton_reduce_split[TwoWayExtended trailing Map reduce]: {} != None {}",

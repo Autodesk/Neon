@@ -6224,3 +6224,17 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `Standard`, `Internal`, and `Boundary` because the padded compact-shell boundary can need
   more blocks than Standard. Dead `16x16`, `8x8`, `32x16`, `16x32`, and `64x64` dispatch cases
   were removed; only `32x32` is reachable under the current normalizer.
+- **2026-11 — SYCL split-reduction Merge now runs instead of throwing.** A stencil reduction
+  inside an overlapped `Skeleton` is emitted as `Partial Internal + Partial Boundary + Merge`;
+  `ReduceKernelImpl::launch_merge_on_device` only had a CUDA/HIP body and threw
+  `std::logic_error` under SYCL, so every overlapped stencil reduction aborted. The SYCL branch
+  now folds the two already-combined per-view scalars with a one-thread `sycl::single_task`
+  (`*out = op(op(identity, *internal), *boundary)`), captures `Op`/identity and the pointers by
+  value, and reuses the existing cross-rank and inline-readback tail. The SYCL NCCL
+  `dist_allreduce_in_place` path now value-captures its submission lambda and drops the host
+  `wait_and_throw()`: the custom operation may outlive the caller's stack frame, and the
+  in-order queue orders later submissions after the collective. `test_skeleton_reduce_split`
+  now uses one stable `Stream` for the whole-reduction reference instead of minting a fresh
+  `System::stream()` per call (the old reference raced the inline D-to-H copy on SYCL OpenMP).
+  Verified with `test_skeleton_reduce_split`, `test_reduce_sum`, and `test_reduce_ops` on SYCL
+  OpenMP, and with `test_skeleton_reduce_split` on CUDA.

@@ -615,9 +615,48 @@ public:
       dst.record_readback_done(DataView::Standard, slot, stream);
       dst.mark_fresh(DataView::Standard);
     }
+#elif CARBON_BACKEND_IS_SYCL
+    if (stream.size() != grid_.gpu_count()) {
+      log::throw_with_log<std::invalid_argument>(
+          "Kernel::reduce::launch_merge: stream-group size ({}) != gpu_count ({})",
+          stream.size(), grid_.gpu_count());
+    }
+    ReductionResult<T>& dst = *dst_;
+    (void)dst.begin_launch_slot(DataView::Standard, stream);
+    const size_t root = static_cast<size_t>(dst.root_local_gpu());
+    sycl::queue& q = stream[root].queue();
+
+    T* const out = dst.device_data(DataView::Standard);
+    const T* const internal = dst.device_data(DataView::Internal);
+    const T* const boundary = dst.device_data(DataView::Boundary);
+    // Copy Op and the identity into locals so the device lambda captures no `this`
+    // pointer; the single_task folds the two already-combined Partial scalars.
+    const Op op = op_;
+    const T init = op.identity();
+    try {
+      q.submit([&](sycl::handler& cgh) {
+        cgh.single_task([op, init, out, internal, boundary]() {
+          *out = op(op(init, *internal), *boundary);
+        });
+      });
+    } catch (const sycl::exception& ex) {
+      log::throw_with_log<std::runtime_error>(
+          "Kernel::reduce::launch_merge: SYCL submission failed: {}", ex.what());
+    }
+
+    reduce_stages::run_stage3_cross_rank<T, Op>(grid_.system(), stream, dst,
+                                                DataView::Standard);
+    if (reduce_options_.host_copy == reduce::ReduceHostCopy::Inline) {
+      const size_t slot = dst.active_slot();
+      grid_.system().async_copy(dst.device_allocation(DataView::Standard, slot),
+                                dst.host_allocation(DataView::Standard, slot), sizeof(T),
+                                stream);
+      dst.record_readback_done(DataView::Standard, slot, stream);
+      dst.mark_fresh(DataView::Standard);
+    }
 #else
     log::throw_with_log<std::logic_error>(
-        "Kernel::reduce::launch_merge requires a CUDA/HIP device translation unit");
+        "Kernel::reduce::launch_merge requires a CUDA/HIP or SYCL backend");
 #endif
   }
 
