@@ -433,7 +433,8 @@ struct HostLaunchTraits<::carbon::Block<SBlock>> {
  *   @c kDisgReduceBlockThreads ; Block: @c SBlock::VoxelCount ).
  * - @c stage1_unit_count(grid, g_idx, view) — number of CUDA blocks the
  *   stage-1 launch dispatches for @p view on local GPU @p g_idx . Dense /
- *   DenseDisg : @c ceil_div(iter_extent.volume(), stage1_block_threads()) .
+ *   DenseDisg 1-D : @c ceil_div(iter_extent.volume(), stage1_block_threads()) .
+ *   Dense / DenseDisg 2-D : @c ceil(ext.x / bx) * ceil((ext.y * ext.z) / by) .
  *   Block : @c iter_block_count(view) (one CUDA block per retained brick).
  * - @c is_empty_domain(grid, g_idx, view) — true iff the stage-1 launch
  *   would have zero work. Dense / DenseDisg : @c iter_cells == 0 . Block :
@@ -476,12 +477,13 @@ struct ReduceLaunchTraits {
       if (dense_stage1_threads_y > 0) {
         const int bx = dense_stage1_threads > 0 ? dense_stage1_threads : 32;
         const int by = dense_stage1_threads_y;
-        if (ext.x <= 0 || ext.z <= 0) {
+        const int64_t yz_extent = ext.y * ext.z;
+        if (ext.x <= 0 || yz_extent <= 0) {
           return 0;
         }
         const int64_t gx = (ext.x + bx - 1) / bx;
-        const int64_t gz = (ext.z + by - 1) / by;
-        return gx * gz;
+        const int64_t gyz = (yz_extent + by - 1) / by;
+        return gx * gyz;
       }
     }
     int bt = stage1_block_threads();

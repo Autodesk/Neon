@@ -226,6 +226,27 @@ main() {
     return EXIT_FAILURE;
   }
 
+  // 2-D stage-1 BlockAtomic: flattening (y, z) must cover every cell, not just y == 0.
+  carbon::reduce::ReduceOptions atomic_2d_opts = atomic_opts;
+  atomic_2d_opts.stage1_threads = 32U;
+  atomic_2d_opts.stage1_threads_y = 32U;
+  carbon::ReductionResult<int64_t> atomic_2d_result(sys);
+  auto atomic_2d_kernel = dense.make_reduce_kernel<int64_t>(
+      loader, atomic_2d_result, carbon::reduce::Sum<int64_t>{}, /*shared_mem=*/0U, atomic_2d_opts);
+  try {
+    atomic_2d_kernel.launch(st);
+    atomic_2d_result.sync(st);
+    st.wait();
+  } catch (const std::exception& ex) {
+    CARBON_LOG_ERROR("test_reduce_atomic: 2D atomic launch failed: {}", ex.what());
+    return EXIT_FAILURE;
+  }
+  if (atomic_2d_result.host_value() != expected) {
+    CARBON_LOG_ERROR("test_reduce_atomic: 2D atomic path got {} expected {}",
+                     atomic_2d_result.host_value(), expected);
+    return EXIT_FAILURE;
+  }
+
   // Invalid: Min + BlockAtomic throws at construction.
   carbon::ReductionResult<int64_t> bad_dst(sys);
   bool threw = false;

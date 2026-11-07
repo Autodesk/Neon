@@ -6212,3 +6212,15 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   types now fail with a dependent `static_assert` instead of compiling to a no-op. The
   `test_reduce_atomic` suite adds a `double` BlockAtomic case and `test_atomic_host` covers
   the new host overloads.
+- **2026-11 — 2-D stage-1 reduce now covers every `(y, z)` cell.** The opt-in
+  `stage1_threads_y` path previously mapped a 2-D block over `(x, z)` and always called
+  `set_and_validate(view, ix, 0, iz)`. It was correct only when `iter_extent(view).y == 1`:
+  `Standard`/`Internal` reduced just the `y = 0` plane, and the DenseDistributed compact-shell
+  `Boundary` view reduced only its first 128 shell cells. The second block dimension is now a
+  flattened `(y, z)` index, decoded with `iy = flat_yz % ext.y` and `iz = flat_yz / ext.y`;
+  `y == 1` keeps the NVIDIA Jacobi `x/z` shape. The launch-grid and
+  `ReduceLaunchTraits::stage1_unit_count` formulas now use `ext.y * ext.z`, and
+  `ReduceKernelImpl` sizes its partials/CUB scratch from the maximum block count over
+  `Standard`, `Internal`, and `Boundary` because the padded compact-shell boundary can need
+  more blocks than Standard. Dead `16x16`, `8x8`, `32x16`, `16x32`, and `64x64` dispatch cases
+  were removed; only `32x32` is reachable under the current normalizer.

@@ -47,6 +47,8 @@
 #include <carbon/logging.h>
 #include <carbon/memory_side.h>
 #include <carbon/process_grid.h>
+#include <carbon/reduce.h>
+#include <carbon/reduce_dist.h>
 #include <carbon/skeleton.h>
 #include <carbon/stencil.h>
 #include <carbon/system.h>
@@ -699,6 +701,97 @@ run_vtk(carbon::System& sys,
   return ok;
 }
 
+// ------------------------------------------------------------------------------------------------
+// Check 4: opt-in 2-D stage-1 reduce over flattened (y, z).
+// ------------------------------------------------------------------------------------------------
+
+[[nodiscard]] auto
+run_reduce_2d(carbon::System& sys,
+              int rank,
+              const ProcessGrid& pg,
+              BoundaryModeDistributed mode,
+              const char* label,
+              const int64_3d& global) -> bool {
+  try {
+    DenseDistributed grid(sys, global, pg, six_point(), mode);
+    auto field = grid.template newField<int64_t, 1>(carbon::MemorySide::HostDevice);
+    field.fill_owned_host([](carbon::int64_3d g, int /*c*/) {
+      return static_cast<int64_t>(encode(g.x, g.y, g.z));
+    });
+
+    carbon::Stream stream = sys.stream();
+    carbon::Transfer<int64_t>(sys, field.cpu_buffers(), field.gpu_buffers())(stream);
+    stream.wait();
+
+    carbon::reduce::ReduceOptions opts{};
+    opts.stage1_threads = 32U;
+    opts.stage1_threads_y = 32U;
+
+    const auto loader = [&field](carbon::KernelLoader& kl) {
+      const auto in = kl.read(field);
+      return [in] CARBON_HOST_DEVICE(DenseDistributed::Span s,
+                                     DenseDistributed::Idx idx) -> int64_t {
+        return in.read(s, idx, 0);
+      };
+    };
+
+    int64_t want = 0;
+    for (int64_t z = 0; z < global.z; ++z) {
+      for (int64_t y = 0; y < global.y; ++y) {
+        for (int64_t x = 0; x < global.x; ++x) {
+          want += static_cast<int64_t>(encode(x, y, z));
+        }
+      }
+    }
+
+    carbon::ReductionResult<int64_t> standard_result(sys);
+    auto standard_reducer = grid.template make_reduce_kernel<int64_t>(
+        loader, standard_result, carbon::reduce::Sum<int64_t>{}, /*shared_mem=*/0U, opts);
+    standard_reducer.launch(stream, carbon::DataView::Standard);
+    standard_result.sync(stream);
+    const int64_t standard = standard_result.host_value(carbon::DataView::Standard);
+    if (standard != want) {
+      CARBON_LOG_ERROR(
+          "test_dense_distributed_dist[{}]: rank {} 2D Standard mismatch: got {}, expected {}",
+          label, rank, standard, want);
+      return false;
+    }
+
+    carbon::ReductionResult<int64_t> split_result(sys);
+    auto split_reducer = grid.template make_reduce_kernel<int64_t>(
+        loader, split_result, carbon::reduce::Sum<int64_t>{}, /*shared_mem=*/0U, opts);
+    split_reducer.launch(stream, carbon::DataView::Internal);
+    split_reducer.launch(stream, carbon::DataView::Boundary);
+    split_result.sync(stream);
+
+    const int64_t internal = split_result.host_value(carbon::DataView::Internal);
+    const int64_t boundary = split_result.host_value(carbon::DataView::Boundary);
+    if (internal + boundary != standard) {
+      CARBON_LOG_ERROR(
+          "test_dense_distributed_dist[{}]: rank {} 2D Internal({}) + Boundary({}) = {} != "
+          "Standard({})",
+          label, rank, internal, boundary, internal + boundary, standard);
+      return false;
+    }
+    const int64_t combined = split_result.host_value_combined(carbon::reduce::Sum<int64_t>{});
+    if (combined != standard) {
+      CARBON_LOG_ERROR(
+          "test_dense_distributed_dist[{}]: rank {} 2D host_value_combined({}) != Standard({})",
+          label, rank, combined, standard);
+      return false;
+    }
+    CARBON_LOG_INFO(
+        "test_dense_distributed_dist[{}]: rank {} 2D stage-1 Standard={} = Internal({}) + "
+        "Boundary({})",
+        label, rank, standard, internal, boundary);
+    return true;
+  } catch (const std::exception& e) {
+    CARBON_LOG_ERROR("test_dense_distributed_dist[{}]: rank {} 2D reduce failed: {}", label, rank,
+                     e.what());
+    return false;
+  }
+}
+
 struct Case {
   ProcessGrid pg;
   BoundaryModeDistributed mode;
@@ -772,6 +865,7 @@ main() {
                      std::string(c.label) + "/stencil", global) ||
         !run_stencil(sys, rank, c.pg, c.mode, carbon::OverlapMode::Standard,
                      std::string(c.label) + "/stencil-overlap", global) ||
+        !run_reduce_2d(sys, rank, c.pg, c.mode, c.label, global) ||
         !run_vtk(sys, rank, world, c.pg, c.mode, c.label, global)) {
       return 1;
     }

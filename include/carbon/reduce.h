@@ -226,14 +226,18 @@ struct ReduceOptions {
   ReduceFinalize finalize = ReduceFinalize::DeviceReduce;
   ReduceHostCopy host_copy = ReduceHostCopy::Inline;
   /**
-   * CUDA @c Dense stage-1 threads per block. @c 0 selects the library default (@c 256 for
-   * 1D flat tiling, or @c 32 when @c stage1_threads_y is set for 2D grid tiling).
-   * Supported 1D values: @c 32 … @c 1024 (powers of two). With @c stage1_threads_y @c > 0,
-   * @c stage1_threads is the X dimension and @c stage1_threads_y is Y (NVIDIA Jacobi-style
-   * @c 32x32). Ignored on SYCL; unsupported on @c DenseDisg and @c Block grids.
+   * CUDA/HIP @c Dense / @c DenseDistributed stage-1 threads per block. @c 0 selects the
+   * library default (@c 256 for 1D flat tiling, or @c 32 when @c stage1_threads_y is set for
+   * 2D grid tiling). Supported 1D values: @c 32 … @c 1024 (powers of two). With
+   * @c stage1_threads_y @c > 0, @c stage1_threads is the X dimension and
+   * @c stage1_threads_y is the second dimension over flattened @c (y, z); all @c y and
+   * @c z cells are covered. For @c y == 1 this is the NVIDIA Jacobi-style @c 32x32 @c x/z
+   * launch shape. Ignored on SYCL; unsupported on @c DenseDisg and @c Block grids.
    */
   unsigned stage1_threads = 0U;
-  /** @c 0 = 1D flat reduce; @c >0 = 2D CUDA block (@c stage1_threads × this). */
+  /**
+   * @c 0 = 1D flat reduce; @c >0 = 2D CUDA/HIP block over @c x and flattened @c (y, z).
+   */
   unsigned stage1_threads_y = 0U;
 };
 

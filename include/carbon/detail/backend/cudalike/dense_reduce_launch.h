@@ -121,10 +121,12 @@ launch_dense_grid_reduce_kernel_2d(int block_dim_x,
                                    int64_t total_cells) -> gpu_error_t {
   const ::carbon::int64_3d ext = span.iter_extent(view);
   const unsigned grid_x = static_cast<unsigned>((ext.x + block_dim_x - 1) / block_dim_x);
-  const unsigned grid_y = static_cast<unsigned>((ext.z + block_dim_y - 1) / block_dim_y);
+  const int64_t yz_extent = ext.y * ext.z;
+  const unsigned grid_y = static_cast<unsigned>((yz_extent + block_dim_y - 1) / block_dim_y);
   if (static_cast<int64_t>(grid_x) * static_cast<int64_t>(grid_y) != blocks) {
     log::throw_with_log<std::invalid_argument>(
-        "Kernel::reduce: 2D launch grid {}x{} != expected block count {}", grid_x, grid_y, blocks);
+        "Kernel::reduce: 2D launch grid {}x{} over (x, y*z) != expected block count {}", grid_x,
+        grid_y, blocks);
   }
 
 #define CARBON_LAUNCH_DENSE_REDUCE_2D(BX, BY)                                                   \
@@ -135,23 +137,8 @@ launch_dense_grid_reduce_kernel_2d(int block_dim_x,
   if (block_dim_x == 32 && block_dim_y == 32) {
     CARBON_LAUNCH_DENSE_REDUCE_2D(32, 32);
   }
-  if (block_dim_x == 16 && block_dim_y == 16) {
-    CARBON_LAUNCH_DENSE_REDUCE_2D(16, 16);
-  }
-  if (block_dim_x == 8 && block_dim_y == 8) {
-    CARBON_LAUNCH_DENSE_REDUCE_2D(8, 8);
-  }
-  if (block_dim_x == 32 && block_dim_y == 16) {
-    CARBON_LAUNCH_DENSE_REDUCE_2D(32, 16);
-  }
-  if (block_dim_x == 16 && block_dim_y == 32) {
-    CARBON_LAUNCH_DENSE_REDUCE_2D(16, 32);
-  }
-  if (block_dim_x == 64 && block_dim_y == 64) {
-    CARBON_LAUNCH_DENSE_REDUCE_2D(64, 64);
-  }
   log::throw_with_log<std::invalid_argument>(
-      "Kernel::reduce: unsupported 2D reduce block {}x{} (try 32x32, 16x16, …)", block_dim_x,
+      "Kernel::reduce: unsupported 2D reduce block {}x{} (currently only 32x32)", block_dim_x,
       block_dim_y);
 #undef CARBON_LAUNCH_DENSE_REDUCE_2D
 }
@@ -175,10 +162,12 @@ launch_dense_grid_reduce_block_atomic_kernel_2d(int block_dim_x,
                                                 int64_t total_cells) -> gpu_error_t {
   const ::carbon::int64_3d ext = span.iter_extent(view);
   const unsigned grid_x = static_cast<unsigned>((ext.x + block_dim_x - 1) / block_dim_x);
-  const unsigned grid_y = static_cast<unsigned>((ext.z + block_dim_y - 1) / block_dim_y);
+  const int64_t yz_extent = ext.y * ext.z;
+  const unsigned grid_y = static_cast<unsigned>((yz_extent + block_dim_y - 1) / block_dim_y);
   if (static_cast<int64_t>(grid_x) * static_cast<int64_t>(grid_y) != blocks) {
     log::throw_with_log<std::invalid_argument>(
-        "Kernel::reduce: 2D launch grid {}x{} != expected block count {}", grid_x, grid_y, blocks);
+        "Kernel::reduce: 2D launch grid {}x{} over (x, y*z) != expected block count {}", grid_x,
+        grid_y, blocks);
   }
 
 #define CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(BX, BY)                                               \
@@ -189,23 +178,8 @@ launch_dense_grid_reduce_block_atomic_kernel_2d(int block_dim_x,
   if (block_dim_x == 32 && block_dim_y == 32) {
     CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(32, 32);
   }
-  if (block_dim_x == 16 && block_dim_y == 16) {
-    CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(16, 16);
-  }
-  if (block_dim_x == 8 && block_dim_y == 8) {
-    CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(8, 8);
-  }
-  if (block_dim_x == 32 && block_dim_y == 16) {
-    CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(32, 16);
-  }
-  if (block_dim_x == 16 && block_dim_y == 32) {
-    CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(16, 32);
-  }
-  if (block_dim_x == 64 && block_dim_y == 64) {
-    CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(64, 64);
-  }
   log::throw_with_log<std::invalid_argument>(
-      "Kernel::reduce: unsupported 2D reduce block {}x{} (try 32x32, 16x16, …)", block_dim_x,
+      "Kernel::reduce: unsupported 2D reduce block {}x{} (currently only 32x32)", block_dim_x,
       block_dim_y);
 #undef CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D
 }

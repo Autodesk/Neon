@@ -133,8 +133,9 @@ dense_grid_reduce_block_atomic_kernel_t(Span span,
 }
 
 /**
- * 2D CUDA block over @c (ix, iz) — matches NVIDIA @c jacobi_kernel launch shape on Carbon
- * @c DenseDistributed slabs where @c y == 1 and @c z is the second mesh axis.
+ * 2D CUDA block over @c (ix, flat_yz) , where @c flat_yz is the flattened @c (iy, iz) index.
+ * For @c y == 1 this matches the NVIDIA @c jacobi_kernel @c x/z launch shape; for @c y > 1
+ * the second block dimension covers every @c (y, z) cell.
  */
 template <int BlockDimX,
           int BlockDimY,
@@ -154,14 +155,17 @@ dense_grid_reduce_kernel_2d_t(Span span,
   __shared__ typename BlockReduceT::TempStorage temp_storage;
 
   const ::carbon::int64_3d ext = span.iter_extent(view);
+  const int64_t yz_extent = ext.y * ext.z;
   const int64_t ix =
       static_cast<int64_t>(blockIdx.x) * BlockDimX + static_cast<int64_t>(threadIdx.x);
-  const int64_t iz =
+  const int64_t flat_yz =
       static_cast<int64_t>(blockIdx.y) * BlockDimY + static_cast<int64_t>(threadIdx.y);
 
   T thread_val = init;
-  if (ix < ext.x && iz < ext.z) {
-    const ValidatedIdx vi = span.set_and_validate(view, ix, 0, iz);
+  if (ix < ext.x && flat_yz < yz_extent) {
+    const int64_t iy = flat_yz % ext.y;
+    const int64_t iz = flat_yz / ext.y;
+    const ValidatedIdx vi = span.set_and_validate(view, ix, iy, iz);
     if (vi.valid) {
       thread_val = fn(span, vi.idx);
     }
@@ -193,14 +197,17 @@ dense_grid_reduce_block_atomic_kernel_2d_t(Span span,
   __shared__ typename BlockReduceT::TempStorage temp_storage;
 
   const ::carbon::int64_3d ext = span.iter_extent(view);
+  const int64_t yz_extent = ext.y * ext.z;
   const int64_t ix =
       static_cast<int64_t>(blockIdx.x) * BlockDimX + static_cast<int64_t>(threadIdx.x);
-  const int64_t iz =
+  const int64_t flat_yz =
       static_cast<int64_t>(blockIdx.y) * BlockDimY + static_cast<int64_t>(threadIdx.y);
 
   T thread_val = init;
-  if (ix < ext.x && iz < ext.z) {
-    const ValidatedIdx vi = span.set_and_validate(view, ix, 0, iz);
+  if (ix < ext.x && flat_yz < yz_extent) {
+    const int64_t iy = flat_yz % ext.y;
+    const int64_t iz = flat_yz / ext.y;
+    const ValidatedIdx vi = span.set_and_validate(view, ix, iy, iz);
     if (vi.valid) {
       thread_val = fn(span, vi.idx);
     }

@@ -376,6 +376,91 @@ main() {
         standard, internal, boundary, combined);
   }
 
+  // ---- Case 6: 2-D stage-1 covers y > 1 ----
+  // The opt-in stage1_threads_y path uses a 2-D block over x and flattened (y, z).
+  // This geometry has kHeight == 32 and a non-empty z halo, so a regression to the old
+  // "only y == 0" mapping would fail both the Standard reference and the Internal +
+  // Boundary recombine.
+  {
+    carbon::Stencil stencil_radius1(
+        std::vector<carbon::int32_3d>{
+            {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}},
+        /*remove_center=*/true);
+    carbon::Dense halo_dense(sys, global, stencil_radius1);
+    auto field = halo_dense.newField<int64_t, 1>(carbon::MemorySide::HostDevice);
+    field.fill_owned_host([](carbon::int64_3d gc, int /*c*/) {
+      return encode(gc.x, gc.y, gc.z);
+    });
+
+    carbon::Stream stream = sys.stream();
+    try {
+      carbon::Transfer<int64_t>(sys, field.cpu_buffers(), field.gpu_buffers())(stream);
+      stream.wait();
+    } catch (const std::exception& e) {
+      CARBON_LOG_ERROR("test_reduce_sum: 2D upload failed: {}", e.what());
+      return EXIT_FAILURE;
+    }
+
+    carbon::reduce::ReduceOptions opts{};
+    opts.stage1_threads = 32U;
+    opts.stage1_threads_y = 32U;
+
+    const auto loader = [&field](carbon::KernelLoader& kl) {
+      const auto in = kl.read(field);
+      return [in] CARBON_HOST_DEVICE(carbon::Dense::Span s, carbon::Dense::Idx idx) -> int64_t {
+        return in.read(s, idx, 0);
+      };
+    };
+
+    carbon::ReductionResult<int64_t> standard_result(sys);
+    auto standard_reducer = halo_dense.make_reduce_kernel<int64_t>(
+        loader, standard_result, carbon::reduce::Sum<int64_t>{}, /*shared_mem=*/0U, opts);
+    try {
+      standard_reducer.launch(stream, carbon::DataView::Standard);
+    } catch (const std::exception& e) {
+      CARBON_LOG_ERROR("test_reduce_sum: 2D Standard launch failed: {}", e.what());
+      return EXIT_FAILURE;
+    }
+    standard_result.sync(stream);
+
+    const int64_t standard = standard_result.host_value(carbon::DataView::Standard);
+    const int64_t want = host_reference_sum(kWidth, kHeight, kDepth);
+    if (standard != want) {
+      CARBON_LOG_ERROR("test_reduce_sum: 2D Standard mismatch: got {}, expected {}", standard,
+                       want);
+      return EXIT_FAILURE;
+    }
+
+    carbon::ReductionResult<int64_t> split_result(sys);
+    auto split_reducer = halo_dense.make_reduce_kernel<int64_t>(
+        loader, split_result, carbon::reduce::Sum<int64_t>{}, /*shared_mem=*/0U, opts);
+    try {
+      split_reducer.launch(stream, carbon::DataView::Internal);
+      split_reducer.launch(stream, carbon::DataView::Boundary);
+    } catch (const std::exception& e) {
+      CARBON_LOG_ERROR("test_reduce_sum: 2D split launch failed: {}", e.what());
+      return EXIT_FAILURE;
+    }
+    split_result.sync(stream);
+
+    const int64_t internal = split_result.host_value(carbon::DataView::Internal);
+    const int64_t boundary = split_result.host_value(carbon::DataView::Boundary);
+    if (internal + boundary != standard) {
+      CARBON_LOG_ERROR("test_reduce_sum: 2D Internal({}) + Boundary({}) = {} != Standard({})",
+                       internal, boundary, internal + boundary, standard);
+      return EXIT_FAILURE;
+    }
+    const int64_t combined = split_result.host_value_combined(carbon::reduce::Sum<int64_t>{});
+    if (combined != standard) {
+      CARBON_LOG_ERROR("test_reduce_sum: 2D host_value_combined({}) != Standard({})", combined,
+                       standard);
+      return EXIT_FAILURE;
+    }
+    CARBON_LOG_INFO(
+        "test_reduce_sum: 2D stage-1 Standard={} = Internal({}) + Boundary({}) (combined={})",
+        standard, internal, boundary, combined);
+  }
+
   CARBON_LOG_INFO("test_reduce_sum: PASS");
   return EXIT_SUCCESS;
 }
