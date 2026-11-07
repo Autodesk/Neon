@@ -26,12 +26,19 @@
 #include <utility>
 
 namespace carbon {
+
+template <typename T>
+class ReductionResult;
+
 namespace detail {
 
 class Gpu;
 
 class CARBON_API Event {
   friend class Gpu;
+  // ReductionResult::record_slot_done_on_stream_ wraps a sycl::event in an Event (SYCL backend).
+  template <typename T>
+  friend class ::carbon::ReductionResult;
 
   Event() = default;
   explicit Event(std::shared_ptr<sycl::event> e) noexcept

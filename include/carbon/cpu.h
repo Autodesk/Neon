@@ -16,6 +16,18 @@
 #include <sycl/sycl.hpp>
 #endif
 
+namespace carbon::detail {
+#if CARBON_BACKEND_IS_SYCL
+// Context used for pinned (USM host) allocations. AdaptiveCpp 25.02 has no
+// sycl::default_context(); take the context of a default-selected queue instead.
+[[nodiscard]] inline auto
+pinned_host_context() -> const sycl::context& {
+  static const sycl::context ctx = sycl::queue{}.get_context();
+  return ctx;
+}
+#endif
+}  // namespace carbon::detail
+
 namespace carbon {
 
 /** Host-side allocator for Allocation objects (CPU memory). */
@@ -67,7 +79,7 @@ public:
       }
 #elif CARBON_BACKEND_IS_SYCL
       try {
-        ptr = static_cast<unsigned char*>(sycl::malloc_host(size_bytes, sycl::default_context()));
+        ptr = static_cast<unsigned char*>(sycl::malloc_host(size_bytes, detail::pinned_host_context()));
       } catch (const sycl::exception& ex) {
         log::throw_with_log<std::bad_alloc>("Cpu::pinned_buffer: sycl::malloc_host failed: {}",
                                             ex.what());
@@ -87,7 +99,7 @@ public:
 #if CARBON_BACKEND_IS_CUDALIKE
       (void)detail::gpu_host_free(p);
 #elif CARBON_BACKEND_IS_SYCL
-      sycl::free(p, sycl::default_context());
+      sycl::free(p, detail::pinned_host_context());
 #endif
     };
 

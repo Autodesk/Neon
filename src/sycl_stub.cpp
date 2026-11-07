@@ -15,6 +15,8 @@
 
 #include <sycl/sycl.hpp>
 
+#include "sycl_device_filter.h"
+
 #include <cstddef>
 #include <vector>
 
@@ -29,7 +31,7 @@ auto
 first_gpu_or_default() -> sycl::device {
   for (const auto& platform : sycl::platform::get_platforms()) {
     for (const auto& dev : platform.get_devices(sycl::info::device_type::all)) {
-      if (!dev.is_cpu()) {
+      if (carbon::detail::is_compute_device(dev)) {
         return dev;
       }
     }
@@ -84,7 +86,7 @@ carbon_cuda_runtime_linked(void) {
     int n = 0;
     for (const auto& platform : sycl::platform::get_platforms()) {
       for (const auto& d : platform.get_devices(sycl::info::device_type::all)) {
-        if (!d.is_cpu()) {
+        if (carbon::detail::is_compute_device(d)) {
           ++n;
         }
       }
@@ -110,7 +112,7 @@ carbon_launch_smoke_kernel(int device_id) {
     bool found = false;
     for (const auto& platform : sycl::platform::get_platforms()) {
       for (const auto& d : platform.get_devices(sycl::info::device_type::all)) {
-        if (d.is_cpu()) {
+        if (!carbon::detail::is_compute_device(d)) {
           continue;
         }
         if (idx == device_id) {

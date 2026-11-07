@@ -389,6 +389,21 @@ elseif(CARBON_BACKEND STREQUAL "Sycl")
   target_sources(carbon PRIVATE
     src/sycl_stub.cpp
     src/gpu_sycl.cpp)
+  # Multicore-CPU execution: with an omp-only target the AdaptiveCpp OpenMP host device is the
+  # only device, but it reports is_cpu() == true and the default enumeration skips CPU devices,
+  # so device_count() would be 0. Default ON for omp-only targets; OFF when a cuda:/hip: target
+  # is present (the GPU stays device 0).
+  if(CARBON_SYCL_TARGETS MATCHES "omp" AND NOT CARBON_SYCL_TARGETS MATCHES "cuda|hip")
+    set(_carbon_sycl_cpu_default ON)
+  else()
+    set(_carbon_sycl_cpu_default OFF)
+  endif()
+  option(CARBON_SYCL_CPU_DEVICE
+    "Treat the AdaptiveCpp OpenMP host device as a carbon compute device" ${_carbon_sycl_cpu_default})
+  if(CARBON_SYCL_CPU_DEVICE)
+    target_compile_definitions(carbon PRIVATE CARBON_SYCL_CPU_DEVICE=1)
+    message(STATUS "carbon: SYCL OpenMP host device enabled as compute device")
+  endif()
   # AdaptiveCpp's add_sycl_to_target tags every TU listed in SOURCES with the SYCL
   # compile/link flags. Apply it to all .cu / .cpp files participating in the carbon
   # target; this is the AdaptiveCpp-recommended way to get cross-TU SYCL with the
