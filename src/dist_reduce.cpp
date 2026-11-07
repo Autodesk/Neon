@@ -28,6 +28,7 @@ namespace carbon::reduce {
 
 namespace {
 
+#ifndef CARBON_DIST_HOST_MPI
 [[noreturn]] auto
 throw_nccl_error(const char* where,
                  ncclResult_t res) -> void {
@@ -58,6 +59,7 @@ to_nccl_op(ReduceOpKind op) -> ncclRedOp_t {
   log::throw_with_log<std::runtime_error>("dist_allreduce_in_place: unknown ReduceOpKind {}",
                                           static_cast<int>(op));
 }
+#endif  // !CARBON_DIST_HOST_MPI
 
 [[nodiscard]] auto
 to_mpi_op(ReduceOpKind op) -> MPI_Op {
@@ -126,6 +128,7 @@ check_mpi(const char* where,
   }
 }
 
+#ifndef CARBON_DIST_HOST_MPI
 [[nodiscard]] auto
 to_nccl_dtype(ReduceDataKind dt) -> ncclDataType_t {
   switch (dt) {
@@ -162,6 +165,7 @@ to_nccl_dtype(ReduceDataKind dt) -> ncclDataType_t {
   log::throw_with_log<std::runtime_error>("dist_allreduce_in_place: unknown ReduceDataKind {}",
                                           static_cast<int>(dt));
 }
+#endif  // !CARBON_DIST_HOST_MPI
 
 }  // namespace
 
@@ -188,6 +192,27 @@ dist_allreduce_in_place(const System& sys,
         stream.size());
   }
 
+#ifdef CARBON_DIST_HOST_MPI
+  // Host-MPI build: the reduction scalar lives in ordinary host memory, so drain the
+  // rank's queue and allreduce it in place with MPI.
+  {
+    stream.wait();
+    const auto* dist_ptr = sys.distributed();
+    if (dist_ptr == nullptr) {
+      log::throw_with_log<std::runtime_error>(
+          "dist_allreduce_in_place: System has no Distributed handle");
+    }
+    if (count > static_cast<size_t>(std::numeric_limits<int>::max())) {
+      log::throw_with_log<std::invalid_argument>(
+          "dist_allreduce_in_place: count={} exceeds MPI_Allreduce's int element limit", count);
+    }
+    check_mpi("MPI_Allreduce",
+              ::MPI_Allreduce(MPI_IN_PLACE, device_ptr, static_cast<int>(count),
+                              to_mpi_dtype(dtype), to_mpi_op(op),
+                              detail::distributed_mpi_world(*dist_ptr)));
+    return;
+  }
+#else
   ncclComm_t nccl_comm = detail::communicator_handle(*comm_ptr);
   const ncclRedOp_t nccl_op = to_nccl_op(op);
   const ncclDataType_t nccl_dtype = to_nccl_dtype(dtype);
@@ -222,6 +247,7 @@ dist_allreduce_in_place(const System& sys,
   });
   q.wait_and_throw();
 #endif
+#endif  // !CARBON_DIST_HOST_MPI
 }
 
 auto

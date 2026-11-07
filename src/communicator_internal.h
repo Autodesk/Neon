@@ -9,6 +9,7 @@
 
 namespace carbon::detail {
 
+#ifndef CARBON_DIST_HOST_MPI
 // Definition of the friend bridge forward-declared in <carbon/detail/communicator.h>. Users
 // cannot reach @c Communicator::raw_handle through this bridge because the definition lives in
 // this header, which is not installed; in-tree code that needs the raw @c ncclComm_t includes
@@ -25,5 +26,6 @@ struct nccl_bridge {
 communicator_handle(const Communicator& comm) noexcept -> ncclComm_t {
   return nccl_bridge::comm(comm);
 }
+#endif  // !CARBON_DIST_HOST_MPI
 
 }  // namespace carbon::detail

@@ -14,7 +14,12 @@
 
 #include <carbon/detail/backend/select.h>
 
-#ifdef CARBON_USE_RCCL
+#ifdef CARBON_DIST_HOST_MPI
+// Host-MPI build (CARBON_BACKEND=Sycl, omp-only target): no vendor runtime, no NCCL/RCCL.
+// "Device" memory is ordinary host RAM and the single compute device is the OpenMP host.
+#include <cstddef>
+#include <cstring>
+#elif defined(CARBON_USE_RCCL)
 #include <hip/hip_runtime.h>
 #include <rccl/rccl.h>
 #else
@@ -24,7 +29,40 @@
 
 namespace carbon::detail::gpu_compat {
 
-#ifdef CARBON_USE_RCCL
+#ifdef CARBON_DIST_HOST_MPI
+using gpu_stream_t = void*;
+using gpu_error_t = int;
+inline constexpr gpu_error_t gpu_success = 0;
+
+inline auto
+gpu_get_device(int* dev) noexcept -> gpu_error_t {
+  *dev = 0;
+  return gpu_success;
+}
+inline auto
+gpu_set_device(int /*dev*/) noexcept -> gpu_error_t {
+  return gpu_success;
+}
+inline auto
+gpu_get_device_count(int* n) noexcept -> gpu_error_t {
+  *n = 1;
+  return gpu_success;
+}
+inline auto
+gpu_get_error_string(gpu_error_t /*e*/) noexcept -> const char* {
+  return "host-mpi (no vendor runtime)";
+}
+inline auto
+gpu_memcpy(void* dst,
+           const void* src,
+           size_t count,
+           int /*kind*/) noexcept -> gpu_error_t {
+  std::memcpy(dst, src, count);
+  return gpu_success;
+}
+inline constexpr int gpu_memcpy_host_to_device = 0;
+inline constexpr int gpu_memcpy_device_to_host = 1;
+#elif defined(CARBON_USE_RCCL)
 using gpu_stream_t = hipStream_t;
 using gpu_error_t = hipError_t;
 inline constexpr gpu_error_t gpu_success = hipSuccess;

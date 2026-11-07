@@ -732,10 +732,25 @@ private:
                                               detail::gpu_error_string(err));
     }
 #elif CARBON_BACKEND_IS_SYCL
+
     sycl::queue& q = stream[root].queue();
+
     q.submit([&](sycl::handler& h) {
       h.depends_on(evt.event());
+      h.single_task([]() {});
     });
+
+
+    // #ifdef _ACPP_
+    //   sycl::queue& q = stream[root].queue();
+    //   q.AdaptiveCpp_enqueue_custom_operation([](sycl::interop_handle& h) {},evt.event()); 
+    // #else
+    //   sycl::queue& q = stream[root].queue();
+    //   q.submit([&](sycl::handler& h) {
+    //     h.depends_on(evt.event());
+    //   });
+    // #endif
+
 #else
     (void)view;
     (void)slot;
@@ -762,8 +777,15 @@ private:
     }
 #elif CARBON_BACKEND_IS_SYCL
     sycl::queue& q = stream[root].queue();
-    auto e = q.submit([](sycl::handler& h) {
-    });
+
+    sycl::event e = q.single_task([](){});
+
+    // #ifdef __ACPP__
+    //   auto e = q.AdaptiveCpp_enqueue_custom_operation([](sycl::interop_handle& h) {});
+    // #else
+    //   auto e = q.submit([](sycl::handler& h) {});
+    // #endif
+
     *const_cast<detail::Event*>(&evt) = detail::Event(std::make_shared<sycl::event>(e));
 #else
     (void)view;
