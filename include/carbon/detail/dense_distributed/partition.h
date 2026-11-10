@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <cassert>
+#include <type_traits>
 
 namespace carbon::detail::dense_distributed {
 
@@ -228,6 +229,49 @@ public:
       return {};
     }
     return NeighbourValue<T>{ptr_[span.linear_offset(r.idx, component_id)], true};
+  }
+
+  /**
+   * Boundary-condition-aware neighbour read: like @ref neighbour, but an out-of-domain read across
+   * a face that carries a @ref BoundaryConditions entry returns a @b virtual boundary value
+   * instead of @c valid = false. Nothing is stored for that value; it is computed from the
+   * in-domain mirror cell (see @ref neighbour_idx_bc and @c BoundaryConditions):
+   * - Dirichlet @c u = g : @c 2*g - u_mirror
+   * - Neumann @c du/dn = g (outward) : @c u_mirror + 2*k*h*g
+   *
+   * @c valid is @c true for interior reads and for virtual boundary reads. With no boundary
+   * conditions configured this returns exactly what @ref neighbour returns. Reads out of domain
+   * across two or more BC faces at once (edge / corner) return @c valid = false in this version.
+   *
+   * Opt-in by design: @ref neighbour, @ref read_pull and @ref cursor are unchanged, so existing
+   * kernels (and their generated code) are not affected. All components of a multi-component
+   * field receive the same scalar @c g. Requires a floating-point element type.
+   */
+  [[nodiscard]] CARBON_HD constexpr auto
+  neighbour_bc(const Span& span,
+               const Idx& idx,
+               int8_3d offset,
+               int component_id) const noexcept -> NeighbourValue<T> {
+    static_assert(std::is_floating_point_v<T>,
+                  "Partition::neighbour_bc computes virtual boundary values and needs a "
+                  "floating-point element type");
+    const NeighbourIdxBc r = neighbour_idx_bc(span, idx, offset);
+    if (r.kind == NeighbourKindBc::Invalid) {
+      return {};
+    }
+    const T mirror = ptr_[span.linear_offset(r.idx, component_id)];
+    if (r.kind == NeighbourKindBc::Interior) {
+      return NeighbourValue<T>{mirror, true};
+    }
+    const FaceBc& fbc = span.boundary_conditions().at(r.face);
+    const T g = static_cast<T>(fbc.value);
+    if (fbc.kind == BcKind::Dirichlet) {
+      return NeighbourValue<T>{static_cast<T>(2) * g - mirror, true};
+    }
+    // Neumann (the only other kind that neighbour_idx_bc reports as Boundary).
+    return NeighbourValue<T>{
+        mirror + static_cast<T>(2) * static_cast<T>(r.k) * static_cast<T>(span.spacing()) * g,
+        true};
   }
 
   /**

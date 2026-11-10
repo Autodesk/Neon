@@ -78,6 +78,49 @@ linear_count_for_slab(int64_t nx,
 }  // namespace
 
 namespace carbon {
+namespace {
+// Validates a BoundaryConditions spec against the grid it is attached to. A face without a
+// condition (BcKind::None) is never checked, so the default spec is always accepted.
+void
+validate_boundary_conditions(const BoundaryConditions& bc,
+                             BoundaryModeDistributed boundary_mode,
+                             const int64_3d& global_extent,
+                             const Stencil& stencil) {
+  constexpr const char* kFaceName[kFaceCount] = {"XLow", "XHigh", "YLow", "YHigh", "ZLow", "ZHigh"};
+  const Axis axis_of_face[kFaceCount] = {Axis::X, Axis::X, Axis::Y, Axis::Y, Axis::Z, Axis::Z};
+  const int64_t extent_of_axis[3] = {global_extent.x, global_extent.y, global_extent.z};
+  const int32_3d radius = stencil.radius3();
+  const int64_t radius_of_axis[3] = {radius.x, radius.y, radius.z};
+  for (int f = 0; f < kFaceCount; ++f) {
+    const FaceBc& fbc = bc.faces[f];
+    if (fbc.kind == BcKind::None) {
+      continue;
+    }
+    const Axis axis = axis_of_face[f];
+    const int a = static_cast<int>(axis);
+    if (is_periodic(boundary_mode, axis)) {
+      log::throw_with_log<std::invalid_argument>(
+          "DenseDistributed: boundary condition on face {} conflicts with a periodic boundary on "
+          "that axis; use either a periodic axis or a per-face condition, not both",
+          kFaceName[f]);
+    }
+    if (!std::isfinite(fbc.value)) {
+      log::throw_with_log<std::invalid_argument>(
+          "DenseDistributed: boundary condition on face {} must have a finite value (got {})",
+          kFaceName[f], fbc.value);
+    }
+    if (extent_of_axis[a] <= radius_of_axis[a]) {
+      log::throw_with_log<std::invalid_argument>(
+          "DenseDistributed: boundary condition on face {} needs a global extent larger than the "
+          "stencil radius on that axis so every mirror cell is inside the domain (extent={}, "
+          "radius={})",
+          kFaceName[f], extent_of_axis[a], radius_of_axis[a]);
+    }
+  }
+}
+
+}  // namespace
+
 void
 DenseDistributed::init_common_(System system,
                                int64_3d global_extent,
@@ -86,7 +129,8 @@ DenseDistributed::init_common_(System system,
                                float32_3d origin,
                                float spacing,
                                ProcessGrid process_grid,
-                               std::optional<LaunchShape> block_override) {
+                               std::optional<LaunchShape> block_override,
+                               BoundaryConditions boundary_conditions) {
   if (!std::isfinite(spacing) || spacing <= 0.0F) {
     log::throw_with_log<std::invalid_argument>(
         "DenseDistributed: spacing must be finite and strictly positive (spacing={})", spacing);
@@ -109,10 +153,13 @@ DenseDistributed::init_common_(System system,
         global_extent.x, global_extent.y, global_extent.z);
   }
 
+  validate_boundary_conditions(boundary_conditions, boundary_mode, global_extent, stencil);
+
   global_ = global_extent;
   system_ = std::move(system);
   stencil_ = std::move(stencil);
   boundary_mode_ = boundary_mode;
+  boundary_conditions_ = boundary_conditions;
   origin_ = origin;
   spacing_ = spacing;
   process_grid_ = std::move(process_grid);
@@ -190,7 +237,8 @@ DenseDistributed::init_common_(System system,
         detail::dense_distributed::rank_chunk(global_, process_grid_, gpu_coords, halo);
 
     return detail::dense_distributed::Span(chunk.haloed, global_, chunk.xy_pitch, chunk.offset,
-                                           chunk.halo, boundary_mode_, origin_, spacing_);
+                                           chunk.halo, boundary_mode_, origin_, spacing_,
+                                           boundary_conditions_);
   });
 
   // The legacy Slab Boundary is still two z-bands; keep its old overlap guard.
@@ -248,13 +296,14 @@ DenseDistributed::DenseDistributed(System system,
                                    BoundaryModeDistributed boundary_mode,
                                    float32_3d origin,
                                    float spacing,
-                                   std::optional<LaunchShape> block_override)
+                                   std::optional<LaunchShape> block_override,
+                                   BoundaryConditions boundary_conditions)
     : DenseDistributed() {
   const int world_size = resolve_world_size(system);
   const ProcessGrid pg =
       world_size > 0 ? ProcessGrid::make(world_size, DecompositionMode::Slab) : ProcessGrid{};
   init_common_(std::move(system), global_extent, std::move(stencil), boundary_mode, origin, spacing,
-               pg, block_override);
+               pg, block_override, boundary_conditions);
 }
 
 DenseDistributed::DenseDistributed(System system,
@@ -264,13 +313,14 @@ DenseDistributed::DenseDistributed(System system,
                                    BoundaryModeDistributed boundary_mode,
                                    float32_3d origin,
                                    float spacing,
-                                   std::optional<LaunchShape> block_override)
+                                   std::optional<LaunchShape> block_override,
+                                   BoundaryConditions boundary_conditions)
     : DenseDistributed() {
   const int world_size = resolve_world_size(system);
   const ProcessGrid pg =
       world_size > 0 ? ProcessGrid::make(world_size, decomposition) : ProcessGrid{};
   init_common_(std::move(system), global_extent, std::move(stencil), boundary_mode, origin, spacing,
-               pg, block_override);
+               pg, block_override, boundary_conditions);
 }
 
 DenseDistributed::DenseDistributed(System system,
@@ -280,10 +330,11 @@ DenseDistributed::DenseDistributed(System system,
                                    BoundaryModeDistributed boundary_mode,
                                    float32_3d origin,
                                    float spacing,
-                                   std::optional<LaunchShape> block_override)
+                                   std::optional<LaunchShape> block_override,
+                                   BoundaryConditions boundary_conditions)
     : DenseDistributed() {
   init_common_(std::move(system), global_extent, std::move(stencil), boundary_mode, origin, spacing,
-               std::move(process_grid), block_override);
+               std::move(process_grid), block_override, boundary_conditions);
 }
 
 auto
@@ -325,6 +376,11 @@ DenseDistributed::stencil() const noexcept -> const Stencil& {
 auto
 DenseDistributed::boundary_mode() const noexcept -> BoundaryModeDistributed {
   return boundary_mode_;
+}
+
+auto
+DenseDistributed::boundary_conditions() const noexcept -> const BoundaryConditions& {
+  return boundary_conditions_;
 }
 
 auto
