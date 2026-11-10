@@ -18,6 +18,7 @@ include/carbon/              Public API (umbrella: carbon/carbon.h)
   detail/                    Internal: GPU/buffer/stream/event wrappers
   detail/dense/              Dense-grid primitives: idx, span, partition, field, kernel, launch_shape
   boundary_condition_distributed.h  Per-face Dirichlet / Neumann conditions for DenseDistributed (opt-in, read via Partition::neighbour_bc)
+  boundary_data_distributed.h  BoundaryData<C>: per-cell, per-component face conditions held apart from the grid (read via Partition::neighbour_bc with a view)
   boundary_mode.h            BoundaryMode enum (Open / PeriodicZ), both honoured end-to-end
   boundary_mode_distributed.h  BoundaryModeDistributed per-axis periodic bitmask (DenseDistributed)
   data_view.h                DataView enum (Standard / Internal / Boundary)
