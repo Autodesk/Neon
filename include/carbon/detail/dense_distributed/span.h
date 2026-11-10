@@ -1,5 +1,6 @@
 #pragma once
 
+#include <carbon/boundary_condition_distributed.h>
 #include <carbon/boundary_mode_distributed.h>
 #include <carbon/data_view.h>
 #include <carbon/detail/dense/idx.h>
@@ -7,6 +8,9 @@
 #include <carbon/floating3d.h>
 
 #include <carbon/process_grid.h>
+
+#include <cstdint>
+#include <type_traits>
 
 namespace carbon::detail::dense_distributed {
 
@@ -57,6 +61,7 @@ class Span {
   BoundaryModeDistributed boundary_mode_{BoundaryModeDistributed::Open};
   float32_3d origin_{};
   float spacing_{1.0F};
+  BoundaryConditions boundary_conditions_{};
 
 public:
   CARBON_HD constexpr Span() noexcept = default;
@@ -68,7 +73,8 @@ public:
                            int64_3d halo = {},
                            BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
                            float32_3d origin = {},
-                           float spacing = 1.0F) noexcept
+                           float spacing = 1.0F,
+                           BoundaryConditions boundary_conditions = {}) noexcept
       : haloed_extent_(haloed_extent),
         global_extent_(global_extent),
         xy_slab_elements_(xy_slab_elements),
@@ -76,7 +82,8 @@ public:
         halo_(halo),
         boundary_mode_(boundary_mode),
         origin_(origin),
-        spacing_(spacing) {}
+        spacing_(spacing),
+        boundary_conditions_(boundary_conditions) {}
 
   /**
    * Construct a span over its @b storage (haloed) extent.
@@ -96,6 +103,9 @@ public:
    * @param origin            Physical-space origin of global cell @c (0,0,0)'s corner (same
    *                          convention as @c global_location on integer indices).
    * @param spacing           Isotropic cell spacing along every axis (must be finite and > 0).
+   * @param boundary_conditions Per-face Dirichlet / Neumann conditions consumed only by
+   *                          @c Partition::neighbour_bc . Defaults to none, in which case this
+   *                          span behaves exactly as before.
    */
   /** Z-only convenience overload: equivalent to full @c offset={0,0,z_offset} and
    *  @c halo={0,0,halo_z}. */
@@ -106,7 +116,8 @@ public:
                            int64_t halo_z = 0,
                            BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
                            float32_3d origin = {},
-                           float spacing = 1.0F) noexcept
+                           float spacing = 1.0F,
+                           BoundaryConditions boundary_conditions = {}) noexcept
       : Span(haloed_extent,
              global_extent,
              xy_slab_elements,
@@ -118,7 +129,8 @@ public:
                       halo_z},
              boundary_mode,
              origin,
-             spacing) {}
+             spacing,
+             boundary_conditions) {}
 
   /** Storage extent (includes halo layers on every axis where @ref halo() is non-zero). */
   [[nodiscard]] CARBON_HD constexpr auto
@@ -249,6 +261,16 @@ public:
   [[nodiscard]] CARBON_HD constexpr auto
   boundary_mode() const noexcept -> BoundaryModeDistributed {
     return boundary_mode_;
+  }
+
+  /**
+   * Per-face boundary conditions this span was built with (propagated from the owning
+   * @c DenseDistributed). All faces are @c BcKind::None unless the grid was constructed with
+   * conditions; only @c Partition::neighbour_bc reads them.
+   */
+  [[nodiscard]] CARBON_HD constexpr auto
+  boundary_conditions() const noexcept -> const BoundaryConditions& {
+    return boundary_conditions_;
   }
 
   /** Physical-space origin at global integer cell @c (0,0,0) (cell-corner convention). */
@@ -444,6 +466,11 @@ private:
   }
 };
 
+// Span is passed by value into every kernel launch (device parameter space), so it must stay
+// trivially copyable: no virtuals, no owning members.
+static_assert(std::is_trivially_copyable_v<Span>,
+              "dense_distributed::Span is passed by value to kernels and must be trivially copyable");
+
 [[nodiscard]] CARBON_HD constexpr auto
 Span::make_idx(int64_t ix,
                int64_t iy,
@@ -576,6 +603,137 @@ neighbour_idx(const Span& span,
   }
 
   return NeighbourIdx{Idx(bx, by, bz), true};
+}
+
+/** Outcome class of @ref neighbour_idx_bc. */
+enum class NeighbourKindBc : std::uint8_t {
+  /** Unreachable: out of the buffer, out of domain on a face without a BC, or an edge/corner read. */
+  Invalid = 0,
+
+  /** In-buffer, in-domain (or periodic-wrapped) cell: identical to what @ref neighbour_idx returns. */
+  Interior = 1,
+
+  /** Out of domain across a BC face: @c idx is the in-domain mirror cell, see @ref NeighbourIdxBc. */
+  Boundary = 2,
+};
+
+/**
+ * Result of @ref neighbour_idx_bc.
+ *
+ * - @c Interior : @c idx is the neighbour cell (same index @ref neighbour_idx would return).
+ * - @c Boundary : the read lands @c k cells outside @c face. @c idx is the in-domain @b mirror
+ *   cell (@c k cells inside the face, reflected through the boundary node); the caller derives
+ *   the virtual boundary value from its content and the face's @ref FaceBc.
+ * - @c Invalid  : nothing reachable.
+ */
+struct NeighbourIdxBc {
+  Idx idx{};
+  NeighbourKindBc kind{NeighbourKindBc::Invalid};
+  ::carbon::Face face{::carbon::Face::XLow};
+  int32_t k{0};
+};
+
+/**
+ * Boundary-condition-aware sibling of @ref neighbour_idx (which is left untouched).
+ *
+ * Order of checks differs on purpose: the global-domain test per axis runs @b before the buffer
+ * test, because a single-rank open axis has no halo storage, so an out-of-domain offset is
+ * necessarily outside the buffer and cannot be recognised as a BC read after a buffer check.
+ *
+ * Per-axis classification of the target cell @c g = cell + offset + span.offset():
+ * - inside @c [0, global) or on a periodic axis: ordinary (@c Interior-style) axis;
+ * - outside on a non-periodic axis whose face has @c kind != None: BC axis;
+ * - outside on a non-periodic axis without a BC: the read is @c Invalid (as for @ref neighbour_idx).
+ *
+ * Result:
+ * - no BC axis: same buffer test and result as @ref neighbour_idx (@c Interior or @c Invalid);
+ * - exactly one BC axis: @c Boundary with the mirror cell, provided the mirror cell is inside the
+ *   domain and the buffer. The other two axes keep their buffer-local coordinate and must be in
+ *   the buffer;
+ * - two or more BC axes (edge or corner of the box): @c Invalid. The composition order of mixed
+ *   Dirichlet / Neumann conditions at an edge changes the result, so this is deliberately not
+ *   guessed (documented limitation).
+ *
+ * Mirror cell: with @c G the global extent on the BC axis, a read at global coordinate @c g < 0
+ * has @c k = -g and mirror global coordinate @c k ; a read at @c g >= G has @c k = g - (G - 1) and
+ * mirror global coordinate @c (G - 1) - k. For any offset within the stencil radius the mirror is
+ * within one stencil radius of the reading cell, hence inside the buffer (own halo on a split axis).
+ */
+[[nodiscard]] CARBON_HD constexpr auto
+neighbour_idx_bc(const Span& span,
+                 const Idx& idx,
+                 ::carbon::int8_3d offset) noexcept -> NeighbourIdxBc {
+  const int64_3d cell = idx.cell();
+  const int64_3d haloed = span.haloed_extent();
+  const int64_3d global_extent = span.global_extent();
+  const int64_3d off = span.offset();
+  const BoundaryModeDistributed mode = span.boundary_mode();
+  const BoundaryConditions& bc = span.boundary_conditions();
+
+  const int64_t b[3] = {cell.x + static_cast<int64_t>(offset.x),
+                        cell.y + static_cast<int64_t>(offset.y),
+                        cell.z + static_cast<int64_t>(offset.z)};
+  const int64_t haloed_a[3] = {haloed.x, haloed.y, haloed.z};
+  const int64_t global_a[3] = {global_extent.x, global_extent.y, global_extent.z};
+  const int64_t off_a[3] = {off.x, off.y, off.z};
+  const Axis axes[3] = {Axis::X, Axis::Y, Axis::Z};
+  const ::carbon::Face low_face[3] = {::carbon::Face::XLow, ::carbon::Face::YLow,
+                                      ::carbon::Face::ZLow};
+  const ::carbon::Face high_face[3] = {::carbon::Face::XHigh, ::carbon::Face::YHigh,
+                                       ::carbon::Face::ZHigh};
+
+  int bc_axis = -1;
+  int bc_axis_count = 0;
+  for (int a = 0; a < 3; ++a) {
+    const int64_t g = b[a] + off_a[a];
+    const bool outside = g < 0 || g >= global_a[a];
+    if (!outside || is_periodic(mode, axes[a])) {
+      continue;
+    }
+    const ::carbon::Face f = (g < 0) ? low_face[a] : high_face[a];
+    if (bc.at(f).kind == BcKind::None) {
+      return {};
+    }
+    bc_axis = a;
+    ++bc_axis_count;
+  }
+
+  if (bc_axis_count == 0) {
+    // No BC involved: identical to neighbour_idx (buffer bounds, then valid).
+    if (b[0] < 0 || b[0] >= haloed_a[0] || b[1] < 0 || b[1] >= haloed_a[1] || b[2] < 0 ||
+        b[2] >= haloed_a[2]) {
+      return {};
+    }
+    NeighbourIdxBc r;
+    r.idx = Idx(b[0], b[1], b[2]);
+    r.kind = NeighbourKindBc::Interior;
+    return r;
+  }
+  if (bc_axis_count > 1) {
+    return {};
+  }
+
+  // Exactly one BC axis: build the mirror cell.
+  const int64_t g_bc = b[bc_axis] + off_a[bc_axis];
+  const int64_t extent = global_a[bc_axis];
+  const bool low = g_bc < 0;
+  const int64_t k = low ? -g_bc : g_bc - (extent - 1);
+  const int64_t mirror_global = low ? k : (extent - 1) - k;
+  if (mirror_global < 0 || mirror_global >= extent) {
+    return {};
+  }
+  int64_t m[3] = {b[0], b[1], b[2]};
+  m[bc_axis] = mirror_global - off_a[bc_axis];
+  if (m[0] < 0 || m[0] >= haloed_a[0] || m[1] < 0 || m[1] >= haloed_a[1] || m[2] < 0 ||
+      m[2] >= haloed_a[2]) {
+    return {};
+  }
+  NeighbourIdxBc r;
+  r.idx = Idx(m[0], m[1], m[2]);
+  r.kind = NeighbourKindBc::Boundary;
+  r.face = low ? low_face[bc_axis] : high_face[bc_axis];
+  r.k = static_cast<int32_t>(k);
+  return r;
 }
 
 }  // namespace carbon::detail::dense_distributed

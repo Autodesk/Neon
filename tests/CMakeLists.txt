@@ -157,6 +157,10 @@ carbon_add_unit_test(halo_coalesce)
 # Span views and neighbour resolution (open + periodic), and the packed X->Y->Z halo exchange on an
 # emulated multi-rank world. No GPU and no MPI, so it stays on the cpu lane.
 carbon_add_unit_test(dense_distributed_host)
+# DenseDistributed per-face boundary conditions (Dirichlet / Neumann), host half: Span and
+# Partition::neighbour_bc against an independent oracle on emulated slab / pencil / brick worlds,
+# and the guard that no conditions means neighbour_bc == neighbour. No GPU and no MPI.
+carbon_add_unit_test(dense_distributed_bc_host)
 # Environment gate for the needs_multi_device class — see tests/test_multi_gpu_gate.cpp.
 # Labelled cpu because it only reads the device count (never launches), so it runs on
 # every lane and reports honestly on each.
