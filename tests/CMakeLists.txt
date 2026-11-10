@@ -161,6 +161,9 @@ carbon_add_unit_test(dense_distributed_host)
 # Partition::neighbour_bc against an independent oracle on emulated slab / pencil / brick worlds,
 # and the guard that no conditions means neighbour_bc == neighbour. No GPU and no MPI.
 carbon_add_unit_test(dense_distributed_bc_host)
+# Spatially varying boundary data (BoundaryData views, HostBoundaryStore, Partition::neighbour_bc with
+# a view) on emulated slab / pencil / brick worlds against an independent oracle. No GPU, no MPI.
+carbon_add_unit_test(boundary_data_host)
 # Environment gate for the needs_multi_device class — see tests/test_multi_gpu_gate.cpp.
 # Labelled cpu because it only reads the device count (never launches), so it runs on
 # every lane and reports honestly on each.

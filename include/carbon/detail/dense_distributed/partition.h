@@ -275,6 +275,45 @@ public:
   }
 
   /**
+   * Like @ref neighbour_bc, but the condition comes from @p view (a @c BoundaryView) instead of the
+   * grid: it is looked up per face cell and per component, at the face cell under the target of the
+   * read, so it can vary across a face and differ between fields and components. The formulas are
+   * the same: Dirichlet @c 2*g - u_mirror, Neumann @c u_mirror + 2*k*h*g.
+   *
+   * Reads with no stored condition at that cell, across two or more faces, or interior reads that
+   * leave the buffer return @c valid = false, as for @ref neighbour. Additive and opt-in: the
+   * overload without a view is unchanged. @p comp indexes both the field component and the boundary
+   * data component, so the boundary data needs at least as many components as the field.
+   */
+  template <typename View>
+  [[nodiscard]] CARBON_HD constexpr auto
+  neighbour_bc(const Span& span,
+               const View& view,
+               const Idx& idx,
+               int8_3d offset,
+               int component_id) const noexcept -> NeighbourValue<T> {
+    static_assert(std::is_floating_point_v<T>,
+                  "Partition::neighbour_bc computes virtual boundary values and needs a "
+                  "floating-point element type");
+    const auto res = view.resolve(span, idx, offset, component_id);
+    if (res.where.kind == NeighbourKindBc::Invalid) {
+      return {};
+    }
+    const T mirror = ptr_[span.linear_offset(res.where.idx, component_id)];
+    if (res.where.kind == NeighbourKindBc::Interior) {
+      return NeighbourValue<T>{mirror, true};
+    }
+    const T g = static_cast<T>(res.bc.value);
+    if (res.bc.kind == BcKind::Dirichlet) {
+      return NeighbourValue<T>{static_cast<T>(2) * g - mirror, true};
+    }
+    return NeighbourValue<T>{
+        static_cast<T>(mirror + static_cast<T>(2) * static_cast<T>(res.where.k) *
+                                    static_cast<T>(span.spacing()) * g),
+        true};
+  }
+
+  /**
    * @b Trusted neighbour read: return the element at @p idx + @p offset for component
    * @p component_id with @b no validity branch. The caller guarantees the neighbour is
    * in-buffer (e.g. it precomputed a wall / active mask so the non-boundary branch can
