@@ -6235,3 +6235,16 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   diagonal reads against an independent oracle, the stored ranges and coverage across ranks,
   agreement of margin cells, the pinning helper and validation; four mutations (Neumann sign,
   tangential margin, source-versus-target lookup, pinning order) each make it fail.
+- **2026-11 — `offset_current_terminals` example.** Steady current flow in a conducting box with a
+  resistive sphere: current enters through a disc-shaped terminal on the top face and leaves
+  through an offset one on the bottom face, insulating elsewhere. That is a non-zero flux that
+  differs from cell to cell on one face, which per-face constants cannot express, so it is declared
+  with `BoundaryData` and read through `Partition::neighbour_bc` with a view in a Jacobi sweep run
+  by a Skeleton. A second `BoundaryData` gives the conductivity field zero flux on every face, so
+  two fields on one grid carry different conditions. The program solves the declared terminals and
+  the same current spread evenly over each face (all one constant per face can say), writes a
+  two-panel PPM of the potential (`--raw DIR` also dumps phi and the current density), and exits
+  non-zero unless the iteration has converged and the current crossing the plane midway between
+  the terminals matches the injected current to 1% (the even case must carry none sideways). The
+  checks run on the host over small arrays, so the example does not depend on the reduction
+  kernels. Flipping the Neumann sign reverses the current and fails the check.
