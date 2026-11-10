@@ -28,6 +28,7 @@ namespace carbon::reduce {
 
 namespace {
 
+#ifndef CARBON_DIST_HOST_MPI
 [[noreturn]] auto
 throw_nccl_error(const char* where,
                  ncclResult_t res) -> void {
@@ -58,6 +59,7 @@ to_nccl_op(ReduceOpKind op) -> ncclRedOp_t {
   log::throw_with_log<std::runtime_error>("dist_allreduce_in_place: unknown ReduceOpKind {}",
                                           static_cast<int>(op));
 }
+#endif  // !CARBON_DIST_HOST_MPI
 
 [[nodiscard]] auto
 to_mpi_op(ReduceOpKind op) -> MPI_Op {
@@ -126,6 +128,7 @@ check_mpi(const char* where,
   }
 }
 
+#ifndef CARBON_DIST_HOST_MPI
 [[nodiscard]] auto
 to_nccl_dtype(ReduceDataKind dt) -> ncclDataType_t {
   switch (dt) {
@@ -162,6 +165,7 @@ to_nccl_dtype(ReduceDataKind dt) -> ncclDataType_t {
   log::throw_with_log<std::runtime_error>("dist_allreduce_in_place: unknown ReduceDataKind {}",
                                           static_cast<int>(dt));
 }
+#endif  // !CARBON_DIST_HOST_MPI
 
 }  // namespace
 
@@ -188,6 +192,27 @@ dist_allreduce_in_place(const System& sys,
         stream.size());
   }
 
+#ifdef CARBON_DIST_HOST_MPI
+  // Host-MPI build: the reduction scalar lives in ordinary host memory, so drain the
+  // rank's queue and allreduce it in place with MPI.
+  {
+    stream.wait();
+    const auto* dist_ptr = sys.distributed();
+    if (dist_ptr == nullptr) {
+      log::throw_with_log<std::runtime_error>(
+          "dist_allreduce_in_place: System has no Distributed handle");
+    }
+    if (count > static_cast<size_t>(std::numeric_limits<int>::max())) {
+      log::throw_with_log<std::invalid_argument>(
+          "dist_allreduce_in_place: count={} exceeds MPI_Allreduce's int element limit", count);
+    }
+    check_mpi("MPI_Allreduce",
+              ::MPI_Allreduce(MPI_IN_PLACE, device_ptr, static_cast<int>(count),
+                              to_mpi_dtype(dtype), to_mpi_op(op),
+                              detail::distributed_mpi_world(*dist_ptr)));
+    return;
+  }
+#else
   ncclComm_t nccl_comm = detail::communicator_handle(*comm_ptr);
   const ncclRedOp_t nccl_op = to_nccl_op(op);
   const ncclDataType_t nccl_dtype = to_nccl_dtype(dtype);
@@ -197,7 +222,7 @@ dist_allreduce_in_place(const System& sys,
   // in. ncclAllReduce is in-place when sendbuff == recvbuff, which is exactly the
   // mode the reduce KernelImpl uses (single scalar already living on the root GPU).
   using detail::gpu_compat::gpu_stream_t;
-  auto submit_allreduce = [&](gpu_stream_t cs) {
+  auto submit_allreduce = [=](gpu_stream_t cs) {
     check_nccl("ncclAllReduce",
                ncclAllReduce(device_ptr, device_ptr, count, nccl_dtype, nccl_op, nccl_comm, cs));
   };
@@ -208,11 +233,14 @@ dist_allreduce_in_place(const System& sys,
   // SYCL backend mirrors dist_transfer.cpp's interop hop: AdaptiveCpp does not expose
   // get_native<sycl::backend::*>(queue) outside a command group, so we wrap the NCCL
   // call inside an AdaptiveCpp_enqueue_custom_operation that runs on the queue's
-  // current frontier. The host-side q.wait_and_throw() afterwards keeps the call shape
-  // synchronous-looking on the host side; the device-side allreduce remains async.
+  // current frontier. Capture the submission lambda by value so the custom operation
+  // can run after this function returns; the in-order queue orders subsequent
+  // submissions after the collective, so no host-side wait is needed here. As with any
+  // async launch, the caller must keep the System/communicator and device allocation
+  // alive until the queued work completes.
   sycl::queue& q = stream[0].queue();
-  q.submit([&](sycl::handler& cgh) {
-    cgh.AdaptiveCpp_enqueue_custom_operation([&submit_allreduce](sycl::interop_handle ih) {
+  q.submit([submit_allreduce](sycl::handler& cgh) {
+    cgh.AdaptiveCpp_enqueue_custom_operation([submit_allreduce](sycl::interop_handle ih) {
 #ifdef CARBON_USE_RCCL
       submit_allreduce(ih.get_native_queue<sycl::backend::hip>());
 #else
@@ -220,8 +248,8 @@ dist_allreduce_in_place(const System& sys,
 #endif
     });
   });
-  q.wait_and_throw();
 #endif
+#endif  // !CARBON_DIST_HOST_MPI
 }
 
 auto

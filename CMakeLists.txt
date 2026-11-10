@@ -141,18 +141,20 @@ elseif(CARBON_BACKEND STREQUAL "Sycl")
       "AdaptiveCpp_DIR points at <prefix>/lib/cmake/AdaptiveCpp.")
   endif()
 
+  # Host-MPI transport: with an omp-only target there is no CUDA/HIP runtime, so NCCL/RCCL
+  # cannot be used. Carbon's "device" memory is then plain host RAM and halo exchange /
+  # allreduce go straight through MPI (see CARBON_DIST_HOST_MPI in src/dist_*.cpp).
+  set(_carbon_dist_host_mpi OFF)
   if(CARBON_ENABLE_MPI
      AND NOT CARBON_SYCL_TARGETS MATCHES "cuda"
      AND NOT CARBON_SYCL_TARGETS MATCHES "hip")
-    message(FATAL_ERROR
-      "CARBON_ENABLE_MPI=ON under CARBON_BACKEND=Sycl currently requires either a 'cuda:' "
-      "(NCCL transport) or 'hip:' (RCCL transport) target in CARBON_SYCL_TARGETS (got "
-      "'${CARBON_SYCL_TARGETS}'). Carbon's distributed transport calls NCCL/RCCL on the "
-      "underlying cudaMalloc'd / hipMalloc'd USM pointers extracted via "
-      "sycl::interop_handle::get_native_queue<sycl::backend::cuda|hip>; that interop only "
-      "exists when AdaptiveCpp's CUDA or HIP backend is in CARBON_SYCL_TARGETS. Host-MPI "
-      "(OMP / Apple-CPU) is a planned follow-up; until then, either add 'cuda:sm_XX' / "
-      "'hip:gfxXXX' to CARBON_SYCL_TARGETS or re-configure with CARBON_ENABLE_MPI=OFF.")
+    if(CARBON_SYCL_TARGETS MATCHES "omp")
+      set(_carbon_dist_host_mpi ON)
+    else()
+      message(FATAL_ERROR
+        "CARBON_ENABLE_MPI=ON under CARBON_BACKEND=Sycl needs a 'cuda:' (NCCL), 'hip:' (RCCL) "
+        "or 'omp' (host MPI) target in CARBON_SYCL_TARGETS (got '${CARBON_SYCL_TARGETS}').")
+    endif()
   endif()
 
   message(STATUS "carbon: SYCL backend selected (AdaptiveCpp). ACPP_TARGETS=${ACPP_TARGETS}")
@@ -389,6 +391,21 @@ elseif(CARBON_BACKEND STREQUAL "Sycl")
   target_sources(carbon PRIVATE
     src/sycl_stub.cpp
     src/gpu_sycl.cpp)
+  # Multicore-CPU execution: with an omp-only target the AdaptiveCpp OpenMP host device is the
+  # only device, but it reports is_cpu() == true and the default enumeration skips CPU devices,
+  # so device_count() would be 0. Default ON for omp-only targets; OFF when a cuda:/hip: target
+  # is present (the GPU stays device 0).
+  if(CARBON_SYCL_TARGETS MATCHES "omp" AND NOT CARBON_SYCL_TARGETS MATCHES "cuda|hip")
+    set(_carbon_sycl_cpu_default ON)
+  else()
+    set(_carbon_sycl_cpu_default OFF)
+  endif()
+  option(CARBON_SYCL_CPU_DEVICE
+    "Treat the AdaptiveCpp OpenMP host device as a carbon compute device" ${_carbon_sycl_cpu_default})
+  if(CARBON_SYCL_CPU_DEVICE)
+    target_compile_definitions(carbon PRIVATE CARBON_SYCL_CPU_DEVICE=1)
+    message(STATUS "carbon: SYCL OpenMP host device enabled as compute device")
+  endif()
   # AdaptiveCpp's add_sycl_to_target tags every TU listed in SOURCES with the SYCL
   # compile/link flags. Apply it to all .cu / .cpp files participating in the carbon
   # target; this is the AdaptiveCpp-recommended way to get cross-TU SYCL with the
@@ -469,7 +486,9 @@ if(CARBON_ENABLE_MPI)
     set(_carbon_use_rccl ON)
   endif()
 
-  if(_carbon_use_rccl)
+  if(_carbon_dist_host_mpi)
+    message(STATUS "carbon: distributed transport = host MPI (SYCL omp target, no NCCL/RCCL)")
+  elseif(_carbon_use_rccl)
     find_package(RCCL REQUIRED)
     # HIP headers (<hip/hip_runtime.h>, <hip/hip_fp16.h>) are reached via acpp's
     # --acpp-rocm-path forwarding (-isystem $ROCM_PATH/include) configured above. The
@@ -517,7 +536,9 @@ if(CARBON_ENABLE_MPI)
       src/communicator.cpp
       src/dist_transfer.cpp
       src/dist_reduce.cpp)
-    if(_carbon_use_rccl)
+    if(_carbon_dist_host_mpi)
+      set(_carbon_mpi_extra_includes "")
+    elseif(_carbon_use_rccl)
       set(_carbon_mpi_extra_includes
         "${RCCL_INCLUDE_DIR}"
         "${CARBON_SYCL_ROCM_PATH}/include")
@@ -547,7 +568,10 @@ if(CARBON_ENABLE_MPI)
   target_link_libraries(carbon PRIVATE MPI::MPI_CXX)
   target_compile_definitions(carbon PUBLIC CARBON_HAVE_MPI_NCCL)
 
-  if(_carbon_use_rccl)
+  if(_carbon_dist_host_mpi)
+    target_compile_definitions(carbon PRIVATE CARBON_DIST_HOST_MPI=1)
+    set(_carbon_collective_lib_dir "")
+  elseif(_carbon_use_rccl)
     target_link_libraries(carbon PRIVATE RCCL::rccl)
     target_compile_definitions(carbon PRIVATE CARBON_USE_RCCL)
     # The AMD HIP runtime headers gate the AMD-side declarations on
@@ -587,6 +611,9 @@ if(CARBON_ENABLE_MPI)
       if(_mpi_dir)
         list(APPEND CARBON_RUNTIME_SEARCH_DIRS "${_mpi_dir}")
         target_link_directories(carbon INTERFACE "${_mpi_dir}")
+        # Consumers (examples/tests) re-resolve libcarbon.so's DT_NEEDED libmpi.so.N at link
+        # time; conda's ld does not search -L dirs for that, only -rpath-link.
+        target_link_options(carbon INTERFACE "LINKER:-rpath-link,${_mpi_dir}")
       endif()
     endforeach()
     list(REMOVE_DUPLICATES CARBON_RUNTIME_SEARCH_DIRS)

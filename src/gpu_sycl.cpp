@@ -13,6 +13,8 @@
 
 #include <carbon/detail/gpu_allocation_tracking.h>
 
+#include "sycl_device_filter.h"
+
 #include <sycl/sycl.hpp>
 
 #include <algorithm>
@@ -45,7 +47,7 @@ all_sycl_devices() -> const std::vector<sycl::device>& {
       for (const auto& dev : platform.get_devices(sycl::info::device_type::all)) {
         // Skip the host CPU device exposed by SYCL — carbon's "device" concept is the
         // GPU/accelerator side; the host is reached via Cpu::buffer instead.
-        if (!dev.is_cpu()) {
+        if (is_compute_device(dev)) {
           out.push_back(dev);
         }
       }

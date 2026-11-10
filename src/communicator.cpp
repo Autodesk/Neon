@@ -15,6 +15,7 @@ namespace carbon::detail {
 
 namespace {
 
+#ifndef CARBON_DIST_HOST_MPI
 [[noreturn]] auto
 throw_nccl_error(const char* where,
                  ncclResult_t res) -> void {
@@ -29,6 +30,7 @@ check_nccl(const char* where,
     throw_nccl_error(where, res);
   }
 }
+#endif  // !CARBON_DIST_HOST_MPI
 
 [[noreturn]] auto
 throw_mpi_error(const char* where,
@@ -53,7 +55,9 @@ check_mpi(const char* where,
 }  // namespace
 
 struct Communicator::Impl {
+#ifndef CARBON_DIST_HOST_MPI
   ncclComm_t comm{nullptr};
+#endif
   int rank{0};
   int size{1};
   int device{0};
@@ -63,12 +67,14 @@ Communicator::Communicator()
     : impl_(std::make_unique<Impl>()) {}
 
 Communicator::~Communicator() {
+#ifndef CARBON_DIST_HOST_MPI
   if (impl_ && impl_->comm != nullptr) {
     ncclResult_t res = ncclCommDestroy(impl_->comm);
     if (res != ncclSuccess) {
       CARBON_LOG_ERROR("Communicator: ncclCommDestroy failed: {}", ncclGetErrorString(res));
     }
   }
+#endif
 }
 
 auto
@@ -85,12 +91,18 @@ Communicator::from_mpi(const Distributed& distributed) -> std::shared_ptr<Commun
         gpu_get_error_string(cerr));
   }
 
+  MPI_Comm mpi_comm = distributed_mpi_world(distributed);
+
+#ifdef CARBON_DIST_HOST_MPI
+  // Host-MPI build: transfers and reductions go straight through MPI on the world
+  // communicator, so there is no NCCL communicator to create. A barrier keeps the
+  // "all ranks have a Communicator" contract of the NCCL path.
+  check_mpi("MPI_Barrier", MPI_Barrier(mpi_comm));
+#else
   ncclUniqueId id{};
   if (distributed.world_rank() == 0) {
     check_nccl("ncclGetUniqueId", ncclGetUniqueId(&id));
   }
-
-  MPI_Comm mpi_comm = distributed_mpi_world(distributed);
 
   check_mpi("MPI_Bcast(ncclUniqueId)", MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, mpi_comm));
   // Required so late ranks finish receiving the id before any rank starts the collective
@@ -99,6 +111,7 @@ Communicator::from_mpi(const Distributed& distributed) -> std::shared_ptr<Commun
 
   check_nccl("ncclCommInitRank", ncclCommInitRank(&comm->impl_->comm, distributed.world_size(), id,
                                                   distributed.world_rank()));
+#endif  // CARBON_DIST_HOST_MPI
 
   CARBON_LOG_INFO("Communicator: rank={}/{} bound to device {}", comm->impl_->rank,
                   comm->impl_->size, comm->impl_->device);
@@ -122,7 +135,11 @@ Communicator::device() const noexcept -> int {
 
 auto
 Communicator::raw_handle() const noexcept -> void* {
+#ifdef CARBON_DIST_HOST_MPI
+  return nullptr;
+#else
   return reinterpret_cast<void*>(impl_->comm);
+#endif
 }
 
 }  // namespace carbon::detail

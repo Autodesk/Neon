@@ -6185,3 +6185,56 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `OverlapMode::None`, and the distributed LBM benchmark gains `--hp-halo` (`hp_halo` in
   the JSON report). `test_skeleton_halo_priority` checks the native priority of the halo
   stream for Standard / Extended, a ping-pong pair, a recompile, and `None`.
+- **2026-11 — Global chunk validation for `Dense` / `DenseDisg` / `DenseDistributed`.**
+  The thickness guards used to inspect only the local `spans_`. Under MPI (one rank per GPU)
+  `local_n == 1`, so a rank whose chunk was too thin threw while the other ranks continued to
+  the first halo collective and hung. The checks now run against the global decomposition on
+  every rank, in the same chunk order, before any field allocation or collective. `Dense` and
+  `DenseDisg` validate every `z_counts_global` slab; `DenseDistributed` uses the shared
+  `detail::dense_distributed::validate_global_halo_fit` helper for both the legacy-slab
+  `2 * halo_z` rule and the multi-axis `owned >= halo` rule. The host test adds four
+  global-validation cases (`z=7` over 4 slabs and `x=1` over a 2x2x2 brick must throw; the
+  existing valid slab/brick layouts must not).
+- **2026-11 — Legacy z-band Boundary path is now opt-in.** `DenseDistributed::Span` carries a
+  `legacy_slab` flag; only spans marked legacy use the two-band z-only Boundary mapping.
+  Non-legacy z-only chunks (pencil/brick or periodic-X/Y slab with a z-only stencil) now use
+  the compact shell path, so `owned.z < 2 * halo.z` no longer visits Boundary cells twice.
+  The host test adds thin z-only pencil/brick/periodic-X cases and asserts legacy slabs still
+  use the `2 * halo.z` z-band extent.
+- **2026-11 — HIP `BlockAtomic` double / int64 sums are no longer dropped.** The four
+  CUDA/HIP reduce-kernel headers duplicated a `__CUDA_ARCH__ >= 600` guard whose `#else`
+  silently discarded `double` and `int64_t` block partials. AMD HIP defines
+  `__HIP_DEVICE_COMPILE__` but not `__CUDA_ARCH__`, so `ReduceFinalize::BlockAtomic`
+  produced zero on that backend. The atomic dispatch now lives in `cudalike/atomic.h`
+  (`double`, `int32_t`, `int64_t` overloads, with a CUDA pre-sm_60 CAS fallback and the
+  existing host `std::atomic_ref` path), and one shared `reduce_atomic_accumulate` helper is
+  used by the Dense, DenseDistributed, DenseDisg and Block kernels. Unsupported element
+  types now fail with a dependent `static_assert` instead of compiling to a no-op. The
+  `test_reduce_atomic` suite adds a `double` BlockAtomic case and `test_atomic_host` covers
+  the new host overloads.
+- **2026-11 — 2-D stage-1 reduce now covers every `(y, z)` cell.** The opt-in
+  `stage1_threads_y` path previously mapped a 2-D block over `(x, z)` and always called
+  `set_and_validate(view, ix, 0, iz)`. It was correct only when `iter_extent(view).y == 1`:
+  `Standard`/`Internal` reduced just the `y = 0` plane, and the DenseDistributed compact-shell
+  `Boundary` view reduced only its first 128 shell cells. The second block dimension is now a
+  flattened `(y, z)` index, decoded with `iy = flat_yz % ext.y` and `iz = flat_yz / ext.y`;
+  `y == 1` keeps the NVIDIA Jacobi `x/z` shape. The launch-grid and
+  `ReduceLaunchTraits::stage1_unit_count` formulas now use `ext.y * ext.z`, and
+  `ReduceKernelImpl` sizes its partials/CUB scratch from the maximum block count over
+  `Standard`, `Internal`, and `Boundary` because the padded compact-shell boundary can need
+  more blocks than Standard. Dead `16x16`, `8x8`, `32x16`, `16x32`, and `64x64` dispatch cases
+  were removed; only `32x32` is reachable under the current normalizer.
+- **2026-11 — SYCL split-reduction Merge now runs instead of throwing.** A stencil reduction
+  inside an overlapped `Skeleton` is emitted as `Partial Internal + Partial Boundary + Merge`;
+  `ReduceKernelImpl::launch_merge_on_device` only had a CUDA/HIP body and threw
+  `std::logic_error` under SYCL, so every overlapped stencil reduction aborted. The SYCL branch
+  now folds the two already-combined per-view scalars with a one-thread `sycl::single_task`
+  (`*out = op(op(identity, *internal), *boundary)`), captures `Op`/identity and the pointers by
+  value, and reuses the existing cross-rank and inline-readback tail. The SYCL NCCL
+  `dist_allreduce_in_place` path now value-captures its submission lambda and drops the host
+  `wait_and_throw()`: the custom operation may outlive the caller's stack frame, and the
+  in-order queue orders later submissions after the collective. `test_skeleton_reduce_split`
+  now uses one stable `Stream` for the whole-reduction reference instead of minting a fresh
+  `System::stream()` per call (the old reference raced the inline D-to-H copy on SYCL OpenMP).
+  Verified with `test_skeleton_reduce_split`, `test_reduce_sum`, and `test_reduce_ops` on SYCL
+  OpenMP, and with `test_skeleton_reduce_split` on CUDA.

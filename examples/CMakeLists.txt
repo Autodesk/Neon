@@ -149,6 +149,12 @@ _carbon_example_link_viewer(carbon_example_render_wind_tunnel_live)
 target_include_directories(carbon_example_render_wind_tunnel_live
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
 
+# Distributed 6-neighbour stencil + axpy with a CLI-selected slab | pencil | brick decomposition.
+# Self-verifying (global sums vs. a serial host reference). With the SYCL backend, an omp-only
+# target and CARBON_ENABLE_MPI=ON this is a pure-CPU `mpirun -np N` program.
+_carbon_example_add(carbon_example_distributed_stencil_axpy distributed/stencil_axpy.cu)
+target_link_libraries(carbon_example_distributed_stencil_axpy PRIVATE carbon::carbon)
+
 # Multi-resolution (mGrid) worked example: cross-level restriction / prolongation, a reduction,
 # and an intra-level halo'd smoothing step on carbon::MultiResBlock — every operation through the
 # kernel layer (make_kernel / make_reduce_kernel / level_view / make_halo_kernel), each stage

@@ -143,13 +143,24 @@ Dense::Dense(System system,
     local_slab_offset_ = 0U;
   }
 
+  const int64_t halo_z = static_cast<int64_t>(stencil_.radius());
   const std::vector<size_t> z_counts_global = split_extent_z(global_.z, global_slab_count_);
 
-  // Validate per-slab owned-element counts up front so any overflow surfaces during Dense
-  // construction rather than later in a buffer allocation. The values themselves are not
+  // Validate per-slab owned-element counts and thickness up front so any overflow or
+  // too-thin chunk surfaces during Dense construction rather than later in a buffer
+  // allocation. These checks must run against the global decomposition on every rank: with
+  // one rank per GPU, validating only local spans lets a rank with a thin chunk throw while
+  // the others proceed to the first collective and hang. The values themselves are not
   // cached: linear_elements() recomputes them on demand from spans_.
   for (size_t g = 0; g < global_slab_count_; ++g) {
     (void)linear_count_for_slab(global_.x, global_.y, z_counts_global[g]);
+    if (halo_z > 0 && z_counts_global[g] < static_cast<size_t>(2 * halo_z)) {
+      log::throw_with_log<std::invalid_argument>(
+          "Dense: global slab z-extent {} is smaller than 2 * halo_z = {} (stencil radius {}); "
+          "the Internal / Boundary DataView split would overlap. Either grow the slab or "
+          "shrink the stencil",
+          z_counts_global[g], 2 * halo_z, stencil_.radius());
+    }
   }
 
   // Cumulative z up to (but not including) this rank's first local slab — i.e. the global z
@@ -163,7 +174,6 @@ Dense::Dense(System system,
   // Prefix scan over the @b local subset of z_counts_global. System::make_vector invokes the
   // callback in ascending order 0..local_n-1; the captured accumulator continues across local
   // slabs without resetting.
-  const int64_t halo_z = static_cast<int64_t>(stencil_.radius());
   spans_ = system_.make_vector([&](size_t i) {
     const int64_t owned_z = static_cast<int64_t>(z_counts_global[local_slab_offset_ + i]);
     const int64_t z_off = running_z;
@@ -182,23 +192,6 @@ Dense::Dense(System system,
       log::throw_with_log<std::invalid_argument>(
           "Dense: haloed x extent or xy_slab_elements exceeds int32_t; Partition::cursor strides "
           "cannot represent this layout");
-    }
-  }
-
-  // The Internal / Boundary split partitions the owned z-extent into a lower halo-thick band,
-  // an interior of (Lz - 2*halo_z) layers, and an upper halo-thick band. If any local slab is
-  // thinner than 2*halo_z those bands would overlap, so reject the configuration up front
-  // rather than letting set_and_validate quietly double-write cells.
-  if (halo_z > 0) {
-    for (size_t i = 0; i < local_n; ++i) {
-      const int64_t lz = spans_[i].logic_extent().z;
-      if (lz < 2 * halo_z) {
-        log::throw_with_log<std::invalid_argument>(
-            "Dense: local slab z-extent {} is smaller than 2 * halo_z {} (stencil radius {}); "
-            "the Internal / Boundary DataView split would overlap. Either grow the slab or "
-            "shrink the stencil",
-            lz, 2 * halo_z, stencil_.radius());
-      }
     }
   }
 

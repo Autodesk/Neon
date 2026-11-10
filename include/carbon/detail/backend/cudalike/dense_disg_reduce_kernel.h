@@ -17,6 +17,7 @@
 
 #if CARBON_CUDALIKE_DEVICE_TU
 #include <carbon/detail/backend/cuda_like.h>
+#include <carbon/detail/backend/cudalike/reduce_atomic.h>
 #endif
 
 namespace carbon::detail::dense_disg {
@@ -70,34 +71,6 @@ disg_grid_reduce_kernel(Span span,
   }
 }
 
-template <typename T>
-CARBON_HD inline auto
-disg_reduce_atomic_accumulate(T* dst,
-                              T value) -> void {
-  if constexpr (std::is_same_v<T, float>) {
-    atomicAdd(dst, value);
-  } else if constexpr (std::is_same_v<T, double>) {
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
-    atomicAdd(dst, value);
-#else
-    (void)dst;
-    (void)value;
-#endif
-  } else if constexpr (std::is_same_v<T, int32_t>) {
-    atomicAdd(dst, value);
-  } else if constexpr (std::is_same_v<T, int64_t>) {
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
-    atomicAdd(reinterpret_cast<unsigned long long*>(dst), static_cast<unsigned long long>(value));
-#else
-    (void)dst;
-    (void)value;
-#endif
-  } else {
-    (void)dst;
-    (void)value;
-  }
-}
-
 /**
  * Disg twin of @ref carbon::detail::dense::dense_grid_reduce_block_atomic_kernel .
  */
@@ -133,7 +106,7 @@ disg_grid_reduce_block_atomic_kernel(Span span,
 
   const T block_val = BlockReduceT(temp_storage).Reduce(thread_val, op);
   if (threadIdx.x == 0U) {
-    disg_reduce_atomic_accumulate(global_out, block_val);
+    reduce_atomic_accumulate(global_out, block_val);
   }
 }
 

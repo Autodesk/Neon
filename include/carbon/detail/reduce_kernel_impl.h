@@ -35,9 +35,10 @@
  *      the user side.
  *
  * Per-block scratch and CUB device-reduce temp storage are pre-allocated per @ref DataView
- * per local GPU in the constructor, sized from the @c Standard -view iteration extent of
- * each slab (the largest of the three views — every Internal / Boundary launch uses
- * @c <= block_count_per_gpu_[g] blocks, so neither buffer ever needs to grow).
+ * per local GPU in the constructor, sized from the maximum stage-1 block count over
+ * @c Standard , @c Internal and @c Boundary . The 2-D compact-shell @c Boundary can need
+ * more blocks than @c Standard because its flattened @c (y, z) launch box includes row
+ * padding; every view's launch uses @c <= stage1_scratch_blocks_per_gpu_[g] blocks.
  *
  * Include from @c .cu translation units (or any TU compiled with nvcc) when the factory
  * @c carbon::Kernel::reduce / @c Dense::make_reduce_kernel is instantiated.
@@ -66,6 +67,7 @@
 // shape) lives in @c detail::ReduceLaunchTraits<Grid> from launch_traits.h above.
 #include <carbon/detail/dense/reduce_combine.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -164,7 +166,7 @@ public:
       }
 #if CARBON_BACKEND_IS_SYCL
       log::throw_with_log<std::invalid_argument>(
-          "Kernel::reduce: ReduceFinalize::BlockAtomic is supported only on the CUDA backend");
+          "Kernel::reduce: ReduceFinalize::BlockAtomic is supported only on the CUDA/HIP backend");
 #endif
     }
     if (reduce_options_.host_copy == reduce::ReduceHostCopy::Deferred) {
@@ -204,18 +206,27 @@ public:
     const size_t gpu_count = grid_.gpu_count();
     total_cells_per_gpu_.assign(gpu_count, 0);
     block_count_per_gpu_.assign(gpu_count, 0);
+    stage1_scratch_blocks_per_gpu_.assign(gpu_count, 0);
 
     // The trait's stage1_unit_count returns the per-GPU "CUDA-block count"
     // the stage-1 reduce launch dispatches: Dense / DenseDisg derive it from
     // @c iter_extent.volume() / kReduceBlockThreads ; Block returns
-    // @c iter_block_count(view) directly. Sized off Standard since that
-    // view dominates Internal + Boundary (whose unit counts together cover
-    // the same set of cells / bricks).
+    // @c iter_block_count(view) directly. The public block_count() accessor
+    // stays tied to the Standard view. Scratch buffers, however, must cover the
+    // largest view: the 2-D compact-shell Boundary can need more blocks than
+    // Standard because its flattened (y, z) launch box includes row padding.
     using Traits = ReduceLaunchTraits<Grid>;
     for (size_t g_idx = 0; g_idx < gpu_count; ++g_idx) {
       total_cells_per_gpu_[g_idx] = Traits::iter_cell_count(grid_, g_idx, DataView::Standard);
       block_count_per_gpu_[g_idx] = Traits::stage1_unit_count(
           grid_, g_idx, DataView::Standard, dense_stage1_threads_, dense_stage1_threads_y_);
+      for (const DataView view :
+           {DataView::Standard, DataView::Internal, DataView::Boundary}) {
+        stage1_scratch_blocks_per_gpu_[g_idx] =
+            std::max(stage1_scratch_blocks_per_gpu_[g_idx],
+                     Traits::stage1_unit_count(grid_, g_idx, view, dense_stage1_threads_,
+                                               dense_stage1_threads_y_));
+      }
     }
 
 #if CARBON_BACKEND_IS_CUDALIKE && CARBON_CUDALIKE_DEVICE_TU
@@ -230,13 +241,13 @@ public:
     }
     for (size_t g_idx = 0; g_idx < gpu_count; ++g_idx) {
       const detail::Gpu& gpu = grid_.system().gpu_group().devices()[g_idx];
-      const int64_t blocks = block_count_per_gpu_[g_idx];
+      const int64_t blocks = stage1_scratch_blocks_per_gpu_[g_idx];
       // Always allocate at least one element so partials_[v][g].data() is non-null and the
       // empty-domain branch in launch() can pass it as the d_in for cub::DeviceReduce
       // with num_items=0 (which writes init verbatim). Same trick the v1 code used.
       const size_t partial_count = static_cast<size_t>(blocks > 0 ? blocks : 1);
-      // Size CUB temp once from the Standard-view scratch shape; every view reuses that
-      // byte count (Internal/Boundary launch <= Standard blocks).
+      // Size CUB temp once from the maximum per-view scratch shape; every view reuses that
+      // byte count. The 2-D compact-shell Boundary can exceed Standard's block count.
       {
         auto probe =
             gpu.template buffer<T>(partial_count, /*relative_gpu_id=*/static_cast<int>(g_idx));
@@ -383,11 +394,10 @@ public:
       const int64_t blocks = Traits::stage1_unit_count(grid_, g_idx, view, dense_stage1_threads_,
                                                        dense_stage1_threads_y_);
       const int64_t iter_cells = Traits::iter_cell_count(grid_, g_idx, view);
-      if (blocks > block_count_per_gpu_[g_idx]) {
-        // Sanity check: Standard-view sizing in the ctor must dominate every other view's
-        // launch; if this trips, the trait's @c stage1_unit_count for this view exceeds
-        // Standard, which would invalidate the per-GPU partial scratch shape.
-        outcomes[g_idx] = {gpu_success, "sizing", block_count_per_gpu_[g_idx], blocks, 0};
+      if (blocks > stage1_scratch_blocks_per_gpu_[g_idx]) {
+        // Sanity check: the ctor sizes scratch from the maximum over all DataViews; if this
+        // trips, the trait's @c stage1_unit_count for this view exceeds that maximum.
+        outcomes[g_idx] = {gpu_success, "sizing", stage1_scratch_blocks_per_gpu_[g_idx], blocks, 0};
         continue;
       }
 
@@ -493,7 +503,7 @@ public:
         log::throw_with_log<std::runtime_error>(
             "Kernel::reduce::launch: view {} requires {} stage-1 units on local GPU {} but the "
             "ctor only sized {} (ReduceLaunchTraits::stage1_unit_count for this view exceeds "
-            "Standard?)",
+            "the per-view maximum?)",
             ::carbon::to_string(view), o.requested, g_idx, o.sized);
       }
       if (o.stage == "gpu_set_device"sv) {
@@ -605,9 +615,48 @@ public:
       dst.record_readback_done(DataView::Standard, slot, stream);
       dst.mark_fresh(DataView::Standard);
     }
+#elif CARBON_BACKEND_IS_SYCL
+    if (stream.size() != grid_.gpu_count()) {
+      log::throw_with_log<std::invalid_argument>(
+          "Kernel::reduce::launch_merge: stream-group size ({}) != gpu_count ({})",
+          stream.size(), grid_.gpu_count());
+    }
+    ReductionResult<T>& dst = *dst_;
+    (void)dst.begin_launch_slot(DataView::Standard, stream);
+    const size_t root = static_cast<size_t>(dst.root_local_gpu());
+    sycl::queue& q = stream[root].queue();
+
+    T* const out = dst.device_data(DataView::Standard);
+    const T* const internal = dst.device_data(DataView::Internal);
+    const T* const boundary = dst.device_data(DataView::Boundary);
+    // Copy Op and the identity into locals so the device lambda captures no `this`
+    // pointer; the single_task folds the two already-combined Partial scalars.
+    const Op op = op_;
+    const T init = op.identity();
+    try {
+      q.submit([&](sycl::handler& cgh) {
+        cgh.single_task([op, init, out, internal, boundary]() {
+          *out = op(op(init, *internal), *boundary);
+        });
+      });
+    } catch (const sycl::exception& ex) {
+      log::throw_with_log<std::runtime_error>(
+          "Kernel::reduce::launch_merge: SYCL submission failed: {}", ex.what());
+    }
+
+    reduce_stages::run_stage3_cross_rank<T, Op>(grid_.system(), stream, dst,
+                                                DataView::Standard);
+    if (reduce_options_.host_copy == reduce::ReduceHostCopy::Inline) {
+      const size_t slot = dst.active_slot();
+      grid_.system().async_copy(dst.device_allocation(DataView::Standard, slot),
+                                dst.host_allocation(DataView::Standard, slot), sizeof(T),
+                                stream);
+      dst.record_readback_done(DataView::Standard, slot, stream);
+      dst.mark_fresh(DataView::Standard);
+    }
 #else
     log::throw_with_log<std::logic_error>(
-        "Kernel::reduce::launch_merge requires a CUDA/HIP device translation unit");
+        "Kernel::reduce::launch_merge requires a CUDA/HIP or SYCL backend");
 #endif
   }
 
@@ -671,11 +720,12 @@ private:
   size_t shared_mem_{};
   std::vector<int64_t> total_cells_per_gpu_{};
   std::vector<int64_t> block_count_per_gpu_{};
+  std::vector<int64_t> stage1_scratch_blocks_per_gpu_{};
   std::vector<AccessToken> tokens_{};
   reduce::ReduceOptions reduce_options_{};
-  /** Plain @c Dense CUDA stage-1 block width; @c 0 → default @c 256 (1D) or @c 32 (2D). */
+  /** Plain @c Dense CUDA/HIP stage-1 block width; @c 0 → default @c 256 (1D) or @c 32 (2D). */
   int dense_stage1_threads_{0};
-  /** @c 0 = 1D flat tiling; @c >0 = 2D block height ( @c z axis ). */
+  /** @c 0 = 1D flat tiling; @c >0 = 2D block dimension over flattened (y, z). */
   int dense_stage1_threads_y_{0};
 #if CARBON_BACKEND_IS_CUDALIKE && CARBON_CUDALIKE_DEVICE_TU
   /** Per-view per-GPU stage-1 block partials (concurrent Partial I/B safe). */

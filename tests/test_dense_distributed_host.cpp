@@ -743,7 +743,8 @@ check_geometry(const GeomCase& c,
               {ch.owned.x + 2 * halo.x, ch.owned.y + 2 * halo.y, ch.owned.z + 2 * halo.z}));
     CHECK(ch.xy_pitch == ch.haloed.x * ch.haloed.y);
 
-    const dd::Span span(ch.haloed, global, ch.xy_pitch, ch.offset, ch.halo, bm);
+    const dd::Span span(ch.haloed, global, ch.xy_pitch, ch.offset, ch.halo, bm,
+                        /*legacy_slab=*/legacy_slab);
     CHECK(eq3(span.logic_extent(), ch.owned));
     CHECK(eq3(span.haloed_extent(), ch.haloed));
     CHECK(eq3(span.halo(), halo));
@@ -776,6 +777,9 @@ check_geometry(const GeomCase& c,
       std::vector<int> mark(static_cast<size_t>(ch.owned.x * ch.owned.y * ch.owned.z), 0);
       for (const carbon::DataView view : {carbon::DataView::Internal, carbon::DataView::Boundary}) {
         const int64_3d e = span.iter_extent(view);
+        if (view == carbon::DataView::Boundary && legacy_slab) {
+          CHECK(e.z == 2 * halo.z);
+        }
         if (view == carbon::DataView::Boundary && !legacy_slab) {
           // Compact shell: the launch box holds the shell cells plus less than one 128-wide row
           // of padding (a full-owned-extent launch would fail this by a wide margin), and the
@@ -881,6 +885,7 @@ part_b_geometry(size_t& cells,
                                        {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
   const std::vector<int32_3d> r2 = {{2, 0, 0},  {-2, 0, 0}, {0, 1, 0},
                                     {0, -1, 0}, {0, 0, 2},  {0, 0, -2}};
+  const std::vector<int32_3d> zonly = {{0, 0, 1}, {0, 0, -1}};
   std::vector<int32_3d> d3q19;
   for (int z = -1; z <= 1; ++z) {
     for (int y = -1; y <= 1; ++y) {
@@ -912,11 +917,78 @@ part_b_geometry(size_t& cells,
       {"brick/221-aniso", 2, 2, 1, kO, 8, 6, 5, aniso, {2, 1, 0}},
       {"brick/221-aniso-periodicZ", 2, 2, 1, kZ, 8, 6, 5, aniso, {2, 1, 1}},
       {"brick/212-d3q19-periodicXZ", 2, 1, 2, kX | kZ, 6, 5, 6, d3q19, {1, 0, 1}},
+      // Non-legacy z-only stencils: halo.x == halo.y == 0, but the layout is not a legacy slab.
+      // The Boundary view must use the compact shell path; with owned.z == 1 the two-band path
+      // would visit the same cell twice.
+      {"pencil/zonly-thin", 1, 2, 2, kO, 4, 4, 2, zonly, {0, 0, 1}},
+      {"brick/zonly-thin", 2, 2, 2, kO, 4, 4, 2, zonly, {0, 0, 1}},
+      {"slab/zonly-thin-periodicX", 1, 1, 1, kX, 4, 4, 1, zonly, {0, 0, 1}},
   };
   for (const GeomCase& c : cases) {
     check_geometry(c, cells, neighbour_reads);
   }
   return cases.size();
+}
+
+auto
+part_b_global_validation() -> size_t {
+  g_ctx = "part B global validation";
+  const carbon::Stencil stencil(six(), /*remove_center=*/true);
+  const auto throws_invalid_argument = [](auto&& fn) -> bool {
+    try {
+      fn();
+    } catch (const std::invalid_argument&) {
+      return true;
+    } catch (...) {
+      return false;
+    }
+    return false;
+  };
+
+  size_t cases = 0;
+  {
+    // z = 7 over 4 slabs -> [2,2,2,1]; the last rank is too thin for halo_z = 1. Every rank
+    // must reject the global decomposition, not just the rank that owns the thin chunk.
+    const ProcessGrid pg = ProcessGrid::custom(4, 1, 1, 4);
+    const int64_3d global{9, 8, 7};
+    const int64_3d halo = dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
+    CHECK(dd::is_legacy_slab(pg, BoundaryModeDistributed::Open));
+    CHECK(throws_invalid_argument([&] {
+      dd::validate_global_halo_fit(global, pg, halo, /*legacy_slab=*/true, stencil);
+    }));
+    ++cases;
+  }
+  {
+    // x = 1 over 2 bricks -> [1,0]; a zero-owned chunk cannot host the X halo. Again the
+    // decision is global, so ranks with a non-thin chunk throw as well.
+    const ProcessGrid pg = ProcessGrid::custom(8, 2, 2, 2);
+    const int64_3d global{1, 5, 7};
+    const int64_3d halo = dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
+    CHECK(!dd::is_legacy_slab(pg, BoundaryModeDistributed::Open));
+    CHECK(throws_invalid_argument([&] {
+      dd::validate_global_halo_fit(global, pg, halo, /*legacy_slab=*/false, stencil);
+    }));
+    ++cases;
+  }
+  {
+    const ProcessGrid pg = ProcessGrid::custom(4, 1, 1, 4);
+    const int64_3d global{9, 8, 11};
+    const int64_3d halo = dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
+    CHECK(!throws_invalid_argument([&] {
+      dd::validate_global_halo_fit(global, pg, halo, /*legacy_slab=*/true, stencil);
+    }));
+    ++cases;
+  }
+  {
+    const ProcessGrid pg = ProcessGrid::custom(8, 2, 2, 2);
+    const int64_3d global{9, 8, 11};
+    const int64_3d halo = dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
+    CHECK(!throws_invalid_argument([&] {
+      dd::validate_global_halo_fit(global, pg, halo, /*legacy_slab=*/false, stencil);
+    }));
+    ++cases;
+  }
+  return cases;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1268,8 +1340,10 @@ main() {
   size_t geom_cells = 0;
   size_t geom_neighbours = 0;
   const size_t geom_cases = part_b_geometry(geom_cells, geom_neighbours);
-  std::printf("geometry cases=%zu  owned cells checked=%zu  neighbour reads checked=%zu\n",
-              geom_cases, geom_cells, geom_neighbours);
+  const size_t validation_cases = part_b_global_validation();
+  std::printf("geometry cases=%zu  owned cells checked=%zu  neighbour reads checked=%zu  "
+              "global-validation cases=%zu\n",
+              geom_cases, geom_cells, geom_neighbours, validation_cases);
 
   size_t vtk_shards = 0;
   size_t vtk_empty = 0;

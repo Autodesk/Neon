@@ -55,6 +55,7 @@ class Span {
   int64_3d offset_{};
   int64_3d halo_{};
   BoundaryModeDistributed boundary_mode_{BoundaryModeDistributed::Open};
+  bool legacy_slab_{false};
   float32_3d origin_{};
   float spacing_{1.0F};
 
@@ -67,6 +68,7 @@ public:
                            int64_3d offset,
                            int64_3d halo = {},
                            BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
+                           bool legacy_slab = false,
                            float32_3d origin = {},
                            float spacing = 1.0F) noexcept
       : haloed_extent_(haloed_extent),
@@ -75,6 +77,7 @@ public:
         offset_(offset),
         halo_(halo),
         boundary_mode_(boundary_mode),
+        legacy_slab_(legacy_slab),
         origin_(origin),
         spacing_(spacing) {}
 
@@ -93,18 +96,23 @@ public:
    * @param boundary_mode     Per-axis boundary semantics propagated from the owning @c DenseDistributed;
    *                          consumed by @c Partition::neighbour and the halo exchange.
    *                          Defaults to @c BoundaryModeDistributed::Open.
+   * @param legacy_slab       Selects the historical two-band z-only Boundary mapping. This is valid
+   *                          only when @c halo.x == halo.y == 0 and @c logic_extent().z >=
+   *                          2 * halo.z; @c DenseDistributed passes true only for legacy slabs.
+   *                          Defaults to false, so z-only non-legacy chunks use the compact shell.
    * @param origin            Physical-space origin of global cell @c (0,0,0)'s corner (same
    *                          convention as @c global_location on integer indices).
    * @param spacing           Isotropic cell spacing along every axis (must be finite and > 0).
    */
   /** Z-only convenience overload: equivalent to full @c offset={0,0,z_offset} and
-   *  @c halo={0,0,halo_z}. */
+   *  @c halo={0,0,halo_z}. @p legacy_slab defaults to false; pass true for a legacy z-slab. */
   CARBON_HD constexpr Span(int64_3d haloed_extent,
                            int64_3d global_extent,
                            int64_t xy_slab_elements,
                            int64_t z_offset,
                            int64_t halo_z = 0,
                            BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
+                           bool legacy_slab = false,
                            float32_3d origin = {},
                            float spacing = 1.0F) noexcept
       : Span(haloed_extent,
@@ -117,6 +125,7 @@ public:
                       0,
                       halo_z},
              boundary_mode,
+             legacy_slab,
              origin,
              spacing) {}
 
@@ -154,11 +163,12 @@ public:
    * - @c Internal: @c max(owned - 2 * halo(), 0) component-wise. Covers the inner region that
    *   does not depend on data outside the chunk. Zero halo on an axis leaves that axis whole.
    * - @c Boundary: the owned cells that are not in @c Internal (the shell of thickness
-   *   @c halo() ). Legacy z-only chunks ( @c halo.x == halo.y == 0 ) use the compact
-   *   @c 2 * halo.z z-band domain. Multi-axis chunks (pencil / brick) use a @b compact shell
-   *   domain: the shell is split into six non-overlapping slabs (Z faces over the full XY
-   *   extent, then Y faces over the middle Z range, then X faces over the middle Y and Z
-   *   ranges), and @c iter_extent is a 2-D @c (W, ceil(S / W), 1) launch box over the @c S
+   *   @c halo() ). Legacy z-only chunks ( @c legacy_slab == true and @c halo.x == halo.y == 0 )
+   *   use the compact @c 2 * halo.z z-band domain. Non-legacy z-only chunks (for example a
+   *   pencil/brick or periodic-X/Y slab with a z-only stencil) and multi-axis chunks use a
+   *   @b compact shell domain: the shell is split into six non-overlapping slabs (Z faces over
+   *   the full XY extent, then Y faces over the middle Z range, then X faces over the middle Y
+   *   and Z ranges), and @c iter_extent is a 2-D @c (W, ceil(S / W), 1) launch box over the @c S
    *   shell cells. @ref set_and_validate maps the linear thread index to its cell and returns
    *   @c valid=false only for the padded tail ( @c < W trailing threads), so a Boundary launch
    *   runs ~ @c S threads instead of one per owned cell. Because of that mapping, consecutive
@@ -185,7 +195,7 @@ public:
       }
 
       case ::carbon::DataView::Boundary: {
-        if (halo_.x == 0 && halo_.y == 0) {
+        if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
           return int64_3d{owned.x, owned.y, halo_.z > 0 ? 2 * halo_.z : 0};
         }
         const int64_t shell = shell_bands_().total;
@@ -340,9 +350,9 @@ public:
    *
    * - @c Standard: @c b = halo() + i.
    * - @c Internal: @c b = 2 * halo() + i (skip past the halo plus the boundary band).
-   * - @c Boundary: legacy z-only chunks use the compact lower/upper z bands; multi-axis chunks
-   *   decode the linear shell index @c t = iy * iter_extent.x + ix into an owned cell (see
-   *   @ref iter_extent ) and return @c valid=false for the padded tail.
+   * - @c Boundary: legacy z-only chunks ( @c legacy_slab == true ) use the compact lower/upper z
+   *   bands; non-legacy chunks decode the linear shell index @c t = iy * iter_extent.x + ix into
+   *   an owned cell (see @ref iter_extent ) and return @c valid=false for the padded tail.
    *
    * The @c valid flag in the returned @ref ValidatedIdx is @c true iff every component of
    * @c (ix, iy, iz) is within @c iter_extent(view); kernels should early-out on a @c false
@@ -488,7 +498,7 @@ Span::set_and_validate(::carbon::DataView view,
       return ValidatedIdx{Idx(2 * halo_.x + ix, 2 * halo_.y + iy, 2 * halo_.z + iz), true};
 
     case ::carbon::DataView::Boundary: {
-      if (halo_.x == 0 && halo_.y == 0) {
+      if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
         const int64_t owned_z = logic_extent().z;
         const int64_t bz = (iz < halo_.z) ? (halo_.z + iz) : (owned_z - halo_.z + iz);
         return ValidatedIdx{Idx(ix, iy, bz), true};

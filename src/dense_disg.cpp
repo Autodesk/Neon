@@ -123,6 +123,22 @@ DenseDisg::DenseDisg(System system,
 
   const std::vector<size_t> z_counts_global = split_extent_z(global_.z, global_slab_count_);
 
+  // Reject geometries that are too thin for the Internal / Boundary split against the global
+  // decomposition, so every rank makes the same decision before reaching any collective. With
+  // halo_z = 1 the internal band has Lz - 2 layers and the boundary spans 2; a slab with
+  // Lz < 2 makes the boundary view's iter extent collide with the internal one. Same shape of
+  // check as src/dense.cpp.
+  if (halo_z_ > 0) {
+    for (size_t g = 0; g < global_slab_count_; ++g) {
+      if (z_counts_global[g] < static_cast<size_t>(2 * halo_z_)) {
+        log::throw_with_log<std::invalid_argument>(
+            "DenseDisg: global slab z-extent {} is smaller than 2 * halo_z = {}; the Internal / "
+            "Boundary DataView split would overlap. Either grow the slab or reduce halo_z to 0",
+            z_counts_global[g], 2 * halo_z_);
+      }
+    }
+  }
+
   // Cumulative z up to (but not including) this rank's first local slab.
   int64_t running_z = 0;
   for (size_t g = 0; g < local_slab_offset_; ++g) {
@@ -139,22 +155,6 @@ DenseDisg::DenseDisg(System system,
     return detail::dense_disg::Span(haloed, global_, xy_pitch, z_off - halo_z_, halo_z_,
                                     boundary_mode_, origin_, spacing_);
   });
-
-  // Reject geometries that are too thin for the Internal / Boundary split. With halo_z = 1
-  // the internal band has Lz - 2 layers and the boundary spans 2; a slab with Lz < 2 makes
-  // the boundary view's iter extent collide with the internal one. Same shape of check as
-  // src/dense.cpp.
-  if (halo_z_ > 0) {
-    for (size_t i = 0; i < local_n; ++i) {
-      const int64_t lz = spans_[i].logic_extent().z;
-      if (lz < 2 * halo_z_) {
-        log::throw_with_log<std::invalid_argument>(
-            "DenseDisg: local slab z-extent {} is smaller than 2 * halo_z {}; the Internal / "
-            "Boundary DataView split would overlap. Either grow the slab or reduce halo_z to 0",
-            lz, 2 * halo_z_);
-      }
-    }
-  }
 
   for (auto view : data_view_options()) {
     const auto vi = static_cast<size_t>(view);

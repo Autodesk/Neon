@@ -34,9 +34,9 @@
  * 1. @b Stage-1 (per-GPU map+reduce). Each local GPU runs the user's per-cell device
  *    lambda over @c span.iter_extent(view) and collapses to one @c T into
  *    @c gpu_partial(view, g) . The loading lambda may also perform stencil reads and field
- *    writes in the same launch (fused map/stencil + reduce). Backed by NVIDIA CUB
- *    (CUDA) or @c sycl::reduction (SYCL). With @ref ReduceFinalize::BlockAtomic , each
- *    CUDA block @c atomicAdd s into the per-GPU scalar and stage-1.5 @c DeviceReduce is
+ *    writes in the same launch (fused map/stencil + reduce). Backed by CUB/hipcub
+ *    (CUDA/HIP) or @c sycl::reduction (SYCL). With @ref ReduceFinalize::BlockAtomic , each
+ *    CUDA/HIP block @c atomicAdd s into the per-GPU scalar and stage-1.5 @c DeviceReduce is
  *    skipped (floating-point sums may differ run-to-run vs the default path).
  * 2. @b Stage-2 (intra-process combine). Per-GPU partials are peer-copied into the
  *    rank-local root GPU's per-view stage-2 staging buffer and combined via the user's
@@ -193,10 +193,10 @@ enum class ReduceFinalize : unsigned char {
   /** Block partials array + @c cub::DeviceReduce::Reduce (default). */
   DeviceReduce = 0,
   /**
-   * Each CUDA block @c atomicAdd s its block sum into the per-GPU output scalar
+   * Each CUDA/HIP block @c atomicAdd s its block sum into the per-GPU output scalar
    * (NVIDIA @c jacobi_kernel style). Skips @c DeviceReduce on the partials buffer.
    * Only supported with @ref Sum and @c T in @c {float, double, int32_t, int64_t} on
-   * plain @c Dense CUDA grids. Floating-point sums are not bitwise-deterministic across
+   * plain @c Dense CUDA/HIP grids. Floating-point sums are not bitwise-deterministic across
    * launches (atomic add order varies).
    */
   BlockAtomic = 1,
@@ -226,14 +226,18 @@ struct ReduceOptions {
   ReduceFinalize finalize = ReduceFinalize::DeviceReduce;
   ReduceHostCopy host_copy = ReduceHostCopy::Inline;
   /**
-   * CUDA @c Dense stage-1 threads per block. @c 0 selects the library default (@c 256 for
-   * 1D flat tiling, or @c 32 when @c stage1_threads_y is set for 2D grid tiling).
-   * Supported 1D values: @c 32 … @c 1024 (powers of two). With @c stage1_threads_y @c > 0,
-   * @c stage1_threads is the X dimension and @c stage1_threads_y is Y (NVIDIA Jacobi-style
-   * @c 32x32). Ignored on SYCL; unsupported on @c DenseDisg and @c Block grids.
+   * CUDA/HIP @c Dense / @c DenseDistributed stage-1 threads per block. @c 0 selects the
+   * library default (@c 256 for 1D flat tiling, or @c 32 when @c stage1_threads_y is set for
+   * 2D grid tiling). Supported 1D values: @c 32 … @c 1024 (powers of two). With
+   * @c stage1_threads_y @c > 0, @c stage1_threads is the X dimension and
+   * @c stage1_threads_y is the second dimension over flattened @c (y, z); all @c y and
+   * @c z cells are covered. For @c y == 1 this is the NVIDIA Jacobi-style @c 32x32 @c x/z
+   * launch shape. Ignored on SYCL; unsupported on @c DenseDisg and @c Block grids.
    */
   unsigned stage1_threads = 0U;
-  /** @c 0 = 1D flat reduce; @c >0 = 2D CUDA block (@c stage1_threads × this). */
+  /**
+   * @c 0 = 1D flat reduce; @c >0 = 2D CUDA/HIP block over @c x and flattened @c (y, z).
+   */
   unsigned stage1_threads_y = 0U;
 };
 
@@ -732,10 +736,25 @@ private:
                                               detail::gpu_error_string(err));
     }
 #elif CARBON_BACKEND_IS_SYCL
+
     sycl::queue& q = stream[root].queue();
+
     q.submit([&](sycl::handler& h) {
       h.depends_on(evt.event());
+      h.single_task([]() {});
     });
+
+
+    // #ifdef _ACPP_
+    //   sycl::queue& q = stream[root].queue();
+    //   q.AdaptiveCpp_enqueue_custom_operation([](sycl::interop_handle& h) {},evt.event()); 
+    // #else
+    //   sycl::queue& q = stream[root].queue();
+    //   q.submit([&](sycl::handler& h) {
+    //     h.depends_on(evt.event());
+    //   });
+    // #endif
+
 #else
     (void)view;
     (void)slot;
@@ -762,8 +781,15 @@ private:
     }
 #elif CARBON_BACKEND_IS_SYCL
     sycl::queue& q = stream[root].queue();
-    auto e = q.submit([](sycl::handler& h) {
-    });
+
+    sycl::event e = q.single_task([](){});
+
+    // #ifdef __ACPP__
+    //   auto e = q.AdaptiveCpp_enqueue_custom_operation([](sycl::interop_handle& h) {});
+    // #else
+    //   auto e = q.submit([](sycl::handler& h) {});
+    // #endif
+
     *const_cast<detail::Event*>(&evt) = detail::Event(std::make_shared<sycl::event>(e));
 #else
     (void)view;

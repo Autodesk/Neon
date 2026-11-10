@@ -30,6 +30,7 @@ namespace carbon::dist_transfer_detail {
 
 namespace {
 
+#ifndef CARBON_DIST_HOST_MPI
 [[noreturn]] auto
 throw_nccl_error(const char* where,
                  ncclResult_t res) -> void {
@@ -44,6 +45,7 @@ check_nccl(const char* where,
     throw_nccl_error(where, res);
   }
 }
+#endif  // !CARBON_DIST_HOST_MPI
 
 [[noreturn]] auto
 throw_mpi_error(const char* where,
@@ -67,16 +69,22 @@ check_mpi(const char* where,
 
 [[nodiscard]] auto
 dist_transport_is_mpi() noexcept -> bool {
+#ifdef CARBON_DIST_HOST_MPI
+  return true;  // the only transport in a host-MPI build
+#else
   static const bool is_mpi = [] {
     const char* value = std::getenv("CARBON_DIST_TRANSPORT");
     return value != nullptr && std::strcmp(value, "mpi") == 0;
   }();
   return is_mpi;
+#endif
 }
 
 [[nodiscard]] auto
 mpi_cuda_aware() noexcept -> bool {
-#if defined(OMPI_MAJOR_VERSION)
+#if defined(CARBON_DIST_HOST_MPI)
+  return true;  // "device" buffers are plain host memory: MPI can use them directly, no staging
+#elif defined(OMPI_MAJOR_VERSION)
   static const bool aware = MPIX_Query_cuda_support() != 0;
   return aware;
 #else
@@ -231,6 +239,7 @@ run(const System& system,
     run_mpi_device(system, local_buffer, peer_ranks, ops, first_bytes, byte_counts, stream);
     return;
   }
+#ifndef CARBON_DIST_HOST_MPI
   ncclComm_t nccl_comm = detail::communicator_handle(*comm_ptr);
   auto* base = static_cast<std::uint8_t*>(local_buffer);
 
@@ -291,6 +300,7 @@ run(const System& system,
   // underlying vendor stream.
   q.wait_and_throw();
 #endif
+#endif  // !CARBON_DIST_HOST_MPI
 }
 
 auto
