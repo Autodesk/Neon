@@ -51,14 +51,14 @@ using carbon::detail::dense_distributed::Span;
 
 int g_checks = 0;
 
-#define CHECK(cond, ctx)                                                                    \
-  do {                                                                                      \
-    ++g_checks;                                                                             \
-    if (!(cond)) {                                                                          \
-      std::fprintf(stderr, "FAIL %s:%d  %s  [%s]\n", __FILE__, __LINE__, #cond,             \
-                   std::string(ctx).c_str());                                               \
-      std::exit(1);                                                                         \
-    }                                                                                       \
+#define CHECK(cond, ctx)                                                        \
+  do {                                                                          \
+    ++g_checks;                                                                 \
+    if (!(cond)) {                                                              \
+      std::fprintf(stderr, "FAIL %s:%d  %s  [%s]\n", __FILE__, __LINE__, #cond, \
+                   std::string(ctx).c_str());                                   \
+      std::exit(1);                                                             \
+    }                                                                           \
   } while (0)
 
 constexpr double kSentinel = 1.0e30;
@@ -224,9 +224,8 @@ part_a_regression_guard() {
         for (int rank = 0; rank < lay.pg.world_size(); ++rank) {
           const std::string ctx = "A r=" + std::to_string(radius) + " " + mode_name(mode) + " " +
                                   lay.name + " rank=" + std::to_string(rank);
-          const RankView rv =
-              build_rank(global, lay.pg, lay.pg.coords_of(rank), mode, stencil, 0.5F,
-                         BoundaryConditions::none());
+          const RankView rv = build_rank(global, lay.pg, lay.pg.coords_of(rank), mode, stencil,
+                                         0.5F, BoundaryConditions::none());
           const Partition<double, 1> part(const_cast<double*>(rv.buf.data()));
           for_each_rank_cell_offset(rv, stencil, [&](const Idx& idx, carbon::int8_3d off) {
             const auto a = part.neighbour(rv.span, idx, off, 0);
@@ -313,8 +312,8 @@ run_oracle_case(const std::string& label,
     for (int rank = 0; rank < lay.pg.world_size(); ++rank) {
       const std::string ctx = "B " + label + " r=" + std::to_string(radius) + " " +
                               mode_name(mode) + " " + lay.name + " rank=" + std::to_string(rank);
-      const RankView rv = build_rank(global, lay.pg, lay.pg.coords_of(rank), mode, stencil,
-                                     spacing, bc);
+      const RankView rv =
+          build_rank(global, lay.pg, lay.pg.coords_of(rank), mode, stencil, spacing, bc);
       const Partition<double, 1> part(const_cast<double*>(rv.buf.data()));
       const carbon::int64_3d origin = rv.span.offset();
       for_each_rank_cell_offset(rv, stencil, [&](const Idx& idx, carbon::int8_3d off) {
@@ -402,8 +401,7 @@ part_c_analytic() {
   const Stencil stencil = cross_stencil(2);
   namespace dd = carbon::detail::dense_distributed;
   const ProcessGrid pg = ProcessGrid::custom(1, 1, 1, 1);
-  const carbon::int64_3d halo =
-      dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
+  const carbon::int64_3d halo = dd::halo_extent(pg, BoundaryModeDistributed::Open, stencil);
   const dd::RankChunk chunk = dd::rank_chunk(global, pg, {0, 0, 0}, halo);
 
   // Outward derivative on a low face is -a, on a high face +a. Dirichlet value is u at the face.
@@ -444,9 +442,8 @@ part_c_analytic() {
           int8_t d[3] = {0, 0, 0};
           d[ax] = static_cast<int8_t>(side == 0 ? -k : k);
           int64_t t[3] = {c[0] + d[0], c[1] + d[1], c[2] + d[2]};
-          const auto got = part.neighbour_bc(
-              span, Idx(c[0] + halo.x, c[1] + halo.y, c[2] + halo.z),
-              carbon::int8_3d{d[0], d[1], d[2]}, 0);
+          const auto got = part.neighbour_bc(span, Idx(c[0] + halo.x, c[1] + halo.y, c[2] + halo.z),
+                                             carbon::int8_3d{d[0], d[1], d[2]}, 0);
           CHECK(got.valid, ctx);
           // The extrapolated linear field at the outside location.
           CHECK(std::fabs(got.value - u(t[0], t[1], t[2])) < 1e-12, ctx);
@@ -467,8 +464,8 @@ part_d_limits() {
   const BoundaryConditions bc = BoundaryConditions::none()
                                     .with(Face::XLow, carbon::neumann())
                                     .with(Face::ZHigh, carbon::dirichlet(1.0));
-  const RankView rv = build_rank(global, pg, {0, 0, 0}, BoundaryModeDistributed::Open, stencil,
-                                 1.0F, bc);
+  const RankView rv =
+      build_rank(global, pg, {0, 0, 0}, BoundaryModeDistributed::Open, stencil, 1.0F, bc);
   const Partition<double, 1> part(const_cast<double*>(rv.buf.data()));
   const auto at = [&](int64_t x, int64_t y, int64_t z, int8_t dx, int8_t dy, int8_t dz) {
     return part.neighbour_bc(rv.span, Idx(x + rv.halo.x, y + rv.halo.y, z + rv.halo.z),

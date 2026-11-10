@@ -468,8 +468,9 @@ private:
 
 // Span is passed by value into every kernel launch (device parameter space), so it must stay
 // trivially copyable: no virtuals, no owning members.
-static_assert(std::is_trivially_copyable_v<Span>,
-              "dense_distributed::Span is passed by value to kernels and must be trivially copyable");
+static_assert(
+    std::is_trivially_copyable_v<Span>,
+    "dense_distributed::Span is passed by value to kernels and must be trivially copyable");
 
 [[nodiscard]] CARBON_HD constexpr auto
 Span::make_idx(int64_t ix,
