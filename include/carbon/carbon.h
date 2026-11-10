@@ -22,6 +22,8 @@ device_count() noexcept -> int;
 
 }  // namespace carbon
 
+#include <carbon/boundary_condition_distributed.h>
+#include <carbon/boundary_data_distributed.h>
 #include <carbon/boundary_mode.h>
 #include <carbon/boundary_mode_distributed.h>
 #include <carbon/checkpoint.h>

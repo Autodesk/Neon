@@ -20,6 +20,10 @@ namespace carbon {
  * - Halo exchange (@ref HaloDistributed): schedules the wrap pair on every periodic axis and omits
  *   it on an open axis.
  *
+ * @note This mask only expresses periodicity. Per-face Dirichlet / Neumann conditions on open
+ * faces are a separate, opt-in type: see @ref BoundaryConditions and
+ * @c Partition::neighbour_bc . A condition on a periodic axis is rejected at construction.
+ *
  * @note This is deliberately a different type from @ref BoundaryMode, which belongs to the
  * Z-slab-only @ref Dense / @ref DenseDisg families and keeps its original numeric values
  * (@c PeriodicZ == 1). Keeping the two apart means a per-axis mask can never be handed to a grid

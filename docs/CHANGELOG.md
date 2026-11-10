@@ -6185,3 +6185,66 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `OverlapMode::None`, and the distributed LBM benchmark gains `--hp-halo` (`hp_halo` in
   the JSON report). `test_skeleton_halo_priority` checks the native priority of the halo
   stream for Standard / Extended, a ping-pong pair, a recompile, and `None`.
+- **2026-11 — Per-face boundary conditions on `DenseDistributed` (Dirichlet / Neumann, opt-in).**
+  An open face used to mean "no boundary condition": `Partition::neighbour` returned
+  `valid = false` and every solver re-implemented the edge by hand (`cg_poisson` drops the
+  missing x/y neighbour and counts `n_valid`; the z faces are detected from `!valid`). New
+  `carbon/boundary_condition_distributed.h` adds `BoundaryConditions` (six faces, each
+  `BcKind::{None, Dirichlet, Neumann}` plus one constant scalar; Neumann is the outward-normal
+  derivative) as a trailing defaulted argument of the three `DenseDistributed` constructors,
+  carried into every per-GPU `Span` (`Span::boundary_conditions()`), and read only by the new
+  `Partition::neighbour_bc`. A read across a BC face returns a *virtual boundary value*
+  computed from the in-domain mirror cell (node-centred convention: Dirichlet `2g - u_m`,
+  Neumann `u_m + 2*k*h*g`, `k` cells outside the face); nothing is stored, so no halo storage
+  is added on single-rank open axes and `HaloDistributed`, `halo_extent` and the layouts are
+  untouched. `neighbour_idx_bc` checks the global domain before the buffer (the order
+  `neighbour_idx` cannot use on an axis without halo storage). Reads out of domain across two
+  faces at once (edges / corners) stay invalid in this version, as do faces without a
+  condition. The constructor rejects a condition on a periodic axis, on an axis whose extent
+  is not larger than the stencil radius there, or with a non-finite value. Nothing existing
+  changes: with no conditions `neighbour_bc` returns exactly what `neighbour` returns, and
+  `neighbour`, `read_pull`, `Cursor` and the LBM kernels are not modified. `Span` grows by the
+  condition block and now has a `static_assert` that it stays trivially copyable.
+  `dense_distributed_bc_host` (host-only, emulated slab / pencil / brick worlds, radius 1 and
+  2, mixed periodic axes) checks the no-condition equivalence, an independent per-cell
+  oracle, exact reproduction of linear fields on low and high faces, and the documented
+  limits. `Dense`, `DenseDisg` and `Block` keep `BoundaryMode` and are not covered yet.
+- **2026-11 — Spatially varying boundary data for `DenseDistributed` (`BoundaryData`).** The
+  per-face constants of the first boundary-condition change could not express a conducting
+  patch on an insulating face, an inlet on a wall, or different conditions for different
+  fields and components, because one kind and one value per face lived on the grid. New
+  `carbon/boundary_data_distributed.h` adds `BoundaryData<Components>`, a handle held apart
+  from the grid that stores the condition (`BcKind` and value) of every cell of every
+  exterior face, per component, filled from a deterministic function of global position
+  (`fill(fn(face, global_node, comp))`, or from the old constants) and uploaded like a field.
+  A kernel's loading lambda takes `bnd.view(loader.relative_gpu_id())` and the device lambda
+  calls the new `Partition::neighbour_bc(span, view, idx, offset, comp)`: the formulas are
+  unchanged (Dirichlet `2*g - u_m`, Neumann `u_m + 2*k*h*g`) but the condition is looked up
+  at the face cell under the *target* of the read, so a diagonal read across a patch edge
+  sees the right condition, including across rank boundaries and on unsplit axes. Each GPU
+  stores only the faces it touches, over its owned tangential range widened by the stencil
+  radius and clipped to the domain; faces on periodic axes are never stored. No loader,
+  access-token or Skeleton change is needed: the data is read-only to kernels and Read/Read
+  pairs never conflict, so it must simply stay constant while a Skeleton using it runs.
+  `BoundaryView::dirichlet_at` gives solvers the pinning query (first Dirichlet face in the
+  order XLow, XHigh, YLow, YHigh, ZLow, ZHigh on an edge or corner). Reads across two faces at
+  once stay invalid, and `fill` rejects non-finite values and conditions on an axis no larger
+  than the stencil radius. `Span`, `neighbour_bc` without a view and the grid constructors are
+  untouched. `boundary_data_host` (host-only, emulated slab / pencil / brick worlds) checks
+  equivalence with the constants path, rectangle and disc patches, per-component kinds and
+  diagonal reads against an independent oracle, the stored ranges and coverage across ranks,
+  agreement of margin cells, the pinning helper and validation; four mutations (Neumann sign,
+  tangential margin, source-versus-target lookup, pinning order) each make it fail.
+- **2026-11 — `offset_current_terminals` example.** Steady current flow in a conducting box with a
+  resistive sphere: current enters through a disc-shaped terminal on the top face and leaves
+  through an offset one on the bottom face, insulating elsewhere. That is a non-zero flux that
+  differs from cell to cell on one face, which per-face constants cannot express, so it is declared
+  with `BoundaryData` and read through `Partition::neighbour_bc` with a view in a Jacobi sweep run
+  by a Skeleton. A second `BoundaryData` gives the conductivity field zero flux on every face, so
+  two fields on one grid carry different conditions. The program solves the declared terminals and
+  the same current spread evenly over each face (all one constant per face can say), writes a
+  two-panel PPM of the potential (`--raw DIR` also dumps phi and the current density), and exits
+  non-zero unless the iteration has converged and the current crossing the plane midway between
+  the terminals matches the injected current to 1% (the even case must carry none sideways). The
+  checks run on the host over small arrays, so the example does not depend on the reduction
+  kernels. Flipping the Neumann sign reverses the current and fails the check.
