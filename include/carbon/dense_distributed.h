@@ -1,5 +1,6 @@
 #pragma once
 
+#include <carbon/boundary_condition_distributed.h>
 #include <carbon/boundary_mode_distributed.h>
 #include <carbon/data_view.h>
 #include <carbon/detail/dense_distributed/kernel.h>
@@ -122,6 +123,14 @@ public:
    * @param block_override When set, used as the CUDA/SYCL launch block for every local GPU
    *                      instead of @c dense_make_kernel_block(). The matching launch grid
    *                      is derived via @c compute_dense_grid for each @ref DataView.
+   * @param boundary_conditions Optional per-face Dirichlet / Neumann conditions (see
+   *                      @ref BoundaryConditions), consumed only by
+   *                      @c Partition::neighbour_bc . Defaults to none, which leaves the grid
+   *                      exactly as before. Applies to faces of axes that are not periodic in
+   *                      @p boundary_mode; a condition on a periodic axis, on an axis whose
+   *                      extent is not larger than the stencil radius on that axis, or with a
+   *                      non-finite value throws @c std::invalid_argument. The grid is immutable
+   *                      after construction.
    */
   DenseDistributed(System system,
                    int64_3d global_extent,
@@ -129,7 +138,8 @@ public:
                    BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
                    float32_3d origin = {},
                    float spacing = 1.0F,
-                   std::optional<LaunchShape> block_override = std::nullopt);
+                   std::optional<LaunchShape> block_override = std::nullopt,
+                   BoundaryConditions boundary_conditions = BoundaryConditions::none());
 
   /**
    * @brief Build a layout by auto-factorizing the world size for @p decomposition.
@@ -144,7 +154,8 @@ public:
                    BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
                    float32_3d origin = {},
                    float spacing = 1.0F,
-                   std::optional<LaunchShape> block_override = std::nullopt);
+                   std::optional<LaunchShape> block_override = std::nullopt,
+                   BoundaryConditions boundary_conditions = BoundaryConditions::none());
 
   /**
    * @brief Build a layout from an explicit @p process_grid.
@@ -159,7 +170,8 @@ public:
                    BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
                    float32_3d origin = {},
                    float spacing = 1.0F,
-                   std::optional<LaunchShape> block_override = std::nullopt);
+                   std::optional<LaunchShape> block_override = std::nullopt,
+                   BoundaryConditions boundary_conditions = BoundaryConditions::none());
 
   /**
    * @brief Default-construct an empty grid: zero global extent, default
@@ -200,6 +212,14 @@ public:
    */
   [[nodiscard]] auto
   boundary_mode() const noexcept -> BoundaryModeDistributed;
+
+  /**
+   * @brief Per-face boundary conditions this grid was constructed with (default: none on every
+   *        face). Propagated to every entry of @ref spans() and read only by
+   *        @c Partition::neighbour_bc .
+   */
+  [[nodiscard]] auto
+  boundary_conditions() const noexcept -> const BoundaryConditions&;
 
   /** Physical-space origin at global cell @c (0,0,0); same value on every @ref spans entry. */
   [[nodiscard]] auto
@@ -564,6 +584,7 @@ private:
   System system_;
   Stencil stencil_{};
   BoundaryModeDistributed boundary_mode_{BoundaryModeDistributed::Open};
+  BoundaryConditions boundary_conditions_{};
   float32_3d origin_{};
   float spacing_{1.0F};
   // Cross-rank partitioning state. See class doxygen for the model. These are z-coordinate
@@ -590,7 +611,8 @@ private:
                float32_3d origin,
                float spacing,
                ProcessGrid process_grid,
-               std::optional<LaunchShape> block_override);
+               std::optional<LaunchShape> block_override,
+               BoundaryConditions boundary_conditions);
 
   ProcessGrid process_grid_{};
 };
