@@ -31,8 +31,21 @@ class bField(object):
         self._help_field_new()
 
     def __del__(self):
+        self.cleanup()
+
+    def __enter__(self) -> 'bField':
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        self.cleanup()
+        return False
+
+    def cleanup(self) -> None:
+        """Release the C++ field. Idempotent."""
+        if getattr(self, '_cleaned', False):
+            return
+        self._cleaned = True
         self.help_delete()
-        pass
 
     def _set_field_type(self):
         self.type_mapping = self.neon_gate.get_type_mapping(self.dtype)
@@ -118,9 +131,10 @@ class bField(object):
             raise Exception('bGrid: Failed to initialize field')
 
     def help_delete(self):
-        if self.handle == 0:
+        handle = getattr(self, 'handle', None)
+        if handle is None or not handle.value:
             return
-        res = self.api_delete(ctypes.pointer(self.handle))
+        res = self.api_delete(ctypes.pointer(handle))
         if res != 0:
             raise Exception('Failed to delete field')
 

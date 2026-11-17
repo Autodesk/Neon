@@ -6,6 +6,7 @@ and device configurations for executing Neon operations across CPUs and GPUs.
 """
 
 import ctypes
+import sys
 from enum import Enum
 from typing import List
 import warp as wp
@@ -118,11 +119,34 @@ class Backend(object):
         self.help_load_api()
         self.help_backend_new()
 
+    def __enter__(self) -> 'Backend':
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        self.cleanup()
+        return False
+
     def __del__(self):
-        if self.backend_handle == 0:
+        # At interpreter shutdown CUDA / Warp may already be torn down; let the
+        # OS reclaim the resources instead of calling into the driver.
+        if sys.is_finalizing():
             return
+        try:
+            self.cleanup()
+        except Exception:
+            pass
+
+    def cleanup(self) -> None:
+        """
+        Release the C++ backend and its CUDA driver handle. Idempotent.
+
+        Grids, fields, containers and skeletons built on this backend must be
+        cleaned up first: they free device memory through it.
+        """
+        if getattr(self, '_cleaned', False):
+            return
+        self._cleaned = True
         self.help_backend_delete()
-        pass
 
     def help_load_api(self):
         # ------------------------------------------------------------------
@@ -204,10 +228,15 @@ class Backend(object):
 
 
     def help_backend_delete(self):
-        if self.backend_handle == 0:
+        backend_handle = getattr(self, 'backend_handle', None)
+        if backend_handle is None or not backend_handle.value:
             return
-        self.api_cuda_driver_delete(ctypes.pointer(self.cuda_driver_handle))
-        res = self.api_delete(ctypes.pointer(self.backend_handle))
+        driver_handle = getattr(self, 'cuda_driver_handle', None)
+        if driver_handle is not None and driver_handle.value:
+            self.api_cuda_driver_delete(ctypes.pointer(driver_handle))
+        res = self.api_delete(ctypes.pointer(backend_handle))
+        self.backend_handle = ctypes.c_void_p(0)
+        self.cuda_driver_handle = ctypes.c_void_p(0)
         if res != 0:
             raise Exception('Failed to delete backend')
 

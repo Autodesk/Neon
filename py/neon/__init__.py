@@ -3,6 +3,7 @@ import ctypes
 from enum import Enum
 from importlib.metadata import PackageNotFoundError, version as _dist_version
 import os
+from typing import Optional
 import warp as wp
 
 try:
@@ -133,12 +134,36 @@ def set_quiet(quiet: bool = True) -> None:
     set_python_logging(not quiet)
 
 
-def init():
-    # Get the path of the current script
-    script_path = __file__
+_initialized = False
 
-    # Get the directory containing the script
-    script_dir = os.path.dirname(os.path.abspath(script_path))
+
+def is_initialized() -> bool:
+    """Return True once :func:`init` has completed in this process."""
+    return _initialized
+
+
+def init(clear_kernel_cache: Optional[bool] = None) -> None:
+    """
+    Register Neon's Warp build settings and builtins. Idempotent.
+
+    The first call configures Warp (C++17, Neon include directory, the
+    ``NEON_WARP_COMPILATION`` macro) and registers the Neon builtins. Later
+    calls are no-ops, so libraries and tests can call ``neon.init()`` freely.
+
+    Args:
+        clear_kernel_cache: Clear Warp's on-disk kernel cache. ``None`` (the
+            default) clears it on the first call only, unless the
+            ``NEON_KEEP_KERNEL_CACHE`` environment variable is set. ``True``
+            clears it even when Neon is already initialized.
+    """
+    global _initialized
+
+    if _initialized:
+        if clear_kernel_cache:
+            wp.clear_kernel_cache()
+        return
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
 
     logger.info(f"Initializing Neon from {script_dir}")
 
@@ -146,8 +171,12 @@ def init():
     wp.build.add_include_directory(script_dir)
     wp.build.add_preprocessor_macro_definition('NEON_WARP_COMPILATION')
 
-    # It's a good idea to always clear the kernel cache when developing new native or codegen features
-    wp.clear_kernel_cache()
+    if clear_kernel_cache is None:
+        clear_kernel_cache = not os.environ.get("NEON_KEEP_KERNEL_CACHE")
+    if clear_kernel_cache:
+        wp.clear_kernel_cache()
 
     from .warp_builtins import register_neon_warp_type
     register_neon_warp_type()
+
+    _initialized = True
