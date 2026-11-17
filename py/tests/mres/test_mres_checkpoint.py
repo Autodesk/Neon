@@ -8,9 +8,7 @@ import unittest
 
 import numpy as np
 
-from env_setup import update_pythonpath
-
-update_pythonpath()
+from neon_testing import NeonTestCase, require_gpu
 
 import warp as wp
 import neon
@@ -50,11 +48,24 @@ def _value(level, x, y, z, c):
     return float(x + 10 * y + 100 * z + 1000 * level + 0.5 * c)
 
 
-class TestMresCheckpoint(unittest.TestCase):
+@require_gpu
+class TestMresCheckpoint(NeonTestCase):
     @classmethod
     def setUpClass(cls):
-        wp.init()
-        cls.backend = neon.Backend(runtime=neon.Backend.Runtime.stream, dev_idx_list=[0])
+        super().setUpClass()
+        cls.backend = cls.class_backend()
+
+    def _grid(self, fine_extent=8):
+        return self.track(_make_grid(self.backend, fine_extent))
+
+    def _new_field(self, grid, cardinality):
+        return self.track(grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device()))
+
+    def _from_topology(self, path):
+        return self.track(neon.mGrid.from_topology(self.backend, path))
+
+    def _load_field(self, grid, base, **kwargs):
+        return self.track(grid.load_field(base, **kwargs))
 
     def _fill(self, grid, field, cardinality):
         for level in range(grid.num_levels):
@@ -76,8 +87,8 @@ class TestMresCheckpoint(unittest.TestCase):
                                      f"level={level} idx=({x},{y},{z}) c={c}")
 
     def _roundtrip(self, cardinality, file_format):
-        grid = _make_grid(self.backend, fine_extent=8)
-        field = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+        grid = self._grid()
+        field = self._new_field(grid, cardinality)
         self._fill(grid, field, cardinality)
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -98,11 +109,11 @@ class TestMresCheckpoint(unittest.TestCase):
             if file_format == "bin":
                 self.assertEqual(os.path.getsize(base + ".bin"), meta["num_elements"] * 4)
 
-            grid2 = neon.mGrid.from_topology(self.backend, topo)
+            grid2 = self._from_topology(topo)
             self.assertEqual(grid2.num_levels, grid.num_levels)
             for level in range(grid.num_levels):
                 self.assertEqual(_active_voxels(grid2, level), _active_voxels(grid, level))
-            field2 = grid2.load_field(base)
+            field2 = self._load_field(grid2, base)
             self.assertEqual(field2.cardinality, cardinality)
             self._check_values(grid, field2, cardinality)
 
@@ -118,8 +129,8 @@ class TestMresCheckpoint(unittest.TestCase):
 
     def test_numpy_files_match_bin(self):
         cardinality = 3
-        grid = _make_grid(self.backend, fine_extent=8)
-        field = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+        grid = self._grid()
+        field = self._new_field(grid, cardinality)
         self._fill(grid, field, cardinality)
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -149,8 +160,8 @@ class TestMresCheckpoint(unittest.TestCase):
 
     def test_load_files_written_by_numpy(self):
         cardinality = 3
-        grid = _make_grid(self.backend, fine_extent=8)
-        field = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+        grid = self._grid()
+        field = self._new_field(grid, cardinality)
         self._fill(grid, field, cardinality)
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -166,12 +177,12 @@ class TestMresCheckpoint(unittest.TestCase):
 
             for base in (npy_base, npz_base):
                 with self.subTest(base=os.path.basename(base)):
-                    restored = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+                    restored = self._new_field(grid, cardinality)
                     restored.load(base)
                     self._check_values(grid, restored, cardinality, scale=2.0)
 
             np.savez_compressed(npz_base + ".npz", **doubled)
-            restored = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+            restored = self._new_field(grid, cardinality)
             with self.assertRaises(FieldError):
                 restored.load(npz_base)
 
@@ -180,8 +191,8 @@ class TestMresCheckpoint(unittest.TestCase):
                 restored.load(npy_base)
 
     def test_host_write_lands_at_coordinate(self):
-        grid = _make_grid(self.backend, fine_extent=8)
-        field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())
+        grid = self._grid()
+        field = self._new_field(grid, 1)
 
         def encode(x, y, z):
             return float(1 + x + 100 * y + 10000 * z)
@@ -224,8 +235,8 @@ class TestMresCheckpoint(unittest.TestCase):
     def test_single_level_roundtrip(self):
         cardinality = 3
         default = -3.0
-        grid = _make_grid(self.backend, fine_extent=8)
-        field = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+        grid = self._grid()
+        field = self._new_field(grid, cardinality)
         self._fill(grid, field, cardinality)
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -250,13 +261,13 @@ class TestMresCheckpoint(unittest.TestCase):
                                 self.assertEqual(npz.files, [f"level_{saved}"])
                                 self.assertEqual(npz[f"level_{saved}"].shape, shape)
 
-                        restored = grid.new_field(cardinality, wp.float32, neon.MemoryType.host_device())
+                        restored = self._new_field(grid, cardinality)
                         with self.assertRaises(FieldError):
                             restored.load(base)
                         restored.load(base, default_value=default)
 
-                        grid2 = neon.mGrid.from_topology(self.backend, topo)
-                        loaded = grid2.load_field(base, default_value=default)
+                        grid2 = self._from_topology(topo)
+                        loaded = self._load_field(grid2, base, default_value=default)
 
                         for level in range(grid.num_levels):
                             for (vx, vy, vz) in _active_voxels(grid, level):
@@ -268,8 +279,8 @@ class TestMresCheckpoint(unittest.TestCase):
                                     self.assertEqual(loaded.read(level, idx, c), expected)
 
     def test_single_level_invalid_level_rejected(self):
-        grid = _make_grid(self.backend, fine_extent=8)
-        field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())
+        grid = self._grid()
+        field = self._new_field(grid, 1)
         with tempfile.TemporaryDirectory() as tmp:
             for level in (-1, grid.num_levels, True, 0.5):
                 with self.subTest(level=level):
@@ -277,32 +288,32 @@ class TestMresCheckpoint(unittest.TestCase):
                         field.save(os.path.join(tmp, "rho"), level=level)
 
     def test_single_level_topology_mismatch_rejected(self):
-        grid = _make_grid(self.backend, fine_extent=8)
-        field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())
+        grid = self._grid()
+        field = self._new_field(grid, 1)
         with tempfile.TemporaryDirectory() as tmp:
             base = os.path.join(tmp, "rho")
             field.save(base, name="rho", level=1)
-            other = _make_grid(self.backend, fine_extent=12)
-            other_field = other.new_field(1, wp.float32, neon.MemoryType.host_device())
+            other = self._grid(fine_extent=12)
+            other_field = self._new_field(other, 1)
             with self.assertRaises(FieldError):
                 other_field.load(base, default_value=0.0)
 
     def test_invalid_format_rejected(self):
-        grid = _make_grid(self.backend, fine_extent=8)
-        field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())
+        grid = self._grid()
+        field = self._new_field(grid, 1)
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(ValueError):
                 field.save(os.path.join(tmp, "rho"), file_format="hdf5")
 
     def test_topology_id_mismatch_rejected(self):
-        grid = _make_grid(self.backend, fine_extent=8)
-        field = grid.new_field(1, wp.float32, neon.MemoryType.host_device())
+        grid = self._grid()
+        field = self._new_field(grid, 1)
         with tempfile.TemporaryDirectory() as tmp:
             base = os.path.join(tmp, "rho")
             field.save(base, name="rho")
 
-            other = _make_grid(self.backend, fine_extent=12)
-            other_field = other.new_field(1, wp.float32, neon.MemoryType.host_device())
+            other = self._grid(fine_extent=12)
+            other_field = self._new_field(other, 1)
             with self.assertRaises(FieldError):
                 other_field.load(base)
 
