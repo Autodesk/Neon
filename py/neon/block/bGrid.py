@@ -33,9 +33,23 @@ class bGrid(object):
         self._help_grid_new()
 
     def __del__(self):
-        if self.handle == 0:
+        self.cleanup()
+
+    def __enter__(self) -> 'bGrid':
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        self.cleanup()
+        return False
+
+    def cleanup(self) -> None:
+        """Release the C++ grid. Idempotent."""
+        if getattr(self, '_cleaned', False):
             return
-        self._help_grid_delete()
+        self._cleaned = True
+        handle = getattr(self, 'handle', None)
+        if handle is not None and handle.value:
+            self._help_grid_delete()
 
     def _help_load_api(self):
         self.neon_gate: neon.Gate = neon.Gate()

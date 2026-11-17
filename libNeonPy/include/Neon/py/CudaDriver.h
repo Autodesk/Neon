@@ -17,7 +17,7 @@ class CudaDriver
     Neon::set::DataSet<CUdevice>  cu_devices;
     Neon::set::DataSet<CUcontext> cu_contexts;
 
-public:
+   public:
     using kernel = void*;
 
 
@@ -44,7 +44,9 @@ public:
      */
     CudaDriver(Neon::Backend* bk_prt);
 
-    ~CudaDriver();
+    // noexcept: must not throw (issue 4). Failures during primary-context
+    // release are logged only.
+    ~CudaDriver() noexcept;
 
     auto get_bk_prt() -> Neon::Backend*;
 
@@ -58,7 +60,7 @@ public:
 
 
 };
-}
+}  // namespace Neon::py
 
 extern "C" int cuda_driver_new(void** handle, void* bk_handle);
 

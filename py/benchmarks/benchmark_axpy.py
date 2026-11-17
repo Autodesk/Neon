@@ -1,10 +1,15 @@
-from sympy.abc import alpha
-
-from env_setup import update_pythonpath
-import nvtx
-update_pythonpath()
+"""AXPY throughput benchmark (needs ``nvtx``). Not part of the test suite."""
 
 import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests"))
+
+from neon_testing.env import update_pythonpath  # noqa: E402
+
+update_pythonpath()
+
+import nvtx  # noqa: E402
 import warp as wp
 import neon
 import typing

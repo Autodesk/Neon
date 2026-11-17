@@ -11,6 +11,7 @@ import copy
 import ctypes
 import functools
 import inspect
+import sys
 import textwrap
 from enum import Enum
 
@@ -300,7 +301,7 @@ class Container:
         # warp_container_delete
         self.api_delete = getattr(self.neon_gate.lib, f'warp_container_delete_{grid_name}')
         self.api_delete.argtypes = [ctypes.POINTER(self.neon_gate.handle_type)]
-        self.api_delete.restype = None
+        self.api_delete.restype = ctypes.c_int
         # ------------------------------------------------------------------
         # warp_container_run
         self.api_run = getattr(self.neon_gate.lib, f'warp_container_run_{grid_name}')
@@ -313,6 +314,43 @@ class Container:
 
         # TODOMATT get num devices
         # TODOMATT get device type
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cleanup()
+        return False
+
+    def __del__(self):
+        # At interpreter shutdown CUDA / Warp may already be torn down. Skipping
+        # the C delete then lets the OS reclaim the memory; calling it can make
+        # a failed cudaFree in a C++ destructor call std::terminate (exit 134).
+        if sys.is_finalizing():
+            return
+        try:
+            self.cleanup()
+        except Exception:
+            pass
+
+    def cleanup(self) -> None:
+        """Release the C++ container and the field/grid references it captured.
+
+        Idempotent. Does not drop retained Warp modules: a C++ Skeleton may still
+        hold the raw CUfunction handles and run after this returns.
+        """
+        handle = getattr(self, "container_handle", None)
+        api_delete = getattr(self, "api_delete", None)
+        neon_gate = getattr(self, "neon_gate", None)
+        if api_delete is not None and handle is not None and getattr(handle, "value", None):
+            res = api_delete(ctypes.pointer(handle))
+            if res != 0:
+                raise RuntimeError(f"warp_container_delete failed with code {res}")
+            if neon_gate is not None:
+                self.container_handle = neon_gate.handle_type(0)
+            else:
+                self.container_handle = ctypes.c_void_p(0)
+        self.grid = None
 
     def _get_kernel(self,
                     container_runtime: ContainerRuntime,
@@ -476,6 +514,9 @@ class Container:
         Example:
             >>> container.run(stream_idx=0)
         """
+        handle = getattr(self, "container_handle", None)
+        if handle is None or not getattr(handle, "value", None):
+            raise RuntimeError("Container.run() called after cleanup()")
         if container_runtime == Container.ContainerRuntime.warp:
             self._run_warp(stream_idx=stream_idx,
                            data_view=data_view)

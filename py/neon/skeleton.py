@@ -6,6 +6,7 @@ execution of sequences of computational containers (kernels) in the Neon framewo
 """
 
 import ctypes
+import sys
 from typing import List
 from neon import SkeletonConfig
 import neon
@@ -81,11 +82,28 @@ class Skeleton(object):
         self.help_load_api()
         self.help_skeleton_new()
 
+    def __enter__(self) -> 'Skeleton':
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        self.cleanup()
+        return False
+
     def __del__(self):
-        if self.skeleton_handle == 0:
+        if sys.is_finalizing():
             return
+        try:
+            self.cleanup()
+        except Exception:
+            pass
+
+    def cleanup(self) -> None:
+        """Release the C++ skeleton and the containers it references. Idempotent."""
+        if getattr(self, '_cleaned', False):
+            return
+        self._cleaned = True
         self.help_skeleton_delete()
-        pass
+        self.containers = None
 
     def help_load_api(self):
         lib_obj = self.neon_gate.lib
@@ -134,11 +152,13 @@ class Skeleton(object):
             raise Exception('Backend: Failed to initialize backend')
 
     def help_skeleton_delete(self):
-        if self.skeleton_handle == 0:
+        handle = getattr(self, 'skeleton_handle', None)
+        if handle is None or not handle.value:
             return
-        res = self.api_delete(ctypes.pointer(self.skeleton_handle))
+        res = self.api_delete(ctypes.pointer(handle))
+        self.skeleton_handle = ctypes.c_void_p(0)
         if res != 0:
-            raise Exception('Failed to delete backend')
+            raise Exception('Failed to delete skeleton')
 
     def sequence(
         self,
@@ -171,6 +191,12 @@ class Skeleton(object):
             Container dependencies are automatically inferred from field read/write
             patterns specified during container creation.
         """
+        for i, container in enumerate(containers):
+            handle = getattr(container, "container_handle", None)
+            if handle is None or not getattr(handle, "value", None):
+                raise RuntimeError(
+                    f"Skeleton.sequence(): container at index {i} has been cleaned up"
+                )
         self.containers = containers
         self.handle_list = (ctypes.c_void_p * len(containers))()
         for i in range(len(self.handle_list)):
@@ -197,6 +223,8 @@ class Skeleton(object):
         Note:
             A sequence must be defined via ``sequence()`` before calling ``run()``.
         """
+        if not self.skeleton_handle.value:
+            raise RuntimeError("Skeleton.run() called after cleanup()")
         self.api_run(self.skeleton_handle)
 
     def ioToDot(self, filename: str, graph_name: str) -> None:
