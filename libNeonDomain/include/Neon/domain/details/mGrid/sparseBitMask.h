@@ -1,5 +1,13 @@
 #pragma once
-#include "Neon/domain/tools/PointHashTable.h"
+
+#include <array>
+#include <atomic>
+#include <cstdlib>
+#include <iostream>
+#include <memory>
+#include <vector>
+
+#include "Neon/core/core.h"
 
 /**
  * @file sparseBitMask.h
@@ -12,7 +20,7 @@
  * ## Core Components
  *
  * ### BitBlock
- * A fixed-size 3D bit block that efficiently stores and manipulates 32³ bits within a cubic region.
+ * A fixed-size 3D bit block that efficiently stores and manipulates 8³ = 512 bits within a cubic region.
  * Features include:
  * - Constant-time O(1) bit operations (set, clear, query)
  * - Thread-safe operations with optional synchronization
@@ -20,10 +28,10 @@
  * - Automatic coordinate normalization with modulo arithmetic
  *
  * ### SparseBitBlocks
- * A sparse collection of BitBlocks using spatial hashing for memory-efficient storage of
+ * A sparse collection of BitBlocks, indexed by a two-level table of atomic pointers, for memory-efficient storage of
  * large-scale 3D bit patterns. Key capabilities:
  * - Dynamic block allocation with memory pooling
- * - O(1) average-case access through spatial hashing
+ * - O(1) lock-free lookup: two dependent loads, no hashing
  * - Thread-safe concurrent operations
  * - Automatic memory management with configurable pool granularity
  *
@@ -39,8 +47,8 @@
  *
  * - **Memory Usage**: O(k) where k is the number of active regions, not total space size
  * - **Access Time**: O(1) average case for all bit operations
- * - **Thread Safety**: Optional with minimal overhead using OpenMP critical sections
- * - **Cache Efficiency**: Optimized block size (32³) balances memory and cache performance
+ * - **Thread Safety**: Lock-free reads and atomic bit writes; only block allocation takes a lock
+ * - **Cache Efficiency**: A block (8³ bits) is exactly one 64-byte cache line
  *
  * ## Usage Pattern
  *
@@ -68,23 +76,23 @@ namespace Neon::domain::details::mGrid {
 /**
  * @brief A high-performance fixed-size 3D bit block for efficient storage and manipulation of bit data.
  *
- * BitBlock represents a cubic volume of 32³ = 32,768 bits organized in a 3D grid pattern optimized
+ * BitBlock represents a cubic volume of 8³ = 512 bits organized in a 3D grid pattern optimized
  * for cache-efficient access and bitwise operations. The block internally uses an array of 32-bit
  * "bricks" that provide efficient storage and manipulation of bit data within a cubic region.
  *
  * ## Key Features
- * - **Fixed Size**: 32×32×32 bits (32,768 total bits) providing optimal cache performance
+ * - **Fixed Size**: 8×8×8 bits (512 total bits), exactly one 64-byte cache line
  * - **Fast Access**: O(1) bit operations with automatic coordinate normalization
- * - **Thread Safety**: Optional thread-safe operations using OpenMP critical sections
- * - **Memory Efficiency**: Uses 1,024 uint32_t values (4KB total) per block
+ * - **Thread Safety**: Optional atomic bit updates (`omp atomic`)
+ * - **Memory Efficiency**: Uses 16 uint32_t values (64 bytes total) per block
  * - **Coordinate Wrapping**: Automatic modulo arithmetic handles out-of-bounds coordinates
  *
  * ## Memory Layout
  *
  * The block is organized as follows:
- * - **Total Capacity**: 32³ = 32,768 bits
- * - **Storage Units**: 1,024 × uint32_t "bricks" (32 bits each)
- * - **Memory Footprint**: 4,096 bytes (4KB) per block
+ * - **Total Capacity**: 8³ = 512 bits
+ * - **Storage Units**: 16 × uint32_t "bricks" (32 bits each)
+ * - **Memory Footprint**: 64 bytes per block
  * - **Access Pattern**: Row-major order with z-y-x priority for cache efficiency
  * - **Alignment**: Optimized for vectorized operations and cache line alignment
  *
@@ -92,22 +100,22 @@ namespace Neon::domain::details::mGrid {
  *
  * BitBlock uses a 3D coordinate system where:
  * - Coordinates are automatically wrapped using modulo arithmetic: `point % blockSize`
- * - Local coordinates range from (0,0,0) to (31,31,31)
- * - Linear indexing uses row-major order: `index = z*32*32 + y*32 + x`
+ * - Local coordinates range from (0,0,0) to (7,7,7)
+ * - Linear indexing uses row-major order: `index = z*8*8 + y*8 + x`
  * - Each brick stores 32 consecutive bits in the linear index space
  *
  * ## Thread Safety
  *
  * All mutating operations (setON, setOFF) support optional thread safety:
- * - Template parameter `ThreadSafe=true`: Uses OpenMP critical sections
+ * - Template parameter `ThreadSafe=true`: `omp atomic update` on the affected brick
  * - Template parameter `ThreadSafe=false`: No synchronization (caller responsibility)
- * - Read operations (isON) are inherently thread-safe for concurrent access
+ * - isON reads the brick with `omp atomic read`, so it may run concurrently with ThreadSafe writers
  *
  * ## Performance Characteristics
  * - **Bit Access**: O(1) with 2-3 integer operations and 1 memory access
- * - **Cache Performance**: Optimized 4KB blocks fit in L1/L2 cache
+ * - **Cache Performance**: A block is a single cache line
  * - **Vectorization**: Compatible with SIMD operations for bulk processing
- * - **Memory Overhead**: Zero overhead beyond the 4KB bit storage
+ * - **Memory Overhead**: Zero overhead beyond the 64-byte bit storage
  *
  * ## Usage Examples
  *
@@ -126,11 +134,10 @@ namespace Neon::domain::details::mGrid {
  * block.setOFF({10, 20, 30});
  *
  * // Coordinate wrapping handles out-of-bounds automatically
- * block.setON({100, 200, 300});  // Equivalent to {4, 8, 12}
+ * block.setON({100, 200, 300});  // Equivalent to {4, 0, 4}
  * ```
  *
  * @see SparseBitBlocks For managing collections of BitBlocks
- * @note This implementation provides optimal performance for cubic regions up to 32³ bits
  * @warning All coordinates are automatically wrapped; negative coordinates may behave unexpectedly
  */
 struct BitBlock
@@ -172,7 +179,7 @@ struct BitBlock
      * 4. **Bit Extraction**: Remainder provides bit position within the brick for masking
      *
      * @param point The 3D coordinates of the bit to test. Values are automatically wrapped
-     *              to the range [0, 31] for each dimension using modulo arithmetic.
+     *              to the range [0, 7] for each dimension using modulo arithmetic.
      *              Negative coordinates are handled by modulo but may produce unexpected results.
      *
      * @return true if the bit at the specified position is set (value = 1),
@@ -187,13 +194,28 @@ struct BitBlock
      * @see setON() To set a bit to 1
      * @see setOFF() To clear a bit to 0
      */
-    auto isON(Neon::index_3d const& point) -> bool
+    auto isON(Neon::index_3d const& point) const -> bool
     {
         auto   localPoint = point % BitBlock::blockSize;
         size_t pitch = localPoint.mPitch(blockSize);
         auto   brickID = pitch / widthBrick;
         auto   localBit = pitch % widthBrick;
-        return (bits[brickID] & (1 << localBit)) != 0;
+        return (loadBrick(brickID) & (Brick(1) << localBit)) != 0;
+    }
+
+    /**
+     * @brief Reads one brick without tearing or racing a concurrent setON/setOFF.
+     *
+     * Writers update bricks with `omp atomic update`; a plain load racing with them is a
+     * data race in the C++ memory model even though it is a single aligned 32-bit move.
+     * A relaxed atomic read compiles to the same instruction on x86 and AArch64.
+     */
+    auto loadBrick(size_t brickID) const -> Brick
+    {
+        Brick brick;
+#pragma omp atomic read
+        brick = bits[brickID];
+        return brick;
     }
 
     /**
@@ -204,7 +226,7 @@ struct BitBlock
      * allowing optimization for single-threaded scenarios while providing safety for concurrent access.
      *
      * ## Thread Safety Options
-     * - **ThreadSafe=true** (default): Uses OpenMP critical section for atomic access
+     * - **ThreadSafe=true** (default): Uses an `omp atomic update` on the brick
      * - **ThreadSafe=false**: Direct memory access with no synchronization (faster, caller responsibility)
      *
      * ## Algorithm Details
@@ -217,7 +239,7 @@ struct BitBlock
      *                    Set to false for single-threaded performance optimization.
      *
      * @param point The 3D coordinates of the bit to activate. Values are automatically wrapped
-     *              to the range [0, 31] for each dimension using modulo arithmetic.
+     *              to the range [0, 7] for each dimension using modulo arithmetic.
      *              Negative coordinates are handled but may produce unexpected results.
      *
      * @note **Idempotent Operation**: Setting an already-active bit has no additional effect
@@ -261,7 +283,7 @@ struct BitBlock
      * providing flexibility for performance optimization while ensuring safe concurrent access when needed.
      *
      * ## Thread Safety Options
-     * - **ThreadSafe=true** (default): Uses OpenMP critical section for atomic access
+     * - **ThreadSafe=true** (default): Uses an `omp atomic update` on the brick
      * - **ThreadSafe=false**: Direct memory access with no synchronization (faster, caller responsibility)
      *
      * ## Algorithm Details
@@ -274,7 +296,7 @@ struct BitBlock
      *                    Set to false for single-threaded performance optimization.
      *
      * @param point The 3D coordinates of the bit to deactivate. Values are automatically wrapped
-     *              to the range [0, 31] for each dimension using modulo arithmetic.
+     *              to the range [0, 7] for each dimension using modulo arithmetic.
      *              Negative coordinates are handled but may produce unexpected results.
      *
      * @note **Idempotent Operation**: Clearing an already-inactive bit has no additional effect
@@ -313,35 +335,37 @@ struct BitBlock
  *
  * SparseBitBlocks provides a sophisticated sparse data structure that efficiently manages
  * large 3D coordinate spaces by only allocating BitBlocks where bits are actually set.
- * This approach enables processing of massive 3D spaces (terabyte scale) while using
- * memory proportional only to the number of active regions.
+ * Memory is proportional to the number of active regions, plus a small directory that
+ * scales with the bounding box (8 bytes per 128³ points).
  *
  * ## Core Architecture
  *
- * The system combines three key technologies:
- * - **Spatial Hashing**: PointHashTable provides O(1) average-case block lookup
+ * The system combines three pieces:
+ * - **Two-level lookup**: a fixed directory of atomic Tile pointers, each Tile holding
+ *   16³ atomic BitBlock pointers; a lookup is two dependent loads and never locks
  * - **Memory Pooling**: Pre-allocated chunks minimize dynamic allocation overhead
- * - **Block-Level Organization**: 32³-bit BitBlocks provide optimal cache utilization
+ * - **Block-Level Organization**: 8³-bit BitBlocks, one cache line each
  *
  * ## Key Features
  *
  * ### Memory Efficiency
- * - **Sparse Storage**: Only allocates 4KB BitBlocks for regions containing active bits
+ * - **Sparse Storage**: Only allocates BitBlocks and Tiles for regions containing active bits
  * - **Pool Management**: Configurable chunk-based allocation reduces fragmentation
  * - **Zero Overhead**: No memory cost for empty regions of the coordinate space
  * - **Scalability**: Can handle coordinate spaces up to billions of points
  *
  * ### Performance Characteristics
- * - **Access Time**: O(1) average case for all point operations
- * - **Memory Usage**: O(k × 4KB) where k = number of active block regions
- * - **Thread Safety**: Optional with minimal synchronization overhead
+ * - **Access Time**: O(1) worst case for all point operations
+ * - **Memory Usage**: O(k × 64 bytes) where k = number of active block regions, plus 32KB per touched tile
+ * - **Thread Safety**: Lock-free lookups; a lock is only taken to allocate a new block
  * - **Cache Efficiency**: Block-aligned access patterns optimize CPU cache usage
  *
  * ### Thread Safety
  * All operations support configurable thread safety:
- * - Thread-safe mode uses OpenMP critical sections for atomic operations
+ * - Thread-safe mode updates bits with `omp atomic` and allocates blocks under the
+ *   SparseBitBlocks_addPoint critical section; lookups never lock
  * - Non-thread-safe mode provides maximum performance for single-threaded use
- * - Concurrent reads are always safe regardless of thread safety setting
+ * - Reads may run concurrently with thread-safe writes
  *
  * ## Memory Pool Management
  *
@@ -361,10 +385,10 @@ struct BitBlock
  * ## Coordinate Space Management
  *
  * SparseBitBlocks divides the coordinate space into BitBlock regions:
- * - Each BitBlock covers a 32×32×32 coordinate region
- * - Block coordinates computed as: `blockCoord = pointCoord / 32`
+ * - Each BitBlock covers an 8×8×8 coordinate region
+ * - Block coordinates computed as: `blockCoord = pointCoord / 8`
  * - Automatic block creation when points are activated in new regions
- * - Supports coordinate spaces up to the limits of `Neon::index_3d`
+ * - Supports coordinate spaces up to directoryMaxEntries tiles of 128³ points
  *
  * ## Usage Patterns
  *
@@ -422,55 +446,78 @@ struct BitBlock
 template <int memoryPoolGranularity = 100>
 class SparseBitBlocks
 {
-    Neon::domain::tool::PointHashTable<int32_t, BitBlock*> mHashTable; /**< Spatial hash table mapping block coordinates to BitBlock pointers (fallback for huge coordinate spaces) */
-    std::vector<BitBlock*>                                 mDenseLookup; /**< Flat block-coordinate -> BitBlock* table; empty when the fallback hash table is in use */
-    Neon::index_3d                                         mBBox;      /**< Bounding box defining the valid coordinate space */
-    using Pool = std::array<BitBlock, memoryPoolGranularity>;          /**< Type alias for memory pool arrays */
-    std::vector<Pool*> memoryPool;                                      /**< Dynamic memory pool for BitBlock allocation */
-    size_t            firstFreeIndex;                                  /**< Index of the first free BitBlock in the current memory pool */
-    std::vector<Neon::index_3d> mAllocatedBlocks;                      /**< Coordinate of every BitBlock handed out, in allocation order */
-
     /**
-     * Above this many block slots the flat lookup table is abandoned in favour of the
-     * hash table. 64M slots is 512MB of pointers, which is already well past the point
-     * where a domain of this shape is practical.
+     * The block-coordinate -> BitBlock* lookup is a two-level table: a directory with one
+     * entry per tileEdge^3 block slots, each pointing to a lazily allocated Tile of slots.
+     *
+     * Readers never take a lock, so every location a reader can load from must stay put
+     * for the lifetime of the collection: the directory is sized once in the constructor,
+     * Tiles and BitBlocks are never moved or freed, and each directory entry and tile slot
+     * changes at most once, from nullptr to its final value, under the
+     * SparseBitBlocks_addPoint critical section. Publication is a release store and every
+     * lookup an acquire load, so a reader that sees a pointer also sees what it points to.
      */
-    static constexpr size_t denseLookupMaxEntries = 64ull * 1024ull * 1024ull;
+    static constexpr int    tileShift = 4;
+    static constexpr int    tileEdge = 1 << tileShift;
+    static constexpr int    tileMask = tileEdge - 1;
+    static constexpr size_t tileSlots = size_t(tileEdge) * size_t(tileEdge) * size_t(tileEdge);
+
+    /** Refuse coordinate spaces whose directory alone would take more than 8GB. */
+    static constexpr size_t directoryMaxEntries = 1024ull * 1024ull * 1024ull;
+
+    struct Tile
+    {
+        std::atomic<BitBlock*> slot[tileSlots]{};
+    };
+
+    using Pool = std::array<BitBlock, memoryPoolGranularity>; /**< Type alias for memory pool arrays */
+
+    Neon::index_3d                        mBBox;            /**< Valid block-coordinate space */
+    Neon::index_3d                        mTileGrid;        /**< Directory extent: mBBox rounded up to whole tiles */
+    std::unique_ptr<std::atomic<Tile*>[]> mDirectory;       /**< One entry per tile, never reallocated */
+    std::vector<std::unique_ptr<Tile>>    mTiles;           /**< Owners of the allocated tiles */
+    std::vector<std::unique_ptr<Pool>>    memoryPool;       /**< Dynamic memory pool for BitBlock allocation */
+    size_t                                firstFreeIndex;   /**< Index of the first free BitBlock in the current memory pool */
+    std::vector<Neon::index_3d>           mAllocatedBlocks; /**< Coordinate of every BitBlock handed out, in allocation order */
+
+    auto tileIndex(const Neon::index_3d& blockCoord) const -> size_t
+    {
+        return Neon::index_3d(blockCoord.x >> tileShift,
+                              blockCoord.y >> tileShift,
+                              blockCoord.z >> tileShift)
+            .mPitch(mTileGrid);
+    }
+
+    static auto slotIndex(const Neon::index_3d& blockCoord) -> size_t
+    {
+        return Neon::index_3d(blockCoord.x & tileMask,
+                              blockCoord.y & tileMask,
+                              blockCoord.z & tileMask)
+            .mPitch(tileEdge, tileEdge);
+    }
 
    public:
     /**
      * @brief Constructs a sparse bit collection for the specified coordinate space.
      *
-     * Initializes a new SparseBitBlocks instance configured to manage bit data within
-     * the specified 3D coordinate space. The constructor establishes the spatial hash table
-     * infrastructure and allocates the initial memory pool for efficient BitBlock management.
-     *
-     * ## Initialization Process
-     * 1. **Hash Table Setup**: Creates PointHashTable with optimal hash parameters for the given bounds
-     * 2. **Memory Pool Creation**: Allocates first memory pool with `memoryPoolGranularity` BitBlocks
-     * 3. **Boundary Establishment**: Sets coordinate space limits for block coordinate calculations
+     * Sizes the lookup directory for the given coordinate space and allocates the first
+     * memory pool. Tiles of the lookup table are only allocated when a block inside them is
+     * first activated.
      *
      * ## Memory Allocation
-     * - **Initial Pool**: Immediately allocates one memory pool (memoryPoolGranularity × 4KB)
-     * - **Hash Table**: Allocates hash table structure optimized for the coordinate space
-     * - **Management Overhead**: Minimal per-instance overhead (<1KB typically)
+     * - **Directory**: 8 bytes per 128³ points of the bounding box (one entry per tile of
+     *   16³ blocks), allocated here and never resized
+     * - **Tiles**: 32KB each, allocated lazily, so proportional to the active region
+     * - **Initial Pool**: one memory pool of memoryPoolGranularity × 64 bytes
      *
      * @param bbox The 3D bounding box defining the coordinate space for this collection.
-     *             Coordinates are typically in the range [0, bbox) for each dimension,
-     *             though the implementation can handle coordinates beyond these bounds
-     *             through spatial hashing. Larger bounding boxes don't increase memory
-     *             usage but may affect hash table performance.
+     *             Valid points have coordinates in [0, bbox) in every dimension; activating
+     *             a point outside it terminates the process.
      *
-     * @note **Memory Commitment**: The constructor immediately allocates one memory pool
-     *       (memoryPoolGranularity × 4KB). Choose the template parameter appropriately
-     *       based on expected usage patterns.
+     * @throws NeonException if the directory would exceed directoryMaxEntries entries.
      *
      * @note **Thread Safety**: The constructed instance supports thread-safe operations,
      *       but the constructor itself is not thread-safe.
-     *
-     * @warning **Coordinate Space**: While the bbox parameter guides hash table optimization,
-     *          the actual implementation can handle points beyond the specified bounds.
-     *          However, performance may degrade for coordinates significantly outside the bbox.
      *
      * @see activatePoint() To begin adding active points to the collection
      * @see isActivePoint() To query point states
@@ -478,23 +525,25 @@ class SparseBitBlocks
     SparseBitBlocks(const Neon::index_3d& bbox)
         : mBBox( (bbox.x + BitBlock::blockSize.x - 1) / BitBlock::blockSize.x,
                  (bbox.y + BitBlock::blockSize.y - 1) / BitBlock::blockSize.y,
-                 (bbox.z + BitBlock::blockSize.z - 1) / BitBlock::blockSize.z )
+                 (bbox.z + BitBlock::blockSize.z - 1) / BitBlock::blockSize.z ),
+          mTileGrid((mBBox.x + tileEdge - 1) / tileEdge,
+                    (mBBox.y + tileEdge - 1) / tileEdge,
+                    (mBBox.z + tileEdge - 1) / tileEdge)
     {
-        // The block-coordinate space is small enough (one slot per 8^3 region) that a
-        // flat table almost always fits: it costs 8 bytes per slot and turns every
-        // isActivePoint() from a hash probe into a single indexed load. Only fall back
-        // to the hash table for coordinate spaces where that would be unreasonable.
-        const size_t numBlockSlots = static_cast<size_t>(mBBox.x) *
-                                     static_cast<size_t>(mBBox.y) *
-                                     static_cast<size_t>(mBBox.z);
-        if (numBlockSlots <= denseLookupMaxEntries) {
-            mDenseLookup.assign(numBlockSlots, nullptr);
-        } else {
-            mHashTable = Neon::domain::tool::PointHashTable<int32_t, BitBlock*>(mBBox);
+        const size_t tilesXY = static_cast<size_t>(mTileGrid.x) * static_cast<size_t>(mTileGrid.y);
+        const size_t tilesZ = static_cast<size_t>(mTileGrid.z);
+        // Compared by division: tilesXY * tilesZ can overflow size_t for huge bounding boxes
+        if (tilesZ != 0 && tilesXY > directoryMaxEntries / tilesZ) {
+            NeonException exp("SparseBitBlocks");
+            exp << "Coordinate space " << bbox << " needs a directory of " << mTileGrid
+                << " tiles, more than the supported " << directoryMaxEntries;
+            NEON_THROW(exp);
         }
+        const size_t numTiles = tilesXY * tilesZ;
+        // make_unique<T[]> value-initializes, so every entry starts as nullptr
+        mDirectory = std::make_unique<std::atomic<Tile*>[]>(numTiles);
 
-        auto newPoolPtr = new Pool{};
-        memoryPool.emplace_back(newPoolPtr);
+        memoryPool.emplace_back(std::make_unique<Pool>());
         firstFreeIndex = 0;
     }
 
@@ -510,34 +559,36 @@ class SparseBitBlocks
      * 2. **Bit Activation**: Sets the specific bit within that BitBlock to 1
      *
      * ## Automatic Block Management
-     * - **Block Detection**: Computes block coordinates from point coordinates (point / 32)
+     * - **Block Detection**: Computes block coordinates from point coordinates (point / 8)
      * - **Lazy Allocation**: Creates new BitBlocks only when points are first activated in a region
      * - **Memory Pool Usage**: Allocates blocks from pre-allocated pools for optimal performance
-     * - **Hash Table Integration**: Automatically registers new blocks in the spatial hash table
+     * - **Publication**: Registers new blocks in the lookup table with a release store
      *
      * ## Thread Safety Modes
-     * - **ThreadSafe=true** (default): Full thread safety with OpenMP critical sections
+     * - **ThreadSafe=true**: Lock-free lookup and atomic bit update; a miss allocates the block under
+     *   the SparseBitBlocks_addPoint critical section
      * - **ThreadSafe=false**: No synchronization (faster, requires external coordination)
      *
      * ## Memory Pool Management
      * The method automatically manages memory pools:
      * - Uses existing pools when available
      * - Allocates new pools when current pool is exhausted
-     * - Each pool provides `memoryPoolGranularity` BitBlocks (4KB each)
+     * - Each pool provides `memoryPoolGranularity` BitBlocks (64 bytes each)
      * - Pool allocation is amortized O(1) across many activations
      *
      * @tparam ThreadSafe Controls synchronization behavior:
-     *                    - true: Uses OpenMP critical sections (safe for parallel access)
+     *                    - true: safe for parallel access; locks only to allocate a block
      *                    - false: No synchronization (caller must ensure thread safety)
      *
      * @param point The 3D coordinates of the point to activate. Coordinates can be
      *              anywhere within the valid range for `Neon::index_3d`. Block coordinates
-     *              are computed automatically as (point.x/32, point.y/32, point.z/32).
-     *              The bit position within the block is (point % 32) for each dimension.
+     *              are computed automatically as (point.x/8, point.y/8, point.z/8).
+     *              The bit position within the block is (point % 8) for each dimension.
      *
      * @note **Idempotent**: Activating an already-active point is safe and efficient
      * @note **Block Persistence**: Once created, BitBlocks are never deallocated
-     * @note **Memory Growth**: Each new 32³ coordinate region adds exactly 4KB to memory usage
+     * @note **Memory Growth**: Each new 8³ coordinate region adds 64 bytes, plus 32KB for the
+     *       first block in a new 128³ tile
      *
      * @warning **Pool Exhaustion**: If memory allocation fails, the program terminates
      *          with std::exit(1). This typically indicates system memory exhaustion.
@@ -549,7 +600,7 @@ class SparseBitBlocks
      * - **Existing Block**: O(1) with ~10-20ns latency
      * - **New Block Creation**: O(1) amortized, ~100-500ns for allocation
      * - **Thread-Safe Overhead**: ~5-15ns additional latency for synchronization
-     * - **Memory Overhead**: Exactly 4KB per unique 32³ coordinate region
+     * - **Memory Overhead**: 64 bytes per unique 8³ coordinate region
      *
      * @see removePoint() To deactivate a point (bit remains in allocated block)
      * @see isActivePoint() To query point activation state
@@ -582,8 +633,7 @@ class SparseBitBlocks
                 bitBlock = getBitBlockPrt(block_coord);
                 if (bitBlock == nullptr) {
                     if (firstFreeIndex == memoryPoolGranularity) {
-                        auto new_pool_ptr = new Pool{};
-                        memoryPool.emplace_back(new_pool_ptr);
+                        memoryPool.emplace_back(std::make_unique<Pool>());
                         firstFreeIndex = 0;
                     }
                     bitBlock = &((*memoryPool.back())[firstFreeIndex]);
@@ -601,8 +651,7 @@ class SparseBitBlocks
         } else {
             // We are in a critical section managed by the calling
             if (firstFreeIndex == memoryPoolGranularity) {
-                auto new_pool_ptr = new Pool{};
-                memoryPool.emplace_back(new_pool_ptr);
+                memoryPool.emplace_back(std::make_unique<Pool>());
                 firstFreeIndex = 0;
             }
             bitBlock = &((*memoryPool.back())[firstFreeIndex]);
@@ -637,7 +686,7 @@ class SparseBitBlocks
      * - **ThreadSafe=false**: Direct bit manipulation with no synchronization
      *
      * @tparam ThreadSafe Controls synchronization behavior:
-     *                    - true: Thread-safe operation using OpenMP critical sections
+     *                    - true: Thread-safe operation using `omp atomic update`
      *                    - false: Non-synchronized operation (faster, requires external coordination)
      *
      * @param point The 3D coordinates of the point to deactivate. The method automatically
@@ -650,7 +699,7 @@ class SparseBitBlocks
      *
      * ## Performance Characteristics
      * - **Existing Block**: O(1) with ~5-15ns latency
-     * - **Non-existent Block**: O(1) with ~1-5ns latency (hash lookup only)
+     * - **Non-existent Block**: O(1) with ~1-5ns latency (lookup only)
      * - **Thread-Safe Overhead**: ~5-15ns additional latency for synchronization
      * - **Memory Usage**: No change (blocks persist after bit clearing)
      *
@@ -678,16 +727,23 @@ class SparseBitBlocks
     /**
      * @brief Makes a freshly allocated BitBlock reachable from the given block coordinate.
      *
-     * Must only be called while holding the SparseBitBlocks_addPoint critical section.
+     * Must only be called while holding the SparseBitBlocks_addPoint critical section
+     * (or, for activatePoint<false>, the caller's equivalent), and only for a coordinate
+     * that has no block yet. bitBlock must be fully initialized: once the release store
+     * below lands, lock-free readers may use it.
      */
     auto publishBitBlockPtr(const Neon::index_3d& coord, BitBlock* bitBlock) -> void
     {
         mAllocatedBlocks.push_back(coord);
-        if (!mDenseLookup.empty()) {
-            mDenseLookup[coord.mPitch(mBBox)] = bitBlock;
-            return;
+
+        std::atomic<Tile*>& entry = mDirectory[tileIndex(coord)];
+        Tile*               tile = entry.load(std::memory_order_relaxed);
+        if (tile == nullptr) {
+            mTiles.push_back(std::make_unique<Tile>());
+            tile = mTiles.back().get();
+            entry.store(tile, std::memory_order_release);
         }
-        mHashTable.addPoint(coord, bitBlock);
+        tile->slot[slotIndex(coord)].store(bitBlock, std::memory_order_release);
     }
 
     /**
@@ -733,7 +789,7 @@ class SparseBitBlocks
         const int     baseZ = blockCoord.z * edge;
 
         for (int brickID = 0; brickID < BitBlock::numBricks; ++brickID) {
-            const BitBlock::Brick brick = bitBlock->bits[brickID];
+            const BitBlock::Brick brick = bitBlock->loadBrick(brickID);
             if (brick == 0) {
                 continue;
             }
@@ -756,22 +812,14 @@ class SparseBitBlocks
             std::cout << "Error -> coord outside of valid range" << std::endl;
             std::exit(1);
         }
-        if (!mDenseLookup.empty()) {
-            if (coord.x < 0 || coord.y < 0 || coord.z < 0) {
-                return nullptr;
-            }
-            return mDenseLookup[coord.mPitch(mBBox)];
-        }
-
-        BitBlock* const* tmp = mHashTable.getMetadata(coord);
-        if (tmp == nullptr) {
+        if (coord.x < 0 || coord.y < 0 || coord.z < 0) {
             return nullptr;
         }
-        BitBlock* bitBlock = *tmp;
-        if (bitBlock == nullptr) {
-            std::cout << "Error -> " << std::endl;
+        Tile const* tile = mDirectory[tileIndex(coord)].load(std::memory_order_acquire);
+        if (tile == nullptr) {
+            return nullptr;
         }
-        return bitBlock;
+        return tile->slot[slotIndex(coord)].load(std::memory_order_acquire);
     }
 
     /**
@@ -782,15 +830,15 @@ class SparseBitBlocks
      * bit within that block. The operation is read-only and inherently thread-safe.
      *
      * ## Query Algorithm
-     * 1. **Block Resolution**: Computes block coordinates from point coordinates (point / 32)
-     * 2. **Block Lookup**: Searches spatial hash table for the target BitBlock
+     * 1. **Block Resolution**: Computes block coordinates from point coordinates (point / 8)
+     * 2. **Block Lookup**: Two acquire loads through the directory and the tile
      * 3. **Bit Testing**: If block exists, tests the specific bit; otherwise returns false
      * 4. **Result Return**: Returns true for active bits, false for inactive or non-existent
      *
      * ## Sparse Semantics
      * - **Explicit False**: Points in non-existent blocks are considered inactive
      * - **Memory Efficient**: No memory allocation or modification during queries
-     * - **Cache Friendly**: Hash table lookup followed by local bit access optimizes cache usage
+     * - **Cache Friendly**: The directory stays cache resident; consecutive blocks share a tile
      * - **Consistent Behavior**: Guaranteed consistent results across multiple calls
      *
      * ## Thread Safety
@@ -814,8 +862,8 @@ class SparseBitBlocks
      *
      * ## Performance Characteristics
      * - **Existing Block**: O(1) with ~5-10ns latency
-     * - **Non-existent Block**: O(1) with ~2-5ns latency (hash lookup only)
-     * - **Memory Access Pattern**: Single hash lookup + single bit test
+     * - **Non-existent Block**: O(1) with ~2-5ns latency (lookup only)
+     * - **Memory Access Pattern**: Two table loads + single bit test
      * - **Cache Performance**: Optimized for spatial locality in typical usage patterns
      *
      * @see activatePoint() To set a point to active state
