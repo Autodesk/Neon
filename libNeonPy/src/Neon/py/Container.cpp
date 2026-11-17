@@ -4,6 +4,9 @@
 #include <cudaTypedefs.h>
 #include <rapidjson/reader.h>
 
+#include <optional>
+#include <utility>
+
 #include "Neon/Neon.h"
 #include "Neon/core/core.h"
 #include "Neon/domain/Grids.h"
@@ -226,13 +229,16 @@ struct WarpContainer : Neon::set::internal::ContainerAPI
 template <typename Grid>
 struct container_warp_data
 {
-    Neon::py::CudaDriver*          m_cuda_driver_ptr;
-    Grid*                          m_grid_ptr;
-    Neon::py::WarpContainer<Grid>* m_warp_container_ptr;
-    Neon::set::Container*          m_container_prt;
-    Neon::set::Loader*             m_parser_ptr;
+    Neon::py::CudaDriver*          m_cuda_driver_ptr = nullptr;
+    // When set, m_grid_ptr points into this owned copy (mGrid level grids).
+    // An InternalGrid / bGrid / dGrid copy is a cheap shared-handle duplicate.
+    std::optional<Grid>            m_owned_grid;
+    Grid*                          m_grid_ptr = nullptr;
+    Neon::py::WarpContainer<Grid>* m_warp_container_ptr = nullptr;
+    Neon::set::Container*          m_container_prt = nullptr;
 
    public:
+    // Caller owns the grid (dGrid / bGrid path).
     container_warp_data(char const*     name,
                         Neon::Execution execution,
                         void*           cuda_driver_handle,
@@ -240,8 +246,44 @@ struct container_warp_data
                         void**          kernels_matrix,
                         Neon::index_3d* /*blockSize*/)
     {
+        init(name,
+             execution,
+             cuda_driver_handle,
+             reinterpret_cast<Grid*>(grid_handle),
+             kernels_matrix);
+    }
+
+    // Take ownership of a Grid copy (mGrid level-grid path). The copy must
+    // outlive WarpContainer, which keeps a raw Grid*.
+    container_warp_data(char const*     name,
+                        Neon::Execution execution,
+                        void*           cuda_driver_handle,
+                        Grid            grid,
+                        void**          kernels_matrix,
+                        Neon::index_3d* /*blockSize*/)
+        : m_owned_grid(std::move(grid))
+    {
+        init(name,
+             execution,
+             cuda_driver_handle,
+             &(*m_owned_grid),
+             kernels_matrix);
+    }
+
+    ~container_warp_data()
+    {
+        delete m_container_prt;
+    }
+
+   private:
+    auto init(char const*     name,
+              Neon::Execution execution,
+              void*           cuda_driver_handle,
+              Grid*           grid_ptr,
+              void**          kernels_matrix) -> void
+    {
         m_cuda_driver_ptr = reinterpret_cast<Neon::py::CudaDriver*>(cuda_driver_handle);
-        m_grid_ptr = reinterpret_cast<Grid*>(grid_handle);
+        m_grid_ptr = grid_ptr;
 
         m_warp_container_ptr = new (std::nothrow)
             Neon::py::WarpContainer<Grid>(
@@ -263,21 +305,6 @@ struct container_warp_data
             Neon::NeonException e("warp_container_new");
             NEON_THROW(e);
         }
-
-        m_parser_ptr = new Neon::set::Loader(*m_warp_container_ptr,
-                                             Neon::Execution::host,
-                                             Neon::SetIdx(0),
-                                             Neon::DataView::STANDARD,
-                                             Neon::set::internal::LoadingMode_e::PARSE_AND_EXTRACT_LAMBDA);
-        if (m_parser_ptr == nullptr) {
-            Neon::NeonException e("warp_container_new");
-            NEON_THROW(e);
-        }
-    }
-
-    ~container_warp_data()
-    {
-        delete m_container_prt;
     }
 };
 
@@ -362,15 +389,16 @@ extern "C" auto warp_mGrid_container_new(
 {
     NEON_PY_PRINT_BEGIN(*handle)
     using Grid = Neon::domain::mGrid;
-    auto* grid = reinterpret_cast<Grid*>(handle_dgrid);
-    auto  level_grid = grid->operator()(grid_level);
-    auto  data = new (std::nothrow)
-        Neon::py::container_warp_data<decltype(level_grid)>(name,
-                                                            execution,
-                                                            handle_cudaDriver,
-                                                            &level_grid,
-                                                            kernels_matrix,
-                                                            blockSize);
+    using InternalGrid = typename Grid::InternalGrid;
+    auto*        grid = reinterpret_cast<Grid*>(handle_dgrid);
+    InternalGrid level_grid = grid->operator()(grid_level);
+    auto         data = new (std::nothrow)
+        Neon::py::container_warp_data<InternalGrid>(name,
+                                                    execution,
+                                                    handle_cudaDriver,
+                                                    std::move(level_grid),
+                                                    kernels_matrix,
+                                                    blockSize);
 
     if (data == nullptr) {
         Neon::NeonException e("warp_mGrid_container_new");
@@ -390,21 +418,22 @@ template <typename Grid>
 auto warp_container_delete(
     void** handle) -> int
 {
-    if constexpr (std::is_same_v<Grid, mGrid>) {
-        using InternalGrid = typename Grid::InternalGrid;
-        auto* data = reinterpret_cast<Neon::py::container_warp_data<InternalGrid>*>(handle);
-        if (data != nullptr) {
+    try {
+        if (handle == nullptr || *handle == nullptr) {
+            return 0;
+        }
+        if constexpr (std::is_same_v<Grid, mGrid>) {
+            using InternalGrid = typename Grid::InternalGrid;
+            auto* data = reinterpret_cast<Neon::py::container_warp_data<InternalGrid>*>(*handle);
+            delete data;
+        } else {
+            auto* data = reinterpret_cast<Neon::py::container_warp_data<Grid>*>(*handle);
             delete data;
         }
-        (*handle) = nullptr;
+        *handle = nullptr;
         return 0;
-    } else {
-        auto* data = reinterpret_cast<Neon::py::container_warp_data<Grid>*>(*handle);
-        if (data != nullptr) {
-            delete data;
-        }
-        (*handle) = nullptr;
-        return 0;
+    } catch (...) {
+        return -1;
     }
 }
 
@@ -473,7 +502,7 @@ auto warp_container_add_parse_token(
     auto  pattern = Neon::PatternUtils::fromInt(pattern_int);
     auto  access = Neon::set::dataDependency::AccessTypeUtils::fromInt(access_int);
     auto  stenSemantic = Neon::set::StencilSemanticUtils::fromInt(stencilSemantic_int);
-    auto* data = reinterpret_cast<Neon::py::container_warp_data<Neon::dGrid>*>(handle);
+    auto* data = reinterpret_cast<Neon::py::container_warp_data<Grid>*>(handle);
 
     Field* field = reinterpret_cast<Field*>(field_handle);
     if (field == nullptr) {
@@ -529,10 +558,11 @@ auto warp_container_mres_add_parse_token(
     -> int
 {
     using Field = typename Grid::template Field<Type, Card>;
+    using InternalGrid = typename Grid::InternalGrid;
     auto  pattern = Neon::MultiResComputeUtils::fromInt(pattern_int);
     auto  access = Neon::set::dataDependency::AccessTypeUtils::fromInt(access_int);
     auto  stenSemantic = Neon::set::StencilSemanticUtils::fromInt(stencilSemantic_int);
-    auto* data = reinterpret_cast<Neon::py::container_warp_data<Neon::dGrid>*>(handle);
+    auto* data = reinterpret_cast<Neon::py::container_warp_data<InternalGrid>*>(handle);
 
     if (!std::is_same_v<typename Grid::Representation, Neon::representation::MultiResolution>) {
         NEON_THROW_UNSUPPORTED_OPTION("warp_container_add_parse_token")

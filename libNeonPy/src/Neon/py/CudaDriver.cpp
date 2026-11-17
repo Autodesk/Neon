@@ -1,5 +1,7 @@
 #include <dlfcn.h>
 #include <cstring>
+#include <iostream>
+#include <limits>
 
 #include <cuda.h>
 #include <cudaTypedefs.h>
@@ -10,9 +12,57 @@
 #include "Neon/py/macros.h"
 #include "Neon/set/container/ContainerAPI.h"
 #include "Neon/set/container/Loader.h"
-#include <limits>
 
 namespace Neon::py {
+
+namespace {
+
+// RAII guard so the caller's CUDA context is restored even if launch fails.
+struct CtxPushGuard
+{
+    bool pushed = false;
+
+    explicit CtxPushGuard(CUcontext ctx)
+    {
+        CUresult res = cuCtxPushCurrent(ctx);
+        if (res != CUDA_SUCCESS) {
+            const char* errorName = nullptr;
+            const char* errorString = nullptr;
+            cuGetErrorName(res, &errorName);
+            cuGetErrorString(res, &errorString);
+            Neon::NeonException e("CudaDriverEntryPoint");
+            e << "cuCtxPushCurrent failed with \n" << res << " ";
+            e << (errorName ? errorName : "?") << "\n";
+            e << (errorString ? errorString : "?");
+            NEON_THROW(e);
+        }
+        pushed = true;
+    }
+
+    ~CtxPushGuard()
+    {
+        if (!pushed) {
+            return;
+        }
+        CUcontext popped = nullptr;
+        CUresult  res = cuCtxPopCurrent(&popped);
+        if (res != CUDA_SUCCESS) {
+            const char* errorName = nullptr;
+            const char* errorString = nullptr;
+            cuGetErrorName(res, &errorName);
+            cuGetErrorString(res, &errorString);
+            std::cerr << "[Neon][CudaDriver] cuCtxPopCurrent failed: "
+                      << (errorName ? errorName : "?") << " "
+                      << (errorString ? errorString : "?") << std::endl;
+        }
+    }
+
+    CtxPushGuard(const CtxPushGuard&) = delete;
+    CtxPushGuard& operator=(const CtxPushGuard&) = delete;
+};
+
+}  // namespace
+
 CudaDriver::CudaDriver(Neon::Backend* bk_prt)
 {
     Neon::init();
@@ -20,7 +70,6 @@ CudaDriver::CudaDriver(Neon::Backend* bk_prt)
     cu_devices = backend.newDataSet<CUdevice>();
     cu_contexts = backend.newDataSet<CUcontext>();
 
-    auto     dev_list = backend.devSet();
     CUresult res = cuInit(0);
     check_cuda_res(res, "cuInit");
 
@@ -33,31 +82,36 @@ CudaDriver::CudaDriver(Neon::Backend* bk_prt)
         res = cuDeviceGet(&cu_devices[setIdx], cuda_dev_idx);
         check_cuda_res(res, std::string("cuDeviceGet (dev ") + std::to_string(cuda_dev_idx) + std::string(")"));
 
-        // CUDA 13.0 compatibility: create context with default parameters
-        CUctxCreateParams params;
-        memset(&params, 0, sizeof(params));
-        res = cuCtxCreate_v4(&cu_contexts[setIdx], &params, 0, cu_devices[setIdx]);
-        check_cuda_res(res, std::string("cuCtxCreate (dev ") + std::to_string(cuda_dev_idx) + std::string(")"));
+        // Share Warp's primary context. A private cuCtxCreate context becomes
+        // current, gets registered by Warp as cuda:N.M, and then cuCtxDestroy
+        // leaves Warp holding a destroyed context (issue 3 / suite SIGSEGV).
+        res = cuDevicePrimaryCtxRetain(&cu_contexts[setIdx], cu_devices[setIdx]);
+        check_cuda_res(res, std::string("cuDevicePrimaryCtxRetain (dev ") + std::to_string(cuda_dev_idx) + std::string(")"));
     }
-
-    // kernelSet = bk.newDataSet<void*>([](Neon::SetIdx const&, void*& ptr) {
-    //     ptr = nullptr;
-    // });
 }
 
-CudaDriver::~CudaDriver()
+CudaDriver::~CudaDriver() noexcept
 {
-
-    auto dev_list = backend.devSet();
-
     int  ndevs = backend.getDeviceCount();
     auto devSet = backend.devSet();
     for (int setIdx = 0; setIdx < ndevs; setIdx++) {
         Neon::sys::DeviceID devId = devSet.devId(setIdx);
         int                 cuda_dev_idx = devId.idx();
 
-        CUresult res = cuCtxDestroy(cu_contexts[setIdx]);
-        check_cuda_res(res, std::string("cuCtxCreate (dev ") + std::to_string(cuda_dev_idx) + std::string(")"));
+        // Release our retain only. Warp (and any other retainer) keeps the
+        // primary context alive; this must not throw from a destructor.
+        CUresult res = cuDevicePrimaryCtxRelease(cu_devices[setIdx]);
+        if (res != CUDA_SUCCESS) {
+            const char* errorName = nullptr;
+            const char* errorString = nullptr;
+            cuGetErrorName(res, &errorName);
+            cuGetErrorString(res, &errorString);
+            std::cerr << "[Neon][CudaDriver] cuDevicePrimaryCtxRelease (dev "
+                      << cuda_dev_idx << ") failed: "
+                      << (errorName ? errorName : "?") << " "
+                      << (errorString ? errorString : "?") << std::endl;
+        }
+        cu_contexts[setIdx] = nullptr;
     }
 }
 
@@ -69,7 +123,7 @@ auto CudaDriver::run_kernel(
 {
     [[maybe_unused]] auto& streamSet = backend.streamSet(streamIdx);
     int const              ndevs = backend.getDeviceCount();
-    #pragma omp parallel for num_threads(ndevs)
+#pragma omp parallel for num_threads(ndevs)
     for (int setIdx = 0; setIdx < ndevs; setIdx++) {
         backend.devSet().setActiveDevContext(setIdx);
 
@@ -77,16 +131,18 @@ auto CudaDriver::run_kernel(
         CUstream            driverStream = (CUstream)cuda_stream;
         CUfunction          function = static_cast<CUfunction>(kernelSet[setIdx]);
         auto&               launch_info = launch_params[setIdx];
-        //std::cout << "setIdx " << setIdx << " function " << function << std::endl;
-        // auto const cudaGrid = launch_info.cudaGrid();
-        // auto const cudaBlock = launch_info.cudaBlock();
 
-        // Set the created context as the current context
-        CUresult res = cuCtxSetCurrent(cu_contexts[setIdx]);
-        check_cuda_res(res, "cuCtxSetCurrent");
-        //std::cout << "Current CUDA context ID (handle): " << (cu_contexts[setIdx]) << std::endl;
-        // int64_t pywarp_size = 1;
-        // std::cout << "pywarp_size" << pywarp_size << std::endl;
+        // An empty partition (e.g. an mGrid level with no active blocks) has a
+        // zero-sized grid, which cuLaunchKernel rejects with CUDA_ERROR_INVALID_VALUE.
+        auto const launch_grid = launch_info.cudaGrid();
+        if (launch_grid.x * launch_grid.y * launch_grid.z == 0) {
+            continue;
+        }
+
+        // Push/pop so Neon does not leave the primary context current on the
+        // calling thread after the launch (OpenMP may run this on the main thread).
+        CtxPushGuard ctx_guard(cu_contexts[setIdx]);
+
         // should match warp's launch_bounds_t<1> (types.py / builtin.h)
         struct launch_bounds_t
         {
@@ -94,43 +150,19 @@ auto CudaDriver::run_kernel(
             size_t size;        // total number of threads
             size_t coord_mult;  // threads sharing each coord tuple
         };
-        auto cuda_block = launch_info.cudaBlock();
-        auto cuda_grid = launch_info.cudaGrid();
-        int const       n = cuda_block.x * cuda_grid.x;
+        auto      cuda_block = launch_info.cudaBlock();
+        auto      cuda_grid = launch_info.cudaGrid();
+        int const n = cuda_block.x * cuda_grid.x;
 
-        // static_cast<size_t>(blockDim.x) * static_cast<size_t>(blockIdx.x) + static_cast<size_t>(threadIdx.x);
         launch_bounds_t bounds{};
         bounds.shape[0] = n;
-        //std::cout << "launch_info.domainGrid().rMul() " << launch_info.domainGrid().rMul() << std::endl;
         bounds.size = n;
         bounds.coord_mult = 1;
-
 
         std::vector<void*> args;
         args.push_back(&bounds);
 
-        // [[maybe_unused]] auto        devset = backend.devSet();
-        // [[maybe_unused]] auto const& gpuDev = devset.gpuDev(setIdx);
-        // [[maybe_unused]] auto        kinfo = launch_params.operator[](setIdx);
-        // try {
-        //     gpuDev.kernel.cudaLaunchKernel<Neon::run_et::sync>(streamSet[setIdx], kinfo, function, args.data());
-        // } catch (...) {
-        //
-        // }
-        // int block_dim = 256;
-        // int grid_dim = (n + block_dim - 1) / block_dim;
-        // std::cout << "block_dim " << launch_info.domainGrid() << std::endl;
-        // // std::cout << "grid_dim " << launch_info << std::endl;
-        // std::cout << "n  " << n << std::endl;
-        // std::cout << "cuLaunchKernel" << std::endl;
-        // int         deviceId;
-        // cudaError_t status = cudaGetDevice(&deviceId);
-        // if (status != cudaSuccess) {
-        //     std::cerr << "Failed to get current device ID: " << cudaGetErrorString(status) << std::endl;
-        // }
-
-        //std::cout << "Current CUDA device ID: " << deviceId << std::endl;
-        res = cuLaunchKernel(
+        CUresult res = cuLaunchKernel(
             function,
             launch_info.cudaGrid().x,
             launch_info.cudaGrid().y,
@@ -144,8 +176,6 @@ auto CudaDriver::run_kernel(
             0);
 
         check_cuda_res(res, "cuLaunchKernel");
-        //cuCtxSynchronize();
-
     }
 }
 
