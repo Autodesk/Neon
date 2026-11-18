@@ -41,6 +41,7 @@ device_count() noexcept -> int;
 #include <carbon/qcriterion.h>
 #include <carbon/reduce.h>
 #include <carbon/reduce_dist.h>
+#include <carbon/region_mask.h>
 #include <carbon/render.h>
 #include <carbon/skeleton.h>
 #include <carbon/stencil.h>

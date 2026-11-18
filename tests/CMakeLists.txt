@@ -150,6 +150,7 @@ carbon_add_unit_test(memory_side)
 # code (std::thread, no device), so it stays on the cpu lane.
 carbon_add_unit_test(atomic_host)
 carbon_add_unit_test(stencil)
+carbon_add_unit_test(region_mask)
 carbon_add_unit_test(system_default_stream)
 carbon_add_unit_test(transfer)
 carbon_add_unit_test(halo_coalesce)

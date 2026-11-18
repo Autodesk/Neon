@@ -292,6 +292,7 @@ add_library(carbon SHARED
   src/logging.cpp
   src/memory_side.cpp
   src/process_grid.cpp
+  src/region_mask.cpp
   src/report.cpp
   src/skeleton.cpp
   src/stencil.cpp
@@ -424,6 +425,7 @@ elseif(CARBON_BACKEND STREQUAL "Sycl")
     src/logging.cpp
     src/memory_side.cpp
     src/process_grid.cpp
+    src/region_mask.cpp
     src/report.cpp
     src/skeleton.cpp
     src/stencil.cpp

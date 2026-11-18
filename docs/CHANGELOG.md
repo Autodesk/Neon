@@ -6245,3 +6245,13 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   (`cannot convert AccessMode to ResourceKind`). The default build has Python off, which is
   why nothing caught it. Both sites now pass `ResourceKind::Field` explicitly, matching
   `append_mgrid_token`.
+- **2026-11 — `RegionMask`: a 256-bit user-defined sub-domain label set.** Groundwork for
+  finer-than-field skeleton dependencies. The user maps each bit to a cell set of the domain;
+  Carbon never sees the geometry and only relies on the contract that bits are atoms
+  (pairwise disjoint cell sets), so masks that do not intersect name disjoint cells. All ones
+  means "the whole field"; default construction is the empty mask, like `std::bitset`.
+  Storage is a plain `uint64_t[4]` (not `std::array`) so the type stays usable from CUDA / HIP /
+  SYCL device code; `test(uint8_t)` / `from_label(uint8_t)` support the recommended per-cell
+  `uint8_t` label idiom (256 bits is exactly the `uint8_t` range). Index-taking factories
+  (`bit`, `range`, `{bits}`) are host-only and throw `std::out_of_range` instead of silently
+  wrapping. `to_string` renders `all` / `none` / `{0,3,5-9}` for diagnostics.
