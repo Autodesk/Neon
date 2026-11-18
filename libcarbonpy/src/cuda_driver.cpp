@@ -957,7 +957,12 @@ append_dense_token(DenseContainer* container,
     return -1;
   }
   auto push = [&](auto* field) -> int {
-    carbon::AccessToken token{field->gpu_buffers().get_uid(), mode, pattern, field->name(), {}};
+    carbon::AccessToken token{field->gpu_buffers().get_uid(),
+                              carbon::ResourceKind::Field,
+                              mode,
+                              pattern,
+                              field->name(),
+                              {}};
     if (pattern == carbon::AccessPattern::Stencil &&
         (mode == carbon::AccessMode::Read || mode == carbon::AccessMode::ReadWrite)) {
       using FieldT = std::decay_t<decltype(*field)>;
@@ -988,7 +993,12 @@ append_block_token(BlockContainer* container,
     return -1;
   }
   auto push = [&](auto* field) -> int {
-    carbon::AccessToken token{field->gpu_buffers().get_uid(), mode, pattern, field->name(), {}};
+    carbon::AccessToken token{field->gpu_buffers().get_uid(),
+                              carbon::ResourceKind::Field,
+                              mode,
+                              pattern,
+                              field->name(),
+                              {}};
     if (pattern == carbon::AccessPattern::Stencil &&
         (mode == carbon::AccessMode::Read || mode == carbon::AccessMode::ReadWrite)) {
       using FieldT = std::decay_t<decltype(*field)>;

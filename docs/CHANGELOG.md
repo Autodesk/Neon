@@ -6238,3 +6238,10 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `System::stream()` per call (the old reference raced the inline D-to-H copy on SYCL OpenMP).
   Verified with `test_skeleton_reduce_split`, `test_reduce_sum`, and `test_reduce_ops` on SYCL
   OpenMP, and with `test_skeleton_reduce_split` on CUDA.
+- **2026-11 — `CARBON_ENABLE_PYTHON=ON` builds again.** `append_dense_token` and
+  `append_block_token` in `libcarbonpy/src/cuda_driver.cpp` still built `AccessToken`
+  positionally as `{uid, mode, pattern, name, {}}` after `ResourceKind resource` became the
+  second member, so `mode` landed in the `resource` slot and `carbonpy` failed to compile
+  (`cannot convert AccessMode to ResourceKind`). The default build has Python off, which is
+  why nothing caught it. Both sites now pass `ResourceKind::Field` explicitly, matching
+  `append_mgrid_token`.
