@@ -109,3 +109,74 @@ number, stream, view) so rows cross-reference the launch matrix.
 `prefix_ab_matrix.dot` / `prefix_ba_matrix.dot` and the kernel lists
 `prefix_ab_kernels.dot` / `prefix_ba_kernels.dot`. See
 `tests/test_skeleton_launch_order.cu`.
+
+## Region masks (sub-field dependencies)
+
+By default an access covers its whole field, so two kernels that write the same field
+are always ordered. A `RegionMask` (`<carbon/region_mask.h>`, 256 bits) narrows a Map
+access to a user-defined part of the domain; two accesses then conflict only when they
+share a field, their modes conflict, **and** their masks intersect. Disjoint writers of
+one field get no edge and may land on different streams.
+
+```cpp
+const RegionMask kInterior = RegionMask::from_label(0);
+const RegionMask kBoundary = ~kInterior;            // full partition: "every other cell"
+
+auto bc = carbon::Kernel::compute(dense, [&](carbon::KernelLoader& L) {
+  L.region(kBoundary);                              // every Map access below is masked
+  const auto lab = L.read(labels, RegionMask::all()); // read before the filter: everywhere
+  const auto out = L.write(u);
+  return [lab, out] CARBON_HD(Span s, Idx idx) {
+    if (lab.read(s, idx, 0) == 0) { return; }       // the kernel filters itself
+    out.write(s, idx, 0, /* Dirichlet value */ 0.0F);
+  };
+}, "bc");
+```
+
+Contract (Carbon trusts the declaration; a false one is a silent data race):
+
+- **Bits are atoms.** You decide what each bit means; Carbon only assumes different bits
+  are disjoint cell sets. Make them a full partition (e.g. one `uint8_t` label per cell,
+  `from_label(label)`), so `~M` really is the rest of the domain.
+- **Masks only declare.** They do not change the launch: the kernel still iterates its
+  whole `DataView` and must skip cells outside its mask. The effective iteration set is
+  the `DataView` band (Carbon-owned Internal / Boundary geometry) intersected with the
+  cells the body accepts (your labels) — the two concepts are independent.
+- **A mask covers every cell the access touches**, including reads made before the
+  filter (declare those `RegionMask::all()`, as with `labels` above) and reads of other
+  cells through the same view (Map must really be cell-local).
+- **Stencil reads, halos and scalar readbacks are always whole-field.** A stencil reader
+  — and the auto-halo in front of it — still waits on every masked writer of the field.
+- **Same masks on every GPU and rank, fixed at kernel construction.** Under MPI the first
+  `run()` of a pipeline with halos or reductions compares a hash of the pipeline shape
+  (including masks) across ranks and throws `std::logic_error` on mismatch instead of
+  letting NCCL deadlock.
+- **An empty mask conflicts with nothing** and warns once per kernel at compile time.
+
+API: `KernelLoader::region(M)` sets the default mask for every Map access of the kernel
+(whichever order it is called in; `L.region()` reads it back, also in the launch phase),
+and `read(f, M)` / `write(f, M)` / `read_write(f, M)` / `L(f, M)` pin one access.
+`Skeleton::Options::ignore_region_masks` — or `CARBON_IGNORE_REGION_MASKS=1` at run time
+— makes every access whole-field again, giving exactly the pre-region-mask schedule for A/B
+debugging; `Skeleton::region_masks_honoured()` reports the effective setting.
+
+Inspection: `export_kernel_list_dot()` adds a `region {…}` note under each masked access
+chip, `export_dot()` tooltips list each masked token's region, and both option lines show
+`region_masks=ignored` when masks are off. Unmasked pipelines render exactly as before.
+
+Costs to keep in mind (numbers from `benchmarks/skeleton_region_mask`, see
+`benchmarks/README.md`):
+
+- Every masked kernel still sweeps the whole grid, so concurrency pays off when the device
+  has idle time (halo-bound multi-GPU, small grids): −12 … −16 % per iteration there,
+  within noise once the device is saturated.
+- Each extra stream costs roughly 1.5–3 µs of host time per iteration (events and
+  fork/join). Many tiny disjoint kernels can be slower than the whole-field schedule; cap
+  with `Options::max_streams` (2 was best for 16 boundary kernels).
+- CUDA graph capture only covers single-stream schedules; with `use_cuda_graph` a masked
+  multi-stream schedule falls back to eager launches (logged at compile).
+  `max_streams = 1` keeps it capturable.
+
+`examples/region_mask_bc.cu` is the end-to-end walk-through (interior stencil + Dirichlet
+boundary kernel, 3 streams vs 1, bit-identical check, `--dot` for both DOT views);
+`tests/test_skeleton_region_mask.cu` pins the semantics.

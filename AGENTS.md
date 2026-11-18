@@ -488,7 +488,15 @@ how a feature behaves at the edges, grep the changelog for the section name
   { None, Standard, Extended, TwoWayExtended }` opts in to the OCC
   rewrite — auto-halo insertion + Internal/Boundary split + halo-stream
   isolation. Single-stream fast path is preserved bit-for-bit. Catches
-  "halo missing before stencil" at compile time. Examples:
+  "halo missing before stencil" at compile time. **Region masks**:
+  `AccessToken::mask` (256-bit `RegionMask`, default all-ones) narrows a
+  Map access to user-defined label atoms via `KernelLoader::region(M)` or
+  `read/write/read_write(f, M)`; disjoint masks drop the edge, stencil /
+  halo / scalar tokens stay whole-field, masks are declaration-only (the
+  kernel filters itself), `Options::ignore_region_masks` /
+  `CARBON_IGNORE_REGION_MASKS=1` restore the whole-field schedule, and MPI
+  runs check masks are rank-invariant (`docs/skeleton/README.md`,
+  `examples/region_mask_bc.cu`). Examples:
   `examples/jacobi_unified.cu` (Dense / DenseDisg / Block from one
   source file, runtime grid + transport + overlap selection);
   `examples/checkpoint_dense.cu` and `examples/checkpoint_sphere_image.cu`

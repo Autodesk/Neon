@@ -6279,7 +6279,7 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `export_launch_order` is unchanged.
 - **2026-11 — Region-mask example and benchmark.** `examples/region_mask_bc.cu` splits the
   `jacobi_unified` heat problem into an interior stencil kernel and a Dirichlet boundary
-  kernel on a `uint8`-style label partition (`from_label(0)` / `~from_label(0)`), shows the
+  kernel on a per-cell label partition (`from_label(0)` / `~from_label(0)`), shows the
   3-stream masked schedule next to the 1-stream whole-field one, checks they are
   bit-identical, and writes both DOT views with `--dot`. `benchmarks/skeleton_region_mask`
   (interior stencil + `K` disjoint boundary kernels) measured on 2× RTX A4000: −16 % /
@@ -6289,3 +6289,9 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   is slower than the whole-field schedule, `max_streams=2` restores parity. Single-stream
   CUDA graph capture matches or beats eager multi-stream at small sizes; that is the
   trigger for the multi-stream capture follow-up, not a regression.
+- **2026-11 — Region-mask documentation.** `docs/skeleton/README.md` gains a "Region masks"
+  section (contract, `DataView` vs `RegionMask`, API, exporter annotations, measured costs
+  and the `max_streams` / CUDA-graph guidance); the `AGENTS.md` Skeleton entry lists the
+  feature. Known gaps, deliberately deferred: no warning yet when `region(M)` ends up on
+  stencil-only kernels (no effect), stencil footprints are not dilatable, masked kernels
+  still launch over the whole grid, and Python/Warp tokens stay all-ones.
