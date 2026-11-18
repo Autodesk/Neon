@@ -6303,3 +6303,16 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `cuda-mpi` container (28/28 distributed tests). On hosts whose PCIe peer DMA is unusable
   (carbon already leaves it off there) NCCL's own P2P transport hangs; run the distributed
   suite with `NCCL_P2P_DISABLE=1`.
+- **2026-11 — `Halo` drains its intra-node copies before any GPU writes again.** Each peer
+  copy is enqueued on the *destination* GPU's stream but reads the *source* GPU's owned
+  cells, and the only cross-GPU ordering was the leading producer fence. The old comment
+  claimed the next halo's leading fence covered the copy-vs-overwrite WAR; that holds only
+  when a second halo sits between the copy and the source GPU's next write (two-field
+  ping-pong). A pipeline with one halo per iteration (a field rewritten in place, e.g. an
+  interior writer followed by a stencil of the same field) let gpu0 overwrite its top layers
+  while gpu1 was still copying them. `test_skeleton_region_mask` exposed it: masks shorten
+  the source GPU's critical path, and with a second process loading both GPUs it failed
+  23–25/50 runs (always at gpu0's top owned layers), 0/100 idle. `Halo::operator()` now
+  records a second per-GPU event group (`drain_event_`, allocated only for
+  multi-local-GPU layouts, like `fence_event_`) after `intra_` and fan-in-waits on it.
+  Under the same load: 0/50 with the fix, 25/50 with it reverted.
