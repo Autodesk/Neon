@@ -78,24 +78,10 @@ function(carbon_add_cuda_unit_test name)
       HIP_STANDARD 20
       HIP_STANDARD_REQUIRED ON)
   elseif(CARBON_BACKEND STREQUAL "Sycl")
-    # acpp / clang sniff the .cu extension regardless of CMake's LANGUAGE CXX setting and
-    # turn on offload modes that need a libomptarget-nvptx-sm_80.bc bitcode library we
-    # don't ship. The simplest workaround is to copy the source to a .cpp twin in the
-    # build tree before compilation; configure_file with COPYONLY does that and re-runs
-    # whenever the .cu changes (so an edit doesn't need a fresh configure). Nothing in
-    # the test source itself is .cu-specific (no <<<>>>, no __global__) — the .cu
-    # extension is only there to make CMake route through nvcc on the CUDA build.
-    set(_src "${CMAKE_CURRENT_BINARY_DIR}/${target}.cpp")
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/${target}.cu" "${_src}" COPYONLY)
-    add_executable(${target} "${_src}")
+    # .cu -> .cpp twin; see cmake/CarbonSyclMirror.cmake.
+    carbon_add_sycl_mirrored_executable(${target} ${target}.cu)
     target_link_libraries(${target} PRIVATE carbon::carbon)
-    target_compile_features(${target} PRIVATE cxx_std_20)
     set_target_properties(${target} PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}")
-    add_sycl_to_target(TARGET ${target} SOURCES "${_src}")
-    if(CARBON_SYCL_TARGETS MATCHES "cuda")
-      target_compile_options(${target} PRIVATE --cuda-path=${CARBON_SYCL_CUDA_PATH})
-      target_link_directories(${target} PRIVATE ${CARBON_SYCL_CUDA_PATH}/lib64)
-    endif()
   endif()
   add_test(NAME carbon_${name} COMMAND ${target})
   # Compute tests in this list grab every visible CUDA device through
@@ -417,18 +403,10 @@ if(CARBON_ENABLE_MPI AND MPI_FOUND)
         HIP_STANDARD 20
         HIP_STANDARD_REQUIRED ON)
     elseif(CARBON_BACKEND STREQUAL "Sycl")
-      set(_src "${CMAKE_CURRENT_BINARY_DIR}/${target}.cpp")
-      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/${target}.cu" "${_src}" COPYONLY)
-      add_executable(${target} "${_src}")
+      carbon_add_sycl_mirrored_executable(${target} ${target}.cu)
       target_link_libraries(${target} PRIVATE carbon::carbon)
-      target_compile_features(${target} PRIVATE cxx_std_20)
       set_target_properties(${target} PROPERTIES
         BUILD_RPATH "${CARBON_RUNTIME_SEARCH_DIRS};${CMAKE_BINARY_DIR}")
-      add_sycl_to_target(TARGET ${target} SOURCES "${_src}")
-      if(CARBON_SYCL_TARGETS MATCHES "cuda")
-        target_compile_options(${target} PRIVATE --cuda-path=${CARBON_SYCL_CUDA_PATH})
-        target_link_directories(${target} PRIVATE ${CARBON_SYCL_CUDA_PATH}/lib64)
-      endif()
     endif()
     if(TARGET ${target})
       carbon_test_enable_assertions(${target})

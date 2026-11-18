@@ -28,16 +28,8 @@ function(_carbon_example_add target source_cu)
       HIP_STANDARD 20
       HIP_STANDARD_REQUIRED ON)
   elseif(CARBON_BACKEND STREQUAL "Sycl")
-    set(_src "${CMAKE_CURRENT_BINARY_DIR}/${target}.cpp")
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/${source_cu}" "${_src}" COPYONLY)
-    add_executable(${target} "${_src}")
-    target_compile_features(${target} PRIVATE cxx_std_20)
+    carbon_add_sycl_mirrored_executable(${target} ${source_cu})
     set_target_properties(${target} PROPERTIES BUILD_RPATH "${CARBON_RUNTIME_SEARCH_DIRS};${CMAKE_BINARY_DIR}")
-    add_sycl_to_target(TARGET ${target} SOURCES "${_src}")
-    if(CARBON_SYCL_TARGETS MATCHES "cuda")
-      target_compile_options(${target} PRIVATE --cuda-path=${CARBON_SYCL_CUDA_PATH})
-      target_link_directories(${target} PRIVATE ${CARBON_SYCL_CUDA_PATH}/lib64)
-    endif()
   endif()
 endfunction()
 
@@ -148,11 +140,15 @@ _carbon_example_link_viewer(carbon_example_render_wind_tunnel)
 target_include_directories(carbon_example_render_wind_tunnel
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
 
-_carbon_example_add(carbon_example_render_wind_tunnel_live render_wind_tunnel_live.cu)
-target_link_libraries(carbon_example_render_wind_tunnel_live PRIVATE carbon::carbon)
-_carbon_example_link_viewer(carbon_example_render_wind_tunnel_live)
-target_include_directories(carbon_example_render_wind_tunnel_live
-  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
+# The live variant's ImGui panels are not behind CARBON_HAVE_VIEWER, so it only builds
+# with the viewer.
+if(CARBON_BUILD_VIEWER)
+  _carbon_example_add(carbon_example_render_wind_tunnel_live render_wind_tunnel_live.cu)
+  target_link_libraries(carbon_example_render_wind_tunnel_live PRIVATE carbon::carbon)
+  _carbon_example_link_viewer(carbon_example_render_wind_tunnel_live)
+  target_include_directories(carbon_example_render_wind_tunnel_live
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
+endif()
 
 # Distributed 6-neighbour stencil + axpy with a CLI-selected slab | pencil | brick decomposition.
 # Self-verifying (global sums vs. a serial host reference). With the SYCL backend, an omp-only

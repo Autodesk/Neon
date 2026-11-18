@@ -6316,3 +6316,15 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   records a second per-GPU event group (`drain_event_`, allocated only for
   multi-local-GPU layouts, like `fence_event_`) after `intra_` and fan-in-waits on it.
   Under the same load: 0/50 with the fix, 25/50 with it reverted.
+- **2026-11 — SYCL build drift: every target compiles again.** Under `CARBON_BACKEND=Sycl` each
+  dual-backend `.cu` is copied to a `.cpp` twin in the build tree (acpp sniffs `.cu`), so quoted
+  includes of headers next to the source (`test_domain.h`, `wind_tunnel_common.h`) stopped
+  resolving once tests started using them: 12 tests and one example failed to compile, which
+  nothing caught because no CI lane builds SYCL with GPU targets. The four copies of the mirror
+  logic (unit tests, MPI tests, examples, benchmarks) are now one
+  `carbon_add_sycl_mirrored_executable` (`cmake/CarbonSyclMirror.cmake`) that also puts the
+  source directory on the target's include path. Two drifts that broke the CUDA build too:
+  `examples/wind_tunnel_common.h` used `LbmParameters` without its new `Real` argument, and
+  `render_wind_tunnel_live` (ImGui panels outside `CARBON_HAVE_VIEWER`) is now registered only
+  with `CARBON_BUILD_VIEWER=ON`. SYCL on 2× A4000: 106 tests build, 101 pass; the rest are the
+  multi-GPU reduce and reduce-option gaps tracked next.

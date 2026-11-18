@@ -243,6 +243,7 @@ include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CarbonSpdlog)
 include(CarbonRapidjson)
+include(CarbonSyclMirror)
 
 set(CARBON_VERSION_STRING "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 
