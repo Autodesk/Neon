@@ -36,8 +36,9 @@
  *    @c gpu_partial(view, g) . The loading lambda may also perform stencil reads and field
  *    writes in the same launch (fused map/stencil + reduce). Backed by CUB/hipcub
  *    (CUDA/HIP) or @c sycl::reduction (SYCL). With @ref ReduceFinalize::BlockAtomic , each
- *    CUDA/HIP block @c atomicAdd s into the per-GPU scalar and stage-1.5 @c DeviceReduce is
- *    skipped (floating-point sums may differ run-to-run vs the default path).
+ *    CUDA/HIP block (SYCL work-group) atomically adds into the per-GPU scalar and stage-1.5
+ *    @c DeviceReduce is skipped (floating-point sums may differ run-to-run vs the default
+ *    path).
  * 2. @b Stage-2 (intra-process combine). Per-GPU partials are peer-copied into the
  *    rank-local root GPU's per-view stage-2 staging buffer and combined via the user's
  *    @c Op into @c device_data(view) . Skipped when @c gpu_count == 1 (the per-GPU
@@ -193,11 +194,11 @@ enum class ReduceFinalize : unsigned char {
   /** Block partials array + @c cub::DeviceReduce::Reduce (default). */
   DeviceReduce = 0,
   /**
-   * Each CUDA/HIP block @c atomicAdd s its block sum into the per-GPU output scalar
-   * (NVIDIA @c jacobi_kernel style). Skips @c DeviceReduce on the partials buffer.
-   * Only supported with @ref Sum and @c T in @c {float, double, int32_t, int64_t} on
-   * plain @c Dense CUDA/HIP grids. Floating-point sums are not bitwise-deterministic across
-   * launches (atomic add order varies).
+   * Each CUDA/HIP block (SYCL work-group) atomically adds its block sum into the per-GPU
+   * output scalar (NVIDIA @c jacobi_kernel style). Skips @c DeviceReduce on the partials
+   * buffer. Only supported with @ref Sum and @c T in @c {float, double, int32_t, int64_t} on
+   * plain @c Dense / @c DenseDistributed grids. Floating-point sums are not
+   * bitwise-deterministic across launches (atomic add order varies).
    */
   BlockAtomic = 1,
 };

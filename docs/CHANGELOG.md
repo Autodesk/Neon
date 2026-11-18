@@ -6357,3 +6357,14 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   (recording writes into the shared `sycl::event` instead of `const_cast`-replacing the
   `Event`), and the commented-out experiments are gone. 0/50 for both scalar-pattern tests,
   `skeleton_reduce` and `reduce_scalar_ring` (2 GPUs, 2-slot ring with lag 1 included).
+- **2026-11 — SYCL: `ReduceFinalize::BlockAtomic` implemented.** It threw on SYCL
+  (`reduce_atomic` aborted). New `detail/backend/sycl/block_atomic_reduce.h`: an `nd_range`
+  launch (256-wide groups) where each work-group sums its cells with
+  `sycl::reduce_over_group(…, sycl::plus<T>())` and adds the group sum into the per-GPU scalar
+  with one device-scope `atomic_ref` add, after a `memset` on the same in-order queue. Same
+  admissible set as CUDA (Sum; float/double/int32/int64; plain Dense and DenseDistributed; the
+  constructor still rejects DenseDisg and Block), wired through a `sycl_block_atomic` entry on
+  `ReduceLaunchTraits`. `reduce_atomic` (BlockAtomic vs DeviceReduce for int64/float/double on
+  2 GPUs) 30/30. The carbon-owned rewrite of the `sycl::reduction` reducers that was planned
+  alongside this is dropped: `test_reduce_partials_multi_gpu` showed every per-GPU partial
+  `sycl::reduction` produced was exact, the lost share was the cross-device copy above.
