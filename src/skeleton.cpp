@@ -198,8 +198,12 @@ overlap_mode_label(carbon::OverlapMode mode) -> std::string_view {
 
 // Compact Options line for DOT titles (launch matrix / kernel list).
 [[nodiscard]] auto
-skeleton_options_summary(const carbon::Skeleton::Options& opts) -> std::string {
+skeleton_options_summary(const carbon::Skeleton::Options& opts,
+                         bool region_masks_honoured) -> std::string {
   std::string out = "overlap=" + std::string{overlap_mode_label(opts.overlap_mode)};
+  if (!region_masks_honoured) {
+    out += " &#183; region_masks=ignored";
+  }
   if (opts.halo_stream_priority == carbon::StreamPriority::High) {
     out += " &#183; halo_priority=high";
   }
@@ -1928,7 +1932,8 @@ Skeleton::export_launch_matrix_dot(std::string graph_name) -> std::string {
      << "\">   launch matrix &#183; " << num_streams << " stream" << (num_streams == 1U ? "" : "s")
      << " &#183; " << ops.size() << " ops in run() order</FONT></TD></TR>"
      << "<TR><TD COLSPAN=\"16\" ALIGN=\"LEFT\">"
-     << font(10, kMuted, skeleton_options_summary(options_)) << "</TD></TR><TR>";
+     << font(10, kMuted, skeleton_options_summary(options_, region_masks_honoured_))
+     << "</TD></TR><TR>";
   swatch(kHaloPal, "rounded", "halo");
   swatch(kInternalPal, "rounded", "internal");
   swatch(kBoundaryPal, "rounded", "boundary");
@@ -2134,6 +2139,8 @@ Skeleton::export_kernel_list_dot(std::string graph_name) -> std::string {
     bool read{false};
     bool write{false};
     bool stencil{false};
+    RegionMask read_mask{};
+    RegionMask write_mask{};
   };
   std::vector<Resource> resources;
   std::unordered_map<std::uint64_t, size_t> resource_col;
@@ -2145,8 +2152,14 @@ Skeleton::export_kernel_list_dot(std::string graph_name) -> std::string {
         resources.push_back({t.field_uid, t.resource});
       }
       Access& a = access[i][it->second];
-      a.read = a.read || t.mode != AccessMode::Write;
-      a.write = a.write || t.mode != AccessMode::Read;
+      if (t.mode != AccessMode::Write) {
+        a.read = true;
+        a.read_mask |= t.mask;
+      }
+      if (t.mode != AccessMode::Read) {
+        a.write = true;
+        a.write_mask |= t.mask;
+      }
       a.stencil = a.stencil || t.pattern == AccessPattern::Stencil;
     }
   }
@@ -2236,6 +2249,22 @@ Skeleton::export_kernel_list_dot(std::string graph_name) -> std::string {
     body += "  " + font(7, a.write ? "#f8c471" : kStencilColor, "<B>stencil</B>");
     return html_box({p.fill, kStencilColor}, "rounded", 70, 18, body);
   };
+  // Empty when the access covers the whole field (or masks are ignored), so unmasked
+  // pipelines render exactly as before.
+  auto region_note = [&](const Access& a) -> std::string {
+    const bool read_all = !a.read || a.read_mask.is_all();
+    const bool write_all = !a.write || a.write_mask.is_all();
+    if (!region_masks_honoured_ || (read_all && write_all)) {
+      return {};
+    }
+    if (!a.write || (a.read && a.read_mask == a.write_mask)) {
+      return "region " + to_string(a.read_mask);
+    }
+    if (!a.read) {
+      return "region " + to_string(a.write_mask);
+    }
+    return "R " + to_string(a.read_mask) + " &#183; W " + to_string(a.write_mask);
+  };
   auto kernel_id = [](size_t i) {
     return "K" + std::to_string(i + 1U);
   };
@@ -2266,7 +2295,8 @@ Skeleton::export_kernel_list_dot(std::string graph_name) -> std::string {
                  " &#183; add order")
      << "</TD></TR>"
      << "<TR><TD COLSPAN=\"" << legend_cols << "\" ALIGN=\"LEFT\">"
-     << font(10, kMuted, skeleton_options_summary(options_)) << "</TD></TR><TR>";
+     << font(10, kMuted, skeleton_options_summary(options_, region_masks_honoured_))
+     << "</TD></TR><TR>";
   os << legend_swatch(kStandardPal, "rounded", "compute");
   os << legend_swatch(kReductionPal, "rounded", "reduction");
   os << legend_swatch(kHaloPal, "rounded", "halo");
@@ -2315,6 +2345,11 @@ Skeleton::export_kernel_list_dot(std::string graph_name) -> std::string {
       std::string inner;
       if (it != access[i].end()) {
         inner = access_chip(it->second);
+        const std::string note = region_note(it->second);
+        if (!note.empty()) {
+          inner = "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"0\"><TR><TD>" + inner +
+                  "</TD></TR><TR><TD>" + font(7, kMuted, note) + "</TD></TR></TABLE>";
+        }
       }
       os << cell(bg, kResourceW, inner);
     }
@@ -2516,6 +2551,9 @@ Skeleton::export_dot(std::string graph_name) -> std::string {
             os << ", ";
           }
           os << escape(field_label(tokens[i])) << ":" << fmt_mode(tokens[i].mode);
+          if (region_masks_honoured_ && !tokens[i].mask.is_all()) {
+            os << " region " << escape(to_string(tokens[i].mask));
+          }
         }
         os << "\"";
       }

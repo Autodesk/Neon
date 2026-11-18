@@ -647,6 +647,27 @@ subtest_ignore_and_determinism(carbon::System& sys,
   if (sk_a.export_launch_order() == order_unmasked) {
     return fail("masked schedule should differ from the unmasked one");
   }
+
+  // Exporters annotate non-all masks only, and say when masks are ignored.
+  auto has = [](const std::string& text, const char* needle) {
+    return text.find(needle) != std::string::npos;
+  };
+  const std::string list_masked = sk_a.export_kernel_list_dot("masked");
+  const std::string list_unmasked = sk_unmasked.export_kernel_list_dot("unmasked");
+  const std::string list_ignored = sk_ignored.export_kernel_list_dot("ignored");
+  if (!has(list_masked, "region {1-2}") || !has(list_masked, "region {0}")) {
+    return fail("export_kernel_list_dot: missing region annotations:\n" + list_masked);
+  }
+  if (has(list_unmasked, "region {") || has(list_unmasked, "region_masks=ignored")) {
+    return fail("export_kernel_list_dot: unmasked pipeline must render without annotations");
+  }
+  if (has(list_ignored, "region {") || !has(list_ignored, "region_masks=ignored")) {
+    return fail("export_kernel_list_dot: ignored masks must be reported, not annotated");
+  }
+  const std::string dot_masked = sk_a.export_dot("masked");
+  if (!has(dot_masked, "region {0}") || has(sk_unmasked.export_dot("unmasked"), "region {")) {
+    return fail("export_dot: tooltips must carry non-all masks only");
+  }
   return true;
 }
 

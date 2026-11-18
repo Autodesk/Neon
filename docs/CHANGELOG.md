@@ -6271,3 +6271,9 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   pipeline shape (including masks) across ranks via the new `Distributed::all_ranks_equal`
   and throws on mismatch instead of deadlocking in NCCL. Covered by
   `tests/test_skeleton_region_mask.cu`.
+- **2026-11 — Region masks in the Skeleton exporters.** `export_kernel_list_dot` adds a
+  `region {…}` note under each access chip whose mask is not all-ones (separate `R` / `W`
+  masks when they differ), `export_dot` node tooltips append each masked token's region, and
+  both option lines say `region_masks=ignored` when `Options::ignore_region_masks` or
+  `CARBON_IGNORE_REGION_MASKS` is in effect. Unmasked pipelines render byte-identically;
+  `export_launch_order` is unchanged.
