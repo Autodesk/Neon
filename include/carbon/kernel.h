@@ -272,6 +272,78 @@ struct KernelLoader {
   }
 
   /**
+   * @brief Declare the kernel-wide @ref RegionMask : the sub-domain of cells this kernel
+   *        touches, in the user's own bit-to-region mapping.
+   *
+   * Applies to every @c Map access of the loading lambda that does not pass an explicit
+   * mask, whether recorded before or after this call (the last @c region call wins).
+   * Stencil reads keep @ref RegionMask::all . Two kernels whose accesses to a shared field
+   * have disjoint masks carry no dependency through that field, so the @ref Skeleton may run
+   * them concurrently.
+   *
+   * The mask is a declaration, not a launch restriction: the per-cell body must only touch
+   * cells of @c R(mask) and filter itself (e.g. on a per-cell @c uint8_t label read with an
+   * explicit @c RegionMask::all ). It must not depend on @ref relative_gpu_id or the MPI
+   * rank: tokens are discovered once, and every rank must build the same schedule.
+   *
+   * Stored in every phase, so @c region() returns it inside launch-phase bodies too.
+   */
+  auto
+  region(const RegionMask& mask) const -> void {
+    region_ = mask;
+    if (phase_ == KernelLoaderPhase::Launch) {
+      return;
+    }
+    for (size_t i = 0; i < tokens_.size(); ++i) {
+      if (!explicit_mask_[i]) {
+        tokens_[i].mask = mask;
+      }
+    }
+  }
+
+  /** Kernel-wide @ref RegionMask declared via @ref region ; @ref RegionMask::all by default. */
+  [[nodiscard]] auto
+  region() const noexcept -> const RegionMask& {
+    return region_;
+  }
+
+  /** @ref operator() restricted to the cells of @p mask (explicit per-access footprint). */
+  template <typename Field>
+  [[nodiscard]] auto
+  operator()(const Field& field,
+             const RegionMask& mask) const {
+    record_token_(field, AccessMode::ReadWrite, AccessPattern::Map, {}, &mask);
+    return lookup_partition_(field);
+  }
+
+  /** @ref read restricted to the cells of @p mask (explicit per-access footprint). */
+  template <typename Field>
+  [[nodiscard]] auto
+  read(const Field& field,
+       const RegionMask& mask) const {
+    record_token_(field, AccessMode::Read, AccessPattern::Map, {}, &mask);
+    return lookup_partition_(field);
+  }
+
+  /** @ref write restricted to the cells of @p mask (explicit per-access footprint). */
+  template <typename Field>
+  [[nodiscard]] auto
+  write(const Field& field,
+        const RegionMask& mask) const {
+    record_token_(field, AccessMode::Write, AccessPattern::Map, {}, &mask);
+    return lookup_partition_(field);
+  }
+
+  /** @ref read_write restricted to the cells of @p mask (explicit per-access footprint). */
+  template <typename Field>
+  [[nodiscard]] auto
+  read_write(const Field& field,
+             const RegionMask& mask) const {
+    record_token_(field, AccessMode::ReadWrite, AccessPattern::Map, {}, &mask);
+    return lookup_partition_(field);
+  }
+
+  /**
    * @brief Stencil read — records @c AccessMode::Read with
    *        @c AccessPattern::Stencil and snapshots a @ref HaloFactoryBase for
    *        the field so the @c Skeleton can auto-insert a halo update before
@@ -368,7 +440,8 @@ private:
   record_token_(const Field& field,
                 AccessMode mode,
                 AccessPattern pattern = AccessPattern::Map,
-                std::shared_ptr<detail::HaloFactoryBase> halo_factory = {}) const -> void {
+                std::shared_ptr<detail::HaloFactoryBase> halo_factory = {},
+                const RegionMask* explicit_mask = nullptr) const -> void {
     // Launch phase: tokens are discovery-only metadata, so skip the push_back
     // (and the field.name() std::string copy it entails) entirely on the hot
     // path. Any halo_factory handed in has already been suppressed by the
@@ -389,6 +462,15 @@ private:
     // a later set_name does not retroactively rewrite already-recorded tokens).
     tokens_.push_back(AccessToken{field.gpu_buffers().get_uid(), ResourceKind::Field, mode, pattern,
                                   field.name(), std::move(halo_factory)});
+    // Stencil reads stay all ones (carbon cannot dilate a user region); only Map tokens
+    // without an explicit mask follow the kernel-wide region, including a later region().
+    const bool pinned = explicit_mask != nullptr || pattern != AccessPattern::Map;
+    if (explicit_mask != nullptr) {
+      tokens_.back().mask = *explicit_mask;
+    } else if (!pinned) {
+      tokens_.back().mask = region_;
+    }
+    explicit_mask_.push_back(pinned);
   }
 
   size_t relative_gpu_id_{};
@@ -399,6 +481,9 @@ private:
   // perspective. The vector is local to each KernelLoader instance, so there is no
   // shared-state concern.
   mutable std::vector<AccessToken> tokens_{};
+  // Parallel to tokens_: true when the token's mask must not follow region().
+  mutable std::vector<bool> explicit_mask_{};
+  mutable RegionMask region_{RegionMask::all()};
 };
 
 /**

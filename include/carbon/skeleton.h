@@ -18,6 +18,12 @@
  *   conflicting pair contributes an edge in the @ref edges adjacency list.
  *   Read-Read pairs on the same field do not conflict, so two kernels reading
  *   the same field can be parallelised.
+ * - **Region masks.** Each token also carries a user-defined @ref RegionMask
+ *   (default all ones). Accesses whose masks do not intersect touch disjoint cells, so a
+ *   kernel on region A and a kernel on region B of the same field carry no edge and can
+ *   land on different streams. Stencil reads, halos and reduction scalars stay all ones.
+ *   @ref Options::ignore_region_masks (or @c CARBON_IGNORE_REGION_MASKS=1 ) restores
+ *   whole-field dependencies for A/B checks.
  * - **Transitive reduction.** After the conflict scan, @ref compile derives
  *   @ref min_edges — the unique minimum DAG covering the same partial order
  *   as @ref edges . An edge @c i→j is kept only when no longer path
@@ -233,6 +239,14 @@ public:
     bool use_cuda_graph;
     /** When @c High, streams carrying @c KernelKind::Halo steps use greatest driver priority. */
     StreamPriority halo_stream_priority{StreamPriority::Normal};
+    /**
+     * Treat every @ref AccessToken::mask as @ref RegionMask::all , i.e. fall back to
+     * whole-field dependencies. Recovers the schedule the pipeline would get without region
+     * masks, so results can be A/B compared to catch a mask that does not match what a
+     * kernel really touches. Also forced on by the environment variable
+     * @c CARBON_IGNORE_REGION_MASKS=1 .
+     */
+    bool ignore_region_masks{false};
 
     constexpr Options() noexcept
         : overlap_mode(OverlapMode::None),
@@ -347,7 +361,8 @@ public:
    *   1. **Conflict scan.** O(N²) pair-conflict scan over @ref effective_kernels
    *      (typical N is 5–20 so cheap); emits directed edge @c i→j whenever
    *      the kernel pair @c (i, j) shares a @c field_uid with conflicting
-   *      modes. Read-Read is the only no-conflict pair.
+   *      modes and intersecting @ref AccessToken::mask footprints. Read-Read is the
+   *      only no-conflict mode pair; disjoint masks never conflict.
    *   2. **Stream assignment.** Greedy walk in topological order: kernel
    *      @c k goes on a stream whose tail is a direct predecessor of @c k
    *      (FIFO ordering covers the dep, no event needed); else on the
@@ -458,6 +473,7 @@ public:
     graph_.reset();
     graph_disabled_ = false;
     captured_view_ = DataView::Standard;
+    rank_consistency_checked_ = false;
     compiled_ = false;
   }
 
@@ -575,6 +591,16 @@ public:
   [[nodiscard]] auto
   options() const noexcept -> const Options& {
     return options_;
+  }
+
+  /**
+   * @brief Whether the last @ref compile honoured @ref AccessToken::mask footprints
+   *        (@c false when @ref Options::ignore_region_masks or
+   *        @c CARBON_IGNORE_REGION_MASKS=1 forced whole-field dependencies).
+   */
+  [[nodiscard]] auto
+  region_masks_honoured() const noexcept -> bool {
+    return region_masks_honoured_;
   }
 
   /**
@@ -849,16 +875,31 @@ private:
   event_annotation_(size_t event_idx) const -> std::string;
 
   /**
-   * @brief Test whether any token in @p a conflicts with any token in @p b on
-   *        the same @c field_uid . Linear scan over both vectors — fine for
-   *        the small per-kernel token counts (1–4) typical of carbon kernels.
+   * @brief Test whether two tokens conflict: same @c field_uid , conflicting modes and —
+   *        unless @p honour_masks is @c false — intersecting @ref AccessToken::mask .
+   */
+  [[nodiscard]] static auto
+  token_conflicts_(const AccessToken& a,
+                   const AccessToken& b,
+                   bool honour_masks) noexcept -> bool {
+    if (honour_masks) {
+      return conflicts(a, b);
+    }
+    return a.field_uid == b.field_uid && conflicts(a.mode, b.mode);
+  }
+
+  /**
+   * @brief Test whether any token in @p a conflicts with any token in @p b (see
+   *        @ref token_conflicts_ ). Linear scan over both vectors — fine for the small
+   *        per-kernel token counts (1–4) typical of carbon kernels.
    */
   [[nodiscard]] static auto
   pair_conflicts_(const std::vector<AccessToken>& a,
-                  const std::vector<AccessToken>& b) noexcept -> bool {
+                  const std::vector<AccessToken>& b,
+                  bool honour_masks) noexcept -> bool {
     for (const AccessToken& ta : a) {
       for (const AccessToken& tb : b) {
-        if (ta.field_uid == tb.field_uid && conflicts(ta.mode, tb.mode)) {
+        if (token_conflicts_(ta, tb, honour_masks)) {
           return true;
         }
       }
@@ -907,6 +948,33 @@ private:
    */
   auto
   compile_validate_no_stencil_writes_() -> void;
+
+  /**
+   * @brief Region-mask checks run before the conflict scan: resolve
+   *        @ref region_masks_honoured_ from @ref Options::ignore_region_masks and
+   *        @c CARBON_IGNORE_REGION_MASKS , and warn once per kernel whose token carries an
+   *        empty @ref RegionMask (sound — it conflicts with nothing — but usually a bug).
+   */
+  auto
+  compile_validate_region_masks_() -> void;
+
+  /**
+   * @brief Under MPI, require every rank to have added the same pipeline shape.
+   *
+   * Hashes the effective kernel list (kinds, token modes / patterns / resources / masks,
+   * fields by first-appearance index — raw uids are process-local addresses) plus the
+   * schedule-shaping options, and compares it across ranks with one collective. A mismatch
+   * (e.g. a rank-dependent @ref RegionMask ) would give ranks different schedules and
+   * therefore a different NCCL issue order, which deadlocks; this turns that into a
+   * @c std::logic_error thrown on every rank.
+   *
+   * Runs from @ref run (once per compile), not from @ref compile : @c compile also runs
+   * lazily from the exporters, which user code may call on one rank only. Skipped without a
+   * @c Distributed handle and for pipelines with no Halo / Reduction kernel, which are the
+   * only ones already collective — a rank-local skeleton never blocks.
+   */
+  auto
+  check_rank_consistency_() const -> void;
 
   /**
    * @brief Phase 0 of @ref compile : build @ref effective_kernels_ +
@@ -1101,6 +1169,10 @@ private:
   // the pipeline.
   std::unordered_map<std::uint64_t, std::string> field_label_overrides_{};
   bool compiled_{false};
+  // Resolved by compile_validate_region_masks_ on every compile().
+  bool region_masks_honoured_{true};
+  // Cleared by compile(); set by the first run() after check_rank_consistency_.
+  bool rank_consistency_checked_{false};
 
   // CUDA/HIP graph capture state (Options::use_cuda_graph). graph_ holds the
   // instantiated executable graph once captured; captured_view_ records the

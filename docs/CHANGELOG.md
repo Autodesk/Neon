@@ -6255,3 +6255,19 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `uint8_t` label idiom (256 bits is exactly the `uint8_t` range). Index-taking factories
   (`bit`, `range`, `{bits}`) are host-only and throw `std::out_of_range` instead of silently
   wrapping. `to_string` renders `all` / `none` / `{0,3,5-9}` for diagnostics.
+- **2026-11 — Sub-field (region-mask) dependencies in the Skeleton.** `AccessToken` gains a
+  trailing `RegionMask mask` (default all-ones, so every existing token, aggregate initialiser
+  and schedule is unchanged), and two accesses now conflict only when they share a field,
+  their modes conflict, *and* their masks intersect. Kernels declare their footprint with
+  `KernelLoader::region(M)` (applies to every Map access, readable in the launch phase) or a
+  per-call override `read(f, M)` / `write(f, M)` / `read_write(f, M)` / `operator()(f, M)`.
+  Masks are declaration-only — the kernel still filters its own cells — and bits are
+  user-defined pairwise-disjoint atoms. Stencil reads, halos and scalar readbacks stay
+  whole-field, so a stencil reader (and its auto-halo) still waits on every masked writer.
+  `Skeleton::Options::ignore_region_masks` / `CARBON_IGNORE_REGION_MASKS=1` restore the
+  whole-field schedule for A/B debugging; an empty mask warns once per kernel; a multi-stream
+  masked schedule with `use_cuda_graph` logs that it falls back to eager launches. Under MPI
+  the first `run()` after a compile of a halo/reduction pipeline compares a hash of the
+  pipeline shape (including masks) across ranks via the new `Distributed::all_ranks_equal`
+  and throws on mismatch instead of deadlocking in NCCL. Covered by
+  `tests/test_skeleton_region_mask.cu`.

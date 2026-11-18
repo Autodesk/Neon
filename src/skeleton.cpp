@@ -24,6 +24,7 @@
 #include <carbon/access_token.h>
 #include <carbon/data_view.h>
 #include <carbon/detail/scalar_readback_factory.h>
+#include <carbon/distributed.h>
 #include <carbon/kernel.h>
 #include <carbon/logging.h>
 #include <carbon/skeleton.h>
@@ -31,6 +32,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -213,6 +215,26 @@ skeleton_options_summary(const carbon::Skeleton::Options& opts) -> std::string {
   return out;
 }
 
+[[nodiscard]] auto
+ignore_region_masks_from_env() -> bool {
+  const char* raw = std::getenv("CARBON_IGNORE_REGION_MASKS");
+  if (raw == nullptr) {
+    return false;
+  }
+  std::string value(raw);
+  for (char& c : value) {
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  }
+  if (value == "1" || value == "on" || value == "yes" || value == "true") {
+    return true;
+  }
+  if (!value.empty() && value != "0" && value != "off" && value != "no" && value != "false") {
+    CARBON_LOG_WARN("Skeleton: unrecognised CARBON_IGNORE_REGION_MASKS value \"{}\"; ignoring it",
+                    raw);
+  }
+  return false;
+}
+
 }  // namespace
 
 namespace carbon::detail {
@@ -315,12 +337,14 @@ Skeleton::compile() -> void {
 
   // Phase pre-0: contract validation (Stencil-pattern WRITEs are illegal).
   compile_validate_no_stencil_writes_();
+  compile_validate_region_masks_();
 
   // Phase 0: auto-halo insertion. Builds effective_kernels_ +
   // effective_to_user_ from kernels_ , inserting an auto-halo ahead of
   // every Stencil-read of a dirty field.
   compile_auto_insert_halos_();
   compile_auto_insert_scalar_readbacks_();
+  rank_consistency_checked_ = false;
 
   copy_stream_idx_ = kNoStream_;
   has_detached_stream_ = false;
@@ -373,6 +397,23 @@ Skeleton::compile() -> void {
 
   compile_prune_syncs_();
 
+  if (options_.use_cuda_graph && region_masks_honoured_ && streams_.size() > 1U) {
+    const bool masked =
+        std::any_of(effective_kernels_.begin(), effective_kernels_.end(), [](const Kernel& k) {
+          const auto& toks = k.impl()->tokens();
+          return std::any_of(toks.begin(), toks.end(), [](const AccessToken& t) {
+            return !t.mask.is_all();
+          });
+        });
+    if (masked) {
+      CARBON_LOG_INFO(
+          "Skeleton::compile: the schedule uses {} streams (region masks expose concurrency), so "
+          "use_cuda_graph falls back to eager launches; set Options::max_streams = 1 to keep a "
+          "capturable single-stream schedule.",
+          streams_.size());
+    }
+  }
+
   compiled_ = true;
 
   // A recompile rebuilds the schedule (and its streams / events / captured
@@ -412,6 +453,84 @@ Skeleton::compile_validate_no_stencil_writes_() -> void {
       }
     }
   }
+}
+
+auto
+Skeleton::compile_validate_region_masks_() -> void {
+  region_masks_honoured_ = !options_.ignore_region_masks && !ignore_region_masks_from_env();
+
+  for (size_t k_idx = 0; k_idx < kernels_.size(); ++k_idx) {
+    const Kernel& k = kernels_[k_idx];
+    for (const AccessToken& t : k.impl()->tokens()) {
+      if (t.mask.empty()) {
+        CARBON_LOG_WARN(
+            "Skeleton::compile: kernel '{}' (index={}) declares an empty RegionMask on field "
+            "'{}' (uid={}); the access conflicts with nothing. Intended only for a kernel that "
+            "touches no cell of that field.",
+            std::string{k.name()}, k_idx,
+            t.field_name.empty() ? std::string{"<anonymous>"} : t.field_name, t.field_uid);
+        break;
+      }
+    }
+  }
+}
+
+auto
+Skeleton::check_rank_consistency_() const -> void {
+#ifdef CARBON_HAVE_MPI_NCCL
+  const Distributed* dist = sys_.distributed();
+  if (dist == nullptr || dist->world_size() <= 1) {
+    return;
+  }
+  // Only pipelines that are collective anyway (halo exchanges, cross-rank reductions) take
+  // part, so a rank-local skeleton never blocks in a collective its peers do not join.
+  const bool collective =
+      std::any_of(effective_kernels_.begin(), effective_kernels_.end(), [](const Kernel& k) {
+        const KernelKind kind = k.kind();
+        return kind == KernelKind::Halo || kind == KernelKind::Reduction ||
+               kind == KernelKind::ReductionHost || kind == KernelKind::UniversalReduction;
+      });
+  if (!collective) {
+    return;
+  }
+  // FNV-1a over the pipeline shape. Field uids are process-local addresses, so each field is
+  // replaced by the index of its first appearance, which still captures which accesses alias.
+  std::uint64_t h = 1469598103934665603ULL;
+  auto mix = [&h](std::uint64_t v) {
+    for (int byte = 0; byte < 8; ++byte) {
+      h ^= (v >> (8 * byte)) & 0xFFU;
+      h *= 1099511628211ULL;
+    }
+  };
+  mix(static_cast<std::uint64_t>(options_.overlap_mode));
+  mix(options_.max_streams);
+  mix(region_masks_honoured_ ? 1U : 0U);
+  mix(effective_kernels_.size());
+  std::unordered_map<std::uint64_t, std::uint64_t> canonical_uid;
+  for (const Kernel& k : effective_kernels_) {
+    mix(static_cast<std::uint64_t>(k.kind()));
+    const auto& toks = k.impl()->tokens();
+    mix(toks.size());
+    for (const AccessToken& t : toks) {
+      const auto [it, inserted] = canonical_uid.try_emplace(t.field_uid, canonical_uid.size());
+      mix(it->second);
+      mix(static_cast<std::uint64_t>(t.resource));
+      mix(static_cast<std::uint64_t>(t.mode));
+      mix(static_cast<std::uint64_t>(t.pattern));
+      for (unsigned w = 0; w < RegionMask::kWords; ++w) {
+        mix(t.mask.word(w));
+      }
+    }
+  }
+  if (!dist->all_ranks_equal(h)) {
+    log::throw_with_log<std::logic_error>(
+        "Skeleton::run: ranks added different pipelines (kernel kinds, access modes, or "
+        "RegionMasks differ; this rank's hash is {:#x}). Every rank must build the same "
+        "schedule or NCCL collectives are issued in different orders and deadlock. Region "
+        "masks must not depend on the rank.",
+        h);
+  }
+#endif
 }
 
 auto
@@ -570,7 +689,7 @@ Skeleton::compile_build_conflict_dag_() -> void {
     const auto& tok_i = effective_kernels_[i].impl()->tokens();
     for (size_t j = i + 1; j < n; ++j) {
       const auto& tok_j = effective_kernels_[j].impl()->tokens();
-      if (pair_conflicts_(tok_i, tok_j)) {
+      if (pair_conflicts_(tok_i, tok_j, region_masks_honoured_)) {
         edges_[i].push_back(j);
       }
     }
@@ -1101,6 +1220,10 @@ Skeleton::compile_step_graph_occ_(const std::vector<std::vector<size_t>>& direct
 auto
 Skeleton::run(DataView view) -> void {
   compile();
+  if (!rank_consistency_checked_) {
+    check_rank_consistency_();
+    rank_consistency_checked_ = true;
+  }
 
   // CUDA/HIP graph fast path: capture the schedule once, replay it thereafter.
   // Only engaged for single-stream / single-GPU schedules on a capture-capable
@@ -2417,7 +2540,7 @@ Skeleton::export_dot(std::string graph_name) -> std::string {
     const Kernel& succ_k = effective_kernels_[schedule_[succ_step].kernel_idx];
     for (const AccessToken& ta : pred_k.impl()->tokens()) {
       for (const AccessToken& tb : succ_k.impl()->tokens()) {
-        if (ta.field_uid == tb.field_uid && conflicts(ta.mode, tb.mode)) {
+        if (token_conflicts_(ta, tb, region_masks_honoured_)) {
           return std::string{field_label(ta)};
         }
       }
