@@ -495,6 +495,9 @@ if(CARBON_ENABLE_MPI AND MPI_FOUND)
   # rewrite path. Anchors cross-rank parity for {Standard, Extended,
   # TwoWayExtended} vs OverlapMode::None on a halo + Jacobi pipeline.
   carbon_add_mpi_cuda_test(skeleton_dist_overlap 2)
+  # Region masks across ranks: masked numerics + launch-order parity, rank-local export,
+  # and a rank-dependent mask turning into std::logic_error instead of an NCCL deadlock.
+  carbon_add_mpi_cuda_test(skeleton_region_mask_dist 2)
   # Closes the DenseDisg half of P1.δ (audit fourth pass): same OCC-MPI
   # parity matrix as skeleton_dist_overlap, but driven through
   # DenseDisg::Field::make_halo_kernel + DenseDisg::make_kernel so apply_occ_

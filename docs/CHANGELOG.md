@@ -6295,3 +6295,11 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   feature. Known gaps, deliberately deferred: no warning yet when `region(M)` ends up on
   stencil-only kernels (no effect), stencil footprints are not dilatable, masked kernels
   still launch over the whole grid, and Python/Warp tokens stay all-ones.
+- **2026-11 — Region masks across MPI ranks.** `tests/test_skeleton_region_mask_dist.cu`
+  (2 ranks, label `distributed`): a masked interior + wall pipeline under `None` and
+  `Standard` is bit-identical to `ignore_region_masks` with equal launch orders on every
+  rank, a rank-local `export_kernel_list_dot` does not block, and a rank-dependent mask
+  makes the first `run()` throw on every rank instead of deadlocking. Validated in the
+  `cuda-mpi` container (28/28 distributed tests). On hosts whose PCIe peer DMA is unusable
+  (carbon already leaves it off there) NCCL's own P2P transport hangs; run the distributed
+  suite with `NCCL_P2P_DISABLE=1`.
