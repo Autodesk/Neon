@@ -6349,3 +6349,11 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `skeleton_region_mask`, `reduce_partials_multi_gpu`, `reduce_sum_multi_gpu`,
   `dense_disg_reduce`, `block_reduce`, `mgrid_skeleton`, `skeleton_reduce`; `mgrid_locator`
   20/20 across fresh containers.
+- **2026-11 — SYCL: `ReduceHostCopy::Deferred` enabled.** It was rejected on SYCL at
+  construction, so `skeleton_scalar_pattern{,_multi_gpu}` threw. Nothing in the deferred path
+  is backend-specific (`ScalarReadbackKernelImpl` is an `async_copy` plus the slot-done event);
+  the missing piece was a trustworthy SYCL slot-done event. `ReductionResult`'s SYCL
+  record/wait now use the same `AdaptiveCpp_enqueue_custom_operation` idiom as `EventGroup`
+  (recording writes into the shared `sycl::event` instead of `const_cast`-replacing the
+  `Event`), and the commented-out experiments are gone. 0/50 for both scalar-pattern tests,
+  `skeleton_reduce` and `reduce_scalar_ring` (2 GPUs, 2-slot ring with lag 1 included).

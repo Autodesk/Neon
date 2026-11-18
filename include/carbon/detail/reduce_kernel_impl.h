@@ -169,12 +169,6 @@ public:
           "Kernel::reduce: ReduceFinalize::BlockAtomic is supported only on the CUDA/HIP backend");
 #endif
     }
-    if (reduce_options_.host_copy == reduce::ReduceHostCopy::Deferred) {
-#if CARBON_BACKEND_IS_SYCL
-      log::throw_with_log<std::invalid_argument>(
-          "Kernel::reduce: ReduceHostCopy::Deferred is supported only on the CUDA/HIP backend");
-#endif
-    }
     if (reduce_options_.stage1_threads != 0U || reduce_options_.stage1_threads_y != 0U) {
       if constexpr (requires { typename Grid::DisgPolicy; }) {
         log::throw_with_log<std::invalid_argument>(
@@ -220,8 +214,7 @@ public:
       total_cells_per_gpu_[g_idx] = Traits::iter_cell_count(grid_, g_idx, DataView::Standard);
       block_count_per_gpu_[g_idx] = Traits::stage1_unit_count(
           grid_, g_idx, DataView::Standard, dense_stage1_threads_, dense_stage1_threads_y_);
-      for (const DataView view :
-           {DataView::Standard, DataView::Internal, DataView::Boundary}) {
+      for (const DataView view : {DataView::Standard, DataView::Internal, DataView::Boundary}) {
         stage1_scratch_blocks_per_gpu_[g_idx] =
             std::max(stage1_scratch_blocks_per_gpu_[g_idx],
                      Traits::stage1_unit_count(grid_, g_idx, view, dense_stage1_threads_,
@@ -618,8 +611,8 @@ public:
 #elif CARBON_BACKEND_IS_SYCL
     if (stream.size() != grid_.gpu_count()) {
       log::throw_with_log<std::invalid_argument>(
-          "Kernel::reduce::launch_merge: stream-group size ({}) != gpu_count ({})",
-          stream.size(), grid_.gpu_count());
+          "Kernel::reduce::launch_merge: stream-group size ({}) != gpu_count ({})", stream.size(),
+          grid_.gpu_count());
     }
     ReductionResult<T>& dst = *dst_;
     (void)dst.begin_launch_slot(DataView::Standard, stream);
@@ -644,13 +637,11 @@ public:
           "Kernel::reduce::launch_merge: SYCL submission failed: {}", ex.what());
     }
 
-    reduce_stages::run_stage3_cross_rank<T, Op>(grid_.system(), stream, dst,
-                                                DataView::Standard);
+    reduce_stages::run_stage3_cross_rank<T, Op>(grid_.system(), stream, dst, DataView::Standard);
     if (reduce_options_.host_copy == reduce::ReduceHostCopy::Inline) {
       const size_t slot = dst.active_slot();
       grid_.system().async_copy(dst.device_allocation(DataView::Standard, slot),
-                                dst.host_allocation(DataView::Standard, slot), sizeof(T),
-                                stream);
+                                dst.host_allocation(DataView::Standard, slot), sizeof(T), stream);
       dst.record_readback_done(DataView::Standard, slot, stream);
       dst.mark_fresh(DataView::Standard);
     }

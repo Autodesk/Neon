@@ -82,12 +82,6 @@ public:
         dst_(&dst),
         shared_mem_(shared_mem),
         reduce_options_(options) {
-    if (reduce_options_.host_copy == reduce::ReduceHostCopy::Deferred) {
-#if CARBON_BACKEND_IS_SYCL
-      log::throw_with_log<std::invalid_argument>(
-          "Kernel::reduce: ReduceHostCopy::Deferred is supported only on the CUDA/HIP backend");
-#endif
-    }
     if (grid_.gpu_count() == 0U) {
       log::throw_with_log<std::invalid_argument>(
           "Kernel::reduce: grid has no GPUs (gpu_count == 0)");
