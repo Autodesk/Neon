@@ -6328,3 +6328,24 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `render_wind_tunnel_live` (ImGui panels outside `CARBON_HAVE_VIEWER`) is now registered only
   with `CARBON_BUILD_VIEWER=ON`. SYCL on 2× A4000: 106 tests build, 101 pass; the rest are the
   multi-GPU reduce and reduce-option gaps tracked next.
+- **2026-11 — SYCL: cross-device copies were not ordered before the next submission.**
+  Symptom: multi-GPU reductions occasionally (`skeleton_overlapped` 2/50,
+  `skeleton_reduce_split` 2/30) or deterministically (`mgrid_locator` in a fresh process) came
+  back with one GPU's share missing or replaced by a value from an *earlier* reduction.
+  `tests/test_reduce_partials_multi_gpu.cu` (new, both backends) reads every
+  `ReductionResult::gpu_partial(g)` back after the reduce drained: every per-GPU partial was
+  right and only the combined total was wrong, so stage 1 and `sycl::reduction` were innocent.
+  The stage-2 peer copy of a partial into the root GPU's staging slot is a `q.memcpy` between
+  two devices on the root's in-order queue; AdaptiveCpp 25.02 records it as a
+  device-to-device operation it may run on the source device's backend stream, and the
+  in-order queue then does not order the combine kernel submitted next on `q` after it, so the
+  combine read the staging slot before the bytes landed (stale data from a reused allocation).
+  A host wait on every queue *before* the copy did not help; a host wait on the copy's event,
+  or an explicit dependency on it, did (8/10 failing runs → 0/10). `System::async_copy` now
+  pins both edges of a cross-device copy with explicit events (a no-op custom operation the
+  copy depends on, and one that depends on the copy), with no host blocking. Every device copy
+  goes through `async_copy`, so halo peer copies get the same ordering. Measured after the
+  fix: 0/50 for `skeleton`, `skeleton_overlapped`, `skeleton_reduce_split`,
+  `skeleton_region_mask`, `reduce_partials_multi_gpu`, `reduce_sum_multi_gpu`,
+  `dense_disg_reduce`, `block_reduce`, `mgrid_skeleton`, `skeleton_reduce`; `mgrid_locator`
+  20/20 across fresh containers.

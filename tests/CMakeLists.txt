@@ -189,6 +189,7 @@ carbon_add_cuda_unit_test(mgrid_locator)
 carbon_add_cuda_unit_test(render_sample)
 carbon_add_cuda_unit_test(reduce_ops)
 carbon_add_cuda_unit_test(reduce_sum_multi_gpu)
+carbon_add_cuda_unit_test(reduce_partials_multi_gpu)
 carbon_add_cuda_unit_test(reduce_sum_host_multi_gpu)
 carbon_add_cuda_unit_test(kernel_polymorphic)
 carbon_add_cuda_unit_test(field_fill_host)
@@ -343,6 +344,7 @@ set(_carbon_multi_gpu_tests
   halo_block
   halo_block_host
   reduce_sum_multi_gpu
+  reduce_partials_multi_gpu
   reduce_sum_host_multi_gpu
   jacobi_integer
   dense_disg_multi_gpu

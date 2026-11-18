@@ -14,6 +14,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 #ifdef CARBON_HAVE_MPI_NCCL
 #include <carbon/detail/communicator.h>
@@ -133,6 +134,24 @@ System::async_copy(const detail::Allocation<std::byte>& src,
 #elif CARBON_BACKEND_IS_SYCL
   sycl::queue& q = stream[static_cast<size_t>(rel)].queue();
   try {
+    if (sl == detail::AllocationLocation::Cuda && dl == detail::AllocationLocation::Cuda &&
+        src.gpu_id() != dst.gpu_id()) {
+      // AdaptiveCpp (25.02) records a USM memcpy between two devices as a device-to-device
+      // operation it may run on the source device's backend stream, and the in-order queue
+      // then stops ordering the next submission on q after it: the consumer can read the
+      // destination before the bytes land. Pin both edges with explicit events.
+      const sycl::event before = q.AdaptiveCpp_enqueue_custom_operation([](sycl::interop_handle&) {
+      });
+      const sycl::event copied = q.submit([&](sycl::handler& cgh) {
+        cgh.depends_on(before);
+        cgh.memcpy(d, s, size_bytes);
+      });
+      (void)q.AdaptiveCpp_enqueue_custom_operation(
+          [](sycl::interop_handle&) {
+          },
+          std::vector<sycl::event>{copied});
+      return;
+    }
     auto ev = q.memcpy(d, s, size_bytes);
     if (sl == detail::AllocationLocation::Cpu && dl == detail::AllocationLocation::Cuda) {
       // AdaptiveCpp 25.02 may not pin the host source for H2D memcpy in a shared
