@@ -6277,3 +6277,15 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   both option lines say `region_masks=ignored` when `Options::ignore_region_masks` or
   `CARBON_IGNORE_REGION_MASKS` is in effect. Unmasked pipelines render byte-identically;
   `export_launch_order` is unchanged.
+- **2026-11 — Region-mask example and benchmark.** `examples/region_mask_bc.cu` splits the
+  `jacobi_unified` heat problem into an interior stencil kernel and a Dirichlet boundary
+  kernel on a `uint8`-style label partition (`from_label(0)` / `~from_label(0)`), shows the
+  3-stream masked schedule next to the 1-stream whole-field one, checks they are
+  bit-identical, and writes both DOT views with `--dot`. `benchmarks/skeleton_region_mask`
+  (interior stencil + `K` disjoint boundary kernels) measured on 2× RTX A4000: −16 % /
+  −12 % time per iteration for `K` = 1 / 4 when halo-bound (2 GPUs, `n=64`), within
+  noise when device-bound (`n` ≥ 128, because v1 masked kernels still sweep the whole grid),
+  and ~1.5–3 µs of host time per extra stream per iteration — uncapped `K=16` (33 streams)
+  is slower than the whole-field schedule, `max_streams=2` restores parity. Single-stream
+  CUDA graph capture matches or beats eager multi-stream at small sizes; that is the
+  trigger for the multi-stream capture follow-up, not a regression.

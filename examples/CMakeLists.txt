@@ -105,6 +105,11 @@ _carbon_example_add(carbon_example_cg_poisson_unified cg_poisson_unified.cu)
 target_link_libraries(carbon_example_cg_poisson_unified
   PRIVATE carbon::carbon carbon::third_party::clipp)
 
+# Region masks: an interior stencil and a boundary-condition kernel that write disjoint
+# cells of the same field run side by side (Skeleton sub-field dependencies).
+_carbon_example_add(carbon_example_region_mask_bc region_mask_bc.cu)
+target_link_libraries(carbon_example_region_mask_bc PRIVATE carbon::carbon)
+
 _carbon_example_add(carbon_example_salt_pepper_filter salt_pepper_filter.cu)
 target_link_libraries(carbon_example_salt_pepper_filter PRIVATE carbon::carbon)
 # Bake the absolute path of examples/data into the binary so running with no args picks

@@ -410,6 +410,37 @@ compute-per-step dominates halo latency (heavier kernels, NVLink). Check
 
 Build target: `carbon_benchmark_skeleton_overlap`.
 
+### `skeleton_region_mask`
+
+Jacobi ping-pong where every half step is one interior stencil plus `K` boundary kernels
+on disjoint `RegionMask`s (strips of the x faces), so with masks honoured the `K + 1`
+writers of the same field can run side by side. Variants per `K` (1, 4, 16, or `--k`):
+`masks`, `ignored` (`Options::ignore_region_masks`, the whole-field schedule),
+`masks_max2` / `masks_max4` (`Options::max_streams`), and `ignored_graph` (single stream
+captured as a CUDA graph). One line per variant:
+
+```
+us_per_iter=66.7 host_us_per_iter=66.2 variant=masks k=1 streams=3 gpus=2 n=64 iters=300 repeats=3
+```
+
+`host_us_per_iter` is the time spent inside `run()` (launches, events, fork/join). Once the
+device is the bottleneck it also includes back-pressure from a full launch queue, so read it
+as enqueue cost only on small grids. Every kernel launches over the whole grid and filters
+itself (masks are declaration-only in v1), so at large `n` the boundary kernels are full
+sweeps and concurrency has little idle hardware to use. Measured on 2× RTX A4000 (no P2P):
+
+- Halo-bound (2 GPUs, `n=64`): masks cut time per iteration by 16 % (`K=1`) and 12 % (`K=4`),
+  on par with single-stream CUDA graph capture.
+- Device-bound (`n=128`–`256`): within −2 % … +7 % of `ignored`.
+- Per extra stream: roughly 1.5–3 µs of host time per iteration (`n=16`, 1 GPU). With
+  `K=16` the uncapped 33-stream schedule loses (134 vs 82 µs/iter); `max_streams=2`
+  recovers parity, so cap streams in region-heavy pipelines.
+
+CLI: `--n`, `--k`, `--iters`, `--warmup`, `--repeats`, `--gpus`, `--report PATH`
+(writes `PATH.<variant>.k<K>`).
+
+Build target: `carbon_benchmark_skeleton_region_mask`.
+
 ### `block_sparse`
 
 Block Jacobi on a sphere-inscribed cube; reports MLUPS over **active** owned
