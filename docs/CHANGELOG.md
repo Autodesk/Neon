@@ -6380,3 +6380,12 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   region masks, which are Dense-only, the source GPU always runs the stencil between the halo
   and the next overwrite, which shrinks the window. The fix is the same fence argument as
   `Halo`.
+- **2026-11 — SYCL stress sweep; `skeleton_scalar_pattern` test race fixed.** Every `gpu`-labelled
+  test (93) was run in the SYCL container 100× on idle GPUs and 50× with
+  `carbon_benchmark_skeleton_overlap` holding both GPUs at ~98%. That is 13 950 runs, and the only
+  failure was `skeleton_scalar_pattern` under load: SYCL 29/50, CUDA 23/50, both
+  `lag-1 sum 192 expected ~128`. The cause was in the test. It re-uploaded `f` on its own
+  stream straight after an asynchronous `sk.run()`, so the upload raced the reduction reading
+  `f`. It now calls `sk.wait()` first, and is 0/100 under load on both backends. The
+  `needs_multi_device` label covers only 30 of the multi-GPU tests (`skeleton`, `mgrid_locator`
+  and `skeleton_region_mask` run on every device without it), so the sweep used `-L gpu`.
