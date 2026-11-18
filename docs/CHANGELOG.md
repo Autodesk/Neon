@@ -6368,3 +6368,15 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   2 GPUs) 30/30. The carbon-owned rewrite of the `sycl::reduction` reducers that was planned
   alongside this is dropped: `test_reduce_partials_multi_gpu` showed every per-GPU partial
   `sycl::reduction` produced was exact, the lost share was the cross-device copy above.
+- **2026-11 — Halo drain fence extended to `HaloDisg`, `HaloBlock` (and so mGrid) and
+  `HaloDistributed`.** They had the same shape as `Halo` before its trailing fence was added:
+  each intra-process copy runs on the destination GPU's stream and reads the source GPU's owned
+  cells, and only a leading fence ordered it. Each now records a per-GPU `drain_event_` after
+  its intra copies (`HaloDistributed`: after the axis-pass loop and after the non-pass
+  `dist_`), so a writer on the source GPU queued behind the halo can't overwrite cells a peer
+  copy is still reading. No reproducer on this host. Under `skeleton_overlap` load, the
+  DenseDisg/Block/mGrid halo tests pass 40/40 with and without the fence, and
+  `skeleton_block{,_extended}`/`block_overlapped_stencil` show 0 drift either way. Without
+  region masks, which are Dense-only, the source GPU always runs the stencil between the halo
+  and the next overwrite, which shrinks the window. The fix is the same fence argument as
+  `Halo`.
