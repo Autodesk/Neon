@@ -6389,3 +6389,17 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `f`. It now calls `sk.wait()` first, and is 0/100 under load on both backends. The
   `needs_multi_device` label covers only 30 of the multi-GPU tests (`skeleton`, `mgrid_locator`
   and `skeleton_region_mask` run on every device without it), so the sweep used `-L gpu`.
+- **2026-11 — `sycl-mpi` validated; `docker-build-all.sh` gains `--docker-env` and
+  `--ctest-args`.** First `sycl-mpi` run this cycle: 134/136, failing `carbon_format_check`
+  (the pre-existing violations every config has) and `block_dist_stencil_parity`, which was
+  deterministic, 3232 mismatches per rank, with every six-direction probe returning the cell's
+  own value. The probe kernel indexed a function-local `static constexpr std::array` of
+  offsets from device code. nvcc copes, but AdaptiveCpp device code reads a zero-filled copy, so
+  all six offsets were `{0,0,0}`. The kernel now uses literal offsets, as the file's Jacobi
+  step already did. Result: 0/20, and `sycl-mpi` is 135/135 with `-E format_check`, with the
+  28 distributed tests green 5× in a row. `cuda-mpi` is still 28/28. The script now forwards
+  `--docker-env KEY=VAL` (repeatable) into every container, so `NCCL_P2P_DISABLE=1` can be set
+  on hosts whose PCIe peer DMA is unusable. It runs the NVIDIA `*-mpi` configs with
+  `--ipc=host`, since NCCL/MPI shared-memory transports outgrow docker's 64 MiB `/dev/shm`.
+  `--ctest-args` appends to the in-container ctest, for repeat lanes. `usage` now prints the
+  whole header, where the old line range had cut the flag docs off.
