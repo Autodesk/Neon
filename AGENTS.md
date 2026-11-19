@@ -79,15 +79,23 @@ same public API; what differs is which `detail/backend/<name>/` headers are pull
 and which toolchain compiles the per-cell device code.
 
 - **CUDA** is the historical and feature-complete backend. `nvcc` compiles `.cu` TUs;
-  per-cell launches go through `cudaLaunchKernel`. 90/90 default tests pass and all
+  per-cell launches go through `cudaLaunchKernel`. 112/112 default tests pass and all
   example programs build and run.
 - **SYCL** is supported through [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp)
   (a.k.a. `acpp`, formerly hipSYCL). Per-cell launches go through
-  `sycl::queue::parallel_for`; reductions through `sycl::reduction` over
-  `q.parallel_for` (single-stage, no per-block partials); cross-device peer copies via
-  a process-wide shared `sycl::context` (so `q.memcpy(dst_gpu_ptr, src_gpu_ptr, n)` does
-  the right thing whether `src`/`dst` sit on the same or different devices). 89/89
-  default SYCL tests pass with cross-backend numerical parity. The 4-test delta vs
+  `sycl::queue::parallel_for`; `ReduceFinalize::DeviceReduce` through `sycl::reduction`
+  over `q.parallel_for` (single-stage, no per-block partials), `ReduceFinalize::BlockAtomic`
+  through a work-group `reduce_over_group` plus one `atomic_ref` add per group
+  (`detail/backend/sycl/block_atomic_reduce.h`), and `ReduceHostCopy::Deferred` is
+  supported. Cross-device peer copies go through a process-wide shared `sycl::context`
+  (so `q.memcpy(dst_gpu_ptr, src_gpu_ptr, n)` works whether `src`/`dst` sit on the same or
+  different devices); `System::async_copy` brackets a cross-device memcpy with explicit
+  custom-operation events, because AdaptiveCpp 25.02 does not order later submissions on
+  the in-order queue after it. Cross-backend gotcha: device code must not read a host
+  `static` (even `constexpr`) array — nvcc copes, AdaptiveCpp reads a zero-filled copy;
+  use literals or captured values. 108/108 default SYCL tests pass with cross-backend
+  numerical parity (every `gpu` test also 100× idle + 50× under GPU load, 2026-11).
+  The 4-test delta vs
   CUDA is exactly the `carbon_add_cuda_only_unit_test` gate — the explicit opt-out
   for tests that need raw CUDA-runtime APIs in their *body*: `block_cuda` (a smoke
   test pinning the `cudaMalloc` / `cudaMemset` / `cudaDeviceSynchronize` /
@@ -114,11 +122,12 @@ and which toolchain compiles the per-cell device code.
   `-DCARBON_ENABLE_MPI=ON` on top of this does not configure on the dev box: the local
   MPI wrappers are built for g++ and `find_package(MPI)` fails its `MPI_CXX_WORKS`
   compile check under the pixi clang. SYCL+MPI is validated in the container matrix
-  (`scripts/docker-build-all.sh --only sycl-mpi`), not natively here.
+  (`scripts/docker-build-all.sh --only sycl-mpi --docker-env NCCL_P2P_DISABLE=1`,
+  136 tests), not natively here.
 
-Adding `-DCARBON_ENABLE_MPI=ON` registers **26** further distributed tests (ctest
+Adding `-DCARBON_ENABLE_MPI=ON` registers **28** further distributed tests (ctest
 label `distributed`, one file per grid family × transport concern) on either
-backend, for **116** total on CUDA. They cover intra-process multi-GPU + cross-rank
+backend, for **140** total on CUDA and **136** on SYCL. They cover intra-process multi-GPU + cross-rank
 for every grid family, the `OverlapMode` matrix on every grid family
 (`skeleton_dist_overlap{,_disg,_block}`), multi-format I/O round-trip (`io_dist`),
 non-`Sum` reduction shapes on every grid family (`*_dist_reduce_ops`), and the
@@ -198,7 +207,7 @@ cmake --build build --target format-check
 >
 > **Test labels.** `ctest -L cpu` selects the tests that do real work with zero visible
 > devices (the CPU CI lane); `-L gpu` needs at least one device; `-L needs_multi_device`
-> lists the ~28 tests that self-skip below two GPUs; `-L warp` lists the 31 Python/Warp
+> lists the ~30 tests that self-skip below two GPUs; `-L warp` lists the 31 Python/Warp
 > tests (`-DCARBON_ENABLE_PYTHON=ON`). Set `CARBON_TEST_STRICT=1` to make those self-skips
 > hard failures (`carbon_multi_gpu_gate`, `carbon_warp_gate`) instead of passes.
 >
@@ -274,7 +283,11 @@ container (NVIDIA: `--gpus all` via the nvidia-container-toolkit; AMD:
 `docker-logs/run-<config>.log` and the build trees are mirrored under
 `docker-logs/<config>/build/` for post-mortem inspection. Common knobs:
 `--only hip`, `--only sycl-rccl`, `--sm-arch sm_89`, `--gfx-arch gfx90a`,
-`--no-cache`, `--skip-build-images`.
+`--no-cache`, `--skip-build-images`, `--docker-env KEY=VAL` (repeatable; forwarded
+into every container) and `--ctest-args "..."` (appended to the in-container ctest).
+The NVIDIA `*-mpi` configs run with `--ipc=host`. On a host whose PCIe peer DMA is
+unusable (carbon already leaves peer access off there) NCCL's P2P transport hangs the
+distributed tests; pass `--docker-env NCCL_P2P_DISABLE=1`.
 
 ### CI workflows
 
@@ -297,24 +310,29 @@ Two GitHub Actions workflows live under `.github/workflows/`:
 - **`gpu-ci.yml` — GPU validation lane (P1.γ).** Runs on a **self-hosted**
   runner labelled `[self-hosted, linux, gpu, cuda]` and is triggered by
   (a) the `gpu-ci` label on a PR or (b) `workflow_dispatch` (manual
-  re-run from the Actions tab) or (c) pushes to `main` / `master`. The
-  workflow shells out to `scripts/docker-build-all.sh --only cuda` and
-  `scripts/docker-build-all.sh --only cuda-mpi` so the runner host only
+  re-run from the Actions tab; its `configs` input picks a subset of the
+  matrix) or (c) pushes to `main` / `master`. The
+  workflow shells out to `scripts/docker-build-all.sh --only <config>` for
+  each of `cuda`, `cuda-mpi`, `sycl` and `sycl-mpi`, so the runner host only
   needs `docker` + `nvidia-container-toolkit` + an NVIDIA GPU — no
-  native clang / CUDA / MPI / NCCL / HDF5 install required. Build /
-  test logs land as workflow artifacts (`gpu-ci-cuda-logs`,
-  `gpu-ci-cuda-mpi-logs`) for 14 days. The matrix covers the two audit
-  classes the CPU lane cannot exercise: `cuda` runs the full default
-  test suite + `format-check`; `cuda-mpi` adds every
-  `distributed`-labelled test (`ctest -N -L distributed` for the current
-  list). The workflow
+  native clang / CUDA / MPI / NCCL / HDF5 / AdaptiveCpp install required.
+  Build / test logs land as workflow artifacts (`gpu-ci-<config>-logs`) for
+  14 days. `cuda` runs the full default test suite + `format-check`;
+  `cuda-mpi` adds every `distributed`-labelled test (`ctest -N -L
+  distributed` for the current list); `sycl` / `sycl-mpi` are the same two
+  cells on the AdaptiveCpp backend. The `cuda` and `sycl` cells then re-run
+  every `gpu` test 20× (`--ctest-args "-L gpu -E format_check --repeat
+  until-fail:20"`, incremental, no rebuild): the cross-device ordering bugs
+  fixed so far each passed a single run most of the time. Runner-specific
+  container environment (e.g. `NCCL_P2P_DISABLE=1`) goes in the
+  `GPU_CI_DOCKER_ENV` Actions variable (space-separated `KEY=VAL`). The workflow
  passes `--werror` (gates the libcarbon host compile on the container
  g++) and its preflight prints the visible GPU count. On a runner with
  `>= 2` GPUs it exports `CARBON_TEST_STRICT=1` (forwarded into the
  container by `scripts/docker-build-all.sh`), so `carbon_multi_gpu_gate`
  fails if the devices turn out not to be visible to the test process —
  a hidden card, MIG partitioning, or a stale `CUDA_VISIBLE_DEVICES`
- no longer downgrades ~28 `needs_multi_device` tests to silent
+ no longer downgrades ~30 `needs_multi_device` tests to silent
  no-op passes. Below 2 GPUs it emits a `::warning::` instead, since
  that configuration legitimately covers only the build plus the
  single-GPU suite.
@@ -530,19 +548,22 @@ how a feature behaves at the edges, grep the changelog for the section name
 
 Counts drift with every feature, so treat these as a sanity check, not a
 contract — `ctest --test-dir <build> -N` is the source of truth. Measured
-2026-07-31 on a 2×RTX 6000 Ada box (`sm_89`), every configuration fully green:
+2026-11-18 on a 2×RTX A4000 box (`sm_86`, peer access off); every configuration
+green apart from `carbon_format_check`, which flags pre-existing violations in
+files outside this work:
 
 | Configuration | Tests |
 | --- | --- |
-| default (CUDA) | 93 |
-| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 116 † |
-| `-DCARBON_BACKEND=Sycl` | 89 |
-| `hip-nvidia` (HIP backend on NVIDIA) | 89 |
+| default (CUDA) | 112 |
+| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 140 |
+| `-DCARBON_BACKEND=Sycl` | 108 |
+| `sycl-mpi` (SYCL + MPI) | 136 |
+| `hip-nvidia` (HIP backend on NVIDIA) | 89 † |
 
-† not re-measured on 2026-07-31; carried over from the 2026-07-30 2×A100 run.
+† not re-measured on 2026-11-18; carried over from the 2026-07-31 2×RTX 6000 Ada run.
 
 `hdf5_io` / `nanovdb_io` are registered unconditionally but compile-time
-skip when their flags are off. The 26-test MPI delta is the `distributed`
+skip when their flags are off. The 28-test MPI delta is the `distributed`
 ctest label and registers on both backends. The 4-test CUDA/SYCL delta is
 the `carbon_add_cuda_only_unit_test` gate (`block_cuda` + the three
 `mgrid_*` tests with hand-rolled `<<<>>>` kernels).

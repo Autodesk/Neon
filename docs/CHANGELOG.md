@@ -6403,3 +6403,13 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `--ipc=host`, since NCCL/MPI shared-memory transports outgrow docker's 64 MiB `/dev/shm`.
   `--ctest-args` appends to the in-container ctest, for repeat lanes. `usage` now prints the
   whole header, where the old line range had cut the flag docs off.
+- **2026-11 — `gpu-ci` gains `sycl` / `sycl-mpi` cells and a repeat lane.** The matrix is now
+  `[cuda, cuda-mpi, sycl, sycl-mpi]`. SYCL has its own event and cross-device ordering code,
+  and every SYCL bug fixed this cycle was invisible to the CUDA cells. The `cuda` and `sycl`
+  cells re-run every `gpu` test 20× (`--repeat until-fail:20`) in the build tree the first
+  step left behind. The cross-device races fixed this cycle each passed a single run most of
+  the time. Runner-specific container environment comes from the `GPU_CI_DOCKER_ENV` Actions
+  variable, e.g. `NCCL_P2P_DISABLE=1`. The `workflow_dispatch` `configs` input was declared
+  but never read; it now selects matrix cells. The job timeout goes from 90 to 150 minutes.
+  The `AGENTS.md` SYCL paragraph, docker knobs and test-count table were refreshed
+  (2×RTX A4000: CUDA 112, CUDA+MPI 140, SYCL 108, SYCL+MPI 136).
