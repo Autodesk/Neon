@@ -514,7 +514,7 @@ how a feature behaves at the edges, grep the changelog for the section name
   kernel filters itself), `Options::ignore_region_masks` /
   `CARBON_IGNORE_REGION_MASKS=1` restore the whole-field schedule, and MPI
   runs check masks are rank-invariant (`docs/skeleton/README.md`,
-  `examples/region_mask_bc.cu`). Examples:
+  `examples/region_mask_cube.cu` minimal, `examples/region_mask_bc.cu`). Examples:
   `examples/jacobi_unified.cu` (Dense / DenseDisg / Block from one
   source file, runtime grid + transport + overlap selection);
   `examples/checkpoint_dense.cu` and `examples/checkpoint_sphere_image.cu`

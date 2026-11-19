@@ -6413,3 +6413,13 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   but never read; it now selects matrix cells. The job timeout goes from 90 to 150 minutes.
   The `AGENTS.md` SYCL paragraph, docker knobs and test-count table were refreshed
   (2×RTX A4000: CUDA 112, CUDA+MPI 140, SYCL 108, SYCL+MPI 136).
+- **2026-11 — `examples/region_mask_cube.cu`, a minimal region-mask walk-through.** It uses a
+  cube with two regions: bit 0 is the interior and bit 1 is the boundary. Each kernel tests
+  for the boundary from its voxel coordinates, so there is no label field. One field `u`
+  goes through four kernels: `fill_boundary` (boundary), `fill_interior` and `scale_interior`
+  (interior), then `count_wrong`, an unmasked `int64_t` Sum reduce that doubles as the
+  self-check. The example prints the compiled dependency table, built from `min_edges()` and
+  `kernel_streams()`, with masks honoured and with masks ignored, and `--dot` writes both
+  schedules. Honoured gives 2 streams: the boundary fill sits beside the interior chain and
+  the check waits for both. Ignored gives a 4-kernel chain on 1 stream. The result is 0 wrong
+  voxels on CUDA (2 GPUs) and SYCL. `region_mask_bc.cu` stays the heat-solver walk-through.

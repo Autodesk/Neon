@@ -102,6 +102,11 @@ target_link_libraries(carbon_example_cg_poisson_unified
 _carbon_example_add(carbon_example_region_mask_bc region_mask_bc.cu)
 target_link_libraries(carbon_example_region_mask_bc PRIVATE carbon::carbon)
 
+# Region masks, minimal walk-through: on a cube, one kernel writes only the boundary voxels and
+# two only the interior; the Skeleton orders them by region, not by field.
+_carbon_example_add(carbon_example_region_mask_cube region_mask_cube.cu)
+target_link_libraries(carbon_example_region_mask_cube PRIVATE carbon::carbon)
+
 _carbon_example_add(carbon_example_salt_pepper_filter salt_pepper_filter.cu)
 target_link_libraries(carbon_example_salt_pepper_filter PRIVATE carbon::carbon)
 # Bake the absolute path of examples/data into the binary so running with no args picks

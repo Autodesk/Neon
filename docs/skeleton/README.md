@@ -177,6 +177,9 @@ Costs to keep in mind (numbers from `benchmarks/skeleton_region_mask`, see
   multi-stream schedule falls back to eager launches (logged at compile).
   `max_streams = 1` keeps it capturable.
 
+`examples/region_mask_cube.cu` is the minimal starting point: on a cube, one kernel fills
+the boundary voxels and two update the interior of the same field, and the printed schedule
+shows the boundary kernel running beside the interior chain (one stream with masks ignored).
 `examples/region_mask_bc.cu` is the end-to-end walk-through (interior stencil + Dirichlet
 boundary kernel, 3 streams vs 1, bit-identical check, `--dot` for both DOT views);
 `tests/test_skeleton_region_mask.cu` pins the semantics.
