@@ -39,6 +39,36 @@
 
 namespace carbon {
 
+namespace detail::block {
+
+/**
+ * A memoised value derived from (and pointing into) other members of its owner. Copies start
+ * empty, so a copied owner rebuilds the value from its own members instead of keeping
+ * pointers into the source object; moves keep it (moved-from vectors keep their buffers).
+ */
+template <typename T>
+struct ResetOnCopy {
+  T value{};
+
+  ResetOnCopy() = default;
+  ResetOnCopy(const ResetOnCopy& /*other*/) noexcept {}
+  ResetOnCopy(ResetOnCopy&&) noexcept = default;
+  ~ResetOnCopy() = default;
+
+  auto
+  operator=(const ResetOnCopy& other) noexcept -> ResetOnCopy& {
+    if (this != &other) {
+      value = T{};
+    }
+    return *this;
+  }
+
+  auto
+  operator=(ResetOnCopy&&) noexcept -> ResetOnCopy& = default;
+};
+
+}  // namespace detail::block
+
 /**
  * Block-sparse multi-GPU grid (port of Neon's @c bGrid). Both build-out phases
  * have landed: multi-GPU brick partitioning (phase A) and ghost bricks +
@@ -279,10 +309,11 @@ public:
    */
   [[nodiscard]] auto
   host_spans() const -> const std::vector<Span>& {
-    if (!host_spans_.empty() || host_bitmasks_per_gpu_.empty()) {
-      return host_spans_;
+    auto& memo = host_spans_cache_.value;
+    if (!memo.empty() || host_bitmasks_per_gpu_.empty()) {
+      return memo;
     }
-    host_spans_.reserve(host_bitmasks_per_gpu_.size());
+    memo.reserve(host_bitmasks_per_gpu_.size());
     for (size_t g = 0; g < host_bitmasks_per_gpu_.size(); ++g) {
       const auto& bm = host_bitmasks_per_gpu_[g];
       const auto& conn = host_connectivity_per_gpu_[g];
@@ -291,9 +322,9 @@ public:
           (g < n_internal_per_gpu_.size()) ? n_internal_per_gpu_[g] : n_blocks;
       const int32_3d* origins =
           host_origins_per_gpu_[g].empty() ? nullptr : host_origins_per_gpu_[g].data();
-      host_spans_.emplace_back(bm.data(), n_blocks, n_internal, conn.data(), origins);
+      memo.emplace_back(bm.data(), n_blocks, n_internal, conn.data(), origins);
     }
-    return host_spans_;
+    return memo;
   }
 
   /**
@@ -980,8 +1011,9 @@ private:
   std::vector<Span> spans_{};
   // Memoised per-GPU @c Span values whose @c bitmask() / @c connectivity() pointers
   // point at the host mirror tables. Built on demand by @c host_spans() so the OpenMP
-  // launch path can dereference topology metadata from a host TU.
-  mutable std::vector<Span> host_spans_{};
+  // launch path can dereference topology metadata from a host TU. A copy of the Block starts
+  // with an empty memo: the spans point into this object's own host vectors.
+  mutable detail::block::ResetOnCopy<std::vector<Span>> host_spans_cache_{};
   std::vector<int64_t> bz_begin_per_gpu_{};
   std::vector<int64_t> bz_end_per_gpu_{};
   std::vector<uint32_t> n_internal_per_gpu_{};

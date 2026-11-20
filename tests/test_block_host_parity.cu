@@ -43,6 +43,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -271,6 +272,40 @@ run_test() -> int {
   if (got_host_sum != expected_sum) {
     std::fprintf(stderr, "test_block_host_parity: reduce expected %lld got %lld\n",
                  static_cast<long long>(expected_sum), static_cast<long long>(got_host_sum));
+    return 1;
+  }
+
+  // ----- Copies build their host spans from their own host tables -----
+  // A copy taken after host_spans() was memoised must not point into the source's vectors.
+  const auto own_tables = [](const BlockGrid& g) -> bool {
+    const auto& spans = g.host_spans();
+    return spans.size() == 1U && spans[0].bitmask() == g.host_bitmasks(0).data() &&
+           spans[0].connectivity() == g.host_connectivity(0).data() &&
+           spans[0].origins() == g.host_origins(0).data();
+  };
+  (void)block.host_spans();
+  const BlockGrid copied(block);
+  BlockGrid assigned;
+  assigned = block;
+  if (!own_tables(block) || !own_tables(copied) || !own_tables(assigned)) {
+    std::fprintf(stderr,
+                 "test_block_host_parity: a copied Block's host spans point into "
+                 "another Block's host tables\n");
+    return 1;
+  }
+  // Host reduction through a copy whose source is gone (identical topology, same field).
+  std::unique_ptr<BlockGrid> source =
+      std::make_unique<BlockGrid>(system, domain_extent, predicate, "copy_source");
+  (void)source->host_spans();
+  const BlockGrid survivor(*source);
+  source.reset();
+  carbon::ReductionResult<int64_t> dst_survivor(system);
+  survivor.template make_host_reduce_kernel<int64_t>(sum_loading, dst_survivor).launch(stream);
+  stream.wait();
+  if (dst_survivor.host_value() != expected_sum) {
+    std::fprintf(
+        stderr, "test_block_host_parity: host reduce over a copied Block: %lld, want %lld\n",
+        static_cast<long long>(dst_survivor.host_value()), static_cast<long long>(expected_sum));
     return 1;
   }
 
