@@ -27,6 +27,7 @@
 #include <carbon/dense.h>
 #include <carbon/detail/sub_grid/field.h>
 #include <carbon/detail/sub_grid/idx.h>
+#include <carbon/detail/sub_grid/kernel_impl.h>
 #include <carbon/detail/sub_grid/partition.h>
 #include <carbon/detail/sub_grid/span.h>
 #include <carbon/integer3d.h>
@@ -110,6 +111,12 @@ public:
   [[nodiscard]] auto
   gpu_count() const noexcept -> size_t {
     return state_ ? state_->count.size() : 0U;
+  }
+
+  /** The parent's @ref System (devices, streams, events). */
+  [[nodiscard]] auto
+  system() const -> const System& {
+    return st_().parent.system();
   }
 
   /** Identity of this SubGrid (shared by its copies); S partitions carry it as their owner. */
@@ -228,6 +235,53 @@ public:
     }
     return Field<T, Components>(*this, std::move(gpu_buffers), std::move(cpu_buffers),
                                 std::move(parts), std::move(host_parts), side, std::move(name));
+  }
+
+  /**
+   * @brief Builds a device compute @ref Kernel that runs one thread per lane.
+   *
+   * Same loading-lambda shape as @c Dense::make_kernel ; the per-cell callable takes
+   * @c (SubGrid::Span, SubGrid::Idx) . Inside it:
+   * - @c uS.read(s, i, c) / @c uS.write(s, i, c, v) access a field of this SubGrid;
+   * - @c uG.read(s, i, c) / @c uG.write(...) access a parent field at the lane's parent
+   *   cell (the SubGrid span and index convert to the parent's);
+   * - a parent field loaded with @c read_stencil may be read at neighbours of that cell
+   *   through the parent's halo. SubGrid fields cannot be stencil-read (compile error).
+   *
+   * The kernel-wide region is preset to @ref mask , and loading a field of another SubGrid
+   * throws here, at construction. @c Kernel::launch(stream, view) runs the lanes of @p view ;
+   * the @ref Skeleton OCC-splits the kernel like a Dense one when it stencil-reads a parent
+   * field after a halo. Call from a device translation unit.
+   */
+  template <typename L>
+  [[nodiscard]] auto
+  make_kernel(L&& loading_fn,
+              size_t shared_mem = 0U) const -> Kernel {
+    return make_kernel(std::forward<L>(loading_fn), std::string{}, shared_mem);
+  }
+
+  /** @ref make_kernel with a diagnostic @p name (logs, Skeleton DOT labels). */
+  template <typename L>
+  [[nodiscard]] auto
+  make_kernel(L&& loading_fn,
+              std::string name,
+              size_t shared_mem = 0U) const -> Kernel {
+    using Impl = detail::sub_grid::DeviceKernelImpl<SubGrid, std::decay_t<L>>;
+    return Kernel::from_impl(
+        std::make_shared<Impl>(*this, std::forward<L>(loading_fn), shared_mem, std::move(name)));
+  }
+
+  /**
+   * @brief Host (OpenMP) twin of @ref make_kernel over the host lane tables. Every field
+   *        the loader touches needs a host mirror.
+   */
+  template <typename L>
+  [[nodiscard]] auto
+  make_host_kernel(L&& loading_fn,
+                   std::string name = {}) const -> Kernel {
+    using Impl = detail::sub_grid::HostKernelImpl<SubGrid, std::decay_t<L>>;
+    return Kernel::from_impl(
+        std::make_shared<Impl>(*this, std::forward<L>(loading_fn), std::move(name)));
   }
 
 private:

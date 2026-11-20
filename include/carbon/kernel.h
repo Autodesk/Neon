@@ -301,6 +301,19 @@ struct KernelLoader {
     }
   }
 
+  /**
+   * @brief Bind this loader to the @c carbon::SubGrid identified by @p uid . Called by
+   *        SubGrid kernels before the user's loading lambda runs; not meant for user code.
+   *
+   * While bound, loading a SubGrid field laid out for a different SubGrid throws
+   * @c std::invalid_argument at kernel construction (its lanes would not match). An unbound
+   * loader (every parent-grid kernel) rejects SubGrid fields altogether.
+   */
+  auto
+  bind_sub_grid(std::uint64_t uid) noexcept -> void {
+    sub_grid_uid_ = uid;
+  }
+
   /** Kernel-wide @ref RegionMask declared via @ref region ; @ref RegionMask::all by default. */
   [[nodiscard]] auto
   region() const noexcept -> const RegionMask& {
@@ -422,6 +435,15 @@ private:
   template <typename Field>
   [[nodiscard]] auto
   lookup_partition_(const Field& field) const {
+    if constexpr (requires { field.sub_grid_uid(); }) {
+      if (phase_ != KernelLoaderPhase::Launch && field.sub_grid_uid() != sub_grid_uid_) {
+        log::throw_with_log<std::invalid_argument>(
+            "KernelLoader: SubGrid field '{}' is laid out for a different SubGrid than the "
+            "kernel loading it{}. A SubGrid field can only be loaded by kernels of its own "
+            "SubGrid (S.make_kernel / S.make_host_kernel).",
+            field.name(), sub_grid_uid_ == 0U ? " (a parent-grid kernel)" : "");
+      }
+    }
     if (target_ == KernelTarget::Host) {
       const auto& parts = field.host_partitions();
       if (parts.empty()) {
@@ -484,6 +506,8 @@ private:
   // Parallel to tokens_: true when the token's mask must not follow region().
   mutable std::vector<bool> explicit_mask_{};
   mutable RegionMask region_{RegionMask::all()};
+  // SubGrid this loader serves (SubGrid::uid); 0 for parent-grid kernels.
+  std::uint64_t sub_grid_uid_{};
 };
 
 /**
@@ -1202,9 +1226,27 @@ private:
 
 }  // namespace detail
 
+namespace detail {
+
+template <typename Field>
+concept HaloCapableField = requires(const Field& f) {
+  f.make_halo_kernel(std::string{});
+};
+
+template <typename Field>
+concept LatticeHaloCapableField = requires(const Field& f, Stencil s, StencilSemantic sem) {
+  f.make_halo_kernel(std::string{}, s, sem);
+};
+
+}  // namespace detail
+
 template <typename Field>
 auto
 KernelLoader::read_stencil(const Field& field) const {
+  static_assert(detail::HaloCapableField<Field>,
+                "KernelLoader::read_stencil: this field type has no halo (e.g. a SubGrid field), "
+                "so it cannot be stencil-read. Use read / write for same-cell access, or write "
+                "the values into a parent-grid field and stencil-read that one.");
   // Launch phase: no token, no halo factory — the make_shared + Field copy below
   // is exactly the per-launch overhead this split exists to eliminate. Return the
   // partition straight away (the only launch-relevant output of this call).
@@ -1225,6 +1267,10 @@ auto
 KernelLoader::read_stencil(const Field& field,
                            Stencil stencil,
                            StencilSemantic semantic) const {
+  static_assert(detail::LatticeHaloCapableField<Field>,
+                "KernelLoader::read_stencil: this field type has no halo (e.g. a SubGrid field), "
+                "so it cannot be stencil-read. Use read / write for same-cell access, or write "
+                "the values into a parent-grid field and stencil-read that one.");
   if (phase_ != KernelLoaderPhase::Launch) {
     auto factory = std::make_shared<detail::TypedLatticeHaloFactory<Field>>(
         field, std::move(stencil), semantic);

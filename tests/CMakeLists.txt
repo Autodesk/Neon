@@ -286,6 +286,39 @@ carbon_add_cuda_unit_test(overlapped_stencil)
 carbon_add_cuda_unit_test(skeleton)
 carbon_add_cuda_unit_test(skeleton_region_mask)
 carbon_add_cuda_unit_test(sub_grid)
+carbon_add_cuda_unit_test(sub_grid_kernel)
+
+# SubGrid compile-time rules: each case is a target outside `all` that ctest builds and that
+# must fail with the given diagnostic (case 0 is the control and must build). CUDA only: the
+# regexes match nvcc / gcc wording. Serialised because each entry re-enters the build tree.
+if(CARBON_BACKEND STREQUAL "Cuda")
+  set(_carbon_sub_grid_cf_cases
+      "0|"
+      "1|has no halo"
+      "2|has no member.*neighbour"
+      "3|no instance of overloaded function|no matching function|no suitable"
+      "4|a SubGrid of a SubGrid is not supported")
+  foreach(_case IN LISTS _carbon_sub_grid_cf_cases)
+    string(FIND "${_case}" "|" _bar)
+    string(SUBSTRING "${_case}" 0 ${_bar} _id)
+    math(EXPR _rest "${_bar} + 1")
+    string(SUBSTRING "${_case}" ${_rest} -1 _regex)
+    set(_target "sub_grid_compile_fail_${_id}")
+    add_executable(${_target} EXCLUDE_FROM_ALL sub_grid_compile_fail.cu)
+    target_link_libraries(${_target} PRIVATE carbon::carbon)
+    target_compile_definitions(${_target} PRIVATE CARBON_CF_CASE=${_id})
+    target_compile_options(${_target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${CARBON_NVCC_DEVICE_FLAGS}>)
+    set_target_properties(${_target} PROPERTIES CUDA_STANDARD 20 CUDA_STANDARD_REQUIRED ON)
+    add_test(NAME carbon_${_target}
+             COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${_target} --config $<CONFIG>)
+    set_tests_properties(carbon_${_target} PROPERTIES
+      RESOURCE_LOCK carbon_compile_fail
+      LABELS "cpu")
+    if(NOT _regex STREQUAL "")
+      set_tests_properties(carbon_${_target} PROPERTIES PASS_REGULAR_EXPRESSION "${_regex}")
+    endif()
+  endforeach()
+endif()
 carbon_add_cuda_unit_test(skeleton_initial_halo)
 carbon_add_cuda_unit_test(skeleton_cuda_graph)
 carbon_add_cuda_unit_test(skeleton_cuda_graph_multi)

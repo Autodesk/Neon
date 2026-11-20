@@ -47,6 +47,12 @@ public:
     return grid_;
   }
 
+  /** Identity of the SubGrid this field is laid out for; @c KernelLoader checks it. */
+  [[nodiscard]] auto
+  sub_grid_uid() const noexcept -> std::uint64_t {
+    return grid_.uid();
+  }
+
   /** Diagnostic name (Skeleton DOT labels, logs); identity is the buffer uid. */
   [[nodiscard]] auto
   name() const noexcept -> const std::string& {
