@@ -287,6 +287,7 @@ carbon_add_cuda_unit_test(skeleton)
 carbon_add_cuda_unit_test(skeleton_region_mask)
 carbon_add_cuda_unit_test(sub_grid)
 carbon_add_cuda_unit_test(sub_grid_kernel)
+carbon_add_cuda_unit_test(sub_grid_skeleton)
 
 # SubGrid compile-time rules: each case is a target outside `all` that ctest builds and that
 # must fail with the given diagnostic (case 0 is the control and must build). CUDA only: the
@@ -297,7 +298,8 @@ if(CARBON_BACKEND STREQUAL "Cuda")
       "1|has no halo"
       "2|has no member.*neighbour"
       "3|no instance of overloaded function|no matching function|no suitable"
-      "4|a SubGrid of a SubGrid is not supported")
+      "4|a SubGrid of a SubGrid is not supported"
+      "5|compute_universal: not supported for a SubGrid")
   foreach(_case IN LISTS _carbon_sub_grid_cf_cases)
     string(FIND "${_case}" "|" _bar)
     string(SUBSTRING "${_case}" 0 ${_bar} _id)

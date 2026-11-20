@@ -26,6 +26,7 @@
 #include <carbon/data_view.h>
 #include <carbon/dense.h>
 #include <carbon/detail/sub_grid/field.h>
+#include <carbon/detail/sub_grid/fwd.h>
 #include <carbon/detail/sub_grid/idx.h>
 #include <carbon/detail/sub_grid/kernel_impl.h>
 #include <carbon/detail/sub_grid/partition.h>
@@ -50,16 +51,7 @@
 
 namespace carbon {
 
-template <typename G>
-class SubGrid;
-
 namespace detail::sub_grid {
-
-template <typename T>
-inline constexpr bool is_sub_grid_v = false;
-
-template <typename G>
-inline constexpr bool is_sub_grid_v<::carbon::SubGrid<G>> = true;
 
 struct Builder;
 

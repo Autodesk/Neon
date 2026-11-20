@@ -49,6 +49,7 @@
 #include <carbon/dense_distributed.h>
 #include <carbon/detail/kernel_impl.h>
 #include <carbon/detail/nvtx_scope.h>
+#include <carbon/detail/sub_grid/fwd.h>
 #include <carbon/halo.h>
 #include <carbon/halo_block.h>
 #include <carbon/halo_disg.h>
@@ -979,9 +980,13 @@ Kernel::compute(const Grid& grid,
   // @c DeviceKernelImpl ; the trait absorbs the helper choice and the
   // parameter-shape variation (Dense / DenseDisg unpack @c gpu_grid[i] /
   // @c gpu_block[i] ; Block derives the dims internally from @c SBlock ).
-  using Impl = detail::DeviceKernelImpl<Grid, std::decay_t<LoadingFn>>;
-  return Kernel(
-      std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), shared_mem, std::move(name)));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    return grid.make_kernel(std::forward<LoadingFn>(loading), std::move(name), shared_mem);
+  } else {
+    using Impl = detail::DeviceKernelImpl<Grid, std::decay_t<LoadingFn>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), shared_mem,
+                                         std::move(name)));
+  }
 }
 
 template <typename T,
@@ -1002,6 +1007,8 @@ Kernel::reduce(const Grid& grid,
   // @c ReduceKernelImpl ; the trait absorbs the stage-1 kernel choice,
   // block-dim Z (kReduceBlockThreads vs SBlock::VoxelCount), and the
   // SYCL launcher (launch_dense_reduce vs launch_block_reduce).
+  static_assert(!detail::sub_grid::is_sub_grid_v<Grid>,
+                "Kernel::reduce: reductions over a SubGrid are not supported.");
   using Impl = detail::ReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
   return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
                                        shared_mem, std::move(name), options));
@@ -1079,8 +1086,12 @@ Kernel::host_compute(const Grid& grid,
   // @c detail/launch_traits.h ). Block / Dense / DenseDisg all bind to
   // @c DenseHostKernelImpl (the name is historical; the impl is now grid-
   // family agnostic).
-  using Impl = detail::DenseHostKernelImpl<Grid, std::decay_t<LoadingFn>>;
-  return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), std::move(name)));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    return grid.make_host_kernel(std::forward<LoadingFn>(loading), std::move(name));
+  } else {
+    using Impl = detail::DenseHostKernelImpl<Grid, std::decay_t<LoadingFn>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), std::move(name)));
+  }
 }
 
 template <typename Grid,
@@ -1094,6 +1105,9 @@ Kernel::compute_universal(const Grid& grid,
   // variations (device-launch helper + iteration shape) live inside
   // @c detail::DeviceLaunchTraits<Grid> and @c detail::HostLaunchTraits<Grid>
   // (see @c detail/launch_traits.h ).
+  static_assert(!detail::sub_grid::is_sub_grid_v<Grid>,
+                "Kernel::compute_universal: not supported for a SubGrid; use "
+                "Kernel::compute and Kernel::host_compute.");
   using Impl = detail::UniversalKernelImpl<Grid, std::decay_t<LoadingFn>>;
   return Kernel(
       std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), shared_mem, std::move(name)));
@@ -1115,6 +1129,8 @@ Kernel::reduce_universal(const Grid& grid,
   // variation lives inside @c detail::ReduceLaunchTraits<Grid> (device
   // stage-1) and @c detail::HostLaunchTraits<Grid>::iterate_slab_reduce
   // (host fold). See @c detail/launch_traits.h .
+  static_assert(!detail::sub_grid::is_sub_grid_v<Grid>,
+                "Kernel::reduce_universal: reductions over a SubGrid are not supported.");
   using Impl =
       detail::UniversalReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
   return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
@@ -1134,6 +1150,8 @@ Kernel::host_reduce(const Grid& grid,
   // Single concrete impl across all grid families — per-family iteration-
   // shape variation lives inside @c detail::HostLaunchTraits<Grid>::iterate_slab_reduce
   // (see @c detail/launch_traits.h ).
+  static_assert(!detail::sub_grid::is_sub_grid_v<Grid>,
+                "Kernel::host_reduce: reductions over a SubGrid are not supported.");
   using Impl = detail::ReduceHostKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
   return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
                                        std::move(name)));

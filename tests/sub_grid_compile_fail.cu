@@ -6,6 +6,7 @@
 //   2  neighbour access through a SubGrid partition
 //   3  writing a SubGrid partition with the parent's Span / Idx
 //   4  a SubGrid of a SubGrid
+//   5  Kernel::compute_universal over a SubGrid
 
 #include <carbon/carbon.h>
 
@@ -42,6 +43,20 @@ build(const S& sub,
 #if CARBON_CF_CASE == 4
 [[maybe_unused]] carbon::SubGrid<S>* nested = nullptr;
 [[maybe_unused]] auto nested_size = sizeof(carbon::SubGrid<S>);
+#endif
+
+#if CARBON_CF_CASE == 5
+[[maybe_unused]] auto
+build_universal(const S& sub,
+                S::Field<float,
+                         1>& f) -> carbon::Kernel {
+  return carbon::Kernel::compute_universal(sub, [f](carbon::KernelLoader& L) {
+    auto p = L.write(f);
+    return [=] CARBON_HD(const S::Span& s, const S::Idx& i) {
+      p.write(s, i, 0, 1.0F);
+    };
+  });
+}
 #endif
 
 int
