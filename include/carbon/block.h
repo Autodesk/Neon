@@ -26,10 +26,12 @@
 #include <carbon/logging.h>
 #include <carbon/memory_side.h>
 #include <carbon/reduce.h>
+#include <carbon/region_mask.h>
 #include <carbon/system.h>
 
 #include <stdint.h>
 
+#include <concepts>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -38,6 +40,11 @@
 #include <vector>
 
 namespace carbon {
+
+struct KernelLoader;
+
+template <typename G>
+class SubGrid;
 
 namespace detail::block {
 
@@ -846,6 +853,37 @@ public:
   download_to_host(const Field<T,
                                Components>& field,
                    const ::carbon::Stream& stream) const -> std::vector<detail::Allocation<T>>;
+
+  /**
+   * @brief Builds a @ref SubGrid of the active voxels whose @c std::uint8_t label bit is set
+   *        in @p mask .
+   *
+   * Same contract as @c Dense::new_sub_grid(labels, mask) : the selection is derived from
+   * @p mask , @p labels must be up to date on the device and is read once, now (the SubGrid
+   * is immutable). Launches a selection kernel and blocks until the lane tables are built,
+   * so call it from a device translation unit (same rule as @ref make_kernel ). Definition
+   * lives in @c carbon/sub_grid.h .
+   */
+  template <typename T>
+  [[nodiscard]] auto
+  new_sub_grid(const Field<T,
+                           1>& labels,
+               const ::carbon::RegionMask& mask,
+               std::string name = {}) const -> SubGrid<Block>;
+
+  /**
+   * @brief Builds a @ref SubGrid of the active voxels selected by a loading callable.
+   *
+   * @p select has the shape of a @ref make_kernel loading lambda whose per-voxel callable
+   * returns @c bool : @c (KernelLoader&) -> CARBON_HD (Span, Idx) -> bool . @p mask is the
+   * footprint S kernels declare on parent fields; it must cover every selected voxel.
+   * Same blocking, device-TU and immutability rules as the label overload.
+   */
+  template <std::invocable<::carbon::KernelLoader&> L>
+  [[nodiscard]] auto
+  new_sub_grid(L&& select,
+               const ::carbon::RegionMask& mask = ::carbon::RegionMask::all(),
+               std::string name = {}) const -> SubGrid<Block>;
 
 private:
   /**

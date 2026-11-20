@@ -85,6 +85,13 @@ private:
     if constexpr (requires { idx.cell(); }) {
       assert(span.sub().parent_idx(lane).cell() == idx.cell() &&
              "SubGrid Idx lane does not match its parent cell");
+    } else if constexpr (requires {
+                           idx.block_idx();
+                           idx.intra();
+                         }) {
+      assert(span.sub().parent_idx(lane).block_idx() == idx.block_idx() &&
+             span.sub().parent_idx(lane).intra() == idx.intra() &&
+             "SubGrid Idx lane does not match its parent cell");
     }
 #endif
     if constexpr (Components == 1) {

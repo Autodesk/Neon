@@ -7,6 +7,8 @@
 //   3  writing a SubGrid partition with the parent's Span / Idx
 //   4  a SubGrid of a SubGrid
 //   5  Kernel::compute_universal over a SubGrid
+//   6  read_stencil on a field of a SubGrid over a Block
+//   7  a SubGrid over an unsupported parent grid
 
 #include <carbon/carbon.h>
 
@@ -39,6 +41,30 @@ build(const S& sub,
     };
   });
 }
+
+using SB = carbon::SubGrid<carbon::Block<>>;
+
+#if CARBON_CF_CASE == 0 || CARBON_CF_CASE == 6
+[[maybe_unused]] auto
+build_block(const SB& sub,
+            SB::Field<float,
+                      1>& f) -> carbon::Kernel {
+  return sub.make_kernel([f](carbon::KernelLoader& L) {
+#if CARBON_CF_CASE == 6
+    auto p = L.read_stencil(f);
+#else
+    auto p = L.read_write(f);
+#endif
+    return [=] CARBON_HD(const SB::Span& s, const SB::Idx& i) {
+      p.write(s, i, 0, p.read(s, i, 0) + 1.0F);
+    };
+  });
+}
+#endif
+
+#if CARBON_CF_CASE == 7
+[[maybe_unused]] auto unsupported_size = sizeof(carbon::SubGrid<carbon::DenseDisg>);
+#endif
 
 #if CARBON_CF_CASE == 4
 [[maybe_unused]] carbon::SubGrid<S>* nested = nullptr;

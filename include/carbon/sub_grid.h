@@ -23,12 +23,14 @@
  * A SubGrid is immutable: the selection is evaluated once, at construction.
  */
 
+#include <carbon/block.h>
 #include <carbon/data_view.h>
 #include <carbon/dense.h>
 #include <carbon/detail/sub_grid/field.h>
 #include <carbon/detail/sub_grid/fwd.h>
 #include <carbon/detail/sub_grid/idx.h>
 #include <carbon/detail/sub_grid/kernel_impl.h>
+#include <carbon/detail/sub_grid/parent_traits.h>
 #include <carbon/detail/sub_grid/partition.h>
 #include <carbon/detail/sub_grid/reduce_traits.h>
 #include <carbon/detail/sub_grid/span.h>
@@ -59,8 +61,8 @@ struct Builder;
 }  // namespace detail::sub_grid
 
 /**
- * Packed subset of a parent grid @p G (v1: @ref Dense ). Build one with
- * @c Dense::new_sub_grid ; see the file comment for the model.
+ * Packed subset of a parent grid @p G ( @ref Dense or @ref Block ). Build one with
+ * @c Dense::new_sub_grid or @c Block::new_sub_grid ; see the file comment for the model.
  *
  * Shallow handle: copies share the lane tables, which stay alive as long as any copy or any
  * field built from it does.
@@ -69,6 +71,8 @@ template <typename G>
 class SubGrid {
   static_assert(!detail::sub_grid::is_sub_grid_v<G>,
                 "carbon::SubGrid: a SubGrid of a SubGrid is not supported.");
+  static_assert(detail::sub_grid::is_sub_grid_v<G> || detail::sub_grid::has_parent_traits_v<G>,
+                "carbon::SubGrid: the parent grid must be carbon::Dense or carbon::Block.");
 
 public:
   using Parent = G;
@@ -243,7 +247,7 @@ public:
    *
    * The kernel-wide region is preset to @ref mask , and loading a field of another SubGrid
    * throws here, at construction. @c Kernel::launch(stream, view) runs the lanes of @p view ;
-   * the @ref Skeleton OCC-splits the kernel like a Dense one when it stencil-reads a parent
+   * the @ref Skeleton OCC-splits the kernel like a parent-grid one when it stencil-reads a parent
    * field after a halo. Call from a device translation unit.
    */
   template <typename L>
@@ -267,6 +271,10 @@ public:
   /**
    * @brief Host (OpenMP) twin of @ref make_kernel over the host lane tables. Every field
    *        the loader touches needs a host mirror.
+   *
+   * With a @ref Block parent the span's topology (bitmask, connectivity, origins) is the
+   * parent's host copy, which covers owned bricks only: a parent @c neighbour read must not
+   * cross into another GPU's slab (same rule as @c Block::make_host_kernel ).
    */
   template <typename L>
   [[nodiscard]] auto
@@ -356,12 +364,13 @@ private:
 namespace detail::sub_grid {
 
 /**
- * Builds a @ref SubGrid from per-GPU host selection flags laid out like a parent field
- * (one @c std::uint8_t per storage cell, non-zero = selected).
+ * Builds a @ref SubGrid from per-GPU host selection flags laid out like a one-component
+ * parent field (non-zero = selected; see @c ParentTraits::flag_offset ).
  *
  * Lane order is the parent's own iteration order, Internal view first and Boundary view
- * second, enumerated through @c Span::iter_extent and @c Span::set_and_validate — so the
- * Internal / Boundary split is the parent's by construction and the table is deterministic.
+ * second (@c ParentTraits::for_each_cell ), so the Internal / Boundary split is the parent's
+ * by construction and the table is deterministic. Only valid parent cells are visited, and
+ * their flag is read after that check: flags of other cells may be uninitialised.
  */
 struct Builder {
   template <typename G>
@@ -373,9 +382,9 @@ struct Builder {
     using S = SubGrid<G>;
     using PIdx = typename G::Idx;
     using State = typename S::State;
+    using Traits = ParentTraits<G>;
 
-    const auto& parent_spans = parent.spans();
-    const size_t n = parent_spans.size();
+    const size_t n = parent.spans().size();
     if (flags.size() != n) {
       log::throw_with_log<std::invalid_argument>("SubGrid: {} flag buffers for {} GPUs",
                                                  flags.size(), n);
@@ -386,23 +395,24 @@ struct Builder {
     state->mask = mask;
     state->name = std::move(name);
 
+    // Host spans must reference the State's own copy of the parent: they outlive `parent`.
+    std::vector<typename G::Span> parent_host_spans;
+    parent_host_spans.reserve(n);
+    for (size_t g = 0; g < n; ++g) {
+      parent_host_spans.push_back(Traits::host_span(state->parent, g));
+    }
+
     std::vector<std::vector<PIdx>> selected(n);
     for (size_t g = 0; g < n; ++g) {
-      const auto& span = parent_spans[g];
+      const auto& span = parent_host_spans[g];
       const std::uint8_t* f = flags[g];
       auto& out = selected[g];
       for (const DataView view : {DataView::Internal, DataView::Boundary}) {
-        const int64_3d ext = span.iter_extent(view);
-        for (int64_t z = 0; z < ext.z; ++z) {
-          for (int64_t y = 0; y < ext.y; ++y) {
-            for (int64_t x = 0; x < ext.x; ++x) {
-              const auto r = span.set_and_validate(view, x, y, z);
-              if (r.valid && f[span.linear_offset(r.idx)] != 0U) {
-                out.push_back(r.idx);
-              }
-            }
+        Traits::for_each_cell(span, view, [&](const PIdx& idx) {
+          if (f[Traits::flag_offset(span, idx)] != 0U) {
+            out.push_back(idx);
           }
-        }
+        });
         if (view == DataView::Internal) {
           state->internal_count.push_back(static_cast<int64_t>(out.size()));
         }
@@ -432,10 +442,10 @@ struct Builder {
     for (size_t g = 0; g < n; ++g) {
       const int64_t cnt = state->count[g];
       const int64_t internal = state->internal_count[g];
-      state->spans.emplace_back(parent_spans[g],
+      state->spans.emplace_back(state->parent.spans()[g],
                                 Lanes<PIdx>(state->device_tables[g].data(), cnt, internal, owner));
       state->host_spans.emplace_back(
-          parent_spans[g], Lanes<PIdx>(state->host_tables[g].data(), cnt, internal, owner));
+          parent_host_spans[g], Lanes<PIdx>(state->host_tables[g].data(), cnt, internal, owner));
     }
 
     S result(std::shared_ptr<const State>(std::move(state)));
@@ -513,6 +523,53 @@ Dense::new_sub_grid(const Field<T,
                     std::string name) const -> SubGrid<Dense> {
   static_assert(std::is_same_v<T, std::uint8_t>,
                 "Dense::new_sub_grid(labels, mask): labels must be a Dense::Field<std::uint8_t, 1> "
+                "(one RegionMask bit per label value).");
+  return new_sub_grid(
+      [labels, mask](KernelLoader& loader) {
+        auto label_partition = loader.read(labels);
+        return detail::sub_grid::LabelPredicate<decltype(label_partition)>{label_partition, mask};
+      },
+      mask, std::move(name));
+}
+
+template <typename SBlock>
+template <std::invocable<KernelLoader&> L>
+auto
+Block<SBlock>::new_sub_grid(L&& select,
+                            const RegionMask& mask,
+                            std::string name) const -> SubGrid<Block> {
+  // The Block launcher visits active voxels only, so flags of inactive voxels stay
+  // uninitialised; the Builder reads a flag only after checking the voxel is active.
+  auto flags = newField<std::uint8_t, 1>(MemorySide::Device, "sub_grid_select");
+  const Kernel select_kernel =
+      make_kernel([select = std::forward<L>(select), flags](KernelLoader& loader) {
+        auto predicate = select(loader);
+        auto out = loader.write(flags);
+        return detail::sub_grid::SelectFn<decltype(predicate), decltype(out)>{predicate, out};
+      });
+  System sys = system_;
+  Stream stream = sys.stream();
+  select_kernel.launch(stream);
+  const auto owned_flags = download_to_host(flags, stream);
+  stream.wait();
+
+  std::vector<const std::uint8_t*> host_flags;
+  host_flags.reserve(owned_flags.size());
+  for (const auto& alloc : owned_flags) {
+    host_flags.push_back(alloc.data());
+  }
+  return detail::sub_grid::Builder::from_host_flags(*this, host_flags, mask, std::move(name));
+}
+
+template <typename SBlock>
+template <typename T>
+auto
+Block<SBlock>::new_sub_grid(const Field<T,
+                                        1>& labels,
+                            const RegionMask& mask,
+                            std::string name) const -> SubGrid<Block> {
+  static_assert(std::is_same_v<T, std::uint8_t>,
+                "Block::new_sub_grid(labels, mask): labels must be a Block::Field<std::uint8_t, 1> "
                 "(one RegionMask bit per label value).");
   return new_sub_grid(
       [labels, mask](KernelLoader& loader) {
