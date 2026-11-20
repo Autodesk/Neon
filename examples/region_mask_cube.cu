@@ -47,10 +47,16 @@
 // The example compiles the pipeline twice, once with masks honoured and once with
 // Skeleton::Options::ignore_region_masks (the whole-field schedule), prints both dependency
 // tables, runs both, and checks that every voxel holds the expected value. With
-// `--dot <prefix>` it also writes <prefix>_masked.dot / <prefix>_ignored.dot; render them
-// with `dot -Tsvg`.
+// `--dot <prefix>` it also writes, for each schedule (`masked` / `ignored`), the dependency
+// graph <prefix>_<schedule>.dot and the launch matrix <prefix>_<schedule>_matrix.dot (one
+// column per stream, one row per launch / event record / event wait); render them with
+// `dot -Tsvg`.
 //
-//   carbon_example_region_mask_cube [--n 32] [--dot region_mask_cube]
+// `--overlap standard` compiles both schedules with OverlapMode::Standard (OCC). OCC splits
+// stencil kernels around their halo; this pipeline has no stencil, so the schedules stay the
+// same and the flag only shows that masks and OCC compose.
+//
+//   carbon_example_region_mask_cube [--n 32] [--overlap none|standard] [--dot region_mask_cube]
 //
 // See docs/skeleton/README.md, "Region masks", for the full contract, and region_mask_bc.cu
 // for the same idea inside a heat solver.
@@ -193,8 +199,20 @@ build_count_wrong(carbon::Dense& dense,
 
 struct Args {
   int64_t n = 32;
+  carbon::OverlapMode overlap = carbon::OverlapMode::None;
   std::string dot_prefix{};
 };
+
+[[nodiscard]] auto
+parse_overlap(std::string_view s) -> carbon::OverlapMode {
+  if (s == "none") {
+    return carbon::OverlapMode::None;
+  }
+  if (s == "standard") {
+    return carbon::OverlapMode::Standard;
+  }
+  throw std::invalid_argument("--overlap must be none or standard, got " + std::string{s});
+}
 
 [[nodiscard]] auto
 parse_args(int argc,
@@ -204,6 +222,8 @@ parse_args(int argc,
     const std::string_view flag = argv[i];
     if (flag == "--n") {
       a.n = std::atoll(argv[i + 1]);
+    } else if (flag == "--overlap") {
+      a.overlap = parse_overlap(argv[i + 1]);
     } else if (flag == "--dot") {
       a.dot_prefix = argv[i + 1];
     } else {
@@ -292,10 +312,11 @@ main(int argc,
     carbon::ReductionResult<int64_t> wrong_masked(sys);
     carbon::ReductionResult<int64_t> wrong_whole(sys);
 
-    carbon::Skeleton masked(sys);
+    const carbon::Skeleton::Options honour_masks(args.overlap);
+    carbon::Skeleton masked(sys, honour_masks);
     add_pipeline(masked, dense, u_masked, n, wrong_masked);
 
-    carbon::Skeleton::Options ignore_masks;
+    carbon::Skeleton::Options ignore_masks(args.overlap);
     ignore_masks.ignore_region_masks = true;
     carbon::Skeleton whole(sys, ignore_masks);
     add_pipeline(whole, dense, u_whole, n, wrong_whole);
@@ -306,9 +327,13 @@ main(int argc,
     if (!args.dot_prefix.empty()) {
       const bool ok =
           masked.export_dot_file(args.dot_prefix + "_masked.dot", "region_mask_cube_masked") &&
-          whole.export_dot_file(args.dot_prefix + "_ignored.dot", "region_mask_cube_ignored");
-      std::cout << (ok ? "wrote " : "FAILED to write ") << args.dot_prefix << "_masked.dot / "
-                << args.dot_prefix << "_ignored.dot\n\n";
+          masked.export_launch_matrix_dot_file(args.dot_prefix + "_masked_matrix.dot",
+                                               "region_mask_cube_masked") &&
+          whole.export_dot_file(args.dot_prefix + "_ignored.dot", "region_mask_cube_ignored") &&
+          whole.export_launch_matrix_dot_file(args.dot_prefix + "_ignored_matrix.dot",
+                                              "region_mask_cube_ignored");
+      std::cout << (ok ? "wrote " : "FAILED to write ") << args.dot_prefix
+                << "_{masked,ignored}{,_matrix}.dot\n\n";
     }
 
     const int64_t bad_masked = run_and_count_wrong(sys, masked, wrong_masked);

@@ -6423,3 +6423,14 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   schedules. Honoured gives 2 streams: the boundary fill sits beside the interior chain and
   the check waits for both. Ignored gives a 4-kernel chain on 1 stream. The result is 0 wrong
   voxels on CUDA (2 GPUs) and SYCL. `region_mask_bc.cu` stays the heat-solver walk-through.
+- **2026-11 — Region-mask examples: launch matrix and `--overlap`.** With `--dot <prefix>`,
+  both `region_mask_bc` and `region_mask_cube` now also write the launch matrix
+  (`export_launch_matrix_dot`, one column per stream) for the masked and the masks-ignored
+  schedule. Both also accept `--overlap none|standard`. In `region_mask_bc` Standard OCC
+  splits both interior stencils into Internal and Boundary halves around their halos, while
+  the boundary-condition kernels keep their own streams. `auto_halo_v` still waits for
+  `boundary_v`, and the results stay bit-identical. On 2×RTX A4000 the combination pays off
+  only between launch-bound and saturated sizes. In µs per iteration (none / masks / OCC /
+  both): 64³ gives ~90 / 73 / 71 / 85, 128³ gives 218 / 169 / 144 / 140, and 256³ gives
+  1023 / 920 / 970 / 947. The cube pipeline has no stencil, so OCC leaves its schedule
+  unchanged, and the example says so.

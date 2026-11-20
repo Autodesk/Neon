@@ -17,9 +17,17 @@
 //
 // The example runs the same pipeline twice — masks honoured and Options::ignore_region_masks
 // — prints both schedules, checks the fields are bit-identical, and with --dot <prefix>
-// writes <prefix>_schedule.dot / <prefix>_kernels.dot (render with `dot -Tsvg`).
+// writes <prefix>_schedule.dot / <prefix>_kernels.dot / <prefix>_matrix.dot (the launch
+// matrix: one column per stream) plus <prefix>_matrix_ignored.dot for the whole-field
+// schedule (render with `dot -Tsvg`).
 //
-//   carbon_example_region_mask_bc [--n 64] [--iters 200] [--dot region_mask_bc]
+// `--overlap standard` compiles both schedules with OverlapMode::Standard: each interior
+// stencil is split into an Internal half, which runs while its halo is in flight, and a
+// Boundary half after it. The masks still let the boundary-condition kernels run on their own
+// streams.
+//
+//   carbon_example_region_mask_bc [--n 64] [--iters 200] [--overlap none|standard]
+//                                 [--dot region_mask_bc]
 
 #include <carbon/carbon.h>
 #include <carbon/cuda_annotation.h>
@@ -61,8 +69,20 @@ const RegionMask kBoundary = ~kInterior;
 struct Args {
   int64_t n = 64;
   int iters = 200;
+  carbon::OverlapMode overlap = carbon::OverlapMode::None;
   std::string dot_prefix{};
 };
+
+[[nodiscard]] auto
+parse_overlap(std::string_view s) -> carbon::OverlapMode {
+  if (s == "none") {
+    return carbon::OverlapMode::None;
+  }
+  if (s == "standard") {
+    return carbon::OverlapMode::Standard;
+  }
+  throw std::invalid_argument("--overlap must be none or standard, got " + std::string{s});
+}
 
 [[nodiscard]] auto
 parse_args(int argc,
@@ -74,6 +94,8 @@ parse_args(int argc,
       a.n = std::atoll(argv[i + 1]);
     } else if (flag == "--iters") {
       a.iters = std::atoi(argv[i + 1]);
+    } else if (flag == "--overlap") {
+      a.overlap = parse_overlap(argv[i + 1]);
     } else if (flag == "--dot") {
       a.dot_prefix = argv[i + 1];
     } else {
@@ -234,9 +256,10 @@ main(int argc,
     init.run();
     init.wait();
 
-    carbon::Skeleton masked(sys);
+    const carbon::Skeleton::Options honour_masks(args.overlap);
+    carbon::Skeleton masked(sys, honour_masks);
     add_pipeline(masked, dense, labels, u, v);
-    carbon::Skeleton::Options whole_field;
+    carbon::Skeleton::Options whole_field(args.overlap);
     whole_field.ignore_region_masks = true;
     carbon::Skeleton reference(sys, whole_field);
     add_pipeline(reference, dense, labels, u_ref, v_ref);
@@ -244,6 +267,8 @@ main(int argc,
     reference.compile();
 
     std::cout << "region_mask_bc: n=" << args.n << " iters=" << args.iters << " gpus=" << n_gpus
+              << " overlap="
+              << (args.overlap == carbon::OverlapMode::Standard ? "standard" : "none")
               << "\n  interior mask = " << carbon::to_string(kInterior)
               << ", boundary mask = " << carbon::to_string(kBoundary) << "\n\n";
     std::cout << "masks honoured: " << masked.num_streams() << " stream(s)\n"
@@ -254,9 +279,12 @@ main(int argc,
     if (!args.dot_prefix.empty()) {
       const bool ok =
           masked.export_dot_file(args.dot_prefix + "_schedule.dot", "region_mask_bc") &&
-          masked.export_kernel_list_dot_file(args.dot_prefix + "_kernels.dot", "region_mask_bc");
+          masked.export_kernel_list_dot_file(args.dot_prefix + "_kernels.dot", "region_mask_bc") &&
+          masked.export_launch_matrix_dot_file(args.dot_prefix + "_matrix.dot", "region_mask_bc") &&
+          reference.export_launch_matrix_dot_file(args.dot_prefix + "_matrix_ignored.dot",
+                                                  "region_mask_bc_ignored");
       std::cout << (ok ? "wrote " : "FAILED to write ") << args.dot_prefix
-                << "_schedule.dot / _kernels.dot\n\n";
+                << "_{schedule,kernels,matrix,matrix_ignored}.dot\n\n";
     }
 
     const double ms_masked = time_runs(masked, args.iters);
