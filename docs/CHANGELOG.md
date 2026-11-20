@@ -6505,3 +6505,35 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   SYCL (AdaptiveCpp) 111/111, and `hip-nvidia` 117/117. HIP's SubGrid tests,
   `examples/sub_grid_cube.cu` and all six compile-fail cases pass. HIP's last measured
   count, from 2026-07, was 89.
+- **2026-11 — `SubGrid` over a `Block` parent; copied Blocks no longer share host spans.**
+  `Block::new_sub_grid(labels, mask)` / `new_sub_grid(predicate, mask)` build a
+  `SubGrid<Block<SBlock>>` with the same API as the Dense one. Decisions:
+  - *Flat lane table, not a brick-aware one.* Each lane is one `Block::Idx` (brick, intra
+    offset), so the existing lane launchers, reduce traits and Skeleton integration work
+    unchanged. A brick-aware layout (one GPU block per touched brick, a per-brick voxel
+    list) would help a selection that fills whole bricks, but SubGrids are meant for a few
+    voxels that need special treatment, and those mostly sit in different bricks. Multi-
+    resolution Blocks and `DenseDisg` stay out of scope; any other parent is a static_assert.
+  - *A `ParentTraits<G>` seam.* `host_span`, `for_each_cell` (enumerate selected cells in
+    the parent's iteration order) and `flag_offset` are the only parent-specific pieces of
+    the Builder; Dense's code moved behind its specialisation unchanged.
+  - *Host spans come from the parent's host tables.* Building a SubGrid host span from a
+    device span works for Dense (the Span holds no pointers) but makes a Block host kernel
+    dereference device pointers. The Builder now takes host spans from
+    `ParentTraits::host_span` on the State's own copy of the parent. The Block's host tables
+    cover owned bricks only, so host `neighbour` reads must stay in the GPU's slab.
+  - *Copying a Block resets its memoised host spans.* `Block::host_spans()` memoises spans
+    that point into the Block's own host vectors, and the copy constructor copied the memo,
+    so a copy kept pointing into the source (a use-after-free once the source died). The
+    memo is now a `ResetOnCopy` member; `tests/test_block_host_parity.cu` checks copies and
+    a host reduce through a copy whose source was destroyed.
+  `tests/test_sub_grid_block.cu` (64³ ball, 655 markers, including voxels on brick faces,
+  next to inactive voxels and on the slab cut) covers construction, device and host kernels with neighbour
+  reads, reductions, the ownership throw, and a Skeleton under every `OverlapMode`, with
+  exact results. Building host spans from device spans segfaults it, and offsetting the
+  flag index or swapping x / z fails it. Two compile-fail cases were added (`read_stencil` on
+  a Block SubGrid field, a `DenseDisg` parent). `examples/sub_grid_block_markers.cu` updates
+  one voxel in 1000 of a 256³ ball in 5.8 µs per launch against 79.1 µs for a Block kernel
+  with a label filter (2×RTX A4000; SYCL 9.4 / 80.3, HIP on NVIDIA 4.9 / 79.0). Measured
+  excluding `carbon_format_check`: CUDA 124/124, SYCL (AdaptiveCpp) 112/112, `hip-nvidia`
+  120/120; the new test also passes on one GPU.

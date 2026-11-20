@@ -112,6 +112,11 @@ target_link_libraries(carbon_example_region_mask_cube PRIVATE carbon::carbon)
 _carbon_example_add(carbon_example_sub_grid_cube sub_grid_cube.cu)
 target_link_libraries(carbon_example_sub_grid_cube PRIVATE carbon::carbon)
 
+# SubGrid over a Block: a few scattered marker voxels of a block-sparse ball updated by one
+# thread each, checked and timed against a Block kernel that filters every active voxel.
+_carbon_example_add(carbon_example_sub_grid_block_markers sub_grid_block_markers.cu)
+target_link_libraries(carbon_example_sub_grid_block_markers PRIVATE carbon::carbon)
+
 _carbon_example_add(carbon_example_salt_pepper_filter salt_pepper_filter.cu)
 target_link_libraries(carbon_example_salt_pepper_filter PRIVATE carbon::carbon)
 # Bake the absolute path of examples/data into the binary so running with no args picks

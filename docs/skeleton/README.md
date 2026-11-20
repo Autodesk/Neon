@@ -190,7 +190,8 @@ A masked Dense kernel still sweeps the whole grid and skips cells itself.
 `carbon::SubGrid<Dense>` (`<carbon/sub_grid.h>`, included by `<carbon/carbon.h>`) is the
 compact counterpart: `S = SubGrid(G, F, B)` stores, per GPU, the owned parent cells selected
 by `F` as a lane table and launches one thread per lane. `B` is the region its kernels
-declare.
+declare. The parent can also be the block-sparse grid: `carbon::SubGrid<carbon::Block<>>`,
+built with the same two `block.new_sub_grid(...)` factories (see "Block parent" below).
 
 ```cpp
 using S = carbon::SubGrid<carbon::Dense>;
@@ -242,6 +243,14 @@ Rules:
   unchanged; `ReduceOptions::stage1_threads[_y]` throw.
   An empty SubGrid yields the op's identity. A reduction that stencil-reads a parent field
   is split by OCC into Internal / Boundary partials plus a merge, as on Dense.
+- **Block parent.** `SubGrid<Block<SBlock>>` has the same API. Its lane table is flat: one
+  `Block::Idx` (brick, intra-brick offset) per selected active voxel, parent-Internal bricks
+  first, in brick then z / y / x order. That suits a few scattered voxels, which mostly sit
+  in different bricks; a selection that fills whole bricks gains little over a Block kernel
+  with a filter. Device kernels read parent fields anywhere their halo allows. Host kernels
+  get spans built from the Block's host tables, which cover owned bricks only, so a host
+  `neighbour` read must stay in the GPU's slab (slabs split along z). Any other parent type
+  is a compile error.
 
 ```cpp
 carbon::ReductionResult<double> wall_flux(sys);
@@ -260,5 +269,10 @@ kernel. On 2×RTX A4000 (µs per launch, Dense + filter / SubGrid): 64³ is laun
 4.8 / 4.9, 128³ gives 9.6 / 3.6, 256³ gives 58.8 / 28.7 (SYCL 85.5 / 32.0), and 384³
 gives 189 / 67. A SubGrid pays one lane-table read per thread and its parent accesses are
 gathers, so it wins when the selection is a small fraction of the grid.
-`tests/test_sub_grid*.cu` (`test_sub_grid_reduce.cu` for reductions) and
-`tests/sub_grid_compile_fail.cu` pin the semantics.
+`examples/sub_grid_block_markers.cu` does the same over a Block ball: about one active voxel
+in 1000 is a marker that gets an x/y-neighbour average, compared against a Block kernel that
+filters on a label. On 2×RTX A4000 (µs per launch, Block + filter / SubGrid): 128³ gives
+10.5 / 6.1, 256³ gives 79.1 / 5.8 (one GPU 155.9 / 6.0, SYCL 80.3 / 9.4, HIP on NVIDIA
+79.0 / 4.9), and 256³ with one marker in 100 gives 126.2 / 23.5.
+`tests/test_sub_grid*.cu` (`test_sub_grid_reduce.cu` for reductions, `test_sub_grid_block.cu`
+for the Block parent) and `tests/sub_grid_compile_fail.cu` pin the semantics.

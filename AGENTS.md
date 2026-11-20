@@ -79,7 +79,7 @@ same public API; what differs is which `detail/backend/<name>/` headers are pull
 and which toolchain compiles the per-cell device code.
 
 - **CUDA** is the historical and feature-complete backend. `nvcc` compiles `.cu` TUs;
-  per-cell launches go through `cudaLaunchKernel`. All 121 default tests pass (apart from
+  per-cell launches go through `cudaLaunchKernel`. All 125 default tests pass (apart from
   the `carbon_format_check` caveat in the snapshot below) and all
   example programs build and run.
 - **SYCL** is supported through [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp)
@@ -516,18 +516,22 @@ how a feature behaves at the edges, grep the changelog for the section name
   `CARBON_IGNORE_REGION_MASKS=1` restore the whole-field schedule, and MPI
   runs check masks are rank-invariant (`docs/skeleton/README.md`,
   `examples/region_mask_cube.cu` minimal, `examples/region_mask_bc.cu`). **SubGrid**:
-  `SubGrid<Dense>` (`include/carbon/sub_grid.h`, `detail/sub_grid/`) built by
-  `Dense::new_sub_grid(labels, mask)` or `new_sub_grid(predicate, mask)` keeps a per-GPU
-  lane table of selected parent cells (parent-Internal first, then parent-Boundary) and
-  launches one thread per lane; `S::Span` / `S::Idx` derive from the parent's so parent
+  `SubGrid<Dense>` / `SubGrid<Block<>>` (`include/carbon/sub_grid.h`, `detail/sub_grid/`)
+  built by `Dense::new_sub_grid(labels, mask)` or `new_sub_grid(predicate, mask)` (same on
+  `Block`) keeps a per-GPU flat lane table of selected parent cells (parent-Internal first,
+  then parent-Boundary) and launches one thread per lane; `S::Span` / `S::Idx` derive from the parent's so parent
   fields are read/written (and stencil-read through their halo) directly, SubGrid fields
   are compact and halo-less (`read_stencil` on one is a compile error), kernels declare the
   SubGrid mask automatically and OCC-split like Dense kernels, and loading another
   SubGrid's field throws. Reductions (`Kernel::reduce` / `host_reduce` /
   `reduce_universal`, `S.make_*reduce_kernel`) run one thread per lane through the usual
   reduce pipeline via `ReduceLaunchTraits<SubGrid<G>>` (`detail/sub_grid/reduce_traits.h`);
-  `compute_universal` over a SubGrid is still a static_assert (`docs/skeleton/README.md` "SubGrid",
-  `examples/sub_grid_cube.cu`, `tests/test_sub_grid*.cu`). Examples:
+  `compute_universal` over a SubGrid is still a static_assert. Per-parent enumeration and
+  host spans go through `ParentTraits<G>` (`detail/sub_grid/parent_traits.h`); a Block
+  SubGrid's host kernels get spans from the Block's host tables (owned bricks only, so host
+  `neighbour` reads stay in the slab) (`docs/skeleton/README.md` "SubGrid",
+  `examples/sub_grid_cube.cu`, `examples/sub_grid_block_markers.cu`,
+  `tests/test_sub_grid*.cu`). Examples:
   `examples/jacobi_unified.cu` (Dense / DenseDisg / Block from one
   source file, runtime grid + transport + overlap selection);
   `examples/checkpoint_dense.cu` and `examples/checkpoint_sphere_image.cu`
@@ -567,19 +571,19 @@ files outside this work:
 
 | Configuration | Tests |
 | --- | --- |
-| default (CUDA) | 122 |
-| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 150 ‡ |
-| `-DCARBON_BACKEND=Sycl` | 112 |
-| `sycl-mpi` (SYCL + MPI) | 140 ‡ |
-| `hip-nvidia` (HIP backend on NVIDIA) | 118 |
+| default (CUDA) | 125 |
+| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 153 ‡ |
+| `-DCARBON_BACKEND=Sycl` | 113 |
+| `sycl-mpi` (SYCL + MPI) | 141 ‡ |
+| `hip-nvidia` (HIP backend on NVIDIA) | 121 |
 
-‡ 2026-11-18 count plus the SubGrid tests (10 on CUDA, 4 on SYCL); not re-run since.
+‡ 2026-11-18 count plus the SubGrid tests (13 on CUDA, 5 on SYCL); not re-run since.
 
 `hdf5_io` / `nanovdb_io` are registered unconditionally but compile-time
 skip when their flags are off. The 28-test MPI delta is the `distributed`
-ctest label and registers on both backends. The 10-test CUDA/SYCL delta is
+ctest label and registers on both backends. The 12-test CUDA/SYCL delta is
 the `carbon_add_cuda_only_unit_test` gate (`block_cuda` + the three
-`mgrid_*` tests with hand-rolled `<<<>>>` kernels) plus the six
+`mgrid_*` tests with hand-rolled `<<<>>>` kernels) plus the eight
 `sub_grid_compile_fail_*` entries (CUDA and HIP; regexes match nvcc and clang wording).
 HIP registers the compile-fail entries but not the CUDA-only gate, hence 4 fewer than CUDA.
 `carbon_format_check` is enforced on every backend.
