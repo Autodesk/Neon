@@ -6537,17 +6537,18 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   with a label filter (2×RTX A4000; SYCL 9.4 / 80.3, HIP on NVIDIA 4.9 / 79.0). Measured
   excluding `carbon_format_check`: CUDA 124/124, SYCL (AdaptiveCpp) 112/112, `hip-nvidia`
   120/120; the new test also passes on one GPU.
-- **2026-11 — End-to-end SubGrid test: Jacobi + AXPY with and without a SubGrid.**
+- **2026-11 — End-to-end SubGrid test: Jacobi + AXPY with B and C in parallel.**
   `tests/test_sub_grid_jacobi_axpy.cu` runs 100 iterations of an int64 Jacobi step followed
-  by `y = 3 u + y` on a Dense box and a Block ball. Voxels missing a face neighbour use a
-  different rule (average of themselves and their valid neighbours) from the interior (sum of
-  six neighbours / 6), plus a per-voxel source so the field does not flatten. Each grid runs
-  the pipeline as one kernel that branches on neighbour validity (no OCC and Standard), and
-  as an interior kernel (region mask, label filter) plus a SubGrid kernel over the special
-  voxels (no OCC, Standard, Extended, TwoWayExtended). Every variant must match a host
-  reference exactly in `u` and in `y`, which accumulates every iteration. The test also
-  checks the SubGrid lane counts against an independent host count, that the interior and
-  SubGrid writers are not ordered, and that OCC splits both. Breaking the SubGrid rule, the
-  interior kernel's label filter, the special-voxel predicate or the interior region
-  declaration each makes it fail. Measured excluding `carbon_format_check`: CUDA 125/125
-  (the new test also on one GPU), SYCL (AdaptiveCpp) 113/113, `hip-nvidia` 121/121.
+  by `y = 3 u + y` on a Dense box and a Block ball. B is the voxels missing a face neighbour
+  (own rule); C is every other active voxel (sum of six / 6). A per-voxel source keeps the
+  field from flattening. Each grid runs: one kernel that branches on neighbour validity
+  (`no_s`); B as a SubGrid plus C as a masked parent kernel (`bc_parent`); and B and C as two
+  SubGrids with complementary masks (`bc_sub`). The BC forms run under every OverlapMode.
+  Every variant must match a host reference exactly in `u` and in `y`. Schedule checks: B and
+  C are not ordered and run on different streams; under OCC each Jacobi step has exactly two
+  `[compute/internal]` and two `[compute/boundary]` launches (the Skeleton currently places
+  both boundary halves on the halo stream); AXPYs stay a single `[compute/standard]` launch
+  except under TwoWayExtended, which also splits them. Lane counts: `B.count + C.count`
+  equals the owned voxels. Breaking the B rule, the C SubGrid rule, the C region declaration
+  or the B predicate each makes it fail. Measured excluding `carbon_format_check`: CUDA
+  125/125 (also on one GPU), SYCL (AdaptiveCpp) 113/113, `hip-nvidia` 121/121.
