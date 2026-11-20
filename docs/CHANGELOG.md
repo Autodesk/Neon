@@ -6434,3 +6434,38 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   both): 64³ gives ~90 / 73 / 71 / 85, 128³ gives 218 / 169 / 144 / 140, and 256³ gives
   1023 / 920 / 970 / 947. The cube pipeline has no stencil, so OCC leaves its schedule
   unchanged, and the example says so.
+- **2026-11 — `SubGrid<Dense>`: compact iteration over a region.** `S = SubGrid(G, F, B)`
+  keeps, per GPU, a table of the owned parent cells selected by `F` and launches one thread
+  per entry ("lane"); `B` is the region its kernels declare. Built by
+  `Dense::new_sub_grid(labels, mask)` (a `uint8_t` label field, `F` = label bit in `mask`)
+  or `new_sub_grid(predicate, mask)`. Decisions:
+  - *Compact owner storage, like Neon's sGrid.* SubGrid fields hold one value per lane and
+    nothing else. They have no halo, so `read_stencil` on one is a `static_assert` (the
+    `HaloCapableField` concepts in `kernel.h`), and SubGrid partitions have no neighbour API.
+    Stencils read *parent* fields, through the parent's halo.
+  - *`S::Span` / `S::Idx` derive from the parent's.* The Idx adds its lane and the Span adds
+    the lane table, so `uG.read(s, i, 0)` on a parent field works with no conversion call
+    and keeps the parent's semantics. The risk of deriving is name hiding: a derived member
+    shadowing a parent one. The derived types add only `sub_lane()` / `sub()`, and
+    `static_assert`s reject a parent that already has them. SubGrid partitions take only the
+    SubGrid types; in debug builds they also check the owner, the lane range and the cell.
+  - *Lane order: parent-Internal cells first, then parent-Boundary.* `DataView::Internal` /
+    `Boundary` are then two contiguous lane ranges, so the Skeleton's OCC rewrites (keyed only
+    on kind and tokens) split SubGrid kernels like Dense ones. That includes Extended OCC
+    splitting a SubGrid kernel that produces a stencil-read parent field.
+  - *The mask comes from the SubGrid.* The loader's kernel-wide region is preset to `B`, so
+    two SubGrids with disjoint masks writing one parent field run unordered. The loader is
+    also bound to the SubGrid's uid, so loading another SubGrid's field (or a SubGrid field
+    from a parent kernel) throws when the kernel is built.
+  - *The lane table is built once, on the host, and the SubGrid is immutable.* The selection
+    runs as a Dense kernel into a flag field, is downloaded, and is compacted in iteration
+    order, which keeps it deterministic and backend-neutral. A device scan is a later
+    optimisation. There are no nested SubGrids, and no reductions or `compute_universal`
+    yet (`static_assert`). `Kernel::compute` / `host_compute` forward to
+    `S.make_kernel` / `make_host_kernel`.
+  - *Compile-time rules are tested as builds.* `sub_grid_compile_fail_{0..5}` are targets
+    outside `all` that ctest builds and that must fail with a given diagnostic (CUDA only).
+  Validated on 2×RTX A4000 with CUDA and SYCL (AdaptiveCpp), and on one GPU. A mixed Dense +
+  SubGrid pipeline is bit-identical to a hand-sequenced run under every `OverlapMode`.
+  `examples/sub_grid_cube.cu` fills the boundary of a 256³ cube in 28.7 µs, versus 58.8 µs
+  for the filtered Dense kernel (2.8× at 384³; launch-bound below 128³).

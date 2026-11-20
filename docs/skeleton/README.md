@@ -183,3 +183,61 @@ shows the boundary kernel running beside the interior chain (one stream with mas
 `examples/region_mask_bc.cu` is the end-to-end walk-through (interior stencil + Dirichlet
 boundary kernel, 3 streams vs 1, bit-identical check, `--dot` for both DOT views);
 `tests/test_skeleton_region_mask.cu` pins the semantics.
+
+## SubGrid (compact iteration over a region)
+
+A masked Dense kernel still sweeps the whole grid and skips cells itself.
+`carbon::SubGrid<Dense>` (`<carbon/sub_grid.h>`, included by `<carbon/carbon.h>`) is the
+compact counterpart: `S = SubGrid(G, F, B)` stores, per GPU, the owned parent cells selected
+by `F` as a lane table and launches one thread per lane. `B` is the region its kernels
+declare.
+
+```cpp
+using S = carbon::SubGrid<carbon::Dense>;
+// From a uint8_t label field: the owned cells whose label bit is in the mask.
+const S walls = dense.new_sub_grid(labels, RegionMask::from_label(1), "walls");
+// From any predicate (evaluated once by a Dense kernel); B defaults to all.
+const S shell = dense.new_sub_grid([n](carbon::KernelLoader&) {
+  return [n] CARBON_HD(const Span& s, const Idx& i) { return on_face(s.global_location(i), n); };
+}, kBoundary, "shell");
+
+auto q = walls.newField<float, 1>(carbon::MemorySide::Device, "q");  // one value per lane
+auto bc = carbon::Kernel::compute(walls, [&](carbon::KernelLoader& L) {
+  const auto uG = L.read_stencil(u);  // parent field: own cell and neighbours (u's halo)
+  const auto vG = L.write(v);         // parent field: the lane's cell
+  const auto qS = L.read_write(q);    // SubGrid field
+  return [=] CARBON_HD(const S::Span& s, const S::Idx& i) {
+    vG.write(s, i, 0, uG.read(s, i, 0) + qS.read(s, i, 0));
+  };
+}, "wall_bc");
+```
+
+Rules:
+
+- **Types.** `S::Span` and `S::Idx` derive from the parent's (the Idx adds its lane, the Span
+  the lane table), so parent-field partitions accept them unchanged. SubGrid partitions take
+  only `S::Span` / `S::Idx` and have no neighbour access.
+- **Region.** The loader's kernel-wide region is preset to `B`, so parent-field Map accesses
+  carry `B` and the Skeleton orders the kernel like a masked Dense kernel. The label
+  constructor makes `F` match `B` by construction; with the predicate constructor, `B` is
+  your declaration that every selected cell lies in `B` (same contract as above).
+- **No halos on SubGrid fields.** `read_stencil` on one is a compile error. Stencil-reading
+  a *parent* field is fine and makes the kernel an OCC candidate: lanes are stored
+  parent-Internal first, then parent-Boundary, so `DataView::Internal` / `Boundary` are two
+  contiguous lane ranges and Standard / Extended OCC split SubGrid kernels like Dense ones.
+- **Ownership.** A SubGrid field can only be loaded by kernels of its own SubGrid; anything
+  else throws `std::invalid_argument` when the kernel is built.
+- **Immutable.** The lane table is built once on the host (deterministic order) and never
+  changes; build a new SubGrid for a new selection. No SubGrid of a SubGrid; reductions and
+  `compute_universal` over a SubGrid are not supported yet (static_assert).
+- **Factories.** `Kernel::compute` / `Kernel::host_compute`, or `S.make_kernel(fn[, name][,
+  shared_mem])` / `S.make_host_kernel(fn[, name])`. Tested on CUDA and SYCL; HIP shares the
+  CUDA launch path but has not been built.
+
+`examples/sub_grid_cube.cu` puts the cube boundary in a SubGrid, mixes SubGrid and Dense
+kernels in one masked Skeleton, and times the boundary fill against the filtered Dense
+kernel. On 2×RTX A4000 (µs per launch, Dense + filter / SubGrid): 64³ is launch-bound at
+4.8 / 4.9, 128³ gives 9.6 / 3.6, 256³ gives 58.8 / 28.7 (SYCL 85.5 / 32.0), and 384³
+gives 189 / 67. A SubGrid pays one lane-table read per thread and its parent accesses are
+gathers, so it wins when the selection is a small fraction of the grid.
+`tests/test_sub_grid*.cu` and `tests/sub_grid_compile_fail.cu` pin the semantics.

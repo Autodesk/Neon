@@ -107,6 +107,11 @@ target_link_libraries(carbon_example_region_mask_bc PRIVATE carbon::carbon)
 _carbon_example_add(carbon_example_region_mask_cube region_mask_cube.cu)
 target_link_libraries(carbon_example_region_mask_cube PRIVATE carbon::carbon)
 
+# SubGrid: the cube boundary as its own grid (one thread per boundary voxel, compact fields),
+# mixed with Dense kernels in one masked Skeleton, and timed against the filtered Dense kernel.
+_carbon_example_add(carbon_example_sub_grid_cube sub_grid_cube.cu)
+target_link_libraries(carbon_example_sub_grid_cube PRIVATE carbon::carbon)
+
 _carbon_example_add(carbon_example_salt_pepper_filter salt_pepper_filter.cu)
 target_link_libraries(carbon_example_salt_pepper_filter PRIVATE carbon::carbon)
 # Bake the absolute path of examples/data into the binary so running with no args picks

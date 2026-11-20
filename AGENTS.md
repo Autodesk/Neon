@@ -79,7 +79,8 @@ same public API; what differs is which `detail/backend/<name>/` headers are pull
 and which toolchain compiles the per-cell device code.
 
 - **CUDA** is the historical and feature-complete backend. `nvcc` compiles `.cu` TUs;
-  per-cell launches go through `cudaLaunchKernel`. 112/112 default tests pass and all
+  per-cell launches go through `cudaLaunchKernel`. All 121 default tests pass (apart from
+  the `carbon_format_check` caveat in the snapshot below) and all
   example programs build and run.
 - **SYCL** is supported through [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp)
   (a.k.a. `acpp`, formerly hipSYCL). Per-cell launches go through
@@ -514,7 +515,16 @@ how a feature behaves at the edges, grep the changelog for the section name
   kernel filters itself), `Options::ignore_region_masks` /
   `CARBON_IGNORE_REGION_MASKS=1` restore the whole-field schedule, and MPI
   runs check masks are rank-invariant (`docs/skeleton/README.md`,
-  `examples/region_mask_cube.cu` minimal, `examples/region_mask_bc.cu`). Examples:
+  `examples/region_mask_cube.cu` minimal, `examples/region_mask_bc.cu`). **SubGrid**:
+  `SubGrid<Dense>` (`include/carbon/sub_grid.h`, `detail/sub_grid/`) built by
+  `Dense::new_sub_grid(labels, mask)` or `new_sub_grid(predicate, mask)` keeps a per-GPU
+  lane table of selected parent cells (parent-Internal first, then parent-Boundary) and
+  launches one thread per lane; `S::Span` / `S::Idx` derive from the parent's so parent
+  fields are read/written (and stencil-read through their halo) directly, SubGrid fields
+  are compact and halo-less (`read_stencil` on one is a compile error), kernels declare the
+  SubGrid mask automatically and OCC-split like Dense kernels, and loading another
+  SubGrid's field throws (`docs/skeleton/README.md` "SubGrid",
+  `examples/sub_grid_cube.cu`, `tests/test_sub_grid*.cu`). Examples:
   `examples/jacobi_unified.cu` (Dense / DenseDisg / Block from one
   source file, runtime grid + transport + overlap selection);
   `examples/checkpoint_dense.cu` and `examples/checkpoint_sphere_image.cu`
@@ -548,25 +558,27 @@ how a feature behaves at the edges, grep the changelog for the section name
 
 Counts drift with every feature, so treat these as a sanity check, not a
 contract — `ctest --test-dir <build> -N` is the source of truth. Measured
-2026-11-18 on a 2×RTX A4000 box (`sm_86`, peer access off); every configuration
+2026-11-20 on a 2×RTX A4000 box (`sm_86`, peer access off); every configuration
 green apart from `carbon_format_check`, which flags pre-existing violations in
 files outside this work:
 
 | Configuration | Tests |
 | --- | --- |
-| default (CUDA) | 112 |
-| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 140 |
-| `-DCARBON_BACKEND=Sycl` | 108 |
-| `sycl-mpi` (SYCL + MPI) | 136 |
+| default (CUDA) | 121 |
+| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 149 ‡ |
+| `-DCARBON_BACKEND=Sycl` | 111 |
+| `sycl-mpi` (SYCL + MPI) | 139 ‡ |
 | `hip-nvidia` (HIP backend on NVIDIA) | 89 † |
 
 † not re-measured on 2026-11-18; carried over from the 2026-07-31 2×RTX 6000 Ada run.
+‡ 2026-11-18 count plus the SubGrid tests (9 on CUDA, 3 on SYCL); not re-run since.
 
 `hdf5_io` / `nanovdb_io` are registered unconditionally but compile-time
 skip when their flags are off. The 28-test MPI delta is the `distributed`
-ctest label and registers on both backends. The 4-test CUDA/SYCL delta is
+ctest label and registers on both backends. The 10-test CUDA/SYCL delta is
 the `carbon_add_cuda_only_unit_test` gate (`block_cuda` + the three
-`mgrid_*` tests with hand-rolled `<<<>>>` kernels).
+`mgrid_*` tests with hand-rolled `<<<>>>` kernels) plus the six
+`sub_grid_compile_fail_*` entries, whose diagnostics regexes match nvcc wording.
 `carbon_format_check` is enforced on every backend.
 
 ### Packaging
