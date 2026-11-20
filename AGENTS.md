@@ -79,7 +79,7 @@ same public API; what differs is which `detail/backend/<name>/` headers are pull
 and which toolchain compiles the per-cell device code.
 
 - **CUDA** is the historical and feature-complete backend. `nvcc` compiles `.cu` TUs;
-  per-cell launches go through `cudaLaunchKernel`. All 125 default tests pass (apart from
+  per-cell launches go through `cudaLaunchKernel`. All 126 default tests pass (apart from
   the `carbon_format_check` caveat in the snapshot below) and all
   example programs build and run.
 - **SYCL** is supported through [AdaptiveCpp](https://github.com/AdaptiveCpp/AdaptiveCpp)
@@ -571,13 +571,13 @@ files outside this work:
 
 | Configuration | Tests |
 | --- | --- |
-| default (CUDA) | 125 |
-| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 153 ‡ |
-| `-DCARBON_BACKEND=Sycl` | 113 |
-| `sycl-mpi` (SYCL + MPI) | 141 ‡ |
-| `hip-nvidia` (HIP backend on NVIDIA) | 121 |
+| default (CUDA) | 126 |
+| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 154 ‡ |
+| `-DCARBON_BACKEND=Sycl` | 114 |
+| `sycl-mpi` (SYCL + MPI) | 142 ‡ |
+| `hip-nvidia` (HIP backend on NVIDIA) | 122 |
 
-‡ 2026-11-18 count plus the SubGrid tests (13 on CUDA, 5 on SYCL); not re-run since.
+‡ 2026-11-18 count plus the SubGrid tests (14 on CUDA, 6 on SYCL); not re-run since.
 
 `hdf5_io` / `nanovdb_io` are registered unconditionally but compile-time
 skip when their flags are off. The 28-test MPI delta is the `distributed`

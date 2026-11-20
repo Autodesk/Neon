@@ -276,3 +276,7 @@ filters on a label. On 2×RTX A4000 (µs per launch, Block + filter / SubGrid): 
 79.0 / 4.9), and 256³ with one marker in 100 gives 126.2 / 23.5.
 `tests/test_sub_grid*.cu` (`test_sub_grid_reduce.cu` for reductions, `test_sub_grid_block.cu`
 for the Block parent) and `tests/sub_grid_compile_fail.cu` pin the semantics.
+`test_sub_grid_jacobi_axpy.cu` is the end-to-end case: 100 int64 Jacobi + AXPY iterations
+on Dense and Block, where the voxels missing a neighbour get their own rule, run as one
+filtered kernel, as an interior kernel plus a SubGrid kernel, and the latter under every
+OCC mode, all matching a host reference exactly.

@@ -290,6 +290,7 @@ carbon_add_cuda_unit_test(sub_grid_kernel)
 carbon_add_cuda_unit_test(sub_grid_skeleton)
 carbon_add_cuda_unit_test(sub_grid_reduce)
 carbon_add_cuda_unit_test(sub_grid_block)
+carbon_add_cuda_unit_test(sub_grid_jacobi_axpy)
 
 # SubGrid compile-time rules: each case is a target outside `all` that ctest builds and that
 # must fail with the given diagnostic (case 0 is the control and must build). CUDA and HIP:

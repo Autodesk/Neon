@@ -6537,3 +6537,17 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   with a label filter (2×RTX A4000; SYCL 9.4 / 80.3, HIP on NVIDIA 4.9 / 79.0). Measured
   excluding `carbon_format_check`: CUDA 124/124, SYCL (AdaptiveCpp) 112/112, `hip-nvidia`
   120/120; the new test also passes on one GPU.
+- **2026-11 — End-to-end SubGrid test: Jacobi + AXPY with and without a SubGrid.**
+  `tests/test_sub_grid_jacobi_axpy.cu` runs 100 iterations of an int64 Jacobi step followed
+  by `y = 3 u + y` on a Dense box and a Block ball. Voxels missing a face neighbour use a
+  different rule (average of themselves and their valid neighbours) from the interior (sum of
+  six neighbours / 6), plus a per-voxel source so the field does not flatten. Each grid runs
+  the pipeline as one kernel that branches on neighbour validity (no OCC and Standard), and
+  as an interior kernel (region mask, label filter) plus a SubGrid kernel over the special
+  voxels (no OCC, Standard, Extended, TwoWayExtended). Every variant must match a host
+  reference exactly in `u` and in `y`, which accumulates every iteration. The test also
+  checks the SubGrid lane counts against an independent host count, that the interior and
+  SubGrid writers are not ordered, and that OCC splits both. Breaking the SubGrid rule, the
+  interior kernel's label filter, the special-voxel predicate or the interior region
+  declaration each makes it fail. Measured excluding `carbon_format_check`: CUDA 125/125
+  (the new test also on one GPU), SYCL (AdaptiveCpp) 113/113, `hip-nvidia` 121/121.
