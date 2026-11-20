@@ -22,6 +22,7 @@
 #include <carbon/detail/backend/select.h>
 #include <carbon/detail/kernel_impl.h>
 #include <carbon/logging.h>
+#include <carbon/reduce.h>
 #include <carbon/system.h>
 
 #if CARBON_BACKEND_IS_CUDALIKE
@@ -62,6 +63,31 @@ load(const Grid& grid,
   loader.bind_sub_grid(grid.uid());
   return loading_fn(loader);
 }
+
+/**
+ * A loading lambda with the SubGrid loader rules applied, for the grid-agnostic reduction
+ * impls, which call their loading callable directly.
+ */
+template <typename Grid, typename LoadingFn>
+struct BoundLoading {
+  Grid grid;
+  LoadingFn fn;
+
+  auto
+  operator()(::carbon::KernelLoader& loader) {
+    return load(grid, fn, loader);
+  }
+
+  /** The stage-1 block shape is fixed for SubGrid reductions. */
+  static auto
+  check_reduce_options(const reduce::ReduceOptions& options) -> void {
+    if (options.stage1_threads != 0U || options.stage1_threads_y != 0U) {
+      log::throw_with_log<std::invalid_argument>(
+          "Kernel::reduce (SubGrid): ReduceOptions::stage1_threads / stage1_threads_y are not "
+          "supported; SubGrid reductions use a fixed 1D block over lanes");
+    }
+  }
+};
 
 /** Device compute kernel over a SubGrid (@ref KernelKind::Compute ). */
 template <typename Grid, typename LoadingFn>

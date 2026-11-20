@@ -288,16 +288,21 @@ carbon_add_cuda_unit_test(skeleton_region_mask)
 carbon_add_cuda_unit_test(sub_grid)
 carbon_add_cuda_unit_test(sub_grid_kernel)
 carbon_add_cuda_unit_test(sub_grid_skeleton)
+carbon_add_cuda_unit_test(sub_grid_reduce)
 
 # SubGrid compile-time rules: each case is a target outside `all` that ctest builds and that
-# must fail with the given diagnostic (case 0 is the control and must build). CUDA only: the
-# regexes match nvcc / gcc wording. Serialised because each entry re-enters the build tree.
-if(CARBON_BACKEND STREQUAL "Cuda")
+# must fail with the given diagnostic (case 0 is the control and must build). CUDA and HIP:
+# the regexes match nvcc and clang wording; acpp's SYCL mirror is not wired up. Serialised
+# because each entry re-enters the build tree.
+if(CARBON_BACKEND STREQUAL "Cuda" OR CARBON_BACKEND STREQUAL "Hip")
+  if(CARBON_BACKEND STREQUAL "Hip")
+    set_source_files_properties(sub_grid_compile_fail.cu PROPERTIES LANGUAGE HIP)
+  endif()
   set(_carbon_sub_grid_cf_cases
       "0|"
       "1|has no halo"
-      "2|has no member.*neighbour"
-      "3|no instance of overloaded function|no matching function|no suitable"
+      "2|no member.*neighbour"
+      "3|no instance of overloaded function|no matching (member )?function|no suitable"
       "4|a SubGrid of a SubGrid is not supported"
       "5|compute_universal: not supported for a SubGrid")
   foreach(_case IN LISTS _carbon_sub_grid_cf_cases)
@@ -309,8 +314,15 @@ if(CARBON_BACKEND STREQUAL "Cuda")
     add_executable(${_target} EXCLUDE_FROM_ALL sub_grid_compile_fail.cu)
     target_link_libraries(${_target} PRIVATE carbon::carbon)
     target_compile_definitions(${_target} PRIVATE CARBON_CF_CASE=${_id})
-    target_compile_options(${_target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${CARBON_NVCC_DEVICE_FLAGS}>)
-    set_target_properties(${_target} PROPERTIES CUDA_STANDARD 20 CUDA_STANDARD_REQUIRED ON)
+    if(CARBON_BACKEND STREQUAL "Hip")
+      if(CARBON_HIP_NVCC)
+        target_compile_options(${_target} PRIVATE $<$<COMPILE_LANGUAGE:HIP>:${CARBON_NVCC_DEVICE_FLAGS}>)
+      endif()
+      set_target_properties(${_target} PROPERTIES HIP_STANDARD 20 HIP_STANDARD_REQUIRED ON)
+    else()
+      target_compile_options(${_target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${CARBON_NVCC_DEVICE_FLAGS}>)
+      set_target_properties(${_target} PROPERTIES CUDA_STANDARD 20 CUDA_STANDARD_REQUIRED ON)
+    endif()
     add_test(NAME carbon_${_target}
              COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${_target} --config $<CONFIG>)
     set_tests_properties(carbon_${_target} PROPERTIES

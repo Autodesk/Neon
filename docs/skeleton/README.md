@@ -228,11 +228,31 @@ Rules:
 - **Ownership.** A SubGrid field can only be loaded by kernels of its own SubGrid; anything
   else throws `std::invalid_argument` when the kernel is built.
 - **Immutable.** The lane table is built once on the host (deterministic order) and never
-  changes; build a new SubGrid for a new selection. No SubGrid of a SubGrid; reductions and
-  `compute_universal` over a SubGrid are not supported yet (static_assert).
+  changes; build a new SubGrid for a new selection. No SubGrid of a SubGrid, and no
+  `compute_universal` over a SubGrid (static_assert).
 - **Factories.** `Kernel::compute` / `Kernel::host_compute`, or `S.make_kernel(fn[, name][,
-  shared_mem])` / `S.make_host_kernel(fn[, name])`. Tested on CUDA and SYCL; HIP shares the
-  CUDA launch path but has not been built.
+  shared_mem])` / `S.make_host_kernel(fn[, name])`. Tested on CUDA, SYCL and HIP (on NVIDIA).
+- **Reductions.** `Kernel::reduce<T>` / `host_reduce<T>` / `reduce_universal<T>` accept a
+  SubGrid, as do `S.make_reduce_kernel<T>(fn, dst[, op][, shared_mem][, options])`,
+  `S.make_host_reduce_kernel<T>(fn, dst[, op])` and `S.make_universal_reduce_kernel<T>`.
+  The per-cell lambda is `T(const S::Span&, const S::Idx&)` and may read parent and SubGrid
+  fields. One thread per lane in fixed 256-thread blocks feeds the usual pipeline (block
+  partials, multi-GPU combine, then the cross-rank stage, which no SubGrid test runs under
+  MPI yet), so `ReductionResult`, the `reduce::` ops and `ReduceFinalize::BlockAtomic` work
+  unchanged; `ReduceOptions::stage1_threads[_y]` throw.
+  An empty SubGrid yields the op's identity. A reduction that stencil-reads a parent field
+  is split by OCC into Internal / Boundary partials plus a merge, as on Dense.
+
+```cpp
+carbon::ReductionResult<double> wall_flux(sys);
+auto k = walls.make_reduce_kernel<double>([&](carbon::KernelLoader& L) {
+  const auto uG = L.read(u);  // parent field
+  const auto qS = L.read(q);  // SubGrid field
+  return [=] CARBON_HD(const S::Span& s, const S::Idx& i) -> double {
+    return uG.read(s, i, 0) * qS.read(s, i, 0);
+  };
+}, wall_flux);                // reduce::Sum<double> by default
+```
 
 `examples/sub_grid_cube.cu` puts the cube boundary in a SubGrid, mixes SubGrid and Dense
 kernels in one masked Skeleton, and times the boundary fill against the filtered Dense
@@ -240,4 +260,5 @@ kernel. On 2×RTX A4000 (µs per launch, Dense + filter / SubGrid): 64³ is laun
 4.8 / 4.9, 128³ gives 9.6 / 3.6, 256³ gives 58.8 / 28.7 (SYCL 85.5 / 32.0), and 384³
 gives 189 / 67. A SubGrid pays one lane-table read per thread and its parent accesses are
 gathers, so it wins when the selection is a small fraction of the grid.
-`tests/test_sub_grid*.cu` and `tests/sub_grid_compile_fail.cu` pin the semantics.
+`tests/test_sub_grid*.cu` (`test_sub_grid_reduce.cu` for reductions) and
+`tests/sub_grid_compile_fail.cu` pin the semantics.

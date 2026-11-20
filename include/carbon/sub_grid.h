@@ -30,6 +30,7 @@
 #include <carbon/detail/sub_grid/idx.h>
 #include <carbon/detail/sub_grid/kernel_impl.h>
 #include <carbon/detail/sub_grid/partition.h>
+#include <carbon/detail/sub_grid/reduce_traits.h>
 #include <carbon/detail/sub_grid/span.h>
 #include <carbon/integer3d.h>
 #include <carbon/kernel.h>
@@ -274,6 +275,53 @@ public:
     using Impl = detail::sub_grid::HostKernelImpl<SubGrid, std::decay_t<L>>;
     return Kernel::from_impl(
         std::make_shared<Impl>(*this, std::forward<L>(loading_fn), std::move(name)));
+  }
+
+  /**
+   * @brief Device reduction over the lanes: the per-cell callable returns the lane's
+   *        contribution, @c CARBON_HD (SubGrid::Span, SubGrid::Idx) -> T .
+   *
+   * Same pipeline and options as @c Dense::make_reduce_kernel (multi-GPU combine,
+   * cross-rank stage, @c ReduceFinalize::BlockAtomic , deferred host copy) except
+   * @c ReduceOptions::stage1_threads , which throws. The loader rules of @ref make_kernel
+   * apply, and a reduction that stencil-reads a parent field after its halo is OCC-split
+   * into Internal / Boundary partials plus a merge. Use @c Kernel::reduce for a name.
+   */
+  template <typename T,
+            typename L,
+            typename Op = reduce::Sum<T>>
+  [[nodiscard]] auto
+  make_reduce_kernel(L&& loading_fn,
+                     ReductionResult<T>& dst,
+                     Op op = {},
+                     size_t shared_mem = 0U,
+                     reduce::ReduceOptions options = {}) const -> Kernel {
+    return Kernel::reduce<T>(*this, std::forward<L>(loading_fn), dst, std::move(op), {}, shared_mem,
+                             options);
+  }
+
+  /** Host (OpenMP) twin of @ref make_reduce_kernel ; fields need host mirrors. */
+  template <typename T,
+            typename L,
+            typename Op = reduce::Sum<T>>
+  [[nodiscard]] auto
+  make_host_reduce_kernel(L&& loading_fn,
+                          ReductionResult<T>& dst,
+                          Op op = {}) const -> Kernel {
+    return Kernel::host_reduce<T>(*this, std::forward<L>(loading_fn), dst, std::move(op), {});
+  }
+
+  /** Reduction launchable on the device ( @c launch ) or the host ( @c launch_on_host ). */
+  template <typename T,
+            typename L,
+            typename Op = reduce::Sum<T>>
+  [[nodiscard]] auto
+  make_universal_reduce_kernel(L&& loading_fn,
+                               ReductionResult<T>& dst,
+                               Op op = {},
+                               size_t shared_mem = 0U) const -> Kernel {
+    return Kernel::reduce_universal<T>(*this, std::forward<L>(loading_fn), dst, std::move(op), {},
+                                       shared_mem);
   }
 
 private:

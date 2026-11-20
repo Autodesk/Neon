@@ -1007,11 +1007,17 @@ Kernel::reduce(const Grid& grid,
   // @c ReduceKernelImpl ; the trait absorbs the stage-1 kernel choice,
   // block-dim Z (kReduceBlockThreads vs SBlock::VoxelCount), and the
   // SYCL launcher (launch_dense_reduce vs launch_block_reduce).
-  static_assert(!detail::sub_grid::is_sub_grid_v<Grid>,
-                "Kernel::reduce: reductions over a SubGrid are not supported.");
-  using Impl = detail::ReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
-  return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
-                                       shared_mem, std::move(name), options));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    using Bound = detail::sub_grid::BoundLoading<Grid, std::decay_t<LoadingFn>>;
+    Bound::check_reduce_options(options);
+    using Impl = detail::ReduceKernelImpl<Grid, Bound, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, Bound{grid, std::forward<LoadingFn>(loading)}, dst,
+                                         std::move(op), shared_mem, std::move(name), options));
+  } else {
+    using Impl = detail::ReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
+                                         shared_mem, std::move(name), options));
+  }
 }
 
 template <typename T>
@@ -1129,12 +1135,18 @@ Kernel::reduce_universal(const Grid& grid,
   // variation lives inside @c detail::ReduceLaunchTraits<Grid> (device
   // stage-1) and @c detail::HostLaunchTraits<Grid>::iterate_slab_reduce
   // (host fold). See @c detail/launch_traits.h .
-  static_assert(!detail::sub_grid::is_sub_grid_v<Grid>,
-                "Kernel::reduce_universal: reductions over a SubGrid are not supported.");
-  using Impl =
-      detail::UniversalReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
-  return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
-                                       shared_mem, std::move(name), options));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    using Bound = detail::sub_grid::BoundLoading<Grid, std::decay_t<LoadingFn>>;
+    Bound::check_reduce_options(options);
+    using Impl = detail::UniversalReduceKernelImpl<Grid, Bound, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, Bound{grid, std::forward<LoadingFn>(loading)}, dst,
+                                         std::move(op), shared_mem, std::move(name), options));
+  } else {
+    using Impl =
+        detail::UniversalReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
+                                         shared_mem, std::move(name), options));
+  }
 }
 
 template <typename T,
@@ -1150,11 +1162,16 @@ Kernel::host_reduce(const Grid& grid,
   // Single concrete impl across all grid families — per-family iteration-
   // shape variation lives inside @c detail::HostLaunchTraits<Grid>::iterate_slab_reduce
   // (see @c detail/launch_traits.h ).
-  static_assert(!detail::sub_grid::is_sub_grid_v<Grid>,
-                "Kernel::host_reduce: reductions over a SubGrid are not supported.");
-  using Impl = detail::ReduceHostKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
-  return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
-                                       std::move(name)));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    using Bound = detail::sub_grid::BoundLoading<Grid, std::decay_t<LoadingFn>>;
+    using Impl = detail::ReduceHostKernelImpl<Grid, Bound, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, Bound{grid, std::forward<LoadingFn>(loading)}, dst,
+                                         std::move(op), std::move(name)));
+  } else {
+    using Impl = detail::ReduceHostKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
+                                         std::move(name)));
+  }
 }
 
 // Per-grid-family convenience members (Dense / Block / DenseDisg). Split into

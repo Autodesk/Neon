@@ -6469,3 +6469,39 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   SubGrid pipeline is bit-identical to a hand-sequenced run under every `OverlapMode`.
   `examples/sub_grid_cube.cu` fills the boundary of a 256³ cube in 28.7 µs, versus 58.8 µs
   for the filtered Dense kernel (2.8× at 384³; launch-bound below 128³).
+- **2026-11 — Reductions over a `SubGrid`, and SubGrid validated on HIP.** `Kernel::reduce`,
+  `host_reduce` and `reduce_universal` now accept a SubGrid, with
+  `S.make_reduce_kernel` / `make_host_reduce_kernel` / `make_universal_reduce_kernel` as
+  sugar. The per-cell lambda is `T(const S::Span&, const S::Idx&)`. Decisions:
+  - *Reuse the reduce pipeline, swap only the stage-1 launch.* `ReduceKernelImpl` and its
+    host / universal siblings already go through `ReduceLaunchTraits<Grid>` /
+    `HostLaunchTraits<Grid>`. Specialising those for `SubGrid<G>`
+    (`detail/sub_grid/reduce_traits.h`) gives SubGrid reductions the multi-GPU combine, the
+    cross-rank stage, `ReduceFinalize::BlockAtomic`, `ReductionResult` and the Skeleton's
+    OCC Partial / Merge split without touching any of them. Stage 1 is one thread per lane
+    over the view's lane range in fixed 256-thread blocks
+    (`detail/backend/{cudalike,sycl}/sub_grid_reduce.h`); the host path is an OpenMP loop
+    over lanes with per-thread partials.
+  - *Loading goes through `BoundLoading`.* `load(S, fn, loader)` presets the region and the
+    SubGrid uid, but the reduce impls call the loading functor directly. `Kernel::reduce`
+    wraps it in a functor that calls `load` first, so ownership checks and mask declarations
+    are identical to `S.make_kernel`.
+  - *`ReduceOptions::stage1_threads[_y]` throw.* They shape Dense's 2D stage-1 tiles, which
+    a lane range does not have. Rejecting them is better than ignoring them silently.
+  - *`compute_universal` over a SubGrid stays a static_assert.* It needs the grid's launch
+    geometry (`gpu_grid` / `gpu_block`), which a SubGrid does not expose. The universal
+    *reduction* only needs the traits, so it works.
+  - *The SubGrid compile-fail tests also run on HIP.* Under HIP-on-NVIDIA the compiler is
+    nvcc, so the diagnostics match. Two regexes were widened to clang's wording
+    (`no member named`, `no matching member function`) for HIP on AMD, which this host
+    cannot build.
+  `tests/test_sub_grid_reduce.cu` covers Sum / Max / count over parent and SubGrid fields,
+  the Internal + Boundary = Standard split, BlockAtomic, host and universal launches, mask
+  tokens, the ownership and options throws, an empty SubGrid (identity), and a Skeleton
+  where a SubGrid reduction stencil-reads a parent field, checked against a host reference
+  under every `OverlapMode`. When OCC is on, it also checks that the Internal / Boundary
+  partials appear. Forcing the CUDA lane offset to 0 fails 4 checks. Measured on 2×RTX
+  A4000, excluding `carbon_format_check`: CUDA 121/121 (also on one GPU for the new test),
+  SYCL (AdaptiveCpp) 111/111, and `hip-nvidia` 117/117. HIP's SubGrid tests,
+  `examples/sub_grid_cube.cu` and all six compile-fail cases pass. HIP's last measured
+  count, from 2026-07, was 89.

@@ -15,5 +15,8 @@ inline constexpr bool is_sub_grid_v = false;
 template <typename G>
 inline constexpr bool is_sub_grid_v<::carbon::SubGrid<G>> = true;
 
+template <typename Grid, typename LoadingFn>
+struct BoundLoading;
+
 }  // namespace detail::sub_grid
 }  // namespace carbon

@@ -523,7 +523,10 @@ how a feature behaves at the edges, grep the changelog for the section name
   fields are read/written (and stencil-read through their halo) directly, SubGrid fields
   are compact and halo-less (`read_stencil` on one is a compile error), kernels declare the
   SubGrid mask automatically and OCC-split like Dense kernels, and loading another
-  SubGrid's field throws (`docs/skeleton/README.md` "SubGrid",
+  SubGrid's field throws. Reductions (`Kernel::reduce` / `host_reduce` /
+  `reduce_universal`, `S.make_*reduce_kernel`) run one thread per lane through the usual
+  reduce pipeline via `ReduceLaunchTraits<SubGrid<G>>` (`detail/sub_grid/reduce_traits.h`);
+  `compute_universal` over a SubGrid is still a static_assert (`docs/skeleton/README.md` "SubGrid",
   `examples/sub_grid_cube.cu`, `tests/test_sub_grid*.cu`). Examples:
   `examples/jacobi_unified.cu` (Dense / DenseDisg / Block from one
   source file, runtime grid + transport + overlap selection);
@@ -564,21 +567,21 @@ files outside this work:
 
 | Configuration | Tests |
 | --- | --- |
-| default (CUDA) | 121 |
-| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 149 ‡ |
-| `-DCARBON_BACKEND=Sycl` | 111 |
-| `sycl-mpi` (SYCL + MPI) | 139 ‡ |
-| `hip-nvidia` (HIP backend on NVIDIA) | 89 † |
+| default (CUDA) | 122 |
+| `-DCARBON_ENABLE_MPI=ON` (CUDA) | 150 ‡ |
+| `-DCARBON_BACKEND=Sycl` | 112 |
+| `sycl-mpi` (SYCL + MPI) | 140 ‡ |
+| `hip-nvidia` (HIP backend on NVIDIA) | 118 |
 
-† not re-measured on 2026-11-18; carried over from the 2026-07-31 2×RTX 6000 Ada run.
-‡ 2026-11-18 count plus the SubGrid tests (9 on CUDA, 3 on SYCL); not re-run since.
+‡ 2026-11-18 count plus the SubGrid tests (10 on CUDA, 4 on SYCL); not re-run since.
 
 `hdf5_io` / `nanovdb_io` are registered unconditionally but compile-time
 skip when their flags are off. The 28-test MPI delta is the `distributed`
 ctest label and registers on both backends. The 10-test CUDA/SYCL delta is
 the `carbon_add_cuda_only_unit_test` gate (`block_cuda` + the three
 `mgrid_*` tests with hand-rolled `<<<>>>` kernels) plus the six
-`sub_grid_compile_fail_*` entries, whose diagnostics regexes match nvcc wording.
+`sub_grid_compile_fail_*` entries (CUDA and HIP; regexes match nvcc and clang wording).
+HIP registers the compile-fail entries but not the CUDA-only gate, hence 4 fewer than CUDA.
 `carbon_format_check` is enforced on every backend.
 
 ### Packaging
