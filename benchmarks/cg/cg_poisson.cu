@@ -147,6 +147,7 @@
 #include <vector>
 #include <type_traits>               // NEW: std::is_same_v
 
+
 #if __has_include(<nvtx3/nvToolsExt.h>)
 #  include <nvtx3/nvToolsExt.h>
 #  define CARBON_HALO_NVTX_PUSH(name) ::nvtxRangePushA(name)
@@ -159,6 +160,7 @@
 #  define CARBON_HALO_NVTX_PUSH(name) ((void)0)
 #  define CARBON_HALO_NVTX_POP()      ((void)0)
 #endif
+
 
 
 namespace {
@@ -882,7 +884,7 @@ run_cg(Grid& grid,
 
   for (; iter < opts.max_iter && !converged; ++iter) {
 
-    nvtxRangePushA("cg_iter");
+    CARBON_HALO_NVTX_PUSH("cg_iter");
     const auto iter_t0 = std::chrono::steady_clock::now();
 
     beta_host = (delta_old_h > 0.0) ? (delta_new_h / delta_old_h) : 0.0;
@@ -924,8 +926,10 @@ run_cg(Grid& grid,
     if (r_norm <= abs_target) {
       converged = true;
     }
-    nvtxRangePop();
+    CARBON_HALO_NVTX_POP();
   }
+
+  
   const double final_r_norm = std::sqrt(std::max(0.0, delta_new_h));
   if (world_rank == 0) {
     if (converged) {

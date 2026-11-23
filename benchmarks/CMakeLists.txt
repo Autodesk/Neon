@@ -33,7 +33,17 @@ function(_carbon_benchmark_add target source_cu)
       HIP_STANDARD_REQUIRED ON)
   elseif(CARBON_BACKEND STREQUAL "Sycl")
     set(_src "${CMAKE_CURRENT_BINARY_DIR}/${target}.cpp")
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/${source_cu}" "${_src}" COPYONLY)
+    # Copy the .cu to a .cpp twin in the build tree (clang treats .cu as CUDA). In
+    # debug builds prepend a #line directive so the debug info points back at the
+    # original .cu; otherwise breakpoints set in the source file never bind.
+    if(CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
+      set(_carbon_orig_cu "${CMAKE_CURRENT_SOURCE_DIR}/${source_cu}")
+      file(READ "${_carbon_orig_cu}" _carbon_cu_text)
+      file(WRITE "${_src}" "#line 1 \"${_carbon_orig_cu}\"\n${_carbon_cu_text}")
+      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_carbon_orig_cu}")
+    else()
+      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/${source_cu}" "${_src}" COPYONLY)
+    endif()
     add_executable(${target} "${_src}")
     target_compile_features(${target} PRIVATE cxx_std_20)
     set_target_properties(${target} PROPERTIES
