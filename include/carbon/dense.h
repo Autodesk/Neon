@@ -11,19 +11,26 @@
 #include <carbon/launch_shape.h>
 #include <carbon/memory_side.h>
 #include <carbon/reduce.h>
+#include <carbon/region_mask.h>
 #include <carbon/stencil.h>
 #include <carbon/system.h>
 
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <type_traits>
 #include <vector>
 
 namespace carbon {
 
 class Kernel;
+struct KernelLoader;
+
+template <typename G>
+class SubGrid;
 
 template <typename T>
 class ReductionResult;
@@ -509,6 +516,41 @@ public:
   newField(MemorySide side = MemorySide::Device,
            std::string name = {}) const -> Field<T,
                                                  Components>;
+
+  /**
+   * @brief Builds a @ref SubGrid of the cells whose @c std::uint8_t label bit is set in
+   *        @p mask .
+   *
+   * Recommended constructor: the selection is derived from @p mask , so the footprint S
+   * kernels declare on parent fields covers exactly the selected cells. @p labels must be
+   * up to date on the device; it is read once, now (the SubGrid is immutable).
+   *
+   * Launches a selection kernel and blocks until the lane tables are built, so call it from
+   * a device translation unit (same rule as @ref make_kernel ). Definition lives in
+   * @c carbon/sub_grid.h .
+   */
+  template <typename T>
+  [[nodiscard]] auto
+  new_sub_grid(const Field<T,
+                           1>& labels,
+               const RegionMask& mask,
+               std::string name = {}) const -> SubGrid<Dense>;
+
+  /**
+   * @brief Builds a @ref SubGrid of the cells selected by a loading callable.
+   *
+   * @p select has the shape of a @ref make_kernel loading lambda but its per-cell callable
+   * returns @c bool : @c (KernelLoader&) -> CARBON_HD (Span, Idx) -> bool . @p mask is the
+   * footprint S kernels declare on parent fields; it must cover every selected cell, which
+   * carbon cannot check (the default, @ref RegionMask::all , is always correct).
+   *
+   * Same blocking, device-TU and immutability rules as the label overload.
+   */
+  template <std::invocable<KernelLoader&> L>
+  [[nodiscard]] auto
+  new_sub_grid(L&& select,
+               const RegionMask& mask = RegionMask::all(),
+               std::string name = {}) const -> SubGrid<Dense>;
 
 private:
   int64_3d global_{};

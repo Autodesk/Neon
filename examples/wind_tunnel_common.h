@@ -754,7 +754,8 @@ public:
   auto
   rebuild_kernels() -> void {
     re_ = clamp_re(config_.ulb, config_.diameter(), config_.re);
-    params_ = LbmParameters{config_.ulb, compute_omega(config_.ulb, config_.diameter(), re_)};
+    params_ =
+        LbmParameters<float>{config_.ulb, compute_omega(config_.ulb, config_.diameter(), re_)};
 
     wall_k_ = make_compute_wall_mask_kernel<carbon::Dense, D3Q27>(dense_, cells_, cells_scratch_);
     macro_a_ = make_macroscopic_kernel<carbon::Dense, D3Q27>(dense_, pop_a_, cells_, density_,
@@ -934,7 +935,7 @@ public:
   }
 
   [[nodiscard]] auto
-  params() const noexcept -> LbmParameters {
+  params() const noexcept -> LbmParameters<float> {
     return params_;
   }
 
@@ -985,7 +986,7 @@ private:
   carbon::System& sys_;
   LiveSimConfig config_;
   float re_;
-  LbmParameters params_;
+  LbmParameters<float> params_;
   carbon::Stream stream_;
   carbon::Dense dense_;
   carbon::Dense::Field<float, D3Q27::Q> pop_a_;

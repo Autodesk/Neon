@@ -23,7 +23,16 @@
  * stays cache-friendly for the conflict scan; future variants (e.g. a stencil-aware
  * @c StencilToken with a radius / direction byte) can subclass or sit alongside
  * without invalidating this layout.
+ *
+ * @par Sub-field footprints
+ * @ref AccessToken::mask narrows an access to a user-defined @ref RegionMask of the field.
+ * Two accesses to the same field conflict only if their modes conflict @b and their masks
+ * intersect, which is how a kernel on region A and a kernel on region B of the same field
+ * can run concurrently. The default is @ref RegionMask::all , so tokens recorded without a
+ * mask keep their whole-field meaning.
  */
+
+#include <carbon/region_mask.h>
 
 #include <cstdint>
 #include <memory>
@@ -169,6 +178,17 @@ struct AccessToken {
    *        @c Skeleton::compile_auto_insert_scalar_readbacks_ .
    */
   std::shared_ptr<detail::ScalarReadbackFactoryBase> scalar_readback_factory{};
+  /**
+   * @brief Cells of the field this access may touch, as a user-defined @ref RegionMask .
+   *
+   * Set by the masked @c KernelLoader entry points (@c loader.region(M) for the kernel-wide
+   * default, @c loader.read(f, M) / @c write(f, M) / ... per access) on @c Map tokens only.
+   * Stencil reads, halos and reduction scalars stay @ref RegionMask::all : carbon cannot
+   * dilate a user region, a halo reads and writes cells of every region, and a scalar is not
+   * a field. Last member on purpose, so positional initialisers of the fields above keep
+   * compiling.
+   */
+  RegionMask mask{RegionMask::all()};
 };
 
 /**
@@ -188,6 +208,18 @@ conflicts(AccessMode earlier,
     return false;
   }
   return true;
+}
+
+/**
+ * Token-level conflict predicate: same resource id, conflicting modes, and intersecting
+ * @ref AccessToken::mask footprints. Disjoint masks on the same field name disjoint cells
+ * (see the @ref RegionMask contract), so neither ordering can observe the other.
+ */
+[[nodiscard]] inline auto
+conflicts(const AccessToken& earlier,
+          const AccessToken& later) noexcept -> bool {
+  return earlier.field_uid == later.field_uid && conflicts(earlier.mode, later.mode) &&
+         earlier.mask.intersects(later.mask);
 }
 
 }  // namespace carbon

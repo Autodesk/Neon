@@ -216,17 +216,26 @@ public:
     // the source GPU's stream — but @c cudaMemcpyPeerAsync enqueued on the
     // DESTINATION GPU's stream carries no implicit ordering against that source-side
     // compute. Record every per-GPU stream's current tail and fan-in-wait so each
-    // copy is sequenced behind every GPU's prior writes; the same fence on the next
-    // halo call transitively covers the copy-vs-next-overwrite WAR. Without this the
+    // copy is sequenced behind every GPU's prior writes. Without this the
     // halo silently reads transient source bytes under cross-GPU timing pressure (a
     // genuine but contention-masked numerical drift, not just harness contention).
-    // @c fence_event_ is empty for single-GPU / no-halo layouts, where the whole
-    // block is skipped.
+    //
+    // The trailing drain fence is the matching WAR guard: each copy reads the SOURCE
+    // GPU's owned cells from the destination GPU's stream, so the source GPU's next
+    // write to those cells must wait for the copy. A later halo's leading fence only
+    // covers that when another halo sits between the copy and the overwrite (a
+    // two-field ping-pong); a pipeline with one halo per iteration rewrites the field
+    // first. @c fence_event_ / @c drain_event_ are empty for single-GPU / no-halo
+    // layouts, where both blocks are skipped.
     if (!fence_event_.empty()) {
       fence_event_.record(stream);
       stream.wait_for_all(fence_event_);
     }
     intra_(stream);
+    if (!drain_event_.empty()) {
+      drain_event_.record(stream);
+      stream.wait_for_all(drain_event_);
+    }
 #ifdef CARBON_HAVE_MPI_NCCL
     dist_(stream);
 #endif
@@ -334,6 +343,8 @@ private:
   // because the fence records into it from the const @ref operator() — the group is a
   // shallow shared handle, so recording mutates the underlying events in place.
   mutable Event fence_event_{};
+  // Same allocation rule as @c fence_event_ ; backs the post-copy drain fence.
+  mutable Event drain_event_{};
   std::vector<HostIntraEntry> host_intra_{};
   Stencil stencil_{};
   StencilSemantic semantic_{StencilSemantic::Standard};
@@ -581,6 +592,7 @@ Halo<T,
   if (intra_.src_counts().size() > 0U) {
     System sys = dense.system();
     fence_event_ = sys.event();
+    drain_event_ = sys.event();
   }
 }
 

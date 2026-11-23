@@ -50,10 +50,11 @@
 #if CARBON_BACKEND_IS_CUDALIKE
 #include <carbon/detail/backend/cudalike/block_reduce_kernel.h>
 #if CARBON_CUDALIKE_DEVICE_TU
-#include <carbon/detail/backend/cudalike/dense_reduce_launch.h>
 #include <carbon/detail/backend/cudalike/dense_distributed_reduce_launch.h>
+#include <carbon/detail/backend/cudalike/dense_reduce_launch.h>
 #endif
 #elif CARBON_BACKEND_IS_SYCL
+#include <carbon/detail/backend/sycl/block_atomic_reduce.h>
 #include <carbon/detail/backend/sycl/block_reduce_kernel.h>
 #endif
 
@@ -563,8 +564,9 @@ struct ReduceLaunchTraits {
             bx, by, gpu, blocks, shared_mem, stream, span, view, fn, op, identity, partials,
             iter_cells);
       }
-      const int bt = dense_stage1_threads > 0 ? dense_stage1_threads
-                                              : ::carbon::detail::dense_distributed::kReduceBlockThreads;
+      const int bt = dense_stage1_threads > 0
+                         ? dense_stage1_threads
+                         : ::carbon::detail::dense_distributed::kReduceBlockThreads;
       return ::carbon::detail::dense_distributed::launch_dense_grid_reduce_kernel<F, T, Op>(
           bt, gpu, blocks, shared_mem, stream, span, view, fn, op, identity, partials, iter_cells);
     } else {
@@ -609,13 +611,13 @@ struct ReduceLaunchTraits {
       if (dense_stage1_threads_y > 0) {
         const int bx = dense_stage1_threads > 0 ? dense_stage1_threads : 32;
         const int by = dense_stage1_threads_y;
-        return ::carbon::detail::dense_distributed::
-            launch_dense_grid_reduce_block_atomic_kernel_2d<F, T, Op>(
-                bx, by, gpu, blocks, shared_mem, stream, span, view, fn, op, identity, global_out,
-                iter_cells);
+        return ::carbon::detail::dense_distributed::launch_dense_grid_reduce_block_atomic_kernel_2d<
+            F, T, Op>(bx, by, gpu, blocks, shared_mem, stream, span, view, fn, op, identity,
+                      global_out, iter_cells);
       }
-      const int bt = dense_stage1_threads > 0 ? dense_stage1_threads
-                                              : ::carbon::detail::dense_distributed::kReduceBlockThreads;
+      const int bt = dense_stage1_threads > 0
+                         ? dense_stage1_threads
+                         : ::carbon::detail::dense_distributed::kReduceBlockThreads;
       return ::carbon::detail::dense_distributed::launch_dense_grid_reduce_block_atomic_kernel<F, T,
                                                                                                Op>(
           bt, gpu, blocks, shared_mem, stream, span, view, fn, op, identity, global_out,
@@ -659,6 +661,25 @@ struct ReduceLaunchTraits {
     } else {
       ::carbon::detail::dense::launch_dense_reduce<F, T, Op>(q, span, view, fn, op, identity, out,
                                                              iter_cells);
+    }
+  }
+
+  /** @c ReduceFinalize::BlockAtomic stage 1 (Sum only; the reduce ctor rejects DenseDisg). */
+  template <typename F,
+            typename T>
+  static auto
+  sycl_block_atomic(sycl::queue& q,
+                    const typename Grid::Span& span,
+                    ::carbon::DataView view,
+                    F& fn,
+                    T* out,
+                    int64_t iter_cells) -> void {
+    if constexpr (requires { typename Grid::DisgPolicy; }) {
+      ::carbon::log::throw_with_log<std::logic_error>(
+          "Kernel::reduce: ReduceFinalize::BlockAtomic is not supported on DenseDisg grids");
+    } else {
+      ::carbon::detail::sycl_reduce::launch_dense_block_atomic_sum(q, span, view, fn, out,
+                                                                   iter_cells);
     }
   }
 #endif
@@ -771,6 +792,19 @@ struct ReduceLaunchTraits<::carbon::Block<SBlock>> {
                   int64_t /*iter_cells*/) -> void {
     ::carbon::detail::block::launch_block_reduce<SBlock, F, T, Op>(q, span, view, fn, op, identity,
                                                                    out);
+  }
+
+  template <typename F,
+            typename T>
+  static auto
+  sycl_block_atomic(sycl::queue&,
+                    const typename Grid::Span&,
+                    ::carbon::DataView,
+                    F&,
+                    T*,
+                    int64_t) -> void {
+    ::carbon::log::throw_with_log<std::logic_error>(
+        "Kernel::reduce: ReduceFinalize::BlockAtomic is not supported on Block grids");
   }
 #endif
 };

@@ -78,24 +78,10 @@ function(carbon_add_cuda_unit_test name)
       HIP_STANDARD 20
       HIP_STANDARD_REQUIRED ON)
   elseif(CARBON_BACKEND STREQUAL "Sycl")
-    # acpp / clang sniff the .cu extension regardless of CMake's LANGUAGE CXX setting and
-    # turn on offload modes that need a libomptarget-nvptx-sm_80.bc bitcode library we
-    # don't ship. The simplest workaround is to copy the source to a .cpp twin in the
-    # build tree before compilation; configure_file with COPYONLY does that and re-runs
-    # whenever the .cu changes (so an edit doesn't need a fresh configure). Nothing in
-    # the test source itself is .cu-specific (no <<<>>>, no __global__) — the .cu
-    # extension is only there to make CMake route through nvcc on the CUDA build.
-    set(_src "${CMAKE_CURRENT_BINARY_DIR}/${target}.cpp")
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/${target}.cu" "${_src}" COPYONLY)
-    add_executable(${target} "${_src}")
+    # .cu -> .cpp twin; see cmake/CarbonSyclMirror.cmake.
+    carbon_add_sycl_mirrored_executable(${target} ${target}.cu)
     target_link_libraries(${target} PRIVATE carbon::carbon)
-    target_compile_features(${target} PRIVATE cxx_std_20)
     set_target_properties(${target} PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}")
-    add_sycl_to_target(TARGET ${target} SOURCES "${_src}")
-    if(CARBON_SYCL_TARGETS MATCHES "cuda")
-      target_compile_options(${target} PRIVATE --cuda-path=${CARBON_SYCL_CUDA_PATH})
-      target_link_directories(${target} PRIVATE ${CARBON_SYCL_CUDA_PATH}/lib64)
-    endif()
   endif()
   add_test(NAME carbon_${name} COMMAND ${target})
   # Compute tests in this list grab every visible CUDA device through
@@ -150,6 +136,7 @@ carbon_add_unit_test(memory_side)
 # code (std::thread, no device), so it stays on the cpu lane.
 carbon_add_unit_test(atomic_host)
 carbon_add_unit_test(stencil)
+carbon_add_unit_test(region_mask)
 carbon_add_unit_test(system_default_stream)
 carbon_add_unit_test(transfer)
 carbon_add_unit_test(halo_coalesce)
@@ -202,6 +189,7 @@ carbon_add_cuda_unit_test(mgrid_locator)
 carbon_add_cuda_unit_test(render_sample)
 carbon_add_cuda_unit_test(reduce_ops)
 carbon_add_cuda_unit_test(reduce_sum_multi_gpu)
+carbon_add_cuda_unit_test(reduce_partials_multi_gpu)
 carbon_add_cuda_unit_test(reduce_sum_host_multi_gpu)
 carbon_add_cuda_unit_test(kernel_polymorphic)
 carbon_add_cuda_unit_test(field_fill_host)
@@ -296,6 +284,59 @@ carbon_add_cuda_unit_test(halo_host)
 carbon_add_cuda_unit_test(halo_disg_host)
 carbon_add_cuda_unit_test(overlapped_stencil)
 carbon_add_cuda_unit_test(skeleton)
+carbon_add_cuda_unit_test(skeleton_region_mask)
+carbon_add_cuda_unit_test(sub_grid)
+carbon_add_cuda_unit_test(sub_grid_kernel)
+carbon_add_cuda_unit_test(sub_grid_skeleton)
+carbon_add_cuda_unit_test(sub_grid_reduce)
+carbon_add_cuda_unit_test(sub_grid_block)
+carbon_add_cuda_unit_test(sub_grid_jacobi_axpy)
+
+# SubGrid compile-time rules: each case is a target outside `all` that ctest builds and that
+# must fail with the given diagnostic (case 0 is the control and must build). CUDA and HIP:
+# the regexes match nvcc and clang wording; acpp's SYCL mirror is not wired up. Serialised
+# because each entry re-enters the build tree.
+if(CARBON_BACKEND STREQUAL "Cuda" OR CARBON_BACKEND STREQUAL "Hip")
+  if(CARBON_BACKEND STREQUAL "Hip")
+    set_source_files_properties(sub_grid_compile_fail.cu PROPERTIES LANGUAGE HIP)
+  endif()
+  set(_carbon_sub_grid_cf_cases
+      "0|"
+      "1|has no halo"
+      "2|no member.*neighbour"
+      "3|no instance of overloaded function|no matching (member )?function|no suitable"
+      "4|a SubGrid of a SubGrid is not supported"
+      "5|compute_universal: not supported for a SubGrid"
+      "6|has no halo"
+      "7|the parent grid must be carbon::Dense or carbon::Block")
+  foreach(_case IN LISTS _carbon_sub_grid_cf_cases)
+    string(FIND "${_case}" "|" _bar)
+    string(SUBSTRING "${_case}" 0 ${_bar} _id)
+    math(EXPR _rest "${_bar} + 1")
+    string(SUBSTRING "${_case}" ${_rest} -1 _regex)
+    set(_target "sub_grid_compile_fail_${_id}")
+    add_executable(${_target} EXCLUDE_FROM_ALL sub_grid_compile_fail.cu)
+    target_link_libraries(${_target} PRIVATE carbon::carbon)
+    target_compile_definitions(${_target} PRIVATE CARBON_CF_CASE=${_id})
+    if(CARBON_BACKEND STREQUAL "Hip")
+      if(CARBON_HIP_NVCC)
+        target_compile_options(${_target} PRIVATE $<$<COMPILE_LANGUAGE:HIP>:${CARBON_NVCC_DEVICE_FLAGS}>)
+      endif()
+      set_target_properties(${_target} PROPERTIES HIP_STANDARD 20 HIP_STANDARD_REQUIRED ON)
+    else()
+      target_compile_options(${_target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${CARBON_NVCC_DEVICE_FLAGS}>)
+      set_target_properties(${_target} PROPERTIES CUDA_STANDARD 20 CUDA_STANDARD_REQUIRED ON)
+    endif()
+    add_test(NAME carbon_${_target}
+             COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${_target} --config $<CONFIG>)
+    set_tests_properties(carbon_${_target} PROPERTIES
+      RESOURCE_LOCK carbon_compile_fail
+      LABELS "cpu")
+    if(NOT _regex STREQUAL "")
+      set_tests_properties(carbon_${_target} PROPERTIES PASS_REGULAR_EXPRESSION "${_regex}")
+    endif()
+  endforeach()
+endif()
 carbon_add_cuda_unit_test(skeleton_initial_halo)
 carbon_add_cuda_unit_test(skeleton_cuda_graph)
 carbon_add_cuda_unit_test(skeleton_cuda_graph_multi)
@@ -355,6 +396,7 @@ set(_carbon_multi_gpu_tests
   halo_block
   halo_block_host
   reduce_sum_multi_gpu
+  reduce_partials_multi_gpu
   reduce_sum_host_multi_gpu
   jacobi_integer
   dense_disg_multi_gpu
@@ -415,18 +457,10 @@ if(CARBON_ENABLE_MPI AND MPI_FOUND)
         HIP_STANDARD 20
         HIP_STANDARD_REQUIRED ON)
     elseif(CARBON_BACKEND STREQUAL "Sycl")
-      set(_src "${CMAKE_CURRENT_BINARY_DIR}/${target}.cpp")
-      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/${target}.cu" "${_src}" COPYONLY)
-      add_executable(${target} "${_src}")
+      carbon_add_sycl_mirrored_executable(${target} ${target}.cu)
       target_link_libraries(${target} PRIVATE carbon::carbon)
-      target_compile_features(${target} PRIVATE cxx_std_20)
       set_target_properties(${target} PROPERTIES
         BUILD_RPATH "${CARBON_RUNTIME_SEARCH_DIRS};${CMAKE_BINARY_DIR}")
-      add_sycl_to_target(TARGET ${target} SOURCES "${_src}")
-      if(CARBON_SYCL_TARGETS MATCHES "cuda")
-        target_compile_options(${target} PRIVATE --cuda-path=${CARBON_SYCL_CUDA_PATH})
-        target_link_directories(${target} PRIVATE ${CARBON_SYCL_CUDA_PATH}/lib64)
-      endif()
     endif()
     if(TARGET ${target})
       carbon_test_enable_assertions(${target})
@@ -493,6 +527,9 @@ if(CARBON_ENABLE_MPI AND MPI_FOUND)
   # rewrite path. Anchors cross-rank parity for {Standard, Extended,
   # TwoWayExtended} vs OverlapMode::None on a halo + Jacobi pipeline.
   carbon_add_mpi_cuda_test(skeleton_dist_overlap 2)
+  # Region masks across ranks: masked numerics + launch-order parity, rank-local export,
+  # and a rank-dependent mask turning into std::logic_error instead of an NCCL deadlock.
+  carbon_add_mpi_cuda_test(skeleton_region_mask_dist 2)
   # Closes the DenseDisg half of P1.δ (audit fourth pass): same OCC-MPI
   # parity matrix as skeleton_dist_overlap, but driven through
   # DenseDisg::Field::make_halo_kernel + DenseDisg::make_kernel so apply_occ_

@@ -26,10 +26,12 @@
 #include <carbon/logging.h>
 #include <carbon/memory_side.h>
 #include <carbon/reduce.h>
+#include <carbon/region_mask.h>
 #include <carbon/system.h>
 
 #include <stdint.h>
 
+#include <concepts>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -38,6 +40,41 @@
 #include <vector>
 
 namespace carbon {
+
+struct KernelLoader;
+
+template <typename G>
+class SubGrid;
+
+namespace detail::block {
+
+/**
+ * A memoised value derived from (and pointing into) other members of its owner. Copies start
+ * empty, so a copied owner rebuilds the value from its own members instead of keeping
+ * pointers into the source object; moves keep it (moved-from vectors keep their buffers).
+ */
+template <typename T>
+struct ResetOnCopy {
+  T value{};
+
+  ResetOnCopy() = default;
+  ResetOnCopy(const ResetOnCopy& /*other*/) noexcept {}
+  ResetOnCopy(ResetOnCopy&&) noexcept = default;
+  ~ResetOnCopy() = default;
+
+  auto
+  operator=(const ResetOnCopy& other) noexcept -> ResetOnCopy& {
+    if (this != &other) {
+      value = T{};
+    }
+    return *this;
+  }
+
+  auto
+  operator=(ResetOnCopy&&) noexcept -> ResetOnCopy& = default;
+};
+
+}  // namespace detail::block
 
 /**
  * Block-sparse multi-GPU grid (port of Neon's @c bGrid). Both build-out phases
@@ -279,10 +316,11 @@ public:
    */
   [[nodiscard]] auto
   host_spans() const -> const std::vector<Span>& {
-    if (!host_spans_.empty() || host_bitmasks_per_gpu_.empty()) {
-      return host_spans_;
+    auto& memo = host_spans_cache_.value;
+    if (!memo.empty() || host_bitmasks_per_gpu_.empty()) {
+      return memo;
     }
-    host_spans_.reserve(host_bitmasks_per_gpu_.size());
+    memo.reserve(host_bitmasks_per_gpu_.size());
     for (size_t g = 0; g < host_bitmasks_per_gpu_.size(); ++g) {
       const auto& bm = host_bitmasks_per_gpu_[g];
       const auto& conn = host_connectivity_per_gpu_[g];
@@ -291,9 +329,9 @@ public:
           (g < n_internal_per_gpu_.size()) ? n_internal_per_gpu_[g] : n_blocks;
       const int32_3d* origins =
           host_origins_per_gpu_[g].empty() ? nullptr : host_origins_per_gpu_[g].data();
-      host_spans_.emplace_back(bm.data(), n_blocks, n_internal, conn.data(), origins);
+      memo.emplace_back(bm.data(), n_blocks, n_internal, conn.data(), origins);
     }
-    return host_spans_;
+    return memo;
   }
 
   /**
@@ -816,6 +854,37 @@ public:
                                Components>& field,
                    const ::carbon::Stream& stream) const -> std::vector<detail::Allocation<T>>;
 
+  /**
+   * @brief Builds a @ref SubGrid of the active voxels whose @c std::uint8_t label bit is set
+   *        in @p mask .
+   *
+   * Same contract as @c Dense::new_sub_grid(labels, mask) : the selection is derived from
+   * @p mask , @p labels must be up to date on the device and is read once, now (the SubGrid
+   * is immutable). Launches a selection kernel and blocks until the lane tables are built,
+   * so call it from a device translation unit (same rule as @ref make_kernel ). Definition
+   * lives in @c carbon/sub_grid.h .
+   */
+  template <typename T>
+  [[nodiscard]] auto
+  new_sub_grid(const Field<T,
+                           1>& labels,
+               const ::carbon::RegionMask& mask,
+               std::string name = {}) const -> SubGrid<Block>;
+
+  /**
+   * @brief Builds a @ref SubGrid of the active voxels selected by a loading callable.
+   *
+   * @p select has the shape of a @ref make_kernel loading lambda whose per-voxel callable
+   * returns @c bool : @c (KernelLoader&) -> CARBON_HD (Span, Idx) -> bool . @p mask is the
+   * footprint S kernels declare on parent fields; it must cover every selected voxel.
+   * Same blocking, device-TU and immutability rules as the label overload.
+   */
+  template <std::invocable<::carbon::KernelLoader&> L>
+  [[nodiscard]] auto
+  new_sub_grid(L&& select,
+               const ::carbon::RegionMask& mask = ::carbon::RegionMask::all(),
+               std::string name = {}) const -> SubGrid<Block>;
+
 private:
   /**
    * Inter-phase scratch state used to break the @c Block ctor into a sequence
@@ -980,8 +1049,9 @@ private:
   std::vector<Span> spans_{};
   // Memoised per-GPU @c Span values whose @c bitmask() / @c connectivity() pointers
   // point at the host mirror tables. Built on demand by @c host_spans() so the OpenMP
-  // launch path can dereference topology metadata from a host TU.
-  mutable std::vector<Span> host_spans_{};
+  // launch path can dereference topology metadata from a host TU. A copy of the Block starts
+  // with an empty memo: the spans point into this object's own host vectors.
+  mutable detail::block::ResetOnCopy<std::vector<Span>> host_spans_cache_{};
   std::vector<int64_t> bz_begin_per_gpu_{};
   std::vector<int64_t> bz_end_per_gpu_{};
   std::vector<uint32_t> n_internal_per_gpu_{};

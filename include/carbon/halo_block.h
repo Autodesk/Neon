@@ -151,6 +151,7 @@ public:
         // compute; allocate the per-GPU event group from a shallow System copy.
         System sys = block.system();
         fence_event_ = sys.event();
+        drain_event_ = sys.event();
       }
     }
 
@@ -211,12 +212,17 @@ public:
       // and @c StreamGroup::wait_for_all. The intra brick copies read source-GPU owned
       // bricks written by prior compute on the source GPU's stream, but a peer copy on
       // the destination GPU's stream has no implicit ordering against it. fence_event_
-      // is empty for single-GPU layouts (pair_count_ == 0 already skips this branch).
+      // is empty for single-GPU layouts (pair_count_ == 0 already skips this branch). The
+      // drain fence after the copies is the matching WAR guard (see carbon::Halo::operator()).
       if (!fence_event_.empty()) {
         fence_event_.record(stream);
         stream.wait_for_all(fence_event_);
       }
       transfer_(stream);
+      if (!drain_event_.empty()) {
+        drain_event_.record(stream);
+        stream.wait_for_all(drain_event_);
+      }
     }
 #ifdef CARBON_HAVE_MPI_NCCL
     if (dist_entry_count_ != 0U) {
@@ -377,6 +383,7 @@ private:
   // Per-GPU event group backing the cross-GPU producer fence in @ref operator() (see the
   // matching member on @c carbon::Halo). Allocated only when pair_count_ > 0.
   mutable Event fence_event_{};
+  mutable Event drain_event_{};
 };
 
 }  // namespace carbon

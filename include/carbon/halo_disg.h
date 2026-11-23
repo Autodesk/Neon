@@ -192,12 +192,17 @@ public:
     // and @c StreamGroup::wait_for_all. The intra peer copies read each pair's
     // source-GPU owned cells written by prior compute on the source GPU's stream, but a
     // peer copy on the destination GPU's stream has no implicit ordering against it.
-    // Empty fence_event_ (single-GPU / no-halo) skips the block.
+    // Empty fence_event_ (single-GPU / no-halo) skips the block. The drain fence after the
+    // copies is the matching WAR guard (see carbon::Halo::operator()).
     if (!fence_event_.empty()) {
       fence_event_.record(stream);
       stream.wait_for_all(fence_event_);
     }
     intra_(stream);
+    if (!drain_event_.empty()) {
+      drain_event_.record(stream);
+      stream.wait_for_all(drain_event_);
+    }
 #ifdef CARBON_HAVE_MPI_NCCL
     dist_(stream);
 #endif
@@ -260,6 +265,7 @@ private:
   // Per-GPU event group backing the cross-GPU producer fence in @ref operator() (see the
   // matching member on @c carbon::Halo). Allocated only for multi-local-GPU layouts.
   mutable Event fence_event_{};
+  mutable Event drain_event_{};
 };
 
 namespace detail::halo_disg {
@@ -528,6 +534,7 @@ HaloDisg<T,
   if (intra_.src_counts().size() > 0U) {
     System sys = dense.system();
     fence_event_ = sys.event();
+    drain_event_ = sys.event();
   }
 }
 

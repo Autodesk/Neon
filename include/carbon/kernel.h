@@ -49,6 +49,7 @@
 #include <carbon/dense_distributed.h>
 #include <carbon/detail/kernel_impl.h>
 #include <carbon/detail/nvtx_scope.h>
+#include <carbon/detail/sub_grid/fwd.h>
 #include <carbon/halo.h>
 #include <carbon/halo_block.h>
 #include <carbon/halo_disg.h>
@@ -272,6 +273,91 @@ struct KernelLoader {
   }
 
   /**
+   * @brief Declare the kernel-wide @ref RegionMask : the sub-domain of cells this kernel
+   *        touches, in the user's own bit-to-region mapping.
+   *
+   * Applies to every @c Map access of the loading lambda that does not pass an explicit
+   * mask, whether recorded before or after this call (the last @c region call wins).
+   * Stencil reads keep @ref RegionMask::all . Two kernels whose accesses to a shared field
+   * have disjoint masks carry no dependency through that field, so the @ref Skeleton may run
+   * them concurrently.
+   *
+   * The mask is a declaration, not a launch restriction: the per-cell body must only touch
+   * cells of @c R(mask) and filter itself (e.g. on a per-cell @c uint8_t label read with an
+   * explicit @c RegionMask::all ). It must not depend on @ref relative_gpu_id or the MPI
+   * rank: tokens are discovered once, and every rank must build the same schedule.
+   *
+   * Stored in every phase, so @c region() returns it inside launch-phase bodies too.
+   */
+  auto
+  region(const RegionMask& mask) const -> void {
+    region_ = mask;
+    if (phase_ == KernelLoaderPhase::Launch) {
+      return;
+    }
+    for (size_t i = 0; i < tokens_.size(); ++i) {
+      if (!explicit_mask_[i]) {
+        tokens_[i].mask = mask;
+      }
+    }
+  }
+
+  /**
+   * @brief Bind this loader to the @c carbon::SubGrid identified by @p uid . Called by
+   *        SubGrid kernels before the user's loading lambda runs; not meant for user code.
+   *
+   * While bound, loading a SubGrid field laid out for a different SubGrid throws
+   * @c std::invalid_argument at kernel construction (its lanes would not match). An unbound
+   * loader (every parent-grid kernel) rejects SubGrid fields altogether.
+   */
+  auto
+  bind_sub_grid(std::uint64_t uid) noexcept -> void {
+    sub_grid_uid_ = uid;
+  }
+
+  /** Kernel-wide @ref RegionMask declared via @ref region ; @ref RegionMask::all by default. */
+  [[nodiscard]] auto
+  region() const noexcept -> const RegionMask& {
+    return region_;
+  }
+
+  /** @ref operator() restricted to the cells of @p mask (explicit per-access footprint). */
+  template <typename Field>
+  [[nodiscard]] auto
+  operator()(const Field& field,
+             const RegionMask& mask) const {
+    record_token_(field, AccessMode::ReadWrite, AccessPattern::Map, {}, &mask);
+    return lookup_partition_(field);
+  }
+
+  /** @ref read restricted to the cells of @p mask (explicit per-access footprint). */
+  template <typename Field>
+  [[nodiscard]] auto
+  read(const Field& field,
+       const RegionMask& mask) const {
+    record_token_(field, AccessMode::Read, AccessPattern::Map, {}, &mask);
+    return lookup_partition_(field);
+  }
+
+  /** @ref write restricted to the cells of @p mask (explicit per-access footprint). */
+  template <typename Field>
+  [[nodiscard]] auto
+  write(const Field& field,
+        const RegionMask& mask) const {
+    record_token_(field, AccessMode::Write, AccessPattern::Map, {}, &mask);
+    return lookup_partition_(field);
+  }
+
+  /** @ref read_write restricted to the cells of @p mask (explicit per-access footprint). */
+  template <typename Field>
+  [[nodiscard]] auto
+  read_write(const Field& field,
+             const RegionMask& mask) const {
+    record_token_(field, AccessMode::ReadWrite, AccessPattern::Map, {}, &mask);
+    return lookup_partition_(field);
+  }
+
+  /**
    * @brief Stencil read — records @c AccessMode::Read with
    *        @c AccessPattern::Stencil and snapshots a @ref HaloFactoryBase for
    *        the field so the @c Skeleton can auto-insert a halo update before
@@ -350,6 +436,15 @@ private:
   template <typename Field>
   [[nodiscard]] auto
   lookup_partition_(const Field& field) const {
+    if constexpr (requires { field.sub_grid_uid(); }) {
+      if (phase_ != KernelLoaderPhase::Launch && field.sub_grid_uid() != sub_grid_uid_) {
+        log::throw_with_log<std::invalid_argument>(
+            "KernelLoader: SubGrid field '{}' is laid out for a different SubGrid than the "
+            "kernel loading it{}. A SubGrid field can only be loaded by kernels of its own "
+            "SubGrid (S.make_kernel / S.make_host_kernel).",
+            field.name(), sub_grid_uid_ == 0U ? " (a parent-grid kernel)" : "");
+      }
+    }
     if (target_ == KernelTarget::Host) {
       const auto& parts = field.host_partitions();
       if (parts.empty()) {
@@ -368,7 +463,8 @@ private:
   record_token_(const Field& field,
                 AccessMode mode,
                 AccessPattern pattern = AccessPattern::Map,
-                std::shared_ptr<detail::HaloFactoryBase> halo_factory = {}) const -> void {
+                std::shared_ptr<detail::HaloFactoryBase> halo_factory = {},
+                const RegionMask* explicit_mask = nullptr) const -> void {
     // Launch phase: tokens are discovery-only metadata, so skip the push_back
     // (and the field.name() std::string copy it entails) entirely on the hot
     // path. Any halo_factory handed in has already been suppressed by the
@@ -389,6 +485,15 @@ private:
     // a later set_name does not retroactively rewrite already-recorded tokens).
     tokens_.push_back(AccessToken{field.gpu_buffers().get_uid(), ResourceKind::Field, mode, pattern,
                                   field.name(), std::move(halo_factory)});
+    // Stencil reads stay all ones (carbon cannot dilate a user region); only Map tokens
+    // without an explicit mask follow the kernel-wide region, including a later region().
+    const bool pinned = explicit_mask != nullptr || pattern != AccessPattern::Map;
+    if (explicit_mask != nullptr) {
+      tokens_.back().mask = *explicit_mask;
+    } else if (!pinned) {
+      tokens_.back().mask = region_;
+    }
+    explicit_mask_.push_back(pinned);
   }
 
   size_t relative_gpu_id_{};
@@ -399,6 +504,11 @@ private:
   // perspective. The vector is local to each KernelLoader instance, so there is no
   // shared-state concern.
   mutable std::vector<AccessToken> tokens_{};
+  // Parallel to tokens_: true when the token's mask must not follow region().
+  mutable std::vector<bool> explicit_mask_{};
+  mutable RegionMask region_{RegionMask::all()};
+  // SubGrid this loader serves (SubGrid::uid); 0 for parent-grid kernels.
+  std::uint64_t sub_grid_uid_{};
 };
 
 /**
@@ -870,9 +980,13 @@ Kernel::compute(const Grid& grid,
   // @c DeviceKernelImpl ; the trait absorbs the helper choice and the
   // parameter-shape variation (Dense / DenseDisg unpack @c gpu_grid[i] /
   // @c gpu_block[i] ; Block derives the dims internally from @c SBlock ).
-  using Impl = detail::DeviceKernelImpl<Grid, std::decay_t<LoadingFn>>;
-  return Kernel(
-      std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), shared_mem, std::move(name)));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    return grid.make_kernel(std::forward<LoadingFn>(loading), std::move(name), shared_mem);
+  } else {
+    using Impl = detail::DeviceKernelImpl<Grid, std::decay_t<LoadingFn>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), shared_mem,
+                                         std::move(name)));
+  }
 }
 
 template <typename T,
@@ -893,9 +1007,17 @@ Kernel::reduce(const Grid& grid,
   // @c ReduceKernelImpl ; the trait absorbs the stage-1 kernel choice,
   // block-dim Z (kReduceBlockThreads vs SBlock::VoxelCount), and the
   // SYCL launcher (launch_dense_reduce vs launch_block_reduce).
-  using Impl = detail::ReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
-  return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
-                                       shared_mem, std::move(name), options));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    using Bound = detail::sub_grid::BoundLoading<Grid, std::decay_t<LoadingFn>>;
+    Bound::check_reduce_options(options);
+    using Impl = detail::ReduceKernelImpl<Grid, Bound, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, Bound{grid, std::forward<LoadingFn>(loading)}, dst,
+                                         std::move(op), shared_mem, std::move(name), options));
+  } else {
+    using Impl = detail::ReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
+                                         shared_mem, std::move(name), options));
+  }
 }
 
 template <typename T>
@@ -970,8 +1092,12 @@ Kernel::host_compute(const Grid& grid,
   // @c detail/launch_traits.h ). Block / Dense / DenseDisg all bind to
   // @c DenseHostKernelImpl (the name is historical; the impl is now grid-
   // family agnostic).
-  using Impl = detail::DenseHostKernelImpl<Grid, std::decay_t<LoadingFn>>;
-  return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), std::move(name)));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    return grid.make_host_kernel(std::forward<LoadingFn>(loading), std::move(name));
+  } else {
+    using Impl = detail::DenseHostKernelImpl<Grid, std::decay_t<LoadingFn>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), std::move(name)));
+  }
 }
 
 template <typename Grid,
@@ -985,6 +1111,9 @@ Kernel::compute_universal(const Grid& grid,
   // variations (device-launch helper + iteration shape) live inside
   // @c detail::DeviceLaunchTraits<Grid> and @c detail::HostLaunchTraits<Grid>
   // (see @c detail/launch_traits.h ).
+  static_assert(!detail::sub_grid::is_sub_grid_v<Grid>,
+                "Kernel::compute_universal: not supported for a SubGrid; use "
+                "Kernel::compute and Kernel::host_compute.");
   using Impl = detail::UniversalKernelImpl<Grid, std::decay_t<LoadingFn>>;
   return Kernel(
       std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), shared_mem, std::move(name)));
@@ -1006,10 +1135,18 @@ Kernel::reduce_universal(const Grid& grid,
   // variation lives inside @c detail::ReduceLaunchTraits<Grid> (device
   // stage-1) and @c detail::HostLaunchTraits<Grid>::iterate_slab_reduce
   // (host fold). See @c detail/launch_traits.h .
-  using Impl =
-      detail::UniversalReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
-  return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
-                                       shared_mem, std::move(name), options));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    using Bound = detail::sub_grid::BoundLoading<Grid, std::decay_t<LoadingFn>>;
+    Bound::check_reduce_options(options);
+    using Impl = detail::UniversalReduceKernelImpl<Grid, Bound, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, Bound{grid, std::forward<LoadingFn>(loading)}, dst,
+                                         std::move(op), shared_mem, std::move(name), options));
+  } else {
+    using Impl =
+        detail::UniversalReduceKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
+                                         shared_mem, std::move(name), options));
+  }
 }
 
 template <typename T,
@@ -1025,9 +1162,16 @@ Kernel::host_reduce(const Grid& grid,
   // Single concrete impl across all grid families — per-family iteration-
   // shape variation lives inside @c detail::HostLaunchTraits<Grid>::iterate_slab_reduce
   // (see @c detail/launch_traits.h ).
-  using Impl = detail::ReduceHostKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
-  return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
-                                       std::move(name)));
+  if constexpr (detail::sub_grid::is_sub_grid_v<Grid>) {
+    using Bound = detail::sub_grid::BoundLoading<Grid, std::decay_t<LoadingFn>>;
+    using Impl = detail::ReduceHostKernelImpl<Grid, Bound, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, Bound{grid, std::forward<LoadingFn>(loading)}, dst,
+                                         std::move(op), std::move(name)));
+  } else {
+    using Impl = detail::ReduceHostKernelImpl<Grid, std::decay_t<LoadingFn>, T, std::decay_t<Op>>;
+    return Kernel(std::make_shared<Impl>(grid, std::forward<LoadingFn>(loading), dst, std::move(op),
+                                         std::move(name)));
+  }
 }
 
 // Per-grid-family convenience members (Dense / Block / DenseDisg). Split into
@@ -1117,9 +1261,27 @@ private:
 
 }  // namespace detail
 
+namespace detail {
+
+template <typename Field>
+concept HaloCapableField = requires(const Field& f) {
+  f.make_halo_kernel(std::string{});
+};
+
+template <typename Field>
+concept LatticeHaloCapableField = requires(const Field& f, Stencil s, StencilSemantic sem) {
+  f.make_halo_kernel(std::string{}, s, sem);
+};
+
+}  // namespace detail
+
 template <typename Field>
 auto
 KernelLoader::read_stencil(const Field& field) const {
+  static_assert(detail::HaloCapableField<Field>,
+                "KernelLoader::read_stencil: this field type has no halo (e.g. a SubGrid field), "
+                "so it cannot be stencil-read. Use read / write for same-cell access, or write "
+                "the values into a parent-grid field and stencil-read that one.");
   // Launch phase: no token, no halo factory — the make_shared + Field copy below
   // is exactly the per-launch overhead this split exists to eliminate. Return the
   // partition straight away (the only launch-relevant output of this call).
@@ -1140,6 +1302,10 @@ auto
 KernelLoader::read_stencil(const Field& field,
                            Stencil stencil,
                            StencilSemantic semantic) const {
+  static_assert(detail::LatticeHaloCapableField<Field>,
+                "KernelLoader::read_stencil: this field type has no halo (e.g. a SubGrid field), "
+                "so it cannot be stencil-read. Use read / write for same-cell access, or write "
+                "the values into a parent-grid field and stencil-read that one.");
   if (phase_ != KernelLoaderPhase::Launch) {
     auto factory = std::make_shared<detail::TypedLatticeHaloFactory<Field>>(
         field, std::move(stencil), semantic);

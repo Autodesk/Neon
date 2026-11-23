@@ -34,9 +34,9 @@ on:
   workflow_dispatch:
     inputs:
       configs:
-        description: 'Comma-separated configs to run (cuda,cuda-mpi). Defaults to both.'
+        description: 'Comma-separated configs to run (cuda,cuda-mpi,sycl,sycl-mpi). Defaults to all.'
         required: false
-        default: 'cuda,cuda-mpi'
+        default: 'cuda,cuda-mpi,sycl,sycl-mpi'
 
 jobs:
   gpu-matrix:
@@ -47,7 +47,7 @@ jobs:
       github.event_name != 'pull_request'
       || contains(github.event.pull_request.labels.*.name, 'gpu-ci')
     runs-on: [self-hosted, linux, gpu, cuda]
-    timeout-minutes: 90
+    timeout-minutes: 150
 
     strategy:
       fail-fast: false
@@ -58,13 +58,32 @@ jobs:
         # carbon_halo_disg_dist, dist_transfer, dense_dist, halo_dist,
         # halo_dist_periodic_z, native_io_dist, dist_reduce). Together
         # the two cells cover both audit-flagged silent-bug classes.
-        config: [cuda, cuda-mpi]
+        # `sycl` / `sycl-mpi` are the same two cells on the AdaptiveCpp
+        # backend (cuda:<SM_ARCH>;omp targets) — SYCL has its own event /
+        # cross-device ordering code, so it needs its own GPU lane.
+        config: [cuda, cuda-mpi, sycl, sycl-mpi]
 
     steps:
+      - name: Select config
+        id: select
+        # workflow_dispatch runs only the configs named in `inputs.configs`.
+        env:
+          EVENT: ${{ github.event_name }}
+          CONFIGS: ${{ inputs.configs }}
+          CONFIG: ${{ matrix.config }}
+        run: |
+          if [ "${EVENT}" != "workflow_dispatch" ] || [[ ",${CONFIGS}," == *",${CONFIG},"* ]]; then
+            echo "run=1" >> "${GITHUB_OUTPUT}"
+          else
+            echo "gpu-ci: ${{ matrix.config }} not in inputs.configs, skipping"
+          fi
+
       - name: Checkout
+        if: steps.select.outputs.run == '1'
         uses: actions/checkout@v4
 
       - name: Preflight (docker + GPU)
+        if: steps.select.outputs.run == '1'
         run: |
           set -euo pipefail
           command -v docker >/dev/null || { echo "docker not on PATH"; exit 1; }
@@ -83,7 +102,7 @@ jobs:
           else
             # >= 2 GPUs: assert the multi-device coverage actually runs. carbon_multi_gpu_gate
             # turns a mis-provisioned runner (driver hides a card, MIG partitioning, a stale
-            # CUDA_VISIBLE_DEVICES) into a red run instead of ~28 tests quietly self-skipping
+            # CUDA_VISIBLE_DEVICES) into a red run instead of ~30 tests quietly self-skipping
             # to a pass. Enumerate the affected set with `ctest -L needs_multi_device`.
             echo "CARBON_TEST_STRICT=1" >> "${GITHUB_ENV}"
           fi
@@ -95,14 +114,21 @@ jobs:
             nvidia/cuda:12.6.3-base-ubuntu22.04
 
       - name: Run docker matrix (${{ matrix.config }})
+        if: steps.select.outputs.run == '1'
         env:
           # Forwarded to scripts/docker-build-all.sh; override per-runner via
           # repo / org Actions variables if a runner has a different SM arch.
           # sm_80 (A100) is the safest default — Ampere covers >= sm_80
           # forward; older cards need the var override.
           SM_ARCH: ${{ vars.GPU_CI_SM_ARCH || 'sm_80' }}
+          # Space-separated KEY=VAL pairs forwarded into the container, e.g.
+          # `NCCL_P2P_DISABLE=1` on a runner whose PCIe peer DMA is unusable
+          # (NCCL's P2P transport hangs the distributed tests there).
+          DOCKER_ENV: ${{ vars.GPU_CI_DOCKER_ENV || '' }}
         run: |
           set -euo pipefail
+          env_args=()
+          for kv in ${DOCKER_ENV}; do env_args+=(--docker-env "${kv}"); done
           # `--only cuda` / `--only cuda-mpi` builds the image (cached on the
           # runner across runs) and runs ctest --output-on-failure inside the
           # container with --gpus all wired in. format-check rides the `cuda`
@@ -113,15 +139,41 @@ jobs:
           scripts/docker-build-all.sh \
             --only ${{ matrix.config }} \
             --sm-arch "${SM_ARCH}" \
-            --werror
+            --werror \
+            "${env_args[@]}"
+
+      - name: Repeat GPU tests (${{ matrix.config }})
+        # Cross-device ordering bugs are intermittent: each fixed so far passed
+        # a single ctest run most of the time. Re-run every GPU test 20x in
+        # the build tree the previous step left behind (incremental: no
+        # rebuild). The MPI cells would repeat the same single-process tests,
+        # so the lane rides the non-MPI cells only. The orchestrator tees to
+        # docker-logs/run-<config>.log, so the first run's log is kept aside.
+        if: steps.select.outputs.run == '1' && (matrix.config == 'cuda' || matrix.config == 'sycl')
+        env:
+          SM_ARCH: ${{ vars.GPU_CI_SM_ARCH || 'sm_80' }}
+          DOCKER_ENV: ${{ vars.GPU_CI_DOCKER_ENV || '' }}
+        run: |
+          set -euo pipefail
+          env_args=()
+          for kv in ${DOCKER_ENV}; do env_args+=(--docker-env "${kv}"); done
+          cp docker-logs/run-${{ matrix.config }}.log docker-logs/run-${{ matrix.config }}-main.log
+          scripts/docker-build-all.sh \
+            --only ${{ matrix.config }} \
+            --sm-arch "${SM_ARCH}" \
+            --werror \
+            --skip-build-images \
+            --ctest-args "-L gpu -E format_check --repeat until-fail:20" \
+            "${env_args[@]}"
 
       - name: Upload build + test logs
-        if: always()
+        if: always() && steps.select.outputs.run == '1'
         uses: actions/upload-artifact@v4
         with:
           name: gpu-ci-${{ matrix.config }}-logs
           path: |
             docker-logs/run-${{ matrix.config }}.log
+            docker-logs/run-${{ matrix.config }}-main.log
             docker-logs/${{ matrix.config }}/build/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
           retention-days: 14

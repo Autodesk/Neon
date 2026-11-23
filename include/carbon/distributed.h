@@ -3,6 +3,7 @@
 #include <carbon/export.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 
 namespace carbon {
@@ -119,6 +120,15 @@ public:
   broadcast(void* data,
             size_t bytes,
             int root) const;
+
+  /**
+   * Collective on @c MPI_COMM_WORLD : @c true on every rank iff every rank passed the same
+   * @p value . Two @c MPI_Allreduce calls (min and max), so every rank gets the same answer
+   * and can act on a mismatch together instead of some ranks proceeding into a collective
+   * the others never join. Throws @c std::runtime_error on any MPI error.
+   */
+  [[nodiscard]] auto
+  all_ranks_equal(std::uint64_t value) const -> bool;
 
 private:
   // Bridge to the underlying MPI_Comm lives in @c src/distributed_internal.h, which is only
