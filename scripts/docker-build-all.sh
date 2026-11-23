@@ -25,11 +25,22 @@
 # Usage:
 #   scripts/docker-build-all.sh [--only NAME[,NAME...]] [--no-cache]
 #                               [--sm-arch SM] [--gfx-arch GFX] [--werror]
-#                               [--skip-build-images]
+#                               [--skip-build-images] [--docker-env KEY=VAL]...
+#                               [--ctest-args "ARGS"]
 #
 #   --werror   Gate the libcarbon host compile warning-clean (-DCARBON_WERROR=ON)
 #              on the `cuda` config. Used by the gpu-ci workflow; off by default
 #              for local runs so a stray host-gcc warning never blocks the matrix.
+#   --docker-env KEY=VAL
+#              Forward KEY=VAL into every config's container (repeatable). E.g.
+#              `--docker-env NCCL_P2P_DISABLE=1` on hosts whose PCIe peer DMA is
+#              unusable, where NCCL's P2P transport hangs the distributed tests.
+#              The NVIDIA `*-mpi` configs always run with --ipc=host (NCCL/MPI
+#              shared-memory transports outgrow docker's 64 MiB /dev/shm).
+#   --ctest-args "ARGS"
+#              Extra arguments appended to the in-container `ctest
+#              --output-on-failure`, e.g. a repeat lane:
+#              `--ctest-args "-L gpu -E format_check --repeat until-fail:20"`.
 #
 # Examples:
 #   # Build everything; run tests for whatever GPU is present.
@@ -73,13 +84,17 @@ ONLY_FILTER=""
 # container toolchain. Off by default so a local matrix run is never blocked by a
 # stray warning from a newer/older host gcc; CI opts in via --werror.
 WERROR=0
+# `-e KEY=VAL` pairs from --docker-env, forwarded to every `docker run`.
+DOCKER_ENV_ARGS=()
+# Appended verbatim to the in-container ctest command (--ctest-args).
+CTEST_ARGS=""
 
 # ----------------------------------------------------------------------------
 # CLI
 # ----------------------------------------------------------------------------
 
 usage() {
-  sed -n '2,30p' "$0"
+  sed -n '2,/^set -uo pipefail/p' "$0" | sed '$d'
 }
 
 while [ $# -gt 0 ]; do
@@ -90,6 +105,8 @@ while [ $# -gt 0 ]; do
     --gfx-arch)          GFX_ARCH="$2"; shift 2 ;;
     --werror)            WERROR=1; shift ;;
     --skip-build-images) SKIP_BUILD_IMAGES=1; shift ;;
+    --docker-env)        DOCKER_ENV_ARGS+=(-e "$2"); shift 2 ;;
+    --ctest-args)        CTEST_ARGS="$2"; shift 2 ;;
     -h|--help)           usage; exit 0 ;;
     *) echo "unknown arg: $1" >&2; usage; exit 2 ;;
   esac
@@ -248,6 +265,9 @@ run_config() {
     nvidia)
       if [ "${NVIDIA_DOCKER_OK}" = "1" ]; then
         docker_gpu_args+=(--gpus all)
+        case "${name}" in
+          *-mpi) docker_gpu_args+=(--ipc=host) ;;
+        esac
         can_run_tests=1
       fi
       ;;
@@ -293,7 +313,7 @@ INNER_EOF
 )
   container_script+=$'\n'"${format_check_cmd}"
   container_script+=$'\n'"if [ \"${can_run_tests}\" = \"1\" ]; then"
-  container_script+=$'\n'"  ctest --output-on-failure"
+  container_script+=$'\n'"  ctest --output-on-failure ${CTEST_ARGS}"
   container_script+=$'\n'"else"
   container_script+=$'\n'"  echo '(no matching GPU on host — skipping ctest)'"
   container_script+=$'\n'"fi"
@@ -305,6 +325,7 @@ INNER_EOF
     -e CARBON_CONFIG="${name}" \
     -e CMAKE_FLAGS="${cmake_flags}" \
     -e CARBON_TEST_STRICT="${CARBON_TEST_STRICT:-}" \
+    "${DOCKER_ENV_ARGS[@]}" \
     "${image}" \
     /bin/bash -lc "${container_script}" 2>&1 | tee "${LOG_DIR}/run-${name}.log"
 

@@ -177,14 +177,16 @@ run_six_direction_probe(BlockGrid& block,
     const auto out_fd3 = loader.write(fd3);
     const auto out_fd4 = loader.write(fd4);
     const auto out_fd5 = loader.write(fd5);
+    // Literal offsets, not kDirs: AdaptiveCpp device code reading a host `static constexpr`
+    // array sees a zero-filled copy, so every probe collapsed to the cell itself.
     return [in, out_fv0, out_fv1, out_fv2, out_fv3, out_fv4, out_fv5, out_fd0, out_fd1, out_fd2,
             out_fd3, out_fd4, out_fd5] CARBON_HD(Span s, Idx idx) -> void {
-      const auto n0 = in.neighbour(s, idx, kDirs[0], 0);
-      const auto n1 = in.neighbour(s, idx, kDirs[1], 0);
-      const auto n2 = in.neighbour(s, idx, kDirs[2], 0);
-      const auto n3 = in.neighbour(s, idx, kDirs[3], 0);
-      const auto n4 = in.neighbour(s, idx, kDirs[4], 0);
-      const auto n5 = in.neighbour(s, idx, kDirs[5], 0);
+      const auto n0 = in.neighbour(s, idx, carbon::int8_3d{1, 0, 0}, 0);
+      const auto n1 = in.neighbour(s, idx, carbon::int8_3d{-1, 0, 0}, 0);
+      const auto n2 = in.neighbour(s, idx, carbon::int8_3d{0, 1, 0}, 0);
+      const auto n3 = in.neighbour(s, idx, carbon::int8_3d{0, -1, 0}, 0);
+      const auto n4 = in.neighbour(s, idx, carbon::int8_3d{0, 0, 1}, 0);
+      const auto n5 = in.neighbour(s, idx, carbon::int8_3d{0, 0, -1}, 0);
       out_fv0.write(s, idx, 0, n0.valid ? n0.value : -1.0F);
       out_fv1.write(s, idx, 0, n1.valid ? n1.value : -1.0F);
       out_fv2.write(s, idx, 0, n2.valid ? n2.value : -1.0F);

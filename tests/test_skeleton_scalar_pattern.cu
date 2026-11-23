@@ -113,6 +113,9 @@ main() {
     carbon::Transfer<float>(sys, f.cpu_buffers(), f.gpu_buffers())(up);
     up.wait();
     sk.run();
+    // run() is asynchronous and unordered with `up`: without this wait the upload below races
+    // the reduction still reading f, and the lag-1 slot can see 3.0 (192 instead of 128).
+    sk.wait();
     f.fill_owned_host([](carbon::int64_3d, int) {
       return 3.0F;
     });

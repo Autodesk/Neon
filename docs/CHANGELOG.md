@@ -6238,3 +6238,317 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `System::stream()` per call (the old reference raced the inline D-to-H copy on SYCL OpenMP).
   Verified with `test_skeleton_reduce_split`, `test_reduce_sum`, and `test_reduce_ops` on SYCL
   OpenMP, and with `test_skeleton_reduce_split` on CUDA.
+- **2026-11 — `CARBON_ENABLE_PYTHON=ON` builds again.** `append_dense_token` and
+  `append_block_token` in `libcarbonpy/src/cuda_driver.cpp` still built `AccessToken`
+  positionally as `{uid, mode, pattern, name, {}}` after `ResourceKind resource` became the
+  second member, so `mode` landed in the `resource` slot and `carbonpy` failed to compile
+  (`cannot convert AccessMode to ResourceKind`). The default build has Python off, which is
+  why nothing caught it. Both sites now pass `ResourceKind::Field` explicitly, matching
+  `append_mgrid_token`.
+- **2026-11 — `RegionMask`: a 256-bit user-defined sub-domain label set.** Groundwork for
+  finer-than-field skeleton dependencies. The user maps each bit to a cell set of the domain;
+  Carbon never sees the geometry and only relies on the contract that bits are atoms
+  (pairwise disjoint cell sets), so masks that do not intersect name disjoint cells. All ones
+  means "the whole field"; default construction is the empty mask, like `std::bitset`.
+  Storage is a plain `uint64_t[4]` (not `std::array`) so the type stays usable from CUDA / HIP /
+  SYCL device code; `test(uint8_t)` / `from_label(uint8_t)` support the recommended per-cell
+  `uint8_t` label idiom (256 bits is exactly the `uint8_t` range). Index-taking factories
+  (`bit`, `range`, `{bits}`) are host-only and throw `std::out_of_range` instead of silently
+  wrapping. `to_string` renders `all` / `none` / `{0,3,5-9}` for diagnostics.
+- **2026-11 — Sub-field (region-mask) dependencies in the Skeleton.** `AccessToken` gains a
+  trailing `RegionMask mask` (default all-ones, so every existing token, aggregate initialiser
+  and schedule is unchanged), and two accesses now conflict only when they share a field,
+  their modes conflict, *and* their masks intersect. Kernels declare their footprint with
+  `KernelLoader::region(M)` (applies to every Map access, readable in the launch phase) or a
+  per-call override `read(f, M)` / `write(f, M)` / `read_write(f, M)` / `operator()(f, M)`.
+  Masks are declaration-only — the kernel still filters its own cells — and bits are
+  user-defined pairwise-disjoint atoms. Stencil reads, halos and scalar readbacks stay
+  whole-field, so a stencil reader (and its auto-halo) still waits on every masked writer.
+  `Skeleton::Options::ignore_region_masks` / `CARBON_IGNORE_REGION_MASKS=1` restore the
+  whole-field schedule for A/B debugging; an empty mask warns once per kernel; a multi-stream
+  masked schedule with `use_cuda_graph` logs that it falls back to eager launches. Under MPI
+  the first `run()` after a compile of a halo/reduction pipeline compares a hash of the
+  pipeline shape (including masks) across ranks via the new `Distributed::all_ranks_equal`
+  and throws on mismatch instead of deadlocking in NCCL. Covered by
+  `tests/test_skeleton_region_mask.cu`.
+- **2026-11 — Region masks in the Skeleton exporters.** `export_kernel_list_dot` adds a
+  `region {…}` note under each access chip whose mask is not all-ones (separate `R` / `W`
+  masks when they differ), `export_dot` node tooltips append each masked token's region, and
+  both option lines say `region_masks=ignored` when `Options::ignore_region_masks` or
+  `CARBON_IGNORE_REGION_MASKS` is in effect. Unmasked pipelines render byte-identically;
+  `export_launch_order` is unchanged.
+- **2026-11 — Region-mask example and benchmark.** `examples/region_mask_bc.cu` splits the
+  `jacobi_unified` heat problem into an interior stencil kernel and a Dirichlet boundary
+  kernel on a per-cell label partition (`from_label(0)` / `~from_label(0)`), shows the
+  3-stream masked schedule next to the 1-stream whole-field one, checks they are
+  bit-identical, and writes both DOT views with `--dot`. `benchmarks/skeleton_region_mask`
+  (interior stencil + `K` disjoint boundary kernels) measured on 2× RTX A4000: −16 % /
+  −12 % time per iteration for `K` = 1 / 4 when halo-bound (2 GPUs, `n=64`), within
+  noise when device-bound (`n` ≥ 128, because v1 masked kernels still sweep the whole grid),
+  and ~1.5–3 µs of host time per extra stream per iteration — uncapped `K=16` (33 streams)
+  is slower than the whole-field schedule, `max_streams=2` restores parity. Single-stream
+  CUDA graph capture matches or beats eager multi-stream at small sizes; that is the
+  trigger for the multi-stream capture follow-up, not a regression.
+- **2026-11 — Region-mask documentation.** `docs/skeleton/README.md` gains a "Region masks"
+  section (contract, `DataView` vs `RegionMask`, API, exporter annotations, measured costs
+  and the `max_streams` / CUDA-graph guidance); the `AGENTS.md` Skeleton entry lists the
+  feature. Known gaps, deliberately deferred: no warning yet when `region(M)` ends up on
+  stencil-only kernels (no effect), stencil footprints are not dilatable, masked kernels
+  still launch over the whole grid, and Python/Warp tokens stay all-ones.
+- **2026-11 — Region masks across MPI ranks.** `tests/test_skeleton_region_mask_dist.cu`
+  (2 ranks, label `distributed`): a masked interior + wall pipeline under `None` and
+  `Standard` is bit-identical to `ignore_region_masks` with equal launch orders on every
+  rank, a rank-local `export_kernel_list_dot` does not block, and a rank-dependent mask
+  makes the first `run()` throw on every rank instead of deadlocking. Validated in the
+  `cuda-mpi` container (28/28 distributed tests). On hosts whose PCIe peer DMA is unusable
+  (carbon already leaves it off there) NCCL's own P2P transport hangs; run the distributed
+  suite with `NCCL_P2P_DISABLE=1`.
+- **2026-11 — `Halo` drains its intra-node copies before any GPU writes again.** Each peer
+  copy is enqueued on the *destination* GPU's stream but reads the *source* GPU's owned
+  cells, and the only cross-GPU ordering was the leading producer fence. The old comment
+  claimed the next halo's leading fence covered the copy-vs-overwrite WAR; that holds only
+  when a second halo sits between the copy and the source GPU's next write (two-field
+  ping-pong). A pipeline with one halo per iteration (a field rewritten in place, e.g. an
+  interior writer followed by a stencil of the same field) let gpu0 overwrite its top layers
+  while gpu1 was still copying them. `test_skeleton_region_mask` exposed it: masks shorten
+  the source GPU's critical path, and with a second process loading both GPUs it failed
+  23–25/50 runs (always at gpu0's top owned layers), 0/100 idle. `Halo::operator()` now
+  records a second per-GPU event group (`drain_event_`, allocated only for
+  multi-local-GPU layouts, like `fence_event_`) after `intra_` and fan-in-waits on it.
+  Under the same load: 0/50 with the fix, 25/50 with it reverted.
+- **2026-11 — SYCL build drift: every target compiles again.** Under `CARBON_BACKEND=Sycl` each
+  dual-backend `.cu` is copied to a `.cpp` twin in the build tree (acpp sniffs `.cu`), so quoted
+  includes of headers next to the source (`test_domain.h`, `wind_tunnel_common.h`) stopped
+  resolving once tests started using them: 12 tests and one example failed to compile, which
+  nothing caught because no CI lane builds SYCL with GPU targets. The four copies of the mirror
+  logic (unit tests, MPI tests, examples, benchmarks) are now one
+  `carbon_add_sycl_mirrored_executable` (`cmake/CarbonSyclMirror.cmake`) that also puts the
+  source directory on the target's include path. Two drifts that broke the CUDA build too:
+  `examples/wind_tunnel_common.h` used `LbmParameters` without its new `Real` argument, and
+  `render_wind_tunnel_live` (ImGui panels outside `CARBON_HAVE_VIEWER`) is now registered only
+  with `CARBON_BUILD_VIEWER=ON`. SYCL on 2× A4000: 106 tests build, 101 pass; the rest are the
+  multi-GPU reduce and reduce-option gaps tracked next.
+- **2026-11 — SYCL: cross-device copies were not ordered before the next submission.**
+  Symptom: multi-GPU reductions occasionally (`skeleton_overlapped` 2/50,
+  `skeleton_reduce_split` 2/30) or deterministically (`mgrid_locator` in a fresh process) came
+  back with one GPU's share missing or replaced by a value from an *earlier* reduction.
+  `tests/test_reduce_partials_multi_gpu.cu` (new, both backends) reads every
+  `ReductionResult::gpu_partial(g)` back after the reduce drained: every per-GPU partial was
+  right and only the combined total was wrong, so stage 1 and `sycl::reduction` were innocent.
+  The stage-2 peer copy of a partial into the root GPU's staging slot is a `q.memcpy` between
+  two devices on the root's in-order queue; AdaptiveCpp 25.02 records it as a
+  device-to-device operation it may run on the source device's backend stream, and the
+  in-order queue then does not order the combine kernel submitted next on `q` after it, so the
+  combine read the staging slot before the bytes landed (stale data from a reused allocation).
+  A host wait on every queue *before* the copy did not help; a host wait on the copy's event,
+  or an explicit dependency on it, did (8/10 failing runs → 0/10). `System::async_copy` now
+  pins both edges of a cross-device copy with explicit events (a no-op custom operation the
+  copy depends on, and one that depends on the copy), with no host blocking. Every device copy
+  goes through `async_copy`, so halo peer copies get the same ordering. Measured after the
+  fix: 0/50 for `skeleton`, `skeleton_overlapped`, `skeleton_reduce_split`,
+  `skeleton_region_mask`, `reduce_partials_multi_gpu`, `reduce_sum_multi_gpu`,
+  `dense_disg_reduce`, `block_reduce`, `mgrid_skeleton`, `skeleton_reduce`; `mgrid_locator`
+  20/20 across fresh containers.
+- **2026-11 — SYCL: `ReduceHostCopy::Deferred` enabled.** It was rejected on SYCL at
+  construction, so `skeleton_scalar_pattern{,_multi_gpu}` threw. Nothing in the deferred path
+  is backend-specific (`ScalarReadbackKernelImpl` is an `async_copy` plus the slot-done event);
+  the missing piece was a trustworthy SYCL slot-done event. `ReductionResult`'s SYCL
+  record/wait now use the same `AdaptiveCpp_enqueue_custom_operation` idiom as `EventGroup`
+  (recording writes into the shared `sycl::event` instead of `const_cast`-replacing the
+  `Event`), and the commented-out experiments are gone. 0/50 for both scalar-pattern tests,
+  `skeleton_reduce` and `reduce_scalar_ring` (2 GPUs, 2-slot ring with lag 1 included).
+- **2026-11 — SYCL: `ReduceFinalize::BlockAtomic` implemented.** It threw on SYCL
+  (`reduce_atomic` aborted). New `detail/backend/sycl/block_atomic_reduce.h`: an `nd_range`
+  launch (256-wide groups) where each work-group sums its cells with
+  `sycl::reduce_over_group(…, sycl::plus<T>())` and adds the group sum into the per-GPU scalar
+  with one device-scope `atomic_ref` add, after a `memset` on the same in-order queue. Same
+  admissible set as CUDA (Sum; float/double/int32/int64; plain Dense and DenseDistributed; the
+  constructor still rejects DenseDisg and Block), wired through a `sycl_block_atomic` entry on
+  `ReduceLaunchTraits`. `reduce_atomic` (BlockAtomic vs DeviceReduce for int64/float/double on
+  2 GPUs) 30/30. The carbon-owned rewrite of the `sycl::reduction` reducers that was planned
+  alongside this is dropped: `test_reduce_partials_multi_gpu` showed every per-GPU partial
+  `sycl::reduction` produced was exact, the lost share was the cross-device copy above.
+- **2026-11 — Halo drain fence extended to `HaloDisg`, `HaloBlock` (and so mGrid) and
+  `HaloDistributed`.** They had the same shape as `Halo` before its trailing fence was added:
+  each intra-process copy runs on the destination GPU's stream and reads the source GPU's owned
+  cells, and only a leading fence ordered it. Each now records a per-GPU `drain_event_` after
+  its intra copies (`HaloDistributed`: after the axis-pass loop and after the non-pass
+  `dist_`), so a writer on the source GPU queued behind the halo can't overwrite cells a peer
+  copy is still reading. No reproducer on this host. Under `skeleton_overlap` load, the
+  DenseDisg/Block/mGrid halo tests pass 40/40 with and without the fence, and
+  `skeleton_block{,_extended}`/`block_overlapped_stencil` show 0 drift either way. Without
+  region masks, which are Dense-only, the source GPU always runs the stencil between the halo
+  and the next overwrite, which shrinks the window. The fix is the same fence argument as
+  `Halo`.
+- **2026-11 — SYCL stress sweep; `skeleton_scalar_pattern` test race fixed.** Every `gpu`-labelled
+  test (93) was run in the SYCL container 100× on idle GPUs and 50× with
+  `carbon_benchmark_skeleton_overlap` holding both GPUs at ~98%. That is 13 950 runs, and the only
+  failure was `skeleton_scalar_pattern` under load: SYCL 29/50, CUDA 23/50, both
+  `lag-1 sum 192 expected ~128`. The cause was in the test. It re-uploaded `f` on its own
+  stream straight after an asynchronous `sk.run()`, so the upload raced the reduction reading
+  `f`. It now calls `sk.wait()` first, and is 0/100 under load on both backends. The
+  `needs_multi_device` label covers only 30 of the multi-GPU tests (`skeleton`, `mgrid_locator`
+  and `skeleton_region_mask` run on every device without it), so the sweep used `-L gpu`.
+- **2026-11 — `sycl-mpi` validated; `docker-build-all.sh` gains `--docker-env` and
+  `--ctest-args`.** First `sycl-mpi` run this cycle: 134/136, failing `carbon_format_check`
+  (the pre-existing violations every config has) and `block_dist_stencil_parity`, which was
+  deterministic, 3232 mismatches per rank, with every six-direction probe returning the cell's
+  own value. The probe kernel indexed a function-local `static constexpr std::array` of
+  offsets from device code. nvcc copes, but AdaptiveCpp device code reads a zero-filled copy, so
+  all six offsets were `{0,0,0}`. The kernel now uses literal offsets, as the file's Jacobi
+  step already did. Result: 0/20, and `sycl-mpi` is 135/135 with `-E format_check`, with the
+  28 distributed tests green 5× in a row. `cuda-mpi` is still 28/28. The script now forwards
+  `--docker-env KEY=VAL` (repeatable) into every container, so `NCCL_P2P_DISABLE=1` can be set
+  on hosts whose PCIe peer DMA is unusable. It runs the NVIDIA `*-mpi` configs with
+  `--ipc=host`, since NCCL/MPI shared-memory transports outgrow docker's 64 MiB `/dev/shm`.
+  `--ctest-args` appends to the in-container ctest, for repeat lanes. `usage` now prints the
+  whole header, where the old line range had cut the flag docs off.
+- **2026-11 — `gpu-ci` gains `sycl` / `sycl-mpi` cells and a repeat lane.** The matrix is now
+  `[cuda, cuda-mpi, sycl, sycl-mpi]`. SYCL has its own event and cross-device ordering code,
+  and every SYCL bug fixed this cycle was invisible to the CUDA cells. The `cuda` and `sycl`
+  cells re-run every `gpu` test 20× (`--repeat until-fail:20`) in the build tree the first
+  step left behind. The cross-device races fixed this cycle each passed a single run most of
+  the time. Runner-specific container environment comes from the `GPU_CI_DOCKER_ENV` Actions
+  variable, e.g. `NCCL_P2P_DISABLE=1`. The `workflow_dispatch` `configs` input was declared
+  but never read; it now selects matrix cells. The job timeout goes from 90 to 150 minutes.
+  The `AGENTS.md` SYCL paragraph, docker knobs and test-count table were refreshed
+  (2×RTX A4000: CUDA 112, CUDA+MPI 140, SYCL 108, SYCL+MPI 136).
+- **2026-11 — `examples/region_mask_cube.cu`, a minimal region-mask walk-through.** It uses a
+  cube with two regions: bit 0 is the interior and bit 1 is the boundary. Each kernel tests
+  for the boundary from its voxel coordinates, so there is no label field. One field `u`
+  goes through four kernels: `fill_boundary` (boundary), `fill_interior` and `scale_interior`
+  (interior), then `count_wrong`, an unmasked `int64_t` Sum reduce that doubles as the
+  self-check. The example prints the compiled dependency table, built from `min_edges()` and
+  `kernel_streams()`, with masks honoured and with masks ignored, and `--dot` writes both
+  schedules. Honoured gives 2 streams: the boundary fill sits beside the interior chain and
+  the check waits for both. Ignored gives a 4-kernel chain on 1 stream. The result is 0 wrong
+  voxels on CUDA (2 GPUs) and SYCL. `region_mask_bc.cu` stays the heat-solver walk-through.
+- **2026-11 — Region-mask examples: launch matrix and `--overlap`.** With `--dot <prefix>`,
+  both `region_mask_bc` and `region_mask_cube` now also write the launch matrix
+  (`export_launch_matrix_dot`, one column per stream) for the masked and the masks-ignored
+  schedule. Both also accept `--overlap none|standard`. In `region_mask_bc` Standard OCC
+  splits both interior stencils into Internal and Boundary halves around their halos, while
+  the boundary-condition kernels keep their own streams. `auto_halo_v` still waits for
+  `boundary_v`, and the results stay bit-identical. On 2×RTX A4000 the combination pays off
+  only between launch-bound and saturated sizes. In µs per iteration (none / masks / OCC /
+  both): 64³ gives ~90 / 73 / 71 / 85, 128³ gives 218 / 169 / 144 / 140, and 256³ gives
+  1023 / 920 / 970 / 947. The cube pipeline has no stencil, so OCC leaves its schedule
+  unchanged, and the example says so.
+- **2026-11 — `SubGrid<Dense>`: compact iteration over a region.** `S = SubGrid(G, F, B)`
+  keeps, per GPU, a table of the owned parent cells selected by `F` and launches one thread
+  per entry ("lane"); `B` is the region its kernels declare. Built by
+  `Dense::new_sub_grid(labels, mask)` (a `uint8_t` label field, `F` = label bit in `mask`)
+  or `new_sub_grid(predicate, mask)`. Decisions:
+  - *Compact owner storage, like Neon's sGrid.* SubGrid fields hold one value per lane and
+    nothing else. They have no halo, so `read_stencil` on one is a `static_assert` (the
+    `HaloCapableField` concepts in `kernel.h`), and SubGrid partitions have no neighbour API.
+    Stencils read *parent* fields, through the parent's halo.
+  - *`S::Span` / `S::Idx` derive from the parent's.* The Idx adds its lane and the Span adds
+    the lane table, so `uG.read(s, i, 0)` on a parent field works with no conversion call
+    and keeps the parent's semantics. The risk of deriving is name hiding: a derived member
+    shadowing a parent one. The derived types add only `sub_lane()` / `sub()`, and
+    `static_assert`s reject a parent that already has them. SubGrid partitions take only the
+    SubGrid types; in debug builds they also check the owner, the lane range and the cell.
+  - *Lane order: parent-Internal cells first, then parent-Boundary.* `DataView::Internal` /
+    `Boundary` are then two contiguous lane ranges, so the Skeleton's OCC rewrites (keyed only
+    on kind and tokens) split SubGrid kernels like Dense ones. That includes Extended OCC
+    splitting a SubGrid kernel that produces a stencil-read parent field.
+  - *The mask comes from the SubGrid.* The loader's kernel-wide region is preset to `B`, so
+    two SubGrids with disjoint masks writing one parent field run unordered. The loader is
+    also bound to the SubGrid's uid, so loading another SubGrid's field (or a SubGrid field
+    from a parent kernel) throws when the kernel is built.
+  - *The lane table is built once, on the host, and the SubGrid is immutable.* The selection
+    runs as a Dense kernel into a flag field, is downloaded, and is compacted in iteration
+    order, which keeps it deterministic and backend-neutral. A device scan is a later
+    optimisation. There are no nested SubGrids, and no reductions or `compute_universal`
+    yet (`static_assert`). `Kernel::compute` / `host_compute` forward to
+    `S.make_kernel` / `make_host_kernel`.
+  - *Compile-time rules are tested as builds.* `sub_grid_compile_fail_{0..5}` are targets
+    outside `all` that ctest builds and that must fail with a given diagnostic (CUDA only).
+  Validated on 2×RTX A4000 with CUDA and SYCL (AdaptiveCpp), and on one GPU. A mixed Dense +
+  SubGrid pipeline is bit-identical to a hand-sequenced run under every `OverlapMode`.
+  `examples/sub_grid_cube.cu` fills the boundary of a 256³ cube in 28.7 µs, versus 58.8 µs
+  for the filtered Dense kernel (2.8× at 384³; launch-bound below 128³).
+- **2026-11 — Reductions over a `SubGrid`, and SubGrid validated on HIP.** `Kernel::reduce`,
+  `host_reduce` and `reduce_universal` now accept a SubGrid, with
+  `S.make_reduce_kernel` / `make_host_reduce_kernel` / `make_universal_reduce_kernel` as
+  sugar. The per-cell lambda is `T(const S::Span&, const S::Idx&)`. Decisions:
+  - *Reuse the reduce pipeline, swap only the stage-1 launch.* `ReduceKernelImpl` and its
+    host / universal siblings already go through `ReduceLaunchTraits<Grid>` /
+    `HostLaunchTraits<Grid>`. Specialising those for `SubGrid<G>`
+    (`detail/sub_grid/reduce_traits.h`) gives SubGrid reductions the multi-GPU combine, the
+    cross-rank stage, `ReduceFinalize::BlockAtomic`, `ReductionResult` and the Skeleton's
+    OCC Partial / Merge split without touching any of them. Stage 1 is one thread per lane
+    over the view's lane range in fixed 256-thread blocks
+    (`detail/backend/{cudalike,sycl}/sub_grid_reduce.h`); the host path is an OpenMP loop
+    over lanes with per-thread partials.
+  - *Loading goes through `BoundLoading`.* `load(S, fn, loader)` presets the region and the
+    SubGrid uid, but the reduce impls call the loading functor directly. `Kernel::reduce`
+    wraps it in a functor that calls `load` first, so ownership checks and mask declarations
+    are identical to `S.make_kernel`.
+  - *`ReduceOptions::stage1_threads[_y]` throw.* They shape Dense's 2D stage-1 tiles, which
+    a lane range does not have. Rejecting them is better than ignoring them silently.
+  - *`compute_universal` over a SubGrid stays a static_assert.* It needs the grid's launch
+    geometry (`gpu_grid` / `gpu_block`), which a SubGrid does not expose. The universal
+    *reduction* only needs the traits, so it works.
+  - *The SubGrid compile-fail tests also run on HIP.* Under HIP-on-NVIDIA the compiler is
+    nvcc, so the diagnostics match. Two regexes were widened to clang's wording
+    (`no member named`, `no matching member function`) for HIP on AMD, which this host
+    cannot build.
+  `tests/test_sub_grid_reduce.cu` covers Sum / Max / count over parent and SubGrid fields,
+  the Internal + Boundary = Standard split, BlockAtomic, host and universal launches, mask
+  tokens, the ownership and options throws, an empty SubGrid (identity), and a Skeleton
+  where a SubGrid reduction stencil-reads a parent field, checked against a host reference
+  under every `OverlapMode`. When OCC is on, it also checks that the Internal / Boundary
+  partials appear. Forcing the CUDA lane offset to 0 fails 4 checks. Measured on 2×RTX
+  A4000, excluding `carbon_format_check`: CUDA 121/121 (also on one GPU for the new test),
+  SYCL (AdaptiveCpp) 111/111, and `hip-nvidia` 117/117. HIP's SubGrid tests,
+  `examples/sub_grid_cube.cu` and all six compile-fail cases pass. HIP's last measured
+  count, from 2026-07, was 89.
+- **2026-11 — `SubGrid` over a `Block` parent; copied Blocks no longer share host spans.**
+  `Block::new_sub_grid(labels, mask)` / `new_sub_grid(predicate, mask)` build a
+  `SubGrid<Block<SBlock>>` with the same API as the Dense one. Decisions:
+  - *Flat lane table, not a brick-aware one.* Each lane is one `Block::Idx` (brick, intra
+    offset), so the existing lane launchers, reduce traits and Skeleton integration work
+    unchanged. A brick-aware layout (one GPU block per touched brick, a per-brick voxel
+    list) would help a selection that fills whole bricks, but SubGrids are meant for a few
+    voxels that need special treatment, and those mostly sit in different bricks. Multi-
+    resolution Blocks and `DenseDisg` stay out of scope; any other parent is a static_assert.
+  - *A `ParentTraits<G>` seam.* `host_span`, `for_each_cell` (enumerate selected cells in
+    the parent's iteration order) and `flag_offset` are the only parent-specific pieces of
+    the Builder; Dense's code moved behind its specialisation unchanged.
+  - *Host spans come from the parent's host tables.* Building a SubGrid host span from a
+    device span works for Dense (the Span holds no pointers) but makes a Block host kernel
+    dereference device pointers. The Builder now takes host spans from
+    `ParentTraits::host_span` on the State's own copy of the parent. The Block's host tables
+    cover owned bricks only, so host `neighbour` reads must stay in the GPU's slab.
+  - *Copying a Block resets its memoised host spans.* `Block::host_spans()` memoises spans
+    that point into the Block's own host vectors, and the copy constructor copied the memo,
+    so a copy kept pointing into the source (a use-after-free once the source died). The
+    memo is now a `ResetOnCopy` member; `tests/test_block_host_parity.cu` checks copies and
+    a host reduce through a copy whose source was destroyed.
+  `tests/test_sub_grid_block.cu` (64³ ball, 655 markers, including voxels on brick faces,
+  next to inactive voxels and on the slab cut) covers construction, device and host kernels with neighbour
+  reads, reductions, the ownership throw, and a Skeleton under every `OverlapMode`, with
+  exact results. Building host spans from device spans segfaults it, and offsetting the
+  flag index or swapping x / z fails it. Two compile-fail cases were added (`read_stencil` on
+  a Block SubGrid field, a `DenseDisg` parent). `examples/sub_grid_block_markers.cu` updates
+  one voxel in 1000 of a 256³ ball in 5.8 µs per launch against 79.1 µs for a Block kernel
+  with a label filter (2×RTX A4000; SYCL 9.4 / 80.3, HIP on NVIDIA 4.9 / 79.0). Measured
+  excluding `carbon_format_check`: CUDA 124/124, SYCL (AdaptiveCpp) 112/112, `hip-nvidia`
+  120/120; the new test also passes on one GPU.
+- **2026-11 — End-to-end SubGrid test: Jacobi + AXPY with B and C in parallel.**
+  `tests/test_sub_grid_jacobi_axpy.cu` runs 100 iterations of an int64 Jacobi step followed
+  by `y = 3 u + y` on a Dense box and a Block ball. B is the voxels missing a face neighbour
+  (own rule); C is every other active voxel (sum of six / 6). A per-voxel source keeps the
+  field from flattening. Each grid runs: one kernel that branches on neighbour validity
+  (`no_s`); B as a SubGrid plus C as a masked parent kernel (`bc_parent`); and B and C as two
+  SubGrids with complementary masks (`bc_sub`). The BC forms run under every OverlapMode.
+  Every variant must match a host reference exactly in `u` and in `y`. Schedule checks: B and
+  C are not ordered and run on different streams; under OCC each Jacobi step has exactly two
+  `[compute/internal]` and two `[compute/boundary]` launches (the Skeleton currently places
+  both boundary halves on the halo stream); AXPYs stay a single `[compute/standard]` launch
+  except under TwoWayExtended, which also splits them. Lane counts: `B.count + C.count`
+  equals the owned voxels. Breaking the B rule, the C SubGrid rule, the C region declaration
+  or the B predicate each makes it fail. Measured excluding `carbon_format_check`: CUDA
+  125/125 (also on one GPU), SYCL (AdaptiveCpp) 113/113, `hip-nvidia` 121/121.

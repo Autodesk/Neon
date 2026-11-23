@@ -243,6 +243,7 @@ include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CarbonSpdlog)
 include(CarbonRapidjson)
+include(CarbonSyclMirror)
 
 set(CARBON_VERSION_STRING "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 
@@ -292,6 +293,7 @@ add_library(carbon SHARED
   src/logging.cpp
   src/memory_side.cpp
   src/process_grid.cpp
+  src/region_mask.cpp
   src/report.cpp
   src/skeleton.cpp
   src/stencil.cpp
@@ -424,6 +426,7 @@ elseif(CARBON_BACKEND STREQUAL "Sycl")
     src/logging.cpp
     src/memory_side.cpp
     src/process_grid.cpp
+    src/region_mask.cpp
     src/report.cpp
     src/skeleton.cpp
     src/stencil.cpp

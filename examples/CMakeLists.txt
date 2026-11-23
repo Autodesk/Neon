@@ -28,26 +28,8 @@ function(_carbon_example_add target source_cu)
       HIP_STANDARD 20
       HIP_STANDARD_REQUIRED ON)
   elseif(CARBON_BACKEND STREQUAL "Sycl")
-    set(_src "${CMAKE_CURRENT_BINARY_DIR}/${target}.cpp")
-    # Copy the .cu to a .cpp twin in the build tree (clang treats .cu as CUDA). In
-    # debug builds prepend a #line directive so the debug info points back at the
-    # original .cu; otherwise breakpoints set in the source file never bind.
-    if(CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
-      set(_carbon_orig_cu "${CMAKE_CURRENT_SOURCE_DIR}/${source_cu}")
-      file(READ "${_carbon_orig_cu}" _carbon_cu_text)
-      file(WRITE "${_src}" "#line 1 \"${_carbon_orig_cu}\"\n${_carbon_cu_text}")
-      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_carbon_orig_cu}")
-    else()
-      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/${source_cu}" "${_src}" COPYONLY)
-    endif()
-    add_executable(${target} "${_src}")
-    target_compile_features(${target} PRIVATE cxx_std_20)
+    carbon_add_sycl_mirrored_executable(${target} ${source_cu})
     set_target_properties(${target} PROPERTIES BUILD_RPATH "${CARBON_RUNTIME_SEARCH_DIRS};${CMAKE_BINARY_DIR}")
-    add_sycl_to_target(TARGET ${target} SOURCES "${_src}")
-    if(CARBON_SYCL_TARGETS MATCHES "cuda")
-      target_compile_options(${target} PRIVATE --cuda-path=${CARBON_SYCL_CUDA_PATH})
-      target_link_directories(${target} PRIVATE ${CARBON_SYCL_CUDA_PATH}/lib64)
-    endif()
   endif()
 endfunction()
 
@@ -115,6 +97,26 @@ _carbon_example_add(carbon_example_cg_poisson_unified cg_poisson_unified.cu)
 target_link_libraries(carbon_example_cg_poisson_unified
   PRIVATE carbon::carbon carbon::third_party::clipp)
 
+# Region masks: an interior stencil and a boundary-condition kernel that write disjoint
+# cells of the same field run side by side (Skeleton sub-field dependencies).
+_carbon_example_add(carbon_example_region_mask_bc region_mask_bc.cu)
+target_link_libraries(carbon_example_region_mask_bc PRIVATE carbon::carbon)
+
+# Region masks, minimal walk-through: on a cube, one kernel writes only the boundary voxels and
+# two only the interior; the Skeleton orders them by region, not by field.
+_carbon_example_add(carbon_example_region_mask_cube region_mask_cube.cu)
+target_link_libraries(carbon_example_region_mask_cube PRIVATE carbon::carbon)
+
+# SubGrid: the cube boundary as its own grid (one thread per boundary voxel, compact fields),
+# mixed with Dense kernels in one masked Skeleton, and timed against the filtered Dense kernel.
+_carbon_example_add(carbon_example_sub_grid_cube sub_grid_cube.cu)
+target_link_libraries(carbon_example_sub_grid_cube PRIVATE carbon::carbon)
+
+# SubGrid over a Block: a few scattered marker voxels of a block-sparse ball updated by one
+# thread each, checked and timed against a Block kernel that filters every active voxel.
+_carbon_example_add(carbon_example_sub_grid_block_markers sub_grid_block_markers.cu)
+target_link_libraries(carbon_example_sub_grid_block_markers PRIVATE carbon::carbon)
+
 _carbon_example_add(carbon_example_salt_pepper_filter salt_pepper_filter.cu)
 target_link_libraries(carbon_example_salt_pepper_filter PRIVATE carbon::carbon)
 # Bake the absolute path of examples/data into the binary so running with no args picks
@@ -153,11 +155,21 @@ _carbon_example_link_viewer(carbon_example_render_wind_tunnel)
 target_include_directories(carbon_example_render_wind_tunnel
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
 
-_carbon_example_add(carbon_example_render_wind_tunnel_live render_wind_tunnel_live.cu)
-target_link_libraries(carbon_example_render_wind_tunnel_live PRIVATE carbon::carbon)
-_carbon_example_link_viewer(carbon_example_render_wind_tunnel_live)
-target_include_directories(carbon_example_render_wind_tunnel_live
-  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
+# The live variant's ImGui panels are not behind CARBON_HAVE_VIEWER, so it only builds
+# with the viewer.
+if(CARBON_BUILD_VIEWER)
+  _carbon_example_add(carbon_example_render_wind_tunnel_live render_wind_tunnel_live.cu)
+  target_link_libraries(carbon_example_render_wind_tunnel_live PRIVATE carbon::carbon)
+  _carbon_example_link_viewer(carbon_example_render_wind_tunnel_live)
+  target_include_directories(carbon_example_render_wind_tunnel_live
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
+endif()
+
+# Distributed 6-neighbour stencil + axpy with a CLI-selected slab | pencil | brick decomposition.
+# Self-verifying (global sums vs. a serial host reference). With the SYCL backend, an omp-only
+# target and CARBON_ENABLE_MPI=ON this is a pure-CPU `mpirun -np N` program.
+_carbon_example_add(carbon_example_distributed_stencil_axpy distributed/stencil_axpy.cu)
+target_link_libraries(carbon_example_distributed_stencil_axpy PRIVATE carbon::carbon)
 
 # Distributed 6-neighbour stencil + axpy with a CLI-selected slab | pencil | brick decomposition.
 # Self-verifying (global sums vs. a serial host reference). With the SYCL backend, an omp-only

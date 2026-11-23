@@ -150,6 +150,15 @@ Distributed::broadcast(void* data,
 }
 
 auto
+Distributed::all_ranks_equal(std::uint64_t value) const -> bool {
+  std::uint64_t lo = 0;
+  std::uint64_t hi = 0;
+  check_mpi("MPI_Allreduce", MPI_Allreduce(&value, &lo, 1, MPI_UINT64_T, MPI_MIN, MPI_COMM_WORLD));
+  check_mpi("MPI_Allreduce", MPI_Allreduce(&value, &hi, 1, MPI_UINT64_T, MPI_MAX, MPI_COMM_WORLD));
+  return lo == hi;
+}
+
+auto
 Distributed::pin_local_device() const -> int {
   using namespace carbon::detail::gpu_compat;
   int visible = 0;
