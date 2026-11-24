@@ -421,6 +421,62 @@ public:
   run(DataView view = DataView::Standard) -> void;
 
   /**
+   * @brief Sentinel value used by @ref effective_to_user (and elsewhere) to
+   *        denote "no user-kernel index" (i.e. an auto-inserted halo).
+   */
+  static constexpr size_t kNoKernel = static_cast<size_t>(-1);
+
+  /** One scheduled launch observed by @ref run_profile . */
+  struct ProfileStep {
+    size_t kernel_index{kNoKernel};       /**< Index into @ref effective_kernels . */
+    size_t user_kernel_index{kNoKernel};  /**< Index into @ref kernels , or @ref kNoKernel
+                                               for an auto-inserted halo. */
+    size_t stream_index{0U};              /**< Stream the step was issued on. */
+    DataView view{DataView::Standard};    /**< Effective DataView of this launch. */
+    reduce::ReduceLaunchMode reduce_mode{reduce::ReduceLaunchMode::Full};
+    std::string name{};                   /**< Kernel display name at profile time. */
+  };
+
+  /**
+   * @brief One profiling phase: a maximal run of scheduled steps between global
+   *        joins.
+   *
+   * A phase groups work that can execute concurrently: steps are added until a
+   * step depends on the tail step of every stream active in the current phase
+   * (a global join). That join starts the next phase. For
+   * @ref OverlapMode::None — a single serial stream — every phase contains one
+   * scheduled launch, so @ref run_profile reports per-kernel times. For OCC
+   * modes, an overlapped region (e.g. halo + Internal + Boundary) lands in one
+   * phase and @ref milliseconds is its makespan.
+   */
+  struct ProfilePhase {
+    double milliseconds{0.0};
+    std::vector<ProfileStep> steps{};
+  };
+
+  /**
+   * @brief Replay the compiled schedule once and return per-phase timings.
+   *
+   * Behaves like @ref run (lazy-compiles, runs the rank-consistency check, uses
+   * the eager path and brackets the run with the anchor fork/join) but inserts a
+   * host drain after each phase so the returned phase durations are makespans.
+   * Within a phase, steps keep the normal event choreography and may overlap.
+   * Phase boundaries are global joins already implied by the schedule, so the
+   * drains do not add ordering beyond what the schedule requires.
+   *
+   * Timings are host wall-clock around enqueue + drain: they include launch /
+   * wait overhead, not just device kernel time. For pure GPU kernel durations,
+   * use Nsight Systems (every @c Kernel::launch already emits an NVTX range).
+   *
+   * The graph fast path is deliberately bypassed. Callers that want headline
+   * performance numbers should keep using @ref run .
+   *
+   * @param view Same meaning as in @ref run .
+   */
+  [[nodiscard]] auto
+  run_profile(DataView view = DataView::Standard) -> std::vector<ProfilePhase>;
+
+  /**
    * @brief Whether the most recent @ref run replayed via a captured CUDA/HIP
    *        graph (true) rather than the eager launch path (false).
    *
@@ -626,12 +682,6 @@ public:
   effective_to_user() const noexcept -> const std::vector<size_t>& {
     return effective_to_user_;
   }
-
-  /**
-   * @brief Sentinel value used by @ref effective_to_user (and elsewhere) to
-   *        denote "no user-kernel index" (i.e. an auto-inserted halo).
-   */
-  static constexpr size_t kNoKernel = static_cast<size_t>(-1);
 
   /** The kernel list, in user-add order. Stable across @ref compile / @ref run . */
   [[nodiscard]] auto
@@ -1209,6 +1259,11 @@ private:
    */
   auto
   issue_schedule_(DataView view) -> void;
+
+  /** Issue one schedule step (wait events, launch, record event). */
+  auto
+  issue_step_(const Step& step,
+              DataView view) -> void;
 
   /** Eager (non-graph) run: anchor fork + @ref issue_schedule_ + anchor join. */
   auto

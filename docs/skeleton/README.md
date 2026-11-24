@@ -111,6 +111,49 @@ matching `.txt` launch-order files; add `--dot-matrix` for the kernel lists
 `--export-dot-png` likewise default to the launch matrix (`--export-dot-streams`
 keeps the legacy stream-cluster graph). See `tests/test_skeleton_launch_order.cu`.
 
+## Per-phase profiling
+
+`Skeleton::run_profile()` issues the same schedule as `run()` but measures host
+wall time around each **phase** and returns one `ProfilePhase` per phase:
+
+```cpp
+struct ProfileStep {
+  std::string name;          // user kernel name, or the anchor label
+  std::string view;          // "standard", "internal", "boundary"
+  size_t stream = 0;
+  double milliseconds = 0.0; // per-step host interval
+};
+
+struct ProfilePhase {
+  std::vector<ProfileStep> steps;
+  double milliseconds = 0.0; // makespan of the whole phase
+};
+```
+
+A phase is a maximal region between **global joins**. A step starts a new phase
+when it depends on the tail of every stream that is active in the current
+phase; otherwise it joins the current overlapped region. For a schedule such as
+`seed -> {left, right} -> join`, the result is three phases with step counts
+`1 / 2 / 1`, and the middle phase reports the makespan of `left` and `right`,
+not their sum. With `OverlapMode::None` every scheduled launch is its own phase.
+
+`run_profile()` drains the phase's streams on the host before taking the
+timestamp, so it does **not** use CUDA/HIP graph capture. Timings are host
+wall-clock samples and should be treated as indicative, especially for
+sub-100 µs kernels. The normal `run()` path is unchanged.
+
+`benchmarks/cg` exposes the same data with `--profile-steps`. It reports the
+mean/median/min/max of each phase across iterations, using the phase's step
+labels as the phase label:
+
+```text
+iter_pre profile (3 phases, 16 samples):
+  phase 0 [s:=Ap [internal]]                 4.21 ms  (mean; min 3.98, max 4.60)
+  phase 1 [auto_halo_p]                      0.61 ms
+  phase 2 [s:=Ap [boundary]]                 3.87 ms
+  total phase mean                           8.69 ms
+```
+
 ## Region masks (sub-field dependencies)
 
 By default an access covers its whole field, so two kernels that write the same field
