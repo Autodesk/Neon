@@ -61,7 +61,7 @@
 //
 // CLI
 // ---
-//   --grid {dense|dense_distributed|disg|block}
+//   --grid {dense|dense_distributed|disg|block|disg_distributed}
 //                                Grid family (default: dense). dense is the
 //                                original Z-slab-only grid; dense_distributed
 //                                honours --decomposition.
@@ -109,6 +109,7 @@
 #include <carbon/dense.h>
 #include <carbon/dense_disg.h>
 #include <carbon/dense_distributed.h>
+#include <carbon/dense_disg_distributed.h>
 #include <carbon/detail/backend/select.h>
 #include <carbon/devices.h>
 #include <carbon/integer3d.h>
@@ -329,7 +330,7 @@ build_cli(Options& opts) -> clipp::group {
   return clipp::group(
       (option("-h", "--help").set(opts.show_help) % "Show this help message and exit"),
       (option("--grid") & value("kind", opts.grid_kind)) %
-          "Grid family: dense | disg | block (default: dense)",
+          "Grid family: dense | disg | block | dense_distributed | disg_distributed  (default: dense)",
       (option("--nx") & integer("nx", opts.nx)) % "Grid x extent (default 16)",
       (option("--ny") & integer("ny", opts.ny)) % "Grid y extent (default 16)",
       (option("--nz") & integer("nz", opts.nz)) % "Grid z extent (default 32, must be >= 2)",
@@ -1136,7 +1137,7 @@ run_cg(Grid& grid,
       if (world_rank == 0) {
         CARBON_LOG_WARN(
             "cg_poisson_unified[{}]: --vtk-out is only supported for --grid dense "
-            "and --grid dense_distributed (no VTK writer for {}); skipping dump.",
+            "and --grid dense_distributed disg_distributed (no VTK writer for {}); skipping dump.",
             grid_tag, grid_tag);
       }
     }
@@ -1224,7 +1225,7 @@ main(int argc, char** argv) -> int {
   // auto-inserted halo collapses to a no-op. The original Dense is Z-slab only
   // and splits z across ranks by itself, so it never takes a process grid.
   std::optional<carbon::ProcessGrid> pg;
-  if (is_distributed && opts.grid_kind == "dense_distributed") {
+  if (is_distributed && ( opts.grid_kind == "dense_distributed" || opts.grid_kind == "disg_distributed" )) {
     pg.emplace(carbon::ProcessGrid::make(world_size, dec_mode));
     const carbon::int32_3d dims = pg->dims();
     if (world_rank == 0) {
@@ -1286,8 +1287,19 @@ main(int argc, char** argv) -> int {
 
       return run_cg(*block, sys, opts, "block", world_rank);
     }
+    if (opts.grid_kind == "disg_distributed") {
+      std::optional<carbon::DenseDisgDistributed> disg_distributed;
+      if (pg) {
+        // (System, int64_3d, ProcessGrid, Stencil)
+        disg_distributed.emplace(sys, global, *pg, stencil);
+      } else {
+        // (System, int64_3d, Stencil)
+        disg_distributed.emplace(sys, global, stencil);
+      }
+      return run_cg(*disg_distributed, sys, opts, "disg_distributed", world_rank);
+    }
     CARBON_LOG_ERROR(
-        "cg_poisson_unified: unknown --grid '{}' (expected dense|dense_distributed|disg|block)",
+        "cg_poisson_unified: unknown --grid '{}' (expected dense|dense_distributed|disg|block|disg_distributed)",
         opts.grid_kind);
     return EXIT_FAILURE;
   } catch (const std::exception& e) {
