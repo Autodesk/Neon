@@ -27,6 +27,20 @@ using Idx = ::carbon::detail::dense::Idx;
 using ValidatedIdx = ::carbon::detail::Validated<Idx>;
 
 /**
+ * The Boundary shell as six disjoint boxes over the owned extent. Per axis the low / high band
+ * thickness is clamped so the two never overlap (a chunk thinner than @c 2 * halo is shell
+ * entirely and @c Internal is empty). Box order: Z-low, Z-high (full XY); Y-low, Y-high
+ * (full X, middle Z); X-low, X-high (middle Y, middle Z).
+ */
+struct ShellBands {
+  int64_3d lo{};
+  int64_3d hi{};
+  int64_t vol[6]{};
+  int64_t prefix[7]{};
+  int64_t total{0};
+};
+
+/**
  * Layout of one GPU's dense subvolume expressed in @b storage (haloed) terms: per-axis haloed
  * extent, elements per XY plane (pitch in elements), global coordinate where the chunk's storage
  * starts, and the halo thickness on each axis.
@@ -40,7 +54,8 @@ using ValidatedIdx = ::carbon::detail::Validated<Idx>;
  *   cells follow, and the upper halo the remaining @c halo() layers.
  * - @c xy_slab_elements() is the number of T-sized elements between two adjacent z planes in
  *   the haloed buffer. It is at least @c haloed_extent().x * haloed_extent().y ; halos are
- *   included in the extent rather than encoded as pitch padding.
+ *   included in the extent. When @ref LayoutOptions::pad_rows is enabled it is
+ *   @c y_stride() * haloed_extent().y , with each row rounded up to the requested alignment.
  * - @c global_extent() is the full Cartesian grid extent shared by every chunk. It is needed to
  *   distinguish, in @c Partition::neighbour, an in-buffer halo cell that maps to a real global
  *   cell (interior chunk boundary) from one that lies outside the global domain (an open face).
@@ -52,12 +67,16 @@ class Span {
   int64_3d haloed_extent_{};
   int64_3d global_extent_{};
   int64_t xy_slab_elements_{};
+  int64_t y_stride_{};
+  int64_t component_stride_{};
+  int64_t lead_pad_{};
   int64_3d offset_{};
   int64_3d halo_{};
   BoundaryModeDistributed boundary_mode_{BoundaryModeDistributed::Open};
   bool legacy_slab_{false};
   float32_3d origin_{};
   float spacing_{1.0F};
+  ShellBands shell_bands_cache_{};
 
 public:
   CARBON_HD constexpr Span() noexcept = default;
@@ -70,16 +89,25 @@ public:
                            BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
                            bool legacy_slab = false,
                            float32_3d origin = {},
-                           float spacing = 1.0F) noexcept
+                           float spacing = 1.0F,
+                           int64_t y_stride = 0,
+                           int64_t component_stride = 0,
+                           int64_t lead_pad = 0) noexcept
       : haloed_extent_(haloed_extent),
         global_extent_(global_extent),
         xy_slab_elements_(xy_slab_elements),
+        y_stride_(y_stride > 0 ? y_stride : haloed_extent.x),
+        component_stride_(component_stride > 0
+                              ? component_stride
+                              : lead_pad + haloed_extent.z * xy_slab_elements),
+        lead_pad_(lead_pad),
         offset_(offset),
         halo_(halo),
         boundary_mode_(boundary_mode),
         legacy_slab_(legacy_slab),
         origin_(origin),
-        spacing_(spacing) {}
+        spacing_(spacing),
+        shell_bands_cache_(make_shell_bands_(haloed_extent, halo)) {}
 
   /**
    * Construct a span over its @b storage (haloed) extent.
@@ -103,6 +131,13 @@ public:
    * @param origin            Physical-space origin of global cell @c (0,0,0)'s corner (same
    *                          convention as @c global_location on integer indices).
    * @param spacing           Isotropic cell spacing along every axis (must be finite and > 0).
+   * @param y_stride          Elements between adjacent y rows. Default 0 keeps the historical
+   *                          @c haloed_extent.x stride. DenseDistributed passes the padded value
+   *                          when @ref LayoutOptions::pad_rows is enabled.
+   * @param component_stride  Elements per component plane, including any lead pad and tail
+   *                          padding. Default 0 derives the historical
+   *                          @c haloed_extent.z * xy_slab_elements pitch.
+   * @param lead_pad          Elements before buffer @c x == 0 in each component plane. Default 0.
    */
   /** Z-only convenience overload: equivalent to full @c offset={0,0,z_offset} and
    *  @c halo={0,0,halo_z}. @p legacy_slab defaults to false; pass true for a legacy z-slab. */
@@ -114,7 +149,10 @@ public:
                            BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
                            bool legacy_slab = false,
                            float32_3d origin = {},
-                           float spacing = 1.0F) noexcept
+                           float spacing = 1.0F,
+                           int64_t y_stride = 0,
+                           int64_t component_stride = 0,
+                           int64_t lead_pad = 0) noexcept
       : Span(haloed_extent,
              global_extent,
              xy_slab_elements,
@@ -127,7 +165,10 @@ public:
              boundary_mode,
              legacy_slab,
              origin,
-             spacing) {}
+             spacing,
+             y_stride,
+             component_stride,
+             lead_pad) {}
 
   /** Storage extent (includes halo layers on every axis where @ref halo() is non-zero). */
   [[nodiscard]] CARBON_HD constexpr auto
@@ -209,10 +250,25 @@ public:
     return owned;
   }
 
-  /** Elements per XY plane (pitch in elements), same for halo and owned layers. */
+  /**
+   * Elements per XY plane (pitch in elements), same for halo and owned layers. With row padding
+   * enabled this is @c y_stride * haloed_extent().y rather than the minimum @c x * y.
+   */
   [[nodiscard]] CARBON_HD constexpr auto
   xy_slab_elements() const noexcept -> int64_t {
     return xy_slab_elements_;
+  }
+
+  /** Elements between adjacent y rows (at least @c haloed_extent().x). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  y_stride() const noexcept -> int64_t {
+    return y_stride_;
+  }
+
+  /** Elements before buffer @c x == 0 in each component plane (zero when unpadded). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  lead_pad() const noexcept -> int64_t {
+    return lead_pad_;
   }
 
   [[nodiscard]] CARBON_HD constexpr auto
@@ -274,13 +330,13 @@ public:
   }
 
   /**
-   * Contiguous element count for this slab's storage: @c haloed_extent().z layers times
-   * @c xy_slab_elements() per layer. Matches the buffer sizing used by
-   * @c DenseDistributed::newField (lower halo + owned + upper halo).
+   * Contiguous element count for one component plane: the component stride, including any lead
+   * pad and tail padding. Matches the buffer sizing used by @c DenseDistributed::newField
+   * (lower halo + owned + upper halo, plus optional storage padding).
    */
   [[nodiscard]] CARBON_HD constexpr auto
   linear_storage_elements() const noexcept -> int64_t {
-    return haloed_extent_.z * xy_slab_elements_;
+    return component_stride_;
   }
 
   /**
@@ -331,7 +387,8 @@ public:
   /**
    * Element offset (in units of @c T) from the start of a partition buffer to the cell at @p idx
    * for component @p component_id, using this span's SoA dense layout:
-   * @c component_id * linear_storage_elements() + iz * xy_slab_elements() + iy * haloed_extent().x + ix.
+   * @c component_id * linear_storage_elements() + lead_pad() + iz * xy_slab_elements() +
+   * iy * y_stride() + ix.
    *
    * Matches Neon's @c dPartition::getPitch with its default pitch. No bounds checking.
    */
@@ -368,30 +425,19 @@ private:
   /** Row width of the 2-D Boundary launch box (two full 64-wide blocks per row). */
   static constexpr int64_t kShellRowWidth = 128;
 
-  /**
-   * The Boundary shell as six disjoint boxes over the owned extent. Per axis the low / high band
-   * thickness is clamped so the two never overlap (a chunk thinner than @c 2 * halo is shell
-   * entirely and @c Internal is empty). Box order: Z-low, Z-high (full XY); Y-low, Y-high
-   * (full X, middle Z); X-low, X-high (middle Y, middle Z).
-   */
-  struct ShellBands {
-    int64_3d lo{};
-    int64_3d hi{};
-    int64_t vol[6]{};
-    int64_t total{0};
-  };
-
-  [[nodiscard]] CARBON_HD constexpr auto
-  shell_bands_() const noexcept -> ShellBands {
-    const int64_3d n = logic_extent();
+  [[nodiscard]] static CARBON_HD constexpr auto
+  make_shell_bands_(int64_3d haloed_extent,
+                    int64_3d halo) noexcept -> ShellBands {
+    const int64_3d n{haloed_extent.x - 2 * halo.x, haloed_extent.y - 2 * halo.y,
+                     haloed_extent.z - 2 * halo.z};
     ShellBands b;
-    b.lo = int64_3d{halo_.x < n.x ? halo_.x : n.x, halo_.y < n.y ? halo_.y : n.y,
-                    halo_.z < n.z ? halo_.z : n.z};
+    b.lo = int64_3d{halo.x < n.x ? halo.x : n.x, halo.y < n.y ? halo.y : n.y,
+                    halo.z < n.z ? halo.z : n.z};
     const int64_t rx = n.x - b.lo.x;
     const int64_t ry = n.y - b.lo.y;
     const int64_t rz = n.z - b.lo.z;
-    b.hi = int64_3d{halo_.x < rx ? halo_.x : rx, halo_.y < ry ? halo_.y : ry,
-                    halo_.z < rz ? halo_.z : rz};
+    b.hi = int64_3d{halo.x < rx ? halo.x : rx, halo.y < ry ? halo.y : ry,
+                    halo.z < rz ? halo.z : rz};
     const int64_t mz = n.z - b.lo.z - b.hi.z;  // middle extents (>= 0 by the clamps)
     const int64_t my = n.y - b.lo.y - b.hi.y;
     b.vol[0] = n.x * n.y * b.lo.z;
@@ -400,8 +446,17 @@ private:
     b.vol[3] = n.x * b.hi.y * mz;
     b.vol[4] = b.lo.x * my * mz;
     b.vol[5] = b.hi.x * my * mz;
-    b.total = b.vol[0] + b.vol[1] + b.vol[2] + b.vol[3] + b.vol[4] + b.vol[5];
+    b.prefix[0] = 0;
+    for (int i = 0; i < 6; ++i) {
+      b.prefix[i + 1] = b.prefix[i] + b.vol[i];
+    }
+    b.total = b.prefix[6];
     return b;
+  }
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  shell_bands_() const noexcept -> const ShellBands& {
+    return shell_bands_cache_;
   }
 
   /** Owned-local cell of linear shell index @p t in [0, bands.total); x varies fastest. */
@@ -410,10 +465,10 @@ private:
               int64_t t) const noexcept -> int64_3d {
     const int64_3d n = logic_extent();
     int box = 0;
-    while (box < 5 && t >= b.vol[box]) {
-      t -= b.vol[box];
+    while (box < 5 && t >= b.prefix[box + 1]) {
       ++box;
     }
+    t -= b.prefix[box];
     int64_t bx = 0;  // box origin
     int64_t by = 0;
     int64_t bz = 0;
@@ -476,8 +531,8 @@ Span::global_location(const Idx& idx) const noexcept -> int64_3d {
 Span::linear_offset(const Idx& idx,
                     int component_id) const noexcept -> int64_t {
   const int64_3d cell = idx.cell();
-  return static_cast<int64_t>(component_id) * linear_storage_elements() +
-         cell.z * xy_slab_elements_ + cell.y * haloed_extent_.x + cell.x;
+  return static_cast<int64_t>(component_id) * component_stride_ + lead_pad_ +
+         cell.z * xy_slab_elements_ + cell.y * y_stride_ + cell.x;
 }
 
 [[nodiscard]] CARBON_HD constexpr auto
@@ -506,7 +561,7 @@ Span::set_and_validate(::carbon::DataView view,
 
       // Compact shell: thread (ix, iy) is the linear shell index t (iz is 0 by the range check
       // above); the padded tail of the last row is invalid.
-      const ShellBands bands = shell_bands_();
+      const ShellBands& bands = shell_bands_();
       const int64_t t = iy * ext.x + ix;
       if (t >= bands.total) {
         return ValidatedIdx{Idx{}, false};
