@@ -33,6 +33,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -1242,29 +1243,35 @@ Skeleton::run(DataView view) -> void {
 }
 
 auto
+Skeleton::issue_step_(const Step& step,
+                      DataView view) -> void {
+  Stream& s = streams_[step.stream_idx];
+  for (size_t evt_idx : step.wait_events) {
+    s.wait_for(events_[evt_idx]);
+  }
+  // Step::view selects the per-launch DataView. For pipelines with
+  // OverlapMode::None (the default) this is always DataView::Standard
+  // and the per-step view collapses to the user-supplied @p view (so
+  // run(DataView::Internal) still works for callers driving the whole
+  // pipeline on one side). Under non-None OverlapMode, Step::view is
+  // forced to Internal / Boundary by the OCC rewrite and overrides the
+  // user's @p view.
+  const DataView effective_view = (step.view == DataView::Standard) ? view : step.view;
+  Kernel& k = effective_kernels_[step.kernel_idx];
+  if (step.reduce_launch_mode != reduce::ReduceLaunchMode::Full) {
+    k.launch_reduction_phase(s, effective_view, step.reduce_launch_mode);
+  } else {
+    k.launch(s, effective_view);
+  }
+  if (step.record_event_idx != kNoEvent_) {
+    events_[step.record_event_idx].record(s);
+  }
+}
+
+auto
 Skeleton::issue_schedule_(DataView view) -> void {
   for (const Step& step : schedule_) {
-    Stream& s = streams_[step.stream_idx];
-    for (size_t evt_idx : step.wait_events) {
-      s.wait_for(events_[evt_idx]);
-    }
-    // Step::view selects the per-launch DataView. For pipelines with
-    // OverlapMode::None (the default) this is always DataView::Standard
-    // and the per-step view collapses to the user-supplied @p view (so
-    // run(DataView::Internal) still works for callers driving the whole
-    // pipeline on one side). Under non-None OverlapMode, Step::view is
-    // forced to Internal / Boundary by the OCC rewrite and overrides the
-    // user's @p view.
-    const DataView effective_view = (step.view == DataView::Standard) ? view : step.view;
-    Kernel& k = effective_kernels_[step.kernel_idx];
-    if (step.reduce_launch_mode != reduce::ReduceLaunchMode::Full) {
-      k.launch_reduction_phase(s, effective_view, step.reduce_launch_mode);
-    } else {
-      k.launch(s, effective_view);
-    }
-    if (step.record_event_idx != kNoEvent_) {
-      events_[step.record_event_idx].record(s);
-    }
+    issue_step_(step, view);
   }
 }
 
@@ -1309,6 +1316,137 @@ Skeleton::run_eager_(DataView view) -> void {
       }
     }
   }
+}
+
+auto
+Skeleton::run_profile(DataView view) -> std::vector<ProfilePhase> {
+  compile();
+  if (!rank_consistency_checked_) {
+    check_rank_consistency_();
+    rank_consistency_checked_ = true;
+  }
+  if (schedule_.empty()) {
+    return {};
+  }
+
+  constexpr size_t kNoStep = static_cast<size_t>(-1);
+  std::vector<size_t> event_recorder(events_.size(), kNoStep);
+  for (size_t si = 0; si < schedule_.size(); ++si) {
+    const size_t evt = schedule_[si].record_event_idx;
+    if (evt != kNoEvent_ && evt < event_recorder.size()) {
+      event_recorder[evt] = si;
+    }
+  }
+
+  const auto step_waits_for = [&](size_t si,
+                                  size_t pred) -> bool {
+    for (size_t evt : schedule_[si].wait_events) {
+      if (evt < event_recorder.size() && event_recorder[evt] == pred) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Partition the schedule into phases separated by global joins. A step joins
+  // the current phase unless it depends on the tail of every stream already
+  // active in that phase; that dependency is a point where all prior region
+  // work must complete, so it starts a new phase.
+  std::vector<std::vector<size_t>> phases;
+  std::vector<size_t> active_streams;
+  std::vector<size_t> last_on_stream(streams_.size(), kNoStep);
+  for (size_t si = 0; si < schedule_.size(); ++si) {
+    const Step& step = schedule_[si];
+    bool global_join = !active_streams.empty();
+    if (global_join) {
+      for (size_t s : active_streams) {
+        const size_t tail = last_on_stream[s];
+        const bool depends =
+            tail != kNoStep && (step.stream_idx == s || step_waits_for(si, tail));
+        if (!depends) {
+          global_join = false;
+          break;
+        }
+      }
+    }
+    if (phases.empty() || global_join) {
+      if (global_join) {
+        active_streams.clear();
+      }
+      phases.emplace_back();
+    }
+    phases.back().push_back(si);
+    if (std::find(active_streams.begin(), active_streams.end(), step.stream_idx) ==
+        active_streams.end()) {
+      active_streams.push_back(step.stream_idx);
+    }
+    last_on_stream[step.stream_idx] = si;
+  }
+
+  // Same anchor fork as run_eager_ (the profile path never uses graph capture).
+  if (streams_.size() > 1U && anchor_start_event_ != kNoEvent_) {
+    events_[anchor_start_event_].record(streams_[0]);
+    for (size_t s = 1U; s < streams_.size(); ++s) {
+      if (s == copy_stream_idx_) {
+        continue;
+      }
+      streams_[s].wait_for(events_[anchor_start_event_]);
+    }
+  }
+
+  std::vector<ProfilePhase> result;
+  result.reserve(phases.size());
+  for (const std::vector<size_t>& phase_steps : phases) {
+    const auto t0 = std::chrono::steady_clock::now();
+    std::vector<size_t> phase_streams;
+    phase_streams.reserve(phase_steps.size());
+    for (size_t si : phase_steps) {
+      const size_t stream_idx = schedule_[si].stream_idx;
+      issue_step_(schedule_[si], view);
+      if (std::find(phase_streams.begin(), phase_streams.end(), stream_idx) ==
+          phase_streams.end()) {
+        phase_streams.push_back(stream_idx);
+      }
+    }
+    for (size_t s : phase_streams) {
+      streams_[s].wait();
+    }
+    const auto t1 = std::chrono::steady_clock::now();
+
+    ProfilePhase phase;
+    phase.milliseconds =
+        std::chrono::duration<double, std::milli>(t1 - t0).count();
+    phase.steps.reserve(phase_steps.size());
+    for (size_t si : phase_steps) {
+      const Step& step = schedule_[si];
+      ProfileStep info;
+      info.kernel_index = step.kernel_idx;
+      info.user_kernel_index =
+          (step.kernel_idx < effective_to_user_.size()) ? effective_to_user_[step.kernel_idx]
+                                                        : kNoKernel;
+      info.stream_index = step.stream_idx;
+      info.view = (step.view == DataView::Standard) ? view : step.view;
+      info.reduce_mode = step.reduce_launch_mode;
+      info.name = std::string(effective_kernels_[step.kernel_idx].name());
+      phase.steps.push_back(std::move(info));
+    }
+    result.push_back(std::move(phase));
+  }
+
+  // Same anchor join as run_eager_.
+  if (streams_.size() > 1U) {
+    for (size_t s = 1U; s < streams_.size(); ++s) {
+      if (s == copy_stream_idx_) {
+        continue;
+      }
+      if (anchor_join_events_[s] != kNoEvent_) {
+        events_[anchor_join_events_[s]].record(streams_[s]);
+        streams_[0].wait_for(events_[anchor_join_events_[s]]);
+      }
+    }
+  }
+
+  return result;
 }
 
 auto

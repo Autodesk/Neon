@@ -206,6 +206,96 @@ compute_sample_stats(std::vector<double> values) -> SampleStats {
   return stats;
 }
 
+struct PhaseAccumulator {
+  std::string label;
+  std::vector<double> milliseconds;
+};
+
+using SkeletonProfile = std::vector<PhaseAccumulator>;
+
+[[nodiscard]] auto
+profile_step_label(const carbon::Skeleton::ProfileStep& step) -> std::string {
+  std::string label = step.name;
+  if (step.user_kernel_index == carbon::Skeleton::kNoKernel) {
+    label = "[auto] " + label;
+  }
+  if (step.view != carbon::DataView::Standard) {
+    label += std::string{" ["} + std::string{carbon::to_string(step.view)} + ']';
+  }
+  switch (step.reduce_mode) {
+    case carbon::reduce::ReduceLaunchMode::Partial:
+      label += " [partial]";
+      break;
+    case carbon::reduce::ReduceLaunchMode::Merge:
+      label += " [merge]";
+      break;
+    case carbon::reduce::ReduceLaunchMode::Full:
+      break;
+  }
+  label += " (s" + std::to_string(step.stream_index) + ')';
+  return label;
+}
+
+[[nodiscard]] auto
+profile_phase_label(const carbon::Skeleton::ProfilePhase& phase) -> std::string {
+  std::string label;
+  for (size_t i = 0; i < phase.steps.size(); ++i) {
+    if (i != 0U) {
+      label += " + ";
+    }
+    label += profile_step_label(phase.steps[i]);
+  }
+  if (phase.steps.size() > 1U) {
+    label = "[overlap] " + label;
+  }
+  return label;
+}
+
+auto
+record_profile_samples(SkeletonProfile& profile,
+                       const std::vector<carbon::Skeleton::ProfilePhase>& phases) -> void {
+  if (profile.size() < phases.size()) {
+    profile.resize(phases.size());
+  }
+  for (size_t i = 0; i < phases.size(); ++i) {
+    if (profile[i].label.empty()) {
+      profile[i].label = profile_phase_label(phases[i]);
+    }
+    profile[i].milliseconds.push_back(phases[i].milliseconds);
+  }
+}
+
+auto
+print_profile_summary(std::string_view grid_tag,
+                      std::string_view skeleton_tag,
+                      const SkeletonProfile& profile) -> void {
+  if (profile.empty()) {
+    CARBON_LOG_INFO("cg_poisson_unified[{}]: profile {}: no phases recorded", grid_tag,
+                    skeleton_tag);
+    return;
+  }
+
+  double total_mean = 0.0;
+  size_t phases_with_samples = 0;
+  for (size_t i = 0; i < profile.size(); ++i) {
+    if (profile[i].milliseconds.empty()) {
+      continue;
+    }
+    ++phases_with_samples;
+    const SampleStats stats = compute_sample_stats(profile[i].milliseconds);
+    total_mean += stats.mean;
+    CARBON_LOG_INFO(
+        "cg_poisson_unified[{}]: profile {} phase {}: mean={:.4f} ms, std={:.4f}, median={:.4f} "
+        "min={:.4f} max={:.4f} n={} steps=[{}]",
+        grid_tag, skeleton_tag, i, stats.mean, stats.std, stats.median, stats.min, stats.max, stats.n,
+        profile[i].label);
+  }
+  if (phases_with_samples != 0U) {
+    CARBON_LOG_INFO("cg_poisson_unified[{}]: profile {} total phase mean={:.4f} ms", grid_tag,
+                    skeleton_tag, total_mean);
+  }
+}
+
 struct Options {
   std::string grid_kind = "dense";
   int64_t nx = 16;
@@ -225,6 +315,7 @@ struct Options {
   std::string dot_out_prefix;
   bool dot_matrix = false;
   std::string vtk_path = "";      // NEW
+  bool profile_steps = false;
 };
 
 // Build a clipp parser bound directly to @p opts. Mirrors the structure of the
@@ -259,6 +350,11 @@ build_cli(Options& opts) -> clipp::group {
           "Iterations excluded from timing statistics (default 10)",
       (option("--overlap") & value("mode", opts.overlap_raw)) %
           "Skeleton overlap mode: none | standard | extended | two-way-extended (default: none)",
+      (option("--profile-steps").set(opts.profile_steps) %
+       "Report per-phase kernel timings. With --overlap none each phase is one scheduled "
+       "launch; with overlap, each overlapped region is one phase and its makespan is "
+       "reported. Inserts host drains at phase boundaries, so use without this flag for "
+       "headline performance numbers."),
       (option("--dot").set(opts.dump_dot) %
        "Dump inferred main-loop Skeleton DAGs as GraphViz DOT on stdout")),
       (option("--dot-out") & value("prefix", opts.dot_out_prefix)) %
@@ -881,16 +977,27 @@ run_cg(Grid& grid,
   size_t iter = 0;
   bool converged = (r0_norm <= abs_target);
   std::vector<double> iteration_ms;
+  SkeletonProfile iter_pre_profile;
+  SkeletonProfile iter_post_profile;
 
   for (; iter < opts.max_iter && !converged; ++iter) {
 
     CARBON_HALO_NVTX_PUSH("cg_iter");
     const auto iter_t0 = std::chrono::steady_clock::now();
+    const bool collect_timing = iter >= opts.warmup;
 
     beta_host = (delta_old_h > 0.0) ? (delta_new_h / delta_old_h) : 0.0;
 
-    iter_pre.run();
-    iter_pre.wait();
+    if (opts.profile_steps) {
+      const auto phases = iter_pre.run_profile();
+      iter_pre.wait();
+      if (collect_timing) {
+        record_profile_samples(iter_pre_profile, phases);
+      }
+    } else {
+      iter_pre.run();
+      iter_pre.wait();
+    }
     pAp.sync(stream);
     stream.wait();
     const double pAp_h = pAp.host_value();
@@ -904,15 +1011,23 @@ run_cg(Grid& grid,
     }
     alpha_host = delta_new_h / pAp_h;
 
-    iter_post.run();
-    iter_post.wait();
+    if (opts.profile_steps) {
+      const auto phases = iter_post.run_profile();
+      iter_post.wait();
+      if (collect_timing) {
+        record_profile_samples(iter_post_profile, phases);
+      }
+    } else {
+      iter_post.run();
+      iter_post.wait();
+    }
     delta_new.sync(stream);
     stream.wait();
 
     delta_old_h = delta_new_h;
     delta_new_h = delta_new.host_value();
     const auto iter_t1 = std::chrono::steady_clock::now();
-    if (iter >= opts.warmup) {
+    if (collect_timing) {
       iteration_ms.push_back(std::chrono::duration<double, std::milli>(iter_t1 - iter_t0).count());
     }
     const double r_norm = std::sqrt(std::max(0.0, delta_new_h));
@@ -952,6 +1067,15 @@ run_cg(Grid& grid,
           "mean={:.3f} std={:.3f} median={:.3f}",
           grid_tag, stats.n, opts.warmup, stats.min, stats.max, stats.mean, stats.stddev,
           stats.median);
+    }
+
+    if (opts.profile_steps) {
+      CARBON_LOG_INFO(
+          "cg_poisson_unified[{}]: step profile (host-drained phase makespans; "
+          "timing is perturbed by --profile-steps)",
+          grid_tag);
+      print_profile_summary(grid_tag, "iter_pre", iter_pre_profile);
+      print_profile_summary(grid_tag, "iter_post", iter_post_profile);
     }
   }
 

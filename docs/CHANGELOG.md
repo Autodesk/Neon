@@ -6552,3 +6552,14 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   equals the owned voxels. Breaking the B rule, the C SubGrid rule, the C region declaration
   or the B predicate each makes it fail. Measured excluding `carbon_format_check`: CUDA
   125/125 (also on one GPU), SYCL (AdaptiveCpp) 113/113, `hip-nvidia` 121/121.
+- **2026-11 — Per-phase Skeleton profiling and `cg --profile-steps`.**
+  `Skeleton::run_profile()` returns `ProfilePhase` / `ProfileStep` records with host
+  wall-clock timings. A phase is the maximal region between global joins: a step starts a
+  new phase when it depends on the tail of every stream active in the current phase, so
+  serial steps, overlapped regions, and their makespans are reported separately
+  (`OverlapMode::None` gives one step per phase). `benchmarks/cg` exposes this with
+  `--profile-steps`, which prints per-phase mean/median/min/max for `iter_pre` and
+  `iter_post`. The profiling path drains each phase on the host and bypasses CUDA/HIP
+  graph capture; `run()` is unchanged. `tests/test_skeleton.cu` pins the phase
+  decomposition for `seed -> {left, right} -> join` and a serial pipeline, plus numerical
+  parity.
