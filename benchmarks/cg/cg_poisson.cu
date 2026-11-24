@@ -84,12 +84,11 @@
 //                                triple of P with the smallest max/min ratio.
 //   --dot                        Dump the inferred main-loop DAGs as GraphViz
 //                                DOT on stdout (one block per Skeleton).
-//   --dot-out prefix             Write GraphViz DOT + launch-order listings
+//   --dot-out prefix             Write launch-matrix DOT + launch-order listings
 //                                for init / iter_pre / iter_post as
-//                                prefix_<tag>.dot and prefix_<tag>.txt.
-//   --dot-matrix                 With --dot-out, also write launch-matrix and
-//                                kernel-list DOT
-//                                (prefix_<tag>_matrix.dot / _kernels.dot).
+//                                prefix_<tag>.dot / .txt (plus _streams.dot).
+//   --dot-matrix                 With --dot-out, also write kernel-list DOT
+//                                (prefix_<tag>_kernels.dot).
 //   --help                       Print this help and exit.
 //
 // Build + run
@@ -260,10 +259,10 @@ build_cli(Options& opts) -> clipp::group {
       (option("--dot").set(opts.dump_dot) %
        "Dump inferred main-loop Skeleton DAGs as GraphViz DOT on stdout")),
       (option("--dot-out") & value("prefix", opts.dot_out_prefix)) %
-          "Write DOT + launch-order files as prefix_<tag>.dot / .txt "
-          "(tag = init | iter_pre | iter_post)",
+          "Write launch-matrix DOT + launch-order files as prefix_<tag>.dot / .txt "
+          "(plus _streams.dot; tag = init | iter_pre | iter_post)",
       (option("--dot-matrix").set(opts.dot_matrix)) %
-          "With --dot-out, also write launch-matrix and kernel-list DOT files",
+          "With --dot-out, also write kernel-list DOT files",
       (option("--vtk-out") & value("path", opts.vtk_path)) %
           "After the solve, dump the solution u and its gradient as a VTK "
           "legacy STRUCTURED_POINTS file at PATH (appends .rankN under MPI; "
@@ -838,16 +837,16 @@ run_cg(Grid& grid,
     if (!opts.dot_out_prefix.empty()) {
       const auto export_one = [&](carbon::Skeleton& sk, const char* tag) {
         const std::string base = opts.dot_out_prefix + "_" + tag;
-        if (!sk.export_dot_file(base + ".dot", std::string{"cg_"} + tag)) {
+        if (!sk.export_launch_matrix_dot_file(base + ".dot", std::string{"cg_"} + tag)) {
           CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}.dot", base);
+        }
+        if (!sk.export_dot_file(base + "_streams.dot", std::string{"cg_"} + tag)) {
+          CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}_streams.dot", base);
         }
         if (!sk.export_launch_order_file(base + ".txt")) {
           CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}.txt", base);
         }
         if (opts.dot_matrix) {
-          if (!sk.export_launch_matrix_dot_file(base + "_matrix.dot", std::string{"cg_"} + tag)) {
-            CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}_matrix.dot", base);
-          }
           if (!sk.export_kernel_list_dot_file(base + "_kernels.dot", std::string{"cg_"} + tag)) {
             CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}_kernels.dot", base);
           }

@@ -6573,3 +6573,34 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   equals the owned voxels. Breaking the B rule, the C SubGrid rule, the C region declaration
   or the B predicate each makes it fail. Measured excluding `carbon_format_check`: CUDA
   125/125 (also on one GPU), SYCL (AdaptiveCpp) 113/113, `hip-nvidia` 121/121.
+- **2026-11 — `DenseDisgDistributed` (disaggregated grid on a ProcessGrid).** New grid
+  family that combines `DenseDistributed`'s ProcessGrid surface (slab / pencil / brick,
+  `BoundaryModeDistributed`) with `DenseDisg`'s five-region disaggregated SoA storage,
+  generalized to nested y and x groups for pencil and brick. Halo exchange
+  (`HaloDisgDistributed`) is a single NCCL group of zero-copy face / edge / corner
+  messages (no staged X→Y→Z pack chain); lattice fusion reuses the DenseDisg run-length
+  helpers. Slab storage is bit-exact with `DenseDisg`. Pencil nests y-ghost / y-boundary
+  strips inside each z region; brick adds x groups stored y-fastest and an internal box
+  on a 128-byte-aligned pitch. Known limits for this drop: stencil radius 0 or 1,
+  `PeriodicX` rejected. Launch routing uses a new `DenseDisgDistributedPolicy` branch in
+  `launch_traits.h` (checked before `DisgPolicy`). The distributed LBM benchmark accepts
+  `--grid disg_distributed`; the dist sweep gains a `grids` key
+  (`dense_distributed` / `disg_distributed`). Tests: `test_dense_disg_distributed_host`
+  (geometry / bit-exact vs DenseDisg on slab) and `test_dense_disg_distributed_dist`
+  (MPI 4 and 8 ranks: value parity with DenseDistributed, raw halo, Skeleton OCC).
+  Phase-0 gates (DenseDisg+hp-halo vs DenseDistributed slab, NCCL k-send vs packed,
+  brick layout microkernel) and the comparison sweep live in the notes repo under
+  `docs/phase0-disg-distributed.md` and `lbm-disg-vs-dense-sweep.yml`.
+- **2026-11 — Launch-matrix schedule export is the default.**
+  `Skeleton::export_dot_png` now renders `export_launch_matrix_dot` (stream columns
+  × op rows); `export_launch_matrix_dot_png` is the explicit twin. LBM
+  `--export-dot` / `--export-dot-png` write the matrix; `--export-dot-streams`
+  keeps the legacy stream-cluster graph. Jacobi `--dot` and CG `--dot-out` write
+  the matrix as the primary `.dot` (stream cluster as `*_streams.dot`);
+  `--dot-matrix` now only adds the kernel-list DOT.
+- **2026-11 — DenseDisgDistributed slab hot-path specialization.**
+  Device launch stamps `TypedSpan<StorageKind>`; `Partition::read` / `write` /
+  `read_pull` `if constexpr` on `SpanT::kind` so slab codegen matches `DenseDisg`
+  (cached `storage_unit_`, DenseDisg-identical slab pull, pencil/brick out of line).
+  Closes the ~0.67× slab MLUPS gap vs `DenseDisg` / `DenseDistributed` on 8-GPU
+  N=256 standard-overlap A/B (now ~parity).

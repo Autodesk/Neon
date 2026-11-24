@@ -152,6 +152,11 @@ public:
         log::throw_with_log<std::invalid_argument>(
             "Kernel::reduce: ReduceFinalize::BlockAtomic is not supported on DenseDisg grids");
       }
+      if constexpr (requires { typename Grid::DenseDisgDistributedPolicy; }) {
+        log::throw_with_log<std::invalid_argument>(
+            "Kernel::reduce: ReduceFinalize::BlockAtomic is not supported on DenseDisgDistributed "
+            "grids");
+      }
       if constexpr (requires { typename Grid::SBlock; }) {
         log::throw_with_log<std::invalid_argument>(
             "Kernel::reduce: ReduceFinalize::BlockAtomic is not supported on Block grids");
@@ -166,7 +171,10 @@ public:
       }
     }
     if (reduce_options_.stage1_threads != 0U || reduce_options_.stage1_threads_y != 0U) {
-      if constexpr (requires { typename Grid::DisgPolicy; }) {
+      if constexpr (requires { typename Grid::DenseDisgDistributedPolicy; }) {
+        log::throw_with_log<std::invalid_argument>(
+            "Kernel::reduce: ReduceOptions::stage1_threads is supported only on plain Dense grids");
+      } else if constexpr (requires { typename Grid::DisgPolicy; }) {
         log::throw_with_log<std::invalid_argument>(
             "Kernel::reduce: ReduceOptions::stage1_threads is supported only on plain Dense grids");
       } else if constexpr (requires { typename Grid::SBlock; }) {

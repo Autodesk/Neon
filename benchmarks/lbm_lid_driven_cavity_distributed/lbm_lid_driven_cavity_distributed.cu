@@ -35,6 +35,7 @@
 #include <carbon/dense.h>
 #include <carbon/dense_disg.h>
 #include <carbon/dense_distributed.h>
+#include <carbon/dense_disg_distributed.h>
 // CARBON_BACKEND_NAME is "cuda" or "sycl" depending on which backend the
 // library was configured with. Stamped into the JSON report's system block
 // so a sweep that drives both backends from the same scripts/ directory
@@ -121,10 +122,11 @@ struct Options {
   // Cartesian z-slabs); "disg" is carbon::DenseDisg (the disaggregated,
   // five-region-per-slab lattice-Boltzmann layout); "dense_distributed" is
   // carbon::DenseDistributed, which honours --decomposition and exchanges
-  // halos along all decomposed axes. All three run the identical hot kernel
-  // (the pull-stream + half-way bounce-back + symmetric BGK body) — the only
+  // halos along all decomposed axes; "disg_distributed" is
+  // carbon::DenseDisgDistributed (disaggregated layout on a ProcessGrid;
+  // slab, pencil and brick). All run the identical hot kernel — the only
   // differences are the per-slab storage layout and the auto-inserted halo
-  // family (Halo / HaloDisg / HaloDistributed).
+  // family (Halo / HaloDisg / HaloDistributed / HaloDisgDistributed).
   std::string grid = "dense";
   std::string decomposition = "slab";
   std::string report_path = "";
@@ -148,6 +150,7 @@ struct Options {
   bool hp_halo = false;
   std::string export_dot_path = "";
   std::string export_dot_png_path = "";
+  std::string export_dot_streams_path = "";
   // Opt in to carbon::Skeleton CUDA-graph capture + replay of each ping-pong
   // skeleton. Engaged only for single-GPU / single-stream schedules (the
   // OverlapMode::None single-GPU case); a no-op fallback otherwise.
@@ -188,14 +191,16 @@ build_cli(Options& opts) -> clipp::group {
           "Lattice stencil: q19 (D3Q19, default) or q27 (D3Q27)",
       (option("--collision") & value("bgk|kbc", opts.collision)) %
           "Collision model: bgk (default) or kbc (entropic; D3Q27 only)",
-      (option("--grid") & value("dense|disg|dense_distributed", opts.grid)) %
+      (option("--grid") & value("dense|disg|dense_distributed|disg_distributed", opts.grid)) %
           "Grid family: dense (carbon::Dense, default), disg (carbon::DenseDisg, "
-          "the disaggregated five-region LBM layout), or dense_distributed "
-          "(carbon::DenseDistributed, honours --decomposition). Same hot kernel on all.",
+          "the disaggregated five-region LBM layout), dense_distributed "
+          "(carbon::DenseDistributed, honours --decomposition), or disg_distributed "
+          "(carbon::DenseDisgDistributed, disaggregated + ProcessGrid). "
+          "Same hot kernel on all.",
       (option("--decomposition") & value("slab|pencil|brick", opts.decomposition)) %
-          "Process decomposition for --grid dense_distributed (default: slab). "
-          "slab splits z; pencil splits y and z; brick splits all three axes. "
-          "Auto-factorized across ranks; ignored for dense/disg, which are slab-only.",
+          "Process decomposition for --grid dense_distributed|disg_distributed "
+          "(default: slab). slab splits z; pencil splits y and z; brick splits all three "
+          "axes. Auto-factorized across ranks; ignored for dense/disg, which are slab-only.",
       (option("-gpus", "--gpus") & integer("n", opts.n_gpus)) %
           "Use the first N visible CUDA devices (-1 = all visible; default -1). "
           "Combine with CUDA_VISIBLE_DEVICES to pick physical GPUs.",
@@ -223,11 +228,13 @@ build_cli(Options& opts) -> clipp::group {
           "Boundary kernels get SMs before Internal's pending blocks. Only meaningful with "
           "--overlap != none.",
       (option("--export-dot") & value("path", opts.export_dot_path)) %
-          "Write the compiled Skeleton schedule graph (GraphViz .dot) for the "
-          "AB ping-pong skeleton to PATH after compile.",
+          "Write the compiled Skeleton launch-matrix schedule (GraphViz .dot) for "
+          "the AB ping-pong skeleton to PATH after compile.",
       (option("--export-dot-png") & value("path", opts.export_dot_png_path)) %
-          "Render the schedule graph to PNG via GraphViz (requires dot on PATH). "
-          "Also writes a sibling .dot file.",
+          "Render the launch-matrix schedule to PNG via GraphViz (requires dot on "
+          "PATH). Also writes a sibling .dot file.",
+      (option("--export-dot-streams") & value("path", opts.export_dot_streams_path)) %
+          "Write the stream-cluster schedule graph (legacy export_dot format) to PATH.",
       option("--cuda-graph").set(opts.cuda_graph) %
           "Capture + replay each ping-pong skeleton as a CUDA graph (single-GPU / "
           "single-stream only; transparently falls back to eager launch otherwise). "
@@ -284,8 +291,10 @@ parse_cli(int argc,
                  "(KBC's moment basis is defined for D3Q27 only)\n";
     return false;
   }
-  if (opts.grid != "dense" && opts.grid != "disg" && opts.grid != "dense_distributed") {
-    std::cerr << "lbm_lid_driven_cavity: --grid must be dense, disg, or dense_distributed (got '"
+  if (opts.grid != "dense" && opts.grid != "disg" && opts.grid != "dense_distributed" &&
+      opts.grid != "disg_distributed") {
+    std::cerr << "lbm_lid_driven_cavity: --grid must be dense, disg, dense_distributed, or "
+                 "disg_distributed (got '"
               << opts.grid << "')\n";
     return false;
   }
@@ -295,9 +304,11 @@ parse_cli(int argc,
               << opts.decomposition << "')\n";
     return false;
   }
-  if (opts.grid != "dense_distributed" && opts.decomposition != "slab") {
+  if (opts.grid != "dense_distributed" && opts.grid != "disg_distributed" &&
+      opts.decomposition != "slab") {
     std::cerr << "lbm_lid_driven_cavity: --decomposition " << opts.decomposition
-              << " requires --grid dense_distributed (dense/disg are slab-only)\n";
+              << " requires --grid dense_distributed or disg_distributed "
+                 "(dense/disg are slab-only)\n";
     return false;
   }
   if (opts.overlap != "none" && opts.overlap != "standard" && opts.overlap != "extended" &&
@@ -507,9 +518,10 @@ run_benchmark(const Options& opts,
               const std::string& collision_name,
               carbon::DecompositionMode dec_mode) -> int {
   static_assert(std::is_same_v<Grid, carbon::Dense> || std::is_same_v<Grid, carbon::DenseDisg> ||
-                    std::is_same_v<Grid, carbon::DenseDistributed>,
-                "LBM benchmark supports carbon::Dense, carbon::DenseDisg, and "
-                "carbon::DenseDistributed only.");
+                    std::is_same_v<Grid, carbon::DenseDistributed> ||
+                    std::is_same_v<Grid, carbon::DenseDisgDistributed>,
+                "LBM benchmark supports carbon::Dense, carbon::DenseDisg, "
+                "carbon::DenseDistributed, and carbon::DenseDisgDistributed only.");
 #ifdef CARBON_HAVE_MPI_NCCL
   // Auto-detect MPI launches: the `Distributed` ctor invokes `MPI_Init` (a
   // no-op when already initialised) and bootstraps an `ncclComm_t` over every
@@ -539,7 +551,8 @@ run_benchmark(const Options& opts,
   const carbon::int64_3d global{opts.n, opts.n, opts.n};
 
   std::optional<carbon::ProcessGrid> pg;
-  if constexpr (std::is_same_v<Grid, carbon::DenseDistributed>) {
+  if constexpr (std::is_same_v<Grid, carbon::DenseDistributed> ||
+                std::is_same_v<Grid, carbon::DenseDisgDistributed>) {
     const int grid_world = use_mpi ? world_size : local_gpu_count;
     pg.emplace(carbon::ProcessGrid::make(grid_world, dec_mode));
     if (world_rank == 0) {
@@ -550,15 +563,17 @@ run_benchmark(const Options& opts,
   }
 
   // Construct the selected grid family. Dense/DenseDisg give a radius-1 z-halo
-  // (D3Q19 / D3Q27 have |c|_inf == 1); DenseDistributed derives per-axis halos
-  // from the same stencil and honours the requested decomposition. Only one
-  // branch is instantiated per Grid, so the IIFE's return type is the concrete
-  // grid type for this instantiation.
+  // (D3Q19 / D3Q27 have |c|_inf == 1); DenseDistributed / DenseDisgDistributed
+  // derive per-axis halos from the same stencil and honour the requested
+  // decomposition. Only one branch is instantiated per Grid, so the IIFE's
+  // return type is the concrete grid type for this instantiation.
   Grid grid = [&]() -> Grid {
     if constexpr (std::is_same_v<Grid, carbon::Dense>) {
       return carbon::Dense(sys, global, stencil);
     } else if constexpr (std::is_same_v<Grid, carbon::DenseDisg>) {
       return carbon::DenseDisg(sys, global, /*halo_z=*/1);
+    } else if constexpr (std::is_same_v<Grid, carbon::DenseDisgDistributed>) {
+      return carbon::DenseDisgDistributed(sys, global, *pg, stencil);
     } else {
       return carbon::DenseDistributed(sys, global, *pg, stencil);
     }
@@ -676,20 +691,29 @@ run_benchmark(const Options& opts,
       opts.overlap, opts.hp_halo);
 
   if (!opts.export_dot_path.empty()) {
-    if (!sk_ab.export_dot_file(opts.export_dot_path, "lbm_sk_ab")) {
+    if (!sk_ab.export_launch_matrix_dot_file(opts.export_dot_path, "lbm_sk_ab")) {
       CARBON_LOG_ERROR("lbm_lid_driven_cavity: --export-dot failed for {}", opts.export_dot_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote schedule DOT to {}", opts.export_dot_path);
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix DOT to {}", opts.export_dot_path);
   }
   if (!opts.export_dot_png_path.empty()) {
-    if (!sk_ab.export_dot_png(opts.export_dot_png_path, "lbm_sk_ab")) {
+    if (!sk_ab.export_launch_matrix_dot_png(opts.export_dot_png_path, "lbm_sk_ab")) {
       CARBON_LOG_ERROR(
           "lbm_lid_driven_cavity: --export-dot-png failed for {} (is graphviz dot on PATH?)",
           opts.export_dot_png_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote schedule PNG to {}", opts.export_dot_png_path);
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix PNG to {}", opts.export_dot_png_path);
+  }
+  if (!opts.export_dot_streams_path.empty()) {
+    if (!sk_ab.export_dot_file(opts.export_dot_streams_path, "lbm_sk_ab")) {
+      CARBON_LOG_ERROR("lbm_lid_driven_cavity: --export-dot-streams failed for {}",
+                       opts.export_dot_streams_path);
+      return EXIT_FAILURE;
+    }
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote stream-cluster DOT to {}",
+                    opts.export_dot_streams_path);
   }
 
   using Clock = std::chrono::steady_clock;
@@ -1140,6 +1164,9 @@ main(int argc,
   }
   if (opts.grid == "dense_distributed") {
     return dispatch_grid(std::type_identity<carbon::DenseDistributed>{});
+  }
+  if (opts.grid == "disg_distributed") {
+    return dispatch_grid(std::type_identity<carbon::DenseDisgDistributed>{});
   }
   return dispatch_grid(std::type_identity<carbon::Dense>{});
 }

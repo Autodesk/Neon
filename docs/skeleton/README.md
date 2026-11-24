@@ -104,11 +104,12 @@ resource with its access mode (R / W / RW, stencil reads flagged), the reduced
 data dependencies, and the launches each kernel lowers to (`run()` sequence
 number, stream, view) so rows cross-reference the launch matrix.
 
-`benchmarks/jacobi_nvidia` accepts `--dot prefix`, which writes `prefix_ab.dot`,
-`prefix_ba.dot`, and matching `.txt` launch-order files; add `--dot-matrix` for
-`prefix_ab_matrix.dot` / `prefix_ba_matrix.dot` and the kernel lists
-`prefix_ab_kernels.dot` / `prefix_ba_kernels.dot`. See
-`tests/test_skeleton_launch_order.cu`.
+`benchmarks/jacobi_nvidia` accepts `--dot prefix`, which writes launch-matrix
+`prefix_ab.dot` / `prefix_ba.dot`, stream-cluster sidecars `*_streams.dot`, and
+matching `.txt` launch-order files; add `--dot-matrix` for the kernel lists
+`prefix_ab_kernels.dot` / `prefix_ba_kernels.dot`. LBM `--export-dot` /
+`--export-dot-png` likewise default to the launch matrix (`--export-dot-streams`
+keeps the legacy stream-cluster graph). See `tests/test_skeleton_launch_order.cu`.
 
 ## Region masks (sub-field dependencies)
 

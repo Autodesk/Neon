@@ -144,6 +144,11 @@ carbon_add_unit_test(halo_coalesce)
 # Span views and neighbour resolution (open + periodic), and the packed X->Y->Z halo exchange on an
 # emulated multi-rank world. No GPU and no MPI, so it stays on the cpu lane.
 carbon_add_unit_test(dense_distributed_host)
+# DenseDisgDistributed (Phase 1, slab only): layout helpers and Span parity with DenseDisg run on
+# the CPU; the grid-level DenseDisg parity (spans + bit-identical fill_owned_host) runs when a
+# device is visible, so it shares the GPU lock.
+carbon_add_unit_test(dense_disg_distributed_host)
+set_tests_properties(carbon_dense_disg_distributed_host PROPERTIES RESOURCE_LOCK carbon_gpu)
 # Environment gate for the needs_multi_device class — see tests/test_multi_gpu_gate.cpp.
 # Labelled cpu because it only reads the device count (never launches), so it runs on
 # every lane and reports honestly on each.
@@ -487,6 +492,17 @@ if(CARBON_ENABLE_MPI AND MPI_FOUND)
   # pairwise bricks (2,2,1) / (2,1,2), open and periodic, single- and multi-component. Launched
   # with 8 ranks it additionally covers the full brick (2,2,2); it self-skips for other sizes.
   carbon_add_mpi_cuda_test(dense_distributed_dist 4)
+  # DenseDisgDistributed slab, pencils and bricks on 4 ranks ((2,2,1), (2,1,2), (4,1,1)) and on
+  # 8 ranks ((2,2,2), (4,2,1), (2,1,4)): owned values vs DenseDistributed, the face + edge + corner
+  # HaloDisgDistributed exchange (Standard and D3Q19 lattice), and a Skeleton neighbour-read
+  # kernel with and without overlap. The 8-rank entry skips on nodes with fewer than 8 GPUs.
+  carbon_add_mpi_cuda_test(dense_disg_distributed_dist 4)
+  if(MPIEXEC_EXECUTABLE AND TARGET test_dense_disg_distributed_dist)
+    add_test(NAME carbon_dense_disg_distributed_dist_8
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8 ${MPIEXEC_PREFLAGS}
+              $<TARGET_FILE:test_dense_disg_distributed_dist> ${MPIEXEC_POSTFLAGS})
+    set_tests_properties(carbon_dense_disg_distributed_dist_8 PROPERTIES LABELS "distributed;gpu")
+  endif()
   carbon_add_mpi_cuda_test(halo_block_dist 2)
   # Host-side cross-rank HaloBlock::launch_on_host (MPI_Isend/Irecv via run_host).
   carbon_add_mpi_cuda_test(halo_block_host_dist 2)

@@ -29,6 +29,7 @@ PRECISION = "fp32"
 # key: (env var of lbm-dist-sweep-run.sh, kind, default)
 KEYS: dict[str, tuple[str, str, object]] = {
     "configs": ("CONFIGS", "words", ["q19:bgk"]),
+    "grids": ("GRIDS", "words", ["dense_distributed"]),
     "sizes": ("SIZES", "ints", list(range(256, 513, 64))),
     "decompositions": ("DECOMPOSITIONS", "words", ["slab", "pencil", "brick"]),
     "gpus_slab": ("GPUS_SLAB", "ints", list(range(2, 9))),
@@ -54,6 +55,7 @@ KEYS: dict[str, tuple[str, str, object]] = {
 }
 CHOICES = {
     "configs": {"q19:bgk", "q27:bgk", "q27:kbc"},
+    "grids": {"dense_distributed", "disg_distributed"},
     "decompositions": {"slab", "pencil", "brick"},
     "transports": {"mpi", "mpip2p"},
     "hp_halo": {"off", "on"},

@@ -111,6 +111,7 @@ check_words() {
   done
 }
 check_words CONFIGS "q19:bgk q27:bgk q27:kbc"
+check_words GRIDS "dense_distributed disg_distributed"
 check_words DECOMPOSITIONS "slab pencil brick"
 check_words TRANSPORTS "mpi mpip2p"
 check_words HP_HALO "off on"
@@ -155,7 +156,7 @@ if [[ ! "${SM_ARCH}" =~ ^[0-9]+(\;[0-9]+)*$ ]]; then
 fi
 
 echo "==> sweep config${config_path:+ (${config_path##*/})}:"
-for v in CONFIGS SIZES DECOMPOSITIONS GPUS_SLAB GPUS_PENCIL GPUS_BRICK REFERENCE_DIR \
+for v in CONFIGS GRIDS SIZES DECOMPOSITIONS GPUS_SLAB GPUS_PENCIL GPUS_BRICK REFERENCE_DIR \
          REFERENCE_PREFIX REFERENCE_LABEL TRANSPORTS HP_HALO OVERLAP WARMUP ITERS_PER_REP \
          REPS SM_ARCH IMAGE BUILD_DIR PREFIX SKIP_BUILD FORCE RUN_TIMEOUT; do
   printf '    %-16s %s\n' "${v}" "${!v}"
@@ -180,7 +181,7 @@ docker_run() {
   shift
   docker run --rm --gpus all --ipc=host --shm-size=8g \
     -v "${repo_root}:/src:rw" -w /src \
-    -e CONFIGS -e SIZES -e DECOMPOSITIONS -e GPUS_SLAB -e GPUS_PENCIL -e GPUS_BRICK \
+    -e CONFIGS -e GRIDS -e SIZES -e DECOMPOSITIONS -e GPUS_SLAB -e GPUS_PENCIL -e GPUS_BRICK \
     -e TRANSPORTS -e HP_HALO -e OVERLAP \
     -e WARMUP -e ITERS_PER_REP -e REPS -e BUILD_DIR \
     -e FORCE -e RUN_TIMEOUT -e PREFIX -e OUT_DIR="/src/${rel_data}" \
@@ -218,10 +219,10 @@ failed_log="${OUT_DIR}/failed.txt"
 : > "${failed_log}"
 iters=$((WARMUP + REPS * ITERS_PER_REP))
 
-# run <report> <ranks> <decomposition> <transport> <hp on|off> <lattice> <collision> <n> <label>
+# run <report> <grid> <ranks> <decomposition> <transport> <hp on|off> <lattice> <collision> <n> <label>
 run() {
-  local report="$1" g="$2" decomp="$3" t="$4" hp="$5" lattice="$6" collision="$7" n="$8"
-  local label="$9"
+  local report="$1" grid="$2" g="$3" decomp="$4" t="$5" hp="$6" lattice="$7" collision="$8" n="$9"
+  local label="${10}"
   if [[ "${FORCE}" -eq 0 && -f "${report}" ]]; then
     echo "==> [skip exists] ${report##*/}"
     return
@@ -230,9 +231,9 @@ run() {
   [[ "${t}" == "mpip2p" ]] && launch+=(-x CARBON_DIST_TRANSPORT=mpi)
   local extra=()
   [[ "${hp}" == "on" ]] && extra+=(--hp-halo)
-  echo "==> ${lattice}/${collision} ${label} N=${n} gpus=${g} -> ${report##*/}"
+  echo "==> ${lattice}/${collision} ${grid} ${label} N=${n} gpus=${g} -> ${report##*/}"
   if ! timeout "${RUN_TIMEOUT}" "${launch[@]}" "${bin}" \
-      --grid dense_distributed --decomposition "${decomp}" --gpus 1 \
+      --grid "${grid}" --decomposition "${decomp}" --gpus 1 \
       --n "${n}" --iters "${iters}" --warmup "${WARMUP}" --reps "${REPS}" \
       --lattice "${lattice}" --collision "${collision}" \
       --overlap "${OVERLAP}" "${extra[@]}" \
@@ -246,16 +247,23 @@ run() {
 for cfg in ${CONFIGS}; do
   lattice="${cfg%%:*}"
   collision="${cfg##*:}"
-  series="${PREFIX}-${lattice}-${collision}-fp32"
-  for decomp in ${DECOMPOSITIONS}; do
-    gpus_var="GPUS_${decomp^^}"
-    for g in ${!gpus_var}; do
-      for n in ${SIZES}; do
-        for t in ${TRANSPORTS}; do
-          for hp in ${HP_HALO}; do
-            label="${decomp}-${t}-hp${hp}"
-            run "${OUT_DIR}/${series}-${label}-n${n}-g${g}.json" "${g}" "${decomp}" "${t}" \
-                "${hp}" "${lattice}" "${collision}" "${n}" "${label}"
+  for grid in ${GRIDS}; do
+    # Tag reports with the grid when more than one grid is swept so names stay unique.
+    local_prefix="${PREFIX}"
+    if [[ "${GRIDS}" == *" "* ]]; then
+      local_prefix="${PREFIX}-${grid}"
+    fi
+    series="${local_prefix}-${lattice}-${collision}-fp32"
+    for decomp in ${DECOMPOSITIONS}; do
+      gpus_var="GPUS_${decomp^^}"
+      for g in ${!gpus_var}; do
+        for n in ${SIZES}; do
+          for t in ${TRANSPORTS}; do
+            for hp in ${HP_HALO}; do
+              label="${decomp}-${t}-hp${hp}"
+              run "${OUT_DIR}/${series}-${label}-n${n}-g${g}.json" "${grid}" "${g}" "${decomp}" \
+                  "${t}" "${hp}" "${lattice}" "${collision}" "${n}" "${label}"
+            done
           done
         done
       done
