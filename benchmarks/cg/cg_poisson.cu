@@ -287,7 +287,7 @@ print_profile_summary(std::string_view grid_tag,
     CARBON_LOG_INFO(
         "cg_poisson_unified[{}]: profile {} phase {}: mean={:.4f} ms, std={:.4f}, median={:.4f} "
         "min={:.4f} max={:.4f} n={} steps=[{}]",
-        grid_tag, skeleton_tag, i, stats.mean, stats.std, stats.median, stats.min, stats.max, stats.n,
+        grid_tag, skeleton_tag, i, stats.mean, stats.stddev, stats.median, stats.min, stats.max, stats.n,
         profile[i].label);
   }
   if (phases_with_samples != 0U) {
