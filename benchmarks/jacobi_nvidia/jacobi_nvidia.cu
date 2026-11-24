@@ -472,16 +472,17 @@ run_solver(DenseGrid& grid,
   if (!dot_prefix.empty()) {
     for (auto [sk, tag] : {std::pair<carbon::Skeleton*, const char*>{&sk_ab, "_ab"},
                            std::pair<carbon::Skeleton*, const char*>{&sk_ba, "_ba"}}) {
-      if (!sk->export_dot_file(dot_prefix + tag + ".dot")) {
+      // Default .dot is the launch matrix; stream-cluster graph is optional sidecar.
+      if (!sk->export_launch_matrix_dot_file(dot_prefix + tag + ".dot",
+                                             std::string{"jacobi"} + tag)) {
         std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s.dot\n", dot_prefix.c_str(), tag);
+      }
+      if (!sk->export_dot_file(dot_prefix + tag + "_streams.dot")) {
+        std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s_streams.dot\n",
+                     dot_prefix.c_str(), tag);
       }
       if (!sk->export_launch_order_file(dot_prefix + tag + ".txt")) {
         std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s.txt\n", dot_prefix.c_str(), tag);
-      }
-      if (dot_matrix && !sk->export_launch_matrix_dot_file(dot_prefix + tag + "_matrix.dot",
-                                                           std::string{"jacobi"} + tag)) {
-        std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s_matrix.dot\n", dot_prefix.c_str(),
-                     tag);
       }
       if (dot_matrix && !sk->export_kernel_list_dot_file(dot_prefix + tag + "_kernels.dot",
                                                          std::string{"jacobi"} + tag)) {

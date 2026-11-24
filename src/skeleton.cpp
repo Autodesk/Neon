@@ -2820,22 +2820,44 @@ Skeleton::export_dot_file(std::string path,
   return out.good();
 }
 
+namespace {
+
+[[nodiscard]] auto
+sibling_dot_path(std::string png_path) -> std::string {
+  const size_t slash = png_path.find_last_of("/\\");
+  const size_t dot = png_path.find_last_of('.');
+  if (dot != std::string::npos && (slash == std::string::npos || dot > slash)) {
+    png_path.replace(dot, png_path.size() - dot, ".dot");
+  } else {
+    png_path += ".dot";
+  }
+  return png_path;
+}
+
+[[nodiscard]] auto
+render_dot_png(std::string const& dot_path, std::string const& png_path) -> bool {
+  const std::string cmd =
+      "dot -Tpng \"" + dot_path + "\" -o \"" + png_path + "\" >/dev/null 2>&1";
+  return std::system(cmd.c_str()) == 0;
+}
+
+}  // namespace
+
 auto
 Skeleton::export_dot_png(std::string png_path,
                          std::string graph_name) -> bool {
-  std::string dot_path = png_path;
-  const size_t slash = dot_path.find_last_of("/\\");
-  const size_t dot = dot_path.find_last_of('.');
-  if (dot != std::string::npos && (slash == std::string::npos || dot > slash)) {
-    dot_path.replace(dot, dot_path.size() - dot, ".dot");
-  } else {
-    dot_path += ".dot";
-  }
-  if (!export_dot_file(dot_path, graph_name)) {
+  // Default PNG export is the launch matrix (stream columns × op rows).
+  return export_launch_matrix_dot_png(std::move(png_path), std::move(graph_name));
+}
+
+auto
+Skeleton::export_launch_matrix_dot_png(std::string png_path,
+                                       std::string graph_name) -> bool {
+  const std::string dot_path = sibling_dot_path(png_path);
+  if (!export_launch_matrix_dot_file(dot_path, std::move(graph_name))) {
     return false;
   }
-  const std::string cmd = "dot -Tpng \"" + dot_path + "\" -o \"" + png_path + "\" >/dev/null 2>&1";
-  return std::system(cmd.c_str()) == 0;
+  return render_dot_png(dot_path, png_path);
 }
 
 }  // namespace carbon

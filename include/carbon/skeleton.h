@@ -767,8 +767,12 @@ public:
                   std::string graph_name = "carbon_skeleton") -> bool;
 
   /**
-   * @brief Write a @c .dot file beside @p png_path and render PNG via
+   * @brief Write a launch-matrix @c .dot beside @p png_path and render PNG via
    *        GraphViz (@c dot -Tpng ). Requires @c dot on @c PATH .
+   *
+   * Default schedule visualization is the launch matrix (@ref
+   * export_launch_matrix_dot). For the stream-cluster graph use
+   * @ref export_dot_file then render separately.
    * @return @c false if the dot file or render step failed.
    */
   [[nodiscard]] auto
@@ -810,6 +814,15 @@ public:
   [[nodiscard]] auto
   export_launch_matrix_dot_file(std::string path,
                                 std::string graph_name = "carbon_launch_matrix") -> bool;
+
+  /**
+   * @brief Write a launch-matrix @c .dot beside @p png_path and render PNG via
+   *        GraphViz (@c dot -Tpng ). Requires @c dot on @c PATH .
+   * @return @c false if the dot file or render step failed.
+   */
+  [[nodiscard]] auto
+  export_launch_matrix_dot_png(std::string png_path,
+                               std::string graph_name = "carbon_launch_matrix") -> bool;
 
   /**
    * @brief GraphViz "kernel list" in the style of @ref export_launch_matrix_dot :

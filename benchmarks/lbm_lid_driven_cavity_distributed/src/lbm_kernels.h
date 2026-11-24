@@ -414,29 +414,23 @@ make_iteration_kernel(Grid& grid,
 // (D3Q19, BGK) combo — D3Q27 and KBC stay on the lattice-generic path
 // because their symmetry tables are different (D3Q27) or the collision step
 // itself is not symmetry-factorisable (KBC).
-template <typename Grid>
-[[nodiscard]] inline auto
-make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
-                                     typename Grid::template Field<float,
-                                                                   D3Q19::Q>& f_in,
-                                     typename Grid::template Field<float,
-                                                                   D3Q19::Q>& f_out,
-                                     typename Grid::template Field<int32_t,
-                                                                   1>& cell_field,
-                                     LbmParameters params,
-                                     std::string name) -> ::carbon::Kernel {
-  using Span = typename Grid::Span;
-  using Idx = typename Grid::Idx;
-  const auto semantic = population_halo_semantic(grid);
-  return ::carbon::Kernel::compute(
-      grid,
-      [&f_in, &f_out, &cell_field, params, semantic](::carbon::KernelLoader& loader) {
-        const auto fin =
-            loader.read_stencil(f_in, make_lattice_population_stencil<D3Q19>(), semantic);
-        const auto fout = loader.write(f_out);
-        const auto cell = loader.read(cell_field);
-        const float omega = params.omega;
-        return [fin, fout, cell, omega] CARBON_HOST_DEVICE(Span s, Idx idx) {
+// Device functor (templated operator()) so DenseDisgDistributed can pass a
+// TypedSpan<Kind> into the body without using a CUDA extended generic lambda
+// (nvcc forbids those). Partition::read_pull then if constexpr-specializes.
+template <typename Idx,
+          typename Fin,
+          typename Fout,
+          typename Cell>
+struct D3q19BgkFastOp {
+  Fin fin;
+  Fout fout;
+  Cell cell;
+  float omega;
+
+  template <typename SpanT>
+  CARBON_HOST_DEVICE void
+  operator()(SpanT s,
+             Idx idx) const {
           const int32_t packed = cell.read(s, idx, 0);
           if (classification_of(packed) != Classification::Bulk) {
             return;
@@ -574,7 +568,31 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
           fout.write(s, idx, 16, one_minus_omega * pop[16] + omega * eq_16);
           fout.write(s, idx, 17, one_minus_omega * pop[17] + omega * eq_17);
           fout.write(s, idx, 18, one_minus_omega * pop[18] + omega * eq_18);
-        };
+  }
+};
+
+template <typename Grid>
+[[nodiscard]] inline auto
+make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
+                                     typename Grid::template Field<float,
+                                                                   D3Q19::Q>& f_in,
+                                     typename Grid::template Field<float,
+                                                                   D3Q19::Q>& f_out,
+                                     typename Grid::template Field<int32_t,
+                                                                   1>& cell_field,
+                                     LbmParameters params,
+                                     std::string name) -> ::carbon::Kernel {
+  using Idx = typename Grid::Idx;
+  const auto semantic = population_halo_semantic(grid);
+  return ::carbon::Kernel::compute(
+      grid,
+      [&f_in, &f_out, &cell_field, params, semantic](::carbon::KernelLoader& loader) {
+        const auto fin =
+            loader.read_stencil(f_in, make_lattice_population_stencil<D3Q19>(), semantic);
+        const auto fout = loader.write(f_out);
+        const auto cell = loader.read(cell_field);
+        using Op = D3q19BgkFastOp<Idx, decltype(fin), decltype(fout), decltype(cell)>;
+        return Op{fin, fout, cell, params.omega};
       },
       std::move(name),
       /*shared_mem=*/0U);

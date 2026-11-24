@@ -6185,6 +6185,27 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `OverlapMode::None`, and the distributed LBM benchmark gains `--hp-halo` (`hp_halo` in
   the JSON report). `test_skeleton_halo_priority` checks the native priority of the halo
   stream for Standard / Extended, a ping-pong pair, a recompile, and `None`.
+- **2026-11 — Distributed LBM strong-scaling sweep.**
+  `benchmarks/lbm_lid_driven_cavity_distributed/scripts/lbm-dist-sweep-run.sh` is the
+  distributed counterpart of `lbm-dgx-sweep-run.sh`. It is driven by `lbm-dist-sweep.yml`
+  and sweeps lattice/collision x N x decomposition (slab / pencil / brick) x transport
+  (NCCL / MPI P2P) x `--hp-halo` off/on. It does one `mpiexec -n G` run per combination.
+  Each decomposition has its own GPU counts, by default slab 2..8, pencil 4 and 8, brick 8;
+  only those counts give a process grid that differs from a slab. There is no 1-GPU run:
+  the efficiency baseline of each N is the 1-GPU Dense Peeraccess report of the
+  single-process DGX sweep (`reference_dir` / `reference_prefix` / `reference_label`).
+  `plotting/plot_dist_scaling.py` draws one panel per decomposition: efficiency and MLUPS
+  vs GPUs per N, efficiency vs N at the largest G, and the hp-halo speedup. Building and
+  running both happen in one image (`carbon-cuda-nccl-pinned:local`), in their own
+  `build-dist/` tree. The YAML parsing reuses `lbm_sweep_config.py`, whose loaders now take
+  the key and choice tables as optional arguments.
+  The benchmark changes with it, so that its numbers can be compared:
+  - It gains `--reps`, with the single-process benchmark's `results.repetitions` block.
+  - Every timing mark is taken after a GPU drain plus `Distributed::barrier()`. Rank 0's
+    window therefore spans the slowest rank; before, each rank timed itself and rank 0
+    reported its own clock.
+  - The report records `config.process_grid`, the rank grid `ProcessGrid::make` chose,
+    which shows where pencil / brick collapse to a slab for prime rank counts.
 - **2026-11 — Global chunk validation for `Dense` / `DenseDisg` / `DenseDistributed`.**
   The thickness guards used to inspect only the local `spans_`. Under MPI (one rank per GPU)
   `local_n == 1`, so a rank whose chunk was too thin threw while the other ranks continued to
@@ -6563,3 +6584,34 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   graph capture; `run()` is unchanged. `tests/test_skeleton.cu` pins the phase
   decomposition for `seed -> {left, right} -> join` and a serial pipeline, plus numerical
   parity.
+- **2026-11 — `DenseDisgDistributed` (disaggregated grid on a ProcessGrid).** New grid
+  family that combines `DenseDistributed`'s ProcessGrid surface (slab / pencil / brick,
+  `BoundaryModeDistributed`) with `DenseDisg`'s five-region disaggregated SoA storage,
+  generalized to nested y and x groups for pencil and brick. Halo exchange
+  (`HaloDisgDistributed`) is a single NCCL group of zero-copy face / edge / corner
+  messages (no staged X→Y→Z pack chain); lattice fusion reuses the DenseDisg run-length
+  helpers. Slab storage is bit-exact with `DenseDisg`. Pencil nests y-ghost / y-boundary
+  strips inside each z region; brick adds x groups stored y-fastest and an internal box
+  on a 128-byte-aligned pitch. Known limits for this drop: stencil radius 0 or 1,
+  `PeriodicX` rejected. Launch routing uses a new `DenseDisgDistributedPolicy` branch in
+  `launch_traits.h` (checked before `DisgPolicy`). The distributed LBM benchmark accepts
+  `--grid disg_distributed`; the dist sweep gains a `grids` key
+  (`dense_distributed` / `disg_distributed`). Tests: `test_dense_disg_distributed_host`
+  (geometry / bit-exact vs DenseDisg on slab) and `test_dense_disg_distributed_dist`
+  (MPI 4 and 8 ranks: value parity with DenseDistributed, raw halo, Skeleton OCC).
+  Phase-0 gates (DenseDisg+hp-halo vs DenseDistributed slab, NCCL k-send vs packed,
+  brick layout microkernel) and the comparison sweep live in the notes repo under
+  `docs/phase0-disg-distributed.md` and `lbm-disg-vs-dense-sweep.yml`.
+- **2026-11 — Launch-matrix schedule export is the default.**
+  `Skeleton::export_dot_png` now renders `export_launch_matrix_dot` (stream columns
+  × op rows); `export_launch_matrix_dot_png` is the explicit twin. LBM
+  `--export-dot` / `--export-dot-png` write the matrix; `--export-dot-streams`
+  keeps the legacy stream-cluster graph. Jacobi `--dot` and CG `--dot-out` write
+  the matrix as the primary `.dot` (stream cluster as `*_streams.dot`);
+  `--dot-matrix` now only adds the kernel-list DOT.
+- **2026-11 — DenseDisgDistributed slab hot-path specialization.**
+  Device launch stamps `TypedSpan<StorageKind>`; `Partition::read` / `write` /
+  `read_pull` `if constexpr` on `SpanT::kind` so slab codegen matches `DenseDisg`
+  (cached `storage_unit_`, DenseDisg-identical slab pull, pencil/brick out of line).
+  Closes the ~0.67× slab MLUPS gap vs `DenseDisg` / `DenseDistributed` on 8-GPU
+  N=256 standard-overlap A/B (now ~parity).
