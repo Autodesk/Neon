@@ -46,6 +46,7 @@
 #include <carbon/data_view.h>
 #include <carbon/dense.h>
 #include <carbon/dense_disg.h>
+#include <carbon/dense_disg_distributed.h>
 #include <carbon/dense_distributed.h>
 #include <carbon/detail/kernel_impl.h>
 #include <carbon/detail/nvtx_scope.h>
@@ -53,6 +54,7 @@
 #include <carbon/halo.h>
 #include <carbon/halo_block.h>
 #include <carbon/halo_disg.h>
+#include <carbon/halo_disg_distributed.h>
 #include <carbon/halo_distributed.h>
 #include <carbon/logging.h>
 #include <carbon/mgrid.h>
@@ -784,6 +786,17 @@ public:
             std::string name = {}) -> Kernel;
 
   /**
+   * @brief Wrap a @c HaloDisgDistributed<T, Components> into a @c Kernel . Same contract as
+   *        @ref halo_disg ; used by @c DenseDisgDistributed::Field::make_halo_kernel .
+   */
+  template <typename T,
+            int Components>
+  [[nodiscard]] static auto
+  halo_disg_distributed(HaloDisgDistributed<T,
+                                            Components> h,
+                        std::string name = {}) -> Kernel;
+
+  /**
    * @brief Wrap a @c HaloDistributed<T, Components> into a @c Kernel . The multi-axis
    *        (slab / pencil / brick) twin of @ref halo above: forwards @ref launch to the halo's
    *        @c operator()(stream) ; the @c DataView argument is ignored. Used by
@@ -956,6 +969,7 @@ private:
 #include <carbon/detail/block_halo_kernel_impl.h>
 #include <carbon/detail/dense_host_kernel_impl.h>
 #include <carbon/detail/dense_kernel_impl.h>
+#include <carbon/detail/halo_disg_distributed_kernel_impl.h>
 #include <carbon/detail/halo_disg_kernel_impl.h>
 #include <carbon/detail/halo_distributed_kernel_impl.h>
 #include <carbon/detail/halo_kernel_impl.h>
@@ -1063,6 +1077,16 @@ Kernel::halo_disg(HaloDisg<T,
                            Components> h,
                   std::string name) -> Kernel {
   using Impl = detail::HaloDisgKernelImpl<T, Components>;
+  return Kernel(std::make_shared<Impl>(std::move(h), std::move(name)));
+}
+
+template <typename T,
+          int Components>
+auto
+Kernel::halo_disg_distributed(HaloDisgDistributed<T,
+                                                  Components> h,
+                              std::string name) -> Kernel {
+  using Impl = detail::HaloDisgDistributedKernelImpl<T, Components>;
   return Kernel(std::make_shared<Impl>(std::move(h), std::move(name)));
 }
 
@@ -1183,6 +1207,7 @@ Kernel::host_reduce(const Grid& grid,
 #include <carbon/detail/kernel_block.inl>
 #include <carbon/detail/kernel_dense.inl>
 #include <carbon/detail/kernel_dense_disg.inl>
+#include <carbon/detail/kernel_dense_disg_distributed.inl>
 #include <carbon/detail/kernel_dense_distributed.inl>
 #include <carbon/detail/kernel_mgrid.inl>
 

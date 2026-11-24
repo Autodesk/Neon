@@ -124,6 +124,7 @@ struct Options {
   std::string overlap = "none";
   std::string export_dot_path = "";
   std::string export_dot_png_path = "";
+  std::string export_dot_streams_path = "";
   // Opt in to carbon::Skeleton CUDA-graph capture + replay of each ping-pong
   // skeleton. Engaged only for single-GPU / single-stream schedules (the
   // OverlapMode::None single-GPU case); a no-op fallback otherwise.
@@ -191,11 +192,13 @@ build_cli(Options& opts) -> clipp::group {
           "a second stream — improves multi-GPU significantly on PCIe-only "
           "hosts where halo otherwise blocks compute.",
       (option("--export-dot") & value("path", opts.export_dot_path)) %
-          "Write the compiled Skeleton schedule graph (GraphViz .dot) for the "
-          "AB ping-pong skeleton to PATH after compile.",
+          "Write the compiled Skeleton launch-matrix schedule (GraphViz .dot) for "
+          "the AB ping-pong skeleton to PATH after compile.",
       (option("--export-dot-png") & value("path", opts.export_dot_png_path)) %
-          "Render the schedule graph to PNG via GraphViz (requires dot on PATH). "
-          "Also writes a sibling .dot file.",
+          "Render the launch-matrix schedule to PNG via GraphViz (requires dot on "
+          "PATH). Also writes a sibling .dot file.",
+      (option("--export-dot-streams") & value("path", opts.export_dot_streams_path)) %
+          "Write the stream-cluster schedule graph (legacy export_dot format) to PATH.",
       option("--cuda-graph").set(opts.cuda_graph) %
           "Capture + replay each ping-pong skeleton as a CUDA graph (single-GPU / "
           "single-stream only; transparently falls back to eager launch otherwise). "
@@ -584,20 +587,29 @@ run_benchmark(const Options& opts,
       sk_ab.effective_kernels().size(), sk_ba.effective_kernels().size());
 
   if (!opts.export_dot_path.empty()) {
-    if (!sk_ab.export_dot_file(opts.export_dot_path, "lbm_sk_ab")) {
+    if (!sk_ab.export_launch_matrix_dot_file(opts.export_dot_path, "lbm_sk_ab")) {
       CARBON_LOG_ERROR("lbm_lid_driven_cavity: --export-dot failed for {}", opts.export_dot_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote schedule DOT to {}", opts.export_dot_path);
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix DOT to {}", opts.export_dot_path);
   }
   if (!opts.export_dot_png_path.empty()) {
-    if (!sk_ab.export_dot_png(opts.export_dot_png_path, "lbm_sk_ab")) {
+    if (!sk_ab.export_launch_matrix_dot_png(opts.export_dot_png_path, "lbm_sk_ab")) {
       CARBON_LOG_ERROR(
           "lbm_lid_driven_cavity: --export-dot-png failed for {} (is graphviz dot on PATH?)",
           opts.export_dot_png_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote schedule PNG to {}", opts.export_dot_png_path);
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix PNG to {}", opts.export_dot_png_path);
+  }
+  if (!opts.export_dot_streams_path.empty()) {
+    if (!sk_ab.export_dot_file(opts.export_dot_streams_path, "lbm_sk_ab")) {
+      CARBON_LOG_ERROR("lbm_lid_driven_cavity: --export-dot-streams failed for {}",
+                       opts.export_dot_streams_path);
+      return EXIT_FAILURE;
+    }
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote stream-cluster DOT to {}",
+                    opts.export_dot_streams_path);
   }
 
   using Clock = std::chrono::steady_clock;

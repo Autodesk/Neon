@@ -165,6 +165,7 @@ if(CARBON_BUILD_VIEWER)
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
 endif()
 
+
 # Distributed 6-neighbour stencil + axpy with a CLI-selected slab | pencil | brick decomposition.
 # Self-verifying (global sums vs. a serial host reference). With the SYCL backend, an omp-only
 # target and CARBON_ENABLE_MPI=ON this is a pure-CPU `mpirun -np N` program.

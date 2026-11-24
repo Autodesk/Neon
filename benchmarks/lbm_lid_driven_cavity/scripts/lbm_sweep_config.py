@@ -74,7 +74,7 @@ def _as_list(key: str, v: object) -> list:
     return [v]
 
 
-def _parse_value(key: str, kind: str, value: object) -> object:
+def _parse_value(key: str, kind: str, value: object, choices: dict[str, set[str]]) -> object:
     if kind == "int":
         return _as_int(key, value)
     if kind == "bool":
@@ -98,32 +98,44 @@ def _parse_value(key: str, kind: str, value: object) -> object:
     for x in items:
         if not isinstance(x, str) or not pattern.match(x):
             raise SweepConfigError(f"{key} has an invalid value {x!r}")
-        if key in CHOICES and x not in CHOICES[key]:
-            raise SweepConfigError(f"{key} value {x!r} not in {sorted(CHOICES[key])}")
+        if key in choices and x not in choices[key]:
+            raise SweepConfigError(f"{key} value {x!r} not in {sorted(choices[key])}")
     return items if kind == "words" else items[0]
 
 
-def load_sweep_config(text: str) -> dict[str, object]:
-    """Validate YAML text; returns every key in ``KEYS``, omitted ones at their default."""
+def load_sweep_config(
+    text: str,
+    keys: dict[str, tuple[str, str, object]] = KEYS,
+    choices: dict[str, set[str]] = CHOICES,
+) -> dict[str, object]:
+    """Validate YAML text; returns every key in ``keys``, omitted ones at their default.
+
+    ``keys`` / ``choices`` default to this sweep's tables; other sweeps (e.g. the
+    distributed benchmark's) pass their own in the same format.
+    """
     import yaml
 
     cfg = yaml.safe_load(text) or {}
     if not isinstance(cfg, dict):
         raise SweepConfigError("top level must be a mapping")
-    out = {key: default for key, (_, _, default) in KEYS.items()}
+    out = {key: default for key, (_, _, default) in keys.items()}
     for key, value in cfg.items():
-        if key not in KEYS:
-            raise SweepConfigError(f"unknown key {key!r} (known: {', '.join(KEYS)})")
-        out[key] = _parse_value(key, KEYS[key][1], value)
+        if key not in keys:
+            raise SweepConfigError(f"unknown key {key!r} (known: {', '.join(keys)})")
+        out[key] = _parse_value(key, keys[key][1], value, choices)
     return out
 
 
-def read_sweep_config(path: Path) -> dict[str, object]:
+def read_sweep_config(
+    path: Path,
+    keys: dict[str, tuple[str, str, object]] = KEYS,
+    choices: dict[str, set[str]] = CHOICES,
+) -> dict[str, object]:
     """Load a sweep YAML file; the path must be an existing ``.yml`` / ``.yaml`` file."""
     path = Path(path).resolve()
     if path.suffix not in (".yml", ".yaml") or not path.is_file():
         raise SweepConfigError(f"not a .yml/.yaml file: {path}")
-    return load_sweep_config(path.read_text())
+    return load_sweep_config(path.read_text(), keys, choices)
 
 
 def series_prefixes(cfg: dict[str, object]) -> list[tuple[str, str, str, str]]:
@@ -151,13 +163,16 @@ def _shell_value(kind: str, value: object) -> str:
     return str(value)
 
 
-def main() -> int:
+def main(
+    keys: dict[str, tuple[str, str, object]] = KEYS,
+    choices: dict[str, set[str]] = CHOICES,
+) -> int:
     try:
-        cfg = load_sweep_config(os.environ.get("LBM_SWEEP_CONFIG", ""))
+        cfg = load_sweep_config(os.environ.get("LBM_SWEEP_CONFIG", ""), keys, choices)
     except SweepConfigError as e:
         sys.stderr.write(f"error: config: {e}\n")
         return 1
-    for key, (var, kind, _) in KEYS.items():
+    for key, (var, kind, _) in keys.items():
         print(f"{var}={_shell_value(kind, cfg[key])}")
     return 0
 

@@ -41,6 +41,8 @@
 #include <carbon/detail/dense/reduce_kernel.h>
 #include <carbon/detail/dense_disg/launch.h>
 #include <carbon/detail/dense_disg/reduce_kernel.h>
+#include <carbon/detail/dense_disg_distributed/launch.h>
+#include <carbon/detail/dense_disg_distributed/reduce_kernel.h>
 #include <carbon/detail/dense_distributed/launch.h>
 #include <carbon/detail/dense_distributed/reduce_kernel.h>
 #include <carbon/detail/gpu.h>
@@ -117,7 +119,10 @@ struct DeviceLaunchTraits {
               F& fn) -> gpu_error_t {
     const auto& gpu_grid = grid.gpu_grid(view);
     const auto& gpu_block = grid.gpu_block(view);
-    if constexpr (requires { typename Grid::DisgPolicy; }) {
+    if constexpr (requires { typename Grid::DenseDisgDistributedPolicy; }) {
+      return ::carbon::detail::dense_disg_distributed::launch_disg_grid(
+          grid, gpu_grid[i], gpu_block[i], i, shared_mem, stream, view, fn);
+    } else if constexpr (requires { typename Grid::DisgPolicy; }) {
       return ::carbon::detail::dense_disg::launch_disg_grid(grid, gpu_grid[i], gpu_block[i], i,
                                                             shared_mem, stream, view, fn);
     } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
@@ -142,7 +147,10 @@ struct DeviceLaunchTraits {
               F& fn) -> void {
     const auto& gpu_grid = grid.gpu_grid(view);
     const auto& gpu_block = grid.gpu_block(view);
-    if constexpr (requires { typename Grid::DisgPolicy; }) {
+    if constexpr (requires { typename Grid::DenseDisgDistributedPolicy; }) {
+      ::carbon::detail::dense_disg_distributed::launch_disg_grid(grid, gpu_grid[i], gpu_block[i], i,
+                                                                 shared_mem, q, view, fn);
+    } else if constexpr (requires { typename Grid::DisgPolicy; }) {
       ::carbon::detail::dense_disg::launch_disg_grid(grid, gpu_grid[i], gpu_block[i], i, shared_mem,
                                                      q, view, fn);
     } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
@@ -455,7 +463,9 @@ template <typename Grid>
 struct ReduceLaunchTraits {
   static constexpr auto
   stage1_block_threads() noexcept -> int {
-    if constexpr (requires { typename Grid::DisgPolicy; }) {
+    if constexpr (requires { typename Grid::DenseDisgDistributedPolicy; }) {
+      return ::carbon::detail::dense_disg_distributed::kDisgReduceBlockThreads;
+    } else if constexpr (requires { typename Grid::DisgPolicy; }) {
       return ::carbon::detail::dense_disg::kDisgReduceBlockThreads;
     } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
       return ::carbon::detail::dense_distributed::kReduceBlockThreads;
@@ -474,6 +484,7 @@ struct ReduceLaunchTraits {
     const ::carbon::int64_3d ext = span.iter_extent(view);
     const int64_t cells = static_cast<int64_t>(ext.volume());
     if constexpr (
+        !requires { typename Grid::DenseDisgDistributedPolicy; } &&
         !requires { typename Grid::DisgPolicy; } && !requires { typename Grid::SBlock; }) {
       if (dense_stage1_threads_y > 0) {
         const int bx = dense_stage1_threads > 0 ? dense_stage1_threads : 32;
@@ -489,6 +500,7 @@ struct ReduceLaunchTraits {
     }
     int bt = stage1_block_threads();
     if constexpr (
+        !requires { typename Grid::DenseDisgDistributedPolicy; } &&
         !requires { typename Grid::DisgPolicy; } && !requires { typename Grid::SBlock; }) {
       if (dense_stage1_threads > 0) {
         bt = dense_stage1_threads;
@@ -517,7 +529,11 @@ struct ReduceLaunchTraits {
             typename Op>
   static auto
   assert_reduce_fn() noexcept -> void {
-    if constexpr (requires { typename Grid::DisgPolicy; }) {
+    if constexpr (requires { typename Grid::DenseDisgDistributedPolicy; }) {
+      static_assert(::carbon::detail::dense_disg_distributed::disg_reduce_fn<F, T>,
+                    "Kernel::reduce::launch (DenseDisgDistributed): the device callable returned "
+                    "by the loading function must be invocable as fn(Span, Idx) -> T.");
+    } else if constexpr (requires { typename Grid::DisgPolicy; }) {
       static_assert(::carbon::detail::dense_disg::disg_reduce_fn<F, T>,
                     "Kernel::reduce::launch (DenseDisg): the device callable returned by the "
                     "loading function must be invocable as fn(DisgSpan, DisgIdx) -> T.");
@@ -550,7 +566,13 @@ struct ReduceLaunchTraits {
               int64_t iter_cells,
               int dense_stage1_threads = 0,
               int dense_stage1_threads_y = 0) -> gpu_error_t {
-    if constexpr (requires { typename Grid::DisgPolicy; }) {
+    if constexpr (requires { typename Grid::DenseDisgDistributedPolicy; }) {
+      return gpu.template typed_launch<
+          &::carbon::detail::dense_disg_distributed::disg_grid_reduce_kernel<F, T, Op>>(
+          dim3(static_cast<unsigned>(blocks), 1U, 1U),
+          dim3(static_cast<unsigned>(stage1_block_threads()), 1U, 1U), shared_mem, stream, span,
+          view, fn, op, identity, partials, iter_cells);
+    } else if constexpr (requires { typename Grid::DisgPolicy; }) {
       return gpu
           .template typed_launch<&::carbon::detail::dense_disg::disg_grid_reduce_kernel<F, T, Op>>(
               dim3(static_cast<unsigned>(blocks), 1U, 1U),
@@ -601,7 +623,13 @@ struct ReduceLaunchTraits {
                            int64_t iter_cells,
                            int dense_stage1_threads = 0,
                            int dense_stage1_threads_y = 0) -> gpu_error_t {
-    if constexpr (requires { typename Grid::DisgPolicy; }) {
+    if constexpr (requires { typename Grid::DenseDisgDistributedPolicy; }) {
+      return gpu.template typed_launch<&::carbon::detail::dense_disg_distributed::
+                                           disg_grid_reduce_block_atomic_kernel<F, T, Op>>(
+          dim3(static_cast<unsigned>(blocks), 1U, 1U),
+          dim3(static_cast<unsigned>(stage1_block_threads()), 1U, 1U), shared_mem, stream, span,
+          view, fn, op, identity, global_out, iter_cells);
+    } else if constexpr (requires { typename Grid::DisgPolicy; }) {
       return gpu.template typed_launch<
           &::carbon::detail::dense_disg::disg_grid_reduce_block_atomic_kernel<F, T, Op>>(
           dim3(static_cast<unsigned>(blocks), 1U, 1U),
@@ -652,7 +680,10 @@ struct ReduceLaunchTraits {
                   T identity,
                   T* out,
                   int64_t iter_cells) -> void {
-    if constexpr (requires { typename Grid::DisgPolicy; }) {
+    if constexpr (requires { typename Grid::DenseDisgDistributedPolicy; }) {
+      ::carbon::detail::dense_disg_distributed::launch_disg_reduce<F, T, Op>(
+          q, span, view, fn, op, identity, out, iter_cells);
+    } else if constexpr (requires { typename Grid::DisgPolicy; }) {
       ::carbon::detail::dense_disg::launch_disg_reduce<F, T, Op>(q, span, view, fn, op, identity,
                                                                  out, iter_cells);
     } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {

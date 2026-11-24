@@ -464,6 +464,113 @@ run_parallel_sibling_subtest(carbon::System& sys,
   return true;
 }
 
+// ---------- run_profile phase decomposition subtest ----------
+//
+//   seed : b <- a
+//   left : c <- b          (depends on seed)
+//   right: d <- b          (depends on seed, independent of left)
+//   join : e <- c + d      (depends on both)
+//
+// The expected phase decomposition is [seed], [left, right], [join]: the
+// first and last are serial steps, the middle is one overlapped region whose
+// reported time is a makespan, not the sum of two kernel times.
+[[nodiscard]] auto
+run_profile_subtest(carbon::System& sys,
+                    carbon::Dense& dense) -> bool {
+  auto a = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_a");
+  auto b = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_b");
+  auto c = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_c");
+  auto d = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_d");
+  auto e = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_e");
+  auto z0 = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_z0");
+  auto z1 = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_z1");
+  auto e_ref = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_e_ref");
+
+  fill_owned_constant(dense, a, 1.0F);
+  fill_owned_constant(dense, b, kSentinel);
+  fill_owned_constant(dense, c, kSentinel);
+  fill_owned_constant(dense, d, kSentinel);
+  fill_owned_constant(dense, e, kSentinel);
+  fill_owned_constant(dense, z0, 0.0F);
+  fill_owned_constant(dense, z1, 0.0F);
+  fill_owned_constant(dense, e_ref, 2.0F);
+
+  carbon::Stream s = sys.stream();
+  if (!upload_field(sys, a, s) || !upload_field(sys, b, s) || !upload_field(sys, c, s) ||
+      !upload_field(sys, d, s) || !upload_field(sys, e, s) || !upload_field(sys, z0, s) ||
+      !upload_field(sys, z1, s) || !sync_stream(s, "profile upload")) {
+    return false;
+  }
+
+  carbon::Skeleton sk(sys, s);
+  sk.add(build_copy_kernel(dense, a, b, "seed"));
+  sk.add(build_copy_kernel(dense, b, c, "left"));
+  sk.add(build_copy_kernel(dense, b, d, "right"));
+  sk.add(build_combine_kernel(dense, c, d, z0, z1, e, "join"));
+
+  std::vector<carbon::Skeleton::ProfilePhase> phases;
+  try {
+    phases = sk.run_profile();
+  } catch (const std::exception& ex) {
+    CARBON_LOG_ERROR("test_skeleton: run_profile threw: {}", ex.what());
+    return false;
+  }
+
+  if (phases.size() != 3U) {
+    CARBON_LOG_ERROR("test_skeleton: profile expected 3 phases, got {}", phases.size());
+    return false;
+  }
+  if (phases[0].steps.size() != 1U || phases[1].steps.size() != 2U ||
+      phases[2].steps.size() != 1U) {
+    CARBON_LOG_ERROR(
+        "test_skeleton: profile expected phase sizes [1, 2, 1], got [{}, {}, {}]",
+        phases[0].steps.size(), phases[1].steps.size(), phases[2].steps.size());
+    return false;
+  }
+  if (phases[0].steps[0].name != "seed" || phases[1].steps[0].name != "left" ||
+      phases[1].steps[1].name != "right" || phases[2].steps[0].name != "join") {
+    CARBON_LOG_ERROR(
+        "test_skeleton: profile phase labels mismatch: [{}, {}+{}, {}]",
+        phases[0].steps[0].name, phases[1].steps[0].name, phases[1].steps[1].name,
+        phases[2].steps[0].name);
+    return false;
+  }
+  for (const auto& phase : phases) {
+    if (!(phase.milliseconds >= 0.0)) {
+      CARBON_LOG_ERROR("test_skeleton: profile phase has negative duration {}", phase.milliseconds);
+      return false;
+    }
+  }
+
+  if (!download_field(sys, e, s) || !sync_stream(s, "profile download") ||
+      !compare_fields(dense, e, e_ref)) {
+    return false;
+  }
+
+  // Serial pipeline: every step is its own phase under OverlapMode::None.
+  auto sa = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_serial_a");
+  auto sb = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_serial_b");
+  auto sc = dense.newField<float, 1>(carbon::MemorySide::HostDevice, "prof_serial_c");
+  fill_owned_constant(dense, sa, 3.0F);
+  fill_owned_constant(dense, sb, kSentinel);
+  fill_owned_constant(dense, sc, kSentinel);
+  if (!upload_field(sys, sa, s) || !upload_field(sys, sb, s) || !upload_field(sys, sc, s) ||
+      !sync_stream(s, "profile serial upload")) {
+    return false;
+  }
+  carbon::Skeleton sk_serial(sys, s);
+  sk_serial.add(build_copy_kernel(dense, sa, sb, "serial_ab"));
+  sk_serial.add(build_copy_kernel(dense, sb, sc, "serial_bc"));
+  const auto serial_phases = sk_serial.run_profile();
+  if (serial_phases.size() != 2U || serial_phases[0].steps.size() != 1U ||
+      serial_phases[1].steps.size() != 1U) {
+    CARBON_LOG_ERROR("test_skeleton: serial profile expected two 1-step phases, got {}",
+                     serial_phases.size());
+    return false;
+  }
+  return true;
+}
+
 // ---------- Auto-halo + Options subtest ----------
 //
 // Three concerns at once:
@@ -1228,6 +1335,12 @@ main() {
   // ---------- Parallel-sibling subtest ----------
   if (!run_parallel_sibling_subtest(sys, dense)) {
     CARBON_LOG_ERROR("test_skeleton: parallel-sibling subtest failed");
+    return 1;
+  }
+
+  // ---------- run_profile phase decomposition subtest ----------
+  if (!run_profile_subtest(sys, dense)) {
+    CARBON_LOG_ERROR("test_skeleton: run_profile subtest failed");
     return 1;
   }
 

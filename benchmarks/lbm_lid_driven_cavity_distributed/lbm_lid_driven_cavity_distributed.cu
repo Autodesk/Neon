@@ -35,6 +35,7 @@
 #include <carbon/dense.h>
 #include <carbon/dense_disg.h>
 #include <carbon/dense_distributed.h>
+#include <carbon/dense_disg_distributed.h>
 // CARBON_BACKEND_NAME is "cuda" or "sycl" depending on which backend the
 // library was configured with. Stamped into the JSON report's system block
 // so a sweep that drives both backends from the same scripts/ directory
@@ -55,6 +56,7 @@
 
 #include <clipp.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -108,6 +110,7 @@ struct Options {
   int64_t n = 128;
   int64_t iters = 1000;
   int64_t warmup = 100;
+  int64_t reps = 1;
   double re = 100.0;
   double ulb = 0.05;
   bool ulb_set = false;
@@ -119,10 +122,11 @@ struct Options {
   // Cartesian z-slabs); "disg" is carbon::DenseDisg (the disaggregated,
   // five-region-per-slab lattice-Boltzmann layout); "dense_distributed" is
   // carbon::DenseDistributed, which honours --decomposition and exchanges
-  // halos along all decomposed axes. All three run the identical hot kernel
-  // (the pull-stream + half-way bounce-back + symmetric BGK body) — the only
+  // halos along all decomposed axes; "disg_distributed" is
+  // carbon::DenseDisgDistributed (disaggregated layout on a ProcessGrid;
+  // slab, pencil and brick). All run the identical hot kernel — the only
   // differences are the per-slab storage layout and the auto-inserted halo
-  // family (Halo / HaloDisg / HaloDistributed).
+  // family (Halo / HaloDisg / HaloDistributed / HaloDisgDistributed).
   std::string grid = "dense";
   std::string decomposition = "slab";
   std::string report_path = "";
@@ -146,6 +150,7 @@ struct Options {
   bool hp_halo = false;
   std::string export_dot_path = "";
   std::string export_dot_png_path = "";
+  std::string export_dot_streams_path = "";
   // Opt in to carbon::Skeleton CUDA-graph capture + replay of each ping-pong
   // skeleton. Engaged only for single-GPU / single-stream schedules (the
   // OverlapMode::None single-GPU case); a no-op fallback otherwise.
@@ -175,6 +180,10 @@ build_cli(Options& opts) -> clipp::group {
           "Total iterations including warmup (default 1000)",
       (option("--warmup") & integer("warmup", opts.warmup)) %
           "Warmup iterations excluded from timing (default 100)",
+      (option("--reps") & integer("reps", opts.reps)) %
+          "Split the timed iterations into N equal repetitions, each closed by a GPU drain "
+          "and (under MPI) a barrier, and report per-repetition MLUPS plus "
+          "mean/min/max/stddev (default 1). Timed iterations must divide by N.",
       (option("--re") & number("re", opts.re)) % "Reynolds number (default 1e2)",
       (option("--ulb") & number("ulb", opts.ulb).set(opts.ulb_set)) %
           "Override lid velocity in lattice units (default 0.05)",
@@ -182,14 +191,16 @@ build_cli(Options& opts) -> clipp::group {
           "Lattice stencil: q19 (D3Q19, default) or q27 (D3Q27)",
       (option("--collision") & value("bgk|kbc", opts.collision)) %
           "Collision model: bgk (default) or kbc (entropic; D3Q27 only)",
-      (option("--grid") & value("dense|disg|dense_distributed", opts.grid)) %
+      (option("--grid") & value("dense|disg|dense_distributed|disg_distributed", opts.grid)) %
           "Grid family: dense (carbon::Dense, default), disg (carbon::DenseDisg, "
-          "the disaggregated five-region LBM layout), or dense_distributed "
-          "(carbon::DenseDistributed, honours --decomposition). Same hot kernel on all.",
+          "the disaggregated five-region LBM layout), dense_distributed "
+          "(carbon::DenseDistributed, honours --decomposition), or disg_distributed "
+          "(carbon::DenseDisgDistributed, disaggregated + ProcessGrid). "
+          "Same hot kernel on all.",
       (option("--decomposition") & value("slab|pencil|brick", opts.decomposition)) %
-          "Process decomposition for --grid dense_distributed (default: slab). "
-          "slab splits z; pencil splits y and z; brick splits all three axes. "
-          "Auto-factorized across ranks; ignored for dense/disg, which are slab-only.",
+          "Process decomposition for --grid dense_distributed|disg_distributed "
+          "(default: slab). slab splits z; pencil splits y and z; brick splits all three "
+          "axes. Auto-factorized across ranks; ignored for dense/disg, which are slab-only.",
       (option("-gpus", "--gpus") & integer("n", opts.n_gpus)) %
           "Use the first N visible CUDA devices (-1 = all visible; default -1). "
           "Combine with CUDA_VISIBLE_DEVICES to pick physical GPUs.",
@@ -217,11 +228,13 @@ build_cli(Options& opts) -> clipp::group {
           "Boundary kernels get SMs before Internal's pending blocks. Only meaningful with "
           "--overlap != none.",
       (option("--export-dot") & value("path", opts.export_dot_path)) %
-          "Write the compiled Skeleton schedule graph (GraphViz .dot) for the "
-          "AB ping-pong skeleton to PATH after compile.",
+          "Write the compiled Skeleton launch-matrix schedule (GraphViz .dot) for "
+          "the AB ping-pong skeleton to PATH after compile.",
       (option("--export-dot-png") & value("path", opts.export_dot_png_path)) %
-          "Render the schedule graph to PNG via GraphViz (requires dot on PATH). "
-          "Also writes a sibling .dot file.",
+          "Render the launch-matrix schedule to PNG via GraphViz (requires dot on "
+          "PATH). Also writes a sibling .dot file.",
+      (option("--export-dot-streams") & value("path", opts.export_dot_streams_path)) %
+          "Write the stream-cluster schedule graph (legacy export_dot format) to PATH.",
       option("--cuda-graph").set(opts.cuda_graph) %
           "Capture + replay each ping-pong skeleton as a CUDA graph (single-GPU / "
           "single-stream only; transparently falls back to eager launch otherwise). "
@@ -257,6 +270,12 @@ parse_cli(int argc,
               << " for iters=" << opts.iters << ")\n";
     return false;
   }
+  const int64_t timed_iters = opts.no_warmup_skip ? opts.iters : opts.iters - opts.warmup;
+  if (opts.reps < 1 || timed_iters % opts.reps != 0) {
+    std::cerr << "lbm_lid_driven_cavity: --reps must be >= 1 and divide the " << timed_iters
+              << " timed iterations (got " << opts.reps << ")\n";
+    return false;
+  }
   if (opts.lattice != "q19" && opts.lattice != "q27") {
     std::cerr << "lbm_lid_driven_cavity: --lattice must be q19 or q27 (got '" << opts.lattice
               << "')\n";
@@ -272,8 +291,10 @@ parse_cli(int argc,
                  "(KBC's moment basis is defined for D3Q27 only)\n";
     return false;
   }
-  if (opts.grid != "dense" && opts.grid != "disg" && opts.grid != "dense_distributed") {
-    std::cerr << "lbm_lid_driven_cavity: --grid must be dense, disg, or dense_distributed (got '"
+  if (opts.grid != "dense" && opts.grid != "disg" && opts.grid != "dense_distributed" &&
+      opts.grid != "disg_distributed") {
+    std::cerr << "lbm_lid_driven_cavity: --grid must be dense, disg, dense_distributed, or "
+                 "disg_distributed (got '"
               << opts.grid << "')\n";
     return false;
   }
@@ -283,9 +304,11 @@ parse_cli(int argc,
               << opts.decomposition << "')\n";
     return false;
   }
-  if (opts.grid != "dense_distributed" && opts.decomposition != "slab") {
+  if (opts.grid != "dense_distributed" && opts.grid != "disg_distributed" &&
+      opts.decomposition != "slab") {
     std::cerr << "lbm_lid_driven_cavity: --decomposition " << opts.decomposition
-              << " requires --grid dense_distributed (dense/disg are slab-only)\n";
+              << " requires --grid dense_distributed or disg_distributed "
+                 "(dense/disg are slab-only)\n";
     return false;
   }
   if (opts.overlap != "none" && opts.overlap != "standard" && opts.overlap != "extended" &&
@@ -495,9 +518,10 @@ run_benchmark(const Options& opts,
               const std::string& collision_name,
               carbon::DecompositionMode dec_mode) -> int {
   static_assert(std::is_same_v<Grid, carbon::Dense> || std::is_same_v<Grid, carbon::DenseDisg> ||
-                    std::is_same_v<Grid, carbon::DenseDistributed>,
-                "LBM benchmark supports carbon::Dense, carbon::DenseDisg, and "
-                "carbon::DenseDistributed only.");
+                    std::is_same_v<Grid, carbon::DenseDistributed> ||
+                    std::is_same_v<Grid, carbon::DenseDisgDistributed>,
+                "LBM benchmark supports carbon::Dense, carbon::DenseDisg, "
+                "carbon::DenseDistributed, and carbon::DenseDisgDistributed only.");
 #ifdef CARBON_HAVE_MPI_NCCL
   // Auto-detect MPI launches: the `Distributed` ctor invokes `MPI_Init` (a
   // no-op when already initialised) and bootstraps an `ncclComm_t` over every
@@ -527,7 +551,8 @@ run_benchmark(const Options& opts,
   const carbon::int64_3d global{opts.n, opts.n, opts.n};
 
   std::optional<carbon::ProcessGrid> pg;
-  if constexpr (std::is_same_v<Grid, carbon::DenseDistributed>) {
+  if constexpr (std::is_same_v<Grid, carbon::DenseDistributed> ||
+                std::is_same_v<Grid, carbon::DenseDisgDistributed>) {
     const int grid_world = use_mpi ? world_size : local_gpu_count;
     pg.emplace(carbon::ProcessGrid::make(grid_world, dec_mode));
     if (world_rank == 0) {
@@ -538,15 +563,17 @@ run_benchmark(const Options& opts,
   }
 
   // Construct the selected grid family. Dense/DenseDisg give a radius-1 z-halo
-  // (D3Q19 / D3Q27 have |c|_inf == 1); DenseDistributed derives per-axis halos
-  // from the same stencil and honours the requested decomposition. Only one
-  // branch is instantiated per Grid, so the IIFE's return type is the concrete
-  // grid type for this instantiation.
+  // (D3Q19 / D3Q27 have |c|_inf == 1); DenseDistributed / DenseDisgDistributed
+  // derive per-axis halos from the same stencil and honour the requested
+  // decomposition. Only one branch is instantiated per Grid, so the IIFE's
+  // return type is the concrete grid type for this instantiation.
   Grid grid = [&]() -> Grid {
     if constexpr (std::is_same_v<Grid, carbon::Dense>) {
       return carbon::Dense(sys, global, stencil);
     } else if constexpr (std::is_same_v<Grid, carbon::DenseDisg>) {
       return carbon::DenseDisg(sys, global, /*halo_z=*/1);
+    } else if constexpr (std::is_same_v<Grid, carbon::DenseDisgDistributed>) {
+      return carbon::DenseDisgDistributed(sys, global, *pg, stencil);
     } else {
       return carbon::DenseDistributed(sys, global, *pg, stencil);
     }
@@ -664,41 +691,78 @@ run_benchmark(const Options& opts,
       opts.overlap, opts.hp_halo);
 
   if (!opts.export_dot_path.empty()) {
-    if (!sk_ab.export_dot_file(opts.export_dot_path, "lbm_sk_ab")) {
+    if (!sk_ab.export_launch_matrix_dot_file(opts.export_dot_path, "lbm_sk_ab")) {
       CARBON_LOG_ERROR("lbm_lid_driven_cavity: --export-dot failed for {}", opts.export_dot_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote schedule DOT to {}", opts.export_dot_path);
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix DOT to {}", opts.export_dot_path);
   }
   if (!opts.export_dot_png_path.empty()) {
-    if (!sk_ab.export_dot_png(opts.export_dot_png_path, "lbm_sk_ab")) {
+    if (!sk_ab.export_launch_matrix_dot_png(opts.export_dot_png_path, "lbm_sk_ab")) {
       CARBON_LOG_ERROR(
           "lbm_lid_driven_cavity: --export-dot-png failed for {} (is graphviz dot on PATH?)",
           opts.export_dot_png_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote schedule PNG to {}", opts.export_dot_png_path);
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix PNG to {}", opts.export_dot_png_path);
+  }
+  if (!opts.export_dot_streams_path.empty()) {
+    if (!sk_ab.export_dot_file(opts.export_dot_streams_path, "lbm_sk_ab")) {
+      CARBON_LOG_ERROR("lbm_lid_driven_cavity: --export-dot-streams failed for {}",
+                       opts.export_dot_streams_path);
+      return EXIT_FAILURE;
+    }
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote stream-cluster DOT to {}",
+                    opts.export_dot_streams_path);
   }
 
   using Clock = std::chrono::steady_clock;
   using Seconds = std::chrono::duration<double>;
   const int64_t timed_start = opts.no_warmup_skip ? 0 : opts.warmup;
+  const int64_t iters_per_rep = (opts.iters - timed_start) / opts.reps;
+
+  // Every timing mark is taken after all ranks drained, so rank 0's window spans the
+  // slowest rank and the reported MLUPS is a true global figure.
+  auto drain_all_ranks = [&]() {
+    sk_ab.wait();
+    sk_ba.wait();
+#ifdef CARBON_HAVE_MPI_NCCL
+    if (use_mpi) {
+      distributed->barrier();
+    }
+#endif
+  };
 
   Clock::time_point timing_started{};
+  Clock::time_point rep_started{};
   Clock::time_point overall_started = Clock::now();
   bool timing_running = false;
+  std::vector<double> rep_seconds;
+  rep_seconds.reserve(static_cast<size_t>(opts.reps));
 
   for (int64_t it = 0; it < opts.iters; ++it) {
+    if (it > timed_start && (it - timed_start) % iters_per_rep == 0) {
+      try {
+        drain_all_ranks();
+      } catch (const std::exception& e) {
+        CARBON_LOG_ERROR("lbm_lid_driven_cavity: repetition drain failed at iter {}: {}", it,
+                         e.what());
+        return EXIT_FAILURE;
+      }
+      const auto now = Clock::now();
+      rep_seconds.push_back(Seconds(now - rep_started).count());
+      rep_started = now;
+    }
     if (it == timed_start) {
       try {
-        sk_ab.wait();
-        sk_ba.wait();
+        drain_all_ranks();
       } catch (const std::exception& e) {
         CARBON_LOG_ERROR("lbm_lid_driven_cavity: pre-timing drain failed at iter {}: {}", it,
                          e.what());
         return EXIT_FAILURE;
       }
       timing_started = Clock::now();
+      rep_started = timing_started;
       timing_running = true;
       if (!opts.no_warmup_skip) {
         CARBON_LOG_INFO("lbm_lid_driven_cavity: warmup complete ({} iters), starting timing window",
@@ -733,8 +797,7 @@ run_benchmark(const Options& opts,
   }
 
   try {
-    sk_ab.wait();
-    sk_ba.wait();
+    drain_all_ranks();
   } catch (const std::exception& e) {
     CARBON_LOG_ERROR("lbm_lid_driven_cavity: final sync failed: {}", e.what());
     return EXIT_FAILURE;
@@ -754,10 +817,32 @@ run_benchmark(const Options& opts,
   const double mlups =
       (cells_per_iter * static_cast<double>(timed_iters)) / (1.0e6 * timing_seconds);
   const double overall_seconds = Seconds(timing_ended - overall_started).count();
+  rep_seconds.push_back(Seconds(timing_ended - rep_started).count());
 
-  // Under MPI all ranks measure the same `cells_per_iter` (= global N^3) and
-  // run lock-step (halo exchanges synchronise them), so each rank's `mlups`
-  // is the global throughput up to small per-rank timing noise. Print only on
+  std::vector<double> rep_mlups;
+  rep_mlups.reserve(rep_seconds.size());
+  for (const double s : rep_seconds) {
+    rep_mlups.push_back((cells_per_iter * static_cast<double>(iters_per_rep)) / (1.0e6 * s));
+  }
+  double rep_mlups_mean = 0.0;
+  double rep_mlups_min = rep_mlups.front();
+  double rep_mlups_max = rep_mlups.front();
+  for (const double m : rep_mlups) {
+    rep_mlups_mean += m;
+    rep_mlups_min = std::min(rep_mlups_min, m);
+    rep_mlups_max = std::max(rep_mlups_max, m);
+  }
+  rep_mlups_mean /= static_cast<double>(rep_mlups.size());
+  double rep_mlups_var = 0.0;
+  for (const double m : rep_mlups) {
+    rep_mlups_var += (m - rep_mlups_mean) * (m - rep_mlups_mean);
+  }
+  const double rep_mlups_stddev =
+      rep_mlups.size() > 1 ? std::sqrt(rep_mlups_var / static_cast<double>(rep_mlups.size() - 1))
+                           : 0.0;
+
+  // Under MPI all ranks measure the same `cells_per_iter` (= global N^3) between the
+  // same barriers, so each rank's `mlups` is the global throughput. Print only on
   // rank 0 to keep the scrape-friendly headline single-shot. `total_gpu_count`
   // is the world size under MPI (one rank per GPU) and the local GPU count
   // otherwise; `local_gpu_count` stays useful on multi-GPU single-process runs.
@@ -774,6 +859,12 @@ run_benchmark(const Options& opts,
               << " ranks=" << world_size << " decomposition=" << decomposition_mode_name(dec_mode)
               << " lattice=" << lattice_name << " collision=" << collision_name
               << (use_mpi ? " transport=mpi+nccl" : "") << ")" << '\n';
+    if (opts.reps > 1) {
+      CARBON_LOG_INFO(
+          "lbm_lid_driven_cavity: {} repetitions x {} iters  =>  MLUPS mean={:.2f} min={:.2f} "
+          "max={:.2f} stddev={:.2f}",
+          opts.reps, iters_per_rep, rep_mlups_mean, rep_mlups_min, rep_mlups_max, rep_mlups_stddev);
+    }
   }
 
   // Optional grid-family parity checksum: Sum-reduce the whole final population
@@ -924,10 +1015,17 @@ run_benchmark(const Options& opts,
     out << "    \"n\": " << opts.n << ",\n";
     out << "    \"iters\": " << opts.iters << ",\n";
     out << "    \"warmup\": " << opts.warmup << ",\n";
+    out << "    \"reps\": " << opts.reps << ",\n";
     out << "    \"lattice\": \"" << json_escape(lattice_name) << "\",\n";
     out << "    \"collision\": \"" << json_escape(collision_name) << "\",\n";
     out << "    \"grid\": \"" << json_escape(opts.grid) << "\",\n";
     out << "    \"decomposition\": \"" << decomposition_mode_name(dec_mode) << "\",\n";
+    if (pg) {
+      const carbon::int32_3d dims = pg->dims();
+      out << "    \"process_grid\": [" << dims.x << ", " << dims.y << ", " << dims.z << "],\n";
+    } else {
+      out << "    \"process_grid\": null,\n";
+    }
     out << "    \"q\": " << Lattice::Q << ",\n";
     out << "    \"re\": " << opts.re << ",\n";
     out << "    \"ulb\": " << ulb << ",\n";
@@ -980,7 +1078,25 @@ run_benchmark(const Options& opts,
     out << "    \"cells_per_iter\": " << static_cast<int64_t>(cells_per_iter) << ",\n";
     out << "    \"mlups\": " << mlups << ",\n";
     out << "    \"mlups_per_gpu\": " << (mlups / static_cast<double>(total_gpu_count)) << ",\n";
-    out << "    \"effective_bandwidth_gb_s\": " << effective_bandwidth_gb_s << "\n";
+    out << "    \"effective_bandwidth_gb_s\": " << effective_bandwidth_gb_s << ",\n";
+    out << "    \"repetitions\": {\n";
+    out << "      \"count\": " << opts.reps << ",\n";
+    out << "      \"iters_per_rep\": " << iters_per_rep << ",\n";
+    out << "      \"seconds\": [";
+    for (size_t i = 0; i < rep_seconds.size(); ++i) {
+      out << (i == 0 ? "" : ", ") << rep_seconds[i];
+    }
+    out << "],\n";
+    out << "      \"mlups\": [";
+    for (size_t i = 0; i < rep_mlups.size(); ++i) {
+      out << (i == 0 ? "" : ", ") << rep_mlups[i];
+    }
+    out << "],\n";
+    out << "      \"mlups_mean\": " << rep_mlups_mean << ",\n";
+    out << "      \"mlups_min\": " << rep_mlups_min << ",\n";
+    out << "      \"mlups_max\": " << rep_mlups_max << ",\n";
+    out << "      \"mlups_stddev\": " << rep_mlups_stddev << "\n";
+    out << "    }\n";
     out << "  }\n";
     out << "}\n";
     out.close();
@@ -1048,6 +1164,9 @@ main(int argc,
   }
   if (opts.grid == "dense_distributed") {
     return dispatch_grid(std::type_identity<carbon::DenseDistributed>{});
+  }
+  if (opts.grid == "disg_distributed") {
+    return dispatch_grid(std::type_identity<carbon::DenseDisgDistributed>{});
   }
   return dispatch_grid(std::type_identity<carbon::Dense>{});
 }
