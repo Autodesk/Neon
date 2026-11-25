@@ -81,7 +81,7 @@ class Span {
   bool legacy_slab_{false};
   float32_3d origin_{};
   float spacing_{1.0F};
-  ShellBands shell_bands_cache_{};
+  StorageKind kind_{StorageKind::Brick};   
 
 public:
   CARBON_HD constexpr Span() noexcept = default;
@@ -112,7 +112,8 @@ public:
         legacy_slab_(legacy_slab),
         origin_(origin),
         spacing_(spacing),
-        shell_bands_cache_(make_shell_bands_(haloed_extent, halo)) {}
+        kind_(compute_kind_(haloed_extent, global_extent, offset, halo))
+        {}
 
   /**
    * Construct a span over its @b storage (haloed) extent.
@@ -244,7 +245,7 @@ public:
         if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
           return int64_3d{owned.x, owned.y, halo_.z > 0 ? 2 * halo_.z : 0};
         }
-        const int64_t shell = shell_bands_().total;
+        const int64_t shell = make_shell_bands_(haloed_extent_, halo_).total;
         if (shell == 0) {
           return int64_3d{0, 0, 0};
         }
@@ -337,17 +338,7 @@ public:
    */
   [[nodiscard]] CARBON_HD constexpr auto
   storage_kind() const noexcept -> StorageKind {
-    if (halo_.x != 0) {
-      return StorageKind::Brick;
-    }
-    if (halo_.y != 0) {
-      return StorageKind::Pencil;
-    }
-    if (offset_.x == 0 && offset_.y == 0 && haloed_extent_.x == global_extent_.x &&
-        haloed_extent_.y == global_extent_.y) {
-      return StorageKind::Slab;
-    }
-    return StorageKind::Brick;
+    return kind_;
   }
 
   /** Physical-space origin at global integer cell @c (0,0,0) (cell-corner convention). */
@@ -487,10 +478,24 @@ private:
     return b;
   }
 
-  [[nodiscard]] CARBON_HD constexpr auto
-  shell_bands_() const noexcept -> const ShellBands& {
-    return shell_bands_cache_;
+  [[nodiscard]] static CARBON_HD constexpr auto
+  compute_kind_(int64_3d haloed_extent,
+                int64_3d global_extent,
+                int64_3d offset,
+                int64_3d halo) noexcept -> StorageKind {
+    if (halo.x != 0) {
+      return StorageKind::Brick;
+    }
+    if (halo.y != 0) {
+      return StorageKind::Pencil;
+    }
+    if (offset.x == 0 && offset.y == 0 && haloed_extent.x == global_extent.x &&
+        haloed_extent.y == global_extent.y) {
+      return StorageKind::Slab;
+    }
+    return StorageKind::Brick;
   }
+
 
   /** Owned-local cell of linear shell index @p t in [0, bands.total); x varies fastest. */
   [[nodiscard]] CARBON_HD constexpr auto
@@ -594,7 +599,7 @@ Span::set_and_validate(::carbon::DataView view,
 
       // Compact shell: thread (ix, iy) is the linear shell index t (iz is 0 by the range check
       // above); the padded tail of the last row is invalid.
-      const ShellBands& bands = shell_bands_();
+      const ShellBands bands = make_shell_bands_(haloed_extent_, halo_);
       const int64_t t = iy * ext.x + ix;
       if (t >= bands.total) {
         return ValidatedIdx{Idx{}, false};
@@ -602,6 +607,7 @@ Span::set_and_validate(::carbon::DataView view,
       const int64_3d c = shell_cell_(bands, t);
       return ValidatedIdx{Idx(halo_.x + c.x, halo_.y + c.y, halo_.z + c.z), true};
     }
+    
   }
   return ValidatedIdx{Idx{}, false};
 }
@@ -659,17 +665,12 @@ neighbour_idx(const SpanT& span,
   const int64_3d off = span.offset();
   const BoundaryModeDistributed mode = span.boundary_mode();
 
-  if constexpr (requires { SpanT::kind; }) {
-    if constexpr (SpanT::kind == StorageKind::Slab) {
-      // Slab spans span the full global x/y domain with no x/y halo or buffer origin, so the
-      // buffer x/y bounds above already imply the global x/y bounds. Only z needs the
-      // global-domain check, matching Dense's z-only neighbour path.
-      const int64_t gz = bz + off.z;
-      if ((gz < 0 || gz >= global_extent.z) && !is_periodic(mode, Axis::Z)) {
-        return {};
-      }
-      return NeighbourIdx{Idx(bx, by, bz), true};
+  if (span.storage_kind() == StorageKind::Slab) {
+    const int64_t gz = bz + off.z;
+    if ((gz < 0 || gz >= global_extent.z) && !is_periodic(mode, Axis::Z)) {
+      return {};
     }
+    return NeighbourIdx{Idx(bx, by, bz), true};
   }
 
   const int64_t gx = bx + off.x;

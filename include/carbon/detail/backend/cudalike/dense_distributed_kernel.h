@@ -58,22 +58,37 @@ concept dense_kernel_fn = requires(F fn, Span span, Idx idx) {
  *              @c if constexpr -specialise the slab path (pass the span into user lambdas as
  *              @c auto ).
  */
+// template <typename F, StorageKind Kind>
+// requires dense_kernel_fn<F> __global__ void
+// dense_grid_kernel(TypedSpan<Kind> span,
+//                   ::carbon::DataView view,
+//                   F fn) {
+//   const int64_t ix = static_cast<int64_t>(blockIdx.x * blockDim.x + threadIdx.x);
+//   const int64_t iy = static_cast<int64_t>(blockIdx.y * blockDim.y + threadIdx.y);
+//   const int64_t iz = static_cast<int64_t>(blockIdx.z * blockDim.z + threadIdx.z);
+//   // Copy out of parameter space so lambdas taking the span by reference do not address the
+//   // by-value parameter through the local window (matches the DenseDisgDistributed kernel).
+//   const ValidatedIdx r = span.set_and_validate(view, ix, iy, iz);
+//   if (!r.valid) {
+//     return;
+//   }
+//   fn(span, r.idx);
+// }
+
+// detail/backend/cudalike/dense_distributed_kernel.h
 template <typename F, StorageKind Kind>
 requires dense_kernel_fn<F> __global__ void
-dense_grid_kernel(Span span,
+dense_grid_kernel(Span span,                  // ← back to Span (matches typed_launch)
                   ::carbon::DataView view,
                   F fn) {
   const int64_t ix = static_cast<int64_t>(blockIdx.x * blockDim.x + threadIdx.x);
   const int64_t iy = static_cast<int64_t>(blockIdx.y * blockDim.y + threadIdx.y);
   const int64_t iz = static_cast<int64_t>(blockIdx.z * blockDim.z + threadIdx.z);
-  // Copy out of parameter space so lambdas taking the span by reference do not address the
-  // by-value parameter through the local window (matches the DenseDisgDistributed kernel).
-  const TypedSpan<Kind> local{span};
-  const ValidatedIdx r = local.set_and_validate(view, ix, iy, iz);
+  const ValidatedIdx r = span.set_and_validate(view, ix, iy, iz);
   if (!r.valid) {
     return;
   }
-  fn(local, r.idx);
+  fn(span, r.idx);
 }
 
 #endif

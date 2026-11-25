@@ -8,6 +8,8 @@
 
 #include <carbon/process_grid.h>
 
+#include <stdint.h>
+
 namespace carbon::detail::dense_distributed {
 
 /**
@@ -25,6 +27,9 @@ using Idx = ::carbon::detail::dense::Idx;
  * the local @c ValidatedIdx spelling is preserved as a source-compat alias.
  */
 using ValidatedIdx = ::carbon::detail::Validated<Idx>;
+
+/** Compile-time storage-map selector for device-kernel specialisation. */
+enum class StorageKind : uint8_t { Slab = 0, Pencil = 1, Brick = 2 };
 
 /**
  * The Boundary shell as six disjoint boxes over the owned extent. Per axis the low / high band
@@ -315,6 +320,34 @@ public:
   [[nodiscard]] CARBON_HD constexpr auto
   boundary_mode() const noexcept -> BoundaryModeDistributed {
     return boundary_mode_;
+  }
+
+  /**
+   * Runtime storage/decomposition kind used to stamp a @ref TypedSpan at kernel entry.
+   *
+   * - @c Slab: no x/y halo and a chunk that spans the full global x/y domain with buffer x/y
+   *   origin zero. This is the legacy z-slab case, and it is exactly the invariant that lets
+   *   @ref neighbour_idx skip the per-neighbour x/y global-domain checks (buffer x/y coordinates
+   *   are then always inside the global domain).
+   * - @c Pencil: no x halo but a y halo.
+   * - @c Brick: an x halo (and therefore no Slab/Pencil shortcut).
+   *
+   * Spans that do not satisfy the Slab invariant (for example a translated, halo-free subvolume)
+   * deliberately report @c Brick, so the generic bounds path is used.
+   */
+  [[nodiscard]] CARBON_HD constexpr auto
+  storage_kind() const noexcept -> StorageKind {
+    if (halo_.x != 0) {
+      return StorageKind::Brick;
+    }
+    if (halo_.y != 0) {
+      return StorageKind::Pencil;
+    }
+    if (offset_.x == 0 && offset_.y == 0 && haloed_extent_.x == global_extent_.x &&
+        haloed_extent_.y == global_extent_.y) {
+      return StorageKind::Slab;
+    }
+    return StorageKind::Brick;
   }
 
   /** Physical-space origin at global integer cell @c (0,0,0) (cell-corner convention). */
@@ -609,8 +642,9 @@ struct NeighbourIdx {
  *   because the halo exchange has filled it with the wrapped data; the buffer-local index is
  *   accepted and @c valid = true is returned.
  */
+template <typename SpanT>
 [[nodiscard]] CARBON_HD constexpr auto
-neighbour_idx(const Span& span,
+neighbour_idx(const SpanT& span,
               const Idx& idx,
               ::carbon::int8_3d offset) noexcept -> NeighbourIdx {
   const int64_3d cell = idx.cell();
@@ -624,6 +658,19 @@ neighbour_idx(const Span& span,
   const int64_3d global_extent = span.global_extent();
   const int64_3d off = span.offset();
   const BoundaryModeDistributed mode = span.boundary_mode();
+
+  if constexpr (requires { SpanT::kind; }) {
+    if constexpr (SpanT::kind == StorageKind::Slab) {
+      // Slab spans span the full global x/y domain with no x/y halo or buffer origin, so the
+      // buffer x/y bounds above already imply the global x/y bounds. Only z needs the
+      // global-domain check, matching Dense's z-only neighbour path.
+      const int64_t gz = bz + off.z;
+      if ((gz < 0 || gz >= global_extent.z) && !is_periodic(mode, Axis::Z)) {
+        return {};
+      }
+      return NeighbourIdx{Idx(bx, by, bz), true};
+    }
+  }
 
   const int64_t gx = bx + off.x;
   if ((gx < 0 || gx >= global_extent.x) && !is_periodic(mode, Axis::X)) {
@@ -642,5 +689,19 @@ neighbour_idx(const Span& span,
 
   return NeighbourIdx{Idx(bx, by, bz), true};
 }
+
+/**
+ * Device-launch wrapper that stamps @p Kind onto a @ref Span so @c Partition hot paths can
+ * @c if constexpr -specialise (the slab path matches @c Dense's z-only neighbour checks).
+ * Constructed from the runtime @ref Span at kernel entry; user lambdas should take the span as
+ * @c auto .
+ */
+template <StorageKind Kind>
+struct TypedSpan : Span {
+  static constexpr StorageKind kind = Kind;
+
+  CARBON_HD constexpr TypedSpan() noexcept = default;
+  CARBON_HD constexpr explicit TypedSpan(Span span) noexcept : Span(span) {}
+};
 
 }  // namespace carbon::detail::dense_distributed
