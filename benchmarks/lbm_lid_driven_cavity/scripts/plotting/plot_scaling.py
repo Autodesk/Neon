@@ -353,8 +353,8 @@ def plot_grids(s: Series, n: int, output: Path, show: bool) -> bool:
     table.set_fontsize(8)
     key.text(0.0, 1.0, "Fastest configuration", fontsize=9, weight="bold", va="bottom",
              transform=key.transAxes)
-    key.text(0.0, 0.0, "P Peeraccess, N NCCL, M MPI (P2P); s / p / b slab / pencil / brick "
-             "(distributed grids); +hp hp-halo on", fontsize=8, color="#555555",
+    key.text(0.0, 0.0, "P = Peeraccess, N = NCCL, M = MPI (P2P); s / p / b = slab / pencil / "
+             "brick (distributed grids); +hp = hp-halo on", fontsize=8, color="#555555",
              transform=key.transAxes)
     fig.suptitle(f"Carbon LBM grids at N={n}: MLUPS per GPU\n{s.describe()}"
                  + (f"; ideal: 1-GPU {s.ref_name}" if ref is not None else ""),
