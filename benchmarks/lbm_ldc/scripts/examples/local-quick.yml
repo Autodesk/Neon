@@ -3,10 +3,10 @@
 # Needs the host's cmake, nvcc and (for Ninja builds) ninja; see ../lbm-sweep.yml
 # for every key.
 #
-#   ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh \
-#       benchmarks/lbm_lid_driven_cavity/scripts/examples/local-quick.yml
-#   python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py \
-#       --config benchmarks/lbm_lid_driven_cavity/scripts/examples/local-quick.yml
+#   ./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh \
+#       benchmarks/lbm_ldc/scripts/examples/local-quick.yml
+#   python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py \
+#       --config benchmarks/lbm_ldc/scripts/examples/local-quick.yml
 #
 # The timing is the default one, so these reports are shared with any other sweep
 # writing to the same data_dir.

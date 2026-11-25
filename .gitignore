@@ -72,8 +72,8 @@ docker-logs/
 # Generated benchmark reports / plots. LBM sweeps write data/; the committed
 # copy for future reference is reference/.
 /reports/
-/benchmarks/lbm_lid_driven_cavity/data/
-!/benchmarks/lbm_lid_driven_cavity/reference/json/*.json
+/benchmarks/lbm_ldc/data/
+!/benchmarks/lbm_ldc/reference/json/*.json
 
 # Python bytecode caches.
 __pycache__/

@@ -79,7 +79,7 @@ def add_common_args(p: argparse.ArgumentParser) -> None:
                    help="Sweep YAML of lbm-sweep-run.sh.")
     p.add_argument("--data-dir", type=Path, default=None,
                    help="Folder with json/ to read and plots/ to write (default: the "
-                   "YAML's data_dir; e.g. benchmarks/lbm_lid_driven_cavity/reference).")
+                   "YAML's data_dir; e.g. benchmarks/lbm_ldc/reference).")
     p.add_argument("--only", default=None,
                    help="Comma-separated experiment names (default: every experiment).")
     p.add_argument("--show", action="store_true", help="Pop each figure interactively.")

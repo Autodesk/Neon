@@ -1082,7 +1082,7 @@ run_cg(Grid& grid,
 
 
   // ---- Optional VTK dump ------------------------------------------------
-  // Same pattern as benchmarks/lbm_lid_driven_cavity: build a small
+  // Same pattern as benchmarks/lbm_ldc: build a small
   // Skeleton that materialises the solution (and a gradient) into
   // HostDevice fields, download them, then write via carbon::io::write_vtk.
   // Only carbon::Dense and carbon::DenseDistributed have a VTK writer;

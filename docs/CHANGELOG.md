@@ -6690,3 +6690,9 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   `run_local_full_matrix.sh` (replaced by `scripts/examples/local-quick.yml`), the
   per-set `reproduce.sh`, the `prefix` / `reference_dir` / `reference_prefix` keys and
   the loader's fallback to the names of the retired distributed sweep scripts.
+- **2026-11 — LDC benchmark renamed `lbm_ldc`.** `benchmarks/lbm_lid_driven_cavity/`
+  is now `benchmarks/lbm_ldc/` (source `lbm_ldc.cu`, target and binary
+  `carbon_benchmark_lbm_ldc`); the log tag and the JSON report's `benchmark` field
+  follow. Scripts, YAMLs, docs and the include path of the examples are updated;
+  the committed reference reports keep the old `benchmark` value they were written
+  with.

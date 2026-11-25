@@ -35,8 +35,8 @@ For every configs x precisions series it writes
 
 Example::
 
-    python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_best_family.py \\
-        --config benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml
+    python3 benchmarks/lbm_ldc/scripts/plotting/plot_best_family.py \\
+        --config benchmarks/lbm_ldc/scripts/lbm-sweep.yml
 """
 
 from __future__ import annotations

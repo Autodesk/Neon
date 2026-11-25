@@ -264,67 +264,64 @@ parse_cli(int argc,
     return opts.show_help;
   }
   if (opts.n < 4) {
-    std::cerr << "lbm_lid_driven_cavity: --n must be >= 4 (got " << opts.n << ")\n";
+    std::cerr << "lbm_ldc: --n must be >= 4 (got " << opts.n << ")\n";
     return false;
   }
   if (opts.iters <= 0) {
-    std::cerr << "lbm_lid_driven_cavity: --iters must be > 0 (got " << opts.iters << ")\n";
+    std::cerr << "lbm_ldc: --iters must be > 0 (got " << opts.iters << ")\n";
     return false;
   }
   if (opts.warmup < 0 || opts.warmup >= opts.iters) {
-    std::cerr << "lbm_lid_driven_cavity: --warmup must be in [0, iters) (got " << opts.warmup
+    std::cerr << "lbm_ldc: --warmup must be in [0, iters) (got " << opts.warmup
               << " for iters=" << opts.iters << ")\n";
     return false;
   }
   const int64_t timed_iters = opts.no_warmup_skip ? opts.iters : opts.iters - opts.warmup;
   if (opts.reps < 1 || timed_iters % opts.reps != 0) {
-    std::cerr << "lbm_lid_driven_cavity: --reps must be >= 1 and divide the " << timed_iters
+    std::cerr << "lbm_ldc: --reps must be >= 1 and divide the " << timed_iters
               << " timed iterations (got " << opts.reps << ")\n";
     return false;
   }
   if (opts.lattice != "q19" && opts.lattice != "q27") {
-    std::cerr << "lbm_lid_driven_cavity: --lattice must be q19 or q27 (got '" << opts.lattice
-              << "')\n";
+    std::cerr << "lbm_ldc: --lattice must be q19 or q27 (got '" << opts.lattice << "')\n";
     return false;
   }
   if (opts.collision != "bgk" && opts.collision != "kbc") {
-    std::cerr << "lbm_lid_driven_cavity: --collision must be bgk or kbc (got '" << opts.collision
-              << "')\n";
+    std::cerr << "lbm_ldc: --collision must be bgk or kbc (got '" << opts.collision << "')\n";
     return false;
   }
   if (opts.precision != "fp32" && opts.precision != "fp64") {
-    std::cerr << "lbm_lid_driven_cavity: --precision must be fp32 or fp64 (got '" << opts.precision
-              << "')\n";
+    std::cerr << "lbm_ldc: --precision must be fp32 or fp64 (got '" << opts.precision << "')\n";
     return false;
   }
   if (opts.collision == "kbc" && opts.lattice != "q27") {
-    std::cerr << "lbm_lid_driven_cavity: --collision kbc requires --lattice q27 "
+    std::cerr << "lbm_ldc: --collision kbc requires --lattice q27 "
                  "(KBC's moment basis is defined for D3Q27 only)\n";
     return false;
   }
   if (opts.grid != "dense" && opts.grid != "disg" && opts.grid != "dense_distributed" &&
       opts.grid != "disg_distributed") {
-    std::cerr << "lbm_lid_driven_cavity: --grid must be dense, disg, dense_distributed, or "
+    std::cerr << "lbm_ldc: --grid must be dense, disg, dense_distributed, or "
                  "disg_distributed (got '"
               << opts.grid << "')\n";
     return false;
   }
   if (opts.decomposition != "slab" && opts.decomposition != "pencil" &&
       opts.decomposition != "brick") {
-    std::cerr << "lbm_lid_driven_cavity: --decomposition must be slab, pencil, or brick (got '"
+    std::cerr << "lbm_ldc: --decomposition must be slab, pencil, or brick (got '"
               << opts.decomposition << "')\n";
     return false;
   }
   if (opts.grid != "dense_distributed" && opts.grid != "disg_distributed" &&
       opts.decomposition != "slab") {
-    std::cerr << "lbm_lid_driven_cavity: --decomposition " << opts.decomposition
+    std::cerr << "lbm_ldc: --decomposition " << opts.decomposition
               << " requires --grid dense_distributed or disg_distributed "
                  "(dense/disg are slab-only)\n";
     return false;
   }
   if (opts.overlap != "none" && opts.overlap != "standard" && opts.overlap != "extended" &&
       opts.overlap != "twoway-extended") {
-    std::cerr << "lbm_lid_driven_cavity: --overlap must be one of "
+    std::cerr << "lbm_ldc: --overlap must be one of "
                  "{none, standard, extended, twoway-extended} (got '"
               << opts.overlap << "')\n";
     return false;
@@ -506,15 +503,14 @@ make_lbm_stencil() -> carbon::Stencil {
 make_single_process_system(int n_gpus_limit) -> carbon::System {
   std::vector<carbon::detail::Gpu> devices = carbon::get_all_devices();
   if (devices.empty()) {
-    carbon::log::throw_with_log<std::runtime_error>(
-        "lbm_lid_driven_cavity: no CUDA devices visible");
+    carbon::log::throw_with_log<std::runtime_error>("lbm_ldc: no CUDA devices visible");
   }
   if (n_gpus_limit > 0 && static_cast<size_t>(n_gpus_limit) < devices.size()) {
     devices.erase(devices.begin() + static_cast<std::ptrdiff_t>(n_gpus_limit), devices.end());
   }
   if (n_gpus_limit > 0 && static_cast<size_t>(n_gpus_limit) > devices.size()) {
     CARBON_LOG_WARN(
-        "lbm_lid_driven_cavity: --gpus {} requested but only {} CUDA device(s) visible "
+        "lbm_ldc: --gpus {} requested but only {} CUDA device(s) visible "
         "(check CUDA_VISIBLE_DEVICES)",
         n_gpus_limit, devices.size());
   }
@@ -570,8 +566,8 @@ run_benchmark(const Options& opts,
     pg.emplace(carbon::ProcessGrid::make(grid_world, dec_mode));
     if (world_rank == 0) {
       const carbon::int32_3d dims = pg->dims();
-      CARBON_LOG_INFO("lbm_lid_driven_cavity: process_grid={}x{}x{} (world_size={})", dims.x,
-                      dims.y, dims.z, grid_world);
+      CARBON_LOG_INFO("lbm_ldc: process_grid={}x{}x{} (world_size={})", dims.x, dims.y, dims.z,
+                      grid_world);
     }
   }
 
@@ -602,7 +598,7 @@ run_benchmark(const Options& opts,
 
   if (world_rank == 0) {
     CARBON_LOG_INFO(
-        "lbm_lid_driven_cavity: lattice={} collision={} precision={} grid={} N={} iters={} "
+        "lbm_ldc: lattice={} collision={} precision={} grid={} N={} iters={} "
         "warmup={} Re={:.3g} ulb={:.4g} omega={:.4g} GPUs={} local_gpus={} ranks={} "
         "decomposition={} Q={}",
         lattice_name, collision_name, opts.precision, opts.grid, opts.n, opts.iters, opts.warmup,
@@ -639,7 +635,7 @@ run_benchmark(const Options& opts,
                               cells_scratch.gpu_buffers())(upload_stream);
     upload_stream.wait();
   } catch (const std::exception& e) {
-    CARBON_LOG_ERROR("lbm_lid_driven_cavity: upload failed: {}", e.what());
+    CARBON_LOG_ERROR("lbm_ldc: upload failed: {}", e.what());
     return EXIT_FAILURE;
   }
 
@@ -654,7 +650,7 @@ run_benchmark(const Options& opts,
       precompute.run();
       precompute.wait();
     } catch (const std::exception& e) {
-      CARBON_LOG_ERROR("lbm_lid_driven_cavity: wall-mask compute failed: {}", e.what());
+      CARBON_LOG_ERROR("lbm_ldc: wall-mask compute failed: {}", e.what());
       return EXIT_FAILURE;
     }
     try {
@@ -662,7 +658,7 @@ run_benchmark(const Options& opts,
                                 cells.gpu_buffers())(upload_stream);
       upload_stream.wait();
     } catch (const std::exception& e) {
-      CARBON_LOG_ERROR("lbm_lid_driven_cavity: wall-mask publish failed: {}", e.what());
+      CARBON_LOG_ERROR("lbm_ldc: wall-mask publish failed: {}", e.what());
       return EXIT_FAILURE;
     }
   }
@@ -698,12 +694,12 @@ run_benchmark(const Options& opts,
     sk_ab.compile();
     sk_ba.compile();
   } catch (const std::exception& e) {
-    CARBON_LOG_ERROR("lbm_lid_driven_cavity: skeleton compile failed: {}", e.what());
+    CARBON_LOG_ERROR("lbm_ldc: skeleton compile failed: {}", e.what());
     return EXIT_FAILURE;
   }
   if (world_rank == 0) {
     CARBON_LOG_INFO(
-        "lbm_lid_driven_cavity: skeletons compiled — sk_ab.effective_kernels={} "
+        "lbm_ldc: skeletons compiled — sk_ab.effective_kernels={} "
         "sk_ba.effective_kernels={} (auto-halos included) streams={} overlap={} hp_halo={}",
         sk_ab.effective_kernels().size(), sk_ba.effective_kernels().size(), sk_ab.num_streams(),
         opts.overlap, opts.hp_halo);
@@ -711,29 +707,25 @@ run_benchmark(const Options& opts,
 
   if (!opts.export_dot_path.empty()) {
     if (!sk_ab.export_launch_matrix_dot_file(opts.export_dot_path, "lbm_sk_ab")) {
-      CARBON_LOG_ERROR("lbm_lid_driven_cavity: --export-dot failed for {}", opts.export_dot_path);
+      CARBON_LOG_ERROR("lbm_ldc: --export-dot failed for {}", opts.export_dot_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix DOT to {}", opts.export_dot_path);
+    CARBON_LOG_INFO("lbm_ldc: wrote launch-matrix DOT to {}", opts.export_dot_path);
   }
   if (!opts.export_dot_png_path.empty()) {
     if (!sk_ab.export_launch_matrix_dot_png(opts.export_dot_png_path, "lbm_sk_ab")) {
-      CARBON_LOG_ERROR(
-          "lbm_lid_driven_cavity: --export-dot-png failed for {} (is graphviz dot on PATH?)",
-          opts.export_dot_png_path);
+      CARBON_LOG_ERROR("lbm_ldc: --export-dot-png failed for {} (is graphviz dot on PATH?)",
+                       opts.export_dot_png_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix PNG to {}",
-                    opts.export_dot_png_path);
+    CARBON_LOG_INFO("lbm_ldc: wrote launch-matrix PNG to {}", opts.export_dot_png_path);
   }
   if (!opts.export_dot_streams_path.empty()) {
     if (!sk_ab.export_dot_file(opts.export_dot_streams_path, "lbm_sk_ab")) {
-      CARBON_LOG_ERROR("lbm_lid_driven_cavity: --export-dot-streams failed for {}",
-                       opts.export_dot_streams_path);
+      CARBON_LOG_ERROR("lbm_ldc: --export-dot-streams failed for {}", opts.export_dot_streams_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote stream-cluster DOT to {}",
-                    opts.export_dot_streams_path);
+    CARBON_LOG_INFO("lbm_ldc: wrote stream-cluster DOT to {}", opts.export_dot_streams_path);
   }
 
   using Clock = std::chrono::steady_clock;
@@ -765,8 +757,7 @@ run_benchmark(const Options& opts,
       try {
         drain_all_ranks();
       } catch (const std::exception& e) {
-        CARBON_LOG_ERROR("lbm_lid_driven_cavity: repetition drain failed at iter {}: {}", it,
-                         e.what());
+        CARBON_LOG_ERROR("lbm_ldc: repetition drain failed at iter {}: {}", it, e.what());
         return EXIT_FAILURE;
       }
       const auto now = Clock::now();
@@ -777,16 +768,14 @@ run_benchmark(const Options& opts,
       try {
         drain_all_ranks();
       } catch (const std::exception& e) {
-        CARBON_LOG_ERROR("lbm_lid_driven_cavity: pre-timing drain failed at iter {}: {}", it,
-                         e.what());
+        CARBON_LOG_ERROR("lbm_ldc: pre-timing drain failed at iter {}: {}", it, e.what());
         return EXIT_FAILURE;
       }
       timing_started = Clock::now();
       rep_started = timing_started;
       timing_running = true;
       if (!opts.no_warmup_skip) {
-        CARBON_LOG_INFO("lbm_lid_driven_cavity: warmup complete ({} iters), starting timing window",
-                        opts.warmup);
+        CARBON_LOG_INFO("lbm_ldc: warmup complete ({} iters), starting timing window", opts.warmup);
       }
     }
     LBM_NVTX_PUSH("Iteration step");
@@ -794,7 +783,7 @@ run_benchmark(const Options& opts,
     try {
       sk.run();
     } catch (const std::exception& e) {
-      CARBON_LOG_ERROR("lbm_lid_driven_cavity: iter {} failed: {}", it, e.what());
+      CARBON_LOG_ERROR("lbm_ldc: iter {} failed: {}", it, e.what());
       return EXIT_FAILURE;
     }
     if (opts.report_every > 0 && (it + 1) % opts.report_every == 0) {
@@ -802,15 +791,13 @@ run_benchmark(const Options& opts,
         sk_ab.wait();
         sk_ba.wait();
       } catch (const std::exception& e) {
-        CARBON_LOG_ERROR("lbm_lid_driven_cavity: progress sync failed at iter {}: {}", it + 1,
-                         e.what());
+        CARBON_LOG_ERROR("lbm_ldc: progress sync failed at iter {}: {}", it + 1, e.what());
         return EXIT_FAILURE;
       }
       const auto now = Clock::now();
       const double elapsed_overall = Seconds(now - overall_started).count();
       if (world_rank == 0) {
-        CARBON_LOG_INFO("lbm_lid_driven_cavity: iter {}/{} elapsed={:.3f}s", it + 1, opts.iters,
-                        elapsed_overall);
+        CARBON_LOG_INFO("lbm_ldc: iter {}/{} elapsed={:.3f}s", it + 1, opts.iters, elapsed_overall);
       }
     }
     LBM_NVTX_POP();
@@ -819,13 +806,13 @@ run_benchmark(const Options& opts,
   try {
     drain_all_ranks();
   } catch (const std::exception& e) {
-    CARBON_LOG_ERROR("lbm_lid_driven_cavity: final sync failed: {}", e.what());
+    CARBON_LOG_ERROR("lbm_ldc: final sync failed: {}", e.what());
     return EXIT_FAILURE;
   }
   const auto timing_ended = Clock::now();
   if (!timing_running) {
     CARBON_LOG_ERROR(
-        "lbm_lid_driven_cavity: timing window never opened (timed_start={} but the loop "
+        "lbm_ldc: timing window never opened (timed_start={} but the loop "
         "never reached that iteration).",
         timed_start);
     return EXIT_FAILURE;
@@ -868,7 +855,7 @@ run_benchmark(const Options& opts,
   // otherwise; `local_gpu_count` stays useful on multi-GPU single-process runs.
   if (world_rank == 0) {
     CARBON_LOG_INFO(
-        "lbm_lid_driven_cavity: DONE  lattice={} collision={} precision={} grid={} "
+        "lbm_ldc: DONE  lattice={} collision={} precision={} grid={} "
         "timing_window={} iters in {:.3f}s  =>  {:.2f} MLUPS ({:.2f} MLUPS/GPU)  "
         "overall={:.3f}s  GPUs={} local_gpus={} ranks={} decomposition={}",
         lattice_name, collision_name, opts.precision, opts.grid, timed_iters, timing_seconds, mlups,
@@ -883,7 +870,7 @@ run_benchmark(const Options& opts,
               << '\n';
     if (opts.reps > 1) {
       CARBON_LOG_INFO(
-          "lbm_lid_driven_cavity: {} repetitions x {} iters  =>  MLUPS mean={:.2f} min={:.2f} "
+          "lbm_ldc: {} repetitions x {} iters  =>  MLUPS mean={:.2f} min={:.2f} "
           "max={:.2f} stddev={:.2f}",
           opts.reps, iters_per_rep, rep_mlups_mean, rep_mlups_min, rep_mlups_max, rep_mlups_stddev);
     }
@@ -942,14 +929,14 @@ run_benchmark(const Options& opts,
       momentum_result.sync(sys.stream());
       sys.stream().wait();
     } catch (const std::exception& e) {
-      CARBON_LOG_ERROR("lbm_lid_driven_cavity: checksum reduction failed: {}", e.what());
+      CARBON_LOG_ERROR("lbm_ldc: checksum reduction failed: {}", e.what());
       return EXIT_FAILURE;
     }
     total_mass = mass_result.host_value();
     total_momentum_x = momentum_result.host_value();
     if (world_rank == 0) {
       CARBON_LOG_INFO(
-          "lbm_lid_driven_cavity: CHECKSUM (grid={} decomposition={} precision={}) "
+          "lbm_ldc: CHECKSUM (grid={} decomposition={} precision={}) "
           "mass={:.10g} momentum_x={:.10g}",
           opts.grid, decomposition_mode_name(dec_mode), opts.precision, total_mass,
           total_momentum_x);
@@ -994,7 +981,7 @@ run_benchmark(const Options& opts,
         macro_sk.run();
         macro_sk.wait();
       } catch (const std::exception& e) {
-        CARBON_LOG_ERROR("lbm_lid_driven_cavity: macroscopic kernel failed: {}", e.what());
+        CARBON_LOG_ERROR("lbm_ldc: macroscopic kernel failed: {}", e.what());
         return EXIT_FAILURE;
       }
 
@@ -1004,7 +991,7 @@ run_benchmark(const Options& opts,
         carbon::Transfer<Real>(sys, u_field.gpu_buffers(), u_field.cpu_buffers())(dl_stream);
         dl_stream.wait();
       } catch (const std::exception& e) {
-        CARBON_LOG_ERROR("lbm_lid_driven_cavity: VTK download failed: {}", e.what());
+        CARBON_LOG_ERROR("lbm_ldc: VTK download failed: {}", e.what());
         return EXIT_FAILURE;
       }
 
@@ -1014,15 +1001,14 @@ run_benchmark(const Options& opts,
         // one file in ParaView instead of N. No-op in the single-process case.
         carbon::io::write_vtk_multiblock_index(opts.vtk_path, grid);
       } catch (const std::exception& e) {
-        CARBON_LOG_ERROR("lbm_lid_driven_cavity: write_vtk('{}') failed: {}", opts.vtk_path,
-                         e.what());
+        CARBON_LOG_ERROR("lbm_ldc: write_vtk('{}') failed: {}", opts.vtk_path, e.what());
         return EXIT_FAILURE;
       }
-      CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote VTK (rho + u) to {} after {} iters",
-                      opts.vtk_path, opts.iters);
+      CARBON_LOG_INFO("lbm_ldc: wrote VTK (rho + u) to {} after {} iters", opts.vtk_path,
+                      opts.iters);
     } else {
       CARBON_LOG_WARN(
-          "lbm_lid_driven_cavity: --vtk-out is only supported for --grid dense and "
+          "lbm_ldc: --vtk-out is only supported for --grid dense and "
           "dense_distributed (carbon::io::write_vtk has no {} writer); skipping VTK dump.",
           opts.grid);
     }
@@ -1049,14 +1035,13 @@ run_benchmark(const Options& opts,
     const double effective_bandwidth_gb_s = (mlups * 1.0e6 * bytes_per_update) / 1.0e9;
     std::ofstream out(opts.report_path);
     if (!out.is_open()) {
-      CARBON_LOG_ERROR("lbm_lid_driven_cavity: failed to open --report path '{}'",
-                       opts.report_path);
+      CARBON_LOG_ERROR("lbm_ldc: failed to open --report path '{}'", opts.report_path);
       return EXIT_FAILURE;
     }
     out << std::setprecision(10);
     out << "{\n";
     out << "  \"schema\": \"carbon-lbm-report-v1\",\n";
-    out << "  \"benchmark\": \"lbm_lid_driven_cavity\",\n";
+    out << "  \"benchmark\": \"lbm_ldc\",\n";
     out << "  \"timestamp_utc\": \"" << utc_timestamp_now() << "\",\n";
     out << "  \"config\": {\n";
     out << "    \"n\": " << opts.n << ",\n";
@@ -1155,11 +1140,10 @@ run_benchmark(const Options& opts,
     out << "}\n";
     out.close();
     if (out.fail()) {
-      CARBON_LOG_ERROR("lbm_lid_driven_cavity: failed to write --report path '{}'",
-                       opts.report_path);
+      CARBON_LOG_ERROR("lbm_ldc: failed to write --report path '{}'", opts.report_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote JSON report to {}", opts.report_path);
+    CARBON_LOG_INFO("lbm_ldc: wrote JSON report to {}", opts.report_path);
   }
   return EXIT_SUCCESS;
 }
@@ -1176,15 +1160,14 @@ main(int argc,
 
   carbon::init();
   if (carbon::device_count() <= 0) {
-    CARBON_LOG_ERROR("lbm_lid_driven_cavity: no CUDA devices visible");
+    CARBON_LOG_ERROR("lbm_ldc: no CUDA devices visible");
     return EXIT_FAILURE;
   }
 
   const auto dec_opt = parse_decomposition_mode(opts.decomposition);
   if (!dec_opt) {
-    CARBON_LOG_ERROR(
-        "lbm_lid_driven_cavity: unknown --decomposition '{}' (expected slab|pencil|brick)",
-        opts.decomposition);
+    CARBON_LOG_ERROR("lbm_ldc: unknown --decomposition '{}' (expected slab|pencil|brick)",
+                     opts.decomposition);
     return EXIT_FAILURE;
   }
   const carbon::DecompositionMode dec_mode = *dec_opt;
@@ -1209,7 +1192,7 @@ main(int argc,
       return run_benchmark<GridT, D3Q27, KbcCollision, RealT>(opts, "q27", "kbc", dec_mode);
     }
     CARBON_LOG_ERROR(
-        "lbm_lid_driven_cavity: unsupported (lattice='{}', collision='{}') combination — "
+        "lbm_ldc: unsupported (lattice='{}', collision='{}') combination — "
         "KBC requires D3Q27.",
         opts.lattice, opts.collision);
     return EXIT_FAILURE;

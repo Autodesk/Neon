@@ -1,6 +1,6 @@
 # LBM benchmark runbook (single-GPU → DGX multi-GPU)
 
-Operational memory for running `benchmarks/lbm_lid_driven_cavity` at scale —
+Operational memory for running `benchmarks/lbm_ldc` at scale —
 written after the 2026-07 grid-generic pull-stream + `read_pull` fast-path +
 distributed-validation work (see `docs/CHANGELOG.md` 2026-07 entries and
 `benchmarks/README.md`). Everything below was validated on a 2×A100 80GB PCIe
@@ -40,7 +40,7 @@ Runtime knobs that matter for scaling:
   Grid-, decomposition- and GPU-count-invariant to float summation-order noise
   (exact in fp64); the correctness oracle.
 - `--report PATH` — structured JSON (schema `carbon-lbm-report-v1`), consumed by
-  `benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh` and the
+  `benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh` and the
   plotters in `scripts/plotting/` (which plot MLUPS per GPU).
 
 ## Build
@@ -52,14 +52,14 @@ Single-node (intra-process multi-GPU, no MPI):
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j --target carbon_benchmark_lbm_lid_driven_cavity
+cmake --build build -j --target carbon_benchmark_lbm_ldc
 ```
 
 Distributed (MPI + NCCL, one rank per GPU) — **separate build tree**:
 
 ```bash
 cmake -S . -B build-mpi -DCARBON_ENABLE_MPI=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build build-mpi -j --target carbon_benchmark_lbm_lid_driven_cavity
+cmake --build build-mpi -j --target carbon_benchmark_lbm_ldc
 ```
 
 On DGX set the GPU arch if CMake doesn't autodetect: A100 `sm_80`, H100 `sm_90`
@@ -69,43 +69,43 @@ stack is normally already present.
 
 ## Run
 
-Binary path: `build[-mpi]/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity`.
+Binary path: `build[-mpi]/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc`.
 
 Single GPU (true baseline — pin ONE visible GPU):
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 ./build/.../carbon_benchmark_lbm_lid_driven_cavity \
+CUDA_VISIBLE_DEVICES=0 ./build/.../carbon_benchmark_lbm_ldc \
   --n 256 --iters 1000 --warmup 200 --report-every 0
 ```
 
 All visible GPUs, intra-process (peer copy / NVLink):
 
 ```bash
-./build/.../carbon_benchmark_lbm_lid_driven_cavity \
+./build/.../carbon_benchmark_lbm_ldc \
   --n 512 --iters 2000 --warmup 200 --overlap standard
 ```
 
 Distributed, one rank per GPU (NCCL halo):
 
 ```bash
-mpiexec -n 8 ./build-mpi/.../carbon_benchmark_lbm_lid_driven_cavity \
+mpiexec -n 8 ./build-mpi/.../carbon_benchmark_lbm_ldc \
   --n 768 --iters 2000 --warmup 200 --overlap standard
 ```
 
 Distributed grid with a pencil / brick decomposition (one GPU per rank):
 
 ```bash
-mpiexec --bind-to none -n 8 ./build-mpi/.../carbon_benchmark_lbm_lid_driven_cavity \
+mpiexec --bind-to none -n 8 ./build-mpi/.../carbon_benchmark_lbm_ldc \
   --grid dense_distributed --decomposition brick --gpus 1 \
   --n 512 --iters 2000 --warmup 200 --overlap standard --hp-halo
 ```
 
 Whole matrices (grids × decompositions × transports × hp-halo × GPU counts ×
 sizes × precisions) run as typed experiments from one YAML with
-`benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh` (reports in
-`benchmarks/lbm_lid_driven_cavity/data/json/`, progress in `data/trace.log`);
-see `benchmarks/lbm_lid_driven_cavity/scripts/README.md`. Committed results
-of a full sweep are in `benchmarks/lbm_lid_driven_cavity/reference/`.
+`benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh` (reports in
+`benchmarks/lbm_ldc/data/json/`, progress in `data/trace.log`);
+see `benchmarks/lbm_ldc/scripts/README.md`. Committed results
+of a full sweep are in `benchmarks/lbm_ldc/reference/`.
 
 ## Gotchas learned this session (read before benchmarking)
 
@@ -172,11 +172,11 @@ skeleton overlap, checkpoint).
 
 ## Where the code lives
 
-- Driver: `benchmarks/lbm_lid_driven_cavity/lbm_lid_driven_cavity.cu`
+- Driver: `benchmarks/lbm_ldc/lbm_ldc.cu`
   (templated `run_benchmark<Grid, Lattice, Collision, Real>`, dispatched over
   4 grids × 2 precisions × 3 lattice/collision pairs; MPI branches under
   `#ifdef CARBON_HAVE_MPI_NCCL`).
-- Kernels: `benchmarks/lbm_lid_driven_cavity/src/lbm_kernels.h`
+- Kernels: `benchmarks/lbm_ldc/src/lbm_kernels.h`
   (grid-generic via `Partition::read_pull`).
 - Fast pull: `include/carbon/detail/dense/partition.h` (Dense) and
   `include/carbon/detail/dense_disg/partition.h` (DenseDisg constant-delta fast

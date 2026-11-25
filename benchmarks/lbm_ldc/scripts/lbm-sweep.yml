@@ -1,9 +1,9 @@
 # Sweep configuration for lbm-sweep-run.sh and the plotters in plotting/.
 #
-#   ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh \
-#       benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml [--only grids]
-#   python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py \
-#       --config benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml
+#   ./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh \
+#       benchmarks/lbm_ldc/scripts/lbm-sweep.yml [--only grids]
+#   python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py \
+#       --config benchmarks/lbm_ldc/scripts/lbm-sweep.yml
 #
 # A sweep is a list of experiments. Each has a type, which decides the figures
 # the plotters draw, and its own run matrix. All experiments share the timing
@@ -36,7 +36,7 @@ reference_label: dense-intra
 # Output folder, relative to the carbon repo root: reports in json/, plots in
 # plots/<experiment>/, progress in trace.log, failed runs in failed-*.txt.
 # git ignores it; reference/ next to it is the committed copy.
-data_dir: benchmarks/lbm_lid_driven_cavity/data
+data_dir: benchmarks/lbm_ldc/data
 
 # CUDA compute capability the binaries are compiled for
 # (CMAKE_CUDA_ARCHITECTURES). auto detects it via nvidia-smi (A100 -> 80,

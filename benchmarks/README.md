@@ -23,7 +23,7 @@ Each benchmark builds as a top-level CMake target and lands under
 
 ## Programs
 
-### `lbm_lid_driven_cavity`
+### `lbm_ldc`
 
 3D lid-driven cavity Lattice-Boltzmann simulation on a uniform Cartesian
 grid. Two-pop pull streaming, half-way bounce-back walls on five faces,
@@ -81,21 +81,21 @@ disaggregated MLUPS differ negligibly.
 Build:
 
 ```bash
-cmake --build build --target carbon_benchmark_lbm_lid_driven_cavity -j
+cmake --build build --target carbon_benchmark_lbm_ldc -j
 ```
 
 Run (single GPU):
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 \
-./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
+./build/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
   --n 256 --iters 1000 --warmup 100 --report-every 0
 ```
 
 Run (all visible GPUs):
 
 ```bash
-./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
+./build/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
   --n 256 --iters 1000 --warmup 100
 ```
 
@@ -109,9 +109,9 @@ copies. Build the MPI variant into its own tree:
 
 ```bash
 cmake -S . -B build-mpi -DCARBON_ENABLE_MPI=ON
-cmake --build build-mpi --target carbon_benchmark_lbm_lid_driven_cavity -j
+cmake --build build-mpi --target carbon_benchmark_lbm_ldc -j
 mpiexec -n 2 \
-  ./build-mpi/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
+  ./build-mpi/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
   --n 384 --iters 2000 --warmup 200 --overlap standard
 ```
 
@@ -119,7 +119,7 @@ The distributed grids take the decomposition on top (one GPU per rank):
 
 ```bash
 mpiexec --bind-to none -n 8 \
-  ./build-mpi/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
+  ./build-mpi/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
   --grid dense_distributed --decomposition brick --gpus 1 \
   --n 512 --iters 2000 --warmup 200 --overlap standard --hp-halo
 ```
@@ -184,7 +184,7 @@ MLUPS=2497.16 (cavity N=128 iters=150 gpus=1 local_gpus=1 ranks=1 grid=dense dec
 plus a more verbose `info`-level line through the carbon logger:
 
 ```
-lbm_lid_driven_cavity: DONE  lattice=q19 collision=bgk precision=fp32 grid=dense \
+lbm_ldc: DONE  lattice=q19 collision=bgk precision=fp32 grid=dense \
   timing_window=150 iters in 0.126s  =>  2497.16 MLUPS (2497.16 MLUPS/GPU)  overall=0.170s \
   GPUs=1 local_gpus=1 ranks=1 decomposition=slab
 ```
@@ -198,7 +198,7 @@ When `--report PATH` is passed, a structured JSON report is also written
 ```json
 {
   "schema": "carbon-lbm-report-v1",
-  "benchmark": "lbm_lid_driven_cavity",
+  "benchmark": "lbm_ldc",
   "timestamp_utc": "2026-05-06T13:05:51Z",
   "config":  { "n": 256, "iters": 600, "warmup": 200, "lattice": "q19",
                "collision": "bgk", "q": 19, "re": 100.0, "ulb": 0.05,
@@ -228,24 +228,24 @@ is what to compare against the GPU's HBM peak when sanity-checking new sizes.
 
 #### Sweeps + plots (Neon-style figures)
 
-`lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh` builds the binary (in Docker,
+`lbm_ldc/scripts/lbm-sweep-run.sh` builds the binary (in Docker,
 or on the host with `runner: local`) and runs the experiments a YAML file
 lists: strong scaling, domain size or best-family maps, over any lattice /
 collision pair, precision, grid, decomposition, transport (Peeraccess, NCCL,
 MPI (P2P)) and hp-halo setting. Every distinct run is done once and writes
-one JSON report to `lbm_lid_driven_cavity/data/json/`; the plotters in
-`lbm_lid_driven_cavity/scripts/plotting/` take the same YAML and draw MLUPS
+one JSON report to `lbm_ldc/data/json/`; the plotters in
+`lbm_ldc/scripts/plotting/` take the same YAML and draw MLUPS
 per GPU (perfect strong scaling is flat). Quick check on one GPU, no Docker:
 
 ```bash
-cfg=benchmarks/lbm_lid_driven_cavity/scripts/examples/local-quick.yml
-./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py --config $cfg
+cfg=benchmarks/lbm_ldc/scripts/examples/local-quick.yml
+./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh $cfg
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py --config $cfg
 ```
 
-See the [quick start](lbm_lid_driven_cavity/README.md) for more examples and
-[`lbm_lid_driven_cavity/scripts/README.md`](lbm_lid_driven_cavity/scripts/README.md)
-for every key; [`lbm_lid_driven_cavity/reference/`](lbm_lid_driven_cavity/reference/)
+See the [quick start](lbm_ldc/README.md) for more examples and
+[`lbm_ldc/scripts/README.md`](lbm_ldc/scripts/README.md)
+for every key; [`lbm_ldc/reference/`](lbm_ldc/reference/)
 holds the committed results of a full 8× A100 sweep.
 
 #### Reference data points

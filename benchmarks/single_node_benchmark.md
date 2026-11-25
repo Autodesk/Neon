@@ -26,7 +26,7 @@ From the **monorepo root** (CMake source = `Neon/`):
 cmake -S Neon -B build -DCARBON_BUILD_BENCHMARKS=ON
 cmake --build build -j --target \
   carbon_benchmark_jacobi_nvidia \
-  carbon_benchmark_lbm_lid_driven_cavity \
+  carbon_benchmark_lbm_ldc \
   carbon_benchmark_reduce_throughput \
   carbon_benchmark_skeleton_overlap \
   carbon_benchmark_block_sparse \
@@ -37,7 +37,7 @@ From **inside Neon** only:
 
 ```bash
 cmake -S . -B build -DCARBON_BUILD_BENCHMARKS=ON
-cmake --build build -j --target carbon_benchmark_lbm_lid_driven_cavity
+cmake --build build -j --target carbon_benchmark_lbm_ldc
 # … other targets as needed
 ```
 
@@ -70,7 +70,7 @@ python3 single_node_benchmark.py --no-mpi
 
 | Suite | Carbon targets | Notes |
 | ----- | -------------- | ----- |
-| `lbm` | `carbon_benchmark_lbm_lid_driven_cavity` | Passes `--gpus g` and sets `CUDA_VISIBLE_DEVICES`; JSON under `lbm/*.json`. See [lbm_lid_driven_cavity](README.md#lbm_lid_driven_cavity). |
+| `lbm` | `carbon_benchmark_lbm_ldc` | Passes `--gpus g` and sets `CUDA_VISIBLE_DEVICES`; JSON under `lbm/*.json`. See [lbm_ldc](README.md#lbm_ldc). |
 | `carbon-micro` | `reduce_throughput`, `skeleton_overlap`, `block_sparse` | Uses [scripts/run_benchmarks.py](scripts/run_benchmarks.py); `reduce` at `--batch-iters 32`. |
 | `halo` | `carbon_benchmark_halo_scalability` | Halo GB/s probe; appends `halo/halo.csv`. |
 | `jacobi` | `carbon_benchmark_jacobi_nvidia` | Also runs NVIDIA `multi-gpu-programming-models/*` if present. |
@@ -82,12 +82,12 @@ python3 benchmarks/scripts/run_benchmarks.py --build-dir build --output-dir repo
 ```
 
 LBM-only sweep/plot (size or GPU ladders, Neon-style figures), from a YAML of
-experiments; see `benchmarks/lbm_lid_driven_cavity/README.md`:
+experiments; see `benchmarks/lbm_ldc/README.md`:
 
 ```bash
-cfg=benchmarks/lbm_lid_driven_cavity/scripts/examples/local-quick.yml
-./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py --config $cfg
+cfg=benchmarks/lbm_ldc/scripts/examples/local-quick.yml
+./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh $cfg
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py --config $cfg
 ```
 
 ## Useful options

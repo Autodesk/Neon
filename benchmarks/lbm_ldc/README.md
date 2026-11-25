@@ -1,11 +1,11 @@
 # LBM lid-driven cavity — scripts quick start
 
-How to run the `carbon_benchmark_lbm_lid_driven_cavity` benchmark and plot
+How to run the `carbon_benchmark_lbm_ldc` benchmark and plot
 its results with the scripts in [`scripts/`](scripts/). This page is a short
 tour with a few examples; [`scripts/README.md`](scripts/README.md) is the full
 reference (every key, report naming, the reference results), and the
 benchmark itself (CLI flags, JSON report) is described in
-[`../README.md`](../README.md#lbm_lid_driven_cavity).
+[`../README.md`](../README.md#lbm_ldc).
 
 Run every command from the carbon repository root.
 
@@ -33,11 +33,11 @@ flat line, drawn dashed at the 1-GPU run of the same N.
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j --target carbon_benchmark_lbm_lid_driven_cavity
+cmake --build build -j --target carbon_benchmark_lbm_ldc
 
 mkdir -p reports   # --report does not create directories
 CUDA_VISIBLE_DEVICES=0 \
-./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
+./build/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
   --n 256 --iters 1000 --warmup 200 --report-every 0 --checksum \
   --report reports/one-run.json
 ```
@@ -52,9 +52,9 @@ CHECKSUM=... MOMENTUM_X=... (grid=dense decomposition=slab precision=fp32 N=256 
 ## Example 2 — quick check on a workstation, no Docker
 
 ```bash
-cfg=benchmarks/lbm_lid_driven_cavity/scripts/examples/local-quick.yml
-./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py --config $cfg
+cfg=benchmarks/lbm_ldc/scripts/examples/local-quick.yml
+./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh $cfg
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py --config $cfg
 # -> data/plots/local_quick/q19-bgk-fp32-mlups-per-gpu-vs-n-g1.png, q27-bgk-..., q27-kbc-...
 ```
 
@@ -69,15 +69,15 @@ holds the four experiments of the reference results (all grids, domain size,
 best family, N=512). Check what it will run, then run and plot it:
 
 ```bash
-cfg=benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml
+cfg=benchmarks/lbm_ldc/scripts/lbm-sweep.yml
 
-DRY_RUN=1 ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg
-./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg   # 1050 runs, a few hours on 8 GPUs
-tail -f benchmarks/lbm_lid_driven_cavity/data/trace.log            # completion bar + ETA
+DRY_RUN=1 ./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh $cfg
+./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh $cfg   # 1050 runs, a few hours on 8 GPUs
+tail -f benchmarks/lbm_ldc/data/trace.log            # completion bar + ETA
 
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py --config $cfg
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_disg_vs_dense.py --config $cfg
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_best_family.py --config $cfg
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py --config $cfg
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_disg_vs_dense.py --config $cfg
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_best_family.py --config $cfg
 ```
 
 The runner builds `build/` and `build-mpi/` inside Docker (images
@@ -119,9 +119,9 @@ experiments:
 ```
 
 ```bash
-DRY_RUN=1 ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh my-dist-fp64.yml
-./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh my-dist-fp64.yml
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py --config my-dist-fp64.yml
+DRY_RUN=1 ./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh my-dist-fp64.yml
+./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh my-dist-fp64.yml
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py --config my-dist-fp64.yml
 # -> data/plots/dist_fp64/q19-bgk-fp64-mlups-per-gpu-vs-gpus-n256.png, ...
 ```
 
@@ -132,11 +132,11 @@ runs. `q27:kbc` does not launch in fp64 yet.
 ## Example 5 — re-plot the reference results
 
 ```bash
-cfg=benchmarks/lbm_lid_driven_cavity/reference/lbm-sweep.yml
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py --config $cfg
+cfg=benchmarks/lbm_ldc/reference/lbm-sweep.yml
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py --config $cfg
 # -> reference/plots/grids/q19-bgk-fp32-grids-n512.png (all four grids), ...
 ```
 
 [`reference/`](reference/) is a committed copy of a full DGX sweep: its YAML,
 1050 JSON reports and the figures. To plot your own `data/` against the
-same experiments, pass `--data-dir benchmarks/lbm_lid_driven_cavity/data`.
+same experiments, pass `--data-dir benchmarks/lbm_ldc/data`.

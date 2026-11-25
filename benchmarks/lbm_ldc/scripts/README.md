@@ -1,7 +1,7 @@
-# `lbm_lid_driven_cavity` scripts
+# `lbm_ldc` scripts
 
 One sweep script and three plotters for the LBM lid-driven cavity benchmark
-(`carbon_benchmark_lbm_lid_driven_cavity`). Both sides read the same YAML file
+(`carbon_benchmark_lbm_ldc`). Both sides read the same YAML file
 and talk through the binary's `--report PATH` JSON output (schema
 `carbon-lbm-report-v1`), so re-plotting never requires re-running. For a short
 tour with examples, start with the [quick start](../README.md).
@@ -86,11 +86,11 @@ counted every rank carry `system.gpu_count = 1`, and their
 ## The sweep
 
 ```bash
-cfg=benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml
-DRY_RUN=1 ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg   # list the runs
-./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg
-./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg --only grids,n512
-tail -f benchmarks/lbm_lid_driven_cavity/data/trace.log
+cfg=benchmarks/lbm_ldc/scripts/lbm-sweep.yml
+DRY_RUN=1 ./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh $cfg   # list the runs
+./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh $cfg
+./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh $cfg --only grids,n512
+tail -f benchmarks/lbm_ldc/data/trace.log
 ```
 
 - **Build.** With `runner: docker` (default) the script configures and builds
@@ -139,7 +139,7 @@ tail -f benchmarks/lbm_lid_driven_cavity/data/trace.log
   resumes where it stopped and a bigger matrix only does the new runs. A report
   with other settings is redone; `force: true` redoes everything.
 - **Output.** Everything goes to `data_dir` (default
-  `benchmarks/lbm_lid_driven_cavity/data/`, git-ignored): the reports in
+  `benchmarks/lbm_ldc/data/`, git-ignored): the reports in
   `json/`, the progress in `trace.log` and failed or hung runs
   (`run_timeout`, default 1800 s) in `failed-{intra,mpi}.txt`; the sweep moves
   on after a failure.
@@ -159,20 +159,20 @@ The plotters take the same YAML and read `<data_dir>/json/`; every figure of
 experiment `<name>` goes to `<data_dir>/plots/<name>/`:
 
 ```bash
-cfg=benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py --config $cfg
+cfg=benchmarks/lbm_ldc/scripts/lbm-sweep.yml
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py --config $cfg
 #   strong_scaling: <series>-mlups-per-gpu-vs-gpus-n<N>.png   every size N        (vs_gpus)
 #                   <series>-hp-speedup-<transport>.png       hp_halo off and on  (hp_speedup)
 #                   <series>-grids-n<N>.png                   2+ grids, every N   (grids)
 #   domain_size:    <series>-mlups-per-gpu-vs-n-g<G>.png      largest GPU count G (vs_n)
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_disg_vs_dense.py --config $cfg
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_disg_vs_dense.py --config $cfg
 #   strong_scaling: <series>-disg-vs-dense-<transport>-hp<off|on>.png, <series>-disg-vs-dense.csv
-python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_best_family.py --config $cfg
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_best_family.py --config $cfg
 #   best_family:    <series>-best-family.png
 ```
 
 Common options: `--data-dir DIR` reads and writes another folder (for example
-`benchmarks/lbm_lid_driven_cavity/reference`), `--only a,b` plots a subset of
+`benchmarks/lbm_ldc/reference`), `--only a,b` plots a subset of
 the experiments and `--show` pops each figure up. Series without reports are
 skipped with a warning. The plotters need `matplotlib`.
 
@@ -205,7 +205,7 @@ Its four experiments:
 | `best_family` | `best_family` | `dense` / `disg` × Peeraccess / NCCL on 1, 2, 4, 8 GPUs, N=128..608 step 32 |
 | `n512` | `strong_scaling` | `dense` / `disg` × all three transports on 1, 2, 4, 8 GPUs, N=512 |
 
-Re-plot it with `--config benchmarks/lbm_lid_driven_cavity/reference/lbm-sweep.yml`
+Re-plot it with `--config benchmarks/lbm_ldc/reference/lbm-sweep.yml`
 (its `data_dir` is `reference/`). The 840 `grids` runs use the current timing
 (400 + 5 × 1000 steps); the other 210 come from earlier sweeps with
 400 + 1 × 1600 steps, as the YAML's header notes. To refresh it, run the sweep

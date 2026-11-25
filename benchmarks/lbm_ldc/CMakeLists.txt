@@ -15,8 +15,8 @@
 # so a single TU drives the build. CLI parsing uses the bundled clipp header
 # from third_party/ (same single-header parser examples/cg_poisson uses).
 
-_carbon_benchmark_add(carbon_benchmark_lbm_lid_driven_cavity lbm_lid_driven_cavity.cu)
-target_link_libraries(carbon_benchmark_lbm_lid_driven_cavity
+_carbon_benchmark_add(carbon_benchmark_lbm_ldc lbm_ldc.cu)
+target_link_libraries(carbon_benchmark_lbm_ldc
   PRIVATE carbon::carbon carbon::third_party::clipp)
 # Two include roots so the same `#include "src/cell_type.h"` headers in
 # the .cu/.cpp twin resolve under both backends:
@@ -25,12 +25,12 @@ target_link_libraries(carbon_benchmark_lbm_lid_driven_cavity
 #     but harmless.
 #   - CARBON_BACKEND=Sycl configure_file's the .cu to a .cpp twin inside
 #     the build tree; relative-to-file lookup of `src/...` would land in
-#     `<build>/benchmarks/lbm_lid_driven_cavity/src/`, which doesn't
+#     `<build>/benchmarks/lbm_ldc/src/`, which doesn't
 #     exist. Adding the *parent* source dir to the include path makes
 #     `#include "src/cell_type.h"` resolve back to the real headers under
 #     both backends without rewriting every include in lbm_kernels.h /
-#     lbm_lid_driven_cavity.cu.
-target_include_directories(carbon_benchmark_lbm_lid_driven_cavity
+#     lbm_ldc.cu.
+target_include_directories(carbon_benchmark_lbm_ldc
   PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/src")

@@ -3,8 +3,8 @@
 # The same experiments as scripts/lbm-sweep.yml (see it for every key), with the
 # reports in json/ and the figures in plots/<experiment>/ of this folder:
 #
-#   python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py \
-#       --config benchmarks/lbm_lid_driven_cavity/reference/lbm-sweep.yml
+#   python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py \
+#       --config benchmarks/lbm_ldc/reference/lbm-sweep.yml
 #   (likewise plot_disg_vs_dense.py and plot_best_family.py)
 #
 # Timing: the 840 runs of the grids experiment used warmup 400 + 5 x 1000 steps
@@ -15,7 +15,7 @@
 # To refresh the reference, run the sweep into data/ and copy data/json/ and
 # data/plots/ here.
 
-data_dir: benchmarks/lbm_lid_driven_cavity/reference
+data_dir: benchmarks/lbm_ldc/reference
 warmup: 400
 iters_per_rep: 1000
 reps: 5

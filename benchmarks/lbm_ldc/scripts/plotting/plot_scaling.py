@@ -33,8 +33,8 @@ the process grid ProcessGrid chose (x*y*z).
 
 Example::
 
-    python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py \\
-        --config benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml --only grids
+    python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py \\
+        --config benchmarks/lbm_ldc/scripts/lbm-sweep.yml --only grids
 """
 
 from __future__ import annotations

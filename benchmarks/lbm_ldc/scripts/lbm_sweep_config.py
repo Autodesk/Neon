@@ -46,7 +46,7 @@ GLOBAL_KEYS: dict[str, tuple[str, str, object]] = {
     "reps": ("REPS", "int", 5),
     "overlap": ("OVERLAP", "word", "standard"),
     "reference_label": ("REFERENCE_LABEL", "name", "dense-intra"),
-    "data_dir": ("DATA_DIR", "path", "benchmarks/lbm_lid_driven_cavity/data"),
+    "data_dir": ("DATA_DIR", "path", "benchmarks/lbm_ldc/data"),
     "sm_arch": ("SM_ARCH", "arch", "auto"),
     "image_intra": ("IMAGE_INTRA", "word", "carbon-cuda:local"),
     "image_mpi": ("IMAGE_MPI", "word", "carbon-cuda-nccl-pinned:local"),

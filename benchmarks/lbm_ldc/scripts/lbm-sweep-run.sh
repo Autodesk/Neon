@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh
+# benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh
 #
 # Runs the experiments of a sweep YAML (see lbm-sweep.yml). Builds the
 # benchmark (in Docker, or on the host with runner: local), then does every run
@@ -8,7 +8,7 @@
 # share one JSON report. The plotters in plotting/ take the same YAML.
 #
 # Usage:
-#   ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh CONFIG.yml [--only exp1,exp2]
+#   ./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh CONFIG.yml [--only exp1,exp2]
 #
 #   --only a,b   run only the named experiments of CONFIG.yml
 #   DRY_RUN=1    print the resolved config, the experiments and every run, then exit
@@ -86,7 +86,7 @@ cd "${repo_root}"
 # plus EXPERIMENTS (name:type:runs) and the deduplicated RUNS tokens, from the
 # parser the plotters share.
 config_vars="$(LBM_SWEEP_CONFIG="$(<"${config_path}")" LBM_SWEEP_ONLY="${only}" \
-  python3 "${repo_root}/benchmarks/lbm_lid_driven_cavity/scripts/lbm_sweep_config.py")"
+  python3 "${repo_root}/benchmarks/lbm_ldc/scripts/lbm_sweep_config.py")"
 while IFS='=' read -r key value; do
   [[ -z "${key}" ]] && continue
   export "${key}=${value}"
@@ -185,7 +185,7 @@ gen=()
 if command -v ninja > /dev/null; then
   gen=(-G Ninja)
 fi
-target=carbon_benchmark_lbm_lid_driven_cavity
+target=carbon_benchmark_lbm_ldc
 echo '=== Building CUDA (intra-process) ==='
 cmake -S "${SRC}" -B "${B_INTRA}" "${gen[@]}" -DCMAKE_BUILD_TYPE=Release \
   -DCARBON_BACKEND=Cuda "-DCMAKE_CUDA_ARCHITECTURES=${SM_ARCH}"
@@ -212,7 +212,7 @@ fi
 read -r -d '' sweep_body <<'EOF' || true
 set -uo pipefail
 mode="$1"
-bin_rel="benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity"
+bin_rel="benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc"
 if [[ "${mode}" == "intra" ]]; then
   bin="${B_INTRA}/${bin_rel}"
 else

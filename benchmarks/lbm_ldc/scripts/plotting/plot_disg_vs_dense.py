@@ -19,8 +19,8 @@ the same in MLUPS and in MLUPS per GPU.
 
 Example::
 
-    python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_disg_vs_dense.py \\
-        --config benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml
+    python3 benchmarks/lbm_ldc/scripts/plotting/plot_disg_vs_dense.py \\
+        --config benchmarks/lbm_ldc/scripts/lbm-sweep.yml
 """
 
 from __future__ import annotations

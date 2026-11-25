@@ -153,7 +153,7 @@ _carbon_example_link_viewer(carbon_example_render_wind_tunnel)
 # Reuse the self-contained carbon::bench::lbm headers (cell_type.h / d3q27.h /
 # lbm_kernels.h) so the wind-tunnel example runs a real D3Q27 + KBC LBM solve.
 target_include_directories(carbon_example_render_wind_tunnel
-  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
+  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_ldc/src)
 
 # The live variant's ImGui panels are not behind CARBON_HAVE_VIEWER, so it only builds
 # with the viewer.
@@ -162,7 +162,7 @@ if(CARBON_BUILD_VIEWER)
   target_link_libraries(carbon_example_render_wind_tunnel_live PRIVATE carbon::carbon)
   _carbon_example_link_viewer(carbon_example_render_wind_tunnel_live)
   target_include_directories(carbon_example_render_wind_tunnel_live
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_lid_driven_cavity/src)
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks/lbm_ldc/src)
 endif()
 
 
