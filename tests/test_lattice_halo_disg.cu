@@ -80,7 +80,7 @@ disg_addr(const carbon::DenseDisg::Span& span,
 }
 
 // D3Q19 discrete velocities in Carbon's natural ordering (matches
-// benchmarks/lbm_lid_driven_cavity/src/d3q19.h byte-for-byte).
+// benchmarks/lbm_ldc/src/d3q19.h byte-for-byte).
 [[nodiscard]] auto
 d3q19_natural() -> std::vector<carbon::int32_3d> {
   return {
