@@ -16,22 +16,32 @@ streaming + half-way bounce-back + collision, wrapped in a `carbon::Skeleton`
 
 Runtime knobs that matter for scaling:
 
-- `--grid dense|disg` — `carbon::Dense` (aggregated SoA z-slabs) vs
-  `carbon::DenseDisg` (disaggregated five-region LBM layout). **Both run the
-  identical hot kernel** via the `Partition::read_pull` trusted-pull primitive;
-  after the read_pull fast path they are at MLUPS parity (see below).
+- `--grid dense|disg|dense_distributed|disg_distributed` — `carbon::Dense`
+  (aggregated SoA z-slabs) vs `carbon::DenseDisg` (disaggregated five-region
+  LBM layout), and their one-rank-per-GPU MPI twins `carbon::DenseDistributed`
+  / `carbon::DenseDisgDistributed`. **All run the identical hot kernel** via
+  the `Partition::read_pull` trusted-pull primitive; after the read_pull fast
+  path dense and disg are at MLUPS parity (see below).
+- `--decomposition slab|pencil|brick` — process grid of the distributed grids
+  (split z; y and z; x, y and z). The single-process grids are always slab.
+- `--precision fp32|fp64` — float or double populations on every grid; fp64
+  moves twice the bytes (≈ half the MLUPS) and needs twice the memory.
 - `--lattice q19|q27`, `--collision bgk|kbc` (KBC needs q27). Default q19+bgk is
   the SOTA symmetry-unrolled fast kernel (48 regs/thread on both grids).
 - `--overlap none|standard|...` — **use `standard` for multi-GPU / distributed**
   so the halo overlaps interior compute on a second stream instead of
-  serialising. `none` is the single-GPU baseline.
+  serialising. `none` is the single-GPU baseline. `--hp-halo` additionally
+  runs that halo stream at high priority.
 - `--cuda-graph` — collapses per-iter host launch overhead; single-GPU /
   single-stream only (no-op fallback otherwise). Worth trying on DGX for small N
   where launch overhead bites.
-- `--checksum` — Sum-reduces total domain mass (`sum_q pop_q == rho`). Grid- and
-  GPU-count-invariant to float summation-order noise; the correctness oracle.
+- `--checksum` — Sum-reduces total domain mass (`sum_q pop_q == rho`) and
+  x-momentum (`sum_q c_q.x pop_q`), printed as `CHECKSUM=... MOMENTUM_X=...`.
+  Grid-, decomposition- and GPU-count-invariant to float summation-order noise
+  (exact in fp64); the correctness oracle.
 - `--report PATH` — structured JSON (schema `carbon-lbm-report-v1`), consumed by
-  `benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py`.
+  `benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py` and the
+  plotters in `scripts/plotting/` (which plot MLUPS per GPU).
 
 ## Build
 
@@ -82,6 +92,19 @@ mpiexec -n 8 ./build-mpi/.../carbon_benchmark_lbm_lid_driven_cavity \
   --n 768 --iters 2000 --warmup 200 --overlap standard
 ```
 
+Distributed grid with a pencil / brick decomposition (one GPU per rank):
+
+```bash
+mpiexec --bind-to none -n 8 ./build-mpi/.../carbon_benchmark_lbm_lid_driven_cavity \
+  --grid dense_distributed --decomposition brick --gpus 1 \
+  --n 512 --iters 2000 --warmup 200 --overlap standard --hp-halo
+```
+
+Whole matrices (grids × decompositions × transports × hp-halo × GPU counts ×
+sizes × precisions) run from one YAML with
+`benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-sweep-run.sh`; see
+`benchmarks/lbm_lid_driven_cavity/scripts/README.md`.
+
 ## Gotchas learned this session (read before benchmarking)
 
 - **`mpiexec -n 1` grabs ALL visible GPUs.** The driver treats `world_size()==1`
@@ -96,13 +119,19 @@ mpiexec -n 8 ./build-mpi/.../carbon_benchmark_lbm_lid_driven_cavity \
   Open MPI: `$OMPI_COMM_WORLD_LOCAL_RANK`).
 - **Strict one-rank-per-GPU.** Under MPI each rank owns exactly one GPU
   (`gpu_group().size()==1`); the global domain is z-partitioned across
-  `world_size`. `--n` is always the GLOBAL edge length; MLUPS is global.
+  `world_size` (or split by `--decomposition` on the distributed grids). `--n`
+  is always the GLOBAL edge length; MLUPS is global, and the JSON
+  `system.gpu_count` counts every rank.
+- **`q27` + `kbc` + `fp64` does not launch** ("too many resources requested
+  for launch": the KBC kernel needs more registers than the 512-thread blocks
+  allow in double precision), on every grid.
 - **`--overlap standard` for multi-GPU**, always. On PCIe the default `none`
   regresses below 1-GPU because the halo serialises every iteration; on NVLink
   the gap is smaller but standard still wins.
-- **VTK dump (`--vtk-out`) is Dense-only** (`carbon::io::write_vtk` has no
-  DenseDisg overload) — `--grid disg` warns and skips. Use `--checksum` for
-  disg correctness instead.
+- **VTK dump (`--vtk-out`) is Dense / DenseDistributed only**
+  (`carbon::io::write_vtk` has no DenseDisg overloads) — `--grid disg` and
+  `disg_distributed` warn and skip. Use `--checksum` for disg correctness
+  instead.
 - **Small N is launch/halo bound.** N=96 gave 1.8× scaling; N≥256 gives
   1.9–2.0×. On DGX push N up (512/768/1024) and iters up (≥2000) for meaningful
   strong-scaling numbers; the per-GPU domain must be big enough to hide the
@@ -142,7 +171,8 @@ skeleton overlap, checkpoint).
 ## Where the code lives
 
 - Driver: `benchmarks/lbm_lid_driven_cavity/lbm_lid_driven_cavity.cu`
-  (templated `run_benchmark<Grid, Lattice, Collision>`; MPI branches under
+  (templated `run_benchmark<Grid, Lattice, Collision, Real>`, dispatched over
+  4 grids × 2 precisions × 3 lattice/collision pairs; MPI branches under
   `#ifdef CARBON_HAVE_MPI_NCCL`).
 - Kernels: `benchmarks/lbm_lid_driven_cavity/src/lbm_kernels.h`
   (grid-generic via `Partition::read_pull`).

@@ -1,0 +1,35 @@
+# Frozen copy of the sweep configuration of the best-family colormap of this
+# result set (8x A100-SXM4-40GB). Do not edit it to run new sweeps; copy
+# scripts/lbm-dgx-sweep.yml (which documents every key) instead.
+#
+# Reproduce the runs and the plots with ./reproduce.sh (next to this file).
+#
+# The full N x GPU-count matrix of the four families Dense / DenseDisg x
+# Peeraccess / NCCL. It shares prefix and json/ with lbm-dgx-a100-40gb.yml and
+# force is false, so the 1- and 8-GPU runs that sweep made are reused
+# (reproduce.sh empties json/ before running both). The
+# NCCL families also run at 1 GPU (one rank on GPU 0) so every row has all
+# four families.
+
+configs: [q19:bgk]
+precisions: [fp32]
+sizes: {start: 128, stop: 608, step: 32}
+
+grids: [dense, disg]
+gpus: [1, 2, 4, 8]
+transports: [intra, mpi]
+mpi_single_gpu: true
+overlap: standard
+
+# 2000 solver steps per run, the first 400 untimed.
+warmup: 400
+iters_per_rep: 1600
+reps: 1
+
+sm_arch: "80"
+image_intra: carbon-cuda:local
+image_mpi: carbon-cuda-nccl-pinned:local
+prefix: lbm-dgx-a100-40gb
+skip_build: false
+force: false
+run_timeout: 1800

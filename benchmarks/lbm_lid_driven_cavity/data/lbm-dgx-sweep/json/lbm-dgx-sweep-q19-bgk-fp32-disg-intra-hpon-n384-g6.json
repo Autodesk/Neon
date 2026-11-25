@@ -1,0 +1,98 @@
+{
+  "schema": "carbon-lbm-report-v1",
+  "benchmark": "lbm_lid_driven_cavity",
+  "timestamp_utc": "2026-11-24T23:22:08Z",
+  "config": {
+    "n": 384,
+    "iters": 5400,
+    "warmup": 400,
+    "reps": 5,
+    "lattice": "q19",
+    "collision": "bgk",
+    "precision": "fp32",
+    "grid": "disg",
+    "decomposition": "slab",
+    "process_grid": null,
+    "q": 19,
+    "re": 100,
+    "ulb": 0.05,
+    "nu_lb": 0.1915,
+    "omega": 0.9306654258,
+    "no_warmup_skip": false,
+    "overlap": "standard",
+    "hp_halo": true,
+    "cuda_graph": false,
+    "label": "disg-intra-hpon"
+  },
+  "system": {
+    "backend": "cuda",
+    "distributed": false,
+    "gpu_count": 6,
+    "local_gpu_count": 6,
+    "world_size": 1,
+    "rank": 0,
+    "gpus": [
+      {
+        "device_id": 0,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 1,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 2,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 3,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 4,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 5,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      }
+    ]
+  },
+  "results": {
+    "timed_iters": 5000,
+    "timing_seconds": 5.837967503,
+    "overall_seconds": 6.308280303,
+    "cells_per_iter": 56623104,
+    "mlups": 48495.56286,
+    "mlups_per_gpu": 8082.59381,
+    "effective_bandwidth_gb_s": 7371.325554,
+    "repetitions": {
+      "count": 5,
+      "iters_per_rep": 1000,
+      "seconds": [1.167349417, 1.167571439, 1.167274233, 1.167637555, 1.168134859],
+      "mlups": [48505.7029, 48496.47919, 48508.82715, 48493.73314, 48473.08816],
+      "mlups_mean": 48495.56611,
+      "mlups_min": 48473.08816,
+      "mlups_max": 48508.82715,
+      "mlups_stddev": 14.03621561
+    }
+  }
+}

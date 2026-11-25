@@ -101,8 +101,7 @@ struct BgkCollision {
       const auto cq = Lattice::c(q);
       const Real cu = 3.0F * (static_cast<Real>(cq.x) * ux + static_cast<Real>(cq.y) * uy +
                               static_cast<Real>(cq.z) * uz);
-      const Real feq =
-          rho * Lattice::template w<Real>(q) * (1.0F + cu + 0.5F * cu * cu - usqr);
+      const Real feq = rho * Lattice::template w<Real>(q) * (1.0F + cu + 0.5F * cu * cu - usqr);
       pop[q] = one_minus_omega * pop[q] + omega * feq;
     }
   }
@@ -261,6 +260,21 @@ make_lattice_population_stencil() -> ::carbon::Stencil {
   return ::carbon::Stencil(pts);
 }
 
+// Distributed brick / pencil decompositions need both nonzero signs of the
+// face-normal population so a wall bounce-back can read opp(q) across a rank
+// boundary. Slab layouts keep the cheaper one-sided lattice semantic.
+template <typename Grid>
+[[nodiscard]] inline auto
+population_halo_semantic(const Grid& grid) -> ::carbon::StencilSemantic {
+  if constexpr (requires { grid.process_grid(); }) {
+    const auto dims = grid.process_grid().dims();
+    if (dims.x > 1 || dims.y > 1) {
+      return ::carbon::StencilSemantic::LatticeDistributed;
+    }
+  }
+  return ::carbon::StencilSemantic::Lattice;
+}
+
 // Pull-stream source offset for direction q: under pull streaming the cell
 // reads its q population from the neighbour at -c[q]. Returned as an
 // int8_3d so it can feed Partition::read_pull, the grid-generic @b trusted
@@ -309,11 +323,12 @@ make_iteration_kernel(Grid& grid,
                       std::string name) -> ::carbon::Kernel {
   using Span = typename Grid::Span;
   using Idx = typename Grid::Idx;
+  const auto semantic = population_halo_semantic(grid);
   return ::carbon::Kernel::compute(
       grid,
-      [&f_in, &f_out, &cell_field, params](::carbon::KernelLoader& loader) {
-        const auto fin = loader.read_stencil(f_in, make_lattice_population_stencil<Lattice>(),
-                                             ::carbon::StencilSemantic::Lattice);
+      [&f_in, &f_out, &cell_field, params, semantic](::carbon::KernelLoader& loader) {
+        const auto fin =
+            loader.read_stencil(f_in, make_lattice_population_stencil<Lattice>(), semantic);
         const auto fout = loader.write(f_out);
         const auto cell = loader.read(cell_field);
         const Real omega = params.omega;
@@ -409,6 +424,161 @@ make_iteration_kernel(Grid& grid,
 // (D3Q19, BGK) combo — D3Q27 and KBC stay on the lattice-generic path
 // because their symmetry tables are different (D3Q27) or the collision step
 // itself is not symmetry-factorisable (KBC).
+//
+// Device functor (templated operator()) so DenseDisgDistributed can pass a
+// TypedSpan<Kind> into the body without using a CUDA extended generic lambda
+// (nvcc forbids those). Partition::read_pull then if constexpr-specializes.
+template <typename Idx, typename Fin, typename Fout, typename Cell, typename Real>
+struct D3q19BgkFastOp {
+  Fin fin;
+  Fout fout;
+  Cell cell;
+  Real omega;
+
+  template <typename SpanT>
+  CARBON_HOST_DEVICE void
+  operator()(SpanT s,
+             Idx idx) const {
+    const int32_t packed = cell.read(s, idx, 0);
+    if (classification_of(packed) != Classification::Bulk) {
+      return;
+    }
+    const uint32_t wall_bits = wall_bits_of(packed);
+
+    // ---- 1. Pull-stream — same logic as the generic body ----
+    // See the matching comment in make_iteration_kernel: bounce-back
+    // adds the wall neighbour's pre-seeded opp(q) population so the
+    // moving lid's -6*w*ulb*(c.u_lid) correction actually feeds in.
+    Real pop[D3Q19::Q];
+#pragma unroll
+    for (int q = 0; q < D3Q19::Q; ++q) {
+      if (q == D3Q19::kCenter) {
+        pop[q] = fin.read(s, idx, q);
+        continue;
+      }
+      const ::carbon::int8_3d off = pull_offset<D3Q19>(q);
+      if (wall_bits & (1U << static_cast<uint32_t>(q))) {
+        const int oq = D3Q19::opp(q);
+        pop[q] = fin.read(s, idx, oq) + fin.read_pull(s, idx, off, oq);
+      } else {
+        pop[q] = fin.read_pull(s, idx, off, q);
+      }
+    }
+
+    // ---- 2. Factored macroscopic ----
+    // Sub-sums grouped by the sign of each component of c. Indices
+    // pair with the new c.z-bucketed q-id table in d3q19.h:
+    //   c.x = -1 : {1, 5, 7, 8, 16}
+    //   c.x = +1 : {2, 10, 11, 13, 17}
+    //   c.y = -1 : {3, 6, 7, 10, 14}
+    //   c.y = +1 : {4, 8, 11, 12, 15}
+    //   c.z = -1 : {0, 1, 2, 3, 4}     (entire bucket [0, 5))
+    //   c.z = +1 : {14, 15, 16, 17, 18} (entire bucket [14, 19))
+    // The c.z sums are now full contiguous-bucket scans, mirroring
+    // the disg lattice halo's per-bucket fused transfers.
+    const Real X_M1 = pop[1] + pop[5] + pop[7] + pop[8] + pop[16];
+    const Real X_P1 = pop[2] + pop[10] + pop[11] + pop[13] + pop[17];
+    const Real Y_M1 = pop[3] + pop[6] + pop[7] + pop[10] + pop[14];
+    const Real Y_P1 = pop[4] + pop[8] + pop[11] + pop[12] + pop[15];
+    const Real Z_M1 = pop[0] + pop[1] + pop[2] + pop[3] + pop[4];
+    const Real Z_P1 = pop[14] + pop[15] + pop[16] + pop[17] + pop[18];
+
+    // rho = sum over all q. Cheaper to add up the three z-buckets.
+    const Real Z_0 =
+        pop[5] + pop[6] + pop[7] + pop[8] + pop[9] + pop[10] + pop[11] + pop[12] + pop[13];
+    const Real rho = Z_M1 + Z_0 + Z_P1;
+    const Real inv_rho = 1.0F / rho;
+    const Real ux = (X_P1 - X_M1) * inv_rho;
+    const Real uy = (Y_P1 - Y_M1) * inv_rho;
+    const Real uz = (Z_P1 - Z_M1) * inv_rho;
+    const Real usqr = 1.5F * (ux * ux + uy * uy + uz * uz);
+
+    // ---- 3. Symmetric BGK collision ----
+    // Compute equilibria for q in [0, 9] (the "first half" + center)
+    // and derive q in [10, 18] via the BGK symmetry
+    //   feq(c) - feq(-c) = 6 * rho * w * c.u .
+    // Under the new palindromic ordering c(18 - q) = -c(q), so
+    //   eq_(18 - q) = eq_q + 6 * rho * w_q * c(18 - q).u .
+    // (c.u for the BK velocity of each pair is filled in below.)
+    constexpr Real c1over18 = Real(1) / Real(18);
+    constexpr Real c1over36 = Real(1) / Real(36);
+    constexpr Real c1over3 = Real(1) / Real(3);
+
+    // Off-axial projections used by the face-diagonal pairs.
+    const Real ck_xy = ux + uy;  // (1, 1, 0) / (-1, -1, 0)
+    const Real ck_xz = ux + uz;  // (1, 0, 1) / (-1, 0, -1)
+    const Real ck_yz = uy + uz;  // (0, 1, 1) / (0, -1, -1)
+    const Real dk_xy = ux - uy;  // (1, -1, 0) / (-1, 1, 0)
+    const Real dk_xz = ux - uz;  // (1, 0, -1) / (-1, 0, 1)
+    const Real dk_yz = uy - uz;  // (0, 1, -1) / (0, -1, 1)
+
+    // First-half equilibria. c.u for q in [0, 9]:
+    //   q=0  c=(0,0,-1)   c.u = -uz
+    //   q=1  c=(-1,0,-1)  c.u = -ck_xz
+    //   q=2  c=(1,0,-1)   c.u = +dk_xz
+    //   q=3  c=(0,-1,-1)  c.u = -ck_yz
+    //   q=4  c=(0,1,-1)   c.u = +dk_yz
+    //   q=5  c=(-1,0,0)   c.u = -ux
+    //   q=6  c=(0,-1,0)   c.u = -uy
+    //   q=7  c=(-1,-1,0)  c.u = -ck_xy
+    //   q=8  c=(-1,1,0)   c.u = -dk_xy
+    //   q=9  center       c.u = 0
+    const Real eq_0 = rho * c1over18 * (1.0F - 3.0F * uz + 4.5F * uz * uz - usqr);
+    const Real eq_1 = rho * c1over36 * (1.0F - 3.0F * ck_xz + 4.5F * ck_xz * ck_xz - usqr);
+    const Real eq_2 = rho * c1over36 * (1.0F + 3.0F * dk_xz + 4.5F * dk_xz * dk_xz - usqr);
+    const Real eq_3 = rho * c1over36 * (1.0F - 3.0F * ck_yz + 4.5F * ck_yz * ck_yz - usqr);
+    const Real eq_4 = rho * c1over36 * (1.0F + 3.0F * dk_yz + 4.5F * dk_yz * dk_yz - usqr);
+    const Real eq_5 = rho * c1over18 * (1.0F - 3.0F * ux + 4.5F * ux * ux - usqr);
+    const Real eq_6 = rho * c1over18 * (1.0F - 3.0F * uy + 4.5F * uy * uy - usqr);
+    const Real eq_7 = rho * c1over36 * (1.0F - 3.0F * ck_xy + 4.5F * ck_xy * ck_xy - usqr);
+    const Real eq_8 = rho * c1over36 * (1.0F - 3.0F * dk_xy + 4.5F * dk_xy * dk_xy - usqr);
+    const Real eq_9 = rho * c1over3 * (1.0F - usqr);
+
+    // Second-half equilibria via the symmetry. c.u for q in [10, 18]:
+    //   q=10 c=(1,-1,0)   c.u = +dk_xy
+    //   q=11 c=(1,1,0)    c.u = +ck_xy
+    //   q=12 c=(0,1,0)    c.u = +uy
+    //   q=13 c=(1,0,0)    c.u = +ux
+    //   q=14 c=(0,-1,1)   c.u = -dk_yz
+    //   q=15 c=(0,1,1)    c.u = +ck_yz
+    //   q=16 c=(-1,0,1)   c.u = -dk_xz
+    //   q=17 c=(1,0,1)    c.u = +ck_xz
+    //   q=18 c=(0,0,1)    c.u = +uz
+    const Real eq_10 = eq_8 + rho * c1over36 * 6.0F * dk_xy;
+    const Real eq_11 = eq_7 + rho * c1over36 * 6.0F * ck_xy;
+    const Real eq_12 = eq_6 + rho * c1over18 * 6.0F * uy;
+    const Real eq_13 = eq_5 + rho * c1over18 * 6.0F * ux;
+    const Real eq_14 = eq_4 - rho * c1over36 * 6.0F * dk_yz;
+    const Real eq_15 = eq_3 + rho * c1over36 * 6.0F * ck_yz;
+    const Real eq_16 = eq_2 - rho * c1over36 * 6.0F * dk_xz;
+    const Real eq_17 = eq_1 + rho * c1over36 * 6.0F * ck_xz;
+    const Real eq_18 = eq_0 + rho * c1over18 * 6.0F * uz;
+
+    const Real one_minus_omega = 1.0F - omega;
+
+    // ---- 4. Write back ----
+    fout.write(s, idx, 0, one_minus_omega * pop[0] + omega * eq_0);
+    fout.write(s, idx, 1, one_minus_omega * pop[1] + omega * eq_1);
+    fout.write(s, idx, 2, one_minus_omega * pop[2] + omega * eq_2);
+    fout.write(s, idx, 3, one_minus_omega * pop[3] + omega * eq_3);
+    fout.write(s, idx, 4, one_minus_omega * pop[4] + omega * eq_4);
+    fout.write(s, idx, 5, one_minus_omega * pop[5] + omega * eq_5);
+    fout.write(s, idx, 6, one_minus_omega * pop[6] + omega * eq_6);
+    fout.write(s, idx, 7, one_minus_omega * pop[7] + omega * eq_7);
+    fout.write(s, idx, 8, one_minus_omega * pop[8] + omega * eq_8);
+    fout.write(s, idx, 9, one_minus_omega * pop[9] + omega * eq_9);
+    fout.write(s, idx, 10, one_minus_omega * pop[10] + omega * eq_10);
+    fout.write(s, idx, 11, one_minus_omega * pop[11] + omega * eq_11);
+    fout.write(s, idx, 12, one_minus_omega * pop[12] + omega * eq_12);
+    fout.write(s, idx, 13, one_minus_omega * pop[13] + omega * eq_13);
+    fout.write(s, idx, 14, one_minus_omega * pop[14] + omega * eq_14);
+    fout.write(s, idx, 15, one_minus_omega * pop[15] + omega * eq_15);
+    fout.write(s, idx, 16, one_minus_omega * pop[16] + omega * eq_16);
+    fout.write(s, idx, 17, one_minus_omega * pop[17] + omega * eq_17);
+    fout.write(s, idx, 18, one_minus_omega * pop[18] + omega * eq_18);
+  }
+};
+
 template <typename Grid,
           typename Real>
 [[nodiscard]] inline auto
@@ -421,155 +591,17 @@ make_iteration_kernel_d3q19_bgk_fast(Grid& grid,
                                                                    1>& cell_field,
                                      LbmParameters<Real> params,
                                      std::string name) -> ::carbon::Kernel {
-  using Span = typename Grid::Span;
   using Idx = typename Grid::Idx;
+  const auto semantic = population_halo_semantic(grid);
   return ::carbon::Kernel::compute(
       grid,
-      [&f_in, &f_out, &cell_field, params](::carbon::KernelLoader& loader) {
-        const auto fin = loader.read_stencil(f_in, make_lattice_population_stencil<D3Q19>(),
-                                             ::carbon::StencilSemantic::Lattice);
+      [&f_in, &f_out, &cell_field, params, semantic](::carbon::KernelLoader& loader) {
+        const auto fin =
+            loader.read_stencil(f_in, make_lattice_population_stencil<D3Q19>(), semantic);
         const auto fout = loader.write(f_out);
         const auto cell = loader.read(cell_field);
-        const Real omega = params.omega;
-        return [fin, fout, cell, omega] CARBON_HOST_DEVICE(Span s, Idx idx) {
-          const int32_t packed = cell.read(s, idx, 0);
-          if (classification_of(packed) != Classification::Bulk) {
-            return;
-          }
-          const uint32_t wall_bits = wall_bits_of(packed);
-
-          // ---- 1. Pull-stream — same logic as the generic body ----
-          // See the matching comment in make_iteration_kernel: bounce-back
-          // adds the wall neighbour's pre-seeded opp(q) population so the
-          // moving lid's -6*w*ulb*(c.u_lid) correction actually feeds in.
-          Real pop[D3Q19::Q];
-#pragma unroll
-          for (int q = 0; q < D3Q19::Q; ++q) {
-            if (q == D3Q19::kCenter) {
-              pop[q] = fin.read(s, idx, q);
-              continue;
-            }
-            const ::carbon::int8_3d off = pull_offset<D3Q19>(q);
-            if (wall_bits & (1U << static_cast<uint32_t>(q))) {
-              const int oq = D3Q19::opp(q);
-              pop[q] = fin.read(s, idx, oq) + fin.read_pull(s, idx, off, oq);
-            } else {
-              pop[q] = fin.read_pull(s, idx, off, q);
-            }
-          }
-
-          // ---- 2. Factored macroscopic ----
-          // Sub-sums grouped by the sign of each component of c. Indices
-          // pair with the new c.z-bucketed q-id table in d3q19.h:
-          //   c.x = -1 : {1, 5, 7, 8, 16}
-          //   c.x = +1 : {2, 10, 11, 13, 17}
-          //   c.y = -1 : {3, 6, 7, 10, 14}
-          //   c.y = +1 : {4, 8, 11, 12, 15}
-          //   c.z = -1 : {0, 1, 2, 3, 4}     (entire bucket [0, 5))
-          //   c.z = +1 : {14, 15, 16, 17, 18} (entire bucket [14, 19))
-          // The c.z sums are now full contiguous-bucket scans, mirroring
-          // the disg lattice halo's per-bucket fused transfers.
-          const Real X_M1 = pop[1] + pop[5] + pop[7] + pop[8] + pop[16];
-          const Real X_P1 = pop[2] + pop[10] + pop[11] + pop[13] + pop[17];
-          const Real Y_M1 = pop[3] + pop[6] + pop[7] + pop[10] + pop[14];
-          const Real Y_P1 = pop[4] + pop[8] + pop[11] + pop[12] + pop[15];
-          const Real Z_M1 = pop[0] + pop[1] + pop[2] + pop[3] + pop[4];
-          const Real Z_P1 = pop[14] + pop[15] + pop[16] + pop[17] + pop[18];
-
-          // rho = sum over all q. Cheaper to add up the three z-buckets.
-          const Real Z_0 =
-              pop[5] + pop[6] + pop[7] + pop[8] + pop[9] + pop[10] + pop[11] + pop[12] + pop[13];
-          const Real rho = Z_M1 + Z_0 + Z_P1;
-          const Real inv_rho = 1.0F / rho;
-          const Real ux = (X_P1 - X_M1) * inv_rho;
-          const Real uy = (Y_P1 - Y_M1) * inv_rho;
-          const Real uz = (Z_P1 - Z_M1) * inv_rho;
-          const Real usqr = 1.5F * (ux * ux + uy * uy + uz * uz);
-
-          // ---- 3. Symmetric BGK collision ----
-          // Compute equilibria for q in [0, 9] (the "first half" + center)
-          // and derive q in [10, 18] via the BGK symmetry
-          //   feq(c) - feq(-c) = 6 * rho * w * c.u .
-          // Under the new palindromic ordering c(18 - q) = -c(q), so
-          //   eq_(18 - q) = eq_q + 6 * rho * w_q * c(18 - q).u .
-          // (c.u for the BK velocity of each pair is filled in below.)
-          constexpr Real c1over18 = Real(1) / Real(18);
-          constexpr Real c1over36 = Real(1) / Real(36);
-          constexpr Real c1over3 = Real(1) / Real(3);
-
-          // Off-axial projections used by the face-diagonal pairs.
-          const Real ck_xy = ux + uy;  // (1, 1, 0) / (-1, -1, 0)
-          const Real ck_xz = ux + uz;  // (1, 0, 1) / (-1, 0, -1)
-          const Real ck_yz = uy + uz;  // (0, 1, 1) / (0, -1, -1)
-          const Real dk_xy = ux - uy;  // (1, -1, 0) / (-1, 1, 0)
-          const Real dk_xz = ux - uz;  // (1, 0, -1) / (-1, 0, 1)
-          const Real dk_yz = uy - uz;  // (0, 1, -1) / (0, -1, 1)
-
-          // First-half equilibria. c.u for q in [0, 9]:
-          //   q=0  c=(0,0,-1)   c.u = -uz
-          //   q=1  c=(-1,0,-1)  c.u = -ck_xz
-          //   q=2  c=(1,0,-1)   c.u = +dk_xz
-          //   q=3  c=(0,-1,-1)  c.u = -ck_yz
-          //   q=4  c=(0,1,-1)   c.u = +dk_yz
-          //   q=5  c=(-1,0,0)   c.u = -ux
-          //   q=6  c=(0,-1,0)   c.u = -uy
-          //   q=7  c=(-1,-1,0)  c.u = -ck_xy
-          //   q=8  c=(-1,1,0)   c.u = -dk_xy
-          //   q=9  center       c.u = 0
-          const Real eq_0 = rho * c1over18 * (1.0F - 3.0F * uz + 4.5F * uz * uz - usqr);
-          const Real eq_1 = rho * c1over36 * (1.0F - 3.0F * ck_xz + 4.5F * ck_xz * ck_xz - usqr);
-          const Real eq_2 = rho * c1over36 * (1.0F + 3.0F * dk_xz + 4.5F * dk_xz * dk_xz - usqr);
-          const Real eq_3 = rho * c1over36 * (1.0F - 3.0F * ck_yz + 4.5F * ck_yz * ck_yz - usqr);
-          const Real eq_4 = rho * c1over36 * (1.0F + 3.0F * dk_yz + 4.5F * dk_yz * dk_yz - usqr);
-          const Real eq_5 = rho * c1over18 * (1.0F - 3.0F * ux + 4.5F * ux * ux - usqr);
-          const Real eq_6 = rho * c1over18 * (1.0F - 3.0F * uy + 4.5F * uy * uy - usqr);
-          const Real eq_7 = rho * c1over36 * (1.0F - 3.0F * ck_xy + 4.5F * ck_xy * ck_xy - usqr);
-          const Real eq_8 = rho * c1over36 * (1.0F - 3.0F * dk_xy + 4.5F * dk_xy * dk_xy - usqr);
-          const Real eq_9 = rho * c1over3 * (1.0F - usqr);
-
-          // Second-half equilibria via the symmetry. c.u for q in [10, 18]:
-          //   q=10 c=(1,-1,0)   c.u = +dk_xy
-          //   q=11 c=(1,1,0)    c.u = +ck_xy
-          //   q=12 c=(0,1,0)    c.u = +uy
-          //   q=13 c=(1,0,0)    c.u = +ux
-          //   q=14 c=(0,-1,1)   c.u = -dk_yz
-          //   q=15 c=(0,1,1)    c.u = +ck_yz
-          //   q=16 c=(-1,0,1)   c.u = -dk_xz
-          //   q=17 c=(1,0,1)    c.u = +ck_xz
-          //   q=18 c=(0,0,1)    c.u = +uz
-          const Real eq_10 = eq_8 + rho * c1over36 * 6.0F * dk_xy;
-          const Real eq_11 = eq_7 + rho * c1over36 * 6.0F * ck_xy;
-          const Real eq_12 = eq_6 + rho * c1over18 * 6.0F * uy;
-          const Real eq_13 = eq_5 + rho * c1over18 * 6.0F * ux;
-          const Real eq_14 = eq_4 - rho * c1over36 * 6.0F * dk_yz;
-          const Real eq_15 = eq_3 + rho * c1over36 * 6.0F * ck_yz;
-          const Real eq_16 = eq_2 - rho * c1over36 * 6.0F * dk_xz;
-          const Real eq_17 = eq_1 + rho * c1over36 * 6.0F * ck_xz;
-          const Real eq_18 = eq_0 + rho * c1over18 * 6.0F * uz;
-
-          const Real one_minus_omega = 1.0F - omega;
-
-          // ---- 4. Write back ----
-          fout.write(s, idx, 0, one_minus_omega * pop[0] + omega * eq_0);
-          fout.write(s, idx, 1, one_minus_omega * pop[1] + omega * eq_1);
-          fout.write(s, idx, 2, one_minus_omega * pop[2] + omega * eq_2);
-          fout.write(s, idx, 3, one_minus_omega * pop[3] + omega * eq_3);
-          fout.write(s, idx, 4, one_minus_omega * pop[4] + omega * eq_4);
-          fout.write(s, idx, 5, one_minus_omega * pop[5] + omega * eq_5);
-          fout.write(s, idx, 6, one_minus_omega * pop[6] + omega * eq_6);
-          fout.write(s, idx, 7, one_minus_omega * pop[7] + omega * eq_7);
-          fout.write(s, idx, 8, one_minus_omega * pop[8] + omega * eq_8);
-          fout.write(s, idx, 9, one_minus_omega * pop[9] + omega * eq_9);
-          fout.write(s, idx, 10, one_minus_omega * pop[10] + omega * eq_10);
-          fout.write(s, idx, 11, one_minus_omega * pop[11] + omega * eq_11);
-          fout.write(s, idx, 12, one_minus_omega * pop[12] + omega * eq_12);
-          fout.write(s, idx, 13, one_minus_omega * pop[13] + omega * eq_13);
-          fout.write(s, idx, 14, one_minus_omega * pop[14] + omega * eq_14);
-          fout.write(s, idx, 15, one_minus_omega * pop[15] + omega * eq_15);
-          fout.write(s, idx, 16, one_minus_omega * pop[16] + omega * eq_16);
-          fout.write(s, idx, 17, one_minus_omega * pop[17] + omega * eq_17);
-          fout.write(s, idx, 18, one_minus_omega * pop[18] + omega * eq_18);
-        };
+        using Op = D3q19BgkFastOp<Idx, decltype(fin), decltype(fout), decltype(cell), Real>;
+        return Op{fin, fout, cell, params.omega};
       },
       std::move(name),
       /*shared_mem=*/0U);

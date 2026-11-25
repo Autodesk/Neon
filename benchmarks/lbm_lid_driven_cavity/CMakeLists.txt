@@ -7,6 +7,10 @@
 # input population) — same pattern as examples/jacobi_unified.cu, scaled up
 # from a 1-component scalar field to a 19-component population field.
 #
+# One binary covers every grid family (--grid dense | disg | dense_distributed |
+# disg_distributed), process decomposition (--decomposition slab | pencil |
+# brick, distributed grids only) and precision (--precision fp32 | fp64).
+#
 # Headers live under src/ and are #included directly from the .cu / .cpp twin
 # so a single TU drives the build. CLI parsing uses the bundled clipp header
 # from third_party/ (same single-header parser examples/cg_poisson uses).

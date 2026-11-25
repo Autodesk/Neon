@@ -1,0 +1,84 @@
+{
+  "schema": "carbon-lbm-report-v1",
+  "benchmark": "lbm_lid_driven_cavity",
+  "timestamp_utc": "2026-11-25T06:26:35Z",
+  "config": {
+    "n": 224,
+    "iters": 2000,
+    "warmup": 400,
+    "reps": 1,
+    "lattice": "q19",
+    "collision": "bgk",
+    "precision": "fp32",
+    "grid": "dense",
+    "decomposition": "slab",
+    "process_grid": null,
+    "q": 19,
+    "re": 100,
+    "ulb": 0.05,
+    "nu_lb": 0.1115,
+    "omega": 1.198322349,
+    "no_warmup_skip": false,
+    "overlap": "standard",
+    "hp_halo": false,
+    "cuda_graph": false,
+    "label": "dense-intra"
+  },
+  "system": {
+    "backend": "cuda",
+    "distributed": false,
+    "gpu_count": 4,
+    "local_gpu_count": 4,
+    "world_size": 1,
+    "rank": 0,
+    "gpus": [
+      {
+        "device_id": 0,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 1,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 2,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 3,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      }
+    ]
+  },
+  "results": {
+    "timed_iters": 1600,
+    "timing_seconds": 0.600858597,
+    "overall_seconds": 0.755873358,
+    "cells_per_iter": 11239424,
+    "mlups": 29928.96913,
+    "mlups_per_gpu": 7482.242282,
+    "effective_bandwidth_gb_s": 4549.203307,
+    "repetitions": {
+      "count": 1,
+      "iters_per_rep": 1600,
+      "seconds": [0.600858597],
+      "mlups": [29928.96913],
+      "mlups_mean": 29928.96913,
+      "mlups_min": 29928.96913,
+      "mlups_max": 29928.96913,
+      "mlups_stddev": 0
+    }
+  }
+}

@@ -19,6 +19,9 @@
 //                           defined for the full 27-velocity lattice.
 //   --precision {fp32,fp64}: float (default) or double populations and
 //                           collision arithmetic.
+//   --grid {dense,disg,dense_distributed,disg_distributed} and
+//   --decomposition {slab,pencil,brick}: grid family and, for the two
+//                           distributed grids, the ProcessGrid split.
 //
 // Headline metric is MLUPS — Million Lattice Updates Per Second — computed
 // over the post-warmup iterations only:
@@ -36,6 +39,8 @@
 #include <carbon/cuda_annotation.h>
 #include <carbon/dense.h>
 #include <carbon/dense_disg.h>
+#include <carbon/dense_disg_distributed.h>
+#include <carbon/dense_distributed.h>
 // CARBON_BACKEND_NAME is "cuda" or "sycl" depending on which backend the
 // library was configured with. Stamped into the JSON report's system block
 // so a sweep that drives both backends from the same scripts/ directory
@@ -49,6 +54,7 @@
 #include <carbon/kernel.h>
 #include <carbon/logging.h>
 #include <carbon/memory_side.h>
+#include <carbon/process_grid.h>
 #include <carbon/reduce.h>
 #include <carbon/skeleton.h>
 #include <carbon/stencil.h>
@@ -66,10 +72,26 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
+
+#if __has_include(<nvtx3/nvToolsExt.h>)
+#include <nvtx3/nvToolsExt.h>
+#define LBM_NVTX_PUSH(name) ::nvtxRangePushA(name)
+#define LBM_NVTX_POP() ::nvtxRangePop()
+#elif __has_include(<nvToolsExt.h>)
+#include <nvToolsExt.h>
+#define LBM_NVTX_PUSH(name) ::nvtxRangePushA(name)
+#define LBM_NVTX_POP() ::nvtxRangePop()
+#else
+#define LBM_NVTX_PUSH(name) ((void)0)
+#define LBM_NVTX_POP() ((void)0)
+#endif
 
 namespace {
 
@@ -102,12 +124,15 @@ struct Options {
   std::string precision = "fp32";
   // Grid family the benchmark runs on. "dense" is carbon::Dense (aggregated
   // Cartesian z-slabs); "disg" is carbon::DenseDisg (the disaggregated,
-  // five-region-per-slab lattice-Boltzmann layout). Both run the identical hot
-  // kernel (the pull-stream + half-way bounce-back + symmetric BGK body) — the
-  // only difference is the per-slab storage layout and the auto-inserted halo
-  // family (Halo vs HaloDisg). Selecting "disg" is the fair apples-to-apples
-  // measurement of the disaggregated layout on a real LBM workload.
+  // five-region-per-slab lattice-Boltzmann layout); "dense_distributed" is
+  // carbon::DenseDistributed, which honours --decomposition and exchanges
+  // halos along all decomposed axes; "disg_distributed" is
+  // carbon::DenseDisgDistributed (disaggregated layout on a ProcessGrid;
+  // slab, pencil and brick). All run the identical hot kernel — the only
+  // differences are the per-slab storage layout and the auto-inserted halo
+  // family (Halo / HaloDisg / HaloDistributed / HaloDisgDistributed).
   std::string grid = "dense";
+  std::string decomposition = "slab";
   std::string report_path = "";
   std::string label = "";
   std::string vtk_path = "";
@@ -122,6 +147,11 @@ struct Options {
   // the LBM iteration there is only one stencil node so they degenerate to
   // "standard" but are exposed here for symmetry with carbon::OverlapMode.
   std::string overlap = "none";
+  // Create the OCC halo stream with the greatest driver priority
+  // (carbon::Skeleton::Options::halo_stream_priority = High). The halo's gather /
+  // NCCL / scatter kernels and the Boundary half inherit it, so they get SMs ahead of
+  // the Internal half's pending blocks. Only meaningful with --overlap != none.
+  bool hp_halo = false;
   std::string export_dot_path = "";
   std::string export_dot_png_path = "";
   std::string export_dot_streams_path = "";
@@ -129,12 +159,12 @@ struct Options {
   // skeleton. Engaged only for single-GPU / single-stream schedules (the
   // OverlapMode::None single-GPU case); a no-op fallback otherwise.
   bool cuda_graph = false;
-  // After the timed loop, Sum-reduce the whole final population field and print
-  // CHECKSUM=<value>. Because sum_q pop_q == rho per cell, this is the total
-  // mass in the domain — a single scalar that is invariant across grid families
-  // when the streaming/collision is numerically identical. Used to verify that
-  // --grid dense and --grid disg produce bit-comparable physics (they run the
-  // same hot kernel; only the storage layout + halo family differ).
+  // After the timed loop, Sum-reduce the final population field and print
+  // CHECKSUM=<total mass> and MOMENTUM_X=<total x-momentum>. Both are invariant
+  // across grid families and decompositions when the streaming/collision is
+  // numerically identical (same hot kernel; only the storage layout + halo
+  // family differ). Mass is close to conserved by construction, so a broken
+  // halo can leave it unchanged; the lid-driven x-momentum is not.
   bool checksum = false;
   bool show_help = false;
   /** Limit to first N visible CUDA devices (-1 = all visible). Same as jacobi_nvidia -gpus. */
@@ -155,8 +185,8 @@ build_cli(Options& opts) -> clipp::group {
       (option("--warmup") & integer("warmup", opts.warmup)) %
           "Warmup iterations excluded from timing (default 100)",
       (option("--reps") & integer("reps", opts.reps)) %
-          "Split the timed iterations into N equal repetitions, each synced and "
-          "timed separately; the report carries per-repetition MLUPS and their "
+          "Split the timed iterations into N equal repetitions, each closed by a GPU drain "
+          "and (under MPI) a barrier, and report per-repetition MLUPS plus "
           "mean/min/max/stddev (default 1). Timed iterations must divide by N.",
       (option("--re") & number("re", opts.re)) % "Reynolds number (default 1e2)",
       (option("--ulb") & number("ulb", opts.ulb).set(opts.ulb_set)) %
@@ -167,9 +197,16 @@ build_cli(Options& opts) -> clipp::group {
           "Collision model: bgk (default) or kbc (entropic; D3Q27 only)",
       (option("--precision") & value("fp32|fp64", opts.precision)) %
           "Population / arithmetic precision: fp32 (float, default) or fp64 (double)",
-      (option("--grid") & value("dense|disg", opts.grid)) %
-          "Grid family: dense (carbon::Dense, default) or disg (carbon::DenseDisg, "
-          "the disaggregated five-region LBM layout). Same hot kernel on both.",
+      (option("--grid") & value("dense|disg|dense_distributed|disg_distributed", opts.grid)) %
+          "Grid family: dense (carbon::Dense, default), disg (carbon::DenseDisg, "
+          "the disaggregated five-region LBM layout), dense_distributed "
+          "(carbon::DenseDistributed, honours --decomposition), or disg_distributed "
+          "(carbon::DenseDisgDistributed, disaggregated + ProcessGrid). "
+          "Same hot kernel on all.",
+      (option("--decomposition") & value("slab|pencil|brick", opts.decomposition)) %
+          "Process decomposition for --grid dense_distributed|disg_distributed "
+          "(default: slab). slab splits z; pencil splits y and z; brick splits all three "
+          "axes. Auto-factorized across ranks; ignored for dense/disg, which are slab-only.",
       (option("-gpus", "--gpus") & integer("n", opts.n_gpus)) %
           "Use the first N visible CUDA devices (-1 = all visible; default -1). "
           "Combine with CUDA_VISIBLE_DEVICES to pick physical GPUs.",
@@ -191,6 +228,11 @@ build_cli(Options& opts) -> clipp::group {
           "node into Internal + Boundary so the halo overlaps with Internal on "
           "a second stream — improves multi-GPU significantly on PCIe-only "
           "hosts where halo otherwise blocks compute.",
+      option("--hp-halo").set(opts.hp_halo) %
+          "Create the OCC halo stream with the highest driver priority (Skeleton "
+          "Options::halo_stream_priority = High) so the halo gather / NCCL / scatter and "
+          "Boundary kernels get SMs before Internal's pending blocks. Only meaningful with "
+          "--overlap != none.",
       (option("--export-dot") & value("path", opts.export_dot_path)) %
           "Write the compiled Skeleton launch-matrix schedule (GraphViz .dot) for "
           "the AB ping-pong skeleton to PATH after compile.",
@@ -205,8 +247,8 @@ build_cli(Options& opts) -> clipp::group {
           "Collapses per-iteration host launch overhead.",
       option("--checksum").set(opts.checksum) %
           "After the loop, Sum-reduce the final population field and print "
-          "CHECKSUM=<total mass>. Grid-family invariant — used to verify "
-          "--grid dense and --grid disg match numerically.",
+          "CHECKSUM=<total mass> and MOMENTUM_X=<total x-momentum>. Grid-family and "
+          "decomposition invariant — used to verify that all grids match numerically.",
       option("--no-warmup-skip").set(opts.no_warmup_skip) %
           "Include warmup iterations in the timing window (debug aid)");
 }
@@ -251,8 +293,8 @@ parse_cli(int argc,
     return false;
   }
   if (opts.precision != "fp32" && opts.precision != "fp64") {
-    std::cerr << "lbm_lid_driven_cavity: --precision must be fp32 or fp64 (got '"
-              << opts.precision << "')\n";
+    std::cerr << "lbm_lid_driven_cavity: --precision must be fp32 or fp64 (got '" << opts.precision
+              << "')\n";
     return false;
   }
   if (opts.collision == "kbc" && opts.lattice != "q27") {
@@ -260,9 +302,24 @@ parse_cli(int argc,
                  "(KBC's moment basis is defined for D3Q27 only)\n";
     return false;
   }
-  if (opts.grid != "dense" && opts.grid != "disg") {
-    std::cerr << "lbm_lid_driven_cavity: --grid must be dense or disg (got '" << opts.grid
-              << "')\n";
+  if (opts.grid != "dense" && opts.grid != "disg" && opts.grid != "dense_distributed" &&
+      opts.grid != "disg_distributed") {
+    std::cerr << "lbm_lid_driven_cavity: --grid must be dense, disg, dense_distributed, or "
+                 "disg_distributed (got '"
+              << opts.grid << "')\n";
+    return false;
+  }
+  if (opts.decomposition != "slab" && opts.decomposition != "pencil" &&
+      opts.decomposition != "brick") {
+    std::cerr << "lbm_lid_driven_cavity: --decomposition must be slab, pencil, or brick (got '"
+              << opts.decomposition << "')\n";
+    return false;
+  }
+  if (opts.grid != "dense_distributed" && opts.grid != "disg_distributed" &&
+      opts.decomposition != "slab") {
+    std::cerr << "lbm_lid_driven_cavity: --decomposition " << opts.decomposition
+              << " requires --grid dense_distributed or disg_distributed "
+                 "(dense/disg are slab-only)\n";
     return false;
   }
   if (opts.overlap != "none" && opts.overlap != "standard" && opts.overlap != "extended" &&
@@ -287,6 +344,35 @@ overlap_mode_from_string(std::string_view s) -> carbon::OverlapMode {
     return carbon::OverlapMode::TwoWayExtended;
   }
   return carbon::OverlapMode::None;
+}
+
+[[nodiscard]] auto
+parse_decomposition_mode(std::string_view s) -> std::optional<carbon::DecompositionMode> {
+  if (s == "slab" || s.empty()) {
+    return carbon::DecompositionMode::Slab;
+  }
+  if (s == "pencil") {
+    return carbon::DecompositionMode::Pencil;
+  }
+  if (s == "brick") {
+    return carbon::DecompositionMode::Brick;
+  }
+  return std::nullopt;
+}
+
+[[nodiscard]] auto
+decomposition_mode_name(carbon::DecompositionMode m) -> const char* {
+  switch (m) {
+    case carbon::DecompositionMode::Slab:
+      return "slab";
+    case carbon::DecompositionMode::Pencil:
+      return "pencil";
+    case carbon::DecompositionMode::Brick:
+      return "brick";
+    case carbon::DecompositionMode::Custom:
+      return "custom";
+  }
+  return "?";
 }
 
 // Tiny RFC-3339 / ISO-8601 timestamp helper used in the JSON report.
@@ -442,9 +528,13 @@ template <typename Grid,
 [[nodiscard]] auto
 run_benchmark(const Options& opts,
               const std::string& lattice_name,
-              const std::string& collision_name) -> int {
-  static_assert(std::is_same_v<Grid, carbon::Dense> || std::is_same_v<Grid, carbon::DenseDisg>,
-                "LBM benchmark supports carbon::Dense and carbon::DenseDisg only.");
+              const std::string& collision_name,
+              carbon::DecompositionMode dec_mode) -> int {
+  static_assert(std::is_same_v<Grid, carbon::Dense> || std::is_same_v<Grid, carbon::DenseDisg> ||
+                    std::is_same_v<Grid, carbon::DenseDistributed> ||
+                    std::is_same_v<Grid, carbon::DenseDisgDistributed>,
+                "LBM benchmark supports carbon::Dense, carbon::DenseDisg, "
+                "carbon::DenseDistributed, and carbon::DenseDisgDistributed only.");
 #ifdef CARBON_HAVE_MPI_NCCL
   // Auto-detect MPI launches: the `Distributed` ctor invokes `MPI_Init` (a
   // no-op when already initialised) and bootstraps an `ncclComm_t` over every
@@ -458,23 +548,47 @@ run_benchmark(const Options& opts,
   const bool use_mpi = distributed->world_size() > 1;
   carbon::System sys =
       use_mpi ? carbon::System(distributed) : make_single_process_system(opts.n_gpus);
+  const int world_rank = use_mpi ? distributed->world_rank() : 0;
+  const int world_size = use_mpi ? distributed->world_size() : 1;
 #else
   carbon::System sys = make_single_process_system(opts.n_gpus);
+  const bool use_mpi = false;
+  const int world_rank = 0;
+  const int world_size = 1;
 #endif
   const size_t n_gpus = sys.gpu_group().size();
+  const int local_gpu_count = static_cast<int>(n_gpus);
+  const int total_gpu_count = use_mpi ? world_size : local_gpu_count;
 
   const carbon::Stencil stencil = make_lbm_stencil<Lattice>();
   const carbon::int64_3d global{opts.n, opts.n, opts.n};
-  // Construct the selected grid family. Both give a radius-1 z-halo (D3Q19 /
-  // D3Q27 have |c|_inf == 1); Dense derives halo_z from the stencil, DenseDisg
-  // takes it directly (its five-region layout pins ghost/boundary radius to 1).
-  // Only one branch is instantiated per Grid, so the IIFE's return type is the
-  // concrete grid type for this instantiation.
+
+  std::optional<carbon::ProcessGrid> pg;
+  if constexpr (std::is_same_v<Grid, carbon::DenseDistributed> ||
+                std::is_same_v<Grid, carbon::DenseDisgDistributed>) {
+    const int grid_world = use_mpi ? world_size : local_gpu_count;
+    pg.emplace(carbon::ProcessGrid::make(grid_world, dec_mode));
+    if (world_rank == 0) {
+      const carbon::int32_3d dims = pg->dims();
+      CARBON_LOG_INFO("lbm_lid_driven_cavity: process_grid={}x{}x{} (world_size={})", dims.x,
+                      dims.y, dims.z, grid_world);
+    }
+  }
+
+  // Construct the selected grid family. Dense/DenseDisg give a radius-1 z-halo
+  // (D3Q19 / D3Q27 have |c|_inf == 1); DenseDistributed / DenseDisgDistributed
+  // derive per-axis halos from the same stencil and honour the requested
+  // decomposition. Only one branch is instantiated per Grid, so the IIFE's
+  // return type is the concrete grid type for this instantiation.
   Grid grid = [&]() -> Grid {
     if constexpr (std::is_same_v<Grid, carbon::Dense>) {
       return carbon::Dense(sys, global, stencil);
-    } else {
+    } else if constexpr (std::is_same_v<Grid, carbon::DenseDisg>) {
       return carbon::DenseDisg(sys, global, /*halo_z=*/1);
+    } else if constexpr (std::is_same_v<Grid, carbon::DenseDisgDistributed>) {
+      return carbon::DenseDisgDistributed(sys, global, *pg, stencil);
+    } else {
+      return carbon::DenseDistributed(sys, global, *pg, stencil);
     }
   }();
 
@@ -486,11 +600,15 @@ run_benchmark(const Options& opts,
   const double omega = 1.0 / (3.0 * nu_lb + 0.5);
   const LbmParameters<Real> params{static_cast<Real>(ulb), static_cast<Real>(omega)};
 
-  CARBON_LOG_INFO(
-      "lbm_lid_driven_cavity: lattice={} collision={} precision={} N={} iters={} warmup={} "
-      "Re={:.3g} ulb={:.4g} omega={:.4g} GPUs={} Q={}",
-      lattice_name, collision_name, opts.precision, opts.n, opts.iters, opts.warmup, opts.re, ulb,
-      omega, n_gpus, Lattice::Q);
+  if (world_rank == 0) {
+    CARBON_LOG_INFO(
+        "lbm_lid_driven_cavity: lattice={} collision={} precision={} grid={} N={} iters={} "
+        "warmup={} Re={:.3g} ulb={:.4g} omega={:.4g} GPUs={} local_gpus={} ranks={} "
+        "decomposition={} Q={}",
+        lattice_name, collision_name, opts.precision, opts.grid, opts.n, opts.iters, opts.warmup,
+        opts.re, ulb, omega, total_gpu_count, local_gpu_count, world_size,
+        decomposition_mode_name(dec_mode), Lattice::Q);
+  }
 
   // Two ping-pong populations + a cell-type field. HostDevice so we can
   // seed them from the CPU via fill_owned_host then upload once.
@@ -566,10 +684,12 @@ run_benchmark(const Options& opts,
     }
   };
 
-  const carbon::Skeleton::Options sk_opts(overlap_mode_from_string(opts.overlap),
-                                          /*strict_halo=*/false, /*max_streams=*/0U,
-                                          /*log_dot_on_compile=*/false,
-                                          /*use_cuda_graph=*/opts.cuda_graph);
+  const carbon::Skeleton::Options sk_opts(
+      overlap_mode_from_string(opts.overlap),
+      /*strict_halo=*/false, /*max_streams=*/0U,
+      /*log_dot_on_compile=*/false,
+      /*use_cuda_graph=*/opts.cuda_graph,
+      opts.hp_halo ? carbon::StreamPriority::High : carbon::StreamPriority::Normal);
   carbon::Skeleton sk_ab(sys, sk_opts);
   sk_ab.add(build_iter(pop_a, pop_b, "lbm_step_ab"));
   carbon::Skeleton sk_ba(sys, sk_opts);
@@ -581,10 +701,13 @@ run_benchmark(const Options& opts,
     CARBON_LOG_ERROR("lbm_lid_driven_cavity: skeleton compile failed: {}", e.what());
     return EXIT_FAILURE;
   }
-  CARBON_LOG_INFO(
-      "lbm_lid_driven_cavity: skeletons compiled — sk_ab.effective_kernels={} "
-      "sk_ba.effective_kernels={} (auto-halos included)",
-      sk_ab.effective_kernels().size(), sk_ba.effective_kernels().size());
+  if (world_rank == 0) {
+    CARBON_LOG_INFO(
+        "lbm_lid_driven_cavity: skeletons compiled — sk_ab.effective_kernels={} "
+        "sk_ba.effective_kernels={} (auto-halos included) streams={} overlap={} hp_halo={}",
+        sk_ab.effective_kernels().size(), sk_ba.effective_kernels().size(), sk_ab.num_streams(),
+        opts.overlap, opts.hp_halo);
+  }
 
   if (!opts.export_dot_path.empty()) {
     if (!sk_ab.export_launch_matrix_dot_file(opts.export_dot_path, "lbm_sk_ab")) {
@@ -600,7 +723,8 @@ run_benchmark(const Options& opts,
           opts.export_dot_png_path);
       return EXIT_FAILURE;
     }
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix PNG to {}", opts.export_dot_png_path);
+    CARBON_LOG_INFO("lbm_lid_driven_cavity: wrote launch-matrix PNG to {}",
+                    opts.export_dot_png_path);
   }
   if (!opts.export_dot_streams_path.empty()) {
     if (!sk_ab.export_dot_file(opts.export_dot_streams_path, "lbm_sk_ab")) {
@@ -617,6 +741,18 @@ run_benchmark(const Options& opts,
   const int64_t timed_start = opts.no_warmup_skip ? 0 : opts.warmup;
   const int64_t iters_per_rep = (opts.iters - timed_start) / opts.reps;
 
+  // Every timing mark is taken after all ranks drained, so rank 0's window spans the
+  // slowest rank and the reported MLUPS is a true global figure.
+  auto drain_all_ranks = [&]() {
+    sk_ab.wait();
+    sk_ba.wait();
+#ifdef CARBON_HAVE_MPI_NCCL
+    if (use_mpi) {
+      distributed->barrier();
+    }
+#endif
+  };
+
   Clock::time_point timing_started{};
   Clock::time_point rep_started{};
   Clock::time_point overall_started = Clock::now();
@@ -627,8 +763,7 @@ run_benchmark(const Options& opts,
   for (int64_t it = 0; it < opts.iters; ++it) {
     if (it > timed_start && (it - timed_start) % iters_per_rep == 0) {
       try {
-        sk_ab.wait();
-        sk_ba.wait();
+        drain_all_ranks();
       } catch (const std::exception& e) {
         CARBON_LOG_ERROR("lbm_lid_driven_cavity: repetition drain failed at iter {}: {}", it,
                          e.what());
@@ -640,8 +775,7 @@ run_benchmark(const Options& opts,
     }
     if (it == timed_start) {
       try {
-        sk_ab.wait();
-        sk_ba.wait();
+        drain_all_ranks();
       } catch (const std::exception& e) {
         CARBON_LOG_ERROR("lbm_lid_driven_cavity: pre-timing drain failed at iter {}: {}", it,
                          e.what());
@@ -655,6 +789,7 @@ run_benchmark(const Options& opts,
                         opts.warmup);
       }
     }
+    LBM_NVTX_PUSH("Iteration step");
     carbon::Skeleton& sk = (it % 2 == 0) ? sk_ab : sk_ba;
     try {
       sk.run();
@@ -673,14 +808,16 @@ run_benchmark(const Options& opts,
       }
       const auto now = Clock::now();
       const double elapsed_overall = Seconds(now - overall_started).count();
-      CARBON_LOG_INFO("lbm_lid_driven_cavity: iter {}/{} elapsed={:.3f}s", it + 1, opts.iters,
-                      elapsed_overall);
+      if (world_rank == 0) {
+        CARBON_LOG_INFO("lbm_lid_driven_cavity: iter {}/{} elapsed={:.3f}s", it + 1, opts.iters,
+                        elapsed_overall);
+      }
     }
+    LBM_NVTX_POP();
   }
 
   try {
-    sk_ab.wait();
-    sk_ba.wait();
+    drain_all_ranks();
   } catch (const std::exception& e) {
     CARBON_LOG_ERROR("lbm_lid_driven_cavity: final sync failed: {}", e.what());
     return EXIT_FAILURE;
@@ -724,55 +861,48 @@ run_benchmark(const Options& opts,
       rep_mlups.size() > 1 ? std::sqrt(rep_mlups_var / static_cast<double>(rep_mlups.size() - 1))
                            : 0.0;
 
-#ifdef CARBON_HAVE_MPI_NCCL
-  // Under MPI all ranks measure the same `cells_per_iter` (= global N^3) and
-  // run lock-step (halo exchanges synchronise them), so each rank's `mlups`
-  // is the global throughput up to small per-rank timing noise. Print only on
-  // rank 0 to keep the scrape-friendly headline single-shot. `world_size`
-  // reports the actual rank count (= total GPU count under carbon's strict
-  // one-rank-per-GPU model); `n_gpus` (the local `gpu_group()`) is always 1
-  // under MPI so we substitute it in the per-GPU display.
-  const int world_rank = use_mpi ? distributed->world_rank() : 0;
-  const int world_size = use_mpi ? distributed->world_size() : static_cast<int>(n_gpus);
+  // Under MPI all ranks measure the same `cells_per_iter` (= global N^3) between the
+  // same barriers, so each rank's `mlups` is the global throughput. Print only on
+  // rank 0 to keep the scrape-friendly headline single-shot. `total_gpu_count`
+  // is the world size under MPI (one rank per GPU) and the local GPU count
+  // otherwise; `local_gpu_count` stays useful on multi-GPU single-process runs.
   if (world_rank == 0) {
     CARBON_LOG_INFO(
-        "lbm_lid_driven_cavity: DONE  lattice={} collision={} timing_window={} iters in "
-        "{:.3f}s  =>  {:.2f} MLUPS ({:.2f} MLUPS/GPU)  overall={:.3f}s  ranks={}",
-        lattice_name, collision_name, timed_iters, timing_seconds, mlups,
-        mlups / static_cast<double>(world_size), overall_seconds, world_size);
+        "lbm_lid_driven_cavity: DONE  lattice={} collision={} precision={} grid={} "
+        "timing_window={} iters in {:.3f}s  =>  {:.2f} MLUPS ({:.2f} MLUPS/GPU)  "
+        "overall={:.3f}s  GPUs={} local_gpus={} ranks={} decomposition={}",
+        lattice_name, collision_name, opts.precision, opts.grid, timed_iters, timing_seconds, mlups,
+        mlups / static_cast<double>(total_gpu_count), overall_seconds, total_gpu_count,
+        local_gpu_count, world_size, decomposition_mode_name(dec_mode));
     std::cout << "MLUPS=" << mlups << " (cavity N=" << opts.n << " iters=" << timed_iters
-              << " gpus=" << world_size << " lattice=" << lattice_name
-              << " collision=" << collision_name << (use_mpi ? " transport=mpi+nccl" : "") << ")"
+              << " gpus=" << total_gpu_count << " local_gpus=" << local_gpu_count
+              << " ranks=" << world_size << " grid=" << opts.grid
+              << " decomposition=" << decomposition_mode_name(dec_mode)
+              << " lattice=" << lattice_name << " collision=" << collision_name
+              << " precision=" << opts.precision << (use_mpi ? " transport=mpi+nccl" : "") << ")"
               << '\n';
-  }
-#else
-  CARBON_LOG_INFO(
-      "lbm_lid_driven_cavity: DONE  lattice={} collision={} timing_window={} iters in "
-      "{:.3f}s  =>  {:.2f} MLUPS ({:.2f} MLUPS/GPU)  overall={:.3f}s",
-      lattice_name, collision_name, timed_iters, timing_seconds, mlups,
-      mlups / static_cast<double>(n_gpus), overall_seconds);
-  std::cout << "MLUPS=" << mlups << " (cavity N=" << opts.n << " iters=" << timed_iters
-            << " gpus=" << n_gpus << " lattice=" << lattice_name << " collision=" << collision_name
-            << ")" << '\n';
-#endif
-  if (opts.reps > 1) {
-    CARBON_LOG_INFO(
-        "lbm_lid_driven_cavity: {} repetitions x {} iters  =>  MLUPS mean={:.2f} min={:.2f} "
-        "max={:.2f} stddev={:.2f}",
-        opts.reps, iters_per_rep, rep_mlups_mean, rep_mlups_min, rep_mlups_max, rep_mlups_stddev);
+    if (opts.reps > 1) {
+      CARBON_LOG_INFO(
+          "lbm_lid_driven_cavity: {} repetitions x {} iters  =>  MLUPS mean={:.2f} min={:.2f} "
+          "max={:.2f} stddev={:.2f}",
+          opts.reps, iters_per_rep, rep_mlups_mean, rep_mlups_min, rep_mlups_max, rep_mlups_stddev);
+    }
   }
 
-  // Optional grid-family parity checksum: Sum-reduce the whole final population
-  // field. sum_q pop_q == rho per cell, so this equals the total mass in the
-  // domain — a single scalar that must agree across --grid dense and --grid
-  // disg when the physics is numerically identical (they share the hot kernel;
-  // only the storage layout + auto-halo family differ). Cross-rank allreduce
-  // kicks in automatically under MPI via ReductionResult's stage-3 path.
+  // Optional parity checksums over the final population field: total mass
+  // (sum_q pop_q == rho per cell) and total x-momentum (sum_q c_q.x * pop_q).
+  // Both must agree across grid families and decompositions when the physics is
+  // numerically identical (same hot kernel; only the storage layout + auto-halo
+  // family differ). Cross-rank allreduce kicks in automatically under MPI via
+  // ReductionResult's stage-3 path.
+  double total_mass = 0.0;
+  double total_momentum_x = 0.0;
   if (opts.checksum) {
     using Span = typename Grid::Span;
     using Idx = typename Grid::Idx;
     auto& latest_pop = (opts.iters % 2 == 1) ? pop_b : pop_a;
     carbon::ReductionResult<double> mass_result(sys);
+    carbon::ReductionResult<double> momentum_result(sys);
     carbon::Skeleton checksum_sk(sys);
     checksum_sk.add(carbon::Kernel::reduce<double>(
         grid,
@@ -788,21 +918,47 @@ run_benchmark(const Options& opts,
           };
         },
         mass_result, carbon::reduce::Sum<double>{}, "lbm_mass_checksum", /*shared_mem=*/0U));
+    checksum_sk.add(carbon::Kernel::reduce<double>(
+        grid,
+        [&latest_pop](carbon::KernelLoader& loader) {
+          const auto fin = loader.read(latest_pop);
+          return [fin] CARBON_HOST_DEVICE(Span s, Idx idx) -> double {
+            double acc = 0.0;
+#pragma unroll
+            for (int q = 0; q < Lattice::Q; ++q) {
+              acc +=
+                  static_cast<double>(Lattice::c(q).x) * static_cast<double>(fin.read(s, idx, q));
+            }
+            return acc;
+          };
+        },
+        momentum_result, carbon::reduce::Sum<double>{}, "lbm_momentum_x_checksum",
+        /*shared_mem=*/0U));
     try {
       checksum_sk.compile();
       checksum_sk.run();
       checksum_sk.wait();
       mass_result.sync(sys.stream());
+      momentum_result.sync(sys.stream());
       sys.stream().wait();
     } catch (const std::exception& e) {
       CARBON_LOG_ERROR("lbm_lid_driven_cavity: checksum reduction failed: {}", e.what());
       return EXIT_FAILURE;
     }
-    const double total_mass = mass_result.host_value();
-    CARBON_LOG_INFO("lbm_lid_driven_cavity: CHECKSUM (total mass, grid={}) = {:.10g}", opts.grid,
-                    total_mass);
-    std::cout << "CHECKSUM=" << std::setprecision(12) << total_mass << " (grid=" << opts.grid
-              << " N=" << opts.n << " iters=" << opts.iters << ")" << '\n';
+    total_mass = mass_result.host_value();
+    total_momentum_x = momentum_result.host_value();
+    if (world_rank == 0) {
+      CARBON_LOG_INFO(
+          "lbm_lid_driven_cavity: CHECKSUM (grid={} decomposition={} precision={}) "
+          "mass={:.10g} momentum_x={:.10g}",
+          opts.grid, decomposition_mode_name(dec_mode), opts.precision, total_mass,
+          total_momentum_x);
+      std::cout << "CHECKSUM=" << std::setprecision(12) << total_mass
+                << " MOMENTUM_X=" << total_momentum_x << " (grid=" << opts.grid
+                << " decomposition=" << decomposition_mode_name(dec_mode)
+                << " precision=" << opts.precision << " N=" << opts.n << " iters=" << opts.iters
+                << ")" << '\n';
+    }
   }
 
   // Optional VTK dump of the final macroscopic fields (rho, u). Off the hot
@@ -811,11 +967,12 @@ run_benchmark(const Options& opts,
   // host mirrors, and writes via carbon::io::write_vtk (legacy
   // STRUCTURED_POINTS BINARY; one .rankN shard per rank under MPI).
   if (!opts.vtk_path.empty()) {
-    // carbon::io::write_vtk is specialised on carbon::Dense (the legacy
-    // STRUCTURED_POINTS writer walks the aggregated dense row layout). The
-    // disaggregated grid has no VTK writer today, so the dump is Dense-only;
-    // the disg run still reports MLUPS, it just skips the optional VTK export.
-    if constexpr (std::is_same_v<Grid, carbon::Dense>) {
+    // carbon::io::write_vtk has Dense and DenseDistributed overloads (the
+    // legacy STRUCTURED_POINTS writer walks the aggregated dense row layout).
+    // DenseDisg and DenseDisgDistributed have no VTK writer today; those runs
+    // still report MLUPS, they just skip the optional VTK export.
+    if constexpr (std::is_same_v<Grid, carbon::Dense> ||
+                  std::is_same_v<Grid, carbon::DenseDistributed>) {
       // The hot loop alternates sk_ab (reads pop_a, writes pop_b) on even iters
       // with sk_ba (reads pop_b, writes pop_a) on odd. After `iters` iterations
       // the freshest output buffer is therefore pop_b when iters is odd and
@@ -865,8 +1022,9 @@ run_benchmark(const Options& opts,
                       opts.vtk_path, opts.iters);
     } else {
       CARBON_LOG_WARN(
-          "lbm_lid_driven_cavity: --vtk-out is only supported for --grid dense "
-          "(carbon::io::write_vtk has no DenseDisg overload); skipping VTK dump.");
+          "lbm_lid_driven_cavity: --vtk-out is only supported for --grid dense and "
+          "dense_distributed (carbon::io::write_vtk has no {} writer); skipping VTK dump.",
+          opts.grid);
     }
   }
 
@@ -909,6 +1067,13 @@ run_benchmark(const Options& opts,
     out << "    \"collision\": \"" << json_escape(collision_name) << "\",\n";
     out << "    \"precision\": \"" << json_escape(opts.precision) << "\",\n";
     out << "    \"grid\": \"" << json_escape(opts.grid) << "\",\n";
+    out << "    \"decomposition\": \"" << decomposition_mode_name(dec_mode) << "\",\n";
+    if (pg) {
+      const carbon::int32_3d dims = pg->dims();
+      out << "    \"process_grid\": [" << dims.x << ", " << dims.y << ", " << dims.z << "],\n";
+    } else {
+      out << "    \"process_grid\": null,\n";
+    }
     out << "    \"q\": " << Lattice::Q << ",\n";
     out << "    \"re\": " << opts.re << ",\n";
     out << "    \"ulb\": " << ulb << ",\n";
@@ -916,6 +1081,7 @@ run_benchmark(const Options& opts,
     out << "    \"omega\": " << omega << ",\n";
     out << "    \"no_warmup_skip\": " << (opts.no_warmup_skip ? "true" : "false") << ",\n";
     out << "    \"overlap\": \"" << json_escape(opts.overlap) << "\",\n";
+    out << "    \"hp_halo\": " << (opts.hp_halo ? "true" : "false") << ",\n";
     out << "    \"cuda_graph\": " << (opts.cuda_graph ? "true" : "false") << ",\n";
     out << "    \"label\": \"" << json_escape(opts.label) << "\"\n";
     out << "  },\n";
@@ -934,7 +1100,10 @@ run_benchmark(const Options& opts,
 #else
     out << "    \"distributed\": false,\n";
 #endif
-    out << "    \"gpu_count\": " << n_gpus << ",\n";
+    out << "    \"gpu_count\": " << total_gpu_count << ",\n";
+    out << "    \"local_gpu_count\": " << local_gpu_count << ",\n";
+    out << "    \"world_size\": " << world_size << ",\n";
+    out << "    \"rank\": " << world_rank << ",\n";
     out << "    \"gpus\": [\n";
     const auto& gpu_devices = sys.gpu_group().devices();
     for (size_t i = 0; i < gpu_devices.size(); ++i) {
@@ -956,8 +1125,14 @@ run_benchmark(const Options& opts,
     out << "    \"overall_seconds\": " << overall_seconds << ",\n";
     out << "    \"cells_per_iter\": " << static_cast<int64_t>(cells_per_iter) << ",\n";
     out << "    \"mlups\": " << mlups << ",\n";
-    out << "    \"mlups_per_gpu\": " << (mlups / static_cast<double>(n_gpus)) << ",\n";
+    out << "    \"mlups_per_gpu\": " << (mlups / static_cast<double>(total_gpu_count)) << ",\n";
     out << "    \"effective_bandwidth_gb_s\": " << effective_bandwidth_gb_s << ",\n";
+    if (opts.checksum) {
+      out << std::setprecision(17);
+      out << "    \"checksum_mass\": " << total_mass << ",\n";
+      out << "    \"checksum_momentum_x\": " << total_momentum_x << ",\n";
+      out << std::setprecision(10);
+    }
     out << "    \"repetitions\": {\n";
     out << "      \"count\": " << opts.reps << ",\n";
     out << "      \"iters_per_rep\": " << iters_per_rep << ",\n";
@@ -1005,24 +1180,33 @@ main(int argc,
     return EXIT_FAILURE;
   }
 
+  const auto dec_opt = parse_decomposition_mode(opts.decomposition);
+  if (!dec_opt) {
+    CARBON_LOG_ERROR(
+        "lbm_lid_driven_cavity: unknown --decomposition '{}' (expected slab|pencil|brick)",
+        opts.decomposition);
+    return EXIT_FAILURE;
+  }
+  const carbon::DecompositionMode dec_mode = *dec_opt;
+
   // Dispatch to the matching template instantiation. The runtime knobs
-  // --grid {dense,disg} x --precision {fp32,fp64} x --lattice {q19,q27} x
-  // --collision {bgk,kbc} select one compile-time
-  // run_benchmark<Grid, Lattice, Collision, Real>. Three valid (lattice,
-  // collision) combos: (q19, bgk), (q27, bgk), (q27, kbc) — (q19, kbc) is
-  // rejected upstream in parse_cli because KBC's moment basis is
+  // --grid {dense,disg,dense_distributed,disg_distributed} x --precision
+  // {fp32,fp64} x --lattice {q19,q27} x --collision {bgk,kbc} select one
+  // compile-time run_benchmark<Grid, Lattice, Collision, Real>. Three valid
+  // (lattice, collision) combos: (q19, bgk), (q27, bgk), (q27, kbc) — (q19,
+  // kbc) is rejected upstream in parse_cli because KBC's moment basis is
   // D3Q27-specific. Each grid family runs the identical hot kernel.
   auto dispatch_config = [&](auto grid_tag, auto real_tag) -> int {
     using GridT = typename decltype(grid_tag)::type;
     using RealT = typename decltype(real_tag)::type;
     if (opts.lattice == "q19" && opts.collision == "bgk") {
-      return run_benchmark<GridT, D3Q19, BgkCollision, RealT>(opts, "q19", "bgk");
+      return run_benchmark<GridT, D3Q19, BgkCollision, RealT>(opts, "q19", "bgk", dec_mode);
     }
     if (opts.lattice == "q27" && opts.collision == "bgk") {
-      return run_benchmark<GridT, D3Q27, BgkCollision, RealT>(opts, "q27", "bgk");
+      return run_benchmark<GridT, D3Q27, BgkCollision, RealT>(opts, "q27", "bgk", dec_mode);
     }
     if (opts.lattice == "q27" && opts.collision == "kbc") {
-      return run_benchmark<GridT, D3Q27, KbcCollision, RealT>(opts, "q27", "kbc");
+      return run_benchmark<GridT, D3Q27, KbcCollision, RealT>(opts, "q27", "kbc", dec_mode);
     }
     CARBON_LOG_ERROR(
         "lbm_lid_driven_cavity: unsupported (lattice='{}', collision='{}') combination — "
@@ -1039,6 +1223,12 @@ main(int argc,
 
   if (opts.grid == "disg") {
     return dispatch_grid(std::type_identity<carbon::DenseDisg>{});
+  }
+  if (opts.grid == "dense_distributed") {
+    return dispatch_grid(std::type_identity<carbon::DenseDistributed>{});
+  }
+  if (opts.grid == "disg_distributed") {
+    return dispatch_grid(std::type_identity<carbon::DenseDisgDistributed>{});
   }
   return dispatch_grid(std::type_identity<carbon::Dense>{});
 }

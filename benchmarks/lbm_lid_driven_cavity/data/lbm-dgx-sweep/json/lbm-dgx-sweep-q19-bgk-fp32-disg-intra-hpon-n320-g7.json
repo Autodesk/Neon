@@ -1,0 +1,105 @@
+{
+  "schema": "carbon-lbm-report-v1",
+  "benchmark": "lbm_lid_driven_cavity",
+  "timestamp_utc": "2026-11-24T23:23:59Z",
+  "config": {
+    "n": 320,
+    "iters": 5400,
+    "warmup": 400,
+    "reps": 5,
+    "lattice": "q19",
+    "collision": "bgk",
+    "precision": "fp32",
+    "grid": "disg",
+    "decomposition": "slab",
+    "process_grid": null,
+    "q": 19,
+    "re": 100,
+    "ulb": 0.05,
+    "nu_lb": 0.1595,
+    "omega": 1.021972407,
+    "no_warmup_skip": false,
+    "overlap": "standard",
+    "hp_halo": true,
+    "cuda_graph": false,
+    "label": "disg-intra-hpon"
+  },
+  "system": {
+    "backend": "cuda",
+    "distributed": false,
+    "gpu_count": 7,
+    "local_gpu_count": 7,
+    "world_size": 1,
+    "rank": 0,
+    "gpus": [
+      {
+        "device_id": 0,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 1,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 2,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 3,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 4,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 5,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      },
+      {
+        "device_id": 6,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      }
+    ]
+  },
+  "results": {
+    "timed_iters": 5000,
+    "timing_seconds": 2.980696283,
+    "overall_seconds": 3.224088352,
+    "cells_per_iter": 32768000,
+    "mlups": 54967.02262,
+    "mlups_per_gpu": 7852.431802,
+    "effective_bandwidth_gb_s": 8354.987438,
+    "repetitions": {
+      "count": 5,
+      "iters_per_rep": 1000,
+      "seconds": [0.596274708, 0.596111939, 0.596205757, 0.595970169, 0.59613371],
+      "mlups": [54954.53616, 54969.54155, 54960.89163, 54982.61776, 54967.53405],
+      "mlups_mean": 54967.02423,
+      "mlups_min": 54954.53616,
+      "mlups_max": 54982.61776,
+      "mlups_stddev": 10.5275333
+    }
+  }
+}

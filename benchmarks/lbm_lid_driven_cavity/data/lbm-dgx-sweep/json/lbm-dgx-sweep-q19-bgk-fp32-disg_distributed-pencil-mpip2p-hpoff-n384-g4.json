@@ -1,0 +1,63 @@
+{
+  "schema": "carbon-lbm-report-v1",
+  "benchmark": "lbm_lid_driven_cavity",
+  "timestamp_utc": "2026-11-25T04:36:05Z",
+  "config": {
+    "n": 384,
+    "iters": 5400,
+    "warmup": 400,
+    "reps": 5,
+    "lattice": "q19",
+    "collision": "bgk",
+    "precision": "fp32",
+    "grid": "disg_distributed",
+    "decomposition": "pencil",
+    "process_grid": [1, 2, 2],
+    "q": 19,
+    "re": 100,
+    "ulb": 0.05,
+    "nu_lb": 0.1915,
+    "omega": 0.9306654258,
+    "no_warmup_skip": false,
+    "overlap": "standard",
+    "hp_halo": false,
+    "cuda_graph": false,
+    "label": "disg_distributed-pencil-mpip2p-hpoff"
+  },
+  "system": {
+    "backend": "cuda",
+    "distributed": true,
+    "gpu_count": 4,
+    "local_gpu_count": 1,
+    "world_size": 4,
+    "rank": 0,
+    "gpus": [
+      {
+        "device_id": 0,
+        "name": "NVIDIA A100-SXM4-40GB",
+        "compute_capability": "8.0",
+        "total_memory_bytes": 42298834944,
+        "multiprocessor_count": 108
+      }
+    ]
+  },
+  "results": {
+    "timed_iters": 5000,
+    "timing_seconds": 50.70792118,
+    "overall_seconds": 54.7982567,
+    "cells_per_iter": 56623104,
+    "mlups": 5583.260237,
+    "mlups_per_gpu": 1395.815059,
+    "effective_bandwidth_gb_s": 848.655556,
+    "repetitions": {
+      "count": 5,
+      "iters_per_rep": 1000,
+      "seconds": [10.15967803, 10.1793869, 10.13994263, 10.11783162, 10.11108199],
+      "mlups": [5573.316777, 5562.525972, 5584.164137, 5596.367494, 5600.103335],
+      "mlups_mean": 5583.295543,
+      "mlups_min": 5562.525972,
+      "mlups_max": 5600.103335,
+      "mlups_stddev": 15.69301671
+    }
+  }
+}

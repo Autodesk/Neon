@@ -72,7 +72,7 @@ python3 "${repo_root}/benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py
   --iters "${ITERS}" \
   --warmup "${WARMUP}" \
   --plot-x config \
-  --plot-y mlups \
+  --plot-y mlups_per_gpu \
   --plot-out "${OUT_DIR}/mlups_by_config.png"
 
 echo

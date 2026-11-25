@@ -6,20 +6,22 @@
 # matrix of locally-available system configurations:
 #
 #   backend  ∈ { cuda, sycl }       — whichever build trees expose a built binary
+#   grid     ∈ $GRIDS               — dense (default) and/or disg
 #   gpus     ∈ { 1, $TOTAL }        — single GPU and "all GPUs in the system"
 #                                     ($TOTAL = nvidia-smi device count)
 #   config   ∈ { q19/bgk, q27/bgk, q27/kbc }
 #   N        ∈ { 256 }              — fixed at the steady-state point
 #
-# Total runs = backends * gpu_counts * configs (= up to 12 on a 2-GPU host
-# with both backends built). Output goes to one shared dir; the resulting
-# bar chart shows MLUPS per (lattice, collision) config with one bar per
-# (backend, gpu_count) sub-series.
+# Total runs = backends * grids * gpu_counts * configs (= up to 12 per grid on
+# a 2-GPU host with both backends built). Output goes to one shared dir; the
+# resulting bar chart shows MLUPS per GPU for each (lattice, collision) config
+# with one bar per (backend, grid, gpu_count) sub-series, so an all-GPU bar as
+# tall as the 1-GPU bar means perfect strong scaling.
 #
 # Output:
 #   reports/full_matrix_local/
-#     run-NNN-<backend>-<lattice>-<collision>-nN-gG.json   (one per cell)
-#     mlups_full_matrix.png                                (the requested plot)
+#     run-NNN-<backend>-<grid>-<lattice>-<collision>-...-nN-gG.json   (one per cell)
+#     mlups_per_gpu_full_matrix.png                                   (the plot)
 #
 # Backend discovery:
 #   - cuda binary is searched at  build/    , build-mpi/    , build-cuda/
@@ -34,6 +36,7 @@
 #   ITERS=600        total iterations per run
 #   WARMUP=200       warmup iterations excluded from timing
 #   N=256            grid edge length
+#   GRIDS="dense"    grid families (dense disg)
 #   GPUS_LIST="1 2"  override the gpu-count axis directly (defaults to
 #                    "1 ${TOTAL}", deduplicated; on a 1-GPU host that is
 #                    just "1")
@@ -61,6 +64,7 @@ cd "${repo_root}"
 ITERS="${ITERS:-600}"
 WARMUP="${WARMUP:-200}"
 N="${N:-256}"
+GRIDS="${GRIDS:-dense}"
 OUT_DIR="${OUT_DIR:-reports/full_matrix_local}"
 
 bench_relpath="benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity"
@@ -151,22 +155,23 @@ mkdir -p "${OUT_DIR}"
 
 # --- run sweep + render bar chart -------------------------------------
 
-# shellcheck disable=SC2086 - intentional word splitting on gpus_list / backend_args
+# shellcheck disable=SC2086 - intentional word splitting on gpus_list / GRIDS
 python3 "${repo_root}/benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py" \
   --backends "${backend_args[@]}" \
   --mode sweep+plot \
   --output-dir "${OUT_DIR}" \
   --sizes "${N}" \
   --gpus ${gpus_list} \
+  --grids ${GRIDS} \
   --configs q19:bgk q27:bgk q27:kbc \
   --iters "${ITERS}" \
   --warmup "${WARMUP}" \
   --plot-x config \
-  --plot-y mlups \
-  --plot-out "${OUT_DIR}/mlups_full_matrix.png" \
-  --plot-title "Carbon LBM lid-driven cavity — full local matrix (N=${N})"
+  --plot-y mlups_per_gpu \
+  --plot-out "${OUT_DIR}/mlups_per_gpu_full_matrix.png" \
+  --plot-title "Carbon LBM lid-driven cavity — full local matrix (N=${N}), MLUPS per GPU"
 
 echo
 echo "==> done"
 echo "    reports: ${OUT_DIR}/run-*.json"
-echo "    plot:    ${OUT_DIR}/mlups_full_matrix.png"
+echo "    plot:    ${OUT_DIR}/mlups_per_gpu_full_matrix.png"

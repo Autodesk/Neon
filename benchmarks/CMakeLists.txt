@@ -40,7 +40,6 @@ endfunction()
 
 add_subdirectory(common)
 add_subdirectory(lbm_lid_driven_cavity)
-add_subdirectory(lbm_lid_driven_cavity_distributed)
 add_subdirectory(halo_scalability)
 add_subdirectory(reduce_throughput)
 add_subdirectory(skeleton_overlap)

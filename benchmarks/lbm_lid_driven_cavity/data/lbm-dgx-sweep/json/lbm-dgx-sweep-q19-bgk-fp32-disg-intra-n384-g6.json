@@ -1,7 +1,7 @@
 {
   "schema": "carbon-lbm-report-v1",
   "benchmark": "lbm_lid_driven_cavity",
-  "timestamp_utc": "2026-11-02T19:54:43Z",
+  "timestamp_utc": "2026-11-24T22:59:37Z",
   "config": {
     "n": 384,
     "iters": 5400,
@@ -11,6 +11,8 @@
     "collision": "bgk",
     "precision": "fp32",
     "grid": "disg",
+    "decomposition": "slab",
+    "process_grid": null,
     "q": 19,
     "re": 100,
     "ulb": 0.05,
@@ -18,6 +20,7 @@
     "omega": 0.9306654258,
     "no_warmup_skip": false,
     "overlap": "standard",
+    "hp_halo": false,
     "cuda_graph": false,
     "label": "disg-intra"
   },
@@ -25,6 +28,9 @@
     "backend": "cuda",
     "distributed": false,
     "gpu_count": 6,
+    "local_gpu_count": 6,
+    "world_size": 1,
+    "rank": 0,
     "gpus": [
       {
         "device_id": 0,
@@ -72,21 +78,21 @@
   },
   "results": {
     "timed_iters": 5000,
-    "timing_seconds": 5.85984965,
-    "overall_seconds": 6.332974249,
+    "timing_seconds": 5.863719683,
+    "overall_seconds": 6.336610492,
     "cells_per_iter": 56623104,
-    "mlups": 48314.46827,
-    "mlups_per_gpu": 8052.411379,
-    "effective_bandwidth_gb_s": 7343.799178,
+    "mlups": 48282.58091,
+    "mlups_per_gpu": 8047.096818,
+    "effective_bandwidth_gb_s": 7338.952298,
     "repetitions": {
       "count": 5,
       "iters_per_rep": 1000,
-      "seconds": [1.171824072, 1.172206688, 1.171868956, 1.172137065, 1.171812869],
-      "mlups": [48320.48202, 48304.70989, 48318.63129, 48307.57911, 48320.94398],
-      "mlups_mean": 48314.46926,
-      "mlups_min": 48304.70989,
-      "mlups_max": 48320.94398,
-      "mlups_stddev": 7.715521271
+      "seconds": [1.172390977, 1.173092211, 1.172768165, 1.172832337, 1.172635993],
+      "mlups": [48297.11684, 48268.24649, 48281.58343, 48278.94168, 48287.02542],
+      "mlups_mean": 48282.58277,
+      "mlups_min": 48268.24649,
+      "mlups_max": 48297.11684,
+      "mlups_stddev": 10.61557102
     }
   }
 }

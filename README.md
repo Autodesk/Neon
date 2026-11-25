@@ -160,11 +160,15 @@ mpiexec -n 2 ./build/examples/carbon_example_jacobi_unified --grid dense --overl
 # LBM under MPI (one rank per GPU)
 mpiexec -n 4 ./build/benchmarks/.../carbon_benchmark_lbm_lid_driven_cavity \
     --n 512 --iters 2000 --warmup 200
+
+# LBM on a distributed grid, brick decomposition, double precision
+mpiexec --bind-to none -n 8 ./build/benchmarks/.../carbon_benchmark_lbm_lid_driven_cavity \
+    --grid dense_distributed --decomposition brick --gpus 1 --precision fp64 --n 512
 ```
 
 The LBM benchmark also emits a structured JSON report (`--report PATH`) consumable by
-`benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py`, which renders MLUPS-vs-N
-or strong-scaling figures.
+`benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py`, which renders MLUPS-per-GPU
+vs N or strong-scaling figures.
 
 ## Use from another project
 

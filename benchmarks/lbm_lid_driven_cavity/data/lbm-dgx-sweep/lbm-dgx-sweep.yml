@@ -28,10 +28,21 @@ precisions: [fp32]
 
 # Domain edge lengths N: a list, or an inclusive {start, stop, step} range.
 sizes: {start: 256, stop: 512, step: 64}
-# GPU counts. NCCL and MPI (P2P) are skipped at 1 GPU.
+# GPU counts (slab, and every count of the single-process grids). NCCL and
+# MPI (P2P) are skipped at 1 GPU; the distributed grids have no 1-GPU runs.
 gpus: {start: 1, stop: 8, step: 1}
-grids: [dense, disg]
+# All four grids, so every figure compares them on the same runs.
+grids: [dense, disg, dense_distributed, disg_distributed]
+# Rank layouts of the distributed grids, with their own GPU counts.
+decompositions: [slab, pencil, brick]
+gpus_pencil: [4, 8]
+gpus_brick: [8]
 transports: [intra, mpi, mpip2p]
+# Every run once with the normal and once with the high-priority halo stream.
+hp_halo: ["off", "on"]
+overlap: standard
+# grids: MLUPS/GPU of all four grids per N (NCCL slab, and each grid's best).
+plots: [vs_gpus, vs_n, hp_speedup, grids]
 
 # Timing: warmup untimed solver steps, then reps repetitions of
 # iters_per_rep solver steps, each timed separately.
@@ -56,8 +67,9 @@ image_intra: carbon-cuda:local
 image_mpi: carbon-cuda-nccl-pinned:local
 
 # Reports go to benchmarks/lbm_lid_driven_cavity/data/<prefix>/json/ as
-# <prefix>-<lattice>-<collision>-<precision>-<grid>-<transport>-n<N>-g<G>.json
-# (e.g. lbm-dgx-sweep-q27-kbc-fp64-dense-mpi-n384-g4.json). The plotters take
+# <prefix>-<lattice>-<collision>-<precision>-<label>-n<N>-g<G>.json
+# (e.g. lbm-dgx-sweep-q19-bgk-fp32-dense-mpi-hpon-n384-g4.json,
+# lbm-dgx-sweep-q19-bgk-fp32-disg_distributed-pencil-mpi-hpoff-n512-g8.json). The plotters take
 # this file too (--config) and write one set of PNGs per series into
 # data/<prefix>/. Use a new prefix per sweep to keep results apart; it must be
 # a plain name (letters, digits, . _ -), as it is also the folder name.

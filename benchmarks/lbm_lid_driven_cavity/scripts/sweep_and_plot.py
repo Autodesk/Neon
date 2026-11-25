@@ -4,12 +4,19 @@
 Two related operations, both driven by the JSON report files emitted by the
 benchmark binary's ``--report PATH`` flag:
 
-  * ``sweep`` — run the benchmark across a grid of (N, gpus, lattice,
-    collision) and write one ``<output_dir>/run-<index>.json`` per run.
+  * ``sweep`` — run the benchmark across a grid of (N, gpus, grid, lattice,
+    collision, overlap) and write one report per run,
+    ``<output_dir>/run-<index>-[<backend>-]<grid>-<lattice>-<collision>-overlap-<mode>-n<N>-g<G>.json``.
   * ``plot``  — load every ``*.json`` under one or more report directories
-    and render a Neon-style figure: MLUPS on the y-axis vs N (size sweep)
-    or vs the GPU count (strong scaling), with one curve per
-    (lattice, collision, label, gpu_count) series.
+    and render a Neon-style figure: MLUPS per GPU (default; ``--plot-y``
+    picks total MLUPS or bandwidth) on the y-axis vs N (size sweep) or vs
+    the GPU count (strong scaling), with one curve per
+    (grid, lattice, collision, label, gpu_count) series.
+
+Sweeps are single-process (``CUDA_VISIBLE_DEVICES=0..g-1``), so ``--grids``
+takes the single-process grids dense and disg; the MPI grids and transports
+are swept by ``lbm-dgx-sweep-run.sh``. Plot mode reads any report, including
+MPI ones: MLUPS per GPU is always ``results.mlups / G``.
 
 Both modes can run together (``sweep`` then ``plot``); ``plot`` standalone is
 useful to re-render an existing report directory or to compare two sweeps
@@ -63,11 +70,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -100,6 +108,7 @@ class RunSpec:
     # (single-backend backwards-compatible mode).
     backend: str = ""
     overlap: str = "none"
+    grid: str = "dense"
 
 
 @dataclass
@@ -108,6 +117,7 @@ class Report:
 
     n: int
     gpus: int
+    grid: str
     lattice: str
     collision: str
     label: str
@@ -115,11 +125,8 @@ class Report:
     overlap: str
     mlups: float
     mlups_per_gpu: float
-    timing_seconds: float
-    timed_iters: int
     effective_bandwidth_gb_s: float
     gpu_name: str
-    raw: dict[str, Any] = field(repr=False)
 
 
 def parse_args() -> argparse.Namespace:
@@ -192,6 +199,13 @@ def parse_args() -> argparse.Namespace:
         "node; selected via CUDA_VISIBLE_DEVICES=0,1,...,g-1).",
     )
     p.add_argument(
+        "--grids",
+        nargs="+",
+        choices=("dense", "disg"),
+        default=["dense"],
+        help="Grid families to sweep (passed verbatim to --grid; default: dense).",
+    )
+    p.add_argument(
         "--lattice",
         choices=("q19", "q27"),
         default="q19",
@@ -257,17 +271,17 @@ def parse_args() -> argparse.Namespace:
         "--plot-x",
         choices=("size", "gpus", "config"),
         default="size",
-        help="X-axis: 'size' (MLUPS vs N, one line per gpu count), 'gpus' "
-        "(MLUPS vs gpu count, one line per N), or 'config' (bar chart, one "
+        help="X-axis: 'size' (vs N, one line per gpu count), 'gpus' "
+        "(vs gpu count, one line per N), or 'config' (bar chart, one "
         "bar per (lattice, collision) pair — natural pairing with --configs "
         "at a fixed (N, gpu_count)).",
     )
     p.add_argument(
         "--plot-y",
-        choices=("mlups", "mlups_per_gpu", "bandwidth"),
-        default="mlups",
-        help="Y-axis: 'mlups' (default), 'mlups_per_gpu' (good for scaling "
-        "efficiency), or 'bandwidth' (effective HBM GB/s).",
+        choices=("mlups_per_gpu", "mlups", "bandwidth"),
+        default="mlups_per_gpu",
+        help="Y-axis: 'mlups_per_gpu' (default; flat under perfect strong "
+        "scaling), 'mlups' (total), or 'bandwidth' (effective HBM GB/s).",
     )
     p.add_argument(
         "--plot-out",
@@ -314,6 +328,7 @@ def run_one(bench: Path, spec: RunSpec, report_path: Path, dry_run: bool) -> Non
         "--iters", str(spec.iters),
         "--warmup", str(spec.warmup),
         "--re", str(spec.re),
+        "--grid", spec.grid,
         "--lattice", spec.lattice,
         "--collision", spec.collision,
         "--overlap", spec.overlap,
@@ -328,7 +343,7 @@ def run_one(bench: Path, spec: RunSpec, report_path: Path, dry_run: bool) -> Non
         cmd.extend(["--ulb", str(spec.ulb)])
     backend_tag = f"backend={spec.backend} " if spec.backend else ""
     pretty = (
-        f"  {backend_tag}N={spec.n:<4d} gpus={spec.gpus} "
+        f"  {backend_tag}N={spec.n:<4d} gpus={spec.gpus} grid={spec.grid} "
         f"lattice={spec.lattice} collision={spec.collision} "
         f"overlap={spec.overlap} "
         f"-> {report_path.name}"
@@ -439,7 +454,7 @@ def _resolve_configs(args: argparse.Namespace) -> list[tuple[str, str]]:
 
 
 def do_sweep(args: argparse.Namespace) -> list[Path]:
-    """Run every (backend, config, gpus, size) combination, return paths of written reports."""
+    """Run every (backend, grid, config, gpus, size) combination, return paths of written reports."""
     output_dir: Path = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     pairs = _resolve_configs(args)
@@ -447,42 +462,64 @@ def do_sweep(args: argparse.Namespace) -> list[Path]:
     written: list[Path] = []
     idx = 0
     for backend_name, bench_path in backends:
-        for lattice, collision in pairs:
-            for overlap in args.overlaps:
-                for gpus in args.gpus:
-                    for n in args.sizes:
-                        spec = RunSpec(
-                            n=n,
-                            gpus=gpus,
-                            lattice=lattice,
-                            collision=collision,
-                            iters=args.iters,
-                            warmup=args.warmup,
-                            re=args.re,
-                            ulb=args.ulb,
-                            label=args.label,
-                            backend=backend_name,
-                            overlap=overlap,
-                        )
-                        # Filename includes the backend tag (when present) so
-                        # cuda + sycl runs with the same (config, gpus, n)
-                        # don't clobber each other in a shared output dir.
-                        backend_prefix = (
-                            f"{backend_name}-" if backend_name else ""
-                        )
-                        report_path = (
-                            output_dir
-                            / f"run-{idx:03d}-{backend_prefix}"
-                              f"{spec.lattice}-{spec.collision}-"
-                              f"overlap-{spec.overlap}-"
-                              f"n{spec.n}-g{spec.gpus}.json"
-                        )
-                        run_one(bench_path, spec, report_path, dry_run=args.dry_run)
-                        if not args.dry_run:
-                            written.append(report_path)
-                        idx += 1
+        for grid in args.grids:
+            for lattice, collision in pairs:
+                for overlap in args.overlaps:
+                    for gpus in args.gpus:
+                        for n in args.sizes:
+                            spec = RunSpec(
+                                n=n,
+                                gpus=gpus,
+                                lattice=lattice,
+                                collision=collision,
+                                iters=args.iters,
+                                warmup=args.warmup,
+                                re=args.re,
+                                ulb=args.ulb,
+                                label=args.label,
+                                backend=backend_name,
+                                overlap=overlap,
+                                grid=grid,
+                            )
+                            # Filename includes the backend tag (when present) so
+                            # cuda + sycl runs with the same (config, gpus, n)
+                            # don't clobber each other in a shared output dir.
+                            backend_prefix = (
+                                f"{backend_name}-" if backend_name else ""
+                            )
+                            report_path = (
+                                output_dir
+                                / f"run-{idx:03d}-{backend_prefix}{spec.grid}-"
+                                  f"{spec.lattice}-{spec.collision}-"
+                                  f"overlap-{spec.overlap}-"
+                                  f"n{spec.n}-g{spec.gpus}.json"
+                            )
+                            run_one(bench_path, spec, report_path, dry_run=args.dry_run)
+                            if not args.dry_run:
+                                written.append(report_path)
+                            idx += 1
     print(f"sweep done — wrote {len(written)} report(s) under {output_dir}")
     return written
+
+
+_GPUS_IN_NAME = re.compile(r"-g(\d+)\.json$")
+
+
+def _gpu_count(path: Path, sysinfo: dict[str, Any]) -> int:
+    """Total GPUs of a run.
+
+    Reports that carry ``system.world_size`` count every rank in ``gpu_count``.
+    Older MPI reports (``distributed`` true, no ``world_size``) wrote only the
+    local GPU count, 1; their file name's ``-g<G>.json`` holds the total.
+    """
+    gpus = int(sysinfo.get("gpu_count", 0))
+    if sysinfo.get("distributed") and "world_size" not in sysinfo:
+        m = _GPUS_IN_NAME.search(path.name)
+        if m:
+            return int(m.group(1))
+        sys.stderr.write(f"warning: {path.name}: MPI report without world_size; "
+                         f"assuming gpu_count={gpus}\n")
+    return gpus
 
 
 def load_reports(dirs: list[Path]) -> list[Report]:
@@ -509,28 +546,26 @@ def load_reports(dirs: list[Path]) -> list[Report]:
             sysinfo = raw.get("system", {})
             res = raw.get("results", {})
             gpu_names = [g.get("name", "?") for g in sysinfo.get("gpus", [])]
-            # The C++ binary started writing `system.backend` in 2026-05.
-            # Older reports lack the field; fall back to "" so plot grouping
-            # treats them as a single "untagged" backend (which is what they
-            # are for the purposes of legend / colour assignment).
+            gpus = _gpu_count(p, sysinfo)
+            mlups = float(res.get("mlups", 0.0))
             reports.append(
                 Report(
                     n=int(cfg.get("n", 0)),
-                    gpus=int(sysinfo.get("gpu_count", 0)),
+                    gpus=gpus,
+                    grid=str(cfg.get("grid", "dense")),
                     lattice=str(cfg.get("lattice", "?")),
                     collision=str(cfg.get("collision", "?")),
                     label=str(cfg.get("label", "")),
+                    # Reports older than 2026-05 have no `system.backend`; "" groups
+                    # them as one untagged backend in the legend.
                     backend=str(sysinfo.get("backend", "")),
                     overlap=str(cfg.get("overlap", "none")),
-                    mlups=float(res.get("mlups", 0.0)),
-                    mlups_per_gpu=float(res.get("mlups_per_gpu", 0.0)),
-                    timing_seconds=float(res.get("timing_seconds", 0.0)),
-                    timed_iters=int(res.get("timed_iters", 0)),
+                    mlups=mlups,
+                    mlups_per_gpu=mlups / gpus if gpus > 0 else 0.0,
                     effective_bandwidth_gb_s=float(
                         res.get("effective_bandwidth_gb_s", 0.0)
                     ),
                     gpu_name=gpu_names[0] if gpu_names else "?",
-                    raw=raw,
                 )
             )
     return reports
@@ -538,7 +573,7 @@ def load_reports(dirs: list[Path]) -> list[Report]:
 
 def _series_label(r: Report, x_axis: str) -> str:
     """Series key for the legend — everything that varies *between* lines."""
-    base = f"{r.lattice} / {r.collision} | overlap={r.overlap}"
+    base = f"{r.grid} | {r.lattice} / {r.collision} | overlap={r.overlap}"
     backend_bit = f"{r.backend}, " if r.backend else ""
     if x_axis == "size":
         line = f"{base} | {backend_bit}{r.gpus} GPU{'s' if r.gpus != 1 else ''}"
@@ -569,7 +604,7 @@ def _y_value(r: Report, key: str) -> float:
 def _y_label(key: str) -> str:
     return {
         "mlups": "MLUPS (10\u2076 lattice updates / s)",
-        "mlups_per_gpu": "MLUPS / GPU (10\u2076 lattice updates / s)",
+        "mlups_per_gpu": "MLUPS per GPU (10\u2076 lattice updates / s / GPU)",
         "bandwidth": "Effective HBM bandwidth (GB / s)",
     }[key]
 
@@ -603,13 +638,12 @@ def _plot_lines(args: argparse.Namespace, reports: list[Report]) -> None:
     ax.set_axisbelow(True)
     if args.plot_x == "gpus":
         ax.set_xticks(sorted({int(x) for pts in series.values() for x, _ in pts}))
-    if args.plot_y in ("mlups", "mlups_per_gpu", "bandwidth"):
-        ax.set_ylim(bottom=0.0)
+    ax.set_ylim(bottom=0.0)
     ax.legend(loc="best", fontsize=9, frameon=True)
     gpu_name = reports[0].gpu_name
     title = args.plot_title or (
         f"Carbon LBM lid-driven cavity — {gpu_name}\n"
-        f"{'MLUPS vs grid size' if args.plot_x == 'size' else 'Strong scaling'}"
+        f"{'Throughput vs grid size' if args.plot_x == 'size' else 'Strong scaling'}"
     )
     ax.set_title(title, fontsize=11)
     fig.tight_layout()
@@ -693,9 +727,8 @@ def _plot_bars(args: argparse.Namespace, reports: list[Report]) -> None:
     ax.set_ylabel(_y_label(args.plot_y))
     ax.grid(True, axis="y", linestyle=":", alpha=0.5)
     ax.set_axisbelow(True)
-    if args.plot_y in ("mlups", "mlups_per_gpu", "bandwidth"):
-        # Add ~10% headroom so the value annotations don't clip the top.
-        ax.set_ylim(bottom=0.0, top=bottom * 1.12 if bottom > 0 else 1.0)
+    # ~12% headroom so the value annotations don't clip the top.
+    ax.set_ylim(bottom=0.0, top=bottom * 1.12 if bottom > 0 else 1.0)
     if n_bars > 1:
         ax.legend(loc="best", fontsize=9, frameon=True)
 
@@ -712,7 +745,7 @@ def _plot_bars(args: argparse.Namespace, reports: list[Report]) -> None:
     fixed_str = " / ".join(fixed_bits)
     title = args.plot_title or (
         f"Carbon LBM lid-driven cavity — {gpu_name}\n"
-        f"MLUPS by configuration"
+        f"Throughput by configuration"
         + (f" ({fixed_str})" if fixed_str else "")
     )
     ax.set_title(title, fontsize=11)

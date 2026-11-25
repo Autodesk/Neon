@@ -87,7 +87,7 @@ LBM-only sweep/plot (size or GPU ladders, Neon-style figures):
 python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
   --bench ./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
   --mode sweep+plot --output-dir reports/lbm-scaling \
-  --sizes 256 --gpus 1 2 --plot-x gpus --plot-out reports/lbm-scaling/mlups_vs_gpus.png
+  --sizes 256 --gpus 1 2 --plot-x gpus --plot-out reports/lbm-scaling/mlups_per_gpu_vs_gpus.png
 ```
 
 ## Useful options
