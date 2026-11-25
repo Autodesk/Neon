@@ -91,8 +91,20 @@ launch_dense_grid(const ::carbon::DenseDistributed& grid,
   }
   const ::carbon::detail::Gpu& gpu = grid.system().gpu_group().devices()[relative_gpu_id];
   const Span span = grid.spans()[relative_gpu_id];
-  return gpu.template typed_launch<&dense_grid_kernel<F>>(to_dim3(grid_shape), to_dim3(block_shape),
-                                                          shared_mem, stream, span, view, fn);
+  // Stamp the storage kind so Partition::neighbour can skip redundant x/y global checks on a
+  // legacy slab (the CG hot path). User lambdas should take the span as `auto`.
+  switch (span.storage_kind()) {
+    case StorageKind::Slab:
+      return gpu.template typed_launch<&dense_grid_kernel<F, StorageKind::Slab>>(
+          to_dim3(grid_shape), to_dim3(block_shape), shared_mem, stream, span, view, fn);
+    case StorageKind::Pencil:
+      return gpu.template typed_launch<&dense_grid_kernel<F, StorageKind::Pencil>>(
+          to_dim3(grid_shape), to_dim3(block_shape), shared_mem, stream, span, view, fn);
+    case StorageKind::Brick:
+      return gpu.template typed_launch<&dense_grid_kernel<F, StorageKind::Brick>>(
+          to_dim3(grid_shape), to_dim3(block_shape), shared_mem, stream, span, view, fn);
+  }
+  return gpu_error_not_supported;
 }
 
 #else

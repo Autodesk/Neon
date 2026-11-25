@@ -47,6 +47,31 @@
 
 namespace carbon::detail::dense_distributed {
 
+namespace detail {
+
+/** Submit one typed launch so @c Partition::neighbour can specialise on the storage kind. */
+template <StorageKind Kind, typename F>
+requires dense_kernel_fn<F> inline void
+launch_dense_grid_typed(sycl::queue& queue,
+                        const TypedSpan<Kind>& span,
+                        ::carbon::DataView view,
+                        const sycl::range<3>& global,
+                        const sycl::range<3>& local,
+                        F fn) {
+  queue.parallel_for(sycl::nd_range<3>{global, local}, [=](sycl::nd_item<3> it) {
+    const int64_t ix = static_cast<int64_t>(it.get_global_id(2));
+    const int64_t iy = static_cast<int64_t>(it.get_global_id(1));
+    const int64_t iz = static_cast<int64_t>(it.get_global_id(0));
+    const ValidatedIdx r = span.set_and_validate(view, ix, iy, iz);
+    if (!r.valid) {
+      return;
+    }
+    fn(span, r.idx);
+  });
+}
+
+}  // namespace detail
+
 template <typename F>
 requires dense_kernel_fn<F> inline auto
 launch_dense_grid(const ::carbon::DenseDistributed& grid,
@@ -89,16 +114,20 @@ launch_dense_grid(const ::carbon::DenseDistributed& grid,
       static_cast<size_t>(grid_shape.x) * static_cast<size_t>(block_shape.x)};
 
   try {
-    queue.parallel_for(sycl::nd_range<3>{global, local}, [=](sycl::nd_item<3> it) {
-      const int64_t ix = static_cast<int64_t>(it.get_global_id(2));
-      const int64_t iy = static_cast<int64_t>(it.get_global_id(1));
-      const int64_t iz = static_cast<int64_t>(it.get_global_id(0));
-      const ValidatedIdx r = span.set_and_validate(view, ix, iy, iz);
-      if (!r.valid) {
+    switch (span.storage_kind()) {
+      case StorageKind::Slab:
+        detail::launch_dense_grid_typed<StorageKind::Slab>(
+            queue, TypedSpan<StorageKind::Slab>{span}, view, global, local, fn);
         return;
-      }
-      fn(span, r.idx);
-    });
+      case StorageKind::Pencil:
+        detail::launch_dense_grid_typed<StorageKind::Pencil>(
+            queue, TypedSpan<StorageKind::Pencil>{span}, view, global, local, fn);
+        return;
+      case StorageKind::Brick:
+        detail::launch_dense_grid_typed<StorageKind::Brick>(
+            queue, TypedSpan<StorageKind::Brick>{span}, view, global, local, fn);
+        return;
+    }
   } catch (const sycl::exception& ex) {
     ::carbon::log::throw_with_log<std::runtime_error>(
         "launch_dense_grid: SYCL parallel_for submission failed (relative_gpu_id={}): {}",
