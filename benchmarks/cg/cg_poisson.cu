@@ -554,13 +554,14 @@ build_matvec(const Grid& grid,
                                            1>& out,
              double invh2,
              std::string name) -> carbon::Kernel {
+  using Span = typename Grid::Span;   
   using Idx = typename Grid::Idx;
   return carbon::Kernel::compute(
       grid,
       [&in, &out, invh2](carbon::KernelLoader& loader) {
         const auto in_p = loader.read_stencil(in);
         auto out_p = loader.write(out);
-        return [in_p, out_p, invh2] CARBON_HOST_DEVICE(auto s, Idx idx) -> void {
+        return [in_p, out_p, invh2] CARBON_HOST_DEVICE(Span s, Idx idx) -> void {
           const double center = in_p.read(s, idx, 0);
           const auto zm = in_p.neighbour(s, idx, carbon::int8_3d{0, 0, -1}, 0);
           const auto zp = in_p.neighbour(s, idx, carbon::int8_3d{0, 0, 1}, 0);
