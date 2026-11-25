@@ -40,7 +40,7 @@ Runtime knobs that matter for scaling:
   Grid-, decomposition- and GPU-count-invariant to float summation-order noise
   (exact in fp64); the correctness oracle.
 - `--report PATH` — structured JSON (schema `carbon-lbm-report-v1`), consumed by
-  `benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py` and the
+  `benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh` and the
   plotters in `scripts/plotting/` (which plot MLUPS per GPU).
 
 ## Build
@@ -101,9 +101,11 @@ mpiexec --bind-to none -n 8 ./build-mpi/.../carbon_benchmark_lbm_lid_driven_cavi
 ```
 
 Whole matrices (grids × decompositions × transports × hp-halo × GPU counts ×
-sizes × precisions) run from one YAML with
-`benchmarks/lbm_lid_driven_cavity/scripts/lbm-dgx-sweep-run.sh`; see
-`benchmarks/lbm_lid_driven_cavity/scripts/README.md`.
+sizes × precisions) run as typed experiments from one YAML with
+`benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh` (reports in
+`benchmarks/lbm_lid_driven_cavity/data/json/`, progress in `data/trace.log`);
+see `benchmarks/lbm_lid_driven_cavity/scripts/README.md`. Committed results
+of a full sweep are in `benchmarks/lbm_lid_driven_cavity/reference/`.
 
 ## Gotchas learned this session (read before benchmarking)
 

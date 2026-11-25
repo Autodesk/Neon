@@ -6673,3 +6673,20 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   DenseDisgDistributed 7712, DenseDistributed 7545, Dense 7489 MLUPS/GPU); hp-halo wins
   almost everywhere (up to 1.30× at N=256). DenseDisgDistributed on pencil / brick
   stays at 0.30–0.40× of DenseDistributed with NCCL (0.41–0.85× with MPI (P2P)).
+- **2026-11 — LDC scripts: typed experiments, one report pool.** The result sets ran
+  1152 runs of which only 1050 were distinct, because each set had its own folder and
+  timing. Now one YAML lists *experiments*, each with a `type` (`strong_scaling`,
+  `domain_size`, `best_family`) that picks its figures and its own run matrix, under
+  global keys (timing, overlap, runner, data folder) shared by all; the renamed
+  `scripts/lbm-sweep-run.sh` runs every distinct run once into
+  `data/json/<lattice>-<collision>-<precision>-<label>-n<N>-g<G>.json` and reuses a
+  report only if its iters / warmup / reps / overlap match (`--only` picks
+  experiments). It gains `runner: local` (host cmake / nvcc / mpiexec, no Docker) and
+  `data/trace.log`, a per-run completion bar with elapsed time, ETA and status. The
+  plotters take `--config`, `--data-dir`, `--only` and write
+  `plots/<experiment>/`. `data/` is git-ignored; `reference/` holds the committed
+  copy (YAML, 1050 reports converted from the three old sets without re-running,
+  figures). Gone: `sweep_and_plot.py`, `run_local_single_gpu_n256.sh`,
+  `run_local_full_matrix.sh` (replaced by `scripts/examples/local-quick.yml`), the
+  per-set `reproduce.sh`, the `prefix` / `reference_dir` / `reference_prefix` keys and
+  the loader's fallback to the names of the retired distributed sweep scripts.

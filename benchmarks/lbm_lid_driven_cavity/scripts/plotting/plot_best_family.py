@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Discrete "best-family" colormap over (domain size x GPU count).
 
-Reads the sweep YAML of ``lbm-dgx-sweep-run.sh`` and its reports. For every
-(domain size N, GPU count g) cell of the sweep it looks at the four LBM families
+Reads the sweep YAML of ``lbm-sweep-run.sh`` and its reports. For every
+``best_family`` experiment and (domain size N, GPU count g) cell it looks at the four
+LBM families
 
     dense-intra  (Dense     grid, Peeraccess)   -> red
     dense-mpi    (Dense     grid, NCCL)          -> blue
@@ -25,16 +26,17 @@ So:
   * m == k-1 (all others within 10%, i.e. a tie) -> full white
 
 Each cell is annotated with the winner, its MLUPS per GPU (in thousands, MLUPS / g)
-and the near-tie count m. Cells missing any of the four reports are grey. The sweep
-must run grids dense and disg with transports intra and mpi; set ``mpi_single_gpu``
-to fill the 1-GPU row for the NCCL families.
+and the near-tie count m. Cells missing any of the four reports are grey. The
+experiment runs grids dense and disg with transports intra and mpi (the config loader
+checks it); ``mpi_single_gpu`` fills the 1-GPU row for the NCCL families.
 
-For every configs x precisions series it writes ``<series>-best-family.png``.
+For every configs x precisions series it writes
+``<data_dir>/plots/<experiment>/<series>-best-family.png``.
 
 Example::
 
     python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_best_family.py \\
-        --config benchmarks/lbm_lid_driven_cavity/data/lbm-dgx-a100-40gb/lbm-dgx-a100-40gb-colormap.yml
+        --config benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml
 """
 
 from __future__ import annotations
@@ -67,14 +69,9 @@ MISSING_RGB = (0.85, 0.85, 0.85)
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Best-family (size x GPU) colormap.")
-    p.add_argument("--config", type=Path, required=True, help="Sweep YAML of lbm-dgx-sweep-run.sh.")
-    p.add_argument("--input-dir", type=Path, default=None,
-                   help="Report directory (default: data/<prefix>/json).")
-    p.add_argument("--output-dir", type=Path, default=None,
-                   help="PNG directory (default: data/<prefix>/).")
+    lr.add_common_args(p)
     p.add_argument("--threshold", type=float, default=0.10,
                    help="Relative gap below which an 'other' family counts as a near-tie.")
-    p.add_argument("--show", action="store_true", help="Pop each figure interactively.")
     return p.parse_args()
 
 
@@ -187,23 +184,19 @@ def plot_series(series: str, report_dir: Path, sizes: list[int], gpus: list[int]
 def main() -> int:
     args = parse_args()
     try:
-        cfg = sc.read_sweep_config(args.config)
-        data_dir = lr.DATA_ROOT / cfg["prefix"]
-        report_dir = lr.repo_dir(args.input_dir or data_dir / "json", must_exist=True)
-        out_dir = lr.repo_dir(args.output_dir or data_dir, must_exist=False)
+        exps, json_dir, plots_dir = lr.experiments(args, ("best_family",))
     except (sc.SweepConfigError, ValueError) as e:
         sys.stderr.write(f"error: {e}\n")
         return 1
-    if not ({"dense", "disg"} <= set(cfg["grids"])
-            and {"intra", "mpi"} <= set(cfg["transports"])):
-        sys.stderr.write("error: the best-family map needs grids dense and disg with "
-                         "transports intra and mpi\n")
-        return 1
-
+    if not exps:
+        return 0
     wrote = False
-    for series, *_ in sc.series_prefixes(cfg):
-        wrote |= plot_series(series, report_dir, cfg["sizes"], sorted(cfg["gpus"]),
-                             args.threshold, out_dir / f"{series}-best-family.png", args.show)
+    for exp in exps:
+        for series, *_ in sc.series_prefixes(exp):
+            wrote |= plot_series(series, json_dir, exp["sizes"], sorted(exp["gpus"]),
+                                 args.threshold,
+                                 plots_dir / exp["name"] / f"{series}-best-family.png",
+                                 args.show)
     return 0 if wrote else 1
 
 

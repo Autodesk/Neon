@@ -1,0 +1,25 @@
+# Quick sweep on a workstation, without Docker: Dense on one GPU, Peeraccess only,
+# every lattice / collision pair at four domain sizes (12 runs, a few minutes).
+# Needs the host's cmake, nvcc and (for Ninja builds) ninja; see ../lbm-sweep.yml
+# for every key.
+#
+#   ./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh \
+#       benchmarks/lbm_lid_driven_cavity/scripts/examples/local-quick.yml
+#   python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py \
+#       --config benchmarks/lbm_lid_driven_cavity/scripts/examples/local-quick.yml
+#
+# The timing is the default one, so these reports are shared with any other sweep
+# writing to the same data_dir.
+
+runner: local
+
+configs: [q19:bgk, q27:bgk, q27:kbc]
+precisions: [fp32]
+
+experiments:
+  local_quick:
+    type: domain_size
+    sizes: {start: 64, stop: 256, step: 64}
+    gpus: [1]
+    grids: [dense]
+    transports: [intra]

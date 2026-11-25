@@ -6,32 +6,35 @@ One panel per grid (``dense``, ``disg``) or distributed grid x decomposition
 The y axis is always ``results.mlups / G``, so perfect strong scaling is a horizontal
 line: the dashed "ideal" line is the 1-GPU reference run of the same size N.
 
-``--config`` is a sweep YAML of ``lbm-dgx-sweep-run.sh``. For every configs x precisions
-series ``<series> = <prefix>-<lattice>-<collision>-<precision>`` it writes the figures
-the YAML's ``plots`` key lists (default: all three):
+``--config`` is a sweep YAML of ``lbm-sweep-run.sh``. For every ``strong_scaling`` and
+``domain_size`` experiment and every configs x precisions series
+``<series> = <lattice>-<collision>-<precision>`` it writes the figures of the
+experiment's ``plots`` key into ``<data_dir>/plots/<experiment>/``:
 
-  vs_gpus     <series>-mlups-per-gpu-vs-gpus-n<N>.png  MLUPS/GPU vs GPU count, per size N
-  vs_n        <series>-mlups-per-gpu-vs-n-g<G>.png     MLUPS/GPU vs N at the largest GPU
-                                                       count G, against the per-N reference
-  hp_speedup  <series>-hp-speedup-<t>.png              MLUPS(hp-halo on) / MLUPS(hp-halo
-                                                       off) vs GPU count, one curve per N
-                                                       (when hp_halo has both)
-  grids       <series>-grids-n<N>.png                  MLUPS/GPU vs GPU count, one curve
-                                                       per grid: left the same transport
-                                                       (NCCL, slab, hp-halo off), right each
-                                                       grid's fastest run per GPU count,
-                                                       tagged with its configuration (when
-                                                       the sweep has two or more grids)
+  strong_scaling
+    vs_gpus     <series>-mlups-per-gpu-vs-gpus-n<N>.png  MLUPS/GPU vs GPU count, per size N
+    hp_speedup  <series>-hp-speedup-<t>.png              MLUPS(hp-halo on) / MLUPS(hp-halo
+                                                         off) vs GPU count, one curve per
+                                                         N (when hp_halo has both)
+    grids       <series>-grids-n<N>.png                  MLUPS/GPU vs GPU count, one curve
+                                                         per grid: left the same transport
+                                                         (NCCL, slab, hp-halo off), right
+                                                         each grid's fastest run per GPU
+                                                         count, tagged with its
+                                                         configuration (two or more grids)
+  domain_size
+    vs_n        <series>-mlups-per-gpu-vs-n-g<G>.png     MLUPS/GPU vs N at the largest GPU
+                                                         count G, against the per-N
+                                                         reference
 
-The reference of size N is ``<reference_dir>/<reference_prefix>-<lattice>-<collision>-
-<precision>-<reference_label>-n<N>-g1.json``, by default the sweep's own 1-GPU
-dense-intra run (see ``lbm_sweep_config.reference``). Distributed panels label each GPU
-count with the process grid ProcessGrid chose (x*y*z).
+The reference of size N is ``<series>-<reference_label>-n<N>-g1.json`` in the same
+``json/`` folder (default ``dense-intra``). Distributed panels label each GPU count with
+the process grid ProcessGrid chose (x*y*z).
 
 Example::
 
     python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py \\
-        --config benchmarks/lbm_lid_driven_cavity/data/lbm-dgx-sweep/lbm-dgx-sweep.yml
+        --config benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml --only grids
 """
 
 from __future__ import annotations
@@ -52,16 +55,7 @@ Panel = tuple[str, str]  # (grid, decomposition)
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Plot LBM strong scaling as MLUPS per GPU.")
-    p.add_argument("--config", type=Path, required=True,
-                   help="Sweep YAML of lbm-dgx-sweep-run.sh: plot every series of that sweep "
-                   "from data/<prefix>/json/ into data/<prefix>/.")
-    p.add_argument("--input-dir", type=Path, default=None,
-                   help="Report directory (default: data/<prefix>/json).")
-    p.add_argument("--output-dir", type=Path, default=None,
-                   help="PNG directory (default: data/<prefix>/).")
-    p.add_argument("--sizes", type=int, nargs="+", default=None,
-                   help="Domain sizes N (default: the config's sizes).")
-    p.add_argument("--show", action="store_true", help="Pop each figure interactively.")
+    lr.add_common_args(p)
     return p.parse_args()
 
 
@@ -74,7 +68,7 @@ class Series:
         self.cfg = cfg
         self.cells = sc.runs(cfg)
         ref_dir, ref_series, ref_label = reference
-        self.ref_name = f"{ref_series} {ref_label}"
+        self.ref_name = ref_label
         self.reports: dict[tuple[str, int, int], lr.Report] = {}
         self.refs: dict[int, lr.Report] = {}
         for n in cfg["sizes"]:
@@ -372,38 +366,36 @@ def plot_grids(s: Series, n: int, output: Path, show: bool) -> bool:
 def main() -> int:
     args = parse_args()
     try:
-        cfg = sc.read_sweep_config(args.config)
-        if args.sizes:
-            cfg["sizes"] = args.sizes
-        data_dir = lr.DATA_ROOT / cfg["prefix"]
-        report_dir = lr.repo_dir(args.input_dir or data_dir / "json", must_exist=True)
-        out_dir = lr.repo_dir(args.output_dir or data_dir, must_exist=False)
-        ref_dir, ref_prefix, ref_label = sc.reference(cfg, report_dir)
-        ref_dir = lr.repo_dir(ref_dir, must_exist=True)
+        exps, json_dir, plots_dir = lr.experiments(
+            args, ("vs_gpus", "hp_speedup", "grids", "vs_n"))
     except (sc.SweepConfigError, ValueError) as e:
         sys.stderr.write(f"error: {e}\n")
         return 1
-    plots = cfg["plots"]
+    if not exps:
+        return 0
     wrote = False
-    for series, lattice, collision, precision in sc.series_prefixes(cfg):
-        ref_series = f"{ref_prefix}-{lattice}-{collision}-{precision}"
-        s = Series(series, report_dir, cfg, (ref_dir, ref_series, ref_label))
-        if not s.reports:
-            sys.stderr.write(f"warning: no reports for {series} in {report_dir}\n")
-            continue
-        if "vs_gpus" in plots:
-            for n in cfg["sizes"]:
-                wrote |= plot_vs_gpus(s, n, out_dir / f"{series}-mlups-per-gpu-vs-gpus-n{n}.png",
-                                      args.show)
-        if "vs_n" in plots:
-            g = s.max_gpus()
-            wrote |= plot_vs_n(s, g, out_dir / f"{series}-mlups-per-gpu-vs-n-g{g}.png",
-                               args.show)
-        if "hp_speedup" in plots:
-            wrote |= plot_hp_speedup(s, out_dir, args.show)
-        if "grids" in plots:
-            for n in cfg["sizes"]:
-                wrote |= plot_grids(s, n, out_dir / f"{series}-grids-n{n}.png", args.show)
+    for exp in exps:
+        out_dir = plots_dir / exp["name"]
+        plots = exp["plots"]
+        for series, *_ in sc.series_prefixes(exp):
+            s = Series(series, json_dir, exp, (json_dir, series, exp["reference_label"]))
+            if not s.reports:
+                sys.stderr.write(f"warning: {exp['name']}: no reports for {series} in "
+                                 f"{json_dir}\n")
+                continue
+            if "vs_gpus" in plots:
+                for n in exp["sizes"]:
+                    wrote |= plot_vs_gpus(
+                        s, n, out_dir / f"{series}-mlups-per-gpu-vs-gpus-n{n}.png", args.show)
+            if "vs_n" in plots:
+                g = s.max_gpus()
+                wrote |= plot_vs_n(s, g, out_dir / f"{series}-mlups-per-gpu-vs-n-g{g}.png",
+                                   args.show)
+            if "hp_speedup" in plots:
+                wrote |= plot_hp_speedup(s, out_dir, args.show)
+            if "grids" in plots:
+                for n in exp["sizes"]:
+                    wrote |= plot_grids(s, n, out_dir / f"{series}-grids-n{n}.png", args.show)
     return 0 if wrote else 1
 
 

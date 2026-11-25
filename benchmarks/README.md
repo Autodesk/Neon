@@ -169,7 +169,7 @@ distributed path is numerically faithful.
 | `--hp-halo`           |        off | Run the Skeleton's halo stream at high priority (needs `--overlap` other than `none`). |
 | `--checksum`          |        off | After the loop, Sum-reduce the final populations and print `CHECKSUM=<total mass> MOMENTUM_X=<total x-momentum>` (also written to the JSON report). Grid-family-, decomposition- and GPU-count-invariant; used to verify numerical parity across grids. |
 | `--report-every N`    |        100 | Log progress every N iterations. Pass `0` to silence the loop.                                              |
-| `--report PATH`       |        off | On success write a structured JSON report to `PATH` (consumed by `scripts/sweep_and_plot.py`).              |
+| `--report PATH`       |        off | On success write a structured JSON report to `PATH` (consumed by `scripts/lbm-sweep-run.sh` and the plotters). |
 | `--label STR`         |     `""`   | Free-form label written into the JSON report under `config.label`. Useful for tagging sweeps.               |
 | `--no-warmup-skip`    |        off | Include warmup in the timing window (debug aid for short runs).                                             |
 
@@ -228,78 +228,25 @@ is what to compare against the GPU's HBM peak when sanity-checking new sizes.
 
 #### Sweeps + plots (Neon-style figures)
 
-`scripts/sweep_and_plot.py` drives a parameter sweep over the binary and
-plots the resulting `*.json` reports — MLUPS per GPU (default) on the y-axis
-vs N (size sweep) or vs GPU count (strong scaling, where perfect scaling is
-flat), one curve per `(grid, lattice, collision, label, gpus)` series.
-Standard library + `matplotlib` only.
-
-Single-GPU size sweep (10 points from 64 to 384, ≈40 s on an A100):
-
-```bash
-python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
-  --bench ./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
-  --mode sweep+plot \
-  --output-dir reports/single_gpu_q19_bgk \
-  --sizes 64 96 128 160 192 224 256 288 320 384 \
-  --gpus 1 \
-  --lattice q19 --collision bgk \
-  --iters 600 --warmup 200 \
-  --label "single A100 80GB PCIe" \
-  --plot-x size \
-  --plot-out reports/single_gpu_q19_bgk/mlups_vs_n.png
-```
-
-Multi-config comparison plot (3 model combos × 8 sizes on one axes):
+`lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh` builds the binary (in Docker,
+or on the host with `runner: local`) and runs the experiments a YAML file
+lists: strong scaling, domain size or best-family maps, over any lattice /
+collision pair, precision, grid, decomposition, transport (Peeraccess, NCCL,
+MPI (P2P)) and hp-halo setting. Every distinct run is done once and writes
+one JSON report to `lbm_lid_driven_cavity/data/json/`; the plotters in
+`lbm_lid_driven_cavity/scripts/plotting/` take the same YAML and draw MLUPS
+per GPU (perfect strong scaling is flat). Quick check on one GPU, no Docker:
 
 ```bash
-for combo in "q19 bgk" "q27 bgk" "q27 kbc"; do
-  read lat coll <<< "$combo"
-  python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
-    --mode sweep \
-    --output-dir reports/model_compare \
-    --sizes 64 96 128 160 192 224 256 320 \
-    --lattice $lat --collision $coll \
-    --label "A100 80GB PCIe"
-done
-python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
-  --mode plot \
-  --output-dir reports/model_compare \
-  --plot-x size --plot-y mlups \
-  --plot-out reports/model_compare/mlups_vs_n_models.png
+cfg=benchmarks/lbm_lid_driven_cavity/scripts/examples/local-quick.yml
+./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg
+python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py --config $cfg
 ```
 
-Strong-scaling sweep at fixed N=256 across 1..G GPUs:
-
-```bash
-python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
-  --mode sweep+plot \
-  --output-dir reports/strong_scaling_n256 \
-  --sizes 256 \
-  --gpus 1 2 \
-  --lattice q19 --collision bgk \
-  --iters 1200 --warmup 400 \
-  --plot-x gpus --plot-y mlups \
-  --plot-out reports/strong_scaling_n256/mlups_vs_gpus.png
-```
-
-Useful flags:
-
-| Flag                  | Meaning                                                                       |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `--mode`              | `sweep`, `plot`, or `sweep+plot` (default).                                   |
-| `--input-dirs`        | `plot` mode: one or more report dirs to merge onto a single figure.           |
-| `--plot-x`            | `size` (vs N, default), `gpus` (strong scaling), or `config` (bar chart).     |
-| `--plot-y`            | `mlups_per_gpu` (default), `mlups` (total), or `bandwidth` (effective HBM GB/s). |
-| `--grids`             | `sweep` mode: grid families to sweep (`dense`, `disg`; default `dense`).       |
-| `--dry-run`           | `sweep` mode: print every command without executing.                          |
-
-GPU sweeps select consecutive devices via `CUDA_VISIBLE_DEVICES=0,...,g-1`,
-so `--gpus 1 2 4` requires at least 4 visible devices. MPI sweeps — NCCL and
-MPI (P2P) transports, the distributed grids and their decompositions — are
-driven by `scripts/lbm-dgx-sweep-run.sh` from a YAML file, and plotted as
-MLUPS per GPU by `scripts/plotting/plot_scaling.py`; see
-[`lbm_lid_driven_cavity/scripts/README.md`](lbm_lid_driven_cavity/scripts/README.md).
+See the [quick start](lbm_lid_driven_cavity/README.md) for more examples and
+[`lbm_lid_driven_cavity/scripts/README.md`](lbm_lid_driven_cavity/scripts/README.md)
+for every key; [`lbm_lid_driven_cavity/reference/`](lbm_lid_driven_cavity/reference/)
+holds the committed results of a full 8× A100 sweep.
 
 #### Reference data points
 

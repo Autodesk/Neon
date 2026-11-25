@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Plot the DenseDisg / Dense MLUPS ratio of a sweep that ran both grid layouts.
 
-Reads the sweep YAML of ``lbm-dgx-sweep-run.sh`` and its reports, and pairs every run
-of a Disg grid with the same run of its Dense twin:
+Reads the sweep YAML of ``lbm-sweep-run.sh`` and, for every ``strong_scaling``
+experiment whose ``plots`` list ``disg_vs_dense``, pairs every run of a Disg grid with
+the same run of its Dense twin:
 
   disg_distributed / dense_distributed   one panel per decomposition
   disg / dense                           one "single-process" panel
 
-For every configs x precisions series and transport x hp-halo it writes
+For every configs x precisions series and transport x hp-halo it writes into
+``<data_dir>/plots/<experiment>/``
 
   <series>-disg-vs-dense-<transport>-hp<off|on>.png   ratio vs GPU count, one curve per N
   <series>-disg-vs-dense.csv                          every pair with both MLUPS
@@ -18,7 +20,7 @@ the same in MLUPS and in MLUPS per GPU.
 Example::
 
     python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_disg_vs_dense.py \\
-        --config benchmarks/lbm_lid_driven_cavity/data/lbm-dgx-sweep/lbm-dgx-sweep.yml
+        --config benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep.yml
 """
 
 from __future__ import annotations
@@ -39,12 +41,7 @@ TWINS = {"disg": "dense", "disg_distributed": "dense_distributed"}
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Plot the DenseDisg / Dense MLUPS ratio.")
-    p.add_argument("--config", type=Path, required=True, help="Sweep YAML of lbm-dgx-sweep-run.sh.")
-    p.add_argument("--input-dir", type=Path, default=None,
-                   help="Report directory (default: data/<prefix>/json).")
-    p.add_argument("--output-dir", type=Path, default=None,
-                   help="PNG / CSV directory (default: data/<prefix>/).")
-    p.add_argument("--show", action="store_true", help="Pop each figure interactively.")
+    lr.add_common_args(p)
     return p.parse_args()
 
 
@@ -65,28 +62,35 @@ def pair_title(disg: plot_scaling.Panel) -> str:
 def main() -> int:
     args = parse_args()
     try:
-        cfg = sc.read_sweep_config(args.config)
-        data_dir = lr.DATA_ROOT / cfg["prefix"]
-        report_dir = lr.repo_dir(args.input_dir or data_dir / "json", must_exist=True)
-        out_dir = lr.repo_dir(args.output_dir or data_dir, must_exist=False)
+        exps, json_dir, plots_dir = lr.experiments(args, ("disg_vs_dense",))
     except (sc.SweepConfigError, ValueError) as e:
         sys.stderr.write(f"error: {e}\n")
         return 1
+    if not exps:
+        return 0
+    wrote = False
+    for exp in exps:
+        wrote |= plot_experiment(exp, json_dir, plots_dir / exp["name"], args.show)
+    return 0 if wrote else 1
 
+
+def plot_experiment(exp: dict, json_dir: Path, out_dir: Path, show: bool) -> bool:
     import matplotlib.pyplot as plt
 
     cmap = plt.get_cmap("viridis")
-    sizes = cfg["sizes"]
+    sizes = exp["sizes"]
     wrote = False
-    for series, *_ in sc.series_prefixes(cfg):
-        s = plot_scaling.Series(series, report_dir, cfg, (report_dir, series, "dense-intra"))
+    for series, *_ in sc.series_prefixes(exp):
+        s = plot_scaling.Series(series, json_dir, exp,
+                                (json_dir, series, exp["reference_label"]))
         twins = pairs(s)
         if not s.reports or not twins:
-            sys.stderr.write(f"warning: {series}: no Disg / Dense pairs in {report_dir}\n")
+            sys.stderr.write(f"warning: {exp['name']}: {series}: no Disg / Dense pairs in "
+                             f"{json_dir}\n")
             continue
         rows = []
-        for t in cfg["transports"]:
-            for hp in cfg["hp_halo"]:
+        for t in exp["transports"]:
+            for hp in exp["hp_halo"]:
                 ran = [(disg, dense) for disg, dense in twins
                        if (t, hp) in s.curves(disg) and (t, hp) in s.curves(dense)]
                 if not ran:
@@ -123,8 +127,10 @@ def main() -> int:
                 fig.suptitle(f"DenseDisg vs Dense, {plot_scaling.curve_label(t, hp)}\n"
                              f"{s.describe()}", fontsize=10, y=1.02)
                 fig.tight_layout()
-                lr.save(fig, out_dir / f"{series}-disg-vs-dense-{t}-hp{hp}.png", args.show)
+                lr.save(fig, out_dir / f"{series}-disg-vs-dense-{t}-hp{hp}.png", show)
                 wrote = True
+        if not rows:
+            continue
         csv = out_dir / f"{series}-disg-vs-dense.csv"
         with csv.open("w") as f:
             f.write("grid,decomposition,transport,hp_halo,n,g,dense_mlups,disg_mlups,speedup\n")
@@ -132,7 +138,7 @@ def main() -> int:
                 f.write(f"{grid},{d},{t},{hp},{n},{g},{dense_m:.3f},{disg_m:.3f},"
                         f"{disg_m / dense_m:.4f}\n")
         print(f"summary saved to {csv}")
-    return 0 if wrote else 1
+    return wrote
 
 
 if __name__ == "__main__":

@@ -166,9 +166,10 @@ mpiexec --bind-to none -n 8 ./build/benchmarks/.../carbon_benchmark_lbm_lid_driv
     --grid dense_distributed --decomposition brick --gpus 1 --precision fp64 --n 512
 ```
 
-The LBM benchmark also emits a structured JSON report (`--report PATH`) consumable by
-`benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py`, which renders MLUPS-per-GPU
-vs N or strong-scaling figures.
+The LBM benchmark also emits a structured JSON report (`--report PATH`). The sweep script
+`benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh` runs whole experiment matrices
+from one YAML and the plotters next to it render MLUPS-per-GPU vs N or strong-scaling
+figures; see [`benchmarks/lbm_lid_driven_cavity/README.md`](benchmarks/lbm_lid_driven_cavity/README.md).
 
 ## Use from another project
 

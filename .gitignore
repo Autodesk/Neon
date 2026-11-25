@@ -69,10 +69,13 @@ docker-logs/
 # Generated libcarbonpy copy for in-tree Python tests (see libcarbonpy/CMakeLists.txt).
 /py/carbon/lib/
 
-# Generated benchmark reports / plots (sweep_and_plot.py default output).
+# Generated benchmark reports / plots. LBM sweeps write data/; the committed
+# copy for future reference is reference/.
 /reports/
+/benchmarks/lbm_lid_driven_cavity/data/
+!/benchmarks/lbm_lid_driven_cavity/reference/json/*.json
 
-# Python bytecode caches (e.g. from running scripts/sweep_and_plot.py).
+# Python bytecode caches.
 __pycache__/
 *.pyc
 

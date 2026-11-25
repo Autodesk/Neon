@@ -81,13 +81,13 @@ In-repo micro harness only (no outer script):
 python3 benchmarks/scripts/run_benchmarks.py --build-dir build --output-dir reports/bench-quick --mode quick
 ```
 
-LBM-only sweep/plot (size or GPU ladders, Neon-style figures):
+LBM-only sweep/plot (size or GPU ladders, Neon-style figures), from a YAML of
+experiments; see `benchmarks/lbm_lid_driven_cavity/README.md`:
 
 ```bash
-python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
-  --bench ./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
-  --mode sweep+plot --output-dir reports/lbm-scaling \
-  --sizes 256 --gpus 1 2 --plot-x gpus --plot-out reports/lbm-scaling/mlups_per_gpu_vs_gpus.png
+cfg=benchmarks/lbm_lid_driven_cavity/scripts/examples/local-quick.yml
+./benchmarks/lbm_lid_driven_cavity/scripts/lbm-sweep-run.sh $cfg
+python3 benchmarks/lbm_lid_driven_cavity/scripts/plotting/plot_scaling.py --config $cfg
 ```
 
 ## Useful options

@@ -1,32 +1,29 @@
 #!/usr/bin/env python3
 """Load ``carbon-lbm-report-v1`` JSON reports for the LBM plotters.
 
-Reports are named ``<series>-<label>-n<N>-g<G>.json`` (see ``lbm-dgx-sweep-run.sh``)
-with ``<series> = <prefix>-<lattice>-<collision>-<precision>``. The labels come from
-``lbm_sweep_config.label``.
+Reports live in ``<data_dir>/json/`` and are named ``<series>-<label>-n<N>-g<G>.json``
+(see ``lbm-sweep-run.sh``) with ``<series> = <lattice>-<collision>-<precision>``. The
+labels come from ``lbm_sweep_config.label``. Plots go to ``<data_dir>/plots/<experiment>/``.
 
 Throughput per GPU is always ``results.mlups / G`` with G taken from the file name:
 reports written under MPI before the driver counted every rank carry
 ``system.gpu_count = 1`` and a ``results.mlups_per_gpu`` equal to the total.
-
-Distributed reports of the retired ``lbm-dist-sweep-run.sh`` used other names; ``load``
-falls back to them, so older result sets still plot:
-
-  <series>-<decomposition>-<transport>-hp<off|on>          (one grid swept)
-  <prefix>-<grid>-<lattice>-<collision>-<precision>-<...>  (several grids swept)
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import lbm_sweep_config as sc  # noqa: E402
+
 SCHEMA = "carbon-lbm-report-v1"
 BENCH_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BENCH_ROOT.parents[1]
-DATA_ROOT = BENCH_ROOT / "data"
 
 GRID_TITLES = {
     "dense": "Dense (SoA)",
@@ -77,25 +74,37 @@ def repo_dir(path: Path, must_exist: bool) -> Path:
     return resolved
 
 
-def _legacy_names(series: str, label: str) -> list[str]:
-    parts = label.split("-")
-    if len(parts) != 4 or not parts[0].endswith("_distributed"):
-        return []
-    grid, rest = parts[0], "-".join(parts[1:])
-    names = [f"{series}-{rest}"]
-    head = series.rsplit("-", 3)
-    if len(head) == 4:
-        names.append(f"{head[0]}-{grid}-{'-'.join(head[1:])}-{rest}")
-    return names
+def add_common_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--config", type=Path, required=True,
+                   help="Sweep YAML of lbm-sweep-run.sh.")
+    p.add_argument("--data-dir", type=Path, default=None,
+                   help="Folder with json/ to read and plots/ to write (default: the "
+                   "YAML's data_dir; e.g. benchmarks/lbm_lid_driven_cavity/reference).")
+    p.add_argument("--only", default=None,
+                   help="Comma-separated experiment names (default: every experiment).")
+    p.add_argument("--show", action="store_true", help="Pop each figure interactively.")
+
+
+def experiments(args: argparse.Namespace,
+                figures: tuple[str, ...]) -> tuple[list[dict], Path, Path]:
+    """``(experiments plotting any of figures, json dir, plots dir)`` for the parsed
+    arguments; notes on stderr when there is none.
+
+    Raises ``sc.SweepConfigError`` / ``ValueError`` on a bad YAML or folder.
+    """
+    cfg = sc.read_sweep_config(args.config, only=sc.split_names(args.only))
+    base = repo_dir(args.data_dir or REPO_ROOT / cfg["data_dir"], must_exist=True)
+    json_dir = repo_dir(base / "json", must_exist=True)
+    exps = [e for e in cfg["experiments"].values() if set(e["plots"]) & set(figures)]
+    if not exps:
+        sys.stderr.write(f"note: no experiment of {args.config} plots {', '.join(figures)}\n")
+    return exps, json_dir, base / "plots"
 
 
 def load(report_dir: Path, series: str, label: str, n: int, g: int) -> Report | None:
     """The report of one run, or None when it is missing or not a v1 report."""
-    for stem in [f"{series}-{label}"] + _legacy_names(series, label):
-        path = Path(report_dir) / f"{stem}-n{n}-g{g}.json"
-        if path.is_file():
-            break
-    else:
+    path = Path(report_dir) / f"{series}-{label}-n{n}-g{g}.json"
+    if not path.is_file():
         return None
     with path.open() as f:
         raw = json.load(f)

@@ -214,7 +214,7 @@ build_cli(Options& opts) -> clipp::group {
           "Log progress every N iterations (default 100; 0 silences)",
       (option("--report") & value("path", opts.report_path)) %
           "Write a structured JSON report to PATH on success "
-          "(consumed by scripts/sweep_and_plot.py)",
+          "(consumed by scripts/lbm-sweep-run.sh and the plotters)",
       (option("--label") & value("string", opts.label)) %
           "Free-form label written into the JSON report under config.label "
           "(useful for tagging sweeps)",
@@ -1029,8 +1029,8 @@ run_benchmark(const Options& opts,
   }
 
   // Optional structured JSON report. Schema documented in
-  // benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py — bump the
-  // schema string below and the parser there in lockstep when extending.
+  // benchmarks/README.md and read by scripts/plotting/lbm_reports.py — bump
+  // the schema string below and the reader there in lockstep when extending.
   // Effective bandwidth assumes a pull-stream + ping-pong layout: each cell
   // update reads Q populations from fIn and writes Q populations to fOut,
   // so the dominant traffic is 2 * Q * sizeof(Real) bytes per update.

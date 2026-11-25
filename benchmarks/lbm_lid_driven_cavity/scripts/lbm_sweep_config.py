@@ -1,20 +1,34 @@
 #!/usr/bin/env python3
-"""Parse and validate the sweep YAML (see ``lbm-dgx-sweep.yml``).
+"""Parse and validate the sweep YAML (see ``lbm-sweep.yml``).
 
 Single source of truth for the keys, their defaults and their validation, shared by
-``lbm-dgx-sweep-run.sh`` and the plotters in ``plotting/``:
+``lbm-sweep-run.sh`` and the plotters in ``plotting/``. A sweep YAML holds
 
-- ``load_sweep_config(text)`` / ``read_sweep_config(path)`` return every key as a Python
-  value (lists of ints or strings, ints, bools, strings), defaults filled in.
-- Run as a script, it reads the YAML text from ``$LBM_SWEEP_CONFIG`` (empty = all
-  defaults), lets a set env var of a key (``CONFIGS``, ``GRIDS``, ...) override it, and
-  prints ``VAR=value`` lines with the run script's env var names plus ``RUNS=``.
-- ``runs(cfg)`` enumerates the (grid, decomposition, transport, hp_halo, gpus) cells the
-  run script executes, and ``label(...)`` names their reports; the plotters use both.
+- global keys: how every run is timed and executed (``warmup``, ``iters_per_rep``,
+  ``reps``, ``overlap``, ``runner``, ``data_dir``, ...);
+- matrix keys at the top level: defaults for every experiment (``configs``, ``sizes``,
+  ``grids``, ...);
+- ``experiments``: a mapping ``name -> {type, <matrix keys>}``. The type decides which
+  figures the plotters draw; the matrix keys override the top-level defaults.
+
+All experiments share the timing, so a run two experiments ask for is executed once and
+both read the same report ``<data_dir>/json/<lattice>-<collision>-<precision>-<label>-
+n<N>-g<G>.json``.
+
+- ``load_sweep_config(text, env, only)`` / ``read_sweep_config(path, only)`` return the
+  global keys plus ``experiments``: ``name -> dict`` with every global and matrix key
+  filled in, ``type`` and ``name``.
+- ``runs(exp)`` enumerates the (grid, decomposition, transport, hp_halo, gpus) cells of one
+  experiment, ``label(...)`` names their reports and ``all_runs(cfg)`` merges every
+  experiment into the deduplicated list the run script executes.
+- Run as a script it reads the YAML text from ``$LBM_SWEEP_CONFIG`` (experiments from
+  ``$LBM_SWEEP_ONLY``, comma or space separated, empty = all), lets the env var of a global
+  key (``FORCE``, ``SKIP_BUILD``, ...) override it, and prints ``VAR=value`` lines plus
+  ``EXPERIMENTS=`` and ``RUNS=`` for the run script.
 
 Values end up in shell variables, docker / mpiexec arguments and file names, so only
-plain tokens (letters, digits, ``. _ : / -``) are accepted, and ``prefix`` must be a
-single path component.
+plain tokens (letters, digits, ``. _ : / -``) are accepted, and experiment names must be
+single path components.
 """
 
 from __future__ import annotations
@@ -24,38 +38,49 @@ import re
 import sys
 from pathlib import Path
 
-# key: (env var of lbm-dgx-sweep-run.sh, kind, default)
-KEYS: dict[str, tuple[str, str, object]] = {
-    "configs": ("CONFIGS", "words", ["q19:bgk"]),
-    "precisions": ("PRECISIONS", "words", ["fp32"]),
-    "sizes": ("SIZES", "ints", list(range(256, 513, 64))),
-    "gpus": ("GPUS_LIST", "ints", list(range(1, 9))),
-    "grids": ("GRIDS", "words", ["dense", "disg"]),
-    "decompositions": ("DECOMPOSITIONS", "words", ["slab"]),
-    "gpus_pencil": ("GPUS_PENCIL", "ints", [4, 8]),
-    "gpus_brick": ("GPUS_BRICK", "ints", [8]),
-    "transports": ("TRANSPORTS", "words", ["intra", "mpi", "mpip2p"]),
-    "mpi_single_gpu": ("MPI_SINGLE_GPU", "bool", False),
-    "hp_halo": ("HP_HALO", "words", ["off"]),
-    "overlap": ("OVERLAP", "word", "standard"),
-    "reference_dir": ("REFERENCE_DIR", "optword", ""),
-    "reference_prefix": ("REFERENCE_PREFIX", "optname", ""),
-    "reference_label": ("REFERENCE_LABEL", "name", "dense-intra"),
-    "plots": ("PLOTS", "words", ["vs_gpus", "vs_n", "hp_speedup", "grids"]),
+# Global keys: (env var of lbm-sweep-run.sh, kind, default)
+GLOBAL_KEYS: dict[str, tuple[str, str, object]] = {
+    "runner": ("RUNNER", "word", "docker"),
     "warmup": ("WARMUP", "int", 400),
-    "iters_per_rep": ("ITERS_PER_REP", "int", 400),
-    "reps": ("REPS", "int", 4),
+    "iters_per_rep": ("ITERS_PER_REP", "int", 1000),
+    "reps": ("REPS", "int", 5),
+    "overlap": ("OVERLAP", "word", "standard"),
+    "reference_label": ("REFERENCE_LABEL", "name", "dense-intra"),
+    "data_dir": ("DATA_DIR", "path", "benchmarks/lbm_lid_driven_cavity/data"),
     "sm_arch": ("SM_ARCH", "arch", "auto"),
     "image_intra": ("IMAGE_INTRA", "word", "carbon-cuda:local"),
     "image_mpi": ("IMAGE_MPI", "word", "carbon-cuda-nccl-pinned:local"),
-    "prefix": ("PREFIX", "name", "lbm-dgx-sweep"),
+    "build_dir": ("BUILD_DIR", "path", "build"),
+    "build_mpi_dir": ("BUILD_MPI_DIR", "path", "build-mpi"),
     "skip_build": ("SKIP_BUILD", "bool", False),
     "force": ("FORCE", "bool", False),
     "run_timeout": ("RUN_TIMEOUT", "int", 1800),
 }
+# Matrix keys: (kind, default); allowed at the top level (defaults) and per experiment.
+MATRIX_KEYS: dict[str, tuple[str, object]] = {
+    "configs": ("words", ["q19:bgk"]),
+    "precisions": ("words", ["fp32"]),
+    "sizes": ("ints", list(range(256, 513, 64))),
+    "gpus": ("ints", list(range(1, 9))),
+    "grids": ("words", ["dense", "disg"]),
+    "decompositions": ("words", ["slab"]),
+    "gpus_pencil": ("ints", [4, 8]),
+    "gpus_brick": ("ints", [8]),
+    "transports": ("words", ["intra", "mpi", "mpip2p"]),
+    "mpi_single_gpu": ("bool", False),
+    "hp_halo": ("words", ["off"]),
+    "plots": ("words", None),
+}
+# Experiment type -> the figures it can draw (all by default) and the plotter drawing them.
+TYPES: dict[str, list[str]] = {
+    "strong_scaling": ["vs_gpus", "hp_speedup", "grids", "disg_vs_dense"],
+    "domain_size": ["vs_n"],
+    "best_family": ["best_family"],
+}
 SINGLE_GRIDS = ("dense", "disg")
 DISTRIBUTED_GRIDS = ("dense_distributed", "disg_distributed")
 CHOICES = {
+    "runner": {"docker", "local"},
     "configs": {"q19:bgk", "q27:bgk", "q27:kbc"},
     "precisions": {"fp32", "fp64"},
     "grids": set(SINGLE_GRIDS + DISTRIBUTED_GRIDS),
@@ -63,7 +88,7 @@ CHOICES = {
     "transports": {"intra", "mpi", "mpip2p"},
     "hp_halo": {"off", "on"},
     "overlap": {"none", "standard", "extended", "twoway-extended"},
-    "plots": {"vs_gpus", "vs_n", "hp_speedup", "grids"},
+    "plots": {f for figs in TYPES.values() for f in figs},
 }
 TOKEN = re.compile(r"^[A-Za-z0-9._:/-]+$")
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -93,11 +118,7 @@ def _as_list(key: str, v: object) -> list:
     return [v]
 
 
-def _parse_value(key: str, kind: str, value: object, choices: dict[str, set[str]]) -> object:
-    if kind.startswith("opt"):
-        if value is None or value == "":
-            return ""
-        kind = kind[3:]
+def _parse_value(key: str, kind: str, value: object) -> object:
     if kind == "int":
         return _as_int(key, value)
     if kind == "bool":
@@ -115,20 +136,22 @@ def _parse_value(key: str, kind: str, value: object, choices: dict[str, set[str]
             raise SweepConfigError(f"{key} is empty")
         return items
     items = _as_list(key, value) if kind == "words" else [value]
-    if not items:
+    if not items and key != "plots":
         raise SweepConfigError(f"{key} is empty")
     pattern = NAME if kind == "name" else TOKEN
     for x in items:
         if not isinstance(x, str) or not pattern.match(x):
             raise SweepConfigError(f"{key} has an invalid value {x!r}")
-        if key in choices and x not in choices[key]:
-            raise SweepConfigError(f"{key} value {x!r} not in {sorted(choices[key])}")
+        if key in CHOICES and x not in CHOICES[key]:
+            raise SweepConfigError(f"{key} value {x!r} not in {sorted(CHOICES[key])}")
+        if kind == "path" and (x.startswith("/") or ".." in x.split("/")):
+            raise SweepConfigError(f"{key} must be a path inside the carbon repo, relative to "
+                                   f"its root, without '..' (got {x!r})")
     return items if kind == "words" else items[0]
 
 
 def _env_value(kind: str, s: str) -> object:
     """An env var override as the YAML value it stands for (lists stay space-separated)."""
-    kind = kind.removeprefix("opt")
     if kind == "int":
         return int(s) if s.isdigit() else s
     if kind == "bool":
@@ -138,53 +161,108 @@ def _env_value(kind: str, s: str) -> object:
     return s
 
 
-def load_sweep_config(text: str, env: dict[str, str] | None = None) -> dict[str, object]:
-    """Validate YAML text; returns every key in ``KEYS``, omitted ones at their default.
-
-    ``env`` (e.g. ``os.environ``) overrides the YAML: a key whose env var (``KEYS``) is set
-    takes that value, in the run script's format (space-separated lists, 0/1 bools).
-    """
-    import yaml
-
-    cfg = yaml.safe_load(text) or {}
-    if not isinstance(cfg, dict):
-        raise SweepConfigError("top level must be a mapping")
-    for key in cfg:
-        if key not in KEYS:
-            raise SweepConfigError(f"unknown key {key!r} (known: {', '.join(KEYS)})")
-    for key, (var, kind, _) in KEYS.items():
-        if env is not None and var in env:
-            cfg[key] = _env_value(kind, env[var])
-    out = {key: default for key, (_, _, default) in KEYS.items()}
-    for key, value in cfg.items():
-        out[key] = _parse_value(key, KEYS[key][1], value, CHOICES)
-    validate(out)
+def _parse_matrix(where: str, raw: dict) -> dict[str, object]:
+    out = {}
+    for key, value in raw.items():
+        if key not in MATRIX_KEYS:
+            raise SweepConfigError(f"{where}: unknown key {key!r} (matrix keys: "
+                                   f"{', '.join(MATRIX_KEYS)})")
+        out[key] = _parse_value(key, MATRIX_KEYS[key][0], value)
     return out
 
 
-def validate(cfg: dict[str, object]) -> None:
-    """Cross-key checks of a loaded config; raises ``SweepConfigError``."""
+def load_sweep_config(text: str, env: dict[str, str] | None = None,
+                      only: list[str] | None = None) -> dict[str, object]:
+    """Validate YAML text; returns the global keys plus ``experiments``.
+
+    ``env`` (e.g. ``os.environ``) overrides global keys: a key whose env var
+    (``GLOBAL_KEYS``) is set takes that value, in the run script's format (0/1 bools).
+    ``only`` keeps the named experiments (all when empty).
+    """
+    try:
+        import yaml
+    except ImportError:
+        raise SweepConfigError("PyYAML is not installed: pip install pyyaml "
+                               "(or apt install python3-yaml)") from None
+
+    raw = yaml.safe_load(text) or {}
+    if not isinstance(raw, dict):
+        raise SweepConfigError("top level must be a mapping")
+    experiments_raw = raw.pop("experiments", None)
+    if not isinstance(experiments_raw, dict) or not experiments_raw:
+        raise SweepConfigError("experiments must be a non-empty mapping name -> settings")
+    global_raw = {k: v for k, v in raw.items() if k in GLOBAL_KEYS}
+    defaults = _parse_matrix("top level", {k: v for k, v in raw.items()
+                                           if k not in GLOBAL_KEYS})
+    for key, (var, kind, _) in GLOBAL_KEYS.items():
+        if env is not None and var in env:
+            global_raw[key] = _env_value(kind, env[var])
+    cfg: dict[str, object] = {key: default for key, (_, _, default) in GLOBAL_KEYS.items()}
+    for key, value in global_raw.items():
+        cfg[key] = _parse_value(key, GLOBAL_KEYS[key][1], value)
+
+    experiments: dict[str, dict[str, object]] = {}
+    for name, body in experiments_raw.items():
+        if not isinstance(name, str) or not NAME.match(name):
+            raise SweepConfigError(f"invalid experiment name {name!r} (letters, digits, . _ -)")
+        if not isinstance(body, dict) or "type" not in body:
+            raise SweepConfigError(f"experiment {name}: needs a type ({', '.join(TYPES)})")
+        body = dict(body)
+        etype = body.pop("type")
+        if etype not in TYPES:
+            raise SweepConfigError(f"experiment {name}: type {etype!r} not in {list(TYPES)}")
+        exp = {key: default for key, (_, default) in MATRIX_KEYS.items()}
+        exp.update(defaults)
+        exp.update(_parse_matrix(f"experiment {name}", body))
+        exp.update({k: cfg[k] for k in GLOBAL_KEYS})
+        exp["name"] = name
+        exp["type"] = etype
+        if exp["plots"] is None:
+            exp["plots"] = list(TYPES[etype])
+        validate(exp)
+        experiments[name] = exp
+    if only:
+        unknown = [n for n in only if n not in experiments]
+        if unknown:
+            raise SweepConfigError(f"unknown experiment(s) {unknown} (have {list(experiments)})")
+        experiments = {n: e for n, e in experiments.items() if n in only}
+    cfg["experiments"] = experiments
+    return cfg
+
+
+def validate(exp: dict[str, object]) -> None:
+    """Cross-key checks of one experiment; raises ``SweepConfigError``."""
+    name = exp["name"]
+    bad = [f for f in exp["plots"] if f not in TYPES[exp["type"]]]
+    if bad:
+        raise SweepConfigError(f"experiment {name}: plots {bad} do not belong to type "
+                               f"{exp['type']} ({TYPES[exp['type']]})")
     for key in ("gpus_pencil", "gpus_brick"):
-        if any(g < 2 for g in cfg[key]):
-            raise SweepConfigError(f"{key} entries must be >= 2 (a 1-rank run has no "
-                                   "decomposition)")
-    distributed = [g for g in cfg["grids"] if g in DISTRIBUTED_GRIDS]
-    if distributed and not set(cfg["transports"]) & {"mpi", "mpip2p"}:
-        raise SweepConfigError(f"grids {distributed} run under mpiexec only; add mpi or "
-                               "mpip2p to transports")
-    if "on" in cfg["hp_halo"] and cfg["overlap"] == "none":
-        raise SweepConfigError("hp_halo on needs overlap != none (no halo stream to "
-                               "prioritise otherwise)")
-    if not runs(cfg):
-        raise SweepConfigError("the grids x transports x gpus matrix is empty")
+        if any(g < 2 for g in exp[key]):
+            raise SweepConfigError(f"experiment {name}: {key} entries must be >= 2 (a 1-rank "
+                                   "run has no decomposition)")
+    distributed = [g for g in exp["grids"] if g in DISTRIBUTED_GRIDS]
+    if distributed and not set(exp["transports"]) & {"mpi", "mpip2p"}:
+        raise SweepConfigError(f"experiment {name}: grids {distributed} run under mpiexec "
+                               "only; add mpi or mpip2p to transports")
+    if "on" in exp["hp_halo"] and exp["overlap"] == "none":
+        raise SweepConfigError(f"experiment {name}: hp_halo on needs overlap != none (no halo "
+                               "stream to prioritise otherwise)")
+    if exp["type"] == "best_family" and not ({"dense", "disg"} <= set(exp["grids"])
+                                             and {"intra", "mpi"} <= set(exp["transports"])):
+        raise SweepConfigError(f"experiment {name}: best_family needs grids dense and disg "
+                               "with transports intra and mpi")
+    if not runs(exp):
+        raise SweepConfigError(f"experiment {name}: the grids x transports x gpus matrix is "
+                               "empty")
 
 
-def gpus_of(cfg: dict[str, object], decomposition: str) -> list[int]:
+def gpus_of(exp: dict[str, object], decomposition: str) -> list[int]:
     """GPU counts swept for a decomposition: slab uses ``gpus``, the others their own key."""
-    return cfg["gpus"] if decomposition == "slab" else cfg[f"gpus_{decomposition}"]
+    return exp["gpus"] if decomposition == "slab" else exp[f"gpus_{decomposition}"]
 
 
-def runs(cfg: dict[str, object]) -> list[tuple[str, str, str, str, int]]:
+def runs(exp: dict[str, object]) -> list[tuple[str, str, str, str, int]]:
     """``(grid, decomposition, transport, hp_halo, gpus)`` of every run, sizes aside.
 
     - ``dense`` / ``disg`` run on every ``gpus`` entry with every transport; decomposition
@@ -196,18 +274,18 @@ def runs(cfg: dict[str, object]) -> list[tuple[str, str, str, str, int]]:
       pinned to GPU 0 by the run script), so per-transport plots start at 1 GPU.
     """
     out = []
-    for grid in cfg["grids"]:
+    for grid in exp["grids"]:
         distributed = grid in DISTRIBUTED_GRIDS
-        decomps = cfg["decompositions"] if distributed else ["slab"]
+        decomps = exp["decompositions"] if distributed else ["slab"]
         for decomp in decomps:
-            gpus = gpus_of(cfg, decomp) if distributed else cfg["gpus"]
-            for transport in cfg["transports"]:
+            gpus = gpus_of(exp, decomp) if distributed else exp["gpus"]
+            for transport in exp["transports"]:
                 if distributed and transport == "intra":
                     continue
-                for hp in cfg["hp_halo"]:
+                for hp in exp["hp_halo"]:
                     for g in gpus:
                         if (transport != "intra" and g == 1
-                                and (distributed or not cfg["mpi_single_gpu"])):
+                                and (distributed or not exp["mpi_single_gpu"])):
                             continue
                         out.append((grid, decomp, transport, hp, g))
     return out
@@ -225,44 +303,47 @@ def label(grid: str, decomposition: str, transport: str, hp_halo: str) -> str:
     return f"{grid}-{transport}" + ("-hpon" if hp_halo == "on" else "")
 
 
-def reference(cfg: dict[str, object], sweep_dir: Path) -> tuple[Path, str, str]:
-    """``(json_dir, prefix, label)`` of the 1-GPU MLUPS/GPU reference runs.
+def series_prefixes(exp: dict[str, object]) -> list[tuple[str, str, str, str]]:
+    """``(series, lattice, collision, precision)`` for every configs x precisions entry.
 
-    The reference of series ``<prefix>-<tail>`` at size N is
-    ``<json_dir>/<ref_prefix>-<tail>-<label>-n<N>-g1.json``. An empty ``reference_dir``
-    means the sweep's own reports (``sweep_dir``); a relative one is relative to the carbon
-    repo root.
+    A series (``<lattice>-<collision>-<precision>``) is what the run script puts in front
+    of ``<label>-n<N>-g<G>.json``.
     """
-    if cfg["reference_dir"]:
-        ref_dir = Path(cfg["reference_dir"])
-        if not ref_dir.is_absolute():
-            ref_dir = Path(__file__).resolve().parents[3] / ref_dir
-    else:
-        ref_dir = Path(sweep_dir)
-    return ref_dir, cfg["reference_prefix"] or cfg["prefix"], cfg["reference_label"]
+    out = []
+    for c in exp["configs"]:
+        lattice, collision = c.split(":")
+        for precision in exp["precisions"]:
+            out.append((f"{lattice}-{collision}-{precision}", lattice, collision, precision))
+    return out
 
 
-def read_sweep_config(path: Path) -> dict[str, object]:
+def all_runs(cfg: dict[str, object]) -> list[tuple[str, ...]]:
+    """Every run of every selected experiment, once: ``(lattice, collision, precision,
+    grid, decomposition, transport, hp_halo, gpus, n, label)``, in experiment order."""
+    seen: dict[tuple[str, ...], None] = {}
+    for exp in cfg["experiments"].values():
+        for _, lattice, collision, precision in series_prefixes(exp):
+            for grid, decomp, t, hp, g in runs(exp):
+                for n in exp["sizes"]:
+                    seen.setdefault((lattice, collision, precision, grid, decomp, t, hp,
+                                     str(g), str(n), label(grid, decomp, t, hp)), None)
+    return list(seen)
+
+
+def experiment_run_count(exp: dict[str, object]) -> int:
+    return len(series_prefixes(exp)) * len(runs(exp)) * len(exp["sizes"])
+
+
+def read_sweep_config(path: Path, only: list[str] | None = None) -> dict[str, object]:
     """Load a sweep YAML file; the path must be an existing ``.yml`` / ``.yaml`` file."""
     path = Path(path).resolve()
     if path.suffix not in (".yml", ".yaml") or not path.is_file():
         raise SweepConfigError(f"not a .yml/.yaml file: {path}")
-    return load_sweep_config(path.read_text())
+    return load_sweep_config(path.read_text(), only=only)
 
 
-def series_prefixes(cfg: dict[str, object]) -> list[tuple[str, str, str, str]]:
-    """``(series_prefix, lattice, collision, precision)`` for every configs x precisions entry.
-
-    A series prefix (``<prefix>-<lattice>-<collision>-<precision>``) is what the run script
-    puts in front of ``<label>-n<N>-g<G>.json``.
-    """
-    out = []
-    for c in cfg["configs"]:
-        lattice, collision = c.split(":")
-        for precision in cfg["precisions"]:
-            out.append((f"{cfg['prefix']}-{lattice}-{collision}-{precision}", lattice, collision,
-                        precision))
-    return out
+def split_names(s: str | None) -> list[str]:
+    return [x for x in re.split(r"[,\s]+", s or "") if x]
 
 
 def _shell_value(kind: str, value: object) -> str:
@@ -270,24 +351,23 @@ def _shell_value(kind: str, value: object) -> str:
         return "1" if value else "0"
     if kind == "arch" and value != "auto":
         return ";".join(map(str, value))
-    if isinstance(value, list):
-        return " ".join(map(str, value))
     return str(value)
 
 
 def main() -> int:
     try:
-        cfg = load_sweep_config(os.environ.get("LBM_SWEEP_CONFIG", ""), dict(os.environ))
+        cfg = load_sweep_config(os.environ.get("LBM_SWEEP_CONFIG", ""), dict(os.environ),
+                                split_names(os.environ.get("LBM_SWEEP_ONLY")))
     except SweepConfigError as e:
         sys.stderr.write(f"error: config: {e}\n")
         return 1
-    for key, (var, kind, _) in KEYS.items():
+    for key, (var, kind, _) in GLOBAL_KEYS.items():
         if var in os.environ:
             sys.stderr.write(f"==> {var} taken from the environment\n")
         print(f"{var}={_shell_value(kind, cfg[key])}")
-    # One <grid>:<decomposition>:<transport>:<hp>:<G>:<label> token per run.
-    print("RUNS=" + " ".join(f"{gr}:{d}:{t}:{hp}:{g}:{label(gr, d, t, hp)}"
-                             for gr, d, t, hp, g in runs(cfg)))
+    print("EXPERIMENTS=" + " ".join(f"{e['name']}:{e['type']}:{experiment_run_count(e)}"
+                                    for e in cfg["experiments"].values()))
+    print("RUNS=" + " ".join(":".join(r) for r in all_runs(cfg)))
     return 0
 
 
